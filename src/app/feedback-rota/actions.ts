@@ -1,0 +1,54 @@
+"use server";
+
+import { createClient } from "@/lib/supabase/server";
+import { notaRuim, OCORRENCIAS } from "@/lib/feedback-ocorrencias";
+
+const IDS_VALIDOS = new Set(OCORRENCIAS.map((o) => o.id as string));
+
+export type ResultadoFeedback = { ok: boolean; erro?: string };
+
+export async function enviarFeedbackRota(
+  formData: FormData,
+): Promise<ResultadoFeedback> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return { ok: false, erro: "Sessão expirada. Entre novamente." };
+
+  const nota = Number(formData.get("nota"));
+  if (!Number.isInteger(nota) || nota < 0 || nota > 3) {
+    return { ok: false, erro: "Escolha como foi sua rota." };
+  }
+
+  // Obrigatório: sem o nº do mapa não dá para rastrear de qual rota veio o relato.
+  const rota = ((formData.get("rota") as string) || "").replace(/\D/g, "");
+  if (!rota) return { ok: false, erro: "Informe o nº do mapa (rota)." };
+
+  const comentario =
+    ((formData.get("comentario") as string) || "").trim() || null;
+
+  // Não confiar só na tela: quem monta a requisição na mão também precisa
+  // passar por aqui, senão uma nota ruim sem explicação furaria o front.
+  if (notaRuim(nota) && !comentario) {
+    return { ok: false, erro: "Conte para nós o que podemos melhorar." };
+  }
+
+  const ocorrencias = formData
+    .getAll("ocorrencias")
+    .map(String)
+    .filter((id) => IDS_VALIDOS.has(id));
+
+  const { error } = await supabase.from("feedback_rota").insert({
+    colaborador_id: user.id,
+    nota,
+    rota,
+    ocorrencias,
+    comentario,
+  });
+
+  if (error) return { ok: false, erro: "Não foi possível enviar. Tente de novo." };
+
+  return { ok: true };
+}

@@ -1,0 +1,13 @@
+# Segredos e dados pessoais nunca devem subir para a hospedagem.
+# As chaves sao configuradas como variaveis de ambiente no painel da Vercel.
+#
+# A barra inicial ancora o padrao na raiz do projeto. Sem ela, "supabase/"
+# tambem bloquearia "src/lib/supabase/", que e codigo necessario ao build.
+.env
+.env.*
+/colaboradores-raw.csv
+/scripts/
+/supabase/
+/run-dev.cmd
+/.next/
+/node_modules/

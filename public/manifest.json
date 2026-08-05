@@ -1,0 +1,23 @@
+{
+  "name": "App do Colaborador — LIMA Logística",
+  "short_name": "App Colaborador",
+  "description": "App interno dos colaboradores da LIMA Logística",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#0b4da2",
+  "orientation": "portrait",
+  "lang": "pt-BR",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

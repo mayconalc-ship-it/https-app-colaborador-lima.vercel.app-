@@ -1,0 +1,23 @@
+export type ItemMenu = {
+  chave: string;
+  titulo: string;
+  emoji: string;
+  href: string;
+  ordem: number;
+  visivel: boolean;
+};
+
+// Usado enquanto a tabela menu_itens nao estiver populada.
+export const MENU_PADRAO: ItemMenu[] = [
+  { chave: "sonho", titulo: "Sonho da Revenda", emoji: "🎯", href: "/sonho-da-revenda", ordem: 1, visivel: true },
+  { chave: "padroes", titulo: "Padrões", emoji: "📋", href: "/padroes", ordem: 2, visivel: true },
+  { chave: "ranking", titulo: "Ranking Super Matinal", emoji: "🏆", href: "/ranking", ordem: 3, visivel: true },
+  { chave: "comunicados", titulo: "Comunicados", emoji: "📣", href: "/comunicados", ordem: 4, visivel: true },
+  { chave: "escala", titulo: "Escala de Trabalho", emoji: "🗓️", href: "/escala", ordem: 5, visivel: true },
+  { chave: "rv", titulo: "Minha RV", emoji: "💰", href: "/rv", ordem: 6, visivel: true },
+  { chave: "rota", titulo: "Minha Rota", emoji: "🚚", href: "/minha-rota", ordem: 7, visivel: true },
+  { chave: "feedback", titulo: "Feedback da Rota", emoji: "📝", href: "/feedback-rota", ordem: 8, visivel: true },
+  // "Minha Conta" fica oculto: já existe o botão "Conta" no topo de todas as
+  // telas, e repetir ocupava espaço da grade sem acrescentar nada.
+  { chave: "conta", titulo: "Minha Conta", emoji: "🔒", href: "/minha-conta", ordem: 9, visivel: false },
+];

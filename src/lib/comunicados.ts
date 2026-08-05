@@ -1,0 +1,76 @@
+export const EDITORIAS = [
+  { id: "seguranca", rotulo: "Segurança", emoji: "🦺", cor: "bg-red-100 text-red-800" },
+  { id: "cultura", rotulo: "Cultura", emoji: "🎯", cor: "bg-purple-100 text-purple-800" },
+  { id: "engajamento", rotulo: "Engajamento", emoji: "🎉", cor: "bg-amber-100 text-amber-800" },
+  { id: "operacao", rotulo: "Operação", emoji: "🚚", cor: "bg-blue-100 text-blue-800" },
+  { id: "gente", rotulo: "Gente", emoji: "👥", cor: "bg-green-100 text-green-800" },
+  { id: "geral", rotulo: "Geral", emoji: "📰", cor: "bg-slate-100 text-slate-700" },
+] as const;
+
+export type EditoriaId = (typeof EDITORIAS)[number]["id"];
+
+const MAPA = new Map(EDITORIAS.map((e) => [e.id, e]));
+
+export function editoria(id: string) {
+  return MAPA.get(id as EditoriaId) ?? MAPA.get("geral")!;
+}
+
+export function ehEditoriaValida(valor: string): valor is EditoriaId {
+  return MAPA.has(valor as EditoriaId);
+}
+
+/**
+ * O servidor da Vercel roda em UTC. Sem fixar o fuso, depois das 21h de
+ * Bahia a data de "hoje" pularia para o dia seguinte na tela.
+ */
+const FUSO = "America/Bahia";
+
+// A data vem como "2026-07-27". Montar com new Date(texto) aplicaria fuso
+// UTC e podia mostrar o dia anterior, entao quebramos manualmente.
+function paraDataLocal(data: string) {
+  const [ano, mes, dia] = data.split("-").map(Number);
+  return new Date(ano, mes - 1, dia);
+}
+
+export function formatarData(data: string) {
+  return paraDataLocal(data).toLocaleDateString("pt-BR", {
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+  });
+}
+
+export function formatarDataCurta(data: string) {
+  return paraDataLocal(data).toLocaleDateString("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
+}
+
+/**
+ * Data de HOJE por extenso: "Sábado, 1 de agosto de 2026".
+ *
+ * Jornal de verdade traz a data da banca, não a da última matéria escrita.
+ * Mostrar a data do último comunicado fazia o app parecer parado no tempo
+ * sempre que passavam alguns dias sem publicação.
+ */
+export function dataDeHoje() {
+  const texto = new Date().toLocaleDateString("pt-BR", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    timeZone: FUSO,
+  });
+  return texto.charAt(0).toUpperCase() + texto.slice(1);
+}
+
+/**
+ * Tempo de leitura. Um leitor comum faz ~200 palavras por minuto; abaixo de
+ * um minuto não vale assustar ninguém com número, então arredonda para 1.
+ */
+export function tempoDeLeitura(texto: string) {
+  const palavras = texto.trim().split(/\s+/).filter(Boolean).length;
+  return Math.max(1, Math.round(palavras / 200));
+}

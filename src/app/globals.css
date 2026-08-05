@@ -1,0 +1,56 @@
+@import "tailwindcss";
+
+:root {
+  --background: #f8fafc;
+  --foreground: #0f172a;
+  --primary: #0b4da2;
+  --primary-dark: #063573;
+  /* Tons claros solidos: evitam color-mix(), que so funciona em
+     navegadores recentes. Muitos colaboradores usam celulares antigos. */
+  --primary-soft: #e7eefa;
+  --gold: #ffc72c;
+  --gold-soft: #fff4d6;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-primary: var(--primary);
+  --color-primary-dark: var(--primary-dark);
+  --color-primary-soft: var(--primary-soft);
+  --color-gold: var(--gold);
+  --color-gold-soft: var(--gold-soft);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+}
+
+/* O Safari do iPhone da zoom automatico ao focar num campo com fonte menor
+   que 16px -- e depois nao volta. Forcamos 16px nos campos no celular; no
+   computador voltam ao tamanho normal do layout. */
+@media (max-width: 640px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}
+
+/* Evita que um texto longo sem espacos (link, nome de arquivo) estoure a
+   largura da tela no celular. */
+body {
+  overflow-wrap: break-word;
+}
+
+/* Faixas que rolam para o lado (filtros por editoria, por exemplo). No
+   celular a barra de rolagem nativa ficava colada nos botoes; escondemos a
+   barra e o proprio corte dos itens na borda ja mostra que ha mais conteudo. */
+.rolagem-lateral {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* Edge antigo */
+}
+.rolagem-lateral::-webkit-scrollbar {
+  display: none; /* Chrome, Safari */
+}
