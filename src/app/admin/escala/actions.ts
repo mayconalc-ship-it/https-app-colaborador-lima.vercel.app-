@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { requireModulo } from "@/lib/require-admin";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { criarNotificacao } from "@/lib/notificacoes-server";
+import { criarOuAgrupar } from "@/lib/notificacoes-server";
 import { ehAreaValida } from "@/lib/areas";
 
 function caminhoDoStorage(arquivoUrl: string) {
@@ -73,7 +73,7 @@ export async function salvarEscala(formData: FormData) {
     if (caminho) await admin.storage.from("conteudo").remove([caminho]);
   }
 
-  await criarNotificacao({
+  await criarOuAgrupar({
     modulo: "escala",
     tipo: "atualizado",
     titulo: "Escala de trabalho atualizada",

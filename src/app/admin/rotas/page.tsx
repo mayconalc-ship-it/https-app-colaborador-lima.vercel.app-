@@ -2,6 +2,7 @@ import { decodificar } from "@/lib/texto-url";
 import { requireModulo, podeNoModulo } from "@/lib/require-admin";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { PageHeader } from "@/components/PageHeader";
+import { BotaoEnviar } from "@/components/BotaoEnviar";
 import { formatarDataBr } from "@/lib/rotas";
 import {
   apagarRotasDoDia,
@@ -88,12 +89,12 @@ export default async function AdminRotasPage({
             </span>
           </label>
 
-          <button
-            type="submit"
+          <BotaoEnviar
+            textoEnviando="🔄 Atualizando..."
             className="mt-3 w-full rounded-xl bg-primary py-4 font-semibold text-white hover:bg-primary-dark"
           >
             🔄 Atualizar rotas agora
-          </button>
+          </BotaoEnviar>
 
           {config.ultima_sincronizacao && (
             <p className="mt-3 border-t border-slate-100 pt-3 text-xs text-slate-400">

@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { requireModulo } from "@/lib/require-admin";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { criarNotificacao } from "@/lib/notificacoes-server";
+import { criarOuAgrupar } from "@/lib/notificacoes-server";
 import {
   baixarTextoDoDrive,
   idDaPasta,
@@ -184,7 +184,7 @@ export async function atualizarRotas(formData: FormData) {
   }
 
   if (avisar) {
-    await criarNotificacao({
+    await criarOuAgrupar({
       modulo: "rotas",
       titulo: "Sua pré-rota está disponível!",
       mensagem: "Confira as informações do seu mapa antes de sair.",

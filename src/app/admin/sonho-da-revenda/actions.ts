@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { requireModulo } from "@/lib/require-admin";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { criarNotificacao } from "@/lib/notificacoes-server";
+import { criarOuAgrupar } from "@/lib/notificacoes-server";
 
 function caminhoDoStorage(arquivoUrl: string) {
   const prefixo = "/storage/v1/object/public/conteudo/";
@@ -137,7 +137,7 @@ export async function enviarSonhoDaRevenda(formData: FormData) {
 
   await apagarDoStorage(admin, ...substituidos);
 
-  await criarNotificacao({
+  await criarOuAgrupar({
     modulo: "sonho",
     tipo: "importante",
     titulo: "Sonho da Revenda atualizado",

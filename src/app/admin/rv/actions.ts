@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { requireModulo } from "@/lib/require-admin";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { criarNotificacao } from "@/lib/notificacoes-server";
+import { criarOuAgrupar } from "@/lib/notificacoes-server";
 import { baixarPlanilha } from "@/lib/rv-server";
 import {
   acharColunaCompetencia,
@@ -28,7 +28,7 @@ import {
 export async function avisarRVAtualizada() {
   const eu = await requireModulo("rv", "editar");
 
-  await criarNotificacao({
+  await criarOuAgrupar({
     modulo: "rv",
     tipo: "atualizado",
     titulo: "Sua RV foi atualizada!",

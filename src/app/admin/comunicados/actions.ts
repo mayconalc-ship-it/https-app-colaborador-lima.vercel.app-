@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { requireModulo } from "@/lib/require-admin";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { criarNotificacao } from "@/lib/notificacoes-server";
+import { criarOuAgrupar } from "@/lib/notificacoes-server";
 import { ehEditoriaValida } from "@/lib/comunicados";
 
 function caminhoDoStorage(arquivoUrl: string) {
@@ -87,7 +87,7 @@ export async function salvarComunicado(formData: FormData) {
   }
 
   if (!id) {
-    await criarNotificacao({
+    await criarOuAgrupar({
       modulo: "comunicados",
       titulo: "Novidade no Jornal!",
       mensagem: titulo,
