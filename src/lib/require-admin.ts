@@ -1,5 +1,7 @@
 import { redirect } from "next/navigation";
-import { getPerfil, getConcessoes } from "@/lib/sessao";
+import { getPerfil } from "@/lib/sessao";
+import { getConcessoes } from "@/lib/concessoes";
+import { getRevendaId, revendaTemModulo } from "@/lib/revendas";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
   chaveDaPermissao,
@@ -47,6 +49,10 @@ export async function requireModulo(modulo: ModuloId, acao: Acao) {
   const perfil = await getPerfil();
   if (!perfil) redirect("/login");
 
+  if (!(await revendaTemModulo(modulo))) {
+    redirect(`/admin?erro=${encodeURIComponent(desligado(modulo))}`);
+  }
+
   const concessoes = await getConcessoes();
   if (!podeFazer(perfil.role, concessoes, modulo, acao)) {
     redirect(`/admin?erro=${encodeURIComponent(negado(modulo, acao))}`);
@@ -59,10 +65,15 @@ function negado(modulo: string, acao: string) {
   return `Você não tem permissão para ${acao} em ${modulo}. Fale com o dono do app.`;
 }
 
+function desligado(modulo: string) {
+  return `O módulo ${modulo} não está ativo nesta revenda.`;
+}
+
 /** Versão que responde em vez de redirecionar, para ações que devolvem erro. */
 export async function podeNoModulo(modulo: ModuloId, acao: Acao) {
   const perfil = await getPerfil();
   if (!perfil) return false;
+  if (!(await revendaTemModulo(modulo))) return false;
   const concessoes = await getConcessoes();
   return podeFazer(perfil.role, concessoes, modulo, acao);
 }
@@ -71,10 +82,19 @@ export async function podeNoModulo(modulo: ModuloId, acao: Acao) {
  * Módulos opcionais (ex.: Ativo de Giro) começam invisíveis para todo mundo.
  * O dono libera colaborador por colaborador em `colaborador_modulos_extra`.
  * Quem já administra o módulo (gestor com "ver") ou é dono passa direto.
+ *
+ * A revenda vem primeiro, e vale até para o dono: se a revenda não usa o
+ * módulo, ele não existe ali para ninguém. Liberação individual só faz
+ * sentido dentro de um módulo que a revenda tem.
  */
 export async function temAcessoModulo(modulo: ModuloId) {
   const perfil = await getPerfil();
   if (!perfil) return false;
+
+  const revendaId = await getRevendaId();
+  if (!revendaId) return false;
+  if (!(await revendaTemModulo(modulo))) return false;
+
   if (ehOwner(perfil.role)) return true;
 
   const concessoes = await getConcessoes();
@@ -85,6 +105,7 @@ export async function temAcessoModulo(modulo: ModuloId) {
     .from("colaborador_modulos_extra")
     .select("modulo")
     .eq("colaborador_id", perfil.id)
+    .eq("revenda_id", revendaId)
     .eq("modulo", modulo)
     .maybeSingle();
 

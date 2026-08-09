@@ -1,5 +1,7 @@
 import { decodificar } from "@/lib/texto-url";
 import { requireModulo, podeNoModulo } from "@/lib/require-admin";
+import { getRevendaAtiva } from "@/lib/revendas";
+import { ehOwner } from "@/lib/acessos";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { PageHeader } from "@/components/PageHeader";
 import { ColaboradorItem } from "@/components/ColaboradorItem";
@@ -10,6 +12,7 @@ import {
   atualizarColaborador,
   excluirColaborador,
   promoverColaborador,
+  salvarVinculos,
 } from "./actions";
 
 export default async function AdminColaboradoresPage({
@@ -20,13 +23,38 @@ export default async function AdminColaboradoresPage({
   const usuarioAtual = await requireModulo("colaboradores", "ver");
   // O botão de promover só existe para quem tem essa permissão específica.
   const podePromover = await podeNoModulo("colaboradores", "promover");
+  // Mexer em vínculo é só do dono: decide o que a pessoa vê do app inteiro.
+  const souDono = ehOwner(usuarioAtual.role);
   const { busca = "", erro, sucesso } = await searchParams;
 
   const admin = createAdminClient();
+  const revendaAtiva = await getRevendaAtiva();
+
+  if (!revendaAtiva) {
+    return (
+      <div>
+        <PageHeader title="Colaboradores" />
+        <p className="rounded-2xl border border-slate-200 bg-white p-6 text-center text-sm text-slate-500 shadow-sm">
+          Você não está em nenhuma revenda.
+        </p>
+      </div>
+    );
+  }
+
+  // A lista é sempre da revenda em que se está. Uma liderança de São Félix
+  // não tem o que fazer com o cadastro de quem é de Barreiras -- e o dono
+  // troca de revenda pelo seletor do topo quando precisa da outra.
+  const { data: daRevenda } = await admin
+    .from("colaborador_revendas")
+    .select("colaborador_id")
+    .eq("revenda_id", revendaAtiva.id);
+
+  const ids = (daRevenda ?? []).map((v) => v.colaborador_id);
 
   let consulta = admin
     .from("profiles")
     .select("id, nome, cpf, matricula, cargo, area, role")
+    .in("id", ids)
     .order("nome", { ascending: true })
     .limit(50);
 
@@ -38,16 +66,43 @@ export default async function AdminColaboradoresPage({
       : consulta.ilike("nome", `%${termo}%`);
   }
 
-  const [{ data: colaboradores }, { count: total }] = await Promise.all([
-    consulta,
-    admin.from("profiles").select("*", { count: "exact", head: true }),
-  ]);
+  const [{ data: colaboradores }, { data: revendas }, { data: vinculos }] =
+    await Promise.all([
+      consulta,
+      souDono
+        ? admin.from("revendas").select("id, nome").eq("ativa", true).order("ordem")
+        : Promise.resolve({ data: [] as { id: string; nome: string }[] }),
+      souDono
+        ? admin
+            .from("colaborador_revendas")
+            .select("colaborador_id, revenda_id, principal")
+            .in("colaborador_id", ids)
+        : Promise.resolve({
+            data: [] as {
+              colaborador_id: string;
+              revenda_id: string;
+              principal: boolean;
+            }[],
+          }),
+    ]);
+
+  const total = ids.length;
+
+  const vinculosPorPessoa = new Map<
+    string,
+    { revendaId: string; principal: boolean }[]
+  >();
+  for (const v of vinculos ?? []) {
+    const lista = vinculosPorPessoa.get(v.colaborador_id) ?? [];
+    lista.push({ revendaId: v.revenda_id, principal: v.principal });
+    vinculosPorPessoa.set(v.colaborador_id, lista);
+  }
 
   return (
     <div>
       <PageHeader
         title="Colaboradores"
-        subtitle={`${total ?? 0} cadastrados no app`}
+        subtitle={`${total} em ${revendaAtiva.nome}`}
       />
 
       {erro && (
@@ -149,7 +204,8 @@ export default async function AdminColaboradoresPage({
 
           <p className="rounded-lg bg-primary-soft p-3 text-xs text-primary-dark">
             O acesso é criado com a senha <strong>{SENHA_PADRAO}</strong>. No
-            primeiro login o colaborador é obrigado a criar a senha dele.
+            primeiro login o colaborador é obrigado a criar a senha dele. Ele
+            entra vinculado a <strong>{revendaAtiva.nome}</strong>.
           </p>
 
           <button
@@ -211,6 +267,9 @@ export default async function AdminColaboradoresPage({
               onRedefinirSenha={redefinirSenha}
               onPromover={podePromover ? promoverColaborador : undefined}
               onExcluir={excluirColaborador}
+              revendas={revendas ?? []}
+              vinculos={vinculosPorPessoa.get(c.id) ?? []}
+              onSalvarVinculos={souDono ? salvarVinculos : undefined}
             />
           ))}
         </div>

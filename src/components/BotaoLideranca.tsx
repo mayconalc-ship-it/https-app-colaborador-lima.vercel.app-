@@ -1,4 +1,5 @@
-import { getPerfil, getConcessoes } from "@/lib/sessao";
+import { getPerfil } from "@/lib/sessao";
+import { getConcessoes } from "@/lib/concessoes";
 import { ehOwner, temAlgumAcesso } from "@/lib/acessos";
 import { BotaoLiderancaCliente } from "@/components/BotaoLiderancaCliente";
 

@@ -1,7 +1,8 @@
 import { decodificar } from "@/lib/texto-url";
 import Link from "next/link";
 import { requireGestor } from "@/lib/require-admin";
-import { getConcessoes } from "@/lib/sessao";
+import { getConcessoes } from "@/lib/concessoes";
+import { getRevendaAtiva, getModulosDaRevenda } from "@/lib/revendas";
 import { MenuCard } from "@/components/MenuCard";
 import { PageHeader } from "@/components/PageHeader";
 import {
@@ -18,13 +19,26 @@ export default async function AdminPage({
 }) {
   const perfil = await requireGestor();
   const { erro } = await searchParams;
-  const concessoes = await getConcessoes();
+  const [concessoes, revenda] = await Promise.all([
+    getConcessoes(),
+    getRevendaAtiva(),
+  ]);
   const dono = ehOwner(perfil.role);
+
+  const modulosDaRevenda = revenda
+    ? await getModulosDaRevenda(revenda.id)
+    : new Set<string>();
 
   // A pessoa nem vê o cartão do que não pode abrir. Mostrar e barrar depois
   // só geraria a dúvida de "por que não posso?".
-  const liberados = MODULOS.filter((m) =>
-    podeFazer(perfil.role, concessoes, m.id, "ver"),
+  //
+  // Duas perguntas, nesta ordem: a revenda usa este módulo? e esta pessoa
+  // pode abri-lo aqui? A primeira vale até para o dono -- não faz sentido
+  // ele configurar a RV de uma revenda que ainda não tem RV.
+  const liberados = MODULOS.filter(
+    (m) =>
+      modulosDaRevenda.has(m.id) &&
+      podeFazer(perfil.role, concessoes, m.id, "ver"),
   );
 
   const grupos = ["Conteúdo do app", "Pessoas e configuração"] as const;
@@ -34,9 +48,18 @@ export default async function AdminPage({
       <PageHeader
         title={dono ? "Painel Admin" : "Painel da Liderança"}
         subtitle={
-          dono
-            ? "Controle total do app"
-            : "Você administra os módulos liberados para você"
+          // Dizer em qual revenda a pessoa está mexendo é o aviso mais
+          // importante desta tela: tudo o que ela salvar daqui vale só
+          // para esta revenda.
+          revenda
+            ? `${revenda.nome} — ${
+                dono
+                  ? "controle total do app"
+                  : "você administra os módulos liberados para você"
+              }`
+            : dono
+              ? "Controle total do app"
+              : "Você administra os módulos liberados para você"
         }
       />
 

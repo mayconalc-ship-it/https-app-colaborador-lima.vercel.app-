@@ -22,6 +22,9 @@ export function ColaboradorItem({
   onRedefinirSenha,
   onPromover,
   onExcluir,
+  revendas,
+  vinculos,
+  onSalvarVinculos,
 }: {
   colaborador: Colaborador;
   busca: string;
@@ -32,9 +35,17 @@ export function ColaboradorItem({
   /** Ausente quando quem está olhando não tem permissão para promover. */
   onPromover?: (formData: FormData) => void;
   onExcluir: (formData: FormData) => void;
+  revendas: { id: string; nome: string }[];
+  vinculos: { revendaId: string; principal: boolean }[];
+  /** Ausente para quem não é o dono: vínculo é decisão só dele. */
+  onSalvarVinculos?: (formData: FormData) => void;
 }) {
   const [aberto, setAberto] = useState(false);
   const c = colaborador;
+
+  const minhasRevendas = new Set(vinculos.map((v) => v.revendaId));
+  const principalAtual =
+    vinculos.find((v) => v.principal)?.revendaId ?? vinculos[0]?.revendaId;
 
   function confirmar(mensagem: string) {
     return (e: React.FormEvent) => {
@@ -131,6 +142,59 @@ export function ColaboradorItem({
               Salvar dados
             </button>
           </form>
+
+          {onSalvarVinculos && revendas.length > 1 && (
+            <form
+              action={onSalvarVinculos}
+              className="space-y-2 border-t border-slate-200 pt-3"
+            >
+              <input type="hidden" name="id" value={c.id} />
+              <input type="hidden" name="nome" value={c.nome} />
+              <input type="hidden" name="busca" value={busca} />
+
+              <p className="text-xs font-semibold text-slate-600">
+                Revendas de {c.nome.split(" ")[0]}
+              </p>
+
+              {revendas.map((r) => (
+                <div key={r.id} className="flex items-center gap-3">
+                  <label className="flex flex-1 items-center gap-2 text-sm text-slate-700">
+                    <input
+                      type="checkbox"
+                      name="revenda"
+                      value={r.id}
+                      defaultChecked={minhasRevendas.has(r.id)}
+                      className="h-4 w-4 rounded border-slate-300 text-primary"
+                    />
+                    {r.nome}
+                  </label>
+                  <label className="flex items-center gap-1 text-xs text-slate-500">
+                    <input
+                      type="radio"
+                      name="principal"
+                      value={r.id}
+                      defaultChecked={r.id === principalAtual}
+                      className="h-3.5 w-3.5 border-slate-300 text-primary"
+                    />
+                    padrão
+                  </label>
+                </div>
+              ))}
+
+              <button
+                type="submit"
+                className="w-full rounded-lg border border-primary px-3 py-2 text-xs font-medium text-primary hover:bg-primary-soft"
+              >
+                Salvar revendas
+              </button>
+              <p className="text-xs text-slate-400">
+                Marcando mais de uma, a pessoa passa a escolher a revenda no
+                topo do app — e as permissões de liderança dela são definidas
+                separadamente em cada uma. &quot;Padrão&quot; é a revenda em
+                que ela entra ao abrir o app.
+              </p>
+            </form>
+          )}
 
           {onPromover && !ehVoceMesmo && c.role !== "owner" && (
             <form

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { decodificar } from "@/lib/texto-url";
 import { requireOwner } from "@/lib/require-admin";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -14,20 +15,68 @@ import { definirPapel, salvarPermissoes } from "./actions";
 export default async function GestaoDeAcessosPage({
   searchParams,
 }: {
-  searchParams: Promise<{ erro?: string; sucesso?: string; busca?: string }>;
+  searchParams: Promise<{
+    erro?: string;
+    sucesso?: string;
+    busca?: string;
+    revenda?: string;
+  }>;
 }) {
   const eu = await requireOwner();
-  const { erro, sucesso, busca = "" } = await searchParams;
+  const {
+    erro,
+    sucesso,
+    busca = "",
+    revenda: revendaParam,
+  } = await searchParams;
 
   const admin = createAdminClient();
 
-  const [{ data: pessoas }, { data: permissoes }] = await Promise.all([
-    admin
-      .from("profiles")
-      .select("id, nome, cpf, cargo, role")
-      .order("nome", { ascending: true }),
-    admin.from("lideranca_permissoes").select("colaborador_id, modulo, acao"),
-  ]);
+  const { data: revendas } = await admin
+    .from("revendas")
+    .select("id, nome")
+    .eq("ativa", true)
+    .order("ordem");
+
+  // Permissão é sempre "nesta revenda". A tela inteira trabalha sobre uma
+  // unidade de cada vez -- é assim que o Admin pensa ("estou configurando
+  // Barreiras"), e evita uma matriz de módulos vezes revendas na mesma
+  // página, que ninguém consegue ler no celular.
+  const escolhida =
+    (revendas ?? []).find((r) => r.id === revendaParam) ?? (revendas ?? [])[0];
+
+  if (!escolhida) {
+    return (
+      <div>
+        <PageHeader title="🔐 Gestão de Acessos" />
+        <p className="rounded-2xl border border-slate-200 bg-white p-6 text-center text-sm text-slate-500 shadow-sm">
+          Nenhuma revenda ativa. Cadastre uma em Revendas antes de liberar
+          acessos.
+        </p>
+      </div>
+    );
+  }
+
+  const [{ data: pessoas }, { data: permissoes }, { data: vinculos }, { data: modulosAtivos }] =
+    await Promise.all([
+      admin
+        .from("profiles")
+        .select("id, nome, cpf, cargo, role")
+        .order("nome", { ascending: true }),
+      admin
+        .from("lideranca_permissoes")
+        .select("colaborador_id, modulo, acao")
+        .eq("revenda_id", escolhida.id),
+      admin
+        .from("colaborador_revendas")
+        .select("colaborador_id")
+        .eq("revenda_id", escolhida.id),
+      admin
+        .from("revenda_modulos")
+        .select("modulo")
+        .eq("revenda_id", escolhida.id)
+        .eq("ativo", true),
+    ]);
 
   const porPessoa = new Map<string, Set<string>>();
   for (const p of permissoes ?? []) {
@@ -37,13 +86,26 @@ export default async function GestaoDeAcessosPage({
     porPessoa.get(p.colaborador_id)!.add(`${p.modulo}:${p.acao}`);
   }
 
+  const daRevenda = new Set((vinculos ?? []).map((v) => v.colaborador_id));
+
+  // Só os módulos que a revenda usa. Oferecer os outros seria prometer um
+  // acesso que a tela do painel não vai mostrar.
+  const modulos = MODULOS.filter((m) =>
+    new Set((modulosAtivos ?? []).map((x) => x.modulo)).has(m.id),
+  );
+
   const termo = busca.trim().toLowerCase();
   const todas = pessoas ?? [];
 
-  const liderancas = todas.filter((p) => p.role === "lideranca");
+  // Só quem é desta revenda aparece. Uma liderança de São Félix não tem o
+  // que fazer na lista de Barreiras.
+  const liderancas = todas.filter(
+    (p) => p.role === "lideranca" && daRevenda.has(p.id),
+  );
   const candidatos = todas.filter(
     (p) =>
       p.role === "colaborador" &&
+      daRevenda.has(p.id) &&
       termo.length >= 2 &&
       (p.nome?.toLowerCase().includes(termo) || (p.cpf ?? "").includes(termo)),
   );
@@ -54,6 +116,26 @@ export default async function GestaoDeAcessosPage({
         title="🔐 Gestão de Acessos"
         subtitle="Quem entra no Modo Liderança e o que cada um pode fazer"
       />
+
+      {/* A revenda que está sendo configurada. Fica no topo porque muda o
+          sentido de tudo o que vem abaixo. */}
+      {(revendas ?? []).length > 1 && (
+        <div className="mb-4 flex flex-wrap gap-2">
+          {(revendas ?? []).map((r) => (
+            <Link
+              key={r.id}
+              href={`/admin/acessos?revenda=${r.id}`}
+              className={
+                r.id === escolhida.id
+                  ? "rounded-xl bg-primary px-3 py-2 text-sm font-semibold text-white"
+                  : "rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600 hover:border-primary"
+              }
+            >
+              {r.nome}
+            </Link>
+          ))}
+        </div>
+      )}
 
       {erro && (
         <p className="mb-3 rounded-lg bg-red-50 p-3 text-sm text-red-700">
@@ -85,6 +167,7 @@ export default async function GestaoDeAcessosPage({
         </summary>
         <div className="border-t border-slate-100 p-4">
           <form method="get" className="mb-3 flex gap-2">
+            <input type="hidden" name="revenda" value={escolhida.id} />
             <input
               name="busca"
               defaultValue={busca}
@@ -123,6 +206,7 @@ export default async function GestaoDeAcessosPage({
                   <form action={definirPapel}>
                     <input type="hidden" name="id" value={p.id} />
                     <input type="hidden" name="papel" value="lideranca" />
+                    <input type="hidden" name="revenda" value={escolhida.id} />
                     <button
                       type="submit"
                       className="shrink-0 rounded-lg border border-primary px-3 py-2 text-xs font-semibold text-primary hover:bg-primary-soft"
@@ -139,12 +223,12 @@ export default async function GestaoDeAcessosPage({
 
       {/* ---- Lideranças e suas permissões ---- */}
       <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">
-        Lideranças ({liderancas.length})
+        Lideranças em {escolhida.nome} ({liderancas.length})
       </h2>
 
       {liderancas.length === 0 ? (
         <div className="rounded-2xl border border-slate-200 bg-white p-6 text-center text-sm text-slate-500 shadow-sm">
-          Nenhuma liderança cadastrada ainda.
+          Nenhuma liderança vinculada a esta revenda ainda.
         </div>
       ) : (
         <div className="space-y-3">
@@ -173,9 +257,10 @@ export default async function GestaoDeAcessosPage({
                   className="border-t border-slate-100 p-4"
                 >
                   <input type="hidden" name="id" value={p.id} />
+                  <input type="hidden" name="revenda" value={escolhida.id} />
 
                   <div className="space-y-4">
-                    {MODULOS.map((m) => (
+                    {modulos.map((m) => (
                       <div key={m.id}>
                         <p className="mb-1.5 text-sm font-semibold text-slate-800">
                           {m.emoji} {m.rotulo}
@@ -225,7 +310,7 @@ export default async function GestaoDeAcessosPage({
                       type="submit"
                       className="flex-1 rounded-xl bg-primary py-3 text-sm font-semibold text-white hover:bg-primary-dark"
                     >
-                      Salvar permissões
+                      Salvar permissões em {escolhida.nome}
                     </button>
                   </div>
                 </form>
@@ -236,6 +321,7 @@ export default async function GestaoDeAcessosPage({
                 >
                   <input type="hidden" name="id" value={p.id} />
                   <input type="hidden" name="papel" value="colaborador" />
+                  <input type="hidden" name="revenda" value={escolhida.id} />
                   <button
                     type="submit"
                     className="w-full rounded-xl border border-red-300 py-3 text-sm font-medium text-red-600 hover:bg-red-50"

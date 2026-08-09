@@ -177,6 +177,11 @@ export function ehAcaoValida(a: string): a is Acao {
  */
 export const MODULOS_DO_DONO = [
   {
+    href: "/admin/revendas",
+    rotulo: "Revendas",
+    emoji: "🏢",
+  },
+  {
     href: "/admin/acessos",
     rotulo: "Gestão de Acessos",
     emoji: "🔐",

@@ -1,7 +1,8 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { requireModulo } from "@/lib/require-admin";
+import { requireModulo, requireOwner } from "@/lib/require-admin";
+import { getRevendaId } from "@/lib/revendas";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { CHAVE_SENHA_ALTERADA, SENHA_PADRAO } from "@/lib/senha";
 import { cpfParaEmail, somenteDigitos } from "@/lib/auth-helpers";
@@ -25,6 +26,11 @@ export async function criarColaborador(formData: FormData) {
 
   if (!nome) voltar({ erro: "Informe o nome" });
   if (cpf.length !== 11) voltar({ erro: "O CPF deve ter 11 dígitos" });
+
+  // Quem cadastra, cadastra para a revenda em que está. Não existe pessoa
+  // sem revenda: ela entraria no app e não teria conteúdo nenhum para ver.
+  const revendaId = await getRevendaId();
+  if (!revendaId) voltar({ erro: "Você não está em nenhuma revenda." });
 
   const admin = createAdminClient();
 
@@ -70,6 +76,22 @@ export async function criarColaborador(formData: FormData) {
     // Sem perfil o acesso ficaria órfão: desfaz para não deixar lixo.
     await admin.auth.admin.deleteUser(criado.user.id);
     voltar({ erro: erroPerfil.message });
+  }
+
+  const { error: erroVinculo } = await admin
+    .from("colaborador_revendas")
+    .insert({
+      colaborador_id: criado.user.id,
+      revenda_id: revendaId,
+      principal: true,
+    });
+
+  if (erroVinculo) {
+    // Mesmo raciocínio de acima: sem vínculo a pessoa entra e não vê nada,
+    // então é melhor não deixar o cadastro pela metade.
+    await admin.from("profiles").delete().eq("id", criado.user.id);
+    await admin.auth.admin.deleteUser(criado.user.id);
+    voltar({ erro: erroVinculo.message });
   }
 
   voltar({
@@ -212,6 +234,110 @@ export async function promoverColaborador(formData: FormData) {
         : `${nome} voltou a ser colaborador e perdeu as permissões.`,
     ...extra,
   });
+}
+
+/**
+ * Define a quais revendas a pessoa pertence.
+ *
+ * É por aqui que passa a liderança que responde por mais de uma unidade:
+ * marcar as duas revendas faz aparecer para ela o seletor no topo do app, e
+ * a partir daí cada revenda tem o seu próprio conjunto de permissões, que o
+ * Admin define em Gestão de Acessos.
+ *
+ * Só o dono mexe nisto. Vínculo decide o que a pessoa enxerga do app
+ * inteiro -- é poder demais para delegar junto com o cadastro comum.
+ */
+export async function salvarVinculos(formData: FormData) {
+  const eu = await requireOwner();
+
+  const id = campo(formData, "id");
+  const nome = campo(formData, "nome") || "Colaborador";
+  const busca = campo(formData, "busca");
+  const extra: Record<string, string> = busca ? { busca } : {};
+
+  if (!id) voltar({ erro: "Colaborador inválido", ...extra });
+
+  const marcadas = formData.getAll("revenda").map(String).filter(Boolean);
+  if (marcadas.length === 0) {
+    voltar({
+      erro: `${nome} precisa estar em pelo menos uma revenda. Para tirar o acesso, remova a pessoa do app.`,
+      ...extra,
+    });
+  }
+
+  const principalPedida = campo(formData, "principal");
+  // A principal precisa estar entre as marcadas -- senão a pessoa entraria
+  // por padrão numa revenda que ela acabou de perder.
+  const principal = marcadas.includes(principalPedida)
+    ? principalPedida
+    : marcadas[0];
+
+  const admin = createAdminClient();
+
+  // Lista no formato que o PostgREST espera em "not in". As aspas evitam
+  // que o id seja lido como parte da sintaxe do filtro.
+  const fora = `(${marcadas.map((r) => `"${r}"`).join(",")})`;
+
+  // Tira só o que saiu. Apagar tudo e regravar zeraria a data de quando o
+  // vínculo começou, que é o que explica o histórico da pessoa depois.
+  const { error: erroRemocao } = await admin
+    .from("colaborador_revendas")
+    .delete()
+    .eq("colaborador_id", id)
+    .not("revenda_id", "in", fora);
+
+  if (erroRemocao) voltar({ erro: erroRemocao.message, ...extra });
+
+  // A principal antiga sai da frente antes de a nova entrar: o banco só
+  // aceita uma principal por pessoa.
+  await admin
+    .from("colaborador_revendas")
+    .update({ principal: false })
+    .eq("colaborador_id", id);
+
+  const { error } = await admin.from("colaborador_revendas").upsert(
+    marcadas.map((revenda_id) => ({
+      colaborador_id: id,
+      revenda_id,
+      principal: revenda_id === principal,
+      criado_por: eu.id,
+    })),
+    { onConflict: "colaborador_id,revenda_id" },
+  );
+
+  if (error) voltar({ erro: error.message, ...extra });
+
+  // Permissão de liderança em revenda que a pessoa não é mais de nada
+  // adianta -- e voltaria a valer sozinha se o vínculo fosse refeito.
+  await admin
+    .from("lideranca_permissoes")
+    .delete()
+    .eq("colaborador_id", id)
+    .not("revenda_id", "in", fora);
+
+  await admin
+    .from("colaborador_modulos_extra")
+    .delete()
+    .eq("colaborador_id", id)
+    .not("revenda_id", "in", fora);
+
+  const { data: nomes } = await admin
+    .from("revendas")
+    .select("nome")
+    .in("id", marcadas);
+
+  const resumo = (nomes ?? []).map((r) => r.nome).join(", ");
+
+  await admin.from("auditoria").insert({
+    ator_id: eu.id,
+    ator_nome: eu.nome,
+    acao: "Alterou revendas do colaborador",
+    alvo_id: id,
+    alvo_nome: nome,
+    detalhes: resumo,
+  });
+
+  voltar({ sucesso: `${nome} agora está em: ${resumo}.`, ...extra });
 }
 
 export async function redefinirSenha(formData: FormData) {
