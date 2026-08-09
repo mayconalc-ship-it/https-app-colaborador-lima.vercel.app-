@@ -2,13 +2,27 @@ import { requireOwner } from "@/lib/require-admin";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { PageHeader } from "@/components/PageHeader";
 
+/**
+ * O join devolve objeto ou lista, dependendo de como o PostgREST resolve a
+ * relação. Normalizar aqui evita espalhar essa dúvida pelo JSX.
+ */
+function nomeDaRevenda(valor: unknown): string | null {
+  const item = Array.isArray(valor) ? valor[0] : valor;
+  const nome = (item as { nome?: string } | null)?.nome;
+  return nome ?? null;
+}
+
 export default async function AuditoriaPage() {
   await requireOwner();
 
   const admin = createAdminClient();
+
+  // Sem recorte por revenda, de propósito: o log é do dono, e ele responde
+  // pelo app inteiro. Cortar por revenda esconderia dele justamente as
+  // mudanças de acesso que ele precisa conseguir auditar de uma vez só.
   const { data: registros } = await admin
     .from("auditoria")
-    .select("id, ator_nome, acao, alvo_nome, detalhes, criado_em")
+    .select("id, ator_nome, acao, alvo_nome, detalhes, criado_em, revendas(nome)")
     .order("criado_em", { ascending: false })
     .limit(200);
 
@@ -39,6 +53,11 @@ export default async function AuditoriaPage() {
                       {" — "}
                       <strong className="font-semibold">{r.alvo_nome}</strong>
                     </>
+                  )}
+                  {nomeDaRevenda(r.revendas) && (
+                    <span className="ml-2 rounded-md bg-slate-100 px-1.5 py-0.5 text-xs font-medium text-slate-500">
+                      {nomeDaRevenda(r.revendas)}
+                    </span>
                   )}
                 </p>
                 <span className="shrink-0 text-xs tabular-nums text-slate-400">

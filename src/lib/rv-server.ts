@@ -2,6 +2,7 @@ import "server-only";
 
 import ExcelJS from "exceljs";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getRevendaId } from "@/lib/revendas";
 import {
   buscarLinhasDoColaborador,
   chaveCompetencia,
@@ -131,9 +132,16 @@ export async function baixarPlanilha(csvUrl: string): Promise<string[][]> {
 export async function buscarRVdoColaborador(cpf: string): Promise<ResultadoRV> {
   const admin = createAdminClient();
 
+  // Só as planilhas da revenda de quem está pedindo. Sem este filtro o app
+  // procuraria o CPF também na planilha da outra unidade -- e um CPF que
+  // aparecesse nas duas devolveria valores que não são daquela operação.
+  const revendaId = await getRevendaId();
+  if (!revendaId) return { encontrados: [], configurado: false, falhas: [] };
+
   const { data: configs } = await admin
     .from("rv_config")
     .select("area, rotulo, csv_url, coluna_cpf, coluna_valor")
+    .eq("revenda_id", revendaId)
     .order("area", { ascending: true });
 
   const ativas = (configs ?? []).filter((c) => c.csv_url?.trim());

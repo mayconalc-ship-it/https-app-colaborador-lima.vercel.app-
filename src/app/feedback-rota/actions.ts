@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { getRevendaId } from "@/lib/revendas";
 import { notaRuim, OCORRENCIAS } from "@/lib/feedback-ocorrencias";
 
 const IDS_VALIDOS = new Set(OCORRENCIAS.map((o) => o.id as string));
@@ -40,7 +41,13 @@ export async function enviarFeedbackRota(
     .map(String)
     .filter((id) => IDS_VALIDOS.has(id));
 
+  const revendaId = await getRevendaId();
+  if (!revendaId) {
+    return { ok: false, erro: "Você não está em nenhuma revenda." };
+  }
+
   const { error } = await supabase.from("feedback_rota").insert({
+    revenda_id: revendaId,
     colaborador_id: user.id,
     nota,
     rota,

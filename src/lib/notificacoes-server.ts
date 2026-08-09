@@ -1,6 +1,7 @@
 import "server-only";
 
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getRevendaId } from "@/lib/revendas";
 import {
   PRIORIDADE,
   type ModuloNotificavel,
@@ -31,10 +32,16 @@ export async function criarNotificacao(dados: {
   try {
     const admin = createAdminClient();
 
-    // O Admin pode ter desligado os avisos deste módulo.
+    // O aviso nasce na revenda de quem publicou. Sem isso, uma notícia de
+    // Barreiras tocaria o sino de São Félix.
+    const revendaId = await getRevendaId();
+    if (!revendaId) return;
+
+    // O Admin pode ter desligado os avisos deste módulo nesta revenda.
     const { data: config } = await admin
       .from("notificacao_config")
       .select("ativa")
+      .eq("revenda_id", revendaId)
       .eq("modulo", dados.modulo)
       .maybeSingle();
 
@@ -45,6 +52,7 @@ export async function criarNotificacao(dados: {
     expira.setDate(expira.getDate() + VALIDADE_DIAS);
 
     await admin.from("notificacoes").insert({
+      revenda_id: revendaId,
       modulo: dados.modulo,
       tipo,
       titulo: dados.titulo,
@@ -74,12 +82,18 @@ export async function criarOuAgrupar(
   try {
     const admin = createAdminClient();
 
+    const revendaId = await getRevendaId();
+    if (!revendaId) return;
+
     const desde = new Date();
     desde.setMinutes(desde.getMinutes() - (dados.janelaMinutos ?? 30));
 
+    // O agrupamento é por revenda: publicar em Barreiras não pode reescrever
+    // o aviso que São Félix acabou de receber.
     const { data: recente } = await admin
       .from("notificacoes")
       .select("id")
+      .eq("revenda_id", revendaId)
       .eq("modulo", dados.modulo)
       .eq("ativa", true)
       .gte("criado_em", desde.toISOString())

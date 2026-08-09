@@ -1,9 +1,10 @@
-"use server";
+﻿"use server";
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { requireModulo } from "@/lib/require-admin";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { exigirRevenda } from "@/lib/revendas";
 import { criarOuAgrupar } from "@/lib/notificacoes-server";
 import { CATEGORIAS_POR_TIME, type TimeRanking } from "@/lib/ranking-categorias";
 
@@ -42,19 +43,21 @@ export async function enviarRanking(formData: FormData) {
   }
 
   const admin = createAdminClient();
+  const revendaId = await exigirRevenda("/admin/ranking");
 
   // Se já existe foto para esse mês/time/categoria, apaga o arquivo antigo
   // do storage antes de substituir — senão ele ficaria órfão ocupando espaço.
   const { data: anterior } = await admin
     .from("ranking_matinal")
     .select("imagem_url")
+    .eq("revenda_id", revendaId)
     .eq("mes_ano", mesAno)
     .eq("time", time)
     .eq("categoria", categoria)
     .maybeSingle();
 
   const extensao = (arquivo.name.split(".").pop() ?? "png").toLowerCase();
-  const caminho = `ranking/${mesAno}-${time}-${Date.now()}.${extensao}`;
+  const caminho = `${revendaId}/ranking/${mesAno}-${time}-${Date.now()}.${extensao}`;
 
   const { error: uploadError } = await admin.storage
     .from("conteudo")
@@ -70,12 +73,13 @@ export async function enviarRanking(formData: FormData) {
 
   const { error: upsertError } = await admin.from("ranking_matinal").upsert(
     {
+      revenda_id: revendaId,
       mes_ano: mesAno,
       time,
       categoria,
       imagem_url: publicUrlData.publicUrl,
     },
-    { onConflict: "mes_ano,time,categoria" },
+    { onConflict: "revenda_id,mes_ano,time,categoria" },
   );
 
   if (upsertError) {
@@ -106,14 +110,20 @@ export async function excluirRanking(formData: FormData) {
   if (!id) redirect("/admin/ranking?erro=Registro+invalido");
 
   const admin = createAdminClient();
+  const revendaId = await exigirRevenda("/admin/ranking");
 
   const { data: registro } = await admin
     .from("ranking_matinal")
     .select("imagem_url")
     .eq("id", id)
+    .eq("revenda_id", revendaId)
     .maybeSingle();
 
-  const { error } = await admin.from("ranking_matinal").delete().eq("id", id);
+  const { error } = await admin
+    .from("ranking_matinal")
+    .delete()
+    .eq("id", id)
+    .eq("revenda_id", revendaId);
 
   if (error) {
     redirect(`/admin/ranking?erro=${encodeURIComponent(error.message)}`);
@@ -143,10 +153,12 @@ export async function atualizarRanking(formData: FormData) {
   }
 
   const admin = createAdminClient();
+  const revendaId = await exigirRevenda("/admin/ranking");
   const { error } = await admin
     .from("ranking_matinal")
     .update({ mes_ano: mesAno, time, categoria })
-    .eq("id", id);
+    .eq("id", id)
+    .eq("revenda_id", revendaId);
 
   if (error) {
     const msg = error.message.includes("duplicate")

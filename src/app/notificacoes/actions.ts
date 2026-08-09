@@ -1,6 +1,7 @@
 "use server";
 
 import { getPerfil } from "@/lib/sessao";
+import { getRevendaId } from "@/lib/revendas";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
   PRIORIDADE,
@@ -51,6 +52,11 @@ export async function carregarAvisos(): Promise<PainelAvisos> {
 
   const admin = createAdminClient();
 
+  // O sino é da revenda em que a pessoa está agora. Quem responde pelas
+  // duas vê os avisos de uma de cada vez, junto com o resto do app.
+  const revendaId = await getRevendaId();
+  if (!revendaId) return VAZIO;
+
   const desde = new Date();
   desde.setDate(desde.getDate() - JANELA_DIAS);
 
@@ -59,6 +65,7 @@ export async function carregarAvisos(): Promise<PainelAvisos> {
       admin
         .from("notificacoes")
         .select("id, tipo, modulo, titulo, mensagem, url, prioridade, criado_em")
+        .eq("revenda_id", revendaId)
         .eq("ativa", true)
         .gte("criado_em", desde.toISOString())
         .order("criado_em", { ascending: false })
@@ -70,7 +77,7 @@ export async function carregarAvisos(): Promise<PainelAvisos> {
       admin
         .from("notificacao_ajustes")
         .select("hora_lembrete_feedback, max_por_acesso")
-        .eq("id", 1)
+        .eq("revenda_id", revendaId)
         .maybeSingle(),
     ]);
 
@@ -143,9 +150,13 @@ async function pendenciaDeFeedback(
 ): Promise<Aviso | null> {
   const admin = createAdminClient();
 
+  const revendaId = await getRevendaId();
+  if (!revendaId) return null;
+
   const { data: config } = await admin
     .from("notificacao_config")
     .select("ativa")
+    .eq("revenda_id", revendaId)
     .eq("modulo", "feedback")
     .maybeSingle();
 
@@ -165,6 +176,7 @@ async function pendenciaDeFeedback(
   const { count } = await admin
     .from("feedback_rota")
     .select("*", { count: "exact", head: true })
+    .eq("revenda_id", revendaId)
     .eq("colaborador_id", colaboradorId)
     .gte("criado_em", `${dia}T00:00:00`);
 

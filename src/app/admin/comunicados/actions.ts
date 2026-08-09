@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { requireModulo } from "@/lib/require-admin";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getRevendaId } from "@/lib/revendas";
 import { criarOuAgrupar } from "@/lib/notificacoes-server";
 import { ehEditoriaValida } from "@/lib/comunicados";
 
@@ -41,11 +42,17 @@ export async function salvarComunicado(formData: FormData) {
   }
 
   const admin = createAdminClient();
+  const revendaId = await getRevendaId();
+  if (!revendaId) {
+    redirect("/admin/comunicados?erro=Voce+nao+esta+em+nenhuma+revenda");
+  }
 
   let imagemUrl: string | null | undefined = undefined;
   if (imagem && imagem.size > 0) {
     const extensao = (imagem.name.split(".").pop() ?? "jpg").toLowerCase();
-    const caminho = `comunicados/${Date.now()}.${extensao}`;
+    // A revenda entra no caminho: o bucket é público, e sem separar por
+    // pasta os arquivos das duas unidades ficariam embolados no mesmo lugar.
+    const caminho = `${revendaId}/comunicados/${Date.now()}.${extensao}`;
     const { error: uploadError } = await admin.storage
       .from("conteudo")
       .upload(caminho, imagem, { upsert: true });
@@ -59,11 +66,13 @@ export async function salvarComunicado(formData: FormData) {
     imagemUrl = pub.publicUrl;
   }
 
-  // Só uma matéria pode ser capa por vez.
+  // Só uma matéria pode ser capa por vez -- em cada revenda. Sem o filtro,
+  // publicar capa em Barreiras derrubaria a capa de São Félix.
   if (destaque) {
     await admin
       .from("comunicados")
       .update({ destaque: false })
+      .eq("revenda_id", revendaId)
       .neq("id", id ?? -1);
   }
 
@@ -79,8 +88,14 @@ export async function salvarComunicado(formData: FormData) {
   };
 
   const { error } = id
-    ? await admin.from("comunicados").update(registro).eq("id", id)
-    : await admin.from("comunicados").insert(registro);
+    ? await admin
+        .from("comunicados")
+        .update(registro)
+        .eq("id", id)
+        .eq("revenda_id", revendaId)
+    : await admin
+        .from("comunicados")
+        .insert({ ...registro, revenda_id: revendaId });
 
   if (error) {
     redirect(`/admin/comunicados?erro=${encodeURIComponent(error.message)}`);
@@ -109,14 +124,25 @@ export async function excluirComunicado(formData: FormData) {
   if (!id) redirect("/admin/comunicados?erro=Registro+inválido");
 
   const admin = createAdminClient();
+  const revendaId = await getRevendaId();
+  if (!revendaId) {
+    redirect("/admin/comunicados?erro=Voce+nao+esta+em+nenhuma+revenda");
+  }
 
+  // O filtro por revenda também é a trava: sem ele bastaria adivinhar um id
+  // para apagar o comunicado da outra unidade.
   const { data: registro } = await admin
     .from("comunicados")
     .select("imagem_url")
     .eq("id", id)
+    .eq("revenda_id", revendaId)
     .maybeSingle();
 
-  const { error } = await admin.from("comunicados").delete().eq("id", id);
+  const { error } = await admin
+    .from("comunicados")
+    .delete()
+    .eq("id", id)
+    .eq("revenda_id", revendaId);
 
   if (error) {
     redirect(`/admin/comunicados?erro=${encodeURIComponent(error.message)}`);

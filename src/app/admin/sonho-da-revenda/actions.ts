@@ -1,9 +1,10 @@
-"use server";
+﻿"use server";
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { requireModulo } from "@/lib/require-admin";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { exigirRevenda } from "@/lib/revendas";
 import { criarOuAgrupar } from "@/lib/notificacoes-server";
 
 function caminhoDoStorage(arquivoUrl: string) {
@@ -31,9 +32,12 @@ async function enviarArquivo(
   admin: ReturnType<typeof createAdminClient>,
   arquivo: File,
   pasta: string,
+  revendaId: string,
 ) {
   const extensao = (arquivo.name.split(".").pop() ?? "png").toLowerCase();
-  const caminho = `${pasta}/${Date.now()}.${extensao}`;
+  // A revenda na frente do caminho: o bucket é o mesmo para todas, e sem
+  // isso os arquivos das unidades ficariam misturados na mesma pasta.
+  const caminho = `${revendaId}/${pasta}/${Date.now()}.${extensao}`;
 
   const { error } = await admin.storage
     .from("conteudo")
@@ -59,10 +63,12 @@ export async function enviarSonhoDaRevenda(formData: FormData) {
   }
 
   const admin = createAdminClient();
+  const revendaId = await exigirRevenda("/admin/sonho-da-revenda");
 
   const { data: existente } = await admin
     .from("sonho_revenda")
     .select("tipo, arquivo_url, quadro_indicadores_url")
+    .eq("revenda_id", revendaId)
     .eq("ano", ano)
     .maybeSingle();
 
@@ -79,7 +85,12 @@ export async function enviarSonhoDaRevenda(formData: FormData) {
 
   if (arquivo && arquivo.size > 0) {
     try {
-      const resultado = await enviarArquivo(admin, arquivo, "sonho-revenda");
+      const resultado = await enviarArquivo(
+        admin,
+        arquivo,
+        "sonho-revenda",
+        revendaId,
+      );
       if (existente?.arquivo_url) substituidos.push(existente.arquivo_url);
       arquivoUrl = resultado.url;
       if (resultado.extensao === "pptx" || resultado.extensao === "ppt") {
@@ -104,6 +115,7 @@ export async function enviarSonhoDaRevenda(formData: FormData) {
         admin,
         quadro,
         "sonho-revenda-indicadores",
+        revendaId,
       );
       if (existente?.quadro_indicadores_url) {
         substituidos.push(existente.quadro_indicadores_url);
@@ -118,6 +130,7 @@ export async function enviarSonhoDaRevenda(formData: FormData) {
 
   const { error: upsertError } = await admin.from("sonho_revenda").upsert(
     {
+      revenda_id: revendaId,
       ano,
       titulo: `Sonho da Revenda ${ano}`,
       frase,
@@ -126,7 +139,7 @@ export async function enviarSonhoDaRevenda(formData: FormData) {
       quadro_indicadores_url: quadroUrl,
       ativo: true,
     },
-    { onConflict: "ano" },
+    { onConflict: "revenda_id,ano" },
   );
 
   if (upsertError) {
@@ -156,14 +169,17 @@ export async function excluirSonhoDaRevenda(formData: FormData) {
   if (!ano) redirect("/admin/sonho-da-revenda?erro=Ano+invalido");
 
   const admin = createAdminClient();
+  const revendaId = await exigirRevenda("/admin/sonho-da-revenda");
 
   const { data: registro } = await admin
     .from("sonho_revenda")
     .select("arquivo_url, quadro_indicadores_url")
+    .eq("revenda_id", revendaId)
     .eq("ano", ano)
     .maybeSingle();
 
-  const { error } = await admin.from("sonho_revenda").delete().eq("ano", ano);
+  const { error } = await admin.from("sonho_revenda").delete().eq("revenda_id", revendaId)
+    .eq("ano", ano);
 
   if (error) {
     redirect(
@@ -188,16 +204,19 @@ export async function removerQuadroIndicadores(formData: FormData) {
   if (!ano) redirect("/admin/sonho-da-revenda?erro=Ano+invalido");
 
   const admin = createAdminClient();
+  const revendaId = await exigirRevenda("/admin/sonho-da-revenda");
 
   const { data: registro } = await admin
     .from("sonho_revenda")
     .select("quadro_indicadores_url")
+    .eq("revenda_id", revendaId)
     .eq("ano", ano)
     .maybeSingle();
 
   const { error } = await admin
     .from("sonho_revenda")
     .update({ quadro_indicadores_url: null })
+    .eq("revenda_id", revendaId)
     .eq("ano", ano);
 
   if (error) {

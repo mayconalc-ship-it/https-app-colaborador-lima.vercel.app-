@@ -1,3 +1,24 @@
+import type { ModuloId } from "@/lib/acessos";
+
+/**
+ * De qual módulo cada cartão do menu depende.
+ *
+ * É o que faz a revenda que não usa RV não mostrar o cartão "Minha RV" para
+ * os colaboradores dela. Chave sem módulo aqui (Minha Conta) aparece sempre:
+ * não pertence a módulo nenhum.
+ */
+export const MODULO_DO_ITEM: Record<string, ModuloId> = {
+  sonho: "sonho",
+  padroes: "padroes",
+  ranking: "ranking",
+  comunicados: "comunicados",
+  escala: "escala",
+  rv: "rv",
+  rota: "rotas",
+  feedback: "feedbacks",
+  "ativo-giro": "ativo-giro",
+};
+
 export type ItemMenu = {
   chave: string;
   titulo: string;

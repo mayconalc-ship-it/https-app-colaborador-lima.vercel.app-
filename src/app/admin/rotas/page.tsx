@@ -1,6 +1,7 @@
 import { decodificar } from "@/lib/texto-url";
 import { requireModulo, podeNoModulo } from "@/lib/require-admin";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { exigirRevenda } from "@/lib/revendas";
 import { PageHeader } from "@/components/PageHeader";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
 import { formatarDataBr } from "@/lib/rotas";
@@ -23,6 +24,7 @@ export default async function AdminRotasPage({
   const podeApagar = await podeNoModulo("rotas", "excluir");
 
   const admin = createAdminClient();
+  const revendaId = await exigirRevenda("/admin");
 
   const [{ data: config }, { data: rotas }] = await Promise.all([
     admin
@@ -30,11 +32,12 @@ export default async function AdminRotasPage({
       .select(
         "pasta_link, ultima_sincronizacao, ultimo_resultado, meta_ocupacao, meta_caixas",
       )
-      .eq("id", 1)
+      .eq("revenda_id", revendaId)
       .maybeSingle(),
     admin
       .from("rotas")
       .select("data")
+      .eq("revenda_id", revendaId)
       .order("data", { ascending: false })
       .limit(3000),
   ]);

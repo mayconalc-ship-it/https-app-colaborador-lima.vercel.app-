@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { requireModulo } from "@/lib/require-admin";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { exigirRevenda, getRevendaId } from "@/lib/revendas";
 import { criarOuAgrupar } from "@/lib/notificacoes-server";
 
 function caminhoDoStorage(arquivoUrl: string) {
@@ -47,10 +48,13 @@ export async function prepararEnvios(
   if (nomes.length === 0) return { ok: false, erro: "Nenhum arquivo." };
 
   const admin = createAdminClient();
+  const revendaId = await getRevendaId();
+  if (!revendaId) return { ok: false, erro: "Você não está em nenhuma revenda." };
 
   const { data: pilarExiste } = await admin
     .from("padroes_pilares")
     .select("nome")
+    .eq("revenda_id", revendaId)
     .eq("nome", pilar)
     .maybeSingle();
 
@@ -60,7 +64,7 @@ export async function prepararEnvios(
 
   const resultados = await Promise.all(
     nomes.map(async (nome, i) => {
-      const destino = `padroes/${slug(pilar)}/${carimbo}-${i}-${slug(nome)}`;
+      const destino = `${revendaId}/padroes/${slug(pilar)}/${carimbo}-${i}-${slug(nome)}`;
       const { data, error } = await admin.storage
         .from("conteudo")
         .createSignedUploadUrl(destino, { upsert: true });
@@ -97,9 +101,13 @@ export async function registrarPadroes(dados: {
   if (dados.itens.length === 0) return { ok: true };
 
   const admin = createAdminClient();
+  const revendaId = await getRevendaId();
+  if (!revendaId) return { ok: false, erro: "Você não está em nenhuma revenda." };
+
   const caminho = dados.caminho.trim();
 
   const linhas = dados.itens.map((item) => ({
+    revenda_id: revendaId,
     pilar: dados.pilar,
     caminho,
     nome: item.nome.trim(),
@@ -136,11 +144,13 @@ export async function excluirPadrao(formData: FormData) {
   if (!id) voltarPara(pilar, "erro=Registro+invalido");
 
   const admin = createAdminClient();
+  const revendaId = await exigirRevenda("/admin/padroes");
 
   const { data: registro } = await admin
     .from("padroes")
     .select("arquivo_url")
     .eq("id", id)
+    .eq("revenda_id", revendaId)
     .maybeSingle();
 
   if (registro) {
@@ -150,7 +160,11 @@ export async function excluirPadrao(formData: FormData) {
     }
   }
 
-  const { error } = await admin.from("padroes").delete().eq("id", id);
+  const { error } = await admin
+    .from("padroes")
+    .delete()
+    .eq("id", id)
+    .eq("revenda_id", revendaId);
 
   if (error) {
     voltarPara(pilar, `erro=${encodeURIComponent(error.message)}`);
@@ -173,10 +187,12 @@ export async function atualizarPadrao(formData: FormData) {
   if (!nome) voltarPara(pilarOrigem, "erro=O+nome+nao+pode+ficar+vazio");
 
   const admin = createAdminClient();
+  const revendaId = await exigirRevenda("/admin/padroes");
 
   const { data: pilarExiste } = await admin
     .from("padroes_pilares")
     .select("nome")
+    .eq("revenda_id", revendaId)
     .eq("nome", pilar)
     .maybeSingle();
 
@@ -184,7 +200,8 @@ export async function atualizarPadrao(formData: FormData) {
   const { error } = await admin
     .from("padroes")
     .update({ nome, pilar, caminho })
-    .eq("id", id);
+    .eq("id", id)
+    .eq("revenda_id", revendaId);
 
   if (error) {
     voltarPara(pilarOrigem, `erro=${encodeURIComponent(error.message)}`);
@@ -211,17 +228,19 @@ export async function criarPilar(formData: FormData) {
   if (!nome) voltarParaPilares("erro=Informe+o+nome+do+pilar");
 
   const admin = createAdminClient();
+  const revendaId = await exigirRevenda("/admin/padroes");
 
   const { data: ultimo } = await admin
     .from("padroes_pilares")
     .select("ordem")
+    .eq("revenda_id", revendaId)
     .order("ordem", { ascending: false })
     .limit(1)
     .maybeSingle();
 
   const { error } = await admin
     .from("padroes_pilares")
-    .insert({ nome, ordem: (ultimo?.ordem ?? 0) + 1 });
+    .insert({ revenda_id: revendaId, nome, ordem: (ultimo?.ordem ?? 0) + 1 });
 
   if (error) {
     voltarParaPilares(
@@ -248,11 +267,13 @@ export async function renomearPilar(formData: FormData) {
   if (nome === nomeAntigo) voltarParaPilares("sucesso=Nada+alterado");
 
   const admin = createAdminClient();
+  const revendaId = await exigirRevenda("/admin/padroes");
 
   const { error } = await admin
     .from("padroes_pilares")
     .update({ nome })
-    .eq("id", id);
+    .eq("id", id)
+    .eq("revenda_id", revendaId);
 
   if (error) {
     voltarParaPilares(
@@ -269,6 +290,7 @@ export async function renomearPilar(formData: FormData) {
   const { error: erroArquivos } = await admin
     .from("padroes")
     .update({ pilar: nome })
+    .eq("revenda_id", revendaId)
     .eq("pilar", nomeAntigo);
 
   if (erroArquivos) {
@@ -287,10 +309,12 @@ export async function alternarVisibilidadePilar(formData: FormData) {
   if (!id) voltarParaPilares("erro=Pilar+invalido");
 
   const admin = createAdminClient();
+  const revendaId = await exigirRevenda("/admin/padroes");
   const { error } = await admin
     .from("padroes_pilares")
     .update({ visivel: !visivelAtual })
-    .eq("id", id);
+    .eq("id", id)
+    .eq("revenda_id", revendaId);
 
   if (error) voltarParaPilares(`erro=${encodeURIComponent(error.message)}`);
 
@@ -307,9 +331,11 @@ export async function moverPilar(formData: FormData) {
   const direcao = formData.get("direcao") as "cima" | "baixo";
 
   const admin = createAdminClient();
+  const revendaId = await exigirRevenda("/admin/padroes");
   const { data: pilares } = await admin
     .from("padroes_pilares")
     .select("id, ordem")
+    .eq("revenda_id", revendaId)
     .order("ordem", { ascending: true });
 
   if (!pilares) voltarParaPilares("erro=Nao+foi+possivel+ler+os+pilares");
@@ -324,15 +350,21 @@ export async function moverPilar(formData: FormData) {
   const vizinho = pilares[destino];
 
   // Valor temporário evita conflito caso a ordem tenha índice único.
-  await admin.from("padroes_pilares").update({ ordem: -1 }).eq("id", atual.id);
+  await admin
+    .from("padroes_pilares")
+    .update({ ordem: -1 })
+    .eq("id", atual.id)
+    .eq("revenda_id", revendaId);
   await admin
     .from("padroes_pilares")
     .update({ ordem: atual.ordem })
-    .eq("id", vizinho.id);
+    .eq("id", vizinho.id)
+    .eq("revenda_id", revendaId);
   await admin
     .from("padroes_pilares")
     .update({ ordem: vizinho.ordem })
-    .eq("id", atual.id);
+    .eq("id", atual.id)
+    .eq("revenda_id", revendaId);
 
   revalidatePath("/padroes");
   voltarParaPilares("sucesso=Ordem+atualizada");
@@ -346,12 +378,14 @@ export async function excluirPilar(formData: FormData) {
   if (!id) voltarParaPilares("erro=Pilar+invalido");
 
   const admin = createAdminClient();
+  const revendaId = await exigirRevenda("/admin/padroes");
 
   // Excluir um pilar com arquivos deixaria os padrões órfãos e invisíveis.
   // Melhor recusar e explicar o caminho do que apagar conteúdo por engano.
   const { count } = await admin
     .from("padroes")
     .select("*", { count: "exact", head: true })
+    .eq("revenda_id", revendaId)
     .eq("pilar", nome);
 
   if ((count ?? 0) > 0) {
@@ -362,7 +396,11 @@ export async function excluirPilar(formData: FormData) {
     );
   }
 
-  const { error } = await admin.from("padroes_pilares").delete().eq("id", id);
+  const { error } = await admin
+    .from("padroes_pilares")
+    .delete()
+    .eq("id", id)
+    .eq("revenda_id", revendaId);
   if (error) voltarParaPilares(`erro=${encodeURIComponent(error.message)}`);
 
   revalidatePath("/padroes");

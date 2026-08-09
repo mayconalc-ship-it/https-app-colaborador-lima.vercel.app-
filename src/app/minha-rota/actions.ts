@@ -2,6 +2,7 @@
 
 import { getPerfil } from "@/lib/sessao";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getRevendaId } from "@/lib/revendas";
 import { normalizarMapa, type CidadeEntregas } from "@/lib/rotas";
 
 export type RotaEncontrada = {
@@ -54,11 +55,18 @@ export async function consultarRota(
 
   const admin = createAdminClient();
 
+  // O mapa é único dentro da revenda, não entre revendas: o 14768 de
+  // Barreiras não é o 14768 de São Félix. Sem este filtro o motorista de
+  // uma unidade poderia ver a rota da outra só digitando o número.
+  const revendaId = await getRevendaId();
+  if (!revendaId) return { ok: false, erro: "Você não está em nenhuma revenda." };
+
   const { data: rota } = await admin
     .from("rotas")
     .select(
       "data, mapa, mapa_original, veiculo, placa, motorista_codigo, km_prev, tempo_prev, entregas, caixas, ocupacao_caixas, peso, ocupacao_peso, armazem, classificacao, cidades",
     )
+    .eq("revenda_id", revendaId)
     .eq("mapa", mapa)
     .order("data", { ascending: false })
     .limit(1)

@@ -4,6 +4,8 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { requireModulo } from "@/lib/require-admin";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { exigirRevenda } from "@/lib/revendas";
+import { AREAS } from "@/lib/areas";
 import { criarOuAgrupar } from "@/lib/notificacoes-server";
 import { baixarPlanilha } from "@/lib/rv-server";
 import {
@@ -53,15 +55,22 @@ export async function salvarConfigRV(formData: FormData) {
   }
 
   const admin = createAdminClient();
-  const { error } = await admin
-    .from("rv_config")
-    .update({
+  const revendaId = await exigirRevenda("/admin/rv");
+
+  // Upsert porque numa revenda nova a linha da área ainda não existe: um
+  // update simples não gravaria nada e a tela diria "salvo" sem ter salvo.
+  const { error } = await admin.from("rv_config").upsert(
+    {
+      revenda_id: revendaId,
+      area,
+      rotulo: AREAS.find((a) => a.id === area)?.rotulo ?? area,
       csv_url: csvUrl || null,
       coluna_cpf: colunaCpf || null,
       coluna_valor: colunaValor || null,
       atualizado_em: new Date().toISOString(),
-    })
-    .eq("area", area);
+    },
+    { onConflict: "revenda_id,area" },
+  );
 
   if (error) {
     redirect(`/admin/rv?erro=${encodeURIComponent(error.message)}`);
@@ -81,6 +90,7 @@ export async function testarConexaoRV(formData: FormData) {
   const { data: config } = await admin
     .from("rv_config")
     .select("rotulo, csv_url, coluna_cpf, coluna_valor")
+    .eq("revenda_id", await exigirRevenda("/admin/rv"))
     .eq("area", area)
     .maybeSingle();
 

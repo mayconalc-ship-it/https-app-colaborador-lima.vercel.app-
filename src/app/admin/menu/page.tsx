@@ -1,5 +1,7 @@
+import { redirect } from "next/navigation";
 import { decodificar } from "@/lib/texto-url";
 import { requireModulo } from "@/lib/require-admin";
+import { getRevendaAtiva } from "@/lib/revendas";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { PageHeader } from "@/components/PageHeader";
 import { MenuItemRow } from "@/components/MenuItemRow";
@@ -15,16 +17,21 @@ export default async function AdminMenuPage({
   const { erro, sucesso } = await searchParams;
 
   const admin = createAdminClient();
+  const revenda = await getRevendaAtiva();
+  if (!revenda) redirect("/admin");
 
   const { data: existentes } = await admin
     .from("menu_itens")
     .select("chave, titulo, emoji, href, ordem, visivel")
+    .eq("revenda_id", revenda.id)
     .order("ordem", { ascending: true });
 
-  // Primeira visita: popula a tabela com o menu padrao do app
+  // Primeira visita DESTA REVENDA: popula com o menu padrão do app.
   let itens: ItemMenu[];
   if (!existentes || existentes.length === 0) {
-    await admin.from("menu_itens").insert(MENU_PADRAO);
+    await admin
+      .from("menu_itens")
+      .insert(MENU_PADRAO.map((i) => ({ ...i, revenda_id: revenda.id })));
     itens = MENU_PADRAO;
   } else {
     itens = existentes;

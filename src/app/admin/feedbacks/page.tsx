@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { requireModulo } from "@/lib/require-admin";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { exigirRevenda } from "@/lib/revendas";
 import { PageHeader } from "@/components/PageHeader";
 import {
   OCORRENCIAS,
@@ -29,10 +30,12 @@ export default async function AdminFeedbacksPage({
   desde.setDate(desde.getDate() - dias);
 
   const admin = createAdminClient();
+  const revendaId = await exigirRevenda("/admin");
 
   const { data: feedbacks } = await admin
     .from("feedback_rota")
     .select("id, colaborador_id, nota, rota, ocorrencias, comentario, criado_em")
+    .eq("revenda_id", revendaId)
     .gte("criado_em", desde.toISOString())
     .order("criado_em", { ascending: false });
 

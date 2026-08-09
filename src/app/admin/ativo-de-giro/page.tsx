@@ -2,6 +2,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { requireModulo, podeNoModulo } from "@/lib/require-admin";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { exigirRevenda } from "@/lib/revendas";
 import { ehOwner } from "@/lib/acessos";
 import {
   FORMATOS,
@@ -59,15 +60,28 @@ export default async function AdminAtivoDeGiroPage({
   let liberados = new Set<string>();
   if (aba === "acessos" && souOwner) {
     const admin = createAdminClient();
+    const revendaId = await exigirRevenda("/admin");
+
+    // Só os colaboradores desta revenda: liberar o módulo para alguém de
+    // outra unidade não faria efeito nenhum e só confundiria a lista.
+    const { data: daRevenda } = await admin
+      .from("colaborador_revendas")
+      .select("colaborador_id")
+      .eq("revenda_id", revendaId);
+
+    const ids = (daRevenda ?? []).map((v) => v.colaborador_id);
+
     const [{ data: pessoas }, { data: acessos }] = await Promise.all([
       admin
         .from("profiles")
         .select("id, nome, cpf")
+        .in("id", ids)
         .eq("role", "colaborador")
         .order("nome", { ascending: true }),
       admin
         .from("colaborador_modulos_extra")
         .select("colaborador_id")
+        .eq("revenda_id", revendaId)
         .eq("modulo", "ativo-giro"),
     ]);
     colaboradores = pessoas ?? [];

@@ -1,6 +1,7 @@
 import { decodificar } from "@/lib/texto-url";
 import { requireModulo } from "@/lib/require-admin";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { exigirRevenda } from "@/lib/revendas";
 import { PageHeader } from "@/components/PageHeader";
 import {
   avisarRVAtualizada,
@@ -17,9 +18,11 @@ export default async function AdminRVPage({
   const { erro, sucesso, teste } = await searchParams;
 
   const admin = createAdminClient();
+  const revendaId = await exigirRevenda("/admin");
   const { data: configs } = await admin
     .from("rv_config")
     .select("area, rotulo, csv_url, coluna_cpf, coluna_valor, atualizado_em")
+    .eq("revenda_id", revendaId)
     .order("area", { ascending: true });
 
   return (

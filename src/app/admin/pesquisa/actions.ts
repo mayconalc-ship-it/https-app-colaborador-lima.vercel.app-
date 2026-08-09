@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { requireModulo } from "@/lib/require-admin";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { exigirRevenda } from "@/lib/revendas";
 
 function voltar(chave: "erro" | "sucesso", mensagem: string): never {
   redirect(`/admin/pesquisa?${chave}=${encodeURIComponent(mensagem)}`);
@@ -28,10 +29,20 @@ export async function salvarConfigPesquisa(formData: FormData) {
   }
 
   const admin = createAdminClient();
-  const { error } = await admin
-    .from("pesquisa_config")
-    .update({ ciclo, titulo, inicio, fim, atualizado_em: new Date().toISOString() })
-    .eq("id", 1);
+  const revendaId = await exigirRevenda("/admin/pesquisa");
+
+  // Upsert: numa revenda nova a linha de configuração ainda não existe.
+  const { error } = await admin.from("pesquisa_config").upsert(
+    {
+      revenda_id: revendaId,
+      ciclo,
+      titulo,
+      inicio,
+      fim,
+      atualizado_em: new Date().toISOString(),
+    },
+    { onConflict: "revenda_id" },
+  );
 
   if (error) voltar("erro", error.message);
   voltar("sucesso", "Configuração salva.");
@@ -42,11 +53,12 @@ export async function alternarPesquisa(formData: FormData) {
 
   const ligar = formData.get("ligar") === "true";
   const admin = createAdminClient();
+  const revendaId = await exigirRevenda("/admin/pesquisa");
 
   const { error } = await admin
     .from("pesquisa_config")
     .update({ ativa: ligar, atualizado_em: new Date().toISOString() })
-    .eq("id", 1);
+    .eq("revenda_id", revendaId);
 
   if (error) voltar("erro", error.message);
   voltar(
@@ -73,11 +85,12 @@ export async function novoCiclo(formData: FormData) {
   }
 
   const admin = createAdminClient();
+  const revendaId = await exigirRevenda("/admin/pesquisa");
 
   const { data: atual } = await admin
     .from("pesquisa_config")
     .select("ciclo")
-    .eq("id", 1)
+    .eq("revenda_id", revendaId)
     .maybeSingle();
 
   if (atual?.ciclo === ciclo) {
@@ -87,7 +100,7 @@ export async function novoCiclo(formData: FormData) {
   const { error } = await admin
     .from("pesquisa_config")
     .update({ ciclo, ativa: true, atualizado_em: new Date().toISOString() })
-    .eq("id", 1);
+    .eq("revenda_id", revendaId);
 
   if (error) voltar("erro", error.message);
   voltar(

@@ -1,6 +1,7 @@
 import { decodificar } from "@/lib/texto-url";
 import { requireModulo } from "@/lib/require-admin";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { exigirRevenda } from "@/lib/revendas";
 import { PageHeader } from "@/components/PageHeader";
 import { ComunicadoForm } from "@/components/ComunicadoForm";
 import { ComunicadoItem } from "@/components/ComunicadoItem";
@@ -15,9 +16,11 @@ export default async function AdminComunicadosPage({
   const { erro, sucesso } = await searchParams;
 
   const admin = createAdminClient();
+  const revendaId = await exigirRevenda("/admin");
   const { data: comunicados } = await admin
     .from("comunicados")
     .select("id, titulo, resumo, texto, categoria, destaque, data, imagem_url")
+    .eq("revenda_id", revendaId)
     .order("data", { ascending: false })
     .order("id", { ascending: false })
     .limit(60);

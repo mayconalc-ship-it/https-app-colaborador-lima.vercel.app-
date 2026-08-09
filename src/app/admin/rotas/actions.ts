@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { requireModulo } from "@/lib/require-admin";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { exigirRevenda } from "@/lib/revendas";
 import { criarOuAgrupar } from "@/lib/notificacoes-server";
 import {
   baixarTextoDoDrive,
@@ -31,10 +32,18 @@ export async function salvarPastaDeRotas(formData: FormData) {
   }
 
   const admin = createAdminClient();
-  const { error } = await admin
-    .from("rotas_config")
-    .update({ pasta_id: pasta, pasta_link: link, atualizado_em: new Date().toISOString() })
-    .eq("id", 1);
+  const revendaId = await exigirRevenda("/admin/rotas");
+
+  // Uma pasta do Drive por revenda: cada operação roteiriza a sua.
+  const { error } = await admin.from("rotas_config").upsert(
+    {
+      revenda_id: revendaId,
+      pasta_id: pasta,
+      pasta_link: link,
+      atualizado_em: new Date().toISOString(),
+    },
+    { onConflict: "revenda_id" },
+  );
 
   if (error) voltar("erro", error.message);
   voltar("sucesso", "Pasta salva. Agora é só clicar em Atualizar rotas.");
@@ -66,14 +75,16 @@ export async function salvarMetasDeRota(formData: FormData) {
   }
 
   const admin = createAdminClient();
-  const { error } = await admin
-    .from("rotas_config")
-    .update({
+  const revendaId = await exigirRevenda("/admin/rotas");
+  const { error } = await admin.from("rotas_config").upsert(
+    {
+      revenda_id: revendaId,
       meta_ocupacao: ocupacao,
       meta_caixas: caixas,
       atualizado_em: new Date().toISOString(),
-    })
-    .eq("id", 1);
+    },
+    { onConflict: "revenda_id" },
+  );
 
   if (error) voltar("erro", error.message);
   voltar(
@@ -98,11 +109,12 @@ export async function atualizarRotas(formData: FormData) {
   const avisar = formData.get("avisar") === "on";
 
   const admin = createAdminClient();
+  const revendaId = await exigirRevenda("/admin/rotas");
 
   const { data: config } = await admin
     .from("rotas_config")
     .select("pasta_id")
-    .eq("id", 1)
+    .eq("revenda_id", revendaId)
     .maybeSingle();
 
   if (!config?.pasta_id) {
@@ -133,6 +145,7 @@ export async function atualizarRotas(formData: FormData) {
     }
 
     const linhas = rotas.map((r) => ({
+      revenda_id: revendaId,
       data: r.data,
       mapa: r.mapa,
       mapa_original: r.mapaOriginal,
@@ -154,10 +167,11 @@ export async function atualizarRotas(formData: FormData) {
     }));
 
     // Reimportar o mesmo período atualiza em vez de duplicar: a chave é
-    // (data, mapa), então roteirização refeita sobrescreve a anterior.
+    // (revenda, data, mapa), então roteirização refeita sobrescreve a
+    // anterior -- sem uma revenda pisar na numeração da outra.
     const { error } = await admin
       .from("rotas")
-      .upsert(linhas, { onConflict: "data,mapa" });
+      .upsert(linhas, { onConflict: "revenda_id,data,mapa" });
 
     if (error) {
       relatorio.push(`${arquivo.nome}: erro ao gravar`);
@@ -177,7 +191,7 @@ export async function atualizarRotas(formData: FormData) {
       ultima_sincronizacao: new Date().toISOString(),
       ultimo_resultado: relatorio.join(" · "),
     })
-    .eq("id", 1);
+    .eq("revenda_id", revendaId);
 
   if (totalRotas === 0) {
     voltar("erro", `Nenhuma rota importada. ${relatorio.join(" · ")}`);
@@ -207,7 +221,12 @@ export async function apagarRotasDoDia(formData: FormData) {
   if (!data) voltar("erro", "Data inválida.");
 
   const admin = createAdminClient();
-  const { error } = await admin.from("rotas").delete().eq("data", data);
+  const revendaId = await exigirRevenda("/admin/rotas");
+  const { error } = await admin
+    .from("rotas")
+    .delete()
+    .eq("revenda_id", revendaId)
+    .eq("data", data);
 
   if (error) voltar("erro", error.message);
   voltar("sucesso", `Rotas de ${data.split("-").reverse().join("/")} apagadas.`);

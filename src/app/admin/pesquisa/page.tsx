@@ -1,6 +1,7 @@
 import { decodificar } from "@/lib/texto-url";
 import { requireModulo } from "@/lib/require-admin";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { exigirRevenda } from "@/lib/revendas";
 import { PageHeader } from "@/components/PageHeader";
 import {
   dentroDoPeriodo,
@@ -35,19 +36,26 @@ export default async function AdminPesquisaPage({
   const { erro, sucesso, ciclo: cicloParam } = await searchParams;
 
   const admin = createAdminClient();
+  const revendaId = await exigirRevenda("/admin");
 
   const [{ data: config }, { data: todas }, { count: totalPessoas }] =
     await Promise.all([
       admin
         .from("pesquisa_config")
         .select("ativa, inicio, fim, ciclo, titulo")
-        .eq("id", 1)
+        .eq("revenda_id", revendaId)
         .maybeSingle(),
       admin
         .from("pesquisa_respostas")
         .select("id, colaborador_id, ciclo, nota, motivos, comentario, criado_em")
+        .eq("revenda_id", revendaId)
         .order("criado_em", { ascending: false }),
-      admin.from("profiles").select("*", { count: "exact", head: true }),
+      // O total é o denominador do "quantos já responderam": tem que ser o
+      // time desta revenda, não o do app inteiro.
+      admin
+        .from("colaborador_revendas")
+        .select("*", { count: "exact", head: true })
+        .eq("revenda_id", revendaId),
     ]);
 
   const cfg: ConfigPesquisa = config ?? {

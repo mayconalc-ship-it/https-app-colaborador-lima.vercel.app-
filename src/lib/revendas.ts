@@ -1,5 +1,6 @@
 import { cache } from "react";
 import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getPerfil } from "@/lib/sessao";
 import { ehOwner, type ModuloId } from "@/lib/acessos";
@@ -87,6 +88,25 @@ export const getRevendaAtiva = cache(async (): Promise<Revenda | null> => {
 /** Atalho para quem só precisa do id -- que é a maioria das consultas. */
 export async function getRevendaId(): Promise<string | null> {
   return (await getRevendaAtiva())?.id ?? null;
+}
+
+/**
+ * A revenda ativa, ou sai da tela.
+ *
+ * Toda ação administrativa precisa saber em qual revenda está gravando, e
+ * nenhuma delas tem resposta útil para "nenhuma". Em vez de repetir a
+ * mesma checagem em vinte arquivos, ela mora aqui.
+ */
+export async function exigirRevenda(destino: string): Promise<string> {
+  const id = await getRevendaId();
+  if (!id) {
+    redirect(
+      `${destino}?erro=${encodeURIComponent(
+        "Você não está em nenhuma revenda.",
+      )}`,
+    );
+  }
+  return id;
 }
 
 /** Precisa escolher? Só quem tem mais de uma. É o que decide se o seletor aparece. */

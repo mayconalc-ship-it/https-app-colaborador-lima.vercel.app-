@@ -23,6 +23,23 @@ export type ModuloNotificavel =
   | "feedback"
   | "rotas";
 
+/**
+ * A mesma lista, em forma de array.
+ *
+ * Serve para gravar a configuração de uma revenda que ainda não tem linha
+ * nenhuma: sem ela, só dava para atualizar o que já existia no banco.
+ */
+export const MODULOS_NOTIFICAVEIS: ModuloNotificavel[] = [
+  "comunicados",
+  "padroes",
+  "ranking",
+  "sonho",
+  "escala",
+  "rv",
+  "feedback",
+  "rotas",
+];
+
 export const EMOJI_MODULO: Record<ModuloNotificavel, string> = {
   comunicados: "📰",
   padroes: "📚",

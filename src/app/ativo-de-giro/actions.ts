@@ -6,6 +6,7 @@ import { getPerfil } from "@/lib/sessao";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { podeNoModulo, temAcessoModulo } from "@/lib/require-admin";
+import { getRevendaId } from "@/lib/revendas";
 import {
   ehFormato,
   ehStatus,
@@ -18,6 +19,17 @@ const ROTA = "/ativo-de-giro";
 
 function erro(mensagem: string): never {
   redirect(`${ROTA}?erro=${encodeURIComponent(mensagem)}`);
+}
+
+/**
+ * A contagem pertence à revenda em que a pessoa está contando. O parque de
+ * AG é físico e fica num pátio só -- somar as duas unidades daria um saldo
+ * que não existe em lugar nenhum.
+ */
+async function exigirRevendaAG() {
+  const revendaId = await getRevendaId();
+  if (!revendaId) erro("Você não está em nenhuma revenda.");
+  return revendaId;
 }
 
 function lerCampos(formData: FormData) {
@@ -56,9 +68,12 @@ export async function registrarContagem(formData: FormData) {
 
   const campos = lerCampos(formData);
 
+  const revendaId = await exigirRevendaAG();
+
   const supabase = await createClient();
   const { error } = await supabase.from("ag_contagens").insert({
     ...campos,
+    revenda_id: revendaId,
     colaborador_id: perfil.id,
     colaborador_nome: perfil.nome,
   });
@@ -84,12 +99,18 @@ export async function editarContagem(formData: FormData) {
   const campos = lerCampos(formData);
   const gestor = await podeNoModulo("ativo-giro", "editar");
 
+  const revendaId = await exigirRevendaAG();
+
   if (gestor) {
     const admin = createAdminClient();
+    // O gestor alcança a contagem de qualquer pessoa, mas só dentro da
+    // revenda em que está -- o service role passa por cima da RLS, então
+    // esse limite precisa estar aqui.
     const { error } = await admin
       .from("ag_contagens")
       .update(campos)
-      .eq("id", id);
+      .eq("id", id)
+      .eq("revenda_id", revendaId);
     if (error) erro(`Não foi possível editar: ${error.message}`);
   } else {
     const supabase = await createClient();
@@ -117,7 +138,11 @@ export async function excluirContagem(formData: FormData) {
 
   if (gestor) {
     const admin = createAdminClient();
-    await admin.from("ag_contagens").delete().eq("id", id);
+    await admin
+      .from("ag_contagens")
+      .delete()
+      .eq("id", id)
+      .eq("revenda_id", await exigirRevendaAG());
   } else {
     const supabase = await createClient();
     const { error } = await supabase
@@ -153,6 +178,8 @@ export async function importarHistorico(formData: FormData) {
   }
   if (!Array.isArray(linhas)) erro("Formato de arquivo inesperado.");
 
+  const revendaId = await exigirRevendaAG();
+
   const registros = linhas.map((l) => {
     const c = l as Partial<Contagem> & { conferente?: string };
     if (!ehTipo(c.tipo) || !ehFormato(c.formato) || !ehStatus(c.status)) {
@@ -160,6 +187,7 @@ export async function importarHistorico(formData: FormData) {
     }
     return {
       data: String(c.data),
+      revenda_id: revendaId,
       colaborador_id: perfil.id,
       colaborador_nome: String(c.colaborador_nome ?? c.conferente ?? "Importado"),
       tipo: c.tipo,

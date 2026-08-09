@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { PageHeader } from "@/components/PageHeader";
 import { BotaoExcluir } from "@/components/BotaoExcluir";
 import { AREAS, ehPdf } from "@/lib/areas";
+import { exigirRevenda } from "@/lib/revendas";
 import { salvarEscala, removerEscala } from "./actions";
 
 export default async function AdminEscalaPage({
@@ -15,9 +16,11 @@ export default async function AdminEscalaPage({
   const { erro, sucesso } = await searchParams;
 
   const admin = createAdminClient();
+  const revendaId = await exigirRevenda("/admin");
   const { data: escalas } = await admin
     .from("escala_trabalho")
     .select("area, rotulo, arquivo_url, observacao, atualizado_em")
+    .eq("revenda_id", revendaId)
     .order("area", { ascending: true });
 
   const porArea = new Map((escalas ?? []).map((e) => [e.area, e]));

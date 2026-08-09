@@ -3,6 +3,8 @@
 import { redirect } from "next/navigation";
 import { requireOwner } from "@/lib/require-admin";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { exigirRevenda } from "@/lib/revendas";
+import { MODULOS_NOTIFICAVEIS } from "@/lib/notificacoes";
 
 function voltar(chave: "erro" | "sucesso", mensagem: string): never {
   redirect(`/admin/notificacoes?${chave}=${encodeURIComponent(mensagem)}`);
@@ -23,25 +25,35 @@ export async function salvarConfigAvisos(formData: FormData) {
   }
 
   const admin = createAdminClient();
-
-  const { data: modulos } = await admin
-    .from("notificacao_config")
-    .select("modulo");
+  const revendaId = await exigirRevenda("/admin/notificacoes");
 
   const ligados = new Set(formData.getAll("modulo").map(String));
   const agora = new Date().toISOString();
 
-  for (const m of modulos ?? []) {
-    await admin
-      .from("notificacao_config")
-      .update({ ativa: ligados.has(m.modulo), atualizado_em: agora })
-      .eq("modulo", m.modulo);
-  }
+  // Upsert da lista inteira em vez de atualizar o que já existe: numa
+  // revenda nova ainda não há linha nenhuma, e o laço antigo não gravaria
+  // nada -- a tela diria "salvo" sem ter salvo.
+  const linhas = MODULOS_NOTIFICAVEIS.map((modulo) => ({
+    revenda_id: revendaId,
+    modulo,
+    ativa: ligados.has(modulo),
+    atualizado_em: agora,
+  }));
 
-  const { error } = await admin
-    .from("notificacao_ajustes")
-    .update({ hora_lembrete_feedback: hora, max_por_acesso: maximo })
-    .eq("id", 1);
+  const { error: erroModulos } = await admin
+    .from("notificacao_config")
+    .upsert(linhas, { onConflict: "revenda_id,modulo" });
+
+  if (erroModulos) voltar("erro", erroModulos.message);
+
+  const { error } = await admin.from("notificacao_ajustes").upsert(
+    {
+      revenda_id: revendaId,
+      hora_lembrete_feedback: hora,
+      max_por_acesso: maximo,
+    },
+    { onConflict: "revenda_id" },
+  );
 
   if (error) voltar("erro", error.message);
   voltar("sucesso", "Configuração salva.");
@@ -62,7 +74,8 @@ export async function silenciarAviso(formData: FormData) {
   const { error } = await admin
     .from("notificacoes")
     .update({ ativa: false })
-    .eq("id", id);
+    .eq("id", id)
+    .eq("revenda_id", await exigirRevenda("/admin/notificacoes"));
 
   if (error) voltar("erro", error.message);
   voltar("sucesso", "Aviso retirado do ar.");

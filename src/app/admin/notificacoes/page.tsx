@@ -1,6 +1,7 @@
 import { decodificar } from "@/lib/texto-url";
 import { requireOwner } from "@/lib/require-admin";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { exigirRevenda } from "@/lib/revendas";
 import { PageHeader } from "@/components/PageHeader";
 import {
   EMOJI_MODULO,
@@ -30,21 +31,24 @@ export default async function AdminNotificacoesPage({
   const { erro, sucesso } = await searchParams;
 
   const admin = createAdminClient();
+  const revendaId = await exigirRevenda("/admin");
 
   const [{ data: config }, { data: ajustes }, { data: recentes }] =
     await Promise.all([
       admin
         .from("notificacao_config")
         .select("modulo, ativa")
+        .eq("revenda_id", revendaId)
         .order("modulo", { ascending: true }),
       admin
         .from("notificacao_ajustes")
         .select("hora_lembrete_feedback, max_por_acesso")
-        .eq("id", 1)
+        .eq("revenda_id", revendaId)
         .maybeSingle(),
       admin
         .from("notificacoes")
         .select("id, modulo, titulo, mensagem, criado_em, ativa")
+        .eq("revenda_id", revendaId)
         .order("criado_em", { ascending: false })
         .limit(20),
     ]);

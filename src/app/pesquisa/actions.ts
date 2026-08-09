@@ -2,6 +2,7 @@
 
 import { getUsuarioId } from "@/lib/sessao";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getRevendaId } from "@/lib/revendas";
 import {
   dentroDoPeriodo,
   ehMotivoValido,
@@ -10,12 +11,16 @@ import {
   type ConfigPesquisa,
 } from "@/lib/pesquisa";
 
+/** Cada revenda abre e fecha a própria pesquisa, no próprio ciclo. */
 async function lerConfig(): Promise<ConfigPesquisa | null> {
+  const revendaId = await getRevendaId();
+  if (!revendaId) return null;
+
   const admin = createAdminClient();
   const { data } = await admin
     .from("pesquisa_config")
     .select("ativa, inicio, fim, ciclo, titulo")
-    .eq("id", 1)
+    .eq("revenda_id", revendaId)
     .maybeSingle();
   return data;
 }
@@ -39,10 +44,14 @@ export async function situacaoDaPesquisa(): Promise<SituacaoPesquisa> {
 
   // Já respondeu neste ciclo? O ciclo é a chave: ao trocá-lo, esta consulta
   // deixa de encontrar a resposta antiga e a pessoa é convidada de novo.
+  const revendaId = await getRevendaId();
+  if (!revendaId) return { mostrar: false };
+
   const admin = createAdminClient();
   const { data: jaRespondeu } = await admin
     .from("pesquisa_respostas")
     .select("id")
+    .eq("revenda_id", revendaId)
     .eq("colaborador_id", usuarioId)
     .eq("ciclo", config.ciclo)
     .maybeSingle();
@@ -84,8 +93,12 @@ export async function responderPesquisa(dados: {
     return { ok: false, erro: "Conte para nós o que podemos melhorar." };
   }
 
+  const revendaId = await getRevendaId();
+  if (!revendaId) return { ok: false, erro: "Você não está em nenhuma revenda." };
+
   const admin = createAdminClient();
   const { error } = await admin.from("pesquisa_respostas").insert({
+    revenda_id: revendaId,
     colaborador_id: usuarioId,
     ciclo: config.ciclo,
     nota,

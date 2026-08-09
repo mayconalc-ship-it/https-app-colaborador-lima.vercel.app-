@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { requireModulo, requireOwner } from "@/lib/require-admin";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { exigirRevenda } from "@/lib/revendas";
 import { ehFormato, ehTipo, inteiro } from "@/lib/ativo-giro";
 
 const ROTA = "/admin/ativo-de-giro";
@@ -24,12 +25,17 @@ export async function salvarParque(formData: FormData) {
   const quantidade = inteiro(formData.get("quantidade"));
 
   const admin = createAdminClient();
-  const { error } = await admin
-    .from("ag_parque")
-    .upsert(
-      { tipo, formato, quantidade, atualizado_em: new Date().toISOString() },
-      { onConflict: "tipo,formato" },
-    );
+  const revendaId = await exigirRevenda(ROTA);
+  const { error } = await admin.from("ag_parque").upsert(
+    {
+      revenda_id: revendaId,
+      tipo,
+      formato,
+      quantidade,
+      atualizado_em: new Date().toISOString(),
+    },
+    { onConflict: "revenda_id,tipo,formato" },
+  );
 
   if (error) erro(`Não foi possível salvar o parque: ${error.message}`);
 
@@ -50,12 +56,17 @@ export async function salvarFator(formData: FormData) {
   if (palete === 0 || lastro === 0) erro("Palete e lastro precisam ser maiores que zero.");
 
   const admin = createAdminClient();
-  const { error } = await admin
-    .from("ag_fatores")
-    .upsert(
-      { formato, palete, lastro, atualizado_em: new Date().toISOString() },
-      { onConflict: "formato" },
-    );
+  const revendaId = await exigirRevenda(ROTA);
+  const { error } = await admin.from("ag_fatores").upsert(
+    {
+      revenda_id: revendaId,
+      formato,
+      palete,
+      lastro,
+      atualizado_em: new Date().toISOString(),
+    },
+    { onConflict: "revenda_id,formato" },
+  );
 
   if (error) erro(`Não foi possível salvar o fator: ${error.message}`);
 
@@ -77,9 +88,18 @@ export async function concederAcessoAtivoGiro(formData: FormData) {
   if (!id) erro("Colaborador inválido.");
 
   const admin = createAdminClient();
+  const revendaId = await exigirRevenda(ROTA);
+
+  // A liberação vale na revenda em que o Admin está. A mesma pessoa pode
+  // usar o módulo numa unidade e não na outra.
   const { error } = await admin.from("colaborador_modulos_extra").upsert(
-    { colaborador_id: id, modulo: MODULO, liberado_por: eu.id },
-    { onConflict: "colaborador_id,modulo" },
+    {
+      colaborador_id: id,
+      revenda_id: revendaId,
+      modulo: MODULO,
+      liberado_por: eu.id,
+    },
+    { onConflict: "colaborador_id,revenda_id,modulo" },
   );
 
   if (error) erro(`Não foi possível liberar: ${error.message}`);
@@ -97,10 +117,12 @@ export async function revogarAcessoAtivoGiro(formData: FormData) {
   if (!id) erro("Colaborador inválido.");
 
   const admin = createAdminClient();
+  const revendaId = await exigirRevenda(ROTA);
   const { error } = await admin
     .from("colaborador_modulos_extra")
     .delete()
     .eq("colaborador_id", id)
+    .eq("revenda_id", revendaId)
     .eq("modulo", MODULO);
 
   if (error) erro(`Não foi possível revogar: ${error.message}`);

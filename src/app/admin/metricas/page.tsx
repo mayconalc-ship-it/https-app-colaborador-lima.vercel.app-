@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { requireModulo } from "@/lib/require-admin";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { exigirRevenda } from "@/lib/revendas";
 import { PageHeader } from "@/components/PageHeader";
 import { PainelAoVivo } from "@/components/PainelAoVivo";
 import { formatarDuracao, nomeDaTela } from "@/lib/metricas";
@@ -52,6 +53,18 @@ export default async function AdminMetricasPage({
   const desdeIso = desde.toISOString();
 
   const admin = createAdminClient();
+  const revendaId = await exigirRevenda("/admin");
+
+  // O uso é medido pelas PESSOAS da revenda, não por uma coluna na tabela
+  // de eventos: o registro é gravado pelo navegador, que não sabe (nem
+  // deveria decidir) de qual revenda a sessão é. Partir de quem pertence à
+  // revenda dá o mesmo número sem depender do cliente.
+  const { data: daRevenda } = await admin
+    .from("colaborador_revendas")
+    .select("colaborador_id")
+    .eq("revenda_id", revendaId);
+
+  const idsDaRevenda = (daRevenda ?? []).map((v) => v.colaborador_id);
 
   const [
     { data: sessoes },
@@ -63,17 +76,23 @@ export default async function AdminMetricasPage({
     admin
       .from("uso_sessoes")
       .select("colaborador_id, segundos, iniciada_em")
+      .in("colaborador_id", idsDaRevenda)
       .gte("iniciada_em", desdeIso),
     admin
       .from("eventos_acesso")
       .select("colaborador_id, tipo, alvo")
+      .in("colaborador_id", idsDaRevenda)
       .gte("criado_em", desdeIso),
-    admin.from("profiles").select("id, nome, cpf, cargo, role"),
+    admin
+      .from("profiles")
+      .select("id, nome, cpf, cargo, role")
+      .in("id", idsDaRevenda),
     // Sem recorte de período: "nunca entrou" e "último acesso" são perguntas
     // sobre a vida toda do app, não sobre a última semana.
     admin
       .from("uso_sessoes")
       .select("colaborador_id, iniciada_em")
+      .in("colaborador_id", idsDaRevenda)
       .order("iniciada_em", { ascending: false })
       .limit(20000),
     // Semente do feed ao vivo: sem isso ele abriria vazio e só ganharia
@@ -81,6 +100,7 @@ export default async function AdminMetricasPage({
     admin
       .from("eventos_acesso")
       .select("id, nome, tipo, alvo, criado_em")
+      .in("colaborador_id", idsDaRevenda)
       .order("criado_em", { ascending: false })
       .limit(25),
   ]);

@@ -5,7 +5,8 @@ import { revalidatePath } from "next/cache";
 import { requireModulo } from "@/lib/require-admin";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { criarOuAgrupar } from "@/lib/notificacoes-server";
-import { ehAreaValida } from "@/lib/areas";
+import { AREAS, ehAreaValida } from "@/lib/areas";
+import { exigirRevenda } from "@/lib/revendas";
 
 function caminhoDoStorage(arquivoUrl: string) {
   const prefixo = "/storage/v1/object/public/conteudo/";
@@ -24,10 +25,12 @@ export async function salvarEscala(formData: FormData) {
   if (!ehAreaValida(area)) redirect("/admin/escala?erro=Área+inválida");
 
   const admin = createAdminClient();
+  const revendaId = await exigirRevenda("/admin/escala");
 
   const { data: atual } = await admin
     .from("escala_trabalho")
     .select("arquivo_url")
+    .eq("revenda_id", revendaId)
     .eq("area", area)
     .maybeSingle();
 
@@ -37,7 +40,7 @@ export async function salvarEscala(formData: FormData) {
 
   if (arquivo && arquivo.size > 0) {
     const extensao = (arquivo.name.split(".").pop() ?? "pdf").toLowerCase();
-    const caminho = `escala/${area}-${Date.now()}.${extensao}`;
+    const caminho = `${revendaId}/escala/${area}-${Date.now()}.${extensao}`;
 
     const { error: uploadError } = await admin.storage
       .from("conteudo")
@@ -53,15 +56,21 @@ export async function salvarEscala(formData: FormData) {
     tipo = extensao;
   }
 
-  const { error } = await admin
-    .from("escala_trabalho")
-    .update({
+  // Upsert, e não update: a linha da área só existe depois que alguém
+  // salva a escala pela primeira vez, e numa revenda nova ela não existe.
+  // Um update simples não gravaria nada e a tela mentiria "salvo".
+  const { error } = await admin.from("escala_trabalho").upsert(
+    {
+      revenda_id: revendaId,
+      area,
+      rotulo: AREAS.find((a) => a.id === area)?.rotulo ?? area,
       arquivo_url: arquivoUrl,
       ...(tipo ? { tipo } : {}),
       observacao: observacao || null,
       atualizado_em: new Date().toISOString(),
-    })
-    .eq("area", area);
+    },
+    { onConflict: "revenda_id,area" },
+  );
 
   if (error) {
     redirect(`/admin/escala?erro=${encodeURIComponent(error.message)}`);
@@ -92,10 +101,12 @@ export async function removerEscala(formData: FormData) {
   if (!ehAreaValida(area)) redirect("/admin/escala?erro=Área+inválida");
 
   const admin = createAdminClient();
+  const revendaId = await exigirRevenda("/admin/escala");
 
   const { data: atual } = await admin
     .from("escala_trabalho")
     .select("arquivo_url")
+    .eq("revenda_id", revendaId)
     .eq("area", area)
     .maybeSingle();
 
@@ -106,6 +117,7 @@ export async function removerEscala(formData: FormData) {
       tipo: null,
       atualizado_em: new Date().toISOString(),
     })
+    .eq("revenda_id", revendaId)
     .eq("area", area);
 
   if (error) {
