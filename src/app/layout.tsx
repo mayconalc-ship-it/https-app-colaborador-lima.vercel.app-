@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { getPerfil, getUsuarioId } from "@/lib/sessao";
+import { getRevendaAtiva } from "@/lib/revendas";
 import { LogoutButton } from "@/components/LogoutButton";
 import { SessaoInvalida } from "@/components/SessaoInvalida";
 import { RegistroDeUso } from "@/components/RegistroDeUso";
@@ -9,6 +10,7 @@ import { PresencaAoVivo } from "@/components/PresencaAoVivo";
 import { PesquisaSatisfacao } from "@/components/PesquisaSatisfacao";
 import { BotaoLideranca } from "@/components/BotaoLideranca";
 import { Notificacoes } from "@/components/Notificacoes";
+import { SeletorRevenda } from "@/components/SeletorRevenda";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -42,12 +44,21 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const [usuarioId, perfil] = await Promise.all([getUsuarioId(), getPerfil()]);
+  const [usuarioId, perfil, revenda] = await Promise.all([
+    getUsuarioId(),
+    getPerfil(),
+    getRevendaAtiva(),
+  ]);
   const user = perfil ? { id: perfil.id } : null;
 
   // Login válido mas sem cadastro (conta removida, por exemplo): mostramos
   // um aviso com saída em vez da tela quebrada, sem "Olá!" sem nome.
   const sessaoOrfa = Boolean(usuarioId) && !perfil;
+
+  // Cadastrado, mas sem vínculo com revenda nenhuma. Não é erro da pessoa:
+  // é cadastro pela metade. O app não tem o que mostrar -- todo conteúdo
+  // pertence a uma revenda -- então avisa em vez de abrir vazio.
+  const semRevenda = Boolean(perfil) && !revenda;
 
   return (
     <html lang="pt-BR">
@@ -77,6 +88,7 @@ export default async function RootLayout({
             </div>
             {user && (
               <nav className="ml-auto flex shrink-0 items-center gap-1.5 sm:gap-2">
+                <SeletorRevenda />
                 <Notificacoes />
                 <BotaoLideranca />
                 <Link
@@ -92,7 +104,16 @@ export default async function RootLayout({
           </div>
         </header>
         <main className="mx-auto max-w-3xl px-4 py-6">
-          {sessaoOrfa ? <SessaoInvalida /> : children}
+          {sessaoOrfa ? (
+            <SessaoInvalida />
+          ) : semRevenda ? (
+            <SessaoInvalida
+              titulo="Cadastro sem revenda"
+              mensagem="Seu acesso ainda não foi vinculado a uma revenda. Peça ao Admin para concluir o cadastro."
+            />
+          ) : (
+            children
+          )}
         </main>
         {perfil && (
           <>
