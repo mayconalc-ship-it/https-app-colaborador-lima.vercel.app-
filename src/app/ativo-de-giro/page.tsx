@@ -42,6 +42,7 @@ export default async function AtivoDeGiroPage({
     data?: string;
     de?: string;
     ate?: string;
+    quem?: string;
     erro?: string;
     sucesso?: string;
   }>;
@@ -63,6 +64,7 @@ export default async function AtivoDeGiroPage({
   const dia = sp.data ?? hojeISO();
   const de = sp.de ?? diasAtrasISO(30);
   const ate = sp.ate ?? hojeISO();
+  const quem = (sp.quem ?? "").trim();
 
   // Conciliação, painel e histórico enxergam o trabalho do time inteiro --
   // a RLS de ag_contagens já libera leitura para qualquer autenticado, então
@@ -93,13 +95,17 @@ export default async function AtivoDeGiroPage({
       ? supabase.from("ag_contagens").select(colunas).eq("data", dia).order("id")
       : Promise.resolve({ data: null }),
     aba === "historico"
-      ? supabase
-          .from("ag_contagens")
-          .select(colunas)
-          .gte("data", de)
-          .lte("data", ate)
-          .order("data", { ascending: false })
-          .order("id", { ascending: false })
+      ? (() => {
+          let consulta = supabase
+            .from("ag_contagens")
+            .select(colunas)
+            .gte("data", de)
+            .lte("data", ate);
+          if (quem) consulta = consulta.ilike("colaborador_nome", `%${quem}%`);
+          return consulta
+            .order("data", { ascending: false })
+            .order("id", { ascending: false });
+        })()
       : Promise.resolve({ data: null }),
     podeNoModulo("ativo-giro", "editar"),
     podeNoModulo("ativo-giro", "excluir"),
@@ -149,7 +155,7 @@ export default async function AtivoDeGiroPage({
         {ABAS.map((a) => (
           <a
             key={a.id}
-            href={`/ativo-de-giro?aba=${a.id}&data=${dia}&de=${de}&ate=${ate}`}
+            href={`/ativo-de-giro?aba=${a.id}&data=${dia}&de=${de}&ate=${ate}&quem=${encodeURIComponent(quem)}`}
             className={`rounded-xl px-3 py-2 text-sm font-semibold ${
               a.id === aba
                 ? "bg-primary text-white"
@@ -378,6 +384,22 @@ export default async function AtivoDeGiroPage({
                 Até
               </label>
               <input id="ate" type="date" name="ate" defaultValue={ate} className={campo} />
+            </div>
+            <div className="min-w-[10rem] flex-1">
+              <label
+                className="mb-1 block text-xs font-semibold uppercase text-slate-500"
+                htmlFor="quem"
+              >
+                Colaborador
+              </label>
+              <input
+                id="quem"
+                type="text"
+                name="quem"
+                placeholder="Nome do colaborador"
+                defaultValue={quem}
+                className={campo}
+              />
             </div>
             <button
               type="submit"
