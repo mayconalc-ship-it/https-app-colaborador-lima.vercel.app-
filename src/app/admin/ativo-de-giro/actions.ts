@@ -64,22 +64,6 @@ export async function salvarFator(formData: FormData) {
   redirect(`${ROTA}?aba=config&sucesso=Fator+atualizado`);
 }
 
-/** Remove uma contagem de qualquer pessoa -- exclusivo de quem tem a permissao. */
-export async function excluirContagemAdmin(formData: FormData) {
-  await requireModulo("ativo-giro", "excluir");
-
-  const id = Number(formData.get("id"));
-  if (!Number.isInteger(id)) erro("Contagem inválida.");
-
-  const admin = createAdminClient();
-  const { error } = await admin.from("ag_contagens").delete().eq("id", id);
-  if (error) erro(`Não foi possível excluir: ${error.message}`);
-
-  revalidatePath(ROTA);
-  revalidatePath("/ativo-de-giro");
-  redirect(`${ROTA}?aba=historico&sucesso=Contagem+excluída`);
-}
-
 /**
  * Libera o modulo para um colaborador comum ver e lancar contagem.
  *
