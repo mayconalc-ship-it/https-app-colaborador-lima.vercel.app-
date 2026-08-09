@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { getPerfil, getConcessoes } from "@/lib/sessao";
+import { createAdminClient } from "@/lib/supabase/admin";
 import {
   chaveDaPermissao,
   ehOwner,
@@ -64,6 +65,46 @@ export async function podeNoModulo(modulo: ModuloId, acao: Acao) {
   if (!perfil) return false;
   const concessoes = await getConcessoes();
   return podeFazer(perfil.role, concessoes, modulo, acao);
+}
+
+/**
+ * Módulos opcionais (ex.: Ativo de Giro) começam invisíveis para todo mundo.
+ * O dono libera colaborador por colaborador em `colaborador_modulos_extra`.
+ * Quem já administra o módulo (gestor com "ver") ou é dono passa direto.
+ */
+export async function temAcessoModulo(modulo: ModuloId) {
+  const perfil = await getPerfil();
+  if (!perfil) return false;
+  if (ehOwner(perfil.role)) return true;
+
+  const concessoes = await getConcessoes();
+  if (podeFazer(perfil.role, concessoes, modulo, "ver")) return true;
+
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("colaborador_modulos_extra")
+    .select("modulo")
+    .eq("colaborador_id", perfil.id)
+    .eq("modulo", modulo)
+    .maybeSingle();
+
+  return Boolean(data);
+}
+
+/** Versão que redireciona em vez de responder, para proteger a tela inteira. */
+export async function requireAcessoModulo(modulo: ModuloId, destino = "/") {
+  const perfil = await getPerfil();
+  if (!perfil) redirect("/login");
+
+  if (!(await temAcessoModulo(modulo))) {
+    redirect(
+      `${destino}?erro=${encodeURIComponent(
+        "Você não tem acesso a este módulo. Fale com o Admin.",
+      )}`,
+    );
+  }
+
+  return perfil;
 }
 
 export { chaveDaPermissao };

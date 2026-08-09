@@ -27,7 +27,8 @@ export type ModuloId =
   | "metricas"
   | "pesquisa"
   | "menu"
-  | "rotas";
+  | "rotas"
+  | "ativo-giro";
 
 export type Modulo = {
   id: ModuloId;
@@ -97,6 +98,14 @@ export const MODULOS: Modulo[] = [
     href: "/admin/rv",
     grupo: "Conteúdo do app",
     acoes: ["ver", "editar"],
+  },
+  {
+    id: "ativo-giro",
+    rotulo: "Ativo de Giro",
+    emoji: "📦",
+    href: "/admin/ativo-de-giro",
+    grupo: "Conteúdo do app",
+    acoes: ["ver", "criar", "editar", "excluir"],
   },
   {
     id: "colaboradores",

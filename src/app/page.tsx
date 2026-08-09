@@ -2,22 +2,37 @@ import { MenuCard } from "@/components/MenuCard";
 import { createClient } from "@/lib/supabase/server";
 import { getPerfil } from "@/lib/sessao";
 import { MENU_PADRAO } from "@/lib/menu";
+import { temAcessoModulo } from "@/lib/require-admin";
+
+// Itens de menu que, além de "visivel", exigem uma permissão específica
+// antes de aparecer. Módulos opcionais entram aqui.
+const MODULOS_RESTRITOS: Record<string, "ativo-giro"> = {
+  "ativo-giro": "ativo-giro",
+};
 
 export default async function Home() {
   const supabase = await createClient();
 
-  // As duas consultas nao dependem uma da outra: buscamos em paralelo.
-  const [perfil, { data: itensBanco }] = await Promise.all([
+  // As tres consultas nao dependem uma da outra: buscamos em paralelo.
+  const [perfil, { data: itensBanco }, acessoAtivoGiro] = await Promise.all([
     getPerfil(),
     supabase
       .from("menu_itens")
       .select("chave, titulo, emoji, href, ordem, visivel")
-      .eq("visivel", true)
       .order("ordem", { ascending: true }),
+    temAcessoModulo("ativo-giro"),
   ]);
 
   const primeiroNome = perfil?.nome?.split(" ")[0] ?? "";
-  const itens = itensBanco && itensBanco.length > 0 ? itensBanco : MENU_PADRAO;
+  const acessosExtras: Record<string, boolean> = {
+    "ativo-giro": acessoAtivoGiro,
+  };
+  const todos = itensBanco && itensBanco.length > 0 ? itensBanco : MENU_PADRAO;
+  const itens = todos.filter((item) => {
+    if (!item.visivel) return false;
+    const restricao = MODULOS_RESTRITOS[item.chave];
+    return !restricao || acessosExtras[restricao];
+  });
 
   return (
     <div>
