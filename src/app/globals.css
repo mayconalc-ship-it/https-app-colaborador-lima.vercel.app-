@@ -44,6 +44,140 @@ body {
   overflow-wrap: break-word;
 }
 
+/* ---------------------------------------------------------------------
+   Resposta ao toque
+   ---------------------------------------------------------------------
+   No celular o unico sinal de que o toque "pegou" e o proprio botao
+   reagir. Sem isso a pessoa acha que falhou e toca de novo -- e aqui um
+   toque a mais vira contagem duplicada, curtida desfeita, envio repetido.
+
+   Fica no CSS global de proposito: sao ~110 botoes espalhados em 40
+   arquivos, e um dia alguem cria o 111. Regra central pega todos, e os
+   novos ja nascem certos.
+
+   O seletor de link (a[class*="rounded"]) mira os <a> que se parecem com
+   botao ou cartao neste app -- todos usam rounded-*. Link de texto
+   corrido nao tem canto arredondado e fica de fora, como deve ser. */
+button,
+a,
+label,
+select,
+summary,
+[role="button"] {
+  /* Tira o retangulo cinza do Android e o atraso de 300ms do toque. */
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+button:not(:disabled),
+a[class*="rounded"],
+[role="button"]:not([aria-disabled="true"]) {
+  transition:
+    transform 100ms ease,
+    filter 100ms ease;
+}
+
+button:not(:disabled):active,
+a[class*="rounded"]:active,
+[role="button"]:not([aria-disabled="true"]):active {
+  transform: scale(0.97);
+  filter: brightness(0.94);
+}
+
+/* Botao ocupado nao deve responder ao toque: o afundar sugeriria que o
+   clique valeu de novo. */
+button:disabled,
+[aria-disabled="true"] {
+  cursor: not-allowed;
+}
+
+/* ---------------------------------------------------------------------
+   Espera
+   --------------------------------------------------------------------- */
+
+/* Bolinha que confirma o toque num link enquanto a proxima tela carrega.
+   Ocupa o espaco sempre (visibility, nao display) para nao empurrar o
+   layout ao aparecer, e so aparece depois de 120ms -- navegacao rapida
+   nao pisca nada. */
+.dica-link {
+  display: inline-block;
+  width: 0.55em;
+  height: 0.55em;
+  border-radius: 9999px;
+  background: currentColor;
+  opacity: 0;
+  visibility: hidden;
+}
+
+.dica-link.carregando {
+  visibility: visible;
+  animation-name: dica-surge, dica-pulsa;
+  animation-duration: 200ms, 1s;
+  animation-delay: 120ms, 120ms;
+  animation-timing-function: ease, ease-in-out;
+  animation-iteration-count: 1, infinite;
+  animation-fill-mode: forwards, none;
+}
+
+@keyframes dica-surge {
+  to {
+    opacity: 0.4;
+  }
+}
+@keyframes dica-pulsa {
+  50% {
+    opacity: 0.12;
+  }
+}
+
+/* Rodinha de "processando" dentro de botoes. Herda a cor do texto do
+   botao, entao serve no azul e no branco sem variante. */
+.rodinha {
+  display: inline-block;
+  width: 1em;
+  height: 1em;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 9999px;
+  animation: rodinha-gira 600ms linear infinite;
+}
+
+@keyframes rodinha-gira {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Entrada dos avisos flutuantes (toasts). */
+@keyframes toast-entra {
+  from {
+    opacity: 0;
+    transform: translateY(0.75rem);
+  }
+}
+
+.toast-entra {
+  animation: toast-entra 180ms ease-out;
+}
+
+/* Quem pediu menos animacao no sistema recebe o retorno sem movimento:
+   o escurecer do :active continua, que e o que informa. */
+@media (prefers-reduced-motion: reduce) {
+  button:not(:disabled):active,
+  a[class*="rounded"]:active,
+  [role="button"]:not([aria-disabled="true"]):active {
+    transform: none;
+  }
+  .dica-link.carregando,
+  .rodinha,
+  .toast-entra {
+    animation: none;
+  }
+  .dica-link.carregando {
+    opacity: 0.4;
+  }
+}
+
 /* Faixas que rolam para o lado (filtros por editoria, por exemplo). No
    celular a barra de rolagem nativa ficava colada nos botoes; escondemos a
    barra e o proprio corte dos itens na borda ja mostra que ha mais conteudo. */

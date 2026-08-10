@@ -2,25 +2,28 @@
 
 import { useState } from "react";
 import { PageHeader } from "@/components/PageHeader";
+import { useToast } from "@/components/Toast";
 import { createClient } from "@/lib/supabase/client";
 import { CHAVE_SENHA_ALTERADA, validarNovaSenha } from "@/lib/senha";
 
 export default function MinhaContaPage() {
   const [novaSenha, setNovaSenha] = useState("");
   const [confirmarSenha, setConfirmarSenha] = useState("");
-  const [mensagem, setMensagem] = useState<{
-    tipo: "erro" | "sucesso";
-    texto: string;
-  } | null>(null);
+  // Erro de preenchimento continua colado no formulário: ele fala dos
+  // campos ali em cima e precisa ficar na tela enquanto a pessoa corrige.
+  // O que virou toast foi a confirmação -- ela aparecia embaixo do botão,
+  // e depois de limpar os campos não sobrava sinal nenhum de que salvou.
+  const [erro, setErro] = useState<string | null>(null);
   const [carregando, setCarregando] = useState(false);
+  const toast = useToast();
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setMensagem(null);
+    setErro(null);
 
     const problema = validarNovaSenha(novaSenha, confirmarSenha);
     if (problema) {
-      setMensagem({ tipo: "erro", texto: problema });
+      setErro(problema);
       return;
     }
 
@@ -33,10 +36,7 @@ export default function MinhaContaPage() {
 
     if (error) {
       setCarregando(false);
-      setMensagem({
-        tipo: "erro",
-        texto: "Não foi possível trocar a senha. Tente novamente.",
-      });
+      setErro("Não foi possível trocar a senha. Tente novamente.");
       return;
     }
 
@@ -46,7 +46,7 @@ export default function MinhaContaPage() {
 
     setNovaSenha("");
     setConfirmarSenha("");
-    setMensagem({ tipo: "sucesso", texto: "Senha alterada com sucesso!" });
+    toast.sucesso("Senha alterada com sucesso!");
   }
 
   return (
@@ -90,22 +90,18 @@ export default function MinhaContaPage() {
             minLength={6}
           />
         </div>
-        {mensagem && (
-          <p
-            className={
-              mensagem.tipo === "erro"
-                ? "text-sm text-red-600"
-                : "text-sm text-green-700"
-            }
-          >
-            {mensagem.texto}
+        {erro && (
+          <p role="alert" className="text-sm text-red-600">
+            {erro}
           </p>
         )}
         <button
           type="submit"
           disabled={carregando}
-          className="w-full rounded-xl bg-primary py-3 font-semibold text-white hover:bg-primary-dark disabled:opacity-60"
+          aria-busy={carregando}
+          className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-3 font-semibold text-white hover:bg-primary-dark disabled:cursor-not-allowed disabled:opacity-60"
         >
+          {carregando && <span className="rodinha" aria-hidden="true" />}
           {carregando ? "Salvando..." : "Salvar nova senha"}
         </button>
       </form>

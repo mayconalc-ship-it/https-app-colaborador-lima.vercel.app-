@@ -11,6 +11,7 @@ import { PesquisaSatisfacao } from "@/components/PesquisaSatisfacao";
 import { BotaoLideranca } from "@/components/BotaoLideranca";
 import { Notificacoes } from "@/components/Notificacoes";
 import { SeletorRevenda } from "@/components/SeletorRevenda";
+import { ToastProvider } from "@/components/Toast";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -63,69 +64,71 @@ export default async function RootLayout({
   return (
     <html lang="pt-BR">
       <body className="min-h-screen bg-background font-sans text-foreground antialiased">
-        <header className="relative bg-primary text-white">
-          <div className="mx-auto flex max-w-3xl items-center gap-2 px-3 py-3 sm:gap-3 sm:px-4 sm:py-4">
-            <div className="flex h-11 shrink-0 items-center rounded-lg bg-white px-2 py-1 shadow-md sm:h-14 sm:rounded-xl sm:px-3 sm:py-2">
-              <Image
-                src="/logo-v2.png"
-                alt="Cervejaria Ambev Lima"
-                width={195}
-                height={130}
-                quality={100}
-                className="h-8 w-auto object-contain sm:h-11"
-                priority
+        <ToastProvider>
+          <header className="relative bg-primary text-white">
+            <div className="mx-auto flex max-w-3xl items-center gap-2 px-3 py-3 sm:gap-3 sm:px-4 sm:py-4">
+              <div className="flex h-11 shrink-0 items-center rounded-lg bg-white px-2 py-1 shadow-md sm:h-14 sm:rounded-xl sm:px-3 sm:py-2">
+                <Image
+                  src="/logo-v2.png"
+                  alt="Cervejaria Ambev Lima"
+                  width={195}
+                  height={130}
+                  quality={100}
+                  className="h-8 w-auto object-contain sm:h-11"
+                  priority
+                />
+              </div>
+              {/* No celular o titulo sai: o logo ja identifica, e o espaco e
+                  necessario para os botoes caberem sem cortar. */}
+              <div className="hidden min-w-0 flex-1 sm:block">
+                <p className="text-base font-bold leading-tight">
+                  App do Colaborador
+                </p>
+                <p className="text-xs font-medium leading-tight text-gold">
+                  LIMA Logística
+                </p>
+              </div>
+              {user && (
+                <nav className="ml-auto flex shrink-0 items-center gap-1.5 sm:gap-2">
+                  <SeletorRevenda />
+                  <Notificacoes />
+                  <BotaoLideranca />
+                  <Link
+                    href="/minha-conta"
+                    className="rounded-lg bg-white/10 px-2 py-1.5 text-sm font-medium hover:bg-white/20"
+                  >
+                    <span className="sm:hidden">Conta</span>
+                    <span className="hidden sm:inline">Minha conta</span>
+                  </Link>
+                  <LogoutButton />
+                </nav>
+              )}
+            </div>
+          </header>
+          <main className="mx-auto max-w-3xl px-4 py-6">
+            {sessaoOrfa ? (
+              <SessaoInvalida />
+            ) : semRevenda ? (
+              <SessaoInvalida
+                titulo="Cadastro sem revenda"
+                mensagem="Seu acesso ainda não foi vinculado a uma revenda. Peça ao Admin para concluir o cadastro."
               />
-            </div>
-            {/* No celular o titulo sai: o logo ja identifica, e o espaco e
-                necessario para os botoes caberem sem cortar. */}
-            <div className="hidden min-w-0 flex-1 sm:block">
-              <p className="text-base font-bold leading-tight">
-                App do Colaborador
-              </p>
-              <p className="text-xs font-medium leading-tight text-gold">
-                LIMA Logística
-              </p>
-            </div>
-            {user && (
-              <nav className="ml-auto flex shrink-0 items-center gap-1.5 sm:gap-2">
-                <SeletorRevenda />
-                <Notificacoes />
-                <BotaoLideranca />
-                <Link
-                  href="/minha-conta"
-                  className="rounded-lg bg-white/10 px-2 py-1.5 text-sm font-medium hover:bg-white/20"
-                >
-                  <span className="sm:hidden">Conta</span>
-                  <span className="hidden sm:inline">Minha conta</span>
-                </Link>
-                <LogoutButton />
-              </nav>
+            ) : (
+              children
             )}
-          </div>
-        </header>
-        <main className="mx-auto max-w-3xl px-4 py-6">
-          {sessaoOrfa ? (
-            <SessaoInvalida />
-          ) : semRevenda ? (
-            <SessaoInvalida
-              titulo="Cadastro sem revenda"
-              mensagem="Seu acesso ainda não foi vinculado a uma revenda. Peça ao Admin para concluir o cadastro."
-            />
-          ) : (
-            children
+          </main>
+          {perfil && (
+            <>
+              <RegistroDeUso />
+              <PresencaAoVivo
+                id={perfil.id}
+                nome={perfil.nome}
+                cargo={perfil.cargo}
+              />
+              <PesquisaSatisfacao />
+            </>
           )}
-        </main>
-        {perfil && (
-          <>
-            <RegistroDeUso />
-            <PresencaAoVivo
-              id={perfil.id}
-              nome={perfil.nome}
-              cargo={perfil.cargo}
-            />
-            <PesquisaSatisfacao />
-          </>
-        )}
+        </ToastProvider>
       </body>
     </html>
   );

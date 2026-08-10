@@ -180,7 +180,9 @@ export default function FeedbackRotaPage() {
         </div>
 
         {erro && (
-          <p className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{erro}</p>
+          <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">
+            {erro}
+          </p>
         )}
 
         <button
@@ -191,8 +193,10 @@ export default function FeedbackRotaPage() {
             (notaRuim(nota) && comentario.trim() === "") ||
             pendente
           }
-          className="w-full rounded-xl bg-primary py-4 font-semibold text-white hover:bg-primary-dark disabled:cursor-not-allowed disabled:opacity-50"
+          aria-busy={pendente}
+          className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-4 font-semibold text-white hover:bg-primary-dark disabled:cursor-not-allowed disabled:opacity-50"
         >
+          {pendente && <span className="rodinha" aria-hidden="true" />}
           {pendente
             ? "Enviando..."
             : nota === null
