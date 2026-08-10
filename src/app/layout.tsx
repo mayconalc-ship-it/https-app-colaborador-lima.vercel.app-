@@ -12,6 +12,7 @@ import { BotaoLideranca } from "@/components/BotaoLideranca";
 import { Notificacoes } from "@/components/Notificacoes";
 import { SeletorRevenda } from "@/components/SeletorRevenda";
 import { ToastProvider } from "@/components/Toast";
+import { SincronizarPush } from "@/components/SincronizarPush";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -126,6 +127,7 @@ export default async function RootLayout({
                 cargo={perfil.cargo}
               />
               <PesquisaSatisfacao />
+              <SincronizarPush />
             </>
           )}
         </ToastProvider>

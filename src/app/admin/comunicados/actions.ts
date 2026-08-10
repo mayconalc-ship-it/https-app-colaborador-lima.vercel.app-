@@ -6,6 +6,7 @@ import { requireModulo } from "@/lib/require-admin";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getRevendaId } from "@/lib/revendas";
 import { criarOuAgrupar } from "@/lib/notificacoes-server";
+import { enviarPushDaRevenda } from "@/lib/push-server";
 import { ehEditoriaValida } from "@/lib/comunicados";
 
 function caminhoDoStorage(arquivoUrl: string) {
@@ -101,6 +102,8 @@ export async function salvarComunicado(formData: FormData) {
     redirect(`/admin/comunicados?erro=${encodeURIComponent(error.message)}`);
   }
 
+  // Só matéria nova avisa. Corrigir um typo no título de ontem não pode
+  // tocar o celular de todo mundo de novo.
   if (!id) {
     await criarOuAgrupar({
       modulo: "comunicados",
@@ -108,6 +111,17 @@ export async function salvarComunicado(formData: FormData) {
       mensagem: titulo,
       url: "/comunicados",
       criadoPor: admin_.id,
+    });
+
+    // O sino é a fonte da verdade e alcança todo mundo; o push é o toque
+    // no ombro de quem está com o app fechado. Vem depois, e de propósito
+    // sem `await` bloqueante de erro: já falha calado por dentro.
+    await enviarPushDaRevenda(revendaId, {
+      modulo: "comunicados",
+      titulo: "Novidade no Jornal!",
+      mensagem: titulo,
+      url: "/comunicados",
+      exceto: admin_.id,
     });
   }
 

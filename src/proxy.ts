@@ -106,6 +106,9 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    // sw.js e manifest.json ficam de fora porque o navegador os busca por
+    // conta propria, fora da sessao. Se o proxy os redirecionasse para
+    // /login, o registro do service worker falharia -- e o push junto.
+    "/((?!_next/static|_next/image|favicon.ico|sw.js|manifest.json|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };
