@@ -12,20 +12,25 @@ import {
   atualizarColaborador,
   excluirColaborador,
   promoverColaborador,
-  salvarVinculos,
 } from "./actions";
 
 export default async function AdminColaboradoresPage({
   searchParams,
 }: {
-  searchParams: Promise<{ busca?: string; erro?: string; sucesso?: string }>;
+  searchParams: Promise<{
+    busca?: string;
+    revenda?: string;
+    erro?: string;
+    sucesso?: string;
+  }>;
 }) {
   const usuarioAtual = await requireModulo("colaboradores", "ver");
   // O botão de promover só existe para quem tem essa permissão específica.
   const podePromover = await podeNoModulo("colaboradores", "promover");
   // Mexer em vínculo é só do dono: decide o que a pessoa vê do app inteiro.
   const souDono = ehOwner(usuarioAtual.role);
-  const { busca = "", erro, sucesso } = await searchParams;
+  const { busca = "", revenda: filtroRevenda = "", erro, sucesso } =
+    await searchParams;
 
   const admin = createAdminClient();
   const revendaAtiva = await getRevendaAtiva();
@@ -41,22 +46,48 @@ export default async function AdminColaboradoresPage({
     );
   }
 
-  // A lista é sempre da revenda em que se está. Uma liderança de São Félix
-  // não tem o que fazer com o cadastro de quem é de Barreiras -- e o dono
-  // troca de revenda pelo seletor do topo quando precisa da outra.
-  const { data: daRevenda } = await admin
-    .from("colaborador_revendas")
-    .select("colaborador_id")
-    .eq("revenda_id", revendaAtiva.id);
+  // Quais revendas esta pessoa pode enxergar na lista. O dono vê todas --
+  // é ele quem administra o app inteiro. A liderança vê só as suas: o
+  // cadastro (com CPF) de outra unidade não é assunto dela.
+  const { data: revendas } = souDono
+    ? await admin.from("revendas").select("id, nome").eq("ativa", true).order("ordem")
+    : await admin
+        .from("colaborador_revendas")
+        .select("revendas!inner(id, nome)")
+        .eq("colaborador_id", usuarioAtual.id)
+        .eq("revendas.ativa", true)
+        .order("nome", { referencedTable: "revendas" })
+        .then(({ data }) => ({
+          data: (data ?? []).map(
+            (v) => v.revendas as unknown as { id: string; nome: string },
+          ),
+        }));
 
-  const ids = (daRevenda ?? []).map((v) => v.colaborador_id);
+  const listaRevendas = revendas ?? [];
+  const idsRevendasVisiveis = listaRevendas.map((r) => r.id);
+
+  // "Todas" é o padrão; o filtro só estreita, e só aceita revenda que a
+  // pessoa já podia ver.
+  const revendaFiltrada = listaRevendas.find((r) => r.id === filtroRevenda);
+
+  const { data: todosVinculos } = await admin
+    .from("colaborador_revendas")
+    .select("colaborador_id, revenda_id, principal")
+    .in(
+      "revenda_id",
+      revendaFiltrada ? [revendaFiltrada.id] : idsRevendasVisiveis,
+    );
+
+  const ids = Array.from(
+    new Set((todosVinculos ?? []).map((v) => v.colaborador_id)),
+  );
 
   let consulta = admin
     .from("profiles")
     .select("id, nome, cpf, matricula, cargo, area, role")
     .in("id", ids)
     .order("nome", { ascending: true })
-    .limit(50);
+    .limit(200);
 
   const termo = busca.trim();
   if (termo) {
@@ -66,27 +97,19 @@ export default async function AdminColaboradoresPage({
       : consulta.ilike("nome", `%${termo}%`);
   }
 
-  const [{ data: colaboradores }, { data: revendas }, { data: vinculos }] =
-    await Promise.all([
-      consulta,
-      souDono
-        ? admin.from("revendas").select("id, nome").eq("ativa", true).order("ordem")
-        : Promise.resolve({ data: [] as { id: string; nome: string }[] }),
-      souDono
-        ? admin
-            .from("colaborador_revendas")
-            .select("colaborador_id, revenda_id, principal")
-            .in("colaborador_id", ids)
-        : Promise.resolve({
-            data: [] as {
-              colaborador_id: string;
-              revenda_id: string;
-              principal: boolean;
-            }[],
-          }),
-    ]);
+  const { data: colaboradores } = await consulta;
 
   const total = ids.length;
+
+  // Os vínculos exibidos são todos os da pessoa, mesmo com o filtro ligado:
+  // filtrar a lista é uma coisa, esconder que alguém também é de Barreiras
+  // seria outra -- e daria para apagar esse vínculo sem perceber ao salvar.
+  const { data: vinculos } = ids.length
+    ? await admin
+        .from("colaborador_revendas")
+        .select("colaborador_id, revenda_id, principal")
+        .in("colaborador_id", ids)
+    : { data: [] };
 
   const vinculosPorPessoa = new Map<
     string,
@@ -98,11 +121,17 @@ export default async function AdminColaboradoresPage({
     vinculosPorPessoa.set(v.colaborador_id, lista);
   }
 
+  const nomePorRevenda = new Map(listaRevendas.map((r) => [r.id, r.nome]));
+
   return (
     <div>
       <PageHeader
         title="Colaboradores"
-        subtitle={`${total} em ${revendaAtiva.nome}`}
+        subtitle={
+          revendaFiltrada
+            ? `${total} em ${revendaFiltrada.nome}`
+            : `${total} cadastrados no app`
+        }
       />
 
       {erro && (
@@ -219,35 +248,63 @@ export default async function AdminColaboradoresPage({
 
       <form
         method="get"
-        className="mb-4 flex items-end gap-2 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
+        className="mb-4 space-y-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
       >
-        <div className="flex-1">
-          <label
-            htmlFor="busca"
-            className="mb-1 block text-sm font-medium text-slate-700"
+        <div className="flex items-end gap-2">
+          <div className="flex-1">
+            <label
+              htmlFor="busca"
+              className="mb-1 block text-sm font-medium text-slate-700"
+            >
+              Buscar por nome ou CPF
+            </label>
+            <input
+              id="busca"
+              name="busca"
+              defaultValue={busca}
+              placeholder="Ex: Maycon ou 05738764528"
+              className="w-full rounded-xl border border-slate-200 p-3 text-base focus:border-primary focus:outline-none"
+            />
+          </div>
+          <button
+            type="submit"
+            className="rounded-xl border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
           >
-            Buscar por nome ou CPF
-          </label>
-          <input
-            id="busca"
-            name="busca"
-            defaultValue={busca}
-            placeholder="Ex: Maycon ou 05738764528"
-            className="w-full rounded-xl border border-slate-200 p-3 text-base focus:border-primary focus:outline-none"
-          />
+            Buscar
+          </button>
         </div>
-        <button
-          type="submit"
-          className="rounded-xl border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-        >
-          Buscar
-        </button>
+
+        {/* Filtro opcional. "Todas" é o padrão: a lista mostra o app
+            inteiro, e a revenda só serve para estreitar quando se quer. */}
+        {listaRevendas.length > 1 && (
+          <div>
+            <label
+              htmlFor="filtro-revenda"
+              className="mb-1 block text-sm font-medium text-slate-700"
+            >
+              Revenda
+            </label>
+            <select
+              id="filtro-revenda"
+              name="revenda"
+              defaultValue={revendaFiltrada?.id ?? ""}
+              className="w-full rounded-xl border border-slate-200 bg-white p-3 text-base focus:border-primary focus:outline-none"
+            >
+              <option value="">Todas as revendas</option>
+              {listaRevendas.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {r.nome}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
       </form>
 
       <p className="mb-2 text-sm text-slate-500">
         {colaboradores?.length ?? 0}{" "}
-        {termo ? `resultado(s) para "${termo}"` : "primeiros na lista"} — toque
-        para editar
+        {termo ? `resultado(s) para "${termo}"` : "na lista"} — toque para
+        editar
       </p>
 
       {!colaboradores || colaboradores.length === 0 ? (
@@ -267,9 +324,12 @@ export default async function AdminColaboradoresPage({
               onRedefinirSenha={redefinirSenha}
               onPromover={podePromover ? promoverColaborador : undefined}
               onExcluir={excluirColaborador}
-              revendas={revendas ?? []}
+              revendas={listaRevendas}
               vinculos={vinculosPorPessoa.get(c.id) ?? []}
-              onSalvarVinculos={souDono ? salvarVinculos : undefined}
+              podeMexerEmVinculos={souDono}
+              nomesDasRevendas={(vinculosPorPessoa.get(c.id) ?? [])
+                .map((v) => nomePorRevenda.get(v.revendaId))
+                .filter((n): n is string => Boolean(n))}
             />
           ))}
         </div>

@@ -1,7 +1,8 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { requireModulo, requireOwner } from "@/lib/require-admin";
+import { requireModulo } from "@/lib/require-admin";
+import { ehOwner } from "@/lib/acessos";
 import { getRevendaId } from "@/lib/revendas";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { CHAVE_SENHA_ALTERADA, SENHA_PADRAO } from "@/lib/senha";
@@ -100,8 +101,16 @@ export async function criarColaborador(formData: FormData) {
   });
 }
 
+/**
+ * Salva o cadastro inteiro: os dados da pessoa e, se quem está mexendo for
+ * o dono, também as revendas dela.
+ *
+ * As duas coisas num botão só porque, para quem edita, são a mesma tarefa
+ * -- "corrigir o cadastro do fulano". Dois botões de salvar na mesma ficha
+ * obrigam a pessoa a descobrir qual deles guarda o quê.
+ */
 export async function atualizarColaborador(formData: FormData) {
-  await requireModulo("colaboradores", "editar");
+  const eu = await requireModulo("colaboradores", "editar");
 
   const id = campo(formData, "id");
   const nome = campo(formData, "nome");
@@ -122,6 +131,32 @@ export async function atualizarColaborador(formData: FormData) {
     .eq("id", id);
 
   if (error) voltar({ erro: error.message, ...(busca ? { busca } : {}) });
+
+  // Vínculo é só do dono. Uma liderança com "editar" não manda campo de
+  // revenda nenhum (a tela nem mostra), e se mandasse na mão, seria
+  // ignorado aqui -- é este teste, e não a tela, que segura a regra.
+  const marcadas = formData.getAll("revenda").map(String).filter(Boolean);
+  const tinhaBlocoDeRevendas = campo(formData, "vinculos_editaveis") === "1";
+
+  if (ehOwner(eu.role) && tinhaBlocoDeRevendas && marcadas.length === 0) {
+    voltar({
+      erro: `${nome} precisa estar em pelo menos uma revenda. Para tirar o acesso, remova a pessoa do app.`,
+      ...(busca ? { busca } : {}),
+    });
+  }
+
+  if (ehOwner(eu.role) && marcadas.length > 0) {
+    const problema = await aplicarVinculos({
+      donoId: eu.id,
+      donoNome: eu.nome,
+      colaboradorId: id,
+      colaboradorNome: nome,
+      marcadas,
+      principalPedida: campo(formData, "principal"),
+    });
+
+    if (problema) voltar({ erro: problema, ...(busca ? { busca } : {}) });
+  }
 
   voltar({ sucesso: `Dados de ${nome} atualizados`, ...(busca ? { busca } : {}) });
 }
@@ -244,28 +279,30 @@ export async function promoverColaborador(formData: FormData) {
  * a partir daí cada revenda tem o seu próprio conjunto de permissões, que o
  * Admin define em Gestão de Acessos.
  *
- * Só o dono mexe nisto. Vínculo decide o que a pessoa enxerga do app
- * inteiro -- é poder demais para delegar junto com o cadastro comum.
+ * Devolve a mensagem de erro, ou null se deu certo -- em vez de redirecionar
+ * sozinha: quem chama está no meio de salvar o cadastro inteiro e precisa
+ * decidir o que fazer com a falha.
+ *
+ * Só o dono chega aqui; a checagem fica em quem chama, que é onde o papel
+ * já foi lido.
  */
-export async function salvarVinculos(formData: FormData) {
-  const eu = await requireOwner();
+async function aplicarVinculos(dados: {
+  donoId: string;
+  donoNome: string;
+  colaboradorId: string;
+  colaboradorNome: string;
+  marcadas: string[];
+  principalPedida: string;
+}): Promise<string | null> {
+  const {
+    donoId: eu,
+    donoNome,
+    colaboradorId: id,
+    colaboradorNome: nome,
+    marcadas,
+    principalPedida,
+  } = dados;
 
-  const id = campo(formData, "id");
-  const nome = campo(formData, "nome") || "Colaborador";
-  const busca = campo(formData, "busca");
-  const extra: Record<string, string> = busca ? { busca } : {};
-
-  if (!id) voltar({ erro: "Colaborador inválido", ...extra });
-
-  const marcadas = formData.getAll("revenda").map(String).filter(Boolean);
-  if (marcadas.length === 0) {
-    voltar({
-      erro: `${nome} precisa estar em pelo menos uma revenda. Para tirar o acesso, remova a pessoa do app.`,
-      ...extra,
-    });
-  }
-
-  const principalPedida = campo(formData, "principal");
   // A principal precisa estar entre as marcadas -- senão a pessoa entraria
   // por padrão numa revenda que ela acabou de perder.
   const principal = marcadas.includes(principalPedida)
@@ -286,7 +323,7 @@ export async function salvarVinculos(formData: FormData) {
     .eq("colaborador_id", id)
     .not("revenda_id", "in", fora);
 
-  if (erroRemocao) voltar({ erro: erroRemocao.message, ...extra });
+  if (erroRemocao) return erroRemocao.message;
 
   // A principal antiga sai da frente antes de a nova entrar: o banco só
   // aceita uma principal por pessoa.
@@ -300,12 +337,12 @@ export async function salvarVinculos(formData: FormData) {
       colaborador_id: id,
       revenda_id,
       principal: revenda_id === principal,
-      criado_por: eu.id,
+      criado_por: eu,
     })),
     { onConflict: "colaborador_id,revenda_id" },
   );
 
-  if (error) voltar({ erro: error.message, ...extra });
+  if (error) return error.message;
 
   // Permissão de liderança em revenda que a pessoa não é mais de nada
   // adianta -- e voltaria a valer sozinha se o vínculo fosse refeito.
@@ -329,15 +366,15 @@ export async function salvarVinculos(formData: FormData) {
   const resumo = (nomes ?? []).map((r) => r.nome).join(", ");
 
   await admin.from("auditoria").insert({
-    ator_id: eu.id,
-    ator_nome: eu.nome,
+    ator_id: eu,
+    ator_nome: donoNome,
     acao: "Alterou revendas do colaborador",
     alvo_id: id,
     alvo_nome: nome,
     detalhes: resumo,
   });
 
-  voltar({ sucesso: `${nome} agora está em: ${resumo}.`, ...extra });
+  return null;
 }
 
 export async function redefinirSenha(formData: FormData) {

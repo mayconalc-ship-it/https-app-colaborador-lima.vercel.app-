@@ -24,7 +24,8 @@ export function ColaboradorItem({
   onExcluir,
   revendas,
   vinculos,
-  onSalvarVinculos,
+  podeMexerEmVinculos,
+  nomesDasRevendas,
 }: {
   colaborador: Colaborador;
   busca: string;
@@ -37,8 +38,10 @@ export function ColaboradorItem({
   onExcluir: (formData: FormData) => void;
   revendas: { id: string; nome: string }[];
   vinculos: { revendaId: string; principal: boolean }[];
-  /** Ausente para quem não é o dono: vínculo é decisão só dele. */
-  onSalvarVinculos?: (formData: FormData) => void;
+  /** Só o dono mexe em vínculo: ele decide o que a pessoa vê do app inteiro. */
+  podeMexerEmVinculos: boolean;
+  /** Nomes das revendas da pessoa, para identificar quem é quem na lista. */
+  nomesDasRevendas: string[];
 }) {
   const [aberto, setAberto] = useState(false);
   const c = colaborador;
@@ -74,6 +77,13 @@ export function ColaboradorItem({
             {c.matricula ? ` · Mat. ${c.matricula}` : ""}
             {c.cargo ? ` · ${c.cargo}` : ""}
           </p>
+          {/* Com a lista mostrando o app inteiro, saber de qual revenda a
+              pessoa é deixa de ser detalhe e vira parte da identificação. */}
+          {nomesDasRevendas.length > 0 && (
+            <p className="truncate text-xs text-primary">
+              🏢 {nomesDasRevendas.join(" · ")}
+            </p>
+          )}
         </div>
         <span className="shrink-0 text-slate-400">{aberto ? "▲" : "▼"}</span>
       </button>
@@ -130,6 +140,55 @@ export function ColaboradorItem({
               />
             </div>
 
+            {/* As revendas moram DENTRO do formulário de dados: são parte do
+                cadastro da pessoa, e dois botões de salvar lado a lado só
+                fazem quem edita parar para descobrir qual dos dois usar. */}
+            {podeMexerEmVinculos && revendas.length > 1 && (
+              <div className="space-y-2 border-t border-slate-200 pt-3">
+                {/* Avisa a ação de que este formulário TEM o bloco de
+                    revendas. Sem isso, desmarcar todas seria indistinguível
+                    de um formulário que nunca as mostrou -- e o erro
+                    "precisa de ao menos uma" nunca apareceria. */}
+                <input type="hidden" name="vinculos_editaveis" value="1" />
+
+                <p className="text-xs font-semibold text-slate-600">
+                  Revendas de {c.nome.split(" ")[0]}
+                </p>
+
+                {revendas.map((r) => (
+                  <div key={r.id} className="flex items-center gap-3">
+                    <label className="flex flex-1 items-center gap-2 text-sm text-slate-700">
+                      <input
+                        type="checkbox"
+                        name="revenda"
+                        value={r.id}
+                        defaultChecked={minhasRevendas.has(r.id)}
+                        className="h-4 w-4 rounded border-slate-300 text-primary"
+                      />
+                      {r.nome}
+                    </label>
+                    <label className="flex items-center gap-1 text-xs text-slate-500">
+                      <input
+                        type="radio"
+                        name="principal"
+                        value={r.id}
+                        defaultChecked={r.id === principalAtual}
+                        className="h-3.5 w-3.5 border-slate-300 text-primary"
+                      />
+                      padrão
+                    </label>
+                  </div>
+                ))}
+
+                <p className="text-xs text-slate-400">
+                  Marcando mais de uma, a pessoa passa a escolher a revenda no
+                  topo do app — e as permissões de liderança dela são definidas
+                  separadamente em cada uma. &quot;Padrão&quot; é a revenda em
+                  que ela entra ao abrir o app.
+                </p>
+              </div>
+            )}
+
             <p className="text-xs text-slate-400">
               O CPF não pode ser alterado, porque é o login. Se estiver errado,
               remova e cadastre novamente.
@@ -142,59 +201,6 @@ export function ColaboradorItem({
               Salvar dados
             </button>
           </form>
-
-          {onSalvarVinculos && revendas.length > 1 && (
-            <form
-              action={onSalvarVinculos}
-              className="space-y-2 border-t border-slate-200 pt-3"
-            >
-              <input type="hidden" name="id" value={c.id} />
-              <input type="hidden" name="nome" value={c.nome} />
-              <input type="hidden" name="busca" value={busca} />
-
-              <p className="text-xs font-semibold text-slate-600">
-                Revendas de {c.nome.split(" ")[0]}
-              </p>
-
-              {revendas.map((r) => (
-                <div key={r.id} className="flex items-center gap-3">
-                  <label className="flex flex-1 items-center gap-2 text-sm text-slate-700">
-                    <input
-                      type="checkbox"
-                      name="revenda"
-                      value={r.id}
-                      defaultChecked={minhasRevendas.has(r.id)}
-                      className="h-4 w-4 rounded border-slate-300 text-primary"
-                    />
-                    {r.nome}
-                  </label>
-                  <label className="flex items-center gap-1 text-xs text-slate-500">
-                    <input
-                      type="radio"
-                      name="principal"
-                      value={r.id}
-                      defaultChecked={r.id === principalAtual}
-                      className="h-3.5 w-3.5 border-slate-300 text-primary"
-                    />
-                    padrão
-                  </label>
-                </div>
-              ))}
-
-              <button
-                type="submit"
-                className="w-full rounded-lg border border-primary px-3 py-2 text-xs font-medium text-primary hover:bg-primary-soft"
-              >
-                Salvar revendas
-              </button>
-              <p className="text-xs text-slate-400">
-                Marcando mais de uma, a pessoa passa a escolher a revenda no
-                topo do app — e as permissões de liderança dela são definidas
-                separadamente em cada uma. &quot;Padrão&quot; é a revenda em
-                que ela entra ao abrir o app.
-              </p>
-            </form>
-          )}
 
           {onPromover && !ehVoceMesmo && c.role !== "owner" && (
             <form
