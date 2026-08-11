@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useRef, useState } from "react";
+import { startTransition, useActionState, useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { useToast } from "@/components/Toast";
 import {
@@ -72,8 +72,21 @@ function lembrarNoNavegador(combinacao: Combinacao) {
   document.cookie = `${COOKIE_ULTIMA}=${serializarCombinacao(combinacao)}; path=${COOKIE_ULTIMA_PATH}; max-age=${idade}; samesite=lax`;
 }
 
-function Salvar({ editando }: { editando: boolean }) {
-  const { pending } = useFormStatus();
+/**
+ * O `useFormStatus` só enxerga submissão feita pelo `action` do form --
+ * e o lançamento não usa mais `action` (veja o comentário do formulário).
+ * Por isso o estado de "salvando" do lançamento chega por prop; o da
+ * edição, que continua no `action`, vem do hook.
+ */
+function Salvar({
+  editando,
+  enviando = false,
+}: {
+  editando: boolean;
+  enviando?: boolean;
+}) {
+  const { pending: doAction } = useFormStatus();
+  const pending = doAction || enviando;
   return (
     <button
       type="submit"
@@ -100,8 +113,29 @@ function Salvar({ editando }: { editando: boolean }) {
  * limpas, e o foco volta para Paletes -- a próxima linha começa a um
  * toque de distância.
  *
- * Na edição o fluxo antigo continua: ali o redirect é desejável, porque
- * fechar o formulário e voltar para a lista é o fim natural da correção.
+ * O lançamento é disparado no `onSubmit`, e NÃO pelo `action` do form.
+ * Isso não é estilo: quando a submissão passa pelo `action`, o React
+ * chama `form.reset()` sozinho ao fim da ação, direto no DOM. Num
+ * formulário controlado como este, o reset desfaz o que acabamos de
+ * fazer, e de um jeito que o React não percebe (o estado continua certo,
+ * só a tela mente):
+ *
+ * - nos `<input>`, o React mantém o atributo `defaultValue` colado no
+ *   valor atual, então o reset devolve a QUANTIDADE que a pessoa acabou
+ *   de lançar -- os "5 paletes" reapareciam num campo que já devia
+ *   estar zerado, prontos para entrar no banco de novo;
+ * - nos `<select>`, o atributo `selected` só é escrito na montagem, então
+ *   o reset volta para a combinação de quando a TELA ABRIU -- era assim
+ *   que "300ml" virava "600ml" depois de registrar.
+ *
+ * Sem `action` não há reset automático, e o estado volta a ser a única
+ * fonte da verdade da tela. Perdemos o funcionamento sem JavaScript, que
+ * este caminho já não tinha: a ação passada ao `useActionState` é um
+ * fecho do cliente, não uma server action que o navegador saiba postar.
+ *
+ * Na edição o fluxo antigo continua no `action`: ali a ação é uma server
+ * action de verdade, termina em redirect e o formulário desmonta -- não
+ * há estado para o reset estragar.
  */
 export function FormContagem({
   fatores,
@@ -147,7 +181,7 @@ export function FormContagem({
   // Limpar e avisar acontece AQUI, no retorno da ação, e não num efeito
   // que observa o estado: é o lugar que o React indica para reagir a algo
   // que aconteceu, e evita a cascata de renderizações do efeito.
-  const [, enviar] = useActionState(
+  const [, enviar, enviando] = useActionState(
     async (anterior: EstadoContagem, dados: FormData) => {
       const r = await registrarContagem(anterior, dados);
 
@@ -172,6 +206,15 @@ export function FormContagem({
     { situacao: "parado" } as EstadoContagem,
   );
 
+  // O FormData é montado ANTES da transição: depois dela o React já pode
+  // ter mexido no formulário, e `e.currentTarget` some no evento reciclado.
+  const lancar = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (enviando) return; // Toque duplo no pátio não vira duas contagens.
+    const dados = new FormData(e.currentTarget);
+    startTransition(() => enviar(dados));
+  };
+
   const fator = fatores[formato];
   const total = totalEmCaixas(
     {
@@ -184,7 +227,8 @@ export function FormContagem({
 
   return (
     <form
-      action={editando ? editarContagem : enviar}
+      action={editando ? editarContagem : undefined}
+      onSubmit={editando ? undefined : lancar}
       // Sem isto o navegador REPÕE as quantidades quando a aba é
       // recarregada ou restaurada -- e a contagem anterior reaparecia num
       // formulário que já devia estar limpo, pronta para ser lançada duas
@@ -329,7 +373,7 @@ export function FormContagem({
         </span>
       </p>
 
-      <Salvar editando={editando} />
+      <Salvar editando={editando} enviando={enviando} />
 
       {aoCancelar && (
         <button
