@@ -5,10 +5,15 @@ import { useFormStatus } from "react-dom";
 import { useToast } from "@/components/Toast";
 import {
   COMBINACAO_PADRAO,
+  COOKIE_ULTIMA,
+  COOKIE_ULTIMA_DIAS,
+  COOKIE_ULTIMA_PATH,
   FORMATOS,
   STATUSES,
   TIPOS,
   hojeISO,
+  lerCombinacao,
+  serializarCombinacao,
   totalEmCaixas,
   type Combinacao,
   type Contagem,
@@ -43,23 +48,28 @@ const rotulo = "mb-1 block text-xs font-semibold uppercase text-slate-500";
 function combinacaoInicial(ultima: Combinacao): Combinacao {
   if (typeof document === "undefined") return ultima;
 
-  const bruto = document.cookie.match(/(?:^|;\s*)ag_ultima=([^;]*)/)?.[1];
-  if (!bruto) return ultima;
+  const bruto = document.cookie
+    .split(";")
+    .map((p) => p.trim())
+    .find((p) => p.startsWith(`${COOKIE_ULTIMA}=`))
+    ?.slice(COOKIE_ULTIMA.length + 1);
 
-  try {
-    const v = JSON.parse(decodeURIComponent(bruto));
-    if (
-      TIPOS.includes(v?.tipo) &&
-      FORMATOS.includes(v?.formato) &&
-      STATUSES.includes(v?.status)
-    ) {
-      return { tipo: v.tipo, formato: v.formato, status: v.status };
-    }
-  } catch {
-    // Cookie torto: segue com o que veio do servidor.
-  }
+  // Cookie ausente ou torto: segue com o que veio do servidor.
+  return lerCombinacao(bruto) ?? ultima;
+}
 
-  return ultima;
+/**
+ * Guarda a combinação no mesmo cookie que o servidor lê, na hora em que a
+ * pessoa troca o seletor -- e não só quando salva.
+ *
+ * É o que faz a escolha sobreviver a um recarregamento no meio do
+ * lançamento: sem isto, quem trocasse para 300ml e recarregasse antes de
+ * registrar voltava para 600ml.
+ */
+function lembrarNoNavegador(combinacao: Combinacao) {
+  if (typeof document === "undefined") return;
+  const idade = 60 * 60 * 24 * COOKIE_ULTIMA_DIAS;
+  document.cookie = `${COOKIE_ULTIMA}=${serializarCombinacao(combinacao)}; path=${COOKIE_ULTIMA_PATH}; max-age=${idade}; samesite=lax`;
 }
 
 function Salvar({ editando }: { editando: boolean }) {
@@ -120,8 +130,13 @@ export function FormContagem({
       : combinacaoInicial(ultima),
   );
   const { tipo, formato, status } = combo;
-  const trocar = (campo: keyof Combinacao) => (valor: string) =>
-    setCombo((c) => ({ ...c, [campo]: valor }));
+  const trocar = (qual: keyof Combinacao) => (valor: string) => {
+    const novo = { ...combo, [qual]: valor };
+    setCombo(novo);
+    // Na edição o cookie não se mexe: corrigir uma linha antiga não muda a
+    // combinação em que os PRÓXIMOS lançamentos vão nascer.
+    if (!editando) lembrarNoNavegador(novo);
+  };
 
   const [palete, setPalete] = useState(contagem ? String(contagem.palete) : "");
   const [lastro, setLastro] = useState(contagem ? String(contagem.lastro) : "");
@@ -138,13 +153,16 @@ export function FormContagem({
 
       if (r.situacao === "ok") {
         toast.sucesso("Contagem registrada!");
-        // Tipo, formato, status e data ficam. Só a quantidade zera, e o
-        // foco volta para Paletes: a próxima linha do pátio começa a um
-        // toque de distância.
+        // Tipo, formato, status e data ficam -- reafirmados com o que a
+        // ação ACABOU de gravar, e não com o que sobrou no estado.
+        setCombo(r.combinacao);
+        // Só a quantidade zera, e o foco volta para Paletes: a próxima
+        // linha do pátio começa a um toque de distância.
         setPalete("");
         setLastro("");
         setCaixa("");
         campoPalete.current?.focus();
+        campoPalete.current?.select();
       } else if (r.situacao === "erro") {
         toast.erro(r.mensagem);
       }
@@ -167,6 +185,11 @@ export function FormContagem({
   return (
     <form
       action={editando ? editarContagem : enviar}
+      // Sem isto o navegador REPÕE as quantidades quando a aba é
+      // recarregada ou restaurada -- e a contagem anterior reaparecia num
+      // formulário que já devia estar limpo, pronta para ser lançada duas
+      // vezes.
+      autoComplete="off"
       className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4"
     >
       {contagem && <input type="hidden" name="id" value={contagem.id} />}
@@ -254,6 +277,7 @@ export function FormContagem({
             type="number"
             min={0}
             inputMode="numeric"
+            autoComplete="off"
             className={campo}
             ref={campoPalete}
             value={palete}
@@ -271,6 +295,7 @@ export function FormContagem({
             type="number"
             min={0}
             inputMode="numeric"
+            autoComplete="off"
             className={campo}
             value={lastro}
             onChange={(e) => setLastro(e.target.value)}
@@ -287,6 +312,7 @@ export function FormContagem({
             type="number"
             min={0}
             inputMode="numeric"
+            autoComplete="off"
             className={campo}
             value={caixa}
             onChange={(e) => setCaixa(e.target.value)}

@@ -33,6 +33,68 @@ export const COMBINACAO_PADRAO: Combinacao = {
   status: "Cheio",
 };
 
+/**
+ * Onde a última combinação fica guardada. Cookie, e não localStorage,
+ * para o SERVIDOR já desenhar o formulário na combinação certa.
+ *
+ * O `path` limita o cookie ao módulo -- ele não tem por que viajar junto
+ * de toda requisição do app.
+ */
+export const COOKIE_ULTIMA = "ag_ultima";
+export const COOKIE_ULTIMA_PATH = "/ativo-de-giro";
+export const COOKIE_ULTIMA_DIAS = 180;
+
+export function serializarCombinacao(c: Combinacao) {
+  return encodeURIComponent(JSON.stringify(c));
+}
+
+/**
+ * Lê a combinação guardada no cookie. Serve aos DOIS lados: o servidor lê
+ * de `cookies()`, o navegador lê de `document.cookie`.
+ *
+ * Ler igual nos dois lados é o ponto. Quando cada lado desembrulhava o
+ * valor de um jeito, bastava um deles falhar para o formulário renascer
+ * no padrão -- era assim que "300ml" virava "600ml" depois de salvar.
+ *
+ * Por isso a leitura é tolerante: o valor pode chegar cru, percent-encoded
+ * uma vez (foi assim que gravamos) ou duas (se a plataforma também
+ * codificar por conta própria). Tenta desembrulhar até virar JSON válido.
+ * Valor torto devolve `null`, e quem chama decide o que fazer -- nada aqui
+ * decide o que entra no banco, então adulterar o cookie não leva a nada.
+ */
+export function lerCombinacao(
+  bruto: string | null | undefined,
+): Combinacao | null {
+  if (!bruto) return null;
+
+  let valor = bruto;
+  for (let volta = 0; volta < 3; volta++) {
+    try {
+      const v: unknown = JSON.parse(valor);
+      if (ehCombinacao(v)) return { tipo: v.tipo, formato: v.formato, status: v.status };
+    } catch {
+      // Ainda embrulhado: tenta desembrulhar mais uma camada abaixo.
+    }
+
+    let aberto: string;
+    try {
+      aberto = decodeURIComponent(valor);
+    } catch {
+      break; // Percent-encoding quebrado: não há mais o que tentar.
+    }
+    if (aberto === valor) break;
+    valor = aberto;
+  }
+
+  return null;
+}
+
+function ehCombinacao(v: unknown): v is Combinacao {
+  if (typeof v !== "object" || v === null) return false;
+  const c = v as Record<string, unknown>;
+  return ehTipo(c.tipo) && ehFormato(c.formato) && ehStatus(c.status);
+}
+
 export type Fator = { palete: number; lastro: number };
 export type Fatores = Record<Formato, Fator>;
 

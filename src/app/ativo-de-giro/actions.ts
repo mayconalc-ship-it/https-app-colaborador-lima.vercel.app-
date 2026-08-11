@@ -9,10 +9,15 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { podeNoModulo, temAcessoModulo } from "@/lib/require-admin";
 import { getRevendaId } from "@/lib/revendas";
 import {
+  COOKIE_ULTIMA,
+  COOKIE_ULTIMA_DIAS,
+  COOKIE_ULTIMA_PATH,
   ehFormato,
   ehStatus,
   ehTipo,
   inteiro,
+  serializarCombinacao,
+  type Combinacao,
   type Contagem,
 } from "@/lib/ativo-giro";
 
@@ -33,16 +38,18 @@ function erro(mensagem: string): never {
  * formulário na combinação certa. Com localStorage a tela nasceria no
  * padrão e corrigiria depois de montar -- pisca, e ainda obrigaria a
  * sincronizar estado dentro de um efeito.
+ *
+ * O formulário grava o MESMO cookie assim que a pessoa troca um seletor,
+ * antes mesmo de salvar. Assim, se a tela recarregar no meio do caminho,
+ * ela volta na combinação em que a pessoa estava.
  */
-const COOKIE_ULTIMA = "ag_ultima";
-
-async function lembrarCombinacao(tipo: string, formato: string, status: string) {
+async function lembrarCombinacao(combinacao: Combinacao) {
   const jar = await cookies();
-  jar.set(COOKIE_ULTIMA, JSON.stringify({ tipo, formato, status }), {
+  jar.set(COOKIE_ULTIMA, serializarCombinacao(combinacao), {
     httpOnly: false,
     sameSite: "lax",
-    maxAge: 60 * 60 * 24 * 180,
-    path: ROTA,
+    maxAge: 60 * 60 * 24 * COOKIE_ULTIMA_DIAS,
+    path: COOKIE_ULTIMA_PATH,
   });
 }
 
@@ -97,10 +104,17 @@ function lerCampos(formData: FormData) {
   };
 }
 
-/** O que o formulário de lançamento recebe de volta. */
+/**
+ * O que o formulário de lançamento recebe de volta.
+ *
+ * O sucesso devolve a combinação que ACABOU de entrar no banco. O
+ * formulário reafirma os três seletores com ela em vez de torcer para o
+ * estado ter sobrevivido -- assim o que fica na tela é, por construção, o
+ * que foi gravado.
+ */
 export type EstadoContagem =
   | { situacao: "parado" }
-  | { situacao: "ok"; em: number }
+  | { situacao: "ok"; em: number; combinacao: Combinacao }
   | { situacao: "erro"; mensagem: string };
 
 /**
@@ -157,11 +171,12 @@ export async function registrarContagem(
   }
 
   const { tipo, formato, status } = lido.campos;
-  await lembrarCombinacao(tipo, formato, status);
+  const combinacao: Combinacao = { tipo, formato, status };
+  await lembrarCombinacao(combinacao);
 
   revalidatePath(ROTA);
   revalidatePath("/admin/ativo-de-giro");
-  return { situacao: "ok", em: Date.now() };
+  return { situacao: "ok", em: Date.now(), combinacao };
 }
 
 /**

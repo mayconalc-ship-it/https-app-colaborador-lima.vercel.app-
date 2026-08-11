@@ -2,9 +2,8 @@ import "server-only";
 import { cookies } from "next/headers";
 import {
   COMBINACAO_PADRAO,
-  ehFormato,
-  ehStatus,
-  ehTipo,
+  COOKIE_ULTIMA,
+  lerCombinacao,
   type Combinacao,
 } from "@/lib/ativo-giro";
 
@@ -19,17 +18,6 @@ import {
  * no banco.
  */
 export async function getUltimaCombinacao(): Promise<Combinacao> {
-  const bruto = (await cookies()).get("ag_ultima")?.value;
-  if (!bruto) return COMBINACAO_PADRAO;
-
-  try {
-    const v = JSON.parse(bruto);
-    if (ehTipo(v?.tipo) && ehFormato(v?.formato) && ehStatus(v?.status)) {
-      return { tipo: v.tipo, formato: v.formato, status: v.status };
-    }
-  } catch {
-    // JSON quebrado: cai no padrão, sem barulho.
-  }
-
-  return COMBINACAO_PADRAO;
+  const bruto = (await cookies()).get(COOKIE_ULTIMA)?.value;
+  return lerCombinacao(bruto) ?? COMBINACAO_PADRAO;
 }
