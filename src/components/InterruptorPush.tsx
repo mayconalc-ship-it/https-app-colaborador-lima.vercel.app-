@@ -86,14 +86,75 @@ export function InterruptorPush() {
     );
   }
 
+  // Bloqueado: o navegador não deixa mais nem PERGUNTAR. Pedir de novo
+  // devolve "denied" na hora, sem popup. Então em vez de um botão que
+  // finge funcionar, mostramos o interruptor desligado e o caminho real
+  // para destravar -- que fica nas configurações do navegador, não aqui.
   if (permissao === "denied") {
     return (
       <Moldura>
-        <p className="text-xs text-amber-700">
-          ⚠️ Os avisos estão bloqueados para este app. Para liberar, abra as
-          configurações do navegador, procure este site e permita
-          notificações.
-        </p>
+        <button
+          type="button"
+          onClick={() => setAjudaAberta((v) => !v)}
+          aria-expanded={ajudaAberta}
+          className="flex w-full items-center justify-between gap-3 text-left"
+        >
+          <span className="min-w-0">
+            <span className="block text-sm font-semibold text-slate-700">
+              📲 Avisos no celular
+            </span>
+            <span className="mt-0.5 block text-xs font-medium text-amber-700">
+              Bloqueado no navegador — toque para liberar
+            </span>
+          </span>
+          <span
+            aria-hidden="true"
+            className="relative flex h-7 w-12 shrink-0 items-center rounded-full bg-slate-300 opacity-60"
+          >
+            <span className="absolute left-1 h-5 w-5 rounded-full bg-white shadow" />
+          </span>
+        </button>
+
+        {ajudaAberta && (
+          <div className="mt-2 rounded-xl bg-amber-50 p-3 text-xs text-slate-700">
+            <p className="font-semibold text-amber-800">
+              Como liberar (leva 15 segundos):
+            </p>
+            {ehIOS() ? (
+              <ol className="mt-1.5 list-decimal space-y-1 pl-4">
+                <li>
+                  Abra os <strong>Ajustes</strong> do iPhone.
+                </li>
+                <li>
+                  Procure <strong>Notificações</strong> e depois este app na
+                  lista.
+                </li>
+                <li>
+                  Ligue <strong>Permitir Notificações</strong> e volte aqui.
+                </li>
+              </ol>
+            ) : (
+              <ol className="mt-1.5 list-decimal space-y-1 pl-4">
+                <li>
+                  Toque no ícone à <strong>esquerda do endereço</strong>, lá em
+                  cima (um cadeado ou dois controles deslizantes).
+                </li>
+                <li>
+                  Toque em <strong>Permissões</strong> (ou &quot;Configurações
+                  do site&quot;).
+                </li>
+                <li>
+                  Em <strong>Notificações</strong>, mude de Bloquear para{" "}
+                  <strong>Permitir</strong>.
+                </li>
+              </ol>
+            )}
+            <p className="mt-2 text-slate-500">
+              Ao voltar para cá o interruptor se acende sozinho — não precisa
+              recarregar a página.
+            </p>
+          </div>
+        )}
       </Moldura>
     );
   }

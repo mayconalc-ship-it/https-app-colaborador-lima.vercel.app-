@@ -52,6 +52,25 @@ export function usePushAparelho() {
   );
   const permissao = respondido ?? permissaoAtual;
 
+  // Quem estava bloqueado sai do app, mexe nas configurações do navegador e
+  // volta. Sem isto a tela continuaria dizendo "bloqueado" até a pessoa
+  // recarregar na mão -- e quem acabou de liberar acha que não adiantou.
+  useEffect(() => {
+    function reconferir() {
+      if (typeof Notification === "undefined") return;
+      if (document.visibilityState !== "visible") return;
+      setRespondido((antes) =>
+        Notification.permission === antes ? antes : Notification.permission,
+      );
+    }
+    document.addEventListener("visibilitychange", reconferir);
+    window.addEventListener("focus", reconferir);
+    return () => {
+      document.removeEventListener("visibilitychange", reconferir);
+      window.removeEventListener("focus", reconferir);
+    };
+  }, []);
+
   const [ativo, setAtivo] = useState(false);
   const [ocupado, setOcupado] = useState(false);
   const toast = useToast();

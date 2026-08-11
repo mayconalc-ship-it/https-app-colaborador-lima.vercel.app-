@@ -233,25 +233,53 @@ button:disabled,
 
 /* Quem pediu menos animacao no sistema recebe o retorno sem movimento:
    o escurecer do :active continua, que e o que informa. */
+/* ---------------------------------------------------------------------
+   Menos movimento
+   ---------------------------------------------------------------------
+   Vale para quem pediu no sistema E para quem esta com o Economizador de
+   bateria ligado -- no Android ele liga "Remover animacoes" sozinho, e o
+   celular do motorista chega no fim do turno com 5%.
+
+   A regra aqui e: tirar o ENFEITE, nunca o AVISO. A versao anterior
+   errava nisso -- matava o giro da rodinha (sobrava um anel congelado,
+   que parece travamento) e zerava o afundar do botao, deixando so um
+   escurecimento de 6% como resposta ao toque. Com o realce nativo ja
+   desligado (tap-highlight-color), dava a impressao de botao morto. */
 @media (prefers-reduced-motion: reduce) {
   button:not(:disabled):active,
   a[class*="rounded"]:active,
   [role="button"]:not([aria-disabled="true"]):active {
+    /* Sem encolher, mas o escurecimento vira o dobro para compensar: sem
+       movimento, a diferenca de cor precisa dar para ver sozinha. */
     transform: none;
+    filter: brightness(0.86);
   }
-  .dica-link.carregando,
-  .rodinha,
+
+  .toque-texto:active {
+    opacity: 0.35;
+  }
+
   .toast-entra,
   .shimmer::after,
-  .check-desenha,
   .circulo-pulsa {
     animation: none;
   }
+
+  /* Rodinha parada nao informa nada -- pior, parece que travou. Some, e
+     quem avisa e o texto do botao, que ja troca para "Salvando...". */
+  .rodinha {
+    display: none;
+  }
+
+  /* A bolinha do link fica acesa e parada: ainda diz "estou indo". */
   .dica-link.carregando {
+    animation: none;
     opacity: 0.4;
   }
+
   /* Sem a animacao, o check tem que nascer desenhado. */
   .check-desenha {
+    animation: none;
     stroke-dashoffset: 0;
   }
 }
