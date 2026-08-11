@@ -7,6 +7,7 @@ import {
   COLUNAS_CONTAGEM,
   FORMATOS,
   conciliar,
+  contadoresDeLinhas,
   diasAtrasISO,
   fatoresDeLinhas,
   formatarData,
@@ -15,6 +16,7 @@ import {
   parqueDeLinhas,
   totaisPorFormato,
   totalEmCaixas,
+  type Contador,
   type Contagem,
 } from "@/lib/ativo-giro";
 import { BotaoExcluir } from "@/components/BotaoExcluir";
@@ -36,6 +38,42 @@ const ABAS: { id: Aba; rotulo: string }[] = [
 
 const campo =
   "w-full rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-base text-slate-900 focus:border-primary focus:outline-none";
+const rotulo = "mb-1 block text-xs font-semibold uppercase text-slate-500";
+
+/**
+ * O filtro por colaborador, igual nas três abas.
+ *
+ * A lista é sempre a mesma (quem contou nos últimos 180 dias), e não
+ * "quem aparece neste recorte": se ela encolhesse conforme o dia ou o
+ * período escolhido, a pessoa filtrada sumiria da própria lista ao trocar
+ * de data, e a tela voltaria sozinha para "Todos".
+ *
+ * É um `<select>` dentro de um form `method="get"` -- mesma mecânica do
+ * filtro de data que já existia, e que funciona sem JavaScript.
+ */
+function SeletorColaborador({
+  contadores,
+  valor,
+}: {
+  contadores: Contador[];
+  valor: string;
+}) {
+  return (
+    <div className="min-w-[11rem] flex-1">
+      <label className={rotulo} htmlFor="colab">
+        Colaborador
+      </label>
+      <select id="colab" name="colab" defaultValue={valor} className={campo}>
+        <option value="">Todos</option>
+        {contadores.map((c) => (
+          <option key={c.id} value={c.id}>
+            {c.nome}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+}
 
 export default async function AtivoDeGiroPage({
   searchParams,
@@ -45,7 +83,7 @@ export default async function AtivoDeGiroPage({
     data?: string;
     de?: string;
     ate?: string;
-    quem?: string;
+    colab?: string;
     erro?: string;
     sucesso?: string;
   }>;
@@ -67,7 +105,11 @@ export default async function AtivoDeGiroPage({
   const dia = sp.data ?? hojeISO();
   const de = sp.de ?? diasAtrasISO(30);
   const ate = sp.ate ?? hojeISO();
-  const quem = (sp.quem ?? "").trim();
+  // Filtro por colaborador: vale para painel, conciliação e histórico.
+  // Guarda o id, e não o nome: nome se repete, muda, e vinha de uma busca
+  // por pedaço de texto que casava duas pessoas de sobrenome parecido.
+  const colab = (sp.colab ?? "").trim();
+  const soDe = (c: Contagem) => !colab || c.colaborador_id === colab;
 
   // Conciliação, painel e histórico enxergam o trabalho do time inteiro --
   // a RLS de ag_contagens já libera leitura para qualquer autenticado, então
@@ -81,6 +123,7 @@ export default async function AtivoDeGiroPage({
     { data: minhas },
     { data: doDia },
     { data: doPeriodo },
+    { data: quemContou },
     podeConfigurar,
     podeExcluirQualquer,
     ultimaCombinacao,
@@ -104,12 +147,26 @@ export default async function AtivoDeGiroPage({
             .select(colunas)
             .gte("data", de)
             .lte("data", ate);
-          if (quem) consulta = consulta.ilike("colaborador_nome", `%${quem}%`);
+          // Aqui o filtro vai no BANCO, ao contrário do painel: o período
+          // pode ser de meses, e não faz sentido trazer o time inteiro
+          // para descartar tudo menos uma pessoa no caminho de volta.
+          if (colab) consulta = consulta.eq("colaborador_id", colab);
           return consulta
             .order("data", { ascending: false })
             .order("id", { ascending: false });
         })()
       : Promise.resolve({ data: null }),
+    // Quem alimenta o menu suspenso. Duas colunas só, e uma janela larga
+    // de propósito: a lista precisa ser a MESMA nas três abas, senão trocar
+    // de aba faria o colaborador escolhido sumir da lista. Ordenada da mais
+    // nova para a mais velha para o nome mais recente de cada pessoa ganhar.
+    aba === "contagem"
+      ? Promise.resolve({ data: null })
+      : supabase
+          .from("ag_contagens")
+          .select("colaborador_id, colaborador_nome")
+          .gte("data", diasAtrasISO(180))
+          .order("data", { ascending: false }),
     podeNoModulo("ativo-giro", "editar"),
     podeNoModulo("ativo-giro", "excluir"),
     getUltimaCombinacao(),
@@ -118,8 +175,14 @@ export default async function AtivoDeGiroPage({
   const fatores = fatoresDeLinhas(fatoresBanco);
   const parque = parqueDeLinhas(parqueBanco);
   const contagens = (minhas ?? []) as Contagem[];
-  const contagensDia = (doDia ?? []) as Contagem[];
+  const contadores = contadoresDeLinhas(quemContou);
+  const nomeFiltrado = contadores.find((c) => c.id === colab)?.nome;
   const contagensPeriodo = (doPeriodo ?? []) as Contagem[];
+
+  // O dia inteiro vem do banco e o filtro acontece aqui: uma contagem de
+  // pátio são dezenas de linhas, então filtrar no caminho de volta não
+  // pagaria o preço de uma consulta a mais.
+  const contagensDia = ((doDia ?? []) as Contagem[]).filter(soDe);
 
   const linhas = conciliar(contagensDia, parque, fatores);
   const totais = totaisPorFormato(contagensDia, fatores);
@@ -158,7 +221,7 @@ export default async function AtivoDeGiroPage({
         {ABAS.map((a) => (
           <a
             key={a.id}
-            href={`/ativo-de-giro?aba=${a.id}&data=${dia}&de=${de}&ate=${ate}&quem=${encodeURIComponent(quem)}`}
+            href={`/ativo-de-giro?aba=${a.id}&data=${dia}&de=${de}&ate=${ate}&colab=${encodeURIComponent(colab)}`}
             // aria-current é o que faz o leitor de tela anunciar "página
             // atual". Sem ele a aba ativa só se distinguia pela cor -- e
             // cor sozinha não serve para quem não enxerga a diferença.
@@ -186,13 +249,10 @@ export default async function AtivoDeGiroPage({
       )}
 
       {(aba === "painel" || aba === "conciliacao") && (
-        <form method="get" className="mb-4 flex items-end gap-2">
+        <form method="get" className="mb-4 flex flex-wrap items-end gap-2">
           <input type="hidden" name="aba" value={aba} />
           <div>
-            <label
-              className="mb-1 block text-xs font-semibold uppercase text-slate-500"
-              htmlFor="data"
-            >
+            <label className={rotulo} htmlFor="data">
               Dia
             </label>
             <input
@@ -203,6 +263,7 @@ export default async function AtivoDeGiroPage({
               className={campo}
             />
           </div>
+          <SeletorColaborador contadores={contadores} valor={colab} />
           <button
             type="submit"
             className="rounded-lg bg-slate-800 px-3 py-2 text-sm font-semibold text-white"
@@ -214,9 +275,22 @@ export default async function AtivoDeGiroPage({
 
       {aba === "conciliacao" && (
         <section>
+          {/* Filtrar por pessoa muda o significado da coluna Diferença, e
+              isso precisa estar escrito: o parque é o saldo da revenda
+              inteira, então comparar com o que UMA pessoa contou acusa uma
+              falta que provavelmente está com o resto do time. */}
+          {nomeFiltrado && (
+            <p className="mb-3 rounded-xl bg-amber-50 p-3 text-sm text-amber-800">
+              Mostrando só o que <strong>{nomeFiltrado}</strong> contou. O
+              parque continua sendo o da revenda inteira, então a diferença
+              não fecha enquanto o filtro estiver ligado.
+            </p>
+          )}
+
           {linhas.length === 0 ? (
             <p className="rounded-xl bg-slate-50 p-4 text-sm text-slate-500">
-              Nenhuma contagem em {formatarData(dia)}.
+              Nenhuma contagem em {formatarData(dia)}
+              {nomeFiltrado ? ` de ${nomeFiltrado}` : ""}.
             </p>
           ) : (
             <div className="overflow-x-auto rounded-2xl border border-slate-200">
@@ -269,6 +343,11 @@ export default async function AtivoDeGiroPage({
 
       {aba === "painel" && (
         <section className="space-y-6">
+          {nomeFiltrado && (
+            <p className="rounded-xl bg-slate-100 p-3 text-sm text-slate-600">
+              Somando só as contagens de <strong>{nomeFiltrado}</strong>.
+            </p>
+          )}
           <div className="rounded-2xl border border-slate-200 bg-white p-4">
             <h2 className="mb-3 text-sm font-bold uppercase text-slate-500">
               Total contado por embalagem (caixas)
@@ -322,39 +401,18 @@ export default async function AtivoDeGiroPage({
           <form method="get" className="mb-4 flex flex-wrap items-end gap-2">
             <input type="hidden" name="aba" value="historico" />
             <div>
-              <label
-                className="mb-1 block text-xs font-semibold uppercase text-slate-500"
-                htmlFor="de"
-              >
+              <label className={rotulo} htmlFor="de">
                 De
               </label>
               <input id="de" type="date" name="de" defaultValue={de} className={campo} />
             </div>
             <div>
-              <label
-                className="mb-1 block text-xs font-semibold uppercase text-slate-500"
-                htmlFor="ate"
-              >
+              <label className={rotulo} htmlFor="ate">
                 Até
               </label>
               <input id="ate" type="date" name="ate" defaultValue={ate} className={campo} />
             </div>
-            <div className="min-w-[10rem] flex-1">
-              <label
-                className="mb-1 block text-xs font-semibold uppercase text-slate-500"
-                htmlFor="quem"
-              >
-                Colaborador
-              </label>
-              <input
-                id="quem"
-                type="text"
-                name="quem"
-                placeholder="Nome do colaborador"
-                defaultValue={quem}
-                className={campo}
-              />
-            </div>
+            <SeletorColaborador contadores={contadores} valor={colab} />
             <button
               type="submit"
               className="rounded-lg bg-slate-800 px-3 py-2 text-sm font-semibold text-white"
@@ -365,7 +423,8 @@ export default async function AtivoDeGiroPage({
 
           {contagensPeriodo.length === 0 ? (
             <p className="rounded-xl bg-slate-50 p-4 text-sm text-slate-500">
-              Nenhuma contagem no período.
+              Nenhuma contagem no período
+              {nomeFiltrado ? ` para ${nomeFiltrado}` : ""}.
             </p>
           ) : (
             <ul className="space-y-2">

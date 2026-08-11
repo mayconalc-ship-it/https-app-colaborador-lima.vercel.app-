@@ -132,6 +132,29 @@ export type LinhaContagem = Omit<
 export const COLUNAS_CONTAGEM =
   "id, data, colaborador_id, colaborador_nome, tipo, formato, status, palete, lastro, caixa";
 
+/** Quem já lançou contagem -- alimenta o filtro por colaborador. */
+export type Contador = { id: string; nome: string };
+
+/**
+ * A lista de quem contou, sem repetição e em ordem alfabética.
+ *
+ * O nome vem da própria contagem (`colaborador_nome`), que é uma foto do
+ * nome no dia do lançamento. Se a pessoa mudar de nome depois, as linhas
+ * antigas guardam o nome antigo -- então o mais recente é que vale, e por
+ * isso a lista de entrada deve vir ordenada da mais nova para a mais velha.
+ */
+export function contadoresDeLinhas(
+  linhas: { colaborador_id: string; colaborador_nome: string }[] | null,
+): Contador[] {
+  const porId = new Map<string, string>();
+  for (const l of linhas ?? []) {
+    if (!porId.has(l.colaborador_id)) porId.set(l.colaborador_id, l.colaborador_nome);
+  }
+  return [...porId]
+    .map(([id, nome]) => ({ id, nome }))
+    .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
+}
+
 export type Parque = Record<string, number>;
 
 export function ehFormato(v: unknown): v is Formato {

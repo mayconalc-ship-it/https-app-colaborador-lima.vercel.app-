@@ -12,6 +12,11 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // O padrao acima so pega o .next da raiz. Uma worktree de trabalho
+    // dentro do repo traz o proprio build junto, e sem isto o `npm run
+    // lint` gastava minutos apontando erro em codigo gerado.
+    "**/.next/**",
+    ".claude/**",
   ]),
 ]);
 
