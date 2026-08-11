@@ -11,7 +11,7 @@ import { PesquisaSatisfacao } from "@/components/PesquisaSatisfacao";
 import { BotaoLideranca } from "@/components/BotaoLideranca";
 import { Notificacoes } from "@/components/Notificacoes";
 import { SeletorRevenda } from "@/components/SeletorRevenda";
-import { ToastProvider } from "@/components/Toast";
+import { Provedores } from "@/components/Provedores";
 import { SincronizarPush } from "@/components/SincronizarPush";
 import "./globals.css";
 
@@ -65,17 +65,20 @@ export default async function RootLayout({
   return (
     <html lang="pt-BR">
       <body className="min-h-screen bg-background font-sans text-foreground antialiased">
-        <ToastProvider>
+        <Provedores>
           <header className="relative bg-primary text-white">
-            <div className="mx-auto flex max-w-3xl items-center gap-2 px-3 py-3 sm:gap-3 sm:px-4 sm:py-4">
-              <div className="flex h-11 shrink-0 items-center rounded-lg bg-white px-2 py-1 shadow-md sm:h-14 sm:rounded-xl sm:px-3 sm:py-2">
+            {/* min-w-0 no container e no logo: sem isso todo mundo era
+                shrink-0 e a barra estourava a largura no celular estreito
+                -- o "Sair", último da fila, era o que saía da tela. */}
+            <div className="mx-auto flex min-w-0 max-w-3xl items-center gap-1.5 px-2 py-3 sm:gap-3 sm:px-4 sm:py-4">
+              <div className="flex h-10 min-w-0 items-center rounded-lg bg-white px-1.5 py-1 shadow-md sm:h-14 sm:rounded-xl sm:px-3 sm:py-2">
                 <Image
                   src="/logo-v2.png"
                   alt="Cervejaria Ambev Lima"
                   width={195}
                   height={130}
                   quality={100}
-                  className="h-8 w-auto object-contain sm:h-11"
+                  className="h-7 w-auto max-w-full object-contain sm:h-11"
                   priority
                 />
               </div>
@@ -90,15 +93,21 @@ export default async function RootLayout({
                 </p>
               </div>
               {user && (
-                <nav className="ml-auto flex shrink-0 items-center gap-1.5 sm:gap-2">
+                <nav className="ml-auto flex shrink-0 items-center gap-1 sm:gap-2">
                   <SeletorRevenda />
                   <Notificacoes />
                   <BotaoLideranca />
                   <Link
                     href="/minha-conta"
-                    className="rounded-lg bg-white/10 px-2 py-1.5 text-sm font-medium hover:bg-white/20"
+                    aria-label="Minha conta"
+                    className="shrink-0 rounded-lg bg-white/10 px-2 py-1.5 text-sm font-medium hover:bg-white/20"
                   >
-                    <span className="sm:hidden">Conta</span>
+                    {/* No celular vira só o ícone: com o sino, a revenda e
+                        o Sair na mesma linha, a palavra "Conta" era o que
+                        sobrava de menos essencial. */}
+                    <span className="sm:hidden" aria-hidden="true">
+                      👤
+                    </span>
                     <span className="hidden sm:inline">Minha conta</span>
                   </Link>
                   <LogoutButton />
@@ -130,7 +139,7 @@ export default async function RootLayout({
               <SincronizarPush />
             </>
           )}
-        </ToastProvider>
+        </Provedores>
       </body>
     </html>
   );

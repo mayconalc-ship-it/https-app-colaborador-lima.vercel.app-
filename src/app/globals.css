@@ -91,6 +91,77 @@ button:disabled,
   cursor: not-allowed;
 }
 
+/* Link de TEXTO ("Voltar ao menu", "Voltar ao Painel"). A regra acima nao
+   pega: ela mira a[class*="rounded"], e link de texto nao tem canto
+   arredondado. Encolher um texto solto fica estranho -- entao o retorno
+   aqui e o proprio texto apagar por um instante. */
+.toque-texto {
+  transition: opacity 100ms ease;
+}
+.toque-texto:active {
+  opacity: 0.5;
+}
+
+/* ---------------------------------------------------------------------
+   Esqueleto (shimmer)
+   ---------------------------------------------------------------------
+   O animate-pulse do Tailwind so pisca a opacidade -- em tela de celular
+   no sol isso quase nao se ve, e a espera parece travamento. O brilho que
+   atravessa da direcao ao olho: mostra que ALGO esta vindo. */
+.shimmer {
+  position: relative;
+  overflow: hidden;
+  background-color: #e2e8f0;
+}
+
+.shimmer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background-image: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.65) 50%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  animation: shimmer-passa 1.4s infinite;
+}
+
+@keyframes shimmer-passa {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+/* ---------------------------------------------------------------------
+   Confirmacao de sucesso
+   ---------------------------------------------------------------------
+   O check se desenha em vez de aparecer pronto. Sao 400ms que fazem o
+   "salvou" ser percebido sem a pessoa precisar ler o texto do aviso. */
+.check-desenha {
+  stroke-dasharray: 24;
+  stroke-dashoffset: 24;
+  animation: check-risca 380ms 80ms ease-out forwards;
+}
+
+@keyframes check-risca {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.circulo-pulsa {
+  animation: circulo-pulsa 420ms ease-out;
+}
+
+@keyframes circulo-pulsa {
+  from {
+    transform: scale(0.4);
+    opacity: 0;
+  }
+}
+
 /* ---------------------------------------------------------------------
    Espera
    --------------------------------------------------------------------- */
@@ -170,11 +241,18 @@ button:disabled,
   }
   .dica-link.carregando,
   .rodinha,
-  .toast-entra {
+  .toast-entra,
+  .shimmer::after,
+  .check-desenha,
+  .circulo-pulsa {
     animation: none;
   }
   .dica-link.carregando {
     opacity: 0.4;
+  }
+  /* Sem a animacao, o check tem que nascer desenhado. */
+  .check-desenha {
+    stroke-dashoffset: 0;
   }
 }
 

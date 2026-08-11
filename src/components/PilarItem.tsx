@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useConfirmarEnvio } from "@/components/Confirmacao";
 import type { PilarCadastrado } from "@/lib/pilares";
 
 export function PilarItem({
@@ -23,6 +24,7 @@ export function PilarItem({
   onExcluir: (formData: FormData) => void;
 }) {
   const [editando, setEditando] = useState(false);
+  const aoExcluir = useConfirmarEnvio();
 
   if (editando) {
     return (
@@ -134,9 +136,7 @@ export function PilarItem({
 
       <form
         action={onExcluir}
-        onSubmit={(e) => {
-          if (!confirm(`Excluir o pilar "${pilar.nome}"?`)) e.preventDefault();
-        }}
+        onSubmit={aoExcluir({ titulo: `Excluir o pilar "${pilar.nome}"?` })}
       >
         <input type="hidden" name="id" value={pilar.id} />
         <input type="hidden" name="nome" value={pilar.nome} />

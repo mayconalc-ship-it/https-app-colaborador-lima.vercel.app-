@@ -8,33 +8,64 @@ import {
   TIPOS,
   hojeISO,
   totalEmCaixas,
+  type Contagem,
   type Fatores,
   type Formato,
 } from "@/lib/ativo-giro";
-import { registrarContagem } from "./actions";
+import { editarContagem, registrarContagem } from "./actions";
 
 const campo =
   "w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-base text-slate-900 focus:border-primary focus:outline-none";
 const rotulo = "mb-1 block text-xs font-semibold uppercase text-slate-500";
 
-function Salvar() {
+function Salvar({ editando }: { editando: boolean }) {
   const { pending } = useFormStatus();
   return (
     <button
       type="submit"
       disabled={pending}
-      className="w-full rounded-xl bg-primary px-4 py-3 text-base font-semibold text-white hover:bg-primary-dark disabled:opacity-60"
+      aria-busy={pending}
+      className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 text-base font-semibold text-white hover:bg-primary-dark disabled:cursor-not-allowed disabled:opacity-60"
     >
-      {pending ? "Salvando..." : "Registrar contagem"}
+      {pending && <span className="rodinha" aria-hidden="true" />}
+      {pending
+        ? "Salvando..."
+        : editando
+          ? "Salvar alterações"
+          : "Registrar contagem"}
     </button>
   );
 }
 
-export function FormContagem({ fatores }: { fatores: Fatores }) {
-  const [formato, setFormato] = useState<Formato>("600ml");
-  const [palete, setPalete] = useState("");
-  const [lastro, setLastro] = useState("");
-  const [caixa, setCaixa] = useState("");
+/**
+ * Serve para lançar e para corrigir.
+ *
+ * Ganhou o modo de edição quando o colaborador passou a poder arrumar a
+ * própria contagem: o banco já permitia (a RLS libera a própria linha) e
+ * a ação `editarContagem` já existia -- faltava só a tela. Manter um
+ * formulário só evita que o de correção fique para trás quando um campo
+ * novo aparecer.
+ */
+export function FormContagem({
+  fatores,
+  contagem,
+  aoCancelar,
+}: {
+  fatores: Fatores;
+  contagem?: Contagem;
+  aoCancelar?: () => void;
+}) {
+  const editando = Boolean(contagem);
+  const [formato, setFormato] = useState<Formato>(
+    (contagem?.formato as Formato) ?? "600ml",
+  );
+  const [palete, setPalete] = useState(
+    contagem ? String(contagem.palete) : "",
+  );
+  const [lastro, setLastro] = useState(
+    contagem ? String(contagem.lastro) : "",
+  );
+  const [caixa, setCaixa] = useState(contagem ? String(contagem.caixa) : "");
 
   const fator = fatores[formato];
   const total = totalEmCaixas(
@@ -48,9 +79,11 @@ export function FormContagem({ fatores }: { fatores: Fatores }) {
 
   return (
     <form
-      action={registrarContagem}
+      action={editando ? editarContagem : registrarContagem}
       className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4"
     >
+      {contagem && <input type="hidden" name="id" value={contagem.id} />}
+
       <div>
         <label className={rotulo} htmlFor="data">
           Data
@@ -59,7 +92,7 @@ export function FormContagem({ fatores }: { fatores: Fatores }) {
           id="data"
           name="data"
           type="date"
-          defaultValue={hojeISO()}
+          defaultValue={contagem?.data ?? hojeISO()}
           className={campo}
           required
         />
@@ -70,7 +103,12 @@ export function FormContagem({ fatores }: { fatores: Fatores }) {
           <label className={rotulo} htmlFor="tipo">
             Tipo
           </label>
-          <select id="tipo" name="tipo" className={campo} defaultValue="Kit AG">
+          <select
+            id="tipo"
+            name="tipo"
+            className={campo}
+            defaultValue={contagem?.tipo ?? "Kit AG"}
+          >
             {TIPOS.map((t) => (
               <option key={t} value={t}>
                 {t}
@@ -106,7 +144,7 @@ export function FormContagem({ fatores }: { fatores: Fatores }) {
           id="status"
           name="status"
           className={campo}
-          defaultValue="Cheio"
+          defaultValue={contagem?.status ?? "Cheio"}
         >
           {STATUSES.map((s) => (
             <option key={s} value={s}>
@@ -175,7 +213,17 @@ export function FormContagem({ fatores }: { fatores: Fatores }) {
         </span>
       </p>
 
-      <Salvar />
+      <Salvar editando={editando} />
+
+      {aoCancelar && (
+        <button
+          type="button"
+          onClick={aoCancelar}
+          className="w-full rounded-xl border border-slate-200 py-3 text-sm font-medium text-slate-600"
+        >
+          Cancelar
+        </button>
+      )}
     </form>
   );
 }

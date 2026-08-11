@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { LinkVoltar } from "@/components/LinkVoltar";
 import { TextoComLinks } from "@/components/TextoComLinks";
 import { BotaoCurtir } from "@/components/BotaoCurtir";
 import { FotoAmpliavel } from "@/components/FotoAmpliavel";
@@ -87,12 +88,9 @@ export default async function ComunicadosPage({
     <div>
       {/* A manchete substituiu o cabeçalho padrão, então a saída para o
           menu precisa vir aqui — sem ela o colaborador fica sem volta. */}
-      <Link
-        href="/"
-        className="mb-3 inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline"
-      >
+      <LinkVoltar href="/" className="mb-2 text-primary hover:underline">
         ← Voltar ao menu
-      </Link>
+      </LinkVoltar>
 
       {/* ---- Cabeçalho do jornal ---------------------------------- */}
       <header className="mb-5 border-y-4 border-double border-primary py-4 text-center">

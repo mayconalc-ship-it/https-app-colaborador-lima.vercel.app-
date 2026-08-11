@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { PageHeader } from "@/components/PageHeader";
-import { AvisosNoCelular } from "@/components/AvisosNoCelular";
 import { useToast } from "@/components/Toast";
 import { createClient } from "@/lib/supabase/client";
 import { CHAVE_SENHA_ALTERADA, validarNovaSenha } from "@/lib/senha";
@@ -106,7 +105,6 @@ export default function MinhaContaPage() {
           {carregando ? "Salvando..." : "Salvar nova senha"}
         </button>
       </form>
-      <AvisosNoCelular />
     </div>
   );
 }

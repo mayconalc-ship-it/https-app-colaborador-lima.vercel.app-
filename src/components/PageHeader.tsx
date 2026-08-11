@@ -1,7 +1,7 @@
 "use client";
 
-import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { LinkVoltar } from "@/components/LinkVoltar";
 
 export function PageHeader({
   title,
@@ -20,12 +20,9 @@ export function PageHeader({
   return (
     <div className="mb-6">
       {!noModoGestao && (
-        <Link
-          href="/"
-          className="mb-2 inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline"
-        >
+        <LinkVoltar href="/" className="mb-1 text-primary hover:underline">
           ← Voltar ao menu
-        </Link>
+        </LinkVoltar>
       )}
       <h1 className="text-2xl font-bold text-slate-900">{title}</h1>
       {subtitle && <p className="mt-1 text-slate-500">{subtitle}</p>}

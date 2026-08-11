@@ -1,13 +1,6 @@
 import Link from "next/link";
 import { getRevendas, getRevendaAtiva } from "@/lib/revendas";
-
-/**
- * No celular só cabe o que distingue uma revenda da outra: "Revenda Lima"
- * é igual em todas e só empurra o nome de verdade para fora da tela.
- */
-function nomeCurto(nome: string) {
-  return nome.replace(/^Revenda\s+Lima\s+/i, "");
-}
+import { siglaRevenda, nomeCurtoRevenda } from "@/lib/revenda-sigla";
 
 /**
  * Mostra em qual revenda a pessoa está e abre a troca.
@@ -25,11 +18,14 @@ export async function SeletorRevenda() {
     <Link
       href="/escolher-revenda"
       title={`Você está em ${atual.nome}. Toque para trocar.`}
-      className="max-w-[7.5rem] truncate rounded-lg bg-white/10 px-2 py-1.5 text-sm font-medium hover:bg-white/20 sm:max-w-none"
+      className="shrink-0 rounded-lg bg-white/10 px-2 py-1.5 text-sm font-medium hover:bg-white/20"
     >
       🏢{" "}
-      <span className="sm:hidden">{nomeCurto(atual.nome)}</span>
-      <span className="hidden sm:inline">{atual.nome}</span>
+      {/* Celular: só a sigla. Do tablet para cima cabe o nome inteiro. */}
+      <span className="sm:hidden">{siglaRevenda(atual.slug, atual.nome)}</span>
+      <span className="hidden sm:inline">
+        {nomeCurtoRevenda(atual.nome)}
+      </span>
     </Link>
   );
 }

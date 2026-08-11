@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { ComunicadoForm } from "@/components/ComunicadoForm";
+import { useConfirmarEnvio } from "@/components/Confirmacao";
 import { editoria, formatarDataCurta } from "@/lib/comunicados";
 
 type Comunicado = {
@@ -25,6 +26,7 @@ export function ComunicadoItem({
   onExcluir: (formData: FormData) => void;
 }) {
   const [editando, setEditando] = useState(false);
+  const aoExcluir = useConfirmarEnvio();
   const ed = editoria(comunicado.categoria);
 
   if (editando) {
@@ -76,9 +78,10 @@ export function ComunicadoItem({
         </button>
         <form
           action={onExcluir}
-          onSubmit={(e) => {
-            if (!confirm(`Excluir "${comunicado.titulo}"?`)) e.preventDefault();
-          }}
+          onSubmit={aoExcluir({
+            titulo: `Excluir "${comunicado.titulo}"?`,
+            detalhe: "O comunicado sai do mural para todo mundo.",
+          })}
         >
           <input type="hidden" name="id" value={comunicado.id} />
           <button

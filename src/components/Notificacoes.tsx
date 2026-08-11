@@ -13,6 +13,7 @@ import {
   marcarAviso,
   marcarTudoVisto,
 } from "@/app/notificacoes/actions";
+import { InterruptorPush } from "@/components/InterruptorPush";
 
 /**
  * Central de notificações: o sino no cabeçalho e o balão de aviso.
@@ -114,6 +115,8 @@ export function Notificacoes() {
                 </button>
               )}
             </div>
+
+            <InterruptorPush />
 
             {avisos.length === 0 ? (
               <p className="p-8 text-center text-sm text-slate-400">

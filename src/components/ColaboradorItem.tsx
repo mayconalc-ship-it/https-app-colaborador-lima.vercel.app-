@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useConfirmarEnvio } from "@/components/Confirmacao";
 import { ROTULO_PAPEL, type Papel } from "@/lib/acessos";
 
 type Colaborador = {
@@ -50,10 +51,11 @@ export function ColaboradorItem({
   const principalAtual =
     vinculos.find((v) => v.principal)?.revendaId ?? vinculos[0]?.revendaId;
 
+  // Mesma assinatura de antes, para os pontos de uso não mudarem: recebe a
+  // pergunta e devolve o onSubmit. Só o popup do navegador virou modal.
+  const aoEnviar = useConfirmarEnvio();
   function confirmar(mensagem: string) {
-    return (e: React.FormEvent) => {
-      if (!confirm(mensagem)) e.preventDefault();
-    };
+    return aoEnviar({ titulo: mensagem });
   }
 
   return (

@@ -1,5 +1,7 @@
 "use client";
 
+import { useConfirmarEnvio } from "@/components/Confirmacao";
+
 export function BotaoExcluir({
   action,
   campos,
@@ -13,13 +15,10 @@ export function BotaoExcluir({
   children: React.ReactNode;
   className?: string;
 }) {
+  const aoEnviar = useConfirmarEnvio();
+
   return (
-    <form
-      action={action}
-      onSubmit={(e) => {
-        if (!confirm(confirmacao)) e.preventDefault();
-      }}
-    >
+    <form action={action} onSubmit={aoEnviar({ titulo: confirmacao })}>
       {Object.entries(campos).map(([nome, valor]) => (
         <input key={nome} type="hidden" name={nome} value={valor} />
       ))}

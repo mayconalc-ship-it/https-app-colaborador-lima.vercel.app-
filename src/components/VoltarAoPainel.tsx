@@ -1,7 +1,7 @@
 "use client";
 
-import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { LinkVoltar } from "@/components/LinkVoltar";
 
 /**
  * Atalho de volta ao painel. Só aparece nas telas internas do admin —
@@ -12,11 +12,11 @@ export function VoltarAoPainel() {
   if (caminho === "/admin") return null;
 
   return (
-    <Link
+    <LinkVoltar
       href="/admin"
-      className="mt-2 inline-flex items-center gap-1 text-sm font-semibold text-primary-dark hover:underline"
+      className="mt-1 font-semibold text-primary-dark hover:underline"
     >
       ← Voltar ao Painel Admin
-    </Link>
+    </LinkVoltar>
   );
 }

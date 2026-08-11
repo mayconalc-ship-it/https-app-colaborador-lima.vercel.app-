@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useConfirmarEnvio } from "@/components/Confirmacao";
 import { iconePorTipo } from "@/lib/padroes-pilares";
 
 type Padrao = {
@@ -26,6 +27,7 @@ export function PadraoItem({
   onExcluir: (formData: FormData) => void;
 }) {
   const [editando, setEditando] = useState(false);
+  const aoExcluir = useConfirmarEnvio();
 
   if (editando) {
     return (
@@ -123,11 +125,10 @@ export function PadraoItem({
       </button>
       <form
         action={onExcluir}
-        onSubmit={(e) => {
-          if (!confirm(`Excluir "${padrao.nome}"? Essa ação não pode ser desfeita.`)) {
-            e.preventDefault();
-          }
-        }}
+        onSubmit={aoExcluir({
+          titulo: `Excluir "${padrao.nome}"?`,
+          detalhe: "Essa ação não pode ser desfeita.",
+        })}
       >
         <input type="hidden" name="id" value={padrao.id} />
         <input type="hidden" name="pilar" value={padrao.pilar} />

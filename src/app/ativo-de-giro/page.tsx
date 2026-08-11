@@ -16,7 +16,9 @@ import {
   totalEmCaixas,
   type Contagem,
 } from "@/lib/ativo-giro";
+import { BotaoExcluir } from "@/components/BotaoExcluir";
 import { FormContagem } from "./FormContagem";
+import { ContagemItem } from "./ContagemItem";
 import { excluirContagem } from "./actions";
 import { ExportarContagens } from "./ExportarContagens";
 
@@ -156,9 +158,13 @@ export default async function AtivoDeGiroPage({
           <a
             key={a.id}
             href={`/ativo-de-giro?aba=${a.id}&data=${dia}&de=${de}&ate=${ate}&quem=${encodeURIComponent(quem)}`}
+            // aria-current é o que faz o leitor de tela anunciar "página
+            // atual". Sem ele a aba ativa só se distinguia pela cor -- e
+            // cor sozinha não serve para quem não enxerga a diferença.
+            aria-current={a.id === aba ? "page" : undefined}
             className={`rounded-xl px-3 py-2 text-sm font-semibold ${
               a.id === aba
-                ? "bg-primary text-white"
+                ? "bg-primary text-white ring-2 ring-primary/30 ring-offset-1"
                 : "bg-slate-100 text-slate-600 hover:bg-slate-200"
             }`}
           >
@@ -182,36 +188,7 @@ export default async function AtivoDeGiroPage({
           ) : (
             <ul className="space-y-2">
               {contagens.map((c) => (
-                <li
-                  key={c.id}
-                  className="rounded-xl border border-slate-200 bg-white p-3"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="text-sm font-semibold text-slate-900">
-                        {c.tipo} · {c.formato} · {c.status}
-                      </p>
-                      <p className="text-xs text-slate-500">
-                        {formatarData(c.data)} — Pal {c.palete} / Las{" "}
-                        {c.lastro} / Cx {c.caixa}
-                      </p>
-                    </div>
-                    <div className="flex shrink-0 items-center gap-2">
-                      <span className="rounded-lg bg-slate-100 px-2 py-1 text-xs font-bold text-slate-700">
-                        {totalEmCaixas(c, fatores[c.formato])} cx
-                      </span>
-                      <form action={excluirContagem}>
-                        <input type="hidden" name="id" value={c.id} />
-                        <button
-                          type="submit"
-                          className="rounded-lg px-2 py-1 text-xs font-semibold text-red-600 hover:bg-red-50"
-                        >
-                          Excluir
-                        </button>
-                      </form>
-                    </div>
-                  </div>
-                </li>
+                <ContagemItem key={c.id} contagem={c} fatores={fatores} />
               ))}
             </ul>
           )}
@@ -437,15 +414,14 @@ export default async function AtivoDeGiroPage({
                         {totalEmCaixas(c, fatores[c.formato])} cx
                       </span>
                       {podeExcluirEsta && (
-                        <form action={excluirContagem}>
-                          <input type="hidden" name="id" value={c.id} />
-                          <button
-                            type="submit"
-                            className="rounded-lg px-2 py-1 text-xs font-semibold text-red-600 hover:bg-red-50"
-                          >
-                            Excluir
-                          </button>
-                        </form>
+                        <BotaoExcluir
+                          action={excluirContagem}
+                          campos={{ id: c.id }}
+                          confirmacao={`Excluir a contagem de ${c.colaborador_nome} em ${formatarData(c.data)}?`}
+                          className="rounded-lg border border-red-200 px-2 py-1 text-xs font-semibold text-red-600 hover:bg-red-50"
+                        >
+                          Excluir
+                        </BotaoExcluir>
                       )}
                     </div>
                   </li>

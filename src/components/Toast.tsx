@@ -58,6 +58,39 @@ const EMOJI: Record<Tipo, string> = {
   info: "ℹ️",
 };
 
+/**
+ * O sucesso ganha um check que se DESENHA em vez do emoji parado.
+ *
+ * Não é enfeite: o aviso some em 3,5s, e no celular em movimento a pessoa
+ * muitas vezes só vê o canto da tela de relance. O traço em movimento é
+ * percebido sem precisar ler nada -- o emoji estático não era.
+ */
+function CheckAnimado() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className="h-5 w-5 shrink-0"
+      aria-hidden="true"
+      fill="none"
+    >
+      <circle
+        cx="12"
+        cy="12"
+        r="11"
+        className="circulo-pulsa origin-center fill-green-600"
+      />
+      <path
+        d="M7 12.5l3.2 3.2L17 9"
+        stroke="white"
+        strokeWidth="2.4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className="check-desenha"
+      />
+    </svg>
+  );
+}
+
 export function ToastProvider({ children }: { children: React.ReactNode }) {
   const [avisos, setAvisos] = useState<Aviso[]>([]);
   const proximoId = useRef(0);
@@ -124,9 +157,13 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
             role={a.tipo === "erro" ? "alert" : "status"}
             className={`toast-entra pointer-events-auto flex items-start gap-2 rounded-2xl border p-3 shadow-lg ${ESTILO[a.tipo]}`}
           >
-            <span className="text-base leading-tight" aria-hidden="true">
-              {EMOJI[a.tipo]}
-            </span>
+            {a.tipo === "sucesso" ? (
+              <CheckAnimado />
+            ) : (
+              <span className="text-base leading-tight" aria-hidden="true">
+                {EMOJI[a.tipo]}
+              </span>
+            )}
             <p className="min-w-0 flex-1 text-sm font-medium">{a.texto}</p>
             <button
               type="button"

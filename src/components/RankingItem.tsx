@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useConfirmarEnvio } from "@/components/Confirmacao";
 import {
   CATEGORIAS_POR_TIME,
   type TimeRanking,
@@ -34,6 +35,7 @@ export function RankingItem({
   onExcluir: (formData: FormData) => void;
 }) {
   const [editando, setEditando] = useState(false);
+  const aoExcluir = useConfirmarEnvio();
   const [time, setTime] = useState<TimeRanking>(registro.time as TimeRanking);
 
   if (editando) {
@@ -146,15 +148,10 @@ export function RankingItem({
       </button>
       <form
         action={onExcluir}
-        onSubmit={(e) => {
-          if (
-            !confirm(
-              `Excluir a foto de "${registro.categoria}" (${formatarMes(registro.mes_ano)})?`,
-            )
-          ) {
-            e.preventDefault();
-          }
-        }}
+        onSubmit={aoExcluir({
+          titulo: `Excluir a foto de "${registro.categoria}"?`,
+          detalhe: formatarMes(registro.mes_ano),
+        })}
       >
         <input type="hidden" name="id" value={registro.id} />
         <button
