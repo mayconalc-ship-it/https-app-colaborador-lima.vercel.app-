@@ -3,6 +3,14 @@ import React from "react";
 // Captura endereços começando por http(s):// ou www.
 const PADRAO_URL = /((?:https?:\/\/|www\.)[^\s<>"']+)/gi;
 
+// O mesmo endereço, mas ancorado: casa quando o texto INTEIRO é um link e
+// nada mais. Precisa ser um regex separado, sem a flag "g" -- `.test()`
+// num regex global avança o `lastIndex` e guarda estado entre chamadas,
+// e este módulo é compartilhado por todos os comunicados da tela. A
+// alternativa era zerar o `lastIndex` na mão a cada uso, o que dava certo
+// até alguém esquecer.
+const URL_INTEIRA = /^(?:https?:\/\/|www\.)[^\s<>"']+$/i;
+
 // Pontuação colada no fim da frase não faz parte do endereço.
 const PONTUACAO_FINAL = /[.,;:!?)\]}]+$/;
 
@@ -39,14 +47,13 @@ export function TextoComLinks({
   texto: string;
   rotuloBotao?: string;
 }) {
+  // `split` não depende do `lastIndex` (a especificação usa uma cópia
+  // interna do regex), então aqui o global continua seguro.
   const partes = texto.split(PADRAO_URL);
-  const somenteUmLink =
-    partes.filter((p) => p.trim() !== "").length === 1 &&
-    PADRAO_URL.test(texto.trim()) &&
-    texto.trim().split(/\s+/).length === 1;
 
-  // O regex tem flag "g": precisa zerar antes de reutilizar.
-  PADRAO_URL.lastIndex = 0;
+  // As três condições de antes -- uma parte só, tem link, e é uma palavra
+  // só -- diziam junto o que o regex ancorado diz sozinho.
+  const somenteUmLink = URL_INTEIRA.test(texto.trim());
 
   if (somenteUmLink) {
     const { href, seguro } = normalizar(texto.trim());

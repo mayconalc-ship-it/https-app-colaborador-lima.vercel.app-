@@ -126,7 +126,6 @@ export default async function AdminMetricasPage({
   const mediaPorSessao = listaSessoes.length
     ? segundosTotais / listaSessoes.length
     : 0;
-  const mediaPorPessoa = ativos.size ? segundosTotais / ativos.size : 0;
 
   const adesao = listaPessoas.length
     ? Math.round((ultimoAcesso.size / listaPessoas.length) * 100)
