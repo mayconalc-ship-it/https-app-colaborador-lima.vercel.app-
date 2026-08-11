@@ -19,6 +19,20 @@ export const STATUSES = [
 ] as const;
 export type Status = (typeof STATUSES)[number];
 
+/**
+ * Tipo + formato + status: a combinação que o formulário de contagem
+ * reabre no último valor usado, em vez de sempre no padrão. Mora aqui,
+ * num módulo puro, porque é lida no servidor (do cookie) e usada no
+ * cliente (o formulário) -- os dois lados precisam do mesmo tipo.
+ */
+export type Combinacao = { tipo: Tipo; formato: Formato; status: Status };
+
+export const COMBINACAO_PADRAO: Combinacao = {
+  tipo: "Kit AG",
+  formato: "600ml",
+  status: "Cheio",
+};
+
 export type Fator = { palete: number; lastro: number };
 export type Fatores = Record<Formato, Fator>;
 

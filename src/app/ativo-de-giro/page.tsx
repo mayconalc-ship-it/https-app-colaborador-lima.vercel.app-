@@ -17,6 +17,7 @@ import {
   type Contagem,
 } from "@/lib/ativo-giro";
 import { BotaoExcluir } from "@/components/BotaoExcluir";
+import { getUltimaCombinacao } from "./ultima-combinacao";
 import { FormContagem } from "./FormContagem";
 import { ContagemItem } from "./ContagemItem";
 import { excluirContagem } from "./actions";
@@ -83,6 +84,7 @@ export default async function AtivoDeGiroPage({
     { data: doPeriodo },
     podeConfigurar,
     podeExcluirQualquer,
+    ultimaCombinacao,
   ] = await Promise.all([
     supabase.from("ag_fatores").select("formato, palete, lastro"),
     supabase.from("ag_parque").select("tipo, formato, quantidade"),
@@ -111,6 +113,7 @@ export default async function AtivoDeGiroPage({
       : Promise.resolve({ data: null }),
     podeNoModulo("ativo-giro", "editar"),
     podeNoModulo("ativo-giro", "excluir"),
+    getUltimaCombinacao(),
   ]);
 
   const fatores = fatoresDeLinhas(fatoresBanco);
@@ -175,7 +178,7 @@ export default async function AtivoDeGiroPage({
 
       {aba === "contagem" && (
         <section>
-          <FormContagem fatores={fatores} />
+          <FormContagem fatores={fatores} ultima={ultimaCombinacao} />
 
           <h2 className="mt-8 mb-3 text-lg font-bold text-slate-900">
             Minhas contagens
