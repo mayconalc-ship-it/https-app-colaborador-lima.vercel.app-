@@ -43,8 +43,19 @@ function horaAgora() {
 /**
  * Monta o painel de avisos da pessoa que está pedindo.
  *
- * Chamada UMA vez por carregamento de página, não a cada navegação. São
- * quatro consultas curtas, todas por índice.
+ * Chamada uma vez por carregamento de página. O sino vive no layout,
+ * então esta função pesa em TODA abertura de tela -- por isso o cuidado
+ * com o número de idas ao banco, e não só com o custo de cada uma.
+ *
+ * As cinco consultas saem juntas. As duas da pendência de feedback
+ * ficavam em série depois das outras três, o que dobrava a espera sem
+ * precisar: nenhuma delas depende do resultado das primeiras, só do id
+ * da revenda e do colaborador, que já temos aqui.
+ *
+ * O preço é rodar a contagem de feedback mesmo nas horas em que ela
+ * seria descartada pelo horário. São duas consultas por índice, uma
+ * delas `head` (não traz linha nenhuma), correndo em paralelo com as
+ * outras -- não somam tempo, só um pouco de trabalho no banco.
  */
 export async function carregarAvisos(): Promise<PainelAvisos> {
   const perfil = await getPerfil();
@@ -60,26 +71,45 @@ export async function carregarAvisos(): Promise<PainelAvisos> {
   const desde = new Date();
   desde.setDate(desde.getDate() - JANELA_DIAS);
 
-  const [{ data: publicadas }, { data: estados }, { data: ajustes }] =
-    await Promise.all([
-      admin
-        .from("notificacoes")
-        .select("id, tipo, modulo, titulo, mensagem, url, prioridade, criado_em")
-        .eq("revenda_id", revendaId)
-        .eq("ativa", true)
-        .gte("criado_em", desde.toISOString())
-        .order("criado_em", { ascending: false })
-        .limit(30),
-      admin
-        .from("notificacao_estado")
-        .select("chave, vista_em, dispensada_em")
-        .eq("colaborador_id", perfil.id),
-      admin
-        .from("notificacao_ajustes")
-        .select("hora_lembrete_feedback, max_por_acesso")
-        .eq("revenda_id", revendaId)
-        .maybeSingle(),
-    ]);
+  const dia = hojeIso();
+
+  const [
+    { data: publicadas },
+    { data: estados },
+    { data: ajustes },
+    { data: configFeedback },
+    { count: feedbacksHoje },
+  ] = await Promise.all([
+    admin
+      .from("notificacoes")
+      .select("id, tipo, modulo, titulo, mensagem, url, prioridade, criado_em")
+      .eq("revenda_id", revendaId)
+      .eq("ativa", true)
+      .gte("criado_em", desde.toISOString())
+      .order("criado_em", { ascending: false })
+      .limit(30),
+    admin
+      .from("notificacao_estado")
+      .select("chave, vista_em, dispensada_em")
+      .eq("colaborador_id", perfil.id),
+    admin
+      .from("notificacao_ajustes")
+      .select("hora_lembrete_feedback, max_por_acesso")
+      .eq("revenda_id", revendaId)
+      .maybeSingle(),
+    admin
+      .from("notificacao_config")
+      .select("ativa")
+      .eq("revenda_id", revendaId)
+      .eq("modulo", "feedback")
+      .maybeSingle(),
+    admin
+      .from("feedback_rota")
+      .select("*", { count: "exact", head: true })
+      .eq("revenda_id", revendaId)
+      .eq("colaborador_id", perfil.id)
+      .gte("criado_em", `${dia}T00:00:00`),
+  ]);
 
   const estado = new Map(
     (estados ?? []).map((e) => [
@@ -119,7 +149,13 @@ export async function carregarAvisos(): Promise<PainelAvisos> {
   // Não existe linha no banco para isto. É uma pergunta feita na hora às
   // tabelas que já existem -- por isso nunca fica desatualizada e não
   // precisa de nenhuma tarefa agendada.
-  const pendencia = await pendenciaDeFeedback(perfil.id, ajustes, estado);
+  const pendencia = pendenciaDeFeedback({
+    dia,
+    ajustes,
+    configAtiva: configFeedback?.ativa ?? true,
+    jaRespondeuHoje: (feedbacksHoje ?? 0) > 0,
+    estado,
+  });
   if (pendencia) avisos.push(pendencia);
 
   // A lista do sino é sempre mais recente primeiro — é o que a pessoa
@@ -143,45 +179,38 @@ export async function carregarAvisos(): Promise<PainelAvisos> {
   return { avisos, naoVistos, balao };
 }
 
-async function pendenciaDeFeedback(
-  colaboradorId: string,
-  ajustes: { hora_lembrete_feedback: number } | null,
-  estado: Map<string, { vista: boolean; dispensada: boolean }>,
-): Promise<Aviso | null> {
-  const admin = createAdminClient();
-
-  const revendaId = await getRevendaId();
-  if (!revendaId) return null;
-
-  const { data: config } = await admin
-    .from("notificacao_config")
-    .select("ativa")
-    .eq("revenda_id", revendaId)
-    .eq("modulo", "feedback")
-    .maybeSingle();
-
-  if (config && !config.ativa) return null;
+/**
+ * Decide se a pendência de feedback aparece. Só decisão, nenhuma consulta:
+ * tudo o que ela precisa já veio no lote de `carregarAvisos`.
+ */
+function pendenciaDeFeedback({
+  dia,
+  ajustes,
+  configAtiva,
+  jaRespondeuHoje,
+  estado,
+}: {
+  dia: string;
+  ajustes: { hora_lembrete_feedback: number } | null;
+  /** Módulo desligado nesta revenda cala a pendência junto com o resto. */
+  configAtiva: boolean;
+  jaRespondeuHoje: boolean;
+  estado: Map<string, { vista: boolean; dispensada: boolean }>;
+}): Aviso | null {
+  if (!configAtiva) return null;
 
   // Antes da hora combinada o dia ainda está correndo -- cobrar seria
   // atrapalhar quem está na rua.
   const horaMinima = ajustes?.hora_lembrete_feedback ?? 16;
   if (horaAgora() < horaMinima) return null;
 
-  const dia = hojeIso();
   const chave = `feedback:${dia}`;
 
   // Dispensou hoje: só volta amanhã, porque a chave muda de dia.
   if (estado.get(chave)?.dispensada) return null;
 
-  const { count } = await admin
-    .from("feedback_rota")
-    .select("*", { count: "exact", head: true })
-    .eq("revenda_id", revendaId)
-    .eq("colaborador_id", colaboradorId)
-    .gte("criado_em", `${dia}T00:00:00`);
-
   // Já respondeu hoje: a pendência deixa de existir sozinha.
-  if ((count ?? 0) > 0) return null;
+  if (jaRespondeuHoje) return null;
 
   return {
     chave,
