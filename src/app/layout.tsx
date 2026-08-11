@@ -67,11 +67,12 @@ export default async function RootLayout({
       <body className="min-h-screen bg-background font-sans text-foreground antialiased">
         <Provedores>
           <header className="relative bg-primary text-white">
-            {/* min-w-0 no container e no logo: sem isso todo mundo era
-                shrink-0 e a barra estourava a largura no celular estreito
-                -- o "Sair", último da fila, era o que saía da tela. */}
+            {/* O logo não encolhe: espremido virava uma tira branca de
+                12px, pior que ausente. Abaixo de 360px ele sai de cena --
+                nessa largura a escolha é entre a marca e o botão Sair, e
+                Sair ganha. Acima disso tudo cabe junto. */}
             <div className="mx-auto flex min-w-0 max-w-3xl items-center gap-1.5 px-2 py-3 sm:gap-3 sm:px-4 sm:py-4">
-              <div className="flex h-10 min-w-0 items-center rounded-lg bg-white px-1.5 py-1 shadow-md sm:h-14 sm:rounded-xl sm:px-3 sm:py-2">
+              <div className="flex h-10 shrink-0 items-center rounded-lg bg-white px-1.5 py-1 shadow-md max-[359px]:hidden sm:h-14 sm:rounded-xl sm:px-3 sm:py-2">
                 <Image
                   src="/logo-v2.png"
                   alt="Cervejaria Ambev Lima"

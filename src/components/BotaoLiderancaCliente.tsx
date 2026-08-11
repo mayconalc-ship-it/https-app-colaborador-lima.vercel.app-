@@ -22,7 +22,16 @@ export function BotaoLiderancaCliente({ dono }: { dono: boolean }) {
           : "bg-gold text-primary-dark hover:brightness-95"
       }`}
     >
-      {noModoLideranca ? `⚙️ ${rotulo}` : rotulo}
+      {/* A engrenagem só do tablet para cima. No celular ela custava 25px
+          da barra -- o bastante para empurrar o Sair para fora -- e não
+          informava nada: o fundo branco com anel dourado já diz que este
+          é o modo em uso, e o aria-current diz o mesmo em voz alta. */}
+      {noModoLideranca && (
+        <span className="hidden sm:inline" aria-hidden="true">
+          ⚙️{" "}
+        </span>
+      )}
+      {rotulo}
     </Link>
   );
 }
