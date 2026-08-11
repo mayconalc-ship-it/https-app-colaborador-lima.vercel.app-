@@ -119,6 +119,19 @@ export type Contagem = {
   caixa: number;
 };
 
+/**
+ * Uma contagem antes de existir no banco: o que o formulário sabe, sem id
+ * nem autor. É o que a tela mostra enquanto o servidor não confirmou.
+ */
+export type LinhaContagem = Omit<
+  Contagem,
+  "id" | "colaborador_id" | "colaborador_nome"
+>;
+
+/** As colunas de `ag_contagens` que as telas leem. */
+export const COLUNAS_CONTAGEM =
+  "id, data, colaborador_id, colaborador_nome, tipo, formato, status, palete, lastro, caixa";
+
 export type Parque = Record<string, number>;
 
 export function ehFormato(v: unknown): v is Formato {

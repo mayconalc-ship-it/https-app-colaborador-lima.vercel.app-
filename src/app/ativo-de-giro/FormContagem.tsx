@@ -1,6 +1,6 @@
 "use client";
 
-import { startTransition, useActionState, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { useToast } from "@/components/Toast";
 import {
@@ -19,14 +19,11 @@ import {
   type Contagem,
   type Fatores,
   type Formato,
+  type LinhaContagem,
   type Status,
   type Tipo,
 } from "@/lib/ativo-giro";
-import {
-  editarContagem,
-  registrarContagem,
-  type EstadoContagem,
-} from "./actions";
+import { editarContagem } from "./actions";
 
 const campo =
   "w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-base text-slate-900 focus:border-primary focus:outline-none";
@@ -36,14 +33,8 @@ const rotulo = "mb-1 block text-xs font-semibold uppercase text-slate-500";
  * A combinação com que o formulário deve nascer.
  *
  * No servidor vem do cookie, via prop. No navegador lemos o MESMO cookie
- * de novo, e a razão é sutil: ao salvar, a página é re-renderizada e este
- * formulário remonta. Se ele reinicializasse pela prop, voltaria à
- * combinação de quando a tela abriu -- perdendo justamente a que a pessoa
- * acabou de usar. O cookie já foi atualizado pela ação, então lê-lo aqui
- * devolve o valor certo.
- *
- * Na primeira renderização os dois lados leem o mesmo cookie e chegam ao
- * mesmo valor, então não há divergência de hidratação.
+ * de novo -- e pela mesma função, `lerCombinacao`, para os dois lados não
+ * voltarem a discordar sobre como desembrulhar o valor.
  */
 function combinacaoInicial(ultima: Combinacao): Combinacao {
   if (typeof document === "undefined") return ultima;
@@ -73,20 +64,12 @@ function lembrarNoNavegador(combinacao: Combinacao) {
 }
 
 /**
- * O `useFormStatus` só enxerga submissão feita pelo `action` do form --
- * e o lançamento não usa mais `action` (veja o comentário do formulário).
- * Por isso o estado de "salvando" do lançamento chega por prop; o da
- * edição, que continua no `action`, vem do hook.
+ * O `useFormStatus` só enxerga submissão feita pelo `action` do form. Isso
+ * agora vale só para a edição: o lançamento não espera resposta nenhuma,
+ * então nunca fica "salvando".
  */
-function Salvar({
-  editando,
-  enviando = false,
-}: {
-  editando: boolean;
-  enviando?: boolean;
-}) {
-  const { pending: doAction } = useFormStatus();
-  const pending = doAction || enviando;
+function Salvar({ editando }: { editando: boolean }) {
+  const { pending } = useFormStatus();
   return (
     <button
       type="submit"
@@ -105,13 +88,39 @@ function Salvar({
 }
 
 /**
- * Serve para lançar e para corrigir.
+ * O formulário serve para lançar e para corrigir, e os dois modos são
+ * excludentes -- daí a união: ou vem `contagem` + `aoCancelar` (corrigir),
+ * ou vem `ultima` + `aoLancar` (lançar).
+ */
+type Props = { fatores: Fatores } & (
+  | {
+      /** Corrigindo uma linha que já existe no banco. */
+      contagem: Contagem;
+      aoCancelar: () => void;
+      ultima?: never;
+      aoLancar?: never;
+    }
+  | {
+      contagem?: never;
+      aoCancelar?: never;
+      /** Combinação do último lançamento, vinda do servidor (cookie). */
+      ultima: Combinacao;
+      /** Entrega a linha a quem cuida da lista. Não devolve promessa: o
+       *  formulário não espera pelo servidor. */
+      aoLancar: (dados: FormData, linha: LinhaContagem) => void;
+    }
+);
+
+/**
+ * Lançar e corrigir, no mesmo formulário.
  *
- * No lançamento a ação RESPONDE (useActionState) em vez de redirecionar:
- * o formulário não desmonta, a página não recarrega, e por isso tipo,
- * formato, status e data continuam onde estavam. Só as quantidades são
- * limpas, e o foco volta para Paletes -- a próxima linha começa a um
- * toque de distância.
+ * **O lançamento não espera pelo servidor.** Ao submeter, a linha é
+ * entregue a quem cuida da lista, o formulário limpa e o foco volta para
+ * Paletes -- tudo no mesmo quadro. Quem lança quinze linhas seguidas não
+ * paga quinze esperas de rede; o envio corre atrás, e a lista mostra o
+ * que ainda está a caminho. Só a conferência do que o servidor pode
+ * recusar por conta do formulário fica aqui, ANTES de limpar: se a
+ * quantidade estiver zerada ou quebrada, nada é enviado e nada se perde.
  *
  * O lançamento é disparado no `onSubmit`, e NÃO pelo `action` do form.
  * Isso não é estilo: quando a submissão passa pelo `action`, o React
@@ -128,32 +137,17 @@ function Salvar({
  *   o reset volta para a combinação de quando a TELA ABRIU -- era assim
  *   que "300ml" virava "600ml" depois de registrar.
  *
- * Sem `action` não há reset automático, e o estado volta a ser a única
- * fonte da verdade da tela. Perdemos o funcionamento sem JavaScript, que
- * este caminho já não tinha: a ação passada ao `useActionState` é um
- * fecho do cliente, não uma server action que o navegador saiba postar.
- *
  * Na edição o fluxo antigo continua no `action`: ali a ação é uma server
  * action de verdade, termina em redirect e o formulário desmonta -- não
- * há estado para o reset estragar.
+ * há estado para o reset estragar, e o redirect é o fim natural de uma
+ * correção.
  */
-export function FormContagem({
-  fatores,
-  contagem,
-  ultima = COMBINACAO_PADRAO,
-  aoCancelar,
-}: {
-  fatores: Fatores;
-  contagem?: Contagem;
-  /** Combinação do último lançamento, vinda do servidor (cookie). */
-  ultima?: Combinacao;
-  aoCancelar?: () => void;
-}) {
+export function FormContagem(props: Props) {
+  const { fatores, contagem, aoCancelar, aoLancar } = props;
   const editando = Boolean(contagem);
   const toast = useToast();
 
-  // Inicializador preguiçoso: roda só na montagem, e na remontagem depois
-  // de salvar pega o cookie já atualizado pela ação.
+  // Inicializador preguiçoso: roda só na montagem.
   const [combo, setCombo] = useState<Combinacao>(() =>
     contagem
       ? {
@@ -161,7 +155,7 @@ export function FormContagem({
           formato: contagem.formato as Formato,
           status: contagem.status as Status,
         }
-      : combinacaoInicial(ultima),
+      : combinacaoInicial(props.ultima ?? COMBINACAO_PADRAO),
   );
   const { tipo, formato, status } = combo;
   const trocar = (qual: keyof Combinacao) => (valor: string) => {
@@ -172,58 +166,59 @@ export function FormContagem({
     if (!editando) lembrarNoNavegador(novo);
   };
 
+  const [data, setData] = useState(contagem?.data ?? hojeISO());
   const [palete, setPalete] = useState(contagem ? String(contagem.palete) : "");
   const [lastro, setLastro] = useState(contagem ? String(contagem.lastro) : "");
   const [caixa, setCaixa] = useState(contagem ? String(contagem.caixa) : "");
 
   const campoPalete = useRef<HTMLInputElement>(null);
 
-  // Limpar e avisar acontece AQUI, no retorno da ação, e não num efeito
-  // que observa o estado: é o lugar que o React indica para reagir a algo
-  // que aconteceu, e evita a cascata de renderizações do efeito.
-  const [, enviar, enviando] = useActionState(
-    async (anterior: EstadoContagem, dados: FormData) => {
-      const r = await registrarContagem(anterior, dados);
+  const quantidades = {
+    palete: Number(palete || 0),
+    lastro: Number(lastro || 0),
+    caixa: Number(caixa || 0),
+  };
 
-      if (r.situacao === "ok") {
-        toast.sucesso("Contagem registrada!");
-        // Tipo, formato, status e data ficam -- reafirmados com o que a
-        // ação ACABOU de gravar, e não com o que sobrou no estado.
-        setCombo(r.combinacao);
-        // Só a quantidade zera, e o foco volta para Paletes: a próxima
-        // linha do pátio começa a um toque de distância.
-        setPalete("");
-        setLastro("");
-        setCaixa("");
-        campoPalete.current?.focus();
-        campoPalete.current?.select();
-      } else if (r.situacao === "erro") {
-        toast.erro(r.mensagem);
-      }
-
-      return r;
-    },
-    { situacao: "parado" } as EstadoContagem,
-  );
-
-  // O FormData é montado ANTES da transição: depois dela o React já pode
-  // ter mexido no formulário, e `e.currentTarget` some no evento reciclado.
   const lancar = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (enviando) return; // Toque duplo no pátio não vira duas contagens.
-    const dados = new FormData(e.currentTarget);
-    startTransition(() => enviar(dados));
+    if (!aoLancar) return;
+
+    const { palete: p, lastro: l, caixa: c } = quantidades;
+    const inteiras = [p, l, c].every((n) => Number.isInteger(n) && n >= 0);
+    if (!inteiras) {
+      toast.erro("Quantidade inválida: use números inteiros, sem vírgula.");
+      campoPalete.current?.focus();
+      return;
+    }
+    if (p + l + c === 0) {
+      toast.erro("Informe ao menos um palete, lastro ou caixa.");
+      campoPalete.current?.focus();
+      return;
+    }
+
+    // O FormData sai do formulário ANTES de limpar -- daqui a três linhas
+    // os campos estarão vazios.
+    aoLancar(new FormData(e.currentTarget), {
+      data,
+      tipo,
+      formato,
+      status,
+      palete: p,
+      lastro: l,
+      caixa: c,
+    });
+
+    // Tipo, formato, status e data ficam. Só a quantidade zera, e o foco
+    // volta para Paletes: a próxima linha do pátio começa a um toque de
+    // distância.
+    setPalete("");
+    setLastro("");
+    setCaixa("");
+    campoPalete.current?.focus();
   };
 
   const fator = fatores[formato];
-  const total = totalEmCaixas(
-    {
-      palete: Number(palete || 0),
-      lastro: Number(lastro || 0),
-      caixa: Number(caixa || 0),
-    },
-    fator,
-  );
+  const total = totalEmCaixas(quantidades, fator);
 
   return (
     <form
@@ -246,7 +241,8 @@ export function FormContagem({
           id="data"
           name="data"
           type="date"
-          defaultValue={contagem?.data ?? hojeISO()}
+          value={data}
+          onChange={(e) => setData(e.target.value)}
           className={campo}
           required
         />
@@ -373,7 +369,7 @@ export function FormContagem({
         </span>
       </p>
 
-      <Salvar editando={editando} enviando={enviando} />
+      <Salvar editando={editando} />
 
       {aoCancelar && (
         <button

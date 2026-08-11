@@ -9,6 +9,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { podeNoModulo, temAcessoModulo } from "@/lib/require-admin";
 import { getRevendaId } from "@/lib/revendas";
 import {
+  COLUNAS_CONTAGEM,
   COOKIE_ULTIMA,
   COOKIE_ULTIMA_DIAS,
   COOKIE_ULTIMA_PATH,
@@ -87,9 +88,21 @@ function lerCampos(formData: FormData) {
   if (!ehFormato(formato)) return { ok: false as const, erro: "Formato inválido." };
   if (!ehStatus(status)) return { ok: false as const, erro: "Status inválido." };
 
-  const palete = inteiro(formData.get("palete"));
-  const lastro = inteiro(formData.get("lastro"));
-  const caixa = inteiro(formData.get("caixa"));
+  // `inteiro` LANÇA em valor torto (um "1,5" digitado, por exemplo). Agora
+  // que o lançamento acontece em segundo plano, uma exceção aqui viraria
+  // uma linha parada na tela com mensagem genérica -- melhor virar erro
+  // de campo, com nome e sobrenome.
+  let palete: number, lastro: number, caixa: number;
+  try {
+    palete = inteiro(formData.get("palete"));
+    lastro = inteiro(formData.get("lastro"));
+    caixa = inteiro(formData.get("caixa"));
+  } catch {
+    return {
+      ok: false as const,
+      erro: "Quantidade inválida: use números inteiros, sem vírgula.",
+    };
+  }
 
   if (palete + lastro + caixa === 0) {
     return {
@@ -105,16 +118,15 @@ function lerCampos(formData: FormData) {
 }
 
 /**
- * O que o formulário de lançamento recebe de volta.
+ * O que a tela de lançamento recebe de volta.
  *
- * O sucesso devolve a combinação que ACABOU de entrar no banco. O
- * formulário reafirma os três seletores com ela em vez de torcer para o
- * estado ter sobrevivido -- assim o que fica na tela é, por construção, o
- * que foi gravado.
+ * O sucesso devolve a LINHA que acabou de entrar no banco, com id e tudo.
+ * A tela já tinha desenhado essa linha por conta própria (otimista); com
+ * a linha de verdade em mãos ela troca a provisória pela definitiva, que
+ * aí sim aceita editar e excluir.
  */
 export type EstadoContagem =
-  | { situacao: "parado" }
-  | { situacao: "ok"; em: number; combinacao: Combinacao }
+  | { situacao: "ok"; contagem: Contagem; combinacao: Combinacao }
   | { situacao: "erro"; mensagem: string };
 
 /**
@@ -122,15 +134,21 @@ export type EstadoContagem =
  * formulario. A pagina ja barra quem nao tem acesso, mas a acao confere de
  * novo: proteger so a tela deixaria a porta dos fundos aberta.
  *
- * RESPONDE em vez de redirecionar. O redirect de antes forçava uma
- * navegação inteira a cada contagem: layout, cabeçalho, notificações e as
- * cinco consultas da página, tudo de novo, só para mostrar "Contagem
- * registrada". Quem lança quinze seguidas pagava esse pedágio quinze
- * vezes -- era a demora relatada. Agora volta um estado, o `revalidatePath`
- * atualiza a lista em segundo plano e o formulário nem desmonta.
+ * RESPONDE em vez de redirecionar, e ninguém espera pela resposta: a tela
+ * desenha a linha na hora e esta ação corre atrás. O redirect original
+ * forçava uma navegação inteira a cada contagem -- layout, cabeçalho,
+ * notificações e as cinco consultas da página, tudo de novo, só para
+ * dizer "registrada". Quem lança quinze linhas pagava o pedágio quinze
+ * vezes.
+ *
+ * Por isso também NÃO há `revalidatePath` desta rota aqui: ele obrigaria
+ * a resposta a carregar a página inteira de volta, a cada linha, que é o
+ * custo que estamos justamente tirando do caminho. Quem decide a hora de
+ * ressincronizar é a tela, uma vez só no fim da rajada. A rota é
+ * `force-dynamic`, então qualquer visita nova já vem fresca de qualquer
+ * jeito -- não há cache velho para alguém encontrar.
  */
 export async function registrarContagem(
-  _anterior: EstadoContagem,
   formData: FormData,
 ): Promise<EstadoContagem> {
   // Validação primeiro: é de graça, e formulário torto não merece consulta.
@@ -159,24 +177,33 @@ export async function registrarContagem(
   }
 
   const supabase = await createClient();
-  const { error } = await supabase.from("ag_contagens").insert({
-    ...lido.campos,
-    revenda_id: revendaId,
-    colaborador_id: perfil.id,
-    colaborador_nome: perfil.nome,
-  });
+  // O `select` na volta não é enfeite: é ele que devolve o id, e sem id a
+  // linha recém-lançada ficaria na tela sem poder ser editada nem excluída
+  // até a próxima sincronização.
+  const { data: gravada, error } = await supabase
+    .from("ag_contagens")
+    .insert({
+      ...lido.campos,
+      revenda_id: revendaId,
+      colaborador_id: perfil.id,
+      colaborador_nome: perfil.nome,
+    })
+    .select(COLUNAS_CONTAGEM)
+    .single();
 
-  if (error) {
-    return { situacao: "erro", mensagem: `Não foi possível salvar: ${error.message}` };
+  if (error || !gravada) {
+    return {
+      situacao: "erro",
+      mensagem: `Não foi possível salvar: ${error?.message ?? "resposta vazia do banco"}`,
+    };
   }
 
   const { tipo, formato, status } = lido.campos;
   const combinacao: Combinacao = { tipo, formato, status };
   await lembrarCombinacao(combinacao);
 
-  revalidatePath(ROTA);
   revalidatePath("/admin/ativo-de-giro");
-  return { situacao: "ok", em: Date.now(), combinacao };
+  return { situacao: "ok", contagem: gravada as Contagem, combinacao };
 }
 
 /**

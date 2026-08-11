@@ -4,6 +4,7 @@ import { getPerfil } from "@/lib/sessao";
 import { createClient } from "@/lib/supabase/server";
 import { podeNoModulo, temAcessoModulo } from "@/lib/require-admin";
 import {
+  COLUNAS_CONTAGEM,
   FORMATOS,
   conciliar,
   diasAtrasISO,
@@ -18,8 +19,7 @@ import {
 } from "@/lib/ativo-giro";
 import { BotaoExcluir } from "@/components/BotaoExcluir";
 import { getUltimaCombinacao } from "./ultima-combinacao";
-import { FormContagem } from "./FormContagem";
-import { ContagemItem } from "./ContagemItem";
+import { Lancamento } from "./Lancamento";
 import { excluirContagem } from "./actions";
 import { ExportarContagens } from "./ExportarContagens";
 
@@ -73,8 +73,7 @@ export default async function AtivoDeGiroPage({
   // a RLS de ag_contagens já libera leitura para qualquer autenticado, então
   // isso não precisa do service role, só de estar logado.
   const supabase = await createClient();
-  const colunas =
-    "id, data, colaborador_id, colaborador_nome, tipo, formato, status, palete, lastro, caixa";
+  const colunas = COLUNAS_CONTAGEM;
 
   const [
     { data: fatoresBanco },
@@ -119,7 +118,6 @@ export default async function AtivoDeGiroPage({
   const fatores = fatoresDeLinhas(fatoresBanco);
   const parque = parqueDeLinhas(parqueBanco);
   const contagens = (minhas ?? []) as Contagem[];
-  const minhasDeHoje = contagens.filter((c) => c.data === hojeISO());
   const contagensDia = (doDia ?? []) as Contagem[];
   const contagensPeriodo = (doPeriodo ?? []) as Contagem[];
 
@@ -176,39 +174,15 @@ export default async function AtivoDeGiroPage({
         ))}
       </nav>
 
+      {/* O formulário e a lista vão juntos para o cliente: a lista precisa
+          mostrar a linha recém-lançada antes de o servidor confirmar. */}
       {aba === "contagem" && (
-        <section>
-          <FormContagem fatores={fatores} ultima={ultimaCombinacao} />
-
-          <h2 className="mt-8 mb-3 text-lg font-bold text-slate-900">
-            Minhas contagens
-          </h2>
-
-          {contagens.length === 0 ? (
-            <p className="rounded-xl bg-slate-50 p-4 text-sm text-slate-500">
-              Você ainda não registrou nenhuma contagem.
-            </p>
-          ) : (
-            <ul className="space-y-2">
-              {contagens.map((c) => (
-                <ContagemItem key={c.id} contagem={c} fatores={fatores} />
-              ))}
-            </ul>
-          )}
-
-          {minhasDeHoje.length > 0 && (
-            <>
-              <h2 className="mt-8 mb-3 text-lg font-bold text-slate-900">
-                Compartilhar contagem de hoje
-              </h2>
-              <ExportarContagens
-                contagens={minhasDeHoje}
-                fatores={fatores}
-                data={hojeISO()}
-              />
-            </>
-          )}
-        </section>
+        <Lancamento
+          fatores={fatores}
+          ultima={ultimaCombinacao}
+          contagens={contagens}
+          hoje={hojeISO()}
+        />
       )}
 
       {(aba === "painel" || aba === "conciliacao") && (
