@@ -21,7 +21,8 @@ export type ModuloNotificavel =
   | "escala"
   | "rv"
   | "feedback"
-  | "rotas";
+  | "rotas"
+  | "ativo-giro";
 
 /**
  * A mesma lista, em forma de array.
@@ -38,6 +39,7 @@ export const MODULOS_NOTIFICAVEIS: ModuloNotificavel[] = [
   "rv",
   "feedback",
   "rotas",
+  "ativo-giro",
 ];
 
 export const EMOJI_MODULO: Record<ModuloNotificavel, string> = {
@@ -49,6 +51,7 @@ export const EMOJI_MODULO: Record<ModuloNotificavel, string> = {
   rv: "💰",
   feedback: "📝",
   rotas: "🚚",
+  "ativo-giro": "🔁",
 };
 
 export const ROTULO_MODULO: Record<ModuloNotificavel, string> = {
@@ -60,6 +63,7 @@ export const ROTULO_MODULO: Record<ModuloNotificavel, string> = {
   rv: "Remuneração Variável",
   feedback: "Feedback da Rota",
   rotas: "Minha Rota",
+  "ativo-giro": "Ativo de Giro",
 };
 
 /**
@@ -100,6 +104,7 @@ export const ROTULO_BOTAO: Record<ModuloNotificavel, string> = {
   rv: "Conferir minha RV",
   feedback: "Responder agora",
   rotas: "Ver minha rota",
+  "ativo-giro": "Recontar agora",
 };
 
 /** "há 2 min", "há 3 h", "ontem" — mais legível que data completa. */

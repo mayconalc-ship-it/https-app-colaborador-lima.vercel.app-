@@ -5,7 +5,10 @@ import { createClient } from "@/lib/supabase/server";
 import { podeNoModulo, temAcessoModulo } from "@/lib/require-admin";
 import {
   COLUNAS_CONTAGEM,
+  COLUNAS_RECONTAGEM,
   FORMATOS,
+  STATUSES,
+  TIPOS,
   conciliar,
   contadoresDeLinhas,
   diasAtrasISO,
@@ -14,6 +17,8 @@ import {
   hojeISO,
   paletesEquivalentes,
   parqueDeLinhas,
+  recontagensDeLinhas,
+  rotuloRecontagem,
   totaisPorFormato,
   totalEmCaixas,
   type Contador,
@@ -22,7 +27,7 @@ import {
 import { BotaoExcluir } from "@/components/BotaoExcluir";
 import { getUltimaCombinacao } from "./ultima-combinacao";
 import { Lancamento } from "./Lancamento";
-import { excluirContagem } from "./actions";
+import { cancelarRecontagem, excluirContagem, solicitarRecontagem } from "./actions";
 import { ExportarContagens } from "./ExportarContagens";
 
 export const dynamic = "force-dynamic";
@@ -124,6 +129,7 @@ export default async function AtivoDeGiroPage({
     { data: doDia },
     { data: doPeriodo },
     { data: quemContou },
+    { data: recontagensBanco },
     podeConfigurar,
     podeExcluirQualquer,
     ultimaCombinacao,
@@ -167,6 +173,16 @@ export default async function AtivoDeGiroPage({
           .select("colaborador_id, colaborador_nome")
           .gte("data", diasAtrasISO(180))
           .order("data", { ascending: false }),
+    // Pedidos de recontagem em aberto: alimentam o banner do colaborador
+    // (aba Contagem) e o painel do controle (aba Conciliação).
+    aba === "contagem" || aba === "conciliacao"
+      ? supabase
+          .from("ag_recontagens")
+          .select(COLUNAS_RECONTAGEM)
+          .is("atendida_em", null)
+          .is("cancelada_em", null)
+          .order("criado_em", { ascending: false })
+      : Promise.resolve({ data: null }),
     podeNoModulo("ativo-giro", "editar"),
     podeNoModulo("ativo-giro", "excluir"),
     getUltimaCombinacao(),
@@ -183,6 +199,8 @@ export default async function AtivoDeGiroPage({
   // pátio são dezenas de linhas, então filtrar no caminho de volta não
   // pagaria o preço de uma consulta a mais.
   const contagensDia = ((doDia ?? []) as Contagem[]).filter(soDe);
+
+  const pendentesRecontagem = recontagensDeLinhas(recontagensBanco);
 
   const linhas = conciliar(contagensDia, parque, fatores);
   const totais = totaisPorFormato(contagensDia, fatores);
@@ -245,6 +263,7 @@ export default async function AtivoDeGiroPage({
           ultima={ultimaCombinacao}
           contagens={contagens}
           hoje={hojeISO()}
+          recontagens={pendentesRecontagem}
         />
       )}
 
@@ -302,6 +321,7 @@ export default async function AtivoDeGiroPage({
                     <th className="p-2 text-right">Contado</th>
                     <th className="p-2 text-right">Parque</th>
                     <th className="p-2 text-right">Diferença</th>
+                    {podeConfigurar && <th className="p-2" />}
                   </tr>
                 </thead>
                 <tbody>
@@ -326,6 +346,24 @@ export default async function AtivoDeGiroPage({
                         {l.diferenca > 0 ? "+" : ""}
                         {l.diferenca}
                       </td>
+                      {podeConfigurar && (
+                        <td className="p-2 text-right">
+                          <form action={solicitarRecontagem}>
+                            <input type="hidden" name="tipo" value={l.tipo} />
+                            <input
+                              type="hidden"
+                              name="formato"
+                              value={l.formato}
+                            />
+                            <button
+                              type="submit"
+                              className="rounded-lg border border-amber-300 px-2 py-1 text-xs font-semibold text-amber-700 hover:bg-amber-50"
+                            >
+                              🔁 Recontar
+                            </button>
+                          </form>
+                        </td>
+                      )}
                     </tr>
                   ))}
                 </tbody>
@@ -338,6 +376,127 @@ export default async function AtivoDeGiroPage({
             fatores={fatores}
             data={dia}
           />
+
+          {podeConfigurar && (
+            <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-4">
+              <h2 className="mb-3 text-sm font-bold uppercase text-slate-500">
+                Pedir recontagem
+              </h2>
+              <p className="mb-3 text-xs text-slate-500">
+                Deixe Tipo e/ou Status em &quot;Todos&quot; para pedir o
+                formato inteiro.
+              </p>
+              <form
+                action={solicitarRecontagem}
+                className="grid grid-cols-1 gap-3 sm:grid-cols-4 sm:items-end"
+              >
+                <div>
+                  <label className={rotulo} htmlFor="rec-tipo">
+                    Tipo
+                  </label>
+                  <select
+                    id="rec-tipo"
+                    name="tipo"
+                    defaultValue=""
+                    className={campo}
+                  >
+                    <option value="">Todos os tipos</option>
+                    {TIPOS.map((t) => (
+                      <option key={t} value={t}>
+                        {t}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className={rotulo} htmlFor="rec-formato">
+                    Formato
+                  </label>
+                  <select
+                    id="rec-formato"
+                    name="formato"
+                    defaultValue={FORMATOS[0]}
+                    required
+                    className={campo}
+                  >
+                    {FORMATOS.map((f) => (
+                      <option key={f} value={f}>
+                        {f}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className={rotulo} htmlFor="rec-status">
+                    Status
+                  </label>
+                  <select
+                    id="rec-status"
+                    name="status"
+                    defaultValue=""
+                    className={campo}
+                  >
+                    <option value="">Todos os status</option>
+                    {STATUSES.map((s) => (
+                      <option key={s} value={s}>
+                        {s}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <button
+                  type="submit"
+                  className="rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary-dark"
+                >
+                  Solicitar
+                </button>
+                <div className="sm:col-span-4">
+                  <label className={rotulo} htmlFor="rec-obs">
+                    Observação (opcional)
+                  </label>
+                  <input
+                    id="rec-obs"
+                    name="observacao"
+                    maxLength={300}
+                    className={campo}
+                    placeholder="Ex.: bateu diferença de 40 caixas"
+                  />
+                </div>
+              </form>
+
+              {pendentesRecontagem.length > 0 && (
+                <div className="mt-4 border-t border-slate-100 pt-4">
+                  <h3 className="mb-2 text-xs font-bold uppercase text-slate-500">
+                    Pendentes
+                  </h3>
+                  <ul className="space-y-2">
+                    {pendentesRecontagem.map((r) => (
+                      <li
+                        key={r.id}
+                        className="flex items-center justify-between gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3"
+                      >
+                        <div className="min-w-0 text-sm text-amber-900">
+                          <p className="font-semibold">
+                            {rotuloRecontagem(r)}
+                          </p>
+                          <p className="text-xs text-amber-700">
+                            Pedido por {r.solicitadoNome}
+                          </p>
+                        </div>
+                        <BotaoExcluir
+                          action={cancelarRecontagem}
+                          campos={{ id: r.id }}
+                          confirmacao={`Cancelar o pedido de recontagem de ${rotuloRecontagem(r)}?`}
+                        >
+                          Cancelar
+                        </BotaoExcluir>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </section>
+          )}
         </section>
       )}
 

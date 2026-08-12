@@ -20,6 +20,7 @@ const EXPLICACAO: Record<string, string> = {
   escala: "Avisa quando a escala de trabalho muda",
   rv: "Permite o botão de avisar que a RV foi atualizada",
   feedback: "Lembra quem ainda não fez o feedback da rota no fim do dia",
+  "ativo-giro": "Avisa quando o controle pede uma recontagem",
 };
 
 export default async function AdminNotificacoesPage({

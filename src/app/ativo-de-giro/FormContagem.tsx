@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { useToast } from "@/components/Toast";
 import {
@@ -92,6 +92,9 @@ function Salvar({ editando }: { editando: boolean }) {
  * excludentes -- daí a união: ou vem `contagem` + `aoCancelar` (corrigir),
  * ou vem `ultima` + `aoLancar` (lançar).
  */
+/** O que um pedido de recontagem força no formulário -- só os campos que ele fixou. */
+type Foco = { valores: Partial<Combinacao>; sinal: number };
+
 type Props = { fatores: Fatores } & (
   | {
       /** Corrigindo uma linha que já existe no banco. */
@@ -99,6 +102,7 @@ type Props = { fatores: Fatores } & (
       aoCancelar: () => void;
       ultima?: never;
       aoLancar?: never;
+      foco?: never;
     }
   | {
       contagem?: never;
@@ -108,6 +112,9 @@ type Props = { fatores: Fatores } & (
       /** Entrega a linha a quem cuida da lista. Não devolve promessa: o
        *  formulário não espera pelo servidor. */
       aoLancar: (dados: FormData, linha: LinhaContagem) => void;
+      /** Um pedido de recontagem que acabou de ser aceito -- reabre o
+       *  formulário nos campos que o pedido fixou. */
+      foco?: Foco | null;
     }
 );
 
@@ -143,7 +150,7 @@ type Props = { fatores: Fatores } & (
  * correção.
  */
 export function FormContagem(props: Props) {
-  const { fatores, contagem, aoCancelar, aoLancar } = props;
+  const { fatores, contagem, aoCancelar, aoLancar, foco } = props;
   const editando = Boolean(contagem);
   const toast = useToast();
 
@@ -172,6 +179,22 @@ export function FormContagem(props: Props) {
   const [caixa, setCaixa] = useState(contagem ? String(contagem.caixa) : "");
 
   const campoPalete = useRef<HTMLInputElement>(null);
+
+  // Um pedido de recontagem aceito força só os campos que ele fixou --
+  // tipo/status ficam como estavam quando o pedido pediu "qualquer". O
+  // `sinal` (e não `foco` inteiro) é a dependência porque o objeto nasce
+  // de novo a cada render de quem chama; sem isto o efeito repetiria a
+  // cada toque em Paletes.
+  useEffect(() => {
+    if (!foco) return;
+    setCombo((atual) => {
+      const novo = { ...atual, ...foco.valores };
+      if (!editando) lembrarNoNavegador(novo);
+      return novo;
+    });
+    campoPalete.current?.focus();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [foco?.sinal]);
 
   const quantidades = {
     palete: Number(palete || 0),

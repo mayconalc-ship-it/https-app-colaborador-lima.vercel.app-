@@ -8,6 +8,8 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { podeNoModulo, temAcessoModulo } from "@/lib/require-admin";
 import { getRevendaId } from "@/lib/revendas";
+import { criarOuAgrupar } from "@/lib/notificacoes-server";
+import { enviarPushDaRevenda } from "@/lib/push-server";
 import {
   COLUNAS_CONTAGEM,
   COOKIE_ULTIMA,
@@ -17,6 +19,8 @@ import {
   ehStatus,
   ehTipo,
   inteiro,
+  recontagemAtendida,
+  rotuloRecontagem,
   serializarCombinacao,
   type Combinacao,
   type Contagem,
@@ -202,6 +206,50 @@ export async function registrarContagem(
   const combinacao: Combinacao = { tipo, formato, status };
   await lembrarCombinacao(combinacao);
 
+  // Fecha pedidos de recontagem que esta linha atende. Silencioso: a
+  // contagem já foi salva, e isso não pode ser desfeito por causa de um
+  // pedido que não fechou. É a ÚNICA exceção ao "sem revalidatePath" da
+  // rota explicado no comentário grande acima -- só corre quando esta
+  // linha realmente fecha algum pedido pendente, não a cada lançamento.
+  try {
+    const admin = createAdminClient();
+    const { data: pendentes } = await admin
+      .from("ag_recontagens")
+      .select("id, tipo, status")
+      .eq("revenda_id", revendaId)
+      .eq("formato", formato)
+      .is("atendida_em", null)
+      .is("cancelada_em", null);
+
+    const alvo = (pendentes ?? []).filter((p) =>
+      recontagemAtendida(
+        {
+          tipo: ehTipo(p.tipo) ? p.tipo : null,
+          formato,
+          status: ehStatus(p.status) ? p.status : null,
+        },
+        { tipo, formato, status },
+      ),
+    );
+
+    if (alvo.length > 0) {
+      await admin
+        .from("ag_recontagens")
+        .update({
+          atendida_em: new Date().toISOString(),
+          atendida_por: perfil.id,
+          atendida_contagem_id: gravada.id,
+        })
+        .in(
+          "id",
+          alvo.map((a) => a.id),
+        );
+      revalidatePath(ROTA);
+    }
+  } catch {
+    // idem: avisar é secundário, salvar é o que importa.
+  }
+
   revalidatePath("/admin/ativo-de-giro");
   return { situacao: "ok", contagem: gravada as Contagem, combinacao };
 }
@@ -335,4 +383,88 @@ export async function importarHistorico(formData: FormData) {
   redirect(
     `/admin/ativo-de-giro?sucesso=${registros.length}+contagens+importadas`,
   );
+}
+
+/**
+ * O controle pede para o time recontar um tipo+formato+status, ou deixa
+ * tipo e/ou status em branco para pedir o formato inteiro. Mesma
+ * permissão de quem edita o parque e os fatores -- é quem confronta as
+ * duas contagens e decide o que merece recontagem.
+ *
+ * Avisa pelo sino (fonte da verdade) e pelo push (toque no ombro de quem
+ * está com o app fechado) -- mesmo par usado pelos comunicados.
+ */
+export async function solicitarRecontagem(formData: FormData) {
+  const perfil = await getPerfil();
+  if (!perfil) redirect("/login");
+  if (!(await podeNoModulo("ativo-giro", "editar"))) {
+    erro("Você não tem permissão para pedir recontagem.");
+  }
+
+  const formato = formData.get("formato");
+  if (!ehFormato(formato)) erro("Escolha um formato.");
+
+  const tipoBruto = formData.get("tipo");
+  const statusBruto = formData.get("status");
+  const tipo = ehTipo(tipoBruto) ? tipoBruto : null;
+  const status = ehStatus(statusBruto) ? statusBruto : null;
+  const observacao =
+    String(formData.get("observacao") ?? "").trim().slice(0, 300) || null;
+
+  const revendaId = await exigirRevendaAG();
+  const admin = createAdminClient();
+  const { error } = await admin.from("ag_recontagens").insert({
+    revenda_id: revendaId,
+    tipo,
+    formato,
+    status,
+    observacao,
+    solicitado_por: perfil.id,
+    solicitado_nome: perfil.nome,
+  });
+  if (error) erro(`Não foi possível pedir a recontagem: ${error.message}`);
+
+  const rotulo = rotuloRecontagem({ tipo, formato, status });
+  await criarOuAgrupar({
+    modulo: "ativo-giro",
+    tipo: "pendencia",
+    titulo: "Recontagem solicitada",
+    mensagem: `Confira de novo: ${rotulo}`,
+    url: "/ativo-de-giro?aba=contagem",
+    criadoPor: perfil.id,
+  });
+  await enviarPushDaRevenda(revendaId, {
+    modulo: "ativo-giro",
+    titulo: "Recontagem solicitada",
+    mensagem: `Confira de novo: ${rotulo}`,
+    url: "/ativo-de-giro?aba=contagem",
+    exceto: perfil.id,
+  });
+
+  revalidatePath(ROTA);
+  redirect(`${ROTA}?aba=conciliacao&sucesso=Recontagem+solicitada`);
+}
+
+/** Desiste de um pedido antes que alguém o atenda. Mesma permissão de quem pede. */
+export async function cancelarRecontagem(formData: FormData) {
+  const perfil = await getPerfil();
+  if (!perfil) redirect("/login");
+  if (!(await podeNoModulo("ativo-giro", "editar"))) {
+    erro("Você não tem permissão para cancelar recontagens.");
+  }
+
+  const id = Number(formData.get("id"));
+  if (!Number.isInteger(id)) erro("Recontagem inválida.");
+
+  const revendaId = await exigirRevendaAG();
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("ag_recontagens")
+    .update({ cancelada_em: new Date().toISOString() })
+    .eq("id", id)
+    .eq("revenda_id", revendaId);
+  if (error) erro(`Não foi possível cancelar: ${error.message}`);
+
+  revalidatePath(ROTA);
+  redirect(`${ROTA}?aba=conciliacao&sucesso=Recontagem+cancelada`);
 }

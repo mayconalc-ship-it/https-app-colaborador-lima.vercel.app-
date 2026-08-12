@@ -5,11 +5,13 @@ import { useRouter } from "next/navigation";
 import { useToast } from "@/components/Toast";
 import {
   formatarData,
+  rotuloRecontagem,
   totalEmCaixas,
   type Combinacao,
   type Contagem,
   type Fatores,
   type LinhaContagem,
+  type Recontagem,
 } from "@/lib/ativo-giro";
 import { FormContagem } from "./FormContagem";
 import { ContagemItem } from "./ContagemItem";
@@ -63,16 +65,43 @@ export function Lancamento({
   ultima,
   contagens,
   hoje,
+  recontagens,
 }: {
   fatores: Fatores;
   ultima: Combinacao;
   /** As contagens já confirmadas, vindas do servidor. */
   contagens: Contagem[];
   hoje: string;
+  /** Pedidos de recontagem ainda em aberto, da revenda inteira. */
+  recontagens: Recontagem[];
 }) {
   const router = useRouter();
   const toast = useToast();
   const [envios, setEnvios] = useState<Envio[]>([]);
+  const [foco, setFoco] = useState<{
+    valores: Partial<Combinacao>;
+    sinal: number;
+  } | null>(null);
+
+  /**
+   * Aceitar um pedido não muda o banco -- só empurra os campos que o
+   * pedido fixou para dentro do formulário, pronto para digitar a
+   * quantidade. Tipo/status ficam livres quando o pedido pediu "qualquer"
+   * (formato inteiro).
+   */
+  function recontar(r: Recontagem) {
+    setFoco({
+      valores: {
+        ...(r.tipo ? { tipo: r.tipo } : {}),
+        formato: r.formato,
+        ...(r.status ? { status: r.status } : {}),
+      },
+      sinal: Date.now(),
+    });
+    document
+      .getElementById("form-contagem")
+      ?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
 
   // Quando a linha confirmada aparece na lista do servidor, a cópia local
   // vira duplicata e sai. O ajuste acontece durante a renderização, e não
@@ -164,7 +193,44 @@ export function Lancamento({
 
   return (
     <section>
-      <FormContagem fatores={fatores} ultima={ultima} aoLancar={aoLancar} />
+      {recontagens.length > 0 && (
+        <div className="mb-4 space-y-2">
+          {recontagens.map((r) => (
+            <div
+              key={r.id}
+              className="flex items-center justify-between gap-3 rounded-xl border border-gold bg-amber-50 p-3"
+            >
+              <div className="min-w-0">
+                <p className="text-sm font-bold text-amber-900">
+                  🔁 Recontagem pedida
+                </p>
+                <p className="text-xs text-amber-700">
+                  {rotuloRecontagem(r)} — pedido por {r.solicitadoNome}
+                </p>
+                {r.observacao && (
+                  <p className="mt-1 text-xs text-amber-700">{r.observacao}</p>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => recontar(r)}
+                className="shrink-0 rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-white hover:bg-primary-dark"
+              >
+                Recontar agora
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div id="form-contagem">
+        <FormContagem
+          fatores={fatores}
+          ultima={ultima}
+          aoLancar={aoLancar}
+          foco={foco}
+        />
+      </div>
 
       <h2 className="mt-8 mb-3 text-lg font-bold text-slate-900">
         Minhas contagens

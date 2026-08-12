@@ -314,6 +314,75 @@ export function resumoWhatsApp(
   return linhas.join("\n");
 }
 
+/**
+ * Um pedido de recontagem: o controle pede para o time conferir de novo
+ * um tipo+formato+status, ou deixa tipo e/ou status em branco para pedir
+ * o formato inteiro. `null` nesses dois campos significa "qualquer".
+ */
+export type Recontagem = {
+  id: number;
+  tipo: Tipo | null;
+  formato: Formato;
+  status: Status | null;
+  observacao: string | null;
+  solicitadoNome: string;
+  criadoEm: string;
+};
+
+/** As colunas de `ag_recontagens` que as telas leem. */
+export const COLUNAS_RECONTAGEM =
+  "id, tipo, formato, status, observacao, solicitado_nome, criado_em";
+
+export function recontagensDeLinhas(
+  linhas:
+    | {
+        id: number;
+        tipo: string | null;
+        formato: string;
+        status: string | null;
+        observacao: string | null;
+        solicitado_nome: string;
+        criado_em: string;
+      }[]
+    | null,
+): Recontagem[] {
+  return (linhas ?? [])
+    .filter((l) => ehFormato(l.formato))
+    .map((l) => ({
+      id: l.id,
+      tipo: ehTipo(l.tipo) ? l.tipo : null,
+      formato: l.formato as Formato,
+      status: ehStatus(l.status) ? l.status : null,
+      observacao: l.observacao,
+      solicitadoNome: l.solicitado_nome,
+      criadoEm: l.criado_em,
+    }));
+}
+
+/**
+ * Uma contagem recém-lançada atende o pedido quando o formato bate e o
+ * tipo/status também batem -- ou o pedido aceitava "qualquer" ali.
+ */
+export function recontagemAtendida(
+  pedido: { tipo: Tipo | null; formato: Formato; status: Status | null },
+  lancada: { tipo: Tipo; formato: Formato; status: Status },
+) {
+  return (
+    pedido.formato === lancada.formato &&
+    (pedido.tipo === null || pedido.tipo === lancada.tipo) &&
+    (pedido.status === null || pedido.status === lancada.status)
+  );
+}
+
+/** "Kit AG · 600ml · Cheio", ou "Todos os tipos · 600ml · Todos os status". */
+export function rotuloRecontagem(r: {
+  tipo: Tipo | null;
+  formato: Formato;
+  status: Status | null;
+}) {
+  return `${r.tipo ?? "Todos os tipos"} · ${r.formato} · ${r.status ?? "Todos os status"}`;
+}
+
 /** CSV com uma linha por contagem, ponto e virgula (Excel pt-BR). */
 export function csvDasContagens(contagens: Contagem[], fatores: Fatores) {
   const cab = [
