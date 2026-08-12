@@ -267,19 +267,25 @@ export function totaisPorFormato(contagens: Contagem[], fatores: Fatores) {
   }));
 }
 
+/**
+ * O dia da revenda, nao o dia de quem esta rodando o codigo: no servidor da
+ * Vercel o relogio e UTC, e das 21h a meia-noite de Brasilia isso ja seria
+ * amanha. "en-CA" ja formata em AAAA-MM-DD.
+ */
+const DIA_SP = new Intl.DateTimeFormat("en-CA", {
+  timeZone: "America/Sao_Paulo",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
+
 export function hojeISO() {
-  const d = new Date();
-  const off = d.getTimezoneOffset();
-  return new Date(d.getTime() - off * 60_000).toISOString().slice(0, 10);
+  return DIA_SP.format(new Date());
 }
 
 /** "AAAA-MM-DD" de N dias atrás — usado para pré-preencher filtros de período. */
 export function diasAtrasISO(n: number) {
-  const d = new Date();
-  const off = d.getTimezoneOffset();
-  return new Date(d.getTime() - off * 60_000 - n * 86_400_000)
-    .toISOString()
-    .slice(0, 10);
+  return DIA_SP.format(new Date(Date.now() - n * 86_400_000));
 }
 
 export function formatarData(iso: string) {
