@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { BotaoEnviar } from "@/components/BotaoEnviar";
 import { useConfirmarEnvio } from "@/components/Confirmacao";
 import { ROTULO_PAPEL, type Papel } from "@/lib/acessos";
 
@@ -209,12 +210,12 @@ export function ColaboradorItem({
               remova e cadastre novamente.
             </p>
 
-            <button
-              type="submit"
+            <BotaoEnviar
+              textoEnviando="Salvando..."
               className="w-full rounded-xl bg-primary py-3 font-semibold text-white hover:bg-primary-dark"
             >
               Salvar dados
-            </button>
+            </BotaoEnviar>
           </form>
 
           {onPromover && !ehVoceMesmo && c.role !== "owner" && (
@@ -235,8 +236,8 @@ export function ColaboradorItem({
                 name="papel"
                 value={c.role === "lideranca" ? "colaborador" : "lideranca"}
               />
-              <button
-                type="submit"
+              <BotaoEnviar
+                textoEnviando="Aplicando..."
                 className={`w-full rounded-lg border px-3 py-2 text-xs font-medium ${
                   c.role === "lideranca"
                     ? "border-slate-300 text-slate-600 hover:bg-white"
@@ -246,7 +247,7 @@ export function ColaboradorItem({
                 {c.role === "lideranca"
                   ? "Tirar liderança"
                   : "Tornar liderança"}
-              </button>
+              </BotaoEnviar>
               <p className="mt-1.5 text-xs text-slate-400">
                 Promover dá o crachá, não as chaves: quem você promover entra
                 sem nenhum módulo. Liberar o quê é só do Admin.
@@ -262,8 +263,8 @@ export function ColaboradorItem({
               <input type="hidden" name="id" value={c.id} />
               <input type="hidden" name="nome" value={c.nome} />
               <input type="hidden" name="busca" value={busca} />
-              <button
-                type="submit"
+              <BotaoEnviar
+                textoEnviando="Aplicando..."
                 className={`w-full rounded-lg border px-3 py-2 text-xs font-medium ${
                   temAcessoAG
                     ? "border-slate-300 text-slate-600 hover:bg-white"
@@ -274,7 +275,7 @@ export function ColaboradorItem({
                 {temAcessoAG
                   ? "Tirar acesso ao Ativo de Giro"
                   : "Liberar Ativo de Giro"}
-              </button>
+              </BotaoEnviar>
               <p className="mt-1.5 text-xs text-slate-400">
                 Vale para {revendaAtivaNome}. Para outra revenda, troque no
                 seletor 🏢 no topo e volte aqui.
@@ -292,12 +293,12 @@ export function ColaboradorItem({
               <input type="hidden" name="id" value={c.id} />
               <input type="hidden" name="nome" value={c.nome} />
               <input type="hidden" name="busca" value={busca} />
-              <button
-                type="submit"
+              <BotaoEnviar
+                textoEnviando="Redefinindo..."
                 className="rounded-lg border border-primary px-3 py-2 text-xs font-medium text-primary hover:bg-primary-soft"
               >
                 Redefinir senha
-              </button>
+              </BotaoEnviar>
             </form>
 
             {!ehVoceMesmo && (
@@ -311,12 +312,12 @@ export function ColaboradorItem({
                 <input type="hidden" name="id" value={c.id} />
                 <input type="hidden" name="nome" value={c.nome} />
                 <input type="hidden" name="busca" value={busca} />
-                <button
-                  type="submit"
+                <BotaoEnviar
+                  textoEnviando="Removendo..."
                   className="rounded-lg border border-red-300 px-3 py-2 text-xs font-medium text-red-600 hover:bg-red-50"
                 >
                   Remover do app
-                </button>
+                </BotaoEnviar>
               </form>
             )}
           </div>

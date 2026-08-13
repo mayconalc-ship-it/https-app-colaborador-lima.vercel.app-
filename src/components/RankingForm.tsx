@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import { useState } from "react";
+import { BotaoEnviar } from "@/components/BotaoEnviar";
 import {
   CATEGORIAS_POR_TIME,
   NOMES_TIME,
@@ -100,12 +101,14 @@ export function RankingForm({
         />
       </div>
 
-      <button
-        type="submit"
+      {/* A foto do ranking sobe junto: em 4G de revenda isso leva segundos,
+          e sem retorno nenhum o dedo vai de novo no botão. */}
+      <BotaoEnviar
+        textoEnviando="Enviando..."
         className="w-full rounded-xl bg-primary py-3 font-semibold text-white hover:bg-primary-dark"
       >
         Enviar
-      </button>
+      </BotaoEnviar>
     </form>
   );
 }

@@ -1,5 +1,7 @@
 import { PageHeader } from "@/components/PageHeader";
+import { BotaoEnviar } from "@/components/BotaoEnviar";
 import { requireModulo } from "@/lib/require-admin";
+import { exigirRevenda } from "@/lib/revendas";
 import { createClient } from "@/lib/supabase/server";
 import {
   FORMATOS,
@@ -88,12 +90,12 @@ export default async function AdminAtivoDeGiroPage({
                     defaultValue={parque[chave(tipo, formato)] ?? 0}
                     className="w-28 rounded-lg border border-slate-300 px-2 py-1.5 text-base"
                   />
-                  <button
-                    type="submit"
+                  <BotaoEnviar
+                    compacto
                     className="rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-white"
                   >
                     Salvar
-                  </button>
+                  </BotaoEnviar>
                 </form>
               )),
             )}
@@ -131,12 +133,12 @@ export default async function AdminAtivoDeGiroPage({
                   aria-label={`Caixas por lastro ${formato}`}
                   className="w-20 rounded-lg border border-slate-300 px-2 py-1.5 text-base"
                 />
-                <button
-                  type="submit"
+                <BotaoEnviar
+                  compacto
                   className="rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-white"
                 >
                   Salvar
-                </button>
+                </BotaoEnviar>
               </form>
             ))}
           </div>

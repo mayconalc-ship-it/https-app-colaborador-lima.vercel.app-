@@ -2,6 +2,7 @@ import { decodificar } from "@/lib/texto-url";
 import { requireModulo } from "@/lib/require-admin";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { PageHeader } from "@/components/PageHeader";
+import { BotaoEnviar } from "@/components/BotaoEnviar";
 import { BotaoExcluir } from "@/components/BotaoExcluir";
 import { AREAS, ehPdf } from "@/lib/areas";
 import { exigirRevenda } from "@/lib/revendas";
@@ -132,12 +133,14 @@ export default async function AdminEscalaPage({
                   />
                 </div>
 
-                <button
-                  type="submit"
+                {/* Sobe o PDF/imagem da escala antes de gravar -- é upload,
+                    e upload em 4G de revenda não volta na hora. */}
+                <BotaoEnviar
+                  textoEnviando="Enviando escala..."
                   className="w-full rounded-xl bg-primary py-3 font-semibold text-white hover:bg-primary-dark"
                 >
                   Salvar escala de {area.curto}
-                </button>
+                </BotaoEnviar>
               </form>
             </div>
           );

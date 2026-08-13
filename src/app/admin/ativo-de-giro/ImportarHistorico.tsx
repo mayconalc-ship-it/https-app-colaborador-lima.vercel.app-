@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { BotaoEnviar } from "@/components/BotaoEnviar";
 import { importarHistorico } from "@/app/ativo-de-giro/actions";
 
 /**
@@ -41,13 +42,15 @@ export function ImportarHistorico() {
         {nome && (
           <p className="text-xs text-slate-500">Arquivo escolhido: {nome}</p>
         )}
-        <button
-          type="submit"
+        {/* Um histórico inteiro sobe de uma vez: são centenas de linhas
+            numa requisição só, e o retorno demora. */}
+        <BotaoEnviar
           disabled={!json}
+          textoEnviando="Importando..."
           className="rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
         >
           Importar
-        </button>
+        </BotaoEnviar>
       </form>
     </div>
   );

@@ -3,6 +3,7 @@ import { requireModulo } from "@/lib/require-admin";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { exigirRevenda } from "@/lib/revendas";
 import { PageHeader } from "@/components/PageHeader";
+import { BotaoEnviar } from "@/components/BotaoEnviar";
 import {
   avisarRVAtualizada,
   salvarConfigRV,
@@ -146,12 +147,12 @@ export default async function AdminRVPage({
                 </div>
               </div>
 
-              <button
-                type="submit"
+              <BotaoEnviar
+                textoEnviando="Salvando..."
                 className="w-full rounded-xl bg-primary py-3 font-semibold text-white hover:bg-primary-dark"
               >
                 Salvar
-              </button>
+              </BotaoEnviar>
             </form>
 
             <form action={testarConexaoRV} className="mt-3 flex items-end gap-2">
@@ -171,12 +172,14 @@ export default async function AdminRVPage({
                   className="w-full rounded-xl border border-slate-200 p-2 text-sm focus:border-primary focus:outline-none"
                 />
               </div>
-              <button
-                type="submit"
+              {/* Baixa a planilha inteira do Drive na hora: é a espera mais
+                  longa do Modo Liderança, medida em segundos. */}
+              <BotaoEnviar
+                compacto
                 className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
               >
                 Testar
-              </button>
+              </BotaoEnviar>
             </form>
           </div>
         ))}

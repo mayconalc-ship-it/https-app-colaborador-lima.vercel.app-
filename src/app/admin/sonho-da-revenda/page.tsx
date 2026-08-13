@@ -2,6 +2,7 @@ import { decodificar } from "@/lib/texto-url";
 import { requireModulo } from "@/lib/require-admin";
 import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/PageHeader";
+import { BotaoEnviar } from "@/components/BotaoEnviar";
 import { BotaoExcluir } from "@/components/BotaoExcluir";
 import {
   enviarSonhoDaRevenda,
@@ -211,12 +212,13 @@ export default async function AdminSonhoRevendaPage({
             className="w-full rounded-xl border border-slate-200 p-2 text-sm"
           />
         </div>
-        <button
-          type="submit"
+        {/* Sobe imagem/PDF do sonho: é o upload mais pesado da tela. */}
+        <BotaoEnviar
+          textoEnviando="Enviando..."
           className="w-full rounded-xl bg-primary py-3 font-semibold text-white hover:bg-primary-dark"
         >
           Salvar
-        </button>
+        </BotaoEnviar>
       </form>
     </div>
   );

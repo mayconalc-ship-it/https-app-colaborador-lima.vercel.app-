@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { BotaoEnviar } from "@/components/BotaoEnviar";
 import { EDITORIAS, formatarDataHora, lembreteParaLocal } from "@/lib/comunicados";
 
 type Comunicado = {
@@ -247,12 +248,15 @@ export function ComunicadoForm({
       </details>
 
       <div className="flex gap-2">
-        <button
-          type="submit"
+        {/* Publicar sobe a imagem do comunicado antes de gravar. É a ação
+            mais lenta do Modo Liderança, e era a que menos dizia estar
+            acontecendo -- o botão ficava aceso e parado até a página trocar. */}
+        <BotaoEnviar
+          textoEnviando={comunicado ? "Salvando..." : "Publicando..."}
           className="flex-1 rounded-xl bg-primary py-3 font-semibold text-white hover:bg-primary-dark"
         >
           {comunicado ? "Salvar alterações" : "Publicar"}
-        </button>
+        </BotaoEnviar>
         {aoCancelar && (
           <button
             type="button"

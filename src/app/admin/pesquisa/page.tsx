@@ -3,6 +3,7 @@ import { requireModulo } from "@/lib/require-admin";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { exigirRevenda } from "@/lib/revendas";
 import { PageHeader } from "@/components/PageHeader";
+import { BotaoEnviar } from "@/components/BotaoEnviar";
 import {
   dentroDoPeriodo,
   grupoDaNota,
@@ -168,8 +169,8 @@ export default async function AdminPesquisaPage({
 
           <form action={alternarPesquisa}>
             <input type="hidden" name="ligar" value={String(!cfg.ativa)} />
-            <button
-              type="submit"
+            <BotaoEnviar
+              textoEnviando="Aplicando..."
               className={`rounded-xl px-4 py-3 text-sm font-semibold text-white ${
                 cfg.ativa
                   ? "bg-red-600 hover:bg-red-700"
@@ -177,7 +178,7 @@ export default async function AdminPesquisaPage({
               }`}
             >
               {cfg.ativa ? "Desativar pesquisa" : "Ativar pesquisa"}
-            </button>
+            </BotaoEnviar>
           </form>
         </div>
 
@@ -265,12 +266,12 @@ export default async function AdminPesquisaPage({
             </p>
           </div>
 
-          <button
-            type="submit"
+          <BotaoEnviar
+            textoEnviando="Salvando..."
             className="w-full rounded-xl bg-primary py-3 font-semibold text-white hover:bg-primary-dark"
           >
             Salvar
-          </button>
+          </BotaoEnviar>
         </form>
       </details>
 
@@ -290,12 +291,12 @@ export default async function AdminPesquisaPage({
             placeholder="2026-09"
             className="w-full rounded-xl border border-slate-200 p-3 text-base focus:border-primary focus:outline-none"
           />
-          <button
-            type="submit"
+          <BotaoEnviar
+            textoEnviando="Iniciando..."
             className="w-full rounded-xl border-2 border-primary py-3 font-semibold text-primary hover:bg-primary-soft"
           >
             Iniciar ciclo
-          </button>
+          </BotaoEnviar>
         </form>
       </details>
 

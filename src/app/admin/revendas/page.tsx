@@ -2,6 +2,7 @@ import { decodificar } from "@/lib/texto-url";
 import { requireOwner } from "@/lib/require-admin";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { PageHeader } from "@/components/PageHeader";
+import { BotaoEnviar } from "@/components/BotaoEnviar";
 import { MODULOS } from "@/lib/acessos";
 import {
   alternarRevenda,
@@ -91,12 +92,12 @@ export default async function RevendasPage({
             required
             minLength={3}
           />
-          <button
-            type="submit"
+          <BotaoEnviar
+            textoEnviando="Cadastrando..."
             className="mt-3 w-full rounded-xl bg-primary py-3 text-sm font-semibold text-white hover:bg-primary-dark"
           >
             Cadastrar
-          </button>
+          </BotaoEnviar>
           <p className="mt-2 text-xs text-slate-400">
             A revenda nasce sem nenhum módulo e sem ninguém vinculado. Os
             colaboradores você liga na tela de Colaboradores.
@@ -160,12 +161,12 @@ export default async function RevendasPage({
                   ))}
                 </div>
 
-                <button
-                  type="submit"
+                <BotaoEnviar
+                  textoEnviando="Salvando..."
                   className="mt-4 w-full rounded-xl bg-primary py-3 text-sm font-semibold text-white hover:bg-primary-dark"
                 >
                   Salvar módulos de {r.nome}
-                </button>
+                </BotaoEnviar>
               </form>
 
               {/* ---- Nome ---- */}
@@ -181,20 +182,20 @@ export default async function RevendasPage({
                   required
                   minLength={3}
                 />
-                <button
-                  type="submit"
+                <BotaoEnviar
+                  compacto
                   className="shrink-0 rounded-xl border border-primary px-4 py-3 text-sm font-semibold text-primary hover:bg-primary-soft"
                 >
                   Renomear
-                </button>
+                </BotaoEnviar>
               </form>
 
               {/* ---- Ativa / desativada ---- */}
               <form action={alternarRevenda} className="border-t border-slate-100 p-4">
                 <input type="hidden" name="id" value={r.id} />
                 <input type="hidden" name="ativa" value={r.ativa ? "0" : "1"} />
-                <button
-                  type="submit"
+                <BotaoEnviar
+                  textoEnviando="Aplicando..."
                   className={
                     r.ativa
                       ? "w-full rounded-xl border border-red-300 py-3 text-sm font-medium text-red-600 hover:bg-red-50"
@@ -202,7 +203,7 @@ export default async function RevendasPage({
                   }
                 >
                   {r.ativa ? `Desativar ${r.nome}` : `Reativar ${r.nome}`}
-                </button>
+                </BotaoEnviar>
                 <p className="mt-2 text-xs text-slate-400">
                   Desativar não apaga nada. A revenda some da lista de quem
                   está vinculado a ela, e o histórico continua guardado.

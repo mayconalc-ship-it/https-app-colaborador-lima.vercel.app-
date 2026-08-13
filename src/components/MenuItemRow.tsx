@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { BotaoEnviar } from "@/components/BotaoEnviar";
 import type { ItemMenu } from "@/lib/menu";
 
 export function MenuItemRow({
@@ -49,12 +50,12 @@ export function MenuItemRow({
           </div>
         </div>
         <div className="flex gap-2">
-          <button
-            type="submit"
+          <BotaoEnviar
+            textoEnviando="Salvando..."
             className="flex-1 rounded-lg bg-primary py-2 text-sm font-semibold text-white hover:bg-primary-dark"
           >
             Salvar
-          </button>
+          </BotaoEnviar>
           <button
             type="button"
             onClick={() => setEditando(false)}
@@ -83,27 +84,27 @@ export function MenuItemRow({
       <form action={onMover}>
         <input type="hidden" name="chave" value={item.chave} />
         <input type="hidden" name="direcao" value="cima" />
-        <button
-          type="submit"
+        <BotaoEnviar
+          compacto
           disabled={primeiro}
-          aria-label="Mover para cima"
+          ariaLabel="Mover para cima"
           className="rounded-lg border border-slate-200 px-2 py-1 text-sm text-slate-600 hover:bg-slate-50 disabled:opacity-30"
         >
           ↑
-        </button>
+        </BotaoEnviar>
       </form>
 
       <form action={onMover}>
         <input type="hidden" name="chave" value={item.chave} />
         <input type="hidden" name="direcao" value="baixo" />
-        <button
-          type="submit"
+        <BotaoEnviar
+          compacto
           disabled={ultimo}
-          aria-label="Mover para baixo"
+          ariaLabel="Mover para baixo"
           className="rounded-lg border border-slate-200 px-2 py-1 text-sm text-slate-600 hover:bg-slate-50 disabled:opacity-30"
         >
           ↓
-        </button>
+        </BotaoEnviar>
       </form>
 
       <button
@@ -117,8 +118,8 @@ export function MenuItemRow({
       <form action={onAlternar}>
         <input type="hidden" name="chave" value={item.chave} />
         <input type="hidden" name="visivel" value={String(item.visivel)} />
-        <button
-          type="submit"
+        <BotaoEnviar
+          compacto
           className={`rounded-lg border px-2 py-1 text-xs font-medium ${
             item.visivel
               ? "border-slate-200 text-slate-600 hover:bg-slate-50"
@@ -126,7 +127,7 @@ export function MenuItemRow({
           }`}
         >
           {item.visivel ? "Ocultar" : "Mostrar"}
-        </button>
+        </BotaoEnviar>
       </form>
     </div>
   );

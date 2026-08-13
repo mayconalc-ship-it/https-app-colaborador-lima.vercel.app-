@@ -21,6 +21,7 @@ import {
   type Contador,
   type Contagem,
 } from "@/lib/ativo-giro";
+import { BotaoEnviar } from "@/components/BotaoEnviar";
 import { BotaoExcluir } from "@/components/BotaoExcluir";
 import { getUltimaCombinacao } from "./ultima-combinacao";
 import { Lancamento } from "./Lancamento";
@@ -395,12 +396,12 @@ export default async function AtivoDeGiroPage({
                               name="descricao"
                               value={`${l.tipo} · ${l.formato}`}
                             />
-                            <button
-                              type="submit"
+                            <BotaoEnviar
+                              textoEnviando="Pedindo..."
                               className="rounded-lg border border-amber-300 px-2 py-1 text-xs font-semibold text-amber-700 hover:bg-amber-50"
                             >
                               🔁 Recontar
-                            </button>
+                            </BotaoEnviar>
                           </form>
                         </td>
                       )}
@@ -456,12 +457,14 @@ export default async function AtivoDeGiroPage({
                     placeholder="Ex.: Kit AG 600ml Cheio -- bateu diferença de 40 caixas"
                   />
                 </div>
-                <button
-                  type="submit"
+                {/* Pedir recontagem dispara sino e push para todo mundo que
+                    contou naquele dia -- não volta instantâneo. */}
+                <BotaoEnviar
+                  textoEnviando="Solicitando..."
                   className="rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary-dark"
                 >
                   Solicitar
-                </button>
+                </BotaoEnviar>
               </form>
 
               {pendentesRecontagem.length > 0 && (

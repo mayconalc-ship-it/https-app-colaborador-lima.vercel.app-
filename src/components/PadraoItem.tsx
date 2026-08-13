@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { BotaoEnviar } from "@/components/BotaoEnviar";
 import { useConfirmarEnvio } from "@/components/Confirmacao";
 import { iconePorTipo } from "@/lib/padroes-pilares";
 
@@ -87,12 +88,12 @@ export function PadraoItem({
         </div>
 
         <div className="flex gap-2">
-          <button
-            type="submit"
+          <BotaoEnviar
+            textoEnviando="Salvando..."
             className="flex-1 rounded-lg bg-primary py-2 text-sm font-semibold text-white hover:bg-primary-dark"
           >
             Salvar
-          </button>
+          </BotaoEnviar>
           <button
             type="button"
             onClick={() => setEditando(false)}
@@ -132,12 +133,12 @@ export function PadraoItem({
       >
         <input type="hidden" name="id" value={padrao.id} />
         <input type="hidden" name="pilar" value={padrao.pilar} />
-        <button
-          type="submit"
+        <BotaoEnviar
+          textoEnviando="Excluindo..."
           className="rounded-lg border border-red-200 px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50"
         >
           Excluir
-        </button>
+        </BotaoEnviar>
       </form>
     </div>
   );

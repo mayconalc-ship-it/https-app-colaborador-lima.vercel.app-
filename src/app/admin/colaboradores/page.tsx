@@ -4,6 +4,7 @@ import { getRevendaAtiva } from "@/lib/revendas";
 import { ehOwner } from "@/lib/acessos";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { PageHeader } from "@/components/PageHeader";
+import { BotaoEnviar } from "@/components/BotaoEnviar";
 import { ColaboradorItem } from "@/components/ColaboradorItem";
 import { SENHA_PADRAO } from "@/lib/senha";
 import {
@@ -296,12 +297,12 @@ export default async function AdminColaboradoresPage({
               )}
           </p>
 
-          <button
-            type="submit"
+          <BotaoEnviar
+            textoEnviando="Cadastrando..."
             className="w-full rounded-xl bg-primary py-3 font-semibold text-white hover:bg-primary-dark"
           >
             Cadastrar
-          </button>
+          </BotaoEnviar>
         </form>
       </details>
 

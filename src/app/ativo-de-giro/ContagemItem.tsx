@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { BotaoEnviar } from "@/components/BotaoEnviar";
 import { useConfirmarEnvio } from "@/components/Confirmacao";
 import {
   formatarData,
@@ -89,12 +90,12 @@ export function ContagemItem({
           })}
         >
           <input type="hidden" name="id" value={contagem.id} />
-          <button
-            type="submit"
+          <BotaoEnviar
+            textoEnviando="Excluindo..."
             className="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50"
           >
             🗑️ Excluir
-          </button>
+          </BotaoEnviar>
         </form>
       </div>
     </li>

@@ -3,6 +3,7 @@ import { decodificar } from "@/lib/texto-url";
 import { requireOwner } from "@/lib/require-admin";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { PageHeader } from "@/components/PageHeader";
+import { BotaoEnviar } from "@/components/BotaoEnviar";
 import {
   AJUDA_ACAO,
   MODULOS,
@@ -207,12 +208,12 @@ export default async function GestaoDeAcessosPage({
                     <input type="hidden" name="id" value={p.id} />
                     <input type="hidden" name="papel" value="lideranca" />
                     <input type="hidden" name="revenda" value={escolhida.id} />
-                    <button
-                      type="submit"
+                    <BotaoEnviar
+                      textoEnviando="Aplicando..."
                       className="shrink-0 rounded-lg border border-primary px-3 py-2 text-xs font-semibold text-primary hover:bg-primary-soft"
                     >
                       Tornar liderança
-                    </button>
+                    </BotaoEnviar>
                   </form>
                 </li>
               ))}
@@ -306,12 +307,12 @@ export default async function GestaoDeAcessosPage({
                   </p>
 
                   <div className="mt-4 flex flex-wrap gap-2">
-                    <button
-                      type="submit"
+                    <BotaoEnviar
+                      textoEnviando="Salvando..."
                       className="flex-1 rounded-xl bg-primary py-3 text-sm font-semibold text-white hover:bg-primary-dark"
                     >
                       Salvar permissões em {escolhida.nome}
-                    </button>
+                    </BotaoEnviar>
                   </div>
                 </form>
 
@@ -322,12 +323,12 @@ export default async function GestaoDeAcessosPage({
                   <input type="hidden" name="id" value={p.id} />
                   <input type="hidden" name="papel" value="colaborador" />
                   <input type="hidden" name="revenda" value={escolhida.id} />
-                  <button
-                    type="submit"
+                  <BotaoEnviar
+                    textoEnviando="Removendo..."
                     className="w-full rounded-xl border border-red-300 py-3 text-sm font-medium text-red-600 hover:bg-red-50"
                   >
                     Remover a liderança de {p.nome?.split(" ")[0]}
-                  </button>
+                  </BotaoEnviar>
                   <p className="mt-2 text-xs text-slate-400">
                     A pessoa continua usando o app normalmente. Só perde o
                     acesso ao Modo Liderança e todas as permissões.

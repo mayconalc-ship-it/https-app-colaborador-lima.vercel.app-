@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { PageHeader } from "@/components/PageHeader";
+import { BotaoEnviar } from "@/components/BotaoEnviar";
 import { getRevendas, getRevendaAtiva } from "@/lib/revendas";
 import { trocarRevenda } from "./actions";
 
@@ -36,8 +37,11 @@ export default async function EscolherRevendaPage({
           return (
             <form key={revenda.id} action={trocarRevenda}>
               <input type="hidden" name="revenda_id" value={revenda.id} />
-              <button
-                type="submit"
+              {/* Trocar de revenda recarrega o app inteiro no contexto novo.
+                  O cartão vira "Entrando..." para a espera não passar por
+                  toque que não pegou. */}
+              <BotaoEnviar
+                textoEnviando={`Entrando em ${revenda.nome}...`}
                 className={`flex w-full items-center justify-between rounded-2xl border p-4 text-left shadow-sm transition ${
                   ativa
                     ? "border-primary bg-primary/5"
@@ -59,7 +63,7 @@ export default async function EscolherRevendaPage({
                     Em uso
                   </span>
                 )}
-              </button>
+              </BotaoEnviar>
             </form>
           );
         })}

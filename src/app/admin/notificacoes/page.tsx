@@ -3,6 +3,7 @@ import { requireOwner } from "@/lib/require-admin";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { exigirRevenda } from "@/lib/revendas";
 import { PageHeader } from "@/components/PageHeader";
+import { BotaoEnviar } from "@/components/BotaoEnviar";
 import {
   EMOJI_MODULO,
   ROTULO_MODULO,
@@ -155,12 +156,12 @@ export default async function AdminNotificacoesPage({
           </div>
         </div>
 
-        <button
-          type="submit"
+        <BotaoEnviar
+          textoEnviando="Salvando..."
           className="mt-4 w-full rounded-xl bg-primary py-3 font-semibold text-white hover:bg-primary-dark"
         >
           Salvar
-        </button>
+        </BotaoEnviar>
       </form>
 
       <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">
@@ -195,12 +196,12 @@ export default async function AdminNotificacoesPage({
               {n.ativa && (
                 <form action={silenciarAviso}>
                   <input type="hidden" name="id" value={n.id} />
-                  <button
-                    type="submit"
+                  <BotaoEnviar
+                    compacto
                     className="shrink-0 rounded-lg border border-slate-200 px-2 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50"
                   >
                     Silenciar
-                  </button>
+                  </BotaoEnviar>
                 </form>
               )}
             </li>

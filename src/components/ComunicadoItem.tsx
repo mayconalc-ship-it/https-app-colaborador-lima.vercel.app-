@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { BotaoEnviar } from "@/components/BotaoEnviar";
 import { ComunicadoForm } from "@/components/ComunicadoForm";
 import { useConfirmarEnvio } from "@/components/Confirmacao";
 import { editoria, formatarDataCurta, formatarDataHora } from "@/lib/comunicados";
@@ -105,12 +106,12 @@ export function ComunicadoItem({
           })}
         >
           <input type="hidden" name="id" value={comunicado.id} />
-          <button
-            type="submit"
+          <BotaoEnviar
+            textoEnviando="Excluindo..."
             className="rounded-lg border border-red-200 px-2 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50"
           >
             Excluir
-          </button>
+          </BotaoEnviar>
         </form>
       </div>
     </div>

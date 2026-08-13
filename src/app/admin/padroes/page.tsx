@@ -3,6 +3,7 @@ import Link from "next/link";
 import { requireModulo } from "@/lib/require-admin";
 import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/PageHeader";
+import { BotaoEnviar } from "@/components/BotaoEnviar";
 import { PadraoItem } from "@/components/PadraoItem";
 import { PilarItem } from "@/components/PilarItem";
 import { EnviarPadrao } from "@/components/EnviarPadrao";
@@ -138,12 +139,12 @@ export default async function AdminPadroesPage({
                   className="w-full rounded-xl border border-slate-200 p-3 text-base focus:border-primary focus:outline-none"
                 />
               </div>
-              <button
-                type="submit"
+              <BotaoEnviar
+                textoEnviando="Criando..."
                 className="w-full rounded-xl bg-primary py-3 font-semibold text-white hover:bg-primary-dark"
               >
                 Criar
-              </button>
+              </BotaoEnviar>
             </form>
           </details>
 
