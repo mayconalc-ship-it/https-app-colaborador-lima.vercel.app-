@@ -1,12 +1,14 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { requireModulo } from "@/lib/require-admin";
+import { requireModulo, requireOwner } from "@/lib/require-admin";
 import { ehOwner } from "@/lib/acessos";
-import { getRevendaId } from "@/lib/revendas";
+import { exigirRevenda, getRevendaId } from "@/lib/revendas";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { CHAVE_SENHA_ALTERADA, SENHA_PADRAO } from "@/lib/senha";
 import { cpfParaEmail, somenteDigitos } from "@/lib/auth-helpers";
+
+const MODULO_AG = "ativo-giro";
 
 function campo(formData: FormData, nome: string) {
   return ((formData.get(nome) as string) || "").trim();
@@ -20,7 +22,7 @@ function voltar(params: Record<string, string>): never {
 }
 
 export async function criarColaborador(formData: FormData) {
-  await requireModulo("colaboradores", "criar");
+  const eu = await requireModulo("colaboradores", "criar");
 
   const nome = campo(formData, "nome");
   const cpf = somenteDigitos(campo(formData, "cpf"));
@@ -28,9 +30,13 @@ export async function criarColaborador(formData: FormData) {
   if (!nome) voltar({ erro: "Informe o nome" });
   if (cpf.length !== 11) voltar({ erro: "O CPF deve ter 11 dígitos" });
 
-  // Quem cadastra, cadastra para a revenda em que está. Não existe pessoa
-  // sem revenda: ela entraria no app e não teria conteúdo nenhum para ver.
-  const revendaId = await getRevendaId();
+  // Quem cadastra, cadastra por padrão para a revenda em que está. Só o
+  // dono pode escolher outra na própria tela -- o campo nem aparece para
+  // os demais, mesma regra de quem pode mexer em vínculo depois de
+  // criado. Não existe pessoa sem revenda: ela entraria no app e não
+  // teria conteúdo nenhum para ver.
+  const revendaEscolhida = ehOwner(eu.role) ? campo(formData, "revenda_id") : "";
+  const revendaId = revendaEscolhida || (await getRevendaId());
   if (!revendaId) voltar({ erro: "Você não está em nenhuma revenda." });
 
   const admin = createAdminClient();
@@ -93,6 +99,22 @@ export async function criarColaborador(formData: FormData) {
     await admin.from("profiles").delete().eq("id", criado.user.id);
     await admin.auth.admin.deleteUser(criado.user.id);
     voltar({ erro: erroVinculo.message });
+  }
+
+  // Acesso ao Ativo de Giro, direto no cadastro. Best-effort: o módulo
+  // pode estar desligado nesta revenda (a concessão fica inerte até
+  // alguém ligar), e uma falha aqui não é motivo para desfazer a pessoa
+  // inteira -- dá para liberar depois clicando nela.
+  if (campo(formData, "acesso_ag") === "1") {
+    await admin.from("colaborador_modulos_extra").upsert(
+      {
+        colaborador_id: criado.user.id,
+        revenda_id: revendaId,
+        modulo: MODULO_AG,
+        liberado_por: eu.id,
+      },
+      { onConflict: "colaborador_id,revenda_id,modulo" },
+    );
   }
 
   voltar({
@@ -408,4 +430,65 @@ export async function redefinirSenha(formData: FormData) {
   }
 
   redirect(`/admin/colaboradores?${params.toString()}`);
+}
+
+/**
+ * Libera o Ativo de Giro para o colaborador, na revenda em que o dono
+ * está agora -- a mesma pessoa pode usar o módulo numa unidade e não na
+ * outra. Migrado de Admin > Ativo de Giro > Acessos: o cadastro é o
+ * lugar natural para decidir o que cada colaborador enxerga, não uma
+ * tela à parte por módulo.
+ *
+ * Exclusivo do dono, como toda alteração de acesso.
+ */
+export async function concederAcessoAtivoGiro(formData: FormData) {
+  const eu = await requireOwner();
+
+  const id = campo(formData, "id");
+  const nome = campo(formData, "nome") || "Colaborador";
+  const busca = campo(formData, "busca");
+  const extra: Record<string, string> = busca ? { busca } : {};
+
+  if (!id) voltar({ erro: "Colaborador inválido", ...extra });
+
+  const admin = createAdminClient();
+  const revendaId = await exigirRevenda("/admin/colaboradores");
+
+  const { error } = await admin.from("colaborador_modulos_extra").upsert(
+    {
+      colaborador_id: id,
+      revenda_id: revendaId,
+      modulo: MODULO_AG,
+      liberado_por: eu.id,
+    },
+    { onConflict: "colaborador_id,revenda_id,modulo" },
+  );
+
+  if (error) voltar({ erro: `Não foi possível liberar: ${error.message}`, ...extra });
+  voltar({ sucesso: `Ativo de Giro liberado para ${nome}`, ...extra });
+}
+
+/** Revoga o acesso concedido acima. */
+export async function revogarAcessoAtivoGiro(formData: FormData) {
+  await requireOwner();
+
+  const id = campo(formData, "id");
+  const nome = campo(formData, "nome") || "Colaborador";
+  const busca = campo(formData, "busca");
+  const extra: Record<string, string> = busca ? { busca } : {};
+
+  if (!id) voltar({ erro: "Colaborador inválido", ...extra });
+
+  const admin = createAdminClient();
+  const revendaId = await exigirRevenda("/admin/colaboradores");
+
+  const { error } = await admin
+    .from("colaborador_modulos_extra")
+    .delete()
+    .eq("colaborador_id", id)
+    .eq("revenda_id", revendaId)
+    .eq("modulo", MODULO_AG);
+
+  if (error) voltar({ erro: `Não foi possível revogar: ${error.message}`, ...extra });
+  voltar({ sucesso: `Acesso ao Ativo de Giro revogado de ${nome}`, ...extra });
 }

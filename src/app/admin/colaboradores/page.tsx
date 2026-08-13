@@ -12,6 +12,8 @@ import {
   atualizarColaborador,
   excluirColaborador,
   promoverColaborador,
+  concederAcessoAtivoGiro,
+  revogarAcessoAtivoGiro,
 } from "./actions";
 
 export default async function AdminColaboradoresPage({
@@ -123,6 +125,21 @@ export default async function AdminColaboradoresPage({
 
   const nomePorRevenda = new Map(listaRevendas.map((r) => [r.id, r.nome]));
 
+  // Quem já tem o Ativo de Giro liberado NA REVENDA ATIVA -- é a única que
+  // faz sentido alternar por aqui sem trocar de revenda no seletor 🏢.
+  // Só o dono mexe nisso (mesma regra de vínculo), e só quando a lista
+  // não está vazia -- economiza a consulta na maioria das visitas.
+  let idsComAG = new Set<string>();
+  if (souDono && ids.length > 0) {
+    const { data: liberadosAG } = await admin
+      .from("colaborador_modulos_extra")
+      .select("colaborador_id")
+      .eq("revenda_id", revendaAtiva.id)
+      .eq("modulo", "ativo-giro")
+      .in("colaborador_id", ids);
+    idsComAG = new Set((liberadosAG ?? []).map((v) => v.colaborador_id));
+  }
+
   return (
     <div>
       <PageHeader
@@ -231,10 +248,52 @@ export default async function AdminColaboradoresPage({
             />
           </div>
 
+          {/* Só o dono escolhe: é ele quem administra o app inteiro, e
+              cadastrar para a revenda errada por descuido é o tipo de erro
+              que só aparece dias depois, quando a pessoa "não vê nada". */}
+          {souDono && listaRevendas.length > 1 && (
+            <div>
+              <label
+                htmlFor="nova-revenda"
+                className="mb-1 block text-sm font-medium text-slate-700"
+              >
+                Revenda
+              </label>
+              <select
+                id="nova-revenda"
+                name="revenda_id"
+                defaultValue={revendaAtiva.id}
+                className="w-full rounded-xl border border-slate-200 bg-white p-3 text-base focus:border-primary focus:outline-none"
+              >
+                {listaRevendas.map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {r.nome}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          <label className="flex items-center gap-2 rounded-xl border border-slate-200 p-3 text-sm text-slate-700">
+            <input
+              type="checkbox"
+              name="acesso_ag"
+              value="1"
+              className="h-4 w-4 rounded border-slate-300 text-primary"
+            />
+            📦 Liberar o Ativo de Giro para este colaborador
+          </label>
+
           <p className="rounded-lg bg-primary-soft p-3 text-xs text-primary-dark">
             O acesso é criado com a senha <strong>{SENHA_PADRAO}</strong>. No
-            primeiro login o colaborador é obrigado a criar a senha dele. Ele
-            entra vinculado a <strong>{revendaAtiva.nome}</strong>.
+            primeiro login o colaborador é obrigado a criar a senha dele.
+            {souDono && listaRevendas.length > 1
+              ? " Ele entra vinculado à revenda escolhida acima."
+              : (
+                <>
+                  {" "}Ele entra vinculado a <strong>{revendaAtiva.nome}</strong>.
+                </>
+              )}
           </p>
 
           <button
@@ -330,6 +389,17 @@ export default async function AdminColaboradoresPage({
               nomesDasRevendas={(vinculosPorPessoa.get(c.id) ?? [])
                 .map((v) => nomePorRevenda.get(v.revendaId))
                 .filter((n): n is string => Boolean(n))}
+              temAcessoAG={idsComAG.has(c.id)}
+              podeAlternarAG={
+                souDono &&
+                c.role === "colaborador" &&
+                (vinculosPorPessoa.get(c.id) ?? []).some(
+                  (v) => v.revendaId === revendaAtiva.id,
+                )
+              }
+              revendaAtivaNome={revendaAtiva.nome}
+              onConcederAG={concederAcessoAtivoGiro}
+              onRevogarAG={revogarAcessoAtivoGiro}
             />
           ))}
         </div>
