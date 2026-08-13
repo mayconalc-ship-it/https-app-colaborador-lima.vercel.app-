@@ -84,6 +84,14 @@ export function Lancamento({
   const [recontagemAtiva, setRecontagemAtiva] = useState<Recontagem | null>(
     null,
   );
+  // O pedido que a pessoa acabou de atender, que sobrevive ao "Concluir"
+  // de propósito. É DEPOIS de concluir que ela vai compartilhar -- e
+  // enquanto o bloco de compartilhar dependia de `recontagemAtiva`, os
+  // botões de WhatsApp e CSV sumiam exatamente no toque que anunciava que
+  // a recontagem tinha terminado.
+  const [recontagemRecente, setRecontagemRecente] = useState<Recontagem | null>(
+    null,
+  );
   // Dispensar é otimista: a lista de pendentes só volta do servidor no
   // próximo `router.refresh()`, e o gesto precisa parecer instantâneo.
   const [dispensadasAgora, setDispensadasAgora] = useState<Set<number>>(
@@ -94,6 +102,7 @@ export function Lancamento({
 
   function recontar(r: Recontagem) {
     setRecontagemAtiva(r);
+    setRecontagemRecente(r);
     document
       .getElementById("form-contagem")
       ?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -101,7 +110,10 @@ export function Lancamento({
 
   function dispensar(id: number) {
     setDispensadasAgora((atual) => new Set(atual).add(id));
+    // Recusar limpa os dois: quem disse "não é comigo" não deveria ficar
+    // com o bloco de compartilhar daquele pedido plantado na tela.
     if (recontagemAtiva?.id === id) setRecontagemAtiva(null);
+    if (recontagemRecente?.id === id) setRecontagemRecente(null);
     void aoDispensarRecontagem(id);
   }
 
@@ -190,10 +202,13 @@ export function Lancamento({
   const todas = [...confirmadas, ...contagens];
   const minhasDeHoje = todas.filter((c) => c.data === hoje);
 
-  // O que já entrou sob a recontagem ativa -- é isto que vira o resumo
-  // para compartilhar quando a pessoa termina de recontar.
-  const entradasDaRecontagem = recontagemAtiva
-    ? todas.filter((c) => c.recontagem_id === recontagemAtiva.id)
+  // O que já entrou sob a recontagem -- é isto que vira o resumo para
+  // compartilhar. Cai para a `recontagemRecente` quando o modo foi
+  // concluído: o compartilhar tem que continuar ali depois do "Concluir",
+  // que é justamente quando a pessoa vai mandar o resumo.
+  const recontagemDoResumo = recontagemAtiva ?? recontagemRecente;
+  const entradasDaRecontagem = recontagemDoResumo
+    ? todas.filter((c) => c.recontagem_id === recontagemDoResumo.id)
     : [];
 
   const vazio = emTransito.length === 0 && contagens.length === 0;
@@ -203,12 +218,14 @@ export function Lancamento({
       {pendentes.length > 0 && (
         <div className="mb-4 space-y-2">
           <p className="text-xs text-slate-400">
-            Arraste um cartão para o lado para dispensar.
+            Aceite para lançar agora, ou recuse se não for com você. Arrastar
+            o cartão para o lado também recusa.
           </p>
           {pendentes.map((r) => (
             <CartaoRecontagem
               key={r.id}
               r={r}
+              aceita={recontagemAtiva?.id === r.id}
               aoRecontar={() => recontar(r)}
               aoDispensar={() => dispensar(r.id)}
             />
@@ -245,10 +262,13 @@ export function Lancamento({
           <h2 className="mt-6 mb-3 text-lg font-bold text-slate-900">
             Compartilhar esta recontagem
           </h2>
+          <p className="-mt-2 mb-3 text-xs text-slate-500">
+            {recontagemDoResumo?.descricao}
+          </p>
           <ExportarContagens
             contagens={entradasDaRecontagem}
             fatores={fatores}
-            data={recontagemAtiva?.dia ?? hoje}
+            data={recontagemDoResumo?.dia ?? hoje}
           />
         </>
       )}

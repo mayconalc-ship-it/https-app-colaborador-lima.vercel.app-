@@ -2,7 +2,9 @@ import { redirect } from "next/navigation";
 import { PageHeader } from "@/components/PageHeader";
 import { getPerfil } from "@/lib/sessao";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { podeNoModulo, temAcessoModulo } from "@/lib/require-admin";
+import { getRevendaId } from "@/lib/revendas";
 import {
   COLUNAS_CONTAGEM,
   COLUNAS_RECONTAGEM,
@@ -208,9 +210,9 @@ export default async function AtivoDeGiroPage({
   // O banner da aba Contagem só mostra pedidos de dias em que ESTA pessoa
   // contou nesta revenda -- é o mesmo recorte que decide quem recebe o
   // sino e o push (ver solicitarRecontagem), só que calculado aqui para
-  // quem já está com a tela aberta -- e exclui o que ela já dispensou
-  // (deslizou para o lado). Duas consultas extras, só quando a aba é
-  // Contagem e há pedido pendente para checar.
+  // quem já está com a tela aberta -- e exclui o que ela já recusou (pelo
+  // botão ou arrastando o cartão). Duas consultas extras, só quando a aba
+  // é Contagem e há pedido pendente para checar.
   const diasPedidos = [...new Set(pendentesRecontagem.map((r) => r.dia))];
   let recontagensParaMim: typeof pendentesRecontagem = [];
   if (aba === "contagem" && diasPedidos.length > 0) {
@@ -220,7 +222,15 @@ export default async function AtivoDeGiroPage({
         .select("data")
         .eq("colaborador_id", perfil.id)
         .in("data", diasPedidos),
-      supabase
+      // Pela chave de administrador, e não pelo cliente de sessão: esta
+      // tabela tem RLS ligada e política nenhuma, de propósito (migração
+      // 028), então `authenticated` não enxerga linha nenhuma aqui. Lida
+      // pelo cliente comum, a lista voltava sempre vazia e o cartão
+      // recusado reaparecia no primeiro `router.refresh()` -- que a
+      // própria `dispensarRecontagem` provoca ao revalidar a rota.
+      // Quem limita a "só as minhas" é o filtro por colaborador logo
+      // abaixo, do mesmo jeito que o bloco de recusas do controle.
+      createAdminClient()
         .from("ag_recontagens_dispensas")
         .select("recontagem_id")
         .eq("colaborador_id", perfil.id)
@@ -236,6 +246,43 @@ export default async function AtivoDeGiroPage({
     recontagensParaMim = pendentesRecontagem.filter(
       (r) => diasQueContei.has(r.dia) && !idsDispensados.has(r.id),
     );
+  }
+
+  // Quem já recusou cada pedido -- só para o controle, na Conciliação.
+  // Sem isso, um pedido parado parece a mesma coisa nos dois casos: pode
+  // ser que ninguém tenha visto, ou que todo mundo tenha dito "não é
+  // comigo". A diferença muda o que o controle faz a seguir.
+  //
+  // Passa pela chave de administrador porque `ag_recontagens_dispensas`
+  // tem RLS ligada e política nenhuma, de propósito (ver migração 028).
+  const recusasPorPedido = new Map<number, string[]>();
+  if (aba === "conciliacao" && podeConfigurar && pendentesRecontagem.length > 0) {
+    const admin = createAdminClient();
+    const { data: dispensas } = await admin
+      .from("ag_recontagens_dispensas")
+      .select("recontagem_id, colaborador_id")
+      .in(
+        "recontagem_id",
+        pendentesRecontagem.map((r) => r.id),
+      );
+
+    const quemRecusou = [
+      ...new Set((dispensas ?? []).map((d) => d.colaborador_id)),
+    ];
+    const nomePorId = new Map<string, string>();
+    if (quemRecusou.length > 0) {
+      const { data: pessoas } = await admin
+        .from("profiles")
+        .select("id, nome")
+        .in("id", quemRecusou);
+      for (const p of pessoas ?? []) nomePorId.set(p.id, p.nome);
+    }
+
+    for (const d of dispensas ?? []) {
+      const lista = recusasPorPedido.get(d.recontagem_id) ?? [];
+      lista.push(nomePorId.get(d.colaborador_id) ?? "alguém");
+      recusasPorPedido.set(d.recontagem_id, lista);
+    }
   }
 
   const linhas = conciliar(contagensDia, parque, fatores);
@@ -484,6 +531,12 @@ export default async function AtivoDeGiroPage({
                             {formatarData(r.dia)} — pedido por{" "}
                             {r.solicitadoNome}
                           </p>
+                          {(recusasPorPedido.get(r.id)?.length ?? 0) > 0 && (
+                            <p className="mt-1 text-xs font-medium text-amber-800">
+                              ✖️ Recusado por{" "}
+                              {recusasPorPedido.get(r.id)!.join(", ")}
+                            </p>
+                          )}
                         </div>
                         <BotaoExcluir
                           action={cancelarRecontagem}
