@@ -288,10 +288,14 @@ export async function editarContagem(formData: FormData) {
     if (error) erro(`Não foi possível editar: ${error.message}`);
   } else {
     const supabase = await createClient();
+    // A revenda entra aqui pelo mesmo motivo do ramo do gestor: quem tem
+    // vínculo com as duas passa pela RLS nas duas, e corrigir a contagem de
+    // um pátio estando no outro não é uma correção, é uma troca de lugar.
     const { error } = await supabase
       .from("ag_contagens")
       .update(campos)
       .eq("id", id)
+      .eq("revenda_id", revendaId)
       .eq("colaborador_id", perfil.id);
     if (error) erro(`Não foi possível editar: ${error.message}`);
   }
@@ -323,6 +327,7 @@ export async function excluirContagem(formData: FormData) {
       .from("ag_contagens")
       .delete()
       .eq("id", id)
+      .eq("revenda_id", await exigirRevendaAG())
       .eq("colaborador_id", perfil.id);
     if (error) erro("Você só pode excluir as suas próprias contagens.");
   }

@@ -24,10 +24,24 @@ export default async function AdminAtivoDeGiroPage({
 
   const sp = await searchParams;
 
+  // Parque e fatores são da operação de cada revenda (a 021 até refez as
+  // chaves primárias para isso). A tela lia sem filtro nenhum e contava com
+  // a RLS -- que devolve TODAS as revendas para o dono. Como
+  // `parqueDeLinhas` e `fatoresDeLinhas` indexam por tipo|formato e formato,
+  // a última linha lida vencia: o campo mostrava o número da outra unidade,
+  // e o Salvar ao lado gravava esse número na revenda ativa.
+  const revendaId = await exigirRevenda("/admin");
+
   const supabase = await createClient();
   const [{ data: fatoresBanco }, { data: parqueBanco }] = await Promise.all([
-    supabase.from("ag_fatores").select("formato, palete, lastro"),
-    supabase.from("ag_parque").select("tipo, formato, quantidade"),
+    supabase
+      .from("ag_fatores")
+      .select("formato, palete, lastro")
+      .eq("revenda_id", revendaId),
+    supabase
+      .from("ag_parque")
+      .select("tipo, formato, quantidade")
+      .eq("revenda_id", revendaId),
   ]);
   const fatores = fatoresDeLinhas(fatoresBanco);
   const parque = parqueDeLinhas(parqueBanco);

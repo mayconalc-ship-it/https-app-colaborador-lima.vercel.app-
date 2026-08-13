@@ -121,6 +121,25 @@ export default async function AtivoDeGiroPage({
   const colab = (sp.colab ?? "").trim();
   const soDe = (c: Contagem) => !colab || c.colaborador_id === colab;
 
+  // O parque de AG é físico e fica num pátio só, então TUDO nesta tela é de
+  // uma revenda só -- do mesmo jeito que o lançamento já gravava (ver
+  // `exigirRevendaAG` em actions.ts).
+  //
+  // O filtro precisa estar aqui, no código, e não só na RLS. A política de
+  // `ag_contagens` libera "as revendas a que você pertence", que é mais de
+  // uma para o dono (vê todas) e para a liderança que responde por São
+  // Félix e Barreiras. Para essas pessoas o Painel somava as duas unidades,
+  // e o Histórico misturava as duas listas. Pior na Conciliação: `ag_parque`
+  // vinha das duas revendas e `parqueDeLinhas` indexa por tipo|formato, de
+  // modo que a segunda linha sobrescrevia a primeira -- a coluna Diferença
+  // comparava o contado das duas contra o parque de uma.
+  const revendaId = await getRevendaId();
+  if (!revendaId) {
+    redirect(
+      `/?erro=${encodeURIComponent("Você não está em nenhuma revenda.")}`,
+    );
+  }
+
   // Conciliação, painel e histórico enxergam o trabalho do time inteiro --
   // a RLS de ag_contagens já libera leitura para qualquer autenticado, então
   // isso não precisa do service role, só de estar logado.
@@ -139,23 +158,36 @@ export default async function AtivoDeGiroPage({
     podeExcluirQualquer,
     ultimaCombinacao,
   ] = await Promise.all([
-    supabase.from("ag_fatores").select("formato, palete, lastro"),
-    supabase.from("ag_parque").select("tipo, formato, quantidade"),
+    supabase
+      .from("ag_fatores")
+      .select("formato, palete, lastro")
+      .eq("revenda_id", revendaId),
+    supabase
+      .from("ag_parque")
+      .select("tipo, formato, quantidade")
+      .eq("revenda_id", revendaId),
     supabase
       .from("ag_contagens")
       .select(colunas)
+      .eq("revenda_id", revendaId)
       .eq("colaborador_id", perfil.id)
       .order("data", { ascending: false })
       .order("id", { ascending: false })
       .limit(60),
     aba === "painel" || aba === "conciliacao"
-      ? supabase.from("ag_contagens").select(colunas).eq("data", dia).order("id")
+      ? supabase
+          .from("ag_contagens")
+          .select(colunas)
+          .eq("revenda_id", revendaId)
+          .eq("data", dia)
+          .order("id")
       : Promise.resolve({ data: null }),
     aba === "historico"
       ? (() => {
           let consulta = supabase
             .from("ag_contagens")
             .select(colunas)
+            .eq("revenda_id", revendaId)
             .gte("data", de)
             .lte("data", ate);
           // Aqui o filtro vai no BANCO, ao contrário do painel: o período
@@ -176,6 +208,7 @@ export default async function AtivoDeGiroPage({
       : supabase
           .from("ag_contagens")
           .select("colaborador_id, colaborador_nome")
+          .eq("revenda_id", revendaId)
           .gte("data", diasAtrasISO(180))
           .order("data", { ascending: false }),
     // Pedidos de recontagem em aberto: alimentam o banner do colaborador
@@ -184,6 +217,7 @@ export default async function AtivoDeGiroPage({
       ? supabase
           .from("ag_recontagens")
           .select(COLUNAS_RECONTAGEM)
+          .eq("revenda_id", revendaId)
           .is("atendida_em", null)
           .is("cancelada_em", null)
           .order("criado_em", { ascending: false })
@@ -220,6 +254,7 @@ export default async function AtivoDeGiroPage({
       supabase
         .from("ag_contagens")
         .select("data")
+        .eq("revenda_id", revendaId)
         .eq("colaborador_id", perfil.id)
         .in("data", diasPedidos),
       // Pela chave de administrador, e não pelo cliente de sessão: esta
