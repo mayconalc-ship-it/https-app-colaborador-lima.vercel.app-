@@ -19,8 +19,6 @@ import {
   ehStatus,
   ehTipo,
   inteiro,
-  recontagemAtendida,
-  rotuloRecontagem,
   serializarCombinacao,
   type Combinacao,
   type Contagem,
@@ -115,9 +113,27 @@ function lerCampos(formData: FormData) {
     };
   }
 
+  // Presente só quando o lançamento nasce de um pedido de recontagem
+  // aceito -- é o que liga esta linha ao pedido, sem precisar adivinhar
+  // depois por semelhança de tipo/formato/status.
+  const recontagemBruta = formData.get("recontagem_id");
+  const recontagemId = recontagemBruta ? Number(recontagemBruta) : null;
+  if (recontagemId !== null && !Number.isInteger(recontagemId)) {
+    return { ok: false as const, erro: "Recontagem inválida." };
+  }
+
   return {
     ok: true as const,
-    campos: { data, tipo, formato, status, palete, lastro, caixa },
+    campos: {
+      data,
+      tipo,
+      formato,
+      status,
+      palete,
+      lastro,
+      caixa,
+      recontagem_id: recontagemId,
+    },
   };
 }
 
@@ -202,39 +218,19 @@ export async function registrarContagem(
     };
   }
 
-  const { data, tipo, formato, status } = lido.campos;
+  const { tipo, formato, status, recontagem_id } = lido.campos;
   const combinacao: Combinacao = { tipo, formato, status };
   await lembrarCombinacao(combinacao);
 
-  // Fecha pedidos de recontagem que esta linha atende. Silencioso: a
-  // contagem já foi salva, e isso não pode ser desfeito por causa de um
-  // pedido que não fechou. É a ÚNICA exceção ao "sem revalidatePath" da
-  // rota explicado no comentário grande acima -- só corre quando esta
-  // linha realmente fecha algum pedido pendente, não a cada lançamento.
-  try {
-    const admin = createAdminClient();
-    const { data: pendentes } = await admin
-      .from("ag_recontagens")
-      .select("id, dia, tipo, status")
-      .eq("revenda_id", revendaId)
-      .eq("formato", formato)
-      .eq("dia", data)
-      .is("atendida_em", null)
-      .is("cancelada_em", null);
-
-    const alvo = (pendentes ?? []).filter((p) =>
-      recontagemAtendida(
-        {
-          dia: p.dia,
-          tipo: ehTipo(p.tipo) ? p.tipo : null,
-          formato,
-          status: ehStatus(p.status) ? p.status : null,
-        },
-        { data, tipo, formato, status },
-      ),
-    );
-
-    if (alvo.length > 0) {
+  // Esta linha nasceu de um pedido de recontagem aceito: fecha o pedido
+  // na hora, direto pelo ID -- sem adivinhar por tipo/formato/status/dia,
+  // que era o jeito frágil de antes. Silencioso: a contagem já foi salva,
+  // e isso não pode ser desfeito por causa de um pedido que não fechou. É
+  // a ÚNICA exceção ao "sem revalidatePath" explicado no comentário
+  // grande acima -- só corre quando esta linha vem de um pedido.
+  if (recontagem_id !== null) {
+    try {
+      const admin = createAdminClient();
       await admin
         .from("ag_recontagens")
         .update({
@@ -242,14 +238,13 @@ export async function registrarContagem(
           atendida_por: perfil.id,
           atendida_contagem_id: gravada.id,
         })
-        .in(
-          "id",
-          alvo.map((a) => a.id),
-        );
+        .eq("id", recontagem_id)
+        .eq("revenda_id", revendaId)
+        .is("atendida_em", null);
       revalidatePath(ROTA);
+    } catch {
+      // idem: avisar é secundário, salvar é o que importa.
     }
-  } catch {
-    // idem: avisar é secundário, salvar é o que importa.
   }
 
   revalidatePath("/admin/ativo-de-giro");
@@ -269,7 +264,11 @@ export async function editarContagem(formData: FormData) {
 
   const lido = lerCampos(formData);
   if (!lido.ok) erro(lido.erro);
-  const campos = lido.campos;
+  // `recontagem_id` fora: a edição corrige o que foi contado, não a que
+  // pedido a linha responde -- o formulário de editar nem manda esse
+  // campo, e sem excluí-lo aqui um `update` gravaria `null` por cima do
+  // vínculo que já existia.
+  const { recontagem_id: _ignorado, ...campos } = lido.campos;
 
   const [gestor, revendaId] = await Promise.all([
     podeNoModulo("ativo-giro", "editar"),
@@ -388,8 +387,7 @@ export async function importarHistorico(formData: FormData) {
 }
 
 /**
- * O controle pede para o time recontar um tipo+formato+status, ou deixa
- * tipo e/ou status em branco para pedir o formato inteiro. Mesma
+ * O controle escreve o que precisa ser recontado, em texto livre. Mesma
  * permissão de quem edita o parque e os fatores -- é quem confronta as
  * duas contagens e decide o que merece recontagem.
  *
@@ -406,18 +404,11 @@ export async function solicitarRecontagem(formData: FormData) {
     erro("Você não tem permissão para pedir recontagem.");
   }
 
-  const formato = formData.get("formato");
-  if (!ehFormato(formato)) erro("Escolha um formato.");
-
   const dia = String(formData.get("dia") ?? "");
   if (!/^\d{4}-\d{2}-\d{2}$/.test(dia)) erro("Dia inválido.");
 
-  const tipoBruto = formData.get("tipo");
-  const statusBruto = formData.get("status");
-  const tipo = ehTipo(tipoBruto) ? tipoBruto : null;
-  const status = ehStatus(statusBruto) ? statusBruto : null;
-  const observacao =
-    String(formData.get("observacao") ?? "").trim().slice(0, 300) || null;
+  const descricao = String(formData.get("descricao") ?? "").trim().slice(0, 300);
+  if (!descricao) erro("Descreva o que precisa ser recontado.");
 
   const revendaId = await exigirRevendaAG();
   const admin = createAdminClient();
@@ -426,10 +417,7 @@ export async function solicitarRecontagem(formData: FormData) {
     .insert({
       revenda_id: revendaId,
       dia,
-      tipo,
-      formato,
-      status,
-      observacao,
+      descricao,
       solicitado_por: perfil.id,
       solicitado_nome: perfil.nome,
     })
@@ -453,9 +441,8 @@ export async function solicitarRecontagem(formData: FormData) {
   );
 
   if (alvo.length > 0) {
-    const rotulo = rotuloRecontagem({ tipo, formato, status });
     const titulo = "Recontagem solicitada";
-    const mensagem = `Confira de novo: ${rotulo}`;
+    const mensagem = descricao;
 
     // Uma linha por destinatário de propósito -- ao contrário do resto do
     // sino (uma linha para a revenda inteira), este aviso É dirigido, e
@@ -488,7 +475,11 @@ export async function solicitarRecontagem(formData: FormData) {
   redirect(`${ROTA}?aba=conciliacao&sucesso=Recontagem+solicitada`);
 }
 
-/** Desiste de um pedido antes que alguém o atenda. Mesma permissão de quem pede. */
+/**
+ * Desiste de um pedido antes que alguém o atenda -- mata o pedido para
+ * TODO MUNDO. Mesma permissão de quem pede. Diferente de
+ * `dispensarRecontagem`, que é pessoal e não mexe no pedido em si.
+ */
 export async function cancelarRecontagem(formData: FormData) {
   const perfil = await getPerfil();
   if (!perfil) redirect("/login");
@@ -510,4 +501,31 @@ export async function cancelarRecontagem(formData: FormData) {
 
   revalidatePath(ROTA);
   redirect(`${ROTA}?aba=conciliacao&sucesso=Recontagem+cancelada`);
+}
+
+/**
+ * "Não é comigo": tira o cartão só da tela de QUEM DISPENSOU. O pedido
+ * continua de pé para o resto do time e para o controle -- ao contrário
+ * de `cancelarRecontagem`, que é do controle e mata para todo mundo.
+ *
+ * Qualquer um com acesso ao módulo dispensa o próprio cartão -- não
+ * precisa de "editar": recusar uma tarefa não é administrar o módulo.
+ *
+ * Chamada direto pelo gesto de arrastar, não por um `<form action>` --
+ * por isso NÃO redireciona nem lança: a tela já tirou o cartão da frente
+ * de forma otimista, e um redirect aqui só atrapalharia recarregando a
+ * página por baixo do gesto.
+ */
+export async function dispensarRecontagem(id: number): Promise<void> {
+  const perfil = await getPerfil();
+  if (!perfil || !Number.isInteger(id)) return;
+  if (!(await temAcessoModulo("ativo-giro"))) return;
+
+  const admin = createAdminClient();
+  await admin.from("ag_recontagens_dispensas").upsert(
+    { colaborador_id: perfil.id, recontagem_id: id },
+    { onConflict: "colaborador_id,recontagem_id" },
+  );
+
+  revalidatePath(ROTA);
 }

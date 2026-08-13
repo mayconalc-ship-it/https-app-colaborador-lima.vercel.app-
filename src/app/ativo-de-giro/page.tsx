@@ -7,8 +7,6 @@ import {
   COLUNAS_CONTAGEM,
   COLUNAS_RECONTAGEM,
   FORMATOS,
-  STATUSES,
-  TIPOS,
   conciliar,
   contadoresDeLinhas,
   diasAtrasISO,
@@ -18,7 +16,6 @@ import {
   paletesEquivalentes,
   parqueDeLinhas,
   recontagensDeLinhas,
-  rotuloRecontagem,
   totaisPorFormato,
   totalEmCaixas,
   type Contador,
@@ -27,7 +24,12 @@ import {
 import { BotaoExcluir } from "@/components/BotaoExcluir";
 import { getUltimaCombinacao } from "./ultima-combinacao";
 import { Lancamento } from "./Lancamento";
-import { cancelarRecontagem, excluirContagem, solicitarRecontagem } from "./actions";
+import {
+  cancelarRecontagem,
+  dispensarRecontagem,
+  excluirContagem,
+  solicitarRecontagem,
+} from "./actions";
 import { ExportarContagens } from "./ExportarContagens";
 
 export const dynamic = "force-dynamic";
@@ -205,19 +207,33 @@ export default async function AtivoDeGiroPage({
   // O banner da aba Contagem só mostra pedidos de dias em que ESTA pessoa
   // contou nesta revenda -- é o mesmo recorte que decide quem recebe o
   // sino e o push (ver solicitarRecontagem), só que calculado aqui para
-  // quem já está com a tela aberta. Uma consulta extra, e só quando há
-  // pedido pendente para checar.
+  // quem já está com a tela aberta -- e exclui o que ela já dispensou
+  // (deslizou para o lado). Duas consultas extras, só quando a aba é
+  // Contagem e há pedido pendente para checar.
   const diasPedidos = [...new Set(pendentesRecontagem.map((r) => r.dia))];
   let recontagensParaMim: typeof pendentesRecontagem = [];
   if (aba === "contagem" && diasPedidos.length > 0) {
-    const { data: meusDias } = await supabase
-      .from("ag_contagens")
-      .select("data")
-      .eq("colaborador_id", perfil.id)
-      .in("data", diasPedidos);
+    const [{ data: meusDias }, { data: dispensadas }] = await Promise.all([
+      supabase
+        .from("ag_contagens")
+        .select("data")
+        .eq("colaborador_id", perfil.id)
+        .in("data", diasPedidos),
+      supabase
+        .from("ag_recontagens_dispensas")
+        .select("recontagem_id")
+        .eq("colaborador_id", perfil.id)
+        .in(
+          "recontagem_id",
+          pendentesRecontagem.map((r) => r.id),
+        ),
+    ]);
     const diasQueContei = new Set((meusDias ?? []).map((d) => d.data));
-    recontagensParaMim = pendentesRecontagem.filter((r) =>
-      diasQueContei.has(r.dia),
+    const idsDispensados = new Set(
+      (dispensadas ?? []).map((d) => d.recontagem_id),
+    );
+    recontagensParaMim = pendentesRecontagem.filter(
+      (r) => diasQueContei.has(r.dia) && !idsDispensados.has(r.id),
     );
   }
 
@@ -283,6 +299,7 @@ export default async function AtivoDeGiroPage({
           contagens={contagens}
           hoje={hojeISO()}
           recontagens={recontagensParaMim}
+          aoDispensarRecontagem={dispensarRecontagem}
         />
       )}
 
@@ -367,13 +384,16 @@ export default async function AtivoDeGiroPage({
                       </td>
                       {podeConfigurar && (
                         <td className="p-2 text-right">
+                          {/* Atalho: já manda o pedido com a descrição
+                              pronta a partir da própria linha divergente.
+                              Quem quiser escrever algo mais específico usa
+                              o painel "Pedir recontagem" abaixo. */}
                           <form action={solicitarRecontagem}>
                             <input type="hidden" name="dia" value={dia} />
-                            <input type="hidden" name="tipo" value={l.tipo} />
                             <input
                               type="hidden"
-                              name="formato"
-                              value={l.formato}
+                              name="descricao"
+                              value={`${l.tipo} · ${l.formato}`}
                             />
                             <button
                               type="submit"
@@ -403,13 +423,12 @@ export default async function AtivoDeGiroPage({
                 Pedir recontagem
               </h2>
               <p className="mb-3 text-xs text-slate-500">
-                Deixe Tipo e/ou Status em &quot;Todos&quot; para pedir o
-                formato inteiro. O aviso vai só para quem contou neste dia,
-                nesta revenda -- ninguém mais é incomodado.
+                O aviso vai só para quem contou neste dia, nesta revenda --
+                ninguém mais é incomodado.
               </p>
               <form
                 action={solicitarRecontagem}
-                className="grid grid-cols-1 gap-3 sm:grid-cols-5 sm:items-end"
+                className="grid grid-cols-1 gap-3 sm:grid-cols-[10rem_1fr_auto] sm:items-end"
               >
                 <div>
                   <label className={rotulo} htmlFor="rec-dia">
@@ -425,58 +444,17 @@ export default async function AtivoDeGiroPage({
                   />
                 </div>
                 <div>
-                  <label className={rotulo} htmlFor="rec-tipo">
-                    Tipo
+                  <label className={rotulo} htmlFor="rec-descricao">
+                    O que precisa ser recontado
                   </label>
-                  <select
-                    id="rec-tipo"
-                    name="tipo"
-                    defaultValue=""
-                    className={campo}
-                  >
-                    <option value="">Todos os tipos</option>
-                    {TIPOS.map((t) => (
-                      <option key={t} value={t}>
-                        {t}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className={rotulo} htmlFor="rec-formato">
-                    Formato
-                  </label>
-                  <select
-                    id="rec-formato"
-                    name="formato"
-                    defaultValue={FORMATOS[0]}
+                  <input
+                    id="rec-descricao"
+                    name="descricao"
                     required
+                    maxLength={300}
                     className={campo}
-                  >
-                    {FORMATOS.map((f) => (
-                      <option key={f} value={f}>
-                        {f}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className={rotulo} htmlFor="rec-status">
-                    Status
-                  </label>
-                  <select
-                    id="rec-status"
-                    name="status"
-                    defaultValue=""
-                    className={campo}
-                  >
-                    <option value="">Todos os status</option>
-                    {STATUSES.map((s) => (
-                      <option key={s} value={s}>
-                        {s}
-                      </option>
-                    ))}
-                  </select>
+                    placeholder="Ex.: Kit AG 600ml Cheio -- bateu diferença de 40 caixas"
+                  />
                 </div>
                 <button
                   type="submit"
@@ -484,18 +462,6 @@ export default async function AtivoDeGiroPage({
                 >
                   Solicitar
                 </button>
-                <div className="sm:col-span-5">
-                  <label className={rotulo} htmlFor="rec-obs">
-                    Observação (opcional)
-                  </label>
-                  <input
-                    id="rec-obs"
-                    name="observacao"
-                    maxLength={300}
-                    className={campo}
-                    placeholder="Ex.: bateu diferença de 40 caixas"
-                  />
-                </div>
               </form>
 
               {pendentesRecontagem.length > 0 && (
@@ -510,9 +476,7 @@ export default async function AtivoDeGiroPage({
                         className="flex items-center justify-between gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3"
                       >
                         <div className="min-w-0 text-sm text-amber-900">
-                          <p className="font-semibold">
-                            {rotuloRecontagem(r)}
-                          </p>
+                          <p className="font-semibold">{r.descricao}</p>
                           <p className="text-xs text-amber-700">
                             {formatarData(r.dia)} — pedido por{" "}
                             {r.solicitadoNome}
@@ -521,7 +485,7 @@ export default async function AtivoDeGiroPage({
                         <BotaoExcluir
                           action={cancelarRecontagem}
                           campos={{ id: r.id }}
-                          confirmacao={`Cancelar o pedido de recontagem de ${rotuloRecontagem(r)}?`}
+                          confirmacao={`Cancelar o pedido de recontagem "${r.descricao}"?`}
                         >
                           Cancelar
                         </BotaoExcluir>

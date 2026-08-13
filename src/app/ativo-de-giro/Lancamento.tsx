@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { useToast } from "@/components/Toast";
 import {
   formatarData,
-  rotuloRecontagem,
   totalEmCaixas,
   type Combinacao,
   type Contagem,
@@ -16,6 +15,7 @@ import {
 import { FormContagem } from "./FormContagem";
 import { ContagemItem } from "./ContagemItem";
 import { ExportarContagens } from "./ExportarContagens";
+import { CartaoRecontagem } from "./CartaoRecontagem";
 import { registrarContagem } from "./actions";
 
 /**
@@ -66,6 +66,7 @@ export function Lancamento({
   contagens,
   hoje,
   recontagens,
+  aoDispensarRecontagem,
 }: {
   fatores: Fatores;
   ultima: Combinacao;
@@ -74,33 +75,34 @@ export function Lancamento({
   hoje: string;
   /** Pedidos de recontagem ainda em aberto, da revenda inteira. */
   recontagens: Recontagem[];
+  /** "Não é comigo": tira o cartão só da MINHA tela, sem mexer no pedido. */
+  aoDispensarRecontagem: (id: number) => Promise<void>;
 }) {
   const router = useRouter();
   const toast = useToast();
   const [envios, setEnvios] = useState<Envio[]>([]);
-  const [foco, setFoco] = useState<{
-    valores: Partial<Combinacao>;
-    sinal: number;
-  } | null>(null);
+  const [recontagemAtiva, setRecontagemAtiva] = useState<Recontagem | null>(
+    null,
+  );
+  // Dispensar é otimista: a lista de pendentes só volta do servidor no
+  // próximo `router.refresh()`, e o gesto precisa parecer instantâneo.
+  const [dispensadasAgora, setDispensadasAgora] = useState<Set<number>>(
+    new Set(),
+  );
 
-  /**
-   * Aceitar um pedido não muda o banco -- só empurra os campos que o
-   * pedido fixou para dentro do formulário, pronto para digitar a
-   * quantidade. Tipo/status ficam livres quando o pedido pediu "qualquer"
-   * (formato inteiro).
-   */
+  const pendentes = recontagens.filter((r) => !dispensadasAgora.has(r.id));
+
   function recontar(r: Recontagem) {
-    setFoco({
-      valores: {
-        ...(r.tipo ? { tipo: r.tipo } : {}),
-        formato: r.formato,
-        ...(r.status ? { status: r.status } : {}),
-      },
-      sinal: Date.now(),
-    });
+    setRecontagemAtiva(r);
     document
       .getElementById("form-contagem")
       ?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  function dispensar(id: number) {
+    setDispensadasAgora((atual) => new Set(atual).add(id));
+    if (recontagemAtiva?.id === id) setRecontagemAtiva(null);
+    void aoDispensarRecontagem(id);
   }
 
   // Quando a linha confirmada aparece na lista do servidor, a cópia local
@@ -185,42 +187,47 @@ export function Lancamento({
   const confirmadas = emTransito
     .map((e) => e.contagem)
     .filter((c): c is Contagem => Boolean(c));
-  const minhasDeHoje = [...confirmadas, ...contagens].filter(
-    (c) => c.data === hoje,
-  );
+  const todas = [...confirmadas, ...contagens];
+  const minhasDeHoje = todas.filter((c) => c.data === hoje);
+
+  // O que já entrou sob a recontagem ativa -- é isto que vira o resumo
+  // para compartilhar quando a pessoa termina de recontar.
+  const entradasDaRecontagem = recontagemAtiva
+    ? todas.filter((c) => c.recontagem_id === recontagemAtiva.id)
+    : [];
 
   const vazio = emTransito.length === 0 && contagens.length === 0;
 
   return (
     <section>
-      {recontagens.length > 0 && (
+      {pendentes.length > 0 && (
         <div className="mb-4 space-y-2">
-          {recontagens.map((r) => (
-            <div
+          <p className="text-xs text-slate-400">
+            Arraste um cartão para o lado para dispensar.
+          </p>
+          {pendentes.map((r) => (
+            <CartaoRecontagem
               key={r.id}
-              className="flex items-center justify-between gap-3 rounded-xl border border-gold bg-amber-50 p-3"
-            >
-              <div className="min-w-0">
-                <p className="text-sm font-bold text-amber-900">
-                  🔁 Recontagem pedida
-                </p>
-                <p className="text-xs text-amber-700">
-                  {rotuloRecontagem(r)} — {formatarData(r.dia)}, pedido por{" "}
-                  {r.solicitadoNome}
-                </p>
-                {r.observacao && (
-                  <p className="mt-1 text-xs text-amber-700">{r.observacao}</p>
-                )}
-              </div>
-              <button
-                type="button"
-                onClick={() => recontar(r)}
-                className="shrink-0 rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-white hover:bg-primary-dark"
-              >
-                Recontar agora
-              </button>
-            </div>
+              r={r}
+              aoRecontar={() => recontar(r)}
+              aoDispensar={() => dispensar(r.id)}
+            />
           ))}
+        </div>
+      )}
+
+      {recontagemAtiva && (
+        <div className="mb-3 flex items-center justify-between gap-3 rounded-xl border border-primary bg-primary-soft/40 p-3">
+          <p className="text-sm text-primary-dark">
+            Lançando a recontagem de <strong>{recontagemAtiva.descricao}</strong>
+          </p>
+          <button
+            type="button"
+            onClick={() => setRecontagemAtiva(null)}
+            className="shrink-0 rounded-lg border border-primary px-3 py-1.5 text-xs font-semibold text-primary hover:bg-white"
+          >
+            Concluir
+          </button>
         </div>
       )}
 
@@ -229,9 +236,22 @@ export function Lancamento({
           fatores={fatores}
           ultima={ultima}
           aoLancar={aoLancar}
-          foco={foco}
+          recontagem={recontagemAtiva}
         />
       </div>
+
+      {entradasDaRecontagem.length > 0 && (
+        <>
+          <h2 className="mt-6 mb-3 text-lg font-bold text-slate-900">
+            Compartilhar esta recontagem
+          </h2>
+          <ExportarContagens
+            contagens={entradasDaRecontagem}
+            fatores={fatores}
+            data={recontagemAtiva?.dia ?? hoje}
+          />
+        </>
+      )}
 
       <h2 className="mt-8 mb-3 text-lg font-bold text-slate-900">
         Minhas contagens
@@ -316,6 +336,11 @@ function LinhaEmTransito({
         <div className="min-w-0">
           <p className="text-sm font-semibold text-slate-900">
             {linha.tipo} · {linha.formato} · {linha.status}
+            {linha.recontagem_id && (
+              <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800">
+                🔁 recontagem
+              </span>
+            )}
           </p>
           <p className="text-xs text-slate-500">
             {formatarData(linha.data)} — Pal {linha.palete} / Las{" "}

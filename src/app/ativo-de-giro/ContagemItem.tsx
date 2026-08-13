@@ -57,6 +57,11 @@ export function ContagemItem({
         <div className="min-w-0">
           <p className="text-sm font-semibold text-slate-900">
             {contagem.tipo} · {contagem.formato} · {contagem.status}
+            {contagem.recontagem_id && (
+              <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800">
+                🔁 recontagem
+              </span>
+            )}
           </p>
           <p className="text-xs text-slate-500">
             {formatarData(contagem.data)} — Pal {contagem.palete} / Las{" "}

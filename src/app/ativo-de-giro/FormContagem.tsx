@@ -92,8 +92,9 @@ function Salvar({ editando }: { editando: boolean }) {
  * excludentes -- daí a união: ou vem `contagem` + `aoCancelar` (corrigir),
  * ou vem `ultima` + `aoLancar` (lançar).
  */
-/** O que um pedido de recontagem força no formulário -- só os campos que ele fixou. */
-type Foco = { valores: Partial<Combinacao>; sinal: number };
+/** O pedido de recontagem aceito -- trava a Data no dia pedido e marca a
+ *  linha lançada com o ID do pedido (ver `LinhaContagem.recontagem_id`). */
+type RecontagemAtiva = { id: number; dia: string; descricao: string };
 
 type Props = { fatores: Fatores } & (
   | {
@@ -102,7 +103,7 @@ type Props = { fatores: Fatores } & (
       aoCancelar: () => void;
       ultima?: never;
       aoLancar?: never;
-      foco?: never;
+      recontagem?: never;
     }
   | {
       contagem?: never;
@@ -112,9 +113,7 @@ type Props = { fatores: Fatores } & (
       /** Entrega a linha a quem cuida da lista. Não devolve promessa: o
        *  formulário não espera pelo servidor. */
       aoLancar: (dados: FormData, linha: LinhaContagem) => void;
-      /** Um pedido de recontagem que acabou de ser aceito -- reabre o
-       *  formulário nos campos que o pedido fixou. */
-      foco?: Foco | null;
+      recontagem?: RecontagemAtiva | null;
     }
 );
 
@@ -150,7 +149,7 @@ type Props = { fatores: Fatores } & (
  * correção.
  */
 export function FormContagem(props: Props) {
-  const { fatores, contagem, aoCancelar, aoLancar, foco } = props;
+  const { fatores, contagem, aoCancelar, aoLancar, recontagem } = props;
   const editando = Boolean(contagem);
   const toast = useToast();
 
@@ -180,21 +179,17 @@ export function FormContagem(props: Props) {
 
   const campoPalete = useRef<HTMLInputElement>(null);
 
-  // Um pedido de recontagem aceito força só os campos que ele fixou --
-  // tipo/status ficam como estavam quando o pedido pediu "qualquer". O
-  // `sinal` (e não `foco` inteiro) é a dependência porque o objeto nasce
-  // de novo a cada render de quem chama; sem isto o efeito repetiria a
-  // cada toque em Paletes.
+  // Aceitar um pedido de recontagem trava a Data no dia que foi pedido --
+  // recontar o pátio de ontem precisa gravar com data de ontem, não de
+  // hoje só porque foi digitado agora. `recontagem?.id` (não o objeto
+  // inteiro) é a dependência porque ele nasce de novo a cada render de
+  // quem chama; sem isto o efeito repetiria a cada toque em Paletes.
   useEffect(() => {
-    if (!foco) return;
-    setCombo((atual) => {
-      const novo = { ...atual, ...foco.valores };
-      if (!editando) lembrarNoNavegador(novo);
-      return novo;
-    });
+    if (!recontagem) return;
+    setData(recontagem.dia);
     campoPalete.current?.focus();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [foco?.sinal]);
+  }, [recontagem?.id]);
 
   const quantidades = {
     palete: Number(palete || 0),
@@ -229,6 +224,7 @@ export function FormContagem(props: Props) {
       palete: p,
       lastro: l,
       caixa: c,
+      recontagem_id: recontagem?.id ?? null,
     });
 
     // Tipo, formato, status e data ficam. Só a quantidade zera, e o foco
@@ -255,6 +251,15 @@ export function FormContagem(props: Props) {
       className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4"
     >
       {contagem && <input type="hidden" name="id" value={contagem.id} />}
+      {recontagem && (
+        <input type="hidden" name="recontagem_id" value={recontagem.id} />
+      )}
+
+      {recontagem && (
+        <p className="rounded-xl border border-gold bg-amber-50 p-3 text-sm text-amber-900">
+          🔁 <strong>Recontando:</strong> {recontagem.descricao}
+        </p>
+      )}
 
       <div>
         <label className={rotulo} htmlFor="data">
@@ -269,6 +274,15 @@ export function FormContagem(props: Props) {
           className={campo}
           required
         />
+        {/* Editável de propósito, mesmo pré-preenchida: `disabled` some
+            do FormData no envio (o lançamento lê o form direto, sem
+            passar pelo `action`), e um campo que trava é mais confuso do
+            que um que só chega certo por padrão. */}
+        {recontagem && (
+          <p className="mt-1 text-xs text-slate-400">
+            Preenchida com o dia da recontagem -- mude se precisar.
+          </p>
+        )}
       </div>
 
       <div className="grid grid-cols-2 gap-3">

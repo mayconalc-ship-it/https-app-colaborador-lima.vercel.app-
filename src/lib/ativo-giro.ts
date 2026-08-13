@@ -117,6 +117,8 @@ export type Contagem = {
   palete: number;
   lastro: number;
   caixa: number;
+  /** Pedido de recontagem que esta linha atende, se for o caso. */
+  recontagem_id: number | null;
 };
 
 /**
@@ -130,7 +132,7 @@ export type LinhaContagem = Omit<
 
 /** As colunas de `ag_contagens` que as telas leem. */
 export const COLUNAS_CONTAGEM =
-  "id, data, colaborador_id, colaborador_nome, tipo, formato, status, palete, lastro, caixa";
+  "id, data, colaborador_id, colaborador_nome, tipo, formato, status, palete, lastro, caixa, recontagem_id";
 
 /** Quem já lançou contagem -- alimenta o filtro por colaborador. */
 export type Contador = { id: string; nome: string };
@@ -321,85 +323,43 @@ export function resumoWhatsApp(
 }
 
 /**
- * Um pedido de recontagem: o controle pede para o time conferir de novo
- * um tipo+formato+status, ou deixa tipo e/ou status em branco para pedir
- * o formato inteiro. `null` nesses dois campos significa "qualquer".
+ * Um pedido de recontagem: o controle escreve o que precisa ser
+ * conferido de novo, em texto livre -- não mais tipo/formato/status
+ * estruturados. Quem atende entra pelo botão certo, e é ESSE clique que
+ * liga a contagem nova ao pedido (`recontagem_id`), não uma tentativa de
+ * adivinhar por semelhança depois.
  */
 export type Recontagem = {
   id: number;
   /** O dia que estava sendo conciliado quando o pedido nasceu. Também é
    *  quem decide a audiência: só quem contou ESTE dia é avisado. */
   dia: string;
-  tipo: Tipo | null;
-  formato: Formato;
-  status: Status | null;
-  observacao: string | null;
+  descricao: string;
   solicitadoNome: string;
   criadoEm: string;
 };
 
 /** As colunas de `ag_recontagens` que as telas leem. */
-export const COLUNAS_RECONTAGEM =
-  "id, dia, tipo, formato, status, observacao, solicitado_nome, criado_em";
+export const COLUNAS_RECONTAGEM = "id, dia, descricao, solicitado_nome, criado_em";
 
 export function recontagensDeLinhas(
   linhas:
     | {
         id: number;
         dia: string;
-        tipo: string | null;
-        formato: string;
-        status: string | null;
-        observacao: string | null;
+        descricao: string;
         solicitado_nome: string;
         criado_em: string;
       }[]
     | null,
 ): Recontagem[] {
-  return (linhas ?? [])
-    .filter((l) => ehFormato(l.formato))
-    .map((l) => ({
-      id: l.id,
-      dia: l.dia,
-      tipo: ehTipo(l.tipo) ? l.tipo : null,
-      formato: l.formato as Formato,
-      status: ehStatus(l.status) ? l.status : null,
-      observacao: l.observacao,
-      solicitadoNome: l.solicitado_nome,
-      criadoEm: l.criado_em,
-    }));
-}
-
-/**
- * Uma contagem recém-lançada atende o pedido quando o DIA bate (é a
- * recontagem do que estava sendo conciliado, não de outro dia qualquer),
- * o formato bate, e o tipo/status também batem -- ou o pedido aceitava
- * "qualquer" ali.
- */
-export function recontagemAtendida(
-  pedido: {
-    dia: string;
-    tipo: Tipo | null;
-    formato: Formato;
-    status: Status | null;
-  },
-  lancada: { data: string; tipo: Tipo; formato: Formato; status: Status },
-) {
-  return (
-    pedido.dia === lancada.data &&
-    pedido.formato === lancada.formato &&
-    (pedido.tipo === null || pedido.tipo === lancada.tipo) &&
-    (pedido.status === null || pedido.status === lancada.status)
-  );
-}
-
-/** "Kit AG · 600ml · Cheio", ou "Todos os tipos · 600ml · Todos os status". */
-export function rotuloRecontagem(r: {
-  tipo: Tipo | null;
-  formato: Formato;
-  status: Status | null;
-}) {
-  return `${r.tipo ?? "Todos os tipos"} · ${r.formato} · ${r.status ?? "Todos os status"}`;
+  return (linhas ?? []).map((l) => ({
+    id: l.id,
+    dia: l.dia,
+    descricao: l.descricao,
+    solicitadoNome: l.solicitado_nome,
+    criadoEm: l.criado_em,
+  }));
 }
 
 /** CSV com uma linha por contagem, ponto e virgula (Excel pt-BR). */
