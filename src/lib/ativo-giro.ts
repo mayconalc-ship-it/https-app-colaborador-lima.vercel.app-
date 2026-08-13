@@ -327,6 +327,9 @@ export function resumoWhatsApp(
  */
 export type Recontagem = {
   id: number;
+  /** O dia que estava sendo conciliado quando o pedido nasceu. Também é
+   *  quem decide a audiência: só quem contou ESTE dia é avisado. */
+  dia: string;
   tipo: Tipo | null;
   formato: Formato;
   status: Status | null;
@@ -337,12 +340,13 @@ export type Recontagem = {
 
 /** As colunas de `ag_recontagens` que as telas leem. */
 export const COLUNAS_RECONTAGEM =
-  "id, tipo, formato, status, observacao, solicitado_nome, criado_em";
+  "id, dia, tipo, formato, status, observacao, solicitado_nome, criado_em";
 
 export function recontagensDeLinhas(
   linhas:
     | {
         id: number;
+        dia: string;
         tipo: string | null;
         formato: string;
         status: string | null;
@@ -356,6 +360,7 @@ export function recontagensDeLinhas(
     .filter((l) => ehFormato(l.formato))
     .map((l) => ({
       id: l.id,
+      dia: l.dia,
       tipo: ehTipo(l.tipo) ? l.tipo : null,
       formato: l.formato as Formato,
       status: ehStatus(l.status) ? l.status : null,
@@ -366,14 +371,22 @@ export function recontagensDeLinhas(
 }
 
 /**
- * Uma contagem recém-lançada atende o pedido quando o formato bate e o
- * tipo/status também batem -- ou o pedido aceitava "qualquer" ali.
+ * Uma contagem recém-lançada atende o pedido quando o DIA bate (é a
+ * recontagem do que estava sendo conciliado, não de outro dia qualquer),
+ * o formato bate, e o tipo/status também batem -- ou o pedido aceitava
+ * "qualquer" ali.
  */
 export function recontagemAtendida(
-  pedido: { tipo: Tipo | null; formato: Formato; status: Status | null },
-  lancada: { tipo: Tipo; formato: Formato; status: Status },
+  pedido: {
+    dia: string;
+    tipo: Tipo | null;
+    formato: Formato;
+    status: Status | null;
+  },
+  lancada: { data: string; tipo: Tipo; formato: Formato; status: Status },
 ) {
   return (
+    pedido.dia === lancada.data &&
     pedido.formato === lancada.formato &&
     (pedido.tipo === null || pedido.tipo === lancada.tipo) &&
     (pedido.status === null || pedido.status === lancada.status)

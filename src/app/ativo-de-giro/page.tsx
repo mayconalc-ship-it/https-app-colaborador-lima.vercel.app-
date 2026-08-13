@@ -202,6 +202,25 @@ export default async function AtivoDeGiroPage({
 
   const pendentesRecontagem = recontagensDeLinhas(recontagensBanco);
 
+  // O banner da aba Contagem só mostra pedidos de dias em que ESTA pessoa
+  // contou nesta revenda -- é o mesmo recorte que decide quem recebe o
+  // sino e o push (ver solicitarRecontagem), só que calculado aqui para
+  // quem já está com a tela aberta. Uma consulta extra, e só quando há
+  // pedido pendente para checar.
+  const diasPedidos = [...new Set(pendentesRecontagem.map((r) => r.dia))];
+  let recontagensParaMim: typeof pendentesRecontagem = [];
+  if (aba === "contagem" && diasPedidos.length > 0) {
+    const { data: meusDias } = await supabase
+      .from("ag_contagens")
+      .select("data")
+      .eq("colaborador_id", perfil.id)
+      .in("data", diasPedidos);
+    const diasQueContei = new Set((meusDias ?? []).map((d) => d.data));
+    recontagensParaMim = pendentesRecontagem.filter((r) =>
+      diasQueContei.has(r.dia),
+    );
+  }
+
   const linhas = conciliar(contagensDia, parque, fatores);
   const totais = totaisPorFormato(contagensDia, fatores);
   const maiorTotal = Math.max(1, ...totais.map((t) => t.total));
@@ -263,7 +282,7 @@ export default async function AtivoDeGiroPage({
           ultima={ultimaCombinacao}
           contagens={contagens}
           hoje={hojeISO()}
-          recontagens={pendentesRecontagem}
+          recontagens={recontagensParaMim}
         />
       )}
 
@@ -349,6 +368,7 @@ export default async function AtivoDeGiroPage({
                       {podeConfigurar && (
                         <td className="p-2 text-right">
                           <form action={solicitarRecontagem}>
+                            <input type="hidden" name="dia" value={dia} />
                             <input type="hidden" name="tipo" value={l.tipo} />
                             <input
                               type="hidden"
@@ -384,12 +404,26 @@ export default async function AtivoDeGiroPage({
               </h2>
               <p className="mb-3 text-xs text-slate-500">
                 Deixe Tipo e/ou Status em &quot;Todos&quot; para pedir o
-                formato inteiro.
+                formato inteiro. O aviso vai só para quem contou neste dia,
+                nesta revenda -- ninguém mais é incomodado.
               </p>
               <form
                 action={solicitarRecontagem}
-                className="grid grid-cols-1 gap-3 sm:grid-cols-4 sm:items-end"
+                className="grid grid-cols-1 gap-3 sm:grid-cols-5 sm:items-end"
               >
+                <div>
+                  <label className={rotulo} htmlFor="rec-dia">
+                    Dia
+                  </label>
+                  <input
+                    id="rec-dia"
+                    type="date"
+                    name="dia"
+                    defaultValue={dia}
+                    required
+                    className={campo}
+                  />
+                </div>
                 <div>
                   <label className={rotulo} htmlFor="rec-tipo">
                     Tipo
@@ -450,7 +484,7 @@ export default async function AtivoDeGiroPage({
                 >
                   Solicitar
                 </button>
-                <div className="sm:col-span-4">
+                <div className="sm:col-span-5">
                   <label className={rotulo} htmlFor="rec-obs">
                     Observação (opcional)
                   </label>
@@ -480,7 +514,8 @@ export default async function AtivoDeGiroPage({
                             {rotuloRecontagem(r)}
                           </p>
                           <p className="text-xs text-amber-700">
-                            Pedido por {r.solicitadoNome}
+                            {formatarData(r.dia)} — pedido por{" "}
+                            {r.solicitadoNome}
                           </p>
                         </div>
                         <BotaoExcluir

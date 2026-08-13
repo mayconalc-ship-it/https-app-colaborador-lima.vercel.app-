@@ -8,7 +8,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { podeNoModulo, temAcessoModulo } from "@/lib/require-admin";
 import { getRevendaId } from "@/lib/revendas";
-import { criarOuAgrupar } from "@/lib/notificacoes-server";
+import { criarNotificacao } from "@/lib/notificacoes-server";
 import { enviarPushDaRevenda } from "@/lib/push-server";
 import {
   COLUNAS_CONTAGEM,
@@ -202,7 +202,7 @@ export async function registrarContagem(
     };
   }
 
-  const { tipo, formato, status } = lido.campos;
+  const { data, tipo, formato, status } = lido.campos;
   const combinacao: Combinacao = { tipo, formato, status };
   await lembrarCombinacao(combinacao);
 
@@ -215,20 +215,22 @@ export async function registrarContagem(
     const admin = createAdminClient();
     const { data: pendentes } = await admin
       .from("ag_recontagens")
-      .select("id, tipo, status")
+      .select("id, dia, tipo, status")
       .eq("revenda_id", revendaId)
       .eq("formato", formato)
+      .eq("dia", data)
       .is("atendida_em", null)
       .is("cancelada_em", null);
 
     const alvo = (pendentes ?? []).filter((p) =>
       recontagemAtendida(
         {
+          dia: p.dia,
           tipo: ehTipo(p.tipo) ? p.tipo : null,
           formato,
           status: ehStatus(p.status) ? p.status : null,
         },
-        { tipo, formato, status },
+        { data, tipo, formato, status },
       ),
     );
 
@@ -391,8 +393,11 @@ export async function importarHistorico(formData: FormData) {
  * permissão de quem edita o parque e os fatores -- é quem confronta as
  * duas contagens e decide o que merece recontagem.
  *
- * Avisa pelo sino (fonte da verdade) e pelo push (toque no ombro de quem
- * está com o app fechado) -- mesmo par usado pelos comunicados.
+ * O aviso (sino + push) vai SÓ para quem contou naquele dia, NESTA
+ * revenda -- não para a revenda inteira. Recontagem de São Félix não
+ * pode acordar o celular de quem está em Barreiras, nem de quem nunca
+ * abriu o Ativo de Giro. É por isso que o pedido carrega o `dia`: é o que
+ * permite achar essa lista exata em `ag_contagens`.
  */
 export async function solicitarRecontagem(formData: FormData) {
   const perfil = await getPerfil();
@@ -404,6 +409,9 @@ export async function solicitarRecontagem(formData: FormData) {
   const formato = formData.get("formato");
   if (!ehFormato(formato)) erro("Escolha um formato.");
 
+  const dia = String(formData.get("dia") ?? "");
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dia)) erro("Dia inválido.");
+
   const tipoBruto = formData.get("tipo");
   const statusBruto = formData.get("status");
   const tipo = ehTipo(tipoBruto) ? tipoBruto : null;
@@ -413,33 +421,68 @@ export async function solicitarRecontagem(formData: FormData) {
 
   const revendaId = await exigirRevendaAG();
   const admin = createAdminClient();
-  const { error } = await admin.from("ag_recontagens").insert({
-    revenda_id: revendaId,
-    tipo,
-    formato,
-    status,
-    observacao,
-    solicitado_por: perfil.id,
-    solicitado_nome: perfil.nome,
-  });
-  if (error) erro(`Não foi possível pedir a recontagem: ${error.message}`);
+  const { data: gravada, error } = await admin
+    .from("ag_recontagens")
+    .insert({
+      revenda_id: revendaId,
+      dia,
+      tipo,
+      formato,
+      status,
+      observacao,
+      solicitado_por: perfil.id,
+      solicitado_nome: perfil.nome,
+    })
+    .select("id")
+    .single();
+  if (error || !gravada) {
+    erro(`Não foi possível pedir a recontagem: ${error?.message ?? "resposta vazia do banco"}`);
+  }
 
-  const rotulo = rotuloRecontagem({ tipo, formato, status });
-  await criarOuAgrupar({
-    modulo: "ativo-giro",
-    tipo: "pendencia",
-    titulo: "Recontagem solicitada",
-    mensagem: `Confira de novo: ${rotulo}`,
-    url: "/ativo-de-giro?aba=contagem",
-    criadoPor: perfil.id,
-  });
-  await enviarPushDaRevenda(revendaId, {
-    modulo: "ativo-giro",
-    titulo: "Recontagem solicitada",
-    mensagem: `Confira de novo: ${rotulo}`,
-    url: "/ativo-de-giro?aba=contagem",
-    exceto: perfil.id,
-  });
+  // A audiência: quem tem uma contagem NESTE dia, NESTA revenda. Não é a
+  // revenda inteira, e não é "quem tem acesso ao módulo" -- é quem estava
+  // de fato contando o pátio no dia que gerou a divergência.
+  const { data: quemContou } = await admin
+    .from("ag_contagens")
+    .select("colaborador_id")
+    .eq("revenda_id", revendaId)
+    .eq("data", dia);
+
+  const alvo = [...new Set((quemContou ?? []).map((c) => c.colaborador_id))].filter(
+    (id) => id !== perfil.id,
+  );
+
+  if (alvo.length > 0) {
+    const rotulo = rotuloRecontagem({ tipo, formato, status });
+    const titulo = "Recontagem solicitada";
+    const mensagem = `Confira de novo: ${rotulo}`;
+
+    // Uma linha por destinatário de propósito -- ao contrário do resto do
+    // sino (uma linha para a revenda inteira), este aviso É dirigido, e
+    // uma linha compartilhada não teria como saber quem já viu o quê.
+    await Promise.all(
+      alvo.map((colaboradorId) =>
+        criarNotificacao({
+          modulo: "ativo-giro",
+          tipo: "pendencia",
+          titulo,
+          mensagem,
+          url: "/ativo-de-giro?aba=contagem",
+          referenciaId: gravada.id,
+          criadoPor: perfil.id,
+          destinatarioId: colaboradorId,
+        }),
+      ),
+    );
+
+    await enviarPushDaRevenda(revendaId, {
+      modulo: "ativo-giro",
+      titulo,
+      mensagem,
+      url: "/ativo-de-giro?aba=contagem",
+      apenas: alvo,
+    });
+  }
 
   revalidatePath(ROTA);
   redirect(`${ROTA}?aba=conciliacao&sucesso=Recontagem+solicitada`);

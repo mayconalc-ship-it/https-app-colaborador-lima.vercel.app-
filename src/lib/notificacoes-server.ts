@@ -12,13 +12,16 @@ import {
 const VALIDADE_DIAS = 21;
 
 /**
- * Cria um aviso para todo o time.
+ * Cria um aviso. Para o time inteiro, por padrão -- ou só para UMA pessoa,
+ * quando `destinatarioId` vem preenchido.
  *
  * Chamada de dentro das ações que publicam conteúdo. NUNCA lança erro: se
  * a notificação falhar, a publicação em si já aconteceu e não pode ser
  * desfeita por causa de um aviso.
  *
- * Uma linha por publicação, não uma por colaborador.
+ * Uma linha por publicação (destinatário nulo), não uma por colaborador --
+ * exceto quando o aviso É para uma pessoa específica, caso em que uma
+ * linha por destinatário é o desenho certo, não um atalho.
  */
 export async function criarNotificacao(dados: {
   modulo: ModuloNotificavel;
@@ -28,6 +31,8 @@ export async function criarNotificacao(dados: {
   url: string;
   referenciaId?: string | number | null;
   criadoPor?: string;
+  /** Só esta pessoa vê o aviso. Omitido/nulo = revenda inteira, como sempre foi. */
+  destinatarioId?: string | null;
 }) {
   try {
     const admin = createAdminClient();
@@ -63,6 +68,7 @@ export async function criarNotificacao(dados: {
       prioridade: PRIORIDADE[tipo],
       expira_em: expira.toISOString(),
       criado_por: dados.criadoPor ?? null,
+      destinatario_id: dados.destinatarioId ?? null,
     });
   } catch {
     // Silêncio proposital: avisar é secundário, publicar é o que importa.

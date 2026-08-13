@@ -205,7 +205,8 @@ export function Lancamento({
                   🔁 Recontagem pedida
                 </p>
                 <p className="text-xs text-amber-700">
-                  {rotuloRecontagem(r)} — pedido por {r.solicitadoNome}
+                  {rotuloRecontagem(r)} — {formatarData(r.dia)}, pedido por{" "}
+                  {r.solicitadoNome}
                 </p>
                 {r.observacao && (
                   <p className="mt-1 text-xs text-amber-700">{r.observacao}</p>

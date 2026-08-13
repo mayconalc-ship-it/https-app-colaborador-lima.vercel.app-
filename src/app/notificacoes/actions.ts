@@ -86,6 +86,9 @@ export async function carregarAvisos(): Promise<PainelAvisos> {
       .eq("revenda_id", revendaId)
       .eq("ativa", true)
       .gte("criado_em", desde.toISOString())
+      // Nulo = revenda inteira, como sempre. Preenchido = só quem foi
+      // convocado (ex.: recontagem, só para quem contou aquele dia).
+      .or(`destinatario_id.is.null,destinatario_id.eq.${perfil.id}`)
       .order("criado_em", { ascending: false })
       .limit(30),
     admin

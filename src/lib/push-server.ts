@@ -39,10 +39,14 @@ type Recado = {
   url: string;
   /** Quem publicou não precisa receber o próprio aviso no bolso. */
   exceto?: string | null;
+  /** Só estes aparelhos recebem -- em vez da revenda inteira. Usado
+   *  quando o aviso é dirigido (ex.: recontagem, só para quem contou). */
+  apenas?: string[];
 };
 
 /**
- * Envia para todos os aparelhos inscritos de uma revenda.
+ * Envia para os aparelhos inscritos de uma revenda -- todos, ou só a
+ * lista em `recado.apenas`, quando o aviso é dirigido a alguém específico.
  *
  * Respeita o mesmo interruptor do sino (notificacao_config): se o Admin
  * desligou o módulo naquela revenda, nada sai.
@@ -53,6 +57,7 @@ export async function enviarPushDaRevenda(
 ): Promise<void> {
   try {
     if (!pushConfigurado()) return;
+    if (recado.apenas && recado.apenas.length === 0) return;
     configurar();
 
     const admin = createAdminClient();
@@ -71,7 +76,8 @@ export async function enviarPushDaRevenda(
       .select("id, endpoint, p256dh, auth")
       .eq("revenda_id", revendaId);
 
-    if (recado.exceto) consulta = consulta.neq("colaborador_id", recado.exceto);
+    if (recado.apenas) consulta = consulta.in("colaborador_id", recado.apenas);
+    else if (recado.exceto) consulta = consulta.neq("colaborador_id", recado.exceto);
 
     const { data: inscricoes } = await consulta;
     if (!inscricoes || inscricoes.length === 0) return;
