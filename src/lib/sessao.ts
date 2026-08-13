@@ -8,6 +8,9 @@ export type Perfil = {
   nome: string;
   cpf: string;
   cargo: string | null;
+  /** Texto livre do cadastro ("DISTRIBUIÇÃO URBANA"). Quem traduz para
+   *  DU/AL é `areaDoColaborador`, em lib/quiz.ts. */
+  area: string | null;
   role: string;
   /** Usado para não mostrar a quem entrou depois avisos que não viveu. */
   criadoEm: string | null;
@@ -43,7 +46,7 @@ export const getPerfil = cache(async (): Promise<Perfil | null> => {
   const supabase = await createClient();
   const { data } = await supabase
     .from("profiles")
-    .select("id, nome, cpf, cargo, role, created_at")
+    .select("id, nome, cpf, cargo, area, role, created_at")
     .eq("id", id)
     .single();
 

@@ -2,6 +2,10 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { criarNotificacao } from "@/lib/notificacoes-server";
 import { enviarPushDaRevenda } from "@/lib/push-server";
+import { getPessoasDaArea } from "@/lib/quiz-server";
+import { hojeIso } from "@/lib/pesquisa";
+import { diasRestantes } from "@/lib/quiz";
+import type { AreaId } from "@/lib/areas";
 
 export const dynamic = "force-dynamic";
 
@@ -30,6 +34,12 @@ export async function GET(request: Request) {
 
   const admin = createAdminClient();
 
+  // Os dois lembretes do desafio moram na mesma rota porque compartilham
+  // tudo o que importa: o mesmo segredo, o mesmo agendamento de 15 em 15
+  // minutos e a mesma regra de carimbar antes de repetir. Uma segunda
+  // rota só multiplicaria a chamada externa.
+  const desafios = await lembretesDoDesafio(admin);
+
   const { data: devidos, error } = await admin
     .from("comunicados")
     .select("id, revenda_id, titulo, lembrete_cargos, lembrete_mensagem")
@@ -40,7 +50,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ erro: error.message }, { status: 500 });
   }
   if (!devidos || devidos.length === 0) {
-    return NextResponse.json({ enviados: 0 });
+    return NextResponse.json({ enviados: 0, desafios });
   }
 
   let enviados = 0;
@@ -126,5 +136,102 @@ export async function GET(request: Request) {
     enviados++;
   }
 
-  return NextResponse.json({ enviados });
+  return NextResponse.json({ enviados, desafios });
+}
+
+/**
+ * Cutuca quem ainda não participou do Desafio do Mês.
+ *
+ * Dois toques por rodada, e só dois: um quando ela passa da metade
+ * ("você ainda não participou") e outro na reta final ("últimos dias").
+ * Mais que isso vira barulho, e barulho todo mês faz a pessoa desligar
+ * a notificação -- perdendo também os avisos que ela queria.
+ *
+ * Idempotente pelos carimbos em `lembrete_meio_em` / `lembrete_fim_em`:
+ * a rodada só entra na conta enquanto o carimbo dela for nulo, e o
+ * carimbo é gravado mesmo quando não há ninguém para avisar -- senão a
+ * mesma rodada voltaria à fila a cada 15 minutos para sempre.
+ */
+async function lembretesDoDesafio(admin: ReturnType<typeof createAdminClient>) {
+  const hoje = hojeIso();
+
+  const { data: rodadas } = await admin
+    .from("quiz_rodadas")
+    .select(
+      "id, revenda_id, nome, area, inicio, fim, lembrete_meio_em, lembrete_fim_em",
+    )
+    .eq("status", "publicada")
+    .lte("inicio", hoje)
+    .gte("fim", hoje);
+
+  let enviados = 0;
+
+  for (const r of rodadas ?? []) {
+    const faltam = diasRestantes(r.fim, hoje);
+    const duracao = Math.max(1, diasRestantes(r.fim, r.inicio));
+
+    // A reta final tem precedência: na última semana o aviso certo é
+    // "está acabando", não "você ainda não entrou" -- mesmo que o
+    // lembrete do meio nunca tenha saído (rodada curta, por exemplo).
+    let etapa: "fim" | "meio" | null = null;
+    if (faltam <= 2) {
+      if (!r.lembrete_fim_em) etapa = "fim";
+    } else if (!r.lembrete_meio_em && faltam <= Math.floor(duracao / 2)) {
+      etapa = "meio";
+    }
+    if (!etapa) continue;
+
+    const carimbo =
+      etapa === "fim"
+        ? { lembrete_fim_em: new Date().toISOString() }
+        : { lembrete_meio_em: new Date().toISOString() };
+
+    const [pessoas, { data: concluiram }] = await Promise.all([
+      getPessoasDaArea(r.revenda_id, r.area as AreaId),
+      admin
+        .from("quiz_participacoes")
+        .select("colaborador_id")
+        .eq("rodada_id", r.id)
+        .eq("status", "concluida"),
+    ]);
+
+    const jaFizeram = new Set((concluiram ?? []).map((p) => p.colaborador_id));
+    const alvo = pessoas.filter((id) => !jaFizeram.has(id));
+
+    await admin.from("quiz_rodadas").update(carimbo).eq("id", r.id);
+    if (alvo.length === 0) continue;
+
+    const titulo =
+      etapa === "fim" ? "⏰ Últimos dias do desafio" : "🔥 Você ainda não participou";
+    const mensagem =
+      etapa === "fim"
+        ? `${r.nome} fecha ${faltam <= 0 ? "hoje" : `em ${faltam} dia${faltam === 1 ? "" : "s"}`}. Ainda dá tempo.`
+        : `${r.nome} está aberto e você ainda não entrou. São poucos minutos.`;
+
+    await Promise.all(
+      alvo.map((colaboradorId) =>
+        criarNotificacao({
+          modulo: "quiz",
+          tipo: "lembrete",
+          titulo,
+          mensagem,
+          url: "/desafio",
+          revendaId: r.revenda_id,
+          destinatarioId: colaboradorId,
+        }),
+      ),
+    );
+
+    await enviarPushDaRevenda(r.revenda_id, {
+      modulo: "quiz",
+      titulo,
+      mensagem,
+      url: "/desafio",
+      apenas: alvo,
+    });
+
+    enviados += alvo.length;
+  }
+
+  return enviados;
 }

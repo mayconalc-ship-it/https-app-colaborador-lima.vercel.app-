@@ -17,6 +17,7 @@ export const MODULO_DO_ITEM: Record<string, ModuloId> = {
   rota: "rotas",
   feedback: "feedbacks",
   "ativo-giro": "ativo-giro",
+  quiz: "quiz",
 };
 
 export type ItemMenu = {
@@ -40,6 +41,7 @@ export const MENU_PADRAO: ItemMenu[] = [
   { chave: "feedback", titulo: "Feedback da Rota", emoji: "📝", href: "/feedback-rota", ordem: 8, visivel: true },
   // Módulo opcional: só aparece pra quem o Admin liberou (ver temAcessoModulo).
   { chave: "ativo-giro", titulo: "Ativo de Giro", emoji: "📦", href: "/ativo-de-giro", ordem: 10, visivel: true },
+  { chave: "quiz", titulo: "Desafio do Mês", emoji: "🏆", href: "/desafio", ordem: 11, visivel: true },
   // "Minha Conta" fica oculto: já existe o botão "Conta" no topo de todas as
   // telas, e repetir ocupava espaço da grade sem acrescentar nada.
   { chave: "conta", titulo: "Minha Conta", emoji: "🔒", href: "/minha-conta", ordem: 9, visivel: false },

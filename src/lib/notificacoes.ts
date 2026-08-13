@@ -22,7 +22,8 @@ export type ModuloNotificavel =
   | "rv"
   | "feedback"
   | "rotas"
-  | "ativo-giro";
+  | "ativo-giro"
+  | "quiz";
 
 /**
  * A mesma lista, em forma de array.
@@ -40,6 +41,7 @@ export const MODULOS_NOTIFICAVEIS: ModuloNotificavel[] = [
   "feedback",
   "rotas",
   "ativo-giro",
+  "quiz",
 ];
 
 export const EMOJI_MODULO: Record<ModuloNotificavel, string> = {
@@ -52,6 +54,7 @@ export const EMOJI_MODULO: Record<ModuloNotificavel, string> = {
   feedback: "📝",
   rotas: "🚚",
   "ativo-giro": "🔁",
+  quiz: "🏆",
 };
 
 export const ROTULO_MODULO: Record<ModuloNotificavel, string> = {
@@ -64,6 +67,7 @@ export const ROTULO_MODULO: Record<ModuloNotificavel, string> = {
   feedback: "Feedback da Rota",
   rotas: "Minha Rota",
   "ativo-giro": "Ativo de Giro",
+  quiz: "Desafio do Mês",
 };
 
 /**
@@ -105,6 +109,7 @@ export const ROTULO_BOTAO: Record<ModuloNotificavel, string> = {
   feedback: "Responder agora",
   rotas: "Ver minha rota",
   "ativo-giro": "Recontar agora",
+  quiz: "Participar",
 };
 
 /** "há 2 min", "há 3 h", "ontem" — mais legível que data completa. */

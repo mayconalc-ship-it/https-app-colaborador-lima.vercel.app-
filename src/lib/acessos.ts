@@ -28,7 +28,8 @@ export type ModuloId =
   | "pesquisa"
   | "menu"
   | "rotas"
-  | "ativo-giro";
+  | "ativo-giro"
+  | "quiz";
 
 export type Modulo = {
   id: ModuloId;
@@ -104,6 +105,17 @@ export const MODULOS: Modulo[] = [
     rotulo: "Ativo de Giro",
     emoji: "📦",
     href: "/admin/ativo-de-giro",
+    grupo: "Conteúdo do app",
+    acoes: ["ver", "criar", "editar", "excluir"],
+  },
+  {
+    id: "quiz",
+    // 🏆 já é o Ranking Super Matinal. Aqui o ícone é o do conteúdo --
+    // conhecimento -- para as duas telas não virarem a mesma coisa no
+    // painel. Para o colaborador o cartão continua sendo o troféu.
+    rotulo: "Desafio do Mês",
+    emoji: "🧠",
+    href: "/admin/quiz",
     grupo: "Conteúdo do app",
     acoes: ["ver", "criar", "editar", "excluir"],
   },
