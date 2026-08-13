@@ -6,8 +6,9 @@ import { requireModulo } from "@/lib/require-admin";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { exigirRevenda } from "@/lib/revendas";
 import { AREAS } from "@/lib/areas";
-import { criarOuAgrupar } from "@/lib/notificacoes-server";
-import { baixarPlanilha } from "@/lib/rv-server";
+import { criarNotificacao } from "@/lib/notificacoes-server";
+import { enviarPushDaRevenda } from "@/lib/push-server";
+import { baixarPlanilha, colaboradoresComRV } from "@/lib/rv-server";
 import {
   acharColunaCompetencia,
   acharColunaCpf,
@@ -17,8 +18,15 @@ import {
   normalizarCpf,
 } from "@/lib/rv";
 
+/** Quanto tempo depois de avisar alguém o mesmo aviso volta a valer. */
+const JANELA_REAVISO_MIN = 60;
+
+function voltar(chave: "sucesso" | "erro", texto: string): never {
+  redirect(`/admin/rv?${chave}=${encodeURIComponent(texto)}`);
+}
+
 /**
- * Avisa o time de que a RV foi atualizada.
+ * Avisa que a RV foi atualizada -- só quem TEM RV.
  *
  * É um botão, e não algo automático, porque a RV é lida ao vivo da planilha
  * do Drive: o app não tem como saber que alguém editou a planilha sem ficar
@@ -26,20 +34,103 @@ import {
  * inteiro para pegar uma mudança que acontece uma vez por mês.
  *
  * Quem sabe a hora certa é você, ao fechar a competência.
+ *
+ * O aviso era da REVENDA INTEIRA (uma linha com destinatário nulo, que o
+ * sino mostra para todo mundo). Só que RV não é de todo mundo: quem não
+ * aparece na planilha abria /rv e lia "Você não possui RV cadastrada" --
+ * um aviso que só servia para frustrar, todo mês. Agora a audiência é
+ * exatamente quem tem CPF na planilha desta revenda: uma linha por
+ * destinatário, e o push segue a mesma lista.
+ *
+ * Se a planilha não abrir, ninguém é avisado e o erro aparece na tela. O
+ * caminho antigo -- avisar todo mundo na dúvida -- é justamente o que
+ * estamos tirando; avisar errado em silêncio seria voltar para trás.
  */
 export async function avisarRVAtualizada() {
   const eu = await requireModulo("rv", "editar");
+  const revendaId = await exigirRevenda("/admin/rv");
 
-  await criarOuAgrupar({
+  const { ids, configurado, falhas } = await colaboradoresComRV(revendaId);
+
+  if (!configurado) {
+    voltar("erro", "Conecte a planilha de RV antes de avisar o time.");
+  }
+  if (falhas.length > 0 && ids.length === 0) {
+    voltar(
+      "erro",
+      `Não consegui ler ${falhas.map((f) => f.rotulo).join(" e ")} (${falhas[0].motivo}). Ninguém foi avisado.`,
+    );
+  }
+  if (ids.length === 0) {
+    voltar(
+      "erro",
+      "Nenhum colaborador cadastrado tem CPF nessa planilha. Ninguém foi avisado.",
+    );
+  }
+
+  // Quem já recebeu este aviso há pouco não recebe de novo. Sem isto, dois
+  // toques no botão (ou uma correção na planilha logo em seguida) viravam
+  // dois avisos idênticos no sino da mesma pessoa.
+  const admin = createAdminClient();
+  const desde = new Date();
+  desde.setMinutes(desde.getMinutes() - JANELA_REAVISO_MIN);
+
+  const { data: jaAvisados } = await admin
+    .from("notificacoes")
+    .select("destinatario_id")
+    .eq("revenda_id", revendaId)
+    .eq("modulo", "rv")
+    .eq("ativa", true)
+    .gte("criado_em", desde.toISOString())
+    .in("destinatario_id", ids);
+
+  const repetidos = new Set(
+    (jaAvisados ?? []).map((n) => n.destinatario_id as string),
+  );
+  const alvo = ids.filter((id) => !repetidos.has(id));
+
+  if (alvo.length === 0) {
+    voltar(
+      "sucesso",
+      `Todos os ${ids.length} colaboradores com RV já foram avisados na última hora.`,
+    );
+  }
+
+  const titulo = "Sua RV foi atualizada!";
+  const mensagem = "Já conferiu sua remuneração variável?";
+
+  await Promise.all(
+    alvo.map((colaboradorId) =>
+      criarNotificacao({
+        modulo: "rv",
+        tipo: "atualizado",
+        titulo,
+        mensagem,
+        url: "/rv",
+        criadoPor: eu.id,
+        revendaId,
+        destinatarioId: colaboradorId,
+      }),
+    ),
+  );
+
+  await enviarPushDaRevenda(revendaId, {
     modulo: "rv",
-    tipo: "atualizado",
-    titulo: "Sua RV foi atualizada!",
-    mensagem: "Já conferiu sua remuneração variável?",
+    titulo,
+    mensagem,
     url: "/rv",
-    criadoPor: eu.id,
+    apenas: alvo,
   });
 
-  redirect("/admin/rv?sucesso=Time+avisado+sobre+a+RV");
+  const aviso =
+    falhas.length > 0
+      ? ` (${falhas.map((f) => f.rotulo).join(" e ")} não abriu — pode faltar gente)`
+      : "";
+
+  voltar(
+    "sucesso",
+    `${alvo.length} colaborador(es) com RV avisado(s)${aviso}.`,
+  );
 }
 
 export async function salvarConfigRV(formData: FormData) {

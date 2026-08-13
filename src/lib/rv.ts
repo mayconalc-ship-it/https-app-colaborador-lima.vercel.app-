@@ -289,6 +289,40 @@ export function formatarCompetencia(rotulo: string) {
 }
 
 /**
+ * Todos os CPFs que aparecem na planilha, normalizados.
+ *
+ * É a pergunta inversa da `buscarLinhasDoColaborador`: em vez de "esta
+ * pessoa tem RV?", responde "quem tem RV?". Serve ao aviso de RV
+ * atualizada, que precisa da lista inteira de uma vez -- perguntar pessoa
+ * por pessoa baixaria a mesma planilha uma vez para cada colaborador.
+ *
+ * Linha sem CPF reconhecível fica de fora em silêncio: planilha real tem
+ * linha de total, de cabeçalho repetido e de observação no rodapé, e
+ * nenhuma delas é gente.
+ */
+export function cpfsDaPlanilha(
+  linhas: string[][],
+  colunaCpfConfig?: string | null,
+): Set<string> {
+  const cpfs = new Set<string>();
+  if (linhas.length < 2) return cpfs;
+
+  const iCabecalho = acharLinhaCabecalho(linhas);
+  const cabecalho = linhas[iCabecalho];
+  const corpo = linhas.slice(iCabecalho + 1);
+
+  const idxCpf = acharColunaCpf(cabecalho, corpo, colunaCpfConfig);
+  if (idxCpf === -1) return cpfs;
+
+  for (const linha of corpo) {
+    const cpf = normalizarCpf(linha[idxCpf] ?? "");
+    if (cpf.length === 11) cpfs.add(cpf);
+  }
+
+  return cpfs;
+}
+
+/**
  * Devolve TODAS as linhas do colaborador (uma por competencia).
  * Vazio quando o CPF nao aparece na planilha.
  */

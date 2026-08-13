@@ -191,18 +191,22 @@ export default async function AdminRVPage({
           className="rounded-2xl border border-gold bg-gold-soft p-4"
         >
           <p className="text-sm font-semibold text-primary-dark">
-            🔔 Avisar o time que a RV foi atualizada
+            🔔 Avisar que a RV foi atualizada
           </p>
           <p className="mt-1 text-xs text-primary-dark">
-            Manda um aviso para todos conferirem a própria RV. Use depois de
-            fechar a competência na planilha.
+            O aviso vai só para quem tem CPF na planilha — quem não recebe RV
+            não é incomodado. Use depois de fechar a competência.
           </p>
-          <button
-            type="submit"
+          <BotaoEnviar
+            textoEnviando="Conferindo a planilha..."
             className="mt-3 w-full rounded-xl bg-primary py-3 text-sm font-semibold text-white hover:bg-primary-dark"
           >
-            Avisar todo mundo
-          </button>
+            Avisar quem tem RV
+          </BotaoEnviar>
+          <p className="mt-2 text-xs text-primary-dark/70">
+            A planilha é lida na hora para montar a lista, então este botão
+            demora alguns segundos.
+          </p>
         </form>
       </div>
     </div>

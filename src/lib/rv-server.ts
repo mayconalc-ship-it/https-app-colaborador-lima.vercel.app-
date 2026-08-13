@@ -6,7 +6,9 @@ import { getRevendaId } from "@/lib/revendas";
 import {
   buscarLinhasDoColaborador,
   chaveCompetencia,
+  cpfsDaPlanilha,
   lerCsv,
+  normalizarCpf,
   resolverOrigem,
   type LinhaRV,
 } from "@/lib/rv";
@@ -122,6 +124,89 @@ export async function baixarPlanilha(csvUrl: string): Promise<string[][]> {
   }
 
   throw new Error(problemas[0] ?? "não foi possível baixar a planilha");
+}
+
+export type ColaboradoresComRV = {
+  /** Quem tem CPF nas planilhas desta revenda. */
+  ids: string[];
+  /** Alguma planilha está conectada? Sem isso não há o que perguntar. */
+  configurado: boolean;
+  /** Planilhas que não deram para ler agora. */
+  falhas: { rotulo: string; motivo: string }[];
+};
+
+/**
+ * Quem, nesta revenda, tem RV de verdade.
+ *
+ * A RV mora na planilha, não no cadastro: quem tem direito é quem aparece
+ * lá. O app já sabia responder isso para UMA pessoa (a tela /rv mostra
+ * "Você não possui RV cadastrada" para quem não aparece); o que faltava
+ * era responder para a revenda inteira de uma vez -- e é disso que o aviso
+ * de "RV atualizada" precisa para não tocar o celular de quem nunca vai
+ * ter valor nenhum para conferir.
+ *
+ * Só olha gente vinculada a ESTA revenda. Um CPF que apareça nas duas
+ * unidades não faz o aviso de São Félix chegar em Barreiras.
+ *
+ * Devolve as falhas em vez de engolir: se a planilha não abriu, quem
+ * chamou precisa saber que a lista veio incompleta -- avisar menos gente
+ * do que devia é tão ruim quanto avisar demais, e em silêncio é pior.
+ */
+export async function colaboradoresComRV(
+  revendaId: string,
+): Promise<ColaboradoresComRV> {
+  const admin = createAdminClient();
+
+  const { data: configs } = await admin
+    .from("rv_config")
+    .select("rotulo, csv_url, coluna_cpf")
+    .eq("revenda_id", revendaId);
+
+  const ativas = (configs ?? []).filter((c) => c.csv_url?.trim());
+  if (ativas.length === 0) return { ids: [], configurado: false, falhas: [] };
+
+  const comRV = new Set<string>();
+  const falhas: { rotulo: string; motivo: string }[] = [];
+
+  // Em paralelo: são duas planilhas (DU e AL), cada uma um download do
+  // Drive. Em série, o Admin esperaria a soma das duas.
+  const baixadas = await Promise.allSettled(
+    ativas.map((c) => baixarPlanilha(c.csv_url!)),
+  );
+
+  baixadas.forEach((r, i) => {
+    if (r.status === "fulfilled") {
+      for (const cpf of cpfsDaPlanilha(r.value, ativas[i].coluna_cpf)) {
+        comRV.add(cpf);
+      }
+    } else {
+      falhas.push({
+        rotulo: ativas[i].rotulo,
+        motivo: (r.reason as Error)?.message ?? "falha ao baixar",
+      });
+    }
+  });
+
+  if (comRV.size === 0) return { ids: [], configurado: true, falhas };
+
+  const { data: vinculos } = await admin
+    .from("colaborador_revendas")
+    .select("colaborador_id")
+    .eq("revenda_id", revendaId);
+
+  const daRevenda = (vinculos ?? []).map((v) => v.colaborador_id);
+  if (daRevenda.length === 0) return { ids: [], configurado: true, falhas };
+
+  const { data: pessoas } = await admin
+    .from("profiles")
+    .select("id, cpf")
+    .in("id", daRevenda);
+
+  const ids = (pessoas ?? [])
+    .filter((p) => p.cpf && comRV.has(normalizarCpf(p.cpf)))
+    .map((p) => p.id);
+
+  return { ids, configurado: true, falhas };
 }
 
 /**
