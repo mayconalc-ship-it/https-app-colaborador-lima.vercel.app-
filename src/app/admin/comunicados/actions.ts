@@ -7,7 +7,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getRevendaId } from "@/lib/revendas";
 import { criarOuAgrupar } from "@/lib/notificacoes-server";
 import { enviarPushDaRevenda } from "@/lib/push-server";
-import { ehEditoriaValida } from "@/lib/comunicados";
+import { ehEditoriaValida, lembreteParaUTC } from "@/lib/comunicados";
 
 function caminhoDoStorage(arquivoUrl: string) {
   const prefixo = "/storage/v1/object/public/conteudo/";
@@ -77,6 +77,35 @@ export async function salvarComunicado(formData: FormData) {
       .neq("id", id ?? -1);
   }
 
+  // Lembrete: dispara sozinho na hora marcada (ver /api/cron/lembretes).
+  // Cargos vazios = a revenda inteira, igual à publicação em si.
+  const lembreteLocal = texto(formData, "lembrete_em");
+  const lembreteEm = lembreteLocal ? lembreteParaUTC(lembreteLocal) : null;
+  const lembreteCargos = formData
+    .getAll("lembrete_cargos")
+    .map(String)
+    .filter(Boolean);
+  const lembreteMensagem = texto(formData, "lembrete_mensagem");
+
+  // Só reabre a janela de disparo quando o INSTANTE realmente muda --
+  // comparando como data, não como texto, porque o banco devolve a data
+  // formatada diferente do que acabamos de montar, e comparar string
+  // trataria isso como mudança a cada edição, reenviando um lembrete que
+  // já tinha saído só porque alguém corrigiu um typo no título.
+  let lembreteEnviadoEm: string | null | undefined;
+  if (id) {
+    const { data: atual } = await admin
+      .from("comunicados")
+      .select("lembrete_em")
+      .eq("id", id)
+      .maybeSingle();
+    const antes = atual?.lembrete_em ? new Date(atual.lembrete_em).getTime() : null;
+    const depois = lembreteEm ? new Date(lembreteEm).getTime() : null;
+    if (antes !== depois) lembreteEnviadoEm = null;
+  } else if (lembreteEm) {
+    lembreteEnviadoEm = null;
+  }
+
   const registro = {
     titulo,
     resumo: resumo || null,
@@ -85,6 +114,12 @@ export async function salvarComunicado(formData: FormData) {
     destaque,
     autor: admin_.nome,
     data: data || new Date().toISOString().slice(0, 10),
+    lembrete_em: lembreteEm,
+    lembrete_cargos: lembreteCargos.length > 0 ? lembreteCargos : null,
+    lembrete_mensagem: lembreteMensagem || null,
+    ...(lembreteEnviadoEm !== undefined
+      ? { lembrete_enviado_em: lembreteEnviadoEm }
+      : {}),
     ...(imagemUrl !== undefined ? { imagem_url: imagemUrl } : {}),
   };
 

@@ -74,3 +74,49 @@ export function tempoDeLeitura(texto: string) {
   const palavras = texto.trim().split(/\s+/).filter(Boolean).length;
   return Math.max(1, Math.round(palavras / 200));
 }
+
+/**
+ * O que vem do `<input type="datetime-local">` do lembrete
+ * ("AAAA-MM-DDTHH:mm", sem fuso) para o instante UTC que o banco guarda.
+ *
+ * Bahia é sempre UTC-3 -- o Brasil não tem mais horário de verão desde
+ * 2019 -- então a conta é uma soma fixa, sem precisar de Intl aqui.
+ */
+export function lembreteParaUTC(local: string): string | null {
+  const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(local);
+  if (!m) return null;
+  const [, ano, mes, dia, hora, min] = m.map(Number);
+  return new Date(Date.UTC(ano, mes - 1, dia, hora + 3, min)).toISOString();
+}
+
+/**
+ * O caminho inverso: do instante UTC do banco para o valor que o
+ * `<input type="datetime-local">` espera reabrir, no fuso de Bahia.
+ *
+ * Usa `Intl` em vez de subtrair 3h na mão -- é o mesmo resultado hoje,
+ * mas não depende de ninguém lembrar da mesma conta em dois lugares.
+ */
+export function lembreteParaLocal(utcISO: string): string {
+  const partes = new Intl.DateTimeFormat("en-CA", {
+    timeZone: FUSO,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).formatToParts(new Date(utcISO));
+  const parte = (tipo: string) => partes.find((p) => p.type === tipo)?.value ?? "00";
+  return `${parte("year")}-${parte("month")}-${parte("day")}T${parte("hour")}:${parte("minute")}`;
+}
+
+/** "12/08 às 14:00", para mostrar o lembrete na lista do Admin. */
+export function formatarDataHora(utcISO: string) {
+  return new Date(utcISO).toLocaleString("pt-BR", {
+    timeZone: FUSO,
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}

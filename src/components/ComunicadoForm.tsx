@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { EDITORIAS } from "@/lib/comunicados";
+import { EDITORIAS, formatarDataHora, lembreteParaLocal } from "@/lib/comunicados";
 
 type Comunicado = {
   id: number;
@@ -12,21 +12,28 @@ type Comunicado = {
   destaque: boolean;
   data: string;
   imagem_url: string | null;
+  lembrete_em?: string | null;
+  lembrete_cargos?: string[] | null;
+  lembrete_mensagem?: string | null;
+  lembrete_enviado_em?: string | null;
 };
 
 export function ComunicadoForm({
   action,
   comunicado,
   aoCancelar,
+  cargosDisponiveis,
 }: {
   action: (formData: FormData) => void;
   comunicado?: Comunicado;
   aoCancelar?: () => void;
+  cargosDisponiveis: string[];
 }) {
   const [categoria, setCategoria] = useState(
     comunicado?.categoria ?? "geral",
   );
   const hoje = new Date().toISOString().slice(0, 10);
+  const cargosMarcados = new Set(comunicado?.lembrete_cargos ?? []);
 
   return (
     <form action={action} className="space-y-4">
@@ -150,6 +157,94 @@ export function ComunicadoForm({
           <strong>Matéria de capa</strong> — aparece grande no topo do jornal
         </span>
       </label>
+
+      <details className="rounded-xl border border-slate-200 p-3">
+        <summary className="cursor-pointer text-sm font-medium text-slate-700">
+          🔔 Lembrete agendado{" "}
+          <span className="font-normal text-slate-400">(opcional)</span>
+        </summary>
+        <div className="mt-3 space-y-3">
+          {comunicado?.lembrete_enviado_em && (
+            <p className="rounded-lg bg-green-50 p-2 text-xs text-green-700">
+              Já disparado em {formatarDataHora(comunicado.lembrete_enviado_em)}
+              . Mudar a data/hora abaixo reabre o disparo.
+            </p>
+          )}
+
+          <div>
+            <label
+              htmlFor="lembrete_em"
+              className="mb-1 block text-sm font-medium text-slate-700"
+            >
+              Disparar em
+            </label>
+            <input
+              id="lembrete_em"
+              name="lembrete_em"
+              type="datetime-local"
+              defaultValue={
+                comunicado?.lembrete_em
+                  ? lembreteParaLocal(comunicado.lembrete_em)
+                  : ""
+              }
+              className="w-full rounded-xl border border-slate-200 p-3 text-base focus:border-primary focus:outline-none"
+            />
+          </div>
+
+          {cargosDisponiveis.length > 0 && (
+            <div>
+              <p className="mb-1 text-sm font-medium text-slate-700">
+                Só para estes cargos{" "}
+                <span className="font-normal text-slate-400">
+                  (nenhum marcado = todo mundo)
+                </span>
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {cargosDisponiveis.map((cargo) => (
+                  <label
+                    key={cargo}
+                    className="flex items-center gap-1.5 rounded-full border border-slate-200 px-3 py-1.5 text-sm text-slate-700"
+                  >
+                    <input
+                      type="checkbox"
+                      name="lembrete_cargos"
+                      value={cargo}
+                      defaultChecked={cargosMarcados.has(cargo)}
+                      className="h-4 w-4 rounded border-slate-300 text-primary"
+                    />
+                    {cargo}
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div>
+            <label
+              htmlFor="lembrete_mensagem"
+              className="mb-1 block text-sm font-medium text-slate-700"
+            >
+              Texto do lembrete{" "}
+              <span className="font-normal text-slate-400">
+                (vazio = usa o título)
+              </span>
+            </label>
+            <input
+              id="lembrete_mensagem"
+              name="lembrete_mensagem"
+              defaultValue={comunicado?.lembrete_mensagem ?? ""}
+              placeholder="Ex: O treinamento é hoje às 14h, não esqueça!"
+              className="w-full rounded-xl border border-slate-200 p-3 text-base focus:border-primary focus:outline-none"
+            />
+          </div>
+
+          <p className="text-xs text-slate-400">
+            O lembrete chega pelo sino e pelo push, separado da publicação.
+            O disparo pode atrasar alguns minutos em relação à hora
+            marcada.
+          </p>
+        </div>
+      </details>
 
       <div className="flex gap-2">
         <button

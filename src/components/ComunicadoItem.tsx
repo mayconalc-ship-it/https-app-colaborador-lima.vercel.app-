@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { ComunicadoForm } from "@/components/ComunicadoForm";
 import { useConfirmarEnvio } from "@/components/Confirmacao";
-import { editoria, formatarDataCurta } from "@/lib/comunicados";
+import { editoria, formatarDataCurta, formatarDataHora } from "@/lib/comunicados";
 
 type Comunicado = {
   id: number;
@@ -14,16 +14,22 @@ type Comunicado = {
   destaque: boolean;
   data: string;
   imagem_url: string | null;
+  lembrete_em?: string | null;
+  lembrete_cargos?: string[] | null;
+  lembrete_mensagem?: string | null;
+  lembrete_enviado_em?: string | null;
 };
 
 export function ComunicadoItem({
   comunicado,
   onSalvar,
   onExcluir,
+  cargosDisponiveis,
 }: {
   comunicado: Comunicado;
   onSalvar: (formData: FormData) => void;
   onExcluir: (formData: FormData) => void;
+  cargosDisponiveis: string[];
 }) {
   const [editando, setEditando] = useState(false);
   const aoExcluir = useConfirmarEnvio();
@@ -36,6 +42,7 @@ export function ComunicadoItem({
           action={onSalvar}
           comunicado={comunicado}
           aoCancelar={() => setEditando(false)}
+          cargosDisponiveis={cargosDisponiveis}
         />
       </div>
     );
@@ -59,6 +66,20 @@ export function ComunicadoItem({
           {comunicado.destaque && (
             <span className="rounded-full bg-gold-soft px-2 py-0.5 text-xs font-semibold text-primary-dark">
               capa
+            </span>
+          )}
+          {comunicado.lembrete_em && (
+            <span
+              className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
+                comunicado.lembrete_enviado_em
+                  ? "bg-slate-100 text-slate-500"
+                  : "bg-amber-100 text-amber-800"
+              }`}
+            >
+              🔔{" "}
+              {comunicado.lembrete_enviado_em
+                ? "disparado"
+                : formatarDataHora(comunicado.lembrete_em)}
             </span>
           )}
           <span className="text-xs text-slate-400">

@@ -1,0 +1,24 @@
+name: Lembretes do Jornal
+
+# O plano Hobby da Vercel só libera cron nativo uma vez por dia -- cedo
+# demais para "avise às 14h de hoje". O GitHub Actions roda de graça e
+# sem essa trava, então é ele quem bate na porta do endpoint.
+#
+# Nem o GitHub garante o minuto exato (a documentação deles avisa que
+# workflows agendados podem atrasar em horários de pico), então o
+# lembrete dispara com alguns minutos de folga em relação à hora
+# marcada -- suficiente para "lembrete de treinamento", não para algo
+# que precise do segundo certo.
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch: {}
+
+jobs:
+  disparar:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Chamar o endpoint de lembretes
+        run: |
+          curl -sf -X GET "https://app-colaborador-lima.vercel.app/api/cron/lembretes" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"

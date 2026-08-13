@@ -33,13 +33,16 @@ export async function criarNotificacao(dados: {
   criadoPor?: string;
   /** Só esta pessoa vê o aviso. Omitido/nulo = revenda inteira, como sempre foi. */
   destinatarioId?: string | null;
+  /** Só para chamadas SEM sessão (ex.: cron job dos lembretes) -- quando
+   *  omitido, usa a revenda de quem está logado, como sempre foi. */
+  revendaId?: string;
 }) {
   try {
     const admin = createAdminClient();
 
     // O aviso nasce na revenda de quem publicou. Sem isso, uma notícia de
     // Barreiras tocaria o sino de São Félix.
-    const revendaId = await getRevendaId();
+    const revendaId = dados.revendaId ?? (await getRevendaId());
     if (!revendaId) return;
 
     // O Admin pode ter desligado os avisos deste módulo nesta revenda.

@@ -19,11 +19,34 @@ export default async function AdminComunicadosPage({
   const revendaId = await exigirRevenda("/admin");
   const { data: comunicados } = await admin
     .from("comunicados")
-    .select("id, titulo, resumo, texto, categoria, destaque, data, imagem_url")
+    .select(
+      "id, titulo, resumo, texto, categoria, destaque, data, imagem_url, lembrete_em, lembrete_cargos, lembrete_mensagem, lembrete_enviado_em",
+    )
     .eq("revenda_id", revendaId)
     .order("data", { ascending: false })
     .order("id", { ascending: false })
     .limit(60);
+
+  // Cargos de quem está NESTA revenda, sem repetição -- é o que alimenta
+  // o seletor do lembrete. Vem do cadastro (texto livre), não de uma
+  // lista fixa, então é isto ou deixar o Admin digitar e arriscar um
+  // typo que nunca bate com ninguém.
+  const { data: vinculosRevenda } = await admin
+    .from("colaborador_revendas")
+    .select("colaborador_id")
+    .eq("revenda_id", revendaId);
+  const idsRevenda = (vinculosRevenda ?? []).map((v) => v.colaborador_id);
+  const { data: cargosBanco } =
+    idsRevenda.length > 0
+      ? await admin.from("profiles").select("cargo").in("id", idsRevenda)
+      : { data: [] };
+  const cargosDisponiveis = [
+    ...new Set(
+      (cargosBanco ?? [])
+        .map((c) => c.cargo?.trim())
+        .filter((c): c is string => Boolean(c)),
+    ),
+  ].sort((a, b) => a.localeCompare(b, "pt-BR"));
 
   return (
     <div>
@@ -48,7 +71,10 @@ export default async function AdminComunicadosPage({
           + Publicar novo comunicado
         </summary>
         <div className="border-t border-slate-100 p-4">
-          <ComunicadoForm action={salvarComunicado} />
+          <ComunicadoForm
+            action={salvarComunicado}
+            cargosDisponiveis={cargosDisponiveis}
+          />
         </div>
       </details>
 
@@ -68,6 +94,7 @@ export default async function AdminComunicadosPage({
               comunicado={c}
               onSalvar={salvarComunicado}
               onExcluir={excluirComunicado}
+              cargosDisponiveis={cargosDisponiveis}
             />
           ))}
         </div>
