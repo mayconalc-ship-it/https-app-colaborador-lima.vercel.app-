@@ -440,7 +440,6 @@ export default async function AtivoDeGiroPage({
                     <th className="p-2 text-right">Contado</th>
                     <th className="p-2 text-right">Parque</th>
                     <th className="p-2 text-right">Diferença</th>
-                    {podeConfigurar && <th className="p-2" />}
                   </tr>
                 </thead>
                 <tbody>
@@ -465,28 +464,6 @@ export default async function AtivoDeGiroPage({
                         {l.diferenca > 0 ? "+" : ""}
                         {l.diferenca}
                       </td>
-                      {podeConfigurar && (
-                        <td className="p-2 text-right">
-                          {/* Atalho: já manda o pedido com a descrição
-                              pronta a partir da própria linha divergente.
-                              Quem quiser escrever algo mais específico usa
-                              o painel "Pedir recontagem" abaixo. */}
-                          <form action={solicitarRecontagem}>
-                            <input type="hidden" name="dia" value={dia} />
-                            <input
-                              type="hidden"
-                              name="descricao"
-                              value={`${l.tipo} · ${l.formato}`}
-                            />
-                            <BotaoEnviar
-                              textoEnviando="Pedindo..."
-                              className="rounded-lg border border-amber-300 px-2 py-1 text-xs font-semibold text-amber-700 hover:bg-amber-50"
-                            >
-                              🔁 Recontar
-                            </BotaoEnviar>
-                          </form>
-                        </td>
-                      )}
                     </tr>
                   ))}
                 </tbody>
