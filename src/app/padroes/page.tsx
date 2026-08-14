@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { PageHeader } from "@/components/PageHeader";
 import { createClient } from "@/lib/supabase/server";
+import { getRevendaId } from "@/lib/revendas";
 import { compararTextoPtBr, iconePorTipo } from "@/lib/padroes-pilares";
 import { listarPilares, escolherPilar } from "@/lib/pilares";
 
@@ -16,9 +17,16 @@ export default async function PadroesPage({
   const pilar = escolherPilar(pilares, pilarParam);
 
   const supabase = await createClient();
+  // O filtro por revenda vem daqui, e não só da política do banco: ela
+  // libera "as revendas a que você pertence", que para o dono é todas e
+  // para a liderança das duas unidades são as duas somadas. Sem isto, a
+  // tela juntava os arquivos das duas na mesma lista.
+  const revendaId = (await getRevendaId()) ?? "";
+
   const { data: arquivos } = await supabase
     .from("padroes")
     .select("caminho, nome, tipo, arquivo_url")
+    .eq("revenda_id", revendaId)
     .eq("pilar", pilar);
 
   const porTopico = new Map<

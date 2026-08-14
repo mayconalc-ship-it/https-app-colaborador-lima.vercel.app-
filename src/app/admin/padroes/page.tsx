@@ -2,6 +2,7 @@ import { decodificar } from "@/lib/texto-url";
 import Link from "next/link";
 import { requireModulo } from "@/lib/require-admin";
 import { createClient } from "@/lib/supabase/server";
+import { getRevendaId } from "@/lib/revendas";
 import { PageHeader } from "@/components/PageHeader";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
 import { PadraoItem } from "@/components/PadraoItem";
@@ -41,13 +42,19 @@ export default async function AdminPadroesPage({
   );
 
   const supabase = await createClient();
+  // Pelo mesmo motivo de listarPilares: a política do banco libera "as
+  // revendas a que você pertence", e para o dono isso é todas. Sem o
+  // filtro, ele abria Barreiras e editava os arquivos de São Félix --
+  // enquanto as ações de salvar e excluir, essas sim, já filtravam.
+  const revendaId = (await getRevendaId()) ?? "";
 
   const [{ data: arquivos }, { data: todos }] = await Promise.all([
     supabase
       .from("padroes")
       .select("id, pilar, caminho, nome, tipo, arquivo_url")
+      .eq("revenda_id", revendaId)
       .eq("pilar", pilar),
-    supabase.from("padroes").select("pilar, caminho"),
+    supabase.from("padroes").select("pilar, caminho").eq("revenda_id", revendaId),
   ]);
 
   const pastas = Array.from(

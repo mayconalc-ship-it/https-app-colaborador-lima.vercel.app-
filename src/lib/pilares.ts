@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { getRevendaId } from "@/lib/revendas";
 import { PILARES as PILARES_PADRAO } from "@/lib/padroes-pilares";
 
 export type PilarCadastrado = {
@@ -18,14 +19,30 @@ function fallback(): PilarCadastrado[] {
   }));
 }
 
+/**
+ * Os pilares DESTA revenda.
+ *
+ * O filtro por revenda precisa estar aqui, e não só na política do banco.
+ * A política diz "leia as revendas a que você pertence", e para o dono
+ * isso é todas -- então, sem esta linha, ele abria Barreiras e via os
+ * pilares de São Félix. A liderança que responde pelas duas via as duas
+ * listas somadas.
+ *
+ * A escrita já era assim desde a 021 (criarPilar grava revenda_id, os
+ * updates filtram por ela). Era só a leitura que confiava na política.
+ */
 export async function listarPilares(
   incluirOcultos = false,
 ): Promise<PilarCadastrado[]> {
+  const revendaId = await getRevendaId();
+  if (!revendaId) return fallback();
+
   const supabase = await createClient();
 
   let consulta = supabase
     .from("padroes_pilares")
     .select("id, nome, ordem, visivel")
+    .eq("revenda_id", revendaId)
     .order("ordem", { ascending: true });
 
   if (!incluirOcultos) consulta = consulta.eq("visivel", true);
