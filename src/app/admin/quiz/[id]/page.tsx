@@ -126,6 +126,14 @@ export default async function RodadaPage({
               — faltam {faltam}
             </span>
           )}
+          {faltam < 0 && (
+            <span className="font-semibold text-amber-700">
+              {" "}
+              — sobram {Math.abs(faltam)}: ajuste o campo &quot;Perguntas&quot;
+              em &quot;Editar dados da rodada&quot; para {questoes.length}
+              antes de publicar
+            </span>
+          )}
         </p>
 
         {podeEditar && (
@@ -135,7 +143,7 @@ export default async function RodadaPage({
                 <input type="hidden" name="id" value={rodada.id} />
                 <BotaoEnviar
                   textoEnviando="Publicando..."
-                  disabled={faltam > 0}
+                  disabled={faltam !== 0}
                   className="rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white hover:bg-primary-dark"
                 >
                   🚀 Publicar para o time
