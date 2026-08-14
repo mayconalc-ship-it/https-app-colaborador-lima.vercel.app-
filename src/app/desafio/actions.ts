@@ -7,6 +7,7 @@ import {
   getContexto,
   getParticipacao,
   getRodadaAtual,
+  getTotalQuestoesLigadas,
   listarRodadas,
 } from "@/lib/quiz-server";
 import { PONTOS_POR_QUESTAO, aproveitamento } from "@/lib/quiz";
@@ -139,7 +140,11 @@ export async function responderQuestao(dados: {
     });
   }
 
-  const total = await recalcular(participacao.id, rodada.totalPerguntas);
+  // A contagem real de perguntas ligadas à rodada, não o campo digitado no
+  // rascunho -- é a mesma conta que a barra de progresso usa, e as duas não
+  // podem discordar sobre quando o desafio termina.
+  const totalQuestoes = await getTotalQuestoesLigadas(rodada.id);
+  const total = await recalcular(participacao.id, totalQuestoes);
   const explicacao = await explicacaoDa(dados.questaoId);
 
   revalidatePath("/desafio");

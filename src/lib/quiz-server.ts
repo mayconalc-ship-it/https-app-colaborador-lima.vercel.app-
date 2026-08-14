@@ -103,6 +103,26 @@ export const getContexto = cache(async () => {
   };
 });
 
+/**
+ * Quantas perguntas estão de fato ligadas à rodada.
+ *
+ * É esta conta — e não `rodada.total_perguntas` — que decide quando o
+ * desafio termina. O campo `total_perguntas` é só o número que o Admin
+ * digitou no rascunho, e pode ficar desatualizado se a rodada mudar de
+ * quantidade depois (ou se o campo for editado sem mexer nas perguntas).
+ * Usar a contagem real é o que garante que a barra de progresso (que já
+ * usa este mesmo número, em `getQuestaoAtual`) e o fim do desafio nunca
+ * se descolem.
+ */
+export async function getTotalQuestoesLigadas(rodadaId: number): Promise<number> {
+  const admin = createAdminClient();
+  const { count } = await admin
+    .from("quiz_rodada_questoes")
+    .select("*", { count: "exact", head: true })
+    .eq("rodada_id", rodadaId);
+  return count ?? 0;
+}
+
 /** Quantas posições o colaborador vê na tabela. O Admin decide. */
 export const getPosicoesVisiveis = cache(async (revendaId: string) => {
   const admin = createAdminClient();

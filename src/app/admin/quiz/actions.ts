@@ -226,10 +226,16 @@ export async function publicarRodada(formData: FormData) {
     .select("*", { count: "exact", head: true })
     .eq("rodada_id", rodada.id);
 
-  if ((count ?? 0) < rodada.totalPerguntas) {
+  // Precisa bater exatamente com o prometido -- não só "pelo menos". Sobrar
+  // pergunta é o mesmo problema que faltar: foi essa divergência (rodada
+  // dizendo 10 com 12 já cadastradas) que travou quem estava jogando na
+  // pergunta 10, mesmo com a barra de progresso mostrando 12.
+  if ((count ?? 0) !== rodada.totalPerguntas) {
     redirect(
       `${destino}?erro=${encodeURIComponent(
-        `A rodada promete ${rodada.totalPerguntas} perguntas e tem ${count ?? 0}. Complete o desafio antes de publicar.`,
+        (count ?? 0) < rodada.totalPerguntas
+          ? `A rodada promete ${rodada.totalPerguntas} perguntas e tem ${count ?? 0}. Complete o desafio antes de publicar.`
+          : `A rodada tem ${count ?? 0} perguntas cadastradas, mas o campo "Perguntas" está em ${rodada.totalPerguntas}. Ajuste esse número em "Editar dados da rodada" antes de publicar.`,
       )}`,
     );
   }
