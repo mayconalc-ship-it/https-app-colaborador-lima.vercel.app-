@@ -254,7 +254,7 @@ export async function publicarRodada(formData: FormData) {
 
   if (error) redirect(`${destino}?erro=${encodeURIComponent(error.message)}`);
 
-  await avisarDaArea(revendaId, rodada.area, {
+  const avisados = await avisarDaArea(revendaId, rodada.area, {
     titulo: "🏆 Novo desafio disponível",
     mensagem: `${rodada.nome} — ${rodada.totalPerguntas} perguntas, ${
       rodada.totalPerguntas * PONTOS_POR_QUESTAO
@@ -263,7 +263,11 @@ export async function publicarRodada(formData: FormData) {
 
   revalidatePath("/desafio");
   revalidatePath("/");
-  redirect(`${destino}?sucesso=${encodeURIComponent("Rodada publicada. O time já foi avisado.")}`);
+  redirect(
+    `${destino}?sucesso=${encodeURIComponent(
+      `Rodada publicada. ${resumoDoAviso(avisados, rodada.area)}`,
+    )}`,
+  );
 }
 
 /**
@@ -290,13 +294,17 @@ export async function encerrarRodada(formData: FormData) {
 
   await premiarPosicoes(rodada.id, revendaId);
 
-  await avisarDaArea(revendaId, rodada.area, {
+  const avisados = await avisarDaArea(revendaId, rodada.area, {
     titulo: "🎉 Resultado disponível",
     mensagem: `${rodada.nome} encerrou. Veja onde você ficou na classificação.`,
   });
 
   revalidatePath("/desafio");
-  redirect(`${destino}?sucesso=${encodeURIComponent("Rodada encerrada e premiada.")}`);
+  redirect(
+    `${destino}?sucesso=${encodeURIComponent(
+      `Rodada encerrada e premiada. ${resumoDoAviso(avisados, rodada.area)}`,
+    )}`,
+  );
 }
 
 export async function excluirRodada(formData: FormData) {
@@ -716,14 +724,19 @@ export async function excluirQuestao(formData: FormData) {
  * um segundo sistema de notificação. Um aviso por pessoa (e não um da
  * revenda inteira) porque o desafio de Armazém não é assunto de quem
  * está na rua entregando.
+ *
+ * Devolve quantas pessoas foram avisadas: quem publica precisa saber que
+ * o desafio subiu para ninguém, e "o time já foi avisado" numa área sem
+ * cadastro é uma mentira que só apareceria no fim do mês, com zero
+ * participantes e ninguém entendendo por quê.
  */
 async function avisarDaArea(
   revendaId: string,
   area: AreaId,
   recado: { titulo: string; mensagem: string },
-) {
+): Promise<number> {
   const pessoas = await getPessoasDaArea(revendaId, area);
-  if (pessoas.length === 0) return;
+  if (pessoas.length === 0) return 0;
 
   await Promise.all(
     pessoas.map((colaboradorId) =>
@@ -746,6 +759,20 @@ async function avisarDaArea(
     url: "/desafio",
     apenas: pessoas,
   });
+
+  return pessoas.length;
+}
+
+/** "12 pessoas avisadas" — ou o alerta de que não havia quem avisar. */
+function resumoDoAviso(avisados: number, area: AreaId) {
+  if (avisados === 0) {
+    return `ATENÇÃO: ninguém foi avisado — não há colaborador com a área ${
+      area === "AL" ? "Armazém" : "Distribuição"
+    } no cadastro.`;
+  }
+  return avisados === 1
+    ? "1 pessoa foi avisada."
+    : `${avisados} pessoas foram avisadas.`;
 }
 
 /** Selos de posição, entregues no encerramento. */
