@@ -66,7 +66,15 @@ export default async function RootLayout({
     <html lang="pt-BR">
       <body className="min-h-screen bg-background font-sans text-foreground antialiased">
         <Provedores>
-          <header className="relative bg-primary text-white">
+          {/* sticky, não fixed: o cabeçalho continua ocupando espaço no
+              fluxo, então o conteúdo começa abaixo dele sem precisar de
+              padding-top compensatório espalhado por cada página.
+
+              z-30 fica acima do conteúdo mas ABAIXO dos overlays de tela
+              cheia (foto ampliada e pesquisa em z-50, toast em z-60,
+              confirmação em z-70) -- modal cobrindo o cabeçalho é o certo.
+              A lista do sino é filha daqui e sobe junto. */}
+          <header className="sticky top-0 z-30 bg-primary text-white shadow-md">
             {/* O logo não encolhe: espremido virava uma tira branca de
                 12px, pior que ausente. Abaixo de 360px ele sai de cena --
                 nessa largura a escolha é entre a marca e o botão Sair, e
