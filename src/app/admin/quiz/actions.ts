@@ -15,6 +15,12 @@ import {
   listarRodadas,
 } from "@/lib/quiz-server";
 import {
+  gerarQuestoes,
+  iaConfigurada,
+  lerPadrao,
+  mensagemDeErro,
+} from "@/lib/quiz-ia";
+import {
   PERGUNTAS_PADRAO,
   PONTOS_POR_QUESTAO,
   comPosicao,
@@ -345,6 +351,9 @@ type QuestaoEntrada = {
   explicacao: string;
   alternativas: string[];
   correta: number;
+  /** Só a geração automática preenche: o trecho do padrão que prova a
+   *  resposta. Ver a migration 030. */
+  trecho?: string;
 };
 
 const TIPOS_ACEITOS = new Set(["multipla", "vf", "situacao", "procedimento"]);
@@ -414,6 +423,7 @@ async function gravar(
       padrao_id: origem.padraoId,
       padrao_nome: origem.padraoNome,
       atividade: origem.atividade,
+      origem_trecho: q.trecho?.trim() || null,
       criado_por: criadoPor,
     })
     .select("id")
@@ -574,6 +584,209 @@ export async function importarQuestoes(formData: FormData) {
   }
 
   redirect(`${destino}?sucesso=${encodeURIComponent(`${gravadas} perguntas importadas.`)}`);
+}
+
+/**
+ * Gera as perguntas a partir do arquivo do padrão da rodada.
+ *
+ * O que chega aqui passa pela MESMA porta da importação manual: o
+ * `validar()` acima. Ter uma única porta é o ponto -- se a checagem de
+ * "uma só resposta certa" morasse em dois lugares, um dos dois ficaria
+ * para trás.
+ *
+ * Diferente da importação, aqui o gravar é peça por peça, e não tudo ou
+ * nada. A lista colada foi curada por uma pessoa: se uma questão está
+ * ruim, a lista inteira está sob suspeita. A lista gerada não foi curada
+ * por ninguém ainda -- descartar nove boas por causa de uma repetida só
+ * faria o Admin clicar de novo e pagar outra geração.
+ */
+export async function gerarComIA(formData: FormData) {
+  await requireModulo("quiz", "criar");
+  const revendaId = await contexto();
+  const perfil = await getPerfil();
+
+  const rodadaId = numero(formData, "rodada_id");
+  const rodada = await rodadaDaRevenda(rodadaId, revendaId);
+  const destino = `${BASE}/${rodada.id}`;
+
+  if (!iaConfigurada()) {
+    redirect(
+      `${destino}?erro=${encodeURIComponent(
+        "A geração automática não está configurada: falta a variável ANTHROPIC_API_KEY.",
+      )}`,
+    );
+  }
+
+  if (rodada.status !== "rascunho") {
+    redirect(
+      `${destino}?erro=${encodeURIComponent(
+        "A rodada já está no ar. Só dá para gerar perguntas em rascunho.",
+      )}`,
+    );
+  }
+
+  if (!rodada.padraoId) {
+    redirect(
+      `${destino}?erro=${encodeURIComponent(
+        "Esta rodada não tem padrão escolhido — é dele que as perguntas saem. Defina em 'Editar dados da rodada'.",
+      )}`,
+    );
+  }
+
+  const quantidade = Math.min(Math.max(numero(formData, "quantidade") || 5, 1), 15);
+
+  const admin = createAdminClient();
+  const { data: padrao } = await admin
+    .from("padroes")
+    .select("nome, tipo, arquivo_url")
+    .eq("id", rodada.padraoId)
+    .eq("revenda_id", revendaId)
+    .maybeSingle();
+
+  if (!padrao) {
+    redirect(
+      `${destino}?erro=${encodeURIComponent(
+        "O padrão desta rodada não está mais no acervo. Escolha outro.",
+      )}`,
+    );
+  }
+
+  let geradas;
+  try {
+    const fonte = await lerPadrao(padrao.arquivo_url, padrao.tipo);
+    geradas = await gerarQuestoes({
+      fonte,
+      quantidade,
+      padrao: padrao.nome,
+      pilar: rodada.pilar,
+      atividade: rodada.atividade,
+    });
+  } catch (e) {
+    redirect(`${destino}?erro=${encodeURIComponent(mensagemDeErro(e))}`);
+    return;
+  }
+
+  let gravadas = 0;
+  const recusadas: string[] = [];
+
+  for (const q of geradas.questoes) {
+    const entrada: QuestaoEntrada = {
+      pergunta: (q.pergunta ?? "").trim(),
+      tipo: q.tipo,
+      dificuldade: q.dificuldade,
+      explicacao: (q.explicacao ?? "").trim(),
+      alternativas: (q.alternativas ?? []).map((a) => String(a)),
+      correta: Number(q.correta),
+      trecho: q.trecho,
+    };
+
+    const problema = validar(entrada);
+    if (problema) {
+      recusadas.push(problema);
+      continue;
+    }
+
+    try {
+      await gravar(entrada, rodada.id, revendaId, rodada.area, rodada, perfil?.id ?? null);
+      gravadas++;
+    } catch (e) {
+      recusadas.push((e as Error).message);
+    }
+  }
+
+  const resumo =
+    gravadas === 0
+      ? "Nenhuma pergunta aproveitada."
+      : `${gravadas} pergunta(s) gerada(s) — revise cada uma contra o trecho do padrão antes de publicar.`;
+
+  const sobra =
+    recusadas.length > 0
+      ? ` ${recusadas.length} descartada(s): ${recusadas[0]}`
+      : "";
+
+  redirect(
+    gravadas === 0
+      ? `${destino}?erro=${encodeURIComponent(resumo + sobra)}`
+      : `${destino}?sucesso=${encodeURIComponent(resumo + sobra)}`,
+  );
+}
+
+/**
+ * Edita uma pergunta inteira, alternativas incluídas.
+ *
+ * Só em rascunho, e o motivo é técnico além de editorial: trocar as
+ * alternativas apaga e recria as linhas, e as respostas já dadas apontam
+ * para elas. Enquanto a rodada é rascunho não existe resposta nenhuma,
+ * então a troca é segura.
+ */
+export async function editarQuestao(formData: FormData) {
+  await requireModulo("quiz", "editar");
+  const revendaId = await contexto();
+
+  const rodadaId = numero(formData, "rodada_id");
+  const rodada = await rodadaDaRevenda(rodadaId, revendaId);
+  const destino = `${BASE}/${rodada.id}`;
+  const questaoId = numero(formData, "questao_id");
+
+  if (rodada.status !== "rascunho") {
+    redirect(
+      `${destino}?erro=${encodeURIComponent(
+        "A rodada já está no ar — editar a pergunta agora mudaria o desafio para quem já respondeu.",
+      )}`,
+    );
+  }
+
+  const alternativas = [0, 1, 2, 3, 4, 5]
+    .map((i) => texto(formData, `alternativa_${i}`))
+    .filter(Boolean);
+
+  const entrada: QuestaoEntrada = {
+    pergunta: texto(formData, "pergunta"),
+    tipo: texto(formData, "tipo") || "multipla",
+    dificuldade: texto(formData, "dificuldade") || "media",
+    explicacao: texto(formData, "explicacao"),
+    alternativas,
+    correta: numero(formData, "correta"),
+  };
+
+  const problema = validar(entrada);
+  if (problema) redirect(`${destino}?erro=${encodeURIComponent(problema)}`);
+
+  const admin = createAdminClient();
+
+  const { error } = await admin
+    .from("quiz_questoes")
+    .update({
+      pergunta: entrada.pergunta,
+      tipo: entrada.tipo,
+      dificuldade: entrada.dificuldade,
+      explicacao: entrada.explicacao,
+      atualizado_em: new Date().toISOString(),
+    })
+    .eq("id", questaoId)
+    .eq("revenda_id", revendaId);
+
+  if (error) {
+    redirect(
+      `${destino}?erro=${encodeURIComponent(
+        error.code === "23505"
+          ? "Já existe outra pergunta com esse texto nesta área."
+          : error.message,
+      )}`,
+    );
+  }
+
+  await admin.from("quiz_alternativas").delete().eq("questao_id", questaoId);
+  await admin.from("quiz_alternativas").insert(
+    entrada.alternativas.map((texto, i) => ({
+      questao_id: questaoId,
+      texto,
+      correta: i === entrada.correta,
+      ordem: i,
+    })),
+  );
+
+  redirect(`${destino}?sucesso=${encodeURIComponent("Pergunta atualizada.")}`);
 }
 
 export async function alternarStatusQuestao(formData: FormData) {

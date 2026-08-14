@@ -27,13 +27,16 @@ import {
   nomeDoMes,
   rotuloDificuldade,
 } from "@/lib/quiz";
+import { iaConfigurada } from "@/lib/quiz-ia";
 import {
   adicionarDoBanco,
   atualizarRodada,
   criarQuestao,
+  editarQuestao,
   encerrarRodada,
   excluirQuestao,
   excluirRodada,
+  gerarComIA,
   importarQuestoes,
   publicarRodada,
   removerDaRodada,
@@ -42,6 +45,13 @@ import {
 
 const ENTRADA =
   "w-full rounded-lg border border-slate-200 p-2 text-base focus:border-primary focus:outline-none";
+
+/**
+ * Gerar dez perguntas com raciocínio passa de um minuto. O padrão da
+ * Vercel derrubaria a ação antes de terminar; 60s é o teto do plano
+ * Hobby. Se o plano for Pro, dá para subir até 300.
+ */
+export const maxDuration = 60;
 
 export default async function RodadaPage({
   params,
@@ -399,6 +409,20 @@ export default async function RodadaPage({
                 </p>
               )}
 
+              {/* O trecho é a conferência: a resposta acima bate com o que
+                  o padrão diz aqui? Se não bater, a pergunta foi inventada
+                  e deve ser corrigida ou excluída antes de publicar. */}
+              {q.origemTrecho && (
+                <details className="mt-2 rounded-lg border border-amber-200 bg-amber-50 p-2.5 pl-3">
+                  <summary className="cursor-pointer text-xs font-semibold text-amber-900">
+                    📄 Trecho do padrão que sustenta a resposta
+                  </summary>
+                  <p className="mt-2 border-l-2 border-amber-300 pl-3 text-xs italic leading-relaxed text-slate-700">
+                    {q.origemTrecho}
+                  </p>
+                </details>
+              )}
+
               <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
                 <span
                   className={`rounded-full px-2 py-0.5 font-medium ${corDificuldade(q.dificuldade)}`}
@@ -454,6 +478,96 @@ export default async function RodadaPage({
                   </div>
                 )}
               </div>
+
+              {/* Editar só em rascunho: trocar as alternativas apaga e
+                  recria as linhas, e a resposta já dada apontaria para
+                  uma alternativa que deixou de existir. */}
+              {podeEditar && rascunho && (
+                <details className="mt-3 border-t border-slate-100 pt-3">
+                  <summary className="cursor-pointer text-xs font-semibold text-primary">
+                    ✏️ Editar esta pergunta
+                  </summary>
+                  <form action={editarQuestao} className="mt-3 space-y-3">
+                    <input type="hidden" name="rodada_id" value={rodada.id} />
+                    <input type="hidden" name="questao_id" value={q.id} />
+
+                    <textarea
+                      name="pergunta"
+                      required
+                      rows={2}
+                      defaultValue={q.pergunta}
+                      className={ENTRADA}
+                    />
+
+                    <div className="flex gap-2">
+                      <select
+                        name="tipo"
+                        defaultValue={q.tipo}
+                        className={ENTRADA}
+                      >
+                        {TIPOS_QUESTAO.map((t) => (
+                          <option key={t.id} value={t.id}>
+                            {t.rotulo}
+                          </option>
+                        ))}
+                      </select>
+                      <select
+                        name="dificuldade"
+                        defaultValue={q.dificuldade}
+                        className={ENTRADA}
+                      >
+                        {DIFICULDADES.map((d) => (
+                          <option key={d.id} value={d.id}>
+                            {d.rotulo}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <fieldset>
+                      <legend className="mb-1 text-xs font-medium text-slate-600">
+                        Alternativas — marque a correta
+                      </legend>
+                      {[0, 1, 2, 3].map((i) => (
+                        <div key={i} className="mb-2 flex items-center gap-2">
+                          <input
+                            type="radio"
+                            name="correta"
+                            value={i}
+                            defaultChecked={q.alternativas[i]?.correta ?? false}
+                            aria-label={`Alternativa ${letra(i)} é a correta`}
+                            className="h-4 w-4 shrink-0 border-slate-300 text-primary"
+                          />
+                          <span className="w-4 text-xs font-bold text-slate-500">
+                            {letra(i)}
+                          </span>
+                          <input
+                            name={`alternativa_${i}`}
+                            required={i < 2}
+                            defaultValue={q.alternativas[i]?.texto ?? ""}
+                            className={ENTRADA}
+                          />
+                        </div>
+                      ))}
+                    </fieldset>
+
+                    <textarea
+                      name="explicacao"
+                      required
+                      rows={2}
+                      defaultValue={q.explicacao}
+                      className={ENTRADA}
+                    />
+
+                    <BotaoEnviar
+                      textoEnviando="Salvando..."
+                      className="w-full rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white hover:bg-primary-dark"
+                    >
+                      Salvar pergunta
+                    </BotaoEnviar>
+                  </form>
+                </details>
+              )}
             </div>
           ))}
         </div>
@@ -462,7 +576,77 @@ export default async function RodadaPage({
       {/* ---- Cadastro de perguntas ---- */}
       {podeCriar && rascunho && (
         <>
-          <details className="mt-4 rounded-2xl border border-slate-200 bg-white shadow-sm">
+          {/* Geração a partir do próprio padrão */}
+          <div className="mt-4 rounded-2xl border border-primary bg-primary-soft p-4">
+            <h3 className="font-semibold text-primary-dark">
+              ✨ Gerar perguntas a partir do padrão
+            </h3>
+
+            {!iaConfigurada() ? (
+              <p className="mt-2 text-sm text-slate-600">
+                Não configurado. Falta a variável{" "}
+                <code className="rounded bg-white px-1">ANTHROPIC_API_KEY</code>{" "}
+                no ambiente (Vercel e .env.local).
+              </p>
+            ) : !rodada.padraoId ? (
+              <p className="mt-2 text-sm text-slate-600">
+                Esta rodada não tem padrão escolhido — é dele que as perguntas
+                saem. Defina em &quot;Editar dados da rodada&quot;.
+              </p>
+            ) : (
+              <>
+                <p className="mt-2 text-sm leading-relaxed text-slate-700">
+                  Lê o arquivo de{" "}
+                  <span className="font-medium">{rodada.padraoNome}</span> e
+                  escreve as perguntas a partir dele — e só dele. Cada pergunta
+                  vem com o <span className="font-medium">trecho do padrão</span>{" "}
+                  que prova a resposta, para você conferir antes de publicar.
+                  Funciona com DOCX e PDF.
+                </p>
+
+                <form
+                  action={gerarComIA}
+                  className="mt-3 flex flex-wrap items-end gap-2"
+                >
+                  <input type="hidden" name="rodada_id" value={rodada.id} />
+                  <div className="w-32">
+                    <label
+                      htmlFor="qtd-ia"
+                      className="mb-1 block text-xs font-medium text-slate-600"
+                    >
+                      Quantas
+                    </label>
+                    <select
+                      id="qtd-ia"
+                      name="quantidade"
+                      defaultValue={Math.min(Math.max(faltam, 1), 10)}
+                      className={ENTRADA}
+                    >
+                      {[3, 5, 8, 10, 15].map((n) => (
+                        <option key={n} value={n}>
+                          {n} perguntas
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <BotaoEnviar
+                    textoEnviando="Lendo o padrão e escrevendo..."
+                    className="rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white hover:bg-primary-dark"
+                  >
+                    Gerar
+                  </BotaoEnviar>
+                </form>
+
+                <p className="mt-2 text-xs text-slate-500">
+                  Leva de 30 segundos a 2 minutos. Nada é publicado: as
+                  perguntas entram nesta rodada em rascunho, para você revisar,
+                  editar ou excluir.
+                </p>
+              </>
+            )}
+          </div>
+
+          <details className="mt-2 rounded-2xl border border-slate-200 bg-white shadow-sm">
             <summary className="cursor-pointer p-4 font-semibold text-slate-800">
               ➕ Nova pergunta
             </summary>

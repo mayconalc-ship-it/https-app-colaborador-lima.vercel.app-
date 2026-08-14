@@ -608,6 +608,9 @@ export type QuestaoDaRodada = {
   dificuldade: string;
   status: string;
   explicacao: string;
+  /** Trecho do padrão que sustenta a resposta. Só a geração automática
+   *  preenche — é o que a liderança confere na revisão. */
+  origemTrecho: string | null;
   vezesUsada: number;
   acertos: number;
   erros: number;
@@ -640,7 +643,7 @@ export async function getQuestoesDaRodada(
     admin
       .from("quiz_questoes")
       .select(
-        "id, pergunta, tipo, dificuldade, status, explicacao, vezes_usada, acertos, erros",
+        "id, pergunta, tipo, dificuldade, status, explicacao, origem_trecho, vezes_usada, acertos, erros",
       )
       .in("id", ids),
     admin
@@ -663,6 +666,7 @@ export async function getQuestoesDaRodada(
         dificuldade: q.dificuldade,
         status: q.status,
         explicacao: q.explicacao,
+        origemTrecho: q.origem_trecho,
         vezesUsada: q.vezes_usada,
         acertos: q.acertos,
         erros: q.erros,
