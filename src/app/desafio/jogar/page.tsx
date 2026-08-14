@@ -23,13 +23,26 @@ export default async function JogarPage() {
 
   const participacao = await getParticipacao(rodada.id, ctx.perfil.id);
   if (!participacao) redirect("/desafio");
-  if (participacao.status === "concluida") redirect("/desafio/resultado");
+
+  // "Já concluiu" também NÃO redireciona daqui, pelo mesmo motivo da nota
+  // abaixo: responder a última pergunta é exatamente o que muda o status
+  // para concluída, e o redirect cairia em cima de quem está lendo a
+  // explicação. Quem chegar nesta tela com o desafio já encerrado recebe
+  // do próprio componente um caminho para o resultado.
 
   const questao = await getQuestaoAtual(participacao.id, rodada);
-  // Sem próxima pergunta e ainda "em andamento" acontece quando o Admin
-  // tira uma questão da rodada no meio do caminho. O resultado sabe lidar
-  // com isso; ficar aqui deixaria a pessoa presa numa tela vazia.
-  if (!questao) redirect("/desafio/resultado");
+
+  // Acabaram as perguntas -- e aqui NÃO se redireciona.
+  //
+  // Responder é uma ação de servidor, e toda ação de servidor faz o Next
+  // buscar os dados desta rota de novo, sozinho. Na última pergunta essa
+  // busca acontece no exato momento em que a explicação aparece na tela:
+  // um redirect aqui arrancaria a pessoa da tela antes de ela ler por que
+  // errou -- justamente o que esta funcionalidade existe para ensinar.
+  //
+  // Passando `null`, o componente continua montado, mantém na tela a
+  // pergunta que ele já estava mostrando, e o botão "Ver meu resultado"
+  // leva adiante no tempo de quem está lendo.
 
   return (
     <div>

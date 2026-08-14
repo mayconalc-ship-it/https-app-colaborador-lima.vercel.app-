@@ -19,6 +19,8 @@ export function BotaoExcluir({
   children,
   className,
   textoEnviando = "Excluindo...",
+  rotuloConfirmar,
+  perigo = true,
 }: {
   action: (formData: FormData) => void;
   campos: Record<string, string | number>;
@@ -26,11 +28,25 @@ export function BotaoExcluir({
   children: React.ReactNode;
   className?: string;
   textoEnviando?: string;
+  /** Texto do botão que confirma. Padrão: "Excluir". */
+  rotuloConfirmar?: string;
+  /** Falso deixa o botão azul em vez de vermelho, para a ação que exige
+   *  confirmação mas não apaga nada (encerrar uma rodada, por exemplo).
+   *  Vermelho ali assustaria à toa -- e pior, sugeriria que os resultados
+   *  seriam perdidos. */
+  perigo?: boolean;
 }) {
   const aoEnviar = useConfirmarEnvio();
 
   return (
-    <form action={action} onSubmit={aoEnviar({ titulo: confirmacao })}>
+    <form
+      action={action}
+      onSubmit={aoEnviar({
+        titulo: confirmacao,
+        confirmar: rotuloConfirmar,
+        perigo,
+      })}
+    >
       {Object.entries(campos).map(([nome, valor]) => (
         <input key={nome} type="hidden" name={nome} value={valor} />
       ))}

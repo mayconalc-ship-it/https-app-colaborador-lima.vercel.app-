@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { letra } from "@/lib/quiz";
 import type { QuestaoNaTela } from "@/lib/quiz-server";
 import { responderQuestao, type Feedback } from "./actions";
@@ -18,21 +19,70 @@ import { responderQuestao, type Feedback } from "./actions";
  * resposta já foi gravada no servidor e mudar a seleção sugeriria o
  * contrário.
  */
-export function Pergunta({ questao }: { questao: QuestaoNaTela }) {
+export function Pergunta({ questao }: { questao: QuestaoNaTela | null }) {
   const router = useRouter();
+  // A pergunta que está na TELA -- que não é necessariamente a que o
+  // servidor acabou de mandar.
+  //
+  // Chamar uma ação de servidor faz o Next buscar de novo os dados da rota
+  // sozinho, sem ninguém pedir. Como /desafio/jogar sempre devolve "a
+  // próxima não respondida", no instante em que a resposta é gravada a
+  // pergunta seguinte já chega aqui pelas props -- e, sem esta cópia, a
+  // tela trocava as alternativas enquanto a pessoa ainda lia o "você
+  // errou" da anterior.
+  const [atual, setAtual] = useState(questao);
   const [escolha, setEscolha] = useState<number | null>(null);
   const [feedback, setFeedback] = useState<Feedback | null>(null);
   const [enviando, setEnviando] = useState(false);
+  const [avancando, setAvancando] = useState(false);
   const [indo, comecarTransicao] = useTransition();
 
+  // Ajuste de estado durante a renderização, que é o jeito que o React
+  // recomenda para acompanhar uma prop que mudou. Em efeito isto renderiza
+  // duas vezes e a pergunta pisca; aqui o React descarta a primeira
+  // renderização antes de pintar qualquer coisa.
+  if (avancando && questao && questao.id !== atual?.id) {
+    setAtual(questao);
+    setEscolha(null);
+    setFeedback(null);
+    setAvancando(false);
+  }
+
+  // Sem pergunta na tela e sem pergunta vindo do servidor: o desafio já
+  // estava concluído quando esta tela abriu. Quem acabou de concluir NÃO
+  // cai aqui -- para essa pessoa `atual` ainda guarda a última pergunta, e
+  // é isso que mantém a explicação no lugar.
+  if (!atual) {
+    return (
+      <div className="rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm">
+        <p className="text-4xl">🎉</p>
+        <p className="mt-2 font-semibold text-slate-800">
+          Você já concluiu este desafio
+        </p>
+        <p className="mt-1 text-sm text-slate-500">
+          Cada pessoa tem uma tentativa por rodada.
+        </p>
+        <Link
+          href="/desafio/resultado"
+          className="mt-4 inline-block rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-white hover:bg-primary-dark"
+        >
+          Ver meu resultado
+        </Link>
+      </div>
+    );
+  }
+
   const respondida = Boolean(feedback?.ok);
-  const progresso = Math.round((questao.indice / questao.total) * 100);
+  const progresso = Math.round((atual.indice / atual.total) * 100);
+  // Copiado para fora do `enviar`: dentro da função o TypeScript não
+  // consegue mais garantir que `atual` continua preenchido.
+  const questaoId = atual.id;
 
   async function enviar() {
     if (escolha === null || enviando) return;
     setEnviando(true);
     const resposta = await responderQuestao({
-      questaoId: questao.id,
+      questaoId,
       alternativaId: escolha,
     });
     setEnviando(false);
@@ -40,12 +90,17 @@ export function Pergunta({ questao }: { questao: QuestaoNaTela }) {
   }
 
   function avancar() {
-    comecarTransicao(() => {
-      if (feedback?.ultima) router.push("/desafio/resultado");
-      // Sem push: a próxima pergunta vem da mesma rota, recalculada no
-      // servidor. O refresh é o que traz a questão seguinte.
-      else router.refresh();
-    });
+    if (feedback?.ultima) {
+      comecarTransicao(() => router.push("/desafio/resultado"));
+      return;
+    }
+
+    setAvancando(true);
+    // Quase sempre a próxima já chegou (ver o comentário do `atual`) e o
+    // ajuste acima resolve na mesma hora. O refresh cobre o caso em que a
+    // busca automática ainda está a caminho -- sem ele, o botão não teria
+    // o que esperar.
+    comecarTransicao(() => router.refresh());
   }
 
   return (
@@ -54,17 +109,17 @@ export function Pergunta({ questao }: { questao: QuestaoNaTela }) {
       <div className="mb-4">
         <div className="mb-1.5 flex items-baseline justify-between">
           <p className="text-lg font-bold text-slate-900">
-            Pergunta {questao.indice} de {questao.total}
+            Pergunta {atual.indice} de {atual.total}
           </p>
           <p className="text-sm font-medium text-slate-500">{progresso}%</p>
         </div>
         <div
           className="h-2.5 overflow-hidden rounded-full bg-slate-200"
           role="progressbar"
-          aria-valuenow={questao.indice}
+          aria-valuenow={atual.indice}
           aria-valuemin={0}
-          aria-valuemax={questao.total}
-          aria-label={`Pergunta ${questao.indice} de ${questao.total}`}
+          aria-valuemax={atual.total}
+          aria-label={`Pergunta ${atual.indice} de ${atual.total}`}
         >
           <div
             className="h-full rounded-full bg-primary transition-all"
@@ -75,11 +130,11 @@ export function Pergunta({ questao }: { questao: QuestaoNaTela }) {
 
       <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
         <p className="text-base font-semibold leading-snug text-slate-900">
-          {questao.pergunta}
+          {atual.pergunta}
         </p>
 
         <div className="mt-4 space-y-2">
-          {questao.alternativas.map((a, i) => {
+          {atual.alternativas.map((a, i) => {
             const marcada = escolha === a.id;
             return (
               <label

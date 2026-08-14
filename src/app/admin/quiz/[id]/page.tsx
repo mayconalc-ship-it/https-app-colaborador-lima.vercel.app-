@@ -138,6 +138,8 @@ export default async function RodadaPage({
                 action={encerrarRodada}
                 campos={{ id: rodada.id }}
                 confirmacao="Encerrar esta rodada? Ninguém mais consegue participar e os selos de 1º, Top 3 e Top 5 são entregues agora."
+                rotuloConfirmar="Encerrar rodada"
+                perigo={false}
                 textoEnviando="Encerrando..."
                 className="rounded-xl bg-slate-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-slate-800"
               >
@@ -173,24 +175,37 @@ export default async function RodadaPage({
             Como o time foi
           </h2>
 
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-            <Indicador
-              valor={String(indicadores.concluiram)}
-              rotulo={`de ${elegiveis.daArea} na área`}
-            />
-            <Indicador
-              valor={`${elegiveis.daArea ? Math.round((indicadores.concluiram / elegiveis.daArea) * 100) : 0}%`}
-              rotulo="participação"
-            />
-            <Indicador
-              valor={String(indicadores.mediaPontos)}
-              rotulo="média de pontos"
-            />
-            <Indicador
-              valor={`${indicadores.taxaConclusao}%`}
-              rotulo="taxa de conclusão"
-            />
-          </div>
+          {/* A base do percentual é quem tem a área no cadastro -- mas quem
+              participou entra nela de qualquer jeito. Sem isso, uma pessoa
+              que jogou sem estar contada na área produzia "1 de 0" e 0%,
+              que lê como tela quebrada. */}
+          {(() => {
+            const base = Math.max(elegiveis.daArea, indicadores.concluiram);
+            return (
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                <Indicador
+                  valor={String(indicadores.concluiram)}
+                  rotulo={base > 0 ? `de ${base} na área` : "participantes"}
+                />
+                <Indicador
+                  valor={
+                    base > 0
+                      ? `${Math.round((indicadores.concluiram / base) * 100)}%`
+                      : "—"
+                  }
+                  rotulo="participação"
+                />
+                <Indicador
+                  valor={String(indicadores.mediaPontos)}
+                  rotulo="média de pontos"
+                />
+                <Indicador
+                  valor={`${indicadores.taxaConclusao}%`}
+                  rotulo="taxa de conclusão"
+                />
+              </div>
+            );
+          })()}
 
           {indicadores.maisErrada && (
             <div className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 p-4">
