@@ -66,6 +66,13 @@ export default function FeedbackRotaPage() {
         subtitle="Leva menos de 1 minuto. Se a rota foi ruim, conte o que houve"
       />
 
+      <Link
+        href="/feedback-rota/5-porques"
+        className="mb-4 flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white p-4 text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50"
+      >
+        🧠 Analisar problema
+      </Link>
+
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
           <p className="mb-3 text-sm font-semibold text-slate-800">

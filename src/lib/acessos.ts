@@ -135,7 +135,9 @@ export const MODULOS: Modulo[] = [
     emoji: "📝",
     href: "/admin/feedbacks",
     grupo: "Pessoas e configuração",
-    acoes: ["ver"],
+    // "editar" = responder a tratativa das análises de 5 Porquês. Quem só
+    // tem "ver" acompanha a fila, mas não grava resposta para o motorista.
+    acoes: ["ver", "editar"],
   },
   {
     id: "metricas",
