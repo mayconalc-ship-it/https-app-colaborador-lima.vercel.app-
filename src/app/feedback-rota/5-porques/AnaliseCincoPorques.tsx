@@ -2,74 +2,60 @@
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
-import type { ArvoreDecisao, NoDecisao, RespostaPorque, Terminal } from "@/lib/cinco-porques-ia";
+import type { NoDecisao, RespostaPorque, Terminal } from "@/lib/cinco-porques-ia";
 import { rotuloCategoria } from "@/lib/cinco-porques-problemas";
-import { registrarResposta, expandirEFallback, finalizarAnalise } from "./actions";
+import { responderEAvancar, finalizarAnalise } from "./actions";
 
-const NIVEL_MAXIMO = 5;
+const PORQUES_MINIMOS = 3;
+const PORQUES_MAXIMOS = 5;
 
 type Opcao = NoDecisao["opcoes"][number];
 
 /**
- * O wizard em si. Estado 100% local: cada toque numa opção com `terminal`
- * encerra ali mesmo, sem chamada nenhuma ao servidor -- é o caminho feliz
- * que cumpre a exigência de economia de tokens. Toque numa opção com
- * `proximo` avança localmente e só dispara `registrarResposta` (persistência
- * em segundo plano, não decisão). Só "Outro"/"Nenhuma dessas" chamam IA de
- * novo, via `expandirEFallback`.
+ * O wizard. Cada toque grava a trilha e busca o próximo "por quê" -- a
+ * pergunta seguinte não existe antes de o motorista escolher, então não há
+ * árvore para percorrer localmente. São 1 a 2 segundos de espera por toque,
+ * contra os 20-40 segundos que a versão de árvore inteira cobrava de uma vez
+ * antes da PRIMEIRA pergunta aparecer.
+ *
+ * A tela é dona da trilha: manda ela inteira a cada chamada, e o servidor
+ * regrava por cima. É o que evita o toque rápido apagar o porquê anterior.
  */
 export function AnaliseCincoPorques({
   analiseId,
   problemaLabel,
-  arvoreInicial,
+  primeiroNo,
   onRefazer,
 }: {
   analiseId: number;
   problemaLabel: string;
-  arvoreInicial: ArvoreDecisao;
+  primeiroNo: NoDecisao;
   onRefazer: () => void;
 }) {
   const [inicio] = useState(() => Date.now());
-  const [noAtual, setNoAtual] = useState<NoDecisao>(arvoreInicial.raiz);
+  const [noAtual, setNoAtual] = useState<NoDecisao>(primeiroNo);
   const [respostas, setRespostas] = useState<RespostaPorque[]>([]);
   const [resultado, setResultado] = useState<Terminal | null>(null);
   const [erro, setErro] = useState<string | null>(null);
-  const [carregando, iniciarExpansao] = useTransition();
+  const [carregando, iniciarPasso] = useTransition();
   const [concluindo, iniciarConclusao] = useTransition();
   const [concluida, setConcluida] = useState(false);
 
-  function registrarEmSegundoPlano(resposta: RespostaPorque) {
-    registrarResposta({ analiseId, resposta }).catch(() => {});
-  }
-
-  function escolherOpcao(opcao: Opcao) {
+  /** Único caminho para frente: toque numa opção, em "Outro" ou em "Nenhuma
+   *  dessas" -- os três só mudam o que entra na trilha. */
+  function avancar(
+    resposta: RespostaPorque,
+    motivo?: "outro_texto_livre" | "nenhuma_dessas",
+  ) {
     setErro(null);
-    const resposta: RespostaPorque = {
-      nivel: noAtual.nivel,
-      pergunta: noAtual.pergunta,
-      opcaoId: opcao.id,
-      opcaoLabel: opcao.label,
-    };
-    setRespostas((atual) => [...atual, resposta]);
-    registrarEmSegundoPlano(resposta);
+    const trilha = [...respostas, resposta];
 
-    if (opcao.terminal) {
-      setResultado(opcao.terminal);
-    } else if (opcao.proximo) {
-      setNoAtual(opcao.proximo);
-    }
-  }
-
-  function fallback(motivo: "outro_texto_livre" | "nenhuma_dessas", textoLivre?: string) {
-    setErro(null);
-    iniciarExpansao(async () => {
-      const res = await expandirEFallback({
+    iniciarPasso(async () => {
+      const res = await responderEAvancar({
         analiseId,
         problemaLabel,
-        respostas,
-        nivelAtual: noAtual.nivel,
+        respostas: trilha,
         motivo,
-        textoLivre,
       });
 
       if (!res.ok) {
@@ -77,16 +63,7 @@ export function AnaliseCincoPorques({
         return;
       }
 
-      const resposta: RespostaPorque = {
-        nivel: noAtual.nivel,
-        pergunta: noAtual.pergunta,
-        opcaoId: motivo,
-        opcaoLabel: motivo === "nenhuma_dessas" ? "Nenhuma dessas" : "Outro",
-        textoLivre,
-      };
-      setRespostas((atual) => [...atual, resposta]);
-      registrarEmSegundoPlano(resposta);
-
+      setRespostas(trilha);
       if (res.terminal) {
         setResultado(res.terminal);
       } else if (res.proximoNo) {
@@ -95,6 +72,28 @@ export function AnaliseCincoPorques({
         setErro("Não foi possível continuar a análise. Tente de novo.");
       }
     });
+  }
+
+  function escolherOpcao(opcao: Opcao) {
+    avancar({
+      nivel: noAtual.nivel,
+      pergunta: noAtual.pergunta,
+      opcaoId: opcao.id,
+      opcaoLabel: opcao.label,
+    });
+  }
+
+  function desviar(motivo: "outro_texto_livre" | "nenhuma_dessas", textoLivre?: string) {
+    avancar(
+      {
+        nivel: noAtual.nivel,
+        pergunta: noAtual.pergunta,
+        opcaoId: motivo,
+        opcaoLabel: motivo === "nenhuma_dessas" ? "Nenhuma dessas" : "Outro",
+        textoLivre,
+      },
+      motivo,
+    );
   }
 
   function concluir() {
@@ -150,6 +149,8 @@ export function AnaliseCincoPorques({
           <p className="mt-1 text-sm text-slate-700">{resultado.acaoSugerida}</p>
         </div>
 
+        <Trilha respostas={respostas} />
+
         {erro && (
           <p role="alert" className="mt-3 rounded-lg bg-red-50 p-3 text-sm text-red-700">
             {erro}
@@ -186,7 +187,7 @@ export function AnaliseCincoPorques({
     );
   }
 
-  const progresso = Math.min(Math.round((respostas.length / NIVEL_MAXIMO) * 100), 100);
+  const progresso = Math.min(Math.round((respostas.length / PORQUES_MAXIMOS) * 100), 100);
 
   return (
     <div>
@@ -197,15 +198,18 @@ export function AnaliseCincoPorques({
       <div className="mb-4">
         <div className="mb-1.5 flex items-baseline justify-between">
           <p className="text-sm font-semibold text-slate-600">
-            Porquê {noAtual.nivel} de até {NIVEL_MAXIMO}
+            Porquê {noAtual.nivel} de até {PORQUES_MAXIMOS}
           </p>
+          {noAtual.nivel <= PORQUES_MINIMOS && (
+            <p className="text-xs text-slate-400">mínimo {PORQUES_MINIMOS}</p>
+          )}
         </div>
         <div
           className="h-2 overflow-hidden rounded-full bg-slate-200"
           role="progressbar"
           aria-valuenow={respostas.length}
           aria-valuemin={0}
-          aria-valuemax={NIVEL_MAXIMO}
+          aria-valuemax={PORQUES_MAXIMOS}
         >
           <div
             className="h-full rounded-full bg-primary transition-all"
@@ -230,17 +234,27 @@ export function AnaliseCincoPorques({
             </button>
           ))}
 
-          <OpcaoOutro carregando={carregando} onEnviar={(texto) => fallback("outro_texto_livre", texto)} />
+          <OpcaoOutro
+            carregando={carregando}
+            onEnviar={(texto) => desviar("outro_texto_livre", texto)}
+          />
 
           <button
             type="button"
-            onClick={() => fallback("nenhuma_dessas")}
+            onClick={() => desviar("nenhuma_dessas")}
             disabled={carregando}
             className="w-full rounded-xl border border-dashed border-slate-300 bg-white p-3 text-left text-sm text-slate-500 transition hover:border-slate-400 disabled:opacity-50"
           >
-            {carregando ? "Analisando..." : "➕ Nenhuma dessas"}
+            ➕ Nenhuma dessas
           </button>
         </div>
+
+        {carregando && (
+          <p className="mt-3 flex items-center gap-2 text-xs text-slate-400">
+            <span className="rodinha" aria-hidden="true" />
+            Pensando no próximo porquê...
+          </p>
+        )}
 
         {erro && (
           <p role="alert" className="mt-3 rounded-lg bg-red-50 p-3 text-sm text-red-700">
@@ -248,7 +262,34 @@ export function AnaliseCincoPorques({
           </p>
         )}
       </div>
+
+      <Trilha respostas={respostas} />
     </div>
+  );
+}
+
+/** O encadeamento dos porquês -- o valor da metodologia está em ver o
+ *  caminho, não só a conclusão. */
+function Trilha({ respostas }: { respostas: RespostaPorque[] }) {
+  if (respostas.length === 0) return null;
+
+  return (
+    <ol className="mt-4 space-y-2">
+      {respostas.map((r, i) => (
+        <li
+          key={`${r.nivel}-${i}`}
+          className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs"
+        >
+          <p className="font-semibold text-slate-500">
+            {i + 1}. {r.pergunta}
+          </p>
+          <p className="mt-0.5 text-slate-800">
+            {r.opcaoLabel}
+            {r.textoLivre ? `: ${r.textoLivre}` : ""}
+          </p>
+        </li>
+      ))}
+    </ol>
   );
 }
 
@@ -293,7 +334,7 @@ function OpcaoOutro({
         disabled={carregando || !texto.trim()}
         className="mt-2 w-full rounded-lg bg-primary py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
       >
-        {carregando ? "Analisando..." : "Continuar"}
+        Continuar
       </button>
     </div>
   );

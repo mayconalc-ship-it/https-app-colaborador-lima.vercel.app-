@@ -6,30 +6,37 @@ import { CATEGORIAS } from "@/lib/cinco-porques-problemas";
 /**
  * IA da ferramenta "5 Porquês".
  *
- * A regra que manda em tudo aqui é economia: o motorista faz vários toques
- * por análise, mas isso não pode virar uma chamada de IA por toque. A
- * primeira chamada (`gerarArvore`) devolve de uma vez uma arvorezinha de
- * decisão -- pergunta, opções, e para cada opção ou um próximo nível ou uma
- * causa raiz já pronta. O app percorre essa árvore sozinho, sem IA nenhuma,
- * enquanto o motorista tocar nas opções previstas. Uma segunda chamada
- * (`expandirRamo`) só acontece se ele fugir do previsto -- "Outro" com texto
- * livre, ou "Nenhuma dessas" além do que a árvore cobre.
+ * UMA PERGUNTA POR CHAMADA -- e essa é a decisão que sustenta tudo aqui.
  *
- * Sonnet, não Haiku: em teste real, o Haiku "achava" causa raiz cedo demais
- * de um jeito que nenhum ajuste de instrução segurava -- e mesmo travando um
- * piso estrutural, ele quase sempre parava exatamente nele, sem ir além
- * quando fazia sentido. Sonnet com `effort: "low"` foi o ponto de equilíbrio
- * testado: mais criterioso sobre o que é sintoma vs. causa raiz de verdade,
- * sem o custo/demora do `effort` mais alto (que chegou a estourar o
- * orçamento de tokens de raciocínio e não terminar).
+ * A primeira versão pedia a árvore de decisão INTEIRA numa chamada só, para
+ * economizar tokens: o app percorria a árvore sozinho e o motorista tocava
+ * sem esperar nada. Em produção isso não se sustentou. Com piso de 4 níveis
+ * obrigatórios e 3 opções por nível, a árvore pedida tem ~40 perguntas e ~81
+ * causas raiz num único JSON -- e o modelo, em vez de falhar, "toca fino":
+ * devolve ramos de mentira, do tipo `{"pergunta": "x", "opcoes": []}`, para
+ * conseguir fechar a estrutura. A validação rejeitava a árvore ("o modelo
+ * devolveu uma árvore sem opções") e o motorista NUNCA chegava na causa raiz.
+ * Medido: 2 de 2 tentativas com Sonnet vieram com nó vazio, gastando só 4238
+ * dos 10000 tokens -- não era limite de token nem tempo, era a estrutura
+ * grande demais para ser escrita de uma vez.
  *
- * Streaming aqui não é opcional como era no Haiku: gerar a árvore com
- * Sonnet leva de 20 a 40 segundos em teste real -- longe do quase instantâneo
- * do Haiku. `.stream()` + `finalMessage()` evita bater no limite de uma
- * função serverless comum, mesmo já com `maxDuration` alto na rota.
+ * Pedindo um nó por vez não existe nada para o modelo encher de linguiça:
+ * cada chamada devolve uma pergunta com 3-4 opções, ou a causa raiz. A
+ * profundidade deixa de depender da boa vontade do modelo e passa a ser
+ * regra do schema (ver PORQUES_MINIMOS abaixo).
+ *
+ * Haiku, não Sonnet: a tarefa por chamada ficou pequena e fechada, que é
+ * exatamente onde o Haiku vai bem -- 1,5 a 2s por pergunta, contra 20-40s
+ * que o Sonnet levava para montar a árvore toda. Em teste real, 3 de 3
+ * análises chegaram à causa raiz com os 5 porquês completos.
+ *
+ * E sai mais barato, não mais caro: a árvore gastava ~4238 tokens de saída
+ * para gerar ~81 causas raiz das quais o motorista via UMA. O caminho a pé
+ * gasta ~600 tokens de saída no total, porque só gera o ramo que ele
+ * realmente andou.
  */
 
-const MODELO = "claude-sonnet-5";
+const MODELO = "claude-haiku-4-5";
 
 /** Sem chave configurada o recurso fica desligado, sem quebrar nada. */
 export function iaConfigurada() {
@@ -44,24 +51,19 @@ export type Terminal = {
   acaoSugerida: string;
 };
 
+/** Uma opção é só um botão: sem sub-árvore pendurada nela. */
 export type OpcaoNo = {
   id: string;
   label: string;
-  /** Presente = esta opção já é a causa raiz, o fluxo termina aqui. */
-  terminal?: Terminal;
-  /** Presente (e `terminal` ausente) = mais um nível de "por quê". */
-  proximo?: NoDecisao;
 };
 
 export type NoDecisao = {
   nivel: number;
   pergunta: string;
-  /** 2 a 4 opções reais. "Outro" e "Nenhuma dessas" o cliente sempre
+  /** 3 a 4 opções reais. "Outro" e "Nenhuma dessas" o cliente sempre
    *  desenha à parte -- nunca fazem parte desta lista. */
   opcoes: OpcaoNo[];
 };
-
-export type ArvoreDecisao = { raiz: NoDecisao };
 
 export type RespostaPorque = {
   nivel: number;
@@ -83,114 +85,95 @@ const ESQUEMA_TERMINAL = {
   },
   required: ["causaRaiz", "categoria", "acaoSugerida"],
   additionalProperties: false,
-};
-
-const NIVEL_MAXIMO = 5;
+} as const;
 
 /**
- * Piso de profundidade: antes deste nível, "terminal" nem existe como
- * campo possível no schema -- a árvore É OBRIGADA a continuar.
+ * Piso de profundidade -- a exigência de "no mínimo 3 porquês".
  *
- * Só a instrução não segura nenhum modelo testado -- Haiku parava sempre
- * no 2º porquê, e mesmo o Sonnet, mais criterioso, tende a parar assim que
- * o piso libera. Por isso o piso em si precisa estar no nível que já
- * costuma ser causa raiz de verdade, não só "o mínimo aceitável".
+ * Não é instrução, é schema: enquanto o motorista tiver respondido menos que
+ * isto, o campo "terminal" nem existe como possibilidade, então a chamada É
+ * OBRIGADA a devolver mais uma pergunta. Nenhum modelo consegue encerrar
+ * antes, por mais convencido que esteja de já saber a causa.
  *
- * 5 (a profundidade máxima) foi testado e descartado: forçar toda análise
- * a ir até o fim manda a árvore para o dobro de nós, e em teste real isso
- * estourou o orçamento de tokens de raciocínio do Sonnet em mais de uma
- * tentativa -- a chamada simplesmente falhava. 4 é o piso mais alto que se
- * mostrou confiável nos testes.
+ * Acima do piso o modelo escolhe: em teste real ele foi até 5 nas três
+ * análises, então o piso funciona como garantia e não como teto disfarçado.
  */
-const NIVEL_MINIMO_TERMINAL = 4;
+const PORQUES_MINIMOS = 3;
+const PORQUES_MAXIMOS = 5;
 
-/** O que cada nível pode/deve devolver: terminar, continuar, ou os dois. */
-function regrasDoNivel(nivel: number) {
+/**
+ * Um nó, sem recursão. `minItems: 1` é o que proíbe explicitamente o
+ * `"opcoes": []` que derrubava a versão anterior -- a API aceita minItems 0
+ * ou 1 (nada além disso), e `maxItems` ela recusa em qualquer valor, então o
+ * teto de 4 opções continua sendo aparado no código, em `normalizarNo`.
+ */
+const ESQUEMA_NO = {
+  type: "object",
+  properties: {
+    pergunta: { type: "string" },
+    opcoes: {
+      type: "array",
+      minItems: 1,
+      items: {
+        type: "object",
+        properties: {
+          id: { type: "string" },
+          label: { type: "string" },
+        },
+        required: ["id", "label"],
+        additionalProperties: false,
+      },
+    },
+  },
+  required: ["pergunta", "opcoes"],
+  additionalProperties: false,
+} as const;
+
+/** O que este passo pode devolver: só continuar, só terminar, ou os dois. */
+function regrasDoPasso(jaRespondidos: number) {
   return {
-    podeTerminar: nivel >= NIVEL_MINIMO_TERMINAL,
-    podeContinuar: nivel < NIVEL_MAXIMO,
+    podeTerminar: jaRespondidos >= PORQUES_MINIMOS,
+    podeContinuar: jaRespondidos < PORQUES_MAXIMOS,
   };
 }
 
-/**
- * Monta o schema de um nó sem `$ref` recursivo -- a API da Anthropic recusa
- * schema que referencia a si mesmo ("circular reference"). Em vez disso,
- * cada profundidade é um objeto literal distinto, gerado por esta função:
- * o JSON final tem os níveis escritos por extenso, não uma referência
- * circular.
- *
- * Cada opção só ganha o campo "terminal" se o nível já permitir terminar,
- * e só ganha "proximo" se ainda houver nível seguinte -- e um dos dois
- * vira OBRIGATÓRIO exatamente nas pontas (abaixo do piso, "proximo" é
- * obrigatório; no nível máximo, "terminal" é obrigatório). É isso que
- * garante profundidade mínima e máxima de verdade, não só por instrução.
- *
- * Também não usa `minItems`/`maxItems` em array -- a API rejeitou os dois em
- * teste (só aceita 0/1 em minItems, maxItems não é suportado nenhum valor).
- * O "2 a 4 opções" e o restante das regras ficam só nas instruções.
- */
-function construirEsquemaNo(nivel: number): Record<string, unknown> {
-  const { podeTerminar, podeContinuar } = regrasDoNivel(nivel);
+function construirEsquemaPasso(jaRespondidos: number): Record<string, unknown> {
+  const { podeTerminar, podeContinuar } = regrasDoPasso(jaRespondidos);
 
-  const opcaoProperties: Record<string, unknown> = {
-    id: { type: "string" },
-    label: { type: "string" },
-  };
-  const opcaoRequired = ["id", "label"];
-
-  if (podeTerminar) opcaoProperties.terminal = ESQUEMA_TERMINAL;
-  if (podeContinuar) opcaoProperties.proximo = construirEsquemaNo(nivel + 1);
-
-  if (!podeTerminar) opcaoRequired.push("proximo");
-  else if (!podeContinuar) opcaoRequired.push("terminal");
+  const properties: Record<string, unknown> = {};
+  const required: string[] = [];
+  if (podeTerminar) properties.terminal = ESQUEMA_TERMINAL;
+  if (podeContinuar) properties.proximoNo = ESQUEMA_NO;
+  if (!podeTerminar) required.push("proximoNo");
+  else if (!podeContinuar) required.push("terminal");
 
   return {
     type: "object",
-    properties: {
-      nivel: { type: "integer" },
-      pergunta: { type: "string" },
-      opcoes: {
-        type: "array",
-        items: {
-          type: "object",
-          properties: opcaoProperties,
-          required: opcaoRequired,
-          additionalProperties: false,
-        },
-      },
-    },
-    required: ["nivel", "pergunta", "opcoes"],
+    properties,
+    ...(required.length > 0 ? { required } : {}),
     additionalProperties: false,
   };
 }
 
-const ESQUEMA_ARVORE = {
-  type: "object",
-  properties: { raiz: construirEsquemaNo(1) },
-  required: ["raiz"],
-  additionalProperties: false,
-} as const;
-
-const REGRAS_COMUNS = `Você ajuda um motorista de distribuidora de bebidas a investigar um problema da rota pela metodologia dos 5 Porquês, logo depois que ele termina a entrega.
+const REGRAS_COMUNS = `Você conduz um motorista de distribuidora de bebidas pela metodologia dos 5 Porquês, logo depois que ele termina a entrega.
 
 O motorista está no celular, no fim do turno. Ele NÃO vai digitar textos -- só toca em botões. Por isso:
-- Cada pergunta é curta (até 12 palavras).
+- A pergunta é curta (até 12 palavras) e sempre começa por "Por que".
 - Cada opção é uma frase curta (até 6 palavras), o suficiente para reconhecer, não para explicar.
-- 2 a 4 opções por pergunta, nunca mais.
+- Sempre 3 ou 4 opções, nunca menos de 3.
 - As opções cobrem os motivos mais prováveis PARA QUEM TRABALHA NA OPERAÇÃO (entrega, rota, veículo, cliente, sistema) -- nada genérico ou administrativo.
-- Não repita a mesma pergunta nem opções muito parecidas entre si.
-- TESTE DE CAUSA RAIZ, antes de decidir "terminal": se esse mesmo ponto fosse corrigido, o problema aconteceria de novo -- com outro motorista, em outro dia? Se a resposta for "sim, provavelmente", ainda é SINTOMA, não causa raiz -- continue perguntando por quê. Só termine quando a resposta descrever algo sistêmico (um processo que falha sempre, uma decisão recorrente, uma falta de padrão) que, corrigido, previne a repetição.
-- Não termine só porque já pode -- o nível mínimo permitido é um piso, não uma meta. Se ainda for sintoma nesse nível, continue mesmo que isso signifique ir até o nível 5.
+- NUNCA faça pergunta de sim/não, nem ofereça opções do tipo "Sim, é recorrente".
+- Não repita pergunta nem opção que já apareceram na trilha.
+- TESTE DE CAUSA RAIZ, antes de decidir "terminal": se esse mesmo ponto fosse corrigido, o problema aconteceria de novo -- com outro motorista, em outro dia? Se a resposta for "sim, provavelmente", ainda é SINTOMA, não causa raiz -- pergunte mais um porquê. Só termine quando a resposta descrever algo sistêmico (um processo que falha sempre, uma decisão recorrente, uma falta de padrão) que, corrigido, previne a repetição.
+- Fique dentro do que a distribuidora consegue mudar. Não termine em causa fora do alcance dela (clima, obra da prefeitura, torre de operadora).
 - "terminal" sempre tem os três campos preenchidos: causaRaiz (uma frase objetiva, até 12 palavras), categoria (uma das 11 fixas) e acaoSugerida (uma ação prática e concreta, até 16 palavras, que a liderança consiga executar).
 - Nunca invente causa sem uma opção do motorista sustentando ela.`;
 
-const INSTRUCOES_ARVORE = `${REGRAS_COMUNS}
-
-Você recebe o problema que o motorista relatou e devolve a árvore de decisão inteira de uma vez: a primeira pergunta, as opções dela, e para cada opção ou mais um nível (com pergunta e opções de novo) ou já a causa raiz. Profundidade máxima: 5 níveis.`;
-
-export type ResultadoIA = { custo: { entrada: number; saida: number } };
-
-export type ResultadoArvore = ResultadoIA & { arvore: ArvoreDecisao };
+export type ResultadoPasso = {
+  proximoNo?: NoDecisao;
+  terminal?: Terminal;
+  custo: { entrada: number; saida: number };
+};
 
 /** Recusa e limite de tokens já contam a história certa sem quebrar a tela. */
 function conferirParada(resposta: Anthropic.Message) {
@@ -209,157 +192,86 @@ function textoDaResposta(resposta: Anthropic.Message): string {
 }
 
 /**
- * Validação defensiva depois do parse -- o "porta única" do quiz-ia.ts
- * adaptado aqui: mesmo com schema, vale conferir o que realmente veio antes
- * de gravar. Nível 5 nunca pode continuar (`proximo`), só terminar
- * (`terminal`); toda lista de opções é limitada a 4 mesmo se o modelo
- * mandar mais, já que o array não tem `maxItems` no schema.
- *
- * `nivelEsperado` SUBSTITUI o "nivel" que o modelo escreveu: o campo é só
- * um inteiro solto no schema (sem como travar no valor certo), então o
- * modelo pode errar a numeração sem quebrar a validação. Como o código já
- * sabe a profundidade real pela própria recursão, não precisa confiar no
- * que veio -- isso também garante que "Porquê X de até 5" na tela mostre o
- * nível verdadeiro.
+ * Validação defensiva depois do parse -- mesmo com schema, vale conferir o
+ * que realmente veio antes de mostrar na tela. `nivel` é escrito pelo código,
+ * não pelo modelo: o app já sabe a profundidade real pela trilha, então não
+ * precisa confiar em número que o modelo mandaria solto (é isso que garante
+ * que "Porquê X de até 5" mostre o nível verdadeiro). O corte em 4 opções
+ * vive aqui porque `maxItems` não é aceito no schema.
  */
-function normalizarNo(
-  no: NoDecisao,
-  nivelEsperado: number,
-  nivelMaximo = NIVEL_MAXIMO,
-): NoDecisao {
-  if (!no || !Array.isArray(no.opcoes) || no.opcoes.length === 0) {
-    throw new Error("O modelo devolveu uma árvore sem opções.");
+function normalizarNo(no: NoDecisao | undefined, nivel: number): NoDecisao {
+  if (!no || !Array.isArray(no.opcoes) || no.opcoes.length === 0 || !no.pergunta?.trim()) {
+    throw new Error("O modelo não devolveu uma pergunta válida. Tente de novo.");
   }
-
-  const opcoes = no.opcoes.slice(0, 4).map((opcao): OpcaoNo => {
-    if (nivelEsperado >= nivelMaximo || !opcao.proximo) {
-      if (!opcao.terminal) {
-        throw new Error("O modelo devolveu uma opção sem causa raiz nem próximo nível.");
-      }
-      return { id: opcao.id, label: opcao.label, terminal: opcao.terminal };
-    }
-    return {
-      id: opcao.id,
-      label: opcao.label,
-      proximo: normalizarNo(opcao.proximo, nivelEsperado + 1, nivelMaximo),
-    };
-  });
-
-  return { nivel: nivelEsperado, pergunta: no.pergunta, opcoes };
-}
-
-/**
- * Gera a árvore inteira -- 1 chamada, logo após o motorista escolher (ou
- * digitar) o problema.
- */
-export async function gerarArvore(dados: {
-  problemaLabel: string;
-}): Promise<ResultadoArvore> {
-  const cliente = new Anthropic();
-
-  const fluxo = cliente.messages.stream({
-    model: MODELO,
-    max_tokens: 10000,
-    system: INSTRUCOES_ARVORE,
-    output_config: {
-      effort: "low",
-      format: { type: "json_schema", schema: ESQUEMA_ARVORE },
-    },
-    messages: [
-      {
-        role: "user",
-        content: `Problema relatado pelo motorista: "${dados.problemaLabel}"`,
-      },
-    ],
-  });
-
-  const resposta = await fluxo.finalMessage();
-  conferirParada(resposta);
-  const analisado = JSON.parse(textoDaResposta(resposta)) as ArvoreDecisao;
-
   return {
-    arvore: { raiz: normalizarNo(analisado.raiz, 1) },
-    custo: {
-      entrada: resposta.usage.input_tokens,
-      saida: resposta.usage.output_tokens,
-    },
+    nivel,
+    pergunta: no.pergunta,
+    opcoes: no.opcoes
+      .filter((o) => o?.id && o?.label?.trim())
+      .slice(0, 4)
+      .map((o) => ({ id: o.id, label: o.label })),
   };
 }
 
-export type ResultadoExpansao = ResultadoIA & {
-  proximoNo?: NoDecisao;
-  terminal?: Terminal;
-};
+/** A trilha em texto é o único contexto que a chamada precisa carregar. */
+function montarTrilha(respostas: RespostaPorque[]): string {
+  if (respostas.length === 0) return "(nenhum porquê respondido ainda)";
+  return respostas
+    .map(
+      (r, i) =>
+        `${i + 1}. ${r.pergunta} → ${r.opcaoLabel}${r.textoLivre ? ` (${r.textoLivre})` : ""}`,
+    )
+    .join("\n");
+}
 
 /**
- * Chamada de fallback -- só quando o motorista foge da árvore precomputada:
- * escolheu "Outro" e digitou um texto curto, ou tocou em "Nenhuma dessas"
- * além do que a árvore já cobria.
+ * O passo seguinte da análise: mais um "por quê", ou a causa raiz.
+ *
+ * É a ÚNICA porta de IA da ferramenta -- serve tanto para a primeira
+ * pergunta (`respostas` vazio) quanto para cada toque depois dela, inclusive
+ * quando o motorista escolhe "Outro" ou "Nenhuma dessas": esses dois só
+ * chegam aqui como mais uma linha da trilha, sem caminho separado.
  */
-export async function expandirRamo(dados: {
+export async function proximoPasso(dados: {
   problemaLabel: string;
   respostas: RespostaPorque[];
-  nivelAtual: number;
-  motivo: "outro_texto_livre" | "nenhuma_dessas";
-  textoLivre?: string;
-}): Promise<ResultadoExpansao> {
+  /** Presente quando o motorista fugiu das opções oferecidas. */
+  motivo?: "outro_texto_livre" | "nenhuma_dessas";
+}): Promise<ResultadoPasso> {
   const cliente = new Anthropic();
 
-  const nivelProximo = dados.nivelAtual + 1;
-  const { podeTerminar, podeContinuar } = regrasDoNivel(nivelProximo);
-
-  const properties: Record<string, unknown> = {};
-  const required: string[] = [];
-  if (podeTerminar) properties.terminal = ESQUEMA_TERMINAL;
-  if (podeContinuar) properties.proximoNo = construirEsquemaNo(nivelProximo);
-  if (!podeTerminar) required.push("proximoNo");
-  else if (!podeContinuar) required.push("terminal");
-
-  const esquemaExpansao = {
-    type: "object",
-    properties,
-    ...(required.length > 0 ? { required } : {}),
-    additionalProperties: false,
-  };
-
-  const trilha = dados.respostas
-    .map((r) => `${r.nivel}. ${r.pergunta} → ${r.opcaoLabel}${r.textoLivre ? ` (${r.textoLivre})` : ""}`)
-    .join("\n");
-
-  const pedido =
-    dados.motivo === "outro_texto_livre"
-      ? `O motorista não achou a opção certa e descreveu com as próprias palavras: "${dados.textoLivre}".`
-      : `Nenhuma das opções do nível ${dados.nivelAtual} serviu para o motorista.`;
+  const jaRespondidos = dados.respostas.length;
+  const { podeTerminar, podeContinuar } = regrasDoPasso(jaRespondidos);
 
   const instrucaoDecisao = !podeTerminar
-    ? `Ainda é cedo para causa raiz (só chegamos ao porquê ${dados.nivelAtual}) -- devolva OBRIGATORIAMENTE "proximoNo", com a próxima pergunta (nível ${nivelProximo}).`
+    ? `Ainda é cedo para causa raiz (${jaRespondidos} de no mínimo ${PORQUES_MINIMOS} porquês respondidos) -- devolva OBRIGATORIAMENTE "proximoNo".`
     : !podeContinuar
-      ? `O limite de ${NIVEL_MAXIMO} níveis já foi atingido -- devolva OBRIGATORIAMENTE "terminal".`
-      : `Devolva "terminal" (se já der para identificar a causa raiz com o que se sabe até aqui) ou "proximoNo" (mais um "por quê", nível ${nivelProximo}).`;
+      ? `O limite de ${PORQUES_MAXIMOS} porquês já foi atingido -- devolva OBRIGATORIAMENTE "terminal".`
+      : `Devolva "terminal" (se já dá para nomear a causa raiz sistêmica com o que se sabe até aqui) ou "proximoNo" (mais um "por quê").`;
 
-  const instrucoesExpansao = `${REGRAS_COMUNS}
-
-Você já vinha conduzindo esta análise e o motorista saiu do caminho previsto. ${instrucaoDecisao}`;
+  const avisoDesvio =
+    dados.motivo === "outro_texto_livre"
+      ? "\nO motorista não achou a opção certa e descreveu com as próprias palavras -- a última linha da trilha traz o que ele digitou. Continue a partir DISSO."
+      : dados.motivo === "nenhuma_dessas"
+        ? "\nNenhuma das opções anteriores serviu para o motorista. Ofereça motivos claramente diferentes dos que já apareceram."
+        : "";
 
   const fluxo = cliente.messages.stream({
     model: MODELO,
-    max_tokens: 4000,
-    system: instrucoesExpansao,
-    output_config: {
-      effort: "low",
-      format: { type: "json_schema", schema: esquemaExpansao },
-    },
+    max_tokens: 1500,
+    system: `${REGRAS_COMUNS}\n\n${instrucaoDecisao}`,
     messages: [
       {
         role: "user",
-        content: `Problema original: "${dados.problemaLabel}"
+        content: `Problema relatado pelo motorista: "${dados.problemaLabel}"
 
 Trilha até agora:
-${trilha || "(nenhuma resposta ainda)"}
-
-${pedido}`,
+${montarTrilha(dados.respostas)}${avisoDesvio}`,
       },
     ],
+    output_config: {
+      format: { type: "json_schema", schema: construirEsquemaPasso(jaRespondidos) },
+    },
   });
 
   const resposta = await fluxo.finalMessage();
@@ -374,9 +286,11 @@ ${pedido}`,
   }
 
   return {
-    proximoNo: analisado.proximoNo
-      ? normalizarNo(analisado.proximoNo, nivelProximo, NIVEL_MAXIMO)
-      : undefined,
+    // `terminal` ganha do `proximoNo` se por algum motivo vierem os dois:
+    // com o piso já cumprido, encerrar é sempre uma saída legítima.
+    proximoNo: analisado.terminal
+      ? undefined
+      : normalizarNo(analisado.proximoNo, jaRespondidos + 1),
     terminal: analisado.terminal,
     custo: {
       entrada: resposta.usage.input_tokens,
@@ -402,3 +316,5 @@ export function mensagemDeErro(erro: unknown): string {
 
   return (erro as Error)?.message ?? "Falha inesperada ao analisar o problema.";
 }
+
+export { PORQUES_MAXIMOS, PORQUES_MINIMOS };

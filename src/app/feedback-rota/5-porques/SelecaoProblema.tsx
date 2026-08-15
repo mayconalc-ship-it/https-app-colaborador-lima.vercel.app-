@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { PROBLEMAS } from "@/lib/cinco-porques-problemas";
 import { iniciarAnalise } from "./actions";
-import type { ArvoreDecisao } from "@/lib/cinco-porques-ia";
+import type { NoDecisao } from "@/lib/cinco-porques-ia";
 
 /**
  * Grade de chips, igual à de OCORRENCIAS em feedback-rota/page.tsx. "Outro"
@@ -20,7 +20,7 @@ export function SelecaoProblema({
   onIniciar: (dados: {
     analiseId: number;
     problemaLabel: string;
-    arvore: ArvoreDecisao;
+    primeiroNo: NoDecisao;
   }) => void;
 }) {
   const [selecionado, setSelecionado] = useState<string | null>(null);
@@ -52,7 +52,7 @@ export function SelecaoProblema({
         onIniciar({
           analiseId: resultado.analiseId,
           problemaLabel: labelEscolhido,
-          arvore: resultado.arvore,
+          primeiroNo: resultado.primeiroNo,
         });
       } else {
         setErro(resultado.erro);
@@ -110,11 +110,6 @@ export function SelecaoProblema({
         {pendente && <span className="rodinha" aria-hidden="true" />}
         {pendente ? "Preparando..." : "Continuar"}
       </button>
-      {pendente && (
-        <p className="mt-2 text-center text-xs text-slate-400">
-          Pode levar até 1 minuto.
-        </p>
-      )}
     </div>
   );
 }

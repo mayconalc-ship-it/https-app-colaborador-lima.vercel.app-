@@ -4,12 +4,12 @@ import { useEffect, useState } from "react";
 import { SelecaoProblema } from "./SelecaoProblema";
 import { AnaliseCincoPorques } from "./AnaliseCincoPorques";
 import { iniciarAnalise } from "./actions";
-import type { ArvoreDecisao } from "@/lib/cinco-porques-ia";
+import type { NoDecisao } from "@/lib/cinco-porques-ia";
 
 type AnaliseIniciada = {
   analiseId: number;
   problemaLabel: string;
-  arvore: ArvoreDecisao;
+  primeiroNo: NoDecisao;
 };
 
 /**
@@ -47,7 +47,7 @@ export function FluxoCincoPorques({
         key={chave}
         analiseId={iniciada.analiseId}
         problemaLabel={iniciada.problemaLabel}
-        arvoreInicial={iniciada.arvore}
+        primeiroNo={iniciada.primeiroNo}
         onRefazer={refazer}
       />
     );
@@ -105,7 +105,7 @@ function InicioAutomatico({
         onIniciar({
           analiseId: resultado.analiseId,
           problemaLabel,
-          arvore: resultado.arvore,
+          primeiroNo: resultado.primeiroNo,
         });
       } else {
         setErro(resultado.erro);
@@ -140,8 +140,7 @@ function InicioAutomatico({
         🧠 Vamos encontrar a causa raiz...
       </p>
       <p className="mt-1 text-xs text-slate-400">
-        Analisando o que você contou no feedback da rota. Pode levar até 1
-        minuto.
+        Analisando o que você contou no feedback da rota.
       </p>
     </div>
   );
