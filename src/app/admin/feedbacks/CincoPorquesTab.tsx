@@ -12,6 +12,7 @@ type Analise = {
   acao_sugerida: string | null;
   tratativa_status: string;
   resposta_lideranca: string | null;
+  motorista_aceitou: boolean | null;
   iniciada_em: string;
 };
 
@@ -29,7 +30,7 @@ export async function CincoPorquesTab({
   const { data: analises } = await admin
     .from("cinco_porques_analises")
     .select(
-      "id, colaborador_id, problema_label, causa_raiz, categoria, acao_sugerida, tratativa_status, resposta_lideranca, iniciada_em",
+      "id, colaborador_id, problema_label, causa_raiz, categoria, acao_sugerida, tratativa_status, resposta_lideranca, motorista_aceitou, iniciada_em",
     )
     .eq("revenda_id", revendaId)
     .eq("status", "concluida")
@@ -104,6 +105,16 @@ export async function CincoPorquesTab({
                   <span className="text-slate-600">{a.acao_sugerida}</span>
                 </p>
               </div>
+
+              {a.resposta_lideranca && (
+                <p className="mt-2 text-xs font-medium text-slate-500">
+                  {a.motorista_aceitou === null
+                    ? "Motorista ainda não viu/decidiu sobre o retorno."
+                    : a.motorista_aceitou
+                      ? "👍 Motorista aceitou o retorno."
+                      : "👎 Motorista não aceitou o retorno."}
+                </p>
+              )}
 
               <form action={salvarTratativa} className="mt-3 space-y-2">
                 <input type="hidden" name="analise_id" value={a.id} />

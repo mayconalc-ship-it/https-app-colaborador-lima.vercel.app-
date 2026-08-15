@@ -140,7 +140,8 @@ function InicioAutomatico({
         🧠 Vamos encontrar a causa raiz...
       </p>
       <p className="mt-1 text-xs text-slate-400">
-        Analisando o que você contou no feedback da rota.
+        Analisando o que você contou no feedback da rota. Pode levar até 1
+        minuto.
       </p>
     </div>
   );

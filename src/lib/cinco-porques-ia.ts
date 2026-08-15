@@ -15,13 +15,21 @@ import { CATEGORIAS } from "@/lib/cinco-porques-problemas";
  * (`expandirRamo`) só acontece se ele fugir do previsto -- "Outro" com texto
  * livre, ou "Nenhuma dessas" além do que a árvore cobre.
  *
- * Por isso Haiku, não o Opus do quiz: a tarefa é gerar poucas frases curtas
- * e classificar uma causa, não ler um documento inteiro. E por isso sem
- * streaming -- a resposta é uma arvorezinha JSON de no máximo uma ou duas mil
- * palavras, bem longe do limite de tempo de uma função serverless comum.
+ * Sonnet, não Haiku: em teste real, o Haiku "achava" causa raiz cedo demais
+ * de um jeito que nenhum ajuste de instrução segurava -- e mesmo travando um
+ * piso estrutural, ele quase sempre parava exatamente nele, sem ir além
+ * quando fazia sentido. Sonnet com `effort: "low"` foi o ponto de equilíbrio
+ * testado: mais criterioso sobre o que é sintoma vs. causa raiz de verdade,
+ * sem o custo/demora do `effort` mais alto (que chegou a estourar o
+ * orçamento de tokens de raciocínio e não terminar).
+ *
+ * Streaming aqui não é opcional como era no Haiku: gerar a árvore com
+ * Sonnet leva de 20 a 40 segundos em teste real -- longe do quase instantâneo
+ * do Haiku. `.stream()` + `finalMessage()` evita bater no limite de uma
+ * função serverless comum, mesmo já com `maxDuration` alto na rota.
  */
 
-const MODELO = "claude-haiku-4-5-20251001";
+const MODELO = "claude-sonnet-5";
 
 /** Sem chave configurada o recurso fica desligado, sem quebrar nada. */
 export function iaConfigurada() {
@@ -77,27 +85,64 @@ const ESQUEMA_TERMINAL = {
   additionalProperties: false,
 };
 
+const NIVEL_MAXIMO = 5;
+
+/**
+ * Piso de profundidade: antes deste nível, "terminal" nem existe como
+ * campo possível no schema -- a árvore É OBRIGADA a continuar.
+ *
+ * Só a instrução não segura nenhum modelo testado -- Haiku parava sempre
+ * no 2º porquê, e mesmo o Sonnet, mais criterioso, tende a parar assim que
+ * o piso libera. Por isso o piso em si precisa estar no nível que já
+ * costuma ser causa raiz de verdade, não só "o mínimo aceitável".
+ *
+ * 5 (a profundidade máxima) foi testado e descartado: forçar toda análise
+ * a ir até o fim manda a árvore para o dobro de nós, e em teste real isso
+ * estourou o orçamento de tokens de raciocínio do Sonnet em mais de uma
+ * tentativa -- a chamada simplesmente falhava. 4 é o piso mais alto que se
+ * mostrou confiável nos testes.
+ */
+const NIVEL_MINIMO_TERMINAL = 4;
+
+/** O que cada nível pode/deve devolver: terminar, continuar, ou os dois. */
+function regrasDoNivel(nivel: number) {
+  return {
+    podeTerminar: nivel >= NIVEL_MINIMO_TERMINAL,
+    podeContinuar: nivel < NIVEL_MAXIMO,
+  };
+}
+
 /**
  * Monta o schema de um nó sem `$ref` recursivo -- a API da Anthropic recusa
  * schema que referencia a si mesmo ("circular reference"). Em vez disso,
  * cada profundidade é um objeto literal distinto, gerado por esta função:
- * o JSON final tem 5 níveis inteiros escritos por extenso, não uma
- * referência circular.
+ * o JSON final tem os níveis escritos por extenso, não uma referência
+ * circular.
  *
- * Também não usa `minItems`/`maxItems` em array nem `effort` no
- * `output_config` -- a API rejeitou os dois em teste (array só aceita 0/1
- * em minItems, maxItems não é suportado, e o Haiku não aceita `effort`).
+ * Cada opção só ganha o campo "terminal" se o nível já permitir terminar,
+ * e só ganha "proximo" se ainda houver nível seguinte -- e um dos dois
+ * vira OBRIGATÓRIO exatamente nas pontas (abaixo do piso, "proximo" é
+ * obrigatório; no nível máximo, "terminal" é obrigatório). É isso que
+ * garante profundidade mínima e máxima de verdade, não só por instrução.
+ *
+ * Também não usa `minItems`/`maxItems` em array -- a API rejeitou os dois em
+ * teste (só aceita 0/1 em minItems, maxItems não é suportado nenhum valor).
  * O "2 a 4 opções" e o restante das regras ficam só nas instruções.
  */
-function construirEsquemaNo(restante: number): Record<string, unknown> {
+function construirEsquemaNo(nivel: number): Record<string, unknown> {
+  const { podeTerminar, podeContinuar } = regrasDoNivel(nivel);
+
   const opcaoProperties: Record<string, unknown> = {
     id: { type: "string" },
     label: { type: "string" },
-    terminal: ESQUEMA_TERMINAL,
   };
-  if (restante > 1) {
-    opcaoProperties.proximo = construirEsquemaNo(restante - 1);
-  }
+  const opcaoRequired = ["id", "label"];
+
+  if (podeTerminar) opcaoProperties.terminal = ESQUEMA_TERMINAL;
+  if (podeContinuar) opcaoProperties.proximo = construirEsquemaNo(nivel + 1);
+
+  if (!podeTerminar) opcaoRequired.push("proximo");
+  else if (!podeContinuar) opcaoRequired.push("terminal");
 
   return {
     type: "object",
@@ -109,7 +154,7 @@ function construirEsquemaNo(restante: number): Record<string, unknown> {
         items: {
           type: "object",
           properties: opcaoProperties,
-          required: ["id", "label"],
+          required: opcaoRequired,
           additionalProperties: false,
         },
       },
@@ -121,7 +166,7 @@ function construirEsquemaNo(restante: number): Record<string, unknown> {
 
 const ESQUEMA_ARVORE = {
   type: "object",
-  properties: { raiz: construirEsquemaNo(5) },
+  properties: { raiz: construirEsquemaNo(1) },
   required: ["raiz"],
   additionalProperties: false,
 } as const;
@@ -134,7 +179,8 @@ O motorista está no celular, no fim do turno. Ele NÃO vai digitar textos -- s�
 - 2 a 4 opções por pergunta, nunca mais.
 - As opções cobrem os motivos mais prováveis PARA QUEM TRABALHA NA OPERAÇÃO (entrega, rota, veículo, cliente, sistema) -- nada genérico ou administrativo.
 - Não repita a mesma pergunta nem opções muito parecidas entre si.
-- Assim que a causa raiz já estiver clara, PARE: devolva "terminal" em vez de mais um "por quê". Não force chegar ao nível 5 -- o objetivo é a causa raiz com o menor número de perguntas possível, nunca mais que 5.
+- TESTE DE CAUSA RAIZ, antes de decidir "terminal": se esse mesmo ponto fosse corrigido, o problema aconteceria de novo -- com outro motorista, em outro dia? Se a resposta for "sim, provavelmente", ainda é SINTOMA, não causa raiz -- continue perguntando por quê. Só termine quando a resposta descrever algo sistêmico (um processo que falha sempre, uma decisão recorrente, uma falta de padrão) que, corrigido, previne a repetição.
+- Não termine só porque já pode -- o nível mínimo permitido é um piso, não uma meta. Se ainda for sintoma nesse nível, continue mesmo que isso signifique ir até o nível 5.
 - "terminal" sempre tem os três campos preenchidos: causaRaiz (uma frase objetiva, até 12 palavras), categoria (uma das 11 fixas) e acaoSugerida (uma ação prática e concreta, até 16 palavras, que a liderança consiga executar).
 - Nunca invente causa sem uma opção do motorista sustentando ela.`;
 
@@ -168,14 +214,25 @@ function textoDaResposta(resposta: Anthropic.Message): string {
  * de gravar. Nível 5 nunca pode continuar (`proximo`), só terminar
  * (`terminal`); toda lista de opções é limitada a 4 mesmo se o modelo
  * mandar mais, já que o array não tem `maxItems` no schema.
+ *
+ * `nivelEsperado` SUBSTITUI o "nivel" que o modelo escreveu: o campo é só
+ * um inteiro solto no schema (sem como travar no valor certo), então o
+ * modelo pode errar a numeração sem quebrar a validação. Como o código já
+ * sabe a profundidade real pela própria recursão, não precisa confiar no
+ * que veio -- isso também garante que "Porquê X de até 5" na tela mostre o
+ * nível verdadeiro.
  */
-function normalizarNo(no: NoDecisao, nivelMaximo = 5): NoDecisao {
+function normalizarNo(
+  no: NoDecisao,
+  nivelEsperado: number,
+  nivelMaximo = NIVEL_MAXIMO,
+): NoDecisao {
   if (!no || !Array.isArray(no.opcoes) || no.opcoes.length === 0) {
     throw new Error("O modelo devolveu uma árvore sem opções.");
   }
 
   const opcoes = no.opcoes.slice(0, 4).map((opcao): OpcaoNo => {
-    if (no.nivel >= nivelMaximo || !opcao.proximo) {
+    if (nivelEsperado >= nivelMaximo || !opcao.proximo) {
       if (!opcao.terminal) {
         throw new Error("O modelo devolveu uma opção sem causa raiz nem próximo nível.");
       }
@@ -184,11 +241,11 @@ function normalizarNo(no: NoDecisao, nivelMaximo = 5): NoDecisao {
     return {
       id: opcao.id,
       label: opcao.label,
-      proximo: normalizarNo(opcao.proximo, nivelMaximo),
+      proximo: normalizarNo(opcao.proximo, nivelEsperado + 1, nivelMaximo),
     };
   });
 
-  return { nivel: no.nivel, pergunta: no.pergunta, opcoes };
+  return { nivel: nivelEsperado, pergunta: no.pergunta, opcoes };
 }
 
 /**
@@ -200,11 +257,12 @@ export async function gerarArvore(dados: {
 }): Promise<ResultadoArvore> {
   const cliente = new Anthropic();
 
-  const resposta = await cliente.messages.create({
+  const fluxo = cliente.messages.stream({
     model: MODELO,
-    max_tokens: 4000,
+    max_tokens: 10000,
     system: INSTRUCOES_ARVORE,
     output_config: {
+      effort: "low",
       format: { type: "json_schema", schema: ESQUEMA_ARVORE },
     },
     messages: [
@@ -215,11 +273,12 @@ export async function gerarArvore(dados: {
     ],
   });
 
+  const resposta = await fluxo.finalMessage();
   conferirParada(resposta);
   const analisado = JSON.parse(textoDaResposta(resposta)) as ArvoreDecisao;
 
   return {
-    arvore: { raiz: normalizarNo(analisado.raiz) },
+    arvore: { raiz: normalizarNo(analisado.raiz, 1) },
     custo: {
       entrada: resposta.usage.input_tokens,
       saida: resposta.usage.output_tokens,
@@ -247,16 +306,19 @@ export async function expandirRamo(dados: {
   const cliente = new Anthropic();
 
   const nivelProximo = dados.nivelAtual + 1;
-  const podeContinuar = nivelProximo <= 5;
+  const { podeTerminar, podeContinuar } = regrasDoNivel(nivelProximo);
 
-  const properties: Record<string, unknown> = { terminal: ESQUEMA_TERMINAL };
-  if (podeContinuar) {
-    properties.proximoNo = construirEsquemaNo(5 - dados.nivelAtual);
-  }
+  const properties: Record<string, unknown> = {};
+  const required: string[] = [];
+  if (podeTerminar) properties.terminal = ESQUEMA_TERMINAL;
+  if (podeContinuar) properties.proximoNo = construirEsquemaNo(nivelProximo);
+  if (!podeTerminar) required.push("proximoNo");
+  else if (!podeContinuar) required.push("terminal");
 
   const esquemaExpansao = {
     type: "object",
     properties,
+    ...(required.length > 0 ? { required } : {}),
     additionalProperties: false,
   };
 
@@ -269,15 +331,22 @@ export async function expandirRamo(dados: {
       ? `O motorista não achou a opção certa e descreveu com as próprias palavras: "${dados.textoLivre}".`
       : `Nenhuma das opções do nível ${dados.nivelAtual} serviu para o motorista.`;
 
+  const instrucaoDecisao = !podeTerminar
+    ? `Ainda é cedo para causa raiz (só chegamos ao porquê ${dados.nivelAtual}) -- devolva OBRIGATORIAMENTE "proximoNo", com a próxima pergunta (nível ${nivelProximo}).`
+    : !podeContinuar
+      ? `O limite de ${NIVEL_MAXIMO} níveis já foi atingido -- devolva OBRIGATORIAMENTE "terminal".`
+      : `Devolva "terminal" (se já der para identificar a causa raiz com o que se sabe até aqui) ou "proximoNo" (mais um "por quê", nível ${nivelProximo}).`;
+
   const instrucoesExpansao = `${REGRAS_COMUNS}
 
-Você já vinha conduzindo esta análise e o motorista saiu do caminho previsto. Devolva UM dos dois: "terminal" (se já der para identificar a causa raiz com o que se sabe até aqui) ou "proximoNo" (mais um "por quê", nível ${nivelProximo}${!podeContinuar ? " -- mas o limite de 5 níveis já foi atingido, então SÓ pode devolver terminal" : ""}).`;
+Você já vinha conduzindo esta análise e o motorista saiu do caminho previsto. ${instrucaoDecisao}`;
 
-  const resposta = await cliente.messages.create({
+  const fluxo = cliente.messages.stream({
     model: MODELO,
-    max_tokens: 1500,
+    max_tokens: 4000,
     system: instrucoesExpansao,
     output_config: {
+      effort: "low",
       format: { type: "json_schema", schema: esquemaExpansao },
     },
     messages: [
@@ -293,6 +362,7 @@ ${pedido}`,
     ],
   });
 
+  const resposta = await fluxo.finalMessage();
   conferirParada(resposta);
   const analisado = JSON.parse(textoDaResposta(resposta)) as {
     proximoNo?: NoDecisao;
@@ -305,7 +375,7 @@ ${pedido}`,
 
   return {
     proximoNo: analisado.proximoNo
-      ? normalizarNo({ ...analisado.proximoNo, nivel: nivelProximo }, 5)
+      ? normalizarNo(analisado.proximoNo, nivelProximo, NIVEL_MAXIMO)
       : undefined,
     terminal: analisado.terminal,
     custo: {

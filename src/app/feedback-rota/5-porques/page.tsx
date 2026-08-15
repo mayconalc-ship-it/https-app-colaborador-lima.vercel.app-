@@ -17,6 +17,11 @@ import { FluxoCincoPorques } from "./FluxoCincoPorques";
  * contexto inicial da IA (nota ruim + ocorrências + comentário), pra o
  * motorista não repetir o que já contou.
  */
+// A árvore com Sonnet leva de 20 a 40s em teste real -- bem acima do padrão
+// de uma função serverless. Mesmo teto usado pela geração de perguntas do
+// quiz (também IA, também pode demorar), por consistência.
+export const maxDuration = 60;
+
 export default async function CincoPorquesPage({
   searchParams,
 }: {

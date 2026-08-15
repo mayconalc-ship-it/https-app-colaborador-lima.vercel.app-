@@ -63,25 +63,29 @@ export async function salvarTratativa(formData: FormData) {
   if (error) erro("Não foi possível salvar a tratativa.");
 
   // Avisa o motorista só quando há de fato uma resposta -- marcar "tratado"
-  // sem escrever nada não merece notificação.
+  // sem escrever nada não merece notificação. Módulo próprio ("cinco-porques",
+  // não "feedback") para não herdar o botão "Responder agora" do lembrete de
+  // feedback -- aqui o motorista só vê a resposta e aceita ou não, não digita
+  // nada. O link leva direto para a análise, não para a lista genérica.
   if (resposta) {
-    const titulo = "Sua análise recebeu resposta";
+    const titulo = "Seu 5 Porquês recebeu resposta";
+    const url = `/feedback-rota/5-porques/${analiseId}`;
     await criarNotificacao({
-      modulo: "feedback",
+      modulo: "cinco-porques",
       tipo: "importante",
       titulo,
       mensagem: resposta,
-      url: "/feedback-rota",
+      url,
       referenciaId: analiseId,
       criadoPor: perfil?.id,
       destinatarioId: analise.colaborador_id,
       revendaId,
     });
     await enviarPushDaRevenda(revendaId, {
-      modulo: "feedback",
+      modulo: "cinco-porques",
       titulo,
       mensagem: resposta,
-      url: "/feedback-rota",
+      url,
       apenas: [analise.colaborador_id],
     });
   }

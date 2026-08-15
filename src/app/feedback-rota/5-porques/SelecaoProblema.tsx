@@ -110,6 +110,11 @@ export function SelecaoProblema({
         {pendente && <span className="rodinha" aria-hidden="true" />}
         {pendente ? "Preparando..." : "Continuar"}
       </button>
+      {pendente && (
+        <p className="mt-2 text-center text-xs text-slate-400">
+          Pode levar até 1 minuto.
+        </p>
+      )}
     </div>
   );
 }

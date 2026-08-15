@@ -190,3 +190,29 @@ export async function finalizarAnalise(dados: {
   if (error) return { ok: false, erro: "Não foi possível concluir a análise." };
   return { ok: true };
 }
+
+/**
+ * O motorista marca se aceita ou não o retorno que a liderança escreveu.
+ * Independente de `tratativa_status`, que é território exclusivo do admin
+ * -- aqui é só a opinião do motorista sobre a resposta que recebeu.
+ */
+export async function responderTratativa(dados: {
+  analiseId: number;
+  aceitou: boolean;
+}): Promise<{ ok: true } | { ok: false; erro: string }> {
+  const perfil = await getPerfil();
+  if (!perfil) return { ok: false, erro: "Sessão expirada. Entre novamente." };
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("cinco_porques_analises")
+    .update({
+      motorista_aceitou: dados.aceitou,
+      motorista_aceitou_em: new Date().toISOString(),
+    })
+    .eq("id", dados.analiseId)
+    .eq("colaborador_id", perfil.id);
+
+  if (error) return { ok: false, erro: "Não foi possível registrar sua resposta." };
+  return { ok: true };
+}
