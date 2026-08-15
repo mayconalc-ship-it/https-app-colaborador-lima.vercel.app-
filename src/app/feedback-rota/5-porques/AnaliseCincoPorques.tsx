@@ -190,6 +190,10 @@ export function AnaliseCincoPorques({
 
   return (
     <div>
+      <p className="mb-3 text-xs font-medium text-slate-400">
+        Problema: {problemaLabel}
+      </p>
+
       <div className="mb-4">
         <div className="mb-1.5 flex items-baseline justify-between">
           <p className="text-sm font-semibold text-slate-600">

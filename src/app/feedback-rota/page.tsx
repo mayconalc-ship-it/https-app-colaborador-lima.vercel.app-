@@ -2,11 +2,13 @@
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { PageHeader } from "@/components/PageHeader";
 import { NOTAS, OCORRENCIAS, notaRuim } from "@/lib/feedback-ocorrencias";
 import { enviarFeedbackRota } from "./actions";
 
 export default function FeedbackRotaPage() {
+  const router = useRouter();
   const [nota, setNota] = useState<number | null>(null);
   const [rota, setRota] = useState("");
   const [comentario, setComentario] = useState("");
@@ -14,6 +16,11 @@ export default function FeedbackRotaPage() {
   const [enviado, setEnviado] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [pendente, startTransition] = useTransition();
+
+  // O botão "Fazer 5 Porquês" só aparece quando o formulário já está
+  // pronto para envio -- mesma regra que hoje libera o botão único.
+  const pronto =
+    nota !== null && rota !== "" && !(notaRuim(nota) && comentario.trim() === "");
 
   function alternarOcorrencia(id: string) {
     setMarcadas((atuais) =>
@@ -26,14 +33,23 @@ export default function FeedbackRotaPage() {
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setErro(null);
-    const formData = new FormData(e.currentTarget);
+    // O segundo argumento (submitter) é obrigatório para o FormData
+    // incluir o "name=acao" do BOTÃO que disparou o envio -- sem ele o
+    // FormData nunca sabe qual dos dois botões foi tocado.
+    const submitter = (e.nativeEvent as SubmitEvent).submitter;
+    const formData = new FormData(e.currentTarget, submitter);
+    const irPara5Porques = formData.get("acao") === "5porques";
 
     startTransition(async () => {
       const resultado = await enviarFeedbackRota(formData);
-      if (resultado.ok) {
-        setEnviado(true);
+      if (!resultado.ok) {
+        setErro(resultado.erro);
+        return;
+      }
+      if (irPara5Porques) {
+        router.push(`/feedback-rota/5-porques?feedbackId=${resultado.feedbackId}`);
       } else {
-        setErro(resultado.erro ?? "Não foi possível enviar.");
+        setEnviado(true);
       }
     });
   }
@@ -65,13 +81,6 @@ export default function FeedbackRotaPage() {
         title="Feedback da Rota"
         subtitle="Leva menos de 1 minuto. Se a rota foi ruim, conte o que houve"
       />
-
-      <Link
-        href="/feedback-rota/5-porques"
-        className="mb-4 flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white p-4 text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50"
-      >
-        🧠 Analisar problema
-      </Link>
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -192,28 +201,49 @@ export default function FeedbackRotaPage() {
           </p>
         )}
 
-        <button
-          type="submit"
-          disabled={
-            nota === null ||
-            rota === "" ||
-            (notaRuim(nota) && comentario.trim() === "") ||
-            pendente
-          }
-          aria-busy={pendente}
-          className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-4 font-semibold text-white hover:bg-primary-dark disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          {pendente && <span className="rodinha" aria-hidden="true" />}
-          {pendente
-            ? "Enviando..."
-            : nota === null
+        {pronto ? (
+          <div className="space-y-2">
+            <button
+              type="submit"
+              name="acao"
+              value="enviar"
+              disabled={pendente}
+              aria-busy={pendente}
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-4 font-semibold text-white hover:bg-primary-dark disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {pendente && <span className="rodinha" aria-hidden="true" />}
+              {pendente ? "Enviando..." : "✅ Enviar feedback"}
+            </button>
+
+            <button
+              type="submit"
+              name="acao"
+              value="5porques"
+              disabled={pendente}
+              aria-busy={pendente}
+              className="flex w-full flex-col items-center justify-center gap-0.5 rounded-xl border-2 border-primary bg-primary-soft py-3 font-semibold text-primary transition hover:bg-primary/10 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <span>{pendente ? "Enviando..." : "🧠 Fazer 5 Porquês"}</span>
+              {!pendente && (
+                <span className="text-xs font-normal text-primary/80">
+                  Encontre a causa raiz do problema
+                </span>
+              )}
+            </button>
+          </div>
+        ) : (
+          <button
+            type="submit"
+            disabled
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-4 font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {nota === null
               ? "Escolha como foi sua rota"
               : rota === ""
                 ? "Informe o nº do mapa"
-                : notaRuim(nota) && comentario.trim() === ""
-                  ? "Conte para nós o que podemos melhorar"
-                  : "Enviar feedback"}
-        </button>
+                : "Conte para nós o que podemos melhorar"}
+          </button>
+        )}
       </form>
     </div>
   );

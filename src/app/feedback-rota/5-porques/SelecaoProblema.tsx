@@ -11,8 +11,12 @@ import type { ArvoreDecisao } from "@/lib/cinco-porques-ia";
  * o motorista só toca em botões.
  */
 export function SelecaoProblema({
+  feedbackRotaId,
+  rota,
   onIniciar,
 }: {
+  feedbackRotaId: number;
+  rota: string | null;
   onIniciar: (dados: {
     analiseId: number;
     problemaLabel: string;
@@ -41,6 +45,8 @@ export function SelecaoProblema({
       const resultado = await iniciarAnalise({
         problemaId: selecionado,
         problemaLabel: labelEscolhido,
+        feedbackRotaId,
+        rota: rota ?? undefined,
       });
       if (resultado.ok) {
         onIniciar({
@@ -56,6 +62,9 @@ export function SelecaoProblema({
 
   return (
     <div>
+      <p className="mb-3 text-sm font-semibold text-slate-800">
+        O que aconteceu na rota?
+      </p>
       <div className="grid grid-cols-2 gap-2">
         {PROBLEMAS.map((p) => (
           <button

@@ -6,7 +6,9 @@ import { notaRuim, OCORRENCIAS } from "@/lib/feedback-ocorrencias";
 
 const IDS_VALIDOS = new Set(OCORRENCIAS.map((o) => o.id as string));
 
-export type ResultadoFeedback = { ok: boolean; erro?: string };
+export type ResultadoFeedback =
+  | { ok: true; feedbackId: number }
+  | { ok: false; erro: string };
 
 export async function enviarFeedbackRota(
   formData: FormData,
@@ -46,16 +48,22 @@ export async function enviarFeedbackRota(
     return { ok: false, erro: "Você não está em nenhuma revenda." };
   }
 
-  const { error } = await supabase.from("feedback_rota").insert({
-    revenda_id: revendaId,
-    colaborador_id: user.id,
-    nota,
-    rota,
-    ocorrencias,
-    comentario,
-  });
+  const { data: gravado, error } = await supabase
+    .from("feedback_rota")
+    .insert({
+      revenda_id: revendaId,
+      colaborador_id: user.id,
+      nota,
+      rota,
+      ocorrencias,
+      comentario,
+    })
+    .select("id")
+    .single();
 
-  if (error) return { ok: false, erro: "Não foi possível enviar. Tente de novo." };
+  if (error || !gravado) {
+    return { ok: false, erro: "Não foi possível enviar. Tente de novo." };
+  }
 
-  return { ok: true };
+  return { ok: true, feedbackId: gravado.id };
 }

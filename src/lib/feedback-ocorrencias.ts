@@ -25,6 +25,12 @@ export function rotuloOcorrencia(id: string) {
   return item ? `${item.emoji} ${item.label}` : id;
 }
 
+/** Sem emoji -- para compor o contexto que vai para a IA do 5 Porquês,
+ *  não para exibir na tela. */
+export function labelOcorrencia(id: string) {
+  return MAPA_OCORRENCIAS.get(id as (typeof OCORRENCIAS)[number]["id"])?.label ?? id;
+}
+
 export function rotuloNota(nota: number) {
   const item = NOTAS.find((n) => n.valor === nota);
   return item ? `${item.emoji} ${item.label}` : String(nota);
