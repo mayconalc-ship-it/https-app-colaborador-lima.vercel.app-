@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
+import { CampoComNovaOpcao } from "@/components/CampoComNovaOpcao";
 import { useConfirmarEnvio } from "@/components/Confirmacao";
 import { ROTULO_PAPEL, type Papel } from "@/lib/acessos";
 
@@ -25,6 +26,8 @@ export function ColaboradorItem({
   onPromover,
   onExcluir,
   revendas,
+  areasExistentes,
+  cargosExistentes,
   vinculos,
   podeMexerEmVinculos,
   nomesDasRevendas,
@@ -44,6 +47,8 @@ export function ColaboradorItem({
   onPromover?: (formData: FormData) => void;
   onExcluir: (formData: FormData) => void;
   revendas: { id: string; nome: string }[];
+  areasExistentes: string[];
+  cargosExistentes: string[];
   vinculos: { revendaId: string; principal: boolean }[];
   /** Só o dono mexe em vínculo: ele decide o que a pessoa vê do app inteiro. */
   podeMexerEmVinculos: boolean;
@@ -137,10 +142,14 @@ export function ColaboradorItem({
                 <label className="mb-1 block text-xs font-medium text-slate-600">
                   Cargo
                 </label>
-                <input
+                <CampoComNovaOpcao
                   name="cargo"
-                  defaultValue={c.cargo ?? ""}
-                  className="w-full rounded-lg border border-slate-200 p-2 text-base focus:border-primary focus:outline-none"
+                  opcoes={cargosExistentes}
+                  valorAtual={c.cargo}
+                  obrigatorio
+                  textoNovo="+ Cadastrar novo cargo"
+                  placeholderNovo="Ex: Motorista"
+                  className="w-full rounded-lg border border-slate-200 bg-white p-2 text-base focus:border-primary focus:outline-none"
                 />
               </div>
             </div>
@@ -149,10 +158,14 @@ export function ColaboradorItem({
               <label className="mb-1 block text-xs font-medium text-slate-600">
                 Área
               </label>
-              <input
+              <CampoComNovaOpcao
                 name="area"
-                defaultValue={c.area ?? ""}
-                className="w-full rounded-lg border border-slate-200 p-2 text-base focus:border-primary focus:outline-none"
+                opcoes={areasExistentes}
+                valorAtual={c.area}
+                obrigatorio
+                textoNovo="+ Cadastrar nova área"
+                placeholderNovo="Ex: DISTRIBUIÇÃO"
+                className="w-full rounded-lg border border-slate-200 bg-white p-2 text-base focus:border-primary focus:outline-none"
               />
             </div>
 

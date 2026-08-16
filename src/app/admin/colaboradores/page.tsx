@@ -6,6 +6,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { PageHeader } from "@/components/PageHeader";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
 import { ColaboradorItem } from "@/components/ColaboradorItem";
+import { CampoComNovaOpcao } from "@/components/CampoComNovaOpcao";
 import { SENHA_PADRAO } from "@/lib/senha";
 import {
   redefinirSenha,
@@ -68,6 +69,29 @@ export default async function AdminColaboradoresPage({
 
   const listaRevendas = revendas ?? [];
   const idsRevendasVisiveis = listaRevendas.map((r) => r.id);
+
+  // Áreas e cargos já cadastrados no app inteiro, para alimentar os menus
+  // suspensos do formulário -- é o mesmo catálogo pra todas as revendas, já
+  // que são só classificações de função, não dado sensível de ninguém.
+  const { data: areaCargoRows } = await admin
+    .from("profiles")
+    .select("area, cargo");
+
+  const areasExistentes = Array.from(
+    new Set(
+      (areaCargoRows ?? [])
+        .map((r) => r.area)
+        .filter((v): v is string => !!v && v.trim() !== ""),
+    ),
+  ).sort((a, b) => a.localeCompare(b, "pt-BR"));
+
+  const cargosExistentes = Array.from(
+    new Set(
+      (areaCargoRows ?? [])
+        .map((r) => r.cargo)
+        .filter((v): v is string => !!v && v.trim() !== ""),
+    ),
+  ).sort((a, b) => a.localeCompare(b, "pt-BR"));
 
   // "Todas" é o padrão; o filtro só estreita, e só aceita revenda que a
   // pessoa já podia ver.
@@ -225,11 +249,14 @@ export default async function AdminColaboradoresPage({
               >
                 Cargo
               </label>
-              <input
+              <CampoComNovaOpcao
                 id="novo-cargo"
                 name="cargo"
-                placeholder="Ex: Motorista"
-                className="w-full rounded-xl border border-slate-200 p-3 text-base focus:border-primary focus:outline-none"
+                opcoes={cargosExistentes}
+                obrigatorio
+                textoNovo="+ Cadastrar novo cargo"
+                placeholderNovo="Ex: Motorista"
+                className="w-full rounded-xl border border-slate-200 bg-white p-3 text-base focus:border-primary focus:outline-none"
               />
             </div>
           </div>
@@ -241,11 +268,14 @@ export default async function AdminColaboradoresPage({
             >
               Área
             </label>
-            <input
+            <CampoComNovaOpcao
               id="nova-area"
               name="area"
-              placeholder="Ex: DISTRIBUIÇÃO"
-              className="w-full rounded-xl border border-slate-200 p-3 text-base focus:border-primary focus:outline-none"
+              opcoes={areasExistentes}
+              obrigatorio
+              textoNovo="+ Cadastrar nova área"
+              placeholderNovo="Ex: DISTRIBUIÇÃO"
+              className="w-full rounded-xl border border-slate-200 bg-white p-3 text-base focus:border-primary focus:outline-none"
             />
           </div>
 
@@ -361,50 +391,58 @@ export default async function AdminColaboradoresPage({
         )}
       </form>
 
-      <p className="mb-2 text-sm text-slate-500">
-        {colaboradores?.length ?? 0}{" "}
-        {termo ? `resultado(s) para "${termo}"` : "na lista"} — toque para
-        editar
-      </p>
+      <details open>
+        <summary className="mb-2 cursor-pointer text-sm font-semibold text-primary">
+          Lista de colaboradores — toque para recolher ou mostrar
+        </summary>
 
-      {!colaboradores || colaboradores.length === 0 ? (
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 text-center text-sm text-slate-500 shadow-sm">
-          Nenhum colaborador encontrado.
-        </div>
-      ) : (
-        <div className="divide-y divide-slate-100 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-          {colaboradores.map((c) => (
-            <ColaboradorItem
-              key={c.id}
-              colaborador={c}
-              busca={busca}
-              ehVoceMesmo={c.id === usuarioAtual.id}
-              senhaPadrao={SENHA_PADRAO}
-              onAtualizar={atualizarColaborador}
-              onRedefinirSenha={redefinirSenha}
-              onPromover={podePromover ? promoverColaborador : undefined}
-              onExcluir={excluirColaborador}
-              revendas={listaRevendas}
-              vinculos={vinculosPorPessoa.get(c.id) ?? []}
-              podeMexerEmVinculos={souDono}
-              nomesDasRevendas={(vinculosPorPessoa.get(c.id) ?? [])
-                .map((v) => nomePorRevenda.get(v.revendaId))
-                .filter((n): n is string => Boolean(n))}
-              temAcessoAG={idsComAG.has(c.id)}
-              podeAlternarAG={
-                souDono &&
-                c.role === "colaborador" &&
-                (vinculosPorPessoa.get(c.id) ?? []).some(
-                  (v) => v.revendaId === revendaAtiva.id,
-                )
-              }
-              revendaAtivaNome={revendaAtiva.nome}
-              onConcederAG={concederAcessoAtivoGiro}
-              onRevogarAG={revogarAcessoAtivoGiro}
-            />
-          ))}
-        </div>
-      )}
+        <p className="mb-2 text-sm text-slate-500">
+          {colaboradores?.length ?? 0}{" "}
+          {termo ? `resultado(s) para "${termo}"` : "na lista"} — toque para
+          editar
+        </p>
+
+        {!colaboradores || colaboradores.length === 0 ? (
+          <div className="rounded-2xl border border-slate-200 bg-white p-6 text-center text-sm text-slate-500 shadow-sm">
+            Nenhum colaborador encontrado.
+          </div>
+        ) : (
+          <div className="divide-y divide-slate-100 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+            {colaboradores.map((c) => (
+              <ColaboradorItem
+                key={c.id}
+                colaborador={c}
+                busca={busca}
+                ehVoceMesmo={c.id === usuarioAtual.id}
+                senhaPadrao={SENHA_PADRAO}
+                onAtualizar={atualizarColaborador}
+                onRedefinirSenha={redefinirSenha}
+                onPromover={podePromover ? promoverColaborador : undefined}
+                onExcluir={excluirColaborador}
+                revendas={listaRevendas}
+                areasExistentes={areasExistentes}
+                cargosExistentes={cargosExistentes}
+                vinculos={vinculosPorPessoa.get(c.id) ?? []}
+                podeMexerEmVinculos={souDono}
+                nomesDasRevendas={(vinculosPorPessoa.get(c.id) ?? [])
+                  .map((v) => nomePorRevenda.get(v.revendaId))
+                  .filter((n): n is string => Boolean(n))}
+                temAcessoAG={idsComAG.has(c.id)}
+                podeAlternarAG={
+                  souDono &&
+                  c.role === "colaborador" &&
+                  (vinculosPorPessoa.get(c.id) ?? []).some(
+                    (v) => v.revendaId === revendaAtiva.id,
+                  )
+                }
+                revendaAtivaNome={revendaAtiva.nome}
+                onConcederAG={concederAcessoAtivoGiro}
+                onRevogarAG={revogarAcessoAtivoGiro}
+              />
+            ))}
+          </div>
+        )}
+      </details>
 
       <p className="mt-3 text-xs text-slate-400">
         Não existe recuperação de senha por e-mail: o acesso é por CPF e os

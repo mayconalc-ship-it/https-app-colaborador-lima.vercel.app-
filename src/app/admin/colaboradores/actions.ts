@@ -26,9 +26,13 @@ export async function criarColaborador(formData: FormData) {
 
   const nome = campo(formData, "nome");
   const cpf = somenteDigitos(campo(formData, "cpf"));
+  const cargo = campo(formData, "cargo");
+  const area = campo(formData, "area");
 
   if (!nome) voltar({ erro: "Informe o nome" });
   if (cpf.length !== 11) voltar({ erro: "O CPF deve ter 11 dígitos" });
+  if (!cargo) voltar({ erro: "Informe o cargo" });
+  if (!area) voltar({ erro: "Informe a área" });
 
   // Quem cadastra, cadastra por padrão para a revenda em que está. Só o
   // dono pode escolher outra na própria tela -- o campo nem aparece para
@@ -72,8 +76,8 @@ export async function criarColaborador(formData: FormData) {
     nome,
     cpf,
     matricula: campo(formData, "matricula") || null,
-    cargo: campo(formData, "cargo") || null,
-    area: campo(formData, "area") || null,
+    cargo,
+    area,
     revenda: campo(formData, "revenda") || null,
     empresa: campo(formData, "empresa") || null,
     role: "colaborador",
@@ -136,10 +140,14 @@ export async function atualizarColaborador(formData: FormData) {
 
   const id = campo(formData, "id");
   const nome = campo(formData, "nome");
+  const cargo = campo(formData, "cargo");
+  const area = campo(formData, "area");
   const busca = campo(formData, "busca");
 
   if (!id) voltar({ erro: "Colaborador inválido" });
   if (!nome) voltar({ erro: "O nome não pode ficar vazio" });
+  if (!cargo) voltar({ erro: "O cargo não pode ficar vazio", ...(busca ? { busca } : {}) });
+  if (!area) voltar({ erro: "A área não pode ficar vazia", ...(busca ? { busca } : {}) });
 
   const admin = createAdminClient();
   const { error } = await admin
@@ -147,8 +155,8 @@ export async function atualizarColaborador(formData: FormData) {
     .update({
       nome,
       matricula: campo(formData, "matricula") || null,
-      cargo: campo(formData, "cargo") || null,
-      area: campo(formData, "area") || null,
+      cargo,
+      area,
     })
     .eq("id", id);
 
