@@ -33,6 +33,8 @@ const MAX_CARACTERES = 200_000;
 /** O PDF vai inteiro para a API, e a requisição toda tem limite de 32 MB. */
 const MAX_PDF_BYTES = 20 * 1024 * 1024;
 
+const MODELO = "claude-opus-5";
+
 export type FonteDoPadrao =
   | { tipo: "texto"; texto: string; truncado: boolean }
   | { tipo: "pdf"; base64: string };
@@ -234,7 +236,7 @@ Gere ${dados.quantidade} perguntas${
         ];
 
   const fluxo = cliente.messages.stream({
-    model: "claude-opus-5",
+    model: MODELO,
     max_tokens: 16000,
     system: INSTRUCOES,
     output_config: {
@@ -294,3 +296,5 @@ export function mensagemDeErro(erro: unknown): string {
 
   return (erro as Error)?.message ?? "Falha inesperada ao gerar as perguntas.";
 }
+
+export { MODELO };

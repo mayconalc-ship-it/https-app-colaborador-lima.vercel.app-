@@ -7,11 +7,13 @@ import {
   proximoPasso,
   iaConfigurada,
   mensagemDeErro,
+  MODELO,
   type CategoriaCincoPorques,
   type NoDecisao,
   type RespostaPorque,
   type Terminal,
 } from "@/lib/cinco-porques-ia";
+import { registrarUsoIA } from "@/lib/ia-uso";
 
 export type IniciarAnaliseResultado =
   | { ok: true; analiseId: number; primeiroNo: NoDecisao }
@@ -49,6 +51,14 @@ export async function iniciarAnalise(dados: {
     // Sem respostas ainda, então o schema obriga uma pergunta -- nunca uma
     // causa raiz. Por isso o `proximoNo` pode ser exigido aqui.
     const resultado = await proximoPasso({ problemaLabel, respostas: [] });
+    await registrarUsoIA({
+      recurso: "cinco_porques",
+      modelo: MODELO,
+      revendaId,
+      colaboradorId: perfil.id,
+      entrada: resultado.custo.entrada,
+      saida: resultado.custo.saida,
+    });
     if (!resultado.proximoNo) {
       return { ok: false, erro: "Não foi possível montar a primeira pergunta. Tente de novo." };
     }
@@ -128,6 +138,14 @@ export async function responderEAvancar(dados: {
       problemaLabel: dados.problemaLabel,
       respostas: dados.respostas,
       motivo: dados.motivo,
+    });
+    await registrarUsoIA({
+      recurso: "cinco_porques",
+      modelo: MODELO,
+      revendaId: await getRevendaId(),
+      colaboradorId: perfil.id,
+      entrada: resultado.custo.entrada,
+      saida: resultado.custo.saida,
     });
     return {
       ok: true,

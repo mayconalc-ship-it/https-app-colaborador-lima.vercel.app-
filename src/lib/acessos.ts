@@ -210,6 +210,11 @@ export const MODULOS_DO_DONO = [
     rotulo: "Notificações",
     emoji: "🔔",
   },
+  {
+    href: "/admin/creditos-ia",
+    rotulo: "Créditos de IA",
+    emoji: "💳",
+  },
 ];
 
 export function ehOwner(papel: string | undefined) {

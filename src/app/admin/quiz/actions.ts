@@ -19,7 +19,9 @@ import {
   iaConfigurada,
   lerPadrao,
   mensagemDeErro,
+  MODELO as MODELO_IA_QUIZ,
 } from "@/lib/quiz-ia";
+import { registrarUsoIA } from "@/lib/ia-uso";
 import {
   PERGUNTAS_PADRAO,
   PONTOS_POR_QUESTAO,
@@ -666,6 +668,14 @@ export async function gerarComIA(formData: FormData) {
       padrao: padrao.nome,
       pilar: rodada.pilar,
       atividade: rodada.atividade,
+    });
+    await registrarUsoIA({
+      recurso: "quiz",
+      modelo: MODELO_IA_QUIZ,
+      revendaId,
+      colaboradorId: perfil?.id ?? null,
+      entrada: geradas.custo.entrada,
+      saida: geradas.custo.saida,
     });
   } catch (e) {
     redirect(`${destino}?erro=${encodeURIComponent(mensagemDeErro(e))}`);

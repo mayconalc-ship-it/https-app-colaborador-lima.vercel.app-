@@ -317,4 +317,4 @@ export function mensagemDeErro(erro: unknown): string {
   return (erro as Error)?.message ?? "Falha inesperada ao analisar o problema.";
 }
 
-export { PORQUES_MAXIMOS, PORQUES_MINIMOS };
+export { MODELO, PORQUES_MAXIMOS, PORQUES_MINIMOS };
