@@ -422,7 +422,10 @@ export default async function RodadaPage({
                   e deve ser corrigida ou excluída antes de publicar. */}
               {q.origemTrecho && (
                 <details className="mt-2 rounded-lg border border-amber-200 bg-amber-50 p-2.5 pl-3">
-                  <summary className="cursor-pointer text-xs font-semibold text-amber-900">
+                  <summary
+                    className="cursor-pointer text-xs font-semibold text-amber-900"
+                    title="Passagem copiada do arquivo do padrão que comprova a resposta certa — confira se ela realmente sustenta o que a pergunta afirma."
+                  >
                     📄 Trecho do padrão que sustenta a resposta
                   </summary>
                   <p className="mt-2 border-l-2 border-amber-300 pl-3 text-xs italic leading-relaxed text-slate-700">
@@ -456,6 +459,11 @@ export default async function RodadaPage({
                       <input type="hidden" name="status" value={q.status} />
                       <BotaoEnviar
                         textoEnviando="..."
+                        title={
+                          q.status === "ativa"
+                            ? "Tira a pergunta de circulação em rodadas futuras, sem apagar. Ela continua no banco e pode ser reativada depois."
+                            : "Volta a pergunta a ficar disponível para novas rodadas."
+                        }
                         className="rounded-lg border border-slate-200 px-3 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50"
                       >
                         {q.status === "ativa" ? "Desativar" : "Ativar"}
@@ -468,6 +476,7 @@ export default async function RodadaPage({
                         campos={{ rodada_id: rodada.id, questao_id: q.id }}
                         confirmacao="Tirar esta pergunta da rodada? Ela continua no banco."
                         textoEnviando="Tirando..."
+                        title="Remove a pergunta só desta rodada. Ela continua ativa no banco, disponível para outras rodadas."
                         className="rounded-lg border border-slate-200 px-3 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50"
                       >
                         Tirar da rodada
@@ -479,6 +488,7 @@ export default async function RodadaPage({
                         action={excluirQuestao}
                         campos={{ rodada_id: rodada.id, questao_id: q.id }}
                         confirmacao="Excluir esta pergunta do banco? Não dá para desfazer."
+                        title="Apaga a pergunta e suas alternativas em definitivo. Só é possível enquanto ela nunca foi usada em nenhuma rodada."
                       >
                         Excluir
                       </BotaoExcluir>
@@ -492,7 +502,10 @@ export default async function RodadaPage({
                   uma alternativa que deixou de existir. */}
               {podeEditar && rascunho && (
                 <details className="mt-3 border-t border-slate-100 pt-3">
-                  <summary className="cursor-pointer text-xs font-semibold text-primary">
+                  <summary
+                    className="cursor-pointer text-xs font-semibold text-primary"
+                    title="Abre o formulário para alterar o texto, as alternativas, a dificuldade ou a explicação desta pergunta."
+                  >
                     ✏️ Editar esta pergunta
                   </summary>
                   <form action={editarQuestao} className="mt-3 space-y-3">
@@ -630,7 +643,7 @@ export default async function RodadaPage({
                       defaultValue={Math.min(Math.max(faltam, 1), 10)}
                       className={ENTRADA}
                     >
-                      {[3, 5, 8, 10, 15].map((n) => (
+                      {[3, 5, 8, 10].map((n) => (
                         <option key={n} value={n}>
                           {n} perguntas
                         </option>

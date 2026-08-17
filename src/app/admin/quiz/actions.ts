@@ -641,15 +641,25 @@ export async function gerarComIA(formData: FormData) {
     );
   }
 
-  const quantidade = Math.min(Math.max(numero(formData, "quantidade") || 5, 1), 15);
+  // 15 perguntas com raciocínio passa do teto de 60s do plano Hobby (ver
+  // maxDuration em app/admin/quiz/[id]/page.tsx) — por isso o máximo aqui é 10.
+  const quantidade = Math.min(Math.max(numero(formData, "quantidade") || 5, 1), 10);
 
   const admin = createAdminClient();
-  const { data: padrao } = await admin
-    .from("padroes")
-    .select("nome, tipo, arquivo_url")
-    .eq("id", rodada.padraoId)
-    .eq("revenda_id", revendaId)
-    .maybeSingle();
+  const [{ data: padrao }, { data: doBanco }] = await Promise.all([
+    admin
+      .from("padroes")
+      .select("nome, tipo, arquivo_url")
+      .eq("id", rodada.padraoId)
+      .eq("revenda_id", revendaId)
+      .maybeSingle(),
+    admin
+      .from("quiz_questoes")
+      .select("pergunta")
+      .eq("revenda_id", revendaId)
+      .eq("area", rodada.area)
+      .eq("status", "ativa"),
+  ]);
 
   if (!padrao) {
     redirect(
@@ -668,6 +678,7 @@ export async function gerarComIA(formData: FormData) {
       padrao: padrao.nome,
       pilar: rodada.pilar,
       atividade: rodada.atividade,
+      existentes: (doBanco ?? []).map((q) => q.pergunta),
     });
     await registrarUsoIA({
       recurso: "quiz",

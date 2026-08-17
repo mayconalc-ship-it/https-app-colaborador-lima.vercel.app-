@@ -165,7 +165,7 @@ COMO ESCREVER AS PERGUNTAS
 - Escreva como se fala na operação. Frases curtas, sem juridiquês.
 - Uma única resposta certa, sem discussão. Nada de "a mais correta".
 - Os distratores precisam ser plausíveis para quem não estudou: erros que alguém realmente cometeria. Nada de alternativa absurda ou engraçada, que se elimina sem saber a matéria.
-- Não repita a mesma pergunta com outras palavras.
+- Não repita a mesma pergunta com outras palavras — nem entre as que você está gerando agora, nem em relação às perguntas já existentes que vierem listadas no pedido.
 - Varie a posição da resposta certa entre as questões.
 - A explicação tem uma ou duas frases e diz POR QUE, com base no padrão. Ela é lida na hora do erro, e é o que faz a pessoa aprender.
 
@@ -195,6 +195,8 @@ export async function gerarQuestoes(dados: {
   padrao: string;
   pilar: string | null;
   atividade: string | null;
+  /** Perguntas já existentes no banco desta área, para o modelo não repetir com outras palavras. */
+  existentes?: string[];
 }): Promise<ResultadoGeracao> {
   const cliente = new Anthropic();
 
@@ -206,13 +208,19 @@ export async function gerarQuestoes(dados: {
     .filter(Boolean)
     .join("\n");
 
+  const listaExistentes = (dados.existentes ?? []).slice(0, 100);
+  const existentesTexto =
+    listaExistentes.length > 0
+      ? `\n\nPerguntas que já existem no banco desta área — não gere nenhuma igual ou parecida a estas, nem a mesma pergunta com outras palavras:\n${listaExistentes.map((p) => `- ${p}`).join("\n")}`
+      : "";
+
   const pedido = `${contexto}
 
 Gere ${dados.quantidade} perguntas${
     dados.atividade
       ? `, priorizando o que o padrão diz sobre "${dados.atividade}"`
       : ""
-  }.`;
+  }.${existentesTexto}`;
 
   const conteudo: Anthropic.ContentBlockParam[] =
     dados.fonte.tipo === "pdf"

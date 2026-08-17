@@ -21,6 +21,7 @@ export function BotaoExcluir({
   textoEnviando = "Excluindo...",
   rotuloConfirmar,
   perigo = true,
+  title,
 }: {
   action: (formData: FormData) => void;
   campos: Record<string, string | number>;
@@ -35,6 +36,7 @@ export function BotaoExcluir({
    *  Vermelho ali assustaria à toa -- e pior, sugeriria que os resultados
    *  seriam perdidos. */
   perigo?: boolean;
+  title?: string;
 }) {
   const aoEnviar = useConfirmarEnvio();
 
@@ -52,6 +54,7 @@ export function BotaoExcluir({
       ))}
       <BotaoEnviar
         textoEnviando={textoEnviando}
+        title={title}
         className={
           className ??
           "rounded-lg border border-red-200 px-3 py-1 text-xs font-medium text-red-600 hover:bg-red-50"
