@@ -70,12 +70,9 @@ export function ColaboradorItem({
   const principalAtual =
     vinculos.find((v) => v.principal)?.revendaId ?? vinculos[0]?.revendaId;
 
-  // Mesma assinatura de antes, para os pontos de uso não mudarem: recebe a
-  // pergunta e devolve o onSubmit. Só o popup do navegador virou modal.
+  // Cada confirmação diz no botão o que vai acontecer ("Tornar liderança",
+  // "Remover do app"). Um "Excluir" genérico assusta em ação que não apaga nada.
   const aoEnviar = useConfirmarEnvio();
-  function confirmar(mensagem: string) {
-    return aoEnviar({ titulo: mensagem });
-  }
 
   return (
     <div className={aberto ? "bg-slate-50" : ""}>
@@ -235,10 +232,22 @@ export function ColaboradorItem({
             <form
               action={onPromover}
               className="border-t border-slate-200 pt-3"
-              onSubmit={confirmar(
+              onSubmit={aoEnviar(
                 c.role === "lideranca"
-                  ? `Tirar o acesso de liderança de ${c.nome}?\n\nEle continua usando o app normalmente, mas perde todas as permissões.`
-                  : `Tornar ${c.nome} liderança?\n\nEle entra SEM nenhum módulo liberado — o Admin precisa liberar depois.`,
+                  ? {
+                      titulo: `Tirar o acesso de liderança de ${c.nome}?`,
+                      detalhe:
+                        "Ele continua usando o app normalmente, mas perde todas as permissões.",
+                      confirmar: "Tirar liderança",
+                    }
+                  : {
+                      titulo: `Tornar ${c.nome} liderança?`,
+                      detalhe:
+                        "Ele entra SEM nenhum módulo liberado — o Admin precisa liberar depois.",
+                      confirmar: "Tornar liderança",
+                      // Promover não apaga nada: botão azul, não o vermelho de excluir.
+                      perigo: false,
+                    },
               )}
             >
               <input type="hidden" name="id" value={c.id} />
@@ -299,9 +308,12 @@ export function ColaboradorItem({
           <div className="flex flex-wrap gap-2 border-t border-slate-200 pt-3">
             <form
               action={onRedefinirSenha}
-              onSubmit={confirmar(
-                `Redefinir a senha de ${c.nome} para ${senhaPadrao}? Ele terá que criar uma nova no próximo acesso.`,
-              )}
+              onSubmit={aoEnviar({
+                titulo: `Redefinir a senha de ${c.nome}?`,
+                detalhe: `A senha volta para ${senhaPadrao} e ele terá que criar uma nova no próximo acesso.`,
+                confirmar: "Redefinir senha",
+                perigo: false,
+              })}
             >
               <input type="hidden" name="id" value={c.id} />
               <input type="hidden" name="nome" value={c.nome} />
@@ -317,9 +329,12 @@ export function ColaboradorItem({
             {!ehVoceMesmo && (
               <form
                 action={onExcluir}
-                onSubmit={confirmar(
-                  `REMOVER ${c.nome} do app?\n\nO acesso será apagado e essa ação não pode ser desfeita.`,
-                )}
+                onSubmit={aoEnviar({
+                  titulo: `REMOVER ${c.nome} do app?`,
+                  detalhe:
+                    "O acesso será apagado e essa ação não pode ser desfeita.",
+                  confirmar: "Remover do app",
+                })}
                 className="ml-auto"
               >
                 <input type="hidden" name="id" value={c.id} />
