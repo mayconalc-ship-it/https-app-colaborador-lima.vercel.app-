@@ -4,34 +4,51 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 /**
- * Fica aceso enquanto a pessoa está no Modo Liderança, para deixar claro
- * em qual dos dois modos ela está navegando.
+ * O interruptor entre os dois modos, e o único botão do topo que troca de
+ * modo.
+ *
+ * Antes ele apontava sempre para /admin: aceso dentro do Modo Liderança,
+ * parecia um selo de "você está aqui" -- mas, ao ser tocado, jogava a
+ * pessoa de volta para o painel, mesmo que ela estivesse no meio de uma
+ * tela interna. Três controles disputavam o mesmo destino (este botão, o
+ * "Voltar para o app" e o "Voltar ao Painel"), e nenhum dizia para onde ia.
+ *
+ * Agora ele tem um estado e um destino por vez: fora do modo de gestão,
+ * ENTRA; dentro dele, SAI para o app. O rótulo diz qual dos dois vai
+ * acontecer, então não há o que adivinhar antes de tocar.
  */
 export function BotaoLiderancaCliente({ dono }: { dono: boolean }) {
   const caminho = usePathname();
-  const noModoLideranca = caminho?.startsWith("/admin");
-  const rotulo = dono ? "Admin" : "Liderança";
+  const noModoGestao = caminho?.startsWith("/admin");
+  const modo = dono ? "Admin" : "Liderança";
+
+  if (noModoGestao) {
+    return (
+      <Link
+        href="/"
+        aria-label={`Sair do Modo ${modo} e voltar para o app`}
+        className="shrink-0 rounded-lg bg-white px-2 py-1.5 text-sm font-semibold text-primary-dark ring-2 ring-gold hover:brightness-95"
+      >
+        {/* O fundo branco com anel dourado continua marcando que o modo de
+            gestão está em uso; o que mudou é o rótulo, que agora anuncia a
+            saída. No celular sobra espaço para "← App" -- com o sino, a
+            revenda e o Sair na mesma linha, a frase inteira não cabe. */}
+        <span className="sm:hidden">← App</span>
+        <span className="hidden sm:inline">← Sair do Modo {modo}</span>
+      </Link>
+    );
+  }
 
   return (
     <Link
       href="/admin"
-      aria-current={noModoLideranca ? "page" : undefined}
-      className={`shrink-0 rounded-lg px-2 py-1.5 text-sm font-semibold ${
-        noModoLideranca
-          ? "bg-white text-primary-dark ring-2 ring-gold"
-          : "bg-gold text-primary-dark hover:brightness-95"
-      }`}
+      aria-label={`Entrar no Modo ${modo}`}
+      className="shrink-0 rounded-lg bg-gold px-2 py-1.5 text-sm font-semibold text-primary-dark hover:brightness-95"
     >
-      {/* A engrenagem só do tablet para cima. No celular ela custava 25px
-          da barra -- o bastante para empurrar o Sair para fora -- e não
-          informava nada: o fundo branco com anel dourado já diz que este
-          é o modo em uso, e o aria-current diz o mesmo em voz alta. */}
-      {noModoLideranca && (
-        <span className="hidden sm:inline" aria-hidden="true">
-          ⚙️{" "}
-        </span>
-      )}
-      {rotulo}
+      <span className="hidden sm:inline" aria-hidden="true">
+        ⚙️{" "}
+      </span>
+      {modo}
     </Link>
   );
 }

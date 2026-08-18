@@ -12,9 +12,9 @@ export function PageHeader({
 }) {
   const caminho = usePathname();
 
-  // No modo de gestão a faixa dourada já traz "Voltar para o app" e
-  // "Voltar ao Painel". Um terceiro botão de voltar, com destino parecido,
-  // só faz a pessoa parar para escolher.
+  // No modo de gestão a faixa dourada já traz o "Voltar ao Painel", e o
+  // topo traz a saída para o app. Um terceiro botão de voltar, com destino
+  // parecido, só faz a pessoa parar para escolher.
   const noModoGestao = caminho?.startsWith("/admin");
 
   return (

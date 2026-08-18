@@ -4,7 +4,8 @@ import { ehOwner, temAlgumAcesso } from "@/lib/acessos";
 import { BotaoLiderancaCliente } from "@/components/BotaoLiderancaCliente";
 
 /**
- * Porta de entrada do Modo Liderança, no topo do app.
+ * A porta do Modo Liderança, no topo do app -- a de entrada e a de saída,
+ * sempre no mesmo lugar.
  *
  * Só aparece para quem tem ALGUMA coisa liberada. Ter o papel de liderança
  * não basta: uma liderança sem nenhuma permissão continua vendo o app como
