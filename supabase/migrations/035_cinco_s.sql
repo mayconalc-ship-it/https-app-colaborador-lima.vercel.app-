@@ -185,7 +185,14 @@ create table if not exists public.cinco_s_auditorias (
   -- que o auditor finalizou: uma auditoria de marco feita com atraso no
   -- dia 2 de abril continua sendo o resultado de marco. Gerada pelo
   -- banco para nao depender de ninguem lembrar de preencher.
-  competencia date generated always as (date_trunc('month', planejada_para)::date) stored,
+  --
+  -- O cast explicito para timestamp NAO e enfeite. Sem ele, `date` teria
+  -- dois candidatos -- date_trunc(text, timestamp) e date_trunc(text,
+  -- timestamptz) -- e o Postgres escolheria o segundo, por timestamptz
+  -- ser o tipo preferido da categoria. Esse depende do fuso da sessao,
+  -- e portanto e STABLE, nao IMMUTABLE: a criacao da coluna gerada
+  -- falharia com "generation expression is not immutable".
+  competencia date generated always as ((date_trunc('month', planejada_para::timestamp))::date) stored,
 
   -- ---- consolidado (escrito por cinco_s_consolidar) ----
   total_ok smallint not null default 0,

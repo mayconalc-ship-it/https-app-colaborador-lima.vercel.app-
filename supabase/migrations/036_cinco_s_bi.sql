@@ -269,6 +269,14 @@ perguntas as (
       and (p_senso is null or q.senso = p_senso)
     group by q.id, q.codigo, q.senso, q.texto
     having count(*) filter (where r.valor = 'nao') > 0
+    -- O ORDER BY tem que vir ANTES do LIMIT, e nao so no jsonb_agg de
+    -- fora: sem ele o LIMIT 10 recolheria dez perguntas quaisquer e o
+    -- agregado ordenaria essas dez -- um "ranking dos mais criticos"
+    -- que poderia nao conter o mais critico.
+    order by
+      (count(*) filter (where r.valor = 'nao'))::numeric
+        / nullif(count(*) filter (where r.valor in ('sim', 'nao')), 0) desc nulls last,
+      count(*) filter (where r.valor = 'nao') desc
     limit 10
   ) t
 ),
