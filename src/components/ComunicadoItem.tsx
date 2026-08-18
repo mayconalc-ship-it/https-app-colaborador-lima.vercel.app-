@@ -16,6 +16,7 @@ type Comunicado = {
   data: string;
   imagem_url: string | null;
   lembrete_em?: string | null;
+  lembrete_areas?: string[] | null;
   lembrete_cargos?: string[] | null;
   lembrete_mensagem?: string | null;
   lembrete_enviado_em?: string | null;

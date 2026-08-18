@@ -20,7 +20,7 @@ export default async function AdminComunicadosPage({
   const { data: comunicados } = await admin
     .from("comunicados")
     .select(
-      "id, titulo, resumo, texto, categoria, destaque, data, imagem_url, lembrete_em, lembrete_cargos, lembrete_mensagem, lembrete_enviado_em",
+      "id, titulo, resumo, texto, categoria, destaque, data, imagem_url, lembrete_em, lembrete_areas, lembrete_cargos, lembrete_mensagem, lembrete_enviado_em",
     )
     .eq("revenda_id", revendaId)
     .order("data", { ascending: false })

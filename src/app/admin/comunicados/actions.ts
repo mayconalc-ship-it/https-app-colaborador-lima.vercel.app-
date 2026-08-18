@@ -8,6 +8,7 @@ import { getRevendaId } from "@/lib/revendas";
 import { criarOuAgrupar } from "@/lib/notificacoes-server";
 import { enviarPushDaRevenda } from "@/lib/push-server";
 import { ehEditoriaValida, lembreteParaUTC } from "@/lib/comunicados";
+import { ehAreaValida } from "@/lib/areas";
 
 function caminhoDoStorage(arquivoUrl: string) {
   const prefixo = "/storage/v1/object/public/conteudo/";
@@ -78,9 +79,14 @@ export async function salvarComunicado(formData: FormData) {
   }
 
   // Lembrete: dispara sozinho na hora marcada (ver /api/cron/lembretes).
-  // Cargos vazios = a revenda inteira, igual à publicação em si.
+  // Área e cargo vazios = a revenda inteira, igual à publicação em si;
+  // preenchidos, se cruzam (esta área E este cargo).
   const lembreteLocal = texto(formData, "lembrete_em");
   const lembreteEm = lembreteLocal ? lembreteParaUTC(lembreteLocal) : null;
+  const lembreteAreas = formData
+    .getAll("lembrete_areas")
+    .map(String)
+    .filter(ehAreaValida);
   const lembreteCargos = formData
     .getAll("lembrete_cargos")
     .map(String)
@@ -115,6 +121,7 @@ export async function salvarComunicado(formData: FormData) {
     autor: admin_.nome,
     data: data || new Date().toISOString().slice(0, 10),
     lembrete_em: lembreteEm,
+    lembrete_areas: lembreteAreas.length > 0 ? lembreteAreas : null,
     lembrete_cargos: lembreteCargos.length > 0 ? lembreteCargos : null,
     lembrete_mensagem: lembreteMensagem || null,
     ...(lembreteEnviadoEm !== undefined

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
 import { EDITORIAS, formatarDataHora, lembreteParaLocal } from "@/lib/comunicados";
+import { AREAS } from "@/lib/areas";
 
 type Comunicado = {
   id: number;
@@ -14,10 +15,100 @@ type Comunicado = {
   data: string;
   imagem_url: string | null;
   lembrete_em?: string | null;
+  lembrete_areas?: string[] | null;
   lembrete_cargos?: string[] | null;
   lembrete_mensagem?: string | null;
   lembrete_enviado_em?: string | null;
 };
+
+/**
+ * Lista de marcação que fica recolhida até alguém precisar dela.
+ *
+ * Nasceu porque o lembrete cresceu para dois filtros (área e cargo): com
+ * as duas listas abertas, o campo mais importante -- a data do disparo --
+ * sumia no meio de dezenas de caixinhas. Recolhido, o resumo no cabeçalho
+ * já diz para quem o lembrete vai, sem precisar abrir.
+ *
+ * "Todos" aqui é a AUSÊNCIA de marcação, não todas as opções marcadas.
+ * É a regra que o disparo já usava (lista vazia = revenda inteira) e
+ * evita a armadilha de congelar a lista: um cargo cadastrado depois
+ * continua recebendo, em vez de ficar de fora por não existir no dia em
+ * que o lembrete foi montado.
+ */
+function ListaRecolhida({
+  nome,
+  titulo,
+  opcoes,
+  rotuloTodos,
+  iniciais,
+}: {
+  nome: string;
+  titulo: string;
+  opcoes: { valor: string; rotulo: string }[];
+  rotuloTodos: string;
+  iniciais: string[];
+}) {
+  const [marcados, setMarcados] = useState<string[]>(
+    iniciais.filter((v) => opcoes.some((o) => o.valor === v)),
+  );
+
+  const alternar = (valor: string) =>
+    setMarcados((atual) =>
+      atual.includes(valor)
+        ? atual.filter((v) => v !== valor)
+        : [...atual, valor],
+    );
+
+  const resumo =
+    marcados.length === 0
+      ? rotuloTodos
+      : opcoes
+          .filter((o) => marcados.includes(o.valor))
+          .map((o) => o.rotulo)
+          .join(", ");
+
+  return (
+    <details className="rounded-xl border border-slate-200">
+      <summary className="cursor-pointer p-3 text-sm font-medium text-slate-700">
+        {titulo}{" "}
+        <span className="font-normal text-slate-400">— {resumo}</span>
+      </summary>
+      <div className="flex flex-wrap gap-2 border-t border-slate-100 p-3">
+        <label
+          className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm ${
+            marcados.length === 0
+              ? "border-primary bg-primary-soft font-semibold text-primary"
+              : "border-slate-200 text-slate-700"
+          }`}
+        >
+          <input
+            type="checkbox"
+            checked={marcados.length === 0}
+            onChange={() => setMarcados([])}
+            className="h-4 w-4 rounded border-slate-300 text-primary"
+          />
+          {rotuloTodos}
+        </label>
+        {opcoes.map((o) => (
+          <label
+            key={o.valor}
+            className="flex items-center gap-1.5 rounded-full border border-slate-200 px-3 py-1.5 text-sm text-slate-700"
+          >
+            <input
+              type="checkbox"
+              name={nome}
+              value={o.valor}
+              checked={marcados.includes(o.valor)}
+              onChange={() => alternar(o.valor)}
+              className="h-4 w-4 rounded border-slate-300 text-primary"
+            />
+            {o.rotulo}
+          </label>
+        ))}
+      </div>
+    </details>
+  );
+}
 
 export function ComunicadoForm({
   action,
@@ -34,7 +125,6 @@ export function ComunicadoForm({
     comunicado?.categoria ?? "geral",
   );
   const hoje = new Date().toISOString().slice(0, 10);
-  const cargosMarcados = new Set(comunicado?.lembrete_cargos ?? []);
 
   return (
     <form action={action} className="space-y-4">
@@ -192,33 +282,35 @@ export function ComunicadoForm({
             />
           </div>
 
-          {cargosDisponiveis.length > 0 && (
-            <div>
-              <p className="mb-1 text-sm font-medium text-slate-700">
-                Só para estes cargos{" "}
-                <span className="font-normal text-slate-400">
-                  (nenhum marcado = todo mundo)
-                </span>
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {cargosDisponiveis.map((cargo) => (
-                  <label
-                    key={cargo}
-                    className="flex items-center gap-1.5 rounded-full border border-slate-200 px-3 py-1.5 text-sm text-slate-700"
-                  >
-                    <input
-                      type="checkbox"
-                      name="lembrete_cargos"
-                      value={cargo}
-                      defaultChecked={cargosMarcados.has(cargo)}
-                      className="h-4 w-4 rounded border-slate-300 text-primary"
-                    />
-                    {cargo}
-                  </label>
-                ))}
-              </div>
+          <div>
+            <p className="mb-1 text-sm font-medium text-slate-700">
+              Quem recebe{" "}
+              <span className="font-normal text-slate-400">
+                (área e cargo se cruzam)
+              </span>
+            </p>
+            <div className="space-y-2">
+              <ListaRecolhida
+                nome="lembrete_areas"
+                titulo="🏢 Área"
+                rotuloTodos="Todas as áreas"
+                opcoes={AREAS.map((a) => ({ valor: a.id, rotulo: a.rotulo }))}
+                iniciais={comunicado?.lembrete_areas ?? []}
+              />
+              {cargosDisponiveis.length > 0 && (
+                <ListaRecolhida
+                  nome="lembrete_cargos"
+                  titulo="👤 Cargo"
+                  rotuloTodos="Todos os cargos"
+                  opcoes={cargosDisponiveis.map((c) => ({
+                    valor: c,
+                    rotulo: c,
+                  }))}
+                  iniciais={comunicado?.lembrete_cargos ?? []}
+                />
+              )}
             </div>
-          )}
+          </div>
 
           <div>
             <label
