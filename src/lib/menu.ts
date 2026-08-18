@@ -18,6 +18,7 @@ export const MODULO_DO_ITEM: Record<string, ModuloId> = {
   feedback: "feedbacks",
   "ativo-giro": "ativo-giro",
   quiz: "quiz",
+  "5s": "5s",
 };
 
 export type ItemMenu = {
@@ -42,6 +43,10 @@ export const MENU_PADRAO: ItemMenu[] = [
   // Módulo opcional: só aparece pra quem o Admin liberou (ver temAcessoModulo).
   { chave: "ativo-giro", titulo: "Ativo de Giro", emoji: "📦", href: "/ativo-de-giro", ordem: 10, visivel: true },
   { chave: "quiz", titulo: "Desafio do Mês", emoji: "🏆", href: "/desafio", ordem: 11, visivel: true },
+  // O cartão aparece para todo mundo, mas a tela só abre para quem é
+  // auditor, dono de área ou gestor do 5S -- quem não é vê o convite a
+  // procurar o Admin, igual aos demais módulos de acesso restrito.
+  { chave: "5s", titulo: "Programa 5S", emoji: "🧹", href: "/5s", ordem: 12, visivel: true },
   // "Minha Conta" fica oculto: já existe o botão "Conta" no topo de todas as
   // telas, e repetir ocupava espaço da grade sem acrescentar nada.
   { chave: "conta", titulo: "Minha Conta", emoji: "🔒", href: "/minha-conta", ordem: 9, visivel: false },

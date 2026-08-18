@@ -29,7 +29,8 @@ export type ModuloId =
   | "menu"
   | "rotas"
   | "ativo-giro"
-  | "quiz";
+  | "quiz"
+  | "5s";
 
 export type Modulo = {
   id: ModuloId;
@@ -117,6 +118,18 @@ export const MODULOS: Modulo[] = [
     emoji: "🧠",
     href: "/admin/quiz",
     grupo: "Conteúdo do app",
+    acoes: ["ver", "criar", "editar", "excluir"],
+  },
+  {
+    id: "5s",
+    rotulo: "Programa 5S",
+    emoji: "🧹",
+    href: "/admin/5s",
+    grupo: "Conteúdo do app",
+    // "editar" é o que separa quem administra o programa de quem só
+    // acompanha: com ele a pessoa cadastra área, planeja auditoria e
+    // valida ação; sem ele, abre o BI e olha. É o perfil "Liderança /
+    // Visualizador" do pedido, sem precisar de papel novo.
     acoes: ["ver", "criar", "editar", "excluir"],
   },
   {

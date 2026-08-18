@@ -1,0 +1,851 @@
+import Link from "next/link";
+import { decodificar } from "@/lib/texto-url";
+import { requireModulo } from "@/lib/require-admin";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { exigirRevenda } from "@/lib/revendas";
+import { PageHeader } from "@/components/PageHeader";
+import { listarAreas, listarPerguntas, nomesDe } from "@/lib/cinco-s-server";
+import {
+  EMOJI_SENSO,
+  ROTULO_SENSO,
+  ROTULO_STATUS_AUDITORIA,
+  SENSOS,
+  competenciaAtual,
+  formatarTaxa,
+  rotuloCompetencia,
+  type StatusAuditoria,
+} from "@/lib/cinco-s";
+import {
+  alternarAuditor,
+  cancelarAuditoria,
+  excluirArea,
+  planejarAuditoria,
+  planejarMes,
+  salvarArea,
+  salvarAuditor,
+  salvarPergunta,
+} from "./actions";
+
+export const dynamic = "force-dynamic";
+
+const ABAS = [
+  { id: "planejamento", rotulo: "Planejamento" },
+  { id: "areas", rotulo: "Áreas" },
+  { id: "auditores", rotulo: "Auditores" },
+  { id: "perguntas", rotulo: "Checklist" },
+] as const;
+
+type Params = {
+  aba?: string;
+  erro?: string;
+  sucesso?: string;
+  editar?: string;
+  mes?: string;
+};
+
+/**
+ * Painel de gestão do Programa 5S.
+ *
+ * Abas em vez de quatro telas: cadastrar área, habilitar auditor e
+ * planejar o mês são coisas que se fazem na mesma sentada, no começo do
+ * ciclo. Separá-las em páginas obrigaria a voltar ao menu entre cada uma.
+ *
+ * Só a aba aberta consulta o banco. Carregar as quatro a cada abertura
+ * seria pagar por três telas que ninguém está olhando.
+ */
+export default async function Admin5SPage({
+  searchParams,
+}: {
+  searchParams: Promise<Params>;
+}) {
+  await requireModulo("5s", "ver");
+  const revendaId = await exigirRevenda("/admin");
+
+  const p = await searchParams;
+  const aba = ABAS.some((a) => a.id === p.aba) ? p.aba! : "planejamento";
+  const mes = p.mes ?? competenciaAtual();
+
+  return (
+    <div>
+      <PageHeader
+        title="🧹 Programa 5S"
+        subtitle="Áreas, auditores, planejamento e checklist"
+      />
+
+      {p.erro && (
+        <p className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">
+          {decodificar(p.erro)}
+        </p>
+      )}
+      {p.sucesso && (
+        <p className="mb-4 rounded-lg bg-green-50 p-3 text-sm text-green-700">
+          {decodificar(p.sucesso)}
+        </p>
+      )}
+
+      <div className="mb-4 flex items-center gap-2">
+        <Link
+          href="/admin/5s/bi"
+          className="flex-1 rounded-xl bg-primary py-2.5 text-center text-sm font-semibold text-white active:bg-primary-dark"
+        >
+          📊 Abrir o BI 5S
+        </Link>
+        <Link
+          href="/5s/acoes"
+          className="flex-1 rounded-xl border border-slate-200 bg-white py-2.5 text-center text-sm font-semibold text-slate-700"
+        >
+          Plano de ação
+        </Link>
+      </div>
+
+      <div className="rolagem-lateral -mx-4 mb-4 overflow-x-auto px-4">
+        <div className="flex w-max gap-2">
+          {ABAS.map((a) => (
+            <Link
+              key={a.id}
+              href={`/admin/5s?aba=${a.id}`}
+              className={`shrink-0 rounded-full px-4 py-2 text-sm font-medium ${
+                aba === a.id
+                  ? "bg-slate-700 text-white"
+                  : "bg-white text-slate-600 ring-1 ring-slate-200"
+              }`}
+            >
+              {a.rotulo}
+            </Link>
+          ))}
+        </div>
+      </div>
+
+      {aba === "planejamento" && (
+        <AbaPlanejamento revendaId={revendaId} mes={mes} />
+      )}
+      {aba === "areas" && (
+        <AbaAreas revendaId={revendaId} editando={p.editar ?? null} />
+      )}
+      {aba === "auditores" && <AbaAuditores revendaId={revendaId} />}
+      {aba === "perguntas" && <AbaPerguntas revendaId={revendaId} />}
+    </div>
+  );
+}
+
+/* ================================================================== */
+/* PLANEJAMENTO                                                       */
+/* ================================================================== */
+
+async function AbaPlanejamento({
+  revendaId,
+  mes,
+}: {
+  revendaId: string;
+  mes: string;
+}) {
+  const admin = createAdminClient();
+
+  const [{ data: auditorias }, areas, auditores, { data: meses }] =
+    await Promise.all([
+      admin
+        .from("cinco_s_auditorias")
+        .select(
+          "id, area_id, auditor_id, status, planejada_para, conformidade, total_nok, cinco_s_areas!inner(nome)",
+        )
+        .eq("revenda_id", revendaId)
+        .eq("competencia", `${mes}-01`)
+        .neq("status", "cancelada")
+        .order("planejada_para"),
+      listarAreas(revendaId, { apenasAtivas: true }),
+      auditoresAtivos(revendaId),
+      admin.rpc("cinco_s_competencias", { p_revenda: revendaId }),
+    ]);
+
+  const lista = auditorias ?? [];
+  const nomes = await nomesDe(lista.map((a) => a.auditor_id));
+
+  const feitas = lista.filter((a) => a.status === "finalizada").length;
+  const hoje = new Date().toISOString().slice(0, 10);
+  const atrasadas = lista.filter(
+    (a) => a.status !== "finalizada" && a.planejada_para < hoje,
+  ).length;
+  const semAuditoria = areas.filter(
+    (ar) => !lista.some((a) => a.area_id === ar.id),
+  );
+
+  const competencias: string[] = ((meses ?? []) as { competencia: string }[]).map(
+    (m) => m.competencia,
+  );
+  if (!competencias.includes(mes)) competencias.unshift(mes);
+
+  return (
+    <div className="space-y-4">
+      <div className="rolagem-lateral -mx-4 overflow-x-auto px-4 pb-2">
+        <div className="flex w-max gap-2">
+          {competencias.slice(0, 12).map((c) => (
+            <Link
+              key={c}
+              href={`/admin/5s?aba=planejamento&mes=${c}`}
+              className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-medium ${
+                c === mes
+                  ? "bg-primary text-white"
+                  : "bg-white text-slate-600 ring-1 ring-slate-200"
+              }`}
+            >
+              {rotuloCompetencia(c).replace(" de ", "/")}
+            </Link>
+          ))}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-4 gap-2">
+        <Mini valor={lista.length} rotulo="planejadas" />
+        <Mini valor={feitas} rotulo="realizadas" tom="bom" />
+        <Mini valor={lista.length - feitas} rotulo="pendentes" tom="alerta" />
+        <Mini valor={atrasadas} rotulo="atrasadas" tom={atrasadas > 0 ? "ruim" : "bom"} />
+      </div>
+
+      {/* ---- Agendar o mês inteiro ---- */}
+      <details className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <summary className="cursor-pointer list-none p-4 text-sm font-semibold text-slate-800">
+          Agendar o mês inteiro
+          {semAuditoria.length > 0 && (
+            <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800">
+              {semAuditoria.length} área{semAuditoria.length === 1 ? "" : "s"} sem auditoria
+            </span>
+          )}
+        </summary>
+        <form action={planejarMes} className="space-y-3 border-t border-slate-100 p-4">
+          <input type="hidden" name="competencia" value={mes} />
+          <p className="text-xs text-slate-500">
+            Cria uma auditoria para cada área ativa que ainda não tem uma em{" "}
+            {rotuloCompetencia(mes)}, repetindo o auditor da última vez. As áreas
+            que nunca foram auditadas usam o auditor padrão abaixo.
+          </p>
+          <div className="flex gap-2">
+            <label className="flex-1 text-xs font-semibold text-slate-600">
+              Dia previsto
+              <input
+                type="number"
+                name="dia"
+                min={1}
+                max={28}
+                defaultValue={15}
+                className="mt-1 w-full rounded-xl border border-slate-200 p-3 text-base focus:border-primary focus:outline-none"
+              />
+            </label>
+            <label className="flex-1 text-xs font-semibold text-slate-600">
+              Auditor padrão
+              <select
+                name="auditor_padrao"
+                className="mt-1 w-full rounded-xl border border-slate-200 p-3 text-base focus:border-primary focus:outline-none"
+              >
+                <option value="">— nenhum —</option>
+                {auditores.map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {a.nome}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+          <button
+            type="submit"
+            className="w-full rounded-xl bg-primary py-3 text-sm font-semibold text-white active:bg-primary-dark"
+          >
+            Agendar {rotuloCompetencia(mes)}
+          </button>
+        </form>
+      </details>
+
+      {/* ---- Agendar uma ---- */}
+      <details className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <summary className="cursor-pointer list-none p-4 text-sm font-semibold text-slate-800">
+          Agendar uma auditoria
+        </summary>
+        <form
+          action={planejarAuditoria}
+          className="space-y-3 border-t border-slate-100 p-4"
+        >
+          <label className="block text-xs font-semibold text-slate-600">
+            Área
+            <select
+              name="area_id"
+              required
+              className="mt-1 w-full rounded-xl border border-slate-200 p-3 text-base focus:border-primary focus:outline-none"
+            >
+              {areas.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.nome}
+                  {a.dono_nome ? ` — ${a.dono_nome}` : " — sem dono"}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="block text-xs font-semibold text-slate-600">
+            Auditor
+            <select
+              name="auditor_id"
+              required
+              className="mt-1 w-full rounded-xl border border-slate-200 p-3 text-base focus:border-primary focus:outline-none"
+            >
+              {auditores.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.nome}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="block text-xs font-semibold text-slate-600">
+            Data prevista
+            <input
+              type="date"
+              name="planejada_para"
+              required
+              defaultValue={`${mes}-15`}
+              className="mt-1 w-full rounded-xl border border-slate-200 p-3 text-base focus:border-primary focus:outline-none"
+            />
+          </label>
+          <label className="block text-xs font-semibold text-slate-600">
+            Observação
+            <input
+              name="observacao"
+              className="mt-1 w-full rounded-xl border border-slate-200 p-3 text-base focus:border-primary focus:outline-none"
+            />
+          </label>
+          <button
+            type="submit"
+            className="w-full rounded-xl bg-primary py-3 text-sm font-semibold text-white active:bg-primary-dark"
+          >
+            Agendar e avisar o auditor
+          </button>
+        </form>
+      </details>
+
+      {/* ---- A grade do mês ---- */}
+      <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <h2 className="p-4 pb-2 text-sm font-semibold text-slate-800">
+          {rotuloCompetencia(mes)}
+          <span className="ml-2 font-normal text-slate-400">
+            ({lista.length})
+          </span>
+        </h2>
+        {lista.length === 0 ? (
+          <p className="p-6 pt-2 text-center text-sm text-slate-500">
+            Nenhuma auditoria agendada neste mês.
+          </p>
+        ) : (
+          <ul className="divide-y divide-slate-100 border-t border-slate-100">
+            {lista.map((a) => {
+              const area = (
+                Array.isArray(a.cinco_s_areas)
+                  ? a.cinco_s_areas[0]
+                  : a.cinco_s_areas
+              ) as { nome: string };
+              const atrasada =
+                a.status !== "finalizada" && a.planejada_para < hoje;
+              return (
+                <li key={a.id} className="p-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <Link
+                        href={`/5s/auditoria/${a.id}`}
+                        className="truncate text-sm font-medium text-slate-800 hover:underline"
+                      >
+                        {area.nome}
+                      </Link>
+                      <p className="truncate text-xs text-slate-400">
+                        {nomes.get(a.auditor_id) ?? "—"} ·{" "}
+                        {a.planejada_para.split("-").reverse().join("/")}
+                      </p>
+                    </div>
+                    <div className="shrink-0 text-right">
+                      {a.status === "finalizada" ? (
+                        <p className="text-sm font-bold tabular-nums text-primary">
+                          {formatarTaxa(a.conformidade)}
+                        </p>
+                      ) : (
+                        <span
+                          className={`rounded-full px-2 py-0.5 text-xs font-semibold ring-1 ${
+                            atrasada
+                              ? "bg-red-50 text-red-700 ring-red-200"
+                              : "bg-slate-50 text-slate-600 ring-slate-200"
+                          }`}
+                        >
+                          {atrasada
+                            ? "Atrasada"
+                            : ROTULO_STATUS_AUDITORIA[a.status as StatusAuditoria]}
+                        </span>
+                      )}
+                      {a.status !== "finalizada" && (
+                        <form action={cancelarAuditoria} className="mt-1">
+                          <input type="hidden" name="id" value={a.id} />
+                          <button
+                            type="submit"
+                            className="text-xs text-slate-400 underline hover:text-red-600"
+                          >
+                            cancelar
+                          </button>
+                        </form>
+                      )}
+                    </div>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </div>
+
+      {semAuditoria.length > 0 && (
+        <p className="rounded-2xl bg-amber-50 p-3 text-xs text-amber-900">
+          Sem auditoria em {rotuloCompetencia(mes)}:{" "}
+          {semAuditoria.map((a) => a.nome).join(", ")}.
+        </p>
+      )}
+    </div>
+  );
+}
+
+/* ================================================================== */
+/* ÁREAS                                                              */
+/* ================================================================== */
+
+async function AbaAreas({
+  revendaId,
+  editando,
+}: {
+  revendaId: string;
+  editando: string | null;
+}) {
+  const [areas, pessoas] = await Promise.all([
+    listarAreas(revendaId),
+    pessoasDaRevenda(revendaId),
+  ]);
+
+  const emEdicao = editando ? areas.find((a) => a.id === editando) : null;
+
+  return (
+    <div className="space-y-4">
+      <details
+        open={Boolean(emEdicao)}
+        className="rounded-2xl border border-slate-200 bg-white shadow-sm"
+      >
+        <summary className="cursor-pointer list-none p-4 text-sm font-semibold text-slate-800">
+          {emEdicao ? `Editando: ${emEdicao.nome}` : "Cadastrar área"}
+        </summary>
+        <form action={salvarArea} className="space-y-3 border-t border-slate-100 p-4">
+          {emEdicao && <input type="hidden" name="id" value={emEdicao.id} />}
+          <label className="block text-xs font-semibold text-slate-600">
+            Nome
+            <input
+              name="nome"
+              required
+              defaultValue={emEdicao?.nome ?? ""}
+              className="mt-1 w-full rounded-xl border border-slate-200 p-3 text-base focus:border-primary focus:outline-none"
+            />
+          </label>
+          <div className="flex gap-2">
+            <label className="flex-1 text-xs font-semibold text-slate-600">
+              Local / unidade
+              <input
+                name="local"
+                defaultValue={emEdicao?.local ?? ""}
+                className="mt-1 w-full rounded-xl border border-slate-200 p-3 text-base focus:border-primary focus:outline-none"
+              />
+            </label>
+            <label className="flex-1 text-xs font-semibold text-slate-600">
+              Dono da área
+              <select
+                name="dono_id"
+                defaultValue={emEdicao?.dono_id ?? ""}
+                className="mt-1 w-full rounded-xl border border-slate-200 p-3 text-base focus:border-primary focus:outline-none"
+              >
+                <option value="">— sem dono —</option>
+                {pessoas.map((x) => (
+                  <option key={x.id} value={x.id}>
+                    {x.nome}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+          <label className="block text-xs font-semibold text-slate-600">
+            Descrição
+            <input
+              name="descricao"
+              defaultValue={emEdicao?.descricao ?? ""}
+              className="mt-1 w-full rounded-xl border border-slate-200 p-3 text-base focus:border-primary focus:outline-none"
+            />
+          </label>
+          <label className="flex items-center gap-2 text-sm text-slate-700">
+            <input
+              type="checkbox"
+              name="ativa"
+              defaultChecked={emEdicao?.ativa ?? true}
+              className="h-4 w-4"
+            />
+            Área ativa (entra no planejamento mensal)
+          </label>
+          <div className="flex gap-2">
+            <button
+              type="submit"
+              className="flex-1 rounded-xl bg-primary py-3 text-sm font-semibold text-white active:bg-primary-dark"
+            >
+              {emEdicao ? "Salvar alterações" : "Cadastrar"}
+            </button>
+            {emEdicao && (
+              <Link
+                href="/admin/5s?aba=areas"
+                className="rounded-xl border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-600"
+              >
+                Cancelar
+              </Link>
+            )}
+          </div>
+          <p className="text-xs text-slate-400">
+            Trocar o dono não apaga o histórico: as auditorias já feitas
+            continuam registradas no nome de quem respondia pela área na época.
+          </p>
+        </form>
+      </details>
+
+      <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <h2 className="p-4 pb-2 text-sm font-semibold text-slate-800">
+          Áreas <span className="font-normal text-slate-400">({areas.length})</span>
+        </h2>
+        <ul className="divide-y divide-slate-100 border-t border-slate-100">
+          {areas.map((a) => (
+            <li key={a.id} className="flex items-center justify-between gap-3 p-3">
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-medium text-slate-800">
+                  {a.nome}
+                  {!a.ativa && (
+                    <span className="ml-2 rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-500">
+                      inativa
+                    </span>
+                  )}
+                </p>
+                <p className="truncate text-xs text-slate-400">
+                  {a.dono_nome ?? "sem dono definido"}
+                  {a.local ? ` · ${a.local}` : ""}
+                </p>
+              </div>
+              <div className="flex shrink-0 items-center gap-3">
+                <Link
+                  href={`/admin/5s?aba=areas&editar=${a.id}`}
+                  className="text-xs font-semibold text-primary underline"
+                >
+                  editar
+                </Link>
+                <form action={excluirArea}>
+                  <input type="hidden" name="id" value={a.id} />
+                  <button
+                    type="submit"
+                    className="text-xs text-slate-400 underline hover:text-red-600"
+                  >
+                    excluir
+                  </button>
+                </form>
+              </div>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </div>
+  );
+}
+
+/* ================================================================== */
+/* AUDITORES                                                          */
+/* ================================================================== */
+
+async function AbaAuditores({ revendaId }: { revendaId: string }) {
+  const admin = createAdminClient();
+
+  const [{ data: vinculos }, pessoas] = await Promise.all([
+    admin
+      .from("cinco_s_auditores")
+      .select("colaborador_id, ativo")
+      .eq("revenda_id", revendaId),
+    pessoasDaRevenda(revendaId),
+  ]);
+
+  const mapa = new Map(pessoas.map((p) => [p.id, p.nome]));
+  const jaSao = new Set((vinculos ?? []).map((v) => v.colaborador_id));
+
+  // Quantas auditorias cada um fez -- em UMA consulta agregada em
+  // memória, e não uma por auditor.
+  const { data: contagens } = await admin
+    .from("cinco_s_auditorias")
+    .select("auditor_id, status")
+    .eq("revenda_id", revendaId)
+    .limit(5000);
+
+  const feitasPor = new Map<string, { feitas: number; pendentes: number }>();
+  for (const c of contagens ?? []) {
+    const atual = feitasPor.get(c.auditor_id) ?? { feitas: 0, pendentes: 0 };
+    if (c.status === "finalizada") atual.feitas++;
+    else if (c.status !== "cancelada") atual.pendentes++;
+    feitasPor.set(c.auditor_id, atual);
+  }
+
+  return (
+    <div className="space-y-4">
+      <form
+        action={salvarAuditor}
+        className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
+      >
+        <label className="block text-xs font-semibold text-slate-600">
+          Habilitar auditor
+          <select
+            name="colaborador_id"
+            required
+            className="mt-1 w-full rounded-xl border border-slate-200 p-3 text-base focus:border-primary focus:outline-none"
+          >
+            <option value="">— escolha um colaborador —</option>
+            {pessoas
+              .filter((x) => !jaSao.has(x.id))
+              .map((x) => (
+                <option key={x.id} value={x.id}>
+                  {x.nome}
+                </option>
+              ))}
+          </select>
+        </label>
+        <button
+          type="submit"
+          className="mt-3 w-full rounded-xl bg-primary py-3 text-sm font-semibold text-white active:bg-primary-dark"
+        >
+          Habilitar
+        </button>
+        <p className="mt-2 text-xs text-slate-400">
+          A lista traz quem já está cadastrado no app e pertence a esta
+          revenda — o 5S não cria usuário novo.
+        </p>
+      </form>
+
+      <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <h2 className="p-4 pb-2 text-sm font-semibold text-slate-800">
+          Auditores{" "}
+          <span className="font-normal text-slate-400">
+            ({(vinculos ?? []).length})
+          </span>
+        </h2>
+        {(vinculos ?? []).length === 0 ? (
+          <p className="p-6 pt-2 text-center text-sm text-slate-500">
+            Nenhum auditor habilitado ainda.
+          </p>
+        ) : (
+          <ul className="divide-y divide-slate-100 border-t border-slate-100">
+            {(vinculos ?? [])
+              .slice()
+              .sort((a, b) =>
+                (mapa.get(a.colaborador_id) ?? "").localeCompare(
+                  mapa.get(b.colaborador_id) ?? "",
+                  "pt-BR",
+                ),
+              )
+              .map((v) => {
+                const c = feitasPor.get(v.colaborador_id);
+                return (
+                  <li
+                    key={v.colaborador_id}
+                    className="flex items-center justify-between gap-3 p-3"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium text-slate-800">
+                        {mapa.get(v.colaborador_id) ?? "—"}
+                        {!v.ativo && (
+                          <span className="ml-2 rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-500">
+                            inativo
+                          </span>
+                        )}
+                      </p>
+                      <p className="text-xs text-slate-400">
+                        {c?.feitas ?? 0} auditoria{(c?.feitas ?? 0) === 1 ? "" : "s"} realizada
+                        {(c?.feitas ?? 0) === 1 ? "" : "s"}
+                        {(c?.pendentes ?? 0) > 0 && (
+                          <span className="font-medium text-amber-600">
+                            {" "}· {c!.pendentes} pendente{c!.pendentes === 1 ? "" : "s"}
+                          </span>
+                        )}
+                      </p>
+                    </div>
+                    <form action={alternarAuditor} className="shrink-0">
+                      <input
+                        type="hidden"
+                        name="colaborador_id"
+                        value={v.colaborador_id}
+                      />
+                      <input
+                        type="hidden"
+                        name="ativo"
+                        value={v.ativo ? "false" : "true"}
+                      />
+                      <button
+                        type="submit"
+                        className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600"
+                      >
+                        {v.ativo ? "Desativar" : "Reativar"}
+                      </button>
+                    </form>
+                  </li>
+                );
+              })}
+          </ul>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ================================================================== */
+/* CHECKLIST                                                          */
+/* ================================================================== */
+
+async function AbaPerguntas({ revendaId }: { revendaId: string }) {
+  const perguntas = await listarPerguntas(revendaId);
+
+  return (
+    <div className="space-y-4">
+      <p className="rounded-2xl bg-primary-soft p-3 text-xs text-primary-dark">
+        As {perguntas.length} perguntas vieram da planilha que a operação já
+        usa, na ordem original. Três delas (1.1, 2.3 e 4.4) chegaram cortadas
+        pelo export do Microsoft Forms e terminam em &ldquo;…&rdquo; — dá para
+        completar aqui. Editar o texto não mexe no histórico: as respostas
+        apontam para a pergunta, não para a frase.
+      </p>
+
+      {SENSOS.map((s) => {
+        const doSenso = perguntas.filter((q) => q.senso === s);
+        if (doSenso.length === 0) return null;
+        return (
+          <div
+            key={s}
+            className="rounded-2xl border border-slate-200 bg-white shadow-sm"
+          >
+            <h2 className="flex items-center gap-2 p-4 pb-2 text-sm font-semibold text-slate-800">
+              <span aria-hidden="true">{EMOJI_SENSO[s]}</span>
+              {ROTULO_SENSO[s]}
+              <span className="font-normal text-slate-400">
+                ({doSenso.length})
+              </span>
+            </h2>
+            <ul className="divide-y divide-slate-100 border-t border-slate-100">
+              {doSenso.map((q) => (
+                <li key={q.id} className="p-3">
+                  <details>
+                    <summary className="cursor-pointer list-none text-sm leading-snug text-slate-700">
+                      <span className="font-bold text-slate-900">
+                        {q.codigo}
+                      </span>{" "}
+                      {q.texto}
+                      {q.texto.endsWith("...") && (
+                        <span className="ml-1 rounded bg-amber-100 px-1.5 py-0.5 text-xs font-semibold text-amber-800">
+                          cortada
+                        </span>
+                      )}
+                    </summary>
+                    <form action={salvarPergunta} className="mt-2 space-y-2">
+                      <input type="hidden" name="id" value={q.id} />
+                      <textarea
+                        name="texto"
+                        rows={3}
+                        defaultValue={q.texto}
+                        className="w-full rounded-xl border border-slate-200 p-3 text-sm focus:border-primary focus:outline-none"
+                      />
+                      <div className="flex items-center gap-3">
+                        <label className="flex items-center gap-2 text-xs text-slate-600">
+                          <input
+                            type="checkbox"
+                            name="ativa"
+                            defaultChecked
+                            className="h-4 w-4"
+                          />
+                          ativa no checklist
+                        </label>
+                        <button
+                          type="submit"
+                          className="ml-auto rounded-lg bg-slate-700 px-4 py-2 text-xs font-semibold text-white"
+                        >
+                          Salvar
+                        </button>
+                      </div>
+                    </form>
+                  </details>
+                </li>
+              ))}
+            </ul>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/* ================================================================== */
+/* Auxiliares                                                         */
+/* ================================================================== */
+
+/**
+ * As pessoas desta revenda, para os seletores.
+ *
+ * Duas consultas: os vínculos e os nomes. O join direto entre
+ * colaborador_revendas e profiles não existe no PostgREST (não há chave
+ * estrangeira declarada entre elas), e forçá-lo daria erro em produção.
+ */
+async function pessoasDaRevenda(revendaId: string) {
+  const admin = createAdminClient();
+
+  const { data: vinculos } = await admin
+    .from("colaborador_revendas")
+    .select("colaborador_id")
+    .eq("revenda_id", revendaId);
+
+  const ids = (vinculos ?? []).map((v) => v.colaborador_id);
+  if (ids.length === 0) return [];
+
+  const { data } = await admin
+    .from("profiles")
+    .select("id, nome, cargo")
+    .in("id", ids)
+    .order("nome");
+
+  return (data ?? []) as { id: string; nome: string; cargo: string | null }[];
+}
+
+async function auditoresAtivos(revendaId: string) {
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("cinco_s_auditores")
+    .select("colaborador_id")
+    .eq("revenda_id", revendaId)
+    .eq("ativo", true);
+
+  const ids = (data ?? []).map((a) => a.colaborador_id);
+  const nomes = await nomesDe(ids);
+
+  return ids
+    .map((id) => ({ id, nome: nomes.get(id) ?? "—" }))
+    .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
+}
+
+function Mini({
+  valor,
+  rotulo,
+  tom = "neutro",
+}: {
+  valor: number;
+  rotulo: string;
+  tom?: "neutro" | "bom" | "alerta" | "ruim";
+}) {
+  const cor = {
+    neutro: "text-slate-700",
+    bom: "text-green-600",
+    alerta: "text-amber-600",
+    ruim: "text-red-600",
+  }[tom];
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-2.5 text-center shadow-sm">
+      <p className={`text-xl font-bold tabular-nums ${cor}`}>{valor}</p>
+      <p className="text-xs leading-tight text-slate-500">{rotulo}</p>
+    </div>
+  );
+}

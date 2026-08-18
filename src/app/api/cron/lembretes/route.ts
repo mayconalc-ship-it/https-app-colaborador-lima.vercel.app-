@@ -39,10 +39,13 @@ export async function GET(request: Request) {
   // minutos e a mesma regra de carimbar antes de repetir. Uma segunda
   // rota só multiplicaria a chamada externa.
   const desafios = await lembretesDoDesafio(admin);
+  const cincoS = await lembretesDo5S(admin);
 
   const { data: devidos, error } = await admin
     .from("comunicados")
-    .select("id, revenda_id, titulo, lembrete_cargos, lembrete_mensagem")
+    .select(
+      "id, revenda_id, titulo, lembrete_areas, lembrete_cargos, lembrete_mensagem",
+    )
     .lte("lembrete_em", new Date().toISOString())
     .is("lembrete_enviado_em", null);
 
@@ -50,7 +53,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ erro: error.message }, { status: 500 });
   }
   if (!devidos || devidos.length === 0) {
-    return NextResponse.json({ enviados: 0, desafios });
+    return NextResponse.json({ enviados: 0, desafios, cincoS });
   }
 
   let enviados = 0;
@@ -59,29 +62,33 @@ export async function GET(request: Request) {
     const titulo = "🔔 Lembrete do Jornal";
     const mensagem = c.lembrete_mensagem?.trim() || c.titulo;
     const url = "/comunicados";
+    const areas = (c.lembrete_areas ?? []).filter(Boolean);
     const cargos = (c.lembrete_cargos ?? []).filter(Boolean);
 
-    // Sem cargo marcado: vale para a revenda inteira, igual a um
-    // comunicado normal. Com cargo: só quem tem esse cargo NESTA revenda
-    // -- o mesmo cargo pode existir nas duas unidades.
+    // Nenhum filtro: vale para a revenda inteira, igual a um comunicado
+    // normal. Com filtro: só quem bate NESTA revenda -- a mesma área e o
+    // mesmo cargo existem nas duas unidades. Os dois filtros se cruzam
+    // (área E cargo); cada um vazio significa "qualquer um".
     let alvo: string[] | null = null;
-    if (cargos.length > 0) {
+    if (areas.length > 0 || cargos.length > 0) {
       const { data: vinculos } = await admin
         .from("colaborador_revendas")
         .select("colaborador_id")
         .eq("revenda_id", c.revenda_id);
       const idsRevenda = (vinculos ?? []).map((v) => v.colaborador_id);
 
-      const { data: pessoas } = await admin
+      let consulta = admin
         .from("profiles")
         .select("id")
-        .in("id", idsRevenda.length > 0 ? idsRevenda : [""])
-        .in("cargo", cargos);
+        .in("id", idsRevenda.length > 0 ? idsRevenda : [""]);
+      if (areas.length > 0) consulta = consulta.in("area", areas);
+      if (cargos.length > 0) consulta = consulta.in("cargo", cargos);
+      const { data: pessoas } = await consulta;
       alvo = (pessoas ?? []).map((p) => p.id);
 
-      // Ninguém com esses cargos: marca como enviado mesmo assim, senão
-      // este comunicado voltaria a aparecer na consulta a cada 15 min
-      // para sempre.
+      // Ninguém no filtro: marca como enviado mesmo assim, senão este
+      // comunicado voltaria a aparecer na consulta a cada 15 min para
+      // sempre.
       if (alvo.length === 0) {
         await admin
           .from("comunicados")
@@ -136,7 +143,142 @@ export async function GET(request: Request) {
     enviados++;
   }
 
-  return NextResponse.json({ enviados, desafios });
+  return NextResponse.json({ enviados, desafios, cincoS });
+}
+
+/**
+ * Os vencimentos do 5S: auditoria e ação.
+ *
+ * Mora aqui, e não numa rota nova, porque compartilha tudo o que
+ * importa com os lembretes que já existiam -- o mesmo segredo, o mesmo
+ * agendamento de 15 em 15 minutos e a mesma exigência de não repetir.
+ * Uma segunda rota só multiplicaria a chamada externa.
+ *
+ * A idempotência aqui não vem de carimbo em coluna, e sim da CHAVE da
+ * notificação: `notificacao_estado` já identifica cada aviso por
+ * `referencia_id`, e o aviso só nasce se ainda não existir um do mesmo
+ * tipo para aquele item hoje. Sem isso, uma ação atrasada avisaria a
+ * cada quinze minutos, para sempre, e a pessoa desligaria a notificação
+ * -- perdendo junto todos os outros avisos do app.
+ */
+async function lembretesDo5S(admin: ReturnType<typeof createAdminClient>) {
+  const hoje = new Date().toISOString().slice(0, 10);
+  const em3dias = new Date();
+  em3dias.setDate(em3dias.getDate() + 3);
+  const limite = em3dias.toISOString().slice(0, 10);
+
+  let enviados = 0;
+
+  // ---- Auditorias vencendo ou vencidas ----
+  const { data: auditorias } = await admin
+    .from("cinco_s_auditorias")
+    .select("id, revenda_id, auditor_id, planejada_para, cinco_s_areas!inner(nome)")
+    .in("status", ["planejada", "em_andamento"])
+    .lte("planejada_para", limite);
+
+  for (const a of auditorias ?? []) {
+    const atrasada = a.planejada_para < hoje;
+    const chave = `5s-aud:${a.id}:${atrasada ? "atraso" : "vence"}`;
+    if (await jaAvisadoHoje(admin, chave)) continue;
+
+    const area = (
+      Array.isArray(a.cinco_s_areas) ? a.cinco_s_areas[0] : a.cinco_s_areas
+    ) as { nome: string };
+
+    const titulo = atrasada
+      ? "⚠️ Auditoria 5S atrasada"
+      : "🧹 Auditoria 5S chegando";
+    const mensagem = atrasada
+      ? `${area.nome} era para ${a.planejada_para.split("-").reverse().join("/")}.`
+      : `${area.nome} vence em ${a.planejada_para.split("-").reverse().join("/")}.`;
+
+    await criarNotificacao({
+      modulo: "5s",
+      tipo: atrasada ? "pendencia" : "lembrete",
+      titulo,
+      mensagem,
+      url: `/5s/auditoria/${a.id}`,
+      revendaId: a.revenda_id,
+      destinatarioId: a.auditor_id,
+      referenciaId: chave,
+    });
+    await enviarPushDaRevenda(a.revenda_id, {
+      modulo: "5s",
+      titulo,
+      mensagem,
+      url: `/5s/auditoria/${a.id}`,
+      apenas: [a.auditor_id],
+    });
+    enviados++;
+  }
+
+  // ---- Ações vencendo ou vencidas ----
+  const { data: acoes } = await admin
+    .from("cinco_s_nao_conformidades")
+    .select("id, revenda_id, responsavel_id, prazo, descricao")
+    .in("status", ["aberta", "em_andamento"])
+    .not("responsavel_id", "is", null)
+    .not("prazo", "is", null)
+    .lte("prazo", limite);
+
+  for (const n of acoes ?? []) {
+    const atrasada = n.prazo! < hoje;
+    const chave = `5s-nc:${n.id}:${atrasada ? "atraso" : "vence"}`;
+    if (await jaAvisadoHoje(admin, chave)) continue;
+
+    const titulo = atrasada ? "⚠️ Ação 5S atrasada" : "🧹 Ação 5S vencendo";
+    const mensagem = `${n.descricao.slice(0, 90)} — prazo ${n
+      .prazo!.split("-")
+      .reverse()
+      .join("/")}.`;
+
+    await criarNotificacao({
+      modulo: "5s",
+      tipo: "pendencia",
+      titulo,
+      mensagem,
+      url: "/5s/acoes",
+      revendaId: n.revenda_id,
+      destinatarioId: n.responsavel_id!,
+      referenciaId: chave,
+    });
+    await enviarPushDaRevenda(n.revenda_id, {
+      modulo: "5s",
+      titulo,
+      mensagem,
+      url: "/5s/acoes",
+      apenas: [n.responsavel_id!],
+    });
+    enviados++;
+  }
+
+  return enviados;
+}
+
+/**
+ * Já mandamos este aviso exato hoje?
+ *
+ * O cron roda de 15 em 15 minutos; sem esta conferência, uma auditoria
+ * atrasada geraria 96 notificações por dia. Um aviso por dia por item é
+ * o que faz o lembrete continuar sendo lido.
+ */
+async function jaAvisadoHoje(
+  admin: ReturnType<typeof createAdminClient>,
+  chave: string,
+) {
+  const inicioDoDia = new Date();
+  inicioDoDia.setHours(0, 0, 0, 0);
+
+  const { data } = await admin
+    .from("notificacoes")
+    .select("id")
+    .eq("modulo", "5s")
+    .eq("referencia_id", chave)
+    .gte("criado_em", inicioDoDia.toISOString())
+    .limit(1)
+    .maybeSingle();
+
+  return Boolean(data);
 }
 
 /**
