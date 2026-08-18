@@ -6,7 +6,11 @@ import { requireModulo } from "@/lib/require-admin";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { exigirRevenda } from "@/lib/revendas";
 import { criarOuAgrupar } from "@/lib/notificacoes-server";
-import { CATEGORIAS_POR_TIME, type TimeRanking } from "@/lib/ranking-categorias";
+import {
+  ehTimeValido,
+  normalizarCategoria,
+  type TimeRanking,
+} from "@/lib/ranking-categorias";
 
 function caminhoDoStorage(arquivoUrl: string) {
   const prefixo = "/storage/v1/object/public/conteudo/";
@@ -15,19 +19,16 @@ function caminhoDoStorage(arquivoUrl: string) {
   return decodeURIComponent(arquivoUrl.slice(idx + prefixo.length));
 }
 
-function categoriaValida(time: string, categoria: string) {
-  if (!(time in CATEGORIAS_POR_TIME)) return false;
-  const lista = CATEGORIAS_POR_TIME[time as TimeRanking] as readonly string[];
-  return lista.includes(categoria);
-}
-
 export async function enviarRanking(formData: FormData) {
   await requireModulo("ranking", "criar");
 
   const arquivo = formData.get("arquivo") as File | null;
   const mesAno = formData.get("mes_ano") as string;
   const time = formData.get("time") as TimeRanking;
-  const categoria = formData.get("categoria") as string;
+  // A categoria e digitada: o nome da premiacao muda de mes para mes.
+  const categoria = normalizarCategoria(
+    (formData.get("categoria") as string) ?? "",
+  );
 
   if (!arquivo || arquivo.size === 0) {
     redirect("/admin/ranking?erro=Selecione+uma+imagem");
@@ -35,11 +36,11 @@ export async function enviarRanking(formData: FormData) {
   if (!mesAno) {
     redirect("/admin/ranking?erro=Informe+o+mes");
   }
-  if (!time || !(time in CATEGORIAS_POR_TIME)) {
+  if (!time || !ehTimeValido(time)) {
     redirect("/admin/ranking?erro=Selecione+o+time");
   }
-  if (!categoria || !categoriaValida(time, categoria)) {
-    redirect("/admin/ranking?erro=Selecione+a+categoria");
+  if (!categoria) {
+    redirect("/admin/ranking?erro=Informe+o+nome+da+categoria");
   }
 
   const admin = createAdminClient();
@@ -91,7 +92,7 @@ export async function enviarRanking(formData: FormData) {
     if (antigo) await admin.storage.from("conteudo").remove([antigo]);
   }
 
-  // Agrupa: subir as 11 categorias do mês gera UM aviso, não onze.
+  // Agrupa: subir as categorias do mês gera UM aviso, não um por foto.
   await criarOuAgrupar({
     modulo: "ranking",
     titulo: "Ranking da Super Matinal!",
@@ -144,12 +145,17 @@ export async function atualizarRanking(formData: FormData) {
   const id = Number(formData.get("id"));
   const mesAno = formData.get("mes_ano") as string;
   const time = formData.get("time") as string;
-  const categoria = formData.get("categoria") as string;
+  const categoria = normalizarCategoria(
+    (formData.get("categoria") as string) ?? "",
+  );
 
   if (!id) redirect("/admin/ranking?erro=Registro+invalido");
   if (!mesAno) redirect("/admin/ranking?erro=Informe+o+mes");
-  if (!categoriaValida(time, categoria)) {
-    redirect("/admin/ranking?erro=Time+ou+categoria+invalidos");
+  if (!time || !ehTimeValido(time)) {
+    redirect("/admin/ranking?erro=Selecione+o+time");
+  }
+  if (!categoria) {
+    redirect("/admin/ranking?erro=Informe+o+nome+da+categoria");
   }
 
   const admin = createAdminClient();

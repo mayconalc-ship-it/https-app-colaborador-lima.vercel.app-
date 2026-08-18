@@ -1,12 +1,8 @@
-﻿import Link from "next/link";
+import Link from "next/link";
 import { PageHeader } from "@/components/PageHeader";
 import { MonthSelect } from "@/components/MonthSelect";
 import { createClient } from "@/lib/supabase/server";
-import {
-  CATEGORIAS_POR_TIME,
-  NOMES_TIME,
-  type TimeRanking,
-} from "@/lib/ranking-categorias";
+import { NOMES_TIME, TIMES, ehTimeValido, type TimeRanking } from "@/lib/ranking-categorias";
 
 export default async function RankingPage({
   searchParams,
@@ -15,14 +11,17 @@ export default async function RankingPage({
 }) {
   const { time: timeParam, mes_ano: mesParam } = await searchParams;
   const time: TimeRanking =
-    timeParam === "AL" || timeParam === "DU" ? timeParam : "DU";
+    timeParam && ehTimeValido(timeParam) ? timeParam : "DU";
 
   const supabase = await createClient();
   const { data: registros } = await supabase
     .from("ranking_matinal")
-    .select("categoria, mes_ano, imagem_url")
+    .select("id, categoria, mes_ano, imagem_url, criado_em")
     .eq("time", time)
-    .order("mes_ano", { ascending: false });
+    .order("mes_ano", { ascending: false })
+    // Dentro do mes vale a ordem de lancamento: quem publica decide a
+    // sequencia simplesmente subindo as fotos na ordem que quer exibir.
+    .order("criado_em", { ascending: true });
 
   const meses = Array.from(
     new Set((registros ?? []).map((r) => r.mes_ano)),
@@ -33,15 +32,9 @@ export default async function RankingPage({
   const mesSelecionado =
     mesParam && meses.includes(mesParam) ? mesParam : (meses[0] ?? mesAtual);
 
-  const porCategoriaNoMes = new Map<
-    string,
-    { mes_ano: string; imagem_url: string }
-  >();
-  for (const registro of registros ?? []) {
-    if (registro.mes_ano === mesSelecionado) {
-      porCategoriaNoMes.set(registro.categoria, registro);
-    }
-  }
+  // So entra na tela o que foi realmente lancado no mes. Antes a lista de
+  // categorias era fixa e as nao premiadas viravam blocos vazios.
+  const doMes = (registros ?? []).filter((r) => r.mes_ano === mesSelecionado);
 
   return (
     <div>
@@ -51,7 +44,7 @@ export default async function RankingPage({
       />
 
       <div className="mb-4 flex gap-2">
-        {(Object.keys(CATEGORIAS_POR_TIME) as TimeRanking[]).map((t) => (
+        {TIMES.map((t) => (
           <Link
             key={t}
             href={`/ranking?time=${t}`}
@@ -72,44 +65,41 @@ export default async function RankingPage({
         </div>
       )}
 
-      <div className="space-y-4">
-        {CATEGORIAS_POR_TIME[time].map((categoria) => {
-          const registro = porCategoriaNoMes.get(categoria);
-          return (
+      {doMes.length === 0 ? (
+        <div className="rounded-2xl border border-slate-200 bg-white p-6 text-center text-sm text-slate-500 shadow-sm">
+          Nenhum ganhador publicado neste mês.
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {doMes.map((registro) => (
             <div
-              key={categoria}
+              key={registro.id}
               className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"
             >
-              {registro ? (
-                // object-contain (e nao cover) para a foto aparecer inteira:
-                // com corte, o ganhador podia ficar de fora do enquadramento.
-                // min-h reserva o espaço: sem isso a imagem ainda não
-                // carregada teria altura 0, quebrando o layout e o
-                // carregamento sob demanda.
-                <div className="flex min-h-64 items-center justify-center bg-slate-100">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={registro.imagem_url}
-                    alt={categoria}
-                    loading="lazy"
-                    decoding="async"
-                    className="max-h-[75vh] w-full object-contain"
-                  />
-                </div>
-              ) : (
-                <div className="flex aspect-[4/3] items-center justify-center bg-slate-100 text-sm text-slate-400">
-                  Sem foto neste mês
-                </div>
-              )}
+              {/* object-contain (e nao cover) para a foto aparecer inteira:
+                  com corte, o ganhador podia ficar de fora do enquadramento.
+                  min-h reserva o espaço: sem isso a imagem ainda não
+                  carregada teria altura 0, quebrando o layout e o
+                  carregamento sob demanda. */}
+              <div className="flex min-h-64 items-center justify-center bg-slate-100">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={registro.imagem_url}
+                  alt={registro.categoria}
+                  loading="lazy"
+                  decoding="async"
+                  className="max-h-[75vh] w-full object-contain"
+                />
+              </div>
               <div className="p-3">
                 <span className="font-semibold text-slate-800">
-                  {categoria}
+                  {registro.categoria}
                 </span>
               </div>
             </div>
-          );
-        })}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

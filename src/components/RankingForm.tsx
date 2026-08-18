@@ -2,16 +2,15 @@
 
 import { useState } from "react";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
-import {
-  CATEGORIAS_POR_TIME,
-  NOMES_TIME,
-  type TimeRanking,
-} from "@/lib/ranking-categorias";
+import { CampoCategoria } from "@/components/CampoCategoria";
+import { NOMES_TIME, TIMES, type TimeRanking } from "@/lib/ranking-categorias";
 
 export function RankingForm({
   action,
+  sugestoes,
 }: {
   action: (formData: FormData) => void;
+  sugestoes: Record<TimeRanking, string[]>;
 }) {
   const [time, setTime] = useState<TimeRanking>("DU");
   const hoje = new Date();
@@ -27,7 +26,7 @@ export function RankingForm({
           Time
         </label>
         <div className="flex gap-2">
-          {(Object.keys(CATEGORIAS_POR_TIME) as TimeRanking[]).map((t) => (
+          {TIMES.map((t) => (
             <button
               key={t}
               type="button"
@@ -47,24 +46,18 @@ export function RankingForm({
       </div>
 
       <div>
-        <label
-          htmlFor="categoria"
-          className="mb-1 block text-sm font-medium text-slate-700"
-        >
+        <label className="mb-1 block text-sm font-medium text-slate-700">
           Categoria de premiação
         </label>
-        <select
-          id="categoria"
-          name="categoria"
+        <CampoCategoria
+          time={time}
+          sugestoes={sugestoes}
           className="w-full rounded-xl border border-slate-200 p-3 text-sm focus:border-primary focus:outline-none"
-          required
-        >
-          {CATEGORIAS_POR_TIME[time].map((cat) => (
-            <option key={cat} value={cat}>
-              {cat}
-            </option>
-          ))}
-        </select>
+        />
+        <p className="mt-1 text-xs text-slate-400">
+          Digite o nome da premiação ou escolha uma já usada. Só aparecem no app
+          as categorias enviadas.
+        </p>
       </div>
 
       <div>

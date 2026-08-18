@@ -5,8 +5,10 @@ import { PageHeader } from "@/components/PageHeader";
 import { RankingForm } from "@/components/RankingForm";
 import { RankingItem } from "@/components/RankingItem";
 import {
-  CATEGORIAS_POR_TIME,
   NOMES_TIME,
+  SUGESTOES_POR_TIME,
+  TIMES,
+  ehTimeValido,
   type TimeRanking,
 } from "@/lib/ranking-categorias";
 import { enviarRanking, excluirRanking, atualizarRanking } from "./actions";
@@ -46,6 +48,25 @@ export default async function AdminRankingPage({
   }
   const meses = Array.from(porMes.keys()).sort((a, b) => (a < b ? 1 : -1));
 
+  // Autocompletar: primeiro o que a revenda ja usou (na ordem do mais
+  // recente), depois as sugestoes padrao que ainda nao apareceram. Evita
+  // que a mesma premiacao vire "Motorista Sede" num mes e "motorista sede"
+  // no outro, virando duas categorias diferentes na tela do colaborador.
+  const sugestoes = Object.fromEntries(
+    TIMES.map((t) => [t, [] as string[]]),
+  ) as Record<TimeRanking, string[]>;
+  for (const item of historico ?? []) {
+    if (!ehTimeValido(item.time)) continue;
+    if (!sugestoes[item.time].includes(item.categoria)) {
+      sugestoes[item.time].push(item.categoria);
+    }
+  }
+  for (const t of TIMES) {
+    for (const padrao of SUGESTOES_POR_TIME[t]) {
+      if (!sugestoes[t].includes(padrao)) sugestoes[t].push(padrao);
+    }
+  }
+
   return (
     <div>
       <PageHeader
@@ -64,7 +85,7 @@ export default async function AdminRankingPage({
         </p>
       )}
 
-      <RankingForm action={enviarRanking} />
+      <RankingForm action={enviarRanking} sugestoes={sugestoes} />
 
       <h2 className="mb-2 font-semibold text-slate-700">
         Fotos cadastradas ({historico?.length ?? 0})
@@ -106,16 +127,14 @@ export default async function AdminRankingPage({
                     <div key={time}>
                       <p className="bg-slate-50 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
                         {NOMES_TIME[time as TimeRanking] ?? time} ·{" "}
-                        {itens.length} de{" "}
-                        {CATEGORIAS_POR_TIME[time as TimeRanking]?.length ??
-                          itens.length}{" "}
-                        categorias
+                        {itens.length} categoria{itens.length > 1 ? "s" : ""}
                       </p>
                       <div className="divide-y divide-slate-100">
                         {itens.map((item) => (
                           <RankingItem
                             key={item.id}
                             registro={item}
+                            sugestoes={sugestoes}
                             onAtualizar={atualizarRanking}
                             onExcluir={excluirRanking}
                           />

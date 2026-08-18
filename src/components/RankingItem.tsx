@@ -3,10 +3,8 @@
 import { useState } from "react";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
 import { useConfirmarEnvio } from "@/components/Confirmacao";
-import {
-  CATEGORIAS_POR_TIME,
-  type TimeRanking,
-} from "@/lib/ranking-categorias";
+import { CampoCategoria } from "@/components/CampoCategoria";
+import { TIMES, type TimeRanking } from "@/lib/ranking-categorias";
 
 type Registro = {
   id: number;
@@ -28,10 +26,12 @@ function formatarMes(mesAno: string) {
 
 export function RankingItem({
   registro,
+  sugestoes,
   onAtualizar,
   onExcluir,
 }: {
   registro: Registro;
+  sugestoes: Record<TimeRanking, string[]>;
   onAtualizar: (formData: FormData) => void;
   onExcluir: (formData: FormData) => void;
 }) {
@@ -49,7 +49,7 @@ export function RankingItem({
             Time
           </label>
           <div className="flex gap-2">
-            {(Object.keys(CATEGORIAS_POR_TIME) as TimeRanking[]).map((t) => (
+            {TIMES.map((t) => (
               <button
                 key={t}
                 type="button"
@@ -71,23 +71,12 @@ export function RankingItem({
           <label className="mb-1 block text-xs font-medium text-slate-600">
             Categoria
           </label>
-          <select
-            name="categoria"
-            defaultValue={
-              (CATEGORIAS_POR_TIME[time] as readonly string[]).includes(
-                registro.categoria,
-              )
-                ? registro.categoria
-                : CATEGORIAS_POR_TIME[time][0]
-            }
+          <CampoCategoria
+            time={time}
+            sugestoes={sugestoes}
+            defaultValue={registro.categoria}
             className="w-full rounded-lg border border-slate-200 p-2 text-sm focus:border-primary focus:outline-none"
-          >
-            {CATEGORIAS_POR_TIME[time].map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
+          />
         </div>
 
         <div>
