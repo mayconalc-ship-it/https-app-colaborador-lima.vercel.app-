@@ -154,47 +154,73 @@ export async function GET(request: Request) {
  * agendamento de 15 em 15 minutos e a mesma exigência de não repetir.
  * Uma segunda rota só multiplicaria a chamada externa.
  *
- * A idempotência aqui não vem de carimbo em coluna, e sim da CHAVE da
- * notificação: `notificacao_estado` já identifica cada aviso por
- * `referencia_id`, e o aviso só nasce se ainda não existir um do mesmo
- * tipo para aquele item hoje. Sem isso, uma ação atrasada avisaria a
- * cada quinze minutos, para sempre, e a pessoa desligaria a notificação
- * -- perdendo junto todos os outros avisos do app.
+ * Três toques por auditoria, e só três:
+ *
+ *   VÉSPERA   um dia antes da data prevista -- dá tempo de a pessoa se
+ *             organizar, que é o que um aviso antecipado serve para fazer.
+ *   NO DIA    na data prevista.
+ *   ATRASO    uma única vez, depois que a data passou.
+ *
+ * O atraso avisa UMA vez, não todo dia: a auditoria vencida já aparece
+ * em vermelho e escrita "Atrasada" na tela do auditor, o dia inteiro,
+ * sem depender de notificação nenhuma. Repetir o push diariamente não
+ * acrescentaria informação e faria a pessoa desligar o aviso do 5S --
+ * perdendo junto os dois que importam.
+ *
+ * A idempotência vem da CHAVE: cada marco tem a sua (`:vespera`, `:dia`,
+ * `:atraso`), e o aviso só nasce se ainda não existir um com aquela
+ * chave. Como o cron roda de 15 em 15 minutos, sem isso a véspera
+ * sozinha geraria 96 notificações.
  */
 async function lembretesDo5S(admin: ReturnType<typeof createAdminClient>) {
   const hoje = new Date().toISOString().slice(0, 10);
-  const em3dias = new Date();
-  em3dias.setDate(em3dias.getDate() + 3);
-  const limite = em3dias.toISOString().slice(0, 10);
+  const amanha = new Date();
+  amanha.setDate(amanha.getDate() + 1);
+  const dataAmanha = amanha.toISOString().slice(0, 10);
 
   let enviados = 0;
 
-  // ---- Auditorias vencendo ou vencidas ----
+  // ---- Auditorias: véspera, dia e atraso ----
   const { data: auditorias } = await admin
     .from("cinco_s_auditorias")
     .select("id, revenda_id, auditor_id, planejada_para, cinco_s_areas!inner(nome)")
     .in("status", ["planejada", "em_andamento"])
-    .lte("planejada_para", limite);
+    .lte("planejada_para", dataAmanha);
 
   for (const a of auditorias ?? []) {
-    const atrasada = a.planejada_para < hoje;
-    const chave = `5s-aud:${a.id}:${atrasada ? "atraso" : "vence"}`;
-    if (await jaAvisadoHoje(admin, chave)) continue;
+    const marco =
+      a.planejada_para === dataAmanha
+        ? "vespera"
+        : a.planejada_para === hoje
+          ? "dia"
+          : "atraso";
+
+    const chave = `5s-aud:${a.id}:${marco}`;
+    if (await jaAvisado(admin, chave)) continue;
 
     const area = (
       Array.isArray(a.cinco_s_areas) ? a.cinco_s_areas[0] : a.cinco_s_areas
     ) as { nome: string };
 
-    const titulo = atrasada
-      ? "⚠️ Auditoria 5S atrasada"
-      : "🧹 Auditoria 5S chegando";
-    const mensagem = atrasada
-      ? `${area.nome} era para ${a.planejada_para.split("-").reverse().join("/")}.`
-      : `${area.nome} vence em ${a.planejada_para.split("-").reverse().join("/")}.`;
+    const quando = a.planejada_para.split("-").reverse().join("/");
+
+    const titulo =
+      marco === "vespera"
+        ? "🧹 Auditoria 5S amanhã"
+        : marco === "dia"
+          ? "🧹 Auditoria 5S é hoje"
+          : "⚠️ Auditoria 5S atrasada";
+
+    const mensagem =
+      marco === "vespera"
+        ? `${area.nome} — amanhã, ${quando}.`
+        : marco === "dia"
+          ? `${area.nome} — é hoje. Toque para começar.`
+          : `${area.nome} era para ${quando} e ainda não foi feita.`;
 
     await criarNotificacao({
       modulo: "5s",
-      tipo: atrasada ? "pendencia" : "lembrete",
+      tipo: marco === "vespera" ? "lembrete" : "pendencia",
       titulo,
       mensagem,
       url: `/5s/auditoria/${a.id}`,
@@ -212,21 +238,24 @@ async function lembretesDo5S(admin: ReturnType<typeof createAdminClient>) {
     enviados++;
   }
 
-  // ---- Ações vencendo ou vencidas ----
+  // ---- Ações do plano: mesma régua ----
   const { data: acoes } = await admin
     .from("cinco_s_nao_conformidades")
     .select("id, revenda_id, responsavel_id, prazo, descricao")
     .in("status", ["aberta", "em_andamento"])
     .not("responsavel_id", "is", null)
     .not("prazo", "is", null)
-    .lte("prazo", limite);
+    .lte("prazo", dataAmanha);
 
   for (const n of acoes ?? []) {
-    const atrasada = n.prazo! < hoje;
-    const chave = `5s-nc:${n.id}:${atrasada ? "atraso" : "vence"}`;
-    if (await jaAvisadoHoje(admin, chave)) continue;
+    const marco =
+      n.prazo === dataAmanha ? "vespera" : n.prazo === hoje ? "dia" : "atraso";
 
-    const titulo = atrasada ? "⚠️ Ação 5S atrasada" : "🧹 Ação 5S vencendo";
+    const chave = `5s-nc:${n.id}:${marco}`;
+    if (await jaAvisado(admin, chave)) continue;
+
+    const titulo =
+      marco === "atraso" ? "⚠️ Ação 5S atrasada" : "🧹 Ação 5S vencendo";
     const mensagem = `${n.descricao.slice(0, 90)} — prazo ${n
       .prazo!.split("-")
       .reverse()
@@ -256,25 +285,24 @@ async function lembretesDo5S(admin: ReturnType<typeof createAdminClient>) {
 }
 
 /**
- * Já mandamos este aviso exato hoje?
+ * Este aviso já saiu alguma vez?
  *
- * O cron roda de 15 em 15 minutos; sem esta conferência, uma auditoria
- * atrasada geraria 96 notificações por dia. Um aviso por dia por item é
- * o que faz o lembrete continuar sendo lido.
+ * Sem janela de tempo, de propósito: cada marco (véspera, dia, atraso)
+ * tem chave própria e deve tocar UMA vez na vida. Uma checagem "hoje"
+ * faria a auditoria atrasada avisar todo santo dia.
+ *
+ * A consulta é barata mesmo com a tabela grande: `referencia_id` é
+ * único na prática e o filtro por módulo corta o resto.
  */
-async function jaAvisadoHoje(
+async function jaAvisado(
   admin: ReturnType<typeof createAdminClient>,
   chave: string,
 ) {
-  const inicioDoDia = new Date();
-  inicioDoDia.setHours(0, 0, 0, 0);
-
   const { data } = await admin
     .from("notificacoes")
     .select("id")
     .eq("modulo", "5s")
     .eq("referencia_id", chave)
-    .gte("criado_em", inicioDoDia.toISOString())
     .limit(1)
     .maybeSingle();
 

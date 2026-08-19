@@ -399,7 +399,79 @@ async function AbaPlanejamento({
           {semAuditoria.map((a) => a.nome).join(", ")}.
         </p>
       )}
+
+      <Exportar mes={mes} />
     </div>
+  );
+}
+
+/**
+ * Download do que já foi auditado, para continuar alimentando a
+ * planilha de acompanhamento.
+ *
+ * Link comum, não botão com JavaScript: o navegador baixa o arquivo
+ * direto da rota, sem a página precisar montar nada em memória.
+ */
+function Exportar({ mes }: { mes: string }) {
+  const opcoes = [
+    {
+      formato: "base",
+      titulo: "Base (formato do Forms)",
+      ajuda:
+        "Uma linha por auditoria, com as 25 respostas em colunas. Cola direto embaixo da Base_Bruta da sua planilha.",
+    },
+    {
+      formato: "resumo",
+      titulo: "Resumo por auditoria",
+      ajuda:
+        "Uma linha por auditoria com a nota geral e a de cada senso, já calculadas.",
+    },
+    {
+      formato: "detalhado",
+      titulo: "Detalhado (uma linha por item)",
+      ajuda:
+        "O desenho da Base_Tratada: cada pergunta em uma linha, com a observação do auditor.",
+    },
+    {
+      formato: "acoes",
+      titulo: "Plano de ação",
+      ajuda:
+        "As não conformidades com responsável, prazo, situação e o que já foi atrasado.",
+    },
+  ];
+
+  return (
+    <details className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <summary className="cursor-pointer list-none p-4 text-sm font-semibold text-slate-800">
+        Exportar para a planilha
+      </summary>
+      <div className="space-y-3 border-t border-slate-100 p-4">
+        {opcoes.map((o) => (
+          <div key={o.formato}>
+            <p className="text-sm font-medium text-slate-700">{o.titulo}</p>
+            <p className="mb-1.5 text-xs text-slate-400">{o.ajuda}</p>
+            <div className="flex gap-2">
+              <a
+                href={`/api/5s/exportar?formato=${o.formato}&mes=${mes}`}
+                className="flex-1 rounded-xl border border-slate-200 py-2 text-center text-xs font-semibold text-slate-700 active:bg-slate-50"
+              >
+                {rotuloCompetencia(mes).replace(" de ", "/")}
+              </a>
+              <a
+                href={`/api/5s/exportar?formato=${o.formato}`}
+                className="flex-1 rounded-xl border border-slate-200 py-2 text-center text-xs font-semibold text-slate-700 active:bg-slate-50"
+              >
+                Histórico completo
+              </a>
+            </div>
+          </div>
+        ))}
+        <p className="text-xs text-slate-400">
+          Arquivo CSV separado por ponto e vírgula, em UTF-8 — abre no Excel
+          em português com dois cliques, acentos e colunas no lugar.
+        </p>
+      </div>
+    </details>
   );
 }
 
