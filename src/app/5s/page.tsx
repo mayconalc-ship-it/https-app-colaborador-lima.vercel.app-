@@ -141,6 +141,15 @@ export default async function CincoSPage({
 
   const listaPendentes = pendentes ?? [];
   const listaFeitas = feitas ?? [];
+  const atrasadas = listaPendentes.filter(
+    (a) => a.planejada_para < hoje,
+  ).length;
+
+  // As ações vencidas ganham o mesmo tratamento das auditorias: o que
+  // passou do prazo precisa ser visível antes de qualquer outra coisa.
+  const acoesAtrasadas = (minhasAcoes ?? []).filter((n) =>
+    estaAtrasada(n.prazo, n.status as StatusNC),
+  ).length;
 
   return (
     <div>
@@ -153,6 +162,28 @@ export default async function CincoSPage({
         <p className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">
           {decodificar(erro)}
         </p>
+      )}
+
+      {/* A faixa só existe quando há atraso. Aviso permanente vira
+          papel de parede -- deixa de ser lido no segundo dia. */}
+      {(atrasadas > 0 || acoesAtrasadas > 0) && (
+        <div className="mb-4 flex items-center gap-3 rounded-2xl border-2 border-red-300 bg-red-50 p-3">
+          <span className="text-2xl leading-none" aria-hidden="true">
+            ⚠️
+          </span>
+          <p className="min-w-0 flex-1 text-sm text-red-900">
+            <strong className="font-bold">Você tem coisa vencida.</strong>{" "}
+            {[
+              atrasadas > 0 &&
+                `${atrasadas} auditoria${atrasadas === 1 ? "" : "s"}`,
+              acoesAtrasadas > 0 &&
+                `${acoesAtrasadas} ação${acoesAtrasadas === 1 ? "" : "ões"} do plano`,
+            ]
+              .filter(Boolean)
+              .join(" e ")}{" "}
+            {atrasadas + acoesAtrasadas === 1 ? "passou" : "passaram"} do prazo.
+          </p>
+        </div>
       )}
 
       <OQueEh5S />
@@ -170,43 +201,81 @@ export default async function CincoSPage({
         <Atalho href="/5s/acoes" emoji="🛠️" titulo="Plano de ação" />
       </div>
 
-      {/* ---- O que eu preciso auditar ---- */}
+      {/* ---- O que eu preciso auditar ----
+
+          É o bloco mais importante da tela e por isso ele grita: cartão
+          cheio de cor, não borda fina. A atrasada é vermelha e diz há
+          quantos dias venceu -- "atrasada" sozinho não move ninguém,
+          "12 dias de atraso" move.
+
+          Vem ANTES do resto porque quem abre o 5S abre para fazer a
+          auditoria, não para olhar gráfico. */}
       {listaPendentes.length > 0 && (
         <section className="mb-5">
-          <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">
-            Suas auditorias
+          <h2 className="mb-2 flex items-baseline gap-2 text-sm font-semibold uppercase tracking-wide text-slate-500">
+            Para auditar
+            {atrasadas > 0 && (
+              <span className="rounded-full bg-red-600 px-2 py-0.5 text-xs font-bold normal-case tracking-normal text-white">
+                {atrasadas} atrasada{atrasadas === 1 ? "" : "s"}
+              </span>
+            )}
           </h2>
-          <ul className="space-y-2">
+          <ul className="space-y-2.5">
             {listaPendentes.map((a) => {
               const atrasada = a.planejada_para < hoje;
+              const dias = diasDeAtraso(a.planejada_para, hoje);
               const area = umObjeto(a.cinco_s_areas) as { nome: string };
               return (
                 <li key={a.id}>
                   <Link
                     href={`/5s/auditoria/${a.id}`}
-                    className={`flex items-center justify-between gap-3 rounded-2xl border bg-white p-4 shadow-sm active:bg-slate-50 ${
-                      atrasada ? "border-red-200" : "border-slate-200"
+                    className={`block rounded-2xl p-4 shadow-sm active:brightness-95 ${
+                      atrasada
+                        ? "bg-red-600 text-white"
+                        : "border-2 border-primary bg-primary-soft"
                     }`}
                   >
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-semibold text-slate-800">
-                        {area.nome}
-                      </p>
-                      <p className="text-xs text-slate-400">
-                        {a.status === "em_andamento"
-                          ? "Começada — continue de onde parou"
-                          : `Prevista para ${a.planejada_para.split("-").reverse().join("/")}`}
-                      </p>
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <p
+                          className={`text-xs font-bold uppercase tracking-wide ${
+                            atrasada ? "text-red-100" : "text-primary"
+                          }`}
+                        >
+                          {atrasada
+                            ? `⚠️ ${dias} dia${dias === 1 ? "" : "s"} de atraso`
+                            : a.status === "em_andamento"
+                              ? "▶ Começada"
+                              : "Prevista para " +
+                                a.planejada_para.split("-").reverse().slice(0, 2).join("/")}
+                        </p>
+                        <p
+                          className={`mt-0.5 truncate text-lg font-bold leading-tight ${
+                            atrasada ? "text-white" : "text-slate-900"
+                          }`}
+                        >
+                          {area.nome}
+                        </p>
+                        <p
+                          className={`mt-0.5 text-xs ${
+                            atrasada ? "text-red-100" : "text-slate-500"
+                          }`}
+                        >
+                          {a.status === "em_andamento"
+                            ? "Continue de onde parou"
+                            : "25 itens · uns 10 minutos"}
+                        </p>
+                      </div>
+                      <span
+                        className={`shrink-0 rounded-xl px-4 py-2.5 text-sm font-bold ${
+                          atrasada
+                            ? "bg-white text-red-700"
+                            : "bg-primary text-white"
+                        }`}
+                      >
+                        {a.status === "em_andamento" ? "Continuar" : "Auditar"}
+                      </span>
                     </div>
-                    <span
-                      className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-bold ${
-                        atrasada
-                          ? "bg-red-600 text-white"
-                          : "bg-primary text-white"
-                      }`}
-                    >
-                      {atrasada ? "Atrasada" : "Auditar"}
-                    </span>
                   </Link>
                 </li>
               );
@@ -247,12 +316,26 @@ export default async function CincoSPage({
                 <li key={n.id}>
                   <Link
                     href={`/5s/acoes?foco=${n.id}`}
-                    className={`block rounded-2xl border bg-white p-4 shadow-sm active:bg-slate-50 ${
-                      atrasada ? "border-red-200" : "border-slate-200"
+                    className={`block rounded-2xl border-2 p-4 shadow-sm active:brightness-95 ${
+                      atrasada
+                        ? "border-red-300 bg-red-50"
+                        : "border-slate-200 bg-white"
                     }`}
                   >
+                    {atrasada && n.prazo && (
+                      <p className="mb-1 text-xs font-bold uppercase tracking-wide text-red-700">
+                        ⚠️ {diasDeAtraso(n.prazo, hoje)} dia
+                        {diasDeAtraso(n.prazo, hoje) === 1 ? "" : "s"} de atraso
+                      </p>
+                    )}
                     <div className="flex items-start justify-between gap-2">
-                      <p className="min-w-0 flex-1 text-sm text-slate-700">
+                      <p
+                        className={`min-w-0 flex-1 text-sm ${
+                          atrasada
+                            ? "font-medium text-red-900"
+                            : "text-slate-700"
+                        }`}
+                      >
                         {n.descricao}
                       </p>
                       <span
@@ -261,10 +344,12 @@ export default async function CincoSPage({
                         {ROTULO_STATUS_NC[n.status as StatusNC]}
                       </span>
                     </div>
-                    <p className="mt-1 text-xs text-slate-400">
+                    <p
+                      className={`mt-1 text-xs ${atrasada ? "text-red-700" : "text-slate-400"}`}
+                    >
                       {area.nome}
                       {n.prazo && (
-                        <span className={atrasada ? "font-semibold text-red-600" : ""}>
+                        <span className={atrasada ? "font-semibold" : ""}>
                           {" · "}
                           {atrasada ? "venceu em " : "até "}
                           {n.prazo.split("-").reverse().join("/")}
@@ -517,6 +602,15 @@ function Atalho({
       </p>
     </Link>
   );
+}
+
+/** Dias inteiros entre a data prevista e hoje. Nunca negativo. */
+function diasDeAtraso(planejada: string, hoje: string) {
+  const [a1, m1, d1] = planejada.split("-").map(Number);
+  const [a2, m2, d2] = hoje.split("-").map(Number);
+  const prevista = Date.UTC(a1, m1 - 1, d1);
+  const agora = Date.UTC(a2, m2 - 1, d2);
+  return Math.max(0, Math.round((agora - prevista) / 86_400_000));
 }
 
 /** O PostgREST devolve o relacionamento como objeto ou lista. */
