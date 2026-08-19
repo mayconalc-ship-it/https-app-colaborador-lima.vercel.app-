@@ -1,28 +1,34 @@
 /// Guarda-chuva das medidas. A coluna e so o suporte da tabela.
-table _Medidas
+table '_Medidas'
 	lineageTag: 0b845ede-137d-4a59-9bca-96e68c0419c3
 
-	measure Colaboradores = DISTINCTCOUNT ( dim_colaborador[colaborador_id] )
+	measure 'Colaboradores' =
+			DISTINCTCOUNT ( dim_colaborador[colaborador_id] )
 		formatString: #,0
 		lineageTag: b970fc87-e828-49e5-85b5-cbb96e520616
 
-	measure 'Colaboradores ativos' = DISTINCTCOUNT ( fato_atividade[colaborador_id] )
+	measure 'Colaboradores ativos' =
+			DISTINCTCOUNT ( fato_atividade[colaborador_id] )
 		formatString: #,0
 		lineageTag: 532e37c7-bdf6-4d8e-a772-9591bbbd2986
 
-	measure '% Adesão' = DIVIDE ( [Colaboradores ativos], [Colaboradores] )
+	measure '% Adesão' =
+			DIVIDE ( [Colaboradores ativos], [Colaboradores] )
 		formatString: 0.0%
 		lineageTag: 85b85187-1cb0-488b-bf10-06f8e3094f22
 
-	measure Interações = SUM ( fato_atividade[interacoes] )
+	measure 'Interações' =
+			SUM ( fato_atividade[interacoes] )
 		formatString: #,0
 		lineageTag: 66536292-0aa9-4837-94a6-698d24b9aff0
 
-	measure 'Módulos usados' = DISTINCTCOUNT ( fato_atividade[modulo] )
+	measure 'Módulos usados' =
+			DISTINCTCOUNT ( fato_atividade[modulo] )
 		formatString: #,0
 		lineageTag: b1aff976-c1c5-4382-981e-403f68f29f96
 
-	measure '% Adesão mês anterior' = CALCULATE ( [% Adesão], DATEADD ( dim_calendario[data], -1, MONTH ) )
+	measure '% Adesão mês anterior' =
+			CALCULATE ( [% Adesão], DATEADD ( dim_calendario[data], -1, MONTH ) )
 		formatString: 0.0%
 		lineageTag: a1c4321c-03b0-45ff-8046-9df37a086d26
 
@@ -33,7 +39,8 @@ table _Medidas
 		formatString: #,0
 		lineageTag: fcb2bde3-f5bd-45b1-8f1f-e9457b7d2e4f
 
-	measure 'Colaboradores sem atividade' = [Colaboradores] - [Colaboradores ativos]
+	measure 'Colaboradores sem atividade' =
+			[Colaboradores] - [Colaboradores ativos]
 		formatString: #,0
 		lineageTag: 6a8abd80-f9af-4702-b722-d0298c22eeff
 
@@ -75,23 +82,28 @@ table _Medidas
 		formatString: 0.0
 		lineageTag: 2a3c9355-dc28-4b2c-bb94-d644963a20d3
 
-	measure Contagens = COUNTROWS ( fato_ag_contagem )
+	measure 'Contagens' =
+			COUNTROWS ( fato_ag_contagem )
 		formatString: #,0
 		lineageTag: 59fd3038-e5fd-4f2a-b71e-4bfea69816ff
 
-	measure Contadores = DISTINCTCOUNT ( fato_ag_contagem[colaborador_id] )
+	measure 'Contadores' =
+			DISTINCTCOUNT ( fato_ag_contagem[colaborador_id] )
 		formatString: #,0
 		lineageTag: c3217b61-b832-494a-afbc-f6bd145ec0a4
 
-	measure 'Dias com contagem' = DISTINCTCOUNT ( fato_ag_contagem[data] )
+	measure 'Dias com contagem' =
+			DISTINCTCOUNT ( fato_ag_contagem[data] )
 		formatString: #,0
 		lineageTag: cb75aa17-f51c-4b72-a690-ddc3426ece6d
 
-	measure 'Total em caixas' = SUM ( fato_ag_contagem[total_caixas] )
+	measure 'Total em caixas' =
+			SUM ( fato_ag_contagem[total_caixas] )
 		formatString: #,0
 		lineageTag: d5bf76c4-fa1d-4054-90c6-3b648c6a69b3
 
-	measure '% Participação AG' = DIVIDE ( [Contadores], [Colaboradores] )
+	measure '% Participação AG' =
+			DIVIDE ( [Contadores], [Colaboradores] )
 		formatString: 0.0%
 		lineageTag: 71d78553-e5a8-4258-a45f-5c22b3b7cfb2
 
@@ -103,11 +115,13 @@ table _Medidas
 		formatString: 0.0%
 		lineageTag: c9bec3f2-40b6-4ef5-aec4-3d174701cbc7
 
-	measure 'Atraso médio (dias)' = AVERAGE ( fato_ag_contagem[atraso_dias] )
+	measure 'Atraso médio (dias)' =
+			AVERAGE ( fato_ag_contagem[atraso_dias] )
 		formatString: 0.0
 		lineageTag: 36db1920-7325-42d7-9537-0ef24b84a718
 
-	measure 'Linhas sem fator' = CALCULATE ( [Contagens], fato_ag_contagem[fator_ausente] = TRUE () )
+	measure 'Linhas sem fator' =
+			CALCULATE ( [Contagens], fato_ag_contagem[fator_ausente] = TRUE () )
 		formatString: #,0
 		lineageTag: c702d191-5d47-4b29-bc8b-6495e1e5a9d0
 
@@ -166,7 +180,8 @@ table _Medidas
 		formatString: #,0
 		lineageTag: f7983d7e-48cf-4598-bcfc-5ac0810855ac
 
-	measure 'Ocorrências de contagem' = COUNTROWS ( fato_ag_contagem )
+	measure 'Ocorrências de contagem' =
+			COUNTROWS ( fato_ag_contagem )
 		formatString: #,0
 		lineageTag: 960faa40-6b10-4f3b-9dbb-b2ddae40c42a
 
@@ -179,7 +194,8 @@ table _Medidas
 		formatString: #,0
 		lineageTag: 85faf06f-4bd2-4151-a360-30fd1a94858e
 
-	measure '% Dias com contagem' = DIVIDE ( [Dias com contagem], [Dias úteis no período] )
+	measure '% Dias com contagem' =
+			DIVIDE ( [Dias com contagem], [Dias úteis no período] )
 		formatString: 0.0%
 		lineageTag: 157da353-5267-449c-b541-756985baf995
 
@@ -191,19 +207,23 @@ table _Medidas
 		formatString: #,0
 		lineageTag: 9d54635c-98d8-48cd-968c-7997b32176b0
 
-	measure 'Horas médias p/ atender' = AVERAGE ( fato_ag_recontagem[horas_para_atender] )
+	measure 'Horas médias p/ atender' =
+			AVERAGE ( fato_ag_recontagem[horas_para_atender] )
 		formatString: 0.0
 		lineageTag: ecfffb04-95b7-499f-a2f9-0238cffe8cf2
 
-	measure Feedbacks = COUNTROWS ( fato_feedback_rota )
+	measure 'Feedbacks' =
+			COUNTROWS ( fato_feedback_rota )
 		formatString: #,0
 		lineageTag: 908faaec-4cd1-468d-a494-7b30cace9897
 
-	measure 'Nota média' = AVERAGE ( fato_feedback_rota[nota] )
+	measure 'Nota média' =
+			AVERAGE ( fato_feedback_rota[nota] )
 		formatString: 0.0
 		lineageTag: 62267487-ec62-4d05-84c2-945884968c54
 
-	measure '% Satisfação' = AVERAGE ( fato_feedback_rota[nota_percentual] )
+	measure '% Satisfação' =
+			AVERAGE ( fato_feedback_rota[nota_percentual] )
 		formatString: 0.0%
 		lineageTag: 8102d379-a4be-4a6f-8b6b-ca39057db747
 
@@ -215,11 +235,13 @@ table _Medidas
 		formatString: 0.0%
 		lineageTag: 6f82fc71-6e8e-43cb-b624-efe3b1224d53
 
-	measure 'Motoristas que responderam' = DISTINCTCOUNT ( fato_feedback_rota[colaborador_id] )
+	measure 'Motoristas que responderam' =
+			DISTINCTCOUNT ( fato_feedback_rota[colaborador_id] )
 		formatString: #,0
 		lineageTag: 0fcbcfdb-926a-4c5b-bd7f-27e51dfe8460
 
-	measure 'Rotas avaliadas' = DISTINCTCOUNT ( fato_feedback_rota[rota] )
+	measure 'Rotas avaliadas' =
+			DISTINCTCOUNT ( fato_feedback_rota[rota] )
 		formatString: #,0
 		lineageTag: 2cfcfd1a-9120-4a4d-9c4a-0d3fdedf9b07
 
@@ -231,15 +253,18 @@ table _Medidas
 		formatString: 0.0%
 		lineageTag: 6f58e9d7-a738-4cb1-8c48-ede1bbb3e747
 
-	measure 'Feedbacks com ocorrência' = DISTINCTCOUNT ( fato_feedback_ocorrencia[feedback_id] )
+	measure 'Feedbacks com ocorrência' =
+			DISTINCTCOUNT ( fato_feedback_ocorrencia[feedback_id] )
 		formatString: #,0
 		lineageTag: 1040b31d-e00d-4325-b534-cb87c59b4945
 
-	measure 'Ocorrências relatadas' = COUNTROWS ( fato_feedback_ocorrencia )
+	measure 'Ocorrências relatadas' =
+			COUNTROWS ( fato_feedback_ocorrencia )
 		formatString: #,0
 		lineageTag: 96507e2b-cfa8-43a7-972e-8cfdf6ded2fe
 
-	measure '% Rotas com ocorrência' = DIVIDE ( [Feedbacks com ocorrência], [Feedbacks] )
+	measure '% Rotas com ocorrência' =
+			DIVIDE ( [Feedbacks com ocorrência], [Feedbacks] )
 		formatString: 0.0%
 		lineageTag: 9f5ed942-0e30-494f-b4fb-cd7f95774053
 
@@ -255,15 +280,18 @@ table _Medidas
 			    MAXX ( TOPN ( 1, Elegiveis, [@Nota], ASC ), fato_feedback_rota[rota] )
 		lineageTag: d317a9a0-693d-4692-96af-ad6f645e5807
 
-	measure Análises = COUNTROWS ( fato_cinco_porques )
+	measure 'Análises' =
+			COUNTROWS ( fato_cinco_porques )
 		formatString: #,0
 		lineageTag: 40b20402-1cd1-4021-8732-22a3576c15e1
 
-	measure 'Análises concluídas' = CALCULATE ( [Análises], fato_cinco_porques[concluida] = TRUE () )
+	measure 'Análises concluídas' =
+			CALCULATE ( [Análises], fato_cinco_porques[concluida] = TRUE () )
 		formatString: #,0
 		lineageTag: ab7f907e-0ee0-4cc2-aa3b-6b774fd63fb0
 
-	measure '% Conclusão' = DIVIDE ( [Análises concluídas], [Análises] )
+	measure '% Conclusão' =
+			DIVIDE ( [Análises concluídas], [Análises] )
 		formatString: 0.0%
 		lineageTag: cd6f920b-36df-492d-8b3f-c5479aafe90e
 
@@ -275,7 +303,8 @@ table _Medidas
 		formatString: 0.0%
 		lineageTag: a0141168-74d9-489b-b1bf-5e330d658e8e
 
-	measure 'Profundidade média' = AVERAGE ( fato_cinco_porques[profundidade] )
+	measure 'Profundidade média' =
+			AVERAGE ( fato_cinco_porques[profundidade] )
 		formatString: 0.0
 		lineageTag: 685763ec-e912-4467-a2c4-ed3bd08964e9
 
@@ -288,7 +317,8 @@ table _Medidas
 		formatString: #,0
 		lineageTag: 1ff090ef-8aa7-4da9-ad8c-0625aa3168f6
 
-	measure 'Horas médias até resposta' = AVERAGE ( fato_cinco_porques[horas_ate_resposta] )
+	measure 'Horas médias até resposta' =
+			AVERAGE ( fato_cinco_porques[horas_ate_resposta] )
 		formatString: 0.0
 		lineageTag: 2647e78a-cb40-4c97-96ff-917e7f03369d
 
@@ -310,51 +340,63 @@ table _Medidas
 			    MAXX ( TOPN ( 1, Causas, [@Qtd], DESC ), fato_cinco_porques[categoria] )
 		lineageTag: 3ce9fc38-096a-420c-820a-480551a92931
 
-	measure 'Comunicados publicados' = COUNTROWS ( fato_comunicado )
+	measure 'Comunicados publicados' =
+			COUNTROWS ( fato_comunicado )
 		formatString: #,0
 		lineageTag: 466d7f2a-b06d-4cb8-a31a-72b6f90f7883
 
-	measure Curtidas = SUM ( fato_comunicado[curtidas] )
+	measure 'Curtidas' =
+			SUM ( fato_comunicado[curtidas] )
 		formatString: #,0
 		lineageTag: cee7db35-59ea-4bdb-9730-6abbce290165
 
-	measure 'Curtidas por comunicado' = DIVIDE ( [Curtidas], [Comunicados publicados] )
+	measure 'Curtidas por comunicado' =
+			DIVIDE ( [Curtidas], [Comunicados publicados] )
 		formatString: #,0
 		lineageTag: 292258d4-4929-4b6e-a6c7-ea622ae6de4a
 
-	measure 'Taxa média de curtida' = AVERAGE ( fato_comunicado[taxa_curtida] )
+	measure 'Taxa média de curtida' =
+			AVERAGE ( fato_comunicado[taxa_curtida] )
 		formatString: 0.0%
 		lineageTag: c0a18d96-4a02-4f1c-b96f-ebf4cc988a05
 
-	measure 'Colaboradores que interagiram' = DISTINCTCOUNT ( fato_comunicado_curtida[colaborador_id] )
+	measure 'Colaboradores que interagiram' =
+			DISTINCTCOUNT ( fato_comunicado_curtida[colaborador_id] )
 		formatString: #,0
 		lineageTag: 0000950a-575c-46ce-b688-dc0354c7ed29
 
-	measure '% Participação na comunicação' = DIVIDE ( [Colaboradores que interagiram], [Colaboradores] )
+	measure '% Participação na comunicação' =
+			DIVIDE ( [Colaboradores que interagiram], [Colaboradores] )
 		formatString: 0.0%
 		lineageTag: a16033fa-e01e-4aec-a4ca-5f2a8bd54119
 
-	measure 'Cliques no aviso (piso)' = SUM ( fato_comunicado[avisos_clicados] )
+	measure 'Cliques no aviso (piso)' =
+			SUM ( fato_comunicado[avisos_clicados] )
 		formatString: #,0
 		lineageTag: edfdeb17-b03f-47af-9624-25a5f34196d1
 
-	measure 'Dias até curtir (mediana)' = MEDIANX ( fato_comunicado_curtida, fato_comunicado_curtida[dias_ate_curtir] )
+	measure 'Dias até curtir (mediana)' =
+			MEDIANX ( fato_comunicado_curtida, fato_comunicado_curtida[dias_ate_curtir] )
 		formatString: #,0
 		lineageTag: 819027d5-aafa-4db7-a09e-5dae0a9a441b
 
-	measure Participações = COUNTROWS ( fato_quiz_participacao )
+	measure 'Participações' =
+			COUNTROWS ( fato_quiz_participacao )
 		formatString: #,0
 		lineageTag: 52dbf152-078d-4507-b735-111bff7cb11a
 
-	measure 'Participações concluídas' = CALCULATE ( [Participações], fato_quiz_participacao[concluida] = TRUE () )
+	measure 'Participações concluídas' =
+			CALCULATE ( [Participações], fato_quiz_participacao[concluida] = TRUE () )
 		formatString: #,0
 		lineageTag: 0946654e-677c-4430-bfdd-efd528e76434
 
-	measure 'Participantes únicos' = DISTINCTCOUNT ( fato_quiz_participacao[colaborador_id] )
+	measure 'Participantes únicos' =
+			DISTINCTCOUNT ( fato_quiz_participacao[colaborador_id] )
 		formatString: #,0
 		lineageTag: 5f588eec-6c5d-4a92-b86e-65db4395ba85
 
-	measure Rodadas = DISTINCTCOUNT ( fato_quiz_participacao[rodada_id] )
+	measure 'Rodadas' =
+			DISTINCTCOUNT ( fato_quiz_participacao[rodada_id] )
 		formatString: #,0
 		lineageTag: 82963781-8034-45bb-b30e-d25073f9f095
 
@@ -366,23 +408,28 @@ table _Medidas
 		formatString: 0.0%
 		lineageTag: 36450b47-8660-4048-a8d3-cce3b2734b7e
 
-	measure 'Aproveitamento médio' = AVERAGE ( fato_quiz_participacao[aproveitamento] )
+	measure 'Aproveitamento médio' =
+			AVERAGE ( fato_quiz_participacao[aproveitamento] )
 		formatString: 0.0%
 		lineageTag: 1c2615a9-50ef-45ab-ad00-6ee301913d33
 
-	measure Pontos = SUM ( fato_quiz_participacao[pontos] )
+	measure 'Pontos' =
+			SUM ( fato_quiz_participacao[pontos] )
 		formatString: #,0
 		lineageTag: 6b413f1f-f123-4755-9f3c-84a02f0c541f
 
-	measure Acertos = SUM ( fato_quiz_participacao[acertos] )
+	measure 'Acertos' =
+			SUM ( fato_quiz_participacao[acertos] )
 		formatString: #,0
 		lineageTag: b5b99b10-b1d7-4085-bcf5-733fe280ee64
 
-	measure Erros = SUM ( fato_quiz_participacao[erros] )
+	measure 'Erros' =
+			SUM ( fato_quiz_participacao[erros] )
 		formatString: #,0
 		lineageTag: fe378b50-47df-416d-b2b0-d601cb484544
 
-	measure 'Tempo médio por pergunta (s)' = AVERAGE ( fato_quiz_participacao[segundos_por_pergunta] )
+	measure 'Tempo médio por pergunta (s)' =
+			AVERAGE ( fato_quiz_participacao[segundos_por_pergunta] )
 		formatString: 0.0
 		lineageTag: 93fb8b80-0f3f-4307-8b79-144a50814005
 
@@ -400,7 +447,7 @@ table _Medidas
 		formatString: #,0
 		lineageTag: 514b1969-e6ee-43a8-9cf1-6c176f17220b
 
-	measure Medalha =
+	measure 'Medalha' =
 			SWITCH (
 			    [Posição na temporada],
 			    1, "🥇",
@@ -434,11 +481,13 @@ table _Medidas
 		formatString: #,0
 		lineageTag: ec1991c9-61c7-4c0f-9b59-4c4bf77b9bdc
 
-	measure 'Quadros publicados' = COUNTROWS ( fato_ranking_matinal )
+	measure 'Quadros publicados' =
+			COUNTROWS ( fato_ranking_matinal )
 		formatString: #,0
 		lineageTag: fe6fc36f-e1d3-4c76-9fc8-42b4494ea628
 
-	measure 'Meses com publicação' = DISTINCTCOUNT ( fato_ranking_matinal[mes_ano] )
+	measure 'Meses com publicação' =
+			DISTINCTCOUNT ( fato_ranking_matinal[mes_ano] )
 		formatString: #,0
 		lineageTag: 27638df8-90fc-4c21-8dc1-a3256d398e6d
 
@@ -453,6 +502,176 @@ table _Medidas
 		formatString: 0.0%
 		lineageTag: b87635e7-340b-4f63-a01f-0dd31ec10f8b
 
+	measure 'Itens conformes' =
+			SUM ( fato_5s_auditoria[itens_ok] )
+		formatString: #,0
+		lineageTag: 17a3478b-1f06-41ce-a99b-4713d5c72617
+
+	measure 'Itens não conformes' =
+			SUM ( fato_5s_auditoria[itens_nok] )
+		formatString: #,0
+		lineageTag: 1d2c3d11-e037-4726-819a-eedd6a14067b
+
+	measure 'Itens avaliados' =
+			SUM ( fato_5s_auditoria[itens_avaliados] )
+		formatString: #,0
+		lineageTag: d5e2b2d2-0db3-4c79-bbfd-d68d3895b29c
+
+	measure '% Conformidade 5S' =
+			DIVIDE ( [Itens conformes], [Itens avaliados] )
+		formatString: 0.0%
+		lineageTag: ca19cf40-ea14-4705-94e0-6967759754e6
+
+	measure 'Auditorias planejadas' =
+			COUNTROWS ( fato_5s_auditoria )
+		formatString: #,0
+		lineageTag: ea642328-21a8-4880-a1ab-e04044fc3393
+
+	measure 'Auditorias realizadas' =
+			CALCULATE (
+			    COUNTROWS ( fato_5s_auditoria ),
+			    fato_5s_auditoria[realizada] = TRUE ()
+			)
+		formatString: #,0
+		lineageTag: 63372ee0-d22f-4f48-97aa-ceafd161d54a
+
+	measure 'Auditorias pendentes' =
+			[Auditorias planejadas] - [Auditorias realizadas]
+		formatString: #,0
+		lineageTag: 5dd4199e-a0aa-4403-a252-217c784ae144
+
+	measure '% Aderência ao plano' =
+			DIVIDE ( [Auditorias realizadas], [Auditorias planejadas] )
+		formatString: 0.0%
+		lineageTag: 9eb20a42-5397-45ae-9a72-775a222b6ed8
+
+	measure 'Auditorias atrasadas' =
+			CALCULATE (
+			    COUNTROWS ( fato_5s_auditoria ),
+			    fato_5s_auditoria[atrasada] = TRUE ()
+			)
+		formatString: #,0
+		lineageTag: f45ae4e1-c33d-4537-a9d3-92b5daeda518
+
+	measure 'Áreas auditadas' =
+			CALCULATE (
+			    DISTINCTCOUNT ( fato_5s_auditoria[area_5s_id] ),
+			    fato_5s_auditoria[realizada] = TRUE ()
+			)
+		formatString: #,0
+		lineageTag: c75e3c2e-77a0-4579-883f-a10eafe4251c
+
+	measure 'Áreas sem auditoria' =
+			VAR Ativas =
+			    CALCULATE ( DISTINCTCOUNT ( dim_5s_area[area_5s_id] ), dim_5s_area[ativa] = TRUE () )
+			RETURN Ativas - [Áreas auditadas]
+		formatString: #,0
+		lineageTag: f5d51b44-acec-4779-ac63-93886696b13b
+
+	measure '% Conformidade mês anterior' =
+			CALCULATE ( [% Conformidade 5S], DATEADD ( dim_calendario[data], -1, MONTH ) )
+		formatString: 0.0%
+		lineageTag: 8309a854-8929-4b71-9fa5-0318e6877520
+
+	measure 'Δ Conformidade 5S' =
+			VAR Atual = [% Conformidade 5S]
+			VAR Anterior = [% Conformidade mês anterior]
+			RETURN IF ( NOT ISBLANK ( Anterior ), Atual - Anterior )
+		formatString: #,0
+		lineageTag: 93f1b032-bcc9-4044-8646-fceea60e8178
+
+	measure 'Não conformidades' =
+			COUNTROWS ( fato_5s_acao )
+		formatString: #,0
+		lineageTag: f723deef-dece-4211-9b79-ca3ad7c6765e
+
+	measure 'NC em aberto' =
+			CALCULATE ( COUNTROWS ( fato_5s_acao ), fato_5s_acao[em_aberto] = TRUE () )
+		formatString: #,0
+		lineageTag: ac1cda5a-1e32-4dfd-abe6-3b095d4b476a
+
+	measure 'NC resolvidas' =
+			CALCULATE ( COUNTROWS ( fato_5s_acao ), fato_5s_acao[resolvida] = TRUE () )
+		formatString: #,0
+		lineageTag: 23637b4e-e792-4a22-8d58-759acf6148df
+
+	measure 'Ações atrasadas' =
+			CALCULATE ( COUNTROWS ( fato_5s_acao ), fato_5s_acao[atrasada] = TRUE () )
+		formatString: #,0
+		lineageTag: 4daa893b-7e3d-48a3-a6bf-633c9da15c6b
+
+	measure '% Ações concluídas' =
+			DIVIDE ( [NC resolvidas], [Não conformidades] )
+		formatString: 0.0%
+		lineageTag: b3f44c0e-62f2-4fbd-8390-96b2d8c49840
+
+	measure 'Dias médios para resolver' =
+			AVERAGE ( fato_5s_acao[dias_para_resolver] )
+		formatString: 0.0
+		lineageTag: fbf7b076-90be-4f2e-aea3-b4e031d62328
+
+	measure 'Respostas NOK' =
+			SUM ( fato_5s_resposta[eh_nok] )
+		formatString: #,0
+		lineageTag: 702df17f-87be-4962-93d7-c249bb1e1e80
+
+	measure 'Respostas avaliadas' =
+			SUM ( fato_5s_resposta[eh_avaliado] )
+		formatString: #,0
+		lineageTag: 286cfb26-8d02-464a-8aa5-2ea17bc0ace3
+
+	measure '% Reprovação do item' =
+			DIVIDE ( [Respostas NOK], [Respostas avaliadas] )
+		formatString: 0.0%
+		lineageTag: 72efe9cd-15d8-49f9-9a7a-bc9df11cd7a5
+
+	measure 'Itens críticos' =
+			VAR Itens =
+			    ADDCOLUMNS (
+			        VALUES ( dim_5s_pergunta[pergunta_5s_id] ),
+			        "@Reprova", [% Reprovação do item],
+			        "@Avaliadas", [Respostas avaliadas]
+			    )
+			RETURN
+			    COUNTROWS ( FILTER ( Itens, [@Reprova] > 0.3 && [@Avaliadas] >= 5 ) )
+		formatString: #,0
+		lineageTag: 0a3636dd-612b-495e-b89b-259cc2204a04
+
+	measure '% Conformidade do senso' =
+			DIVIDE (
+			    SUM ( fato_5s_senso[itens_ok] ),
+			    SUM ( fato_5s_senso[itens_avaliados] )
+			)
+		formatString: 0.0%
+		lineageTag: a1e2842b-c8f2-4c12-a868-093bdabba0f4
+
+	measure 'Senso mais crítico' =
+			VAR PorSenso =
+			    ADDCOLUMNS (
+			        VALUES ( fato_5s_senso[senso_rotulo] ),
+			        "@Taxa", [% Conformidade do senso]
+			    )
+			VAR Pior = MINX ( PorSenso, [@Taxa] )
+			RETURN
+			    CONCATENATEX (
+			        FILTER ( PorSenso, [@Taxa] = Pior ),
+			        fato_5s_senso[senso_rotulo], ", "
+			    )
+		formatString: #,0
+		lineageTag: 483e0e28-3d0c-4521-9879-5b046cd29518
+
+	measure '% Auditorias medidas' =
+			DIVIDE (
+			    CALCULATE (
+			        COUNTROWS ( fato_5s_auditoria ),
+			        fato_5s_auditoria[estimada] = FALSE (),
+			        fato_5s_auditoria[realizada] = TRUE ()
+			    ),
+			    [Auditorias realizadas]
+			)
+		formatString: 0.0%
+		lineageTag: a219fa5d-2cb3-48ba-98a9-e19065c5cf3c
+
 	column Coluna1
 		dataType: string
 		isHidden
@@ -462,7 +681,7 @@ table _Medidas
 
 		annotation SummarizationSetBy = Automatic
 
-	partition _Medidas = m
+	partition '_Medidas' = m
 		mode: import
 		source =
 				let
@@ -471,4 +690,3 @@ table _Medidas
 				    Tabela
 
 	annotation PBI_ResultType = Table
-

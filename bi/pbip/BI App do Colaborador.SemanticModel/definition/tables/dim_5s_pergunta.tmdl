@@ -1,0 +1,96 @@
+/// As 25 perguntas do checklist, na ordem da planilha de origem.
+table dim_5s_pergunta
+	lineageTag: 67e62134-ffbb-429c-bed7-95571156e1dd
+
+	column pergunta_5s_id
+		dataType: string
+		isHidden
+		lineageTag: 21bf9b1d-6e1b-46df-ae11-fd5b5f09c0f1
+		summarizeBy: none
+		sourceColumn: pergunta_5s_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column revenda_id
+		dataType: string
+		isHidden
+		lineageTag: 18a75126-5aa5-4985-94d7-5ef7c2f84140
+		summarizeBy: none
+		sourceColumn: revenda_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column codigo
+		dataType: string
+		lineageTag: eaee25e5-a9fd-49fe-a306-6c30ce303371
+		summarizeBy: none
+		sourceColumn: codigo
+
+		annotation SummarizationSetBy = Automatic
+
+	column pergunta
+		dataType: string
+		lineageTag: f91fb722-db7a-4957-9ddb-4fea33bafb57
+		summarizeBy: none
+		sourceColumn: pergunta
+
+		annotation SummarizationSetBy = Automatic
+
+	column pergunta_curta
+		dataType: string
+		lineageTag: 6b160a7c-a7a5-4989-9213-c6d4648b8a1d
+		summarizeBy: none
+		sourceColumn: pergunta_curta
+
+		annotation SummarizationSetBy = Automatic
+
+	column senso
+		dataType: string
+		lineageTag: 1b09dc33-30c6-465f-82a5-d8a37361a0c0
+		summarizeBy: none
+		sourceColumn: senso
+
+		annotation SummarizationSetBy = Automatic
+
+	column senso_rotulo
+		dataType: string
+		lineageTag: a19e99d8-a52a-481e-9dda-90a8bd788b57
+		summarizeBy: none
+		sourceColumn: senso_rotulo
+
+		annotation SummarizationSetBy = Automatic
+
+	column senso_japones
+		dataType: string
+		lineageTag: ee9760e0-978d-42b4-95ee-8b6927810091
+		summarizeBy: none
+		sourceColumn: senso_japones
+
+		annotation SummarizationSetBy = Automatic
+
+	column ordem
+		dataType: int64
+		lineageTag: bbbac2a9-905d-4b48-850a-62f914f96237
+		summarizeBy: none
+		sourceColumn: ordem
+
+		annotation SummarizationSetBy = Automatic
+
+	column ativa
+		dataType: boolean
+		lineageTag: 90b74493-2494-4b88-a4f1-08a15e541038
+		summarizeBy: none
+		sourceColumn: ativa
+
+		annotation SummarizationSetBy = Automatic
+
+	partition dim_5s_pergunta = m
+		mode: import
+		source =
+				let
+				    Origem = PostgreSQL.Database(Servidor, Banco),
+				    Dados = Origem{[Schema="bi",Item="dim_5s_pergunta"]}[Data]
+				in
+				    Dados
+
+	annotation PBI_ResultType = Table

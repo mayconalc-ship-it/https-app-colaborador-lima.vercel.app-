@@ -1,0 +1,184 @@
+/// Grao: auditoria x pergunta. Sustenta o ranking de itens criticos.
+table fato_5s_resposta
+	lineageTag: f0bca94a-c88d-410b-b1b5-a3e417ee3272
+
+	column resposta_5s_id
+		dataType: string
+		isHidden
+		lineageTag: 7e3c02a5-387b-452f-8adb-34d58c00c767
+		summarizeBy: none
+		sourceColumn: resposta_5s_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column auditoria_5s_id
+		dataType: string
+		isHidden
+		lineageTag: 108ad6d1-5536-4c50-9d9f-c0012e63dd89
+		summarizeBy: none
+		sourceColumn: auditoria_5s_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column revenda_id
+		dataType: string
+		isHidden
+		lineageTag: 3c338f1e-2a77-4692-b322-58b35c273582
+		summarizeBy: none
+		sourceColumn: revenda_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column area_5s_id
+		dataType: string
+		isHidden
+		lineageTag: b0bc9321-d0c0-402f-95d3-84f99fd689a8
+		summarizeBy: none
+		sourceColumn: area_5s_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column area_5s
+		dataType: string
+		lineageTag: 07b72d2e-256e-48a4-8b44-5ba4a5c0f298
+		summarizeBy: none
+		sourceColumn: area_5s
+
+		annotation SummarizationSetBy = Automatic
+
+	column auditor_id
+		dataType: string
+		isHidden
+		lineageTag: d8c5f2e1-12f5-4d4a-9fef-6080d82f0f4d
+		summarizeBy: none
+		sourceColumn: auditor_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column dono_id
+		dataType: string
+		isHidden
+		lineageTag: 1918c428-9aaa-441a-86d5-1172826733d0
+		summarizeBy: none
+		sourceColumn: dono_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column data
+		dataType: dateTime
+		formatString: dd/MM/yyyy
+		lineageTag: a65e82e2-ba26-4bc3-9b53-9b0be0bf37a7
+		summarizeBy: none
+		sourceColumn: data
+
+		annotation SummarizationSetBy = Automatic
+
+	column mes_ref
+		dataType: dateTime
+		formatString: dd/MM/yyyy
+		lineageTag: 1b20385a-12d6-498a-bf2e-d973192cc2f6
+		summarizeBy: none
+		sourceColumn: mes_ref
+
+		annotation SummarizationSetBy = Automatic
+
+	column pergunta_5s_id
+		dataType: string
+		isHidden
+		lineageTag: b6c5faeb-de4f-416e-9490-a732a47cdbe3
+		summarizeBy: none
+		sourceColumn: pergunta_5s_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column codigo
+		dataType: string
+		lineageTag: fc0bedda-5721-41fb-8fc2-b6e2f73e31d9
+		summarizeBy: none
+		sourceColumn: codigo
+
+		annotation SummarizationSetBy = Automatic
+
+	column senso
+		dataType: string
+		lineageTag: 1606ed1f-f8de-46cf-8d80-c58342891e96
+		summarizeBy: none
+		sourceColumn: senso
+
+		annotation SummarizationSetBy = Automatic
+
+	column valor
+		dataType: string
+		lineageTag: 0b0e58a6-4fe4-4fe4-8134-de02f266b6c5
+		summarizeBy: none
+		sourceColumn: valor
+
+		annotation SummarizationSetBy = Automatic
+
+	column resultado
+		dataType: string
+		lineageTag: 28cf86c1-679a-4a64-8afc-8222e243ecc8
+		summarizeBy: none
+		sourceColumn: resultado
+
+		annotation SummarizationSetBy = Automatic
+
+	column eh_ok
+		dataType: int64
+		lineageTag: c08e3be4-d300-4db4-b7d5-51f0828c0630
+		summarizeBy: none
+		sourceColumn: eh_ok
+
+		annotation SummarizationSetBy = Automatic
+
+	column eh_nok
+		dataType: int64
+		lineageTag: 5923f9a6-6a45-43af-9330-9cbe3dff7abf
+		summarizeBy: none
+		sourceColumn: eh_nok
+
+		annotation SummarizationSetBy = Automatic
+
+	column eh_na
+		dataType: int64
+		lineageTag: f25737b8-e3f3-429f-99aa-725b55fe86f9
+		summarizeBy: none
+		sourceColumn: eh_na
+
+		annotation SummarizationSetBy = Automatic
+
+	column eh_avaliado
+		dataType: int64
+		lineageTag: 3e30fd7d-923c-4a0e-aedd-4903994495fe
+		summarizeBy: none
+		sourceColumn: eh_avaliado
+
+		annotation SummarizationSetBy = Automatic
+
+	column observacao
+		dataType: string
+		lineageTag: 765a16cd-b50e-41ef-baad-60839bb98f0e
+		summarizeBy: none
+		sourceColumn: observacao
+
+		annotation SummarizationSetBy = Automatic
+
+	column foto_url
+		dataType: string
+		lineageTag: b5c24ffb-f770-4c3b-9b68-04cc10bf5cb8
+		summarizeBy: none
+		sourceColumn: foto_url
+		dataCategory: ImageUrl
+
+		annotation SummarizationSetBy = Automatic
+
+	partition fato_5s_resposta = m
+		mode: import
+		source =
+				let
+				    Origem = PostgreSQL.Database(Servidor, Banco),
+				    Dados = Origem{[Schema="bi",Item="fato_5s_resposta"]}[Data]
+				in
+				    Dados
+
+	annotation PBI_ResultType = Table

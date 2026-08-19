@@ -3,11 +3,10 @@ table fato_feedback_rota
 	lineageTag: c8fc4eb2-264d-441e-b562-c08a2dc579bb
 
 	column feedback_id
-		dataType: int64
+		dataType: string
 		isHidden
-		formatString: 0
 		lineageTag: c425d146-af0c-4c14-94e5-4a974bcfc565
-		summarizeBy: sum
+		summarizeBy: none
 		sourceColumn: feedback_id
 
 		annotation SummarizationSetBy = Automatic
@@ -87,14 +86,12 @@ table fato_feedback_rota
 		annotation SummarizationSetBy = Automatic
 
 	column nota_percentual
-		dataType: double
+		dataType: decimal
 		lineageTag: 431af0bc-339f-4507-957a-9394fc445f53
-		summarizeBy: sum
+		summarizeBy: none
 		sourceColumn: nota_percentual
 
 		annotation SummarizationSetBy = Automatic
-
-		annotation PBI_FormatHint = {"isGeneralNumber":true}
 
 	column nota_ruim
 		dataType: boolean
@@ -170,8 +167,6 @@ table fato_feedback_rota
 
 		annotation SummarizationSetBy = Automatic
 
-		annotation UnderlyingDateTimeDataType = Date
-
 	column hora
 		dataType: int64
 		lineageTag: 07609e8e-4d2e-488f-9a9b-41e98aaf441d
@@ -212,4 +207,3 @@ table fato_feedback_rota
 				    ComChave
 
 	annotation PBI_ResultType = Table
-

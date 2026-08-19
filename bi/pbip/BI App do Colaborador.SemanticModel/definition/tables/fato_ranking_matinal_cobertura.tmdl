@@ -28,8 +28,6 @@ table fato_ranking_matinal_cobertura
 
 		annotation SummarizationSetBy = Automatic
 
-		annotation UnderlyingDateTimeDataType = Date
-
 	column equipe
 		dataType: string
 		lineageTag: 8b3381f7-9b31-46bd-b301-557ac680327e
@@ -57,9 +55,9 @@ table fato_ranking_matinal_cobertura
 	column imagem_url
 		dataType: string
 		lineageTag: 16addd09-83f4-441f-ab13-b29a6c6fa658
-		dataCategory: ImageUrl
 		summarizeBy: none
 		sourceColumn: imagem_url
+		dataCategory: ImageUrl
 
 		annotation SummarizationSetBy = Automatic
 
@@ -73,4 +71,3 @@ table fato_ranking_matinal_cobertura
 				    Dados
 
 	annotation PBI_ResultType = Table
-

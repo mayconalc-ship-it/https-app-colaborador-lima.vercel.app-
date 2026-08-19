@@ -1,0 +1,245 @@
+/// Uma linha por auditoria. Conformidade ja vem consolidada do app -- nao recalcule em DAX.
+table fato_5s_auditoria
+	lineageTag: b80dd42e-0fb0-4930-87ab-c0e180c9cfbc
+
+	column auditoria_5s_id
+		dataType: string
+		isHidden
+		lineageTag: 95598cd2-cfeb-478c-b813-510a34e11c73
+		summarizeBy: none
+		sourceColumn: auditoria_5s_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column revenda_id
+		dataType: string
+		isHidden
+		lineageTag: fd37b8ec-c647-49c3-81ef-0a6583a297c0
+		summarizeBy: none
+		sourceColumn: revenda_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column area_5s_id
+		dataType: string
+		isHidden
+		lineageTag: 9534e90e-7503-4839-b3c6-67b71e1bc1ce
+		summarizeBy: none
+		sourceColumn: area_5s_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column area_5s
+		dataType: string
+		lineageTag: c10204f8-e3ea-4f2a-a819-b7295a2f9fa2
+		summarizeBy: none
+		sourceColumn: area_5s
+
+		annotation SummarizationSetBy = Automatic
+
+	column auditor_id
+		dataType: string
+		isHidden
+		lineageTag: 826fea2b-de09-475b-8835-69909f84b13c
+		summarizeBy: none
+		sourceColumn: auditor_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column auditor
+		dataType: string
+		lineageTag: 53b8fb34-60c2-4227-8236-8d8b73a1cd2f
+		summarizeBy: none
+		sourceColumn: auditor
+
+		annotation SummarizationSetBy = Automatic
+
+	column dono_id
+		dataType: string
+		isHidden
+		lineageTag: 3419dd55-c845-44ee-b819-0b21078a6d15
+		summarizeBy: none
+		sourceColumn: dono_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column dono
+		dataType: string
+		lineageTag: a4ec5daf-645d-4875-ba40-5043fd41f9b4
+		summarizeBy: none
+		sourceColumn: dono
+
+		annotation SummarizationSetBy = Automatic
+
+	column status
+		dataType: string
+		lineageTag: d61f0538-7631-42a8-bb15-65943f069739
+		summarizeBy: none
+		sourceColumn: status
+
+		annotation SummarizationSetBy = Automatic
+
+	column status_rotulo
+		dataType: string
+		lineageTag: cb8474ae-1d47-4db3-a31e-d56f1fd069fc
+		summarizeBy: none
+		sourceColumn: status_rotulo
+
+		annotation SummarizationSetBy = Automatic
+
+	column data
+		dataType: dateTime
+		formatString: dd/MM/yyyy
+		lineageTag: 6f8943bf-2b33-4381-a156-9e346be48ddf
+		summarizeBy: none
+		sourceColumn: data
+
+		annotation SummarizationSetBy = Automatic
+
+	column mes_ref
+		dataType: dateTime
+		formatString: dd/MM/yyyy
+		lineageTag: 6aa57cfb-b19a-49fe-a444-ac27fc530882
+		summarizeBy: none
+		sourceColumn: mes_ref
+
+		annotation SummarizationSetBy = Automatic
+
+	column mes_rotulo
+		dataType: string
+		lineageTag: 440b8f62-6fe7-4092-8b92-4bd30e812552
+		summarizeBy: none
+		sourceColumn: mes_rotulo
+
+		annotation SummarizationSetBy = Automatic
+
+	column data_realizada
+		dataType: dateTime
+		formatString: dd/MM/yyyy
+		lineageTag: d1df4333-397d-4f55-8a09-ed7f50510e0d
+		summarizeBy: none
+		sourceColumn: data_realizada
+
+		annotation SummarizationSetBy = Automatic
+
+	column realizada
+		dataType: boolean
+		lineageTag: a26212e8-d441-43da-b99c-47f393021bd6
+		summarizeBy: none
+		sourceColumn: realizada
+
+		annotation SummarizationSetBy = Automatic
+
+	column atrasada
+		dataType: boolean
+		lineageTag: f766f2ef-24a6-41a9-8af2-4eff349ec76e
+		summarizeBy: none
+		sourceColumn: atrasada
+
+		annotation SummarizationSetBy = Automatic
+
+	column atraso_dias
+		dataType: int64
+		lineageTag: 981461bf-07c4-4fd7-af83-e843f996f882
+		summarizeBy: none
+		sourceColumn: atraso_dias
+
+		annotation SummarizationSetBy = Automatic
+
+	column itens_ok
+		dataType: int64
+		lineageTag: 2b8d86fb-eb7c-4b77-bed6-d901a86538b9
+		summarizeBy: none
+		sourceColumn: itens_ok
+
+		annotation SummarizationSetBy = Automatic
+
+	column itens_nok
+		dataType: int64
+		lineageTag: 9b05dfac-af4b-40ca-8979-ea1deaf4b8c5
+		summarizeBy: none
+		sourceColumn: itens_nok
+
+		annotation SummarizationSetBy = Automatic
+
+	column itens_na
+		dataType: int64
+		lineageTag: 934005b4-831a-4917-bdc6-e4d86ecb3869
+		summarizeBy: none
+		sourceColumn: itens_na
+
+		annotation SummarizationSetBy = Automatic
+
+	column itens_avaliados
+		dataType: int64
+		lineageTag: 4bef1462-a0c7-4b71-9041-54b719712455
+		summarizeBy: none
+		sourceColumn: itens_avaliados
+
+		annotation SummarizationSetBy = Automatic
+
+	column conformidade
+		dataType: decimal
+		lineageTag: a38977d2-8ac8-44ab-b3db-ff87c0c13efa
+		summarizeBy: none
+		sourceColumn: conformidade
+
+		annotation SummarizationSetBy = Automatic
+
+	column estimada
+		dataType: boolean
+		lineageTag: f2473053-0ffc-4cf5-be4c-bca5db8592db
+		summarizeBy: none
+		sourceColumn: estimada
+
+		annotation SummarizationSetBy = Automatic
+
+	column origem
+		dataType: string
+		lineageTag: 31715ca7-6e48-4e50-82c1-ffac7abd98fa
+		summarizeBy: none
+		sourceColumn: origem
+
+		annotation SummarizationSetBy = Automatic
+
+	column observacao
+		dataType: string
+		lineageTag: e3f67991-90ae-4dbf-b7df-6c776338cf2e
+		summarizeBy: none
+		sourceColumn: observacao
+
+		annotation SummarizationSetBy = Automatic
+
+	column data_planejamento
+		dataType: dateTime
+		formatString: dd/MM/yyyy
+		lineageTag: 391ccdc6-1cda-4d03-9ef2-f5f0c0438907
+		summarizeBy: none
+		sourceColumn: data_planejamento
+
+		annotation SummarizationSetBy = Automatic
+
+	column chave
+		dataType: string
+		isHidden
+		lineageTag: 8f807b6c-a59f-4e35-af8d-25a3d540ec13
+		summarizeBy: none
+		sourceColumn: chave
+
+		annotation SummarizationSetBy = Automatic
+
+	partition fato_5s_auditoria = m
+		mode: import
+		source =
+				let
+				    Origem = PostgreSQL.Database(Servidor, Banco),
+				    Dados = Origem{[Schema="bi",Item="fato_5s_auditoria"]}[Data],
+				    ComChave = Table.AddColumn(Dados, "chave", each
+				        (if [revenda_id] = null then "" else Text.From([revenda_id]))
+				        & "|" &
+				        (if [colaborador_id] = null then "" else Text.From([colaborador_id])),
+				        type text)
+				in
+				    ComChave
+
+	annotation PBI_ResultType = Table

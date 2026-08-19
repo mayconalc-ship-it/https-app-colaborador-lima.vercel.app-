@@ -46,9 +46,9 @@ table dim_menu_app
 	column link
 		dataType: string
 		lineageTag: a104aef9-dff3-4686-97b8-9bf98565c914
-		dataCategory: WebUrl
 		summarizeBy: none
 		sourceColumn: link
+		dataCategory: WebUrl
 
 		annotation SummarizationSetBy = Automatic
 
@@ -86,4 +86,3 @@ table dim_menu_app
 				    Dados
 
 	annotation PBI_ResultType = Table
-

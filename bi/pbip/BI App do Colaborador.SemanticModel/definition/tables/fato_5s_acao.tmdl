@@ -1,0 +1,258 @@
+/// Plano de acao 5S: do apontamento a validacao.
+table fato_5s_acao
+	lineageTag: e29c06a0-6cd6-4f69-99e1-559bfe3ad1f7
+
+	column acao_5s_id
+		dataType: string
+		isHidden
+		lineageTag: 3f592b64-ce2c-4429-93cf-a2e58e84593b
+		summarizeBy: none
+		sourceColumn: acao_5s_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column revenda_id
+		dataType: string
+		isHidden
+		lineageTag: 30b18e05-7462-4430-a365-e9a7cea9991b
+		summarizeBy: none
+		sourceColumn: revenda_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column auditoria_5s_id
+		dataType: string
+		isHidden
+		lineageTag: 5ae2dce4-4ffa-4513-a88d-7f8da78f4221
+		summarizeBy: none
+		sourceColumn: auditoria_5s_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column area_5s_id
+		dataType: string
+		isHidden
+		lineageTag: fedbf449-caf6-4f7a-a667-036faabeba08
+		summarizeBy: none
+		sourceColumn: area_5s_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column area_5s
+		dataType: string
+		lineageTag: 60ed598f-e24f-4fd5-ac87-95f8b4ab2f84
+		summarizeBy: none
+		sourceColumn: area_5s
+
+		annotation SummarizationSetBy = Automatic
+
+	column pergunta_5s_id
+		dataType: string
+		isHidden
+		lineageTag: b34dbf51-414b-4eab-8b92-910e3b20f673
+		summarizeBy: none
+		sourceColumn: pergunta_5s_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column codigo
+		dataType: string
+		lineageTag: c72b4147-b9c4-49f2-b0d0-32a3c1fcf3d6
+		summarizeBy: none
+		sourceColumn: codigo
+
+		annotation SummarizationSetBy = Automatic
+
+	column senso
+		dataType: string
+		lineageTag: 2ed69c58-6ddd-489d-962f-fc154633d585
+		summarizeBy: none
+		sourceColumn: senso
+
+		annotation SummarizationSetBy = Automatic
+
+	column senso_rotulo
+		dataType: string
+		lineageTag: 02af35e7-0569-4e1a-af80-95e17a77d474
+		summarizeBy: none
+		sourceColumn: senso_rotulo
+
+		annotation SummarizationSetBy = Automatic
+
+	column problema
+		dataType: string
+		lineageTag: 78295203-ace7-4e98-bc6f-f4ddbf482b66
+		summarizeBy: none
+		sourceColumn: problema
+
+		annotation SummarizationSetBy = Automatic
+
+	column acao_corretiva
+		dataType: string
+		lineageTag: 7241ff55-a4be-492c-8abd-6874e300fedd
+		summarizeBy: none
+		sourceColumn: acao_corretiva
+
+		annotation SummarizationSetBy = Automatic
+
+	column responsavel_id
+		dataType: string
+		isHidden
+		lineageTag: aa6ae241-7cef-4e52-aada-d0e2ce3e03c4
+		summarizeBy: none
+		sourceColumn: responsavel_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column responsavel
+		dataType: string
+		lineageTag: 9bc1ab09-451c-418b-81a2-97c8ac4557d1
+		summarizeBy: none
+		sourceColumn: responsavel
+
+		annotation SummarizationSetBy = Automatic
+
+	column prioridade
+		dataType: string
+		lineageTag: 474d02dd-6120-4d65-b104-4971d8397f69
+		summarizeBy: none
+		sourceColumn: prioridade
+
+		annotation SummarizationSetBy = Automatic
+
+	column prioridade_rotulo
+		dataType: string
+		lineageTag: 6c6a4ed2-2c2a-44d3-ab19-747f9d6e596c
+		summarizeBy: none
+		sourceColumn: prioridade_rotulo
+
+		annotation SummarizationSetBy = Automatic
+
+	column status
+		dataType: string
+		lineageTag: c732b951-4df7-43ee-9882-f9c3a35988fb
+		summarizeBy: none
+		sourceColumn: status
+
+		annotation SummarizationSetBy = Automatic
+
+	column status_rotulo
+		dataType: string
+		lineageTag: 29cd3c0b-006a-47cb-9bde-c485cb8509ea
+		summarizeBy: none
+		sourceColumn: status_rotulo
+
+		annotation SummarizationSetBy = Automatic
+
+	column em_aberto
+		dataType: boolean
+		lineageTag: f6573eae-90b9-443e-a636-c169f008573b
+		summarizeBy: none
+		sourceColumn: em_aberto
+
+		annotation SummarizationSetBy = Automatic
+
+	column resolvida
+		dataType: boolean
+		lineageTag: 0db79753-b3b9-48bd-8078-5d7dba19fee9
+		summarizeBy: none
+		sourceColumn: resolvida
+
+		annotation SummarizationSetBy = Automatic
+
+	column prazo
+		dataType: dateTime
+		formatString: dd/MM/yyyy
+		lineageTag: dc1e783b-0a7b-4c3a-87f9-0540e3ed7f50
+		summarizeBy: none
+		sourceColumn: prazo
+
+		annotation SummarizationSetBy = Automatic
+
+	column mes_ref
+		dataType: dateTime
+		formatString: dd/MM/yyyy
+		lineageTag: fbffc7d8-d506-4e64-939a-80ad9cc04b85
+		summarizeBy: none
+		sourceColumn: mes_ref
+
+		annotation SummarizationSetBy = Automatic
+
+	column data_abertura
+		dataType: dateTime
+		formatString: dd/MM/yyyy
+		lineageTag: 04f4628c-4e89-42ec-8ccc-940149931801
+		summarizeBy: none
+		sourceColumn: data_abertura
+
+		annotation SummarizationSetBy = Automatic
+
+	column data_conclusao
+		dataType: dateTime
+		formatString: dd/MM/yyyy
+		lineageTag: e1444a13-2f0e-4e0e-bc97-9e9ec296d16e
+		summarizeBy: none
+		sourceColumn: data_conclusao
+
+		annotation SummarizationSetBy = Automatic
+
+	column data_validacao
+		dataType: dateTime
+		formatString: dd/MM/yyyy
+		lineageTag: e463ce81-d9f0-4d6a-a8d1-4a3dcc218dee
+		summarizeBy: none
+		sourceColumn: data_validacao
+
+		annotation SummarizationSetBy = Automatic
+
+	column atrasada
+		dataType: boolean
+		lineageTag: 4f6fbb05-a7b0-46bf-a645-90e9a4bd00f1
+		summarizeBy: none
+		sourceColumn: atrasada
+
+		annotation SummarizationSetBy = Automatic
+
+	column dias_para_resolver
+		dataType: int64
+		lineageTag: e53490ef-2548-447b-87ae-d7bc4a61b437
+		summarizeBy: none
+		sourceColumn: dias_para_resolver
+
+		annotation SummarizationSetBy = Automatic
+
+	column evidencia_url
+		dataType: string
+		lineageTag: de55c6ce-d132-40b8-8cb7-9b6a4162fadf
+		summarizeBy: none
+		sourceColumn: evidencia_url
+		dataCategory: ImageUrl
+
+		annotation SummarizationSetBy = Automatic
+
+	column evidencia_conclusao_url
+		dataType: string
+		lineageTag: 465c556a-f3b0-429e-b552-5ec3f14dcb4f
+		summarizeBy: none
+		sourceColumn: evidencia_conclusao_url
+
+		annotation SummarizationSetBy = Automatic
+
+	column comentario_encerramento
+		dataType: string
+		lineageTag: 2f1b3530-216f-44b1-99eb-439ab8321c43
+		summarizeBy: none
+		sourceColumn: comentario_encerramento
+
+		annotation SummarizationSetBy = Automatic
+
+	partition fato_5s_acao = m
+		mode: import
+		source =
+				let
+				    Origem = PostgreSQL.Database(Servidor, Banco),
+				    Dados = Origem{[Schema="bi",Item="fato_5s_acao"]}[Data]
+				in
+				    Dados
+
+	annotation PBI_ResultType = Table

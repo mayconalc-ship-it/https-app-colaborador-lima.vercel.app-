@@ -1,0 +1,149 @@
+/// Grao: auditoria x senso. Base do radar dos cinco sensos.
+table fato_5s_senso
+	lineageTag: 75d071c1-2aae-4af8-872f-d63cfd403567
+
+	column auditoria_5s_id
+		dataType: string
+		isHidden
+		lineageTag: 4ee5e3ea-d01b-4cc9-ae10-71a4a6e6590c
+		summarizeBy: none
+		sourceColumn: auditoria_5s_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column revenda_id
+		dataType: string
+		isHidden
+		lineageTag: 22d873d6-a9a3-4e7f-a12f-6762bb2802db
+		summarizeBy: none
+		sourceColumn: revenda_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column area_5s_id
+		dataType: string
+		isHidden
+		lineageTag: 5ee53b4d-f559-47d8-bebb-f96839aeee0f
+		summarizeBy: none
+		sourceColumn: area_5s_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column area_5s
+		dataType: string
+		lineageTag: 7d7323c9-4b40-480a-9469-0401da62a0b0
+		summarizeBy: none
+		sourceColumn: area_5s
+
+		annotation SummarizationSetBy = Automatic
+
+	column auditor_id
+		dataType: string
+		isHidden
+		lineageTag: 752ca087-e496-4ece-8cf3-7290b9bb2650
+		summarizeBy: none
+		sourceColumn: auditor_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column dono_id
+		dataType: string
+		isHidden
+		lineageTag: b97562e5-0cee-43b7-91ee-829d785e88fd
+		summarizeBy: none
+		sourceColumn: dono_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column data
+		dataType: dateTime
+		formatString: dd/MM/yyyy
+		lineageTag: 00990df4-fd7a-4d1d-8eeb-1a679d7e3bed
+		summarizeBy: none
+		sourceColumn: data
+
+		annotation SummarizationSetBy = Automatic
+
+	column mes_ref
+		dataType: dateTime
+		formatString: dd/MM/yyyy
+		lineageTag: 9a2cfadb-230a-43db-bc4e-942ebebefa8c
+		summarizeBy: none
+		sourceColumn: mes_ref
+
+		annotation SummarizationSetBy = Automatic
+
+	column senso
+		dataType: string
+		lineageTag: f13b573a-6ca1-40e5-8d9d-788b095114d7
+		summarizeBy: none
+		sourceColumn: senso
+
+		annotation SummarizationSetBy = Automatic
+
+	column senso_rotulo
+		dataType: string
+		lineageTag: 579a2955-6677-4a5c-930e-653f37c28685
+		summarizeBy: none
+		sourceColumn: senso_rotulo
+
+		annotation SummarizationSetBy = Automatic
+
+	column senso_ordem
+		dataType: int64
+		lineageTag: 46048572-9747-45b8-b33d-ca18abbf65a9
+		summarizeBy: none
+		sourceColumn: senso_ordem
+
+		annotation SummarizationSetBy = Automatic
+
+	column itens_ok
+		dataType: int64
+		lineageTag: 942b7298-52f4-4d92-adc6-15bb3ad77178
+		summarizeBy: none
+		sourceColumn: itens_ok
+
+		annotation SummarizationSetBy = Automatic
+
+	column itens_nok
+		dataType: int64
+		lineageTag: 4bec7d87-a306-4d05-9451-9ea22cbdf7e2
+		summarizeBy: none
+		sourceColumn: itens_nok
+
+		annotation SummarizationSetBy = Automatic
+
+	column itens_na
+		dataType: int64
+		lineageTag: 2f57c3d2-a271-423f-a846-b57ed0f383ac
+		summarizeBy: none
+		sourceColumn: itens_na
+
+		annotation SummarizationSetBy = Automatic
+
+	column itens_avaliados
+		dataType: int64
+		lineageTag: 0a0f4e93-4606-43f0-b856-339bb1f69e1d
+		summarizeBy: none
+		sourceColumn: itens_avaliados
+
+		annotation SummarizationSetBy = Automatic
+
+	column conformidade
+		dataType: decimal
+		lineageTag: 6cb04a6b-761f-4b57-bdd2-6a1d56b99e9d
+		summarizeBy: none
+		sourceColumn: conformidade
+
+		annotation SummarizationSetBy = Automatic
+
+	partition fato_5s_senso = m
+		mode: import
+		source =
+				let
+				    Origem = PostgreSQL.Database(Servidor, Banco),
+				    Dados = Origem{[Schema="bi",Item="fato_5s_senso"]}[Data]
+				in
+				    Dados
+
+	annotation PBI_ResultType = Table

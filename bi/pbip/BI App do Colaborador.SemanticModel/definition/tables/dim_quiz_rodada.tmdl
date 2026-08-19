@@ -2,11 +2,10 @@ table dim_quiz_rodada
 	lineageTag: d3c97b5b-5c92-45c3-9eab-f8a64a97f94e
 
 	column rodada_id
-		dataType: int64
+		dataType: string
 		isHidden
-		formatString: 0
 		lineageTag: 0fbc6af7-ae83-4d07-8d1a-56a5b1316536
-		summarizeBy: sum
+		summarizeBy: none
 		sourceColumn: rodada_id
 
 		annotation SummarizationSetBy = Automatic
@@ -61,8 +60,6 @@ table dim_quiz_rodada
 
 		annotation SummarizationSetBy = Automatic
 
-		annotation UnderlyingDateTimeDataType = Date
-
 	column area
 		dataType: string
 		lineageTag: 5ef2f988-43f5-4194-b397-3b001c1f403e
@@ -112,8 +109,6 @@ table dim_quiz_rodada
 
 		annotation SummarizationSetBy = Automatic
 
-		annotation UnderlyingDateTimeDataType = Date
-
 	column fim
 		dataType: dateTime
 		formatString: dd/MM/yyyy
@@ -122,8 +117,6 @@ table dim_quiz_rodada
 		sourceColumn: fim
 
 		annotation SummarizationSetBy = Automatic
-
-		annotation UnderlyingDateTimeDataType = Date
 
 	column dias_aberta
 		dataType: int64
@@ -185,4 +178,3 @@ table dim_quiz_rodada
 				    Dados
 
 	annotation PBI_ResultType = Table
-

@@ -27,8 +27,7 @@
                 }
               },
               "queryRef": "dim_calendario.data",
-              "nativeQueryRef": "data",
-              "active": true
+              "nativeQueryRef": "data"
             }
           ]
         }
@@ -75,6 +74,11 @@
           }
         }
       ]
+    },
+    "syncGroup": {
+      "groupName": "dim_calendario.data",
+      "fieldChanges": true,
+      "filterChanges": true
     },
     "visualContainerObjects": {
       "title": [

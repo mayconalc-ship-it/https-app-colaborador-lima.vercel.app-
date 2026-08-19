@@ -3,11 +3,10 @@ table dim_quiz_questao
 	lineageTag: 9c9544b6-be03-4565-a211-b8d806038df1
 
 	column questao_id
-		dataType: int64
+		dataType: string
 		isHidden
-		formatString: 0
 		lineageTag: 79d7b21a-2d62-481b-a970-5a052cc7edf4
-		summarizeBy: sum
+		summarizeBy: none
 		sourceColumn: questao_id
 
 		annotation SummarizationSetBy = Automatic
@@ -142,14 +141,12 @@ table dim_quiz_questao
 		annotation SummarizationSetBy = Automatic
 
 	column taxa_erro_acumulada
-		dataType: double
+		dataType: decimal
 		lineageTag: d5e7e157-0ccf-4a25-a649-9bf27a315fb6
-		summarizeBy: sum
+		summarizeBy: none
 		sourceColumn: taxa_erro_acumulada
 
 		annotation SummarizationSetBy = Automatic
-
-		annotation PBI_FormatHint = {"isGeneralNumber":true}
 
 	column criado_em
 		dataType: dateTime
@@ -170,4 +167,3 @@ table dim_quiz_questao
 				    Dados
 
 	annotation PBI_ResultType = Table
-

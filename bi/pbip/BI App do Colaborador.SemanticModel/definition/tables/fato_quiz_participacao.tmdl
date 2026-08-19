@@ -3,11 +3,10 @@ table fato_quiz_participacao
 	lineageTag: bbce7803-1a8b-420b-9ee7-733019472f93
 
 	column participacao_id
-		dataType: int64
+		dataType: string
 		isHidden
-		formatString: 0
 		lineageTag: fce253d2-8aef-4c6e-9188-1b5a54eabebd
-		summarizeBy: sum
+		summarizeBy: none
 		sourceColumn: participacao_id
 
 		annotation SummarizationSetBy = Automatic
@@ -22,11 +21,10 @@ table fato_quiz_participacao
 		annotation SummarizationSetBy = Automatic
 
 	column rodada_id
-		dataType: int64
+		dataType: string
 		isHidden
-		formatString: 0
 		lineageTag: 3fa91824-8892-46a3-9ec9-059c088c2652
-		summarizeBy: sum
+		summarizeBy: none
 		sourceColumn: rodada_id
 
 		annotation SummarizationSetBy = Automatic
@@ -64,8 +62,6 @@ table fato_quiz_participacao
 
 		annotation SummarizationSetBy = Automatic
 
-		annotation UnderlyingDateTimeDataType = Date
-
 	column rodada_inicio
 		dataType: dateTime
 		formatString: dd/MM/yyyy
@@ -75,8 +71,6 @@ table fato_quiz_participacao
 
 		annotation SummarizationSetBy = Automatic
 
-		annotation UnderlyingDateTimeDataType = Date
-
 	column rodada_fim
 		dataType: dateTime
 		formatString: dd/MM/yyyy
@@ -85,8 +79,6 @@ table fato_quiz_participacao
 		sourceColumn: rodada_fim
 
 		annotation SummarizationSetBy = Automatic
-
-		annotation UnderlyingDateTimeDataType = Date
 
 	column total_perguntas
 		dataType: int64
@@ -194,44 +186,36 @@ table fato_quiz_participacao
 		annotation SummarizationSetBy = Automatic
 
 	column taxa_acerto
-		dataType: double
+		dataType: decimal
 		lineageTag: 64b65946-8a42-4151-b721-bb2506c8e54c
-		summarizeBy: sum
+		summarizeBy: none
 		sourceColumn: taxa_acerto
 
 		annotation SummarizationSetBy = Automatic
 
-		annotation PBI_FormatHint = {"isGeneralNumber":true}
-
 	column aproveitamento
-		dataType: double
+		dataType: decimal
 		lineageTag: b92b708c-1cce-450a-91e1-a06559b8a59b
-		summarizeBy: sum
+		summarizeBy: none
 		sourceColumn: aproveitamento
 
 		annotation SummarizationSetBy = Automatic
 
-		annotation PBI_FormatHint = {"isGeneralNumber":true}
-
 	column tempo_segundos
-		dataType: double
+		dataType: decimal
 		lineageTag: 1cbc170d-db52-4af0-874f-7b125865b324
-		summarizeBy: sum
+		summarizeBy: none
 		sourceColumn: tempo_segundos
 
 		annotation SummarizationSetBy = Automatic
 
-		annotation PBI_FormatHint = {"isGeneralNumber":true}
-
 	column segundos_por_pergunta
-		dataType: double
+		dataType: decimal
 		lineageTag: 2f1b1b8d-d721-494f-80ee-2f0087259e74
-		summarizeBy: sum
+		summarizeBy: none
 		sourceColumn: segundos_por_pergunta
 
 		annotation SummarizationSetBy = Automatic
-
-		annotation PBI_FormatHint = {"isGeneralNumber":true}
 
 	column iniciada_em
 		dataType: dateTime
@@ -260,8 +244,6 @@ table fato_quiz_participacao
 
 		annotation SummarizationSetBy = Automatic
 
-		annotation UnderlyingDateTimeDataType = Date
-
 	column data_conclusao
 		dataType: dateTime
 		formatString: dd/MM/yyyy
@@ -270,8 +252,6 @@ table fato_quiz_participacao
 		sourceColumn: data_conclusao
 
 		annotation SummarizationSetBy = Automatic
-
-		annotation UnderlyingDateTimeDataType = Date
 
 	column posicao
 		dataType: int64
@@ -305,4 +285,3 @@ table fato_quiz_participacao
 				    ComChave
 
 	annotation PBI_ResultType = Table
-

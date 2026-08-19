@@ -3,11 +3,10 @@ table dim_sonho_revenda
 	lineageTag: f6c0e523-806a-42d4-860e-61b8f84984d9
 
 	column sonho_id
-		dataType: int64
+		dataType: string
 		isHidden
-		formatString: 0
 		lineageTag: 9ead8e59-5429-4079-bee8-a30b2dc2cc78
-		summarizeBy: sum
+		summarizeBy: none
 		sourceColumn: sonho_id
 
 		annotation SummarizationSetBy = Automatic
@@ -103,8 +102,6 @@ table dim_sonho_revenda
 
 		annotation SummarizationSetBy = Automatic
 
-		annotation UnderlyingDateTimeDataType = Date
-
 	column inicio_ano
 		dataType: dateTime
 		formatString: dd/MM/yyyy
@@ -113,8 +110,6 @@ table dim_sonho_revenda
 		sourceColumn: inicio_ano
 
 		annotation SummarizationSetBy = Automatic
-
-		annotation UnderlyingDateTimeDataType = Date
 
 	column fim_ano
 		dataType: dateTime
@@ -125,17 +120,13 @@ table dim_sonho_revenda
 
 		annotation SummarizationSetBy = Automatic
 
-		annotation UnderlyingDateTimeDataType = Date
-
 	column ano_decorrido
-		dataType: double
+		dataType: decimal
 		lineageTag: e9250bb4-83d6-460b-b2ff-8e182e32666b
-		summarizeBy: sum
+		summarizeBy: none
 		sourceColumn: ano_decorrido
 
 		annotation SummarizationSetBy = Automatic
-
-		annotation PBI_FormatHint = {"isGeneralNumber":true}
 
 	partition dim_sonho_revenda = m
 		mode: import
@@ -147,4 +138,3 @@ table dim_sonho_revenda
 				    Dados
 
 	annotation PBI_ResultType = Table
-

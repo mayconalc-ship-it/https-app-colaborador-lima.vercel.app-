@@ -3,11 +3,10 @@ table fato_feedback_ocorrencia
 	lineageTag: 6848f3ea-ffcb-4bd8-9175-628bd6f96132
 
 	column feedback_id
-		dataType: int64
+		dataType: string
 		isHidden
-		formatString: 0
 		lineageTag: 855b2c07-bbe4-4c89-b35d-9e1d2cb80adc
-		summarizeBy: sum
+		summarizeBy: none
 		sourceColumn: feedback_id
 
 		annotation SummarizationSetBy = Automatic
@@ -54,8 +53,6 @@ table fato_feedback_ocorrencia
 		sourceColumn: data
 
 		annotation SummarizationSetBy = Automatic
-
-		annotation UnderlyingDateTimeDataType = Date
 
 	column ocorrencia_id
 		dataType: string
@@ -106,4 +103,3 @@ table fato_feedback_ocorrencia
 				    ComChave
 
 	annotation PBI_ResultType = Table
-

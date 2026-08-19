@@ -2,11 +2,10 @@ table fato_ag_recontagem
 	lineageTag: 7d48ef6f-a44d-495a-9a25-80797bb961f7
 
 	column recontagem_id
-		dataType: int64
+		dataType: string
 		isHidden
-		formatString: 0
 		lineageTag: 845c1385-8e51-4eb9-b18f-559bee8d0032
-		summarizeBy: sum
+		summarizeBy: none
 		sourceColumn: recontagem_id
 
 		annotation SummarizationSetBy = Automatic
@@ -28,8 +27,6 @@ table fato_ag_recontagem
 		sourceColumn: dia
 
 		annotation SummarizationSetBy = Automatic
-
-		annotation UnderlyingDateTimeDataType = Date
 
 	column descricao
 		dataType: string
@@ -74,8 +71,6 @@ table fato_ag_recontagem
 
 		annotation SummarizationSetBy = Automatic
 
-		annotation UnderlyingDateTimeDataType = Date
-
 	column atendida_em
 		dataType: dateTime
 		formatString: dd/MM/yyyy
@@ -95,11 +90,10 @@ table fato_ag_recontagem
 		annotation SummarizationSetBy = Automatic
 
 	column atendida_contagem_id
-		dataType: int64
+		dataType: string
 		isHidden
-		formatString: 0
 		lineageTag: ade1b38c-f061-4773-bd41-dbf711c35636
-		summarizeBy: sum
+		summarizeBy: none
 		sourceColumn: atendida_contagem_id
 
 		annotation SummarizationSetBy = Automatic
@@ -122,24 +116,20 @@ table fato_ag_recontagem
 		annotation SummarizationSetBy = Automatic
 
 	column horas_para_atender
-		dataType: double
+		dataType: decimal
 		lineageTag: 1f6830ad-e3a1-41bf-ab10-54874af92b12
-		summarizeBy: sum
+		summarizeBy: none
 		sourceColumn: horas_para_atender
 
 		annotation SummarizationSetBy = Automatic
 
-		annotation PBI_FormatHint = {"isGeneralNumber":true}
-
 	column horas_em_aberto
-		dataType: double
+		dataType: decimal
 		lineageTag: d8191cb8-51d6-4a16-8f19-ebe642830d69
-		summarizeBy: sum
+		summarizeBy: none
 		sourceColumn: horas_em_aberto
 
 		annotation SummarizationSetBy = Automatic
-
-		annotation PBI_FormatHint = {"isGeneralNumber":true}
 
 	partition fato_ag_recontagem = m
 		mode: import
@@ -151,4 +141,3 @@ table fato_ag_recontagem
 				    Dados
 
 	annotation PBI_ResultType = Table
-

@@ -1,0 +1,98 @@
+/// Area do 5S com o dono vigente.
+table dim_5s_area
+	lineageTag: 7745ce76-1c31-4332-8fd7-8c745d3735ae
+
+	column area_5s_id
+		dataType: string
+		isHidden
+		lineageTag: 89470919-125f-4ca1-84a4-5526be0051d8
+		summarizeBy: none
+		sourceColumn: area_5s_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column revenda_id
+		dataType: string
+		isHidden
+		lineageTag: c79cd7b0-d337-4a1b-b343-c7f5019a5e2a
+		summarizeBy: none
+		sourceColumn: revenda_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column area_5s
+		dataType: string
+		lineageTag: b5da961d-b609-4ec2-baa2-df3dd88eed2c
+		summarizeBy: none
+		sourceColumn: area_5s
+
+		annotation SummarizationSetBy = Automatic
+
+	column local
+		dataType: string
+		lineageTag: 735c4447-ce58-4ead-9e76-7267088cb15c
+		summarizeBy: none
+		sourceColumn: local
+
+		annotation SummarizationSetBy = Automatic
+
+	column descricao
+		dataType: string
+		lineageTag: e0f4d4ea-3070-4e61-a239-deca0b9029ac
+		summarizeBy: none
+		sourceColumn: descricao
+
+		annotation SummarizationSetBy = Automatic
+
+	column ativa
+		dataType: boolean
+		lineageTag: 03d2154c-10f4-4784-bd18-c4eeb046170d
+		summarizeBy: none
+		sourceColumn: ativa
+
+		annotation SummarizationSetBy = Automatic
+
+	column ordem
+		dataType: int64
+		lineageTag: 912cf04a-fd19-4477-83fa-6d5ff163e0ca
+		summarizeBy: none
+		sourceColumn: ordem
+
+		annotation SummarizationSetBy = Automatic
+
+	column dono_id
+		dataType: string
+		isHidden
+		lineageTag: dceb75a5-85a7-40d6-87da-e4ce1871c99d
+		summarizeBy: none
+		sourceColumn: dono_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column dono
+		dataType: string
+		lineageTag: 6682792d-0046-4e39-ba66-b71d75d40084
+		summarizeBy: none
+		sourceColumn: dono
+
+		annotation SummarizationSetBy = Automatic
+
+	column data_cadastro
+		dataType: dateTime
+		formatString: dd/MM/yyyy
+		lineageTag: 3b509a61-654b-4c3f-916f-a4436ceb44b6
+		summarizeBy: none
+		sourceColumn: data_cadastro
+
+		annotation SummarizationSetBy = Automatic
+
+	partition dim_5s_area = m
+		mode: import
+		source =
+				let
+				    Origem = PostgreSQL.Database(Servidor, Banco),
+				    Dados = Origem{[Schema="bi",Item="dim_5s_area"]}[Data]
+				in
+				    Dados
+
+	annotation PBI_ResultType = Table

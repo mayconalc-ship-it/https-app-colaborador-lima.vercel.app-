@@ -109,8 +109,6 @@ table dim_colaborador
 
 		annotation SummarizationSetBy = Automatic
 
-		annotation UnderlyingDateTimeDataType = Date
-
 	column chave
 		dataType: string
 		isHidden
@@ -135,4 +133,3 @@ table dim_colaborador
 				    ComChave
 
 	annotation PBI_ResultType = Table
-

@@ -55,14 +55,12 @@ table fato_uso_sessao
 		annotation SummarizationSetBy = Automatic
 
 	column minutos
-		dataType: double
+		dataType: decimal
 		lineageTag: d978958e-ba60-4115-b1d3-7099f3c138d5
-		summarizeBy: sum
+		summarizeBy: none
 		sourceColumn: minutos
 
 		annotation SummarizationSetBy = Automatic
-
-		annotation PBI_FormatHint = {"isGeneralNumber":true}
 
 	column data
 		dataType: dateTime
@@ -72,8 +70,6 @@ table fato_uso_sessao
 		sourceColumn: data
 
 		annotation SummarizationSetBy = Automatic
-
-		annotation UnderlyingDateTimeDataType = Date
 
 	partition fato_uso_sessao = m
 		mode: import
@@ -85,4 +81,3 @@ table fato_uso_sessao
 				    Dados
 
 	annotation PBI_ResultType = Table
-

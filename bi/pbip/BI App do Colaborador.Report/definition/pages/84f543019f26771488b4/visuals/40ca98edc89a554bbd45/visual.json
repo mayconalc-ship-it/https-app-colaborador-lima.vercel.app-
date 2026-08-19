@@ -27,8 +27,7 @@
                 }
               },
               "queryRef": "dim_revenda.revenda",
-              "nativeQueryRef": "revenda",
-              "active": true
+              "nativeQueryRef": "revenda"
             }
           ]
         }
@@ -75,6 +74,11 @@
           }
         }
       ]
+    },
+    "syncGroup": {
+      "groupName": "dim_revenda.revenda",
+      "fieldChanges": true,
+      "filterChanges": true
     },
     "visualContainerObjects": {
       "title": [
