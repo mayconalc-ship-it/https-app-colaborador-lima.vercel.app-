@@ -153,13 +153,13 @@ Pronto. Daí em diante é o arquivo normal que você já sabe publicar.
 
 O gerador aplica cinco coisas que antes eram manuais:
 
-| # | Acabamento | Onde |
-|---|---|---|
-| 1 | Filtro `parque_confiavel = True` no nível **Página** | Ativo de Giro |
-| 2 | Segmentações sincronizadas (`syncGroup` por campo) | as 7 páginas visíveis |
-| 3 | Corte de ≥ 5 respostas | Quiz, "Perguntas com maior índice de erro" |
-| 4 | Drill-through por colaborador | página Detalhe (oculta) |
-| 5 | Gradiente sequencial por valor | Ativo de Giro, barras de divergência |
+| # | Acabamento | Onde | Estado |
+|---|---|---|---|
+| 1 | Filtro `parque_confiavel = True` no nível **Página** | Ativo de Giro | ligado |
+| 2 | Segmentações sincronizadas (`syncGroup` por campo) | as 7 páginas visíveis | ligado |
+| 3 | Corte de ≥ 5 respostas | Quiz, "Perguntas com maior índice de erro" | **desligado** — ver abaixo |
+| 4 | Drill-through por colaborador | página Detalhe (oculta) | ligado, mas inerte — ver abaixo |
+| 5 | Gradiente sequencial por valor | Ativo de Giro, barras de divergência | ligado |
 
 O item 1 é o único que não é cosmético: sem ele, a divergência de um dia
 passado é comparada com o saldo de parque de **hoje** e o gráfico desenha
@@ -167,16 +167,45 @@ uma série que nunca existiu.
 
 ### Se o Desktop recusar o projeto
 
-Dois desses acabamentos têm forma derivada do schema, e não copiada de um
-arquivo real — `syncGroup` e o filtro `Advanced` com comparação. Se o
-projeto parar de abrir depois de uma regeração:
-
 ```bash
 node bi/pbip/gerar-pbip.js --simples
 ```
 
-Isso regera sem as construções não verificadas (sync, corte mínimo e
-gradiente), mantendo filtro de página e drill-through. Custa segundos.
+Isso regera sem as construções não verificadas e custa segundos. Depois,
+para isolar a culpada, ligue **uma** por vez (`--com-sync`, `--com-corte`,
+`--com-gradiente`, `--com-drill`), abra e salve.
+
+### O que a bissecção de 19/08/2026 achou (Desktop 2.156.951.0)
+
+O sintoma tinha mudado: em vez de falhar ao **salvar**, o projeto abria
+com o modelo carregado e **nenhuma página** — canvas branco, sem abas,
+sem painel de Visualizações. O detalhe do erro (Copiar os detalhes) mostra
+`NullReferenceException` em `ReportViewDocumentProvider.GetEnhancedReportDocument`.
+É o mesmo defeito de sempre — algo no PBIR que o Desktop não sabe ler —,
+só que agora derruba a leitura, não a escrita.
+
+**Culpada: o drill-through.** O filtro que acompanha o `pageBinding`
+levava `type: "Drillthrough"`. Esse campo descreve a **forma do valor**
+(Categorical, Advanced, TopN…), não a origem dele; valor inválido vira
+`null` e o `null` estoura. Corrigido para `type: "Categorical"` +
+`howCreated: "Drillthrough"`, e o projeto voltou a abrir e salvar. Sync e
+gradiente passaram nos dois testes sem tocar em nada.
+
+**O drill continua sem funcionar de fato.** Ele abre e salva, mas o
+Desktop não oferece "Fazer drill-through" no menu de contexto — o binding
+não está sendo reconhecido como destino. A página Detalhe segue existindo,
+oculta e inalcançável, exatamente como antes. Se for retomar: o campo é
+`dim_colaborador[colaborador]`, e só a matriz "Quem usa o quê" e a
+segmentação de colaborador usam essa coluna — qualquer visual de onde se
+espere drillar precisa carregar o mesmo campo.
+
+**O corte de amostra nasce desligado.** Ele abre e salva, mas deixa
+"Perguntas com maior índice de erro" **vazio**. Testado com `Function: 2`
+(Min — o valor errado que estava no código, com um comentário dizendo que
+era Count) e com `5` (CountNonNull): os dois zeram o visual, o que aponta
+para a forma do filtro `Advanced`, não para o número da agregação. Visual
+vazio é pior que visual sem corte, porque ninguém percebe. Enquanto isso o
+corte se aplica à mão no painel Filtros — a nota da página Quiz diz como.
 
 ## O que continua manual
 

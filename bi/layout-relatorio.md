@@ -229,7 +229,7 @@ no sino. Curtida é o sinal confiável desta página.
 |---|---|---|
 | Participação por rodada | **Colunas agrupadas** | `mes_rotulo` × (`elegiveis`, `concluidas`), 2 px entre barras |
 | Evolução do desempenho | **Linha** | `mes_ref` × `Aproveitamento médio`, uma série por `area_rotulo` |
-| Ranking | **Tabela** | Colaborador, Área, Rodadas, Pontos, Acertos, `Aproveitamento médio`, `Posição na temporada` |
+| Ranking | **Tabela** | Colaborador, Área, Rodadas, Pontos, Acertos, `Aproveitamento médio`, `Tempo total (s)`, `Posição na temporada` — **ordenado por `Posição na temporada` (crescente)**, nunca por Pontos: a posição carrega o desempate oficial (pontos → acertos → menos tempo → quem concluiu primeiro) |
 | Perguntas mais erradas | **Barras horizontais** | `dim_quiz_questao[pergunta]` × `Taxa de erro (período)`, decrescente, top 10 |
 | Comparativo entre áreas | **Colunas agrupadas** | `area_rotulo` × `Aproveitamento médio` por `mes_rotulo` |
 

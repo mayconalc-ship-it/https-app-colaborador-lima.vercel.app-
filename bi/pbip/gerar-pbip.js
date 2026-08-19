@@ -75,11 +75,31 @@ const { paginas, filtros } = require('./paginas');
 //
 // Testar uma por vez custa 4 ciclos no pior caso; adivinhar custa os
 // mesmos 4 sem aprender nada no caminho.
+//
+// ---- Bisseccao feita em 19/08/2026, Desktop 2.156.951.0 (julho/2026) ----
+//
+// A mesma falha passou a aparecer tambem NA ABERTURA: relatorio vazio,
+// sem pagina nenhuma, so o modelo na aba Dados. Culpada isolada: o
+// pageBinding de Drillthrough, que levava um filtro com type
+// "Drillthrough". Esse campo descreve a FORMA do valor, nao a origem --
+// corrigido para type "Categorical" + howCreated "Drillthrough", e o
+// drill voltou a abrir e salvar. Sync e gradiente passaram nos dois
+// testes sem alteracao nenhuma.
+//
+// O corte de amostra minima e o unico que continua de fora, e por um
+// motivo diferente: ele ABRE e SALVA, mas deixa o visual "perguntas com
+// maior indice de erro" VAZIO. Testado com Function 2 (Min, o valor
+// errado que estava aqui) e com 5 (CountNonNull): os dois zeram o
+// visual, o que aponta para a forma do filtro Advanced em si, e nao para
+// o numero da agregacao. Por isso ele nasce DESLIGADO -- um visual vazio
+// e pior que um visual sem corte, porque ninguem percebe. Enquanto isso,
+// o corte se aplica a mao pelo painel Filtros; a nota da pagina Quiz em
+// paginas.js diz como. Para retomar a investigacao: --com-corte.
 const arg = (n) => process.argv.includes(n);
 const SIMPLES = arg('--simples');
 const ACAB = {
   sync:       arg('--com-sync')      || (!SIMPLES && !arg('--sem-sync')),
-  corte:      arg('--com-corte')     || (!SIMPLES && !arg('--sem-corte')),
+  corte:      arg('--com-corte'),
   gradiente:  arg('--com-gradiente') || (!SIMPLES && !arg('--sem-gradiente')),
   drill:      arg('--com-drill')     || (!SIMPLES && !arg('--sem-drill')),
 };
@@ -506,13 +526,21 @@ function filtroCategorico(ref, valores) {
 }
 
 // Filtro "contagem da coluna >= minimo". ComparisonKind 3 e
-// GreaterThanOrEqual; Function 2 e Count.
+// GreaterThanOrEqual.
+//
+// Function segue QueryAggregateFunction: 0 Sum, 1 Avg, 2 Min, 3 Max,
+// 4 Count, 5 CountNonNull. Estava 2 aqui, com o comentario dizendo que
+// era Count -- e Min. "Min(resposta_id) >= 5" derruba toda pergunta cujo
+// menor id seja pequeno, ou seja, quase todas: o visual "perguntas com
+// maior indice de erro" abria VAZIO, sem erro nenhum para explicar.
+// CountNonNull e o que o painel de filtros do proprio Desktop gera para
+// contagem de coluna, entao e o que volta a ler igual depois de salvar.
 function filtroContagemMinima(ref, minimo) {
   const { tabela, coluna } = partes(ref);
   const agg = (fonte) => ({
     Aggregation: {
       Expression: { Column: { Expression: { SourceRef: fonte }, Property: coluna } },
-      Function: 2,
+      Function: 5,
     },
   });
   return {
@@ -859,11 +887,19 @@ function gerarRelatorio() {
     if (pagina.drillthrough && ACAB.drill) {
       const { tabela, coluna } = partes(pagina.drillthrough);
       pg.pageBinding = { name: id20('pb:' + pagina.nome), type: 'Drillthrough' };
+      // O "type" do filtro descreve a FORMA do valor (Categorical,
+      // Advanced, TopN...), nao a origem dele. "Drillthrough" ali nao e
+      // um tipo valido: o desserializador devolve null e o Desktop
+      // estoura NullReferenceException em GetEnhancedReportDocument --
+      // o relatorio inteiro abre vazio, sem uma pagina sequer. Quem diz
+      // que o filtro veio do drill-through e howCreated.
       pg.filterConfig = {
         filters: [{
           name: id20('dt:' + pagina.drillthrough),
           field: { Column: { Expression: { SourceRef: { Entity: tabela } }, Property: coluna } },
-          type: 'Drillthrough',
+          type: 'Categorical',
+          howCreated: 'Drillthrough',
+          isLockedInViewMode: true,
         }],
       };
     }

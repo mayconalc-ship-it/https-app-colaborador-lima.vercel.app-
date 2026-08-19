@@ -4,10 +4,10 @@
   "position": {
     "x": 961,
     "y": 72,
-    "z": 7000,
+    "z": 6000,
     "height": 72,
     "width": 303,
-    "tabOrder": 7000
+    "tabOrder": 6000
   },
   "visual": {
     "visualType": "slicer",
@@ -103,6 +103,11 @@
           }
         }
       ]
+    },
+    "syncGroup": {
+      "groupName": "dim_colaborador.colaborador",
+      "fieldChanges": true,
+      "filterChanges": true
     },
     "drillFilterOtherVisuals": true
   }

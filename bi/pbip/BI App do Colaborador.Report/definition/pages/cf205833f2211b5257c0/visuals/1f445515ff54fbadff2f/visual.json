@@ -4,10 +4,10 @@
   "position": {
     "x": 331,
     "y": 72,
-    "z": 5000,
+    "z": 4000,
     "height": 72,
     "width": 303,
-    "tabOrder": 5000
+    "tabOrder": 4000
   },
   "visual": {
     "visualType": "slicer",
@@ -103,6 +103,11 @@
           }
         }
       ]
+    },
+    "syncGroup": {
+      "groupName": "dim_calendario.data",
+      "fieldChanges": true,
+      "filterChanges": true
     },
     "drillFilterOtherVisuals": true
   }

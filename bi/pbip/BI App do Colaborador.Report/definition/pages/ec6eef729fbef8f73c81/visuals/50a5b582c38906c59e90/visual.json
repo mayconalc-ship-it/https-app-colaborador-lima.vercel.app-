@@ -4,10 +4,10 @@
   "position": {
     "x": 28,
     "y": 8,
-    "z": 3000,
+    "z": 2000,
     "height": 52,
     "width": 1000,
-    "tabOrder": 3000
+    "tabOrder": 2000
   },
   "visual": {
     "visualType": "textbox",
@@ -33,8 +33,21 @@
         }
       ]
     },
-    "visualContainerObjects": { "background": [ { "properties": { "show": { "expr": { "Literal": { "Value": "false" } } } } } ],
+    "visualContainerObjects": {
       "title": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "false"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "background": [
         {
           "properties": {
             "show": {

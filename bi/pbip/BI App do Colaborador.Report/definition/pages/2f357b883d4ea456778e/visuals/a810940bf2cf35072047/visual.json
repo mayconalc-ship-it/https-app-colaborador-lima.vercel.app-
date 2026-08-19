@@ -4,10 +4,10 @@
   "position": {
     "x": 16,
     "y": 500,
-    "z": 15000,
+    "z": 14000,
     "height": 166,
     "width": 1248,
-    "tabOrder": 15000
+    "tabOrder": 14000
   },
   "visual": {
     "visualType": "pivotTable",
@@ -69,23 +69,6 @@
             }
           ]
         }
-      },
-      "sortDefinition": {
-        "sort": [
-          {
-            "field": {
-              "Measure": {
-                "Expression": {
-                  "SourceRef": {
-                    "Entity": "_Medidas"
-                  }
-                },
-                "Property": "Interações"
-              }
-            },
-            "direction": "Descending"
-          }
-        ]
       }
     },
     "visualContainerObjects": {
@@ -131,5 +114,51 @@
       ]
     },
     "drillFilterOtherVisuals": true
+  },
+  "filterConfig": {
+    "filters": [
+      {
+        "name": "4de8dd64c989d3f07a9b",
+        "field": {
+          "Column": {
+            "Expression": {
+              "SourceRef": {
+                "Entity": "dim_colaborador"
+              }
+            },
+            "Property": "colaborador"
+          }
+        },
+        "type": "Categorical"
+      },
+      {
+        "name": "81dfbdf6678804107e23",
+        "field": {
+          "Column": {
+            "Expression": {
+              "SourceRef": {
+                "Entity": "fato_atividade"
+              }
+            },
+            "Property": "modulo"
+          }
+        },
+        "type": "Categorical"
+      },
+      {
+        "name": "b89b6fbd6a22f6515ec1",
+        "field": {
+          "Measure": {
+            "Expression": {
+              "SourceRef": {
+                "Entity": "_Medidas"
+              }
+            },
+            "Property": "Interações"
+          }
+        },
+        "type": "Advanced"
+      }
+    ]
   }
 }

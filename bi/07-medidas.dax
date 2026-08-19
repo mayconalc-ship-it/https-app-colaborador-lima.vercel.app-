@@ -384,17 +384,67 @@ MEASURE '_Medidas'[Erros] =
 MEASURE '_Medidas'[Tempo médio por pergunta (s)] =
     AVERAGE ( fato_quiz_participacao[segundos_por_pergunta] )
 
+// O tempo nunca vira ponto — ele existe só para desempatar. É o que impede
+// o desafio de virar corrida de clique, com gente respondendo no chute
+// para terminar antes.
+MEASURE '_Medidas'[Tempo total (s)] =
+    SUM ( fato_quiz_participacao[tempo_segundos] )
+
+// A ordem oficial do campeonato, a mesma de ordenarClassificacao() em
+// src/lib/quiz.ts: 1) mais pontos, 2) mais acertos, 3) menos tempo,
+// 4) quem concluiu primeiro. Se a regra mudar lá, mude aqui — senão o BI
+// e a tela do app passam a discordar sobre quem está na frente.
+//
+// RANKX resolve um critério só e devolveria empate onde o app já tem um
+// vencedor. Por isso a posição é contada à mão: quantos colaboradores
+// estão à minha frente pela regra completa, mais um. Sobre dezenas ou
+// centenas de participantes o custo é irrelevante, e o resultado é exato
+// — sem chave numérica composta, que estouraria a precisão do double ao
+// empilhar pontos, acertos, tempo e data num número só.
 MEASURE '_Medidas'[Posição na temporada] =
-    IF (
-        NOT ISBLANK ( [Pontos] ),
-        RANKX (
-            ALLSELECTED ( fato_quiz_participacao[colaborador] ),
-            [Pontos],
-            ,
-            DESC,
-            DENSE
+    VAR SemTempo = 1000000000
+    VAR SemFim = DATE ( 9999, 12, 31 )
+    // ALLSELECTED sozinho tira do contexto só a coluna colaborador. A
+    // tabela do ranking também traz area_rotulo, e esse filtro sobrevivia:
+    // cada linha era comparada apenas com gente da MESMA área, e saíam dois
+    // primeiros lugares — um do Armazém, outro da Distribuição. O
+    // ALLSELECTED da área devolve as áreas que a segmentação deixou
+    // passar, anulando só o filtro que vem da linha do visual.
+    VAR Base =
+        CALCULATETABLE (
+            ADDCOLUMNS (
+                ALLSELECTED ( fato_quiz_participacao[colaborador] ),
+                "@Pontos", [Pontos],
+                "@Acertos", [Acertos],
+                "@Tempo", COALESCE ( [Tempo total (s)], SemTempo ),
+                "@Fim", COALESCE ( CALCULATE ( MAX ( fato_quiz_participacao[concluida_em] ) ), SemFim )
+            ),
+            ALLSELECTED ( fato_quiz_participacao[area_rotulo] )
         )
-    )
+    VAR MeusPontos = [Pontos]
+    VAR MeusAcertos = [Acertos]
+    VAR MeuTempo = COALESCE ( [Tempo total (s)], SemTempo )
+    VAR MeuFim = COALESCE ( MAX ( fato_quiz_participacao[concluida_em] ), SemFim )
+    VAR NaMinhaFrente =
+        COUNTROWS (
+            FILTER (
+                Base,
+                NOT ISBLANK ( [@Pontos] )
+                    && (
+                        [@Pontos] > MeusPontos
+                            || ( [@Pontos] = MeusPontos && [@Acertos] > MeusAcertos )
+                            || ( [@Pontos] = MeusPontos
+                                && [@Acertos] = MeusAcertos
+                                && [@Tempo] < MeuTempo )
+                            || ( [@Pontos] = MeusPontos
+                                && [@Acertos] = MeusAcertos
+                                && [@Tempo] = MeuTempo
+                                && [@Fim] < MeuFim )
+                    )
+            )
+        )
+    RETURN
+        IF ( NOT ISBLANK ( MeusPontos ), NaMinhaFrente + 1 )
 
 // Medalha como TEXTO, e não como formatação condicional de célula.
 // Duas razões: o emoji sobrevive a exportação para Excel e PDF, onde a

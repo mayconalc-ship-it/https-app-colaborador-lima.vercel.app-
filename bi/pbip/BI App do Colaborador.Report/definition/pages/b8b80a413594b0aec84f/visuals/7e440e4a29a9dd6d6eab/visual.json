@@ -4,10 +4,10 @@
   "position": {
     "x": 16,
     "y": 500,
-    "z": 16000,
+    "z": 15000,
     "height": 166,
     "width": 1248,
-    "tabOrder": 16000
+    "tabOrder": 15000
   },
   "visual": {
     "visualType": "tableEx",
@@ -140,6 +140,20 @@
               },
               "queryRef": "_Medidas.Aproveitamento médio",
               "nativeQueryRef": "Aproveitamento médio"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "_Medidas"
+                    }
+                  },
+                  "Property": "Tempo total (s)"
+                }
+              },
+              "queryRef": "_Medidas.Tempo total (s)",
+              "nativeQueryRef": "Tempo total (s)"
             }
           ]
         }
@@ -154,10 +168,10 @@
                     "Entity": "_Medidas"
                   }
                 },
-                "Property": "Pontos"
+                "Property": "Posição na temporada"
               }
             },
-            "direction": "Descending"
+            "direction": "Ascending"
           }
         ]
       }
@@ -205,5 +219,149 @@
       ]
     },
     "drillFilterOtherVisuals": true
+  },
+  "filterConfig": {
+    "filters": [
+      {
+        "name": "806a14f05a227fc7e679",
+        "field": {
+          "Measure": {
+            "Expression": {
+              "SourceRef": {
+                "Entity": "_Medidas"
+              }
+            },
+            "Property": "Medalha"
+          }
+        },
+        "type": "Advanced"
+      },
+      {
+        "name": "42db12cd9536ca2d851d",
+        "field": {
+          "Measure": {
+            "Expression": {
+              "SourceRef": {
+                "Entity": "_Medidas"
+              }
+            },
+            "Property": "Posição na temporada"
+          }
+        },
+        "type": "Advanced"
+      },
+      {
+        "name": "76f920873f9feca7b012",
+        "field": {
+          "Column": {
+            "Expression": {
+              "SourceRef": {
+                "Entity": "fato_quiz_participacao"
+              }
+            },
+            "Property": "colaborador"
+          }
+        },
+        "type": "Categorical"
+      },
+      {
+        "name": "0bae6e2a2e36f7deb1c9",
+        "field": {
+          "Column": {
+            "Expression": {
+              "SourceRef": {
+                "Entity": "fato_quiz_participacao"
+              }
+            },
+            "Property": "area_rotulo"
+          }
+        },
+        "type": "Categorical"
+      },
+      {
+        "name": "8438e975b64560231e56",
+        "field": {
+          "Measure": {
+            "Expression": {
+              "SourceRef": {
+                "Entity": "_Medidas"
+              }
+            },
+            "Property": "Rodadas"
+          }
+        },
+        "type": "Advanced"
+      },
+      {
+        "name": "204d7969f976d4989451",
+        "field": {
+          "Measure": {
+            "Expression": {
+              "SourceRef": {
+                "Entity": "_Medidas"
+              }
+            },
+            "Property": "Pontos"
+          }
+        },
+        "type": "Advanced"
+      },
+      {
+        "name": "6722466982404249187a",
+        "field": {
+          "Measure": {
+            "Expression": {
+              "SourceRef": {
+                "Entity": "_Medidas"
+              }
+            },
+            "Property": "Acertos"
+          }
+        },
+        "type": "Advanced"
+      },
+      {
+        "name": "309b0b65f5e5c1de96d5",
+        "field": {
+          "Measure": {
+            "Expression": {
+              "SourceRef": {
+                "Entity": "_Medidas"
+              }
+            },
+            "Property": "Erros"
+          }
+        },
+        "type": "Advanced"
+      },
+      {
+        "name": "867e7c5475fe181608c5",
+        "field": {
+          "Measure": {
+            "Expression": {
+              "SourceRef": {
+                "Entity": "_Medidas"
+              }
+            },
+            "Property": "Aproveitamento médio"
+          }
+        },
+        "type": "Advanced"
+      },
+      {
+        "name": "aff34ceaf5beb2bb5baf",
+        "field": {
+          "Measure": {
+            "Expression": {
+              "SourceRef": {
+                "Entity": "_Medidas"
+              }
+            },
+            "Property": "Tempo total (s)"
+          }
+        },
+        "type": "Advanced"
+      }
+    ]
   }
 }

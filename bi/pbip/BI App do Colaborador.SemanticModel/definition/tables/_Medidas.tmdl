@@ -386,17 +386,54 @@ table _Medidas
 		formatString: 0.0
 		lineageTag: 93fb8b80-0f3f-4307-8b79-144a50814005
 
+	measure 'Tempo total (s)' = SUM ( fato_quiz_participacao[tempo_segundos] )
+		formatString: 0.0
+		lineageTag: 723ffeaf-33f4-439c-9502-3808e8cc828a
+
 	measure 'Posição na temporada' =
-			IF (
-			    NOT ISBLANK ( [Pontos] ),
-			    RANKX (
-			        ALLSELECTED ( fato_quiz_participacao[colaborador] ),
-			        [Pontos],
-			        ,
-			        DESC,
-			        DENSE
+			VAR SemTempo = 1000000000
+			VAR SemFim = DATE ( 9999, 12, 31 )
+			// ALLSELECTED sozinho tira do contexto só a coluna colaborador. A
+			// tabela do ranking também traz area_rotulo, e esse filtro sobrevivia:
+			// cada linha era comparada apenas com gente da MESMA área, e saíam dois
+			// primeiros lugares — um do Armazém, outro da Distribuição. O
+			// ALLSELECTED da área devolve as áreas que a segmentação deixou
+			// passar, anulando só o filtro que vem da linha do visual.
+			VAR Base =
+			    CALCULATETABLE (
+			        ADDCOLUMNS (
+			            ALLSELECTED ( fato_quiz_participacao[colaborador] ),
+			            "@Pontos", [Pontos],
+			            "@Acertos", [Acertos],
+			            "@Tempo", COALESCE ( [Tempo total (s)], SemTempo ),
+			            "@Fim", COALESCE ( CALCULATE ( MAX ( fato_quiz_participacao[concluida_em] ) ), SemFim )
+			        ),
+			        ALLSELECTED ( fato_quiz_participacao[area_rotulo] )
 			    )
-			)
+			VAR MeusPontos = [Pontos]
+			VAR MeusAcertos = [Acertos]
+			VAR MeuTempo = COALESCE ( [Tempo total (s)], SemTempo )
+			VAR MeuFim = COALESCE ( MAX ( fato_quiz_participacao[concluida_em] ), SemFim )
+			VAR NaMinhaFrente =
+			    COUNTROWS (
+			        FILTER (
+			            Base,
+			            NOT ISBLANK ( [@Pontos] )
+			                && (
+			                    [@Pontos] > MeusPontos
+			                        || ( [@Pontos] = MeusPontos && [@Acertos] > MeusAcertos )
+			                        || ( [@Pontos] = MeusPontos
+			                            && [@Acertos] = MeusAcertos
+			                            && [@Tempo] < MeuTempo )
+			                        || ( [@Pontos] = MeusPontos
+			                            && [@Acertos] = MeusAcertos
+			                            && [@Tempo] = MeuTempo
+			                            && [@Fim] < MeuFim )
+			                )
+			        )
+			    )
+			RETURN
+			    IF ( NOT ISBLANK ( MeusPontos ), NaMinhaFrente + 1 )
 		formatString: #,0
 		lineageTag: 514b1969-e6ee-43a8-9cf1-6c176f17220b
 

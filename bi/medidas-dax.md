@@ -492,18 +492,60 @@ Tempo médio por pergunta (s) =
 AVERAGE ( fato_quiz_participacao[segundos_por_pergunta] )
 ```
 
-Ranking acumulado da temporada — some os pontos da pessoa e ordene:
+```dax
+Tempo total (s) = SUM ( fato_quiz_participacao[tempo_segundos] )
+```
+
+Ranking acumulado da temporada. Pontos **não bastam** para ordenar: o
+campeonato tem desempate, e é o mesmo de `ordenarClassificacao()` em
+`src/lib/quiz.ts` — 1) mais pontos, 2) mais acertos, 3) menos tempo,
+4) quem concluiu primeiro. O tempo nunca vira ponto; ele existe só aqui,
+para impedir que o desafio vire corrida de clique.
+
+`RANKX` resolve um critério só e devolveria empate onde o app já tem um
+vencedor — e o visual desempataria por ordem alfabética, podendo divulgar
+como líder alguém que a tela do app coloca em segundo. Por isso a posição
+é contada à mão: quantos estão à frente pela regra completa, mais um.
+Uma chave numérica composta (pontos, acertos, tempo e data empilhados num
+número só) seria mais curta, mas estoura a precisão do double:
 
 ```dax
 Posição na temporada =
-IF (
-    NOT ISBLANK ( [Pontos] ),
-    RANKX (
+VAR SemTempo = 1000000000
+VAR SemFim = DATE ( 9999, 12, 31 )
+VAR Base =
+    ADDCOLUMNS (
         ALLSELECTED ( fato_quiz_participacao[colaborador] ),
-        [Pontos], , DESC, DENSE
+        "@Pontos", [Pontos],
+        "@Acertos", [Acertos],
+        "@Tempo", COALESCE ( [Tempo total (s)], SemTempo ),
+        "@Fim", COALESCE ( CALCULATE ( MAX ( fato_quiz_participacao[concluida_em] ) ), SemFim )
     )
-)
+VAR MeusPontos = [Pontos]
+VAR MeusAcertos = [Acertos]
+VAR MeuTempo = COALESCE ( [Tempo total (s)], SemTempo )
+VAR MeuFim = COALESCE ( MAX ( fato_quiz_participacao[concluida_em] ), SemFim )
+VAR NaMinhaFrente =
+    COUNTROWS (
+        FILTER (
+            Base,
+            NOT ISBLANK ( [@Pontos] )
+                && (
+                    [@Pontos] > MeusPontos
+                        || ( [@Pontos] = MeusPontos && [@Acertos] > MeusAcertos )
+                        || ( [@Pontos] = MeusPontos && [@Acertos] = MeusAcertos
+                            && [@Tempo] < MeuTempo )
+                        || ( [@Pontos] = MeusPontos && [@Acertos] = MeusAcertos
+                            && [@Tempo] = MeuTempo && [@Fim] < MeuFim )
+                )
+        )
+    )
+RETURN
+    IF ( NOT ISBLANK ( MeusPontos ), NaMinhaFrente + 1 )
 ```
+
+Como a posição já é única, `Medalha` continua valendo: não existem dois
+primeiros lugares.
 
 Questões críticas — a que justifica o módulo, porque aponta qual padrão
 reforçar. Use `fato_quiz_resposta`, e **não** os contadores de

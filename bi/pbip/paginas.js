@@ -442,16 +442,28 @@ const paginas = [
             '@Acertos',
             '@Erros',
             '@Aproveitamento médio',
+            // O tempo fica visivel porque e criterio de desempate: sem a
+            // coluna, duas pessoas com os mesmos pontos aparecem em ordem
+            // diferente e ninguem consegue explicar por que.
+            '@Tempo total (s)',
           ],
         },
-        ordem: { campo: '@Pontos', dir: 'Descending' },
+        // Ordenar por Pontos deixava o desempate a cargo do visual, que
+        // resolve empate por ordem alfabetica -- podia divulgar como
+        // primeiro colocado alguem que o app coloca em segundo. A posicao
+        // ja carrega a regra completa (pontos, acertos, tempo, conclusao).
+        ordem: { campo: '@Posição na temporada', dir: 'Ascending' },
       },
     ],
     nota:
       'Elegíveis e concluídas ficam AGRUPADAS, não empilhadas — empilhar sugere que ' +
       'somam, e elegíveis já contém concluídas. Em "perguntas com maior erro", aplique ' +
       'no painel Filtros um corte de ≥ 5 respostas: sem ele, uma pergunta respondida ' +
-      'uma única vez por alguém que errou aparece como 100% de erro no topo.',
+      'uma única vez por alguém que errou aparece como 100% de erro no topo. ' +
+      'O ranking é ordenado por "Posição na temporada", não por "Pontos": a posição ' +
+      'aplica o desempate oficial do app (pontos → acertos → menos tempo → quem ' +
+      'concluiu primeiro). Não troque a ordenação para Pontos — o BI passaria a ' +
+      'divulgar como líder alguém que a tela do app coloca em segundo.',
   },
 
   // ================================================================
