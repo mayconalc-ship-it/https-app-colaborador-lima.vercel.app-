@@ -22,8 +22,12 @@ export const dynamic = "force-dynamic";
  *
  * A tela não é uma só: ela mostra o que aquela pessoa tem para FAZER.
  * Auditor vê as auditorias dele; dono de área vê o estado das áreas
- * dele; quem é os dois vê os dois blocos. Gestor tem, além disso, o
- * atalho para o painel e o BI.
+ * dele; quem é os dois vê os dois blocos.
+ *
+ * "Para fazer" tem recorte de tempo: só o mês corrente e o que ficou
+ * atrasado. Com o ciclo do ano planejado de uma vez, mostrar tudo o que
+ * está em aberto encheria a tela com onze auditorias de meses que nem
+ * começaram, e a deste mês -- a única acionável -- se perderia no meio.
  *
  * Nenhum bloco carrega o que não vai exibir: quem não é dono de área
  * nenhuma não dispara a consulta de áreas.
@@ -66,11 +70,25 @@ export default async function CincoSPage({
   // que a tela desenha. Buscar a auditoria inteira para mostrar quatro
   // campos é o tipo de desperdício que não aparece com dez linhas e
   // aparece muito com dez mil.
+  // O mês corrente, no formato da coluna `competencia` do banco.
+  const mesAtual = `${hoje.slice(0, 7)}-01`;
+
   const [
-    { data: minhasAuditorias },
+    { data: pendentes },
+    { data: feitas },
     { data: minhasAcoes },
     { data: areasDoDono },
   ] = await Promise.all([
+    // O QUE FAZER AGORA. Com o ano inteiro planejado, listar tudo o que
+    // está em aberto mostraria doze auditorias de uma vez -- e onze
+    // delas são de meses que ainda nem começaram. O corte é
+    // `competencia <= mês atual`: entra o mês corrente e entra o que
+    // ficou para trás.
+    //
+    // O atrasado continua aparecendo de propósito. Sumir com a
+    // auditoria de julho quando agosto começa é o jeito mais rápido de
+    // ela nunca ser feita -- e ela é justamente a que mais precisa
+    // estar na frente da pessoa.
     ctx.ehAuditor || ctx.gestor
       ? admin
           .from("cinco_s_auditorias")
@@ -79,7 +97,24 @@ export default async function CincoSPage({
           )
           .eq("revenda_id", ctx.revendaId)
           .eq("auditor_id", ctx.perfilId)
-          .neq("status", "cancelada")
+          .in("status", ["planejada", "em_andamento"])
+          .lte("competencia", mesAtual)
+          .order("planejada_para")
+          .limit(20)
+      : Promise.resolve({ data: [] as never[] }),
+
+    // O histórico fica em consulta própria. Junto com as pendentes numa
+    // só, o `limit` seria consumido pelas auditorias futuras e o que já
+    // foi feito não caberia na lista.
+    ctx.ehAuditor || ctx.gestor
+      ? admin
+          .from("cinco_s_auditorias")
+          .select(
+            "id, status, planejada_para, conformidade, total_nok, cinco_s_areas!inner(nome)",
+          )
+          .eq("revenda_id", ctx.revendaId)
+          .eq("auditor_id", ctx.perfilId)
+          .eq("status", "finalizada")
           .order("planejada_para", { ascending: false })
           .limit(20)
       : Promise.resolve({ data: [] as never[] }),
@@ -104,12 +139,8 @@ export default async function CincoSPage({
       : Promise.resolve({ data: [] as never[] }),
   ]);
 
-  const pendentes = (minhasAuditorias ?? []).filter(
-    (a) => a.status === "planejada" || a.status === "em_andamento",
-  );
-  const feitas = (minhasAuditorias ?? []).filter(
-    (a) => a.status === "finalizada",
-  );
+  const listaPendentes = pendentes ?? [];
+  const listaFeitas = feitas ?? [];
 
   return (
     <div>
@@ -126,29 +157,27 @@ export default async function CincoSPage({
 
       <OQueEh5S />
 
-      {/* BI e plano de ação para QUEM PARTICIPA, não só para a gestão.
-          Quem audita e quem responde por uma área precisam ver onde a
-          operação está -- senão o programa vira relatório que só o
-          administrador lê. O que continua restrito é MEXER: cadastrar,
-          planejar e validar seguem no Modo Liderança. */}
-      <div
-        className={`mb-4 grid gap-3 ${ctx.gestor ? "grid-cols-3" : "grid-cols-2"}`}
-      >
+      {/* BI e plano de ação para QUEM PARTICIPA, não só para a gestão:
+          quem audita e quem responde por uma área precisam ver onde a
+          operação está.
+
+          Sem atalho para o painel de gestão, mesmo para quem tem acesso
+          a ele -- administrar o programa é papel de quem o Admin
+          indicar, e a porta disso é o Modo Liderança. Um "Gerenciar"
+          aqui misturaria as duas coisas na tela de quem vem auditar. */}
+      <div className="mb-4 grid grid-cols-2 gap-3">
         <Atalho href="/5s/bi" emoji="📊" titulo="BI 5S" />
         <Atalho href="/5s/acoes" emoji="🛠️" titulo="Plano de ação" />
-        {ctx.gestor && (
-          <Atalho href="/admin/5s" emoji="⚙️" titulo="Gerenciar" />
-        )}
       </div>
 
       {/* ---- O que eu preciso auditar ---- */}
-      {pendentes.length > 0 && (
+      {listaPendentes.length > 0 && (
         <section className="mb-5">
           <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">
             Suas auditorias
           </h2>
           <ul className="space-y-2">
-            {pendentes.map((a) => {
+            {listaPendentes.map((a) => {
               const atrasada = a.planejada_para < hoje;
               const area = umObjeto(a.cinco_s_areas) as { nome: string };
               return (
@@ -251,13 +280,13 @@ export default async function CincoSPage({
       </section>
 
       {/* ---- Histórico do auditor ---- */}
-      {feitas.length > 0 && (
+      {listaFeitas.length > 0 && (
         <details className="group rounded-2xl border border-slate-200 bg-white shadow-sm">
           <summary className="flex cursor-pointer list-none items-center justify-between p-4">
             <h2 className="text-sm font-semibold text-slate-800">
               Auditorias que você fez
               <span className="ml-2 font-normal text-slate-400">
-                ({feitas.length})
+                ({listaFeitas.length})
               </span>
             </h2>
             <span className="text-slate-400 transition-transform group-open:rotate-180">
@@ -265,7 +294,7 @@ export default async function CincoSPage({
             </span>
           </summary>
           <ul className="divide-y divide-slate-100 border-t border-slate-100">
-            {feitas.map((a) => {
+            {listaFeitas.map((a) => {
               const area = umObjeto(a.cinco_s_areas) as { nome: string };
               const faixa = faixaDaTaxa(a.conformidade);
               return (
