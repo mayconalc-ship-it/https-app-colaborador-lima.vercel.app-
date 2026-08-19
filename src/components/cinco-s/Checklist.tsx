@@ -454,6 +454,8 @@ function ItemPergunta({
             <img
               src={resposta.foto_url}
               alt="Evidência registrada"
+              loading="lazy"
+              decoding="async"
               className="h-24 w-full rounded-xl object-cover"
             />
           )}

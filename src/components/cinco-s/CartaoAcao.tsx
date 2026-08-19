@@ -234,6 +234,8 @@ export function CartaoAcao({
               <img
                 src={acao.evidenciaUrl}
                 alt="Evidência registrada na auditoria"
+                loading="lazy"
+                decoding="async"
                 className="h-40 w-full rounded-xl object-cover"
               />
             </div>
@@ -257,6 +259,8 @@ export function CartaoAcao({
               <img
                 src={acao.evidenciaConclusaoUrl}
                 alt="Evidência da solução"
+                loading="lazy"
+                decoding="async"
                 className="h-40 w-full rounded-xl object-cover"
               />
             </div>

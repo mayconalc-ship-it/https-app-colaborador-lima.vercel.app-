@@ -386,6 +386,8 @@ function ResultadoFinal({
                   <img
                     src={r.foto_url}
                     alt={`Evidência do item ${p.codigo}`}
+                    loading="lazy"
+                    decoding="async"
                     className="mt-2 h-28 w-full rounded-xl object-cover"
                   />
                 )}
