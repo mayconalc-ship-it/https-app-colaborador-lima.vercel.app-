@@ -45,7 +45,14 @@ export function FormReabrir({ auditoriaId }: { auditoriaId: string }) {
         disabled={enviando}
         className="w-full rounded-xl bg-amber-600 py-2.5 text-sm font-semibold text-white active:bg-amber-700 disabled:opacity-60"
       >
-        {enviando ? "Reabrindo…" : "Reabrir auditoria"}
+        {enviando ? (
+          <span className="inline-flex items-center justify-center gap-2">
+            <span className="rodinha" aria-hidden="true" />
+            Reabrindo...
+          </span>
+        ) : (
+          "Reabrir auditoria"
+        )}
       </button>
     </form>
   );

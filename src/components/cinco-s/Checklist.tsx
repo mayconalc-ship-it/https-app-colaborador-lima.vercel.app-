@@ -3,6 +3,7 @@
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/Toast";
+import { BotaoEnviar } from "@/components/BotaoEnviar";
 import { finalizarAuditoria, salvarResposta } from "@/app/5s/actions";
 import {
   BOTAO_RESPOSTA,
@@ -86,6 +87,15 @@ export function Checklist({
     const i = grupos.findIndex((g) => g.some((p) => !respondidas.has(p.id)));
     return i === -1 ? grupos.length : i;
   });
+
+  /**
+   * Marca em vermelho os itens sem resposta.
+   *
+   * Só liga quando a pessoa TENTA avançar. Ligado desde o início, o
+   * senso inteiro nasceria vermelho -- e um aviso que aparece antes de
+   * existir erro deixa de ser lido.
+   */
+  const [destacarPendentes, setDestacarPendentes] = useState(false);
 
   const total = perguntas.length;
   const respondidas = respostas.size;
@@ -174,6 +184,39 @@ export function Checklist({
     });
   }
 
+  /** As perguntas do senso aberto que ainda estão sem resposta. */
+  const pendentesDoSenso = noResumo
+    ? []
+    : porSenso[etapa].perguntas.filter((p) => !respostas.has(p.id));
+
+  /**
+   * Avançar exige o senso completo.
+   *
+   * O bloqueio é aqui E no servidor: `finalizarAuditoria` recusa a
+   * auditoria incompleta de novo, porque esta tela é só a tela -- e a
+   * ação de servidor pode ser chamada sem passar por ela.
+   *
+   * Em vez de um botão desligado, que não explica nada, o botão avisa
+   * quantos faltam, pinta os pendentes e leva a pessoa até o primeiro
+   * deles. Botão morto no celular passa por tela travada.
+   */
+  function avancar() {
+    if (pendentesDoSenso.length > 0) {
+      setDestacarPendentes(true);
+      toast.erro(
+        pendentesDoSenso.length === 1
+          ? "Falta responder 1 item deste senso."
+          : `Faltam responder ${pendentesDoSenso.length} itens deste senso.`,
+      );
+      document
+        .getElementById(`item-${pendentesDoSenso[0].id}`)
+        ?.scrollIntoView({ behavior: "smooth", block: "center" });
+      return;
+    }
+    setDestacarPendentes(false);
+    setEtapa((e) => e + 1);
+  }
+
   function finalizar() {
     iniciarSalvamento(async () => {
       const r = await finalizarAuditoria(auditoriaId);
@@ -257,6 +300,7 @@ export function Checklist({
                 pergunta={p}
                 resposta={respostas.get(p.id)}
                 somenteLeitura={somenteLeitura}
+                pendente={destacarPendentes && !respostas.has(p.id)}
                 onResponder={(v) => responder(p, v)}
                 onDetalhe={(fd) => salvarDetalhe(p, fd)}
               />
@@ -271,7 +315,10 @@ export function Checklist({
           <div className="mx-auto flex max-w-2xl gap-2">
             <button
               type="button"
-              onClick={() => setEtapa((e) => Math.max(0, e - 1))}
+              onClick={() => {
+                setDestacarPendentes(false);
+                setEtapa((e) => Math.max(0, e - 1));
+              }}
               disabled={etapa === 0}
               className="rounded-xl border border-slate-200 px-5 py-3 text-sm font-semibold text-slate-600 disabled:opacity-40"
             >
@@ -279,12 +326,21 @@ export function Checklist({
             </button>
             <button
               type="button"
-              onClick={() => setEtapa((e) => e + 1)}
-              className="flex-1 rounded-xl bg-primary py-3 text-sm font-semibold text-white active:bg-primary-dark"
+              onClick={avancar}
+              aria-disabled={pendentesDoSenso.length > 0}
+              className={`flex-1 rounded-xl py-3 text-sm font-semibold text-white ${
+                pendentesDoSenso.length > 0
+                  ? "bg-slate-300"
+                  : "bg-primary active:bg-primary-dark"
+              }`}
             >
-              {etapa === porSenso.length - 1
-                ? "Revisar e finalizar"
-                : `Próximo: ${ROTULO_SENSO[porSenso[etapa + 1].senso]}`}
+              {pendentesDoSenso.length > 0
+                ? `Faltam ${pendentesDoSenso.length} ${
+                    pendentesDoSenso.length === 1 ? "item" : "itens"
+                  } neste senso`
+                : etapa === porSenso.length - 1
+                  ? "Revisar e finalizar"
+                  : `Próximo: ${ROTULO_SENSO[porSenso[etapa + 1].senso]}`}
             </button>
           </div>
         </div>
@@ -299,12 +355,15 @@ function ItemPergunta({
   pergunta,
   resposta,
   somenteLeitura,
+  pendente,
   onResponder,
   onDetalhe,
 }: {
   pergunta: Pergunta;
   resposta?: RespostaSalva;
   somenteLeitura: boolean;
+  /** Ficou sem resposta e a pessoa tentou avançar. */
+  pendente: boolean;
   onResponder: (v: Resposta) => void;
   onDetalhe: (fd: FormData) => void;
 }) {
@@ -315,11 +374,23 @@ function ItemPergunta({
   const mostrarDetalhe = aberto || resposta?.valor === "nao";
 
   return (
-    <li className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+    <li
+      id={`item-${pergunta.id}`}
+      className={`rounded-2xl border bg-white p-3 shadow-sm ${
+        pendente
+          ? "border-red-300 ring-2 ring-red-100"
+          : "border-slate-200"
+      }`}
+    >
       <p className="text-sm leading-snug text-slate-700">
         <span className="font-bold text-slate-900">{pergunta.codigo}</span>{" "}
         {pergunta.texto}
       </p>
+      {pendente && (
+        <p className="mt-1 text-xs font-semibold text-red-600">
+          Falta responder este item.
+        </p>
+      )}
 
       <div className="mt-3 grid grid-cols-3 gap-2">
         {(["sim", "nao", "na"] as Resposta[]).map((v) => {
@@ -398,12 +469,12 @@ function ItemPergunta({
                 capture="environment"
                 className="min-w-0 flex-1 text-xs text-slate-500 file:mr-2 file:rounded-lg file:border-0 file:bg-slate-100 file:px-3 file:py-2 file:text-xs file:font-semibold file:text-slate-700"
               />
-              <button
-                type="submit"
+              <BotaoEnviar
+                textoEnviando="Salvando..."
                 className="shrink-0 rounded-xl bg-slate-700 px-4 py-2 text-xs font-semibold text-white active:bg-slate-800"
               >
                 Salvar
-              </button>
+              </BotaoEnviar>
             </div>
           )}
         </form>
@@ -506,11 +577,16 @@ function Resumo({
             disabled={faltam > 0 || salvando}
             className="flex-1 rounded-xl bg-primary py-3 text-sm font-semibold text-white active:bg-primary-dark disabled:bg-slate-300"
           >
-            {salvando
-              ? "Finalizando…"
-              : faltam > 0
-                ? `Faltam ${faltam} ${faltam === 1 ? "pergunta" : "perguntas"}`
-                : "Finalizar auditoria"}
+            {salvando ? (
+              <span className="inline-flex items-center justify-center gap-2">
+                <span className="rodinha" aria-hidden="true" />
+                Finalizando...
+              </span>
+            ) : faltam > 0 ? (
+              `Faltam ${faltam} ${faltam === 1 ? "pergunta" : "perguntas"}`
+            ) : (
+              "Finalizar auditoria"
+            )}
           </button>
         )}
       </div>

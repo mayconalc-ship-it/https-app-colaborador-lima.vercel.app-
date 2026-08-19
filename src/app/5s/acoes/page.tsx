@@ -88,7 +88,11 @@ export default async function AcoesPage({
   let consulta = admin
     .from("cinco_s_nao_conformidades")
     .select(
-      "id, descricao, acao, senso, status, prioridade, prazo, responsavel_id, area_id, auditoria_id, evidencia_url, evidencia_conclusao_url, comentario_encerramento, criado_em, concluido_em, cinco_s_areas!inner(nome)",
+      // A pergunta vem junto (join, não consulta por linha): é o texto
+      // que dá contexto ao problema quando alguém copia a ação para
+      // levar a outro lugar. A descrição sozinha costuma ser a
+      // observação solta do auditor.
+      "id, descricao, acao, senso, status, prioridade, prazo, responsavel_id, area_id, auditoria_id, evidencia_url, evidencia_conclusao_url, comentario_encerramento, criado_em, concluido_em, cinco_s_areas!inner(nome), cinco_s_perguntas(codigo, texto)",
       { count: "exact" },
     )
     .eq("revenda_id", ctx.revendaId);
@@ -347,6 +351,15 @@ export default async function AcoesPage({
                     : a.cinco_s_areas) as { nome: string }
                 ).nome,
                 auditoriaId: a.auditoria_id,
+                pergunta: (() => {
+                  const q = (Array.isArray(a.cinco_s_perguntas)
+                    ? a.cinco_s_perguntas[0]
+                    : a.cinco_s_perguntas) as {
+                    codigo: string;
+                    texto: string;
+                  } | null;
+                  return q ? `${q.codigo} ${q.texto}` : null;
+                })(),
                 evidenciaUrl: a.evidencia_url,
                 evidenciaConclusaoUrl: a.evidencia_conclusao_url,
                 comentarioEncerramento: a.comentario_encerramento,

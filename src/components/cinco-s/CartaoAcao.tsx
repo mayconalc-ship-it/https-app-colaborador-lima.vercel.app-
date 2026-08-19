@@ -41,6 +41,8 @@ export type AcaoDados = {
   responsavelNome: string | null;
   areaNome: string;
   auditoriaId: string;
+  /** "4.3 Existem AUSÊNCIA cabos de energia..." — o item que reprovou. */
+  pergunta: string | null;
   evidenciaUrl: string | null;
   evidenciaConclusaoUrl: string | null;
   comentarioEncerramento: string | null;
@@ -119,14 +121,31 @@ export function CartaoAcao({
         atrasada ? "border-red-200" : "border-slate-200"
       }`}
     >
-      <button
-        type="button"
-        onClick={() => setAberto((a) => !a)}
-        className="w-full p-4 text-left"
+      {/* Div em vez de <button>: dentro de um botão o navegador não
+          deixa selecionar texto com o mouse, e a descrição do problema
+          é justamente o que a pessoa quer copiar para levar a outro
+          lugar. O clique continua abrindo o cartão, só que ignora o
+          toque que terminou em seleção -- senão arrastar para marcar o
+          texto fecharia o cartão na cara de quem está copiando. */}
+      <div
+        role="button"
+        tabIndex={0}
         aria-expanded={aberto}
+        onClick={() => {
+          const selecionou = (window.getSelection()?.toString() ?? "").trim();
+          if (selecionou) return;
+          setAberto((a) => !a);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            setAberto((a) => !a);
+          }
+        }}
+        className="w-full cursor-pointer p-4 text-left"
       >
         <div className="flex items-start justify-between gap-2">
-          <p className="min-w-0 flex-1 text-sm leading-snug text-slate-800">
+          <p className="min-w-0 flex-1 select-text text-sm leading-snug text-slate-800">
             {acao.descricao}
           </p>
           <span
@@ -173,10 +192,39 @@ export function CartaoAcao({
           {acao.responsavelNome ?? "Sem responsável definido"}
           <span className="float-right text-slate-300">{aberto ? "▴" : "▾"}</span>
         </p>
-      </button>
+      </div>
 
       {aberto && (
         <div className="space-y-3 border-t border-slate-100 p-4">
+          {/* Bloco pensado para ser SELECIONADO e copiado -- é daqui que
+              a pessoa leva o problema para pedir sugestão em outro
+              lugar. Por isso traz a pergunta original junto da
+              observação do auditor: a descrição sozinha costuma ser só
+              a anotação solta de quem estava na área, sem dizer qual
+              item do checklist reprovou.
+
+              Sem botão de copiar de propósito: o pedido foi poder
+              marcar com o mouse, e um botão que copia um recorte fixo
+              tira a escolha de quem está copiando. */}
+          <div className="select-text rounded-xl bg-slate-50 p-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+              Para copiar
+            </p>
+            {acao.pergunta && (
+              <p className="mt-1 select-text text-sm leading-snug text-slate-700">
+                <span className="font-semibold">Item {ROTULO_SENSO[acao.senso]}:</span>{" "}
+                {acao.pergunta}
+              </p>
+            )}
+            <p className="mt-1 select-text text-sm leading-snug text-slate-700">
+              <span className="font-semibold">Área:</span> {acao.areaNome}
+            </p>
+            <p className="mt-1 select-text text-sm leading-snug text-slate-700">
+              <span className="font-semibold">O que foi encontrado:</span>{" "}
+              {acao.descricao}
+            </p>
+          </div>
+
           {acao.evidenciaUrl && (
             <div>
               <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-400">
@@ -283,9 +331,16 @@ export function CartaoAcao({
                     name="status"
                     value={n.valor}
                     disabled={enviando}
-                    className={`flex-1 rounded-xl py-3 text-sm font-semibold text-white disabled:opacity-60 ${n.cor}`}
+                    className={`flex-1 rounded-xl py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60 ${n.cor}`}
                   >
-                    {enviando ? "Salvando…" : n.rotulo}
+                    {enviando ? (
+                      <span className="inline-flex items-center justify-center gap-2">
+                        <span className="rodinha" aria-hidden="true" />
+                        Salvando...
+                      </span>
+                    ) : (
+                      n.rotulo
+                    )}
                   </button>
                 ))}
               </div>
