@@ -1,0 +1,136 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.11.0/schema.json",
+  "name": "46a041d1ff08031769d1",
+  "position": {
+    "x": 648,
+    "y": 500,
+    "z": 15000,
+    "height": 166,
+    "width": 616,
+    "tabOrder": 15000
+  },
+  "visual": {
+    "visualType": "tableEx",
+    "query": {
+      "queryState": {
+        "Values": {
+          "projections": [
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "dim_sonho_revenda"
+                    }
+                  },
+                  "Property": "ano"
+                }
+              },
+              "queryRef": "dim_sonho_revenda.ano",
+              "nativeQueryRef": "ano"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "dim_sonho_revenda"
+                    }
+                  },
+                  "Property": "titulo"
+                }
+              },
+              "queryRef": "dim_sonho_revenda.titulo",
+              "nativeQueryRef": "titulo"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "dim_sonho_revenda"
+                    }
+                  },
+                  "Property": "frase"
+                }
+              },
+              "queryRef": "dim_sonho_revenda.frase",
+              "nativeQueryRef": "frase"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "dim_sonho_revenda"
+                    }
+                  },
+                  "Property": "ano_decorrido"
+                }
+              },
+              "queryRef": "dim_sonho_revenda.ano_decorrido",
+              "nativeQueryRef": "ano_decorrido"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "dim_sonho_revenda"
+                    }
+                  },
+                  "Property": "quadro_indicadores_url"
+                }
+              },
+              "queryRef": "dim_sonho_revenda.quadro_indicadores_url",
+              "nativeQueryRef": "quadro_indicadores_url"
+            }
+          ]
+        }
+      }
+    },
+    "visualContainerObjects": {
+      "title": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            },
+            "text": {
+              "expr": {
+                "Literal": {
+                  "Value": "'🎯 Sonho da Revenda — contexto'"
+                }
+              }
+            },
+            "fontSize": {
+              "expr": {
+                "Literal": {
+                  "Value": "11D"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "visualHeader": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "drillFilterOtherVisuals": true
+  }
+}

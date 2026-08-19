@@ -1,0 +1,122 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.11.0/schema.json",
+  "name": "fb9a22566b1a0407227a",
+  "position": {
+    "x": 16,
+    "y": 500,
+    "z": 14000,
+    "height": 166,
+    "width": 620,
+    "tabOrder": 14000
+  },
+  "visual": {
+    "visualType": "tableEx",
+    "query": {
+      "queryState": {
+        "Values": {
+          "projections": [
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "fato_ranking_matinal"
+                    }
+                  },
+                  "Property": "mes_rotulo"
+                }
+              },
+              "queryRef": "fato_ranking_matinal.mes_rotulo",
+              "nativeQueryRef": "mes_rotulo"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "fato_ranking_matinal"
+                    }
+                  },
+                  "Property": "equipe_rotulo"
+                }
+              },
+              "queryRef": "fato_ranking_matinal.equipe_rotulo",
+              "nativeQueryRef": "equipe_rotulo"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "fato_ranking_matinal"
+                    }
+                  },
+                  "Property": "categoria"
+                }
+              },
+              "queryRef": "fato_ranking_matinal.categoria",
+              "nativeQueryRef": "categoria"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "fato_ranking_matinal"
+                    }
+                  },
+                  "Property": "imagem_url"
+                }
+              },
+              "queryRef": "fato_ranking_matinal.imagem_url",
+              "nativeQueryRef": "imagem_url"
+            }
+          ]
+        }
+      }
+    },
+    "visualContainerObjects": {
+      "title": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            },
+            "text": {
+              "expr": {
+                "Literal": {
+                  "Value": "'🖼️ Galeria dos quadros'"
+                }
+              }
+            },
+            "fontSize": {
+              "expr": {
+                "Literal": {
+                  "Value": "11D"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "visualHeader": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "drillFilterOtherVisuals": true
+  }
+}

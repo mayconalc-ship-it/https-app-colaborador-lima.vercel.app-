@@ -1,0 +1,164 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.11.0/schema.json",
+  "name": "62b062c14af25964fdd7",
+  "position": {
+    "x": 16,
+    "y": 76,
+    "z": 3000,
+    "height": 300,
+    "width": 616,
+    "tabOrder": 3000
+  },
+  "visual": {
+    "visualType": "tableEx",
+    "query": {
+      "queryState": {
+        "Values": {
+          "projections": [
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "fato_ag_contagem"
+                    }
+                  },
+                  "Property": "data"
+                }
+              },
+              "queryRef": "fato_ag_contagem.data",
+              "nativeQueryRef": "data"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "fato_ag_contagem"
+                    }
+                  },
+                  "Property": "colaborador_nome"
+                }
+              },
+              "queryRef": "fato_ag_contagem.colaborador_nome",
+              "nativeQueryRef": "colaborador_nome"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "fato_ag_contagem"
+                    }
+                  },
+                  "Property": "tipo"
+                }
+              },
+              "queryRef": "fato_ag_contagem.tipo",
+              "nativeQueryRef": "tipo"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "fato_ag_contagem"
+                    }
+                  },
+                  "Property": "formato"
+                }
+              },
+              "queryRef": "fato_ag_contagem.formato",
+              "nativeQueryRef": "formato"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "fato_ag_contagem"
+                    }
+                  },
+                  "Property": "status"
+                }
+              },
+              "queryRef": "fato_ag_contagem.status",
+              "nativeQueryRef": "status"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "_Medidas"
+                    }
+                  },
+                  "Property": "Total em caixas"
+                }
+              },
+              "queryRef": "_Medidas.Total em caixas",
+              "nativeQueryRef": "Total em caixas"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "_Medidas"
+                    }
+                  },
+                  "Property": "Contagens"
+                }
+              },
+              "queryRef": "_Medidas.Contagens",
+              "nativeQueryRef": "Contagens"
+            }
+          ]
+        }
+      }
+    },
+    "visualContainerObjects": {
+      "title": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            },
+            "text": {
+              "expr": {
+                "Literal": {
+                  "Value": "'📦 Contagens (AG)'"
+                }
+              }
+            },
+            "fontSize": {
+              "expr": {
+                "Literal": {
+                  "Value": "11D"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "visualHeader": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "drillFilterOtherVisuals": true
+  }
+}

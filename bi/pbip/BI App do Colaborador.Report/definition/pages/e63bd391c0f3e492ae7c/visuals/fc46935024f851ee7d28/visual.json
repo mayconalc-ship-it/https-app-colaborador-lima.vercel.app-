@@ -1,0 +1,178 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.11.0/schema.json",
+  "name": "fc46935024f851ee7d28",
+  "position": {
+    "x": 16,
+    "y": 392,
+    "z": 5000,
+    "height": 312,
+    "width": 616,
+    "tabOrder": 5000
+  },
+  "visual": {
+    "visualType": "tableEx",
+    "query": {
+      "queryState": {
+        "Values": {
+          "projections": [
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "fato_cinco_porques"
+                    }
+                  },
+                  "Property": "data"
+                }
+              },
+              "queryRef": "fato_cinco_porques.data",
+              "nativeQueryRef": "data"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "fato_cinco_porques"
+                    }
+                  },
+                  "Property": "colaborador"
+                }
+              },
+              "queryRef": "fato_cinco_porques.colaborador",
+              "nativeQueryRef": "colaborador"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "fato_cinco_porques"
+                    }
+                  },
+                  "Property": "rota"
+                }
+              },
+              "queryRef": "fato_cinco_porques.rota",
+              "nativeQueryRef": "rota"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "fato_cinco_porques"
+                    }
+                  },
+                  "Property": "problema"
+                }
+              },
+              "queryRef": "fato_cinco_porques.problema",
+              "nativeQueryRef": "problema"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "fato_cinco_porques"
+                    }
+                  },
+                  "Property": "causa_raiz"
+                }
+              },
+              "queryRef": "fato_cinco_porques.causa_raiz",
+              "nativeQueryRef": "causa_raiz"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "fato_cinco_porques"
+                    }
+                  },
+                  "Property": "acao_sugerida"
+                }
+              },
+              "queryRef": "fato_cinco_porques.acao_sugerida",
+              "nativeQueryRef": "acao_sugerida"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "fato_cinco_porques"
+                    }
+                  },
+                  "Property": "status"
+                }
+              },
+              "queryRef": "fato_cinco_porques.status",
+              "nativeQueryRef": "status"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "fato_cinco_porques"
+                    }
+                  },
+                  "Property": "tratativa_status"
+                }
+              },
+              "queryRef": "fato_cinco_porques.tratativa_status",
+              "nativeQueryRef": "tratativa_status"
+            }
+          ]
+        }
+      }
+    },
+    "visualContainerObjects": {
+      "title": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            },
+            "text": {
+              "expr": {
+                "Literal": {
+                  "Value": "'📝 Feedbacks e 5 Porquês'"
+                }
+              }
+            },
+            "fontSize": {
+              "expr": {
+                "Literal": {
+                  "Value": "11D"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "visualHeader": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "drillFilterOtherVisuals": true
+  }
+}

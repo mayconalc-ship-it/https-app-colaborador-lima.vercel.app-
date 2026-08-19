@@ -1,0 +1,223 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.11.0/schema.json",
+  "name": "29fe8aadd1427857426d",
+  "position": {
+    "x": 16,
+    "y": 500,
+    "z": 15000,
+    "height": 166,
+    "width": 1248,
+    "tabOrder": 15000
+  },
+  "visual": {
+    "visualType": "tableEx",
+    "query": {
+      "queryState": {
+        "Values": {
+          "projections": [
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "_Medidas"
+                    }
+                  },
+                  "Property": "Medalha"
+                }
+              },
+              "queryRef": "_Medidas.Medalha",
+              "nativeQueryRef": "Medalha"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "_Medidas"
+                    }
+                  },
+                  "Property": "Posição na temporada"
+                }
+              },
+              "queryRef": "_Medidas.Posição na temporada",
+              "nativeQueryRef": "Posição na temporada"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "fato_quiz_participacao"
+                    }
+                  },
+                  "Property": "colaborador"
+                }
+              },
+              "queryRef": "fato_quiz_participacao.colaborador",
+              "nativeQueryRef": "colaborador"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "fato_quiz_participacao"
+                    }
+                  },
+                  "Property": "area_rotulo"
+                }
+              },
+              "queryRef": "fato_quiz_participacao.area_rotulo",
+              "nativeQueryRef": "area_rotulo"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "_Medidas"
+                    }
+                  },
+                  "Property": "Rodadas"
+                }
+              },
+              "queryRef": "_Medidas.Rodadas",
+              "nativeQueryRef": "Rodadas"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "_Medidas"
+                    }
+                  },
+                  "Property": "Pontos"
+                }
+              },
+              "queryRef": "_Medidas.Pontos",
+              "nativeQueryRef": "Pontos"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "_Medidas"
+                    }
+                  },
+                  "Property": "Acertos"
+                }
+              },
+              "queryRef": "_Medidas.Acertos",
+              "nativeQueryRef": "Acertos"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "_Medidas"
+                    }
+                  },
+                  "Property": "Erros"
+                }
+              },
+              "queryRef": "_Medidas.Erros",
+              "nativeQueryRef": "Erros"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "_Medidas"
+                    }
+                  },
+                  "Property": "Aproveitamento médio"
+                }
+              },
+              "queryRef": "_Medidas.Aproveitamento médio",
+              "nativeQueryRef": "Aproveitamento médio"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "_Medidas"
+                    }
+                  },
+                  "Property": "Tempo total (s)"
+                }
+              },
+              "queryRef": "_Medidas.Tempo total (s)",
+              "nativeQueryRef": "Tempo total (s)"
+            }
+          ]
+        }
+      },
+      "sortDefinition": {
+        "sort": [
+          {
+            "field": {
+              "Measure": {
+                "Expression": {
+                  "SourceRef": {
+                    "Entity": "_Medidas"
+                  }
+                },
+                "Property": "Posição na temporada"
+              }
+            },
+            "direction": "Ascending"
+          }
+        ]
+      }
+    },
+    "visualContainerObjects": {
+      "title": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            },
+            "text": {
+              "expr": {
+                "Literal": {
+                  "Value": "'🏆 Ranking dos colaboradores'"
+                }
+              }
+            },
+            "fontSize": {
+              "expr": {
+                "Literal": {
+                  "Value": "11D"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "visualHeader": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "drillFilterOtherVisuals": true
+  }
+}

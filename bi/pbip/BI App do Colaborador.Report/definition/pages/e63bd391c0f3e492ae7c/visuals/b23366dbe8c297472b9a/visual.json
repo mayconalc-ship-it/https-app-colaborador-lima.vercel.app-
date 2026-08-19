@@ -1,0 +1,165 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.11.0/schema.json",
+  "name": "b23366dbe8c297472b9a",
+  "position": {
+    "x": 648,
+    "y": 76,
+    "z": 4000,
+    "height": 300,
+    "width": 616,
+    "tabOrder": 4000
+  },
+  "visual": {
+    "visualType": "tableEx",
+    "query": {
+      "queryState": {
+        "Values": {
+          "projections": [
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "fato_ag_conciliacao"
+                    }
+                  },
+                  "Property": "data"
+                }
+              },
+              "queryRef": "fato_ag_conciliacao.data",
+              "nativeQueryRef": "data"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "fato_ag_conciliacao"
+                    }
+                  },
+                  "Property": "item"
+                }
+              },
+              "queryRef": "fato_ag_conciliacao.item",
+              "nativeQueryRef": "item"
+            },
+            {
+              "field": {
+                "Aggregation": {
+                  "Expression": {
+                    "Column": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "fato_ag_conciliacao"
+                        }
+                      },
+                      "Property": "contado"
+                    }
+                  },
+                  "Function": 0
+                }
+              },
+              "queryRef": "Sum(fato_ag_conciliacao.contado)",
+              "nativeQueryRef": "contado"
+            },
+            {
+              "field": {
+                "Aggregation": {
+                  "Expression": {
+                    "Column": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "fato_ag_conciliacao"
+                        }
+                      },
+                      "Property": "parque"
+                    }
+                  },
+                  "Function": 0
+                }
+              },
+              "queryRef": "Sum(fato_ag_conciliacao.parque)",
+              "nativeQueryRef": "parque"
+            },
+            {
+              "field": {
+                "Aggregation": {
+                  "Expression": {
+                    "Column": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "fato_ag_conciliacao"
+                        }
+                      },
+                      "Property": "diferenca"
+                    }
+                  },
+                  "Function": 0
+                }
+              },
+              "queryRef": "Sum(fato_ag_conciliacao.diferenca)",
+              "nativeQueryRef": "diferenca"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "fato_ag_conciliacao"
+                    }
+                  },
+                  "Property": "resultado"
+                }
+              },
+              "queryRef": "fato_ag_conciliacao.resultado",
+              "nativeQueryRef": "resultado"
+            }
+          ]
+        }
+      }
+    },
+    "visualContainerObjects": {
+      "title": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            },
+            "text": {
+              "expr": {
+                "Literal": {
+                  "Value": "'⚖️ Conciliação (AG)'"
+                }
+              }
+            },
+            "fontSize": {
+              "expr": {
+                "Literal": {
+                  "Value": "11D"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "visualHeader": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "drillFilterOtherVisuals": true
+  }
+}

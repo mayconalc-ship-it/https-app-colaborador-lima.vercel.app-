@@ -38,10 +38,10 @@ const LARG_KPI = 240;
 // carrega o grupo de sincronizacao, e esse e o unico passo manual que
 // sobra do bloco de filtros.
 const filtros = [
-  { campo: 'dim_revenda.revenda', titulo: 'Revenda' },
-  { campo: 'dim_calendario.data', titulo: 'Período', modo: 'Between' },
-  { campo: 'dim_colaborador.area_rotulo', titulo: 'Área' },
-  { campo: 'dim_colaborador.colaborador', titulo: 'Colaborador' },
+  { campo: 'dim_revenda.revenda', titulo: '🏢 Revenda' },
+  { campo: 'dim_calendario.data', titulo: '🗓️ Período', modo: 'Between' },
+  { campo: 'dim_colaborador.area_rotulo', titulo: '📍 Área' },
+  { campo: 'dim_colaborador.colaborador', titulo: '👤 Colaborador' },
 ];
 
 // kpis: lista de [titulo, medida]
@@ -63,11 +63,11 @@ const paginas = [
     // escolhi um que nao colide com os existentes.
     nome: '🏠 Visão Geral',
     kpis: [
-      ['Colaboradores', '@Colaboradores'],
-      ['% Adesão', '@% Adesão'],
-      ['Interações', '@Interações'],
-      ['Módulos usados', '@Módulos usados'],
-      ['Aguardando tratativa', '@Aguardando tratativa'],
+      ['👥 Colaboradores', '@Colaboradores'],
+      ['📲 % Adesão', '@% Adesão'],
+      ['👆 Interações', '@Interações'],
+      ['📂 Módulos usados', '@Módulos usados'],
+      ['⚠️ Aguardando tratativa', '@Aguardando tratativa'],
     ],
     visuais: [
       {
@@ -85,7 +85,7 @@ const paginas = [
         // (texto): data se ordena sozinha em ordem cronologica, texto
         // sairia em ordem alfabetica.
         t: 'columnChart', x: 16, y: Y.meio, w: 760, h: H.meio,
-        titulo: 'Interações por mês e módulo',
+        titulo: '📈 Interações por mês e módulo',
         roles: {
           Category: ['dim_calendario.inicio_mes'],
           Y: ['@Interações'],
@@ -97,13 +97,13 @@ const paginas = [
       },
       {
         t: 'clusteredBarChart', x: 788, y: Y.meio, w: 460, h: H.meio,
-        titulo: 'Interações por módulo',
+        titulo: '📊 Interações por módulo',
         roles: { Category: ['fato_atividade.modulo'], Y: ['@Interações'] },
         ordem: { campo: '@Interações', dir: 'Descending' },
       },
       {
         t: 'pivotTable', x: 16, y: Y.base, w: 1248, h: H.base,
-        titulo: 'Quem usa o quê — interações por colaborador e módulo',
+        titulo: '👥 Quem usa o quê — interações por colaborador e módulo',
         roles: {
           Rows: ['dim_colaborador.colaborador'],
           Columns: ['fato_atividade.modulo'],
@@ -125,11 +125,11 @@ const paginas = [
     // passado e calculada contra o saldo de hoje.
     filtroPagina: { campo: 'fato_ag_conciliacao.parque_confiavel', valores: [true] },
     kpis: [
-      ['Ocorrências de contagem', '@Ocorrências de contagem'],
-      ['Dias com contagem', '@% Dias com contagem'],
-      ['Contadores', '@Contadores'],
-      ['% Lançado no dia', '@% Lançado no dia'],
-      ['Recontagens pendentes', '@Recontagens pendentes'],
+      ['🔢 Ocorrências de contagem', '@Ocorrências de contagem'],
+      ['🗓️ Dias com contagem', '@% Dias com contagem'],
+      ['👥 Contadores', '@Contadores'],
+      ['✅ % Lançado no dia', '@% Lançado no dia'],
+      ['🔁 Recontagens pendentes', '@Recontagens pendentes'],
     ],
     // Duas faixas em vez das tres do padrao: esta pagina responde a tres
     // perguntas diferentes (a rotina esta sendo mantida? quem sustenta?
@@ -141,7 +141,7 @@ const paginas = [
         // contagem em todo dia util?", e buraco em tabela e mais facil
         // de ver do que barra baixa em serie longa.
         t: 'tableEx', x: 16, y: Y.meio, w: 620, h: 200,
-        titulo: 'Aderência por dia — ocorrências de contagem',
+        titulo: '📅 Aderência por dia — ocorrências de contagem',
         roles: {
           Values: [
             'dim_calendario.data',
@@ -159,7 +159,7 @@ const paginas = [
         // num dia e some a semana inteira nao e o melhor colocado -- e o
         // que "Contagens" sozinho dizia antes.
         t: 'tableEx', x: 648, y: Y.meio, w: 616, h: 200,
-        titulo: 'Ranking de desempenho no AG — por disciplina',
+        titulo: '🏆 Ranking de desempenho no AG — por disciplina',
         roles: {
           Values: [
             'fato_ag_contagem.colaborador_nome',
@@ -176,13 +176,13 @@ const paginas = [
       // --- faixa 2: o Painel do app + divergencia -------------------
       {
         t: 'tableEx', x: 16, y: 460, w: 410, h: 206,
-        titulo: 'Total contado por embalagem (caixas)',
+        titulo: '📦 Total contado por embalagem (caixas)',
         roles: { Values: ['fato_ag_contagem.formato', '@Total em caixas'] },
         ordem: { campo: '@Total em caixas', dir: 'Descending' },
       },
       {
         t: 'tableEx', x: 438, y: 460, w: 410, h: 206,
-        titulo: 'Paletes de garrafeira sem garrafa',
+        titulo: '🧺 Paletes de garrafeira sem garrafa',
         roles: {
           Values: [
             'fato_ag_contagem.formato',
@@ -194,7 +194,7 @@ const paginas = [
       },
       {
         t: 'clusteredBarChart', x: 860, y: 460, w: 404, h: 206,
-        titulo: 'Itens com maior divergência (parque confiável)',
+        titulo: '⚖️ Itens com maior divergência (parque confiável)',
         roles: { Category: ['fato_ag_conciliacao.item'], Y: ['@Divergência absoluta'] },
         ordem: { campo: '@Divergência absoluta', dir: 'Descending' },
         gradiente: true,
@@ -211,27 +211,27 @@ const paginas = [
   {
     nome: '📝 Feedback da Rota',
     kpis: [
-      ['Feedbacks', '@Feedbacks'],
-      ['Nota média (0 a 3)', '@Nota média'],
-      ['% Satisfação', '@% Satisfação'],
-      ['% Notas ruins', '@% Notas ruins'],
-      ['Rota mais crítica', '@Rota mais crítica'],
+      ['📝 Feedbacks', '@Feedbacks'],
+      ['★ Nota média (0 a 3)', '@Nota média'],
+      ['🙂 % Satisfação', '@% Satisfação'],
+      ['😞 % Notas ruins', '@% Notas ruins'],
+      ['🚚 Rota mais crítica', '@Rota mais crítica'],
     ],
     visuais: [
       {
         t: 'lineChart', x: 16, y: Y.meio, w: 620, h: H.meio,
-        titulo: 'Evolução da nota média',
+        titulo: '📈 Evolução da nota média',
         roles: { Category: ['dim_calendario.data'], Y: ['@Nota média'] },
       },
       {
         t: 'columnChart', x: 648, y: Y.meio, w: 290, h: H.meio,
-        titulo: 'Distribuição das notas',
+        titulo: '📊 Distribuição das notas',
         roles: { Category: ['fato_feedback_rota.nota_rotulo'], Y: ['@Feedbacks'] },
         ordem: { campo: 'fato_feedback_rota.nota', dir: 'Ascending' },
       },
       {
         t: 'clusteredBarChart', x: 950, y: Y.meio, w: 314, h: H.meio,
-        titulo: 'Principais problemas relatados',
+        titulo: '⚠️ Principais problemas relatados',
         roles: {
           Category: ['fato_feedback_ocorrencia.ocorrencia'],
           Y: ['@Feedbacks com ocorrência'],
@@ -240,7 +240,7 @@ const paginas = [
       },
       {
         t: 'tableEx', x: 16, y: Y.base, w: 1248, h: H.base,
-        titulo: 'Comentários dos colaboradores',
+        titulo: '💬 Comentários dos colaboradores',
         roles: {
           Values: [
             'fato_feedback_rota.data',
@@ -264,22 +264,22 @@ const paginas = [
   {
     nome: '🔍 Cinco Porquês',
     kpis: [
-      ['Análises', '@Análises'],
-      ['% Conclusão', '@% Conclusão'],
-      ['% Chegou ao 5º', '@% Chegou ao 5º porquê'],
-      ['Aguardando tratativa', '@Aguardando tratativa'],
-      ['Horas até resposta', '@Horas médias até resposta'],
+      ['🔍 Análises', '@Análises'],
+      ['✅ % Conclusão', '@% Conclusão'],
+      ['🏁 % Chegou ao 5º', '@% Chegou ao 5º porquê'],
+      ['⚠️ Aguardando tratativa', '@Aguardando tratativa'],
+      ['⏱️ Horas até resposta', '@Horas médias até resposta'],
     ],
     visuais: [
       {
         t: 'clusteredBarChart', x: 16, y: Y.meio, w: 400, h: H.meio,
-        titulo: 'Principais causas-raiz',
+        titulo: '🔍 Principais causas-raiz',
         roles: { Category: ['fato_cinco_porques.categoria'], Y: ['@Análises'] },
         ordem: { campo: '@Análises', dir: 'Descending' },
       },
       {
         t: 'columnChart', x: 428, y: Y.meio, w: 400, h: H.meio,
-        titulo: 'Evolução semanal por categoria de causa',
+        titulo: '📈 Evolução semanal por categoria de causa',
         roles: {
           Category: ['dim_calendario.inicio_semana'],
           Y: ['@Análises'],
@@ -288,7 +288,7 @@ const paginas = [
       },
       {
         t: 'pivotTable', x: 840, y: Y.meio, w: 424, h: H.meio,
-        titulo: 'Problema × causa',
+        titulo: '🔀 Problema × causa',
         roles: {
           Rows: ['fato_cinco_porques.problema'],
           Columns: ['fato_cinco_porques.categoria'],
@@ -297,7 +297,7 @@ const paginas = [
       },
       {
         t: 'tableEx', x: 16, y: Y.base, w: 1248, h: H.base,
-        titulo: 'Problema · Causa · Ação — a pauta da reunião',
+        titulo: '📋 Problema · Causa · Ação — a pauta da reunião',
         roles: {
           Values: [
             'fato_cinco_porques_matriz.problema',
@@ -321,16 +321,16 @@ const paginas = [
   {
     nome: '📣 Comunicados',
     kpis: [
-      ['Comunicados publicados', '@Comunicados publicados'],
-      ['Curtidas', '@Curtidas'],
-      ['Curtidas por comunicado', '@Curtidas por comunicado'],
-      ['% Participação', '@% Participação na comunicação'],
-      ['Cliques no aviso (piso)', '@Cliques no aviso (piso)'],
+      ['📰 Comunicados publicados', '@Comunicados publicados'],
+      ['👍 Curtidas', '@Curtidas'],
+      ['❤️ Curtidas por comunicado', '@Curtidas por comunicado'],
+      ['👥 % Participação', '@% Participação na comunicação'],
+      ['🔔 Cliques no aviso (piso)', '@Cliques no aviso (piso)'],
     ],
     visuais: [
       {
         t: 'columnChart', x: 16, y: Y.meio, w: 620, h: H.meio,
-        titulo: 'Publicações por mês e categoria',
+        titulo: '📰 Publicações por mês e categoria',
         roles: {
           Category: ['dim_calendario.inicio_mes'],
           Y: ['@Comunicados publicados'],
@@ -339,7 +339,7 @@ const paginas = [
       },
       {
         t: 'clusteredBarChart', x: 648, y: Y.meio, w: 300, h: H.meio,
-        titulo: 'Engajamento por categoria',
+        titulo: '👍 Engajamento por categoria',
         roles: { Category: ['fato_comunicado.categoria'], Y: ['@Taxa média de curtida'] },
         ordem: { campo: '@Taxa média de curtida', dir: 'Descending' },
       },
@@ -353,7 +353,7 @@ const paginas = [
         // de manha funciona; se a curva se arrasta por uma semana, o
         // aviso nao esta chegando e o horario de publicacao e o suspeito.
         t: 'columnChart', x: 960, y: Y.meio, w: 304, h: H.meio,
-        titulo: 'Em quantos dias o comunicado alcança',
+        titulo: '📅 Em quantos dias o comunicado alcança',
         roles: {
           Category: ['fato_comunicado_curtida.dias_ate_curtir'],
           Y: ['fato_comunicado_curtida.comunicado_id#contagem'],
@@ -361,7 +361,7 @@ const paginas = [
       },
       {
         t: 'tableEx', x: 16, y: Y.base, w: 1248, h: H.base,
-        titulo: 'Comunicados mais acessados',
+        titulo: '🔥 Comunicados mais acessados',
         roles: {
           Values: [
             'fato_comunicado.titulo',
@@ -386,16 +386,16 @@ const paginas = [
   {
     nome: '🧠 Quiz',
     kpis: [
-      ['Participações concluídas', '@Participações concluídas'],
-      ['Taxa de participação', '@Taxa de participação'],
-      ['Aproveitamento médio', '@Aproveitamento médio'],
-      ['Participantes únicos', '@Participantes únicos'],
-      ['Questões críticas', '@Questões críticas'],
+      ['✅ Participações concluídas', '@Participações concluídas'],
+      ['👥 Taxa de participação', '@Taxa de participação'],
+      ['🎯 Aproveitamento médio', '@Aproveitamento médio'],
+      ['👤 Participantes únicos', '@Participantes únicos'],
+      ['⚠️ Questões críticas', '@Questões críticas'],
     ],
     visuais: [
       {
         t: 'clusteredColumnChart', x: 16, y: Y.meio, w: 430, h: H.meio,
-        titulo: 'Elegíveis × concluídas por rodada',
+        titulo: '📊 Elegíveis × concluídas por rodada',
         roles: {
           Category: ['fato_quiz_rodada_participacao.mes_ref'],
           Y: [
@@ -406,7 +406,7 @@ const paginas = [
       },
       {
         t: 'lineChart', x: 458, y: Y.meio, w: 430, h: H.meio,
-        titulo: 'Evolução do aproveitamento por área',
+        titulo: '📈 Evolução do aproveitamento por área',
         roles: {
           Category: ['fato_quiz_participacao.mes_ref'],
           Y: ['@Aproveitamento médio'],
@@ -415,7 +415,7 @@ const paginas = [
       },
       {
         t: 'clusteredBarChart', x: 900, y: Y.meio, w: 364, h: H.meio,
-        titulo: 'Perguntas com maior índice de erro',
+        titulo: '❌ Perguntas com maior índice de erro',
         roles: {
           Category: ['fato_quiz_resposta.pergunta'],
           Y: ['@Taxa de erro (período)'],
@@ -427,7 +427,7 @@ const paginas = [
       },
       {
         t: 'tableEx', x: 16, y: Y.base, w: 1248, h: H.base,
-        titulo: 'Ranking dos colaboradores',
+        titulo: '🏆 Ranking dos colaboradores',
         roles: {
           Values: [
             // A medalha vem primeiro: e o que o olho procura antes do
@@ -470,16 +470,16 @@ const paginas = [
   {
     nome: '🏆 Super Matinal e Sonho',
     kpis: [
-      ['Quadros publicados', '@Quadros publicados'],
-      ['Meses com publicação', '@Meses com publicação'],
-      ['% Cobertura', '@% Cobertura da publicação'],
-      ['Colaboradores', '@Colaboradores'],
-      ['% Adesão', '@% Adesão'],
+      ['🏆 Quadros publicados', '@Quadros publicados'],
+      ['🗓️ Meses com publicação', '@Meses com publicação'],
+      ['✅ % Cobertura', '@% Cobertura da publicação'],
+      ['👥 Colaboradores', '@Colaboradores'],
+      ['📲 % Adesão', '@% Adesão'],
     ],
     visuais: [
       {
         t: 'pivotTable', x: 16, y: Y.meio, w: 620, h: H.meio,
-        titulo: 'Cobertura da publicação — o mês que faltou',
+        titulo: '🗓️ Cobertura da publicação — o mês que faltou',
         roles: {
           Rows: ['fato_ranking_matinal_cobertura.categoria'],
           Columns: ['fato_ranking_matinal_cobertura.mes_ano'],
@@ -488,7 +488,7 @@ const paginas = [
       },
       {
         t: 'columnChart', x: 648, y: Y.meio, w: 616, h: H.meio,
-        titulo: 'Quadros publicados por mês e equipe',
+        titulo: '🏆 Quadros publicados por mês e equipe',
         roles: {
           Category: ['fato_ranking_matinal.mes_rotulo'],
           Y: ['@Quadros publicados'],
@@ -497,7 +497,7 @@ const paginas = [
       },
       {
         t: 'tableEx', x: 16, y: Y.base, w: 620, h: H.base,
-        titulo: 'Galeria dos quadros',
+        titulo: '🖼️ Galeria dos quadros',
         roles: {
           Values: [
             'fato_ranking_matinal.mes_rotulo',
@@ -509,7 +509,7 @@ const paginas = [
       },
       {
         t: 'tableEx', x: 648, y: Y.base, w: 616, h: H.base,
-        titulo: 'Sonho da Revenda — contexto',
+        titulo: '🎯 Sonho da Revenda — contexto',
         roles: {
           Values: [
             'dim_sonho_revenda.ano',
@@ -534,11 +534,11 @@ const paginas = [
   {
     nome: '🧹 Programa 5S',
     kpis: [
-      ['% Conformidade', '@% Conformidade 5S'],
-      ['Aderência ao plano', '@% Aderência ao plano'],
-      ['Auditorias atrasadas', '@Auditorias atrasadas'],
-      ['NC em aberto', '@NC em aberto'],
-      ['Ações atrasadas', '@Ações atrasadas'],
+      ['✅ % Conformidade', '@% Conformidade 5S'],
+      ['📋 Aderência ao plano', '@% Aderência ao plano'],
+      ['⚠️ Auditorias atrasadas', '@Auditorias atrasadas'],
+      ['🔴 NC em aberto', '@NC em aberto'],
+      ['⏰ Ações atrasadas', '@Ações atrasadas'],
     ],
     visuais: [
       {
@@ -546,7 +546,7 @@ const paginas = [
         // a ordenacao pela pior faz a primeira linha ja responder "onde
         // esta o problema" sem ninguem varrer o grafico inteiro.
         t: 'clusteredBarChart', x: 16, y: Y.meio, w: 500, h: H.meio,
-        titulo: 'Conformidade por área',
+        titulo: '🏢 Conformidade por área',
         roles: {
           Category: ['fato_5s_auditoria.area_5s'],
           Y: ['@% Conformidade 5S'],
@@ -558,10 +558,14 @@ const paginas = [
         // o Power BI nao traz radar nativo, e instalar visual de
         // terceiro num relatorio que roda pelo gateway do escritorio e
         // dependencia que uma hora some da loja e quebra o arquivo.
+        //
+        // Reaberto e reafirmado em 19/08/2026: o radar foi pedido, o
+        // custo (visual do AppSource) foi posto na mesa e a escolha foi
+        // manter o nativo. Nao e esquecimento -- e decisao.
         // Colunas na ordem dos sensos dao a mesma leitura -- a forma do
         // 5S, na sequencia em que a operacao aprende os cinco.
         t: 'clusteredColumnChart', x: 528, y: Y.meio, w: 360, h: H.meio,
-        titulo: 'Conformidade por senso',
+        titulo: '🧹 Conformidade por senso',
         roles: {
           Category: ['fato_5s_senso.senso_rotulo'],
           Y: ['@% Conformidade do senso'],
@@ -569,7 +573,7 @@ const paginas = [
       },
       {
         t: 'lineChart', x: 900, y: Y.meio, w: 364, h: H.meio,
-        titulo: 'Evolução mensal da conformidade',
+        titulo: '📈 Evolução mensal da conformidade',
         roles: {
           // Coluna de DATA, e nao mes_rotulo (texto): texto ordena em
           // ordem alfabetica -- abril antes de agosto antes de dezembro
@@ -584,7 +588,7 @@ const paginas = [
         // item respondido uma vez e reprovado encabecaria a lista para
         // sempre.
         t: 'tableEx', x: 16, y: Y.base, w: 620, h: H.base,
-        titulo: 'Itens que mais reprovam (mín. 5 avaliações)',
+        titulo: '❌ Itens que mais reprovam (mín. 5 avaliações)',
         roles: {
           Values: [
             'dim_5s_pergunta.codigo', 'dim_5s_pergunta.senso_rotulo',
@@ -596,7 +600,7 @@ const paginas = [
       },
       {
         t: 'tableEx', x: 648, y: Y.base, w: 616, h: H.base,
-        titulo: 'Plano de ação — o que está em aberto',
+        titulo: '🛠️ Plano de ação — o que está em aberto',
         roles: {
           Values: [
             'fato_5s_acao.area_5s', 'fato_5s_acao.senso_rotulo',
@@ -629,7 +633,7 @@ const paginas = [
     visuais: [
       {
         t: 'tableEx', x: 16, y: 152, w: 1248, h: 310,
-        titulo: 'Menu do app — o que o colaborador vê no celular',
+        titulo: '📱 Menu do app — o que o colaborador vê no celular',
         roles: {
           Values: [
             'dim_menu_app.ordem',
@@ -643,7 +647,7 @@ const paginas = [
       },
       {
         t: 'clusteredBarChart', x: 16, y: 478, w: 616, h: 188,
-        titulo: 'Itens no ar × ocultos',
+        titulo: '🔒 Itens no ar × ocultos',
         roles: {
           Category: ['dim_menu_app.situacao'],
           Y: ['dim_menu_app.chave#contagem'],
@@ -668,7 +672,7 @@ const paginas = [
     visuais: [
       {
         t: 'tableEx', x: 16, y: 76, w: 616, h: 300,
-        titulo: 'Contagens (AG)',
+        titulo: '📦 Contagens (AG)',
         roles: {
           Values: [
             'fato_ag_contagem.data', 'fato_ag_contagem.colaborador_nome',
@@ -679,7 +683,7 @@ const paginas = [
       },
       {
         t: 'tableEx', x: 648, y: 76, w: 616, h: 300,
-        titulo: 'Conciliação (AG)',
+        titulo: '⚖️ Conciliação (AG)',
         roles: {
           Values: [
             'fato_ag_conciliacao.data', 'fato_ag_conciliacao.item',
@@ -690,7 +694,7 @@ const paginas = [
       },
       {
         t: 'tableEx', x: 16, y: 392, w: 616, h: 312,
-        titulo: 'Feedbacks e 5 Porquês',
+        titulo: '📝 Feedbacks e 5 Porquês',
         roles: {
           Values: [
             'fato_cinco_porques.data', 'fato_cinco_porques.colaborador',
@@ -702,7 +706,7 @@ const paginas = [
       },
       {
         t: 'tableEx', x: 648, y: 392, w: 616, h: 312,
-        titulo: 'Quiz — respostas',
+        titulo: '🧠 Quiz — respostas',
         roles: {
           Values: [
             'fato_quiz_resposta.data', 'fato_quiz_resposta.colaborador',
