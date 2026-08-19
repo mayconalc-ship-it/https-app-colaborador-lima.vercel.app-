@@ -84,7 +84,7 @@ const paginas = [
         // O eixo usa inicio_mes (coluna de data) em vez de mes_rotulo
         // (texto): data se ordena sozinha em ordem cronologica, texto
         // sairia em ordem alfabetica.
-        t: 'stackedColumnChart', x: 16, y: Y.meio, w: 760, h: H.meio,
+        t: 'columnChart', x: 16, y: Y.meio, w: 760, h: H.meio,
         titulo: 'Interações por mês e módulo',
         roles: {
           Category: ['dim_calendario.inicio_mes'],

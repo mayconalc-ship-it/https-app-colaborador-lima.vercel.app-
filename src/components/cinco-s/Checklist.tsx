@@ -184,6 +184,24 @@ export function Checklist({
     });
   }
 
+  /**
+   * Troca de senso e volta para o começo da lista.
+   *
+   * Sem isto a rolagem fica onde estava -- no rodapé, onde o dedo
+   * acabou de tocar o botão -- e o senso novo abre pelo fim. A pessoa
+   * vê as últimas perguntas primeiro e precisa subir na mão toda vez,
+   * cinco vezes por auditoria.
+   *
+   * Rolagem instantânea, e não suave: é troca de etapa, não navegação
+   * dentro da mesma tela. Meio segundo de animação a cada senso, com o
+   * celular na mão andando pela área, atrasa sem informar nada.
+   */
+  function irParaEtapa(proxima: number) {
+    setDestacarPendentes(false);
+    setEtapa(proxima);
+    window.scrollTo({ top: 0 });
+  }
+
   /** As perguntas do senso aberto que ainda estão sem resposta. */
   const pendentesDoSenso = noResumo
     ? []
@@ -213,8 +231,7 @@ export function Checklist({
         ?.scrollIntoView({ behavior: "smooth", block: "center" });
       return;
     }
-    setDestacarPendentes(false);
-    setEtapa((e) => e + 1);
+    irParaEtapa(etapa + 1);
   }
 
   function finalizar() {
@@ -263,11 +280,11 @@ export function Checklist({
           respondidas={respondidas}
           somenteLeitura={somenteLeitura}
           salvando={salvando}
-          onVoltar={() => setEtapa(porSenso.length - 1)}
+          onVoltar={() => irParaEtapa(porSenso.length - 1)}
           onFinalizar={finalizar}
           onIrPara={(s) => {
             const i = porSenso.findIndex((g) => g.senso === s);
-            if (i >= 0) setEtapa(i);
+            if (i >= 0) irParaEtapa(i);
           }}
           porSenso={porSenso.map((g) => ({
             senso: g.senso,
@@ -315,10 +332,7 @@ export function Checklist({
           <div className="mx-auto flex max-w-2xl gap-2">
             <button
               type="button"
-              onClick={() => {
-                setDestacarPendentes(false);
-                setEtapa((e) => Math.max(0, e - 1));
-              }}
+              onClick={() => irParaEtapa(Math.max(0, etapa - 1))}
               disabled={etapa === 0}
               className="rounded-xl border border-slate-200 px-5 py-3 text-sm font-semibold text-slate-600 disabled:opacity-40"
             >
