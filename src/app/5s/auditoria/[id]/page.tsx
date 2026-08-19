@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { PageHeader } from "@/components/PageHeader";
 import { Checklist } from "@/components/cinco-s/Checklist";
 import { FormReabrir } from "@/components/cinco-s/FormReabrir";
+import { OQueEh5S } from "@/components/cinco-s/OQueEh5S";
 import {
   getContexto5S,
   listarPerguntas,
@@ -132,18 +133,24 @@ export default async function AuditoriaPage({
           podeReabrir={ctx.podeEditar}
         />
       ) : editavel ? (
-        <Checklist
-          auditoriaId={id}
-          areaNome={area.nome}
-          perguntas={perguntas}
-          respostasIniciais={(respostas ?? []).map((r) => ({
-            pergunta_id: r.pergunta_id,
-            valor: r.valor as Resposta,
-            observacao: r.observacao,
-            foto_url: r.foto_url,
-          }))}
-          somenteLeitura={false}
-        />
+        // Recolhido, acima do checklist: o auditor de primeira viagem
+        // consulta o que cada senso quer dizer sem sair da auditoria e
+        // perder as respostas que já deu.
+        <>
+          <OQueEh5S />
+          <Checklist
+            auditoriaId={id}
+            areaNome={area.nome}
+            perguntas={perguntas}
+            respostasIniciais={(respostas ?? []).map((r) => ({
+              pergunta_id: r.pergunta_id,
+              valor: r.valor as Resposta,
+              observacao: r.observacao,
+              foto_url: r.foto_url,
+            }))}
+            somenteLeitura={false}
+          />
+        </>
       ) : (
         <div className="rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm">
           <p className="text-sm text-slate-600">

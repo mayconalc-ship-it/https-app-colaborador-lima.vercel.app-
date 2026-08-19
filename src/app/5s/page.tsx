@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { decodificar } from "@/lib/texto-url";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { PageHeader } from "@/components/PageHeader";
+import { OQueEh5S } from "@/components/cinco-s/OQueEh5S";
 import { getContexto5S } from "@/lib/cinco-s-server";
 import {
   COR_STATUS_NC,
@@ -41,6 +42,10 @@ export default async function CincoSPage({
     return (
       <div>
         <PageHeader title="🧹 Programa 5S" />
+        {/* Quem cai aqui é justamente quem tem curiosidade e nenhum
+            caminho para matá-la. A explicação vem ABERTA nesta tela --
+            fechada, ela seria só mais um aviso de porta trancada. */}
+        <OQueEh5S aberto />
         <div className="rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm">
           <p className="text-sm text-slate-600">
             Você ainda não participa do Programa 5S.
@@ -118,6 +123,8 @@ export default async function CincoSPage({
           {decodificar(erro)}
         </p>
       )}
+
+      <OQueEh5S />
 
       {ctx.gestor && (
         <div className="mb-4 grid grid-cols-2 gap-3">
