@@ -100,6 +100,8 @@ export default async function AuditoriaPage({
     Array.from(
       new Set(
         [
+          // O auditor pode ser nulo no histórico importado de quem já
+          // saiu da empresa (ver migração 038).
           auditoria.auditor_id,
           auditoria.dono_id,
           ...(ncs ?? []).map((n) => n.responsavel_id),
@@ -107,6 +109,10 @@ export default async function AuditoriaPage({
       ),
     ),
   );
+
+  const nomeDoAuditor = auditoria.auditor_id
+    ? (nomes.get(auditoria.auditor_id) ?? "—")
+    : "auditor não cadastrado";
 
   const editavel = podeResponder(ctx, auditoria);
 
@@ -117,7 +123,7 @@ export default async function AuditoriaPage({
         subtitle={`Auditoria 5S · ${auditoria.planejada_para
           .split("-")
           .reverse()
-          .join("/")} · ${nomes.get(auditoria.auditor_id) ?? "—"}`}
+          .join("/")} · ${nomeDoAuditor}`}
       />
 
       {finalizada ? (
@@ -155,7 +161,7 @@ export default async function AuditoriaPage({
         <div className="rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm">
           <p className="text-sm text-slate-600">
             Esta auditoria está com{" "}
-            <strong>{nomes.get(auditoria.auditor_id) ?? "outro auditor"}</strong>{" "}
+            <strong>{nomeDoAuditor}</strong>{" "}
             e ainda não foi finalizada.
           </p>
           <p className="mt-1 text-xs text-slate-400">

@@ -100,7 +100,8 @@ export async function GET(request: Request) {
   // Nomes de todo mundo em UMA consulta, não uma por auditoria.
   const ids = new Set<string>();
   for (const a of lista) {
-    ids.add(a.auditor_id);
+    // Histórico importado pode não ter auditor (ver migração 038).
+    if (a.auditor_id) ids.add(a.auditor_id);
     if (a.dono_id) ids.add(a.dono_id);
   }
   const { data: pessoas } = await admin
@@ -162,7 +163,7 @@ export async function GET(request: Request) {
         dataBr(a.planejada_para),
         areaDe(a),
         a.dono_id ? (nomes.get(a.dono_id) ?? "") : "",
-        nomes.get(a.auditor_id) ?? "",
+        (a.auditor_id ? nomes.get(a.auditor_id) : null) ?? "",
         numero(a.conformidade),
         String(a.total_ok),
         String(a.total_nok),
@@ -232,7 +233,7 @@ export async function GET(request: Request) {
           dataBr(a.planejada_para),
           areaDe(a),
           a.dono_id ? (nomes.get(a.dono_id) ?? "") : "",
-          nomes.get(a.auditor_id) ?? "",
+          (a.auditor_id ? nomes.get(a.auditor_id) : null) ?? "",
           ROTULO_SENSO[q.senso as Senso],
           q.codigo,
           q.texto,
@@ -272,7 +273,7 @@ export async function GET(request: Request) {
       String(sequencial++),
       dataBr(a.planejada_para),
       a.dono_id ? (nomes.get(a.dono_id) ?? "") : "",
-      nomes.get(a.auditor_id) ?? "",
+      (a.auditor_id ? nomes.get(a.auditor_id) : null) ?? "",
       areaDe(a),
       ...qs.map((q) => rotuloValor(m?.get(q.id)?.valor)),
       // As observações dos itens NOK viram o texto único do fim, que é

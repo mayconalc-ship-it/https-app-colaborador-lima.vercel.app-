@@ -159,7 +159,10 @@ async function AbaPlanejamento({
     ]);
 
   const lista = auditorias ?? [];
-  const nomes = await nomesDe(lista.map((a) => a.auditor_id));
+  // Histórico importado pode não ter auditor (ver migração 038).
+  const nomes = await nomesDe(
+    lista.map((a) => a.auditor_id).filter((x): x is string => Boolean(x)),
+  );
 
   const feitas = lista.filter((a) => a.status === "finalizada").length;
   const hoje = new Date().toISOString().slice(0, 10);
@@ -369,7 +372,9 @@ async function AbaPlanejamento({
                         {area.nome}
                       </Link>
                       <p className="truncate text-xs text-slate-400">
-                        {nomes.get(a.auditor_id) ?? "—"} ·{" "}
+                        {(a.auditor_id ? nomes.get(a.auditor_id) : null) ??
+                          "auditor não cadastrado"}{" "}
+                        ·{" "}
                         {a.planejada_para.split("-").reverse().join("/")}
                       </p>
                     </div>
@@ -670,6 +675,7 @@ async function AbaAuditores({ revendaId }: { revendaId: string }) {
 
   const feitasPor = new Map<string, { feitas: number; pendentes: number }>();
   for (const c of contagens ?? []) {
+    if (!c.auditor_id) continue;
     const atual = feitasPor.get(c.auditor_id) ?? { feitas: 0, pendentes: 0 };
     if (c.status === "finalizada") atual.feitas++;
     else if (c.status !== "cancelada") atual.pendentes++;

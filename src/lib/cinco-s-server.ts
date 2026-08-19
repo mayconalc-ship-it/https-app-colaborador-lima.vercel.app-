@@ -168,7 +168,11 @@ export function areasVisiveis(ctx: Contexto5S): string[] | null {
  */
 export function podeVerAuditoria(
   ctx: Contexto5S,
-  auditoria: { auditor_id: string; area_id: string },
+  // `auditor_id` aceita nulo por causa do histórico importado de quem
+  // já saiu da empresa (ver migração 038). Nulo nunca é igual ao id de
+  // ninguém, então essas auditorias só se abrem pelos outros caminhos
+  // -- gestor ou dono da área -- que é o comportamento certo.
+  auditoria: { auditor_id: string | null; area_id: string },
 ): boolean {
   if (ctx.gestor) return true;
   if (auditoria.auditor_id === ctx.perfilId) return true;
@@ -180,7 +184,7 @@ export function podeVerAuditoria(
 /** Quem pode RESPONDER: só o auditor designado, e só antes de finalizar. */
 export function podeResponder(
   ctx: Contexto5S,
-  auditoria: { auditor_id: string; status: string },
+  auditoria: { auditor_id: string | null; status: string },
 ): boolean {
   if (auditoria.status === "finalizada" || auditoria.status === "cancelada") {
     return false;
