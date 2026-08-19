@@ -2,11 +2,11 @@
   "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.11.0/schema.json",
   "name": "cb7d47131eb5137407a0",
   "position": {
-    "x": 30.240000000000002,
-    "y": 10.08,
+    "x": 28,
+    "y": 14,
     "z": 3000,
-    "height": 46.08,
-    "width": 234.72,
+    "height": 40,
+    "width": 1000,
     "tabOrder": 3000
   },
   "visual": {
@@ -22,8 +22,8 @@
                     "value": "📣 Comunicados",
                     "textStyle": {
                       "fontWeight": "bold",
-                      "fontSize": "14pt",
-                      "color": "#0B4DA2"
+                      "fontSize": "20pt",
+                      "color": "#FFFFFF"
                     }
                   }
                 ]

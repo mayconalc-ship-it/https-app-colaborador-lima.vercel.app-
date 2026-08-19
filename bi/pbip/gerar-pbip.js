@@ -676,7 +676,10 @@ function visualJson(v, ordemZ) {
 function cabecalho(pagina) {
   return [
     {
-      chave: pagina.nome + ':faixa', t: 'shape', x: 0, y: 16, w: 1280, h: 48,
+      // Faixa colada no topo e cheia: y=0 e h=64, e nao y=16 e h=48.
+      // Sem os 16 px de respiro em cima, ela vira cabecalho de verdade
+      // em vez de tarja flutuando no meio do branco.
+      chave: pagina.nome + ':faixa', t: 'shape', x: 0, y: 0, w: 1280, h: 64,
       objects: {
         shape: [{ properties: { tileShape: lit("'rectangle'") } }],
         fill: [{ properties: { fillColor: { solid: { color: lit("'#0B4DA2'") } } },
@@ -685,34 +688,23 @@ function cabecalho(pagina) {
       },
     },
     {
-      // Pastilha branca sob o titulo. Ela acompanha o comprimento do
-      // texto -- 11,5 px por caractere e a media do Segoe UI Semibold 14,
-      // e emoji conta como dois porque ocupa quase o dobro de um
-      // caractere latino. Uma pastilha de largura fixa sobraria muito em
-      // "Quiz" e faltaria em "Plano de Comunicacao".
-      chave: pagina.nome + ':pastilha', t: 'shape',
-      x: 16, y: 22, w: larguraPastilha(pagina.nome), h: 36,
-      objects: {
-        shape: [{ properties: { tileShape: lit("'rectangle'") } }],
-        shapeCustomRectangle: [{ properties: { rectangleRoundedCurve: lit('8L') },
-          selector: { id: 'default' } }],
-        fill: [{ properties: { fillColor: { solid: { color: lit("'#FFFFFF'") } } },
-          selector: { id: 'default' } }],
-        outline: [{ properties: { show: lit('false') } }],
-      },
-    },
-    {
-      // A caixa de texto ganha folga vertical de proposito: com 26 px o
-      // Power BI quebra a linha em vez de encolher, e o titulo sai
-      // cortado pela metade em vez de so apertado.
+      // O titulo vai DIRETO sobre o azul.
+      //
+      // Antes havia uma pastilha branca atras dele, dimensionada por uma
+      // estimativa de largura por caractere. Duas coisas davam errado:
+      // a estimativa nunca acertava para todos os titulos, e o resultado
+      // eram duas formas com o mesmo nome empilhadas, uma sobrando da
+      // outra. A faixa ja e a superficie do titulo -- a pastilha era uma
+      // segunda superficie resolvendo um problema que ela mesma criava.
+      //
+      // Branco sobre o azul da marca da contraste de 8,6:1, bem acima do
+      // minimo de 4,5:1, entao nao ha por que intermediar com pastilha.
       chave: pagina.nome + ':titulo', t: 'textbox',
-      x: 30, y: 24, w: larguraPastilha(pagina.nome) - 24, h: 32,
+      x: 28, y: 14, w: 1000, h: 40,
       objects: {
         general: [{ properties: { paragraphs: [{ textRuns: [{
           value: pagina.nome,
-          // Azul da marca sobre a pastilha branca, e nao branco sobre
-          // azul: dentro da pastilha o contraste se inverte.
-          textStyle: { fontWeight: 'bold', fontSize: '14pt', color: '#0B4DA2' },
+          textStyle: { fontWeight: 'bold', fontSize: '20pt', color: '#FFFFFF' },
         }] }] } }],
       },
     },

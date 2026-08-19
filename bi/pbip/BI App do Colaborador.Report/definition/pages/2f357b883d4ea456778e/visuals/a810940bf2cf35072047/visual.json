@@ -13,25 +13,6 @@
     "visualType": "pivotTable",
     "query": {
       "queryState": {
-        "Rows": {
-          "projections": [
-            {
-              "field": {
-                "Column": {
-                  "Expression": {
-                    "SourceRef": {
-                      "Entity": "dim_colaborador"
-                    }
-                  },
-                  "Property": "colaborador"
-                }
-              },
-              "queryRef": "dim_colaborador.colaborador",
-              "nativeQueryRef": "colaborador",
-              "active": true
-            }
-          ]
-        },
         "Columns": {
           "projections": [
             {
@@ -47,6 +28,25 @@
               },
               "queryRef": "fato_atividade.modulo",
               "nativeQueryRef": "modulo",
+              "active": true
+            }
+          ]
+        },
+        "Rows": {
+          "projections": [
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "dim_colaborador"
+                    }
+                  },
+                  "Property": "colaborador"
+                }
+              },
+              "queryRef": "dim_colaborador.colaborador",
+              "nativeQueryRef": "colaborador",
               "active": true
             }
           ]
@@ -69,6 +69,23 @@
             }
           ]
         }
+      },
+      "sortDefinition": {
+        "sort": [
+          {
+            "field": {
+              "Measure": {
+                "Expression": {
+                  "SourceRef": {
+                    "Entity": "_Medidas"
+                  }
+                },
+                "Property": "Interações"
+              }
+            },
+            "direction": "Descending"
+          }
+        ]
       }
     },
     "visualContainerObjects": {
