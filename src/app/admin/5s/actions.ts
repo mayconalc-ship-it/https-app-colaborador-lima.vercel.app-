@@ -453,6 +453,159 @@ export async function planejarMes(formData: FormData) {
   );
 }
 
+/**
+ * Agenda o ciclo inteiro de uma vez.
+ *
+ * O 5S é um programa anual: as áreas são as mesmas, o rodízio é o
+ * mesmo, e a única coisa que muda a cada mês é a data. Obrigar o gestor
+ * a repetir a mesma tela doze vezes é o tipo de trabalho que faz o
+ * planejamento parar em março.
+ *
+ * Começa no mês corrente quando o ano é o atual -- ninguém quer
+ * agendar janeiro em agosto -- e vai até dezembro. Mês que já tenha
+ * auditoria para aquela área é pulado, então dá para rodar de novo
+ * depois de cadastrar uma área nova e só as lacunas são preenchidas.
+ */
+export async function planejarAno(formData: FormData) {
+  await requireModulo("5s", "criar");
+  const revendaId = await exigirRevenda(ROTA);
+  const admin = createAdminClient();
+
+  const ano = Number(texto(formData.get("ano")));
+  const dia = Math.min(28, Math.max(1, Number(texto(formData.get("dia"))) || 15));
+  const padrao = texto(formData.get("auditor_padrao"));
+
+  if (!ano || ano < 2024 || ano > 2100) erro("Ano inválido.", "planejamento");
+
+  const agora = new Date();
+  const mesInicial = ano === agora.getFullYear() ? agora.getMonth() + 1 : 1;
+
+  if (mesInicial > 12) erro("Nada a agendar neste ano.", "planejamento");
+
+  const [{ data: areas }, { data: existentes }, { data: ultimas }] =
+    await Promise.all([
+      admin
+        .from("cinco_s_areas")
+        .select("id, nome, cinco_s_area_donos!left(colaborador_id, ate)")
+        .eq("revenda_id", revendaId)
+        .eq("ativa", true)
+        .is("cinco_s_area_donos.ate", null),
+      // Tudo o que já existe no ano, numa consulta só. Perguntar mês a
+      // mês seriam doze idas ao banco para responder a mesma pergunta.
+      admin
+        .from("cinco_s_auditorias")
+        .select("area_id, competencia")
+        .eq("revenda_id", revendaId)
+        .neq("status", "cancelada")
+        .gte("competencia", `${ano}-01-01`)
+        .lte("competencia", `${ano}-12-01`),
+      admin
+        .from("cinco_s_auditorias")
+        .select("area_id, auditor_id")
+        .eq("revenda_id", revendaId)
+        .order("planejada_para", { ascending: false })
+        .limit(1000),
+    ]);
+
+  const ocupadas = new Set(
+    (existentes ?? []).map((a) => `${a.area_id}|${a.competencia}`),
+  );
+
+  // A lista vem da mais nova para a mais velha, então o primeiro
+  // registro de cada área já é o auditor mais recente dela.
+  const ultimoAuditor = new Map<string, string>();
+  for (const a of ultimas ?? []) {
+    if (!ultimoAuditor.has(a.area_id)) ultimoAuditor.set(a.area_id, a.auditor_id);
+  }
+
+  const novas: {
+    revenda_id: string;
+    area_id: string;
+    auditor_id: string;
+    dono_id: string | null;
+    planejada_para: string;
+    status: "planejada";
+  }[] = [];
+
+  const semAuditor = new Set<string>();
+
+  for (const a of areas ?? []) {
+    const auditorId = ultimoAuditor.get(a.id) ?? padrao;
+    if (!auditorId) {
+      semAuditor.add(a.nome);
+      continue;
+    }
+
+    const donos = Array.isArray(a.cinco_s_area_donos)
+      ? a.cinco_s_area_donos
+      : [a.cinco_s_area_donos];
+    const dono = donos.find((d) => d && d.ate == null);
+
+    for (let mes = mesInicial; mes <= 12; mes++) {
+      const mm = String(mes).padStart(2, "0");
+      if (ocupadas.has(`${a.id}|${ano}-${mm}-01`)) continue;
+
+      novas.push({
+        revenda_id: revendaId,
+        area_id: a.id,
+        auditor_id: auditorId,
+        dono_id: dono?.colaborador_id ?? null,
+        planejada_para: `${ano}-${mm}-${String(dia).padStart(2, "0")}`,
+        status: "planejada",
+      });
+    }
+  }
+
+  if (novas.length === 0) {
+    erro(
+      semAuditor.size > 0
+        ? `Nenhuma área tem auditor definido. Escolha um auditor padrão ou faça a primeira auditoria de cada área.`
+        : `Nada a agendar: ${ano} já está planejado de ${mesInicial}/${ano} até dezembro.`,
+      "planejamento",
+    );
+  }
+
+  const { error } = await admin.from("cinco_s_auditorias").insert(novas);
+  if (error) erro(`Não foi possível agendar: ${error.message}`, "planejamento");
+
+  // UM aviso por auditor, com o total do ano -- e não um por auditoria.
+  // Quem ficou com seis áreas em doze meses receberia setenta e dois
+  // avisos idênticos, e desligaria a notificação do 5S no mesmo dia.
+  //
+  // O aviso de cada auditoria vem depois, na véspera e no dia dela, que
+  // é quando a informação serve para alguma coisa.
+  const porAuditor = new Map<string, number>();
+  for (const n of novas) {
+    porAuditor.set(n.auditor_id, (porAuditor.get(n.auditor_id) ?? 0) + 1);
+  }
+
+  await Promise.all(
+    Array.from(porAuditor.entries()).map(([auditorId, quantas]) =>
+      criarNotificacao({
+        modulo: "5s",
+        tipo: "novo",
+        titulo: `🧹 Plano de auditorias 5S de ${ano}`,
+        mensagem: `Você ficou com ${quantas} auditoria${quantas === 1 ? "" : "s"} no ano. Cada uma avisa na véspera e no dia.`,
+        url: "/5s",
+        revendaId,
+        destinatarioId: auditorId,
+      }),
+    ),
+  );
+
+  revalidar();
+
+  const aviso =
+    semAuditor.size > 0
+      ? ` ${semAuditor.size} área(s) ficaram de fora por não ter auditor: ${Array.from(semAuditor).join(", ")}.`
+      : "";
+
+  ok(
+    `${novas.length} auditoria${novas.length === 1 ? "" : "s"} agendada${novas.length === 1 ? "" : "s"} até dezembro de ${ano}.${aviso}`,
+    "planejamento",
+  );
+}
+
 export async function cancelarAuditoria(formData: FormData) {
   await requireModulo("5s", "editar");
   const revendaId = await exigirRevenda(ROTA);

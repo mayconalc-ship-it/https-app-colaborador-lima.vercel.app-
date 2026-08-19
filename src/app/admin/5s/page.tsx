@@ -19,6 +19,7 @@ import {
   alternarAuditor,
   cancelarAuditoria,
   excluirArea,
+  planejarAno,
   planejarAuditoria,
   planejarMes,
   salvarArea,
@@ -215,42 +216,59 @@ async function AbaPlanejamento({
           <input type="hidden" name="competencia" value={mes} />
           <p className="text-xs text-slate-500">
             Cria uma auditoria para cada área ativa que ainda não tem uma em{" "}
-            {rotuloCompetencia(mes)}, repetindo o auditor da última vez. As áreas
-            que nunca foram auditadas usam o auditor padrão abaixo.
+            {rotuloCompetencia(mes)}, repetindo em cada área o auditor que a
+            auditou da última vez.
           </p>
-          <div className="flex gap-2">
-            <label className="flex-1 text-xs font-semibold text-slate-600">
-              Dia previsto
-              <input
-                type="number"
-                name="dia"
-                min={1}
-                max={28}
-                defaultValue={15}
-                className="mt-1 w-full rounded-xl border border-slate-200 p-3 text-base focus:border-primary focus:outline-none"
-              />
-            </label>
-            <label className="flex-1 text-xs font-semibold text-slate-600">
-              Auditor padrão
-              <select
-                name="auditor_padrao"
-                className="mt-1 w-full rounded-xl border border-slate-200 p-3 text-base focus:border-primary focus:outline-none"
-              >
-                <option value="">— nenhum —</option>
-                {auditores.map((a) => (
-                  <option key={a.id} value={a.id}>
-                    {a.nome}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
+          <CamposDoPlano auditores={auditores} />
           <button
             type="submit"
             className="w-full rounded-xl bg-primary py-3 text-sm font-semibold text-white active:bg-primary-dark"
           >
             Agendar {rotuloCompetencia(mes)}
           </button>
+        </form>
+      </details>
+
+      {/* ---- Agendar o ano ---- */}
+      <details className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <summary className="cursor-pointer list-none p-4 text-sm font-semibold text-slate-800">
+          Agendar o ano inteiro
+        </summary>
+        <form action={planejarAno} className="space-y-3 border-t border-slate-100 p-4">
+          <p className="text-xs text-slate-500">
+            Mesma regra do mês, repetida até dezembro. Começa no mês corrente
+            quando o ano é o atual. Mês que já tiver auditoria marcada para a
+            área é pulado — dá para rodar de novo depois de cadastrar uma área
+            nova, que só as lacunas são preenchidas.
+          </p>
+          <label className="block text-xs font-semibold text-slate-600">
+            Ano
+            <select
+              name="ano"
+              defaultValue={String(new Date().getFullYear())}
+              className="mt-1 w-full rounded-xl border border-slate-200 p-3 text-base focus:border-primary focus:outline-none"
+            >
+              {[0, 1].map((i) => {
+                const a = new Date().getFullYear() + i;
+                return (
+                  <option key={a} value={a}>
+                    {a}
+                  </option>
+                );
+              })}
+            </select>
+          </label>
+          <CamposDoPlano auditores={auditores} />
+          <button
+            type="submit"
+            className="w-full rounded-xl bg-primary py-3 text-sm font-semibold text-white active:bg-primary-dark"
+          >
+            Agendar o ano
+          </button>
+          <p className="text-xs text-slate-400">
+            O auditor recebe um aviso só, com o total do ano. O lembrete de
+            cada auditoria chega na véspera e no dia dela.
+          </p>
         </form>
       </details>
 
@@ -897,6 +915,59 @@ async function auditoresAtivos(revendaId: string) {
   return ids
     .map((id) => ({ id, nome: nomes.get(id) ?? "—" }))
     .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
+}
+
+/**
+ * Dia previsto e auditor padrão -- os dois campos que o plano do mês e
+ * o do ano têm em comum.
+ *
+ * O texto de ajuda do auditor padrão está aqui porque a dúvida é real:
+ * lendo só o rótulo, entende-se "o auditor de tudo", que é o oposto do
+ * que ele faz. Ele é a saída para a área SEM histórico -- nas demais,
+ * quem manda é quem auditou da última vez.
+ */
+function CamposDoPlano({
+  auditores,
+}: {
+  auditores: { id: string; nome: string }[];
+}) {
+  return (
+    <>
+      <div className="flex gap-2">
+        <label className="flex-1 text-xs font-semibold text-slate-600">
+          Dia previsto
+          <input
+            type="number"
+            name="dia"
+            min={1}
+            max={28}
+            defaultValue={15}
+            className="mt-1 w-full rounded-xl border border-slate-200 p-3 text-base focus:border-primary focus:outline-none"
+          />
+        </label>
+        <label className="flex-1 text-xs font-semibold text-slate-600">
+          Auditor padrão
+          <select
+            name="auditor_padrao"
+            className="mt-1 w-full rounded-xl border border-slate-200 p-3 text-base focus:border-primary focus:outline-none"
+          >
+            <option value="">— nenhum —</option>
+            {auditores.map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.nome}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+      <p className="text-xs text-slate-400">
+        <strong>Auditor padrão</strong> só é usado nas áreas que nunca foram
+        auditadas — nelas não há histórico de onde tirar o nome. Nas demais,
+        cada área mantém o auditor da última vez. Depois dá para trocar
+        auditoria por auditoria na lista abaixo.
+      </p>
+    </>
+  );
 }
 
 function Mini({
