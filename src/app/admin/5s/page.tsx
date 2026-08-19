@@ -636,22 +636,23 @@ async function AbaAuditores({ revendaId }: { revendaId: string }) {
   const mapa = new Map(pessoas.map((p) => [p.id, p.nome]));
   const jaSao = new Set((vinculos ?? []).map((v) => v.colaborador_id));
 
-  // Quantas auditorias cada um fez -- em UMA consulta agregada em
-  // memória, e não uma por auditor.
-  const { data: contagens } = await admin
-    .from("cinco_s_auditorias")
-    .select("auditor_id, status")
-    .eq("revenda_id", revendaId)
-    .limit(5000);
+  // A contagem por auditor sai pronta do banco. Antes eram até 5.000
+  // auditorias trafegadas para montar um mapa aqui -- com o ciclo do
+  // ano planejado, esse número passa de 200 por ano e só cresce.
+  const { data: contagens } = await admin.rpc("cinco_s_contagem_auditores", {
+    p_revenda: revendaId,
+  });
 
-  const feitasPor = new Map<string, { feitas: number; pendentes: number }>();
-  for (const c of contagens ?? []) {
-    if (!c.auditor_id) continue;
-    const atual = feitasPor.get(c.auditor_id) ?? { feitas: 0, pendentes: 0 };
-    if (c.status === "finalizada") atual.feitas++;
-    else if (c.status !== "cancelada") atual.pendentes++;
-    feitasPor.set(c.auditor_id, atual);
-  }
+  const feitasPor = new Map<string, { feitas: number; pendentes: number }>(
+    ((contagens ?? []) as {
+      auditor_id: string;
+      feitas: number;
+      pendentes: number;
+    }[]).map((c) => [
+      c.auditor_id,
+      { feitas: Number(c.feitas), pendentes: Number(c.pendentes) },
+    ]),
+  );
 
   return (
     <div className="space-y-4">

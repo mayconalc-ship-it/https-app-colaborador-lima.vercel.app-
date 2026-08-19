@@ -134,11 +134,16 @@ export default async function AcoesPage({
     // sem os filtros de tela -- senão "3 atrasadas" viraria "0 atrasadas"
     // assim que ela filtrasse por concluídas, que é o oposto de um
     // painel de controle.
-    admin
-      .from("cinco_s_nao_conformidades")
-      .select("status, prazo")
-      .eq("revenda_id", ctx.revendaId)
-      .limit(5000),
+    //
+    // A contagem acontece NO BANCO. Antes isto trazia até 5.000 linhas
+    // para somar seis contadores num laço aqui — funcionava hoje e ia
+    // ficando mais lento a cada mês, sem ninguém conseguir apontar
+    // quando começou.
+    admin.rpc("cinco_s_resumo_acoes", {
+      p_revenda: ctx.revendaId,
+      p_areas: permitidas,
+      p_pessoa: ctx.perfilId,
+    }),
     listarAreas(ctx.revendaId, { ids: permitidas }),
   ]);
 
@@ -154,7 +159,16 @@ export default async function AcoesPage({
     ),
   );
 
-  const totais = contar(resumo ?? [], hoje);
+  // A função devolve UMA linha com os seis contadores já somados.
+  const r = (Array.isArray(resumo) ? resumo[0] : resumo) as ResumoAcoes | null;
+  const totais = {
+    total: Number(r?.total ?? 0),
+    aberta: Number(r?.aberta ?? 0),
+    em_andamento: Number(r?.em_andamento ?? 0),
+    concluida: Number(r?.concluida ?? 0),
+    validada: Number(r?.validada ?? 0),
+    atrasadas: Number(r?.atrasadas ?? 0),
+  };
   const totalFiltrado = count ?? 0;
   const totalPaginas = Math.max(1, Math.ceil(totalFiltrado / POR_PAGINA));
 
@@ -408,27 +422,15 @@ export default async function AcoesPage({
 
 /* ------------------------------------------------------------------ */
 
-function contar(linhas: { status: string; prazo: string | null }[], hoje: string) {
-  const t = {
-    total: linhas.length,
-    aberta: 0,
-    em_andamento: 0,
-    concluida: 0,
-    validada: 0,
-    atrasadas: 0,
-  };
-  for (const l of linhas) {
-    if (l.status in t) t[l.status as keyof typeof t]++;
-    if (
-      (l.status === "aberta" || l.status === "em_andamento") &&
-      l.prazo &&
-      l.prazo < hoje
-    ) {
-      t.atrasadas++;
-    }
-  }
-  return t;
-}
+/** O que `cinco_s_resumo_acoes` devolve. Os counts vêm como bigint. */
+type ResumoAcoes = {
+  total: number | string;
+  aberta: number | string;
+  em_andamento: number | string;
+  concluida: number | string;
+  validada: number | string;
+  atrasadas: number | string;
+};
 
 function Numero({
   valor,

@@ -367,23 +367,21 @@ export async function planejarMes(formData: FormData) {
         .eq("revenda_id", revendaId)
         .eq("competencia", `${competencia}-01`)
         .neq("status", "cancelada"),
-      // Uma consulta só para descobrir o auditor de cada área: pega as
-      // auditorias recentes e o primeiro registro de cada área já é o
-      // mais novo. Perguntar área por área seria N+1.
-      admin
-        .from("cinco_s_auditorias")
-        .select("area_id, auditor_id")
-        .eq("revenda_id", revendaId)
-        .order("planejada_para", { ascending: false })
-        .limit(500),
+      // O último auditor de cada área vem resolvido do banco (uma linha
+      // por área). Antes isto trazia 500 auditorias e montava o mapa
+      // aqui -- e com o ano inteiro planejado, uma área de pouca
+      // atividade podia ficar fora da janela e perder o auditor dela.
+      admin.rpc("cinco_s_ultimo_auditor", { p_revenda: revendaId }),
     ]);
 
   const ocupadas = new Set((jaTem ?? []).map((a) => a.area_id));
 
-  const ultimoAuditor = new Map<string, string>();
-  for (const a of ultimas ?? []) {
-    if (!ultimoAuditor.has(a.area_id)) ultimoAuditor.set(a.area_id, a.auditor_id);
-  }
+  const ultimoAuditor = new Map<string, string>(
+    ((ultimas ?? []) as { area_id: string; auditor_id: string }[]).map((a) => [
+      a.area_id,
+      a.auditor_id,
+    ]),
+  );
 
   const padrao = texto(formData.get("auditor_padrao"));
 
@@ -499,24 +497,19 @@ export async function planejarAno(formData: FormData) {
         .neq("status", "cancelada")
         .gte("competencia", `${ano}-01-01`)
         .lte("competencia", `${ano}-12-01`),
-      admin
-        .from("cinco_s_auditorias")
-        .select("area_id, auditor_id")
-        .eq("revenda_id", revendaId)
-        .order("planejada_para", { ascending: false })
-        .limit(1000),
+      admin.rpc("cinco_s_ultimo_auditor", { p_revenda: revendaId }),
     ]);
 
   const ocupadas = new Set(
     (existentes ?? []).map((a) => `${a.area_id}|${a.competencia}`),
   );
 
-  // A lista vem da mais nova para a mais velha, então o primeiro
-  // registro de cada área já é o auditor mais recente dela.
-  const ultimoAuditor = new Map<string, string>();
-  for (const a of ultimas ?? []) {
-    if (!ultimoAuditor.has(a.area_id)) ultimoAuditor.set(a.area_id, a.auditor_id);
-  }
+  const ultimoAuditor = new Map<string, string>(
+    ((ultimas ?? []) as { area_id: string; auditor_id: string }[]).map((a) => [
+      a.area_id,
+      a.auditor_id,
+    ]),
+  );
 
   const novas: {
     revenda_id: string;
