@@ -642,6 +642,15 @@ function visualJson(v, ordemZ) {
     visual.visualContainerObjects.border = [{ properties: { show: lit('false') } }];
   }
 
+  // Caixa de texto do Power BI nasce com fundo BRANCO opaco. Para um
+  // titulo em branco sobre a faixa azul, isso apaga o texto: fica uma
+  // tarja branca vazia atravessando o cabecalho, e sobra so o emoji,
+  // que tem cor propria. O sintoma engana -- parece forma sobreposta
+  // que nao foi removida, quando e o fundo do proprio texto.
+  if (v.fundoTransparente) {
+    visual.visualContainerObjects.background = [{ properties: { show: lit('false') } }];
+  }
+
   // Cabecalho do visual explicito. E ele que traz os icones de foco,
   // tela cheia e "mais opcoes" no modo de leitura -- sem eles ninguem
   // consegue ampliar um grafico apertado nem exportar os dados, e o
@@ -707,6 +716,15 @@ function cabecalho(pagina) {
           textStyle: { fontWeight: 'bold', fontSize: '20pt', color: '#FFFFFF' },
         }] }] } }],
       },
+      // FUNDO DESLIGADO -- sem isto o titulo some.
+      //
+      // A caixa de texto do Power BI nasce com fundo BRANCO opaco. Com
+      // texto branco em cima, o resultado e uma tarja branca vazia
+      // atravessando a faixa azul: sobra so o emoji, que tem cor propria
+      // e por isso continua visivel. Foi exatamente o que aconteceu na
+      // primeira tentativa, e o sintoma engana -- parece pastilha que
+      // nao foi removida, quando e o fundo do proprio texto.
+      fundoTransparente: true,
     },
   ];
 }

@@ -33,7 +33,7 @@
         }
       ]
     },
-    "visualContainerObjects": {
+    "visualContainerObjects": { "background": [ { "properties": { "show": { "expr": { "Literal": { "Value": "false" } } } } } ],
       "title": [
         {
           "properties": {
