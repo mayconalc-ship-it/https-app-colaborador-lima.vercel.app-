@@ -559,7 +559,11 @@ const paginas = [
         t: 'lineChart', x: 900, y: Y.meio, w: 364, h: H.meio,
         titulo: 'Evolução mensal da conformidade',
         roles: {
-          Category: ['dim_calendario.mes_rotulo'],
+          // Coluna de DATA, e nao mes_rotulo (texto): texto ordena em
+          // ordem alfabetica -- abril antes de agosto antes de dezembro
+          // -- e ainda cria uma categoria (Em branco) para os meses do
+          // calendario sem auditoria.
+          Category: ['dim_calendario.inicio_mes'],
           Y: ['@% Conformidade 5S'],
         },
       },

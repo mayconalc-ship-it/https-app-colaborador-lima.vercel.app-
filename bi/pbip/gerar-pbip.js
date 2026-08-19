@@ -688,7 +688,7 @@ function cabecalho(pagina) {
       // Faixa colada no topo e cheia: y=0 e h=64, e nao y=16 e h=48.
       // Sem os 16 px de respiro em cima, ela vira cabecalho de verdade
       // em vez de tarja flutuando no meio do branco.
-      chave: pagina.nome + ':faixa', t: 'shape', x: 0, y: 0, w: 1280, h: 64,
+      chave: pagina.nome + ':faixa', t: 'shape', x: 0, y: 0, w: 1280, h: 68,
       objects: {
         shape: [{ properties: { tileShape: lit("'rectangle'") } }],
         fill: [{ properties: { fillColor: { solid: { color: lit("'#0B4DA2'") } } },
@@ -708,8 +708,11 @@ function cabecalho(pagina) {
       //
       // Branco sobre o azul da marca da contraste de 8,6:1, bem acima do
       // minimo de 4,5:1, entao nao ha por que intermediar com pastilha.
+      // 52 px de altura, e nao 40: uma linha de 20pt precisa de ~37 px
+      // mais folga, e com 40 o Power BI corta a parte de baixo das
+      // letras -- o titulo aparece pela metade, sem aviso nenhum.
       chave: pagina.nome + ':titulo', t: 'textbox',
-      x: 28, y: 14, w: 1000, h: 40,
+      x: 28, y: 8, w: 1000, h: 52,
       objects: {
         general: [{ properties: { paragraphs: [{ textRuns: [{
           value: pagina.nome,

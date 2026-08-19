@@ -23,11 +23,11 @@
                       "Entity": "dim_calendario"
                     }
                   },
-                  "Property": "mes_rotulo"
+                  "Property": "inicio_mes"
                 }
               },
-              "queryRef": "dim_calendario.mes_rotulo",
-              "nativeQueryRef": "mes_rotulo",
+              "queryRef": "dim_calendario.inicio_mes",
+              "nativeQueryRef": "inicio_mes",
               "active": true
             }
           ]
