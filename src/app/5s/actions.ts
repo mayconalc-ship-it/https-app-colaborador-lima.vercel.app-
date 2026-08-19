@@ -150,7 +150,7 @@ export async function salvarResposta(formData: FormData): Promise<Resultado> {
   if (auditoria.status === "finalizada") {
     await consolidar(auditoriaId);
     await registrarEdicao(auditoriaId, ctx.perfilId, ctx.nome);
-    revalidatePath("/admin/5s/bi");
+    revalidatePath("/5s/bi");
   }
 
   return { ok: true };
@@ -245,7 +245,7 @@ export async function finalizarAuditoria(
   revalidatePath("/5s");
   revalidatePath("/5s/acoes");
   revalidatePath("/admin/5s");
-  revalidatePath("/admin/5s/bi");
+  revalidatePath("/5s/bi");
 
   return { ok: true, mensagem: "Auditoria finalizada." };
 }
@@ -464,7 +464,7 @@ export async function atualizarAcao(formData: FormData): Promise<Resultado> {
   revalidatePath("/5s/acoes");
   revalidatePath("/5s");
   revalidatePath("/admin/5s");
-  revalidatePath("/admin/5s/bi");
+  revalidatePath("/5s/bi");
 
   return { ok: true, mensagem: "Ação atualizada." };
 }
@@ -627,7 +627,7 @@ export async function reabrirAuditoria(formData: FormData): Promise<Resultado> {
 
   revalidatePath(`/5s/auditoria/${id}`);
   revalidatePath("/admin/5s");
-  revalidatePath("/admin/5s/bi");
+  revalidatePath("/5s/bi");
 
   return { ok: true, mensagem: "Auditoria reaberta." };
 }

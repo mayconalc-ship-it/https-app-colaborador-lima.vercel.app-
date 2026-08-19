@@ -1,9 +1,9 @@
 import Link from "next/link";
-import { requireModulo } from "@/lib/require-admin";
-import { exigirRevenda } from "@/lib/revendas";
+import { redirect } from "next/navigation";
 import { PageHeader } from "@/components/PageHeader";
 import {
   getCompetencias,
+  getContexto5S,
   getDashboard,
   listarAreas,
   nomesDe,
@@ -60,8 +60,24 @@ export default async function BI5SPage({
 }: {
   searchParams: Promise<Params>;
 }) {
-  await requireModulo("5s", "ver");
-  const revendaId = await exigirRevenda("/admin");
+  // Aberto a QUEM PARTICIPA do programa, não só à gestão: auditor e
+  // dono de área veem o mesmo painel. Um programa de 5S em que só o
+  // administrador enxerga o resultado vira relatório de gabinete --
+  // quem faz a auditoria e quem responde pela área precisam saber onde
+  // a operação está para que o número signifique alguma coisa.
+  //
+  // Continua sendo leitura: cadastrar, planejar e validar seguem
+  // exigindo "5s:editar", e essas telas ficam no Modo Liderança.
+  const ctx = await getContexto5S();
+  if (!ctx) redirect("/");
+  if (!ctx.temAcesso) {
+    redirect(
+      `/5s?erro=${encodeURIComponent(
+        "Você ainda não participa do Programa 5S.",
+      )}`,
+    );
+  }
+  const revendaId = ctx.revendaId;
 
   const p = await searchParams;
 
@@ -109,7 +125,7 @@ export default async function BI5SPage({
       if (v && !(k === "mes" && v === competenciaAtual())) q.set(k, v);
     }
     const s = q.toString();
-    return s ? `/admin/5s/bi?${s}` : "/admin/5s/bi";
+    return s ? `/5s/bi?${s}` : "/5s/bi";
   };
 
   const areaAtual = areas.find((a) => a.id === areaId);
@@ -347,7 +363,7 @@ export default async function BI5SPage({
       >
         <RankingPerguntas
           dados={dados.perguntas}
-          hrefDaPergunta={(id) => `/admin/5s/pergunta/${id}${mes ? `?mes=${mes}` : ""}`}
+          hrefDaPergunta={(id) => `/5s/pergunta/${id}${mes ? `?mes=${mes}` : ""}`}
         />
       </Bloco>
 

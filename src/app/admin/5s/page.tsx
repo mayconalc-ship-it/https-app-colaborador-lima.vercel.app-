@@ -86,7 +86,7 @@ export default async function Admin5SPage({
 
       <div className="mb-4 flex items-center gap-2">
         <Link
-          href="/admin/5s/bi"
+          href="/5s/bi"
           className="flex-1 rounded-xl bg-primary py-2.5 text-center text-sm font-semibold text-white active:bg-primary-dark"
         >
           📊 Abrir o BI 5S

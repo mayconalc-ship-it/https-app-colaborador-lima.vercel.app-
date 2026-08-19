@@ -1,10 +1,8 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
-import { requireModulo } from "@/lib/require-admin";
+import { notFound, redirect } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { exigirRevenda } from "@/lib/revendas";
 import { PageHeader } from "@/components/PageHeader";
-import { nomesDe } from "@/lib/cinco-s-server";
+import { getContexto5S, nomesDe } from "@/lib/cinco-s-server";
 import {
   COR_STATUS_NC,
   ROTULO_SENSO,
@@ -36,8 +34,11 @@ export default async function PerguntaPage({
   params: Promise<{ id: string }>;
   searchParams: Promise<{ mes?: string }>;
 }) {
-  await requireModulo("5s", "ver");
-  const revendaId = await exigirRevenda("/admin");
+  // Mesma porta do BI: quem participa do programa entra.
+  const ctx = await getContexto5S();
+  if (!ctx) redirect("/");
+  if (!ctx.temAcesso) redirect("/5s");
+  const revendaId = ctx.revendaId;
 
   const { id } = await params;
   const { mes } = await searchParams;
@@ -166,7 +167,7 @@ export default async function PerguntaPage({
       />
 
       <Link
-        href="/admin/5s/bi"
+        href={`/5s/bi${competencia ? `?mes=${competencia}` : ""}`}
         className="mb-4 inline-block text-sm text-primary hover:underline"
       >
         ← Voltar ao BI

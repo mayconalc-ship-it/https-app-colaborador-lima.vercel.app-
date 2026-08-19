@@ -126,26 +126,20 @@ export default async function CincoSPage({
 
       <OQueEh5S />
 
-      {ctx.gestor && (
-        <div className="mb-4 grid grid-cols-2 gap-3">
-          <Link
-            href="/admin/5s/bi"
-            className="rounded-2xl border border-slate-200 bg-white p-4 text-center shadow-sm active:bg-slate-50"
-          >
-            <p className="text-2xl">📊</p>
-            <p className="mt-1 text-sm font-semibold text-slate-700">BI 5S</p>
-          </Link>
-          <Link
-            href="/admin/5s"
-            className="rounded-2xl border border-slate-200 bg-white p-4 text-center shadow-sm active:bg-slate-50"
-          >
-            <p className="text-2xl">⚙️</p>
-            <p className="mt-1 text-sm font-semibold text-slate-700">
-              Gerenciar
-            </p>
-          </Link>
-        </div>
-      )}
+      {/* BI e plano de ação para QUEM PARTICIPA, não só para a gestão.
+          Quem audita e quem responde por uma área precisam ver onde a
+          operação está -- senão o programa vira relatório que só o
+          administrador lê. O que continua restrito é MEXER: cadastrar,
+          planejar e validar seguem no Modo Liderança. */}
+      <div
+        className={`mb-4 grid gap-3 ${ctx.gestor ? "grid-cols-3" : "grid-cols-2"}`}
+      >
+        <Atalho href="/5s/bi" emoji="📊" titulo="BI 5S" />
+        <Atalho href="/5s/acoes" emoji="🛠️" titulo="Plano de ação" />
+        {ctx.gestor && (
+          <Atalho href="/admin/5s" emoji="⚙️" titulo="Gerenciar" />
+        )}
+      </div>
 
       {/* ---- O que eu preciso auditar ---- */}
       {pendentes.length > 0 && (
@@ -473,6 +467,28 @@ async function MinhasAreas({
 }
 
 /* ------------------------------------------------------------------ */
+
+function Atalho({
+  href,
+  emoji,
+  titulo,
+}: {
+  href: string;
+  emoji: string;
+  titulo: string;
+}) {
+  return (
+    <Link
+      href={href}
+      className="rounded-2xl border border-slate-200 bg-white p-4 text-center shadow-sm active:bg-slate-50"
+    >
+      <p className="text-2xl">{emoji}</p>
+      <p className="mt-1 text-sm font-semibold leading-tight text-slate-700">
+        {titulo}
+      </p>
+    </Link>
+  );
+}
 
 /** O PostgREST devolve o relacionamento como objeto ou lista. */
 function umObjeto(valor: unknown) {
