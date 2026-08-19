@@ -22,7 +22,7 @@ const EXPLICACAO: Record<Senso, string> = {
   organizacao:
     "Cada coisa tem lugar, e o lugar tem placa. Se alguém de fora acha sozinho, está certo.",
   limpeza:
-    "Limpar é olhar de perto. Quem limpa é quem enxerga o vazamento antes de virar parada.",
+    "Limpar é inspecionar. Quem passa o pano é quem acha o problema antes de ele parar a operação.",
   conservacao:
     "Manter o que já foi arrumado. Piso, luz, tomada e equipamento em ordem, não só no dia da auditoria.",
   disciplina:
