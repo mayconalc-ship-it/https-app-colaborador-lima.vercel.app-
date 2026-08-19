@@ -1,0 +1,89 @@
+/// Menu do app. Serve de indice do relatorio na pagina Mapa do App.
+table dim_menu_app
+	lineageTag: fa04a618-912e-4267-90f3-6d6be29a47c8
+
+	column chave
+		dataType: string
+		isHidden
+		lineageTag: 7e7b8f13-3295-4952-924d-a868c4be147e
+		summarizeBy: none
+		sourceColumn: chave
+
+		annotation SummarizationSetBy = Automatic
+
+	column emoji
+		dataType: string
+		lineageTag: 0edbb6c7-868e-4e69-84ee-0fd52ca68b7d
+		summarizeBy: none
+		sourceColumn: emoji
+
+		annotation SummarizationSetBy = Automatic
+
+	column titulo
+		dataType: string
+		lineageTag: 1d0a33d7-d721-4055-b1a5-056ae6ac3e6e
+		summarizeBy: none
+		sourceColumn: titulo
+
+		annotation SummarizationSetBy = Automatic
+
+	column item
+		dataType: string
+		lineageTag: cda85e67-cb87-4267-9081-02cec3708f42
+		summarizeBy: none
+		sourceColumn: item
+
+		annotation SummarizationSetBy = Automatic
+
+	column caminho
+		dataType: string
+		lineageTag: 750df165-fe34-4527-8873-a113865dcb96
+		summarizeBy: none
+		sourceColumn: caminho
+
+		annotation SummarizationSetBy = Automatic
+
+	column link
+		dataType: string
+		lineageTag: a104aef9-dff3-4686-97b8-9bf98565c914
+		dataCategory: WebUrl
+		summarizeBy: none
+		sourceColumn: link
+
+		annotation SummarizationSetBy = Automatic
+
+	column ordem
+		dataType: int64
+		lineageTag: e37b1091-a107-4371-93f8-875d114f0720
+		summarizeBy: none
+		sourceColumn: ordem
+
+		annotation SummarizationSetBy = Automatic
+
+	column visivel
+		dataType: boolean
+		lineageTag: 29d24755-a13a-46c4-9248-4da68d568135
+		summarizeBy: none
+		sourceColumn: visivel
+
+		annotation SummarizationSetBy = Automatic
+
+	column situacao
+		dataType: string
+		lineageTag: 93c7ab43-b014-400d-b049-a56ca3a7426a
+		summarizeBy: none
+		sourceColumn: situacao
+
+		annotation SummarizationSetBy = Automatic
+
+	partition dim_menu_app = m
+		mode: import
+		source =
+				let
+				    Origem = PostgreSQL.Database(Servidor, Banco),
+				    Dados = Origem{[Schema="bi",Item="dim_menu_app"]}[Data]
+				in
+				    Dados
+
+	annotation PBI_ResultType = Table
+

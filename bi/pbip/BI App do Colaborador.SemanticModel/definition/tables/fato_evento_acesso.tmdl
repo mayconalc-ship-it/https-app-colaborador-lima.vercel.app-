@@ -1,0 +1,125 @@
+table fato_evento_acesso
+	lineageTag: 47e64317-5881-46de-80ea-cd447727ddf2
+
+	column evento_id
+		dataType: int64
+		isHidden
+		formatString: 0
+		lineageTag: 66cab57d-ab9f-46bb-a636-8bd581742e9a
+		summarizeBy: sum
+		sourceColumn: evento_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column revenda_id
+		dataType: string
+		isHidden
+		lineageTag: 7d3a6042-33d0-47d3-a555-1d351a58b929
+		summarizeBy: none
+		sourceColumn: revenda_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column colaborador_id
+		dataType: string
+		isHidden
+		lineageTag: 1f0bf318-f5df-412b-8220-bea493767488
+		summarizeBy: none
+		sourceColumn: colaborador_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column colaborador
+		dataType: string
+		lineageTag: 92492e71-bbac-4dd4-aada-8ccdf253bf09
+		summarizeBy: none
+		sourceColumn: colaborador
+
+		annotation SummarizationSetBy = Automatic
+
+	column tipo
+		dataType: string
+		lineageTag: 83cd06fe-8731-4257-8ec2-adb3d44f5fff
+		summarizeBy: none
+		sourceColumn: tipo
+
+		annotation SummarizationSetBy = Automatic
+
+	column alvo
+		dataType: string
+		lineageTag: 33472f4c-732b-4fcc-be44-8394b07d9a53
+		summarizeBy: none
+		sourceColumn: alvo
+
+		annotation SummarizationSetBy = Automatic
+
+	column modulo
+		dataType: string
+		lineageTag: 17ad530f-d882-41af-a54b-70611805488d
+		summarizeBy: none
+		sourceColumn: modulo
+
+		annotation SummarizationSetBy = Automatic
+
+	column sessao_id
+		dataType: string
+		isHidden
+		lineageTag: 3a2691c3-918f-444b-82ad-a62591cbd49b
+		summarizeBy: none
+		sourceColumn: sessao_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column criado_em
+		dataType: dateTime
+		formatString: dd/MM/yyyy
+		lineageTag: 2e69d49a-35c8-4675-970a-d7931c77b895
+		summarizeBy: none
+		sourceColumn: criado_em
+
+		annotation SummarizationSetBy = Automatic
+
+	column data
+		dataType: dateTime
+		formatString: dd/MM/yyyy
+		lineageTag: 67aa2fa4-003e-4ff3-a7eb-2a11e5c4ef85
+		summarizeBy: none
+		sourceColumn: data
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation UnderlyingDateTimeDataType = Date
+
+	column hora
+		dataType: int64
+		lineageTag: 6b469aed-8df1-4633-b0fe-700bb36ab5b0
+		summarizeBy: none
+		sourceColumn: hora
+
+		annotation SummarizationSetBy = Automatic
+
+	column chave
+		dataType: string
+		isHidden
+		lineageTag: b054c118-0861-4eb6-8f5a-34175e2cae0c
+		summarizeBy: none
+		sourceColumn: chave
+
+		annotation SummarizationSetBy = Automatic
+
+	partition fato_evento_acesso = m
+		mode: import
+		source =
+				let
+				    Origem = PostgreSQL.Database(Servidor, Banco),
+				    Dados = Origem{[Schema="bi",Item="fato_evento_acesso"]}[Data],
+				    ComChave = Table.AddColumn(Dados, "chave", each
+				        (if [revenda_id] = null then "" else Text.From([revenda_id]))
+				        & "|" &
+				        (if [colaborador_id] = null then "" else Text.From([colaborador_id])),
+				        type text)
+				in
+				    ComChave
+
+	annotation PBI_ResultType = Table
+

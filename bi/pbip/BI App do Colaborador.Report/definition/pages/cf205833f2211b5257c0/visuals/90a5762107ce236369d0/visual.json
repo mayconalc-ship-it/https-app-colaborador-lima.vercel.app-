@@ -1,0 +1,52 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.11.0/schema.json",
+  "name": "90a5762107ce236369d0",
+  "position": {
+    "x": 16,
+    "y": 672,
+    "z": 18000,
+    "height": 30,
+    "width": 1248,
+    "tabOrder": 18000
+  },
+  "visual": {
+    "visualType": "textbox",
+    "objects": {
+      "general": [
+        {
+          "properties": {
+            "paragraphs": [
+              {
+                "textRuns": [
+                  {
+                    "value": "FILTRO OBRIGATÓRIO DESTA PÁGINA: fato_ag_conciliacao[parque_confiavel] = True. ag_parque guarda um saldo só, sobrescrito a cada ajuste — sem esse filtro a divergência de um dia passado é comparada com o saldo de hoje e o gráfico desenha uma série que nunca existiu.",
+                    "textStyle": {
+                      "fontSize": "8pt",
+                      "color": "#64748B"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "visualContainerObjects": {
+      "title": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "false"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "drillFilterOtherVisuals": true
+  }
+}

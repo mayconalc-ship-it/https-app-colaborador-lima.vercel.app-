@@ -1,0 +1,52 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.11.0/schema.json",
+  "name": "7769d78e04615e7ff527",
+  "position": {
+    "x": 16,
+    "y": 672,
+    "z": 17000,
+    "height": 30,
+    "width": 1248,
+    "tabOrder": 17000
+  },
+  "visual": {
+    "visualType": "textbox",
+    "objects": {
+      "general": [
+        {
+          "properties": {
+            "paragraphs": [
+              {
+                "textRuns": [
+                  {
+                    "value": "\"Horas médias até resposta\" é o indicador de saúde do módulo, não de volume. Análise concluída que ninguém responde ensina o time a não preencher a próxima — se passar de ~48 h, o módulo morre por desuso antes de morrer por decisão.",
+                    "textStyle": {
+                      "fontSize": "8pt",
+                      "color": "#64748B"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "visualContainerObjects": {
+      "title": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "false"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "drillFilterOtherVisuals": true
+  }
+}

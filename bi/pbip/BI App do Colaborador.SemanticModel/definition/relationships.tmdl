@@ -1,0 +1,160 @@
+relationship 8a34f5c2-030e-4afb-a92a-f06711c2c162
+	fromColumn: dim_quiz_rodada.revenda_id
+	toColumn: dim_revenda.revenda_id
+
+relationship ceb96454-2249-4fd7-acff-296c6281aabc
+	fromColumn: dim_quiz_questao.revenda_id
+	toColumn: dim_revenda.revenda_id
+
+relationship b65c28f5-b1e4-4039-95a7-18e669d3428b
+	fromColumn: dim_sonho_revenda.revenda_id
+	toColumn: dim_revenda.revenda_id
+
+relationship 1cdb92b4-864e-4e6d-a873-5fd1b3b81940
+	fromColumn: fato_ag_contagem.data
+	toColumn: dim_calendario.data
+
+relationship 3c63534f-76df-4231-b828-f6bb68afb3a5
+	fromColumn: fato_ag_contagem.chave
+	toColumn: dim_colaborador.chave
+
+relationship 8f9ad984-7a40-4f15-9bb9-589806e2a2b0
+	fromColumn: fato_ag_dia_colaborador.data
+	toColumn: dim_calendario.data
+
+relationship 1a2ac377-dea2-4e10-8bea-b72a68cf6f06
+	fromColumn: fato_ag_dia_colaborador.chave
+	toColumn: dim_colaborador.chave
+
+relationship 219c7a10-e5b0-4bd6-bd69-391728f6e42b
+	fromColumn: fato_ag_conciliacao.data
+	toColumn: dim_calendario.data
+
+relationship 028cc60c-a107-469d-ad0b-89544fc60008
+	fromColumn: fato_ag_conciliacao.revenda_id
+	toColumn: dim_revenda.revenda_id
+
+relationship 86a42ea2-8fc9-4c8e-bc30-2bcdeb9b6eb0
+	fromColumn: fato_ag_recontagem.data_solicitacao
+	toColumn: dim_calendario.data
+
+relationship ad42bbb5-bd7c-4e0f-bfb0-8871e7a6dd66
+	fromColumn: fato_ag_recontagem.revenda_id
+	toColumn: dim_revenda.revenda_id
+
+relationship fd1e8568-ef7a-48da-b6ef-9a5b0463b0d2
+	fromColumn: fato_feedback_rota.data
+	toColumn: dim_calendario.data
+
+relationship 7d51481e-6cf4-401f-bcda-78e5d2587a6c
+	fromColumn: fato_feedback_rota.chave
+	toColumn: dim_colaborador.chave
+
+relationship d2ede5e5-ffd2-4f93-bc2a-c950ff08bd18
+	fromColumn: fato_feedback_ocorrencia.data
+	toColumn: dim_calendario.data
+
+relationship bfe4d1e5-5ee0-4c1f-a586-649cdf5a29cb
+	fromColumn: fato_feedback_ocorrencia.chave
+	toColumn: dim_colaborador.chave
+
+relationship 1d5a4f31-9914-40f5-8ef8-cc9d09456d38
+	fromColumn: fato_cinco_porques.data
+	toColumn: dim_calendario.data
+
+relationship 15eacef4-c9b8-4c81-912a-81c114a43c3d
+	fromColumn: fato_cinco_porques.chave
+	toColumn: dim_colaborador.chave
+
+relationship 66ac774f-a322-44ab-93c7-d19976613928
+	fromColumn: fato_cinco_porques_resposta.data
+	toColumn: dim_calendario.data
+
+relationship e0980223-e7c5-4373-a566-f4071092d983
+	fromColumn: fato_cinco_porques_resposta.revenda_id
+	toColumn: dim_revenda.revenda_id
+
+relationship 98f3c827-912b-4e2b-bb79-5e11dbaec6e4
+	fromColumn: fato_cinco_porques_matriz.revenda_id
+	toColumn: dim_revenda.revenda_id
+
+relationship 9fe9daa0-aa94-40a2-a401-ad4cc3e1e8b8
+	fromColumn: fato_comunicado.data
+	toColumn: dim_calendario.data
+
+relationship 6885a8e7-46d6-459b-ae72-920ad36bc02d
+	fromColumn: fato_comunicado.revenda_id
+	toColumn: dim_revenda.revenda_id
+
+relationship 3b9516e7-4e46-405d-b6d9-5f1131d455b8
+	fromColumn: fato_comunicado_curtida.data
+	toColumn: dim_calendario.data
+
+relationship b9e046a4-012e-4346-b24e-88e86c58b2a9
+	fromColumn: fato_comunicado_curtida.chave
+	toColumn: dim_colaborador.chave
+
+relationship fd6ec083-7822-4978-a497-6c603a8c8668
+	fromColumn: fato_quiz_participacao.data
+	toColumn: dim_calendario.data
+
+relationship d3d88f1c-5ffe-4798-84e9-7d3d037b5f94
+	fromColumn: fato_quiz_participacao.chave
+	toColumn: dim_colaborador.chave
+
+relationship 79f196b8-1f73-408d-bfdb-2f9ab0d59095
+	fromColumn: fato_quiz_resposta.data
+	toColumn: dim_calendario.data
+
+relationship c91a2c1b-9bda-4c82-a6be-0cac41491aab
+	fromColumn: fato_quiz_resposta.chave
+	toColumn: dim_colaborador.chave
+
+relationship c0720944-22b1-4f7e-86b1-8cfed43bd5dc
+	fromColumn: fato_quiz_rodada_participacao.mes_ref
+	toColumn: dim_calendario.data
+
+relationship 7d499e35-8227-49e5-8984-230d8a52ba97
+	fromColumn: fato_quiz_rodada_participacao.revenda_id
+	toColumn: dim_revenda.revenda_id
+
+relationship 8fa1cb0e-a6e3-40db-99fb-c54017956615
+	fromColumn: fato_ranking_matinal.mes_ref
+	toColumn: dim_calendario.data
+
+relationship 83961a76-f35d-4df0-9fd5-3abcb07916ec
+	fromColumn: fato_ranking_matinal.revenda_id
+	toColumn: dim_revenda.revenda_id
+
+relationship 9b016ccb-4301-46d0-a221-30258fcde234
+	fromColumn: fato_ranking_matinal_cobertura.mes_ref
+	toColumn: dim_calendario.data
+
+relationship b7e9365c-e3c1-4b28-a862-7320ea8a1605
+	fromColumn: fato_ranking_matinal_cobertura.revenda_id
+	toColumn: dim_revenda.revenda_id
+
+relationship e56f77b7-91ef-4ffc-8bf0-df0bf716bc3f
+	fromColumn: fato_evento_acesso.data
+	toColumn: dim_calendario.data
+
+relationship e45c688c-2e92-41fe-8fe2-ef6e3f5256f1
+	fromColumn: fato_evento_acesso.chave
+	toColumn: dim_colaborador.chave
+
+relationship 365013ce-7eff-46f5-ac4d-f1f3fbda9408
+	fromColumn: fato_uso_sessao.data
+	toColumn: dim_calendario.data
+
+relationship fb5e6afc-8d9a-4bbe-8813-957d82916b62
+	fromColumn: fato_atividade.data
+	toColumn: dim_calendario.data
+
+relationship 05368813-ac2f-47b6-9fae-9f34e9dbf7e5
+	fromColumn: fato_atividade.chave
+	toColumn: dim_colaborador.chave
+
+relationship 76015a7d-8cbc-486a-9890-b550ff3ffaa8
+	fromColumn: dim_colaborador.revenda_id
+	toColumn: dim_revenda.revenda_id
+

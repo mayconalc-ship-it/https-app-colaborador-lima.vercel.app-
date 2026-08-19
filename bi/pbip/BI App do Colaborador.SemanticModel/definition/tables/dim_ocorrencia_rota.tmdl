@@ -1,0 +1,40 @@
+/// Catalogo de ocorrencias de rota. Espelha src/lib/feedback-ocorrencias.ts.
+table dim_ocorrencia_rota
+	lineageTag: 4018c573-754f-4e08-ab11-498d9b17d702
+
+	column ocorrencia_id
+		dataType: string
+		isHidden
+		lineageTag: f116f901-fde3-47f0-975e-3d94d98e11d5
+		summarizeBy: none
+		sourceColumn: ocorrencia_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column ocorrencia
+		dataType: string
+		lineageTag: 56007a6b-612c-4b28-b4e3-de084b47877d
+		summarizeBy: none
+		sourceColumn: ocorrencia
+
+		annotation SummarizationSetBy = Automatic
+
+	column grupo
+		dataType: string
+		lineageTag: c6e07e1a-a890-4a77-820b-4c80c48c86f6
+		summarizeBy: none
+		sourceColumn: grupo
+
+		annotation SummarizationSetBy = Automatic
+
+	partition dim_ocorrencia_rota = m
+		mode: import
+		source =
+				let
+				    Origem = PostgreSQL.Database(Servidor, Banco),
+				    Dados = Origem{[Schema="bi",Item="dim_ocorrencia_rota"]}[Data]
+				in
+				    Dados
+
+	annotation PBI_ResultType = Table
+

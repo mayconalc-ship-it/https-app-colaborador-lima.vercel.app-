@@ -1,0 +1,114 @@
+/// ATENCAO: so metadados. A pontuacao esta dentro da imagem.
+table fato_ranking_matinal
+	lineageTag: 00f41535-37e6-455a-829f-19d9c80f18e8
+
+	column ranking_id
+		dataType: int64
+		isHidden
+		formatString: 0
+		lineageTag: f8a29900-3282-4959-af5a-848410212925
+		summarizeBy: sum
+		sourceColumn: ranking_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column revenda_id
+		dataType: string
+		isHidden
+		lineageTag: 3790a021-d8e5-480f-b395-845316b44abe
+		summarizeBy: none
+		sourceColumn: revenda_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column mes_ano
+		dataType: string
+		lineageTag: 07b8ae1f-a6a3-4b7e-8805-7c84ad00319e
+		summarizeBy: none
+		sourceColumn: mes_ano
+
+		annotation SummarizationSetBy = Automatic
+
+	column mes_ref
+		dataType: dateTime
+		formatString: dd/MM/yyyy
+		lineageTag: b490df65-1de4-4322-a04e-627bfe16366e
+		summarizeBy: none
+		sourceColumn: mes_ref
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation UnderlyingDateTimeDataType = Date
+
+	column mes_rotulo
+		dataType: string
+		lineageTag: 7862268d-acb1-4108-b5e8-fccb841aa3ff
+		summarizeBy: none
+		sourceColumn: mes_rotulo
+
+		annotation SummarizationSetBy = Automatic
+
+	column equipe
+		dataType: string
+		lineageTag: 8ea62f40-ce8c-4af4-b813-bf7a6fc27629
+		summarizeBy: none
+		sourceColumn: equipe
+
+		annotation SummarizationSetBy = Automatic
+
+	column equipe_rotulo
+		dataType: string
+		lineageTag: 38934265-3278-408d-bf11-32c027532396
+		summarizeBy: none
+		sourceColumn: equipe_rotulo
+
+		annotation SummarizationSetBy = Automatic
+
+	column categoria
+		dataType: string
+		lineageTag: f81bedcc-fa3d-4ffc-aff2-aa80d1aa8d12
+		summarizeBy: none
+		sourceColumn: categoria
+
+		annotation SummarizationSetBy = Automatic
+
+	column imagem_url
+		dataType: string
+		lineageTag: 825b3fee-99fd-4c1e-94eb-5c9b4ec5c138
+		dataCategory: ImageUrl
+		summarizeBy: none
+		sourceColumn: imagem_url
+
+		annotation SummarizationSetBy = Automatic
+
+	column criado_em
+		dataType: dateTime
+		formatString: dd/MM/yyyy
+		lineageTag: 81fafd62-79c2-4377-94a2-452a7aa81f48
+		summarizeBy: none
+		sourceColumn: criado_em
+
+		annotation SummarizationSetBy = Automatic
+
+	column data_publicacao
+		dataType: dateTime
+		formatString: dd/MM/yyyy
+		lineageTag: 7f8abfe4-6b4d-488b-bf70-1b5ade6ab01c
+		summarizeBy: none
+		sourceColumn: data_publicacao
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation UnderlyingDateTimeDataType = Date
+
+	partition fato_ranking_matinal = m
+		mode: import
+		source =
+				let
+				    Origem = PostgreSQL.Database(Servidor, Banco),
+				    Dados = Origem{[Schema="bi",Item="fato_ranking_matinal"]}[Data]
+				in
+				    Dados
+
+	annotation PBI_ResultType = Table
+

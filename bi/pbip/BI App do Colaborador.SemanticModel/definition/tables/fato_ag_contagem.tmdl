@@ -1,0 +1,228 @@
+/// Grao: uma linha de contagem. total_caixas ja convertido pelos fatores da revenda.
+table fato_ag_contagem
+	lineageTag: 448d046d-f556-4339-b3e9-408163955305
+
+	column contagem_id
+		dataType: int64
+		isHidden
+		formatString: 0
+		lineageTag: 5fe110e2-47ac-484d-88cf-8414bc112f60
+		summarizeBy: sum
+		sourceColumn: contagem_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column revenda_id
+		dataType: string
+		isHidden
+		lineageTag: f29ebacb-98b2-4c49-944c-a58bd39ae6fb
+		summarizeBy: none
+		sourceColumn: revenda_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column data
+		dataType: dateTime
+		formatString: dd/MM/yyyy
+		lineageTag: 5fcf679e-e476-4483-85ad-72f8e39e0b70
+		summarizeBy: none
+		sourceColumn: data
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation UnderlyingDateTimeDataType = Date
+
+	column colaborador_id
+		dataType: string
+		isHidden
+		lineageTag: f4eb9f63-f6ea-49fb-8c61-7c68cb5e6b13
+		summarizeBy: none
+		sourceColumn: colaborador_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column colaborador_nome
+		dataType: string
+		lineageTag: 8427feff-86f6-4cad-bdba-1dcbeb49cb2c
+		summarizeBy: none
+		sourceColumn: colaborador_nome
+
+		annotation SummarizationSetBy = Automatic
+
+	column tipo
+		dataType: string
+		lineageTag: e45fe014-e208-4141-bcaa-471ffb5c89f5
+		summarizeBy: none
+		sourceColumn: tipo
+
+		annotation SummarizationSetBy = Automatic
+
+	column formato
+		dataType: string
+		lineageTag: 73ffb6b7-8cd4-4b9c-9030-aaca7a08103d
+		summarizeBy: none
+		sourceColumn: formato
+
+		annotation SummarizationSetBy = Automatic
+
+	column status
+		dataType: string
+		lineageTag: e14f55fb-f06e-47ed-bbbc-ac642962f3cb
+		summarizeBy: none
+		sourceColumn: status
+
+		annotation SummarizationSetBy = Automatic
+
+	column em_transito
+		dataType: boolean
+		lineageTag: 5195e43d-0b55-42f6-ada4-2306bb62fe84
+		summarizeBy: none
+		sourceColumn: em_transito
+
+		annotation SummarizationSetBy = Automatic
+
+	column palete
+		dataType: int64
+		lineageTag: 2f3aa96a-4108-4285-9eb8-d18d89db1941
+		summarizeBy: none
+		sourceColumn: palete
+
+		annotation SummarizationSetBy = Automatic
+
+	column lastro
+		dataType: int64
+		lineageTag: a4cfc205-1adb-427e-9d5c-e20be727ecf2
+		summarizeBy: none
+		sourceColumn: lastro
+
+		annotation SummarizationSetBy = Automatic
+
+	column caixa
+		dataType: int64
+		lineageTag: 0e6677d2-272a-467c-8de9-1fea37a2366d
+		summarizeBy: none
+		sourceColumn: caixa
+
+		annotation SummarizationSetBy = Automatic
+
+	column total_caixas
+		dataType: int64
+		lineageTag: 168d4306-d30d-44a0-973b-6f84529547ec
+		summarizeBy: none
+		sourceColumn: total_caixas
+
+		annotation SummarizationSetBy = Automatic
+
+	column paletes_equivalentes
+		dataType: double
+		lineageTag: c1c97cd7-00dc-4139-a268-063c212b2ed5
+		summarizeBy: sum
+		sourceColumn: paletes_equivalentes
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column fator_palete
+		dataType: int64
+		lineageTag: 87c3e67c-a4e9-4813-8473-78d5b4f6d667
+		summarizeBy: none
+		sourceColumn: fator_palete
+
+		annotation SummarizationSetBy = Automatic
+
+	column fator_lastro
+		dataType: int64
+		lineageTag: b15738c6-f149-4839-932b-6697e12aa1ee
+		summarizeBy: none
+		sourceColumn: fator_lastro
+
+		annotation SummarizationSetBy = Automatic
+
+	column fator_ausente
+		dataType: boolean
+		lineageTag: 9af5e337-a56e-43de-adb5-8048cf4f6f24
+		summarizeBy: none
+		sourceColumn: fator_ausente
+
+		annotation SummarizationSetBy = Automatic
+
+	column recontagem_id
+		dataType: int64
+		isHidden
+		formatString: 0
+		lineageTag: 6f0c8c36-57b0-462d-b050-3191f19d376a
+		summarizeBy: sum
+		sourceColumn: recontagem_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column eh_recontagem
+		dataType: boolean
+		lineageTag: b2a3f683-c585-43bf-86bd-98b557f2601d
+		summarizeBy: none
+		sourceColumn: eh_recontagem
+
+		annotation SummarizationSetBy = Automatic
+
+	column criado_em
+		dataType: dateTime
+		formatString: dd/MM/yyyy
+		lineageTag: c6842d72-5f3f-444e-9e4a-a9f77297f637
+		summarizeBy: none
+		sourceColumn: criado_em
+
+		annotation SummarizationSetBy = Automatic
+
+	column data_lancamento
+		dataType: dateTime
+		formatString: dd/MM/yyyy
+		lineageTag: 0641f5a7-86ee-43b5-ac6c-1cbf6b7c673e
+		summarizeBy: none
+		sourceColumn: data_lancamento
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation UnderlyingDateTimeDataType = Date
+
+	column atraso_dias
+		dataType: int64
+		lineageTag: 5adce2ee-3088-417c-a4f4-8e0220eeeff0
+		summarizeBy: none
+		sourceColumn: atraso_dias
+
+		annotation SummarizationSetBy = Automatic
+
+	column lancado_no_dia
+		dataType: boolean
+		lineageTag: b6050b1b-ba27-44e0-87f9-70a0e38ea083
+		summarizeBy: none
+		sourceColumn: lancado_no_dia
+
+		annotation SummarizationSetBy = Automatic
+
+	column chave
+		dataType: string
+		isHidden
+		lineageTag: 946bc8cb-3078-47f0-a76b-f1549b1446e5
+		summarizeBy: none
+		sourceColumn: chave
+
+		annotation SummarizationSetBy = Automatic
+
+	partition fato_ag_contagem = m
+		mode: import
+		source =
+				let
+				    Origem = PostgreSQL.Database(Servidor, Banco),
+				    Dados = Origem{[Schema="bi",Item="fato_ag_contagem"]}[Data],
+				    ComChave = Table.AddColumn(Dados, "chave", each
+				        (if [revenda_id] = null then "" else Text.From([revenda_id]))
+				        & "|" &
+				        (if [colaborador_id] = null then "" else Text.From([colaborador_id])),
+				        type text)
+				in
+				    ComChave
+
+	annotation PBI_ResultType = Table
+

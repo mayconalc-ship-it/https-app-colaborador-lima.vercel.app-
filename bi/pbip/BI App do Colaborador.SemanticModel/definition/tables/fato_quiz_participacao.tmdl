@@ -1,0 +1,308 @@
+/// Grao: uma tentativa por pessoa por rodada. posicao segue o desempate do app.
+table fato_quiz_participacao
+	lineageTag: bbce7803-1a8b-420b-9ee7-733019472f93
+
+	column participacao_id
+		dataType: int64
+		isHidden
+		formatString: 0
+		lineageTag: fce253d2-8aef-4c6e-9188-1b5a54eabebd
+		summarizeBy: sum
+		sourceColumn: participacao_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column revenda_id
+		dataType: string
+		isHidden
+		lineageTag: 386ee523-1179-482a-8ea2-c6226c62e0db
+		summarizeBy: none
+		sourceColumn: revenda_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column rodada_id
+		dataType: int64
+		isHidden
+		formatString: 0
+		lineageTag: 3fa91824-8892-46a3-9ec9-059c088c2652
+		summarizeBy: sum
+		sourceColumn: rodada_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column rodada
+		dataType: string
+		lineageTag: f80497e8-4403-4ce1-b4ca-bebc5c201485
+		summarizeBy: none
+		sourceColumn: rodada
+
+		annotation SummarizationSetBy = Automatic
+
+	column temporada
+		dataType: int64
+		lineageTag: 299f199e-11c4-47f2-87f6-671c22451a41
+		summarizeBy: none
+		sourceColumn: temporada
+
+		annotation SummarizationSetBy = Automatic
+
+	column mes
+		dataType: int64
+		lineageTag: 70b61b3f-2e27-461b-85bf-89495a27c449
+		summarizeBy: none
+		sourceColumn: mes
+
+		annotation SummarizationSetBy = Automatic
+
+	column mes_ref
+		dataType: dateTime
+		formatString: dd/MM/yyyy
+		lineageTag: 6724c209-bd82-42fa-a850-6b0f7bc2b354
+		summarizeBy: none
+		sourceColumn: mes_ref
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation UnderlyingDateTimeDataType = Date
+
+	column rodada_inicio
+		dataType: dateTime
+		formatString: dd/MM/yyyy
+		lineageTag: 183fce53-5692-48dd-b47a-80bebc262da1
+		summarizeBy: none
+		sourceColumn: rodada_inicio
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation UnderlyingDateTimeDataType = Date
+
+	column rodada_fim
+		dataType: dateTime
+		formatString: dd/MM/yyyy
+		lineageTag: 627bffa9-2800-4280-8d5e-59cfc2b211c8
+		summarizeBy: none
+		sourceColumn: rodada_fim
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation UnderlyingDateTimeDataType = Date
+
+	column total_perguntas
+		dataType: int64
+		lineageTag: bcfda091-e066-43b9-9cd2-efe7b61d646a
+		summarizeBy: none
+		sourceColumn: total_perguntas
+
+		annotation SummarizationSetBy = Automatic
+
+	column pilar
+		dataType: string
+		lineageTag: 3d4f9f9b-6b0d-4d77-979b-d0e0b0ddfd2f
+		summarizeBy: none
+		sourceColumn: pilar
+
+		annotation SummarizationSetBy = Automatic
+
+	column padrao
+		dataType: string
+		lineageTag: 6d31d134-f3d2-46ed-8fc5-8fc10ef88c35
+		summarizeBy: none
+		sourceColumn: padrao
+
+		annotation SummarizationSetBy = Automatic
+
+	column colaborador_id
+		dataType: string
+		isHidden
+		lineageTag: fcfaf59b-3074-4fb5-84b6-453921f22cdb
+		summarizeBy: none
+		sourceColumn: colaborador_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column colaborador
+		dataType: string
+		lineageTag: 619d8868-5117-49a9-a802-2c4251572b5d
+		summarizeBy: none
+		sourceColumn: colaborador
+
+		annotation SummarizationSetBy = Automatic
+
+	column area
+		dataType: string
+		lineageTag: 3ef4adaf-d6f8-4f5e-9302-e09cad92d963
+		summarizeBy: none
+		sourceColumn: area
+
+		annotation SummarizationSetBy = Automatic
+
+	column area_rotulo
+		dataType: string
+		lineageTag: 5dcf1b70-6476-413a-869f-d2023c2cde3d
+		summarizeBy: none
+		sourceColumn: area_rotulo
+
+		annotation SummarizationSetBy = Automatic
+
+	column status
+		dataType: string
+		lineageTag: a4f7b293-99a3-4b58-9b07-8b20ade469d8
+		summarizeBy: none
+		sourceColumn: status
+
+		annotation SummarizationSetBy = Automatic
+
+	column concluida
+		dataType: boolean
+		lineageTag: 8c8a426f-90ef-47b8-890d-2e5006909b43
+		summarizeBy: none
+		sourceColumn: concluida
+
+		annotation SummarizationSetBy = Automatic
+
+	column pontos
+		dataType: int64
+		lineageTag: 43962b58-09db-4a48-941f-73ab10da919d
+		summarizeBy: none
+		sourceColumn: pontos
+
+		annotation SummarizationSetBy = Automatic
+
+	column acertos
+		dataType: int64
+		lineageTag: 6328cc76-ea4f-46da-8121-4ee38f9acb1b
+		summarizeBy: none
+		sourceColumn: acertos
+
+		annotation SummarizationSetBy = Automatic
+
+	column respondidas
+		dataType: int64
+		lineageTag: d6b5da19-0538-4ccc-ba7e-8bbe93e177ab
+		summarizeBy: none
+		sourceColumn: respondidas
+
+		annotation SummarizationSetBy = Automatic
+
+	column erros
+		dataType: int64
+		lineageTag: 419648c8-9ff9-41d2-83e9-1d4a393d5034
+		summarizeBy: none
+		sourceColumn: erros
+
+		annotation SummarizationSetBy = Automatic
+
+	column taxa_acerto
+		dataType: double
+		lineageTag: 64b65946-8a42-4151-b721-bb2506c8e54c
+		summarizeBy: sum
+		sourceColumn: taxa_acerto
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column aproveitamento
+		dataType: double
+		lineageTag: b92b708c-1cce-450a-91e1-a06559b8a59b
+		summarizeBy: sum
+		sourceColumn: aproveitamento
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column tempo_segundos
+		dataType: double
+		lineageTag: 1cbc170d-db52-4af0-874f-7b125865b324
+		summarizeBy: sum
+		sourceColumn: tempo_segundos
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column segundos_por_pergunta
+		dataType: double
+		lineageTag: 2f1b1b8d-d721-494f-80ee-2f0087259e74
+		summarizeBy: sum
+		sourceColumn: segundos_por_pergunta
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column iniciada_em
+		dataType: dateTime
+		formatString: dd/MM/yyyy
+		lineageTag: b553207b-164a-4e16-91c2-7c3e82c4e513
+		summarizeBy: none
+		sourceColumn: iniciada_em
+
+		annotation SummarizationSetBy = Automatic
+
+	column concluida_em
+		dataType: dateTime
+		formatString: dd/MM/yyyy
+		lineageTag: 30c4eb4f-289c-4b6f-baf9-a86ff25ecd16
+		summarizeBy: none
+		sourceColumn: concluida_em
+
+		annotation SummarizationSetBy = Automatic
+
+	column data
+		dataType: dateTime
+		formatString: dd/MM/yyyy
+		lineageTag: 5627d7ab-3a67-4365-8123-05f847ee31a4
+		summarizeBy: none
+		sourceColumn: data
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation UnderlyingDateTimeDataType = Date
+
+	column data_conclusao
+		dataType: dateTime
+		formatString: dd/MM/yyyy
+		lineageTag: af2ea363-f3b3-4775-bc4a-d6a11236507c
+		summarizeBy: none
+		sourceColumn: data_conclusao
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation UnderlyingDateTimeDataType = Date
+
+	column posicao
+		dataType: int64
+		lineageTag: 8494b5d8-e961-4d5c-beef-a9db9fab7025
+		summarizeBy: none
+		sourceColumn: posicao
+
+		annotation SummarizationSetBy = Automatic
+
+	column chave
+		dataType: string
+		isHidden
+		lineageTag: 23df4b43-8059-451c-8e45-35d66297beb4
+		summarizeBy: none
+		sourceColumn: chave
+
+		annotation SummarizationSetBy = Automatic
+
+	partition fato_quiz_participacao = m
+		mode: import
+		source =
+				let
+				    Origem = PostgreSQL.Database(Servidor, Banco),
+				    Dados = Origem{[Schema="bi",Item="fato_quiz_participacao"]}[Data],
+				    ComChave = Table.AddColumn(Dados, "chave", each
+				        (if [revenda_id] = null then "" else Text.From([revenda_id]))
+				        & "|" &
+				        (if [colaborador_id] = null then "" else Text.From([colaborador_id])),
+				        type text)
+				in
+				    ComChave
+
+	annotation PBI_ResultType = Table
+

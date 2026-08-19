@@ -1,0 +1,110 @@
+/// Problema x causa x acao agrupado. E o entregavel da pagina.
+table fato_cinco_porques_matriz
+	lineageTag: 0cbfa9cc-28db-4cd4-b104-668b4801e6ea
+
+	column revenda_id
+		dataType: string
+		isHidden
+		lineageTag: 767fdb78-e0d1-45c9-8895-3a8e461f490d
+		summarizeBy: none
+		sourceColumn: revenda_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column problema
+		dataType: string
+		lineageTag: e21d8f86-e1a8-4637-ab97-8fcd2e650dd3
+		summarizeBy: none
+		sourceColumn: problema
+
+		annotation SummarizationSetBy = Automatic
+
+	column categoria
+		dataType: string
+		lineageTag: 4e3ffa8a-1537-43d6-9df1-49f958af53f1
+		summarizeBy: none
+		sourceColumn: categoria
+
+		annotation SummarizationSetBy = Automatic
+
+	column causa_raiz
+		dataType: string
+		lineageTag: 064e0e84-4dda-4043-b081-bcb1144f4245
+		summarizeBy: none
+		sourceColumn: causa_raiz
+
+		annotation SummarizationSetBy = Automatic
+
+	column acao_sugerida
+		dataType: string
+		lineageTag: aff21a09-52cf-4edb-9dc5-59da455054de
+		summarizeBy: none
+		sourceColumn: acao_sugerida
+
+		annotation SummarizationSetBy = Automatic
+
+	column ocorrencias
+		dataType: int64
+		lineageTag: 97b2d3d4-bee2-49e3-a6d6-325bdf5cdceb
+		summarizeBy: none
+		sourceColumn: ocorrencias
+
+		annotation SummarizationSetBy = Automatic
+
+	column colaboradores
+		dataType: int64
+		lineageTag: 06d25444-d49a-4139-9586-1ff798f6023f
+		summarizeBy: none
+		sourceColumn: colaboradores
+
+		annotation SummarizationSetBy = Automatic
+
+	column rotas
+		dataType: int64
+		lineageTag: 2b33c409-ba89-460d-9002-cb712b14b24b
+		summarizeBy: none
+		sourceColumn: rotas
+
+		annotation SummarizationSetBy = Automatic
+
+	column tratadas
+		dataType: int64
+		lineageTag: fbda89ff-05e4-4e25-87f8-8a1e70e43a53
+		summarizeBy: none
+		sourceColumn: tratadas
+
+		annotation SummarizationSetBy = Automatic
+
+	column primeira_vez
+		dataType: dateTime
+		formatString: dd/MM/yyyy
+		lineageTag: 93a78091-aabd-435f-af36-bca494db6557
+		summarizeBy: none
+		sourceColumn: primeira_vez
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation UnderlyingDateTimeDataType = Date
+
+	column ultima_vez
+		dataType: dateTime
+		formatString: dd/MM/yyyy
+		lineageTag: 1ec382ff-1bd9-439e-a66a-91b58f768cc2
+		summarizeBy: none
+		sourceColumn: ultima_vez
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation UnderlyingDateTimeDataType = Date
+
+	partition fato_cinco_porques_matriz = m
+		mode: import
+		source =
+				let
+				    Origem = PostgreSQL.Database(Servidor, Banco),
+				    Dados = Origem{[Schema="bi",Item="fato_cinco_porques_matriz"]}[Data]
+				in
+				    Dados
+
+	annotation PBI_ResultType = Table
+

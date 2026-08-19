@@ -1,0 +1,213 @@
+/// Curtidas sao reais. avisos_vistos/clicados sao PISO, nunca total.
+table fato_comunicado
+	lineageTag: a9083826-6fb4-4a1d-852d-85178013da3f
+
+	column comunicado_id
+		dataType: int64
+		isHidden
+		formatString: 0
+		lineageTag: e0925c75-e03d-48f6-ac8d-3ef839c70061
+		summarizeBy: sum
+		sourceColumn: comunicado_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column revenda_id
+		dataType: string
+		isHidden
+		lineageTag: 61592b90-1e87-408d-a06c-579ec01d5806
+		summarizeBy: none
+		sourceColumn: revenda_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column titulo
+		dataType: string
+		lineageTag: 10e54863-f786-43a8-9718-c1f763c09721
+		summarizeBy: none
+		sourceColumn: titulo
+
+		annotation SummarizationSetBy = Automatic
+
+	column resumo
+		dataType: string
+		lineageTag: d91f35d6-e145-42b0-af07-78eccad94ca0
+		summarizeBy: none
+		sourceColumn: resumo
+
+		annotation SummarizationSetBy = Automatic
+
+	column categoria_id
+		dataType: string
+		isHidden
+		lineageTag: d9b3e2ae-1915-4118-8cdd-9dc0c711ec8e
+		summarizeBy: none
+		sourceColumn: categoria_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column categoria
+		dataType: string
+		lineageTag: 43e2ef7d-9108-4874-bf2f-71aaacad73ce
+		summarizeBy: none
+		sourceColumn: categoria
+
+		annotation SummarizationSetBy = Automatic
+
+	column autor
+		dataType: string
+		lineageTag: bc6c8370-7693-4c29-8a44-3717740a2964
+		summarizeBy: none
+		sourceColumn: autor
+
+		annotation SummarizationSetBy = Automatic
+
+	column destaque
+		dataType: boolean
+		lineageTag: 2f0b9411-478f-4804-a2b1-ecd6e56a83b1
+		summarizeBy: none
+		sourceColumn: destaque
+
+		annotation SummarizationSetBy = Automatic
+
+	column tem_imagem
+		dataType: boolean
+		lineageTag: 3699af1e-e87e-40e4-84f6-9232acfe8b68
+		summarizeBy: none
+		sourceColumn: tem_imagem
+
+		annotation SummarizationSetBy = Automatic
+
+	column tamanho_texto
+		dataType: int64
+		lineageTag: 42fa6d75-c506-4564-944b-7260a53220cc
+		summarizeBy: none
+		sourceColumn: tamanho_texto
+
+		annotation SummarizationSetBy = Automatic
+
+	column minutos_leitura_estimados
+		dataType: int64
+		lineageTag: f2bce92b-6bf3-4992-a0a0-6c0142cf21be
+		summarizeBy: none
+		sourceColumn: minutos_leitura_estimados
+
+		annotation SummarizationSetBy = Automatic
+
+	column data
+		dataType: dateTime
+		formatString: dd/MM/yyyy
+		lineageTag: 646b6c43-ca1d-4c58-b75d-05a22e174f70
+		summarizeBy: none
+		sourceColumn: data
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation UnderlyingDateTimeDataType = Date
+
+	column criado_em
+		dataType: dateTime
+		formatString: dd/MM/yyyy
+		lineageTag: 58ba5e27-62eb-4bcb-b1fd-e0affc7b0a5c
+		summarizeBy: none
+		sourceColumn: criado_em
+
+		annotation SummarizationSetBy = Automatic
+
+	column lembrete_em
+		dataType: dateTime
+		formatString: dd/MM/yyyy
+		lineageTag: 4c096781-4ec9-459b-8c42-e816c3b82f83
+		summarizeBy: none
+		sourceColumn: lembrete_em
+
+		annotation SummarizationSetBy = Automatic
+
+	column tem_lembrete
+		dataType: boolean
+		lineageTag: ef4c6aa9-9848-46a6-8fe9-3e5465924209
+		summarizeBy: none
+		sourceColumn: tem_lembrete
+
+		annotation SummarizationSetBy = Automatic
+
+	column lembrete_enviado_em
+		dataType: dateTime
+		formatString: dd/MM/yyyy
+		lineageTag: 25d7d1e4-cd1f-464e-8b1e-2c947e66ddaa
+		summarizeBy: none
+		sourceColumn: lembrete_enviado_em
+
+		annotation SummarizationSetBy = Automatic
+
+	column lembrete_disparado
+		dataType: boolean
+		lineageTag: f098c98a-94c8-4d81-aa56-9e946b0e6462
+		summarizeBy: none
+		sourceColumn: lembrete_disparado
+
+		annotation SummarizationSetBy = Automatic
+
+	column curtidas
+		dataType: int64
+		lineageTag: 16569523-a511-4195-b116-aa8d91d890a5
+		summarizeBy: none
+		sourceColumn: curtidas
+
+		annotation SummarizationSetBy = Automatic
+
+	column avisos_vistos
+		dataType: int64
+		lineageTag: 15816756-146d-4c19-bcf7-12dc3cb52f37
+		summarizeBy: none
+		sourceColumn: avisos_vistos
+
+		annotation SummarizationSetBy = Automatic
+
+	column avisos_clicados
+		dataType: int64
+		lineageTag: 4a8e30b0-37bd-461f-85dd-1e99506e814b
+		summarizeBy: none
+		sourceColumn: avisos_clicados
+
+		annotation SummarizationSetBy = Automatic
+
+	column publico
+		dataType: int64
+		lineageTag: 4fa6b045-d1f2-4af6-9d76-5942b00575f8
+		summarizeBy: none
+		sourceColumn: publico
+
+		annotation SummarizationSetBy = Automatic
+
+	column taxa_curtida
+		dataType: double
+		lineageTag: 46f8a2b7-c9ef-48a3-8d37-f43fbdf157f0
+		summarizeBy: sum
+		sourceColumn: taxa_curtida
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column taxa_clique
+		dataType: double
+		lineageTag: 610e4a53-eea4-4739-a69f-4e517752dde6
+		summarizeBy: sum
+		sourceColumn: taxa_clique
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	partition fato_comunicado = m
+		mode: import
+		source =
+				let
+				    Origem = PostgreSQL.Database(Servidor, Banco),
+				    Dados = Origem{[Schema="bi",Item="fato_comunicado"]}[Data]
+				in
+				    Dados
+
+	annotation PBI_ResultType = Table
+

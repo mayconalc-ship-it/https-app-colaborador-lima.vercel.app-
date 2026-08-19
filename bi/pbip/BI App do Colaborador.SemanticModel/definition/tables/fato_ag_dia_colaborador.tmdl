@@ -1,0 +1,123 @@
+table fato_ag_dia_colaborador
+	lineageTag: ad25ab6a-f169-421c-b996-897c639b8495
+
+	column revenda_id
+		dataType: string
+		isHidden
+		lineageTag: ffb5a86b-a4d8-47e1-9df9-0ab20ae25be6
+		summarizeBy: none
+		sourceColumn: revenda_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column data
+		dataType: dateTime
+		formatString: dd/MM/yyyy
+		lineageTag: 1381c021-5115-4e46-8bc5-a52323207d51
+		summarizeBy: none
+		sourceColumn: data
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation UnderlyingDateTimeDataType = Date
+
+	column colaborador_id
+		dataType: string
+		isHidden
+		lineageTag: 805fd318-3d34-42f3-be74-79b196a48d69
+		summarizeBy: none
+		sourceColumn: colaborador_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column colaborador
+		dataType: string
+		lineageTag: e2d243df-b607-441e-93f7-99b082b61086
+		summarizeBy: none
+		sourceColumn: colaborador
+
+		annotation SummarizationSetBy = Automatic
+
+	column lancamentos
+		dataType: int64
+		lineageTag: c0055944-b09d-4605-84f2-fc863231000d
+		summarizeBy: none
+		sourceColumn: lancamentos
+
+		annotation SummarizationSetBy = Automatic
+
+	column lancamentos_recontagem
+		dataType: int64
+		lineageTag: e0476102-db14-4c26-b356-9904c26c6493
+		summarizeBy: none
+		sourceColumn: lancamentos_recontagem
+
+		annotation SummarizationSetBy = Automatic
+
+	column total_caixas
+		dataType: int64
+		lineageTag: 873d63f3-c59e-428b-b843-a4436b6d8c0a
+		summarizeBy: none
+		sourceColumn: total_caixas
+
+		annotation SummarizationSetBy = Automatic
+
+	column formatos_contados
+		dataType: int64
+		lineageTag: 7f4c805d-9798-47f9-af07-871bcd42efa5
+		summarizeBy: none
+		sourceColumn: formatos_contados
+
+		annotation SummarizationSetBy = Automatic
+
+	column primeiro_lancamento
+		dataType: dateTime
+		formatString: dd/MM/yyyy
+		lineageTag: 5d0716d9-3a2e-4bdc-b695-a7808cec5a96
+		summarizeBy: none
+		sourceColumn: primeiro_lancamento
+
+		annotation SummarizationSetBy = Automatic
+
+	column ultimo_lancamento
+		dataType: dateTime
+		formatString: dd/MM/yyyy
+		lineageTag: c2e379c8-3f6b-4688-8e6e-2ab8a8c71ba4
+		summarizeBy: none
+		sourceColumn: ultimo_lancamento
+
+		annotation SummarizationSetBy = Automatic
+
+	column tudo_no_dia
+		dataType: boolean
+		lineageTag: f6e70b4e-cd1e-47a7-aec0-01ddf789da43
+		summarizeBy: none
+		sourceColumn: tudo_no_dia
+
+		annotation SummarizationSetBy = Automatic
+
+	column chave
+		dataType: string
+		isHidden
+		lineageTag: 3529cfa3-f259-4d9c-bd5b-e3c252e6d8b4
+		summarizeBy: none
+		sourceColumn: chave
+
+		annotation SummarizationSetBy = Automatic
+
+	partition fato_ag_dia_colaborador = m
+		mode: import
+		source =
+				let
+				    Origem = PostgreSQL.Database(Servidor, Banco),
+				    Dados = Origem{[Schema="bi",Item="fato_ag_dia_colaborador"]}[Data],
+				    ComChave = Table.AddColumn(Dados, "chave", each
+				        (if [revenda_id] = null then "" else Text.From([revenda_id]))
+				        & "|" &
+				        (if [colaborador_id] = null then "" else Text.From([colaborador_id])),
+				        type text)
+				in
+				    ComChave
+
+	annotation PBI_ResultType = Table
+

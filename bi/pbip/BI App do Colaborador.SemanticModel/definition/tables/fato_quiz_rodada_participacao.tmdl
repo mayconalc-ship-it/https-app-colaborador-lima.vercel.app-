@@ -1,0 +1,185 @@
+/// Elegiveis x participantes por rodada. Elegibilidade ja resolvida na view.
+table fato_quiz_rodada_participacao
+	lineageTag: 6bdc69bc-affd-412a-84ed-3a513e7dd3c0
+
+	column rodada_id
+		dataType: int64
+		isHidden
+		formatString: 0
+		lineageTag: 7b4d06b7-6d0e-4865-8944-7567bfa7ce34
+		summarizeBy: sum
+		sourceColumn: rodada_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column revenda_id
+		dataType: string
+		isHidden
+		lineageTag: 55a77478-5b08-4c9a-ae92-07e97b8a0f00
+		summarizeBy: none
+		sourceColumn: revenda_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column rodada
+		dataType: string
+		lineageTag: fc16bc54-ce73-4df5-98d6-5b9f02b1a75f
+		summarizeBy: none
+		sourceColumn: rodada
+
+		annotation SummarizationSetBy = Automatic
+
+	column temporada
+		dataType: int64
+		lineageTag: 8dc6b552-8c5b-4b97-ab26-b57f6e726b55
+		summarizeBy: none
+		sourceColumn: temporada
+
+		annotation SummarizationSetBy = Automatic
+
+	column mes
+		dataType: int64
+		lineageTag: b6c266e8-635c-4340-bb5a-5508fe670c80
+		summarizeBy: none
+		sourceColumn: mes
+
+		annotation SummarizationSetBy = Automatic
+
+	column mes_ref
+		dataType: dateTime
+		formatString: dd/MM/yyyy
+		lineageTag: 44fb2069-c069-468e-a99a-c121db5a9fca
+		summarizeBy: none
+		sourceColumn: mes_ref
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation UnderlyingDateTimeDataType = Date
+
+	column area
+		dataType: string
+		lineageTag: b7b66b8b-ca63-4e2e-9970-101930d8ca30
+		summarizeBy: none
+		sourceColumn: area
+
+		annotation SummarizationSetBy = Automatic
+
+	column area_rotulo
+		dataType: string
+		lineageTag: e9ca5539-3049-4951-96df-00536d80538d
+		summarizeBy: none
+		sourceColumn: area_rotulo
+
+		annotation SummarizationSetBy = Automatic
+
+	column status
+		dataType: string
+		lineageTag: 7b95ff67-1a50-46dc-b5e8-c9b92e8842b4
+		summarizeBy: none
+		sourceColumn: status
+
+		annotation SummarizationSetBy = Automatic
+
+	column inicio
+		dataType: dateTime
+		formatString: dd/MM/yyyy
+		lineageTag: 958320c2-1e15-46e2-8f4e-a26de24e803e
+		summarizeBy: none
+		sourceColumn: inicio
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation UnderlyingDateTimeDataType = Date
+
+	column fim
+		dataType: dateTime
+		formatString: dd/MM/yyyy
+		lineageTag: 356c9a89-4a16-4ae8-8f42-f8be423003a9
+		summarizeBy: none
+		sourceColumn: fim
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation UnderlyingDateTimeDataType = Date
+
+	column total_perguntas
+		dataType: int64
+		lineageTag: 9732d279-55cf-454c-a5ce-c4142ead082a
+		summarizeBy: none
+		sourceColumn: total_perguntas
+
+		annotation SummarizationSetBy = Automatic
+
+	column elegiveis
+		dataType: int64
+		lineageTag: 5a8f6ba0-20c0-4379-9beb-11525649dec4
+		summarizeBy: none
+		sourceColumn: elegiveis
+
+		annotation SummarizationSetBy = Automatic
+
+	column participantes
+		dataType: int64
+		lineageTag: 932166dd-0d15-47b0-afa4-e648e57c4dbe
+		summarizeBy: none
+		sourceColumn: participantes
+
+		annotation SummarizationSetBy = Automatic
+
+	column concluidas
+		dataType: int64
+		lineageTag: eeae745f-e467-44ac-bc3b-f13225733d32
+		summarizeBy: none
+		sourceColumn: concluidas
+
+		annotation SummarizationSetBy = Automatic
+
+	column taxa_participacao
+		dataType: double
+		lineageTag: 456ede69-4db7-4931-9b08-6fcf24b267b7
+		summarizeBy: sum
+		sourceColumn: taxa_participacao
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column media_pontos
+		dataType: double
+		lineageTag: 0df26cdd-09b6-49b1-b995-19eba576045e
+		summarizeBy: sum
+		sourceColumn: media_pontos
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column media_acertos
+		dataType: double
+		lineageTag: 29817392-51b1-48fb-8eb1-dde7ac0e431d
+		summarizeBy: sum
+		sourceColumn: media_acertos
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column melhor_pontos
+		dataType: int64
+		lineageTag: 4324ffe8-1313-4ece-b11a-d5aa50071b99
+		summarizeBy: none
+		sourceColumn: melhor_pontos
+
+		annotation SummarizationSetBy = Automatic
+
+	partition fato_quiz_rodada_participacao = m
+		mode: import
+		source =
+				let
+				    Origem = PostgreSQL.Database(Servidor, Banco),
+				    Dados = Origem{[Schema="bi",Item="fato_quiz_rodada_participacao"]}[Data]
+				in
+				    Dados
+
+	annotation PBI_ResultType = Table
+

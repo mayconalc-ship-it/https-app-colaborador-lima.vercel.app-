@@ -1,0 +1,52 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.11.0/schema.json",
+  "name": "a278c1aff26b942a0c3d",
+  "position": {
+    "x": 16,
+    "y": 672,
+    "z": 17000,
+    "height": 30,
+    "width": 1248,
+    "tabOrder": 17000
+  },
+  "visual": {
+    "visualType": "textbox",
+    "objects": {
+      "general": [
+        {
+          "properties": {
+            "paragraphs": [
+              {
+                "textRuns": [
+                  {
+                    "value": "Elegíveis e concluídas ficam AGRUPADAS, não empilhadas — empilhar sugere que somam, e elegíveis já contém concluídas. Em \"perguntas com maior erro\", aplique no painel Filtros um corte de ≥ 5 respostas: sem ele, uma pergunta respondida uma única vez por alguém que errou aparece como 100% de erro no topo.",
+                    "textStyle": {
+                      "fontSize": "8pt",
+                      "color": "#64748B"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "visualContainerObjects": {
+      "title": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "false"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "drillFilterOtherVisuals": true
+  }
+}

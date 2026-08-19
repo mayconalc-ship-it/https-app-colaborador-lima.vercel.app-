@@ -1,0 +1,154 @@
+/// Tabela de datas em pt-BR.
+table dim_calendario
+	lineageTag: 576cde16-93dd-4e39-ba82-c4745a7e5830
+	dataCategory: Time
+
+	column data
+		dataType: dateTime
+		isKey
+		formatString: dd/MM/yyyy
+		lineageTag: f2769c41-bf18-4bd5-981d-5369e2465821
+		summarizeBy: none
+		sourceColumn: data
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation UnderlyingDateTimeDataType = Date
+
+	column ano
+		dataType: int64
+		lineageTag: def77c71-d82f-466b-b16f-7311eaf523b9
+		summarizeBy: none
+		sourceColumn: ano
+
+		annotation SummarizationSetBy = Automatic
+
+	column mes
+		dataType: int64
+		lineageTag: 98f3b143-5fe1-4e6f-9283-825a99d0ab0f
+		summarizeBy: none
+		sourceColumn: mes
+
+		annotation SummarizationSetBy = Automatic
+
+	column mes_abrev
+		dataType: string
+		lineageTag: fd85e4db-dc15-49a4-a564-5dae5bba0def
+		summarizeBy: none
+		sourceColumn: mes_abrev
+
+		annotation SummarizationSetBy = Automatic
+
+	column mes_nome
+		dataType: string
+		lineageTag: 0df541af-f9b3-41cf-81a8-bc2f9e1bcabb
+		summarizeBy: none
+		sourceColumn: mes_nome
+
+		annotation SummarizationSetBy = Automatic
+
+	column ano_mes
+		dataType: string
+		lineageTag: 89b60fd3-21c9-4414-8644-22f2c52095ca
+		summarizeBy: none
+		sourceColumn: ano_mes
+
+		annotation SummarizationSetBy = Automatic
+
+	column mes_rotulo
+		dataType: string
+		lineageTag: c27e1b58-5b53-4b55-ae03-4ef91c3300d8
+		summarizeBy: none
+		sourceColumn: mes_rotulo
+
+		annotation SummarizationSetBy = Automatic
+
+	column trimestre
+		dataType: string
+		lineageTag: f8f0f0b6-cf4b-49c5-8c91-cd0a4f33bf3f
+		summarizeBy: none
+		sourceColumn: trimestre
+
+		annotation SummarizationSetBy = Automatic
+
+	column semana_iso
+		dataType: int64
+		lineageTag: 4d40a09c-db67-4cef-be3a-3a4f9a14ec07
+		summarizeBy: none
+		sourceColumn: semana_iso
+
+		annotation SummarizationSetBy = Automatic
+
+	column ano_semana
+		dataType: string
+		lineageTag: 0710fc3a-87a3-4274-a547-fbca18cd6c95
+		summarizeBy: none
+		sourceColumn: ano_semana
+
+		annotation SummarizationSetBy = Automatic
+
+	column inicio_semana
+		dataType: dateTime
+		formatString: dd/MM/yyyy
+		lineageTag: d6b10e15-74ba-4c36-8552-64b4257c923b
+		summarizeBy: none
+		sourceColumn: inicio_semana
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation UnderlyingDateTimeDataType = Date
+
+	column inicio_mes
+		dataType: dateTime
+		formatString: dd/MM/yyyy
+		lineageTag: 9a9c93ef-266b-4496-a556-00a7f16feedf
+		summarizeBy: none
+		sourceColumn: inicio_mes
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation UnderlyingDateTimeDataType = Date
+
+	column dia_semana
+		dataType: int64
+		lineageTag: 1ec258d8-0e12-4d6f-89f9-b91374494bf0
+		summarizeBy: none
+		sourceColumn: dia_semana
+
+		annotation SummarizationSetBy = Automatic
+
+	column dia_semana_nome
+		dataType: string
+		lineageTag: e54811d8-e1a6-4c44-adbc-24b9d840412a
+		summarizeBy: none
+		sourceColumn: dia_semana_nome
+
+		annotation SummarizationSetBy = Automatic
+
+	column fim_de_semana
+		dataType: boolean
+		lineageTag: 30880482-f934-4ad4-8557-d20782b3364b
+		summarizeBy: none
+		sourceColumn: fim_de_semana
+
+		annotation SummarizationSetBy = Automatic
+
+	column ja_aconteceu
+		dataType: boolean
+		lineageTag: 17ce91e3-b3db-4ba3-946f-3fcaf16e515f
+		summarizeBy: none
+		sourceColumn: ja_aconteceu
+
+		annotation SummarizationSetBy = Automatic
+
+	partition dim_calendario = m
+		mode: import
+		source =
+				let
+				    Origem = PostgreSQL.Database(Servidor, Banco),
+				    Dados = Origem{[Schema="bi",Item="dim_calendario"]}[Data]
+				in
+				    Dados
+
+	annotation PBI_ResultType = Table
+

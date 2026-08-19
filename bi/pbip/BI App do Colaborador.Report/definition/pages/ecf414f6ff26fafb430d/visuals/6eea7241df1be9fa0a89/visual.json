@@ -1,0 +1,52 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.11.0/schema.json",
+  "name": "6eea7241df1be9fa0a89",
+  "position": {
+    "x": 16,
+    "y": 672,
+    "z": 17000,
+    "height": 30,
+    "width": 1248,
+    "tabOrder": 17000
+  },
+  "visual": {
+    "visualType": "textbox",
+    "objects": {
+      "general": [
+        {
+          "properties": {
+            "paragraphs": [
+              {
+                "textRuns": [
+                  {
+                    "value": "Esta página é curta porque os dados não permitem mais. ranking_matinal guarda uma IMAGEM por mês/time/categoria: não há colaborador, não há ponto, não há colocação — ranking geral e evolução de pontuação não existem no banco. sonho_revenda guarda título, frase e arquivo: não há meta nem realizado, então \"realizado × objetivo\" e \"% de atingimento\" também não existem. Veja \"Lacunas\" no LEIA-ME.md antes de prometer esta página para a diretoria.",
+                    "textStyle": {
+                      "fontSize": "8pt",
+                      "color": "#64748B"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "visualContainerObjects": {
+      "title": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "false"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "drillFilterOtherVisuals": true
+  }
+}

@@ -1,0 +1,138 @@
+/// Colaborador x revenda. Sem CPF por decisao de privacidade.
+table dim_colaborador
+	lineageTag: c532f8db-2537-4694-9f0a-baad9370abf1
+
+	column colaborador_id
+		dataType: string
+		isHidden
+		lineageTag: 0ceba9bf-59f2-4955-927f-69ff389e9dfe
+		summarizeBy: none
+		sourceColumn: colaborador_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column revenda_id
+		dataType: string
+		isHidden
+		lineageTag: d71daafc-dddb-478f-8254-bd584241d3c4
+		summarizeBy: none
+		sourceColumn: revenda_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column revenda_principal
+		dataType: boolean
+		lineageTag: 6995eb1a-2227-4d5b-bb86-bead92b11164
+		summarizeBy: none
+		sourceColumn: revenda_principal
+
+		annotation SummarizationSetBy = Automatic
+
+	column colaborador
+		dataType: string
+		lineageTag: 0534cef5-b1d4-4d19-8d00-437c30762c00
+		summarizeBy: none
+		sourceColumn: colaborador
+
+		annotation SummarizationSetBy = Automatic
+
+	column matricula
+		dataType: string
+		lineageTag: 782749da-4119-4517-b363-00c289c9ab9e
+		summarizeBy: none
+		sourceColumn: matricula
+
+		annotation SummarizationSetBy = Automatic
+
+	column cargo
+		dataType: string
+		lineageTag: b94b03f8-6ac0-4a25-8975-7e6a8143a06d
+		summarizeBy: none
+		sourceColumn: cargo
+
+		annotation SummarizationSetBy = Automatic
+
+	column area_cadastro
+		dataType: string
+		lineageTag: edcbf417-1c9b-40a7-9e45-1209aca784b8
+		summarizeBy: none
+		sourceColumn: area_cadastro
+
+		annotation SummarizationSetBy = Automatic
+
+	column area
+		dataType: string
+		lineageTag: 5438ca09-6331-4d3b-9255-83425b9db3cf
+		summarizeBy: none
+		sourceColumn: area
+
+		annotation SummarizationSetBy = Automatic
+
+	column area_rotulo
+		dataType: string
+		lineageTag: d58dad7b-223e-4872-8064-b19ae7a95cae
+		summarizeBy: none
+		sourceColumn: area_rotulo
+
+		annotation SummarizationSetBy = Automatic
+
+	column papel
+		dataType: string
+		lineageTag: 4bd24d59-5b6e-49c5-8b3d-3666cc383c46
+		summarizeBy: none
+		sourceColumn: papel
+
+		annotation SummarizationSetBy = Automatic
+
+	column papel_rotulo
+		dataType: string
+		lineageTag: 535785b9-56e7-467f-9d7e-5432f7e1f2ed
+		summarizeBy: none
+		sourceColumn: papel_rotulo
+
+		annotation SummarizationSetBy = Automatic
+
+	column eh_gestao
+		dataType: boolean
+		lineageTag: 7eb4fb51-eb58-46db-9526-567b67a601fe
+		summarizeBy: none
+		sourceColumn: eh_gestao
+
+		annotation SummarizationSetBy = Automatic
+
+	column data_cadastro
+		dataType: dateTime
+		formatString: dd/MM/yyyy
+		lineageTag: 9469677c-9f81-4fb2-bd42-b5608ba7a8a2
+		summarizeBy: none
+		sourceColumn: data_cadastro
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation UnderlyingDateTimeDataType = Date
+
+	column chave
+		dataType: string
+		isHidden
+		lineageTag: 13c47a50-8c29-4b53-9406-ce36cd983421
+		summarizeBy: none
+		sourceColumn: chave
+
+		annotation SummarizationSetBy = Automatic
+
+	partition dim_colaborador = m
+		mode: import
+		source =
+				let
+				    Origem = PostgreSQL.Database(Servidor, Banco),
+				    Dados = Origem{[Schema="bi",Item="dim_colaborador"]}[Data],
+				    ComChave = Table.AddColumn(Dados, "chave", each
+				        (if [revenda_id] = null then "" else Text.From([revenda_id]))
+				        & "|" &
+				        (if [colaborador_id] = null then "" else Text.From([colaborador_id])),
+				        type text)
+				in
+				    ComChave
+
+	annotation PBI_ResultType = Table
+

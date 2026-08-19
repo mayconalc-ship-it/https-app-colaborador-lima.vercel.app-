@@ -1,0 +1,45 @@
+model Model
+	culture: pt-BR
+	defaultPowerBIDataSourceVersion: powerBI_V3
+	discourageImplicitMeasures
+	sourceQueryCulture: pt-BR
+	maxParallelismPerRefresh: 1
+	dataAccessOptions
+		legacyRedirects
+		returnErrorValuesAsNull
+
+annotation PBI_QueryOrder = ["Servidor","Banco","_Medidas","dim_revenda","dim_colaborador","dim_calendario","dim_ocorrencia_rota","dim_menu_app","dim_quiz_rodada","dim_quiz_questao","dim_sonho_revenda","fato_ag_contagem","fato_ag_dia_colaborador","fato_ag_conciliacao","fato_ag_recontagem","fato_feedback_rota","fato_feedback_ocorrencia","fato_cinco_porques","fato_cinco_porques_resposta","fato_cinco_porques_matriz","fato_comunicado","fato_comunicado_curtida","fato_quiz_participacao","fato_quiz_resposta","fato_quiz_rodada_participacao","fato_ranking_matinal","fato_ranking_matinal_cobertura","fato_evento_acesso","fato_uso_sessao","fato_atividade"]
+
+annotation __PBI_TimeIntelligenceEnabled = 0
+
+annotation PBI_ProTooling = ["DevMode"]
+
+ref table _Medidas
+ref table dim_revenda
+ref table dim_colaborador
+ref table dim_calendario
+ref table dim_ocorrencia_rota
+ref table dim_menu_app
+ref table dim_quiz_rodada
+ref table dim_quiz_questao
+ref table dim_sonho_revenda
+ref table fato_ag_contagem
+ref table fato_ag_dia_colaborador
+ref table fato_ag_conciliacao
+ref table fato_ag_recontagem
+ref table fato_feedback_rota
+ref table fato_feedback_ocorrencia
+ref table fato_cinco_porques
+ref table fato_cinco_porques_resposta
+ref table fato_cinco_porques_matriz
+ref table fato_comunicado
+ref table fato_comunicado_curtida
+ref table fato_quiz_participacao
+ref table fato_quiz_resposta
+ref table fato_quiz_rodada_participacao
+ref table fato_ranking_matinal
+ref table fato_ranking_matinal_cobertura
+ref table fato_evento_acesso
+ref table fato_uso_sessao
+ref table fato_atividade
+

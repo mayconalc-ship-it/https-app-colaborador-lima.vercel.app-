@@ -1,0 +1,76 @@
+/// Disciplina de publicacao: que mes/categoria deixou de ser publicado.
+table fato_ranking_matinal_cobertura
+	lineageTag: 584654db-062d-4b1f-9f19-8b9989301ebf
+
+	column revenda_id
+		dataType: string
+		isHidden
+		lineageTag: a3a152ca-4951-463f-9810-57dae9e3f00b
+		summarizeBy: none
+		sourceColumn: revenda_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column mes_ano
+		dataType: string
+		lineageTag: 7ec384df-9b17-4ec0-9130-d3aa94016a1b
+		summarizeBy: none
+		sourceColumn: mes_ano
+
+		annotation SummarizationSetBy = Automatic
+
+	column mes_ref
+		dataType: dateTime
+		formatString: dd/MM/yyyy
+		lineageTag: 963339a2-4e81-40d0-b426-5f63773f79b8
+		summarizeBy: none
+		sourceColumn: mes_ref
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation UnderlyingDateTimeDataType = Date
+
+	column equipe
+		dataType: string
+		lineageTag: 8b3381f7-9b31-46bd-b301-557ac680327e
+		summarizeBy: none
+		sourceColumn: equipe
+
+		annotation SummarizationSetBy = Automatic
+
+	column categoria
+		dataType: string
+		lineageTag: 3ca9073b-d021-4913-9708-98ba884effe3
+		summarizeBy: none
+		sourceColumn: categoria
+
+		annotation SummarizationSetBy = Automatic
+
+	column publicado
+		dataType: boolean
+		lineageTag: 9723239a-b301-4f44-bb0e-9ead14896bdc
+		summarizeBy: none
+		sourceColumn: publicado
+
+		annotation SummarizationSetBy = Automatic
+
+	column imagem_url
+		dataType: string
+		lineageTag: 16addd09-83f4-441f-ab13-b29a6c6fa658
+		dataCategory: ImageUrl
+		summarizeBy: none
+		sourceColumn: imagem_url
+
+		annotation SummarizationSetBy = Automatic
+
+	partition fato_ranking_matinal_cobertura = m
+		mode: import
+		source =
+				let
+				    Origem = PostgreSQL.Database(Servidor, Banco),
+				    Dados = Origem{[Schema="bi",Item="fato_ranking_matinal_cobertura"]}[Data]
+				in
+				    Dados
+
+	annotation PBI_ResultType = Table
+

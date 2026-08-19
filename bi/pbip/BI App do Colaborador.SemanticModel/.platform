@@ -1,0 +1,11 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/gitIntegration/platformProperties/2.0.0/schema.json",
+  "metadata": {
+    "type": "SemanticModel",
+    "displayName": "BI App do Colaborador"
+  },
+  "config": {
+    "version": "2.0",
+    "logicalId": "44e896cf-9094-4a49-b1b5-b9b1d2d3f84f"
+  }
+}

@@ -1,0 +1,188 @@
+table dim_quiz_rodada
+	lineageTag: d3c97b5b-5c92-45c3-9eab-f8a64a97f94e
+
+	column rodada_id
+		dataType: int64
+		isHidden
+		formatString: 0
+		lineageTag: 0fbc6af7-ae83-4d07-8d1a-56a5b1316536
+		summarizeBy: sum
+		sourceColumn: rodada_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column revenda_id
+		dataType: string
+		isHidden
+		lineageTag: d3947501-3e6d-47c7-ab5d-4a53a82be187
+		summarizeBy: none
+		sourceColumn: revenda_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column rodada
+		dataType: string
+		lineageTag: 34a82155-6218-43ec-9964-8ec3de407847
+		summarizeBy: none
+		sourceColumn: rodada
+
+		annotation SummarizationSetBy = Automatic
+
+	column temporada
+		dataType: int64
+		lineageTag: 9747f317-b25b-43ce-a48e-bd4b48af5866
+		summarizeBy: none
+		sourceColumn: temporada
+
+		annotation SummarizationSetBy = Automatic
+
+	column mes
+		dataType: int64
+		lineageTag: 9d3e0eca-5f6e-471f-b661-fc66a8978176
+		summarizeBy: none
+		sourceColumn: mes
+
+		annotation SummarizationSetBy = Automatic
+
+	column mes_rotulo
+		dataType: string
+		lineageTag: 6546284c-eab0-438d-a5cf-c5d6f3f30c35
+		summarizeBy: none
+		sourceColumn: mes_rotulo
+
+		annotation SummarizationSetBy = Automatic
+
+	column mes_ref
+		dataType: dateTime
+		formatString: dd/MM/yyyy
+		lineageTag: dcef928c-9e42-4e8e-bc50-62344282fde9
+		summarizeBy: none
+		sourceColumn: mes_ref
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation UnderlyingDateTimeDataType = Date
+
+	column area
+		dataType: string
+		lineageTag: 5ef2f988-43f5-4194-b397-3b001c1f403e
+		summarizeBy: none
+		sourceColumn: area
+
+		annotation SummarizationSetBy = Automatic
+
+	column area_rotulo
+		dataType: string
+		lineageTag: 63cd236a-ef12-422d-88b0-15a005c3eb39
+		summarizeBy: none
+		sourceColumn: area_rotulo
+
+		annotation SummarizationSetBy = Automatic
+
+	column pilar
+		dataType: string
+		lineageTag: f6244cb3-efaa-4bac-ad2b-b4e40be419e2
+		summarizeBy: none
+		sourceColumn: pilar
+
+		annotation SummarizationSetBy = Automatic
+
+	column padrao
+		dataType: string
+		lineageTag: d6614ac2-4b2a-45f9-9b3d-547491d8e363
+		summarizeBy: none
+		sourceColumn: padrao
+
+		annotation SummarizationSetBy = Automatic
+
+	column atividade
+		dataType: string
+		lineageTag: e5dc6aaa-e045-4d6b-b739-c0a949d214ad
+		summarizeBy: none
+		sourceColumn: atividade
+
+		annotation SummarizationSetBy = Automatic
+
+	column inicio
+		dataType: dateTime
+		formatString: dd/MM/yyyy
+		lineageTag: 77eaeb00-9ecf-40ec-936e-8ad07ce62c8a
+		summarizeBy: none
+		sourceColumn: inicio
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation UnderlyingDateTimeDataType = Date
+
+	column fim
+		dataType: dateTime
+		formatString: dd/MM/yyyy
+		lineageTag: a28dd2ef-cf39-40c4-8bd9-e8a94fb4abda
+		summarizeBy: none
+		sourceColumn: fim
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation UnderlyingDateTimeDataType = Date
+
+	column dias_aberta
+		dataType: int64
+		lineageTag: ffdd803c-c358-45fe-bee9-5ead3ba1090d
+		summarizeBy: none
+		sourceColumn: dias_aberta
+
+		annotation SummarizationSetBy = Automatic
+
+	column total_perguntas
+		dataType: int64
+		lineageTag: 4fc6b172-c172-4a67-b781-02a12ec74291
+		summarizeBy: none
+		sourceColumn: total_perguntas
+
+		annotation SummarizationSetBy = Automatic
+
+	column status
+		dataType: string
+		lineageTag: 03442dfd-ba46-4788-9e50-2310b836b58c
+		summarizeBy: none
+		sourceColumn: status
+
+		annotation SummarizationSetBy = Automatic
+
+	column status_rotulo
+		dataType: string
+		lineageTag: 4809ec2c-70a2-4389-b2e8-3ce314c533b7
+		summarizeBy: none
+		sourceColumn: status_rotulo
+
+		annotation SummarizationSetBy = Automatic
+
+	column publicada_em
+		dataType: dateTime
+		formatString: dd/MM/yyyy
+		lineageTag: 15acbb6d-ec30-4817-a8f8-f5335e50cbf6
+		summarizeBy: none
+		sourceColumn: publicada_em
+
+		annotation SummarizationSetBy = Automatic
+
+	column encerrada_em
+		dataType: dateTime
+		formatString: dd/MM/yyyy
+		lineageTag: 369ed258-e103-4cfa-b624-c6e9edec9b20
+		summarizeBy: none
+		sourceColumn: encerrada_em
+
+		annotation SummarizationSetBy = Automatic
+
+	partition dim_quiz_rodada = m
+		mode: import
+		source =
+				let
+				    Origem = PostgreSQL.Database(Servidor, Banco),
+				    Dados = Origem{[Schema="bi",Item="dim_quiz_rodada"]}[Data]
+				in
+				    Dados
+
+	annotation PBI_ResultType = Table
+

@@ -1,0 +1,190 @@
+/// Use para taxa de erro POR PERIODO -- os contadores da questao sao vitalicios.
+table fato_quiz_resposta
+	lineageTag: 64789653-55ac-489c-9122-dfc8b3e9b074
+
+	column resposta_id
+		dataType: int64
+		isHidden
+		formatString: 0
+		lineageTag: 0af03bf6-ac1a-4e44-b9cd-f2113b04265c
+		summarizeBy: sum
+		sourceColumn: resposta_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column revenda_id
+		dataType: string
+		isHidden
+		lineageTag: 862ebb9a-6218-45a6-ae20-cb8a832b33c9
+		summarizeBy: none
+		sourceColumn: revenda_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column rodada_id
+		dataType: int64
+		isHidden
+		formatString: 0
+		lineageTag: 4ee897f9-e369-420e-b46e-b6ced47f57fb
+		summarizeBy: sum
+		sourceColumn: rodada_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column rodada
+		dataType: string
+		lineageTag: a5f3586d-8d5c-4b45-87b9-529e42272bec
+		summarizeBy: none
+		sourceColumn: rodada
+
+		annotation SummarizationSetBy = Automatic
+
+	column mes_ref
+		dataType: dateTime
+		formatString: dd/MM/yyyy
+		lineageTag: 1844b19b-977b-448b-84fc-638241268852
+		summarizeBy: none
+		sourceColumn: mes_ref
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation UnderlyingDateTimeDataType = Date
+
+	column colaborador_id
+		dataType: string
+		isHidden
+		lineageTag: bda5f2f8-ee4e-4d89-a8a6-b9c8c0fd1524
+		summarizeBy: none
+		sourceColumn: colaborador_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column colaborador
+		dataType: string
+		lineageTag: 51c09ac3-efca-4012-bc46-cab0dd6fe752
+		summarizeBy: none
+		sourceColumn: colaborador
+
+		annotation SummarizationSetBy = Automatic
+
+	column area
+		dataType: string
+		lineageTag: c231ef03-6cc6-4207-b955-413194b5a472
+		summarizeBy: none
+		sourceColumn: area
+
+		annotation SummarizationSetBy = Automatic
+
+	column questao_id
+		dataType: int64
+		isHidden
+		formatString: 0
+		lineageTag: 70adab00-ea51-4f32-8ea1-19f3b4c814e3
+		summarizeBy: sum
+		sourceColumn: questao_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column pergunta
+		dataType: string
+		lineageTag: 626865b0-6285-41ac-92ea-1ac52ac31825
+		summarizeBy: none
+		sourceColumn: pergunta
+
+		annotation SummarizationSetBy = Automatic
+
+	column dificuldade
+		dataType: string
+		lineageTag: 5d499d84-3819-4e28-82dc-1e3647256385
+		summarizeBy: none
+		sourceColumn: dificuldade
+
+		annotation SummarizationSetBy = Automatic
+
+	column pilar
+		dataType: string
+		lineageTag: 77627064-e430-4545-a57f-60de9889137c
+		summarizeBy: none
+		sourceColumn: pilar
+
+		annotation SummarizationSetBy = Automatic
+
+	column padrao
+		dataType: string
+		lineageTag: 47f15a3e-73fd-4c38-bb28-b96da4c5f904
+		summarizeBy: none
+		sourceColumn: padrao
+
+		annotation SummarizationSetBy = Automatic
+
+	column correta
+		dataType: boolean
+		lineageTag: 2fcca64f-7c85-4aa5-9f56-5a6ee88a8958
+		summarizeBy: none
+		sourceColumn: correta
+
+		annotation SummarizationSetBy = Automatic
+
+	column errou
+		dataType: boolean
+		lineageTag: e55ba515-44da-4ee2-a12b-dc9465b286ed
+		summarizeBy: none
+		sourceColumn: errou
+
+		annotation SummarizationSetBy = Automatic
+
+	column tempo_segundos
+		dataType: double
+		lineageTag: 784dd06f-1dff-42d5-b7d2-1a99dc39296b
+		summarizeBy: sum
+		sourceColumn: tempo_segundos
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column respondida_em
+		dataType: dateTime
+		formatString: dd/MM/yyyy
+		lineageTag: f220193d-8465-48a7-8e5b-05394e0d6548
+		summarizeBy: none
+		sourceColumn: respondida_em
+
+		annotation SummarizationSetBy = Automatic
+
+	column data
+		dataType: dateTime
+		formatString: dd/MM/yyyy
+		lineageTag: f8655861-ff44-4a88-9780-e517138587c9
+		summarizeBy: none
+		sourceColumn: data
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation UnderlyingDateTimeDataType = Date
+
+	column chave
+		dataType: string
+		isHidden
+		lineageTag: 79dac54e-cb12-4256-bc66-2a4ae558691a
+		summarizeBy: none
+		sourceColumn: chave
+
+		annotation SummarizationSetBy = Automatic
+
+	partition fato_quiz_resposta = m
+		mode: import
+		source =
+				let
+				    Origem = PostgreSQL.Database(Servidor, Banco),
+				    Dados = Origem{[Schema="bi",Item="fato_quiz_resposta"]}[Data],
+				    ComChave = Table.AddColumn(Dados, "chave", each
+				        (if [revenda_id] = null then "" else Text.From([revenda_id]))
+				        & "|" &
+				        (if [colaborador_id] = null then "" else Text.From([colaborador_id])),
+				        type text)
+				in
+				    ComChave
+
+	annotation PBI_ResultType = Table
+

@@ -1,0 +1,10 @@
+expression Servidor = "aws-0-sa-east-1.pooler.supabase.com:5432" meta [IsParameterQuery=true, Type="Text", IsParameterQueryRequired=true]
+	lineageTag: 0001300e-54b7-4cdd-a0e5-4c341df8d970
+
+	annotation PBI_ResultType = Text
+
+expression Banco = "postgres" meta [IsParameterQuery=true, Type="Text", IsParameterQueryRequired=true]
+	lineageTag: f5ab081e-916d-44ab-9646-2fcfb4b6ec33
+
+	annotation PBI_ResultType = Text
+

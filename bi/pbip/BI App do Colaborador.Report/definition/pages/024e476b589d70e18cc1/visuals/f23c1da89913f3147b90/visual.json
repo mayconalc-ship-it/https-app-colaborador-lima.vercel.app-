@@ -1,0 +1,52 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.11.0/schema.json",
+  "name": "f23c1da89913f3147b90",
+  "position": {
+    "x": 16,
+    "y": 672,
+    "z": 6000,
+    "height": 30,
+    "width": 1248,
+    "tabOrder": 6000
+  },
+  "visual": {
+    "visualType": "textbox",
+    "objects": {
+      "general": [
+        {
+          "properties": {
+            "paragraphs": [
+              {
+                "textRuns": [
+                  {
+                    "value": "Os links só funcionam depois de definir bi.url_app() no 01-camada-semantica.sql — enquanto estiver nulo, a coluna Link fica vazia e vale o Caminho. O menu é editável pelo admin do app, então esta página acompanha sozinha.",
+                    "textStyle": {
+                      "fontSize": "8pt",
+                      "color": "#64748B"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "visualContainerObjects": {
+      "title": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "false"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "drillFilterOtherVisuals": true
+  }
+}

@@ -1,0 +1,215 @@
+/// Grao: um feedback. A nota em tres leituras (0..3, %, e o corte de ruim).
+table fato_feedback_rota
+	lineageTag: c8fc4eb2-264d-441e-b562-c08a2dc579bb
+
+	column feedback_id
+		dataType: int64
+		isHidden
+		formatString: 0
+		lineageTag: c425d146-af0c-4c14-94e5-4a974bcfc565
+		summarizeBy: sum
+		sourceColumn: feedback_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column revenda_id
+		dataType: string
+		isHidden
+		lineageTag: 47164f18-7d05-4267-8ec9-54f0a98f3373
+		summarizeBy: none
+		sourceColumn: revenda_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column colaborador_id
+		dataType: string
+		isHidden
+		lineageTag: 98f72010-cf09-491e-b87d-c2cb68d13220
+		summarizeBy: none
+		sourceColumn: colaborador_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column colaborador
+		dataType: string
+		lineageTag: d95f2a55-9c86-4cc6-99b3-0bbc8416c896
+		summarizeBy: none
+		sourceColumn: colaborador
+
+		annotation SummarizationSetBy = Automatic
+
+	column area
+		dataType: string
+		lineageTag: a1ed93b7-ddfa-4cc2-ac2e-86645321de28
+		summarizeBy: none
+		sourceColumn: area
+
+		annotation SummarizationSetBy = Automatic
+
+	column area_rotulo
+		dataType: string
+		lineageTag: 5c460e9f-cd63-415f-b63c-61802d72fe68
+		summarizeBy: none
+		sourceColumn: area_rotulo
+
+		annotation SummarizationSetBy = Automatic
+
+	column cargo
+		dataType: string
+		lineageTag: 0523321e-854a-435d-8fb3-ea0296ab0697
+		summarizeBy: none
+		sourceColumn: cargo
+
+		annotation SummarizationSetBy = Automatic
+
+	column rota
+		dataType: string
+		lineageTag: 5ab22900-a0a4-40e8-9181-e9b11827ce21
+		summarizeBy: none
+		sourceColumn: rota
+
+		annotation SummarizationSetBy = Automatic
+
+	column nota
+		dataType: int64
+		lineageTag: abf23711-2ac6-4d6e-b338-2126204ac2c9
+		summarizeBy: none
+		sourceColumn: nota
+
+		annotation SummarizationSetBy = Automatic
+
+	column nota_rotulo
+		dataType: string
+		lineageTag: b3ef8261-e594-4350-b3f2-9260430bd5a1
+		summarizeBy: none
+		sourceColumn: nota_rotulo
+
+		annotation SummarizationSetBy = Automatic
+
+	column nota_percentual
+		dataType: double
+		lineageTag: 431af0bc-339f-4507-957a-9394fc445f53
+		summarizeBy: sum
+		sourceColumn: nota_percentual
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column nota_ruim
+		dataType: boolean
+		lineageTag: a3a2bd1b-21e4-4018-8a6a-c4f94ec1aca9
+		summarizeBy: none
+		sourceColumn: nota_ruim
+
+		annotation SummarizationSetBy = Automatic
+
+	column nota_otima
+		dataType: boolean
+		lineageTag: cbb17491-92d2-4459-b336-647f1bb10c20
+		summarizeBy: none
+		sourceColumn: nota_otima
+
+		annotation SummarizationSetBy = Automatic
+
+	column qtd_ocorrencias
+		dataType: int64
+		lineageTag: cd8603ea-b711-4802-8f8d-0931a121bcb4
+		summarizeBy: none
+		sourceColumn: qtd_ocorrencias
+
+		annotation SummarizationSetBy = Automatic
+
+	column sem_ocorrencia
+		dataType: boolean
+		lineageTag: ac151c15-323c-498f-8c90-75c265aad92a
+		summarizeBy: none
+		sourceColumn: sem_ocorrencia
+
+		annotation SummarizationSetBy = Automatic
+
+	column comentario
+		dataType: string
+		lineageTag: ada9d5ca-d5f6-49be-8eda-9bda354eddf6
+		summarizeBy: none
+		sourceColumn: comentario
+
+		annotation SummarizationSetBy = Automatic
+
+	column tem_comentario
+		dataType: boolean
+		lineageTag: f1f8ef98-442e-4a0a-9323-4034a69ab163
+		summarizeBy: none
+		sourceColumn: tem_comentario
+
+		annotation SummarizationSetBy = Automatic
+
+	column tamanho_comentario
+		dataType: int64
+		lineageTag: 05d902f9-b709-4cf7-8c7f-deb19c027d51
+		summarizeBy: none
+		sourceColumn: tamanho_comentario
+
+		annotation SummarizationSetBy = Automatic
+
+	column criado_em
+		dataType: dateTime
+		formatString: dd/MM/yyyy
+		lineageTag: 5461b558-5fe6-4a58-b81c-b95efd1ed17e
+		summarizeBy: none
+		sourceColumn: criado_em
+
+		annotation SummarizationSetBy = Automatic
+
+	column data
+		dataType: dateTime
+		formatString: dd/MM/yyyy
+		lineageTag: 1b2b099d-4e43-46f8-82d7-aae064927534
+		summarizeBy: none
+		sourceColumn: data
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation UnderlyingDateTimeDataType = Date
+
+	column hora
+		dataType: int64
+		lineageTag: 07609e8e-4d2e-488f-9a9b-41e98aaf441d
+		summarizeBy: none
+		sourceColumn: hora
+
+		annotation SummarizationSetBy = Automatic
+
+	column tem_cinco_porques
+		dataType: boolean
+		lineageTag: 6ae24548-e348-4a87-ad47-5c01edaecb04
+		summarizeBy: none
+		sourceColumn: tem_cinco_porques
+
+		annotation SummarizationSetBy = Automatic
+
+	column chave
+		dataType: string
+		isHidden
+		lineageTag: 386ea02b-cf3e-49b9-ae47-ffff0a249c60
+		summarizeBy: none
+		sourceColumn: chave
+
+		annotation SummarizationSetBy = Automatic
+
+	partition fato_feedback_rota = m
+		mode: import
+		source =
+				let
+				    Origem = PostgreSQL.Database(Servidor, Banco),
+				    Dados = Origem{[Schema="bi",Item="fato_feedback_rota"]}[Data],
+				    ComChave = Table.AddColumn(Dados, "chave", each
+				        (if [revenda_id] = null then "" else Text.From([revenda_id]))
+				        & "|" &
+				        (if [colaborador_id] = null then "" else Text.From([colaborador_id])),
+				        type text)
+				in
+				    ComChave
+
+	annotation PBI_ResultType = Table
+

@@ -1,0 +1,65 @@
+/// Uma linha por revenda. Filtro global do relatorio.
+table dim_revenda
+	lineageTag: abeefc84-a8fb-4959-a6f0-28aafae206b0
+
+	column revenda_id
+		dataType: string
+		isHidden
+		lineageTag: 323e86d2-0c34-467d-b8ad-06173c6a9fbf
+		summarizeBy: none
+		sourceColumn: revenda_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column slug
+		dataType: string
+		lineageTag: 0ea39fa8-86c1-4e66-9df7-b4624ff867f7
+		summarizeBy: none
+		sourceColumn: slug
+
+		annotation SummarizationSetBy = Automatic
+
+	column revenda
+		dataType: string
+		lineageTag: 77089048-570e-4df3-b685-96a7a76e5d52
+		summarizeBy: none
+		sourceColumn: revenda
+
+		annotation SummarizationSetBy = Automatic
+
+	column ativa
+		dataType: boolean
+		lineageTag: 1a9ea807-e795-4d58-8660-f187454ae67d
+		summarizeBy: none
+		sourceColumn: ativa
+
+		annotation SummarizationSetBy = Automatic
+
+	column ordem
+		dataType: int64
+		lineageTag: debf2f7d-194c-40c4-a725-a21fa607828a
+		summarizeBy: none
+		sourceColumn: ordem
+
+		annotation SummarizationSetBy = Automatic
+
+	column criado_em
+		dataType: dateTime
+		formatString: dd/MM/yyyy
+		lineageTag: 602e9082-6418-4246-b77b-8d00482726eb
+		summarizeBy: none
+		sourceColumn: criado_em
+
+		annotation SummarizationSetBy = Automatic
+
+	partition dim_revenda = m
+		mode: import
+		source =
+				let
+				    Origem = PostgreSQL.Database(Servidor, Banco),
+				    Dados = Origem{[Schema="bi",Item="dim_revenda"]}[Data]
+				in
+				    Dados
+
+	annotation PBI_ResultType = Table
+

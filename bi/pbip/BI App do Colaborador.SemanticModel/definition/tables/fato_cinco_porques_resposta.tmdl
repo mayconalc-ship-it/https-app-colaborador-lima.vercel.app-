@@ -1,0 +1,118 @@
+/// Grao: analise x porque. Alimenta a cadeia causal nivel 1 -> 5.
+table fato_cinco_porques_resposta
+	lineageTag: 5a0e9d26-e558-4af1-8797-3f30e3a063aa
+
+	column analise_id
+		dataType: int64
+		isHidden
+		formatString: 0
+		lineageTag: c8be71a5-70fc-4229-baab-20a742ad6cb5
+		summarizeBy: sum
+		sourceColumn: analise_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column revenda_id
+		dataType: string
+		isHidden
+		lineageTag: 390967d9-59e0-4129-aba0-b65840c46513
+		summarizeBy: none
+		sourceColumn: revenda_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column problema
+		dataType: string
+		lineageTag: ca1faa47-cca6-42db-ba35-87051ab59e31
+		summarizeBy: none
+		sourceColumn: problema
+
+		annotation SummarizationSetBy = Automatic
+
+	column data
+		dataType: dateTime
+		formatString: dd/MM/yyyy
+		lineageTag: 8926ca04-e320-4584-a459-f3e35cce3f6d
+		summarizeBy: none
+		sourceColumn: data
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation UnderlyingDateTimeDataType = Date
+
+	column ordem
+		dataType: int64
+		lineageTag: 27663844-a79b-4584-b692-ce416cc00607
+		summarizeBy: none
+		sourceColumn: ordem
+
+		annotation SummarizationSetBy = Automatic
+
+	column nivel
+		dataType: int64
+		lineageTag: 8f8d1c09-a0d2-4329-be93-b891aecd0d6d
+		summarizeBy: none
+		sourceColumn: nivel
+
+		annotation SummarizationSetBy = Automatic
+
+	column nivel_rotulo
+		dataType: string
+		lineageTag: 82a15fb9-c16d-4e94-98e4-548db64ab00b
+		summarizeBy: none
+		sourceColumn: nivel_rotulo
+
+		annotation SummarizationSetBy = Automatic
+
+	column pergunta
+		dataType: string
+		lineageTag: 3f411bc2-9c19-45f2-99b6-0fa40579b98b
+		summarizeBy: none
+		sourceColumn: pergunta
+
+		annotation SummarizationSetBy = Automatic
+
+	column opcao_id
+		dataType: string
+		isHidden
+		lineageTag: cd41e0d4-0246-4c9b-ac5a-42b68892c630
+		summarizeBy: none
+		sourceColumn: opcao_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column resposta
+		dataType: string
+		lineageTag: e50cd4b6-ac48-4717-a301-fbde69706cdc
+		summarizeBy: none
+		sourceColumn: resposta
+
+		annotation SummarizationSetBy = Automatic
+
+	column texto_livre
+		dataType: string
+		lineageTag: c807d44b-4bdf-4c81-8836-ee288c3b6711
+		summarizeBy: none
+		sourceColumn: texto_livre
+
+		annotation SummarizationSetBy = Automatic
+
+	column escreveu_livre
+		dataType: boolean
+		lineageTag: fc1b67f4-fbf7-4d24-b848-e14e8cdd63ff
+		summarizeBy: none
+		sourceColumn: escreveu_livre
+
+		annotation SummarizationSetBy = Automatic
+
+	partition fato_cinco_porques_resposta = m
+		mode: import
+		source =
+				let
+				    Origem = PostgreSQL.Database(Servidor, Banco),
+				    Dados = Origem{[Schema="bi",Item="fato_cinco_porques_resposta"]}[Data]
+				in
+				    Dados
+
+	annotation PBI_ResultType = Table
+

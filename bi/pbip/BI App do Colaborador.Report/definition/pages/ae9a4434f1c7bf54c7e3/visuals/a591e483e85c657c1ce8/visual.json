@@ -1,0 +1,52 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.11.0/schema.json",
+  "name": "a591e483e85c657c1ce8",
+  "position": {
+    "x": 16,
+    "y": 672,
+    "z": 17000,
+    "height": 30,
+    "width": 1248,
+    "tabOrder": 17000
+  },
+  "visual": {
+    "visualType": "textbox",
+    "objects": {
+      "general": [
+        {
+          "properties": {
+            "paragraphs": [
+              {
+                "textRuns": [
+                  {
+                    "value": "O app NÃO registra abertura de comunicado — não existe rota por comunicado nem tabela de leitura. \"Cliques no aviso\" vem de notificacao_estado, que por desenho só ganha linha de quem interagiu com o sino: é PISO, nunca total. Curtida é o sinal confiável desta página. Não renomeie esse cartão para \"visualizações\".",
+                    "textStyle": {
+                      "fontSize": "8pt",
+                      "color": "#64748B"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "visualContainerObjects": {
+      "title": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "false"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "drillFilterOtherVisuals": true
+  }
+}

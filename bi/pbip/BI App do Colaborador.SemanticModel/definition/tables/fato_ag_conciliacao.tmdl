@@ -1,0 +1,142 @@
+/// Filtre parque_confiavel = true. ag_parque nao tem historico.
+table fato_ag_conciliacao
+	lineageTag: 63596bcc-9379-473e-ad96-957ae42fd3cd
+
+	column revenda_id
+		dataType: string
+		isHidden
+		lineageTag: 9f1a5495-a202-490f-8861-7e2f1e06b16b
+		summarizeBy: none
+		sourceColumn: revenda_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column data
+		dataType: dateTime
+		formatString: dd/MM/yyyy
+		lineageTag: 506f1588-52b8-45d3-bb79-a5c6d79f825d
+		summarizeBy: none
+		sourceColumn: data
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation UnderlyingDateTimeDataType = Date
+
+	column tipo
+		dataType: string
+		lineageTag: e5791b9d-69ae-44b9-88c6-4c979b466dbf
+		summarizeBy: none
+		sourceColumn: tipo
+
+		annotation SummarizationSetBy = Automatic
+
+	column formato
+		dataType: string
+		lineageTag: 926309e1-7be4-49e2-8378-bd6399725968
+		summarizeBy: none
+		sourceColumn: formato
+
+		annotation SummarizationSetBy = Automatic
+
+	column item
+		dataType: string
+		lineageTag: 4fda33fc-7993-4763-82d6-567b90a16317
+		summarizeBy: none
+		sourceColumn: item
+
+		annotation SummarizationSetBy = Automatic
+
+	column contado
+		dataType: int64
+		lineageTag: 73f9b914-4f77-498b-b868-b691fdded64a
+		summarizeBy: none
+		sourceColumn: contado
+
+		annotation SummarizationSetBy = Automatic
+
+	column linhas
+		dataType: int64
+		lineageTag: e97c3c3a-1446-4055-8114-f5edabe874c6
+		summarizeBy: none
+		sourceColumn: linhas
+
+		annotation SummarizationSetBy = Automatic
+
+	column contadores
+		dataType: int64
+		lineageTag: b0b28ad3-a469-4709-a4a1-dc768aa0f9b4
+		summarizeBy: none
+		sourceColumn: contadores
+
+		annotation SummarizationSetBy = Automatic
+
+	column parque
+		dataType: int64
+		lineageTag: 22fc82fa-4314-44bf-a47a-f5f9ea617482
+		summarizeBy: none
+		sourceColumn: parque
+
+		annotation SummarizationSetBy = Automatic
+
+	column diferenca
+		dataType: int64
+		lineageTag: cb2a5f9a-1825-455c-aacb-aaf5c3d93f8f
+		summarizeBy: none
+		sourceColumn: diferenca
+
+		annotation SummarizationSetBy = Automatic
+
+	column diferenca_abs
+		dataType: int64
+		lineageTag: e29061a5-244c-4f9e-9d49-0d18fa3c5870
+		summarizeBy: none
+		sourceColumn: diferenca_abs
+
+		annotation SummarizationSetBy = Automatic
+
+	column diferenca_pct
+		dataType: double
+		lineageTag: 760f2355-8d47-467d-a77b-2270c97a3f15
+		summarizeBy: sum
+		sourceColumn: diferenca_pct
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column resultado
+		dataType: string
+		lineageTag: f8eca782-53d3-42ff-9f78-196e75c1a8c3
+		summarizeBy: none
+		sourceColumn: resultado
+
+		annotation SummarizationSetBy = Automatic
+
+	column parque_atualizado_em
+		dataType: dateTime
+		formatString: dd/MM/yyyy
+		lineageTag: d636eac7-66c2-4f9d-91ca-073a596d18e5
+		summarizeBy: none
+		sourceColumn: parque_atualizado_em
+
+		annotation SummarizationSetBy = Automatic
+
+	column parque_confiavel
+		dataType: boolean
+		lineageTag: 877d4a12-b614-4c1d-b7cf-8418b66b3747
+		summarizeBy: none
+		sourceColumn: parque_confiavel
+
+		annotation SummarizationSetBy = Automatic
+
+	partition fato_ag_conciliacao = m
+		mode: import
+		source =
+				let
+				    Origem = PostgreSQL.Database(Servidor, Banco),
+				    Dados = Origem{[Schema="bi",Item="fato_ag_conciliacao"]}[Data]
+				in
+				    Dados
+
+	annotation PBI_ResultType = Table
+

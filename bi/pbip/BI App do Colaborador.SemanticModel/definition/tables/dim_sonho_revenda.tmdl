@@ -1,0 +1,150 @@
+/// Contexto do Sonho da Revenda. Nao ha meta nem realizado no banco.
+table dim_sonho_revenda
+	lineageTag: f6c0e523-806a-42d4-860e-61b8f84984d9
+
+	column sonho_id
+		dataType: int64
+		isHidden
+		formatString: 0
+		lineageTag: 9ead8e59-5429-4079-bee8-a30b2dc2cc78
+		summarizeBy: sum
+		sourceColumn: sonho_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column revenda_id
+		dataType: string
+		isHidden
+		lineageTag: 585b460e-ba5b-490b-a446-1d2233c0d7fa
+		summarizeBy: none
+		sourceColumn: revenda_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column ano
+		dataType: int64
+		lineageTag: 8807d2a0-deca-46b0-b2cb-a51617f41318
+		summarizeBy: none
+		sourceColumn: ano
+
+		annotation SummarizationSetBy = Automatic
+
+	column titulo
+		dataType: string
+		lineageTag: 57fe880a-0c4f-411e-a958-d28c6098eabd
+		summarizeBy: none
+		sourceColumn: titulo
+
+		annotation SummarizationSetBy = Automatic
+
+	column frase
+		dataType: string
+		lineageTag: c7afc147-d24a-4853-937b-328c79482533
+		summarizeBy: none
+		sourceColumn: frase
+
+		annotation SummarizationSetBy = Automatic
+
+	column tipo
+		dataType: string
+		lineageTag: cab38044-2090-464e-a992-142f2cd4782f
+		summarizeBy: none
+		sourceColumn: tipo
+
+		annotation SummarizationSetBy = Automatic
+
+	column ativo
+		dataType: boolean
+		lineageTag: cb08de6e-70e5-4079-b0b8-10f7f7017e7d
+		summarizeBy: none
+		sourceColumn: ativo
+
+		annotation SummarizationSetBy = Automatic
+
+	column arquivo_url
+		dataType: string
+		lineageTag: 599a6776-587d-4cb2-9a54-837147a776b7
+		summarizeBy: none
+		sourceColumn: arquivo_url
+
+		annotation SummarizationSetBy = Automatic
+
+	column tem_quadro_indicadores
+		dataType: boolean
+		lineageTag: 596a523b-9de5-44b0-86d2-bd7090f2aee1
+		summarizeBy: none
+		sourceColumn: tem_quadro_indicadores
+
+		annotation SummarizationSetBy = Automatic
+
+	column quadro_indicadores_url
+		dataType: string
+		lineageTag: 67076f84-f1b9-42df-a2f5-577c6627331e
+		summarizeBy: none
+		sourceColumn: quadro_indicadores_url
+
+		annotation SummarizationSetBy = Automatic
+
+	column criado_em
+		dataType: dateTime
+		formatString: dd/MM/yyyy
+		lineageTag: 0deeea29-97d5-430a-a3a9-ac64fd1663fe
+		summarizeBy: none
+		sourceColumn: criado_em
+
+		annotation SummarizationSetBy = Automatic
+
+	column data_publicacao
+		dataType: dateTime
+		formatString: dd/MM/yyyy
+		lineageTag: 47b7efdb-ccc8-436f-90b6-2ca5288bc6ca
+		summarizeBy: none
+		sourceColumn: data_publicacao
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation UnderlyingDateTimeDataType = Date
+
+	column inicio_ano
+		dataType: dateTime
+		formatString: dd/MM/yyyy
+		lineageTag: 3c1ef38c-2cd1-4797-8983-94e0dfeac4db
+		summarizeBy: none
+		sourceColumn: inicio_ano
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation UnderlyingDateTimeDataType = Date
+
+	column fim_ano
+		dataType: dateTime
+		formatString: dd/MM/yyyy
+		lineageTag: 1b2e37ad-62d2-4c4b-b6b5-a9c165340ad9
+		summarizeBy: none
+		sourceColumn: fim_ano
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation UnderlyingDateTimeDataType = Date
+
+	column ano_decorrido
+		dataType: double
+		lineageTag: e9250bb4-83d6-460b-b2ff-8e182e32666b
+		summarizeBy: sum
+		sourceColumn: ano_decorrido
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	partition dim_sonho_revenda = m
+		mode: import
+		source =
+				let
+				    Origem = PostgreSQL.Database(Servidor, Banco),
+				    Dados = Origem{[Schema="bi",Item="dim_sonho_revenda"]}[Data]
+				in
+				    Dados
+
+	annotation PBI_ResultType = Table
+

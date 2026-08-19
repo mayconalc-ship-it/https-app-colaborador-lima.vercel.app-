@@ -1,0 +1,88 @@
+/// Sem revenda_id na origem -- liga so no calendario.
+table fato_uso_sessao
+	lineageTag: 8f394f60-f172-4083-bcfd-99eba6dcb343
+
+	column sessao_id
+		dataType: string
+		isHidden
+		lineageTag: 77cb284a-5f8d-41ad-b556-957f382e0aa7
+		summarizeBy: none
+		sourceColumn: sessao_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column colaborador_id
+		dataType: string
+		isHidden
+		lineageTag: f808e642-15ac-43f9-8cc3-8083b5c52d13
+		summarizeBy: none
+		sourceColumn: colaborador_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column colaborador
+		dataType: string
+		lineageTag: a47ea04a-7b25-4c6d-8092-70058cec65d5
+		summarizeBy: none
+		sourceColumn: colaborador
+
+		annotation SummarizationSetBy = Automatic
+
+	column iniciada_em
+		dataType: dateTime
+		formatString: dd/MM/yyyy
+		lineageTag: ce24eb01-c5dd-4442-913d-685966e0bd1a
+		summarizeBy: none
+		sourceColumn: iniciada_em
+
+		annotation SummarizationSetBy = Automatic
+
+	column ultima_atividade
+		dataType: dateTime
+		formatString: dd/MM/yyyy
+		lineageTag: f0200a5d-2841-4d5d-8181-0dc6f787fb31
+		summarizeBy: none
+		sourceColumn: ultima_atividade
+
+		annotation SummarizationSetBy = Automatic
+
+	column segundos
+		dataType: int64
+		lineageTag: d885b256-856e-4a0b-bf69-ab0f037fe5dc
+		summarizeBy: none
+		sourceColumn: segundos
+
+		annotation SummarizationSetBy = Automatic
+
+	column minutos
+		dataType: double
+		lineageTag: d978958e-ba60-4115-b1d3-7099f3c138d5
+		summarizeBy: sum
+		sourceColumn: minutos
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column data
+		dataType: dateTime
+		formatString: dd/MM/yyyy
+		lineageTag: 837e385e-b39a-4933-a1c8-b921f99299d9
+		summarizeBy: none
+		sourceColumn: data
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation UnderlyingDateTimeDataType = Date
+
+	partition fato_uso_sessao = m
+		mode: import
+		source =
+				let
+				    Origem = PostgreSQL.Database(Servidor, Banco),
+				    Dados = Origem{[Schema="bi",Item="fato_uso_sessao"]}[Data]
+				in
+				    Dados
+
+	annotation PBI_ResultType = Table
+

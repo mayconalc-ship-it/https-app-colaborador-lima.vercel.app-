@@ -1,0 +1,82 @@
+/// Grao: revenda x data x colaborador x modulo. So contagem de interacoes.
+table fato_atividade
+	lineageTag: d533049e-2ad6-4df7-a5c1-6c9553dd7551
+
+	column revenda_id
+		dataType: string
+		isHidden
+		lineageTag: 97e80721-7e49-44d0-984f-227892189a30
+		summarizeBy: none
+		sourceColumn: revenda_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column data
+		dataType: dateTime
+		formatString: dd/MM/yyyy
+		lineageTag: e85a377b-fb46-4d6c-abc0-2833a0cca583
+		summarizeBy: none
+		sourceColumn: data
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation UnderlyingDateTimeDataType = Date
+
+	column colaborador_id
+		dataType: string
+		isHidden
+		lineageTag: c5077079-5035-42c6-95dc-bcee02c468ad
+		summarizeBy: none
+		sourceColumn: colaborador_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column colaborador
+		dataType: string
+		lineageTag: 46682422-9d52-4086-b2ca-09ff8965be95
+		summarizeBy: none
+		sourceColumn: colaborador
+
+		annotation SummarizationSetBy = Automatic
+
+	column modulo
+		dataType: string
+		lineageTag: be3ab89c-b562-4dcf-9216-5cb847875c94
+		summarizeBy: none
+		sourceColumn: modulo
+
+		annotation SummarizationSetBy = Automatic
+
+	column interacoes
+		dataType: int64
+		lineageTag: c2d14e72-faf9-4bc9-b973-d776782e5b8a
+		summarizeBy: none
+		sourceColumn: interacoes
+
+		annotation SummarizationSetBy = Automatic
+
+	column chave
+		dataType: string
+		isHidden
+		lineageTag: a29d6b25-a9e1-4ab0-8d47-8863863737d1
+		summarizeBy: none
+		sourceColumn: chave
+
+		annotation SummarizationSetBy = Automatic
+
+	partition fato_atividade = m
+		mode: import
+		source =
+				let
+				    Origem = PostgreSQL.Database(Servidor, Banco),
+				    Dados = Origem{[Schema="bi",Item="fato_atividade"]}[Data],
+				    ComChave = Table.AddColumn(Dados, "chave", each
+				        (if [revenda_id] = null then "" else Text.From([revenda_id]))
+				        & "|" &
+				        (if [colaborador_id] = null then "" else Text.From([colaborador_id])),
+				        type text)
+				in
+				    ComChave
+
+	annotation PBI_ResultType = Table
+

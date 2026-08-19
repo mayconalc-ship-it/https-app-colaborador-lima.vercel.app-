@@ -1,0 +1,615 @@
+// ==================================================================
+// MEDIDAS DO BI DO APP DO COLABORADOR
+// ==================================================================
+// Como usar (Power BI Desktop, versão de 2024 em diante):
+//
+//   1. Crie antes a tabela _Medidas:
+//      Página Inicial > Inserir dados > nomeie "_Medidas" > OK.
+//   2. Barra lateral esquerda > ícone "Exibição de consulta DAX".
+//   3. Cole ESTE ARQUIVO INTEIRO na consulta.
+//   4. Acima de cada MEASURE aparece o link "Atualizar modelo: adicionar
+//      nova medida". Clique em cada um -- ou use o botão do topo para
+//      aplicar todas de uma vez, se a sua versão oferecer.
+//   5. Depois de aplicadas, oculte a coluna "Coluna1" da _Medidas.
+//
+// Se a sua versão do Desktop não tiver a exibição de consulta DAX, o
+// caminho alternativo é o Tabular Editor 2 (gratuito, aba Ferramentas
+// Externas) -- ou colar uma a uma em Modelagem > Nova medida.
+//
+// As medidas se referenciam entre si. Se aplicar em ordem diferente da
+// do arquivo, algumas acusam erro até a dependência existir; reaplique
+// no fim e o erro some.
+//
+// Nomes de tabela assumidos: os das views do esquema bi, sem prefixo
+// (fato_ag_contagem, dim_calendario...). Se você renomeou algo no Power
+// Query, ajuste aqui antes de colar.
+
+DEFINE
+
+// ------------------------------------------------------------------
+// EXECUTIVO
+// ------------------------------------------------------------------
+
+MEASURE '_Medidas'[Colaboradores] =
+    DISTINCTCOUNT ( dim_colaborador[colaborador_id] )
+
+MEASURE '_Medidas'[Colaboradores ativos] =
+    DISTINCTCOUNT ( fato_atividade[colaborador_id] )
+
+MEASURE '_Medidas'[% Adesão] =
+    DIVIDE ( [Colaboradores ativos], [Colaboradores] )
+
+MEASURE '_Medidas'[Interações] =
+    SUM ( fato_atividade[interacoes] )
+
+MEASURE '_Medidas'[Módulos usados] =
+    DISTINCTCOUNT ( fato_atividade[modulo] )
+
+MEASURE '_Medidas'[% Adesão mês anterior] =
+    CALCULATE ( [% Adesão], DATEADD ( dim_calendario[data], -1, MONTH ) )
+
+MEASURE '_Medidas'[Δ Adesão] =
+    VAR Atual = [% Adesão]
+    VAR Anterior = [% Adesão mês anterior]
+    RETURN IF ( NOT ISBLANK ( Anterior ), Atual - Anterior )
+
+// Quem não abriu o app no período. Costuma ser o número mais acionável
+// do relatório inteiro -- e é o que nenhum gráfico de volume mostra.
+MEASURE '_Medidas'[Colaboradores sem atividade] =
+    [Colaboradores] - [Colaboradores ativos]
+
+// --- Média vs. última semana válida --------------------------------
+// "Válida" = semana com pelo menos um registro. A semana corrente,
+// ainda pela metade, é descartada de propósito: incluí-la faz o
+// indicador despencar toda segunda-feira por motivo nenhum.
+
+MEASURE '_Medidas'[Interações — média semanal] =
+    VAR Semanas =
+        ADDCOLUMNS (
+            ALLSELECTED ( dim_calendario[inicio_semana] ),
+            "@Qtd", CALCULATE ( [Interações] )
+        )
+    RETURN
+        AVERAGEX ( FILTER ( Semanas, [@Qtd] > 0 ), [@Qtd] )
+
+MEASURE '_Medidas'[Interações — última semana válida] =
+    VAR InicioSemanaAtual = TODAY () - WEEKDAY ( TODAY (), 3 )
+    VAR Semanas =
+        FILTER (
+            ADDCOLUMNS (
+                FILTER (
+                    ALLSELECTED ( dim_calendario[inicio_semana] ),
+                    dim_calendario[inicio_semana] < InicioSemanaAtual
+                ),
+                "@Qtd", CALCULATE ( [Interações] )
+            ),
+            [@Qtd] > 0
+        )
+    VAR Ultima = MAXX ( Semanas, dim_calendario[inicio_semana] )
+    RETURN
+        MAXX ( FILTER ( Semanas, dim_calendario[inicio_semana] = Ultima ), [@Qtd] )
+
+MEASURE '_Medidas'[Δ Última semana vs. média] =
+    DIVIDE (
+        [Interações — última semana válida] - [Interações — média semanal],
+        [Interações — média semanal]
+    )
+
+// ------------------------------------------------------------------
+// ATIVO DE GIRO
+// ------------------------------------------------------------------
+
+MEASURE '_Medidas'[Contagens] =
+    COUNTROWS ( fato_ag_contagem )
+
+MEASURE '_Medidas'[Contadores] =
+    DISTINCTCOUNT ( fato_ag_contagem[colaborador_id] )
+
+MEASURE '_Medidas'[Dias com contagem] =
+    DISTINCTCOUNT ( fato_ag_contagem[data] )
+
+MEASURE '_Medidas'[Total em caixas] =
+    SUM ( fato_ag_contagem[total_caixas] )
+
+MEASURE '_Medidas'[% Participação AG] =
+    DIVIDE ( [Contadores], [Colaboradores] )
+
+MEASURE '_Medidas'[% Lançado no dia] =
+    DIVIDE (
+        CALCULATE ( [Contagens], fato_ag_contagem[lancado_no_dia] = TRUE () ),
+        [Contagens]
+    )
+
+MEASURE '_Medidas'[Atraso médio (dias)] =
+    AVERAGE ( fato_ag_contagem[atraso_dias] )
+
+// Sinalizador de dado quebrado: se acender, falta cadastrar fator de
+// conversão de algum formato e o total em caixas está subestimado.
+MEASURE '_Medidas'[Linhas sem fator] =
+    CALCULATE ( [Contagens], fato_ag_contagem[fator_ausente] = TRUE () )
+
+// O filtro parque_confiavel é obrigatório: sem ele a divergência de um
+// dia passado é comparada com o saldo de parque de hoje.
+MEASURE '_Medidas'[Divergência absoluta] =
+    CALCULATE (
+        SUM ( fato_ag_conciliacao[diferenca_abs] ),
+        fato_ag_conciliacao[parque_confiavel] = TRUE ()
+    )
+
+MEASURE '_Medidas'[Itens conciliados] =
+    CALCULATE (
+        COUNTROWS ( fato_ag_conciliacao ),
+        fato_ag_conciliacao[parque_confiavel] = TRUE ()
+    )
+
+MEASURE '_Medidas'[% Itens que bateram] =
+    DIVIDE (
+        CALCULATE (
+            COUNTROWS ( fato_ag_conciliacao ),
+            fato_ag_conciliacao[parque_confiavel] = TRUE (),
+            fato_ag_conciliacao[resultado] = "Bateu"
+        ),
+        [Itens conciliados]
+    )
+
+MEASURE '_Medidas'[Maior divergência] =
+    CALCULATE (
+        MAX ( fato_ag_conciliacao[diferenca_abs] ),
+        fato_ag_conciliacao[parque_confiavel] = TRUE ()
+    )
+
+// --- Painel do app -------------------------------------------------
+// Reproduz a aba "Painel" de /ativo-de-giro. O objetivo é que o número
+// da tela e o número do BI sejam o mesmo número — se divergirem, alguém
+// vai passar a auditar os dois no Excel.
+
+MEASURE '_Medidas'[Caixas de garrafeira] =
+    CALCULATE (
+        [Total em caixas],
+        fato_ag_contagem[tipo] = "GFE sem Garrafa"
+    )
+
+// paletesEquivalentes() divide o total JÁ SOMADO do formato pelo fator
+// daquele formato. Por isso o SUMX por formato: somar a coluna
+// paletes_equivalentes acumularia o arredondamento de cada linha, e a
+// tela mostraria 12,4 onde o BI mostraria 12,6.
+MEASURE '_Medidas'[Paletes de garrafeira] =
+    SUMX (
+        VALUES ( fato_ag_contagem[formato] ),
+        DIVIDE (
+            CALCULATE ( [Caixas de garrafeira] ),
+            CALCULATE ( MAX ( fato_ag_contagem[fator_palete] ) )
+        )
+    )
+
+// --- Aderência ao processo -----------------------------------------
+// "Ocorrências de contagem" é quantas VEZES se contou, não quanto se
+// contou. É o que responde se a revenda está mantendo a rotina — volume
+// alto num dia só não é aderência.
+
+MEASURE '_Medidas'[Ocorrências de contagem] =
+    COUNTROWS ( fato_ag_contagem )
+
+MEASURE '_Medidas'[Dias úteis no período] =
+    CALCULATE (
+        COUNTROWS ( dim_calendario ),
+        dim_calendario[fim_de_semana] = FALSE (),
+        dim_calendario[ja_aconteceu] = TRUE ()
+    )
+
+MEASURE '_Medidas'[% Dias com contagem] =
+    DIVIDE ( [Dias com contagem], [Dias úteis no período] )
+
+MEASURE '_Medidas'[Recontagens pendentes] =
+    CALCULATE (
+        COUNTROWS ( fato_ag_recontagem ),
+        fato_ag_recontagem[situacao] = "Pendente"
+    )
+
+MEASURE '_Medidas'[Horas médias p/ atender] =
+    AVERAGE ( fato_ag_recontagem[horas_para_atender] )
+
+// ------------------------------------------------------------------
+// FEEDBACK DE ROTA
+// ------------------------------------------------------------------
+
+MEASURE '_Medidas'[Feedbacks] =
+    COUNTROWS ( fato_feedback_rota )
+
+MEASURE '_Medidas'[Nota média] =
+    AVERAGE ( fato_feedback_rota[nota] )
+
+MEASURE '_Medidas'[% Satisfação] =
+    AVERAGE ( fato_feedback_rota[nota_percentual] )
+
+MEASURE '_Medidas'[% Notas ruins] =
+    DIVIDE (
+        CALCULATE ( [Feedbacks], fato_feedback_rota[nota_ruim] = TRUE () ),
+        [Feedbacks]
+    )
+
+MEASURE '_Medidas'[Motoristas que responderam] =
+    DISTINCTCOUNT ( fato_feedback_rota[colaborador_id] )
+
+MEASURE '_Medidas'[Rotas avaliadas] =
+    DISTINCTCOUNT ( fato_feedback_rota[rota] )
+
+MEASURE '_Medidas'[% Com comentário] =
+    DIVIDE (
+        CALCULATE ( [Feedbacks], fato_feedback_rota[tem_comentario] = TRUE () ),
+        [Feedbacks]
+    )
+
+// A view de ocorrências é explodida (um feedback com 3 ocorrências vira
+// 3 linhas). Contar linhas aqui triplicaria o volume.
+MEASURE '_Medidas'[Feedbacks com ocorrência] =
+    DISTINCTCOUNT ( fato_feedback_ocorrencia[feedback_id] )
+
+MEASURE '_Medidas'[Ocorrências relatadas] =
+    COUNTROWS ( fato_feedback_ocorrencia )
+
+MEASURE '_Medidas'[% Rotas com ocorrência] =
+    DIVIDE ( [Feedbacks com ocorrência], [Feedbacks] )
+
+// O corte de 3 feedbacks é proposital: uma rota com um único feedback
+// ruim viraria "a pior rota da revenda" e queimaria a credibilidade do
+// painel na primeira reunião.
+MEASURE '_Medidas'[Rota mais crítica] =
+    VAR Rotas =
+        ADDCOLUMNS (
+            VALUES ( fato_feedback_rota[rota] ),
+            "@Nota", CALCULATE ( AVERAGE ( fato_feedback_rota[nota] ) ),
+            "@Qtd", CALCULATE ( COUNTROWS ( fato_feedback_rota ) )
+        )
+    VAR Elegiveis = FILTER ( Rotas, [@Qtd] >= 3 )
+    RETURN
+        MAXX ( TOPN ( 1, Elegiveis, [@Nota], ASC ), fato_feedback_rota[rota] )
+
+// ------------------------------------------------------------------
+// CINCO PORQUÊS
+// ------------------------------------------------------------------
+
+MEASURE '_Medidas'[Análises] =
+    COUNTROWS ( fato_cinco_porques )
+
+MEASURE '_Medidas'[Análises concluídas] =
+    CALCULATE ( [Análises], fato_cinco_porques[concluida] = TRUE () )
+
+MEASURE '_Medidas'[% Conclusão] =
+    DIVIDE ( [Análises concluídas], [Análises] )
+
+MEASURE '_Medidas'[% Chegou ao 5º porquê] =
+    DIVIDE (
+        CALCULATE ( [Análises], fato_cinco_porques[chegou_ao_quinto] = TRUE () ),
+        [Análises concluídas]
+    )
+
+MEASURE '_Medidas'[Profundidade média] =
+    AVERAGE ( fato_cinco_porques[profundidade] )
+
+// O par que decide se o módulo sobrevive: análise concluída que ninguém
+// responde ensina o time a não preencher a próxima.
+MEASURE '_Medidas'[Aguardando tratativa] =
+    CALCULATE (
+        [Análises],
+        fato_cinco_porques[concluida] = TRUE (),
+        fato_cinco_porques[tratada] = FALSE ()
+    )
+
+MEASURE '_Medidas'[Horas médias até resposta] =
+    AVERAGE ( fato_cinco_porques[horas_ate_resposta] )
+
+MEASURE '_Medidas'[% Aceite do motorista] =
+    DIVIDE (
+        CALCULATE ( [Análises], fato_cinco_porques[motorista_aceitou] = TRUE () ),
+        CALCULATE ( [Análises], fato_cinco_porques[respondida_lideranca] = TRUE () )
+    )
+
+MEASURE '_Medidas'[Causa raiz mais frequente] =
+    VAR Causas =
+        ADDCOLUMNS (
+            VALUES ( fato_cinco_porques[categoria] ),
+            "@Qtd", CALCULATE ( COUNTROWS ( fato_cinco_porques ) )
+        )
+    RETURN
+        MAXX ( TOPN ( 1, Causas, [@Qtd], DESC ), fato_cinco_porques[categoria] )
+
+// ------------------------------------------------------------------
+// PLANO DE COMUNICAÇÃO
+// ------------------------------------------------------------------
+
+MEASURE '_Medidas'[Comunicados publicados] =
+    COUNTROWS ( fato_comunicado )
+
+MEASURE '_Medidas'[Curtidas] =
+    SUM ( fato_comunicado[curtidas] )
+
+MEASURE '_Medidas'[Curtidas por comunicado] =
+    DIVIDE ( [Curtidas], [Comunicados publicados] )
+
+MEASURE '_Medidas'[Taxa média de curtida] =
+    AVERAGE ( fato_comunicado[taxa_curtida] )
+
+MEASURE '_Medidas'[Colaboradores que interagiram] =
+    DISTINCTCOUNT ( fato_comunicado_curtida[colaborador_id] )
+
+MEASURE '_Medidas'[% Participação na comunicação] =
+    DIVIDE ( [Colaboradores que interagiram], [Colaboradores] )
+
+// PISO, não total: vem de notificacao_estado, que por desenho só ganha
+// linha de quem interagiu com o sino. O app não registra abertura de
+// comunicado. Mantenha o "(piso)" no rótulo do visual.
+MEASURE '_Medidas'[Cliques no aviso (piso)] =
+    SUM ( fato_comunicado[avisos_clicados] )
+
+MEASURE '_Medidas'[Dias até curtir (mediana)] =
+    MEDIANX ( fato_comunicado_curtida, fato_comunicado_curtida[dias_ate_curtir] )
+
+// ------------------------------------------------------------------
+// QUIZ
+// ------------------------------------------------------------------
+
+MEASURE '_Medidas'[Participações] =
+    COUNTROWS ( fato_quiz_participacao )
+
+MEASURE '_Medidas'[Participações concluídas] =
+    CALCULATE ( [Participações], fato_quiz_participacao[concluida] = TRUE () )
+
+MEASURE '_Medidas'[Participantes únicos] =
+    DISTINCTCOUNT ( fato_quiz_participacao[colaborador_id] )
+
+MEASURE '_Medidas'[Rodadas] =
+    DISTINCTCOUNT ( fato_quiz_participacao[rodada_id] )
+
+// Elegibilidade já vem resolvida da view (área da rodada + role
+// colaborador). Recalcular em DAX duplicaria a regra.
+MEASURE '_Medidas'[Taxa de participação] =
+    DIVIDE (
+        SUM ( fato_quiz_rodada_participacao[concluidas] ),
+        SUM ( fato_quiz_rodada_participacao[elegiveis] )
+    )
+
+MEASURE '_Medidas'[Aproveitamento médio] =
+    AVERAGE ( fato_quiz_participacao[aproveitamento] )
+
+MEASURE '_Medidas'[Pontos] =
+    SUM ( fato_quiz_participacao[pontos] )
+
+MEASURE '_Medidas'[Acertos] =
+    SUM ( fato_quiz_participacao[acertos] )
+
+MEASURE '_Medidas'[Erros] =
+    SUM ( fato_quiz_participacao[erros] )
+
+MEASURE '_Medidas'[Tempo médio por pergunta (s)] =
+    AVERAGE ( fato_quiz_participacao[segundos_por_pergunta] )
+
+MEASURE '_Medidas'[Posição na temporada] =
+    IF (
+        NOT ISBLANK ( [Pontos] ),
+        RANKX (
+            ALLSELECTED ( fato_quiz_participacao[colaborador] ),
+            [Pontos],
+            ,
+            DESC,
+            DENSE
+        )
+    )
+
+// Medalha como TEXTO, e não como formatação condicional de célula.
+// Duas razões: o emoji sobrevive a exportação para Excel e PDF, onde a
+// cor de fundo se perde; e formatação condicional por valor de categoria
+// exige um seletor no PBIR cuja forma eu não consegui verificar — errar
+// ali trava o arquivo inteiro por um ganho estético.
+MEASURE '_Medidas'[Medalha] =
+    SWITCH (
+        [Posição na temporada],
+        1, "🥇",
+        2, "🥈",
+        3, "🥉",
+        ""
+    )
+
+// Use fato_quiz_resposta, e NÃO os contadores de dim_quiz_questao:
+// aqueles são vitalícios e ignoram filtro de data.
+MEASURE '_Medidas'[Taxa de erro (período)] =
+    DIVIDE (
+        CALCULATE (
+            COUNTROWS ( fato_quiz_resposta ),
+            fato_quiz_resposta[errou] = TRUE ()
+        ),
+        COUNTROWS ( fato_quiz_resposta )
+    )
+
+// Corte de 5 respostas: sem ele, uma pergunta respondida uma vez por
+// alguém que errou aparece como 100% de erro no topo da lista.
+MEASURE '_Medidas'[Questões críticas] =
+    VAR Questoes =
+        ADDCOLUMNS (
+            VALUES ( fato_quiz_resposta[questao_id] ),
+            "@Erro", [Taxa de erro (período)],
+            "@Respostas", CALCULATE ( COUNTROWS ( fato_quiz_resposta ) )
+        )
+    RETURN
+        COUNTROWS ( FILTER ( Questoes, [@Erro] > 0.4 && [@Respostas] >= 5 ) )
+
+// ------------------------------------------------------------------
+// SUPER MATINAL
+// ------------------------------------------------------------------
+// Só disciplina de publicação -- ranking e pontuação não existem no
+// banco (a pontuação está dentro da imagem). Ver LEIA-ME.md, "Lacunas".
+
+MEASURE '_Medidas'[Quadros publicados] =
+    COUNTROWS ( fato_ranking_matinal )
+
+MEASURE '_Medidas'[Meses com publicação] =
+    DISTINCTCOUNT ( fato_ranking_matinal[mes_ano] )
+
+MEASURE '_Medidas'[% Cobertura da publicação] =
+    DIVIDE (
+        CALCULATE (
+            COUNTROWS ( fato_ranking_matinal_cobertura ),
+            fato_ranking_matinal_cobertura[publicado] = TRUE ()
+        ),
+        COUNTROWS ( fato_ranking_matinal_cobertura )
+    )
+
+// ------------------------------------------------------------------
+// PROGRAMA 5S
+// ------------------------------------------------------------------
+// A conformidade NÃO é recalculada aqui. Ela vem consolidada da view,
+// que por sua vez lê o que o app gravou quando a auditoria foi
+// finalizada -- a regra mora em public.cinco_s_taxa e em lugar nenhum
+// mais. Reescrevê-la em DAX daria uma segunda fórmula para manter em
+// dia, e no dia em que a operação decidisse tratar "N/A" de outro jeito,
+// a tela do celular e o relatório passariam a discordar sem aviso.
+//
+// O que as medidas fazem é SOMAR os itens e dividir -- que é o jeito
+// certo de agregar percentual. Fazer AVERAGE da conformidade das
+// auditorias trataria uma área com 4 itens avaliados igual a outra com
+// 25, e a média da revenda sairia errada sempre que uma área marcasse
+// muito "não se aplica".
+
+MEASURE '_Medidas'[Itens conformes] =
+    SUM ( fato_5s_auditoria[itens_ok] )
+
+MEASURE '_Medidas'[Itens não conformes] =
+    SUM ( fato_5s_auditoria[itens_nok] )
+
+MEASURE '_Medidas'[Itens avaliados] =
+    SUM ( fato_5s_auditoria[itens_avaliados] )
+
+MEASURE '_Medidas'[% Conformidade 5S] =
+    DIVIDE ( [Itens conformes], [Itens avaliados] )
+
+MEASURE '_Medidas'[Auditorias planejadas] =
+    COUNTROWS ( fato_5s_auditoria )
+
+MEASURE '_Medidas'[Auditorias realizadas] =
+    CALCULATE (
+        COUNTROWS ( fato_5s_auditoria ),
+        fato_5s_auditoria[realizada] = TRUE ()
+    )
+
+MEASURE '_Medidas'[Auditorias pendentes] =
+    [Auditorias planejadas] - [Auditorias realizadas]
+
+// Aderência é o indicador que sustenta todos os outros: 95% de
+// conformidade em 3 áreas de 19 auditadas não diz nada sobre a revenda.
+MEASURE '_Medidas'[% Aderência ao plano] =
+    DIVIDE ( [Auditorias realizadas], [Auditorias planejadas] )
+
+MEASURE '_Medidas'[Auditorias atrasadas] =
+    CALCULATE (
+        COUNTROWS ( fato_5s_auditoria ),
+        fato_5s_auditoria[atrasada] = TRUE ()
+    )
+
+MEASURE '_Medidas'[Áreas auditadas] =
+    CALCULATE (
+        DISTINCTCOUNT ( fato_5s_auditoria[area_5s_id] ),
+        fato_5s_auditoria[realizada] = TRUE ()
+    )
+
+// Áreas que existem e não foram auditadas no período. É o buraco que
+// nenhum gráfico de conformidade mostra -- área não auditada não puxa
+// média nenhuma para baixo, ela simplesmente some do relatório.
+MEASURE '_Medidas'[Áreas sem auditoria] =
+    VAR Ativas =
+        CALCULATE ( DISTINCTCOUNT ( dim_5s_area[area_5s_id] ), dim_5s_area[ativa] = TRUE () )
+    RETURN Ativas - [Áreas auditadas]
+
+MEASURE '_Medidas'[% Conformidade mês anterior] =
+    CALCULATE ( [% Conformidade 5S], DATEADD ( dim_calendario[data], -1, MONTH ) )
+
+MEASURE '_Medidas'[Δ Conformidade 5S] =
+    VAR Atual = [% Conformidade 5S]
+    VAR Anterior = [% Conformidade mês anterior]
+    RETURN IF ( NOT ISBLANK ( Anterior ), Atual - Anterior )
+
+// ---- Plano de ação ----
+
+MEASURE '_Medidas'[Não conformidades] =
+    COUNTROWS ( fato_5s_acao )
+
+MEASURE '_Medidas'[NC em aberto] =
+    CALCULATE ( COUNTROWS ( fato_5s_acao ), fato_5s_acao[em_aberto] = TRUE () )
+
+MEASURE '_Medidas'[NC resolvidas] =
+    CALCULATE ( COUNTROWS ( fato_5s_acao ), fato_5s_acao[resolvida] = TRUE () )
+
+MEASURE '_Medidas'[Ações atrasadas] =
+    CALCULATE ( COUNTROWS ( fato_5s_acao ), fato_5s_acao[atrasada] = TRUE () )
+
+MEASURE '_Medidas'[% Ações concluídas] =
+    DIVIDE ( [NC resolvidas], [Não conformidades] )
+
+// Só o que foi concluído entra na média. Incluir o que ainda está aberto
+// faria o número parecer melhor justamente quando piora: a ação parada
+// há 90 dias não tem data de conclusão e ficaria de fora da conta.
+MEASURE '_Medidas'[Dias médios para resolver] =
+    AVERAGE ( fato_5s_acao[dias_para_resolver] )
+
+// ---- Itens críticos ----
+
+MEASURE '_Medidas'[Respostas NOK] =
+    SUM ( fato_5s_resposta[eh_nok] )
+
+MEASURE '_Medidas'[Respostas avaliadas] =
+    SUM ( fato_5s_resposta[eh_avaliado] )
+
+MEASURE '_Medidas'[% Reprovação do item] =
+    DIVIDE ( [Respostas NOK], [Respostas avaliadas] )
+
+// Corte de 5 avaliações, mesmo critério do quiz: sem ele, um item
+// respondido uma única vez e reprovado aparece como 100% de reprovação
+// no topo do ranking e a lista perde utilidade.
+MEASURE '_Medidas'[Itens críticos] =
+    VAR Itens =
+        ADDCOLUMNS (
+            VALUES ( dim_5s_pergunta[pergunta_5s_id] ),
+            "@Reprova", [% Reprovação do item],
+            "@Avaliadas", [Respostas avaliadas]
+        )
+    RETURN
+        COUNTROWS ( FILTER ( Itens, [@Reprova] > 0.3 && [@Avaliadas] >= 5 ) )
+
+// ---- Conformidade por senso (para o radar) ----
+
+MEASURE '_Medidas'[% Conformidade do senso] =
+    DIVIDE (
+        SUM ( fato_5s_senso[itens_ok] ),
+        SUM ( fato_5s_senso[itens_avaliados] )
+    )
+
+// O senso com o pior resultado no recorte. Responde em um cartão a
+// pergunta que o radar responde em cinco segundos de leitura.
+MEASURE '_Medidas'[Senso mais crítico] =
+    VAR PorSenso =
+        ADDCOLUMNS (
+            VALUES ( fato_5s_senso[senso_rotulo] ),
+            "@Taxa", [% Conformidade do senso]
+        )
+    VAR Pior = MINX ( PorSenso, [@Taxa] )
+    RETURN
+        CONCATENATEX (
+            FILTER ( PorSenso, [@Taxa] = Pior ),
+            fato_5s_senso[senso_rotulo], ", "
+        )
+
+// Quanto do histórico veio de medição de verdade. Os meses cujo registro
+// se perdeu entraram por estimativa (ver migração 039); esta medida é o
+// que permite dizer, em qualquer recorte, sobre quanta medição real o
+// número está apoiado.
+MEASURE '_Medidas'[% Auditorias medidas] =
+    DIVIDE (
+        CALCULATE (
+            COUNTROWS ( fato_5s_auditoria ),
+            fato_5s_auditoria[estimada] = FALSE (),
+            fato_5s_auditoria[realizada] = TRUE ()
+        ),
+        [Auditorias realizadas]
+    )
+
+EVALUATE
+    { "Medidas aplicadas. Pode apagar esta consulta." }

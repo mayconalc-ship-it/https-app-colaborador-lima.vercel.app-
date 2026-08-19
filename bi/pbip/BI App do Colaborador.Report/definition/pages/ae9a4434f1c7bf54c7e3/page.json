@@ -1,0 +1,8 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/page/2.1.0/schema.json",
+  "name": "ae9a4434f1c7bf54c7e3",
+  "displayName": "📣 Comunicados",
+  "displayOption": "FitToPage",
+  "height": 720,
+  "width": 1280
+}

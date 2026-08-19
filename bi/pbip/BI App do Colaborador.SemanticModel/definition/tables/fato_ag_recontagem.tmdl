@@ -1,0 +1,154 @@
+table fato_ag_recontagem
+	lineageTag: 7d48ef6f-a44d-495a-9a25-80797bb961f7
+
+	column recontagem_id
+		dataType: int64
+		isHidden
+		formatString: 0
+		lineageTag: 845c1385-8e51-4eb9-b18f-559bee8d0032
+		summarizeBy: sum
+		sourceColumn: recontagem_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column revenda_id
+		dataType: string
+		isHidden
+		lineageTag: d2f7c2f1-a71b-45df-ab6a-2bc230f329e5
+		summarizeBy: none
+		sourceColumn: revenda_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column dia
+		dataType: dateTime
+		formatString: dd/MM/yyyy
+		lineageTag: 8e0e470a-3b13-4fec-be76-a91e13c7bf72
+		summarizeBy: none
+		sourceColumn: dia
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation UnderlyingDateTimeDataType = Date
+
+	column descricao
+		dataType: string
+		lineageTag: cd88c546-e7e5-48f7-af66-f9ed8d516972
+		summarizeBy: none
+		sourceColumn: descricao
+
+		annotation SummarizationSetBy = Automatic
+
+	column solicitado_por
+		dataType: string
+		isHidden
+		lineageTag: eba16535-2464-422f-b53c-52d1f08f4bbc
+		summarizeBy: none
+		sourceColumn: solicitado_por
+
+		annotation SummarizationSetBy = Automatic
+
+	column solicitado_nome
+		dataType: string
+		lineageTag: d36e2baf-2e8b-4d88-bf33-97cef9b456ec
+		summarizeBy: none
+		sourceColumn: solicitado_nome
+
+		annotation SummarizationSetBy = Automatic
+
+	column criado_em
+		dataType: dateTime
+		formatString: dd/MM/yyyy
+		lineageTag: 49e08757-2909-45ea-a702-9e0700b2fc47
+		summarizeBy: none
+		sourceColumn: criado_em
+
+		annotation SummarizationSetBy = Automatic
+
+	column data_solicitacao
+		dataType: dateTime
+		formatString: dd/MM/yyyy
+		lineageTag: c8082d38-29e2-4a32-8740-1c3cd0a95943
+		summarizeBy: none
+		sourceColumn: data_solicitacao
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation UnderlyingDateTimeDataType = Date
+
+	column atendida_em
+		dataType: dateTime
+		formatString: dd/MM/yyyy
+		lineageTag: 4c0d4ed0-7d45-4afb-abe0-1fae45686563
+		summarizeBy: none
+		sourceColumn: atendida_em
+
+		annotation SummarizationSetBy = Automatic
+
+	column atendida_por
+		dataType: string
+		isHidden
+		lineageTag: da55e248-3163-4781-ad04-b9618a6cbeb3
+		summarizeBy: none
+		sourceColumn: atendida_por
+
+		annotation SummarizationSetBy = Automatic
+
+	column atendida_contagem_id
+		dataType: int64
+		isHidden
+		formatString: 0
+		lineageTag: ade1b38c-f061-4773-bd41-dbf711c35636
+		summarizeBy: sum
+		sourceColumn: atendida_contagem_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column cancelada_em
+		dataType: dateTime
+		formatString: dd/MM/yyyy
+		lineageTag: 386113cd-7c45-4342-ab87-d73b0bb02efa
+		summarizeBy: none
+		sourceColumn: cancelada_em
+
+		annotation SummarizationSetBy = Automatic
+
+	column situacao
+		dataType: string
+		lineageTag: b487fcbe-5b31-43f5-ba0b-d7cf3b718bc1
+		summarizeBy: none
+		sourceColumn: situacao
+
+		annotation SummarizationSetBy = Automatic
+
+	column horas_para_atender
+		dataType: double
+		lineageTag: 1f6830ad-e3a1-41bf-ab10-54874af92b12
+		summarizeBy: sum
+		sourceColumn: horas_para_atender
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column horas_em_aberto
+		dataType: double
+		lineageTag: d8191cb8-51d6-4a16-8f19-ebe642830d69
+		summarizeBy: sum
+		sourceColumn: horas_em_aberto
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	partition fato_ag_recontagem = m
+		mode: import
+		source =
+				let
+				    Origem = PostgreSQL.Database(Servidor, Banco),
+				    Dados = Origem{[Schema="bi",Item="fato_ag_recontagem"]}[Data]
+				in
+				    Dados
+
+	annotation PBI_ResultType = Table
+

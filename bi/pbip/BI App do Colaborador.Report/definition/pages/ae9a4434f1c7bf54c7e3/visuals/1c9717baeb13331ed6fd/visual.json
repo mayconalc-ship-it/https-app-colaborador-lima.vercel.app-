@@ -1,0 +1,167 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.11.0/schema.json",
+  "name": "1c9717baeb13331ed6fd",
+  "position": {
+    "x": 16,
+    "y": 500,
+    "z": 16000,
+    "height": 166,
+    "width": 1248,
+    "tabOrder": 16000
+  },
+  "visual": {
+    "visualType": "tableEx",
+    "query": {
+      "queryState": {
+        "Values": {
+          "projections": [
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "fato_comunicado"
+                    }
+                  },
+                  "Property": "titulo"
+                }
+              },
+              "queryRef": "fato_comunicado.titulo",
+              "nativeQueryRef": "titulo"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "fato_comunicado"
+                    }
+                  },
+                  "Property": "categoria"
+                }
+              },
+              "queryRef": "fato_comunicado.categoria",
+              "nativeQueryRef": "categoria"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "fato_comunicado"
+                    }
+                  },
+                  "Property": "data"
+                }
+              },
+              "queryRef": "fato_comunicado.data",
+              "nativeQueryRef": "data"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "_Medidas"
+                    }
+                  },
+                  "Property": "Curtidas"
+                }
+              },
+              "queryRef": "_Medidas.Curtidas",
+              "nativeQueryRef": "Curtidas"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "_Medidas"
+                    }
+                  },
+                  "Property": "Taxa média de curtida"
+                }
+              },
+              "queryRef": "_Medidas.Taxa média de curtida",
+              "nativeQueryRef": "Taxa média de curtida"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "_Medidas"
+                    }
+                  },
+                  "Property": "Cliques no aviso (piso)"
+                }
+              },
+              "queryRef": "_Medidas.Cliques no aviso (piso)",
+              "nativeQueryRef": "Cliques no aviso (piso)"
+            }
+          ]
+        }
+      },
+      "sortDefinition": {
+        "sort": [
+          {
+            "field": {
+              "Measure": {
+                "Expression": {
+                  "SourceRef": {
+                    "Entity": "_Medidas"
+                  }
+                },
+                "Property": "Curtidas"
+              }
+            },
+            "direction": "Descending"
+          }
+        ]
+      }
+    },
+    "visualContainerObjects": {
+      "title": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            },
+            "text": {
+              "expr": {
+                "Literal": {
+                  "Value": "'Comunicados mais acessados'"
+                }
+              }
+            },
+            "fontSize": {
+              "expr": {
+                "Literal": {
+                  "Value": "11D"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "visualHeader": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "drillFilterOtherVisuals": true
+  }
+}

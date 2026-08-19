@@ -1,0 +1,109 @@
+/// Explodido: um feedback com 3 ocorrencias vira 3 linhas. Conte DISTINCT feedback_id.
+table fato_feedback_ocorrencia
+	lineageTag: 6848f3ea-ffcb-4bd8-9175-628bd6f96132
+
+	column feedback_id
+		dataType: int64
+		isHidden
+		formatString: 0
+		lineageTag: 855b2c07-bbe4-4c89-b35d-9e1d2cb80adc
+		summarizeBy: sum
+		sourceColumn: feedback_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column revenda_id
+		dataType: string
+		isHidden
+		lineageTag: 375ce279-a2d0-48f2-b7e7-b257cc33da69
+		summarizeBy: none
+		sourceColumn: revenda_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column colaborador_id
+		dataType: string
+		isHidden
+		lineageTag: 63ca3534-5d00-406e-8515-2a5fc6572cd4
+		summarizeBy: none
+		sourceColumn: colaborador_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column rota
+		dataType: string
+		lineageTag: d2fc1900-6144-404b-b148-bb29032d8350
+		summarizeBy: none
+		sourceColumn: rota
+
+		annotation SummarizationSetBy = Automatic
+
+	column nota
+		dataType: int64
+		lineageTag: f1b0adb7-bc08-415c-9831-aa50c024aed7
+		summarizeBy: none
+		sourceColumn: nota
+
+		annotation SummarizationSetBy = Automatic
+
+	column data
+		dataType: dateTime
+		formatString: dd/MM/yyyy
+		lineageTag: b3b07d5e-3ae1-4682-ac74-3b499295a183
+		summarizeBy: none
+		sourceColumn: data
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation UnderlyingDateTimeDataType = Date
+
+	column ocorrencia_id
+		dataType: string
+		isHidden
+		lineageTag: 3dd13ad3-42fd-4a91-8c7f-f9a70c4d208b
+		summarizeBy: none
+		sourceColumn: ocorrencia_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column ocorrencia
+		dataType: string
+		lineageTag: 87990d55-cba4-4be1-bbfb-a298140b3205
+		summarizeBy: none
+		sourceColumn: ocorrencia
+
+		annotation SummarizationSetBy = Automatic
+
+	column grupo
+		dataType: string
+		lineageTag: 74da5735-f302-499a-9279-4f8a17554df7
+		summarizeBy: none
+		sourceColumn: grupo
+
+		annotation SummarizationSetBy = Automatic
+
+	column chave
+		dataType: string
+		isHidden
+		lineageTag: 27b09a30-a6e8-40f8-9148-1d5c5a4c8949
+		summarizeBy: none
+		sourceColumn: chave
+
+		annotation SummarizationSetBy = Automatic
+
+	partition fato_feedback_ocorrencia = m
+		mode: import
+		source =
+				let
+				    Origem = PostgreSQL.Database(Servidor, Banco),
+				    Dados = Origem{[Schema="bi",Item="fato_feedback_ocorrencia"]}[Data],
+				    ComChave = Table.AddColumn(Dados, "chave", each
+				        (if [revenda_id] = null then "" else Text.From([revenda_id]))
+				        & "|" &
+				        (if [colaborador_id] = null then "" else Text.From([colaborador_id])),
+				        type text)
+				in
+				    ComChave
+
+	annotation PBI_ResultType = Table
+

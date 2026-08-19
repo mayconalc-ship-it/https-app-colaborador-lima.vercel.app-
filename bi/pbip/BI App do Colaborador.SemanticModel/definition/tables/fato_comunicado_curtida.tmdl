@@ -1,0 +1,117 @@
+table fato_comunicado_curtida
+	lineageTag: b9678ece-e65a-4118-b6e6-6c8dd5ee0db4
+
+	column comunicado_id
+		dataType: int64
+		isHidden
+		formatString: 0
+		lineageTag: 38a6a055-f166-4ac3-b279-88d470e0747f
+		summarizeBy: sum
+		sourceColumn: comunicado_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column revenda_id
+		dataType: string
+		isHidden
+		lineageTag: a1b131b8-ce9e-416a-af2c-9e28fc903038
+		summarizeBy: none
+		sourceColumn: revenda_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column titulo
+		dataType: string
+		lineageTag: 329e4601-71c2-42c5-8734-93bb8c4be1c4
+		summarizeBy: none
+		sourceColumn: titulo
+
+		annotation SummarizationSetBy = Automatic
+
+	column categoria_id
+		dataType: string
+		isHidden
+		lineageTag: 473c2278-c399-452d-aac0-c0bf19dd3d1f
+		summarizeBy: none
+		sourceColumn: categoria_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column colaborador_id
+		dataType: string
+		isHidden
+		lineageTag: ce76f974-5f20-481b-badb-9d284957d4c7
+		summarizeBy: none
+		sourceColumn: colaborador_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column colaborador
+		dataType: string
+		lineageTag: 0a4d54d2-b11a-4afd-a060-be98771c7a33
+		summarizeBy: none
+		sourceColumn: colaborador
+
+		annotation SummarizationSetBy = Automatic
+
+	column area
+		dataType: string
+		lineageTag: 0f3ff3c7-3292-4ddb-ad8d-bbe7770e4880
+		summarizeBy: none
+		sourceColumn: area
+
+		annotation SummarizationSetBy = Automatic
+
+	column criado_em
+		dataType: dateTime
+		formatString: dd/MM/yyyy
+		lineageTag: 1dbc4725-cd98-4fb9-803f-13754f43e6db
+		summarizeBy: none
+		sourceColumn: criado_em
+
+		annotation SummarizationSetBy = Automatic
+
+	column data
+		dataType: dateTime
+		formatString: dd/MM/yyyy
+		lineageTag: 3e11534a-5fbf-4df2-a5a2-e9b65d5c6b23
+		summarizeBy: none
+		sourceColumn: data
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation UnderlyingDateTimeDataType = Date
+
+	column dias_ate_curtir
+		dataType: int64
+		lineageTag: 6c228f7d-cabc-45dc-8a71-0a4153882e91
+		summarizeBy: none
+		sourceColumn: dias_ate_curtir
+
+		annotation SummarizationSetBy = Automatic
+
+	column chave
+		dataType: string
+		isHidden
+		lineageTag: c7bbfbfe-caca-4eaf-a1d0-9f8c1e2e92d9
+		summarizeBy: none
+		sourceColumn: chave
+
+		annotation SummarizationSetBy = Automatic
+
+	partition fato_comunicado_curtida = m
+		mode: import
+		source =
+				let
+				    Origem = PostgreSQL.Database(Servidor, Banco),
+				    Dados = Origem{[Schema="bi",Item="fato_comunicado_curtida"]}[Data],
+				    ComChave = Table.AddColumn(Dados, "chave", each
+				        (if [revenda_id] = null then "" else Text.From([revenda_id]))
+				        & "|" &
+				        (if [colaborador_id] = null then "" else Text.From([colaborador_id])),
+				        type text)
+				in
+				    ComChave
+
+	annotation PBI_ResultType = Table
+

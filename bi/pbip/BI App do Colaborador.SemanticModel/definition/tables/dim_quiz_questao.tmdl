@@ -1,0 +1,173 @@
+/// Contadores acertos/erros aqui sao VITALICIOS -- nao respondem a filtro de data.
+table dim_quiz_questao
+	lineageTag: 9c9544b6-be03-4565-a211-b8d806038df1
+
+	column questao_id
+		dataType: int64
+		isHidden
+		formatString: 0
+		lineageTag: 79d7b21a-2d62-481b-a970-5a052cc7edf4
+		summarizeBy: sum
+		sourceColumn: questao_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column revenda_id
+		dataType: string
+		isHidden
+		lineageTag: c9377bc8-7ff7-4309-a3c4-06ece1e42895
+		summarizeBy: none
+		sourceColumn: revenda_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column pergunta
+		dataType: string
+		lineageTag: edc60323-a127-4c08-a954-f3a89540f8fc
+		summarizeBy: none
+		sourceColumn: pergunta
+
+		annotation SummarizationSetBy = Automatic
+
+	column tipo
+		dataType: string
+		lineageTag: 90bdd15b-60ef-4938-8397-bdfc5c1b610d
+		summarizeBy: none
+		sourceColumn: tipo
+
+		annotation SummarizationSetBy = Automatic
+
+	column dificuldade
+		dataType: string
+		lineageTag: 47da6947-90e9-4a5c-9c78-c47bbd264ae8
+		summarizeBy: none
+		sourceColumn: dificuldade
+
+		annotation SummarizationSetBy = Automatic
+
+	column dificuldade_rotulo
+		dataType: string
+		lineageTag: f019dd59-9e68-440f-85c5-ab5408cb1e68
+		summarizeBy: none
+		sourceColumn: dificuldade_rotulo
+
+		annotation SummarizationSetBy = Automatic
+
+	column status
+		dataType: string
+		lineageTag: 2ca11c84-7c75-4be7-9ab1-7cb2306561c4
+		summarizeBy: none
+		sourceColumn: status
+
+		annotation SummarizationSetBy = Automatic
+
+	column ativa
+		dataType: boolean
+		lineageTag: 0428c555-a299-4079-ae5b-99cc5e07b991
+		summarizeBy: none
+		sourceColumn: ativa
+
+		annotation SummarizationSetBy = Automatic
+
+	column area
+		dataType: string
+		lineageTag: 7f8323d6-b463-4478-9093-c02c95aaa324
+		summarizeBy: none
+		sourceColumn: area
+
+		annotation SummarizationSetBy = Automatic
+
+	column area_rotulo
+		dataType: string
+		lineageTag: f7a6bdc4-25e6-4cc5-a58e-9898fbcade7c
+		summarizeBy: none
+		sourceColumn: area_rotulo
+
+		annotation SummarizationSetBy = Automatic
+
+	column pilar
+		dataType: string
+		lineageTag: 95280289-8195-492e-90c4-301aaa7435f0
+		summarizeBy: none
+		sourceColumn: pilar
+
+		annotation SummarizationSetBy = Automatic
+
+	column padrao
+		dataType: string
+		lineageTag: f90deb27-a19d-4589-9bdf-f3c1b3eeb0f5
+		summarizeBy: none
+		sourceColumn: padrao
+
+		annotation SummarizationSetBy = Automatic
+
+	column atividade
+		dataType: string
+		lineageTag: f3fb31d7-95fc-455f-88ee-0a7b2024bc79
+		summarizeBy: none
+		sourceColumn: atividade
+
+		annotation SummarizationSetBy = Automatic
+
+	column explicacao
+		dataType: string
+		lineageTag: 9d44422d-b24e-4a00-8707-bfa221df7e90
+		summarizeBy: none
+		sourceColumn: explicacao
+
+		annotation SummarizationSetBy = Automatic
+
+	column vezes_usada
+		dataType: int64
+		lineageTag: fe358d1e-c334-45da-9a40-6ee577b31788
+		summarizeBy: none
+		sourceColumn: vezes_usada
+
+		annotation SummarizationSetBy = Automatic
+
+	column acertos
+		dataType: int64
+		lineageTag: d961b69a-a3df-43f0-9f24-53f84c0c68d2
+		summarizeBy: none
+		sourceColumn: acertos
+
+		annotation SummarizationSetBy = Automatic
+
+	column erros
+		dataType: int64
+		lineageTag: 8dbd4987-2b16-444b-b2e2-f993bf85d2f3
+		summarizeBy: none
+		sourceColumn: erros
+
+		annotation SummarizationSetBy = Automatic
+
+	column taxa_erro_acumulada
+		dataType: double
+		lineageTag: d5e7e157-0ccf-4a25-a649-9bf27a315fb6
+		summarizeBy: sum
+		sourceColumn: taxa_erro_acumulada
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column criado_em
+		dataType: dateTime
+		formatString: dd/MM/yyyy
+		lineageTag: 73aaa6cc-0f18-4c47-88a3-7f05bc362027
+		summarizeBy: none
+		sourceColumn: criado_em
+
+		annotation SummarizationSetBy = Automatic
+
+	partition dim_quiz_questao = m
+		mode: import
+		source =
+				let
+				    Origem = PostgreSQL.Database(Servidor, Banco),
+				    Dados = Origem{[Schema="bi",Item="dim_quiz_questao"]}[Data]
+				in
+				    Dados
+
+	annotation PBI_ResultType = Table
+

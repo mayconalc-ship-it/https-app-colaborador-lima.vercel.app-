@@ -1,0 +1,52 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.11.0/schema.json",
+  "name": "3d264d9044a58db0c81a",
+  "position": {
+    "x": 16,
+    "y": 672,
+    "z": 17000,
+    "height": 30,
+    "width": 1248,
+    "tabOrder": 17000
+  },
+  "visual": {
+    "visualType": "textbox",
+    "objects": {
+      "general": [
+        {
+          "properties": {
+            "paragraphs": [
+              {
+                "textRuns": [
+                  {
+                    "value": "Ordene a distribuição pelo VALOR da nota, não pela contagem — escala ordinal reordenada por frequência deixa de ser legível como escala. \"Rota mais crítica\" já exige ≥ 3 feedbacks: sem esse corte, uma rota com um único feedback ruim vira \"a pior da revenda\" na primeira reunião.",
+                    "textStyle": {
+                      "fontSize": "8pt",
+                      "color": "#64748B"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "visualContainerObjects": {
+      "title": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "false"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "drillFilterOtherVisuals": true
+  }
+}
