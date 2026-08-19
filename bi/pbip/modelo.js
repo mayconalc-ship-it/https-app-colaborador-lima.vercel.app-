@@ -306,7 +306,8 @@ const tabelas = [
     descricao:
       'Uma linha por auditoria. Conformidade ja vem consolidada do app -- nao recalcule em DAX.',
     colunas:
-      'auditoria_5s_id:s revenda_id:s area_5s_id:s area_5s:s auditor_id:s auditor:s ' +
+      'auditoria_5s_id:s revenda_id:s area_5s_id:s area_5s:s auditor_id:s ' +
+      'colaborador_id:s auditor:s ' +
       'dono_id:s dono:s status:s status_rotulo:s data:t mes_ref:t mes_rotulo:s ' +
       'data_realizada:t realizada:b atrasada:b atraso_dias:i itens_ok:i itens_nok:i ' +
       'itens_na:i itens_avaliados:i conformidade:n estimada:b origem:s observacao:s ' +

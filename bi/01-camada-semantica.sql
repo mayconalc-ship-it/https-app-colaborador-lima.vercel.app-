@@ -1138,6 +1138,13 @@ select
   au.area_id                as area_5s_id,
   ar.nome                   as area_5s,
   au.auditor_id,
+  -- Apelido do auditor. E o que liga a auditoria a dim_colaborador e faz
+  -- o filtro global de Colaborador funcionar nesta pagina: escolher uma
+  -- pessoa passa a mostrar as auditorias que ELA fez. Sem esta coluna, o
+  -- relacionamento nao existe e o filtro do topo nao afeta o bloco do 5S
+  -- -- o usuario filtra e o numero nao muda, que e pior do que nao ter
+  -- filtro nenhum.
+  au.auditor_id             as colaborador_id,
   coalesce(pa.nome, 'Auditor fora do cadastro') as auditor,
   au.dono_id,
   coalesce(pd.nome, 'Sem dono definido')        as dono,

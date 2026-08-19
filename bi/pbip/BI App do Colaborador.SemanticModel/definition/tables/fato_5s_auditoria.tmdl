@@ -46,6 +46,15 @@ table fato_5s_auditoria
 
 		annotation SummarizationSetBy = Automatic
 
+	column colaborador_id
+		dataType: string
+		isHidden
+		lineageTag: 74c4a343-714a-4dc1-8a9b-af0914ee091b
+		summarizeBy: none
+		sourceColumn: colaborador_id
+
+		annotation SummarizationSetBy = Automatic
+
 	column auditor
 		dataType: string
 		lineageTag: 53b8fb34-60c2-4227-8236-8d8b73a1cd2f
