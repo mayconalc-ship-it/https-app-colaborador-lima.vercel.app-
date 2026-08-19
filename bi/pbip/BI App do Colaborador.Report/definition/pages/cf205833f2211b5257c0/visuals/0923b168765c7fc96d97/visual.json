@@ -89,34 +89,6 @@
             }
           }
         }
-      ],
-      "dataPoint": [
-        {
-          "properties": {
-            "fillRule": {
-              "linearGradient2": {
-                "min": {
-                  "color": {
-                    "expr": {
-                      "Literal": {
-                        "Value": "'#E7EEFA'"
-                      }
-                    }
-                  }
-                },
-                "max": {
-                  "color": {
-                    "expr": {
-                      "Literal": {
-                        "Value": "'#063573'"
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
       ]
     },
     "visualContainerObjects": {

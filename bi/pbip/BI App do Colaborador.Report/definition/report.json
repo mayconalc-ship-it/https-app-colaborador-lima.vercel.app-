@@ -11,6 +11,21 @@
       "type": "RegisteredResources"
     }
   },
+  "objects": {
+    "outspacePane": [
+      {
+        "properties": {
+          "expanded": {
+            "expr": {
+              "Literal": {
+                "Value": "false"
+              }
+            }
+          }
+        }
+      }
+    ]
+  },
   "resourcePackages": [
     {
       "name": "RegisteredResources",
@@ -26,7 +41,6 @@
   ],
   "settings": {
     "useStylableVisualContainerHeader": true,
-    "hideVisualContainerHeader": false,
     "defaultDrillFilterOtherVisuals": true,
     "useEnhancedTooltips": true,
     "useDefaultAggregateDisplayName": true

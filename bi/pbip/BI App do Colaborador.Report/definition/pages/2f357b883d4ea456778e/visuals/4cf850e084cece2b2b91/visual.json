@@ -27,7 +27,8 @@
                 }
               },
               "queryRef": "dim_revenda.revenda",
-              "nativeQueryRef": "revenda"
+              "nativeQueryRef": "revenda",
+              "active": true
             }
           ]
         }
@@ -73,12 +74,54 @@
             }
           }
         }
+      ],
+      "general": [
+        {
+          "properties": {
+            "filter": {
+              "filter": {
+                "Version": 2,
+                "From": [
+                  {
+                    "Name": "d",
+                    "Entity": "dim_revenda",
+                    "Type": 0
+                  }
+                ],
+                "Where": [
+                  {
+                    "Condition": {
+                      "In": {
+                        "Expressions": [
+                          {
+                            "Column": {
+                              "Expression": {
+                                "SourceRef": {
+                                  "Source": "d"
+                                }
+                              },
+                              "Property": "revenda"
+                            }
+                          }
+                        ],
+                        "Values": [
+                          [
+                            {
+                              "Literal": {
+                                "Value": "'Revenda Lima São Félix'"
+                              }
+                            }
+                          ]
+                        ]
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        }
       ]
-    },
-    "syncGroup": {
-      "groupName": "dim_revenda.revenda",
-      "fieldChanges": true,
-      "filterChanges": true
     },
     "visualContainerObjects": {
       "title": [

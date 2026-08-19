@@ -5,27 +5,5 @@
   "displayOption": "FitToPage",
   "height": 720,
   "width": 1280,
-  "visibility": "HiddenInViewMode",
-  "pageBinding": {
-    "name": "e19975d80a01b754d363",
-    "type": "Drillthrough"
-  },
-  "filterConfig": {
-    "filters": [
-      {
-        "name": "26566fbd24bae07820dc",
-        "field": {
-          "Column": {
-            "Expression": {
-              "SourceRef": {
-                "Entity": "dim_colaborador"
-              }
-            },
-            "Property": "colaborador"
-          }
-        },
-        "type": "Drillthrough"
-      }
-    ]
-  }
+  "visibility": "HiddenInViewMode"
 }
