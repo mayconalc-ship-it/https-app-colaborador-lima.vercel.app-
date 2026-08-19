@@ -12,6 +12,35 @@ import {
   type TimeRanking,
 } from "@/lib/ranking-categorias";
 
+/**
+ * Volta para a tela de lançamento levando junto o time e o mês do último
+ * envio.
+ *
+ * O lançamento é uma categoria por vez, e cada envio recarrega a tela. Sem
+ * esses parâmetros o formulário voltava zerado: o seletor de time pulava
+ * sozinho para DU no meio de uma sequência do AL, e já houve foto do AL
+ * gravada como DU porque ninguém reparou no pulo. Agora o time só muda
+ * quando alguém clica no botão.
+ */
+function voltarParaRanking(
+  aviso: { erro: string } | { sucesso: string },
+  contexto?: { time?: string; mesAno?: string },
+) {
+  const params = new URLSearchParams();
+  if ("erro" in aviso) params.set("erro", aviso.erro);
+  else params.set("sucesso", aviso.sucesso);
+  if (contexto?.time && ehTimeValido(contexto.time)) {
+    params.set("time", contexto.time);
+  }
+  if (contexto?.mesAno) params.set("mes", contexto.mesAno);
+  return `/admin/ranking?${params.toString()}`;
+}
+
+function formatarMesCurto(mesAno: string) {
+  const [ano, mes] = mesAno.split("-");
+  return `${mes}/${ano}`;
+}
+
 function caminhoDoStorage(arquivoUrl: string) {
   const prefixo = "/storage/v1/object/public/conteudo/";
   const idx = arquivoUrl.indexOf(prefixo);
@@ -30,17 +59,23 @@ export async function enviarRanking(formData: FormData) {
     (formData.get("categoria") as string) ?? "",
   );
 
+  // O contexto acompanha inclusive os erros: quem esqueceu a foto refaz o
+  // envio com o mesmo time e mês já selecionados.
+  const contexto = { time, mesAno };
+
+  if (!time || !ehTimeValido(time)) {
+    redirect(voltarParaRanking({ erro: "Selecione o time" }, contexto));
+  }
   if (!arquivo || arquivo.size === 0) {
-    redirect("/admin/ranking?erro=Selecione+uma+imagem");
+    redirect(voltarParaRanking({ erro: "Selecione uma imagem" }, contexto));
   }
   if (!mesAno) {
-    redirect("/admin/ranking?erro=Informe+o+mes");
-  }
-  if (!time || !ehTimeValido(time)) {
-    redirect("/admin/ranking?erro=Selecione+o+time");
+    redirect(voltarParaRanking({ erro: "Informe o mês" }, contexto));
   }
   if (!categoria) {
-    redirect("/admin/ranking?erro=Informe+o+nome+da+categoria");
+    redirect(
+      voltarParaRanking({ erro: "Informe o nome da categoria" }, contexto),
+    );
   }
 
   const admin = createAdminClient();
@@ -65,7 +100,7 @@ export async function enviarRanking(formData: FormData) {
     .upload(caminho, arquivo, { upsert: true });
 
   if (uploadError) {
-    redirect(`/admin/ranking?erro=${encodeURIComponent(uploadError.message)}`);
+    redirect(voltarParaRanking({ erro: uploadError.message }, contexto));
   }
 
   const { data: publicUrlData } = admin.storage
@@ -84,7 +119,7 @@ export async function enviarRanking(formData: FormData) {
   );
 
   if (upsertError) {
-    redirect(`/admin/ranking?erro=${encodeURIComponent(upsertError.message)}`);
+    redirect(voltarParaRanking({ erro: upsertError.message }, contexto));
   }
 
   if (anterior?.imagem_url) {
@@ -101,7 +136,16 @@ export async function enviarRanking(formData: FormData) {
   });
 
   revalidatePath("/ranking");
-  redirect("/admin/ranking?sucesso=Foto+enviada");
+  // O aviso repete o que acabou de entrar: é a conferência de quem lança
+  // dez categorias seguidas sem olhar a lista de baixo.
+  redirect(
+    voltarParaRanking(
+      {
+        sucesso: `Foto enviada — ${time} · ${categoria} · ${formatarMesCurto(mesAno)}`,
+      },
+      contexto,
+    ),
+  );
 }
 
 export async function excluirRanking(formData: FormData) {

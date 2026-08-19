@@ -26,10 +26,24 @@ function formatarMes(mesAno: string) {
 export default async function AdminRankingPage({
   searchParams,
 }: {
-  searchParams: Promise<{ erro?: string; sucesso?: string }>;
+  searchParams: Promise<{
+    erro?: string;
+    sucesso?: string;
+    time?: string;
+    mes?: string;
+  }>;
 }) {
   await requireModulo("ranking", "ver");
-  const { erro, sucesso } = await searchParams;
+  const { erro, sucesso, time: timeParam, mes: mesParam } = await searchParams;
+
+  // Time e mês do último envio, devolvidos pela ação. Quem lança o AL
+  // categoria por categoria não pode ver o seletor voltar sozinho para DU
+  // entre um envio e outro. Sem parâmetro (entrada pelo menu), começa no DU.
+  const timeInicial: TimeRanking =
+    timeParam && ehTimeValido(timeParam) ? timeParam : "DU";
+  const mesInicial = /^\d{4}-(0[1-9]|1[0-2])$/.test(mesParam ?? "")
+    ? mesParam
+    : undefined;
 
   const supabase = await createClient();
   const { data: historico } = await supabase
@@ -85,7 +99,12 @@ export default async function AdminRankingPage({
         </p>
       )}
 
-      <RankingForm action={enviarRanking} sugestoes={sugestoes} />
+      <RankingForm
+        action={enviarRanking}
+        sugestoes={sugestoes}
+        timeInicial={timeInicial}
+        mesInicial={mesInicial}
+      />
 
       <h2 className="mb-2 font-semibold text-slate-700">
         Fotos cadastradas ({historico?.length ?? 0})

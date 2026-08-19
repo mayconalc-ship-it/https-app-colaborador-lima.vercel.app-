@@ -8,13 +8,31 @@ import { NOMES_TIME, TIMES, type TimeRanking } from "@/lib/ranking-categorias";
 export function RankingForm({
   action,
   sugestoes,
+  timeInicial = "DU",
+  mesInicial,
 }: {
   action: (formData: FormData) => void;
   sugestoes: Record<TimeRanking, string[]>;
+  /** Time e mês do último envio, vindos da URL. Ver o comentário abaixo. */
+  timeInicial?: TimeRanking;
+  mesInicial?: string;
 }) {
-  const [time, setTime] = useState<TimeRanking>("DU");
   const hoje = new Date();
   const mesAtual = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, "0")}`;
+  const mesPadrao = mesInicial ?? mesAtual;
+
+  const [time, setTime] = useState<TimeRanking>(timeInicial);
+
+  // Cada envio recarrega a tela. Dependendo do que muda no HTML, o React ora
+  // remonta este formulário (e o time voltaria para DU), ora o reaproveita
+  // (e o time ficaria preso no anterior). Sincronizar com o que a URL trouxe
+  // resolve os dois casos: o time só muda quando alguém clica no botão --
+  // que é o que evita a foto do AL entrar como DU.
+  const [timeDaUrl, setTimeDaUrl] = useState<TimeRanking>(timeInicial);
+  if (timeDaUrl !== timeInicial) {
+    setTimeDaUrl(timeInicial);
+    setTime(timeInicial);
+  }
 
   return (
     <form
@@ -67,11 +85,15 @@ export function RankingForm({
         >
           Mês
         </label>
+        {/* key: o campo é não-controlado, então só volta ao mês do último
+            envio se o React recriar o input. Sem isso, quem lança fotos de um
+            mês fechado veria o campo saltar para o mês corrente. */}
         <input
+          key={mesPadrao}
           id="mes_ano"
           name="mes_ano"
           type="month"
-          defaultValue={mesAtual}
+          defaultValue={mesPadrao}
           required
           className="w-full rounded-xl border border-slate-200 p-3 text-sm focus:border-primary focus:outline-none"
         />
