@@ -26,8 +26,12 @@ const falha = (msg) => { console.log('  FALHA  ' + msg); erros++; };
 const SCHEMAS = [
   [NOME + '.pbip',
     /^https:\/\/developer\.microsoft\.com\/json-schemas\/fabric\/pbip\/pbipProperties\/1\.[0-9]+\.[0-9]+\/schema\.json$/],
+  // Aceita 1.x e 2.x: o Desktop atual escreve 2.0.0, e foi o gerador
+  // gravando 1.0.0 que fez o relatorio abrir com a tela em branco.
+  // Travar esta regra em 1.x era o que fazia o validador acusar o
+  // arquivo CERTO como errado -- e passar o errado como certo.
   [path.join(NOME + '.Report', 'definition.pbir'),
-    /^https:\/\/developer\.microsoft\.com\/json-schemas\/fabric\/item\/report\/definitionProperties\/1\.[0-9]+\.[0-9]+\/schema\.json$/],
+    /^https:\/\/developer\.microsoft\.com\/json-schemas\/fabric\/item\/report\/definitionProperties\/[12]\.[0-9]+\.[0-9]+\/schema\.json$/],
   [path.join(NOME + '.SemanticModel', 'definition.pbism'),
     /^https:\/\/developer\.microsoft\.com\/json-schemas\/fabric\/item\/semanticModel\/definitionProperties\/1\.[0-9]+\.[0-9]+\/schema\.json$/],
 ];

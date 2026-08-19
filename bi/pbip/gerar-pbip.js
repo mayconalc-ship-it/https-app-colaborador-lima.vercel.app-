@@ -754,8 +754,20 @@ function gerarRelatorio() {
     config: { version: '2.0', logicalId: guid('rp:' + NOME) },
   }));
 
+  // definitionProperties 2.0.0, e nao 1.0.0.
+  //
+  // Esta linha ja custou uma tarde: com 1.0.0 o Desktop ABRE o projeto,
+  // carrega o modelo inteiro e mostra as tabelas no painel de dados --
+  // e deixa a tela do relatorio em branco, sem nenhuma pagina e sem
+  // nenhuma mensagem de erro. Parece relatorio vazio, e nao arquivo
+  // recusado.
+  //
+  // O jeito de descobrir qual versao a instalacao usa e deixar o Desktop
+  // salvar o projeto uma vez e ler o que ele escreveu aqui. Se um dia o
+  // relatorio voltar a abrir vazio depois de uma atualizacao do Power
+  // BI, e aqui que se olha primeiro.
   escrever(path.join(DEST_REL, 'definition.pbir'), json({
-    $schema: 'https://developer.microsoft.com/json-schemas/fabric/item/report/definitionProperties/1.0.0/schema.json',
+    $schema: 'https://developer.microsoft.com/json-schemas/fabric/item/report/definitionProperties/2.0.0/schema.json',
     version: '4.0',
     datasetReference: { byPath: { path: `../${NOME}.SemanticModel` } },
   }));
