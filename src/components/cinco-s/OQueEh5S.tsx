@@ -11,22 +11,22 @@ import { EMOJI_SENSO, JAPONES_SENSO, ROTULO_SENSO, SENSOS, type Senso } from "@/
  * app usa para recolher bloco, abre sem JavaScript nenhum e continua
  * funcionando se o script falhar.
  *
- * O texto de cada senso responde "o que eu faço?", não "o que a palavra
- * significa". Definição de dicionário não muda o que a pessoa faz na
- * segunda-feira -- e é para ela que este texto existe.
+ * O texto descreve o que cada senso pede na prática, em linguagem
+ * direta e neutra -- é material informativo do programa, não peça de
+ * campanha interna.
  */
 
 const EXPLICACAO: Record<Senso, string> = {
   utilizacao:
-    "Na área fica só o que se usa. Quebrado, sobrando ou encostado há meses: tira.",
+    "Manter na área apenas o que é utilizado. Itens quebrados, sem uso ou em excesso devem ser retirados.",
   organizacao:
-    "Cada coisa tem lugar, e o lugar tem placa. Se alguém de fora acha sozinho, está certo.",
+    "Definir um lugar para cada item e identificar esse lugar, para que qualquer pessoa encontre o que precisa com facilidade.",
   limpeza:
-    "Não é limpar, é manter limpo. Quem não deixa sujar não precisa de mutirão depois.",
+    "Manter a área limpa no dia a dia, e não apenas realizar limpezas pontuais.",
   conservacao:
-    "Manter o que já foi arrumado. Piso, luz, tomada e equipamento em ordem, não só no dia da auditoria.",
+    "Conservar em bom estado o que já foi organizado: piso, paredes, iluminação, tomadas, equipamentos e materiais.",
   disciplina:
-    "Virou hábito. Quadro atualizado e as ações da última auditoria feitas de verdade.",
+    "Cumprir os padrões de forma contínua, manter os quadros de gestão à vista atualizados e executar as ações definidas nas auditorias anteriores.",
 };
 
 export function OQueEh5S({ aberto = false }: { aberto?: boolean }) {
@@ -52,9 +52,10 @@ export function OQueEh5S({ aberto = false }: { aberto?: boolean }) {
 
       <div className="space-y-3 border-t border-slate-100 p-4">
         <p className="text-sm text-slate-600">
-          Um jeito de deixar a área boa de trabalhar: sem tranco para achar
-          as coisas, sem risco bobo e sem retrabalho. São cinco hábitos, um
-          puxando o outro.
+          O 5S é um programa de organização do ambiente de trabalho,
+          formado por cinco sensos. O objetivo é manter as áreas
+          organizadas, limpas e seguras, facilitando o trabalho do dia a
+          dia.
         </p>
 
         <ul className="space-y-2.5">
@@ -83,21 +84,23 @@ export function OQueEh5S({ aberto = false }: { aberto?: boolean }) {
             Como funciona a auditoria
           </p>
           <p className="mt-1 text-sm leading-snug text-slate-600">
-            Todo mês um colega passa na área e responde 25 perguntas, cada
-            uma com <strong>OK</strong>, <strong>NOK</strong> ou{" "}
-            <strong>N/A</strong> (quando não se aplica ali). A nota é a
-            porcentagem de OK — o que não se aplica não conta nem a favor
-            nem contra.
+            Todos os meses um auditor avalia a área respondendo 25
+            perguntas, cada uma como <strong>OK</strong> (conforme),{" "}
+            <strong>NOK</strong> (não conforme) ou <strong>N/A</strong>{" "}
+            (não se aplica àquela área). O resultado é o percentual de
+            itens conformes; os itens marcados como não aplicáveis ficam
+            fora do cálculo.
           </p>
           <p className="mt-2 text-sm leading-snug text-slate-600">
-            Item NOK não fica só no papel: vira uma tarefa com responsável
-            e prazo, e alguém confere depois se foi resolvido mesmo.
+            Cada item não conforme gera uma ação corretiva, com
+            responsável e prazo definidos. A conclusão da ação é
+            registrada com evidência e validada posteriormente.
           </p>
         </div>
 
         <p className="text-xs text-slate-400">
-          A auditoria não é prova nem caça a culpado. É para achar o que
-          atrapalha o dia e tirar da frente.
+          A auditoria tem como objetivo identificar oportunidades de
+          melhoria na área, e não avaliar pessoas.
         </p>
       </div>
     </details>
