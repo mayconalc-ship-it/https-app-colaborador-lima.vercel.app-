@@ -10,7 +10,7 @@
     "tabOrder": 13000
   },
   "visual": {
-    "visualType": "lineChart",
+    "visualType": "stackedColumnChart",
     "query": {
       "queryState": {
         "Category": {
@@ -23,11 +23,11 @@
                       "Entity": "dim_calendario"
                     }
                   },
-                  "Property": "inicio_semana"
+                  "Property": "inicio_mes"
                 }
               },
-              "queryRef": "dim_calendario.inicio_semana",
-              "nativeQueryRef": "inicio_semana",
+              "queryRef": "dim_calendario.inicio_mes",
+              "nativeQueryRef": "inicio_mes",
               "active": true
             }
           ]
@@ -91,40 +91,6 @@
             }
           }
         }
-      ],
-      "lineStyles": [
-        {
-          "properties": {
-            "lineChartType": {
-              "expr": {
-                "Literal": {
-                  "Value": "'smooth'"
-                }
-              }
-            },
-            "interpolationSmooth": {
-              "expr": {
-                "Literal": {
-                  "Value": "'cardinal'"
-                }
-              }
-            },
-            "interpolationSmoothParam": {
-              "expr": {
-                "Literal": {
-                  "Value": "70D"
-                }
-              }
-            },
-            "strokeWidth": {
-              "expr": {
-                "Literal": {
-                  "Value": "2D"
-                }
-              }
-            }
-          }
-        }
       ]
     },
     "visualContainerObjects": {
@@ -141,7 +107,7 @@
             "text": {
               "expr": {
                 "Literal": {
-                  "Value": "'Evolução semanal das interações, por módulo'"
+                  "Value": "'Interações por mês e módulo'"
                 }
               }
             },

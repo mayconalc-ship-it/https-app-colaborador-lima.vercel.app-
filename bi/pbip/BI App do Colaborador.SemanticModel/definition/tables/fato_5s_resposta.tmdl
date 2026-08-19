@@ -73,6 +73,8 @@ table fato_5s_resposta
 
 		annotation SummarizationSetBy = Automatic
 
+		annotation UnderlyingDateTimeDataType = Date
+
 	column mes_ref
 		dataType: dateTime
 		formatString: dd/MM/yyyy
@@ -81,6 +83,8 @@ table fato_5s_resposta
 		sourceColumn: mes_ref
 
 		annotation SummarizationSetBy = Automatic
+
+		annotation UnderlyingDateTimeDataType = Date
 
 	column pergunta_5s_id
 		dataType: string
@@ -166,9 +170,9 @@ table fato_5s_resposta
 	column foto_url
 		dataType: string
 		lineageTag: b5c24ffb-f770-4c3b-9b68-04cc10bf5cb8
+		dataCategory: ImageUrl
 		summarizeBy: none
 		sourceColumn: foto_url
-		dataCategory: ImageUrl
 
 		annotation SummarizationSetBy = Automatic
 
@@ -182,3 +186,4 @@ table fato_5s_resposta
 				    Dados
 
 	annotation PBI_ResultType = Table
+

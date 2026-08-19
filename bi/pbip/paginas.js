@@ -71,13 +71,29 @@ const paginas = [
     ],
     visuais: [
       {
-        t: 'lineChart', x: 16, y: Y.meio, w: 760, h: H.meio,
-        titulo: 'Evolução semanal das interações, por módulo',
+        // Coluna empilhada por MES, e nao linha por semana.
+        //
+        // A versao anterior cruzava seis linhas (uma por modulo) sobre
+        // cinquenta e duas semanas. Dava um emaranhado em que nem o
+        // total nem a comparacao entre modulos saiam da tela: linha
+        // serve para ver TENDENCIA de uma serie, e aqui sao seis.
+        //
+        // Empilhada resolve as duas leituras de uma vez -- a altura da
+        // barra e o volume do mes, e as faixas dizem de onde ele veio.
+        //
+        // O eixo usa inicio_mes (coluna de data) em vez de mes_rotulo
+        // (texto): data se ordena sozinha em ordem cronologica, texto
+        // sairia em ordem alfabetica.
+        t: 'stackedColumnChart', x: 16, y: Y.meio, w: 760, h: H.meio,
+        titulo: 'Interações por mês e módulo',
         roles: {
-          Category: ['dim_calendario.inicio_semana'],
+          Category: ['dim_calendario.inicio_mes'],
           Y: ['@Interações'],
           Series: ['fato_atividade.modulo'],
         },
+        // Rotulo em cada segmento da pilha vira poluicao: sao seis
+        // numeros por barra, quase todos pequenos demais para caber.
+        semRotulos: true,
       },
       {
         t: 'clusteredBarChart', x: 788, y: Y.meio, w: 460, h: H.meio,

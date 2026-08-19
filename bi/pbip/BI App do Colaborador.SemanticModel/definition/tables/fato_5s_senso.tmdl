@@ -64,6 +64,8 @@ table fato_5s_senso
 
 		annotation SummarizationSetBy = Automatic
 
+		annotation UnderlyingDateTimeDataType = Date
+
 	column mes_ref
 		dataType: dateTime
 		formatString: dd/MM/yyyy
@@ -72,6 +74,8 @@ table fato_5s_senso
 		sourceColumn: mes_ref
 
 		annotation SummarizationSetBy = Automatic
+
+		annotation UnderlyingDateTimeDataType = Date
 
 	column senso
 		dataType: string
@@ -130,12 +134,14 @@ table fato_5s_senso
 		annotation SummarizationSetBy = Automatic
 
 	column conformidade
-		dataType: decimal
+		dataType: double
 		lineageTag: 6cb04a6b-761f-4b57-bdd2-6a1d56b99e9d
-		summarizeBy: none
+		summarizeBy: sum
 		sourceColumn: conformidade
 
 		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
 
 	partition fato_5s_senso = m
 		mode: import
@@ -147,3 +153,4 @@ table fato_5s_senso
 				    Dados
 
 	annotation PBI_ResultType = Table
+

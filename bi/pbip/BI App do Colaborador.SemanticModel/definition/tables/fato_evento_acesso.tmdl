@@ -2,10 +2,11 @@ table fato_evento_acesso
 	lineageTag: 47e64317-5881-46de-80ea-cd447727ddf2
 
 	column evento_id
-		dataType: string
+		dataType: int64
 		isHidden
+		formatString: 0
 		lineageTag: 66cab57d-ab9f-46bb-a636-8bd581742e9a
-		summarizeBy: none
+		summarizeBy: sum
 		sourceColumn: evento_id
 
 		annotation SummarizationSetBy = Automatic
@@ -87,6 +88,8 @@ table fato_evento_acesso
 
 		annotation SummarizationSetBy = Automatic
 
+		annotation UnderlyingDateTimeDataType = Date
+
 	column hora
 		dataType: int64
 		lineageTag: 6b469aed-8df1-4633-b0fe-700bb36ab5b0
@@ -119,3 +122,4 @@ table fato_evento_acesso
 				    ComChave
 
 	annotation PBI_ResultType = Table
+

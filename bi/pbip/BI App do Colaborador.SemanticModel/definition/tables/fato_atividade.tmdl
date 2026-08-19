@@ -20,6 +20,8 @@ table fato_atividade
 
 		annotation SummarizationSetBy = Automatic
 
+		annotation UnderlyingDateTimeDataType = Date
+
 	column colaborador_id
 		dataType: string
 		isHidden
@@ -77,3 +79,4 @@ table fato_atividade
 				    ComChave
 
 	annotation PBI_ResultType = Table
+

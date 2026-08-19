@@ -2,10 +2,11 @@ table fato_comunicado_curtida
 	lineageTag: b9678ece-e65a-4118-b6e6-6c8dd5ee0db4
 
 	column comunicado_id
-		dataType: string
+		dataType: int64
 		isHidden
+		formatString: 0
 		lineageTag: 38a6a055-f166-4ac3-b279-88d470e0747f
-		summarizeBy: none
+		summarizeBy: sum
 		sourceColumn: comunicado_id
 
 		annotation SummarizationSetBy = Automatic
@@ -79,6 +80,8 @@ table fato_comunicado_curtida
 
 		annotation SummarizationSetBy = Automatic
 
+		annotation UnderlyingDateTimeDataType = Date
+
 	column dias_ate_curtir
 		dataType: int64
 		lineageTag: 6c228f7d-cabc-45dc-8a71-0a4153882e91
@@ -111,3 +114,4 @@ table fato_comunicado_curtida
 				    ComChave
 
 	annotation PBI_ResultType = Table
+

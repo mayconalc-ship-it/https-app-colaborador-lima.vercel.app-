@@ -169,6 +169,8 @@ table fato_5s_acao
 
 		annotation SummarizationSetBy = Automatic
 
+		annotation UnderlyingDateTimeDataType = Date
+
 	column mes_ref
 		dataType: dateTime
 		formatString: dd/MM/yyyy
@@ -177,6 +179,8 @@ table fato_5s_acao
 		sourceColumn: mes_ref
 
 		annotation SummarizationSetBy = Automatic
+
+		annotation UnderlyingDateTimeDataType = Date
 
 	column data_abertura
 		dataType: dateTime
@@ -187,6 +191,8 @@ table fato_5s_acao
 
 		annotation SummarizationSetBy = Automatic
 
+		annotation UnderlyingDateTimeDataType = Date
+
 	column data_conclusao
 		dataType: dateTime
 		formatString: dd/MM/yyyy
@@ -196,6 +202,8 @@ table fato_5s_acao
 
 		annotation SummarizationSetBy = Automatic
 
+		annotation UnderlyingDateTimeDataType = Date
+
 	column data_validacao
 		dataType: dateTime
 		formatString: dd/MM/yyyy
@@ -204,6 +212,8 @@ table fato_5s_acao
 		sourceColumn: data_validacao
 
 		annotation SummarizationSetBy = Automatic
+
+		annotation UnderlyingDateTimeDataType = Date
 
 	column atrasada
 		dataType: boolean
@@ -224,9 +234,9 @@ table fato_5s_acao
 	column evidencia_url
 		dataType: string
 		lineageTag: de55c6ce-d132-40b8-8cb7-9b6a4162fadf
+		dataCategory: ImageUrl
 		summarizeBy: none
 		sourceColumn: evidencia_url
-		dataCategory: ImageUrl
 
 		annotation SummarizationSetBy = Automatic
 
@@ -256,3 +266,4 @@ table fato_5s_acao
 				    Dados
 
 	annotation PBI_ResultType = Table
+

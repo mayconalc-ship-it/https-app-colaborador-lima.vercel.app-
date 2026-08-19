@@ -3,10 +3,11 @@ table fato_cinco_porques_resposta
 	lineageTag: 5a0e9d26-e558-4af1-8797-3f30e3a063aa
 
 	column analise_id
-		dataType: string
+		dataType: int64
 		isHidden
+		formatString: 0
 		lineageTag: c8be71a5-70fc-4229-baab-20a742ad6cb5
-		summarizeBy: none
+		summarizeBy: sum
 		sourceColumn: analise_id
 
 		annotation SummarizationSetBy = Automatic
@@ -36,6 +37,8 @@ table fato_cinco_porques_resposta
 		sourceColumn: data
 
 		annotation SummarizationSetBy = Automatic
+
+		annotation UnderlyingDateTimeDataType = Date
 
 	column ordem
 		dataType: int64
@@ -112,3 +115,4 @@ table fato_cinco_porques_resposta
 				    Dados
 
 	annotation PBI_ResultType = Table
+

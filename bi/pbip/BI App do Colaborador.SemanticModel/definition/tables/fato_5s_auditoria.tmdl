@@ -105,6 +105,8 @@ table fato_5s_auditoria
 
 		annotation SummarizationSetBy = Automatic
 
+		annotation UnderlyingDateTimeDataType = Date
+
 	column mes_ref
 		dataType: dateTime
 		formatString: dd/MM/yyyy
@@ -113,6 +115,8 @@ table fato_5s_auditoria
 		sourceColumn: mes_ref
 
 		annotation SummarizationSetBy = Automatic
+
+		annotation UnderlyingDateTimeDataType = Date
 
 	column mes_rotulo
 		dataType: string
@@ -130,6 +134,8 @@ table fato_5s_auditoria
 		sourceColumn: data_realizada
 
 		annotation SummarizationSetBy = Automatic
+
+		annotation UnderlyingDateTimeDataType = Date
 
 	column realizada
 		dataType: boolean
@@ -188,12 +194,14 @@ table fato_5s_auditoria
 		annotation SummarizationSetBy = Automatic
 
 	column conformidade
-		dataType: decimal
+		dataType: double
 		lineageTag: a38977d2-8ac8-44ab-b3db-ff87c0c13efa
-		summarizeBy: none
+		summarizeBy: sum
 		sourceColumn: conformidade
 
 		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
 
 	column estimada
 		dataType: boolean
@@ -228,6 +236,8 @@ table fato_5s_auditoria
 
 		annotation SummarizationSetBy = Automatic
 
+		annotation UnderlyingDateTimeDataType = Date
+
 	column chave
 		dataType: string
 		isHidden
@@ -252,3 +262,4 @@ table fato_5s_auditoria
 				    ComChave
 
 	annotation PBI_ResultType = Table
+

@@ -3,10 +3,11 @@ table fato_ranking_matinal
 	lineageTag: 00f41535-37e6-455a-829f-19d9c80f18e8
 
 	column ranking_id
-		dataType: string
+		dataType: int64
 		isHidden
+		formatString: 0
 		lineageTag: f8a29900-3282-4959-af5a-848410212925
-		summarizeBy: none
+		summarizeBy: sum
 		sourceColumn: ranking_id
 
 		annotation SummarizationSetBy = Automatic
@@ -36,6 +37,8 @@ table fato_ranking_matinal
 		sourceColumn: mes_ref
 
 		annotation SummarizationSetBy = Automatic
+
+		annotation UnderlyingDateTimeDataType = Date
 
 	column mes_rotulo
 		dataType: string
@@ -72,9 +75,9 @@ table fato_ranking_matinal
 	column imagem_url
 		dataType: string
 		lineageTag: 825b3fee-99fd-4c1e-94eb-5c9b4ec5c138
+		dataCategory: ImageUrl
 		summarizeBy: none
 		sourceColumn: imagem_url
-		dataCategory: ImageUrl
 
 		annotation SummarizationSetBy = Automatic
 
@@ -96,6 +99,8 @@ table fato_ranking_matinal
 
 		annotation SummarizationSetBy = Automatic
 
+		annotation UnderlyingDateTimeDataType = Date
+
 	partition fato_ranking_matinal = m
 		mode: import
 		source =
@@ -106,3 +111,4 @@ table fato_ranking_matinal
 				    Dados
 
 	annotation PBI_ResultType = Table
+

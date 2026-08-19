@@ -197,3 +197,4 @@ relationship 05368813-ac2f-47b6-9fae-9f34e9dbf7e5
 relationship 76015a7d-8cbc-486a-9890-b550ff3ffaa8
 	fromColumn: dim_colaborador.revenda_id
 	toColumn: dim_revenda.revenda_id
+

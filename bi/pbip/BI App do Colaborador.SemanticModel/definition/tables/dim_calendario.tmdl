@@ -1,17 +1,19 @@
 /// Tabela de datas em pt-BR.
 table dim_calendario
-	dataCategory: Time
 	lineageTag: 576cde16-93dd-4e39-ba82-c4745a7e5830
+	dataCategory: Time
 
 	column data
-		isKey
 		dataType: dateTime
+		isKey
 		formatString: dd/MM/yyyy
 		lineageTag: f2769c41-bf18-4bd5-981d-5369e2465821
 		summarizeBy: none
 		sourceColumn: data
 
 		annotation SummarizationSetBy = Automatic
+
+		annotation UnderlyingDateTimeDataType = Date
 
 	column ano
 		dataType: int64
@@ -94,6 +96,8 @@ table dim_calendario
 
 		annotation SummarizationSetBy = Automatic
 
+		annotation UnderlyingDateTimeDataType = Date
+
 	column inicio_mes
 		dataType: dateTime
 		formatString: dd/MM/yyyy
@@ -102,6 +106,8 @@ table dim_calendario
 		sourceColumn: inicio_mes
 
 		annotation SummarizationSetBy = Automatic
+
+		annotation UnderlyingDateTimeDataType = Date
 
 	column dia_semana
 		dataType: int64
@@ -145,3 +151,4 @@ table dim_calendario
 				    Dados
 
 	annotation PBI_ResultType = Table
+

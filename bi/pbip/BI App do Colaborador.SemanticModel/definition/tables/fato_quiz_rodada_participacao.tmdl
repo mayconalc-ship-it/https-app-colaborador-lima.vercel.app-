@@ -3,10 +3,11 @@ table fato_quiz_rodada_participacao
 	lineageTag: 6bdc69bc-affd-412a-84ed-3a513e7dd3c0
 
 	column rodada_id
-		dataType: string
+		dataType: int64
 		isHidden
+		formatString: 0
 		lineageTag: 7b4d06b7-6d0e-4865-8944-7567bfa7ce34
-		summarizeBy: none
+		summarizeBy: sum
 		sourceColumn: rodada_id
 
 		annotation SummarizationSetBy = Automatic
@@ -53,6 +54,8 @@ table fato_quiz_rodada_participacao
 
 		annotation SummarizationSetBy = Automatic
 
+		annotation UnderlyingDateTimeDataType = Date
+
 	column area
 		dataType: string
 		lineageTag: b7b66b8b-ca63-4e2e-9970-101930d8ca30
@@ -86,6 +89,8 @@ table fato_quiz_rodada_participacao
 
 		annotation SummarizationSetBy = Automatic
 
+		annotation UnderlyingDateTimeDataType = Date
+
 	column fim
 		dataType: dateTime
 		formatString: dd/MM/yyyy
@@ -94,6 +99,8 @@ table fato_quiz_rodada_participacao
 		sourceColumn: fim
 
 		annotation SummarizationSetBy = Automatic
+
+		annotation UnderlyingDateTimeDataType = Date
 
 	column total_perguntas
 		dataType: int64
@@ -128,28 +135,34 @@ table fato_quiz_rodada_participacao
 		annotation SummarizationSetBy = Automatic
 
 	column taxa_participacao
-		dataType: decimal
+		dataType: double
 		lineageTag: 456ede69-4db7-4931-9b08-6fcf24b267b7
-		summarizeBy: none
+		summarizeBy: sum
 		sourceColumn: taxa_participacao
 
 		annotation SummarizationSetBy = Automatic
 
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
 	column media_pontos
-		dataType: decimal
+		dataType: double
 		lineageTag: 0df26cdd-09b6-49b1-b995-19eba576045e
-		summarizeBy: none
+		summarizeBy: sum
 		sourceColumn: media_pontos
 
 		annotation SummarizationSetBy = Automatic
 
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
 	column media_acertos
-		dataType: decimal
+		dataType: double
 		lineageTag: 29817392-51b1-48fb-8eb1-dde7ac0e431d
-		summarizeBy: none
+		summarizeBy: sum
 		sourceColumn: media_acertos
 
 		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
 
 	column melhor_pontos
 		dataType: int64
@@ -169,3 +182,4 @@ table fato_quiz_rodada_participacao
 				    Dados
 
 	annotation PBI_ResultType = Table
+

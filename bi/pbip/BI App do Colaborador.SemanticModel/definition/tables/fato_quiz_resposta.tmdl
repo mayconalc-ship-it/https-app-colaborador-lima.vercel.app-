@@ -3,10 +3,11 @@ table fato_quiz_resposta
 	lineageTag: 64789653-55ac-489c-9122-dfc8b3e9b074
 
 	column resposta_id
-		dataType: string
+		dataType: int64
 		isHidden
+		formatString: 0
 		lineageTag: 0af03bf6-ac1a-4e44-b9cd-f2113b04265c
-		summarizeBy: none
+		summarizeBy: sum
 		sourceColumn: resposta_id
 
 		annotation SummarizationSetBy = Automatic
@@ -21,10 +22,11 @@ table fato_quiz_resposta
 		annotation SummarizationSetBy = Automatic
 
 	column rodada_id
-		dataType: string
+		dataType: int64
 		isHidden
+		formatString: 0
 		lineageTag: 4ee897f9-e369-420e-b46e-b6ced47f57fb
-		summarizeBy: none
+		summarizeBy: sum
 		sourceColumn: rodada_id
 
 		annotation SummarizationSetBy = Automatic
@@ -45,6 +47,8 @@ table fato_quiz_resposta
 		sourceColumn: mes_ref
 
 		annotation SummarizationSetBy = Automatic
+
+		annotation UnderlyingDateTimeDataType = Date
 
 	column colaborador_id
 		dataType: string
@@ -72,10 +76,11 @@ table fato_quiz_resposta
 		annotation SummarizationSetBy = Automatic
 
 	column questao_id
-		dataType: string
+		dataType: int64
 		isHidden
+		formatString: 0
 		lineageTag: 70adab00-ea51-4f32-8ea1-19f3b4c814e3
-		summarizeBy: none
+		summarizeBy: sum
 		sourceColumn: questao_id
 
 		annotation SummarizationSetBy = Automatic
@@ -129,12 +134,14 @@ table fato_quiz_resposta
 		annotation SummarizationSetBy = Automatic
 
 	column tempo_segundos
-		dataType: decimal
+		dataType: double
 		lineageTag: 784dd06f-1dff-42d5-b7d2-1a99dc39296b
-		summarizeBy: none
+		summarizeBy: sum
 		sourceColumn: tempo_segundos
 
 		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
 
 	column respondida_em
 		dataType: dateTime
@@ -153,6 +160,8 @@ table fato_quiz_resposta
 		sourceColumn: data
 
 		annotation SummarizationSetBy = Automatic
+
+		annotation UnderlyingDateTimeDataType = Date
 
 	column chave
 		dataType: string
@@ -178,3 +187,4 @@ table fato_quiz_resposta
 				    ComChave
 
 	annotation PBI_ResultType = Table
+

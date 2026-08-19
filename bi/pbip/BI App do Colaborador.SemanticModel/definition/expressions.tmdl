@@ -7,3 +7,4 @@ expression Banco = "postgres" meta [IsParameterQuery=true, Type="Text", IsParame
 	lineageTag: f5ab081e-916d-44ab-9646-2fcfb4b6ec33
 
 	annotation PBI_ResultType = Text
+
