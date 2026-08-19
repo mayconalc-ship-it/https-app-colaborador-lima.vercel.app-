@@ -245,7 +245,7 @@ export default async function CincoSPage({
                           {atrasada
                             ? `⚠️ ${dias} dia${dias === 1 ? "" : "s"} de atraso`
                             : a.status === "em_andamento"
-                              ? "▶ Começada"
+                              ? "▶ Iniciada"
                               : "Prevista para " +
                                 a.planejada_para.split("-").reverse().slice(0, 2).join("/")}
                         </p>

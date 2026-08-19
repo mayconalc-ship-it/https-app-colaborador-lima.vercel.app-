@@ -93,7 +93,7 @@ export function CartaoAcao({
   if (acao.status === "aberta") {
     proximos.push({
       valor: "em_andamento",
-      rotulo: "Comecei a tratar",
+      rotulo: "Iniciar tratativa",
       cor: "bg-amber-500",
     });
   }
