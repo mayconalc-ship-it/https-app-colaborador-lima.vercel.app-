@@ -206,7 +206,13 @@ function lerMedidas() {
 // Medidas que devolvem TEXTO. Format string numerico nelas nao quebra o
 // visual, mas e sujeira -- e num cartao com sufixo herdado do tema, chega
 // a atrapalhar.
-const MEDIDAS_TEXTO = new Set(['Rota mais crítica', 'Causa raiz mais frequente']);
+const MEDIDAS_TEXTO = new Set([
+  'Rota mais crítica',
+  'Causa raiz mais frequente',
+  // Devolve a data ja formatada em dd/MM/yyyy. Sem entrar aqui, cairia
+  // na regra geral e sairia com format string numerico numa data.
+  'Último dia contado',
+]);
 
 // Razoes que o nome nao denuncia: "Aproveitamento médio" cairia na regra
 // de media e sairia como 0,8 em vez de 80,0%.

@@ -1,39 +1,34 @@
 {
   "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.11.0/schema.json",
-  "name": "a0d92656d1a650b16def",
+  "name": "017588d1af5b56a294d5",
   "position": {
-    "x": 860,
+    "x": 474,
     "y": 460,
-    "z": 16000,
+    "z": 15000,
     "height": 206,
-    "width": 404,
-    "tabOrder": 16000
+    "width": 320,
+    "tabOrder": 15000
   },
   "visual": {
-    "visualType": "clusteredBarChart",
+    "visualType": "tableEx",
     "query": {
       "queryState": {
-        "Category": {
+        "Values": {
           "projections": [
             {
               "field": {
                 "Column": {
                   "Expression": {
                     "SourceRef": {
-                      "Entity": "fato_ag_conciliacao"
+                      "Entity": "fato_ag_contagem"
                     }
                   },
-                  "Property": "item"
+                  "Property": "colaborador_nome"
                 }
               },
-              "queryRef": "fato_ag_conciliacao.item",
-              "nativeQueryRef": "item",
-              "active": true
-            }
-          ]
-        },
-        "Y": {
-          "projections": [
+              "queryRef": "fato_ag_contagem.colaborador_nome",
+              "nativeQueryRef": "colaborador_nome"
+            },
             {
               "field": {
                 "Measure": {
@@ -42,11 +37,25 @@
                       "Entity": "_Medidas"
                     }
                   },
-                  "Property": "Divergência absoluta"
+                  "Property": "Paletes GFE"
                 }
               },
-              "queryRef": "_Medidas.Divergência absoluta",
-              "nativeQueryRef": "Divergência absoluta"
+              "queryRef": "_Medidas.Paletes GFE",
+              "nativeQueryRef": "Paletes GFE"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "_Medidas"
+                    }
+                  },
+                  "Property": "Caixas GFE"
+                }
+              },
+              "queryRef": "_Medidas.Caixas GFE",
+              "nativeQueryRef": "Caixas GFE"
             }
           ]
         }
@@ -61,63 +70,13 @@
                     "Entity": "_Medidas"
                   }
                 },
-                "Property": "Divergência absoluta"
+                "Property": "Paletes GFE"
               }
             },
             "direction": "Descending"
           }
         ]
       }
-    },
-    "objects": {
-      "labels": [
-        {
-          "properties": {
-            "show": {
-              "expr": {
-                "Literal": {
-                  "Value": "true"
-                }
-              }
-            },
-            "bold": {
-              "expr": {
-                "Literal": {
-                  "Value": "true"
-                }
-              }
-            }
-          }
-        }
-      ],
-      "dataPoint": [
-        {
-          "properties": {
-            "fillRule": {
-              "linearGradient2": {
-                "min": {
-                  "color": {
-                    "expr": {
-                      "Literal": {
-                        "Value": "'#E7EEFA'"
-                      }
-                    }
-                  }
-                },
-                "max": {
-                  "color": {
-                    "expr": {
-                      "Literal": {
-                        "Value": "'#063573'"
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      ]
     },
     "visualContainerObjects": {
       "title": [
@@ -133,7 +92,7 @@
             "text": {
               "expr": {
                 "Literal": {
-                  "Value": "'⚖️ Itens com maior divergência (parque confiável)'"
+                  "Value": "'🧺 Garrafeira sem garrafa por colaborador — último dia'"
                 }
               }
             },

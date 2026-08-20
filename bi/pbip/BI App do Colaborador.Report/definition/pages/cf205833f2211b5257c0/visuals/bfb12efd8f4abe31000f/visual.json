@@ -1,13 +1,13 @@
 {
   "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.11.0/schema.json",
-  "name": "899c414aacc05ff1cae0",
+  "name": "bfb12efd8f4abe31000f",
   "position": {
-    "x": 268,
+    "x": 1024,
     "y": 152,
-    "z": 8000,
+    "z": 11000,
     "height": 96,
     "width": 240,
-    "tabOrder": 8000
+    "tabOrder": 11000
   },
   "visual": {
     "visualType": "cardVisual",
@@ -23,11 +23,11 @@
                       "Entity": "_Medidas"
                     }
                   },
-                  "Property": "% Dias com contagem"
+                  "Property": "Último dia contado"
                 }
               },
-              "queryRef": "_Medidas.% Dias com contagem",
-              "nativeQueryRef": "% Dias com contagem"
+              "queryRef": "_Medidas.Último dia contado",
+              "nativeQueryRef": "Último dia contado"
             }
           ]
         }
@@ -113,7 +113,7 @@
             "text": {
               "expr": {
                 "Literal": {
-                  "Value": "'🗓️ Dias com contagem'"
+                  "Value": "'📅 Último dia contado'"
                 }
               }
             },

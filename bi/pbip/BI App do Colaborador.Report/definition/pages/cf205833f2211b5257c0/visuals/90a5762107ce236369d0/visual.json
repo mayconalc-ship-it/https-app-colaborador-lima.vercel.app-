@@ -19,7 +19,7 @@
               {
                 "textRuns": [
                   {
-                    "value": "FILTRO OBRIGATÓRIO DESTA PÁGINA: fato_ag_conciliacao[parque_confiavel] = True. ag_parque guarda um saldo só, sobrescrito a cada ajuste — sem esse filtro a divergência de um dia passado é comparada com o saldo de hoje e o gráfico desenha uma série que nunca existiu.",
+                    "value": "VOLUME AQUI É FOTOGRAFIA, NÃO SOMA: os três visuais de baixo leem o último dia contado dentro do período selecionado. AG é contagem de estoque — somar dois dias conta o mesmo palete duas vezes. Aderência e ranking, esses sim, somam o período, porque medem frequência e não quantidade. Na conciliação, compare \"parque atualizado em\" com o dia contado: ag_parque guarda um saldo só, sobrescrito a cada ajuste, então diferença de dia anterior é contra o saldo de hoje.",
                     "textStyle": {
                       "fontSize": "8pt",
                       "color": "#64748B"

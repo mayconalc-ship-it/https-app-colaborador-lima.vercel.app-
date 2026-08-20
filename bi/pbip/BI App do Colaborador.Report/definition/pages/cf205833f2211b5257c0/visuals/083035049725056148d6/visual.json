@@ -1,19 +1,38 @@
 {
   "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.11.0/schema.json",
-  "name": "c5dcaea5eb09a070808a",
+  "name": "083035049725056148d6",
   "position": {
     "x": 16,
     "y": 460,
     "z": 14000,
     "height": 206,
-    "width": 410,
+    "width": 450,
     "tabOrder": 14000
   },
   "visual": {
-    "visualType": "tableEx",
+    "visualType": "pivotTable",
     "query": {
       "queryState": {
-        "Values": {
+        "Rows": {
+          "projections": [
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "fato_ag_contagem"
+                    }
+                  },
+                  "Property": "colaborador_nome"
+                }
+              },
+              "queryRef": "fato_ag_contagem.colaborador_nome",
+              "nativeQueryRef": "colaborador_nome",
+              "active": true
+            }
+          ]
+        },
+        "Columns": {
           "projections": [
             {
               "field": {
@@ -27,8 +46,13 @@
                 }
               },
               "queryRef": "fato_ag_contagem.formato",
-              "nativeQueryRef": "formato"
-            },
+              "nativeQueryRef": "formato",
+              "active": true
+            }
+          ]
+        },
+        "Values": {
+          "projections": [
             {
               "field": {
                 "Measure": {
@@ -37,31 +61,14 @@
                       "Entity": "_Medidas"
                     }
                   },
-                  "Property": "Total em caixas"
+                  "Property": "Caixas no dia"
                 }
               },
-              "queryRef": "_Medidas.Total em caixas",
-              "nativeQueryRef": "Total em caixas"
+              "queryRef": "_Medidas.Caixas no dia",
+              "nativeQueryRef": "Caixas no dia"
             }
           ]
         }
-      },
-      "sortDefinition": {
-        "sort": [
-          {
-            "field": {
-              "Measure": {
-                "Expression": {
-                  "SourceRef": {
-                    "Entity": "_Medidas"
-                  }
-                },
-                "Property": "Total em caixas"
-              }
-            },
-            "direction": "Descending"
-          }
-        ]
       }
     },
     "visualContainerObjects": {
@@ -78,7 +85,7 @@
             "text": {
               "expr": {
                 "Literal": {
-                  "Value": "'📦 Total contado por embalagem (caixas)'"
+                  "Value": "'📦 Total contado por colaborador e embalagem — último dia contado'"
                 }
               }
             },

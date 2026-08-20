@@ -1,13 +1,13 @@
 {
   "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.11.0/schema.json",
-  "name": "3dcc70603bdcccda2abc",
+  "name": "87f6d3da320587bbb39c",
   "position": {
-    "x": 1024,
+    "x": 268,
     "y": 152,
-    "z": 11000,
+    "z": 8000,
     "height": 96,
     "width": 240,
-    "tabOrder": 11000
+    "tabOrder": 8000
   },
   "visual": {
     "visualType": "cardVisual",
@@ -23,11 +23,11 @@
                       "Entity": "_Medidas"
                     }
                   },
-                  "Property": "Recontagens pendentes"
+                  "Property": "% Dias com contagem"
                 }
               },
-              "queryRef": "_Medidas.Recontagens pendentes",
-              "nativeQueryRef": "Recontagens pendentes"
+              "queryRef": "_Medidas.% Dias com contagem",
+              "nativeQueryRef": "% Dias com contagem"
             }
           ]
         }
@@ -113,7 +113,7 @@
             "text": {
               "expr": {
                 "Literal": {
-                  "Value": "'🔁 Recontagens pendentes'"
+                  "Value": "'🗓️ % Dias com contagem'"
                 }
               }
             },

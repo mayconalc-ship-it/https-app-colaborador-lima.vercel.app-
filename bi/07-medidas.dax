@@ -182,6 +182,84 @@ MEASURE '_Medidas'[Paletes de garrafeira] =
         )
     )
 
+// --- Fotografia do dia, e não soma de dias -------------------------
+//
+// AG é contagem de ESTOQUE. Cada dia é uma fotografia do mesmo parque,
+// não um lote novo que entrou. Somar dois dias conta o mesmo palete duas
+// vezes, e "total contado no mês" vira um número que só cresce, sem
+// significar volume nenhum.
+//
+// Por isso todo visual de VOLUME desta página lê o último dia contado
+// dentro do período selecionado. O ALLSELECTED é o que faz esse dia ser
+// o mesmo para todas as linhas do visual: sem ele, cada colaborador
+// apareceria no seu próprio último dia, e a soma da coluna seria de dias
+// diferentes — pior que o acumulado, porque parece certa.
+//
+// Aderência e disciplina continuam somando dias, e devem mesmo: lá a
+// pergunta é "com que frequência se conta", não "quanto tem".
+
+MEASURE '_Medidas'[Último dia contado] =
+    VAR Dia =
+        CALCULATE ( MAX ( fato_ag_contagem[data] ), ALLSELECTED ( fato_ag_contagem ) )
+    RETURN
+        IF ( NOT ISBLANK ( Dia ), FORMAT ( Dia, "dd/MM/yyyy" ) )
+
+MEASURE '_Medidas'[Caixas no dia] =
+    VAR Dia =
+        CALCULATE ( MAX ( fato_ag_contagem[data] ), ALLSELECTED ( fato_ag_contagem ) )
+    RETURN
+        CALCULATE ( [Total em caixas], fato_ag_contagem[data] = Dia )
+
+// Paletes e caixas como foram DIGITADOS, sem conversão: a pergunta do
+// painel de garrafeira é quantos paletes de GFE sem garrafa estão no
+// pátio, e converter para caixas responde outra coisa.
+MEASURE '_Medidas'[Paletes GFE] =
+    VAR Dia =
+        CALCULATE ( MAX ( fato_ag_contagem[data] ), ALLSELECTED ( fato_ag_contagem ) )
+    RETURN
+        CALCULATE (
+            SUM ( fato_ag_contagem[palete] ),
+            fato_ag_contagem[data] = Dia,
+            fato_ag_contagem[tipo] = "GFE sem Garrafa"
+        )
+
+MEASURE '_Medidas'[Caixas GFE] =
+    VAR Dia =
+        CALCULATE ( MAX ( fato_ag_contagem[data] ), ALLSELECTED ( fato_ag_contagem ) )
+    RETURN
+        CALCULATE (
+            SUM ( fato_ag_contagem[caixa] ),
+            fato_ag_contagem[data] = Dia,
+            fato_ag_contagem[tipo] = "GFE sem Garrafa"
+        )
+
+// --- Conciliação do dia, igual à do app ----------------------------
+// conciliar() em src/lib/ativo-giro.ts soma todas as contagens do
+// tipo+formato NAQUELE dia e compara com o parque. Sem o recorte de um
+// dia só, "contado" viraria a soma de todas as contagens do período
+// contra um parque que é saldo, e a diferença não significaria nada.
+
+MEASURE '_Medidas'[Contado] =
+    VAR Dia =
+        CALCULATE ( MAX ( fato_ag_conciliacao[data] ), ALLSELECTED ( fato_ag_conciliacao ) )
+    RETURN
+        CALCULATE ( SUM ( fato_ag_conciliacao[contado] ), fato_ag_conciliacao[data] = Dia )
+
+MEASURE '_Medidas'[Parque] =
+    VAR Dia =
+        CALCULATE ( MAX ( fato_ag_conciliacao[data] ), ALLSELECTED ( fato_ag_conciliacao ) )
+    RETURN
+        CALCULATE ( SUM ( fato_ag_conciliacao[parque] ), fato_ag_conciliacao[data] = Dia )
+
+MEASURE '_Medidas'[Diferença] =
+    VAR C = [Contado]
+    VAR P = [Parque]
+    RETURN
+        IF (
+            NOT ( ISBLANK ( C ) && ISBLANK ( P ) ),
+            COALESCE ( C, 0 ) - COALESCE ( P, 0 )
+        )
+
 // --- Aderência ao processo -----------------------------------------
 // "Ocorrências de contagem" é quantas VEZES se contou, não quanto se
 // contou. É o que responde se a revenda está mantendo a rotina — volume

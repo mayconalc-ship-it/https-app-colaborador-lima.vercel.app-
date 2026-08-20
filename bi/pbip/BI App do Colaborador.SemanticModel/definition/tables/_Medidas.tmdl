@@ -166,6 +166,72 @@ table _Medidas
 		formatString: #,0
 		lineageTag: f7983d7e-48cf-4598-bcfc-5ac0810855ac
 
+	measure 'Último dia contado' =
+			VAR Dia =
+			    CALCULATE ( MAX ( fato_ag_contagem[data] ), ALLSELECTED ( fato_ag_contagem ) )
+			RETURN
+			    IF ( NOT ISBLANK ( Dia ), FORMAT ( Dia, "dd/MM/yyyy" ) )
+		lineageTag: 429123ba-c628-433e-9e7d-6339f7382722
+
+	measure 'Caixas no dia' =
+			VAR Dia =
+			    CALCULATE ( MAX ( fato_ag_contagem[data] ), ALLSELECTED ( fato_ag_contagem ) )
+			RETURN
+			    CALCULATE ( [Total em caixas], fato_ag_contagem[data] = Dia )
+		formatString: #,0
+		lineageTag: fff4911f-8e68-4ab1-8f9c-d3caab7d8640
+
+	measure 'Paletes GFE' =
+			VAR Dia =
+			    CALCULATE ( MAX ( fato_ag_contagem[data] ), ALLSELECTED ( fato_ag_contagem ) )
+			RETURN
+			    CALCULATE (
+			        SUM ( fato_ag_contagem[palete] ),
+			        fato_ag_contagem[data] = Dia,
+			        fato_ag_contagem[tipo] = "GFE sem Garrafa"
+			    )
+		formatString: #,0
+		lineageTag: ef0ceebb-9857-42f9-a92a-ca304142e2fd
+
+	measure 'Caixas GFE' =
+			VAR Dia =
+			    CALCULATE ( MAX ( fato_ag_contagem[data] ), ALLSELECTED ( fato_ag_contagem ) )
+			RETURN
+			    CALCULATE (
+			        SUM ( fato_ag_contagem[caixa] ),
+			        fato_ag_contagem[data] = Dia,
+			        fato_ag_contagem[tipo] = "GFE sem Garrafa"
+			    )
+		formatString: #,0
+		lineageTag: 728d4ff3-a8c1-47d2-8b13-55c90db6a72a
+
+	measure Contado =
+			VAR Dia =
+			    CALCULATE ( MAX ( fato_ag_conciliacao[data] ), ALLSELECTED ( fato_ag_conciliacao ) )
+			RETURN
+			    CALCULATE ( SUM ( fato_ag_conciliacao[contado] ), fato_ag_conciliacao[data] = Dia )
+		formatString: #,0
+		lineageTag: 5bf47143-cd07-47e5-b26c-c6b60fa69e96
+
+	measure Parque =
+			VAR Dia =
+			    CALCULATE ( MAX ( fato_ag_conciliacao[data] ), ALLSELECTED ( fato_ag_conciliacao ) )
+			RETURN
+			    CALCULATE ( SUM ( fato_ag_conciliacao[parque] ), fato_ag_conciliacao[data] = Dia )
+		formatString: #,0
+		lineageTag: d0d5ac10-53fa-407a-ab9b-ff175f38ef5f
+
+	measure Diferença =
+			VAR C = [Contado]
+			VAR P = [Parque]
+			RETURN
+			    IF (
+			        NOT ( ISBLANK ( C ) && ISBLANK ( P ) ),
+			        COALESCE ( C, 0 ) - COALESCE ( P, 0 )
+			    )
+		formatString: #,0
+		lineageTag: 80bde363-2847-41ca-a4ec-e4b7da05d929
+
 	measure 'Ocorrências de contagem' = COUNTROWS ( fato_ag_contagem )
 		formatString: #,0
 		lineageTag: 960faa40-6b10-4f3b-9dbb-b2ddae40c42a

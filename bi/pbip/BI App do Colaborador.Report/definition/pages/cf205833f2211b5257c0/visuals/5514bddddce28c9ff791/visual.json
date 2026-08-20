@@ -1,13 +1,13 @@
 {
   "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.11.0/schema.json",
-  "name": "702837ad53ddd21bafd1",
+  "name": "5514bddddce28c9ff791",
   "position": {
-    "x": 438,
+    "x": 802,
     "y": 460,
-    "z": 15000,
+    "z": 16000,
     "height": 206,
-    "width": 410,
-    "tabOrder": 15000
+    "width": 454,
+    "tabOrder": 16000
   },
   "visual": {
     "visualType": "tableEx",
@@ -20,14 +20,14 @@
                 "Column": {
                   "Expression": {
                     "SourceRef": {
-                      "Entity": "fato_ag_contagem"
+                      "Entity": "fato_ag_conciliacao"
                     }
                   },
-                  "Property": "formato"
+                  "Property": "item"
                 }
               },
-              "queryRef": "fato_ag_contagem.formato",
-              "nativeQueryRef": "formato"
+              "queryRef": "fato_ag_conciliacao.item",
+              "nativeQueryRef": "item"
             },
             {
               "field": {
@@ -37,11 +37,11 @@
                       "Entity": "_Medidas"
                     }
                   },
-                  "Property": "Caixas de garrafeira"
+                  "Property": "Contado"
                 }
               },
-              "queryRef": "_Medidas.Caixas de garrafeira",
-              "nativeQueryRef": "Caixas de garrafeira"
+              "queryRef": "_Medidas.Contado",
+              "nativeQueryRef": "Contado"
             },
             {
               "field": {
@@ -51,11 +51,39 @@
                       "Entity": "_Medidas"
                     }
                   },
-                  "Property": "Paletes de garrafeira"
+                  "Property": "Parque"
                 }
               },
-              "queryRef": "_Medidas.Paletes de garrafeira",
-              "nativeQueryRef": "Paletes de garrafeira"
+              "queryRef": "_Medidas.Parque",
+              "nativeQueryRef": "Parque"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "_Medidas"
+                    }
+                  },
+                  "Property": "Diferença"
+                }
+              },
+              "queryRef": "_Medidas.Diferença",
+              "nativeQueryRef": "Diferença"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "fato_ag_conciliacao"
+                    }
+                  },
+                  "Property": "parque_atualizado_em"
+                }
+              },
+              "queryRef": "fato_ag_conciliacao.parque_atualizado_em",
+              "nativeQueryRef": "parque_atualizado_em"
             }
           ]
         }
@@ -70,10 +98,10 @@
                     "Entity": "_Medidas"
                   }
                 },
-                "Property": "Caixas de garrafeira"
+                "Property": "Diferença"
               }
             },
-            "direction": "Descending"
+            "direction": "Ascending"
           }
         ]
       }
@@ -92,7 +120,7 @@
             "text": {
               "expr": {
                 "Literal": {
-                  "Value": "'🧺 Paletes de garrafeira sem garrafa'"
+                  "Value": "'⚖️ Conciliação do dia — contado × parque'"
                 }
               }
             },

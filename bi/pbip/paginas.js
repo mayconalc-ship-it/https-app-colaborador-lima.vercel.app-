@@ -120,16 +120,27 @@ const paginas = [
   // ================================================================
   {
     nome: '📦 Ativo de Giro',
-    // ag_parque nao guarda historico: um saldo por revenda/tipo/formato,
-    // sobrescrito a cada ajuste. Sem este filtro, a divergencia de um dia
-    // passado e calculada contra o saldo de hoje.
-    filtroPagina: { campo: 'fato_ag_conciliacao.parque_confiavel', valores: [true] },
+    // O filtro de pagina parque_confiavel = True saiu daqui.
+    //
+    // Ele existia para impedir divergencia calculada contra o saldo de
+    // hoje, e a intencao continua certa -- mas ele escondia a pagina
+    // inteira de conciliacao sempre que o parque nao era atualizado no
+    // mesmo dia da contagem, que e o caso comum. Visual vazio nao avisa
+    // nada; ele so parece que nao ha divergencia.
+    //
+    // A protecao passou para dentro das medidas [Itens conciliados] e
+    // [% Itens que bateram], que continuam exigindo parque_confiavel, e
+    // para a coluna parque_atualizado_em, visivel na tabela de
+    // conciliacao -- quem le compara a data com o dia contado.
     kpis: [
       ['🔢 Ocorrências de contagem', '@Ocorrências de contagem'],
-      ['🗓️ Dias com contagem', '@% Dias com contagem'],
+      ['🗓️ % Dias com contagem', '@% Dias com contagem'],
       ['👥 Contadores', '@Contadores'],
       ['✅ % Lançado no dia', '@% Lançado no dia'],
-      ['🔁 Recontagens pendentes', '@Recontagens pendentes'],
+      // Substituiu "Recontagens pendentes": os tres visuais de volume
+      // desta pagina falam de UM dia, e nao dizer qual e esconder a
+      // metade da informacao.
+      ['📅 Último dia contado', '@Último dia contado'],
     ],
     // Duas faixas em vez das tres do padrao: esta pagina responde a tres
     // perguntas diferentes (a rotina esta sendo mantida? quem sustenta?
@@ -173,38 +184,73 @@ const paginas = [
         ordem: { campo: '@% Dias com contagem', dir: 'Descending' },
       },
 
-      // --- faixa 2: o Painel do app + divergencia -------------------
+      // --- faixa 2: o Painel do app, no ultimo dia contado ----------
+      //
+      // As tres leem "@... no dia": o ultimo dia contado dentro do
+      // periodo selecionado, nunca o acumulado. AG e contagem de
+      // estoque, e somar dias conta o mesmo palete duas vezes. Ver o
+      // bloco "Fotografia do dia" em 07-medidas.dax.
       {
-        t: 'tableEx', x: 16, y: 460, w: 410, h: 206,
-        titulo: '📦 Total contado por embalagem (caixas)',
-        roles: { Values: ['fato_ag_contagem.formato', '@Total em caixas'] },
-        ordem: { campo: '@Total em caixas', dir: 'Descending' },
+        // Matriz, e nao tabela por formato: a pergunta virou "quem
+        // contou o que", e o nome do colaborador precisa estar na
+        // primeira coluna, com o total de cada um na ponta da linha.
+        t: 'pivotTable', x: 16, y: 460, w: 450, h: 206,
+        titulo: '📦 Total contado por colaborador e embalagem — último dia contado',
+        roles: {
+          Rows: ['fato_ag_contagem.colaborador_nome'],
+          Columns: ['fato_ag_contagem.formato'],
+          Values: ['@Caixas no dia'],
+        },
       },
       {
-        t: 'tableEx', x: 438, y: 460, w: 410, h: 206,
-        titulo: '🧺 Paletes de garrafeira sem garrafa',
+        // So GFE sem Garrafa, e nas unidades em que foi DIGITADO --
+        // palete e caixa. O total convertido em caixas responde outra
+        // pergunta e ja mora no visual ao lado.
+        t: 'tableEx', x: 474, y: 460, w: 320, h: 206,
+        titulo: '🧺 Garrafeira sem garrafa por colaborador — último dia',
         roles: {
           Values: [
-            'fato_ag_contagem.formato',
-            '@Caixas de garrafeira',
-            '@Paletes de garrafeira',
+            'fato_ag_contagem.colaborador_nome',
+            '@Paletes GFE',
+            '@Caixas GFE',
           ],
         },
-        ordem: { campo: '@Caixas de garrafeira', dir: 'Descending' },
+        ordem: { campo: '@Paletes GFE', dir: 'Descending' },
       },
       {
-        t: 'clusteredBarChart', x: 860, y: 460, w: 404, h: 206,
-        titulo: '⚖️ Itens com maior divergência (parque confiável)',
-        roles: { Category: ['fato_ag_conciliacao.item'], Y: ['@Divergência absoluta'] },
-        ordem: { campo: '@Divergência absoluta', dir: 'Descending' },
-        gradiente: true,
+        // A conciliacao da tela do app: contado x parque x diferenca,
+        // item a item, do dia. Substituiu o ranking de divergencia
+        // absoluta, que exigia parque_confiavel = True e por isso
+        // aparecia VAZIO sempre que o parque nao era atualizado no
+        // mesmo dia da contagem.
+        //
+        // parque_atualizado_em fica visivel de proposito: e o que
+        // permite ler a diferenca com desconfianca quando a data nao
+        // bate com o dia contado. ag_parque nao guarda historico.
+        t: 'tableEx', x: 802, y: 460, w: 454, h: 206,
+        titulo: '⚖️ Conciliação do dia — contado × parque',
+        roles: {
+          Values: [
+            'fato_ag_conciliacao.item',
+            '@Contado',
+            '@Parque',
+            '@Diferença',
+            // A coluna "resultado" saiu: Falta/Sobra/Bateu e o sinal da
+            // diferenca dito de novo, e o espaco vale mais para a data
+            // do parque, que e o que diz se dá para confiar na conta.
+            'fato_ag_conciliacao.parque_atualizado_em',
+          ],
+        },
+        ordem: { campo: '@Diferença', dir: 'Ascending' },
       },
     ],
     nota:
-      'FILTRO OBRIGATÓRIO DESTA PÁGINA: fato_ag_conciliacao[parque_confiavel] = True. ' +
-      'ag_parque guarda um saldo só, sobrescrito a cada ajuste — sem esse filtro a ' +
-      'divergência de um dia passado é comparada com o saldo de hoje e o gráfico ' +
-      'desenha uma série que nunca existiu.',
+      'VOLUME AQUI É FOTOGRAFIA, NÃO SOMA: os três visuais de baixo leem o último dia ' +
+      'contado dentro do período selecionado. AG é contagem de estoque — somar dois ' +
+      'dias conta o mesmo palete duas vezes. Aderência e ranking, esses sim, somam o ' +
+      'período, porque medem frequência e não quantidade. Na conciliação, compare ' +
+      '"parque atualizado em" com o dia contado: ag_parque guarda um saldo só, ' +
+      'sobrescrito a cada ajuste, então diferença de dia anterior é contra o saldo de hoje.',
   },
 
   // ================================================================
