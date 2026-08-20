@@ -85,6 +85,34 @@ export function ehResposta(v: unknown): v is Resposta {
   return v === "sim" || v === "nao" || v === "na";
 }
 
+/**
+ * O item NOK só fecha com uma descrição do que precisa ser feito.
+ *
+ * Sem ela a não conformidade nascia com o texto da PERGUNTA como
+ * descrição -- e o dono da área recebia no plano de ação "4.3 Os cabos
+ * estão organizados?", que é a pergunta do checklist, não o problema.
+ * Ele não estava lá na hora e não tem como adivinhar o que o auditor
+ * viu.
+ *
+ * O mínimo de dez caracteres não mede qualidade; mede intenção. Barra o
+ * "x", o "ok" e o ponto final digitados só para o botão liberar. A
+ * mesma régua vale na tela e no servidor (`finalizarAuditoria`), porque
+ * a ação de servidor pode ser chamada sem passar pela tela.
+ */
+export const MINIMO_DESCRICAO_NOK = 10;
+
+export function descricaoNokValida(obs: string | null | undefined): boolean {
+  return (obs ?? "").trim().length >= MINIMO_DESCRICAO_NOK;
+}
+
+/** O item está NOK e ainda sem a descrição obrigatória? */
+export function nokSemDescricao(r: {
+  valor: Resposta;
+  observacao: string | null;
+}): boolean {
+  return r.valor === "nao" && !descricaoNokValida(r.observacao);
+}
+
 /* ------------------------------------------------------------------ */
 /* Auditoria                                                           */
 /* ------------------------------------------------------------------ */

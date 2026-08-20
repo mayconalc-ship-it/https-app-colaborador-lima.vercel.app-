@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/Toast";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
@@ -9,9 +9,11 @@ import {
   BOTAO_RESPOSTA,
   EMOJI_SENSO,
   JAPONES_SENSO,
+  MINIMO_DESCRICAO_NOK,
   ROTULO_SENSO,
   SENSOS,
   formatarTaxa,
+  nokSemDescricao,
   taxaConformidade,
   type Pergunta,
   type Resposta,
@@ -37,6 +39,12 @@ import {
  * 3) O DEDO ANTES DO OLHO. Os três botões ocupam a largura toda e têm
  *    altura de alvo de toque de verdade -- não são rádio-buttons de
  *    formulário de desktop encolhidos para caber.
+ *
+ * 4) NOK NÃO PASSA MUDO. Marcar "não conforme" abre a descrição e ela
+ *    é obrigatória para avançar de senso e para finalizar. É esse texto
+ *    -- e não a pergunta do checklist -- que chega ao dono da área como
+ *    a ação a executar. O campo grava sozinho ao sair dele: exigir um
+ *    "Salvar" extra é como o texto se perdia antes.
  */
 
 type Props = {
@@ -65,6 +73,18 @@ export function Checklist({
     return m;
   });
 
+  /**
+   * O que já está no banco, por pergunta.
+   *
+   * A descrição do NOK grava ao sair do campo, e o auditor entra e sai
+   * dele várias vezes enquanto olha para a área. Sem esta referência,
+   * cada saída sem edição dispararia um upsert -- e a auditoria roda no
+   * sinal fraco do fundo do armazém, onde toda ida à rede custa.
+   */
+  const salvas = useRef(
+    new Map(respostasIniciais.map((r) => [r.pergunta_id, r.observacao ?? ""])),
+  );
+
   const porSenso = useMemo(() => {
     const m = new Map<Senso, Pergunta[]>();
     for (const s of SENSOS) m.set(s, []);
@@ -77,14 +97,19 @@ export function Checklist({
   }, [perguntas]);
 
   const [etapa, setEtapa] = useState(() => {
-    // Abre na primeira etapa que ainda tem pergunta em branco -- quem
-    // voltou depois de uma interrupção continua de onde parou, sem
-    // precisar procurar.
-    const respondidas = new Set(respostasIniciais.map((r) => r.pergunta_id));
+    // Abre na primeira etapa que ainda tem pendência -- pergunta em
+    // branco ou NOK sem descrição. Quem voltou depois de uma
+    // interrupção continua de onde parou, sem precisar procurar.
+    const salvas = new Map(respostasIniciais.map((r) => [r.pergunta_id, r]));
     const grupos = SENSOS.filter((s) =>
       perguntas.some((p) => p.senso === s),
     ).map((s) => perguntas.filter((p) => p.senso === s));
-    const i = grupos.findIndex((g) => g.some((p) => !respondidas.has(p.id)));
+    const i = grupos.findIndex((g) =>
+      g.some((p) => {
+        const r = salvas.get(p.id);
+        return !r || nokSemDescricao(r);
+      }),
+    );
     return i === -1 ? grupos.length : i;
   });
 
@@ -172,6 +197,7 @@ export function Checklist({
     iniciarSalvamento(async () => {
       const r = await salvarResposta(formData);
       if (r.ok) {
+        salvas.current.set(pergunta.id, observacao);
         setRespostas((m) => {
           const novo = new Map(m);
           novo.set(pergunta.id, { ...atual, observacao: observacao || null });
@@ -179,6 +205,50 @@ export function Checklist({
         });
         toast.sucesso("Detalhe salvo.");
       } else {
+        toast.erro(r.erro);
+      }
+    });
+  }
+
+  /** Digitação: fica só na tela, para o campo não travar a cada tecla. */
+  function alterarObservacao(pergunta: Pergunta, texto: string) {
+    setRespostas((m) => {
+      const atual = m.get(pergunta.id);
+      if (!atual) return m;
+      const novo = new Map(m);
+      novo.set(pergunta.id, { ...atual, observacao: texto || null });
+      return novo;
+    });
+  }
+
+  /**
+   * Sair do campo grava.
+   *
+   * Antes, a descrição só ia ao banco se o auditor tocasse em "Salvar"
+   * -- e o texto escrito e abandonado sumia junto com a tela, deixando
+   * a não conformidade nascer com a pergunta do checklist no lugar do
+   * problema. É a origem do plano de ação que ninguém entendia.
+   */
+  function salvarObservacao(pergunta: Pergunta) {
+    if (somenteLeitura) return;
+    const atual = respostas.get(pergunta.id);
+    if (!atual) return;
+
+    const texto = (atual.observacao ?? "").trim();
+    if (texto === (salvas.current.get(pergunta.id) ?? "").trim()) return;
+
+    const dados = new FormData();
+    dados.set("auditoria_id", auditoriaId);
+    dados.set("pergunta_id", pergunta.id);
+    dados.set("valor", atual.valor);
+    dados.set("observacao", texto);
+
+    salvas.current.set(pergunta.id, texto);
+
+    iniciarSalvamento(async () => {
+      const r = await salvarResposta(dados);
+      if (!r.ok) {
+        salvas.current.delete(pergunta.id);
         toast.erro(r.erro);
       }
     });
@@ -207,8 +277,18 @@ export function Checklist({
     ? []
     : porSenso[etapa].perguntas.filter((p) => !respostas.has(p.id));
 
+  /** Os NOK do senso aberto que ainda não dizem o que precisa ser feito. */
+  const semDescricaoDoSenso = noResumo
+    ? []
+    : porSenso[etapa].perguntas.filter((p) => {
+        const r = respostas.get(p.id);
+        return r ? nokSemDescricao(r) : false;
+      });
+
+  const travas = [...pendentesDoSenso, ...semDescricaoDoSenso];
+
   /**
-   * Avançar exige o senso completo.
+   * Avançar exige o senso completo -- respondido E, nos NOK, descrito.
    *
    * O bloqueio é aqui E no servidor: `finalizarAuditoria` recusa a
    * auditoria incompleta de novo, porque esta tela é só a tela -- e a
@@ -219,15 +299,25 @@ export function Checklist({
    * deles. Botão morto no celular passa por tela travada.
    */
   function avancar() {
-    if (pendentesDoSenso.length > 0) {
+    if (travas.length > 0) {
       setDestacarPendentes(true);
-      toast.erro(
-        pendentesDoSenso.length === 1
-          ? "Falta responder 1 item deste senso."
-          : `Faltam responder ${pendentesDoSenso.length} itens deste senso.`,
-      );
+      // Responder vem antes de descrever: mandar o auditor escrever num
+      // senso que ainda tem item em branco o faria voltar duas vezes.
+      if (pendentesDoSenso.length > 0) {
+        toast.erro(
+          pendentesDoSenso.length === 1
+            ? "Falta responder 1 item deste senso."
+            : `Faltam responder ${pendentesDoSenso.length} itens deste senso.`,
+        );
+      } else {
+        toast.erro(
+          semDescricaoDoSenso.length === 1
+            ? "Escreva o que precisa ser feito no item NOK. É o que o dono da área vai ler."
+            : `Escreva o que precisa ser feito nos ${semDescricaoDoSenso.length} itens NOK. É o que o dono da área vai ler.`,
+        );
+      }
       document
-        .getElementById(`item-${pendentesDoSenso[0].id}`)
+        .getElementById(`item-${travas[0].id}`)
         ?.scrollIntoView({ behavior: "smooth", block: "center" });
       return;
     }
@@ -291,6 +381,10 @@ export function Checklist({
             faltam: g.perguntas.filter((p) => !respostas.has(p.id)).length,
             nok: g.perguntas.filter((p) => respostas.get(p.id)?.valor === "nao")
               .length,
+            semDescricao: g.perguntas.filter((p) => {
+              const r = respostas.get(p.id);
+              return r ? nokSemDescricao(r) : false;
+            }).length,
           }))}
         />
       ) : (
@@ -318,8 +412,14 @@ export function Checklist({
                 resposta={respostas.get(p.id)}
                 somenteLeitura={somenteLeitura}
                 pendente={destacarPendentes && !respostas.has(p.id)}
+                faltaDescricao={semDescricaoDoSenso.includes(p)}
+                cobrarDescricao={
+                  destacarPendentes && semDescricaoDoSenso.includes(p)
+                }
                 onResponder={(v) => responder(p, v)}
                 onDetalhe={(fd) => salvarDetalhe(p, fd)}
+                onObservacao={(t) => alterarObservacao(p, t)}
+                onSalvarObservacao={() => salvarObservacao(p)}
               />
             ))}
           </ul>
@@ -341,9 +441,9 @@ export function Checklist({
             <button
               type="button"
               onClick={avancar}
-              aria-disabled={pendentesDoSenso.length > 0}
+              aria-disabled={travas.length > 0}
               className={`flex-1 rounded-xl py-3 text-sm font-semibold text-white ${
-                pendentesDoSenso.length > 0
+                travas.length > 0
                   ? "bg-slate-300"
                   : "bg-primary active:bg-primary-dark"
               }`}
@@ -352,9 +452,13 @@ export function Checklist({
                 ? `Faltam ${pendentesDoSenso.length} ${
                     pendentesDoSenso.length === 1 ? "item" : "itens"
                   } neste senso`
-                : etapa === porSenso.length - 1
-                  ? "Revisar e finalizar"
-                  : `Próximo: ${ROTULO_SENSO[porSenso[etapa + 1].senso]}`}
+                : semDescricaoDoSenso.length > 0
+                  ? `Descreva ${semDescricaoDoSenso.length} ${
+                      semDescricaoDoSenso.length === 1 ? "item NOK" : "itens NOK"
+                    }`
+                  : etapa === porSenso.length - 1
+                    ? "Revisar e finalizar"
+                    : `Próximo: ${ROTULO_SENSO[porSenso[etapa + 1].senso]}`}
             </button>
           </div>
         </div>
@@ -370,28 +474,39 @@ function ItemPergunta({
   resposta,
   somenteLeitura,
   pendente,
+  faltaDescricao,
+  cobrarDescricao,
   onResponder,
   onDetalhe,
+  onObservacao,
+  onSalvarObservacao,
 }: {
   pergunta: Pergunta;
   resposta?: RespostaSalva;
   somenteLeitura: boolean;
   /** Ficou sem resposta e a pessoa tentou avançar. */
   pendente: boolean;
+  /** É NOK e a descrição obrigatória ainda não está de pé. */
+  faltaDescricao: boolean;
+  /** ... e a pessoa já tentou avançar assim. */
+  cobrarDescricao: boolean;
   onResponder: (v: Resposta) => void;
   onDetalhe: (fd: FormData) => void;
+  onObservacao: (texto: string) => void;
+  onSalvarObservacao: () => void;
 }) {
   // O detalhe abre sozinho quando o item é NOK: descrever o problema
-  // deixa de ser opcional escondido atrás de um clique e passa a ser o
-  // próximo passo natural -- é dessa descrição que nasce o plano de ação.
+  // não é opcional escondido atrás de um clique, é o próximo passo --
+  // é dessa descrição que nasce a ação no colo do dono da área.
   const [aberto, setAberto] = useState(false);
-  const mostrarDetalhe = aberto || resposta?.valor === "nao";
+  const ehNok = resposta?.valor === "nao";
+  const mostrarDetalhe = aberto || ehNok;
 
   return (
     <li
       id={`item-${pergunta.id}`}
       className={`rounded-2xl border bg-white p-3 shadow-sm ${
-        pendente
+        pendente || cobrarDescricao
           ? "border-red-300 ring-2 ring-red-100"
           : "border-slate-200"
       }`}
@@ -450,18 +565,51 @@ function ItemPergunta({
           action={onDetalhe}
           className="mt-3 space-y-2 border-t border-slate-100 pt-3"
         >
+          {ehNok && (
+            <label
+              htmlFor={`obs-${pergunta.id}`}
+              className="block text-xs font-semibold text-slate-700"
+            >
+              O que precisa ser feito?{" "}
+              <span className="font-normal text-red-600">obrigatório</span>
+            </label>
+          )}
           <textarea
+            id={`obs-${pergunta.id}`}
             name="observacao"
-            rows={2}
-            defaultValue={resposta?.observacao ?? ""}
+            rows={ehNok ? 3 : 2}
+            value={resposta?.observacao ?? ""}
+            onChange={(e) => onObservacao(e.target.value)}
+            // Grava ao sair do campo. O auditor escreve e já toca no
+            // próximo item -- não existe momento em que ele voltaria
+            // para apertar um botão de salvar.
+            onBlur={onSalvarObservacao}
             disabled={somenteLeitura}
+            required={ehNok}
+            minLength={ehNok ? MINIMO_DESCRICAO_NOK : undefined}
+            aria-invalid={cobrarDescricao || undefined}
             placeholder={
-              resposta?.valor === "nao"
-                ? "O que está errado? Esse texto vira a descrição do plano de ação."
+              ehNok
+                ? "Ex.: retirar as caixas do corredor e devolver ao estoque. O dono da área lê exatamente este texto no plano de ação."
                 : "Observação (opcional)"
             }
-            className="w-full rounded-xl border border-slate-200 p-3 text-base focus:border-primary focus:outline-none disabled:bg-slate-50"
+            className={`w-full rounded-xl border p-3 text-base focus:outline-none disabled:bg-slate-50 ${
+              cobrarDescricao
+                ? "border-red-400 focus:border-red-500"
+                : "border-slate-200 focus:border-primary"
+            }`}
           />
+
+          {faltaDescricao && !somenteLeitura && (
+            <p
+              className={`text-xs ${
+                cobrarDescricao ? "font-semibold text-red-600" : "text-slate-500"
+              }`}
+            >
+              Escreva o que o dono da área precisa fazer — sem isso ele
+              recebe só a pergunta do checklist e não sabe do que se trata.
+            </p>
+          )}
 
           {resposta?.foto_url && (
             // eslint-disable-next-line @next/next/no-img-element
@@ -517,13 +665,23 @@ function Resumo({
   respondidas: number;
   somenteLeitura: boolean;
   salvando: boolean;
-  porSenso: { senso: Senso; faltam: number; nok: number }[];
+  porSenso: {
+    senso: Senso;
+    faltam: number;
+    nok: number;
+    semDescricao: number;
+  }[];
   onVoltar: () => void;
   onFinalizar: () => void;
   onIrPara: (s: Senso) => void;
 }) {
   const faltam = total - respondidas;
   const taxa = taxaConformidade(contagem.ok, contagem.nok);
+
+  // A revisão final é a última chance de barrar o NOK mudo -- daqui em
+  // diante ele viraria uma linha do plano de ação sem dizer o que fazer.
+  const semDescricao = porSenso.reduce((s, g) => s + g.semDescricao, 0);
+  const travado = faltam > 0 || semDescricao > 0;
 
   return (
     <div className="space-y-4">
@@ -557,6 +715,10 @@ function Resumo({
                   <span className="font-semibold text-amber-600">
                     faltam {s.faltam}
                   </span>
+                ) : s.semDescricao > 0 ? (
+                  <span className="font-semibold text-red-600">
+                    {s.semDescricao} sem descrição
+                  </span>
                 ) : s.nok > 0 ? (
                   <span className="font-semibold text-red-600">
                     {s.nok} NOK
@@ -570,11 +732,23 @@ function Resumo({
         ))}
       </ul>
 
+      {semDescricao > 0 && !somenteLeitura && (
+        <p className="rounded-2xl bg-red-50 p-3 text-sm text-red-900">
+          <strong>
+            {semDescricao} {semDescricao === 1 ? "item NOK" : "itens NOK"}
+          </strong>{" "}
+          ainda não {semDescricao === 1 ? "diz" : "dizem"} o que precisa ser
+          feito. Toque no senso acima e escreva — é esse texto que o dono da
+          área recebe.
+        </p>
+      )}
+
       {contagem.nok > 0 && !somenteLeitura && (
         <p className="rounded-2xl bg-amber-50 p-3 text-sm text-amber-900">
           Ao finalizar, os <strong>{contagem.nok}</strong> itens não conformes
-          viram ações no Plano de Ação 5S, já atribuídas ao dono da área com
-          prazo de 30 dias. Você ajusta responsável e prazo depois.
+          viram ações no Plano de Ação 5S, com a sua descrição, já atribuídas ao
+          dono da área com prazo de 30 dias. Você ajusta responsável e prazo
+          depois.
         </p>
       )}
 
@@ -590,7 +764,7 @@ function Resumo({
           <button
             type="button"
             onClick={onFinalizar}
-            disabled={faltam > 0 || salvando}
+            disabled={travado || salvando}
             className="flex-1 rounded-xl bg-primary py-3 text-sm font-semibold text-white active:bg-primary-dark disabled:bg-slate-300"
           >
             {salvando ? (
@@ -600,6 +774,8 @@ function Resumo({
               </span>
             ) : faltam > 0 ? (
               `Faltam ${faltam} ${faltam === 1 ? "pergunta" : "perguntas"}`
+            ) : semDescricao > 0 ? (
+              `Descreva ${semDescricao} ${semDescricao === 1 ? "item NOK" : "itens NOK"}`
             ) : (
               "Finalizar auditoria"
             )}

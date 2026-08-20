@@ -14,7 +14,9 @@ import {
   ehPrioridade,
   ehResposta,
   ehStatusNC,
+  nokSemDescricao,
   resumoAuditoria,
+  type Resposta,
   type StatusNC,
 } from "@/lib/cinco-s";
 
@@ -196,6 +198,20 @@ export async function finalizarAuditoria(
     );
   }
 
+  // Todo NOK precisa dizer o que precisa ser feito, porque é esse texto
+  // que vira a descrição da ação no colo do dono da área. A trava está
+  // aqui E na tela: esta ação é chamável sem passar por lá.
+  const semDescricao = respondidas.filter((r) =>
+    nokSemDescricao({ valor: r.valor as Resposta, observacao: r.observacao }),
+  );
+  if (semDescricao.length > 0) {
+    return falha(
+      semDescricao.length === 1
+        ? "Descreva o que precisa ser feito no item não conforme. É esse texto que o dono da área vai ler no plano de ação."
+        : `Descreva o que precisa ser feito nos ${semDescricao.length} itens não conformes. É esse texto que o dono da área vai ler no plano de ação.`,
+    );
+  }
+
   await admin
     .from("cinco_s_auditorias")
     .update({ status: "finalizada", finalizada_em: new Date().toISOString() })
@@ -312,9 +328,10 @@ async function abrirNaoConformidades(
       area_id: areaId,
       pergunta_id: r.pergunta_id,
       senso: p.senso,
-      // A observação do auditor é a melhor descrição possível do
-      // problema -- ele estava lá. Sem ela, o texto da pergunta é o que
-      // resta, e ainda diz do que se trata.
+      // A observação do auditor é a descrição da ação -- ele estava lá,
+      // e desde a obrigatoriedade do NOK ela sempre existe. O fallback
+      // pelo texto da pergunta fica só para as auditorias antigas,
+      // fechadas antes da regra, que forem reabertas e refinalizadas.
       descricao: r.observacao?.trim() || `${p.codigo} — ${p.texto}`,
       evidencia_url: r.foto_url,
       responsavel_id: auditoria?.dono_id ?? null,
