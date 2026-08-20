@@ -776,12 +776,19 @@ function larguraPastilha(nome) {
 }
 
 function visuaisFiltro(pagina) {
-  // 4 filtros em 1280 com margem 16 e vao 12: (1280-32-36)/4 = 303.
-  const largura = 303;
-  return filtros.map((f, i) => ({
+  // A pagina pode trocar a lista inteira -- e o que permite o Ativo de
+  // Giro ter um filtro de mes a mais sem empurrar os outros para fora do
+  // canvas. A largura sai da conta, e nao de um numero fixo: margem 16
+  // de cada lado, vao de 12 entre os filtros. Com 4 da os mesmos 303 de
+  // antes; com 5, 240.
+  const lista = pagina.filtros || filtros;
+  const vao = 12;
+  const largura = Math.floor((1280 - 32 - vao * (lista.length - 1)) / lista.length);
+  const passo = largura + vao;
+  return lista.map((f, i) => ({
     chave: `${pagina.nome}:filtro:${f.titulo}`,
     t: 'slicer',
-    x: 16 + i * 315, y: 72, w: largura, h: 72,
+    x: 16 + i * passo, y: 72, w: largura, h: 72,
     titulo: null,
     grupoSincronia: f.campo,
     roles: { Values: [f.campo] },

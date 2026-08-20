@@ -4,10 +4,10 @@
   "position": {
     "x": 16,
     "y": 672,
-    "z": 17000,
+    "z": 18000,
     "height": 30,
     "width": 1248,
-    "tabOrder": 17000
+    "tabOrder": 18000
   },
   "visual": {
     "visualType": "textbox",
@@ -19,7 +19,7 @@
               {
                 "textRuns": [
                   {
-                    "value": "VOLUME AQUI É FOTOGRAFIA, NÃO SOMA: os três visuais de baixo leem o último dia contado dentro do período selecionado. AG é contagem de estoque — somar dois dias conta o mesmo palete duas vezes. Aderência e ranking, esses sim, somam o período, porque medem frequência e não quantidade. Na conciliação, compare \"parque atualizado em\" com o dia contado: ag_parque guarda um saldo só, sobrescrito a cada ajuste, então diferença de dia anterior é contra o saldo de hoje.",
+                    "value": "VOLUME AQUI É FOTOGRAFIA, NÃO SOMA: os três visuais de baixo leem o último dia contado dentro do que estiver filtrado — mês, período ou um dia só. AG é contagem de estoque, e somar dois dias conta o mesmo palete duas vezes. Aderência e ranking, esses sim, somam o intervalo, porque medem frequência e não quantidade. Use o filtro de Mês para ler \"% Dias com contagem\": o denominador são os dias úteis já decorridos do que estiver selecionado, então com o ano inteiro aberto todo mundo parece ruim.",
                     "textStyle": {
                       "fontSize": "8pt",
                       "color": "#64748B"

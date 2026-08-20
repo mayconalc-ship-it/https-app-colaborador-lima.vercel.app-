@@ -111,19 +111,11 @@ table _Medidas
 		formatString: #,0
 		lineageTag: c702d191-5d47-4b29-bc8b-6495e1e5a9d0
 
-	measure 'Divergência absoluta' =
-			CALCULATE (
-			    SUM ( fato_ag_conciliacao[diferenca_abs] ),
-			    fato_ag_conciliacao[parque_confiavel] = TRUE ()
-			)
+	measure 'Divergência absoluta' = SUM ( fato_ag_conciliacao[diferenca_abs] )
 		formatString: #,0
 		lineageTag: c688e83d-cece-4240-affe-c3e5b3c58300
 
-	measure 'Itens conciliados' =
-			CALCULATE (
-			    COUNTROWS ( fato_ag_conciliacao ),
-			    fato_ag_conciliacao[parque_confiavel] = TRUE ()
-			)
+	measure 'Itens conciliados' = COUNTROWS ( fato_ag_conciliacao )
 		formatString: #,0
 		lineageTag: 311b5e0f-2ef5-405c-bf82-9a89202df897
 
@@ -131,7 +123,6 @@ table _Medidas
 			DIVIDE (
 			    CALCULATE (
 			        COUNTROWS ( fato_ag_conciliacao ),
-			        fato_ag_conciliacao[parque_confiavel] = TRUE (),
 			        fato_ag_conciliacao[resultado] = "Bateu"
 			    ),
 			    [Itens conciliados]
@@ -139,11 +130,7 @@ table _Medidas
 		formatString: 0.0%
 		lineageTag: 1fd635ed-4d64-4357-bafe-e003e055c20e
 
-	measure 'Maior divergência' =
-			CALCULATE (
-			    MAX ( fato_ag_conciliacao[diferenca_abs] ),
-			    fato_ag_conciliacao[parque_confiavel] = TRUE ()
-			)
+	measure 'Maior divergência' = MAX ( fato_ag_conciliacao[diferenca_abs] )
 		formatString: #,0
 		lineageTag: ba985b4f-da7f-47d6-bdca-8d66abff39c3
 

@@ -128,35 +128,36 @@ MEASURE '_Medidas'[Atraso médio (dias)] =
 MEASURE '_Medidas'[Linhas sem fator] =
     CALCULATE ( [Contagens], fato_ag_contagem[fator_ausente] = TRUE () )
 
-// O filtro parque_confiavel é obrigatório: sem ele a divergência de um
-// dia passado é comparada com o saldo de parque de hoje.
+// O filtro parque_confiavel saiu destas quatro medidas.
+//
+// Ele nasceu de uma leitura errada do modelo: como ag_parque guarda um
+// saldo só, sobrescrito a cada ajuste, a coluna parque_confiavel marca
+// os dias em que o parque foi atualizado, e o filtro descartava todo o
+// resto. Só que o parque é FIXO por desenho — é o cadastro do que a
+// revenda tem, não uma medição diária —, e a conciliação é exatamente
+// contagem contra esse cadastro. Exigir "parque atualizado no mesmo dia"
+// zerava as duas medidas que aparecem na tabela de aderência: elas
+// vinham em branco desde sempre, e ninguém tinha como saber por quê.
+//
+// A coluna continua existindo na view. Se um dia o parque passar a ter
+// histórico (03-opcional-historico-parque-ag.sql), ela volta a ter uso.
 MEASURE '_Medidas'[Divergência absoluta] =
-    CALCULATE (
-        SUM ( fato_ag_conciliacao[diferenca_abs] ),
-        fato_ag_conciliacao[parque_confiavel] = TRUE ()
-    )
+    SUM ( fato_ag_conciliacao[diferenca_abs] )
 
 MEASURE '_Medidas'[Itens conciliados] =
-    CALCULATE (
-        COUNTROWS ( fato_ag_conciliacao ),
-        fato_ag_conciliacao[parque_confiavel] = TRUE ()
-    )
+    COUNTROWS ( fato_ag_conciliacao )
 
 MEASURE '_Medidas'[% Itens que bateram] =
     DIVIDE (
         CALCULATE (
             COUNTROWS ( fato_ag_conciliacao ),
-            fato_ag_conciliacao[parque_confiavel] = TRUE (),
             fato_ag_conciliacao[resultado] = "Bateu"
         ),
         [Itens conciliados]
     )
 
 MEASURE '_Medidas'[Maior divergência] =
-    CALCULATE (
-        MAX ( fato_ag_conciliacao[diferenca_abs] ),
-        fato_ag_conciliacao[parque_confiavel] = TRUE ()
-    )
+    MAX ( fato_ag_conciliacao[diferenca_abs] )
 
 // --- Painel do app -------------------------------------------------
 // Reproduz a aba "Painel" de /ativo-de-giro. O objetivo é que o número

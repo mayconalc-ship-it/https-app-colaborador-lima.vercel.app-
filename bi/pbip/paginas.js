@@ -120,18 +120,25 @@ const paginas = [
   // ================================================================
   {
     nome: '📦 Ativo de Giro',
-    // O filtro de pagina parque_confiavel = True saiu daqui.
+    // Cinco filtros aqui, e nao os quatro do padrao.
     //
-    // Ele existia para impedir divergencia calculada contra o saldo de
-    // hoje, e a intencao continua certa -- mas ele escondia a pagina
-    // inteira de conciliacao sempre que o parque nao era atualizado no
-    // mesmo dia da contagem, que e o caso comum. Visual vazio nao avisa
-    // nada; ele so parece que nao ha divergencia.
+    // "% Dias com contagem" divide dias contados por dias uteis JA
+    // DECORRIDOS do periodo. Com o periodo aberto no ano inteiro, o
+    // denominador vira 165 e todo mundo aparece com 4% -- numero que nao
+    // mede disciplina nenhuma. O filtro de mes deixa a leitura certa a um
+    // clique, e o de Periodo continua ali para recortes menores que o mes.
     //
-    // A protecao passou para dentro das medidas [Itens conciliados] e
-    // [% Itens que bateram], que continuam exigindo parque_confiavel, e
-    // para a coluna parque_atualizado_em, visivel na tabela de
-    // conciliacao -- quem le compara a data com o dia contado.
+    // ano_mes ("2026-08"), e nao mes_rotulo ("ago/26"): o segmentador
+    // ordena texto em ordem alfabetica, e "ago" viria antes de "jul".
+    filtros: [...filtros, { campo: 'dim_calendario.ano_mes', titulo: '📆 Mês' }],
+    // O filtro de pagina parque_confiavel = True saiu daqui, e o mesmo
+    // filtro saiu das medidas de conciliacao (ver 07-medidas.dax).
+    //
+    // O parque e FIXO por desenho: e o cadastro do que a revenda tem, e
+    // a conciliacao e a contagem do dia contra esse cadastro. Exigir
+    // "parque atualizado no mesmo dia da contagem" escondia a pagina
+    // inteira -- e visual vazio nao avisa nada, so parece que nao ha
+    // divergencia.
     kpis: [
       ['🔢 Ocorrências de contagem', '@Ocorrências de contagem'],
       ['🗓️ % Dias com contagem', '@% Dias com contagem'],
@@ -224,9 +231,10 @@ const paginas = [
         // aparecia VAZIO sempre que o parque nao era atualizado no
         // mesmo dia da contagem.
         //
-        // parque_atualizado_em fica visivel de proposito: e o que
-        // permite ler a diferenca com desconfianca quando a data nao
-        // bate com o dia contado. ag_parque nao guarda historico.
+        // parque_atualizado_em fica visivel como contexto: diz quando o
+        // cadastro do parque foi mexido pela ultima vez. Nao e ressalva
+        // sobre a conta -- o parque e fixo de proposito --, e sim a
+        // resposta para "esse saldo ainda e o que combinamos?".
         t: 'tableEx', x: 802, y: 460, w: 454, h: 206,
         titulo: '⚖️ Conciliação do dia — contado × parque',
         roles: {
@@ -246,11 +254,11 @@ const paginas = [
     ],
     nota:
       'VOLUME AQUI É FOTOGRAFIA, NÃO SOMA: os três visuais de baixo leem o último dia ' +
-      'contado dentro do período selecionado. AG é contagem de estoque — somar dois ' +
-      'dias conta o mesmo palete duas vezes. Aderência e ranking, esses sim, somam o ' +
-      'período, porque medem frequência e não quantidade. Na conciliação, compare ' +
-      '"parque atualizado em" com o dia contado: ag_parque guarda um saldo só, ' +
-      'sobrescrito a cada ajuste, então diferença de dia anterior é contra o saldo de hoje.',
+      'contado dentro do que estiver filtrado — mês, período ou um dia só. AG é contagem ' +
+      'de estoque, e somar dois dias conta o mesmo palete duas vezes. Aderência e ranking, ' +
+      'esses sim, somam o intervalo, porque medem frequência e não quantidade. Use o filtro ' +
+      'de Mês para ler "% Dias com contagem": o denominador são os dias úteis já decorridos ' +
+      'do que estiver selecionado, então com o ano inteiro aberto todo mundo parece ruim.',
   },
 
   // ================================================================
