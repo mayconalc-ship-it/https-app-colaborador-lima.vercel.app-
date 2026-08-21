@@ -5,6 +5,11 @@
 -- Troque a senha abaixo antes de rodar. Ela vai ser digitada no Power BI
 -- e guardada no Power BI Service -- use um gerenciador de senhas, nao o
 -- bloco de notas.
+--
+-- E NAO SALVE A SENHA DE VOLTA NESTE ARQUIVO. Este repositorio e
+-- publico: a senha escrita aqui e commitada vira permanente, porque
+-- apagar depois nao a tira do historico nem dos clones que ja existem.
+-- Troque, rode, e deixe o placeholder no lugar.
 
 -- ------------------------------------------------------------------
 -- 1) O USUARIO
