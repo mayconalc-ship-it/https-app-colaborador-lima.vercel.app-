@@ -1,13 +1,13 @@
 {
   "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.11.0/schema.json",
-  "name": "5d6a50a57954a6446f2a",
+  "name": "d87a459ad245532c809c",
   "position": {
-    "x": 648,
+    "x": 16,
     "y": 500,
-    "z": 16000,
+    "z": 15000,
     "height": 166,
-    "width": 616,
-    "tabOrder": 16000
+    "width": 1248,
+    "tabOrder": 15000
   },
   "visual": {
     "visualType": "tableEx",
@@ -20,84 +20,98 @@
                 "Column": {
                   "Expression": {
                     "SourceRef": {
-                      "Entity": "fato_5s_acao"
+                      "Entity": "fato_feedback_rota"
                     }
                   },
-                  "Property": "area_5s"
+                  "Property": "data"
                 }
               },
-              "queryRef": "fato_5s_acao.area_5s",
-              "nativeQueryRef": "area_5s"
+              "queryRef": "fato_feedback_rota.data",
+              "nativeQueryRef": "data"
             },
             {
               "field": {
                 "Column": {
                   "Expression": {
                     "SourceRef": {
-                      "Entity": "fato_5s_acao"
+                      "Entity": "fato_feedback_rota"
                     }
                   },
-                  "Property": "senso_rotulo"
+                  "Property": "colaborador"
                 }
               },
-              "queryRef": "fato_5s_acao.senso_rotulo",
-              "nativeQueryRef": "senso_rotulo"
+              "queryRef": "fato_feedback_rota.colaborador",
+              "nativeQueryRef": "colaborador"
             },
             {
               "field": {
                 "Column": {
                   "Expression": {
                     "SourceRef": {
-                      "Entity": "fato_5s_acao"
+                      "Entity": "fato_feedback_rota"
                     }
                   },
-                  "Property": "problema"
+                  "Property": "nota_rotulo"
                 }
               },
-              "queryRef": "fato_5s_acao.problema",
-              "nativeQueryRef": "problema"
+              "queryRef": "fato_feedback_rota.nota_rotulo",
+              "nativeQueryRef": "nota_rotulo"
             },
             {
               "field": {
                 "Column": {
                   "Expression": {
                     "SourceRef": {
-                      "Entity": "fato_5s_acao"
+                      "Entity": "fato_feedback_rota"
                     }
                   },
-                  "Property": "responsavel"
+                  "Property": "cp_aceite_rotulo"
                 }
               },
-              "queryRef": "fato_5s_acao.responsavel",
-              "nativeQueryRef": "responsavel"
+              "queryRef": "fato_feedback_rota.cp_aceite_rotulo",
+              "nativeQueryRef": "cp_aceite_rotulo"
             },
             {
               "field": {
                 "Column": {
                   "Expression": {
                     "SourceRef": {
-                      "Entity": "fato_5s_acao"
+                      "Entity": "fato_feedback_rota"
                     }
                   },
-                  "Property": "prazo"
+                  "Property": "cp_causa_raiz"
                 }
               },
-              "queryRef": "fato_5s_acao.prazo",
-              "nativeQueryRef": "prazo"
+              "queryRef": "fato_feedback_rota.cp_causa_raiz",
+              "nativeQueryRef": "cp_causa_raiz"
             },
             {
               "field": {
                 "Column": {
                   "Expression": {
                     "SourceRef": {
-                      "Entity": "fato_5s_acao"
+                      "Entity": "fato_feedback_rota"
                     }
                   },
-                  "Property": "status_rotulo"
+                  "Property": "comentario"
                 }
               },
-              "queryRef": "fato_5s_acao.status_rotulo",
-              "nativeQueryRef": "status_rotulo"
+              "queryRef": "fato_feedback_rota.comentario",
+              "nativeQueryRef": "comentario"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "fato_feedback_rota"
+                    }
+                  },
+                  "Property": "cp_devolutiva"
+                }
+              },
+              "queryRef": "fato_feedback_rota.cp_devolutiva",
+              "nativeQueryRef": "cp_devolutiva"
             }
           ]
         }
@@ -109,13 +123,13 @@
               "Column": {
                 "Expression": {
                   "SourceRef": {
-                    "Entity": "fato_5s_acao"
+                    "Entity": "fato_feedback_rota"
                   }
                 },
-                "Property": "prazo"
+                "Property": "data"
               }
             },
-            "direction": "Ascending"
+            "direction": "Descending"
           }
         ]
       }
@@ -154,7 +168,7 @@
             "defaultColumnWidth": {
               "expr": {
                 "Literal": {
-                  "Value": "100D"
+                  "Value": "170D"
                 }
               }
             }
@@ -176,7 +190,7 @@
             "text": {
               "expr": {
                 "Literal": {
-                  "Value": "'🛠️ Plano de ação — o que está em aberto'"
+                  "Value": "'💬 Do comentário à devolutiva — o ciclo fechado'"
                 }
               }
             },
@@ -209,85 +223,99 @@
   "filterConfig": {
     "filters": [
       {
-        "name": "b36089ef87023fe39172",
+        "name": "47e01e430e38978f1cda",
         "field": {
           "Column": {
             "Expression": {
               "SourceRef": {
-                "Entity": "fato_5s_acao"
+                "Entity": "fato_feedback_rota"
               }
             },
-            "Property": "area_5s"
+            "Property": "data"
           }
         },
         "type": "Categorical"
       },
       {
-        "name": "7938b82703694eda2281",
+        "name": "022cf3555da9a2350831",
         "field": {
           "Column": {
             "Expression": {
               "SourceRef": {
-                "Entity": "fato_5s_acao"
+                "Entity": "fato_feedback_rota"
               }
             },
-            "Property": "senso_rotulo"
+            "Property": "colaborador"
           }
         },
         "type": "Categorical"
       },
       {
-        "name": "26050582537b5f522d33",
+        "name": "cb86d8b4e873fafa8a94",
         "field": {
           "Column": {
             "Expression": {
               "SourceRef": {
-                "Entity": "fato_5s_acao"
+                "Entity": "fato_feedback_rota"
               }
             },
-            "Property": "problema"
+            "Property": "nota_rotulo"
           }
         },
         "type": "Categorical"
       },
       {
-        "name": "9be86039befcb7750d05",
+        "name": "e19c4b57842f09fd131d",
         "field": {
           "Column": {
             "Expression": {
               "SourceRef": {
-                "Entity": "fato_5s_acao"
+                "Entity": "fato_feedback_rota"
               }
             },
-            "Property": "responsavel"
+            "Property": "cp_aceite_rotulo"
           }
         },
         "type": "Categorical"
       },
       {
-        "name": "a68f96f9202f2057318f",
+        "name": "6e7051ce0cd23c10f7cf",
         "field": {
           "Column": {
             "Expression": {
               "SourceRef": {
-                "Entity": "fato_5s_acao"
+                "Entity": "fato_feedback_rota"
               }
             },
-            "Property": "prazo"
+            "Property": "cp_causa_raiz"
           }
         },
         "type": "Categorical"
       },
       {
-        "name": "a96cf045d227f22ca948",
+        "name": "c268114e0687909f60aa",
         "field": {
           "Column": {
             "Expression": {
               "SourceRef": {
-                "Entity": "fato_5s_acao"
+                "Entity": "fato_feedback_rota"
               }
             },
-            "Property": "status_rotulo"
+            "Property": "comentario"
+          }
+        },
+        "type": "Categorical"
+      },
+      {
+        "name": "cbed7ab000c8965f5cfe",
+        "field": {
+          "Column": {
+            "Expression": {
+              "SourceRef": {
+                "Entity": "fato_feedback_rota"
+              }
+            },
+            "Property": "cp_devolutiva"
           }
         },
         "type": "Categorical"

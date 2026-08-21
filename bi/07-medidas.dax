@@ -36,7 +36,43 @@ MEASURE '_Medidas'[Colaboradores] =
 MEASURE '_Medidas'[Colaboradores ativos] =
     DISTINCTCOUNT ( fato_atividade[colaborador_id] )
 
+// --- Adesão: a mesma conta da tela ---------------------------------
+//
+// O cartão "Adesão desde o lançamento" de /admin/metricas divide quem JÁ
+// ENTROU no app alguma vez pelo total de colaboradores da revenda. Duas
+// coisas o BI fazia diferente, e por isso os números não batiam:
+//
+//   1) Numerador. O BI contava quem teve INTERAÇÃO em fato_atividade --
+//      contagem de AG, feedback, quiz, curtida. Quem abre o app todo dia
+//      e não lança nada ficava de fora, e o app conta essa pessoa.
+//   2) Janela. O app olha a vida toda do app; o BI olhava o período do
+//      filtro. Com o ano inteiro aberto a diferença era pequena, e num
+//      recorte de semana ficava enorme.
+//
+// eventos_acesso com tipo 'login' é o equivalente de uso_sessoes, que é
+// a tabela que a tela usa: RegistroDeUso.tsx grava a sessão e, na
+// sequência, registrarEvento("login"). Um por sessão. A diferença é que
+// eventos_acesso carrega revenda_id e a chave do colaborador, então
+// respeita as segmentações de Revenda, Área e Colaborador -- uso_sessoes
+// não tem revenda na origem e ficaria fora de qualquer recorte.
+//
+// REMOVEFILTERS(dim_calendario) é o "desde o lançamento". Se um dia a
+// tela passar a recortar por período, tire daqui também.
+MEASURE '_Medidas'[Colaboradores que já entraram] =
+    CALCULATE (
+        DISTINCTCOUNT ( fato_evento_acesso[colaborador_id] ),
+        fato_evento_acesso[tipo] = "login",
+        REMOVEFILTERS ( dim_calendario )
+    )
+
 MEASURE '_Medidas'[% Adesão] =
+    DIVIDE ( [Colaboradores que já entraram], [Colaboradores] )
+
+// A adesão do período continua existindo -- ela é que responde "quantos
+// usaram o app NESTE mês", e é a base da comparação mês a mês. O que ela
+// não pode é se chamar "% Adesão", porque esse nome já está na tela do
+// app querendo dizer outra coisa.
+MEASURE '_Medidas'[% Ativos no período] =
     DIVIDE ( [Colaboradores ativos], [Colaboradores] )
 
 MEASURE '_Medidas'[Interações] =
@@ -45,12 +81,14 @@ MEASURE '_Medidas'[Interações] =
 MEASURE '_Medidas'[Módulos usados] =
     DISTINCTCOUNT ( fato_atividade[modulo] )
 
-MEASURE '_Medidas'[% Adesão mês anterior] =
-    CALCULATE ( [% Adesão], DATEADD ( dim_calendario[data], -1, MONTH ) )
+// Comparação mês a mês tem de usar a medida do PERÍODO: "% Adesão" hoje
+// ignora o filtro de data, e a diferença daria zero sempre.
+MEASURE '_Medidas'[% Ativos mês anterior] =
+    CALCULATE ( [% Ativos no período], DATEADD ( dim_calendario[data], -1, MONTH ) )
 
 MEASURE '_Medidas'[Δ Adesão] =
-    VAR Atual = [% Adesão]
-    VAR Anterior = [% Adesão mês anterior]
+    VAR Atual = [% Ativos no período]
+    VAR Anterior = [% Ativos mês anterior]
     RETURN IF ( NOT ISBLANK ( Anterior ), Atual - Anterior )
 
 // Quem não abriu o app no período. Costuma ser o número mais acionável

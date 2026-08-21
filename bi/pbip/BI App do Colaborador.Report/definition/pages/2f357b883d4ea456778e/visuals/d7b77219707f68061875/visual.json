@@ -1,6 +1,6 @@
 {
   "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.11.0/schema.json",
-  "name": "8aee9f27b652fce59e36",
+  "name": "d7b77219707f68061875",
   "position": {
     "x": 268,
     "y": 152,
@@ -113,7 +113,7 @@
             "text": {
               "expr": {
                 "Literal": {
-                  "Value": "'📲 % Adesão'"
+                  "Value": "'📲 % Adesão (desde o lançamento)'"
                 }
               }
             },

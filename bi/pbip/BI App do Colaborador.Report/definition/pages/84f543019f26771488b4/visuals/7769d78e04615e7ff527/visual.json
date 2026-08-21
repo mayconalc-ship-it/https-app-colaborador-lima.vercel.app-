@@ -4,10 +4,10 @@
   "position": {
     "x": 16,
     "y": 672,
-    "z": 16000,
+    "z": 17000,
     "height": 30,
     "width": 1248,
-    "tabOrder": 16000
+    "tabOrder": 17000
   },
   "visual": {
     "visualType": "textbox",
@@ -19,7 +19,7 @@
               {
                 "textRuns": [
                   {
-                    "value": "\"Horas médias até resposta\" é o indicador de saúde do módulo, não de volume. Análise concluída que ninguém responde ensina o time a não preencher a próxima — se passar de ~48 h, o módulo morre por desuso antes de morrer por decisão.",
+                    "value": "\"Horas médias até resposta\" é o indicador de saúde do módulo, não de volume. Análise concluída que ninguém responde ensina o time a não preencher a próxima — se passar de ~48 h, o módulo morre por desuso antes de morrer por decisão. No aceite, \"Não respondeu\" cobre dois casos diferentes: o motorista que recebeu a devolutiva e não respondeu, e a análise que nunca recebeu devolutiva nenhuma — esta última aparece com a coluna de resposta vazia. Por isso \"% Aceite\" divide pelas análises que RECEBERAM devolutiva, e não por todas.",
                     "textStyle": {
                       "fontSize": "8pt",
                       "color": "#64748B"

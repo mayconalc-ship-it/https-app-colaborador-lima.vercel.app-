@@ -13,25 +13,6 @@
     "visualType": "pivotTable",
     "query": {
       "queryState": {
-        "Rows": {
-          "projections": [
-            {
-              "field": {
-                "Column": {
-                  "Expression": {
-                    "SourceRef": {
-                      "Entity": "dim_colaborador"
-                    }
-                  },
-                  "Property": "colaborador"
-                }
-              },
-              "queryRef": "dim_colaborador.colaborador",
-              "nativeQueryRef": "colaborador",
-              "active": true
-            }
-          ]
-        },
         "Columns": {
           "projections": [
             {
@@ -47,6 +28,25 @@
               },
               "queryRef": "fato_atividade.modulo",
               "nativeQueryRef": "modulo",
+              "active": true
+            }
+          ]
+        },
+        "Rows": {
+          "projections": [
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "dim_colaborador"
+                    }
+                  },
+                  "Property": "colaborador"
+                }
+              },
+              "queryRef": "dim_colaborador.colaborador",
+              "nativeQueryRef": "colaborador",
               "active": true
             }
           ]
@@ -114,5 +114,51 @@
       ]
     },
     "drillFilterOtherVisuals": true
+  },
+  "filterConfig": {
+    "filters": [
+      {
+        "name": "fb060ad15f1e10e66702",
+        "field": {
+          "Column": {
+            "Expression": {
+              "SourceRef": {
+                "Entity": "dim_colaborador"
+              }
+            },
+            "Property": "colaborador"
+          }
+        },
+        "type": "Categorical"
+      },
+      {
+        "name": "a47776043aeb6de97d7a",
+        "field": {
+          "Column": {
+            "Expression": {
+              "SourceRef": {
+                "Entity": "fato_atividade"
+              }
+            },
+            "Property": "modulo"
+          }
+        },
+        "type": "Categorical"
+      },
+      {
+        "name": "351a6b3eb5b7c0aec75b",
+        "field": {
+          "Measure": {
+            "Expression": {
+              "SourceRef": {
+                "Entity": "_Medidas"
+              }
+            },
+            "Property": "Interações"
+          }
+        },
+        "type": "Advanced"
+      }
+    ]
   }
 }

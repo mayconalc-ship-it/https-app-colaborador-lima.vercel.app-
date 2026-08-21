@@ -501,9 +501,37 @@ select
   exists (
     select 1 from public.cinco_porques_analises a
      where a.feedback_rota_id = f.id
-  )                                   as tem_cinco_porques
+  )                                   as tem_cinco_porques,
+  -- O ciclo fechado, na mesma linha da reclamacao: causa raiz, o que a
+  -- lideranca respondeu e se o colaborador aceitou.
+  --
+  -- Colunas no FIM da lista de proposito: "create or replace view" do
+  -- Postgres aceita acrescentar coluna no fim, e recusa no meio com
+  -- 42P16. Assim esta view sozinha pode ser recriada sem derrubar o
+  -- esquema inteiro -- e sem perder os GRANTs do powerbi_readonly.
+  --
+  -- LATERAL com limit 1, e nao join simples: se um feedback tivesse duas
+  -- analises, o join duplicaria a linha e [Feedbacks] passaria a contar
+  -- errado. Fica a mais recente, que e a que vale.
+  a.causa_raiz                        as cp_causa_raiz,
+  a.resposta_lideranca                as cp_devolutiva,
+  case a.motorista_aceitou
+    when true  then 'Aceitou'
+    when false then 'Não aceitou'
+    else case when a.id is null then 'Sem análise' else 'Não respondeu' end
+  end                                 as cp_aceite_rotulo,
+  a.motorista_aceitou                 as cp_aceitou,
+  a.resposta_lideranca_em             as cp_devolutiva_em
 from public.feedback_rota f
-left join public.profiles p on p.id = f.colaborador_id;
+left join public.profiles p on p.id = f.colaborador_id
+left join lateral (
+  select a2.id, a2.causa_raiz, a2.resposta_lideranca, a2.motorista_aceitou,
+         a2.resposta_lideranca_em
+    from public.cinco_porques_analises a2
+   where a2.feedback_rota_id = f.id
+   order by a2.iniciada_em desc
+   limit 1
+) a on true;
 
 comment on view bi.fato_feedback_rota is
   'Grao: um feedback. Uma linha por envio, com a nota em tres leituras.';

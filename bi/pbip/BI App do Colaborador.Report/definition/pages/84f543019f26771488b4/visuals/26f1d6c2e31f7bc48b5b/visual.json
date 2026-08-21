@@ -4,10 +4,10 @@
   "position": {
     "x": 16,
     "y": 500,
-    "z": 15000,
+    "z": 16000,
     "height": 166,
     "width": 1248,
-    "tabOrder": 15000
+    "tabOrder": 16000
   },
   "visual": {
     "visualType": "tableEx",
@@ -134,6 +134,48 @@
           }
         ]
       }
+    },
+    "objects": {
+      "values": [
+        {
+          "properties": {
+            "wordWrap": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "columnHeaders": [
+        {
+          "properties": {
+            "wordWrap": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            },
+            "columnAdjustment": {
+              "expr": {
+                "Literal": {
+                  "Value": "'fixedWidth'"
+                }
+              }
+            },
+            "defaultColumnWidth": {
+              "expr": {
+                "Literal": {
+                  "Value": "200D"
+                }
+              }
+            }
+          }
+        }
+      ]
     },
     "visualContainerObjects": {
       "title": [

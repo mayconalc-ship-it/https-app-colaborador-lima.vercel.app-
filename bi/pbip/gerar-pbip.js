@@ -653,6 +653,29 @@ function visualJson(v, ordemZ) {
     });
   }
 
+  // Quebra de texto em tabela.
+  //
+  // A tabela do Power BI distribui a largura pelo CONTEUDO: uma coluna de
+  // texto corrido come o espaco das outras e empurra as vizinhas para
+  // fora da area visivel -- foi o que aconteceu com comentario e
+  // devolutiva na pagina de Feedback. columnAdjustment 'fixedWidth' tira
+  // esse automatismo e prende toda coluna em defaultColumnWidth; o
+  // wordWrap faz o texto descer de linha em vez de ser cortado.
+  //
+  // Forma copiada de um visual do .pbix de Planos de Acao, e nao deduzida
+  // do schema. Nao existe ali forma verificada para alinhamento vertical
+  // das celulas -- por isso ele NAO entra aqui. Depois do episodio do
+  // drill-through (type "Drillthrough", que derrubou o relatorio inteiro),
+  // propriedade sem exemplo real fica de fora.
+  if (v.quebraTexto) {
+    fmt('values', { wordWrap: lit('true') });
+    fmt('columnHeaders', {
+      wordWrap: lit('true'),
+      columnAdjustment: lit("'fixedWidth'"),
+      defaultColumnWidth: lit(`${v.quebraTexto}D`),
+    });
+  }
+
   // Gradiente por valor (acabamento 5).
   if (v.gradiente && ACAB.gradiente) {
     visual.objects = visual.objects || {};
@@ -922,14 +945,21 @@ function gerarRelatorio() {
     const lista = [
       ...cabecalho(pagina),
       ...(pagina.oculta ? [] : visuaisFiltro(pagina)),
-      ...(pagina.kpis || []).map((k, i) => ({
-        chave: `${pagina.nome}:kpi:${k[0]}`,
-        t: 'cardVisual',
-        // y acompanha os filtros, que ficaram mais altos.
-        x: [16, 268, 520, 772, 1024][i], y: 152, w: 240, h: 96,
-        titulo: k[0],
-        roles: { Data: [k[1]] },
-      })),
+      ...(pagina.kpis || []).map((k, i, todos) => {
+        // Mesma conta dos filtros, pelo mesmo motivo: com 5 cartoes da os
+        // 240 de sempre; com 6 da 198, e a pagina dos 5 Porques cabe o
+        // aceite do motorista sem empurrar nada para fora do canvas.
+        const vao = 12;
+        const largura = Math.floor((1280 - 32 - vao * (todos.length - 1)) / todos.length);
+        return {
+          chave: `${pagina.nome}:kpi:${k[0]}`,
+          t: 'cardVisual',
+          // y acompanha os filtros, que ficaram mais altos.
+          x: 16 + i * (largura + vao), y: 152, w: largura, h: 96,
+          titulo: k[0],
+          roles: { Data: [k[1]] },
+        };
+      }),
       ...pagina.visuais.map((v) => ({ ...v, chave: `${pagina.nome}:${v.titulo}` })),
     ];
 

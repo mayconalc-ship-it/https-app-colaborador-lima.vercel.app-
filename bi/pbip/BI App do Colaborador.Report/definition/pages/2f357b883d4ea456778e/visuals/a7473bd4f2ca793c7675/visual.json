@@ -44,13 +44,6 @@
                   "Value": "'Between'"
                 }
               }
-            },
-            "endDate": {
-              "expr": {
-                "Literal": {
-                  "Value": "datetime'2026-12-31T00:00:00'"
-                }
-              }
             }
           }
         }
@@ -77,48 +70,6 @@
                 "Literal": {
                   "Value": "10D"
                 }
-              }
-            }
-          }
-        }
-      ],
-      "general": [
-        {
-          "properties": {
-            "filter": {
-              "filter": {
-                "Version": 2,
-                "From": [
-                  {
-                    "Name": "d",
-                    "Entity": "dim_calendario",
-                    "Type": 0
-                  }
-                ],
-                "Where": [
-                  {
-                    "Condition": {
-                      "Comparison": {
-                        "ComparisonKind": 3,
-                        "Left": {
-                          "Column": {
-                            "Expression": {
-                              "SourceRef": {
-                                "Source": "d"
-                              }
-                            },
-                            "Property": "data"
-                          }
-                        },
-                        "Right": {
-                          "Literal": {
-                            "Value": "datetime'2027-01-01T00:00:00'"
-                          }
-                        }
-                      }
-                    }
-                  }
-                ]
               }
             }
           }

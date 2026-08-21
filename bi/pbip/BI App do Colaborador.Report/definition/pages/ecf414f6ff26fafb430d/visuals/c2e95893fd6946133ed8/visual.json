@@ -1,13 +1,13 @@
 {
   "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.11.0/schema.json",
-  "name": "88f8edae9b03ac76b8b9",
+  "name": "c2e95893fd6946133ed8",
   "position": {
-    "x": 16,
+    "x": 1024,
     "y": 152,
-    "z": 7000,
+    "z": 11000,
     "height": 96,
-    "width": 198,
-    "tabOrder": 7000
+    "width": 240,
+    "tabOrder": 11000
   },
   "visual": {
     "visualType": "cardVisual",
@@ -23,11 +23,11 @@
                       "Entity": "_Medidas"
                     }
                   },
-                  "Property": "Análises"
+                  "Property": "% Adesão"
                 }
               },
-              "queryRef": "_Medidas.Análises",
-              "nativeQueryRef": "Análises"
+              "queryRef": "_Medidas.% Adesão",
+              "nativeQueryRef": "% Adesão"
             }
           ]
         }
@@ -113,7 +113,7 @@
             "text": {
               "expr": {
                 "Literal": {
-                  "Value": "'🔍 Análises'"
+                  "Value": "'📲 % Adesão (desde o lançamento)'"
                 }
               }
             },

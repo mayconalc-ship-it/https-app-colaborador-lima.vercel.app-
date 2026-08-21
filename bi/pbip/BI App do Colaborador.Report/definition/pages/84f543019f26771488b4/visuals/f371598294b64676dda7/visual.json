@@ -1,13 +1,13 @@
 {
   "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.11.0/schema.json",
-  "name": "52aedb81bcbc015d6cd1",
+  "name": "f371598294b64676dda7",
   "position": {
-    "x": 1024,
+    "x": 1066,
     "y": 152,
-    "z": 11000,
+    "z": 12000,
     "height": 96,
-    "width": 240,
-    "tabOrder": 11000
+    "width": 198,
+    "tabOrder": 12000
   },
   "visual": {
     "visualType": "cardVisual",
@@ -23,11 +23,11 @@
                       "Entity": "_Medidas"
                     }
                   },
-                  "Property": "% Adesão"
+                  "Property": "% Aceite do motorista"
                 }
               },
-              "queryRef": "_Medidas.% Adesão",
-              "nativeQueryRef": "% Adesão"
+              "queryRef": "_Medidas.% Aceite do motorista",
+              "nativeQueryRef": "% Aceite do motorista"
             }
           ]
         }
@@ -113,7 +113,7 @@
             "text": {
               "expr": {
                 "Literal": {
-                  "Value": "'📲 % Adesão'"
+                  "Value": "'🤝 % Aceite do motorista'"
                 }
               }
             },

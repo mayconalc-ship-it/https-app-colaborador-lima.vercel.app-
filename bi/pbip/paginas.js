@@ -64,7 +64,10 @@ const paginas = [
     nome: '🏠 Visão Geral',
     kpis: [
       ['👥 Colaboradores', '@Colaboradores'],
-      ['📲 % Adesão', '@% Adesão'],
+      // O rotulo diz a janela porque a medida ignora o filtro de data --
+      // e a mesma conta do cartao "Adesao desde o lancamento" da tela de
+      // /admin/metricas. Ver 07-medidas.dax.
+      ['📲 % Adesão (desde o lançamento)', '@% Adesão'],
       ['👆 Interações', '@Interações'],
       ['📂 Módulos usados', '@Módulos usados'],
       ['⚠️ Aguardando tratativa', '@Aguardando tratativa'],
@@ -293,15 +296,39 @@ const paginas = [
         ordem: { campo: '@Feedbacks com ocorrência', dir: 'Descending' },
       },
       {
+        // O ciclo inteiro numa linha so: o que o colaborador reclamou, a
+        // causa raiz que a analise achou, se ele aceitou a devolutiva e
+        // qual foi ela.
+        //
+        // As colunas cp_* vem da propria view de feedback (LATERAL para a
+        // analise mais recente daquele feedback), e nao de um
+        // relacionamento entre os dois fatos -- ver o comentario em
+        // modelo.js.
+        //
+        // Aceite ANTES da devolutiva: a tabela distribui largura pelo
+        // conteudo, e texto corrido no meio empurra a coluna curta para
+        // fora da area visivel.
         t: 'tableEx', x: 16, y: Y.base, w: 1248, h: H.base,
-        titulo: '💬 Comentários dos colaboradores',
+        // 7 colunas em 1248: 170 cada, com o resto de folga para a barra
+        // de rolagem. Sem isso, comentario e devolutiva engoliam a
+        // largura das outras cinco.
+        quebraTexto: 170,
+        titulo: '💬 Do comentário à devolutiva — o ciclo fechado',
         roles: {
+          // Ordem por LARGURA, e nao pela narrativa do ciclo. As colunas
+          // curtas primeiro; comentario e devolutiva, que sao texto
+          // corrido, por ultimo, dividindo o que sobra. Com o comentario
+          // no meio, tudo que vinha depois -- causa raiz e aceite --
+          // ficava fora da area visivel. A rota saiu para abrir espaco:
+          // ela e contexto do feedback, nao do ciclo.
           Values: [
             'fato_feedback_rota.data',
             'fato_feedback_rota.colaborador',
-            'fato_feedback_rota.rota',
             'fato_feedback_rota.nota_rotulo',
+            'fato_feedback_rota.cp_aceite_rotulo',
+            'fato_feedback_rota.cp_causa_raiz',
             'fato_feedback_rota.comentario',
+            'fato_feedback_rota.cp_devolutiva',
           ],
         },
         ordem: { campo: 'fato_feedback_rota.data', dir: 'Descending' },
@@ -323,6 +350,11 @@ const paginas = [
       ['🏁 % Chegou ao 5º', '@% Chegou ao 5º porquê'],
       ['⚠️ Aguardando tratativa', '@Aguardando tratativa'],
       ['⏱️ Horas até resposta', '@Horas médias até resposta'],
+      // Sexto cartao. A medida ja existia em 07-medidas.dax e nunca
+      // tinha entrado em visual nenhum -- o denominador dela sao as
+      // analises QUE RECEBERAM devolutiva, e nao todas: ninguem aceita
+      // resposta que nao chegou.
+      ['🤝 % Aceite do motorista', '@% Aceite do motorista'],
     ],
     visuais: [
       {
@@ -350,7 +382,18 @@ const paginas = [
         },
       },
       {
+        // A devolutiva e o aceite NAO ficam aqui: eles vivem na tabela da
+        // pagina de Feedback da Rota, na mesma linha da reclamacao que
+        // originou a analise. E o ciclo fechado -- reclamou, achou a
+        // causa, recebeu resposta, aceitou ou nao --, e ele so se le
+        // inteiro quando esta tudo na mesma linha.
+        //
+        // A ressalva: analise sem feedback de origem (feedback_rota_id
+        // nulo) nao aparece la. Se isso passar a acontecer, o lugar dela
+        // e aqui.
         t: 'tableEx', x: 16, y: Y.base, w: 1248, h: H.base,
+        // Problema, causa raiz e acao sugerida sao frases inteiras.
+        quebraTexto: 200,
         titulo: '📋 Problema · Causa · Ação — a pauta da reunião',
         roles: {
           Values: [
@@ -368,7 +411,11 @@ const paginas = [
     nota:
       '"Horas médias até resposta" é o indicador de saúde do módulo, não de volume. ' +
       'Análise concluída que ninguém responde ensina o time a não preencher a próxima — ' +
-      'se passar de ~48 h, o módulo morre por desuso antes de morrer por decisão.',
+      'se passar de ~48 h, o módulo morre por desuso antes de morrer por decisão. ' +
+      'No aceite, "Não respondeu" cobre dois casos diferentes: o motorista que recebeu ' +
+      'a devolutiva e não respondeu, e a análise que nunca recebeu devolutiva nenhuma — ' +
+      'esta última aparece com a coluna de resposta vazia. Por isso "% Aceite" divide ' +
+      'pelas análises que RECEBERAM devolutiva, e não por todas.',
   },
 
   // ================================================================
@@ -528,7 +575,10 @@ const paginas = [
       ['🗓️ Meses com publicação', '@Meses com publicação'],
       ['✅ % Cobertura', '@% Cobertura da publicação'],
       ['👥 Colaboradores', '@Colaboradores'],
-      ['📲 % Adesão', '@% Adesão'],
+      // O rotulo diz a janela porque a medida ignora o filtro de data --
+      // e a mesma conta do cartao "Adesao desde o lancamento" da tela de
+      // /admin/metricas. Ver 07-medidas.dax.
+      ['📲 % Adesão (desde o lançamento)', '@% Adesão'],
     ],
     visuais: [
       {
@@ -642,6 +692,8 @@ const paginas = [
         // item respondido uma vez e reprovado encabecaria a lista para
         // sempre.
         t: 'tableEx', x: 16, y: Y.base, w: 620, h: H.base,
+        // pergunta_curta continua sendo uma frase.
+        quebraTexto: 120,
         titulo: '❌ Itens que mais reprovam (mín. 5 avaliações)',
         roles: {
           Values: [
@@ -654,6 +706,9 @@ const paginas = [
       },
       {
         t: 'tableEx', x: 648, y: Y.base, w: 616, h: H.base,
+        // 6 colunas em 616: o texto do problema e uma frase inteira e
+        // saia cortado no meio.
+        quebraTexto: 100,
         titulo: '🛠️ Plano de ação — o que está em aberto',
         roles: {
           Values: [

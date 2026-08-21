@@ -136,6 +136,13 @@ const tabelas = [
 
   // ---------------- FEEDBACK DE ROTA ----------------
   {
+    // As colunas cp_* fecham o ciclo na mesma linha da reclamacao: causa
+    // raiz, devolutiva da lideranca e aceite. Vem por LATERAL na view --
+    // ver 01-camada-semantica.sql. Nao da para fazer isso por
+    // relacionamento no modelo: fato_feedback_rota e fato_cinco_porques
+    // ja se encontram em dim_colaborador e dim_calendario, e um
+    // relacionamento direto entre as duas fecharia um ciclo -- o Power BI
+    // desativa um dos caminhos em silencio quando isso acontece.
     nome: 'fato_feedback_rota',
     view: 'fato_feedback_rota',
     descricao: 'Grao: um feedback. A nota em tres leituras (0..3, %, e o corte de ruim).',
@@ -143,7 +150,9 @@ const tabelas = [
       'feedback_id:s revenda_id:s colaborador_id:s colaborador:s area:s area_rotulo:s ' +
       'cargo:s rota:s nota:i nota_rotulo:s nota_percentual:n nota_ruim:b nota_otima:b ' +
       'qtd_ocorrencias:i sem_ocorrencia:b comentario:s tem_comentario:b ' +
-      'tamanho_comentario:i criado_em:t data:t hora:i tem_cinco_porques:b ' + CHAVE,
+      'tamanho_comentario:i criado_em:t data:t hora:i tem_cinco_porques:b ' +
+      'cp_causa_raiz:s cp_devolutiva:s cp_aceite_rotulo:s cp_aceitou:b cp_devolutiva_em:t ' +
+      CHAVE,
     chaveComposta: true,
     data: 'data',
   },

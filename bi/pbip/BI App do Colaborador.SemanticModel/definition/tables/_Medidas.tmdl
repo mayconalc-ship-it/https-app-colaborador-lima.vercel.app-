@@ -10,9 +10,22 @@ table _Medidas
 		formatString: #,0
 		lineageTag: 532e37c7-bdf6-4d8e-a772-9591bbbd2986
 
-	measure '% Adesão' = DIVIDE ( [Colaboradores ativos], [Colaboradores] )
+	measure 'Colaboradores que já entraram' =
+			CALCULATE (
+			    DISTINCTCOUNT ( fato_evento_acesso[colaborador_id] ),
+			    fato_evento_acesso[tipo] = "login",
+			    REMOVEFILTERS ( dim_calendario )
+			)
+		formatString: #,0
+		lineageTag: a16896c7-e5af-4529-b647-ba8ae98444b2
+
+	measure '% Adesão' = DIVIDE ( [Colaboradores que já entraram], [Colaboradores] )
 		formatString: 0.0%
 		lineageTag: 85b85187-1cb0-488b-bf10-06f8e3094f22
+
+	measure '% Ativos no período' = DIVIDE ( [Colaboradores ativos], [Colaboradores] )
+		formatString: 0.0%
+		lineageTag: 9a4e75a0-1e62-43e9-8e31-207a5f445ca0
 
 	measure Interações = SUM ( fato_atividade[interacoes] )
 		formatString: #,0
@@ -22,13 +35,13 @@ table _Medidas
 		formatString: #,0
 		lineageTag: b1aff976-c1c5-4382-981e-403f68f29f96
 
-	measure '% Adesão mês anterior' = CALCULATE ( [% Adesão], DATEADD ( dim_calendario[data], -1, MONTH ) )
+	measure '% Ativos mês anterior' = CALCULATE ( [% Ativos no período], DATEADD ( dim_calendario[data], -1, MONTH ) )
 		formatString: 0.0%
-		lineageTag: a1c4321c-03b0-45ff-8046-9df37a086d26
+		lineageTag: 1c64d515-db03-4e46-9825-d137c86f5fb1
 
 	measure 'Δ Adesão' =
-			VAR Atual = [% Adesão]
-			VAR Anterior = [% Adesão mês anterior]
+			VAR Atual = [% Ativos no período]
+			VAR Anterior = [% Ativos mês anterior]
 			RETURN IF ( NOT ISBLANK ( Anterior ), Atual - Anterior )
 		formatString: #,0
 		lineageTag: fcb2bde3-f5bd-45b1-8f1f-e9457b7d2e4f

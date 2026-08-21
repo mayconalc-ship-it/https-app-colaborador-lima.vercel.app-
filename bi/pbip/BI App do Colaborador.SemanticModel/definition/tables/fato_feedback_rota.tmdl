@@ -188,6 +188,47 @@ table fato_feedback_rota
 
 		annotation SummarizationSetBy = Automatic
 
+	column cp_causa_raiz
+		dataType: string
+		lineageTag: 630f8255-966f-4658-b63d-ab94b0dfae9e
+		summarizeBy: none
+		sourceColumn: cp_causa_raiz
+
+		annotation SummarizationSetBy = Automatic
+
+	column cp_devolutiva
+		dataType: string
+		lineageTag: a8e173e6-cb3d-4651-be13-a31fb157aa84
+		summarizeBy: none
+		sourceColumn: cp_devolutiva
+
+		annotation SummarizationSetBy = Automatic
+
+	column cp_aceite_rotulo
+		dataType: string
+		lineageTag: 15f0e813-8c67-456f-9507-b1f55e715c28
+		summarizeBy: none
+		sourceColumn: cp_aceite_rotulo
+
+		annotation SummarizationSetBy = Automatic
+
+	column cp_aceitou
+		dataType: boolean
+		lineageTag: 7c29069d-a53c-4b01-aff4-dfbd0a47e5cc
+		summarizeBy: none
+		sourceColumn: cp_aceitou
+
+		annotation SummarizationSetBy = Automatic
+
+	column cp_devolutiva_em
+		dataType: dateTime
+		formatString: dd/MM/yyyy
+		lineageTag: e602c637-5ae7-44e3-a4f0-887d8773db58
+		summarizeBy: none
+		sourceColumn: cp_devolutiva_em
+
+		annotation SummarizationSetBy = Automatic
+
 	column chave
 		dataType: string
 		isHidden
