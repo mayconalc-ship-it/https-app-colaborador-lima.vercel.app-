@@ -19,6 +19,7 @@ import {
 import {
   alternarAuditor,
   cancelarAuditoria,
+  cobrarPendentes,
   excluirArea,
   planejarAno,
   planejarAuditoria,
@@ -37,12 +38,30 @@ const ABAS = [
   { id: "perguntas", rotulo: "Checklist" },
 ] as const;
 
+/**
+ * Os recortes da grade do mês.
+ *
+ * "Pendentes" é o motivo de o filtro existir: é a lista que a gestão
+ * leva para cobrar. Por isso ela é a única que também mostra as áreas
+ * que sequer foram agendadas -- do ponto de vista de quem cobra, área
+ * sem auditoria marcada está tão pendente quanto a marcada e não feita.
+ */
+const VISOES = [
+  { id: "todas", rotulo: "Todas" },
+  { id: "pendentes", rotulo: "Pendentes" },
+  { id: "atrasadas", rotulo: "Atrasadas" },
+  { id: "feitas", rotulo: "Realizadas" },
+] as const;
+
+type Visao = (typeof VISOES)[number]["id"];
+
 type Params = {
   aba?: string;
   erro?: string;
   sucesso?: string;
   editar?: string;
   mes?: string;
+  ver?: string;
 };
 
 /**
@@ -66,6 +85,7 @@ export default async function Admin5SPage({
   const p = await searchParams;
   const aba = ABAS.some((a) => a.id === p.aba) ? p.aba! : "planejamento";
   const mes = p.mes ?? competenciaAtual();
+  const visao: Visao = (VISOES.find((v) => v.id === p.ver)?.id ?? "todas");
 
   return (
     <div>
@@ -119,7 +139,7 @@ export default async function Admin5SPage({
       </div>
 
       {aba === "planejamento" && (
-        <AbaPlanejamento revendaId={revendaId} mes={mes} />
+        <AbaPlanejamento revendaId={revendaId} mes={mes} visao={visao} />
       )}
       {aba === "areas" && (
         <AbaAreas revendaId={revendaId} editando={p.editar ?? null} />
@@ -137,13 +157,15 @@ export default async function Admin5SPage({
 async function AbaPlanejamento({
   revendaId,
   mes,
+  visao,
 }: {
   revendaId: string;
   mes: string;
+  visao: Visao;
 }) {
   const admin = createAdminClient();
 
-  const [{ data: auditorias }, areas, auditores, { data: meses }] =
+  const [{ data: auditorias }, todasAsAreas, auditores, { data: meses }] =
     await Promise.all([
       admin
         .from("cinco_s_auditorias")
@@ -154,10 +176,16 @@ async function AbaPlanejamento({
         .eq("competencia", `${mes}-01`)
         .neq("status", "cancelada")
         .order("planejada_para"),
-      listarAreas(revendaId, { apenasAtivas: true }),
+      // A lista vem inteira, e não só as ativas: a grade do mês pode
+      // conter auditoria de área que foi desativada depois de agendada,
+      // e é daqui que sai o nome do dono de cada linha.
+      listarAreas(revendaId),
       auditoresAtivos(revendaId),
       admin.rpc("cinco_s_competencias", { p_revenda: revendaId }),
     ]);
+
+  const areas = todasAsAreas.filter((a) => a.ativa);
+  const donoDaArea = new Map(todasAsAreas.map((a) => [a.id, a.dono_nome]));
 
   const lista = auditorias ?? [];
   // Histórico importado pode não ter auditor (ver migração 038).
@@ -179,6 +207,57 @@ async function AbaPlanejamento({
   );
   if (!competencias.includes(mes)) competencias.unshift(mes);
 
+  /** Troca um filtro sem perder o outro. */
+  const url = (mudanca: { mes?: string; ver?: Visao }) => {
+    const q = new URLSearchParams({ aba: "planejamento" });
+    q.set("mes", mudanca.mes ?? mes);
+    const v = mudanca.ver ?? visao;
+    if (v !== "todas") q.set("ver", v);
+    return `/admin/5s?${q}`;
+  };
+
+  // O recorte da grade. "Pendente" é tudo que não foi finalizado --
+  // planejada e em andamento juntas: quem cobra não distingue a área que
+  // nem começou da que parou no meio, as duas continuam devendo o mês.
+  const pendentesDoMes = lista.filter((a) => a.status !== "finalizada");
+
+  const visiveis =
+    visao === "pendentes"
+      ? pendentesDoMes
+      : visao === "atrasadas"
+        ? lista.filter(
+            (a) => a.status !== "finalizada" && a.planejada_para < hoje,
+          )
+        : visao === "feitas"
+          ? lista.filter((a) => a.status === "finalizada")
+          : lista;
+
+  // Área ativa sem auditoria agendada no mês também é pendência, e é a
+  // mais fácil de esquecer -- ela não aparece em lista nenhuma porque
+  // não existe registro para aparecer. Entra na visão de pendentes.
+  const naoAgendadas = visao === "pendentes" ? semAuditoria : [];
+  const totalNaGrade = visiveis.length + naoAgendadas.length;
+
+  // Quem a cobrança vai tocar. A conta é feita aqui só para o botão
+  // poder dizer o número ANTES do clique -- quem manda mensagem para os
+  // outros precisa saber para quantos está mandando. A lista de verdade
+  // é remontada na ação, do banco, na hora de enviar.
+  const donoIdDaArea = new Map(todasAsAreas.map((a) => [a.id, a.dono_id]));
+  const auditoresACobrar = new Set(
+    pendentesDoMes
+      .map((a) => a.auditor_id)
+      .filter((x): x is string => Boolean(x)),
+  );
+  const donosAAvisar = new Set(
+    pendentesDoMes
+      .map((a) =>
+        donoIdDaArea.get(a.area_id) !== a.auditor_id
+          ? donoIdDaArea.get(a.area_id)
+          : null,
+      )
+      .filter((x): x is string => Boolean(x)),
+  );
+
   return (
     <div className="space-y-4">
       <div className="rolagem-lateral -mx-4 overflow-x-auto px-4 pb-2">
@@ -186,7 +265,7 @@ async function AbaPlanejamento({
           {competencias.slice(0, 12).map((c) => (
             <Link
               key={c}
-              href={`/admin/5s?aba=planejamento&mes=${c}`}
+              href={url({ mes: c })}
               className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-medium ${
                 c === mes
                   ? "bg-primary text-white"
@@ -199,11 +278,37 @@ async function AbaPlanejamento({
         </div>
       </div>
 
+      {/* Os números não são só placar: cada um é a entrada do recorte
+          que ele conta. Ver "3 pendentes" e não conseguir clicar para
+          saber QUAIS obriga a caçar as três na lista inteira. */}
       <div className="grid grid-cols-4 gap-2">
-        <Mini valor={lista.length} rotulo="planejadas" />
-        <Mini valor={feitas} rotulo="realizadas" tom="bom" />
-        <Mini valor={lista.length - feitas} rotulo="pendentes" tom="alerta" />
-        <Mini valor={atrasadas} rotulo="atrasadas" tom={atrasadas > 0 ? "ruim" : "bom"} />
+        <Mini
+          valor={lista.length}
+          rotulo="planejadas"
+          href={url({ ver: "todas" })}
+          ativo={visao === "todas"}
+        />
+        <Mini
+          valor={feitas}
+          rotulo="realizadas"
+          tom="bom"
+          href={url({ ver: "feitas" })}
+          ativo={visao === "feitas"}
+        />
+        <Mini
+          valor={lista.length - feitas + semAuditoria.length}
+          rotulo="pendentes"
+          tom="alerta"
+          href={url({ ver: "pendentes" })}
+          ativo={visao === "pendentes"}
+        />
+        <Mini
+          valor={atrasadas}
+          rotulo="atrasadas"
+          tom={atrasadas > 0 ? "ruim" : "bom"}
+          href={url({ ver: "atrasadas" })}
+          ativo={visao === "atrasadas"}
+        />
       </div>
 
       {/* ---- Agendar o mês inteiro ---- */}
@@ -330,16 +435,67 @@ async function AbaPlanejamento({
         <h2 className="p-4 pb-2 text-sm font-semibold text-slate-800">
           {rotuloCompetencia(mes)}
           <span className="ml-2 font-normal text-slate-400">
-            ({lista.length})
+            ({totalNaGrade})
           </span>
         </h2>
-        {lista.length === 0 ? (
+
+        {/* ---- O filtro da grade ---- */}
+        <div className="rolagem-lateral overflow-x-auto px-4 pb-3">
+          <div className="flex w-max gap-2">
+            {VISOES.map((v) => (
+              <Link
+                key={v.id}
+                href={url({ ver: v.id })}
+                className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-medium ${
+                  visao === v.id
+                    ? "bg-slate-700 text-white"
+                    : "bg-white text-slate-600 ring-1 ring-slate-200"
+                }`}
+              >
+                {v.rotulo}
+              </Link>
+            ))}
+          </div>
+        </div>
+
+        {visao === "pendentes" && (
+          <p className="px-4 pb-3 text-xs text-slate-500">
+            Tudo que ainda deve o mês: auditoria marcada e não finalizada,
+            mais as áreas ativas que sequer entraram no plano. O nome ao
+            lado é de quem cobrar — auditor e dono da área.
+          </p>
+        )}
+
+        {totalNaGrade === 0 ? (
           <p className="p-6 pt-2 text-center text-sm text-slate-500">
-            Nenhuma auditoria agendada neste mês.
+            {visao === "pendentes"
+              ? `Nenhuma pendência em ${rotuloCompetencia(mes)}. 👏`
+              : visao === "atrasadas"
+                ? "Nenhuma auditoria atrasada neste mês. 👏"
+                : visao === "feitas"
+                  ? "Nenhuma auditoria finalizada neste mês ainda."
+                  : "Nenhuma auditoria agendada neste mês."}
           </p>
         ) : (
           <ul className="divide-y divide-slate-100 border-t border-slate-100">
-            {lista.map((a) => {
+            {naoAgendadas.map((ar) => (
+              <li key={`sem-${ar.id}`} className="p-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-slate-800">
+                      {ar.nome}
+                    </p>
+                    <p className="truncate text-xs text-slate-400">
+                      {ar.dono_nome ?? "sem dono definido"}
+                    </p>
+                  </div>
+                  <span className="shrink-0 rounded-full bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-800 ring-1 ring-amber-200">
+                    Não agendada
+                  </span>
+                </div>
+              </li>
+            ))}
+            {visiveis.map((a) => {
               const area = (
                 Array.isArray(a.cinco_s_areas)
                   ? a.cinco_s_areas[0]
@@ -363,6 +519,19 @@ async function AbaPlanejamento({
                         ·{" "}
                         {a.planejada_para.split("-").reverse().join("/")}
                       </p>
+                      {/* O dono só aparece nos recortes de cobrança: é
+                          nesses que a pergunta "quem eu aviso?" existe.
+                          Na grade cheia ele seria uma linha a mais em
+                          cada item sem ninguém para ler. */}
+                      {a.status !== "finalizada" &&
+                        (visao === "pendentes" || visao === "atrasadas") && (
+                          <p className="truncate text-xs text-slate-400">
+                            Dono da área:{" "}
+                            <span className="font-medium text-slate-600">
+                              {donoDaArea.get(a.area_id) ?? "sem dono definido"}
+                            </span>
+                          </p>
+                        )}
                     </div>
                     <div className="shrink-0 text-right">
                       {a.status === "finalizada" ? (
@@ -397,10 +566,80 @@ async function AbaPlanejamento({
         )}
       </div>
 
-      {semAuditoria.length > 0 && (
+      {/* ---- Cobrar quem está devendo o mês ----
+
+          Só existe na visão de pendentes, e de propósito: o botão que
+          dispara mensagem para o time inteiro não pode ficar solto na
+          tela cheia, onde se clica nele sem ter lido quem está na lista.
+          Aqui ele vem DEPOIS da lista -- quem chegou até o botão já
+          passou pelos nomes. */}
+      {visao === "pendentes" && pendentesDoMes.length > 0 && (
+        <form
+          action={cobrarPendentes}
+          className="rounded-2xl border border-amber-200 bg-amber-50 p-4"
+        >
+          <input type="hidden" name="competencia" value={mes} />
+          <h3 className="text-sm font-semibold text-amber-900">
+            Avisar quem está devendo
+          </h3>
+          <p className="mt-1 text-xs text-amber-800">
+            Manda um aviso no app e no celular para{" "}
+            <strong>
+              {auditoresACobrar.size} auditor
+              {auditoresACobrar.size === 1 ? "" : "es"}
+            </strong>
+            {donosAAvisar.size > 0 && (
+              <>
+                {" "}
+                e <strong>{donosAAvisar.size} dono{donosAAvisar.size === 1 ? "" : "s"} de área</strong>
+              </>
+            )}
+            , sobre as {pendentesDoMes.length} auditoria
+            {pendentesDoMes.length === 1 ? "" : "s"} pendente
+            {pendentesDoMes.length === 1 ? "" : "s"} de{" "}
+            {rotuloCompetencia(mes)}. Cada pessoa recebe UM aviso, com as
+            áreas dela dentro.
+          </p>
+          {donosAAvisar.size > 0 && (
+            <label className="mt-3 flex items-center gap-2 text-xs text-amber-900">
+              <input
+                type="checkbox"
+                name="donos"
+                defaultChecked
+                className="h-4 w-4"
+              />
+              Avisar também os donos das áreas
+            </label>
+          )}
+          {naoAgendadas.length > 0 && (
+            <p className="mt-2 text-xs text-amber-700">
+              As {naoAgendadas.length} área{naoAgendadas.length === 1 ? "" : "s"} não
+              agendada{naoAgendadas.length === 1 ? "" : "s"} ficam de fora — não
+              há auditor para cobrar. Agende primeiro.
+            </p>
+          )}
+          <BotaoEnviar
+            textoEnviando="Enviando os avisos..."
+            className="mt-3 w-full rounded-xl bg-amber-600 py-3 text-sm font-semibold text-white active:bg-amber-700"
+          >
+            Cobrar pendentes
+          </BotaoEnviar>
+          <p className="mt-2 text-xs text-amber-700">
+            A mesma cobrança só sai de novo depois de 6 horas.
+          </p>
+        </form>
+      )}
+
+      {/* Na visão de pendentes essas áreas já estão listadas uma a uma,
+          com dono e tudo -- repeti-las aqui em texto corrido seria dizer
+          a mesma coisa duas vezes na mesma tela. */}
+      {semAuditoria.length > 0 && visao !== "pendentes" && (
         <p className="rounded-2xl bg-amber-50 p-3 text-xs text-amber-900">
           Sem auditoria em {rotuloCompetencia(mes)}:{" "}
-          {semAuditoria.map((a) => a.nome).join(", ")}.
+          {semAuditoria.map((a) => a.nome).join(", ")}.{" "}
+          <Link href={url({ ver: "pendentes" })} className="font-semibold underline">
+            Ver as pendências
+          </Link>
         </p>
       )}
 
@@ -937,10 +1176,14 @@ function Mini({
   valor,
   rotulo,
   tom = "neutro",
+  href,
+  ativo = false,
 }: {
   valor: number;
   rotulo: string;
   tom?: "neutro" | "bom" | "alerta" | "ruim";
+  href?: string;
+  ativo?: boolean;
 }) {
   const cor = {
     neutro: "text-slate-700",
@@ -948,10 +1191,27 @@ function Mini({
     alerta: "text-amber-600",
     ruim: "text-red-600",
   }[tom];
-  return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-2.5 text-center shadow-sm">
+
+  const classe = `rounded-2xl border bg-white p-2.5 text-center shadow-sm ${
+    ativo ? "border-slate-700 ring-1 ring-slate-700" : "border-slate-200"
+  }`;
+
+  const conteudo = (
+    <>
       <p className={`text-xl font-bold tabular-nums ${cor}`}>{valor}</p>
       <p className="text-xs leading-tight text-slate-500">{rotulo}</p>
-    </div>
+    </>
+  );
+
+  if (!href) return <div className={classe}>{conteudo}</div>;
+
+  return (
+    <Link
+      href={href}
+      aria-current={ativo ? "true" : undefined}
+      className={`${classe} block active:bg-slate-50`}
+    >
+      {conteudo}
+    </Link>
   );
 }

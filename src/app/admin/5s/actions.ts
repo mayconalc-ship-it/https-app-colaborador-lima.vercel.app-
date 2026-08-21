@@ -599,6 +599,244 @@ export async function planejarAno(formData: FormData) {
   );
 }
 
+/* ------------------------------------------------------------------ */
+/* Cobrança do que ficou pendente                                      */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Uma cobrança do mesmo mês só sai de novo depois disto.
+ *
+ * O botão fica na tela junto da lista de pendências, e a lista muda a
+ * cada auditoria finalizada -- clicar duas vezes na mesma manhã é o
+ * comportamento esperado, não o excepcional. Sem trava, quem está
+ * devendo recebe o mesmo texto três vezes antes do almoço e desliga a
+ * notificação do 5S no mesmo dia, que é o oposto do que a cobrança quer.
+ */
+const JANELA_COBRANCA_HORAS = 6;
+
+/** A cobrança volta para a lista de onde partiu, não para a aba crua. */
+function voltarParaPendentes(
+  competencia: string,
+  chave: "sucesso" | "erro",
+  mensagem: string,
+): never {
+  const q = new URLSearchParams({
+    aba: "planejamento",
+    mes: competencia,
+    ver: "pendentes",
+    [chave]: mensagem,
+  });
+  redirect(`${ROTA}?${q}`);
+}
+
+/**
+ * Avisa quem está devendo o mês.
+ *
+ * A lista de quem recebe é remontada AQUI, do banco, e não vem do
+ * formulário: entre desenhar a tela e clicar o botão alguém pode ter
+ * finalizado a auditoria, e cobrar quem já entregou é o jeito mais
+ * rápido de a cobrança perder a autoridade.
+ *
+ * Um aviso por PESSOA, com as áreas dela dentro -- não um por área. O
+ * auditor que ficou com seis áreas receberia seis avisos idênticos e
+ * leria zero.
+ *
+ * Área ativa que sequer foi agendada aparece na lista da tela mas não
+ * gera aviso: não há auditor para cobrar, e o dono não pode fazer nada
+ * a respeito. Quem precisa agir nesse caso é a própria gestão, então
+ * ela volta no texto de retorno em vez de virar mensagem no bolso de
+ * quem não tem como resolver.
+ */
+export async function cobrarPendentes(formData: FormData) {
+  await requireModulo("5s", "editar");
+  const revendaId = await exigirRevenda(ROTA);
+  const admin = createAdminClient();
+
+  const competencia = texto(formData.get("competencia"));
+  if (!competencia) erro("Informe o mês.", "planejamento");
+
+  const avisarDonos = formData.get("donos") === "on";
+  const referencia = `cobranca:${competencia}`;
+
+  const desde = new Date(
+    Date.now() - JANELA_COBRANCA_HORAS * 60 * 60 * 1000,
+  ).toISOString();
+
+  const { count: jaCobrado } = await admin
+    .from("notificacoes")
+    .select("id", { count: "exact", head: true })
+    .eq("revenda_id", revendaId)
+    .eq("modulo", "5s")
+    .eq("referencia_id", referencia)
+    .gte("criado_em", desde);
+
+  if (jaCobrado && jaCobrado > 0) {
+    voltarParaPendentes(
+      competencia,
+      "erro",
+      `A cobrança deste mês já foi enviada há menos de ${JANELA_COBRANCA_HORAS} horas. Espere um pouco antes de mandar de novo — aviso repetido no mesmo dia é o que faz as pessoas desligarem a notificação.`,
+    );
+  }
+
+  const [{ data: pendentes }, { data: ativas }] = await Promise.all([
+    admin
+      .from("cinco_s_auditorias")
+      .select("id, area_id, auditor_id, cinco_s_areas!inner(nome)")
+      .eq("revenda_id", revendaId)
+      .eq("competencia", `${competencia}-01`)
+      .in("status", ["planejada", "em_andamento"]),
+    admin
+      .from("cinco_s_areas")
+      .select("id, nome")
+      .eq("revenda_id", revendaId)
+      .eq("ativa", true),
+  ]);
+
+  const lista = pendentes ?? [];
+  const naoAgendadas = (ativas ?? []).filter(
+    (ar) => !lista.some((a) => a.area_id === ar.id),
+  );
+
+  if (lista.length === 0) {
+    voltarParaPendentes(
+      competencia,
+      "erro",
+      naoAgendadas.length > 0
+        ? `Não há auditoria pendente para cobrar. As ${naoAgendadas.length} área(s) sem auditoria agendada precisam ser agendadas antes — não há auditor para avisar.`
+        : "Nada a cobrar: nenhuma auditoria pendente neste mês.",
+    );
+  }
+
+  // O dono VIGENTE, não o congelado na auditoria. O congelado é o certo
+  // para o histórico e para o plano de ação; para cobrar hoje, quem
+  // responde pela área hoje é quem atende -- e é o nome que a tela
+  // mostrou ao lado de cada pendência.
+  const { data: donos } = await admin
+    .from("cinco_s_area_donos")
+    .select("area_id, colaborador_id")
+    .in("area_id", Array.from(new Set(lista.map((a) => a.area_id))))
+    .is("ate", null);
+
+  const donoDaArea = new Map(
+    (donos ?? []).map((d) => [d.area_id, d.colaborador_id]),
+  );
+
+  const porAuditor = new Map<string, string[]>();
+  const porDono = new Map<string, string[]>();
+
+  for (const a of lista) {
+    const area = Array.isArray(a.cinco_s_areas)
+      ? a.cinco_s_areas[0]
+      : a.cinco_s_areas;
+    const nome = (area as { nome: string })?.nome ?? "área";
+
+    if (a.auditor_id) {
+      porAuditor.set(a.auditor_id, [
+        ...(porAuditor.get(a.auditor_id) ?? []),
+        nome,
+      ]);
+    }
+
+    // Quem audita a própria área não recebe os dois avisos pela mesma
+    // pendência -- já foi cobrado como auditor, que é o papel que age.
+    const dono = donoDaArea.get(a.area_id);
+    if (avisarDonos && dono && dono !== a.auditor_id) {
+      porDono.set(dono, [...(porDono.get(dono) ?? []), nome]);
+    }
+  }
+
+  const quando = rotuloDoMes(competencia);
+
+  await Promise.all([
+    ...Array.from(porAuditor.entries()).map(([auditorId, areas]) =>
+      criarNotificacao({
+        modulo: "5s",
+        tipo: "pendencia",
+        titulo: "🧹 Auditoria 5S pendente",
+        mensagem: `${quando}: ${areas.length === 1 ? "a auditoria de" : `você ainda tem ${areas.length} auditorias —`} ${listar(areas)}${areas.length === 1 ? " ainda não foi feita" : ""}.`,
+        url: "/5s",
+        revendaId,
+        destinatarioId: auditorId,
+        referenciaId: referencia,
+      }),
+    ),
+    ...Array.from(porDono.entries()).map(([donoId, areas]) =>
+      criarNotificacao({
+        modulo: "5s",
+        tipo: "pendencia",
+        titulo: "🧹 5S da sua área ainda pendente",
+        mensagem: `${quando}: a auditoria de ${listar(areas)} ainda não foi feita. Fale com o auditor da área.`,
+        url: "/5s",
+        revendaId,
+        destinatarioId: donoId,
+        referenciaId: referencia,
+      }),
+    ),
+  ]);
+
+  await enviarPushDaRevenda(revendaId, {
+    modulo: "5s",
+    titulo: "🧹 Auditoria 5S pendente",
+    mensagem: `Você tem auditoria de ${quando} para fazer.`,
+    url: "/5s",
+    apenas: Array.from(porAuditor.keys()),
+  });
+
+  if (porDono.size > 0) {
+    await enviarPushDaRevenda(revendaId, {
+      modulo: "5s",
+      titulo: "🧹 5S da sua área ainda pendente",
+      mensagem: `A auditoria de ${quando} da sua área ainda não foi feita.`,
+      url: "/5s",
+      apenas: Array.from(porDono.keys()),
+    });
+  }
+
+  revalidar();
+
+  const partes = [
+    `${porAuditor.size} auditor${porAuditor.size === 1 ? "" : "es"}`,
+    porDono.size > 0 &&
+      `${porDono.size} dono${porDono.size === 1 ? "" : "s"} de área`,
+  ].filter(Boolean);
+
+  const sobra =
+    naoAgendadas.length > 0
+      ? ` ${naoAgendadas.length} área(s) ficaram de fora por não ter auditoria agendada — agende antes de cobrar: ${naoAgendadas.map((a) => a.nome).join(", ")}.`
+      : "";
+
+  voltarParaPendentes(
+    competencia,
+    "sucesso",
+    `Cobrança enviada para ${partes.join(" e ")}, sobre ${lista.length} auditoria${lista.length === 1 ? "" : "s"} pendente${lista.length === 1 ? "" : "s"}.${sobra}`,
+  );
+}
+
+/**
+ * "Oficina, Peças e mais 2" -- a mensagem cabe na tela do celular.
+ *
+ * Listar as seis áreas por extenso empurra o texto para além do que a
+ * notificação mostra, e a informação que importa (que há pendência, e
+ * quantas) fica justamente na parte cortada.
+ */
+function listar(nomes: string[]) {
+  if (nomes.length <= 3) {
+    return nomes.length > 1
+      ? `${nomes.slice(0, -1).join(", ")} e ${nomes[nomes.length - 1]}`
+      : nomes[0];
+  }
+  return `${nomes.slice(0, 2).join(", ")} e mais ${nomes.length - 2}`;
+}
+
+/** "2026-08" -> "Agosto". O ano fica de fora: a cobrança é do mês corrente. */
+function rotuloDoMes(competencia: string) {
+  const [ano, mes] = competencia.split("-").map(Number);
+  const texto = new Date(ano, mes - 1, 1).toLocaleDateString("pt-BR", {
+    month: "long",
+  });
+  return texto.charAt(0).toUpperCase() + texto.slice(1);
+}
+
 export async function cancelarAuditoria(formData: FormData) {
   await requireModulo("5s", "editar");
   const revendaId = await exigirRevenda(ROTA);
