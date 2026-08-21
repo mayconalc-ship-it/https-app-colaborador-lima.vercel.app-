@@ -60,10 +60,34 @@ export type Varredura = {
 export async function varrerLembretes(): Promise<Varredura> {
   const admin = createAdminClient();
 
-  const desafios = await lembretesDoDesafio(admin);
-  const cincoS = await lembretesDo5S(admin);
+  // A ORDEM AQUI NÃO É ARBITRÁRIA: barato e urgente primeiro, caro por
+  // último.
+  //
+  // Na primeira varredura real em produção (21/08/2026, depois que o
+  // proxy parou de barrar o cron), o desafio levou 3s avisando quem não
+  // participou de duas rodadas, e o 5S gastou mais 11s em 12 auditorias
+  // -- 17 segundos no total, e não dá para saber daqui se a função foi
+  // cortada no fim. Se for, quem estivesse por último nunca rodaria.
+  //
+  // Publicação agendada e lembrete do jornal são os dois mais urgentes
+  // (uma matéria já ESTÁ no ar esperando o aviso) e os mais baratos --
+  // na esmagadora maioria das varreduras, zero linhas. Ficarem atrás de
+  // uma etapa que notifica cem pessoas era trocar o certo pelo caro.
   const publicadas = await publicacoesAgendadas(admin);
+  const enviados = await lembretesDeComunicado(admin);
+  const cincoS = await lembretesDo5S(admin);
+  const desafios = await lembretesDoDesafio(admin);
 
+  return { ...enviados, cincoS, desafios, publicadas };
+}
+
+/**
+ * Os lembretes de comunicado vencidos -- o 🔔 que o RH marcou junto com
+ * a matéria.
+ */
+async function lembretesDeComunicado(
+  admin: ReturnType<typeof createAdminClient>,
+): Promise<{ enviados: number; erro?: string }> {
   const { data: devidos, error } = await admin
     .from("comunicados")
     .select(
@@ -72,12 +96,8 @@ export async function varrerLembretes(): Promise<Varredura> {
     .lte("lembrete_em", new Date().toISOString())
     .is("lembrete_enviado_em", null);
 
-  if (error) {
-    return { enviados: 0, desafios, cincoS, publicadas, erro: error.message };
-  }
-  if (!devidos || devidos.length === 0) {
-    return { enviados: 0, desafios, cincoS, publicadas };
-  }
+  if (error) return { enviados: 0, erro: error.message };
+  if (!devidos || devidos.length === 0) return { enviados: 0 };
 
   let enviados = 0;
 
@@ -179,7 +199,7 @@ export async function varrerLembretes(): Promise<Varredura> {
     enviados++;
   }
 
-  return { enviados, desafios, cincoS, publicadas };
+  return { enviados };
 }
 
 /**
