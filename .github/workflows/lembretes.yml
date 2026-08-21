@@ -4,11 +4,22 @@ name: Lembretes do Jornal
 # demais para "avise às 14h de hoje". O GitHub Actions roda de graça e
 # sem essa trava, então é ele quem bate na porta do endpoint.
 #
-# Nem o GitHub garante o minuto exato (a documentação deles avisa que
-# workflows agendados podem atrasar em horários de pico), então o
-# lembrete dispara com alguns minutos de folga em relação à hora
-# marcada -- suficiente para "lembrete de treinamento", não para algo
-# que precise do segundo certo.
+# O `*/15` abaixo é um PEDIDO, não uma promessa, e a diferença é grande:
+# medindo as 14 execuções reais em 21/08/2026, o intervalo foi de 54 min
+# no melhor caso, ~100 min na mediana e 216 min no pior. O GitHub
+# estrangula workflows agendados, e não há o que ajustar no cron para
+# mudar isso.
+#
+# Consequência prática, que está escrita na tela do RH: a MATÉRIA
+# agendada entra na hora exata (quem solta a linha é a política de
+# leitura, ver migration 044), mas o SINO e o PUSH dela podem sair até
+# cerca de uma hora depois. Serve para "lembrete de treinamento de
+# amanhã"; não serve para "começa em 10 minutos".
+#
+# Para apertar isso sem sair do plano Hobby: apontar um pinger externo
+# (cron-job.org, UptimeRobot) para o mesmo endpoint. A rota é
+# idempotente e protegida por Bearer, então dois chamadores simultâneos
+# não fazem estrago.
 on:
   schedule:
     - cron: "*/15 * * * *"

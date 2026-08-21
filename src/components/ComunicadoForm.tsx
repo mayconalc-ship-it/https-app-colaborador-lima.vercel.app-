@@ -304,10 +304,14 @@ export function ComunicadoForm({
               className="w-full rounded-xl border border-slate-200 p-3 text-base focus:border-primary focus:outline-none"
             />
             <p className="text-xs text-slate-400">
-              Até lá a matéria não aparece para o colaborador, e o sino e o
-              push só tocam na hora marcada. A data da notícia no jornal
-              passa a ser a do agendamento. O disparo pode atrasar alguns
-              minutos.
+              Até lá a matéria não aparece para o colaborador. A data da
+              notícia no jornal passa a ser a do agendamento.
+            </p>
+            <p className="text-xs text-slate-400">
+              <strong className="text-slate-500">A matéria entra na hora
+              exata</strong>, mas o aviso no sino e o push podem demorar até
+              cerca de uma hora depois — quem dispara é um robô externo, e o
+              GitHub não garante o minuto.
             </p>
           </div>
         ) : (
@@ -425,8 +429,8 @@ export function ComunicadoForm({
 
           <p className="text-xs text-slate-400">
             O lembrete chega pelo sino e pelo push, separado da publicação.
-            O disparo pode atrasar alguns minutos em relação à hora
-            marcada.
+            Pode sair até cerca de uma hora depois da marcada — então não
+            use para avisar de algo que começa em minutos.
           </p>
         </div>
       </details>
