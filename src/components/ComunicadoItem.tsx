@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { BotaoAgenda } from "@/components/BotaoAgenda";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
 import { ComunicadoForm } from "@/components/ComunicadoForm";
 import { useConfirmarEnvio } from "@/components/Confirmacao";
@@ -98,14 +99,11 @@ export function ComunicadoItem({
               disparado continua etiqueta morta: pôr no calendário um
               compromisso que já passou não serve para nada. */}
           {comunicado.lembrete_em && !comunicado.lembrete_enviado_em && (
-            <a
-              href={`/api/comunicados/${comunicado.id}/agenda`}
-              download={`comunicado-${comunicado.id}.ics`}
-              title="Colocar no meu calendário"
-              className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800 underline decoration-amber-400 underline-offset-2 hover:bg-amber-200"
-            >
-              🔔 {formatarDataHora(comunicado.lembrete_em)} ↓
-            </a>
+            <BotaoAgenda
+              comunicadoId={comunicado.id}
+              quando={comunicado.lembrete_em}
+              compacto
+            />
           )}
           {comunicado.lembrete_enviado_em && (
             <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-500">
