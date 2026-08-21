@@ -89,18 +89,27 @@ export function ComunicadoItem({
               capa
             </span>
           )}
-          {comunicado.lembrete_em && (
-            <span
-              className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
-                comunicado.lembrete_enviado_em
-                  ? "bg-slate-100 text-slate-500"
-                  : "bg-amber-100 text-amber-800"
-              }`}
+          {/* Lembrete ainda por vir vira LINK, não etiqueta: leva a data
+              para o calendário do próprio celular de quem está montando o
+              plano. Antes isto era um <span> com cara de botão que não
+              fazia nada ao toque -- o RH clicava e não acontecia nada.
+
+              Só o que ainda vai acontecer é clicável. Lembrete já
+              disparado continua etiqueta morta: pôr no calendário um
+              compromisso que já passou não serve para nada. */}
+          {comunicado.lembrete_em && !comunicado.lembrete_enviado_em && (
+            <a
+              href={`/api/comunicados/${comunicado.id}/agenda`}
+              download={`comunicado-${comunicado.id}.ics`}
+              title="Colocar no meu calendário"
+              className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800 underline decoration-amber-400 underline-offset-2 hover:bg-amber-200"
             >
-              🔔{" "}
-              {comunicado.lembrete_enviado_em
-                ? "disparado"
-                : formatarDataHora(comunicado.lembrete_em)}
+              🔔 {formatarDataHora(comunicado.lembrete_em)} ↓
+            </a>
+          )}
+          {comunicado.lembrete_enviado_em && (
+            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-500">
+              🔔 disparado
             </span>
           )}
           <span className="text-xs text-slate-400">

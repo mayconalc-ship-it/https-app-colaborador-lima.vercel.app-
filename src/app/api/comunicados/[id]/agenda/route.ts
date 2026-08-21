@@ -1,4 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { podeNoModulo } from "@/lib/require-admin";
+import { getRevendaId } from "@/lib/revendas";
 import { montarIcs } from "@/lib/ics";
 
 export const dynamic = "force-dynamic";
@@ -29,13 +32,34 @@ export async function GET(
   ctx: RouteContext<"/api/comunicados/[id]/agenda">,
 ) {
   const { id } = await ctx.params;
+  const colunas = "id, titulo, resumo, lembrete_em, lembrete_mensagem";
 
   const supabase = await createClient();
-  const { data: comunicado } = await supabase
+  let { data: comunicado } = await supabase
     .from("comunicados")
-    .select("id, titulo, resumo, lembrete_em, lembrete_mensagem")
+    .select(colunas)
     .eq("id", Number(id))
     .maybeSingle();
+
+  // Não achou pela sessão? Pode ser matéria ainda AGENDADA -- a política
+  // de leitura esconde ela de todo mundo até a hora marcada, inclusive de
+  // quem a escreveu. E é justamente quem a escreveu que precisa deste
+  // arquivo antes: o RH monta o plano do mês e quer o compromisso no
+  // próprio calendário hoje, não na véspera.
+  //
+  // A segunda tentativa passa por cima da RLS, então ela é liberada pela
+  // MESMA permissão que abre a tela de comunicados no Modo Liderança --
+  // não por "estar logado". Para o colaborador comum nada muda: ele cai
+  // no 404 de antes.
+  if (!comunicado && (await podeNoModulo("comunicados", "ver"))) {
+    const { data } = await createAdminClient()
+      .from("comunicados")
+      .select(colunas)
+      .eq("id", Number(id))
+      .eq("revenda_id", await getRevendaId())
+      .maybeSingle();
+    comunicado = data;
+  }
 
   if (!comunicado?.lembrete_em) {
     return new Response("Este comunicado não tem data marcada.", {
