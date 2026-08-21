@@ -47,6 +47,18 @@ next-env.d.ts
 .vercel
 .env*
 
+# Power BI Desktop - estado da máquina, não do relatório.
+# O cache é ~1 MB de binário reescrito a cada abertura do Desktop, e o
+# localSettings guarda o blob de credencial da conexão (criptografado
+# pelo Windows, e por isso inútil em qualquer outra máquina). O modelo,
+# as medidas e as páginas do .pbip continuam versionados normalmente --
+# o editorSettings.json também, que é config do relatório e não do PC.
+#
+# O "**/" nao e enfeite: padrao com barra no meio fica ancorado na raiz
+# do repositorio, e estas pastas estao fundo em bi/pbip/.
+*.abf
+**/.pbi/localSettings.json
+
 # exportações e mídia avulsa - não fazem parte do código
 *.xlsx
 *.pptx
