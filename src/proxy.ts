@@ -109,6 +109,14 @@ export const config = {
     // sw.js e manifest.json ficam de fora porque o navegador os busca por
     // conta propria, fora da sessao. Se o proxy os redirecionasse para
     // /login, o registro do service worker falharia -- e o push junto.
-    "/((?!_next/static|_next/image|favicon.ico|sw.js|manifest.json|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    //
+    // /api/cron fica de fora pelo mesmo motivo, e a ausencia dele custou
+    // caro: quem chama e o GitHub Actions, que nao tem cookie de sessao
+    // nenhum. O proxy respondia 307 para /login e a rota NUNCA rodava --
+    // com o curl do workflow reportando sucesso, porque 307 nao e erro.
+    // Lembrete do jornal, aviso de auditoria 5S e cutucao do desafio
+    // simplesmente nao saiam. A rota tem trava propria (Bearer
+    // CRON_SECRET), entao ficar fora da sessao e o desenho certo.
+    "/((?!_next/static|_next/image|favicon.ico|sw.js|manifest.json|api/cron|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };

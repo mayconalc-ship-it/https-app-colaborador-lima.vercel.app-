@@ -76,13 +76,16 @@ export function tempoDeLeitura(texto: string) {
 }
 
 /**
- * O que vem do `<input type="datetime-local">` do lembrete
- * ("AAAA-MM-DDTHH:mm", sem fuso) para o instante UTC que o banco guarda.
+ * O que vem de um `<input type="datetime-local">` ("AAAA-MM-DDTHH:mm",
+ * sem fuso) para o instante UTC que o banco guarda.
  *
  * Bahia é sempre UTC-3 -- o Brasil não tem mais horário de verão desde
  * 2019 -- então a conta é uma soma fixa, sem precisar de Intl aqui.
+ *
+ * Serve tanto ao lembrete quanto ao agendamento da publicação: os dois
+ * campos são o mesmo tipo de dado com significados diferentes.
  */
-export function lembreteParaUTC(local: string): string | null {
+export function datetimeLocalParaUTC(local: string): string | null {
   const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(local);
   if (!m) return null;
   const [, ano, mes, dia, hora, min] = m.map(Number);
@@ -96,7 +99,7 @@ export function lembreteParaUTC(local: string): string | null {
  * Usa `Intl` em vez de subtrair 3h na mão -- é o mesmo resultado hoje,
  * mas não depende de ninguém lembrar da mesma conta em dois lugares.
  */
-export function lembreteParaLocal(utcISO: string): string {
+export function utcParaDatetimeLocal(utcISO: string): string {
   const partes = new Intl.DateTimeFormat("en-CA", {
     timeZone: FUSO,
     year: "numeric",
@@ -108,6 +111,52 @@ export function lembreteParaLocal(utcISO: string): string {
   }).formatToParts(new Date(utcISO));
   const parte = (tipo: string) => partes.find((p) => p.type === tipo)?.value ?? "00";
   return `${parte("year")}-${parte("month")}-${parte("day")}T${parte("hour")}:${parte("minute")}`;
+}
+
+/**
+ * Só o dia de um instante UTC, no fuso de Bahia: "2026-09-15".
+ *
+ * É o que faz a matéria agendada nascer com a data certa na banca.
+ * Agendar para 15/09 às 08h e a matéria aparecer datada de 20/08 (o dia
+ * em que o RH escreveu) seria um jornal mentindo a própria data -- e
+ * pior, a matéria entraria no fim da lista, porque a ordenação da página
+ * é por `data`.
+ */
+export function diaNoFuso(utcISO: string): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: FUSO,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date(utcISO));
+}
+
+/** Só a hora de um instante UTC, no fuso de Bahia: "08:00". */
+export function horaNoFuso(utcISO: string): string {
+  return new Intl.DateTimeFormat("pt-BR", {
+    timeZone: FUSO,
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(new Date(utcISO));
+}
+
+/** Está marcado para o futuro? Vale para o agendamento e para o lembrete. */
+export function ehFuturo(utcISO: string | null | undefined): boolean {
+  return Boolean(utcISO) && new Date(utcISO!).getTime() > Date.now();
+}
+
+/** "15/09 às 08:00" -- o rótulo do relógio e das tarjas de agendamento. */
+export function formatarDiaEHora(utcISO: string) {
+  const partes = new Intl.DateTimeFormat("pt-BR", {
+    timeZone: FUSO,
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).formatToParts(new Date(utcISO));
+  const parte = (tipo: string) => partes.find((p) => p.type === tipo)?.value ?? "";
+  return `${parte("day")}/${parte("month")} às ${parte("hour")}:${parte("minute")}`;
 }
 
 /** "12/08 às 14:00", para mostrar o lembrete na lista do Admin. */

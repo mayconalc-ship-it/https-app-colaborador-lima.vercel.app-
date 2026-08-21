@@ -1,8 +1,13 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
-import { EDITORIAS, formatarDataHora, lembreteParaLocal } from "@/lib/comunicados";
+import {
+  EDITORIAS,
+  ehFuturo,
+  formatarDataHora,
+  utcParaDatetimeLocal,
+} from "@/lib/comunicados";
 import { AREAS } from "@/lib/areas";
 
 type Comunicado = {
@@ -14,6 +19,7 @@ type Comunicado = {
   destaque: boolean;
   data: string;
   imagem_url: string | null;
+  publicar_em?: string | null;
   lembrete_em?: string | null;
   lembrete_areas?: string[] | null;
   lembrete_cargos?: string[] | null;
@@ -110,6 +116,22 @@ function ListaRecolhida({
   );
 }
 
+/**
+ * O palpite ao clicar em "Agendar": amanhã às 8h.
+ *
+ * Um campo vazio faria o RH digitar dia, mês, ano e hora na mão para
+ * cada matéria do plano do mês. Amanhã cedo é o agendamento mais comum e
+ * já vem certo na maioria das vezes -- e quando não vem, mexer numa hora
+ * preenchida é mais rápido que preencher tudo.
+ */
+function amanhaCedo() {
+  const d = new Date();
+  d.setDate(d.getDate() + 1);
+  d.setHours(8, 0, 0, 0);
+  const dois = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${dois(d.getMonth() + 1)}-${dois(d.getDate())}T08:00`;
+}
+
 export function ComunicadoForm({
   action,
   comunicado,
@@ -124,6 +146,15 @@ export function ComunicadoForm({
   const [categoria, setCategoria] = useState(
     comunicado?.categoria ?? "geral",
   );
+  // Agendamento que JÁ PASSOU não volta como agendamento: a matéria está
+  // no ar, e reabrir o formulário mostrando "agendada para o dia 12" só
+  // faria o RH achar que ela ainda está na fila.
+  const [publicarEm, setPublicarEm] = useState(
+    comunicado?.publicar_em && ehFuturo(comunicado.publicar_em)
+      ? utcParaDatetimeLocal(comunicado.publicar_em)
+      : "",
+  );
+  const agendando = publicarEm !== "";
   const hoje = new Date().toISOString().slice(0, 10);
 
   return (
@@ -204,37 +235,98 @@ export function ComunicadoForm({
         />
       </div>
 
-      <div className="flex flex-wrap gap-3">
-        <div className="flex-1">
-          <label
-            htmlFor="data"
-            className="mb-1 block text-sm font-medium text-slate-700"
+      <div>
+        <label
+          htmlFor="imagem"
+          className="mb-1 block text-sm font-medium text-slate-700"
+        >
+          Foto {comunicado?.imagem_url && "(mantém a atual)"}
+        </label>
+        <input
+          id="imagem"
+          name="imagem"
+          type="file"
+          accept=".png,.jpg,.jpeg"
+          className="w-full rounded-xl border border-slate-200 p-2 text-sm"
+        />
+      </div>
+
+      {/* ---- Quando a matéria entra no jornal ------------------------
+          As duas opções na cara, e não um campo opcional escondido: é a
+          escolha que muda tudo o que acontece depois (o que o
+          colaborador vê, quando o sino toca) e é o que permite escrever
+          o plano de comunicação do mês inteiro numa tarde só. */}
+      <div className="rounded-xl border border-slate-200 p-3">
+        <p className="mb-2 text-sm font-medium text-slate-700">
+          🗓️ Quando entra no jornal
+        </p>
+
+        <div className="mb-3 flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => setPublicarEm("")}
+            className={`rounded-full border px-3 py-2 text-sm ${
+              agendando
+                ? "border-slate-200 text-slate-700"
+                : "border-primary bg-primary-soft font-semibold text-primary"
+            }`}
           >
-            Data da publicação
-          </label>
-          <input
-            id="data"
-            name="data"
-            type="date"
-            defaultValue={comunicado?.data ?? hoje}
-            className="w-full rounded-xl border border-slate-200 p-3 text-base focus:border-primary focus:outline-none"
-          />
-        </div>
-        <div className="flex-1">
-          <label
-            htmlFor="imagem"
-            className="mb-1 block text-sm font-medium text-slate-700"
+            Publicar agora
+          </button>
+          <button
+            type="button"
+            onClick={() => setPublicarEm((atual) => atual || amanhaCedo())}
+            className={`rounded-full border px-3 py-2 text-sm ${
+              agendando
+                ? "border-primary bg-primary-soft font-semibold text-primary"
+                : "border-slate-200 text-slate-700"
+            }`}
           >
-            Foto {comunicado?.imagem_url && "(mantém a atual)"}
-          </label>
-          <input
-            id="imagem"
-            name="imagem"
-            type="file"
-            accept=".png,.jpg,.jpeg"
-            className="w-full rounded-xl border border-slate-200 p-2 text-sm"
-          />
+            ⏰ Agendar
+          </button>
         </div>
+
+        {agendando ? (
+          <div className="space-y-2">
+            <label
+              htmlFor="publicar_em"
+              className="block text-sm font-medium text-slate-700"
+            >
+              Publicar automaticamente em
+            </label>
+            <input
+              id="publicar_em"
+              name="publicar_em"
+              type="datetime-local"
+              required
+              value={publicarEm}
+              onChange={(e) => setPublicarEm(e.target.value)}
+              className="w-full rounded-xl border border-slate-200 p-3 text-base focus:border-primary focus:outline-none"
+            />
+            <p className="text-xs text-slate-400">
+              Até lá a matéria não aparece para o colaborador, e o sino e o
+              push só tocam na hora marcada. A data da notícia no jornal
+              passa a ser a do agendamento. O disparo pode atrasar alguns
+              minutos.
+            </p>
+          </div>
+        ) : (
+          <div>
+            <label
+              htmlFor="data"
+              className="mb-1 block text-sm font-medium text-slate-700"
+            >
+              Data da publicação
+            </label>
+            <input
+              id="data"
+              name="data"
+              type="date"
+              defaultValue={comunicado?.data ?? hoje}
+              className="w-full rounded-xl border border-slate-200 p-3 text-base focus:border-primary focus:outline-none"
+            />
+          </div>
+        )}
       </div>
 
       <label className="flex items-center gap-3 rounded-xl border border-slate-200 p-3">
@@ -275,7 +367,7 @@ export function ComunicadoForm({
               type="datetime-local"
               defaultValue={
                 comunicado?.lembrete_em
-                  ? lembreteParaLocal(comunicado.lembrete_em)
+                  ? utcParaDatetimeLocal(comunicado.lembrete_em)
                   : ""
               }
               className="w-full rounded-xl border border-slate-200 p-3 text-base focus:border-primary focus:outline-none"

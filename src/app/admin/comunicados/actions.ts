@@ -7,7 +7,13 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getRevendaId } from "@/lib/revendas";
 import { criarOuAgrupar } from "@/lib/notificacoes-server";
 import { enviarPushDaRevenda } from "@/lib/push-server";
-import { ehEditoriaValida, lembreteParaUTC } from "@/lib/comunicados";
+import {
+  datetimeLocalParaUTC,
+  diaNoFuso,
+  ehEditoriaValida,
+  ehFuturo,
+  formatarDiaEHora,
+} from "@/lib/comunicados";
 import { ehAreaValida } from "@/lib/areas";
 
 function caminhoDoStorage(arquivoUrl: string) {
@@ -68,9 +74,41 @@ export async function salvarComunicado(formData: FormData) {
     imagemUrl = pub.publicUrl;
   }
 
+  // Agendamento da PUBLICAÇÃO -- diferente do lembrete logo abaixo. Aqui
+  // é a matéria inteira que espera a hora marcada para aparecer no
+  // jornal, e é isso que deixa o RH escrever o plano de comunicação do
+  // mês inteiro de uma vez só.
+  //
+  // Vazio ou no passado = no ar agora, exatamente como sempre foi.
+  const publicarLocal = texto(formData, "publicar_em");
+  const publicarEm = publicarLocal ? datetimeLocalParaUTC(publicarLocal) : null;
+  const agendado = ehFuturo(publicarEm);
+
+  // O que o comunicado já era, antes desta edição. Serve a três decisões
+  // abaixo (reabrir o disparo do lembrete, reabrir o aviso da publicação
+  // e saber se a matéria está entrando no ar AGORA), então vale a
+  // consulta única em vez de três.
+  const { data: atual } = id
+    ? await admin
+        .from("comunicados")
+        .select("lembrete_em, publicar_em")
+        .eq("id", id)
+        .eq("revenda_id", revendaId)
+        .maybeSingle()
+    : { data: null };
+
+  // Tirar o agendamento de uma matéria que ainda não tinha entrado no ar
+  // publica ela na hora -- e o sino tem que tocar, senão a notícia
+  // apareceria calada no jornal.
+  const estreiaAgora = Boolean(id) && ehFuturo(atual?.publicar_em) && !agendado;
+
   // Só uma matéria pode ser capa por vez -- em cada revenda. Sem o filtro,
   // publicar capa em Barreiras derrubaria a capa de São Félix.
-  if (destaque) {
+  //
+  // Matéria AGENDADA não derruba capa nenhuma agora: marcar a capa do dia
+  // 15 numa terça deixaria o jornal duas semanas sem capa. Quem limpa as
+  // outras é o cron, na hora em que ela de fato entra no ar.
+  if (destaque && !agendado) {
     await admin
       .from("comunicados")
       .update({ destaque: false })
@@ -82,7 +120,7 @@ export async function salvarComunicado(formData: FormData) {
   // Área e cargo vazios = a revenda inteira, igual à publicação em si;
   // preenchidos, se cruzam (esta área E este cargo).
   const lembreteLocal = texto(formData, "lembrete_em");
-  const lembreteEm = lembreteLocal ? lembreteParaUTC(lembreteLocal) : null;
+  const lembreteEm = lembreteLocal ? datetimeLocalParaUTC(lembreteLocal) : null;
   const lembreteAreas = formData
     .getAll("lembrete_areas")
     .map(String)
@@ -100,16 +138,24 @@ export async function salvarComunicado(formData: FormData) {
   // já tinha saído só porque alguém corrigiu um typo no título.
   let lembreteEnviadoEm: string | null | undefined;
   if (id) {
-    const { data: atual } = await admin
-      .from("comunicados")
-      .select("lembrete_em")
-      .eq("id", id)
-      .maybeSingle();
     const antes = atual?.lembrete_em ? new Date(atual.lembrete_em).getTime() : null;
     const depois = lembreteEm ? new Date(lembreteEm).getTime() : null;
     if (antes !== depois) lembreteEnviadoEm = null;
   } else if (lembreteEm) {
     lembreteEnviadoEm = null;
+  }
+
+  // O carimbo do aviso da publicação segue a mesma lógica: nulo enquanto
+  // a matéria estiver na fila (é o que o cron procura), preenchido no
+  // instante em que este código mesmo avisa. Remarcar para outro dia
+  // reabre o aviso; corrigir um typo no título não.
+  let publicacaoAvisadaEm: string | null | undefined;
+  if (agendado) {
+    const antes = atual?.publicar_em ? new Date(atual.publicar_em).getTime() : null;
+    const depois = new Date(publicarEm!).getTime();
+    if (!id || antes !== depois) publicacaoAvisadaEm = null;
+  } else {
+    publicacaoAvisadaEm = new Date().toISOString();
   }
 
   const registro = {
@@ -119,7 +165,17 @@ export async function salvarComunicado(formData: FormData) {
     categoria,
     destaque,
     autor: admin_.nome,
-    data: data || new Date().toISOString().slice(0, 10),
+    // A matéria agendada nasce datada do dia em que vai ao ar, não do dia
+    // em que foi escrita: a página do jornal ordena por `data`, e uma
+    // notícia de 15/09 escrita em 20/08 entraria no jornal já enterrada
+    // no fim da lista.
+    data: agendado
+      ? diaNoFuso(publicarEm!)
+      : data || new Date().toISOString().slice(0, 10),
+    publicar_em: publicarEm,
+    ...(publicacaoAvisadaEm !== undefined
+      ? { publicacao_avisada_em: publicacaoAvisadaEm }
+      : {}),
     lembrete_em: lembreteEm,
     lembrete_areas: lembreteAreas.length > 0 ? lembreteAreas : null,
     lembrete_cargos: lembreteCargos.length > 0 ? lembreteCargos : null,
@@ -146,7 +202,11 @@ export async function salvarComunicado(formData: FormData) {
 
   // Só matéria nova avisa. Corrigir um typo no título de ontem não pode
   // tocar o celular de todo mundo de novo.
-  if (!id) {
+  //
+  // Matéria AGENDADA não avisa aqui: o sino toca na hora em que ela
+  // aparece no jornal, não na tarde em que o RH montou o plano do mês --
+  // quem faz isso é /api/cron/lembretes.
+  if ((!id && !agendado) || estreiaAgora) {
     await criarOuAgrupar({
       modulo: "comunicados",
       titulo: "Novidade no Jornal!",
@@ -168,9 +228,12 @@ export async function salvarComunicado(formData: FormData) {
   }
 
   revalidatePath("/comunicados");
-  redirect(
-    `/admin/comunicados?sucesso=${id ? "Comunicado+atualizado" : "Comunicado+publicado"}`,
-  );
+  const sucesso = agendado
+    ? `Agendado para ${formatarDiaEHora(publicarEm!)}`
+    : id
+      ? "Comunicado atualizado"
+      : "Comunicado publicado";
+  redirect(`/admin/comunicados?sucesso=${encodeURIComponent(sucesso)}`);
 }
 
 export async function excluirComunicado(formData: FormData) {

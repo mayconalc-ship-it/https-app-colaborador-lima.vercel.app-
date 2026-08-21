@@ -4,7 +4,7 @@ import { criarNotificacao } from "@/lib/notificacoes-server";
 import { enviarPushDaRevenda } from "@/lib/push-server";
 import { getPessoasDaArea } from "@/lib/quiz-server";
 import { hojeIso } from "@/lib/pesquisa";
-import { diasRestantes } from "@/lib/quiz";
+import { areaDoColaborador, diasRestantes } from "@/lib/quiz";
 import type { AreaId } from "@/lib/areas";
 
 export const dynamic = "force-dynamic";
@@ -40,6 +40,7 @@ export async function GET(request: Request) {
   // rota só multiplicaria a chamada externa.
   const desafios = await lembretesDoDesafio(admin);
   const cincoS = await lembretesDo5S(admin);
+  const publicadas = await publicacoesAgendadas(admin);
 
   const { data: devidos, error } = await admin
     .from("comunicados")
@@ -53,7 +54,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ erro: error.message }, { status: 500 });
   }
   if (!devidos || devidos.length === 0) {
-    return NextResponse.json({ enviados: 0, desafios, cincoS });
+    return NextResponse.json({ enviados: 0, desafios, cincoS, publicadas });
   }
 
   let enviados = 0;
@@ -79,12 +80,25 @@ export async function GET(request: Request) {
 
       let consulta = admin
         .from("profiles")
-        .select("id")
+        .select("id, area")
         .in("id", idsRevenda.length > 0 ? idsRevenda : [""]);
-      if (areas.length > 0) consulta = consulta.in("area", areas);
       if (cargos.length > 0) consulta = consulta.in("cargo", cargos);
       const { data: pessoas } = await consulta;
-      alvo = (pessoas ?? []).map((p) => p.id);
+
+      // A área NÃO dá para filtrar no banco: `profiles.area` é texto
+      // livre do cadastro ("DISTRIBUIÇÃO URBANA", "APOIO LOGISTICO") e o
+      // lembrete guarda DU/AL. Um `in("area", ["DU"])` -- que é o que
+      // estava aqui -- nunca casava com ninguém: o lembrete por área
+      // achava zero pessoas, carimbava como enviado e morria calado.
+      // `areaDoColaborador` é a mesma tradução que a Escala, a RV e o
+      // Desafio já usam.
+      alvo = (pessoas ?? [])
+        .filter(
+          (p) =>
+            areas.length === 0 ||
+            areas.includes(areaDoColaborador(p.area) ?? ""),
+        )
+        .map((p) => p.id);
 
       // Ninguém no filtro: marca como enviado mesmo assim, senão este
       // comunicado voltaria a aparecer na consulta a cada 15 min para
@@ -143,7 +157,69 @@ export async function GET(request: Request) {
     enviados++;
   }
 
-  return NextResponse.json({ enviados, desafios, cincoS });
+  return NextResponse.json({ enviados, desafios, cincoS, publicadas });
+}
+
+/**
+ * As matérias que chegaram na hora marcada.
+ *
+ * A matéria em si já apareceu no jornal sozinha, sem ninguém precisar
+ * fazer nada: a política de leitura solta a linha assim que
+ * `publicar_em <= now()` (ver migration 044). O que falta aqui é o
+ * BARULHO -- o sino e o push -- que não pode ter tocado lá atrás, na
+ * tarde em que o RH montou o plano do mês.
+ *
+ * Idempotente pelo carimbo `publicacao_avisada_em`, igual ao lembrete: a
+ * linha só entra na consulta enquanto o carimbo for nulo, e o carimbo é a
+ * primeira coisa que ela recebe depois de avisar.
+ */
+async function publicacoesAgendadas(admin: ReturnType<typeof createAdminClient>) {
+  const { data: devidas } = await admin
+    .from("comunicados")
+    .select("id, revenda_id, titulo, destaque")
+    .not("publicar_em", "is", null)
+    .lte("publicar_em", new Date().toISOString())
+    .is("publicacao_avisada_em", null)
+    // Ordem cronológica importa quando várias caem na mesma rodada de 15
+    // minutos e mais de uma é capa: a última a entrar é que fica.
+    .order("publicar_em", { ascending: true });
+
+  let avisadas = 0;
+
+  for (const c of devidas ?? []) {
+    // A matéria agendada como capa só derruba as outras AGORA, na
+    // estreia. Fazer isso no momento do agendamento deixaria o jornal
+    // sem capa até o dia marcado.
+    if (c.destaque) {
+      await admin
+        .from("comunicados")
+        .update({ destaque: false })
+        .eq("revenda_id", c.revenda_id)
+        .neq("id", c.id);
+    }
+
+    await criarNotificacao({
+      modulo: "comunicados",
+      titulo: "Novidade no Jornal!",
+      mensagem: c.titulo,
+      url: "/comunicados",
+      revendaId: c.revenda_id,
+    });
+    await enviarPushDaRevenda(c.revenda_id, {
+      modulo: "comunicados",
+      titulo: "Novidade no Jornal!",
+      mensagem: c.titulo,
+      url: "/comunicados",
+    });
+
+    await admin
+      .from("comunicados")
+      .update({ publicacao_avisada_em: new Date().toISOString() })
+      .eq("id", c.id);
+    avisadas++;
+  }
+
+  return avisadas;
 }
 
 /**

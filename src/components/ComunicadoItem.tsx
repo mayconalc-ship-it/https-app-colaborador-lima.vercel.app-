@@ -4,7 +4,12 @@ import { useState } from "react";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
 import { ComunicadoForm } from "@/components/ComunicadoForm";
 import { useConfirmarEnvio } from "@/components/Confirmacao";
-import { editoria, formatarDataCurta, formatarDataHora } from "@/lib/comunicados";
+import {
+  editoria,
+  ehFuturo,
+  formatarDataCurta,
+  formatarDataHora,
+} from "@/lib/comunicados";
 
 type Comunicado = {
   id: number;
@@ -15,6 +20,7 @@ type Comunicado = {
   destaque: boolean;
   data: string;
   imagem_url: string | null;
+  publicar_em?: string | null;
   lembrete_em?: string | null;
   lembrete_areas?: string[] | null;
   lembrete_cargos?: string[] | null;
@@ -36,6 +42,7 @@ export function ComunicadoItem({
   const [editando, setEditando] = useState(false);
   const aoExcluir = useConfirmarEnvio();
   const ed = editoria(comunicado.categoria);
+  const naFila = ehFuturo(comunicado.publicar_em);
 
   if (editando) {
     return (
@@ -51,7 +58,14 @@ export function ComunicadoItem({
   }
 
   return (
-    <div className="flex items-start gap-3 p-3">
+    // A faixa amarela na lateral existe porque a lista mistura o que já
+    // saiu com o que ainda vai sair: sem ela, "publicados (60)" viraria
+    // uma pilha em que o RH não distingue o jornal da fila.
+    <div
+      className={`flex items-start gap-3 p-3 ${
+        naFila ? "border-l-4 border-amber-400 bg-amber-50/40" : ""
+      }`}
+    >
       {comunicado.imagem_url && (
         // eslint-disable-next-line @next/next/no-img-element
         <img
@@ -65,6 +79,11 @@ export function ComunicadoItem({
           <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${ed.cor}`}>
             {ed.emoji} {ed.rotulo}
           </span>
+          {naFila && (
+            <span className="rounded-full bg-amber-400 px-2 py-0.5 text-xs font-bold text-amber-950">
+              ⏰ agendado · {formatarDataHora(comunicado.publicar_em!)}
+            </span>
+          )}
           {comunicado.destaque && (
             <span className="rounded-full bg-gold-soft px-2 py-0.5 text-xs font-semibold text-primary-dark">
               capa

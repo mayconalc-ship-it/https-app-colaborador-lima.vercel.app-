@@ -1,4 +1,6 @@
+import Link from "next/link";
 import { decodificar } from "@/lib/texto-url";
+import { ehFuturo } from "@/lib/comunicados";
 import { requireModulo } from "@/lib/require-admin";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { exigirRevenda } from "@/lib/revendas";
@@ -20,7 +22,7 @@ export default async function AdminComunicadosPage({
   const { data: comunicados } = await admin
     .from("comunicados")
     .select(
-      "id, titulo, resumo, texto, categoria, destaque, data, imagem_url, lembrete_em, lembrete_areas, lembrete_cargos, lembrete_mensagem, lembrete_enviado_em",
+      "id, titulo, resumo, texto, categoria, destaque, data, imagem_url, publicar_em, lembrete_em, lembrete_areas, lembrete_cargos, lembrete_mensagem, lembrete_enviado_em",
     )
     .eq("revenda_id", revendaId)
     .order("data", { ascending: false })
@@ -48,12 +50,31 @@ export default async function AdminComunicadosPage({
     ),
   ].sort((a, b) => a.localeCompare(b, "pt-BR"));
 
+  const naFila = (comunicados ?? []).filter((c) =>
+    ehFuturo(c.publicar_em),
+  ).length;
+
   return (
     <div>
       <PageHeader
         title="Jornal do Colaborador"
-        subtitle="Publicar, editar e excluir comunicados"
+        subtitle="Publicar, agendar e acompanhar o plano de comunicação"
       />
+
+      <Link
+        href="/admin/comunicados/calendario"
+        className="mb-4 flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm hover:bg-slate-50"
+      >
+        <span className="text-sm font-semibold text-primary">
+          🗓️ Calendário do mês
+        </span>
+        <span className="text-xs text-slate-500">
+          {naFila === 0
+            ? "nada agendado"
+            : `${naFila} agendad${naFila === 1 ? "a" : "as"} na fila`}{" "}
+          →
+        </span>
+      </Link>
 
       {erro && (
         <p className="mb-3 rounded-lg bg-red-50 p-3 text-sm text-red-700">

@@ -3,13 +3,16 @@ import { LinkVoltar } from "@/components/LinkVoltar";
 import { TextoComLinks } from "@/components/TextoComLinks";
 import { BotaoCurtir } from "@/components/BotaoCurtir";
 import { FotoAmpliavel } from "@/components/FotoAmpliavel";
+import { BotaoAgenda } from "@/components/BotaoAgenda";
 import { createClient } from "@/lib/supabase/server";
-import { getUsuarioId } from "@/lib/sessao";
+import { getPerfil } from "@/lib/sessao";
+import { areaDoColaborador } from "@/lib/quiz";
 import {
   EDITORIAS,
   dataDeHoje,
   editoria,
   ehEditoriaValida,
+  ehFuturo,
   formatarData,
   formatarDataCurta,
   tempoDeLeitura,
@@ -31,9 +34,14 @@ export default async function ComunicadosPage({
   let consulta = supabase
     .from("comunicados")
     .select(
-      "id, titulo, resumo, texto, categoria, autor, destaque, data, imagem_url",
+      "id, titulo, resumo, texto, categoria, autor, destaque, data, imagem_url, lembrete_em, lembrete_areas, lembrete_cargos",
       { count: "exact" },
     )
+    // Matéria agendada ainda não existe para o colaborador. A política de
+    // leitura já garante isso no banco (migration 044) -- este filtro é o
+    // mesmo em voz alta, para quem lê o código não precisar ir ao SQL
+    // entender por que o jornal tem menos matérias do que o Admin vê.
+    .or(`publicar_em.is.null,publicar_em.lte."${new Date().toISOString()}"`)
     // A matéria de capa vem sempre primeiro, para não "cair" de página
     // conforme novas publicações entram.
     .order("destaque", { ascending: false })
@@ -50,7 +58,41 @@ export default async function ComunicadosPage({
 
   // Curtidas: uma consulta só para todos os posts da página.
   const ids = lista.map((c) => c.id);
-  const usuarioId = await getUsuarioId();
+  const perfil = await getPerfil();
+  const usuarioId = perfil?.id ?? null;
+
+  /**
+   * A matéria tem data marcada PARA MIM?
+   *
+   * A data é a do lembrete: é ela que diz o que vai acontecer ("o
+   * treinamento é dia 15 às 14h"). A da publicação não serve de nada no
+   * calendário -- quando o colaborador lê a matéria, publicar já
+   * aconteceu.
+   *
+   * O filtro de público é o mesmo do disparo (área E cargo, cada lista
+   * vazia significando "qualquer um"): oferecer "coloque no seu
+   * calendário" para um treinamento que é só dos motoristas seria
+   * convidar todo mundo para uma reunião que não é sua.
+   */
+  const minhaArea = areaDoColaborador(perfil?.area);
+  const meuCargo = perfil?.cargo?.trim() ?? null;
+  const dataParaMim = (c: {
+    lembrete_em: string | null;
+    lembrete_areas: string[] | null;
+    lembrete_cargos: string[] | null;
+  }) => {
+    if (!ehFuturo(c.lembrete_em)) return null;
+    const areas = (c.lembrete_areas ?? []).filter(Boolean);
+    const cargos = (c.lembrete_cargos ?? []).filter(Boolean);
+    if (areas.length > 0 && (!minhaArea || !areas.includes(minhaArea))) {
+      return null;
+    }
+    if (cargos.length > 0 && (!meuCargo || !cargos.includes(meuCargo))) {
+      return null;
+    }
+    return c.lembrete_em;
+  };
+
   const { data: curtidas } = ids.length
     ? await supabase
         .from("comunicado_curtidas")
@@ -218,12 +260,18 @@ export default async function ComunicadosPage({
                     ))}
                 </div>
 
-                <div className="mt-4 border-t border-slate-100 pt-3">
+                <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-slate-100 pt-3">
                   <BotaoCurtir
                     comunicadoId={capa.id}
                     curtidoInicial={curtidosPorMim.has(capa.id)}
                     totalInicial={totalPorPost.get(capa.id) ?? 0}
                   />
+                  {dataParaMim(capa) && (
+                    <BotaoAgenda
+                      comunicadoId={capa.id}
+                      quando={dataParaMim(capa)!}
+                    />
+                  )}
                 </div>
               </div>
             </article>
@@ -307,12 +355,18 @@ export default async function ComunicadosPage({
                           </div>
                         </details>
 
-                        <div className="mt-auto border-t border-slate-100 pt-3">
+                        <div className="mt-auto flex flex-wrap items-center gap-3 border-t border-slate-100 pt-3">
                           <BotaoCurtir
                             comunicadoId={c.id}
                             curtidoInicial={curtidosPorMim.has(c.id)}
                             totalInicial={totalPorPost.get(c.id) ?? 0}
                           />
+                          {dataParaMim(c) && (
+                            <BotaoAgenda
+                              comunicadoId={c.id}
+                              quando={dataParaMim(c)!}
+                            />
+                          )}
                         </div>
                       </div>
                     </article>
