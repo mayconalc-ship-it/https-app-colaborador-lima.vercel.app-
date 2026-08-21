@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from "next";
+import { after } from "next/server";
 import Image from "next/image";
 import Link from "next/link";
+import { varrerSeVencida } from "@/lib/lembretes-server";
 import { getPerfil, getUsuarioId } from "@/lib/sessao";
 import { getRevendaAtiva } from "@/lib/revendas";
 import { LogoutButton } from "@/components/LogoutButton";
@@ -61,6 +63,34 @@ export default async function RootLayout({
   // é cadastro pela metade. O app não tem o que mostrar -- todo conteúdo
   // pertence a uma revenda -- então avisa em vez de abrir vazio.
   const semRevenda = Boolean(perfil) && !revenda;
+
+  // O app é o próprio relógio dos lembretes.
+  //
+  // `after` roda DEPOIS que a resposta já foi entregue, então isto não
+  // custa um milissegundo de tela para ninguém. A trava está no banco
+  // (migration 045): a esmagadora maioria das visitas só faz um UPDATE
+  // que não casa e volta -- varrer de verdade acontece no máximo uma vez
+  // a cada 5 minutos, não uma vez por visita.
+  //
+  // Só para quem está logado: a tela de login não tem por que mexer na
+  // fila, e deixá-la de fora mantém o caminho do primeiro acesso limpo.
+  //
+  // Nasceu porque o GitHub Actions não cumpre o `*/15` que promete --
+  // medido em 21/08/2026, o intervalo real ficou entre 54 e 216 minutos.
+  // Com isto, no expediente a fila anda em minutos; de madrugada, quando
+  // ninguém abre o app, o GitHub continua sendo a rede de segurança.
+  //
+  // Falha calada de propósito: o app não pode quebrar porque a varredura
+  // deu erro, e o próximo visitante tenta de novo.
+  if (perfil) {
+    after(async () => {
+      try {
+        await varrerSeVencida();
+      } catch {
+        // idem
+      }
+    });
+  }
 
   return (
     <html lang="pt-BR">
