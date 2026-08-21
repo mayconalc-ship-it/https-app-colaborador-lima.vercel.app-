@@ -27,6 +27,8 @@ import {
   salvarArea,
   salvarAuditor,
   salvarPergunta,
+  trocarAuditor,
+  trocarAuditorDaArea,
 } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -559,6 +561,42 @@ async function AbaPlanejamento({
                       )}
                     </div>
                   </div>
+
+                  {/* Trocar só esta. O caso do rodízio inteiro -- "de
+                      agora em diante quem audita esta área é outro" --
+                      é na aba Áreas; aqui é a substituição de um mês,
+                      por férias ou folga. */}
+                  {a.status !== "finalizada" && auditores.length > 0 && (
+                    <details className="mt-1">
+                      <summary className="cursor-pointer list-none text-xs text-slate-400 underline">
+                        trocar o auditor desta
+                      </summary>
+                      <form
+                        action={trocarAuditor}
+                        className="mt-2 flex items-center gap-2"
+                      >
+                        <input type="hidden" name="id" value={a.id} />
+                        <select
+                          name="auditor_id"
+                          required
+                          defaultValue={a.auditor_id ?? ""}
+                          className="min-w-0 flex-1 rounded-lg border border-slate-200 p-2 text-sm focus:border-primary focus:outline-none"
+                        >
+                          {auditores.map((x) => (
+                            <option key={x.id} value={x.id}>
+                              {x.nome}
+                            </option>
+                          ))}
+                        </select>
+                        <BotaoEnviar
+                          textoEnviando="trocando..."
+                          className="shrink-0 rounded-lg bg-slate-700 px-3 py-2 text-xs font-semibold text-white"
+                        >
+                          Trocar
+                        </BotaoEnviar>
+                      </form>
+                    </details>
+                  )}
                 </li>
               );
             })}
@@ -729,9 +767,15 @@ async function AbaAreas({
   revendaId: string;
   editando: string | null;
 }) {
-  const [areas, pessoas] = await Promise.all([
+  const [areas, pessoas, auditores, abertas] = await Promise.all([
     listarAreas(revendaId),
     pessoasDaRevenda(revendaId),
+    auditoresAtivos(revendaId),
+    // Quem está escalado daqui para a frente. É esta a resposta para
+    // "quem é o auditor da Portaria?" -- o módulo não guarda auditor no
+    // cadastro da área, ele mora em cada auditoria. Sem mostrar isto na
+    // lista, trocar o auditor seria trocar às cegas.
+    auditoriasAbertasPorArea(revendaId),
   ]);
 
   const emEdicao = editando ? areas.find((a) => a.id === editando) : null;
@@ -821,36 +865,108 @@ async function AbaAreas({
           Áreas <span className="font-normal text-slate-400">({areas.length})</span>
         </h2>
         <ul className="divide-y divide-slate-100 border-t border-slate-100">
-          {areas.map((a) => (
-            <li key={a.id} className="flex items-center justify-between gap-3 p-3">
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium text-slate-800">
-                  {a.nome}
-                  {!a.ativa && (
-                    <span className="ml-2 rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-500">
-                      inativa
-                    </span>
-                  )}
-                </p>
-                <p className="truncate text-xs text-slate-400">
-                  {a.dono_nome ?? "sem dono definido"}
-                  {a.local ? ` · ${a.local}` : ""}
-                </p>
-              </div>
-              <div className="flex shrink-0 items-center gap-3">
-                <Link
-                  href={`/admin/5s?aba=areas&editar=${a.id}`}
-                  className="text-xs font-semibold text-primary underline"
-                >
-                  editar
-                </Link>
-                <form action={excluirArea}>
-                  <input type="hidden" name="id" value={a.id} />
-                  <BotaoEnviar textoEnviando="excluindo..." className="text-xs text-slate-400 underline hover:text-red-600">excluir</BotaoEnviar>
-                </form>
-              </div>
-            </li>
-          ))}
+          {areas.map((a) => {
+            const escala = abertas.get(a.id) ?? [];
+            const quantas = escala.reduce((s, e) => s + e.quantas, 0);
+            return (
+              <li key={a.id} className="p-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-slate-800">
+                      {a.nome}
+                      {!a.ativa && (
+                        <span className="ml-2 rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-500">
+                          inativa
+                        </span>
+                      )}
+                    </p>
+                    <p className="truncate text-xs text-slate-400">
+                      Dono: {a.dono_nome ?? "sem dono definido"}
+                      {a.local ? ` · ${a.local}` : ""}
+                    </p>
+                    {/* Dono e auditor são papéis diferentes e costumam
+                        ser a mesma pessoa por descuido, não por escolha
+                        -- quem audita a própria área se audita. Mostrar
+                        os dois lado a lado é o que torna isso visível. */}
+                    <p className="truncate text-xs text-slate-400">
+                      Auditor:{" "}
+                      {escala.length === 0 ? (
+                        <span className="text-slate-400">
+                          nenhuma auditoria aberta
+                        </span>
+                      ) : (
+                        <span className="font-medium text-slate-600">
+                          {escala.map((e) => e.nome).join(", ")}
+                        </span>
+                      )}
+                      {escala.length === 1 && escala[0].id === a.dono_id && (
+                        <span className="ml-1 rounded-full bg-amber-100 px-1.5 py-0.5 text-xs font-semibold text-amber-800">
+                          audita a própria área
+                        </span>
+                      )}
+                    </p>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-3">
+                    <Link
+                      href={`/admin/5s?aba=areas&editar=${a.id}`}
+                      className="text-xs font-semibold text-primary underline"
+                    >
+                      editar
+                    </Link>
+                    <form action={excluirArea}>
+                      <input type="hidden" name="id" value={a.id} />
+                      <BotaoEnviar textoEnviando="excluindo..." className="text-xs text-slate-400 underline hover:text-red-600">excluir</BotaoEnviar>
+                    </form>
+                  </div>
+                </div>
+
+                {auditores.length > 0 && (
+                  <details className="mt-1">
+                    <summary className="cursor-pointer list-none text-xs text-slate-400 underline">
+                      trocar o auditor da área
+                    </summary>
+                    <form
+                      action={trocarAuditorDaArea}
+                      className="mt-2 space-y-2"
+                    >
+                      <input type="hidden" name="area_id" value={a.id} />
+                      <div className="flex items-center gap-2">
+                        <select
+                          name="auditor_id"
+                          required
+                          defaultValue={
+                            escala.length === 1 ? escala[0].id : ""
+                          }
+                          className="min-w-0 flex-1 rounded-lg border border-slate-200 p-2 text-sm focus:border-primary focus:outline-none"
+                        >
+                          <option value="">— escolha o auditor —</option>
+                          {auditores.map((x) => (
+                            <option key={x.id} value={x.id}>
+                              {x.nome}
+                              {x.id === a.dono_id ? " (dono da área)" : ""}
+                            </option>
+                          ))}
+                        </select>
+                        <BotaoEnviar
+                          textoEnviando="trocando..."
+                          className="shrink-0 rounded-lg bg-slate-700 px-3 py-2 text-xs font-semibold text-white"
+                        >
+                          Trocar
+                        </BotaoEnviar>
+                      </div>
+                      <p className="text-xs text-slate-400">
+                        {quantas > 0
+                          ? `Passa as ${quantas} auditoria${quantas === 1 ? "" : "s"} aberta${quantas === 1 ? "" : "s"} desta área — deste mês em diante — para o auditor escolhido. As duas pessoas são avisadas.`
+                          : "Não há auditoria aberta deste mês em diante. Agende no Planejamento antes de definir o auditor."}{" "}
+                        O histórico não muda: auditoria já feita continua
+                        no nome de quem fez.
+                      </p>
+                    </form>
+                  </details>
+                )}
+              </li>
+            );
+          })}
         </ul>
       </div>
     </div>
@@ -1101,6 +1217,61 @@ async function pessoasDaRevenda(revendaId: string) {
     .order("nome");
 
   return (data ?? []) as { id: string; nome: string; cargo: string | null }[];
+}
+
+/**
+ * Quem está escalado em cada área daqui para a frente.
+ *
+ * O módulo não tem "auditor da área" no cadastro -- o auditor mora em
+ * cada auditoria, o que é o desenho certo (o rodízio muda, e o
+ * histórico precisa lembrar quem fez o quê). O preço é que a pergunta
+ * mais banal da gestão, "quem audita a Portaria?", não tem campo para
+ * responder. Esta função responde: é quem está nas auditorias abertas
+ * do mês corrente em diante.
+ *
+ * Normalmente é uma pessoa só por área. Vem como lista porque uma troca
+ * feita auditoria por auditoria pode deixar duas -- e esconder isso
+ * mostraria um nome só para uma área que tem dois.
+ */
+async function auditoriasAbertasPorArea(revendaId: string) {
+  const admin = createAdminClient();
+
+  const { data } = await admin
+    .from("cinco_s_auditorias")
+    .select("area_id, auditor_id")
+    .eq("revenda_id", revendaId)
+    .in("status", ["planejada", "em_andamento"])
+    .gte("competencia", `${competenciaAtual()}-01`);
+
+  const linhas = (data ?? []).filter(
+    (a): a is { area_id: string; auditor_id: string } => Boolean(a.auditor_id),
+  );
+
+  const nomes = await nomesDe(
+    Array.from(new Set(linhas.map((a) => a.auditor_id))),
+  );
+
+  const mapa = new Map<string, { id: string; nome: string; quantas: number }[]>();
+
+  for (const l of linhas) {
+    const lista = mapa.get(l.area_id) ?? [];
+    const achado = lista.find((x) => x.id === l.auditor_id);
+    if (achado) achado.quantas += 1;
+    else {
+      lista.push({
+        id: l.auditor_id,
+        nome: nomes.get(l.auditor_id) ?? "—",
+        quantas: 1,
+      });
+    }
+    mapa.set(l.area_id, lista);
+  }
+
+  for (const lista of mapa.values()) {
+    lista.sort((a, b) => b.quantas - a.quantas);
+  }
+
+  return mapa;
 }
 
 async function auditoresAtivos(revendaId: string) {

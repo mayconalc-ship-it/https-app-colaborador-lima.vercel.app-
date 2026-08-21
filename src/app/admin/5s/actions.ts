@@ -7,7 +7,8 @@ import { requireModulo } from "@/lib/require-admin";
 import { exigirRevenda } from "@/lib/revendas";
 import { criarNotificacao } from "@/lib/notificacoes-server";
 import { enviarPushDaRevenda } from "@/lib/push-server";
-import { ehSenso } from "@/lib/cinco-s";
+import { nomesDe } from "@/lib/cinco-s-server";
+import { competenciaAtual, ehSenso } from "@/lib/cinco-s";
 
 const ROTA = "/admin/5s";
 
@@ -878,16 +879,31 @@ export async function trocarAuditor(formData: FormData) {
   if (!id || !auditorId) erro("Dados incompletos.", "planejamento");
 
   const admin = createAdminClient();
-  const { data: auditoria } = await admin
-    .from("cinco_s_auditorias")
-    .select("status, planejada_para, cinco_s_areas!inner(nome)")
-    .eq("id", id)
-    .eq("revenda_id", revendaId)
-    .maybeSingle();
+  const [{ data: auditoria }, { data: habilitado }] = await Promise.all([
+    admin
+      .from("cinco_s_auditorias")
+      .select("status, planejada_para, cinco_s_areas!inner(nome)")
+      .eq("id", id)
+      .eq("revenda_id", revendaId)
+      .maybeSingle(),
+    admin
+      .from("cinco_s_auditores")
+      .select("colaborador_id")
+      .eq("revenda_id", revendaId)
+      .eq("colaborador_id", auditorId)
+      .eq("ativo", true)
+      .maybeSingle(),
+  ]);
 
   if (!auditoria) erro("Auditoria não encontrada.", "planejamento");
   if (auditoria.status === "finalizada") {
     erro("Auditoria finalizada não muda de auditor.", "planejamento");
+  }
+  if (!habilitado) {
+    erro(
+      "Essa pessoa não está habilitada como auditora. Habilite na aba Auditores primeiro.",
+      "planejamento",
+    );
   }
 
   await admin
@@ -909,6 +925,149 @@ export async function trocarAuditor(formData: FormData) {
 
   revalidar();
   ok("Auditor trocado.", "planejamento");
+}
+
+/**
+ * Passa a área INTEIRA para outro auditor.
+ *
+ * A troca auditoria por auditoria existe logo acima e resolve o caso
+ * pontual -- "esta aqui, este mês, quem faz é outro". Não resolve o
+ * caso que a operação tem de verdade: o rodízio mudou, e a partir de
+ * agora quem audita a Portaria é outra pessoa. Com o ano inteiro
+ * planejado, fazer isso uma a uma são doze idas ao mesmo formulário, e
+ * a décima terceira auditoria -- a que o planejamento do ano que vem
+ * copiar -- volta com o nome antigo, porque o plano repete o auditor da
+ * última auditoria de cada área.
+ *
+ * Pega tudo o que ainda não foi feito do mês corrente em diante. O
+ * passado fica como está: a auditoria de março foi feita por quem foi,
+ * e reescrever isso mentiria no BI e no ranking por auditor. As
+ * atrasadas do mês corrente ENTRAM -- elas ainda são dívida, e quem vai
+ * pagá-la é o auditor novo.
+ */
+export async function trocarAuditorDaArea(formData: FormData) {
+  await requireModulo("5s", "editar");
+  const revendaId = await exigirRevenda(ROTA);
+  const admin = createAdminClient();
+
+  const areaId = texto(formData.get("area_id"));
+  const auditorId = texto(formData.get("auditor_id"));
+  if (!areaId || !auditorId) erro("Escolha a área e o auditor.", "areas");
+
+  const [{ data: area }, { data: habilitado }] = await Promise.all([
+    admin
+      .from("cinco_s_areas")
+      .select("id, nome")
+      .eq("id", areaId)
+      .eq("revenda_id", revendaId)
+      .maybeSingle(),
+    // O select da tela já só oferece auditor ativo, mas a ação de
+    // servidor é um endereço como outro qualquer: sem esta conferência,
+    // um id qualquer chegando no formulário viraria auditor da área.
+    admin
+      .from("cinco_s_auditores")
+      .select("colaborador_id")
+      .eq("revenda_id", revendaId)
+      .eq("colaborador_id", auditorId)
+      .eq("ativo", true)
+      .maybeSingle(),
+  ]);
+
+  if (!area) erro("Área não encontrada nesta revenda.", "areas");
+  if (!habilitado) {
+    erro(
+      "Essa pessoa não está habilitada como auditora. Habilite na aba Auditores primeiro.",
+      "areas",
+    );
+  }
+
+  const { data: pendentes } = await admin
+    .from("cinco_s_auditorias")
+    .select("id, auditor_id, planejada_para")
+    .eq("revenda_id", revendaId)
+    .eq("area_id", areaId)
+    .in("status", ["planejada", "em_andamento"])
+    .gte("competencia", `${competenciaAtual()}-01`)
+    .order("planejada_para");
+
+  const alvo = (pendentes ?? []).filter((a) => a.auditor_id !== auditorId);
+
+  if (alvo.length === 0) {
+    erro(
+      (pendentes ?? []).length > 0
+        ? `Essa pessoa já é a auditora de todas as auditorias abertas de ${area.nome}.`
+        : `${area.nome} não tem auditoria aberta deste mês em diante. Agende antes de definir o auditor.`,
+      "areas",
+    );
+  }
+
+  const { error } = await admin
+    .from("cinco_s_auditorias")
+    .update({ auditor_id: auditorId })
+    .in(
+      "id",
+      alvo.map((a) => a.id),
+    );
+
+  if (error) erro(`Não foi possível trocar: ${error.message}`, "areas");
+
+  // Um aviso para quem chega, com o total e a primeira data -- e não um
+  // por auditoria: quem herdou o ano inteiro receberia doze avisos
+  // idênticos e desligaria a notificação do 5S no mesmo minuto.
+  const primeira = alvo[0].planejada_para.split("-").reverse().join("/");
+  const quantas = alvo.length;
+
+  await criarNotificacao({
+    modulo: "5s",
+    tipo: "novo",
+    titulo: "🧹 Você é o auditor da área",
+    mensagem: `${area.nome} — ${quantas} auditoria${quantas === 1 ? "" : "s"} para você. A primeira em ${primeira}.`,
+    url: "/5s",
+    revendaId,
+    destinatarioId: auditorId,
+    referenciaId: `area-auditor:${areaId}`,
+  });
+
+  await enviarPushDaRevenda(revendaId, {
+    modulo: "5s",
+    titulo: "🧹 Você é o auditor da área",
+    mensagem: `${area.nome} — ${quantas} auditoria${quantas === 1 ? "" : "s"} para você.`,
+    url: "/5s",
+    apenas: [auditorId],
+  });
+
+  // Quem sai também é avisado. A auditoria simplesmente sumindo da lista
+  // dele, sem explicação, é o tipo de coisa que faz a pessoa achar que o
+  // app perdeu o trabalho dela.
+  const saindo = Array.from(
+    new Set(
+      alvo.map((a) => a.auditor_id).filter((x): x is string => Boolean(x)),
+    ),
+  );
+
+  const nomes = await nomesDe([auditorId, ...saindo]);
+  const novoNome = nomes.get(auditorId) ?? "outro auditor";
+
+  await Promise.all(
+    saindo.map((antigo) =>
+      criarNotificacao({
+        modulo: "5s",
+        tipo: "novo",
+        titulo: "🧹 Auditoria 5S repassada",
+        mensagem: `${area.nome} passou a ser auditada por ${novoNome}. Você não precisa mais fazer essas auditorias.`,
+        url: "/5s",
+        revendaId,
+        destinatarioId: antigo,
+        referenciaId: `area-auditor:${areaId}`,
+      }),
+    ),
+  );
+
+  revalidar();
+  ok(
+    `${area.nome}: ${quantas} auditoria${quantas === 1 ? "" : "s"} ${quantas === 1 ? "passou" : "passaram"} para ${novoNome}.`,
+    "areas",
+  );
 }
 
 async function avisarAuditor(
