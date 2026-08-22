@@ -8,6 +8,11 @@
 /colaboradores-raw.csv
 /scripts/
 /supabase/
+# O material do Power BI nao e usado pelo app em execucao: sao roteiros de
+# SQL, medidas DAX e o projeto do relatorio, tudo consumido na maquina de
+# quem monta o BI. Sem esta linha os ~2 MB da pasta subiam a cada publicacao,
+# incluindo o roteiro de acesso ao banco.
+/bi/
 /run-dev.cmd
 /.next/
 /node_modules/
