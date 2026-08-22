@@ -31,7 +31,21 @@ function horaCurta(iso: string) {
  * últimos eventos — sem isso a tela abriria vazia e só ganharia conteúdo
  * quando alguém mexesse no app.
  */
-export function PainelAoVivo({ iniciais }: { iniciais: Evento[] }) {
+export function PainelAoVivo({
+  iniciais,
+  pessoas,
+}: {
+  iniciais: Evento[];
+  /**
+   * Quem é quem na revenda, id → nome e cargo.
+   *
+   * O canal de presença carrega só o id (ver lib/presenca), então o nome
+   * tem de vir por outro caminho. Este mapa é montado no servidor, na
+   * própria tela, a partir de dados que ela já carregou -- ou seja, o nome
+   * só chega a quem tem permissão de abrir esta tela.
+   */
+  pessoas: Record<string, { nome: string; cargo: string | null }>;
+}) {
   const [online, setOnline] = useState<Presente[]>([]);
   const [eventos, setEventos] = useState<Evento[]>(iniciais);
   const [conectado, setConectado] = useState(false);
@@ -124,16 +138,26 @@ export function PainelAoVivo({ iniciais }: { iniciais: Evento[] }) {
           </p>
         ) : (
           <div className="flex flex-wrap gap-2">
-            {online.map((p) => (
-              <span
-                key={p.nome + p.desde}
-                className="flex items-center gap-1.5 rounded-full bg-green-50 px-3 py-1.5 text-xs font-medium text-green-800 ring-1 ring-green-200"
-                title={p.cargo ?? undefined}
-              >
-                <span className="h-1.5 w-1.5 rounded-full bg-green-500" />
-                {p.nome}
-              </span>
-            ))}
+            {[...online]
+              // A ordenação mudou de lugar: antes o nome vinha pelo canal e
+              // dava para ordenar lá. Agora o nome só existe aqui.
+              .map((p) => ({ ...p, quem: pessoas[p.id] }))
+              .sort((a, b) =>
+                (a.quem?.nome ?? "").localeCompare(b.quem?.nome ?? "", "pt-BR"),
+              )
+              .map((p) => (
+                <span
+                  key={p.id}
+                  className="flex items-center gap-1.5 rounded-full bg-green-50 px-3 py-1.5 text-xs font-medium text-green-800 ring-1 ring-green-200"
+                  title={p.quem?.cargo ?? undefined}
+                >
+                  <span className="h-1.5 w-1.5 rounded-full bg-green-500" />
+                  {/* Id sem dono na lista é gente de fora do recorte desta
+                      tela. Não deveria acontecer com o canal separado por
+                      revenda, mas some do jeito certo se acontecer. */}
+                  {p.quem?.nome ?? "Alguém da equipe"}
+                </span>
+              ))}
           </div>
         )}
       </div>

@@ -3,12 +3,38 @@
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
 
-/** Todos entram no mesmo canal — é o que permite contar quem está junto. */
-export const CANAL_PRESENCA = "presenca-app";
+/**
+ * Um canal por revenda, e privado.
+ *
+ * Antes era um canal só, público, chamado "presenca-app". Canal público no
+ * Realtime não passa por RLS nenhuma: bastava a chave pública -- que viaja
+ * dentro do JavaScript do site -- para entrar e ler nome e cargo de quem
+ * estivesse com o app aberto. Testado de fora, sem login, em 21/08/2026:
+ * devolvia a lista inteira.
+ *
+ * Privado agora, com as políticas da migration 048 decidindo quem entra. E
+ * separado por revenda, senão Barreiras e São Félix se enxergariam.
+ *
+ * O separador é ":" e não "-" porque o uuid da revenda já tem "-" no meio,
+ * e a política precisa recortar o nome no lugar certo.
+ */
+export const topicoDaRevenda = (revendaId: string) => `presenca:${revendaId}`;
 
+/**
+ * O que trafega pelo canal: id e horário. NOME NÃO.
+ *
+ * O canal privado é a porta, mas não é a única defesa. Foi medido em
+ * 22/08/2026 que pedir o mesmo tópico com `private: false` deixa entrar --
+ * ou seja, a porta tem uma fresta que não depende de nós.
+ *
+ * Então o dado sensível simplesmente não entra aqui. Quem conseguir
+ * escutar o canal recebe uma lista de uuid e carimbo de hora, que não diz
+ * quem é ninguém. Os nomes são resolvidos por quem tem permissão de vê-los
+ * (o painel do Modo Liderança), a partir de dados que o servidor já
+ * carregou para aquela tela.
+ */
 export type Presente = {
-  nome: string;
-  cargo: string | null;
+  id: string;
   desde: string;
 };
 
@@ -18,20 +44,22 @@ export type EstadoPresenca = {
 };
 
 /**
- * Dono único do canal de presença.
+ * Dono único do canal.
  *
- * Precisa ser um só. O Supabase identifica o canal pelo nome, e devolve o
- * MESMO canal para quem pedir "presenca-app" duas vezes. Se um componente
- * assinar o canal e outro tentar pendurar um ouvinte depois, o Supabase
- * recusa com "cannot add presence callbacks after subscribe()" -- foi
- * exatamente o que derrubou a tela de Uso do App.
+ * Precisa ser um só. O Supabase identifica o canal pelo nome e devolve o
+ * MESMO canal para quem pedir duas vezes. Se um componente assinar e outro
+ * tentar pendurar um ouvinte depois, o Supabase recusa com "cannot add
+ * presence callbacks after subscribe()" -- foi o que derrubou a tela de Uso
+ * do App uma vez.
  *
  * Aqui os ouvintes são registrados ANTES de assinar, uma vez só, e quem
- * quiser saber quem está online se inscreve nesta lista em vez de mexer
- * no canal.
+ * quiser saber quem está online se inscreve nesta lista em vez de mexer no
+ * canal.
  */
 
 let canal: RealtimeChannel | null = null;
+/** De qual revenda é o canal aberto agora -- para saber quando trocar. */
+let revendaDoCanal: string | null = null;
 let estado: EstadoPresenca = { presentes: [], conectado: false };
 const ouvintes = new Set<(e: EstadoPresenca) => void>();
 
@@ -43,21 +71,18 @@ function recalcular() {
   if (!canal) return;
 
   try {
-    const bruto = canal.presenceState<Presente>();
+    const bruto = canal.presenceState<{ desde: string }>();
     const presentes: Presente[] = [];
 
-    // Cada chave é uma pessoa; o array são as abas dela. Ficamos com a
-    // primeira aba para não contar a mesma pessoa duas vezes.
-    for (const abas of Object.values(bruto)) {
+    // A CHAVE do estado é o id da pessoa (config.presence.key), e o array
+    // são as abas dela. Ficamos com a primeira para não contar duas vezes.
+    for (const [id, abas] of Object.entries(bruto)) {
       const p = abas?.[0];
-      if (p) presentes.push({ nome: p.nome, cargo: p.cargo, desde: p.desde });
+      if (p) presentes.push({ id, desde: p.desde });
     }
 
-    // "?? ''" porque um cadastro sem nome derrubaria a ordenação inteira.
-    presentes.sort((a, b) =>
-      (a.nome ?? "").localeCompare(b.nome ?? "", "pt-BR"),
-    );
-
+    // Ordenar por nome não dá mais: o nome não trafega aqui. Quem exibe
+    // ordena, porque é quem sabe os nomes.
     estado = { ...estado, presentes };
   } catch {
     estado = { ...estado, presentes: [] };
@@ -66,19 +91,52 @@ function recalcular() {
   avisarTodos();
 }
 
-/** Anuncia esta pessoa. Chamado uma vez, no app inteiro. */
-export function iniciarPresenca(eu: {
+/**
+ * Anuncia esta pessoa na revenda em que ela está.
+ *
+ * Trocar de revenda derruba o canal antigo e abre o da nova: continuar
+ * anunciado na revenda anterior seria aparecer como online para gente que
+ * não trabalha mais com você naquele momento.
+ *
+ * Falha calada de propósito. Se a autorização recusar (política ausente,
+ * sessão expirada), o app inteiro continua funcionando -- o painel "Uso do
+ * App" é que fica sem a lista. Presença é informação de apoio; não pode
+ * derrubar a tela de ninguém.
+ */
+export async function iniciarPresenca(eu: {
   id: string;
-  nome: string;
-  cargo: string | null;
+  revendaId: string;
 }) {
-  if (canal) return;
+  if (canal && revendaDoCanal === eu.revendaId) return;
 
   const supabase = createClient();
 
-  // A chave é o id da pessoa: duas abas abertas contam como uma só.
-  canal = supabase.channel(CANAL_PRESENCA, {
-    config: { presence: { key: eu.id } },
+  if (canal) {
+    const antigo = canal;
+    canal = null;
+    revendaDoCanal = null;
+    estado = { presentes: [], conectado: false };
+    avisarTodos();
+    try {
+      await supabase.removeChannel(antigo);
+    } catch {
+      // idem
+    }
+  }
+
+  // Canal privado só é liberado com o token da pessoa em mãos: sem isto o
+  // servidor não sabe quem está pedindo e nega antes de olhar a política.
+  try {
+    const { data } = await supabase.auth.getSession();
+    if (!data.session) return;
+    await supabase.realtime.setAuth(data.session.access_token);
+  } catch {
+    return;
+  }
+
+  revendaDoCanal = eu.revendaId;
+  canal = supabase.channel(topicoDaRevenda(eu.revendaId), {
+    config: { private: true, presence: { key: eu.id } },
   });
 
   canal
@@ -90,12 +148,28 @@ export function iniciarPresenca(eu: {
       avisarTodos();
 
       if (status !== "SUBSCRIBED" || !canal) return;
-      await canal.track({
-        nome: eu.nome,
-        cargo: eu.cargo,
-        desde: new Date().toISOString(),
-      } satisfies Presente);
+      // Só o horário: a identidade já é a chave do canal, e nome não entra
+      // aqui de propósito (ver o comentário do tipo Presente).
+      await canal.track({ desde: new Date().toISOString() });
     });
+
+  // O token do Supabase expira em uma hora. Sem renovar a autorização do
+  // Realtime junto, o canal privado cai sozinho no meio do expediente e a
+  // pessoa some da lista sem ter fechado nada. O canal público de antes não
+  // tinha esse problema porque não conferia token nenhum.
+  ligarRenovacaoDeToken(supabase);
+}
+
+let renovacaoLigada = false;
+function ligarRenovacaoDeToken(supabase: ReturnType<typeof createClient>) {
+  if (renovacaoLigada) return;
+  renovacaoLigada = true;
+
+  supabase.auth.onAuthStateChange((_evento, sessao) => {
+    if (sessao?.access_token) {
+      void supabase.realtime.setAuth(sessao.access_token).catch(() => {});
+    }
+  });
 }
 
 /** Recebe a lista de quem está online, agora e a cada mudança. */

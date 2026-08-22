@@ -183,11 +183,12 @@ export default async function RootLayout({
           {perfil && (
             <>
               <RegistroDeUso />
-              <PresencaAoVivo
-                id={perfil.id}
-                nome={perfil.nome}
-                cargo={perfil.cargo}
-              />
+              {/* Sem revenda não há canal: o de presença é um por revenda.
+                  Quem está com o cadastro pela metade já vê o aviso no
+                  lugar do conteúdo, e não tem onde se anunciar. */}
+              {revenda && (
+                <PresencaAoVivo id={perfil.id} revendaId={revenda.id} />
+              )}
               <PesquisaSatisfacao />
               <SincronizarPush />
             </>

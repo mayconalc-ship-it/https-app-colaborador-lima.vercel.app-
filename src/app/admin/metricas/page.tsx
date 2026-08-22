@@ -254,7 +254,14 @@ export default async function AdminMetricasPage({
         subtitle="Quem está usando, por quanto tempo e o quê"
       />
 
-      <PainelAoVivo iniciais={ultimosEventos ?? []} />
+      {/* O painel recebe o de-para de id para nome porque o canal de
+          presença carrega só o id -- nome não trafega por lá. */}
+      <PainelAoVivo
+        iniciais={ultimosEventos ?? []}
+        pessoas={Object.fromEntries(
+          listaPessoas.map((p) => [p.id, { nome: p.nome, cargo: p.cargo }]),
+        )}
+      />
 
       <div className="mb-4 flex gap-2">
         {PERIODOS.map((x) => (
