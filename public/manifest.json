@@ -1,10 +1,10 @@
 {
-  "name": "App do Colaborador — LIMA Logística",
-  "short_name": "App Colaborador",
-  "description": "App interno dos colaboradores da LIMA Logística",
+  "name": "App do Colaborador",
+  "short_name": "Colaborador",
+  "description": "O dia a dia da operação na mão do colaborador: jornal, rota, remuneração, 5S e mais.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#ffffff",
+  "background_color": "#0b4da2",
   "theme_color": "#0b4da2",
   "orientation": "portrait",
   "lang": "pt-BR",
@@ -12,12 +12,20 @@
     {
       "src": "/icon-192.png",
       "sizes": "192x192",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
     },
     {
       "src": "/icon-512.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ]
 }

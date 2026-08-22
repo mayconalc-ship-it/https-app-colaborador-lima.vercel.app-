@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
+import { MarcaApp } from "@/components/MarcaApp";
 import { cpfParaEmail, somenteDigitos } from "@/lib/auth-helpers";
 
 export default function LoginPage() {
@@ -46,17 +46,12 @@ export default function LoginPage() {
 
   return (
     <div className="flex min-h-[70vh] flex-col items-center justify-center">
-      <div className="mb-6 flex h-16 items-center rounded-xl bg-white px-4 py-2 shadow-md">
-        <Image
-          src="/logo-v2.png"
-          alt="Cervejaria Ambev Lima"
-          width={220}
-          height={146}
-          quality={100}
-          className="h-12 w-auto object-contain"
-          priority
-        />
-      </div>
+      {/* Marca do app, e não da empresa: no login ainda não se sabe de
+          qual revenda é quem está entrando. */}
+      <MarcaApp tamanho={64} variante="ladrilho" className="mb-4" />
+      <p className="mb-6 text-center text-sm font-semibold text-slate-500">
+        App do Colaborador
+      </p>
       <form
         onSubmit={handleSubmit}
         className="w-full max-w-sm space-y-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"

@@ -1,10 +1,10 @@
 import type { Metadata, Viewport } from "next";
 import { after } from "next/server";
-import Image from "next/image";
 import Link from "next/link";
 import { varrerSeVencida } from "@/lib/lembretes-server";
 import { getPerfil, getUsuarioId } from "@/lib/sessao";
 import { getRevendaAtiva } from "@/lib/revendas";
+import { MarcaApp } from "@/components/MarcaApp";
 import { LogoutButton } from "@/components/LogoutButton";
 import { SessaoInvalida } from "@/components/SessaoInvalida";
 import { RegistroDeUso } from "@/components/RegistroDeUso";
@@ -18,18 +18,19 @@ import { SincronizarPush } from "@/components/SincronizarPush";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "App Colaborador — LIMA",
-  description: "App interno de colaboradores da LIMA Logística",
+  title: "App do Colaborador",
+  description:
+    "O dia a dia da operação na mão do colaborador: jornal, rota, remuneração, 5S e mais.",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
-    title: "App Colaborador",
+    // É este nome que fica embaixo do ícone na tela inicial do iPhone.
+    title: "Colaborador",
     statusBarStyle: "default",
   },
-  icons: {
-    icon: "/icon-192.png",
-    apple: "/icon-192.png",
-  },
+  // Sem `icons` aqui de propósito: o próprio Next monta as tags a partir
+  // de app/icon.svg e app/apple-icon.png. Repetir nesta lista sobrescreve
+  // o que ele gerou -- e foi assim que o ícone antigo sobrevivia.
 };
 
 export const viewport: Viewport = {
@@ -105,22 +106,35 @@ export default async function RootLayout({
               confirmação em z-70) -- modal cobrindo o cabeçalho é o certo.
               A lista do sino é filha daqui e sobe junto. */}
           <header className="sticky top-0 z-30 bg-primary text-white shadow-md">
-            {/* O logo não encolhe: espremido virava uma tira branca de
-                12px, pior que ausente. Abaixo de 360px ele sai de cena --
+            {/* A marca não encolhe: espremida virava uma tira de 12px,
+                pior que ausente. Abaixo de 360px ela sai de cena --
                 nessa largura a escolha é entre a marca e o botão Sair, e
-                Sair ganha. Acima disso tudo cabe junto. */}
+                Sair ganha. Acima disso tudo cabe junto.
+
+                Quem manda aqui é a revenda: a logo da empresa é conteúdo,
+                sobe pelo Admin em Revendas. Sem logo, fica a marca do
+                próprio app -- que é o certo para uma unidade que ainda
+                não mandou a dela, e não um buraco no cabeçalho.
+
+                A logo da empresa ganha caixa branca porque marca de
+                empresa é desenhada para fundo claro; a marca do app já
+                nasceu para viver no azul e dispensa a caixa. */}
             <div className="mx-auto flex min-w-0 max-w-3xl items-center gap-1.5 px-2 py-3 sm:gap-3 sm:px-4 sm:py-4">
-              <div className="flex h-10 shrink-0 items-center rounded-lg bg-white px-1.5 py-1 shadow-md max-[359px]:hidden sm:h-14 sm:rounded-xl sm:px-3 sm:py-2">
-                <Image
-                  src="/logo-v2.png"
-                  alt="Cervejaria Ambev Lima"
-                  width={195}
-                  height={130}
-                  quality={100}
-                  className="h-7 w-auto max-w-full object-contain sm:h-11"
-                  priority
+              {revenda?.logoUrl ? (
+                <div className="flex h-10 shrink-0 items-center rounded-lg bg-white px-1.5 py-1 shadow-md max-[359px]:hidden sm:h-14 sm:rounded-xl sm:px-3 sm:py-2">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={revenda.logoUrl}
+                    alt={revenda.nome}
+                    className="h-7 w-auto max-w-[120px] object-contain sm:h-11 sm:max-w-[180px]"
+                  />
+                </div>
+              ) : (
+                <MarcaApp
+                  tamanho={40}
+                  className="h-10 w-10 shrink-0 text-white max-[359px]:hidden sm:h-12 sm:w-12"
                 />
-              </div>
+              )}
               {/* No celular o titulo sai: o logo ja identifica, e o espaco e
                   necessario para os botoes caberem sem cortar. */}
               <div className="hidden min-w-0 flex-1 sm:block">

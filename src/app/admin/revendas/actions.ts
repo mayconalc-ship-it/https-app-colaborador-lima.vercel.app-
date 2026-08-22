@@ -133,6 +133,153 @@ export async function alternarRevenda(formData: FormData) {
   );
 }
 
+/* ================================================================== */
+/* Logo da empresa                                                     */
+/* ================================================================== */
+
+const TAMANHO_MAXIMO_LOGO = 2 * 1024 * 1024;
+const TIPOS_LOGO = ["image/png", "image/jpeg", "image/webp", "image/svg+xml"];
+
+/**
+ * Sobe a logo da empresa, que aparece no cabeçalho do app.
+ *
+ * A marca do APP (o "C") não muda: ela é o ícone instalado no celular e a
+ * identidade da ferramenta. O que sobe aqui é a marca de QUEM usa, e é
+ * por isso que ela é conteúdo de revenda, e não arquivo no repositório --
+ * com mais de uma unidade, gravar uma logo no código passou a significar
+ * mostrar a empresa errada para alguém.
+ *
+ * PNG com fundo transparente é o que fica melhor: o cabeçalho é azul, e
+ * logo com fundo branco vira um retângulo colado ali. Por isso o aviso na
+ * tela, e por isso o SVG é aceito.
+ */
+export async function salvarLogoRevenda(formData: FormData) {
+  const eu = await requireOwner();
+
+  const id = campo(formData, "id");
+  if (!id) voltar("erro", "Revenda inválida.");
+
+  const arquivo = formData.get("logo") as File | null;
+  if (!arquivo || arquivo.size === 0) voltar("erro", "Escolha um arquivo de imagem.");
+
+  if (arquivo.size > TAMANHO_MAXIMO_LOGO) {
+    voltar("erro", "A imagem passa de 2 MB. Uma logo não precisa ser tão grande.");
+  }
+  if (arquivo.type && !TIPOS_LOGO.includes(arquivo.type)) {
+    voltar("erro", "Envie PNG, JPG, WEBP ou SVG.");
+  }
+
+  const admin = createAdminClient();
+
+  const { data: alvo } = await admin
+    .from("revendas")
+    .select("nome, logo_url")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (!alvo) voltar("erro", "Revenda não encontrada.");
+
+  const extensao = (arquivo.name.split(".").pop() ?? "png")
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "")
+    .slice(0, 5);
+
+  // O carimbo de hora no nome é o que faz a troca aparecer na hora: sem
+  // ele o navegador e o CDN continuariam servindo a logo antiga.
+  const caminho = `${id}/marca/logo-${Date.now()}.${extensao || "png"}`;
+
+  const { error: erroUpload } = await admin.storage
+    .from("conteudo")
+    .upload(caminho, arquivo, {
+      contentType: arquivo.type || "image/png",
+      upsert: true,
+    });
+
+  if (erroUpload) voltar("erro", `Falha ao enviar: ${erroUpload.message}`);
+
+  const { data: publica } = admin.storage.from("conteudo").getPublicUrl(caminho);
+
+  const { error } = await admin
+    .from("revendas")
+    .update({ logo_url: publica.publicUrl })
+    .eq("id", id);
+
+  if (error) voltar("erro", error.message);
+
+  await apagarLogoAntiga(alvo.logo_url);
+
+  await admin.from("auditoria").insert({
+    ator_id: eu.id,
+    ator_nome: eu.nome,
+    acao: "Trocou a logo da revenda",
+    detalhes: alvo.nome,
+    revenda_id: id,
+  });
+
+  voltar("sucesso", `Logo de ${alvo.nome} atualizada.`);
+}
+
+/** Volta para a marca do app, sem logo de empresa nenhuma. */
+export async function removerLogoRevenda(formData: FormData) {
+  const eu = await requireOwner();
+
+  const id = campo(formData, "id");
+  if (!id) voltar("erro", "Revenda inválida.");
+
+  const admin = createAdminClient();
+
+  const { data: alvo } = await admin
+    .from("revendas")
+    .select("nome, logo_url")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (!alvo) voltar("erro", "Revenda não encontrada.");
+
+  const { error } = await admin
+    .from("revendas")
+    .update({ logo_url: null })
+    .eq("id", id);
+
+  if (error) voltar("erro", error.message);
+
+  await apagarLogoAntiga(alvo.logo_url);
+
+  await admin.from("auditoria").insert({
+    ator_id: eu.id,
+    ator_nome: eu.nome,
+    acao: "Removeu a logo da revenda",
+    detalhes: alvo.nome,
+    revenda_id: id,
+  });
+
+  voltar("sucesso", `${alvo.nome} voltou a usar a marca do app.`);
+}
+
+/**
+ * Apaga o arquivo que ninguém mais aponta.
+ *
+ * Falha calada: a coluna já foi atualizada, e um arquivo órfão no bucket
+ * é bem menos grave do que uma tela de erro depois de a troca ter dado
+ * certo.
+ */
+async function apagarLogoAntiga(url: string | null) {
+  if (!url) return;
+
+  const marca = "/conteudo/";
+  const corte = url.indexOf(marca);
+  if (corte === -1) return;
+
+  const caminho = url.slice(corte + marca.length).split("?")[0];
+  if (!caminho) return;
+
+  try {
+    await createAdminClient().storage.from("conteudo").remove([caminho]);
+  } catch {
+    // silêncio proposital
+  }
+}
+
 /**
  * Salva de uma vez quais módulos a revenda usa.
  *

@@ -3,11 +3,14 @@ import { requireOwner } from "@/lib/require-admin";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { PageHeader } from "@/components/PageHeader";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
+import { MarcaApp } from "@/components/MarcaApp";
 import { MODULOS } from "@/lib/acessos";
 import {
   alternarRevenda,
   criarRevenda,
+  removerLogoRevenda,
   renomearRevenda,
+  salvarLogoRevenda,
   salvarModulos,
 } from "./actions";
 
@@ -23,7 +26,10 @@ export default async function RevendasPage({
 
   const [{ data: revendas }, { data: modulos }, { data: vinculos }] =
     await Promise.all([
-      admin.from("revendas").select("id, slug, nome, ativa").order("ordem"),
+      admin
+        .from("revendas")
+        .select("id, slug, nome, ativa, logo_url")
+        .order("ordem"),
       admin.from("revenda_modulos").select("revenda_id, modulo").eq("ativo", true),
       admin.from("colaborador_revendas").select("revenda_id"),
     ]);
@@ -168,6 +174,75 @@ export default async function RevendasPage({
                   Salvar módulos de {r.nome}
                 </BotaoEnviar>
               </form>
+
+              {/* ---- Logo da empresa ---- */}
+              <div className="border-t border-slate-100 p-4">
+                <p className="mb-1 text-sm font-medium text-slate-700">
+                  Logo da empresa
+                </p>
+                <p className="mb-3 text-xs text-slate-500">
+                  É ela que aparece no cabeçalho para quem está nesta
+                  revenda. O ícone do app na tela inicial do celular não
+                  muda — esse é a marca do App do Colaborador.
+                </p>
+
+                {/* A prévia é sobre fundo azul porque é lá que a logo vai
+                    viver. Ver a marca sobre branco esconde justamente o
+                    problema mais comum, que é o fundo branco do PNG. */}
+                <div className="mb-3 flex items-center gap-3 rounded-xl bg-primary p-3">
+                  {r.logo_url ? (
+                    <span className="flex h-12 items-center rounded-lg bg-white px-2 py-1">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={r.logo_url}
+                        alt={`Logo de ${r.nome}`}
+                        className="h-9 w-auto max-w-[140px] object-contain"
+                      />
+                    </span>
+                  ) : (
+                    <MarcaApp tamanho={40} className="text-white" />
+                  )}
+                  <span className="text-xs text-white/80">
+                    {r.logo_url
+                      ? "É assim que aparece no app."
+                      : "Sem logo: usa a marca do app."}
+                  </span>
+                </div>
+
+                <form action={salvarLogoRevenda} className="flex flex-col gap-2">
+                  <input type="hidden" name="id" value={r.id} />
+                  <input
+                    type="file"
+                    name="logo"
+                    accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                    required
+                    className="w-full rounded-xl border border-slate-200 p-2.5 text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-primary-soft file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-primary"
+                  />
+                  <BotaoEnviar
+                    textoEnviando="Enviando..."
+                    className="w-full rounded-xl bg-primary py-3 text-sm font-semibold text-white hover:bg-primary-dark"
+                  >
+                    {r.logo_url ? "Trocar logo" : "Enviar logo"}
+                  </BotaoEnviar>
+                  <p className="text-xs text-slate-400">
+                    PNG com fundo transparente fica melhor: o cabeçalho é
+                    azul, e logo com fundo branco vira um retângulo colado
+                    ali. Até 2 MB.
+                  </p>
+                </form>
+
+                {r.logo_url && (
+                  <form action={removerLogoRevenda} className="mt-2">
+                    <input type="hidden" name="id" value={r.id} />
+                    <BotaoEnviar
+                      textoEnviando="Removendo..."
+                      className="w-full rounded-xl border border-slate-200 py-2.5 text-xs font-medium text-slate-500 hover:bg-slate-50"
+                    >
+                      Remover e voltar à marca do app
+                    </BotaoEnviar>
+                  </form>
+                )}
+              </div>
 
               {/* ---- Nome ---- */}
               <form

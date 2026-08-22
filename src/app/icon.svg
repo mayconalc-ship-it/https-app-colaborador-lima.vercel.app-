@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-label="App do Colaborador">
+  <rect width="100" height="100" rx="22" fill="#0b4da2"/>
+  <path d="M 39.06 80.07 A 32 32 0 0 0 66 77.71" fill="none" stroke="#ffc72c" stroke-width="15" stroke-linecap="round"/>
+  <path d="M 68.35 23.79 A 32 32 0 1 0 39.06 80.07" fill="none" stroke="#fff" stroke-width="15" stroke-linecap="round"/>
+  <path d="M 79.86 69.71 L 72.50 88.97 L 59.50 66.45 Z" fill="#ffc72c"/>
+</svg>

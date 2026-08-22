@@ -12,6 +12,11 @@ export type Revenda = {
   ativa: boolean;
   /** Só a revenda marcada como padrão da pessoa. O dono não tem principal. */
   principal: boolean;
+  /**
+   * Logo da empresa, mostrada no cabeçalho. Nulo é o normal: quem não
+   * subiu nada fica com a marca do próprio app.
+   */
+  logoUrl: string | null;
 };
 
 /**
@@ -38,27 +43,44 @@ export const getRevendas = cache(async (): Promise<Revenda[]> => {
 
   const admin = createAdminClient();
 
+  // logo_url vira logoUrl aqui e em nenhum outro lugar: o resto do app
+  // fala camelCase, e o cabeçalho não deveria saber o nome da coluna.
+  type Linha = {
+    id: string;
+    slug: string;
+    nome: string;
+    ativa: boolean;
+    logo_url: string | null;
+  };
+  const arrumar = (r: Linha, principal: boolean): Revenda => ({
+    id: r.id,
+    slug: r.slug,
+    nome: r.nome,
+    ativa: r.ativa,
+    principal,
+    logoUrl: r.logo_url ?? null,
+  });
+
   if (ehOwner(perfil.role)) {
     const { data } = await admin
       .from("revendas")
-      .select("id, slug, nome, ativa")
+      .select("id, slug, nome, ativa, logo_url")
       .eq("ativa", true)
       .order("ordem");
 
-    return (data ?? []).map((r) => ({ ...r, principal: false }));
+    return (data ?? []).map((r) => arrumar(r, false));
   }
 
   const { data } = await admin
     .from("colaborador_revendas")
-    .select("principal, revendas!inner(id, slug, nome, ativa, ordem)")
+    .select("principal, revendas!inner(id, slug, nome, ativa, ordem, logo_url)")
     .eq("colaborador_id", perfil.id)
     .eq("revendas.ativa", true)
     .order("ordem", { referencedTable: "revendas" });
 
-  return (data ?? []).map((v) => {
-    const r = v.revendas as unknown as Omit<Revenda, "principal">;
-    return { ...r, principal: v.principal };
-  });
+  return (data ?? []).map((v) =>
+    arrumar(v.revendas as unknown as Linha, v.principal),
+  );
 });
 
 /**

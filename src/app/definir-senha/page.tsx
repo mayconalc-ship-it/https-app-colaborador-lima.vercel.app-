@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
+import { MarcaApp } from "@/components/MarcaApp";
 import {
   CHAVE_SENHA_ALTERADA,
   validarNovaSenha,
@@ -60,17 +60,9 @@ export default function DefinirSenhaPage() {
 
   return (
     <div className="flex min-h-[70vh] flex-col items-center justify-center">
-      <div className="mb-6 flex h-16 items-center rounded-xl bg-white px-4 py-2 shadow-md">
-        <Image
-          src="/logo-v2.png"
-          alt="Cervejaria Ambev Lima"
-          width={220}
-          height={146}
-          quality={100}
-          className="h-12 w-auto object-contain"
-          priority
-        />
-      </div>
+      {/* Marca do app, e não da empresa: aqui ainda não se sabe de qual
+          revenda é quem está entrando. */}
+      <MarcaApp tamanho={64} variante="ladrilho" className="mb-6" />
 
       {sucesso ? (
         <div className="w-full max-w-sm rounded-2xl border border-green-200 bg-green-50 p-6 text-center shadow-sm">
