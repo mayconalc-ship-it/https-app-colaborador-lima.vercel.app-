@@ -79,8 +79,36 @@ function explicarStatus(status: number) {
   return `o Google respondeu ${status}`;
 }
 
-/** Baixa a planilha e devolve as celulas como matriz de textos. */
-export async function baixarPlanilha(csvUrl: string): Promise<string[][]> {
+/**
+ * Por quanto tempo a planilha baixada vale antes de ser buscada de novo.
+ *
+ * Era `no-store`: download completo do Drive a cada abertura da tela, para
+ * achar UMA linha. Com 66 pessoas passava despercebido; no dia em que a RV
+ * sai, com a revenda inteira abrindo junto, viram centenas de downloads
+ * seguidos -- e e exatamente ai que o Google comeca a estrangular.
+ *
+ * Cinco minutos nao muda nada para quem consulta (a planilha e atualizada
+ * uma vez por ciclo, nao de minuto em minuto) e derruba os downloads para
+ * um punhado por hora.
+ *
+ * A etiqueta existe para o Admin nao ficar esperando: ao salvar a
+ * configuracao da RV, a acao derruba o cache na hora (revalidateTag em
+ * admin/rv/actions), entao trocar o link da planilha vale imediatamente.
+ */
+const SEGUNDOS_DE_CACHE = 300;
+export const ETIQUETA_PLANILHA = "rv-planilha";
+
+/**
+ * Baixa a planilha e devolve as celulas como matriz de textos.
+ *
+ * `aoVivo` existe para o botao "Testar" do Admin: ali a pergunta e se o
+ * LINK responde agora, e responder com uma copia guardada de cinco minutos
+ * atras seria o contrario de um teste.
+ */
+export async function baixarPlanilha(
+  csvUrl: string,
+  { aoVivo = false } = {},
+): Promise<string[][]> {
   const origem = resolverOrigem(csvUrl);
   if (!origem) throw new Error("link inválido");
 
@@ -89,8 +117,12 @@ export async function baixarPlanilha(csvUrl: string): Promise<string[][]> {
   for (const candidato of origem.candidatos) {
     let resposta: Response;
     try {
-      // no-store: a planilha e a fonte viva, nao pode servir cache
-      resposta = await fetch(candidato, { cache: "no-store" });
+      resposta = await fetch(
+        candidato,
+        aoVivo
+          ? { cache: "no-store" }
+          : { next: { revalidate: SEGUNDOS_DE_CACHE, tags: [ETIQUETA_PLANILHA] } },
+      );
     } catch (e) {
       problemas.push((e as Error).message);
       continue;

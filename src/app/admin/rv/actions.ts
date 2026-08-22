@@ -1,14 +1,18 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 import { requireModulo } from "@/lib/require-admin";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { exigirRevenda } from "@/lib/revendas";
 import { AREAS } from "@/lib/areas";
 import { criarNotificacao } from "@/lib/notificacoes-server";
 import { enviarPushDaRevenda } from "@/lib/push-server";
-import { baixarPlanilha, colaboradoresComRV } from "@/lib/rv-server";
+import {
+  baixarPlanilha,
+  colaboradoresComRV,
+  ETIQUETA_PLANILHA,
+} from "@/lib/rv-server";
 import {
   acharColunaCompetencia,
   acharColunaCpf,
@@ -167,6 +171,15 @@ export async function salvarConfigRV(formData: FormData) {
     redirect(`/admin/rv?erro=${encodeURIComponent(error.message)}`);
   }
 
+  // A planilha baixada fica em cache por 5 minutos (ver rv-server). Trocar
+  // o link e ter de esperar esses minutos para conferir seria armadilha.
+  //
+  // updateTag e nao revalidateTag: o revalidateTag marca como velho e serve
+  // a copia antiga enquanto busca a nova por tras -- quem acabou de salvar
+  // veria o link antigo mais uma vez. O updateTag expira na hora e faz a
+  // proxima visita esperar o dado novo, que e o que se quer depois de
+  // mexer na configuracao.
+  updateTag(ETIQUETA_PLANILHA);
   revalidatePath("/rv");
   redirect("/admin/rv?sucesso=Link+salvo");
 }
@@ -192,7 +205,7 @@ export async function testarConexaoRV(formData: FormData) {
   let resultado: string;
 
   try {
-    const linhas = await baixarPlanilha(config.csv_url);
+    const linhas = await baixarPlanilha(config.csv_url, { aoVivo: true });
 
     if (linhas.length < 2) {
       resultado = `⚠️ ${config.rotulo}: consegui abrir, mas a planilha parece vazia.`;
