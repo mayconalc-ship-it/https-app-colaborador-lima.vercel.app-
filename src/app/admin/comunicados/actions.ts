@@ -16,6 +16,7 @@ import {
 } from "@/lib/comunicados";
 import { editoriasDaRevenda } from "@/lib/editorias";
 import { ehAreaValida } from "@/lib/areas";
+import { SEGUNDOS_DE_CACHE } from "@/lib/storage";
 
 function caminhoDoStorage(arquivoUrl: string) {
   const prefixo = "/storage/v1/object/public/conteudo/";
@@ -70,7 +71,10 @@ export async function salvarComunicado(formData: FormData) {
     const caminho = `${revendaId}/comunicados/${Date.now()}.${extensao}`;
     const { error: uploadError } = await admin.storage
       .from("conteudo")
-      .upload(caminho, imagem, { upsert: true });
+      .upload(caminho, imagem, {
+        upsert: true,
+        cacheControl: SEGUNDOS_DE_CACHE,
+      });
 
     if (uploadError) {
       redirect(

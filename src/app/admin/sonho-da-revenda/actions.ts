@@ -1,4 +1,4 @@
-﻿"use server";
+"use server";
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
@@ -6,6 +6,7 @@ import { requireModulo } from "@/lib/require-admin";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { exigirRevenda } from "@/lib/revendas";
 import { criarOuAgrupar } from "@/lib/notificacoes-server";
+import { SEGUNDOS_DE_CACHE } from "@/lib/storage";
 
 function caminhoDoStorage(arquivoUrl: string) {
   const prefixo = "/storage/v1/object/public/conteudo/";
@@ -41,7 +42,10 @@ async function enviarArquivo(
 
   const { error } = await admin.storage
     .from("conteudo")
-    .upload(caminho, arquivo, { upsert: true });
+    .upload(caminho, arquivo, {
+      upsert: true,
+      cacheControl: SEGUNDOS_DE_CACHE,
+    });
 
   if (error) throw new Error(error.message);
 

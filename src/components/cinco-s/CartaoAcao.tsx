@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/Toast";
+import { FotoEvidencia } from "@/components/FotoEvidencia";
 import { atualizarAcao } from "@/app/5s/actions";
 import {
   COR_PRIORIDADE,
@@ -230,13 +231,10 @@ export function CartaoAcao({
               <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-400">
                 Evidência do problema
               </p>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
+              <FotoEvidencia
                 src={acao.evidenciaUrl}
                 alt="Evidência registrada na auditoria"
-                loading="lazy"
-                decoding="async"
-                className="h-40 w-full rounded-xl object-cover"
+                classeCaixa="h-40 w-full"
               />
             </div>
           )}
@@ -255,13 +253,10 @@ export function CartaoAcao({
               <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-400">
                 Evidência da solução
               </p>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
+              <FotoEvidencia
                 src={acao.evidenciaConclusaoUrl}
                 alt="Evidência da solução"
-                loading="lazy"
-                decoding="async"
-                className="h-40 w-full rounded-xl object-cover"
+                classeCaixa="h-40 w-full"
               />
             </div>
           )}

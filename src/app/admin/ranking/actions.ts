@@ -1,4 +1,4 @@
-﻿"use server";
+"use server";
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
@@ -11,6 +11,7 @@ import {
   normalizarCategoria,
   type TimeRanking,
 } from "@/lib/ranking-categorias";
+import { SEGUNDOS_DE_CACHE } from "@/lib/storage";
 
 /**
  * Volta para a tela de lançamento levando junto o time e o mês do último
@@ -97,7 +98,10 @@ export async function enviarRanking(formData: FormData) {
 
   const { error: uploadError } = await admin.storage
     .from("conteudo")
-    .upload(caminho, arquivo, { upsert: true });
+    .upload(caminho, arquivo, {
+      upsert: true,
+      cacheControl: SEGUNDOS_DE_CACHE,
+    });
 
   if (uploadError) {
     redirect(voltarParaRanking({ erro: uploadError.message }, contexto));

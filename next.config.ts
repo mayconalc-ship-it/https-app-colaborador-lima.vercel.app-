@@ -15,6 +15,25 @@ const nextConfig: NextConfig = {
         pathname: "/storage/v1/object/public/**",
       },
     ],
+    // O armazenamento do Supabase responde `Cache-Control: no-cache` e
+    // IGNORA o cacheControl pedido no envio -- conferido em 22/08/2026,
+    // inclusive num arquivo recém-subido só para o teste. Sem isto o
+    // otimizador respeitaria a origem e rebaixaria a foto de novo a cada
+    // visita, que é justamente o que estoura o tráfego do plano gratuito.
+    //
+    // A documentação diz que vale o MAIOR entre este número e o cabeçalho
+    // da origem, então é aqui que o prazo é decidido de fato.
+    //
+    // 31 dias é agressivo e seguro ao mesmo tempo, porque todo caminho no
+    // bucket carrega carimbo de tempo (ver lib/storage): trocar a foto
+    // gera um endereço novo, e endereço novo é entrada nova no cache. Não
+    // existe o caso "mesma URL, conteúdo diferente" que tornaria um prazo
+    // longo perigoso -- e é bom que não exista, porque o cache do
+    // otimizador não tem como ser invalidado à mão.
+    minimumCacheTTL: 2678400,
+    // AVIF primeiro: é bem menor que WebP para foto de câmera, que é o
+    // grosso do que passa por aqui. Quem não suporta cai no WebP.
+    formats: ["image/avif", "image/webp"],
   },
   experimental: {
     serverActions: {

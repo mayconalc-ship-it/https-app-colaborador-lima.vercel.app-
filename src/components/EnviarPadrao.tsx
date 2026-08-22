@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { prepararEnvios, registrarPadroes } from "@/app/admin/padroes/actions";
+import { SEGUNDOS_DE_CACHE } from "@/lib/storage";
 
 /** Quantos arquivos sobem ao mesmo tempo. */
 const SIMULTANEOS = 3;
@@ -97,7 +98,9 @@ export function EnviarPadrao({
 
       const { error } = await supabase.storage
         .from("conteudo")
-        .uploadToSignedUrl(destino, token, arquivo);
+        .uploadToSignedUrl(destino, token, arquivo, {
+          cacheControl: SEGUNDOS_DE_CACHE,
+        });
 
       if (error) {
         falhas.push(`${arquivo.name}: ${emPortugues(error.message)}`);

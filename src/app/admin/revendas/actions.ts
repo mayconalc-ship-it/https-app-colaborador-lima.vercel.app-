@@ -1,9 +1,10 @@
-﻿"use server";
+"use server";
 
 import { redirect } from "next/navigation";
 import { requireOwner } from "@/lib/require-admin";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { ehModuloValido, MODULOS } from "@/lib/acessos";
+import { SEGUNDOS_DE_CACHE } from "@/lib/storage";
 
 function voltar(chave: "erro" | "sucesso", mensagem: string): never {
   redirect(`/admin/revendas?${chave}=${encodeURIComponent(mensagem)}`);
@@ -193,6 +194,7 @@ export async function salvarLogoRevenda(formData: FormData) {
     .upload(caminho, arquivo, {
       contentType: arquivo.type || "image/png",
       upsert: true,
+      cacheControl: SEGUNDOS_DE_CACHE,
     });
 
   if (erroUpload) voltar("erro", `Falha ao enviar: ${erroUpload.message}`);

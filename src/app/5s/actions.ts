@@ -19,6 +19,7 @@ import {
   type Resposta,
   type StatusNC,
 } from "@/lib/cinco-s";
+import { SEGUNDOS_DE_CACHE } from "@/lib/storage";
 
 /**
  * Ações do 5S que o colaborador dispara: executar a auditoria e tratar
@@ -585,6 +586,7 @@ async function subirEvidencia(
     .upload(caminho, arquivo, {
       contentType: arquivo.type || "image/jpeg",
       upsert: true,
+      cacheControl: SEGUNDOS_DE_CACHE,
     });
 
   if (error) return { ok: false, erro: `Falha ao enviar a foto: ${error.message}` };

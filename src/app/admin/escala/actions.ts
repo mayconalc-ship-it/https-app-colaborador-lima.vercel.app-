@@ -7,6 +7,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { criarOuAgrupar } from "@/lib/notificacoes-server";
 import { AREAS, ehAreaValida } from "@/lib/areas";
 import { exigirRevenda } from "@/lib/revendas";
+import { SEGUNDOS_DE_CACHE } from "@/lib/storage";
 
 function caminhoDoStorage(arquivoUrl: string) {
   const prefixo = "/storage/v1/object/public/conteudo/";
@@ -44,7 +45,10 @@ export async function salvarEscala(formData: FormData) {
 
     const { error: uploadError } = await admin.storage
       .from("conteudo")
-      .upload(caminho, arquivo, { upsert: true });
+      .upload(caminho, arquivo, {
+        upsert: true,
+        cacheControl: SEGUNDOS_DE_CACHE,
+      });
 
     if (uploadError) {
       redirect(`/admin/escala?erro=${encodeURIComponent(uploadError.message)}`);

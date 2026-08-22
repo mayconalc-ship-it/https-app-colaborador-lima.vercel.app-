@@ -4,6 +4,7 @@ import { useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/Toast";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
+import { FotoEvidencia } from "@/components/FotoEvidencia";
 import { finalizarAuditoria, salvarResposta } from "@/app/5s/actions";
 import {
   BOTAO_RESPOSTA,
@@ -612,13 +613,10 @@ function ItemPergunta({
           )}
 
           {resposta?.foto_url && (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
+            <FotoEvidencia
               src={resposta.foto_url}
               alt="Evidência registrada"
-              loading="lazy"
-              decoding="async"
-              className="h-24 w-full rounded-xl object-cover"
+              classeCaixa="h-24 w-full"
             />
           )}
 

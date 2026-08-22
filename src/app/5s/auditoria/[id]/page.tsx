@@ -5,6 +5,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { Checklist } from "@/components/cinco-s/Checklist";
 import { FormReabrir } from "@/components/cinco-s/FormReabrir";
 import { OQueEh5S } from "@/components/cinco-s/OQueEh5S";
+import { FotoEvidencia } from "@/components/FotoEvidencia";
 import {
   getContexto5S,
   listarPerguntas,
@@ -382,13 +383,10 @@ function ResultadoFinal({
                   </p>
                 )}
                 {r?.foto_url && (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
+                  <FotoEvidencia
                     src={r.foto_url}
                     alt={`Evidência do item ${p.codigo}`}
-                    loading="lazy"
-                    decoding="async"
-                    className="mt-2 h-28 w-full rounded-xl object-cover"
+                    classeCaixa="mt-2 h-28 w-full"
                   />
                 )}
               </li>
