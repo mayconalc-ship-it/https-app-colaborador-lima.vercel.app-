@@ -276,8 +276,8 @@ export default async function BI5SPage({
                   <>
                     {" "}e{" "}
                     <span className="font-semibold text-red-600">
-                      {piorArea.nc_abertas} ação
-                      {piorArea.nc_abertas === 1 ? "" : "ões"} em aberto
+                      {piorArea.nc_abertas}{" "}
+                      {piorArea.nc_abertas === 1 ? "ação" : "ações"} em aberto
                     </span>
                   </>
                 )}
@@ -482,7 +482,7 @@ export default async function BI5SPage({
                   {d.areas} área{d.areas === 1 ? "" : "s"}
                   {d.ncAbertas > 0 && (
                     <span className="font-medium text-red-600">
-                      {" "}· {d.ncAbertas} ação{d.ncAbertas === 1 ? "" : "ões"} em aberto
+                      {" "}· {d.ncAbertas} {d.ncAbertas === 1 ? "ação" : "ações"} em aberto
                     </span>
                   )}
                 </p>

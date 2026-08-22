@@ -308,7 +308,7 @@ export function BarrasPorArea({
                   : `${d.auditorias} auditoria${d.auditorias === 1 ? "" : "s"} · ${d.nok} NOK`}
                 {d.nc_abertas > 0 && (
                   <span className="ml-1 font-medium text-red-600">
-                    · {d.nc_abertas} ação{d.nc_abertas === 1 ? "" : "ões"} em aberto
+                    · {d.nc_abertas} {d.nc_abertas === 1 ? "ação" : "ações"} em aberto
                   </span>
                 )}
               </p>

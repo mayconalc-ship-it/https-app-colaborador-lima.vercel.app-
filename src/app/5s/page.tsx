@@ -177,7 +177,7 @@ export default async function CincoSPage({
               atrasadas > 0 &&
                 `${atrasadas} auditoria${atrasadas === 1 ? "" : "s"}`,
               acoesAtrasadas > 0 &&
-                `${acoesAtrasadas} ação${acoesAtrasadas === 1 ? "" : "ões"} do plano`,
+                `${acoesAtrasadas} ${acoesAtrasadas === 1 ? "ação" : "ações"} do plano`,
             ]
               .filter(Boolean)
               .join(" e ")}{" "}
@@ -549,7 +549,7 @@ async function MinhasAreas({
                     href={`/5s/acoes?area=${area.id}`}
                     className="rounded-full bg-amber-50 px-2.5 py-1 font-semibold text-amber-800 ring-1 ring-amber-200"
                   >
-                    {abertas.total} ação{abertas.total === 1 ? "" : "ões"} em aberto
+                    {abertas.total} {abertas.total === 1 ? "ação" : "ações"} em aberto
                     {abertas.atrasadas > 0 && ` · ${abertas.atrasadas} atrasada${abertas.atrasadas === 1 ? "" : "s"}`}
                   </Link>
                 ) : (
