@@ -32,6 +32,80 @@ function configurar() {
   configurado = true;
 }
 
+type Inscricao = {
+  id: number;
+  endpoint: string;
+  p256dh: string;
+  auth: string;
+  colaborador_id: string;
+  criado_em: string;
+  usado_em: string | null;
+  user_agent: string | null;
+};
+
+/**
+ * Que aparelho é este, grosso modo.
+ *
+ * De propósito é grosso: se olhasse a versão do navegador, uma atualização
+ * do iOS transformaria o mesmo celular em "outro aparelho" e a duplicidade
+ * voltaria. A pergunta que interessa é "é o mesmo aparelho da pessoa?", e
+ * para isso a família basta -- ninguém aqui carrega dois iPhones.
+ */
+function familiaDoAparelho(userAgent: string | null): string {
+  const ua = (userAgent ?? "").toLowerCase();
+  if (ua.includes("iphone")) return "iphone";
+  if (ua.includes("ipad")) return "ipad";
+  if (ua.includes("android")) return "android";
+  if (ua.includes("windows")) return "windows";
+  if (ua.includes("mac os")) return "mac";
+  return "outro";
+}
+
+/**
+ * Um aviso por APARELHO, e não por registro.
+ *
+ * A tabela guarda uma inscrição por aparelho de propósito: quem usa celular
+ * e computador recebe nos dois, e isso é desejado. O que não é desejado é a
+ * pessoa receber o MESMO aviso duas vezes no MESMO celular -- e é o que
+ * acontece quando sobra um registro velho.
+ *
+ * Registro velho não some sozinho: ele só é apagado quando o serviço de
+ * push responde 404/410, e um app antigo ainda instalado responde normal.
+ * Reinstalar o app, limpar os dados do navegador ou passar a abrir por um
+ * endereço novo cria uma inscrição a mais sem tirar a anterior. Na troca de
+ * domínio isso deixaria de ser um caso isolado e viraria a revenda inteira
+ * recebendo tudo em dobro.
+ *
+ * Agrupar por pessoa + família do aparelho resolve o duplicado sem calar o
+ * segundo aparelho de verdade.
+ *
+ * Dentro do grupo fica a mais recente por ATIVIDADE, não por criação: uma
+ * inscrição recém-criada (ainda sem entrega confirmada) ganha da antiga,
+ * que é o caso de quem acabou de reinstalar; e entre duas antigas ganha a
+ * que comprovadamente recebeu por último. Ordenar só por `criado_em`
+ * mandaria aviso para o navegador aberto uma vez e nunca mais; só por
+ * `usado_em` deixaria o aparelho recém-configurado mudo.
+ *
+ * As perdedoras não são apagadas -- ficam inertes, sem receber nada.
+ */
+function umaPorAparelho(inscricoes: Inscricao[]): Inscricao[] {
+  const atividade = (i: Inscricao) =>
+    Math.max(
+      i.usado_em ? Date.parse(i.usado_em) : 0,
+      i.criado_em ? Date.parse(i.criado_em) : 0,
+    );
+
+  const melhorDe = new Map<string, Inscricao>();
+
+  for (const i of inscricoes) {
+    const chave = `${i.colaborador_id}|${familiaDoAparelho(i.user_agent)}`;
+    const atual = melhorDe.get(chave);
+    if (!atual || atividade(i) > atividade(atual)) melhorDe.set(chave, i);
+  }
+
+  return [...melhorDe.values()];
+}
+
 type Recado = {
   modulo: ModuloNotificavel;
   titulo: string;
@@ -73,14 +147,19 @@ export async function enviarPushDaRevenda(
 
     let consulta = admin
       .from("push_inscricoes")
-      .select("id, endpoint, p256dh, auth")
+      .select(
+        "id, endpoint, p256dh, auth, colaborador_id, criado_em, usado_em, user_agent",
+      )
       .eq("revenda_id", revendaId);
 
     if (recado.apenas) consulta = consulta.in("colaborador_id", recado.apenas);
     else if (recado.exceto) consulta = consulta.neq("colaborador_id", recado.exceto);
 
-    const { data: inscricoes } = await consulta;
-    if (!inscricoes || inscricoes.length === 0) return;
+    const { data: todas } = await consulta;
+    if (!todas || todas.length === 0) return;
+
+    const inscricoes = umaPorAparelho(todas);
+    if (inscricoes.length === 0) return;
 
     const corpo = JSON.stringify({
       titulo: recado.titulo,
