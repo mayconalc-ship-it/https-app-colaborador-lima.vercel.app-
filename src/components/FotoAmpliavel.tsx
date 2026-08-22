@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 
 /** Passos do zoom. O toque alterna entre o primeiro e o segundo. */
@@ -21,20 +22,38 @@ const TOLERANCIA_TOQUE = 8;
  * do navegador. No Android a rolagem nativa terminava disparando um clique
  * na imagem ao soltar o dedo, o que desfazia o zoom no meio do movimento --
  * dava a impressão de que a foto não percorria.
+ *
+ * A CAIXA DA FOTO TEM TAMANHO ANTES DA FOTO CHEGAR. Isto não é detalhe de
+ * estilo: sem altura reservada, a matéria abria só com o texto e a imagem
+ * caía em cima depois, empurrando tudo para baixo enquanto o colaborador já
+ * estava lendo. Por isso `classeCaixa` (que carrega a altura) fica no
+ * contêiner e a imagem entra com `fill` -- ela ocupa um espaço que já
+ * existia, em vez de criar espaço ao carregar.
  */
 export function FotoAmpliavel({
   src,
   titulo,
-  className,
-  classeBotao = "",
+  classeCaixa,
+  ajuste = "cover",
+  prioridade = false,
+  sizes = "100vw",
 }: {
   src: string;
   titulo: string;
-  /** Classes da imagem em si. */
-  className: string;
-  /** Classes do botão que envolve a imagem (largura, proporção...). */
-  classeBotao?: string;
+  /** Dimensões da caixa que segura o lugar da foto: `h-40 w-full`, etc. */
+  classeCaixa: string;
+  /** `contain` mostra o cartaz inteiro; `cover` recorta para preencher. */
+  ajuste?: "cover" | "contain";
+  /**
+   * Foto que já nasce visível na tela (a de capa). Sai do carregamento
+   * preguiçoso e entra na fila de prioridade do navegador -- é o que faz a
+   * capa aparecer junto com o texto, e não depois dele.
+   */
+  prioridade?: boolean;
+  /** Largura que a foto ocupa, para o Next servir o arquivo do tamanho certo. */
+  sizes?: string;
 }) {
+  const [carregada, setCarregada] = useState(false);
   const [aberta, setAberta] = useState(false);
   const [escala, setEscala] = useState(1);
   const [pos, setPos] = useState({ x: 0, y: 0 });
@@ -103,10 +122,28 @@ export function FotoAmpliavel({
         type="button"
         onClick={() => setAberta(true)}
         aria-label={`Ver a foto da notícia "${titulo}" em tela cheia`}
-        className={`group relative block cursor-zoom-in overflow-hidden ${classeBotao}`}
+        className={`group relative block cursor-zoom-in overflow-hidden ${classeCaixa}`}
       >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={src} alt="" loading="lazy" className={className} />
+        {/* O cinza pulsando é o que o colaborador vê no lugar da foto
+            enquanto ela vem. Some no `onLoad`; se a foto falhar, fica um
+            retângulo cinza parado -- melhor do que a página dar um pulo. */}
+        {!carregada && (
+          <span
+            aria-hidden="true"
+            className="absolute inset-0 animate-pulse bg-slate-200"
+          />
+        )}
+        <Image
+          src={src}
+          alt=""
+          fill
+          sizes={sizes}
+          priority={prioridade}
+          onLoad={() => setCarregada(true)}
+          className={`${ajuste === "contain" ? "object-contain" : "object-cover"} transition-opacity duration-300 ${
+            carregada ? "opacity-100" : "opacity-0"
+          }`}
+        />
         {/* A lupa avisa que a foto abre — sem ela ninguém descobre o toque. */}
         <span
           aria-hidden="true"

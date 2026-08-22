@@ -10,6 +10,7 @@ import {
   ehFuturo,
   formatarDataCurta,
   formatarDataHora,
+  type Editoria,
 } from "@/lib/comunicados";
 
 type Comunicado = {
@@ -34,15 +35,25 @@ export function ComunicadoItem({
   onSalvar,
   onExcluir,
   cargosDisponiveis,
+  editorias,
+  editoriasAtivas,
 }: {
   comunicado: Comunicado;
   onSalvar: (formData: FormData) => void;
   onExcluir: (formData: FormData) => void;
   cargosDisponiveis: string[];
+  /**
+   * TODAS as editorias da revenda, inclusive as desativadas -- é a etiqueta
+   * da matéria, e uma matéria antiga pode estar numa editoria que saiu de
+   * circulação. Mostrá-la como "Geral" seria mentir sobre o arquivo.
+   */
+  editorias: Editoria[];
+  /** Só as ligadas: é entre elas que a edição pode escolher. */
+  editoriasAtivas: Editoria[];
 }) {
   const [editando, setEditando] = useState(false);
   const aoExcluir = useConfirmarEnvio();
-  const ed = editoria(comunicado.categoria);
+  const ed = editoria(editorias, comunicado.categoria);
   const naFila = ehFuturo(comunicado.publicar_em);
 
   if (editando) {
@@ -53,6 +64,7 @@ export function ComunicadoItem({
           comunicado={comunicado}
           aoCancelar={() => setEditando(false)}
           cargosDisponiveis={cargosDisponiveis}
+          editorias={editoriasAtivas}
         />
       </div>
     );
@@ -77,7 +89,7 @@ export function ComunicadoItem({
       )}
       <div className="min-w-0 flex-1">
         <div className="mb-1 flex flex-wrap items-center gap-2">
-          <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${ed.cor}`}>
+          <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${ed.classe}`}>
             {ed.emoji} {ed.rotulo}
           </span>
           {naFila && (

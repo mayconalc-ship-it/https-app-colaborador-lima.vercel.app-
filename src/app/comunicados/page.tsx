@@ -7,8 +7,8 @@ import { BotaoAgenda } from "@/components/BotaoAgenda";
 import { createClient } from "@/lib/supabase/server";
 import { getPerfil } from "@/lib/sessao";
 import { areaDoColaborador } from "@/lib/quiz";
+import { editoriasDoJornal } from "@/lib/editorias";
 import {
-  EDITORIAS,
   dataDeHoje,
   editoria,
   ehEditoriaValida,
@@ -26,7 +26,9 @@ export default async function ComunicadosPage({
   searchParams: Promise<{ editoria?: string; pagina?: string }>;
 }) {
   const { editoria: filtro, pagina: paginaParam } = await searchParams;
-  const filtroValido = filtro && ehEditoriaValida(filtro) ? filtro : null;
+  const editorias = await editoriasDoJornal();
+  const filtroValido =
+    filtro && ehEditoriaValida(editorias, filtro) ? filtro : null;
   const pagina = Math.max(1, Number(paginaParam) || 1);
 
   const supabase = await createClient();
@@ -164,7 +166,7 @@ export default async function ComunicadosPage({
           >
             Tudo
           </Link>
-          {EDITORIAS.map((e) => (
+          {editorias.map((e) => (
             <Link
               key={e.id}
               href={`/comunicados?editoria=${e.id}`}
@@ -212,12 +214,20 @@ export default async function ComunicadosPage({
                 // object-contain, e não cover: os comunicados costumam ser
                 // cartazes cheios de texto, e recortar esconde justamente a
                 // informação. Fundo escuro para a arte se destacar.
-                <div className="flex justify-center bg-slate-900">
+                //
+                // A altura é fixa de propósito. Antes era `max-h`, ou seja,
+                // o navegador só sabia o tamanho da caixa depois de baixar a
+                // foto -- a matéria abria como texto puro e a imagem entrava
+                // empurrando o corpo para baixo. Com altura declarada o
+                // espaço já está lá quando o texto pinta.
+                <div className="bg-slate-900">
                   <FotoAmpliavel
                     src={capa.imagem_url}
                     titulo={capa.titulo}
-                    classeBotao="w-full"
-                    className="mx-auto max-h-[26rem] w-full object-contain"
+                    classeCaixa="h-64 w-full sm:h-[26rem]"
+                    ajuste="contain"
+                    prioridade
+                    sizes="(min-width: 640px) 640px, 100vw"
                   />
                 </div>
               )}
@@ -225,10 +235,10 @@ export default async function ComunicadosPage({
               <div className="p-5">
                 <div className="mb-2 flex flex-wrap items-center gap-2 text-xs text-slate-400">
                   <span
-                    className={`rounded-full px-2 py-1 font-semibold ${editoria(capa.categoria).cor}`}
+                    className={`rounded-full px-2 py-1 font-semibold ${editoria(editorias, capa.categoria).classe}`}
                   >
-                    {editoria(capa.categoria).emoji}{" "}
-                    {editoria(capa.categoria).rotulo}
+                    {editoria(editorias, capa.categoria).emoji}{" "}
+                    {editoria(editorias, capa.categoria).rotulo}
                   </span>
                   <span>{tempoDeLeitura(capa.texto)} min de leitura</span>
                   {capa.autor && <span>· Por {capa.autor}</span>}
@@ -289,7 +299,7 @@ export default async function ComunicadosPage({
 
               <div className="grid gap-4 sm:grid-cols-2">
                 {demais.map((c) => {
-                  const ed = editoria(c.categoria);
+                  const ed = editoria(editorias, c.categoria);
                   return (
                     <article
                       key={c.id}
@@ -299,15 +309,15 @@ export default async function ComunicadosPage({
                         <FotoAmpliavel
                           src={c.imagem_url}
                           titulo={c.titulo}
-                          classeBotao="w-full"
-                          className="h-40 w-full object-cover"
+                          classeCaixa="h-40 w-full"
+                          sizes="(min-width: 640px) 320px, 100vw"
                         />
                       )}
 
                       <div className="flex flex-1 flex-col p-4">
                         <div className="mb-2 flex flex-wrap items-center gap-2">
                           <span
-                            className={`rounded-full px-2 py-0.5 text-xs font-semibold ${ed.cor}`}
+                            className={`rounded-full px-2 py-0.5 text-xs font-semibold ${ed.classe}`}
                           >
                             {ed.emoji} {ed.rotulo}
                           </span>

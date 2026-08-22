@@ -14,6 +14,7 @@ import {
   ehFuturo,
   formatarDiaEHora,
 } from "@/lib/comunicados";
+import { editoriasDaRevenda } from "@/lib/editorias";
 import { ehAreaValida } from "@/lib/areas";
 
 function caminhoDoStorage(arquivoUrl: string) {
@@ -45,14 +46,20 @@ export async function salvarComunicado(formData: FormData) {
 
   if (!titulo) redirect("/admin/comunicados?erro=Informe+o+título");
   if (!corpo) redirect("/admin/comunicados?erro=Escreva+o+conteúdo");
-  if (!ehEditoriaValida(categoria)) {
-    redirect("/admin/comunicados?erro=Editoria+inválida");
-  }
 
   const admin = createAdminClient();
   const revendaId = await getRevendaId();
   if (!revendaId) {
     redirect("/admin/comunicados?erro=Voce+nao+esta+em+nenhuma+revenda");
+  }
+
+  // A editoria virou cadastro (migration 047), então a lista válida depende
+  // da revenda -- não dá mais para conferir contra uma constante. A conferência
+  // continua existindo porque o `categoria` chega de um formulário, e
+  // formulário é coisa que o navegador do outro lado pode reescrever.
+  const editorias = await editoriasDaRevenda(revendaId);
+  if (!ehEditoriaValida(editorias, categoria)) {
+    redirect("/admin/comunicados?erro=Editoria+inválida");
   }
 
   let imagemUrl: string | null | undefined = undefined;

@@ -3,10 +3,10 @@
 import { useState } from "react";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
 import {
-  EDITORIAS,
   ehFuturo,
   formatarDataHora,
   utcParaDatetimeLocal,
+  type Editoria,
 } from "@/lib/comunicados";
 import { AREAS } from "@/lib/areas";
 
@@ -137,14 +137,42 @@ export function ComunicadoForm({
   comunicado,
   aoCancelar,
   cargosDisponiveis,
+  editorias,
 }: {
   action: (formData: FormData) => void;
   comunicado?: Comunicado;
   aoCancelar?: () => void;
   cargosDisponiveis: string[];
+  /** Cadastro da revenda -- ver /admin/comunicados/editorias. */
+  editorias: Editoria[];
 }) {
+  // A matéria que está sendo editada pode estar numa editoria que foi
+  // desativada depois. Mantê-la selecionada evita que uma simples correção
+  // de vírgula jogue a matéria para "geral" sem ninguém pedir.
+  const editoriasVisiveis = editorias.some(
+    (e) => e.id === comunicado?.categoria,
+  )
+    ? editorias
+    : [
+        ...editorias,
+        ...(comunicado?.categoria
+          ? [
+              {
+                id: comunicado.categoria,
+                rotulo: comunicado.categoria,
+                emoji: "📰",
+                cor: "cinza",
+                classe: "",
+              },
+            ]
+          : []),
+      ];
+
   const [categoria, setCategoria] = useState(
-    comunicado?.categoria ?? "geral",
+    comunicado?.categoria ??
+      (editorias.some((e) => e.id === "geral")
+        ? "geral"
+        : (editorias[0]?.id ?? "geral")),
   );
   // Agendamento que JÁ PASSOU não volta como agendamento: a matéria está
   // no ar, e reabrir o formulário mostrando "agendada para o dia 12" só
@@ -166,7 +194,7 @@ export function ComunicadoForm({
           Editoria
         </label>
         <div className="flex flex-wrap gap-2">
-          {EDITORIAS.map((e) => (
+          {editoriasVisiveis.map((e) => (
             <button
               key={e.id}
               type="button"

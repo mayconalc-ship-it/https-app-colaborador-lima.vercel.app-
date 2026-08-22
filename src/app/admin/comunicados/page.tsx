@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { decodificar } from "@/lib/texto-url";
 import { ehFuturo } from "@/lib/comunicados";
+import { editoriasDaRevenda } from "@/lib/editorias";
 import { requireModulo } from "@/lib/require-admin";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { exigirRevenda } from "@/lib/revendas";
@@ -54,6 +55,12 @@ export default async function AdminComunicadosPage({
     ehFuturo(c.publicar_em),
   ).length;
 
+  // Só as ligadas entram no formulário: editoria desativada é editoria que
+  // o RH tirou de circulação, e continuar oferecendo no seletor seria
+  // desligar sem desligar.
+  const todasEditorias = await editoriasDaRevenda(revendaId);
+  const editoriasAtivas = todasEditorias.filter((e) => e.ativa);
+
   return (
     <div>
       <PageHeader
@@ -76,6 +83,18 @@ export default async function AdminComunicadosPage({
         </span>
       </Link>
 
+      <Link
+        href="/admin/comunicados/editorias"
+        className="mb-4 flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm hover:bg-slate-50"
+      >
+        <span className="text-sm font-semibold text-primary">
+          🏷️ Editorias do jornal
+        </span>
+        <span className="text-xs text-slate-500">
+          {editoriasAtivas.length} no ar →
+        </span>
+      </Link>
+
       {erro && (
         <p className="mb-3 rounded-lg bg-red-50 p-3 text-sm text-red-700">
           {decodificar(erro)}
@@ -95,6 +114,7 @@ export default async function AdminComunicadosPage({
           <ComunicadoForm
             action={salvarComunicado}
             cargosDisponiveis={cargosDisponiveis}
+            editorias={editoriasAtivas}
           />
         </div>
       </details>
@@ -116,6 +136,8 @@ export default async function AdminComunicadosPage({
               onSalvar={salvarComunicado}
               onExcluir={excluirComunicado}
               cargosDisponiveis={cargosDisponiveis}
+              editorias={todasEditorias}
+              editoriasAtivas={editoriasAtivas}
             />
           ))}
         </div>

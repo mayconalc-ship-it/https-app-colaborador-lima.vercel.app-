@@ -1,22 +1,88 @@
-export const EDITORIAS = [
-  { id: "seguranca", rotulo: "Segurança", emoji: "🦺", cor: "bg-red-100 text-red-800" },
-  { id: "cultura", rotulo: "Cultura", emoji: "🎯", cor: "bg-purple-100 text-purple-800" },
-  { id: "engajamento", rotulo: "Engajamento", emoji: "🎉", cor: "bg-amber-100 text-amber-800" },
-  { id: "operacao", rotulo: "Operação", emoji: "🚚", cor: "bg-blue-100 text-blue-800" },
-  { id: "gente", rotulo: "Gente", emoji: "👥", cor: "bg-green-100 text-green-800" },
-  { id: "geral", rotulo: "Geral", emoji: "📰", cor: "bg-slate-100 text-slate-700" },
-] as const;
+/**
+ * AS CORES SÃO UMA LISTA FECHADA, E TEM QUE SER.
+ *
+ * A editoria é cadastrada pelo Admin, mas a cor não pode vir do banco como
+ * texto solto: o Tailwind varre o código-fonte para decidir quais classes
+ * gerar, e uma classe que só existe dentro de uma linha do Postgres
+ * simplesmente não entra no CSS -- a etiqueta sairia transparente em
+ * produção e ninguém entenderia por quê. Então o banco guarda a CHAVE
+ * ("turquesa") e o par de classes mora aqui, escrito por extenso.
+ */
+export const CORES_EDITORIA = {
+  vermelho: { rotulo: "Vermelho", classe: "bg-red-100 text-red-800" },
+  laranja: { rotulo: "Laranja", classe: "bg-orange-100 text-orange-800" },
+  ambar: { rotulo: "Âmbar", classe: "bg-amber-100 text-amber-800" },
+  verde: { rotulo: "Verde", classe: "bg-green-100 text-green-800" },
+  turquesa: { rotulo: "Turquesa", classe: "bg-teal-100 text-teal-800" },
+  azul: { rotulo: "Azul", classe: "bg-blue-100 text-blue-800" },
+  indigo: { rotulo: "Índigo", classe: "bg-indigo-100 text-indigo-800" },
+  roxo: { rotulo: "Roxo", classe: "bg-purple-100 text-purple-800" },
+  rosa: { rotulo: "Rosa", classe: "bg-pink-100 text-pink-800" },
+  cinza: { rotulo: "Cinza", classe: "bg-slate-100 text-slate-700" },
+} as const;
 
-export type EditoriaId = (typeof EDITORIAS)[number]["id"];
+export type CorEditoria = keyof typeof CORES_EDITORIA;
 
-const MAPA = new Map(EDITORIAS.map((e) => [e.id, e]));
-
-export function editoria(id: string) {
-  return MAPA.get(id as EditoriaId) ?? MAPA.get("geral")!;
+export function classeDaCor(cor: string) {
+  return (CORES_EDITORIA[cor as CorEditoria] ?? CORES_EDITORIA.cinza).classe;
 }
 
-export function ehEditoriaValida(valor: string): valor is EditoriaId {
-  return MAPA.has(valor as EditoriaId);
+export type Editoria = {
+  id: string;
+  rotulo: string;
+  emoji: string;
+  cor: string;
+  /** Classes Tailwind já resolvidas -- é o que as telas usam. */
+  classe: string;
+};
+
+/**
+ * O jornal antes de qualquer cadastro.
+ *
+ * Serve a dois momentos: a revenda criada depois desta migration, que ainda
+ * não tem linha nenhuma na tabela, e o caso em que a consulta falha. Em
+ * nenhum dos dois o jornal pode abrir sem editoria -- ficaria sem filtros e
+ * sem etiqueta em matéria alguma.
+ */
+export const EDITORIAS_PADRAO: Editoria[] = [
+  { id: "seguranca", rotulo: "Segurança", emoji: "🦺", cor: "vermelho" },
+  { id: "cultura", rotulo: "Cultura", emoji: "🎯", cor: "roxo" },
+  { id: "engajamento", rotulo: "Engajamento", emoji: "🎉", cor: "ambar" },
+  { id: "operacao", rotulo: "Operação", emoji: "🚚", cor: "azul" },
+  { id: "gente", rotulo: "Gente", emoji: "👥", cor: "verde" },
+  { id: "saude", rotulo: "Saúde e Bem-estar", emoji: "🩺", cor: "turquesa" },
+  { id: "treinamento", rotulo: "Treinamento", emoji: "🎓", cor: "indigo" },
+  { id: "geral", rotulo: "Geral", emoji: "📰", cor: "cinza" },
+].map((e) => ({ ...e, classe: classeDaCor(e.cor) }));
+
+/** A editoria de uma matéria, com a rede de segurança do "Geral". */
+export function editoria(lista: Editoria[], id: string): Editoria {
+  return (
+    lista.find((e) => e.id === id) ??
+    lista.find((e) => e.id === "geral") ??
+    EDITORIAS_PADRAO[EDITORIAS_PADRAO.length - 1]
+  );
+}
+
+export function ehEditoriaValida(lista: Editoria[], valor: string) {
+  return lista.some((e) => e.id === valor);
+}
+
+/**
+ * Rótulo digitado ("Saúde e Bem-estar") para o identificador que vai ao
+ * banco e à URL ("saude-e-bem-estar"). O id é o que fica gravado em cada
+ * matéria, então precisa ser estável e sem acento -- ele aparece em
+ * `/comunicados?editoria=...`.
+ */
+export function idDeEditoria(rotulo: string) {
+  return rotulo
+    .normalize("NFD")
+    // Os acentos que o NFD separou das letras (bloco combinante do Unicode).
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 40);
 }
 
 /**

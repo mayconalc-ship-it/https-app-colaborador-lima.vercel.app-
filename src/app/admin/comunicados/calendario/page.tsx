@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { exigirRevenda } from "@/lib/revendas";
 import { PageHeader } from "@/components/PageHeader";
 import { diaNoFuso, editoria, horaNoFuso } from "@/lib/comunicados";
+import { editoriasDaRevenda } from "@/lib/editorias";
 
 const DIAS_SEMANA = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"];
 
@@ -68,6 +69,7 @@ export default async function CalendarioComunicadosPage({
 
   const admin = createAdminClient();
   const revendaId = await exigirRevenda("/admin");
+  const editorias = await editoriasDaRevenda(revendaId);
 
   const primeiroDia = new Date(ano, mes - 1, 1);
   const ultimoDia = new Date(ano, mes, 0);
@@ -259,7 +261,7 @@ export default async function CalendarioComunicadosPage({
                     >
                       {m.tipo === "lembrete"
                         ? "🔔"
-                        : editoria(m.categoria).emoji}{" "}
+                        : editoria(editorias, m.categoria).emoji}{" "}
                       {m.hora ? `${m.hora} ` : ""}
                       {m.titulo}
                     </div>
