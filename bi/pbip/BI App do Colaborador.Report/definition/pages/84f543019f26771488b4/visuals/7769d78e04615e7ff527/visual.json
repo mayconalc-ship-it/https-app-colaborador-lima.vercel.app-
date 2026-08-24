@@ -1,13 +1,13 @@
 {
-  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.11.0/schema.json",
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.12.0/schema.json",
   "name": "7769d78e04615e7ff527",
   "position": {
     "x": 16,
     "y": 672,
-    "z": 17000,
+    "z": 18000,
     "height": 30,
     "width": 1248,
-    "tabOrder": 17000
+    "tabOrder": 18000
   },
   "visual": {
     "visualType": "textbox",
@@ -19,7 +19,7 @@
               {
                 "textRuns": [
                   {
-                    "value": "\"Horas médias até resposta\" é o indicador de saúde do módulo, não de volume. Análise concluída que ninguém responde ensina o time a não preencher a próxima — se passar de ~48 h, o módulo morre por desuso antes de morrer por decisão. No aceite, \"Não respondeu\" cobre dois casos diferentes: o motorista que recebeu a devolutiva e não respondeu, e a análise que nunca recebeu devolutiva nenhuma — esta última aparece com a coluna de resposta vazia. Por isso \"% Aceite\" divide pelas análises que RECEBERAM devolutiva, e não por todas.",
+                    "value": "\"% Chegou ao 5º\" = das análises CONCLUÍDAS, quantas percorreram os cinco porquês até o fim, em vez de parar no 2º ou 3º. É medida de profundidade: parar cedo costuma achar sintoma (\"o cliente estava fechado\") e não causa (\"não conferimos o horário na véspera\"). TMR = tempo médio entre concluir a análise e a liderança responder; sai em horas até 24 h e em dias acima disso. É o indicador de saúde do módulo, não de volume: análise concluída que ninguém responde ensina o time a não preencher a próxima — se passar de ~48 h, o módulo morre por desuso antes de morrer por decisão. No aceite, \"Não respondeu\" cobre dois casos diferentes: o motorista que recebeu a devolutiva e não respondeu, e a análise que nunca recebeu devolutiva nenhuma — esta última aparece com a coluna de resposta vazia. Por isso \"% Aceite\" divide pelas análises que RECEBERAM devolutiva, e não por todas.",
                     "textStyle": {
                       "fontSize": "8pt",
                       "color": "#64748B"
@@ -34,6 +34,45 @@
     },
     "visualContainerObjects": {
       "title": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "false"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "border": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "false"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "background": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "false"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "dropShadow": [
         {
           "properties": {
             "show": {

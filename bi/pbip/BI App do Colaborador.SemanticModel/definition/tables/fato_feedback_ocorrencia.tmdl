@@ -7,7 +7,7 @@ table fato_feedback_ocorrencia
 		isHidden
 		formatString: 0
 		lineageTag: 855b2c07-bbe4-4c89-b35d-9e1d2cb80adc
-		summarizeBy: sum
+		summarizeBy: none
 		sourceColumn: feedback_id
 
 		annotation SummarizationSetBy = Automatic
@@ -82,28 +82,14 @@ table fato_feedback_ocorrencia
 
 		annotation SummarizationSetBy = Automatic
 
-	column chave
-		dataType: string
-		isHidden
-		lineageTag: 27b09a30-a6e8-40f8-9148-1d5c5a4c8949
-		summarizeBy: none
-		sourceColumn: chave
-
-		annotation SummarizationSetBy = Automatic
-
 	partition fato_feedback_ocorrencia = m
 		mode: import
 		source =
 				let
 				    Origem = PostgreSQL.Database(Servidor, Banco),
-				    Dados = Origem{[Schema="bi",Item="fato_feedback_ocorrencia"]}[Data],
-				    ComChave = Table.AddColumn(Dados, "chave", each
-				        (if [revenda_id] = null then "" else Text.From([revenda_id]))
-				        & "|" &
-				        (if [colaborador_id] = null then "" else Text.From([colaborador_id])),
-				        type text)
+				    Dados = Origem{[Schema="bi",Item="fato_feedback_ocorrencia"]}[Data]
 				in
-				    ComChave
+				    Dados
 
 	annotation PBI_ResultType = Table
 

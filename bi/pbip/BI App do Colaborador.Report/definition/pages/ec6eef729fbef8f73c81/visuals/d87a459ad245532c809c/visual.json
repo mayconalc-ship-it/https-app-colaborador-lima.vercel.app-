@@ -1,13 +1,13 @@
 {
-  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.11.0/schema.json",
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.12.0/schema.json",
   "name": "d87a459ad245532c809c",
   "position": {
     "x": 16,
     "y": 500,
-    "z": 15000,
+    "z": 18000,
     "height": 166,
     "width": 1248,
-    "tabOrder": 15000
+    "tabOrder": 18000
   },
   "visual": {
     "visualType": "tableEx",
@@ -219,107 +219,5 @@
       ]
     },
     "drillFilterOtherVisuals": true
-  },
-  "filterConfig": {
-    "filters": [
-      {
-        "name": "47e01e430e38978f1cda",
-        "field": {
-          "Column": {
-            "Expression": {
-              "SourceRef": {
-                "Entity": "fato_feedback_rota"
-              }
-            },
-            "Property": "data"
-          }
-        },
-        "type": "Categorical"
-      },
-      {
-        "name": "022cf3555da9a2350831",
-        "field": {
-          "Column": {
-            "Expression": {
-              "SourceRef": {
-                "Entity": "fato_feedback_rota"
-              }
-            },
-            "Property": "colaborador"
-          }
-        },
-        "type": "Categorical"
-      },
-      {
-        "name": "cb86d8b4e873fafa8a94",
-        "field": {
-          "Column": {
-            "Expression": {
-              "SourceRef": {
-                "Entity": "fato_feedback_rota"
-              }
-            },
-            "Property": "nota_rotulo"
-          }
-        },
-        "type": "Categorical"
-      },
-      {
-        "name": "e19c4b57842f09fd131d",
-        "field": {
-          "Column": {
-            "Expression": {
-              "SourceRef": {
-                "Entity": "fato_feedback_rota"
-              }
-            },
-            "Property": "cp_aceite_rotulo"
-          }
-        },
-        "type": "Categorical"
-      },
-      {
-        "name": "6e7051ce0cd23c10f7cf",
-        "field": {
-          "Column": {
-            "Expression": {
-              "SourceRef": {
-                "Entity": "fato_feedback_rota"
-              }
-            },
-            "Property": "cp_causa_raiz"
-          }
-        },
-        "type": "Categorical"
-      },
-      {
-        "name": "c268114e0687909f60aa",
-        "field": {
-          "Column": {
-            "Expression": {
-              "SourceRef": {
-                "Entity": "fato_feedback_rota"
-              }
-            },
-            "Property": "comentario"
-          }
-        },
-        "type": "Categorical"
-      },
-      {
-        "name": "cbed7ab000c8965f5cfe",
-        "field": {
-          "Column": {
-            "Expression": {
-              "SourceRef": {
-                "Entity": "fato_feedback_rota"
-              }
-            },
-            "Property": "cp_devolutiva"
-          }
-        },
-        "type": "Categorical"
-      }
-    ]
   }
 }

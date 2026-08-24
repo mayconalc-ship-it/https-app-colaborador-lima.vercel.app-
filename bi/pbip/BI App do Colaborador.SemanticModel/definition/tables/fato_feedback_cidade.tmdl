@@ -1,0 +1,113 @@
+/// Explodido: um feedback de mapa com 3 cidades vira 3 linhas. Conte DISTINCT feedback_id.
+table fato_feedback_cidade
+	lineageTag: 055f7a28-5bdb-4f93-b24e-7fc19138bf7d
+
+	column feedback_id
+		dataType: int64
+		isHidden
+		formatString: 0
+		lineageTag: 1f3396d0-5b66-4971-b04c-2c0961a0a9a1
+		summarizeBy: none
+		sourceColumn: feedback_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column revenda_id
+		dataType: string
+		isHidden
+		lineageTag: 9aaf0935-20dc-428b-958e-f2d58c2fd57f
+		summarizeBy: none
+		sourceColumn: revenda_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column colaborador_id
+		dataType: string
+		isHidden
+		lineageTag: 1d1ddd1d-02c0-415e-9761-8c0d8c45df0a
+		summarizeBy: none
+		sourceColumn: colaborador_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column data
+		dataType: dateTime
+		formatString: dd/MM/yyyy
+		lineageTag: fcae1282-cf27-4171-ad32-9746e1120c19
+		summarizeBy: none
+		sourceColumn: data
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation UnderlyingDateTimeDataType = Date
+
+	column rota
+		dataType: string
+		lineageTag: 0c937cf1-6521-4e8b-a571-28c4ec9188be
+		summarizeBy: none
+		sourceColumn: rota
+
+		annotation SummarizationSetBy = Automatic
+
+	column nota
+		dataType: int64
+		lineageTag: 03e7fc22-8560-494a-b9ee-0cec24d305c0
+		summarizeBy: none
+		sourceColumn: nota
+
+		annotation SummarizationSetBy = Automatic
+
+	column nota_ruim
+		dataType: boolean
+		lineageTag: 370e1d8f-0737-4f4a-9344-e0885e57a3f2
+		summarizeBy: none
+		sourceColumn: nota_ruim
+
+		annotation SummarizationSetBy = Automatic
+
+	column cidade
+		dataType: string
+		lineageTag: 8ea73b37-9be0-4c59-a4b3-3dd85fb7784e
+		summarizeBy: none
+		sourceColumn: cidade
+
+		annotation SummarizationSetBy = Automatic
+
+	column entregas
+		dataType: int64
+		lineageTag: 5791bd8a-41bf-4aad-bf1c-e97ac3a79260
+		summarizeBy: none
+		sourceColumn: entregas
+
+		annotation SummarizationSetBy = Automatic
+
+	column rota_localizada
+		dataType: boolean
+		lineageTag: 13bf9cc9-49f8-4bf5-8257-9ac4df85443a
+		summarizeBy: none
+		sourceColumn: rota_localizada
+
+		annotation SummarizationSetBy = Automatic
+
+	column data_roteirizacao
+		dataType: dateTime
+		formatString: dd/MM/yyyy
+		lineageTag: 4e3124d3-19a4-4d8c-bb3f-1e26619fc0bd
+		summarizeBy: none
+		sourceColumn: data_roteirizacao
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation UnderlyingDateTimeDataType = Date
+
+	partition fato_feedback_cidade = m
+		mode: import
+		source =
+				let
+				    Origem = PostgreSQL.Database(Servidor, Banco),
+				    Dados = Origem{[Schema="bi",Item="fato_feedback_cidade"]}[Data]
+				in
+				    Dados
+
+	annotation PBI_ResultType = Table
+

@@ -7,7 +7,7 @@ table fato_feedback_rota
 		isHidden
 		formatString: 0
 		lineageTag: c425d146-af0c-4c14-94e5-4a974bcfc565
-		summarizeBy: sum
+		summarizeBy: none
 		sourceColumn: feedback_id
 
 		annotation SummarizationSetBy = Automatic
@@ -83,6 +83,7 @@ table fato_feedback_rota
 		lineageTag: b3ef8261-e594-4350-b3f2-9260430bd5a1
 		summarizeBy: none
 		sourceColumn: nota_rotulo
+		sortByColumn: nota
 
 		annotation SummarizationSetBy = Automatic
 

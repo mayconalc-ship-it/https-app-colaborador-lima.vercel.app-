@@ -1,13 +1,13 @@
 {
-  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.11.0/schema.json",
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.12.0/schema.json",
   "name": "62b062c14af25964fdd7",
   "position": {
     "x": 16,
     "y": 76,
-    "z": 3000,
+    "z": 4000,
     "height": 300,
     "width": 616,
-    "tabOrder": 3000
+    "tabOrder": 4000
   },
   "visual": {
     "visualType": "tableEx",
@@ -107,11 +107,11 @@
                       "Entity": "_Medidas"
                     }
                   },
-                  "Property": "Contagens"
+                  "Property": "Linhas lançadas"
                 }
               },
-              "queryRef": "_Medidas.Contagens",
-              "nativeQueryRef": "Contagens"
+              "queryRef": "_Medidas.Linhas lançadas",
+              "nativeQueryRef": "Linhas lançadas"
             }
           ]
         }

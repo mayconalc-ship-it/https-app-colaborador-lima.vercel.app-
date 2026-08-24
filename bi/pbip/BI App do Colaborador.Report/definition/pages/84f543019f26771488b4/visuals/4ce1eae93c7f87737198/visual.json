@@ -1,13 +1,13 @@
 {
-  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.11.0/schema.json",
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.12.0/schema.json",
   "name": "4ce1eae93c7f87737198",
   "position": {
     "x": 436,
     "y": 152,
-    "z": 9000,
+    "z": 10000,
     "height": 96,
     "width": 198,
-    "tabOrder": 9000
+    "tabOrder": 10000
   },
   "visual": {
     "visualType": "cardVisual",
@@ -134,6 +134,26 @@
               "expr": {
                 "Literal": {
                   "Value": "false"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "visualHeaderTooltip": [
+        {
+          "properties": {
+            "type": {
+              "expr": {
+                "Literal": {
+                  "Value": "'Text'"
+                }
+              }
+            },
+            "text": {
+              "expr": {
+                "Literal": {
+                  "Value": "'Das análises CONCLUÍDAS, quantas percorreram os cinco porquês até o fim em vez de parar no 2º ou no 3º. É medida de profundidade, não de volume: parar cedo costuma achar sintoma (\"o cliente estava fechado\") e não causa (\"não conferimos o horário na véspera\") — e ação tomada sobre sintoma volta como o mesmo problema no mês seguinte. O denominador são só as concluídas: análise abandonada no meio não conta como quem deixou de aprofundar.'"
                 }
               }
             }

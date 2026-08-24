@@ -1,5 +1,22 @@
 # BI do App do Colaborador
 
+> **Rodada de 23/08/2026.** O projeto passou de 8 para 10 páginas de gestão
+> (entraram a **Capa**, com um cartão-link para cada página, e o
+> **Cronograma da Comunicação**, a visão de calendário que já existia em
+> `/admin/comunicados/calendario`). No Ativo de Giro entrou a **meta da cia
+> — 3 contagens por semana**; no Feedback da Rota, "Rota mais crítica" deu
+> lugar a **"Cidade mais crítica"**, cruzando o nº do mapa com o relatório
+> de rotas; no 5 Porquês, o cartão de horas virou **TMR** (horas até 24 h,
+> dias acima) e a **tratativa do analista** entrou na pauta da reunião.
+> Três views novas — `fato_feedback_cidade`, `fato_comunicado_agenda` e o
+> par `dia`/`dia_rotulo` em `dim_calendario` —, então
+> **o banco precisa ser atualizado**: rode `09-atualizacao-23-08-2026.sql`
+> (o recorte do 01 com só o que mudou — uma colagem em vez de dez) e em
+> seguida `02-acesso-powerbi.sql`, que dá o GRANT às views novas. Ao
+> copiar qualquer SQL daqui, leia o arquivo como **UTF-8 explícito** —
+> ver o cabeçalho de `10-conferir-acentos.sql`: é o mesmo cuidado que
+> evita o `'Ótima'` sair torto no gráfico de distribuição das notas.
+
 Camada de tratamento de dados e especificação visual do relatório. O que
 está aqui cobre as duas partes que você pediu — o **tratamento** (views SQL
 que transformam as tabelas do app em fatos e dimensões prontos) e a
@@ -9,23 +26,25 @@ que transformam as tabelas do app em fatos e dimensões prontos) e a
 ## Ordem de execução
 
 **Comece por [`08-abrir-o-pbip.md`](08-abrir-o-pbip.md).** O projeto em
-`bi/pbip/` já traz o modelo, as 69 medidas, os 40 relacionamentos, o tema
-e as 8 páginas montadas — abre no Power BI Desktop e salva como `.pbix`,
+`bi/pbip/` já traz o modelo, as 124 medidas, os 54 relacionamentos, o tema
+e as 12 páginas montadas — abre no Power BI Desktop e salva como `.pbix`,
 sem arrastar visual nenhum. O roteiro manual de montagem
 (`06-montar-pbix.md`) ficou como referência de quem quer entender as
 escolhas, não como caminho obrigatório.
 
 | # | Arquivo | O que faz |
 |---|---|---|
-| 1 | `01-camada-semantica.sql` | Cria o esquema `bi` com 25 views. **Não altera nada do app.** |
+| 1 | `01-camada-semantica.sql` | Cria o esquema `bi` com 35 views. **Não altera nada do app.** |
 | 2 | `02-acesso-powerbi.sql` | Cria o usuário `powerbi_readonly` e libera só o esquema `bi`. |
 | 3 | `08-abrir-o-pbip.md` | **Abrir o projeto pronto e salvar como `.pbix`.** É por aqui. |
 | 4 | `04-gateway-e-atualizacao.md` | Gateway no PC do escritório e agendamento da atualização. |
+| 5 | `09-atualizacao-23-08-2026.sql` | **Recorte do 01 com o que mudou em 23/08/2026.** Uma colagem em vez de dez. |
+| 6 | `10-conferir-acentos.sql` | **Confere se algum rótulo entrou quebrado no banco.** Três selects, não altera nada. |
 | — | `pbip/gerar-pbip.js` | Regera o projeto a partir de `modelo.js` + `paginas.js` + `07-medidas.dax`. |
-| — | `pbip/validar.js` | Confere os campos das 8 páginas contra o modelo antes de abrir. |
-| — | `07-medidas.dax` | As 69 medidas. **Fonte da verdade** — o gerador lê daqui. |
+| — | `pbip/validar.js` | Confere os campos das 12 páginas contra o modelo antes de abrir. |
+| — | `07-medidas.dax` | As 124 medidas. **Fonte da verdade** — o gerador lê daqui. |
 | — | `medidas-dax.md` | As mesmas medidas explicadas uma a uma, com o porquê de cada corte. |
-| — | `layout-relatorio.md` | Layout das 8 páginas, visual a visual. |
+| — | `layout-relatorio.md` | Layout das 8 páginas de gestão originais, visual a visual. |
 | — | `06-montar-pbix.md` | Montagem manual, caso queira refazer à mão. |
 | — | `tema-powerbi.json` | Já vem embutido no projeto. Só importe à mão se montar do zero. |
 | — | `05-atualizar-agora.ps1` | Força a atualização fora do horário agendado. Precisa do gateway já configurado. |
@@ -157,7 +176,7 @@ esse cartão para a página executiva.
 que contagem do dia. A coluna `atraso_dias` já existe na view e mede
 disciplina de processo — algo que "quantidade de contagens" esconde.
 
-**Cortes mínimos nos rankings.** "Rota mais crítica" com ≥ 3 feedbacks e
+**Cortes mínimos nos rankings.** "Cidade mais crítica" com ≥ 3 feedbacks e
 "pergunta mais errada" com ≥ 5 respostas. Sem isso, uma rota com um único
 feedback ruim vira "a pior rota da revenda" na primeira reunião — e o painel
 perde credibilidade de uma vez só.

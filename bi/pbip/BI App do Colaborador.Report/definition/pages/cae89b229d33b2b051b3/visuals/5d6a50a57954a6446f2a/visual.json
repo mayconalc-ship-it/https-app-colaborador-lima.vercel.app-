@@ -1,13 +1,13 @@
 {
-  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.11.0/schema.json",
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.12.0/schema.json",
   "name": "5d6a50a57954a6446f2a",
   "position": {
     "x": 648,
     "y": 500,
-    "z": 16000,
+    "z": 17000,
     "height": 166,
     "width": 616,
-    "tabOrder": 16000
+    "tabOrder": 17000
   },
   "visual": {
     "visualType": "tableEx",
@@ -205,93 +205,5 @@
       ]
     },
     "drillFilterOtherVisuals": true
-  },
-  "filterConfig": {
-    "filters": [
-      {
-        "name": "b36089ef87023fe39172",
-        "field": {
-          "Column": {
-            "Expression": {
-              "SourceRef": {
-                "Entity": "fato_5s_acao"
-              }
-            },
-            "Property": "area_5s"
-          }
-        },
-        "type": "Categorical"
-      },
-      {
-        "name": "7938b82703694eda2281",
-        "field": {
-          "Column": {
-            "Expression": {
-              "SourceRef": {
-                "Entity": "fato_5s_acao"
-              }
-            },
-            "Property": "senso_rotulo"
-          }
-        },
-        "type": "Categorical"
-      },
-      {
-        "name": "26050582537b5f522d33",
-        "field": {
-          "Column": {
-            "Expression": {
-              "SourceRef": {
-                "Entity": "fato_5s_acao"
-              }
-            },
-            "Property": "problema"
-          }
-        },
-        "type": "Categorical"
-      },
-      {
-        "name": "9be86039befcb7750d05",
-        "field": {
-          "Column": {
-            "Expression": {
-              "SourceRef": {
-                "Entity": "fato_5s_acao"
-              }
-            },
-            "Property": "responsavel"
-          }
-        },
-        "type": "Categorical"
-      },
-      {
-        "name": "a68f96f9202f2057318f",
-        "field": {
-          "Column": {
-            "Expression": {
-              "SourceRef": {
-                "Entity": "fato_5s_acao"
-              }
-            },
-            "Property": "prazo"
-          }
-        },
-        "type": "Categorical"
-      },
-      {
-        "name": "a96cf045d227f22ca948",
-        "field": {
-          "Column": {
-            "Expression": {
-              "SourceRef": {
-                "Entity": "fato_5s_acao"
-              }
-            },
-            "Property": "status_rotulo"
-          }
-        },
-        "type": "Categorical"
-      }
-    ]
   }
 }

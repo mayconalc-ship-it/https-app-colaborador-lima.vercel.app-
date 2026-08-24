@@ -102,6 +102,12 @@ const ACAB = {
   corte:      arg('--com-corte'),
   gradiente:  arg('--com-gradiente') || (!SIMPLES && !arg('--sem-gradiente')),
   drill:      arg('--com-drill')     || (!SIMPLES && !arg('--sem-drill')),
+  // Botoes de navegacao da capa (visualLink do tipo PageNavigation).
+  // DERIVADO: o .pbix de referencia nao tem botao de navegacao, entao a
+  // forma veio do schema. Desligado, a capa continua sendo gerada -- so
+  // troca os oito botoes por um indice de texto, que nao clica mas
+  // tambem nao tem como quebrar o relatorio.
+  capa:       arg('--com-capa')      || (!SIMPLES && !arg('--sem-capa')),
 };
 
 // Servidor padrao = Session Pooler, e NAO a Direct Connection.
@@ -207,8 +213,19 @@ function lerMedidas() {
 // visual, mas e sujeira -- e num cartao com sufixo herdado do tema, chega
 // a atrapalhar.
 const MEDIDAS_TEXTO = new Set([
-  'Rota mais crítica',
+  // "Rota mais crítica" saiu em 23/08/2026 -- ver o bloco de cidade em
+  // 07-medidas.dax. O que ficou no lugar dela e o nome de uma cidade.
+  'Cidade mais crítica',
   'Causa raiz mais frequente',
+  // Muda de unidade conforme o valor ("6,4 h" ou "4,0 d"). Format string
+  // nao faz isso, entao a medida devolve texto.
+  'TMR',
+  // O conteudo da celula do calendario de comunicacao: uma linha por
+  // marca do dia, separadas por quebra de linha.
+  'Agenda do dia',
+  'Célula do calendário',
+  // "23/08/2026 12:34" -- ja formatado no Power Query.
+  'Atualizado em',
   // Devolve a data ja formatada em dd/MM/yyyy. Sem entrar aqui, cairia
   // na regra geral e sairia com format string numerico numa data.
   'Último dia contado',
@@ -240,6 +257,10 @@ function colunasDe(tabela) {
 // A expressao M. Import direto da view; a chave composta so e adicionada
 // onde o relacionamento com dim_colaborador precisa dela.
 function expressaoM(tabela) {
+  // Tabela que traz a propria expressao (o carimbo de atualizacao) nao
+  // toca o PostgreSQL. Sem esta saida, o gerador montaria um
+  // PostgreSQL.Database para uma view que nao existe.
+  if (tabela.mExpressao) return tabela.mExpressao;
   const l = [
     'let',
     '    Origem = PostgreSQL.Database(Servidor, Banco),',
@@ -292,6 +313,12 @@ function tmdlTabela(tabela, medidas) {
     out.push(`\t\tdataType: ${c.tipo}`);
     if (ocultas.has(c.nome)) out.push('\t\tisHidden');
     if (c.tipo === 'dateTime') out.push('\t\tformatString: dd/MM/yyyy');
+    // Ordenacao por outra coluna. Rotulo de texto sem isto sai em ordem
+    // ALFABETICA -- "Boa, Ótima, Regular, Ruim" numa escala de nota,
+    // "Quarta, Quinta, Sábado, Segunda" num calendario. O Power BI exige
+    // que o par seja 1:1; modelo.js comenta onde isso limita a escolha.
+    const ordenarPor = (tabela.ordenarPor || {})[c.nome];
+    if (ordenarPor) out.push(`\t\tsortByColumn: ${ordenarPor}`);
     out.push(`\t\tlineageTag: ${guid('c:' + tabela.nome + '.' + c.nome)}`);
     // summarizeBy none em tudo: soma automatica de "nota" ou "posicao" e
     // a origem classica do numero sem sentido no cartao.
@@ -353,12 +380,25 @@ function tmdlMedidasTabela(medidas) {
 
 function relacionamentos() {
   const rels = [];
-  const add = (de, deCol, para, paraCol) => {
-    rels.push({ nome: guid(`r:${de}.${deCol}->${para}.${paraCol}`), de, deCol, para, paraCol });
+  const add = (de, deCol, para, paraCol, ambos) => {
+    rels.push({
+      nome: guid(`r:${de}.${deCol}->${para}.${paraCol}`), de, deCol, para, paraCol, ambos,
+    });
   };
 
   for (const t of tabelas) {
     if (t.nome === 'dim_calendario') continue;
+    // Fato explodido pendurado em outro fato (feedback x ocorrencia,
+    // feedback x cidade). Nos DOIS SENTIDOS: e o que faz clicar numa
+    // ocorrencia ou numa cidade filtrar o resto da pagina.
+    //
+    // Estes NAO ganham as ligacoes de data e revenda -- teriam dois
+    // caminhos ate a mesma dimensao (direto e via fato pai) e o Power BI
+    // desativaria um deles sem avisar. Eles herdam tudo do pai.
+    if (t.paiFato) {
+      add(t.nome, t.paiFato.coluna, t.paiFato.tabela, t.paiFato.coluna, true);
+      continue;
+    }
     if (t.data) add(t.nome, t.data, 'dim_calendario', 'data');
     // dim_colaborador carrega a chave composta por ser o lado UM dela.
     // Sem esta guarda ela se relacionaria consigo mesma.
@@ -374,6 +414,7 @@ function relacionamentos() {
 
   const out = rels.map((r) => [
     `relationship ${r.nome}`,
+    ...(r.ambos ? ['\tcrossFilteringBehavior: bothDirections'] : []),
     `\tfromColumn: ${r.de}.${r.deCol}`,
     `\ttoColumn: ${r.para}.${r.paraCol}`,
     '',
@@ -459,7 +500,10 @@ function gerarModelo(medidas) {
 // ------------------------------------------------------------------
 
 const S = {
-  visual: 'https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.11.0/schema.json',
+  // 2.12.0 e a versao que este Desktop (2.157.879.0, agosto/2026)
+  // escreve quando salva. Descoberto lendo o que ele gravou depois de um
+  // Salvar -- ver o bloco do botao de voltar.
+  visual: 'https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.12.0/schema.json',
   page: 'https://developer.microsoft.com/json-schemas/fabric/item/report/definition/page/2.1.0/schema.json',
   pages: 'https://developer.microsoft.com/json-schemas/fabric/item/report/definition/pagesMetadata/1.1.0/schema.json',
   report: 'https://developer.microsoft.com/json-schemas/fabric/item/report/definition/report/3.3.0/schema.json',
@@ -510,6 +554,30 @@ function partes(ref) {
 
 // Filtro categorico "coluna IN (valores)". Forma extraida do .pbix de
 // referencia -- e a mesma usada pelo painel Filtros do proprio Desktop.
+//
+// TEXTO PRECISA DE ASPAS DENTRO DO LITERAL, e essa linha ja custou uma
+// tela azul do Desktop.
+//
+// A funcao nasceu servindo um filtro de BOOLEANO (parque_confiavel), e
+// para booleano String(v) devolve "true", que e literal valido. No dia
+// em que ela recebeu texto -- os dias da semana, para tirar domingo do
+// grafico do AG --, String(v) devolveu Segunda sem aspas. O
+// desserializador leu isso como IDENTIFICADOR, montou um no de arvore
+// que nao e expressao, e o Desktop estourou ao renderizar:
+//
+//   TypeError: e[i].accept is not a function
+//   em QueryExpressionBuilder.serializeAll / visitIn
+//
+// O relatorio inteiro para de renderizar -- nao so o visual do filtro.
+// A mensagem nao cita coluna, valor nem pagina; o unico fio e "visitIn",
+// que diz que foi um filtro "IN".
+//
+// Mesma regra de txt(): apostrofo interno dobra.
+function literalDeFiltro(v) {
+  if (typeof v === 'string') return `'${v.replace(/'/g, "''")}'`;
+  return String(v);
+}
+
 function filtroCategorico(ref, valores) {
   const { tabela, coluna } = partes(ref);
   return {
@@ -523,7 +591,7 @@ function filtroCategorico(ref, valores) {
         Condition: {
           In: {
             Expressions: [{ Column: { Expression: { SourceRef: { Source: 'f' } }, Property: coluna } }],
-            Values: valores.map((v) => [{ Literal: { Value: String(v) } }]),
+            Values: valores.map((v) => [{ Literal: { Value: literalDeFiltro(v) } }]),
           },
         },
       }],
@@ -620,7 +688,67 @@ function visualJson(v, ordemZ) {
     visual.objects[chave] = [item];
   };
 
+  // GRADE VISIVEL -- as linhas que separam as celulas.
+  //
+  // O tema desliga a grade vertical em tabela e matriz de proposito:
+  // num cruzamento de numeros, linha vertical e ruido, e o alinhamento
+  // das colunas ja separa o suficiente.
+  //
+  // No calendario e o oposto. A grade E o calendario: sem ela a
+  // publicacao do dia 11 e a do dia 12 sao dois blocos de texto
+  // encostados, e nao dois dias. Aqui a linha nao decora, delimita.
+  if (v.grade) {
+    visual.objects = visual.objects || {};
+    visual.objects.grid = [{
+      properties: {
+        gridVertical: lit('true'),
+        gridVerticalColor: { solid: { color: lit("'#CBD5E1'") } },
+        gridVerticalWeight: lit('1D'),
+        gridHorizontal: lit('true'),
+        gridHorizontalColor: { solid: { color: lit("'#CBD5E1'") } },
+        gridHorizontalWeight: lit('1D'),
+        outlineColor: { solid: { color: lit("'#94A3B8'") } },
+        outlineWeight: lit('1D'),
+        rowPadding: lit('6D'),
+      },
+    }];
+  }
+
+  // TOTAIS FORA DA MATRIZ.
+  //
+  // Uma matriz nasce com linha e coluna de total. Num cruzamento comum
+  // isso e util; num CALENDARIO e absurdo -- a ultima coluna passa a
+  // somar os numeros dos dias da semana e devolve "112" ao lado de
+  // sabado. Era metade do que fazia o "mes em grade" parecer errado.
+  if (v.semTotais) {
+    visual.objects = visual.objects || {};
+    visual.objects.subTotals = [{
+      properties: { rowSubtotals: lit('false'), columnSubtotals: lit('false') },
+    }];
+  }
+
   if (v.t === 'cardVisual') {
+    // FONTE DO NUMERO PROPORCIONAL A LARGURA DO CARTAO.
+    //
+    // O tema pede 30pt para o valor do cartao, que e o tamanho certo
+    // para "68" ou "91,2%". Para TEXTO nao e: "Jaborandi" a 30pt passa
+    // de 240 px e sai cortado -- o cartao mostrava "Jaborand". E pior
+    // que numero errado, porque nome truncado parece nome.
+    //
+    // Quem decide e o proprio conteudo: os cartoes de medida de texto
+    // (MEDIDAS_TEXTO) recebem corpo menor, e os numericos ficam como
+    // estao. Ver como fonteCartao e atribuido em gerarRelatorio.
+    //
+    // Dois nomes de objeto, de proposito. O cartao antigo (card) chama
+    // isso de "labels" e o novo (cardVisual) de "value"; nao ha aqui um
+    // .pbix de referencia com cardVisual para dizer qual vale nesta
+    // versao. Nome de objeto desconhecido e ignorado em silencio -- foi
+    // o que aconteceu com "text" no botao da capa --, entao mandar os
+    // dois custa nada e garante que um pegue.
+    if (v.fonteCartao) {
+      fmt('value', { fontSize: lit(`${v.fonteCartao}D`) }, { id: 'default' });
+      fmt('labels', { fontSize: lit(`${v.fonteCartao}D`) });
+    }
     // Barra de destaque no lugar da borda: a borda desenha uma caixa
     // fechada em volta de cada numero e a faixa de KPI vira uma grade.
     // A barra marca o cartao sem cerca-lo.
@@ -688,15 +816,51 @@ function visualJson(v, ordemZ) {
     visual.syncGroup = { groupName: v.grupoSincronia, fieldChanges: true, filterChanges: true };
   }
 
-  visual.visualContainerObjects = {
+  // semTitulo OMITE a chave "title", em vez de escreve-la com show
+  // false. Parece a mesma coisa e nao e: o botao do Desktop nao tem
+  // essa chave, e a copia literal do botao existe justamente para nao
+  // ter nada que o original nao tenha.
+  visual.visualContainerObjects = v.semTitulo ? {} : {
     title: [{ properties: v.titulo
-      ? { show: lit('true'), text: txt(v.titulo), fontSize: lit('11D') }
+      ? {
+        show: lit('true'),
+        text: txt(v.titulo),
+        fontSize: lit('11D'),
+        // tituloEstilo sobrescreve o padrao. Existe por causa do botao
+        // de voltar: nele o titulo NAO e legenda de visual, e o rotulo
+        // do proprio botao, e precisa vir centralizado.
+        ...(v.tituloEstilo || {}),
+      }
       : { show: lit('false') } }],
   };
   if (v.t === 'cardVisual') {
     // A terceira borda: a do container do visual, que existe
     // independente das do cartao.
     visual.visualContainerObjects.border = [{ properties: { show: lit('false') } }];
+  }
+
+  // A BORDA DO TITULO DA PAGINA.
+  //
+  // tema-powerbi.json liga border em "*" -- todo visual ganha um
+  // retangulo cinza de raio 8. Isso e o certo para grafico e tabela, e
+  // errado para as duas pecas do cabecalho: a faixa azul aparecia com um
+  // fio cinza contornando a largura inteira da tela, e a caixa de texto
+  // do titulo com uma segunda moldura por dentro dela. Duas bordas em
+  // volta de uma palavra, num cabecalho que deveria ser uma superficie
+  // continua.
+  //
+  // Vale para toda forma e caixa de texto, e nao so para o cabecalho: a
+  // nota de rodape de cada pagina tinha o mesmo contorno.
+  //
+  // actionButton NAO entra nesta regra, e a exclusao e deliberada: o
+  // botao que o Desktop grava nao traz border, background nem dropShadow
+  // -- e quando um botao meu com esses tres nao navegava, cada
+  // propriedade a mais que o original nao tem era suspeita. A borda do
+  // tema num botao branco de 116 px e discreta e nao atrapalha.
+  if (['shape', 'textbox'].includes(v.t)) {
+    visual.visualContainerObjects.border = [{ properties: { show: lit('false') } }];
+    visual.visualContainerObjects.background = [{ properties: { show: lit('false') } }];
+    visual.visualContainerObjects.dropShadow = [{ properties: { show: lit('false') } }];
   }
 
   // Caixa de texto do Power BI nasce com fundo BRANCO opaco. Para um
@@ -708,12 +872,51 @@ function visualJson(v, ordemZ) {
     visual.visualContainerObjects.background = [{ properties: { show: lit('false') } }];
   }
 
+  // O COMENTARIO DO VISUAL -- o "i" ao lado do titulo.
+  //
+  // Indicador que precisa de explicacao e indicador que vai ser lido
+  // errado. "Cidade mais critica" nao e a que tem mais reclamacao, e
+  // "cliques no aviso (piso)" nao e visualizacao -- as duas coisas ja
+  // foram perguntadas, e a resposta morava numa nota de rodape em 8pt
+  // que ninguem le, ou no chat, que nao acompanha o arquivo.
+  //
+  // O icone fica ao lado do titulo e abre o texto ao passar o mouse. E
+  // o unico lugar onde a explicacao viaja junto com o numero: quem
+  // receber o .pbix por e-mail daqui a seis meses tem a definicao a um
+  // hover de distancia.
+  if (v.dica) {
+    visual.visualContainerObjects.visualHeaderTooltip = [{
+      properties: { type: lit("'Text'"), text: txt(v.dica) },
+    }];
+  }
+
+  // A acao do botao -- em visualContainerObjects, ao lado do titulo e da
+  // dica. Forma copiada do que o Desktop grava; ver o bloco de
+  // botaoVoltar.
+  //
+  // "Back" nao leva navigationSection: o destino e o historico, e nao
+  // uma pagina escrita no arquivo.
+  if (v.voltar && ACAB.capa) {
+    visual.visualContainerObjects.visualLink = [{
+      properties: { show: lit('true'), type: lit("'Back'") },
+    }];
+  } else if (v.navegarPara && ACAB.capa) {
+    visual.visualContainerObjects.visualLink = [{
+      properties: {
+        show: lit('true'),
+        type: lit("'PageNavigation'"),
+        navigationSection: lit(`'${v.navegarPara}'`),
+      },
+    }];
+  }
+
   // Cabecalho do visual explicito. E ele que traz os icones de foco,
   // tela cheia e "mais opcoes" no modo de leitura -- sem eles ninguem
   // consegue ampliar um grafico apertado nem exportar os dados, e o
   // relatorio vira somente-olhar. Formas e caixas de texto ficam de
-  // fora: cabecalho em cima de uma faixa decorativa e ruido.
-  if (!['shape', 'textbox'].includes(v.t)) {
+  // fora: cabecalho em cima de uma faixa decorativa e ruido. Botao da
+  // capa tambem -- "exportar dados" em cima de um link nao faz sentido.
+  if (!['shape', 'textbox', 'actionButton'].includes(v.t)) {
     visual.visualContainerObjects.visualHeader = [{ properties: { show: lit('true') } }];
   }
   visual.drillFilterOtherVisuals = true;
@@ -727,11 +930,35 @@ function visualJson(v, ordemZ) {
     visual,
   };
 
+  // howCreated -- a ultima diferenca entre o botao que o Desktop grava e
+  // o que eu gravava.
+  //
+  // Esta na RAIZ do arquivo, fora de "visual", e por isso passou
+  // despercebida na primeira leitura: eu comparei o miolo e nao o
+  // envelope. E o campo que diz como o visual nasceu, e a aposta e que
+  // seja ele que faz o Power BI tratar o objeto como botao interativo
+  // em vez de desenho -- explicaria um visualLink perfeitamente formado
+  // que nao dispara.
+  //
+  // Se o botao continuar inerte com isto, nao ha mais nenhuma diferenca
+  // para o original: o proximo passo deixa de ser palpite e passa a ser
+  // trocar de mecanismo (pageNavigator no cabecalho de cada pagina).
+  if (v.t === 'actionButton') saida.howCreated = 'InsertVisualButton';
+
   // Corte minimo de amostra (acabamento 3).
   if (v.corteMinimo && ACAB.corte) {
     saida.filterConfig = {
       filters: [filtroContagemMinima(v.corteMinimo.campo, v.corteMinimo.minimo)],
     };
+  }
+
+  // Filtro categorico no proprio visual. Mesma forma verificada do
+  // filtro de pagina -- e a que o painel Filtros do Desktop gera.
+  if (v.filtroVisual) {
+    saida.filterConfig = saida.filterConfig || { filters: [] };
+    saida.filterConfig.filters.push(
+      filtroCategorico(v.filtroVisual.campo, v.filtroVisual.valores),
+    );
   }
 
   return saida;
@@ -789,6 +1016,112 @@ function cabecalho(pagina) {
   ];
 }
 
+// ------------------------------------------------------------------
+// O BOTAO DE VOLTAR PARA A CAPA
+// ------------------------------------------------------------------
+//
+// visualLink vai em visualContainerObjects. Nao em /visual, nao em
+// objects.
+//
+// Isso nao foi deduzido: foi LIDO. Depois de tres tentativas falharem,
+// o caminho foi pedir ao usuario que inserisse um botao a mao no
+// Desktop (Inserir > Botoes > Em branco, Acao > Navegacao de pagina) e
+// salvasse -- e entao ler o visual.json que o proprio Desktop escreveu.
+// O historico, porque ele explica o custo de adivinhar:
+//
+//   1. visualLink em /visual        -> Desktop RECUSOU o arquivo
+//   2. visualLink em objects        -> arquivo aceito, clique morto
+//   3. idem, com fill opaco         -> clique morto (derrubou a
+//                                      hipotese de "superficie
+//                                      invisivel nao clica")
+//   4. visualContainerObjects       -> e este, escrito pelo Desktop
+//
+// A forma das propriedades (show/type/navigationSection em expr/
+// Literal) estava certa desde a 2a tentativa. Era so o container.
+//
+// icon.shapeType = 'blank' e o que o Desktop grava para o "botao em
+// branco". Vai junto por fidelidade ao original.
+//
+// fill e outline sao seguros: na 1a tentativa os nove cartoes
+// apareceram como retangulos brancos com borda, ou seja, os dois
+// objetos pegam em actionButton. O que nao pega e "text" -- por isso o
+// rotulo vai no titulo do container, como em todos os outros visuais.
+//
+// LICAO, para a proxima propriedade desconhecida: um Salvar do Desktop
+// custa um minuto e responde o que quatro palpites nao responderam.
+// O BOTAO DE VOLTAR PARA A CAPA.
+//
+// Icone de seta (shapeType 'back') com acao de NAVEGACAO DE PAGINA
+// apontando para a capa -- e nao a acao "Back".
+//
+// A historia importa porque explica a escolha:
+//
+//   Tentativas 1 a 5 usaram PageNavigation e nao dispararam. Todas
+//   levavam junto fill, outline e title -- propriedades legais no
+//   painel de formatacao, que eu supunha inofensivas.
+//
+//   A 6a trocou para a acao "Back" E, ao mesmo tempo, virou copia
+//   literal do que o Desktop grava: so icon, visualLink e howCreated.
+//   Funcionou.
+//
+//   A 7a voltou para PageNavigation MANTENDO a copia literal.
+//   Funcionou. Isso fecha a duvida: o tipo da acao nunca foi o
+//   problema. PageNavigation esteve certo desde a 2a tentativa, e o
+//   que impedia o botao de disparar era fill, outline e title -- tres
+//   propriedades legais no painel de formatacao, que o Desktop nao
+//   grava neste visual.
+//
+// CONCLUSAO, valida para qualquer visual do PBIR: comece pela copia
+// literal do que o Desktop grava e so depois acrescente estilo, um
+// item por vez. Propriedade que o arquivo de referencia nao tem e
+// suspeita, por mais razoavel que pareca.
+//
+// PageNavigation e nao 'Back' tambem por um motivo de uso: 'Back'
+// depende de HISTORICO. Quem abre o relatorio e cai direto numa pagina
+// pela aba do rodape nunca passou pela capa, nao tem para onde voltar,
+// e o botao nao faz nada -- apareceu no uso, em 23/08/2026.
+// PageNavigation vai para a capa sempre, venha de onde vier.
+//
+// A tentativa anterior tinha a mesma estrutura MAIS fill, outline e
+// title -- todos legais no painel de formatacao, todos inofensivos em
+// teoria. Nao navegou. Quando o original funciona e a copia nao, o que
+// sobra e o que a copia tem de diferente, por mais razoavel que pareca.
+//
+// Entao aqui vai so o que o arquivo de referencia tem: icon.shapeType
+// 'blank', o visualLink em visualContainerObjects e o howCreated na
+// raiz. Sem preenchimento, sem contorno, sem titulo.
+//
+// O ROTULO vem de uma caixa de texto SEPARADA, embaixo (ver
+// rotuloVoltar). Se o botao em branco nascer transparente, o "⌂ Capa"
+// branco aparece sobre o azul da faixa; se nascer com o cinza padrao do
+// Power BI, o rotulo fica escondido e o que se ve e um botao cinza --
+// feio, mas clicavel, e ai o problema vira estilo em vez de navegacao.
+function botaoVoltar(idCapa) {
+  return {
+    chave: 'voltar',
+    t: 'actionButton',
+    // Quadrado no canto, 44 x 36, a 16 px da borda direita. Cabe na
+    // faixa de 68 px com folga em cima e embaixo, e nao chega perto do
+    // titulo da pagina, que termina em 1028.
+    x: 1220, y: 16, w: 44, h: 36,
+    titulo: null,
+    semTitulo: true,
+    // O icone continua sendo a seta -- e o desenho que ficou bom e o que
+    // o usuario reconhece como "voltar". So a ACAO mudou.
+    navegarPara: idCapa,
+    objects: {
+      icon: [{
+        properties: { shapeType: lit("'back'") },
+        selector: { id: 'default' },
+      }],
+    },
+  };
+}
+
+// A palavra "Voltar" ao lado do botao saiu em 23/08/2026: a seta do
+// shapeType 'back' ja diz o que o botao faz, e a palavra so ocupava
+// canto de cabecalho.
+
 // 13,5 px por caractere e nao 11,5: a media anterior era do glifo, nao do
 // avanco real com espacamento, e o titulo encostava na borda direita da
 // pastilha. Sobrar 20 px numa pastilha nao incomoda ninguem; faltar 5
@@ -818,8 +1151,178 @@ function visuaisFiltro(pagina) {
     objects: {
       data: [{ properties: { mode: lit(`'${f.modo || 'Dropdown'}'`) } }],
       header: [{ properties: { show: lit('true'), text: txt(f.titulo), textSize: lit('10D') } }],
+      // Caixa de busca dentro da segmentacao (selfFilterEnabled).
+      //
+      // Com ~160 colaboradores, rolar a lista suspensa ate achar um nome
+      // e o passo mais lento de qualquer analise no relatorio -- e piora
+      // a cada contratacao. Digitar tres letras resolve.
+      //
+      // So onde faz sentido: Revenda tem meia duzia de itens e Area tem
+      // duas, e uma caixa de busca ali gasta altura sem economizar
+      // nenhum clique. Ver o campo "busca" na lista de filtros.
+      ...(f.busca ? { general: [{ properties: { selfFilterEnabled: lit('true') } }] } : {}),
     },
   }));
+}
+
+// ------------------------------------------------------------------
+// A CAPA
+// ------------------------------------------------------------------
+//
+// Existe porque a lista de abas do Power BI e uma tira de texto no
+// rodape que cabe umas quatro paginas antes de comecar a rolar: quem
+// abre o relatorio pela primeira vez nao ve que existem nove.
+//
+// Um cartao por pagina visivel, em grade de tres colunas. Com ACAB.capa
+// ligado cada cartao e um actionButton que navega; desligado, vira um
+// indice de texto -- a capa continua orientando, so deixa de clicar.
+function visuaisCapa(pagina, destinos) {
+  const COLS = 3;
+  const LARG = 380;
+  const ALT = 64;
+  const VAO_X = 24;
+  const VAO_Y = 14;
+  const X0 = Math.round((1280 - (COLS * LARG + (COLS - 1) * VAO_X)) / 2);
+  const Y0 = 262;
+
+  const lista = [
+    {
+      chave: pagina.nome + ':subtitulo',
+      t: 'textbox', x: 28, y: 132, w: 1224, h: 44, titulo: null,
+      objects: {
+        general: [{ properties: { paragraphs: [{ textRuns: [{
+          value: pagina.subtitulo || '',
+          textStyle: { fontSize: '14pt', color: '#334155' },
+        }] }] } }],
+      },
+      fundoTransparente: true,
+    },
+  ];
+
+  // O CARIMBO DE ATUALIZACAO, abaixo dos cartoes.
+  //
+  // Fica na capa e nao no rodape de cada pagina porque a pergunta que
+  // ele responde -- "este arquivo esta velho?" -- se faz UMA vez, ao
+  // abrir, e nao a cada troca de aba. Repetido em nove paginas viraria
+  // parte da moldura e ninguem mais leria.
+  //
+  // Cartao, e nao caixa de texto: caixa de texto so mostra texto fixo, e
+  // o carimbo vem do modelo. Centralizado sob a grade de tres colunas.
+  lista.push({
+    chave: pagina.nome + ':atualizacao',
+    t: 'cardVisual',
+    // 492: logo abaixo do navegador, que termina em 476.
+    x: Math.round((1280 - 380) / 2), y: 492, w: 380, h: 76,
+    titulo: '🕒 Dados atualizados em',
+    fonteCartao: 18,
+    dica:
+      'O instante em que o modelo foi atualizado pela última vez, no horário de Brasília — '
+      + 'não a hora em que você abriu o arquivo. É o que diz se o número da tela ainda vale: '
+      + 'um .pbix aberto na segunda pode estar com dado de sexta. A atualização é agendada '
+      + 'pelo gateway do escritório (ver 04-gateway-e-atualizacao.md); para forçar fora do '
+      + 'horário, use 05-atualizar-agora.ps1.',
+    roles: { Data: ['@Atualizado em'] },
+  });
+
+  if (!ACAB.capa) {
+    // Plano B: um bloco de texto com a lista das paginas. Sem
+    // navigationSection, sem risco -- e sem clique.
+    lista.push({
+      chave: pagina.nome + ':indice',
+      // Para em 492: abaixo dele fica o cartao de atualizacao, a partir
+      // de 508.
+      t: 'textbox', x: X0, y: Y0, w: COLS * LARG + (COLS - 1) * VAO_X, h: 230, titulo: null,
+      objects: {
+        general: [{ properties: { paragraphs: destinos.map((d) => ({
+          textRuns: [{ value: d.nome, textStyle: { fontSize: '13pt', color: '#0F172A' } }],
+        })) } }],
+      },
+      fundoTransparente: true,
+    });
+    return lista;
+  }
+
+  // A NAVEGACAO: o Navegador de Paginas nativo.
+  //
+  // Terceira tentativa, e a primeira que nao depende de eu adivinhar a
+  // forma de um JSON. As duas anteriores foram por actionButton:
+  //
+  //   1. visualLink como propriedade de /visual -> o Desktop recusou o
+  //      arquivo, uma mensagem por botao.
+  //   2. visualLink dentro de objects, com fill transparente por cima do
+  //      rotulo -> o arquivo abriu, o cartao ficou bonito e o clique
+  //      simplesmente nao navegava.
+  //
+  // Nao ha .pbix de referencia com botao de navegacao para conferir a
+  // forma certa, e cada tentativa custa fechar o Desktop, regerar e
+  // reabrir. O Navegador de Paginas resolve por outro caminho: e um
+  // visual que o proprio Power BI monta, lista as paginas visiveis
+  // sozinho e faz a navegacao internamente -- nao ha link para
+  // configurar, entao nao ha link para escrever errado. Ele tambem
+  // acompanha pagina nova sem ninguem mexer aqui.
+  //
+  // Os cartoes abaixo continuam, sem clique: eles sao o indice com
+  // emoji e nome, e sao formas que este projeto ja provou (shape e
+  // textbox). Se o navegador nao renderizar nesta versao do Desktop, a
+  // capa continua orientando -- e a perda e o atalho, nao a pagina.
+  if (ACAB.capa) {
+    lista.push({
+      chave: pagina.nome + ':navegador',
+      t: 'pageNavigator',
+      // Ocupa a area que era dos cartoes. Em barra unica de 66 px os dez
+      // botoes ficavam espremidos numa tira no alto da pagina, com o
+      // resto da capa vazio -- e "Cronograma da Comunicacao" saia em
+      // tres linhas dentro de um retangulo de 100 px.
+      x: 46, y: 186, w: 1188, h: 290,
+      titulo: null,
+      objects: {
+        // A GRADE VEM DO TAMANHO, e nao de propriedade nenhuma.
+        //
+        // Aqui estiveram gridLayout/rows/padding, inventados por mim. O
+        // Desktop APAGOU as tres ao salvar -- o arquivo que ele
+        // reescreveu traz "layout": [{ "properties": {} }], um objeto
+        // vazio. Ou seja: nao eram os nomes certos, e a grade que
+        // apareceu na tela veio de outra coisa -- o navegador quebra os
+        // botoes em linhas sozinho quando a area e alta o bastante.
+        //
+        // A licao vale alem daqui: propriedade que o Desktop descarta ao
+        // salvar nunca existiu, e o unico jeito de saber e salvar e ler.
+        // O que sustenta a grade e a ALTURA de 290 px logo acima. Reduzir
+        // esta area volta a espremer os botoes numa fileira.
+        // Mapa do App e Detalhe sao ocultas de proposito -- ferramenta
+        // de quem administra e destino de drill-through. Elas apareciam
+        // na barra junto com as de gestao.
+        pages: [{ properties: { showHiddenPages: lit('false') } }],
+        // O TAMANHO DA LETRA.
+        //
+        // O navegador nasce com corpo pequeno, dimensionado para a
+        // barra estreita que ele e por padrao. Numa grade de botoes de
+        // 380 x 85, o mesmo corpo vira uma legenda perdida no meio do
+        // retangulo -- e o emoji, que acompanha a fonte, encolhe junto.
+        //
+        // Este par SOBREVIVEU ao Salvar do Desktop -- diferente das
+        // propriedades de layout, que ele apagou. Sobreviver e a prova
+        // de que o nome esta certo: o Desktop reescreve o arquivo com o
+        // que entendeu e descarta o resto.
+        text: [{
+          properties: { fontSize: lit('14D'), bold: lit('true') },
+          selector: { id: 'default' },
+        }],
+      },
+    });
+  }
+
+  // CADA CARTAO SAO DOIS VISUAIS EMPILHADOS -- a superficie e o rotulo.
+  // OS NOVE CARTOES SAIRAM em 23/08/2026.
+  //
+  // Eles eram shape + textbox, desenhados quando a navegacao ainda ia
+  // por actionButton. O botao nunca navegou; os cartoes ficaram, bonitos
+  // e inertes. Cartao com aparencia de link que nao abre nada e pior que
+  // ausencia de cartao -- quem clica duas vezes e nao acontece nada
+  // conclui que o relatorio esta quebrado, e nao que aquilo nunca foi um
+  // link. O indice agora e o proprio navegador, que clica.
+
+  return lista;
 }
 
 function gerarRelatorio() {
@@ -942,21 +1445,46 @@ function gerarRelatorio() {
 
     escrever(path.join(dir, 'page.json'), json(pg));
 
+    // Os destinos da capa: as paginas de gestao, na ordem em que
+    // aparecem aqui. Mapa do App e Detalhe ficam de fora por serem
+    // ocultas -- ferramenta de quem administra e destino de
+    // drill-through nao sao item de indice.
+    const destinos = paginas
+      .filter((p) => !p.oculta && !p.capa)
+      .map((p) => ({ nome: p.nome, id: id20('p:' + p.nome) }));
+
+    const capa = paginas.find((p) => p.capa);
+
     const lista = [
       ...cabecalho(pagina),
-      ...(pagina.oculta ? [] : visuaisFiltro(pagina)),
+      // Em toda pagina menos na propria capa. E so com a navegacao
+      // ligada: botao que nao navega e pior que botao nenhum.
+      ...(capa && !pagina.capa && ACAB.capa
+        ? [botaoVoltar(id20('p:' + capa.nome))]
+        : []),
+      ...(pagina.capa ? visuaisCapa(pagina, destinos) : []),
+      ...(pagina.oculta || pagina.capa ? [] : visuaisFiltro(pagina)),
       ...(pagina.kpis || []).map((k, i, todos) => {
         // Mesma conta dos filtros, pelo mesmo motivo: com 5 cartoes da os
         // 240 de sempre; com 6 da 198, e a pagina dos 5 Porques cabe o
         // aceite do motorista sem empurrar nada para fora do canvas.
         const vao = 12;
         const largura = Math.floor((1280 - 32 - vao * (todos.length - 1)) / todos.length);
+        // Cartao de TEXTO ganha corpo menor -- e ele encolhe junto com a
+        // largura disponivel. "Jaborandi" e "23/08/2026" a 30pt nao
+        // cabem em 240 px, e menos ainda em 168, que e o que sobra numa
+        // faixa de sete cartoes. Numero continua a 30pt do tema.
+        const ehTexto = k[1].startsWith('@') && MEDIDAS_TEXTO.has(k[1].slice(1));
+        const fonteCartao = ehTexto ? (largura >= 220 ? 18 : 15) : null;
         return {
           chave: `${pagina.nome}:kpi:${k[0]}`,
           t: 'cardVisual',
           // y acompanha os filtros, que ficaram mais altos.
           x: 16 + i * (largura + vao), y: 152, w: largura, h: 96,
           titulo: k[0],
+          fonteCartao,
+          // Terceiro elemento opcional do KPI: o texto do "i".
+          dica: k[2],
           roles: { Data: [k[1]] },
         };
       }),

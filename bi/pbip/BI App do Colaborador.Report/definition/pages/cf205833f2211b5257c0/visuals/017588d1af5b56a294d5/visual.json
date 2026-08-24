@@ -1,13 +1,13 @@
 {
-  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.11.0/schema.json",
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.12.0/schema.json",
   "name": "017588d1af5b56a294d5",
   "position": {
     "x": 474,
     "y": 460,
-    "z": 16000,
+    "z": 20000,
     "height": 206,
     "width": 320,
-    "tabOrder": 16000
+    "tabOrder": 20000
   },
   "visual": {
     "visualType": "tableEx",
@@ -100,6 +100,26 @@
               "expr": {
                 "Literal": {
                   "Value": "11D"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "visualHeaderTooltip": [
+        {
+          "properties": {
+            "type": {
+              "expr": {
+                "Literal": {
+                  "Value": "'Text'"
+                }
+              }
+            },
+            "text": {
+              "expr": {
+                "Literal": {
+                  "Value": "'Mesma regra do visual ao lado: só quem contou NO ÚLTIMO DIA CONTADO do período. Quem contou em outro dia não aparece — não é falta de dado. Paletes e caixas como foram DIGITADOS, sem conversão: a pergunta do painel de garrafeira é quantos paletes de GFE sem garrafa estão no pátio, e converter para caixas responde outra coisa (essa está no visual ao lado).'"
                 }
               }
             }

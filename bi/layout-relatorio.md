@@ -1,5 +1,16 @@
 # Formatação do BI — App do Colaborador
 
+> **Desatualizado desde 23/08/2026 nas páginas descritas abaixo.** A fonte da
+> verdade do layout é `pbip/paginas.js` — este documento explica as escolhas,
+> mas o que o gerador produz é o que está lá. Mudou naquela data: entraram as
+> páginas **🧭 Capa** (cartões-link para as demais) e **📅 Cronograma da
+> Comunicação** (calendário semana × dia da semana); o Ativo de Giro ganhou o
+> gráfico semanal contra a **meta de 3 contagens/semana** e a faixa do meio foi
+> refeita em três colunas; o Feedback da Rota ganhou o gráfico de **cidade** e
+> o eixo de evolução passou a ser o **dia do mês**; a borda que o tema desenhava
+> em volta do **título da página** e das notas de rodapé foi desligada
+> (`shape`, `textbox` e `actionButton` no gerador).
+
 Especificação visual do relatório. Canvas **1280 × 720** (16:9, Exibir >
 Tamanho da página > Personalizado), grade de 8 px, margem externa 16 px,
 espaço entre cartões 12 px.

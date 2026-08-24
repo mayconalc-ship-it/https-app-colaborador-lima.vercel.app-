@@ -1,13 +1,13 @@
 {
-  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.11.0/schema.json",
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.12.0/schema.json",
   "name": "3d264d9044a58db0c81a",
   "position": {
     "x": 16,
     "y": 672,
-    "z": 16000,
+    "z": 19000,
     "height": 30,
     "width": 1248,
-    "tabOrder": 16000
+    "tabOrder": 19000
   },
   "visual": {
     "visualType": "textbox",
@@ -19,7 +19,7 @@
               {
                 "textRuns": [
                   {
-                    "value": "Ordene a distribuição pelo VALOR da nota, não pela contagem — escala ordinal reordenada por frequência deixa de ser legível como escala. \"Rota mais crítica\" já exige ≥ 3 feedbacks: sem esse corte, uma rota com um único feedback ruim vira \"a pior da revenda\" na primeira reunião.",
+                    "value": "A CIDADE vem do cruzamento do nº do mapa que o motorista digitou com o relatório de rotas importado em /admin/rotas — um mapa que passa por três cidades entra nas três. \"Cidade mais crítica\" exige ≥ 3 feedbacks e ignora o que não casou com nenhum mapa: sem esse corte, uma cidade com um único feedback ruim vira \"a pior da revenda\" na primeira reunião. O cartão ordena pela nota AJUSTADA por volume, não pela média simples do gráfico: média de 3 feedbacks e de 6 não têm o mesmo peso, e sem o ajuste um empate de médias era desempatado por ordem alfabética. Passe o mouse na barra para ver as duas e o volume. Se o gráfico de cidades vier magro, é a roteirização que não foi importada, não a operação que melhorou — confira \"% Rotas localizadas\". Só aparecem as cidades das revendas que já usam o app: Barreiras ainda não aderiu, então a ausência dela aqui é esperada e não é falha de cruzamento. O eixo do gráfico de evolução é o DIA DO MÊS: escolha um mês no filtro, senão o dia 01 de dois meses diferentes vira o mesmo ponto.",
                     "textStyle": {
                       "fontSize": "8pt",
                       "color": "#64748B"
@@ -34,6 +34,45 @@
     },
     "visualContainerObjects": {
       "title": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "false"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "border": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "false"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "background": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "false"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "dropShadow": [
         {
           "properties": {
             "show": {

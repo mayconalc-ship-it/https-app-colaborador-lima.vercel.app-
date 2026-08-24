@@ -1,0 +1,118 @@
+/// Publicacoes e lembretes por dia. Base do calendario do plano de comunicacao.
+table fato_comunicado_agenda
+	lineageTag: 6d47998d-14a1-4ce2-b9f7-c2aa9f85b2c7
+
+	column comunicado_id
+		dataType: int64
+		isHidden
+		formatString: 0
+		lineageTag: a0fa6f22-0462-4106-81bc-3a3da13d3ab1
+		summarizeBy: sum
+		sourceColumn: comunicado_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column revenda_id
+		dataType: string
+		isHidden
+		lineageTag: 4e843b67-0330-4bc7-acb1-2b4a9fc455ed
+		summarizeBy: none
+		sourceColumn: revenda_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column titulo
+		dataType: string
+		lineageTag: 5bb83991-af84-47cb-b3b0-6ade73ae2f4c
+		summarizeBy: none
+		sourceColumn: titulo
+
+		annotation SummarizationSetBy = Automatic
+
+	column categoria_id
+		dataType: string
+		isHidden
+		lineageTag: 6494c6c0-b9a5-4c08-9c4b-f5087f7b5b82
+		summarizeBy: none
+		sourceColumn: categoria_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column categoria
+		dataType: string
+		lineageTag: 54eed940-cc0f-408a-a2ef-2bd02b377b6e
+		summarizeBy: none
+		sourceColumn: categoria
+
+		annotation SummarizationSetBy = Automatic
+
+	column tipo
+		dataType: string
+		lineageTag: 14b5bf3a-b204-401e-af4d-941d60bbc98a
+		summarizeBy: none
+		sourceColumn: tipo
+
+		annotation SummarizationSetBy = Automatic
+
+	column marca
+		dataType: string
+		lineageTag: d76828e6-f3ce-4e25-a2fb-1fd14051b377
+		summarizeBy: none
+		sourceColumn: marca
+
+		annotation SummarizationSetBy = Automatic
+
+	column data
+		dataType: dateTime
+		formatString: dd/MM/yyyy
+		lineageTag: 02128295-f56f-4f36-9b06-76f8ff507cef
+		summarizeBy: none
+		sourceColumn: data
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation UnderlyingDateTimeDataType = Date
+
+	column situacao
+		dataType: string
+		lineageTag: 38726732-665f-4960-9212-47b663706afb
+		summarizeBy: none
+		sourceColumn: situacao
+
+		annotation SummarizationSetBy = Automatic
+
+	column na_fila
+		dataType: boolean
+		lineageTag: b773e788-7209-4601-98bb-e54f823b323b
+		summarizeBy: none
+		sourceColumn: na_fila
+
+		annotation SummarizationSetBy = Automatic
+
+	column hora
+		dataType: string
+		lineageTag: 8c452a62-0f42-453d-b690-ecdbe2518e1a
+		summarizeBy: none
+		sourceColumn: hora
+
+		annotation SummarizationSetBy = Automatic
+
+	column rotulo
+		dataType: string
+		lineageTag: 7eb03cf2-22cb-4d1f-af1b-93e12bee861c
+		summarizeBy: none
+		sourceColumn: rotulo
+
+		annotation SummarizationSetBy = Automatic
+
+	partition fato_comunicado_agenda = m
+		mode: import
+		source =
+				let
+				    Origem = PostgreSQL.Database(Servidor, Banco),
+				    Dados = Origem{[Schema="bi",Item="fato_comunicado_agenda"]}[Data]
+				in
+				    Dados
+
+	annotation PBI_ResultType = Table
+

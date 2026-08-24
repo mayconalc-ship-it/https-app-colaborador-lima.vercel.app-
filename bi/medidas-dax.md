@@ -1,5 +1,16 @@
 # Medidas DAX — BI do App do Colaborador
 
+> **Sete medidas de 23/08/2026 ainda não estão explicadas aqui.** A fonte da
+> verdade continua sendo `07-medidas.dax`, que o gerador lê — este documento é
+> a explicação de cada corte, e ficou para trás nestas: `Meta semanal de
+> contagens`, `Semanas no período`, `Meta de contagens`, `% da meta de
+> contagens`, `Semanas na meta` e `% Semanas na meta` (a meta da cia de 3
+> contagens por semana); `Feedbacks por cidade`, `Nota média por cidade`,
+> `Cidade mais crítica` e `% Rotas localizadas` (que substituíram `Rota mais
+> crítica`, removida); `TMR` (horas até 24 h, dias acima); e `Itens do
+> cronograma`, `Marcas na fila` e `Agenda do dia` (o calendário de comunicação).
+> Os comentários de cada uma, com o porquê, estão no `.dax`.
+
 Cole cada bloco em **Modelagem > Nova medida**. Antes disso, monte o modelo
 como descrito abaixo — quase todo erro de DAX em relatório novo é, na
 verdade, relacionamento faltando.

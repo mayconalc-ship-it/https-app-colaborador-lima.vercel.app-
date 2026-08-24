@@ -1,0 +1,91 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.12.0/schema.json",
+  "name": "0a3615cf800706ad4c2a",
+  "position": {
+    "x": 16,
+    "y": 672,
+    "z": 18000,
+    "height": 30,
+    "width": 1248,
+    "tabOrder": 18000
+  },
+  "visual": {
+    "visualType": "textbox",
+    "objects": {
+      "general": [
+        {
+          "properties": {
+            "paragraphs": [
+              {
+                "textRuns": [
+                  {
+                    "value": "Conformidade = itens conformes ÷ (conformes + não conformes); \"não se aplica\" fica fora da conta. \"% Aderência ao plano\" = auditorias REALIZADAS ÷ auditorias PLANEJADAS no período — mede se o calendário do 5S está sendo cumprido, e não a nota delas: 95% de conformidade em 3 áreas de 19 planejadas não diz nada sobre a revenda. \"NC em aberto\" = não conformidades (itens do plano de ação abertos numa auditoria) que ainda não foram concluídas nem validadas — é a fila de trabalho do 5S, e \"Ações atrasadas\" é o pedaço dela que já passou do prazo. Alguns meses de 2026 entraram por estimativa (campo \"origem\") porque o registro original se perdeu.",
+                    "textStyle": {
+                      "fontSize": "8pt",
+                      "color": "#64748B"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "visualContainerObjects": {
+      "title": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "false"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "border": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "false"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "background": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "false"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "dropShadow": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "false"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "drillFilterOtherVisuals": true
+  }
+}

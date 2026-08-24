@@ -41,7 +41,11 @@ const filtros = [
   { campo: 'dim_revenda.revenda', titulo: '🏢 Revenda' },
   { campo: 'dim_calendario.data', titulo: '🗓️ Período', modo: 'Between' },
   { campo: 'dim_colaborador.area_rotulo', titulo: '📍 Área' },
-  { campo: 'dim_colaborador.colaborador', titulo: '👤 Colaborador' },
+  // busca: caixa de "digite para procurar" dentro da segmentacao. So
+  // aqui: sao ~160 nomes e a lista cresce a cada contratacao. Revenda
+  // tem meia duzia de itens e Area tem duas -- caixa de busca nelas
+  // gastaria altura sem economizar clique nenhum.
+  { campo: 'dim_colaborador.colaborador', titulo: '👤 Colaborador', busca: true },
 ];
 
 // kpis: lista de [titulo, medida]
@@ -55,6 +59,38 @@ function faixaKpi(lista) {
 }
 
 const paginas = [
+  // ================================================================
+  {
+    // A CAPA.
+    //
+    // Existe porque a lista de abas do Power BI e uma tira de texto no
+    // rodape que cabe umas quatro paginas antes de comecar a rolar --
+    // quem abre o relatorio pela primeira vez nao ve que existem oito. E
+    // porque "onde vejo contagem de AG?" e a pergunta que mais se repete
+    // quando um BI passa a circular.
+    //
+    // Cada cartao e um botao de navegacao de pagina. Se o Desktop
+    // recusar a navegacao (ver ACAB.capa em gerar-pbip.js), o gerador
+    // troca os botoes por um indice de texto -- a capa continua de pe,
+    // so deixa de ser clicavel.
+    nome: '🧭 Capa',
+    capa: true,
+    subtitulo:
+      'Painel de gestão do App do Colaborador · Ctrl+clique para abrir uma página',
+    kpis: [],
+    visuais: [],
+    nota:
+      'No modo de edição, os botões abrem com Ctrl+clique; no modo de leitura e no Power BI ' +
+      'na web, com clique simples. Para voltar, use a seta no canto direito da faixa azul — ' +
+      'ela volta para a página anterior, então funciona quando você chegou por aqui; ' +
+      'quem entra direto por uma aba do rodapé volta pelas abas. ' +
+      'Os filtros de Revenda, Período, Área e Colaborador estão sincronizados: o que você ' +
+      'escolher numa página vale em todas. O filtro de Colaborador aceita busca — clique nele ' +
+      'e digite as primeiras letras do nome. Duas páginas não aparecem aqui por não ' +
+      'serem painel de gestão: "Mapa do App" (índice do menu, para quem administra) e ' +
+      '"Detalhe" (destino de drill-through — clique com o botão direito em qualquer visual).',
+  },
+
   // ================================================================
   {
     // Os emoji sao os do menu do app (public.menu_itens), para quem abre
@@ -143,30 +179,130 @@ const paginas = [
     // inteira -- e visual vazio nao avisa nada, so parece que nao ha
     // divergencia.
     kpis: [
-      ['🔢 Ocorrências de contagem', '@Ocorrências de contagem'],
+      ['🔢 Ocorrências de contagem', '@Ocorrências de contagem',
+        'Quantas VEZES alguém contou — uma por pessoa por dia. Não é o número de linhas '
+        + 'digitadas: quem conta o pátio uma vez digita dezenas de linhas, uma por '
+        + 'tipo/formato, e isso é UMA ocorrência. Em 22/08/2026 o Matheus contou uma vez e '
+        + 'lançou 21 linhas. Para o volume digitado, use a coluna "Linhas lançadas" nas '
+        + 'tabelas abaixo.'],
       ['🗓️ % Dias com contagem', '@% Dias com contagem'],
       ['👥 Contadores', '@Contadores'],
+      // A META DA CIA, e o unico numero desta faixa que tem regua
+      // externa: 3 contagens por semana. As duas medidas ao lado dizem
+      // quanto se contou; esta diz se foi o bastante.
+      //
+      // Sao dois cartoes e nao um porque eles falam de coisas
+      // diferentes: "% da meta" e acumulado (12 dias em 4 semanas =
+      // 100%, mesmo que 8 tenham caido na mesma semana), e "% Semanas na
+      // meta" cobra semana a semana. Quando os dois discordam, e a
+      // rotina que esta irregular -- e e exatamente o que a meta quer
+      // evitar.
+      ['🎯 % da meta (3/semana)', '@% da meta de contagens',
+        'Dias contados ÷ meta do período, sendo a meta 3 × o número de semanas já decorridas. ' +
+        '"Contagem" aqui é DIA CONTADO, não linha lançada: 40 linhas numa terça e nada no ' +
+        'resto da semana cumprem 1/3 da meta. É ACUMULADO — 12 dias em 4 semanas dão 100% ' +
+        'mesmo que 8 deles tenham caído na mesma semana. Para cobrar regularidade, use o ' +
+        'cartão ao lado. Filtre um mês: o denominador são as semanas já decorridas do que ' +
+        'estiver selecionado, então com o ano inteiro aberto todo mundo parece ruim.'],
+      ['📆 % Semanas na meta', '@% Semanas na meta',
+        'Das semanas já decorridas no período, quantas fecharam com 3 ou mais dias contados. ' +
+        'É o par duro de "% da meta": aqui não há compensação entre semanas — uma semana com ' +
+        '6 contagens não paga a semana seguinte com nenhuma. Quando os dois cartões ' +
+        'discordam, o volume está certo e a rotina está irregular, que é exatamente o que a ' +
+        'meta de 3 por semana existe para evitar.'],
       ['✅ % Lançado no dia', '@% Lançado no dia'],
       // Substituiu "Recontagens pendentes": os tres visuais de volume
       // desta pagina falam de UM dia, e nao dizer qual e esconder a
       // metade da informacao.
-      ['📅 Último dia contado', '@Último dia contado'],
+      ['📅 Último dia contado', '@Último dia contado',
+        'O dia mais recente com contagem DENTRO do período filtrado. É a data que manda nos '
+        + 'três visuais de volume lá embaixo: eles mostram só quem contou neste dia, e não o '
+        + 'acumulado. Se um colaborador que você sabe que contou não aparece na tabela, é '
+        + 'porque contou em outro dia. Para mudar a fotografia, ajuste o filtro de Período '
+        + 'para o dia que quer ver. Repare também no volume: dia com muito menos linha que o '
+        + 'anterior costuma ser contagem parcial, e a fotografia sai incompleta sem avisar.'],
     ],
     // Duas faixas em vez das tres do padrao: esta pagina responde a tres
     // perguntas diferentes (a rotina esta sendo mantida? quem sustenta?
     // o que o Painel do app mostra?) e cada uma precisa de espaco proprio.
     visuais: [
-      // --- faixa 1: aderencia e quem sustenta -----------------------
+      // --- faixa 1: a meta, a aderencia e quem sustenta --------------
+      {
+        // O RITMO DIA A DIA, em linha e no eixo por dia do mes -- o
+        // mesmo desenho da evolucao da nota na pagina de Feedback.
+        //
+        // Era semanal ate 23/08/2026, com a meta como segunda serie. A
+        // meta saiu do grafico junto com a semana, e nao por descuido:
+        // "3 por semana" nao tem equivalente diario. Dividir por cinco
+        // dias uteis daria uma reta em 0,6 contagem por dia, que nao e
+        // regra nenhuma -- ninguem conta 0,6 vez. Reta que nao
+        // corresponde a nenhuma regra real e pior que reta nenhuma,
+        // porque parece criterio.
+        //
+        // A meta continua medida, e nos dois cartoes onde ela cabe: "%
+        // da meta" (acumulado) e "% Semanas na meta" (semana a semana).
+        // O grafico responde a pergunta vizinha, que a semana escondia:
+        // EM QUE DIAS se contou. Tres contagens numa segunda e nada no
+        // resto da semana cumprem a meta e sao uma rotina ruim -- e isso
+        // so aparece no eixo diario.
+        //
+        // A serie e [Contagens no dia], que devolve ZERO no dia sem
+        // lancamento em vez de vazio: categoria vazia nao e desenhada, e
+        // o buraco -- justamente o que se quer ver -- sumiria.
+        t: 'lineChart', x: 16, y: Y.meio, w: 380, h: 200,
+        titulo: '📈 Contagens por dia do mês (sem domingos)',
+        roles: {
+          Category: ['dim_calendario.dia_rotulo'],
+          Y: ['@Contagens no dia'],
+        },
+        // DOMINGO FORA DO EIXO.
+        //
+        // Nao se conta ativo de giro em domingo, entao todo domingo
+        // aparecia como zero -- e quatro ou cinco quedas ao chao por mes
+        // nao dizem nada sobre disciplina, so serrilham a linha e
+        // achatam os dias que importam. Sabado FICA: la se conta, e
+        // domingo sem contagem e rotina enquanto sabado sem contagem e
+        // informacao.
+        //
+        // Lista de inclusao e nao exclusao porque o filtro categorico do
+        // Power BI e um "IN". Sao os seis dias que ficam.
+        filtroVisual: {
+          campo: 'dim_calendario.dia_semana_nome',
+          valores: ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'],
+        },
+        dica:
+          'Uma OCORRÊNCIA é uma vez que alguém contou — uma por pessoa por dia —, e não uma '
+          + 'linha digitada: quem conta o pátio uma vez lança dezenas de linhas. '
+          + 'Os domingos ficam fora do eixo: não se conta AG em domingo, e o zero de todo '
+          + 'domingo só serrilhava a linha. Sábado continua, porque lá se conta e a falta '
+          + 'é informação. '
+          + 'O eixo é o DIA DO MÊS — escolha um mês no filtro, senão o dia 05 de dois meses '
+          + 'diferentes vira o mesmo ponto.',
+      },
       {
         // Tabela, e nao grafico de barras: a pergunta aqui e "houve
         // contagem em todo dia util?", e buraco em tabela e mais facil
         // de ver do que barra baixa em serie longa.
-        t: 'tableEx', x: 16, y: Y.meio, w: 620, h: 200,
-        titulo: '📅 Aderência por dia — ocorrências de contagem',
+        //
+        // As seis colunas de sempre. Elas tinham sido reduzidas a quatro
+        // quando o grafico de meta entrou e comeu largura; foram
+        // devolvidas em 23/08/2026 -- indicador que alguem ja usava nao
+        // sai da tela para abrir espaco a indicador novo.
+        // quebraTexto prende cada coluna em 96 px em vez de deixar a
+        // tabela distribuir largura pelo conteudo, que e o que espremia
+        // as ultimas para fora da area visivel.
+        t: 'tableEx', x: 408, y: Y.meio, w: 420, h: 200,
+        quebraTexto: 96,
+        titulo: '📅 Aderência por dia',
         roles: {
           Values: [
             'dim_calendario.data',
-            '@Ocorrências de contagem',
+            // Linhas, e nao ocorrencias: no grao de UM dia, "ocorrencias
+            // de contagem" e a mesma conta de "contadores" -- as duas
+            // seriam a mesma coluna repetida. Aqui a informacao que
+            // falta e o volume digitado, que e o que denuncia contagem
+            // parcial (21 linhas contra 117 no dia anterior).
+            '@Linhas lançadas',
             '@Contadores',
             '@% Lançado no dia',
             '@Itens conciliados',
@@ -179,19 +315,28 @@ const paginas = [
         // Ranking por DISCIPLINA, nao por volume. Quem digita 40 linhas
         // num dia e some a semana inteira nao e o melhor colocado -- e o
         // que "Contagens" sozinho dizia antes.
-        t: 'tableEx', x: 648, y: Y.meio, w: 616, h: 200,
-        titulo: '🏆 Ranking de desempenho no AG — por disciplina',
+        //
+        // Ordenado por "% da meta", e nao mais por "% Dias com
+        // contagem": a partir de agora a regua e a da cia, e o ranking
+        // tem de premiar quem bate a meta, nao quem cobre o calendario.
+        // "Ocorrencias de contagem" voltou junto com as colunas da
+        // tabela ao lado, pelo mesmo motivo.
+        t: 'tableEx', x: 840, y: Y.meio, w: 424, h: 200,
+        quebraTexto: 96,
+        titulo: '🏆 Ranking no AG — contra a meta',
         roles: {
           Values: [
             'fato_ag_contagem.colaborador_nome',
             '@Dias com contagem',
-            '@% Dias com contagem',
+            '@% da meta de contagens',
             '@% Lançado no dia',
             '@Atraso médio (dias)',
-            '@Ocorrências de contagem',
+            // Mesmo motivo da tabela ao lado: por pessoa, "ocorrencias
+            // de contagem" e a mesma conta de "dias com contagem".
+            '@Linhas lançadas',
           ],
         },
-        ordem: { campo: '@% Dias com contagem', dir: 'Descending' },
+        ordem: { campo: '@% da meta de contagens', dir: 'Descending' },
       },
 
       // --- faixa 2: o Painel do app, no ultimo dia contado ----------
@@ -206,6 +351,16 @@ const paginas = [
         // primeira coluna, com o total de cada um na ponta da linha.
         t: 'pivotTable', x: 16, y: 460, w: 450, h: 206,
         titulo: '📦 Total contado por colaborador e embalagem — último dia contado',
+        dica:
+          'Só quem contou NO ÚLTIMO DIA CONTADO aparece aqui — não é o acumulado do período. '
+          + 'Se falta alguém que você sabe que contou, é porque contou em outro dia: veja o '
+          + 'cartão "Último dia contado" e a tabela "Aderência por dia". '
+          + 'É fotografia de propósito: AG é contagem de ESTOQUE, e somar dois dias contaria o '
+          + 'mesmo palete duas vezes. '
+          + 'Para ver outro dia, ajuste o filtro de Período para esse dia nas duas pontas — '
+          + 'o "último dia" é sempre o último DENTRO do que está filtrado. '
+          + 'Compare o volume com o do dia anterior: dia com muito menos linha costuma ser '
+          + 'contagem parcial, e a fotografia sai incompleta sem avisar.',
         roles: {
           Rows: ['fato_ag_contagem.colaborador_nome'],
           Columns: ['fato_ag_contagem.formato'],
@@ -218,6 +373,12 @@ const paginas = [
         // pergunta e ja mora no visual ao lado.
         t: 'tableEx', x: 474, y: 460, w: 320, h: 206,
         titulo: '🧺 Garrafeira sem garrafa por colaborador — último dia',
+        dica:
+          'Mesma regra do visual ao lado: só quem contou NO ÚLTIMO DIA CONTADO do período. '
+          + 'Quem contou em outro dia não aparece — não é falta de dado. '
+          + 'Paletes e caixas como foram DIGITADOS, sem conversão: a pergunta do painel de '
+          + 'garrafeira é quantos paletes de GFE sem garrafa estão no pátio, e converter para '
+          + 'caixas responde outra coisa (essa está no visual ao lado).',
         roles: {
           Values: [
             'fato_ag_contagem.colaborador_nome',
@@ -259,41 +420,109 @@ const paginas = [
       'VOLUME AQUI É FOTOGRAFIA, NÃO SOMA: os três visuais de baixo leem o último dia ' +
       'contado dentro do que estiver filtrado — mês, período ou um dia só. AG é contagem ' +
       'de estoque, e somar dois dias conta o mesmo palete duas vezes. Aderência e ranking, ' +
-      'esses sim, somam o intervalo, porque medem frequência e não quantidade. Use o filtro ' +
-      'de Mês para ler "% Dias com contagem": o denominador são os dias úteis já decorridos ' +
-      'do que estiver selecionado, então com o ano inteiro aberto todo mundo parece ruim.',
+      'esses sim, somam o intervalo, porque medem frequência e não quantidade. ' +
+      'META DA CIA: 3 contagens por semana — e "contagem" aqui é DIA CONTADO, não linha ' +
+      'lançada: 40 linhas numa terça e nada no resto da semana cumpre 1/3 da meta. ' +
+      '"% da meta" é acumulado no período; "% Semanas na meta" cobra semana a semana, e é o ' +
+      'mais duro dos dois. Use o filtro de Mês para ler os percentuais: o denominador são as ' +
+      'semanas e os dias úteis JÁ DECORRIDOS do que estiver selecionado, então com o ano ' +
+      'inteiro aberto todo mundo parece ruim.',
   },
 
   // ================================================================
   {
     nome: '📝 Feedback da Rota',
+    // Cinco filtros, como no Ativo de Giro. O de Mes entrou junto com o
+    // eixo por dia do grafico de evolucao: "01" de agosto e "01" de
+    // setembro sao o mesmo rotulo, entao a leitura diaria so e correta
+    // dentro de um mes. Com o mes escolhido, o grafico fica certo e
+    // legivel ao mesmo tempo.
+    filtros: [...filtros, { campo: 'dim_calendario.ano_mes', titulo: '📆 Mês' }],
     kpis: [
       ['📝 Feedbacks', '@Feedbacks'],
       ['★ Nota média (0 a 3)', '@Nota média'],
       ['🙂 % Satisfação', '@% Satisfação'],
       ['😞 % Notas ruins', '@% Notas ruins'],
-      ['🚚 Rota mais crítica', '@Rota mais crítica'],
+      // Substituiu "Rota mais crítica" em 23/08/2026.
+      //
+      // O numero do mapa e gerado pela roteirizacao do dia: a rota 14768
+      // de ontem nao e a rota 14768 do mes que vem. Apontar um mapa como
+      // "o pior" nao dizia onde agir -- e o cartao ficava ali sem que
+      // ninguem soubesse o que fazer com ele.
+      //
+      // A cidade se repete, e vem do cruzamento com o relatorio de rotas
+      // que o proprio app ja importa em /admin/rotas. Ver
+      // bi.fato_feedback_cidade em 01-camada-semantica.sql.
+      ['🏙️ Cidade mais crítica', '@Cidade mais crítica',
+        'A cidade com a PIOR nota média entre as que têm 3 ou mais feedbacks — não é a que ' +
+        'tem mais reclamações nem a que tem mais notas ruins. A cidade vem do cruzamento do ' +
+        'nº do mapa que o motorista digitou com o relatório de rotas de /admin/rotas; um mapa ' +
+        'que passa por três cidades entra nas três. A ordenação usa a nota AJUSTADA pelo ' +
+        'volume: média de 3 feedbacks oscila muito mais que a de 20, então cada cidade é ' +
+        'puxada em direção à média geral na proporção de quantas avaliações sustentam a dela. ' +
+        'Sem esse ajuste, duas cidades empatadas em 1,33 eram desempatadas por ordem ' +
+        'alfabética. Feedback cujo mapa não foi encontrado fica fora da disputa — falha de ' +
+        'importação não pode virar diagnóstico de operação.'],
     ],
     visuais: [
       {
-        t: 'lineChart', x: 16, y: Y.meio, w: 620, h: H.meio,
-        titulo: '📈 Evolução da nota média',
-        roles: { Category: ['dim_calendario.data'], Y: ['@Nota média'] },
+        // Eixo por DIA, e nao pela data inteira.
+        //
+        // Com "01/08/2026" -- dez caracteres -- o Power BI nao consegue
+        // desenhar os 31 rotulos e passa a pular dias: o grafico mostrava
+        // 03, 06, 09 e quem lia achava que nos dias do meio nao houve
+        // feedback nenhum. Com dois caracteres cabem todos.
+        //
+        // dia_rotulo e texto e ordenaria em ordem alfabetica; o modelo o
+        // ordena pela coluna "dia" (ver ordenarPor em modelo.js). E ele
+        // so e correto dentro de UM mes -- dai o filtro de Mes acima.
+        t: 'lineChart', x: 16, y: Y.meio, w: 380, h: H.meio,
+        titulo: '📈 Evolução da nota média — por dia do mês',
+        roles: { Category: ['dim_calendario.dia_rotulo'], Y: ['@Nota média'] },
       },
       {
-        t: 'columnChart', x: 648, y: Y.meio, w: 290, h: H.meio,
+        // A ordenacao pelo VALOR da nota agora vem do modelo:
+        // nota_rotulo tem sortByColumn = nota. Sem isso o visual
+        // ordenava "Boa, Ótima, Regular, Ruim" -- alfabetico -- e uma
+        // escala ordinal reordenada por nome deixa de ser escala.
+        t: 'columnChart', x: 408, y: Y.meio, w: 250, h: H.meio,
         titulo: '📊 Distribuição das notas',
         roles: { Category: ['fato_feedback_rota.nota_rotulo'], Y: ['@Feedbacks'] },
         ordem: { campo: 'fato_feedback_rota.nota', dir: 'Ascending' },
       },
       {
-        t: 'clusteredBarChart', x: 950, y: Y.meio, w: 314, h: H.meio,
+        t: 'clusteredBarChart', x: 670, y: Y.meio, w: 290, h: H.meio,
         titulo: '⚠️ Principais problemas relatados',
         roles: {
           Category: ['fato_feedback_ocorrencia.ocorrencia'],
           Y: ['@Feedbacks com ocorrência'],
         },
         ordem: { campo: '@Feedbacks com ocorrência', dir: 'Descending' },
+      },
+      {
+        // O que sustenta o cartao de cidade critica. Cartao de "o pior X"
+        // sem o ranking atras vira boato: ninguem consegue conferir se a
+        // diferenca para o segundo colocado e de meio ponto ou de um
+        // centesimo.
+        //
+        // Ordenado pela PIOR nota (ascendente) -- a primeira barra ja
+        // responde a pergunta sem varrer o grafico.
+        //
+        // A barra e a media SIMPLES, que e a que o time reconhece e
+        // confere na mao. So que ela empata: em 23/08/2026, Coribe e
+        // Jaborandi davam 1,33 os dois, com 6 e 3 feedbacks. Por isso o
+        // cartao ordena pela media ajustada, e as duas entram na dica de
+        // ferramenta junto com o volume -- passar o mouse numa barra
+        // mostra em quantos feedbacks ela se apoia, que e a pergunta
+        // seguinte de quem olha um ranking de medias.
+        t: 'clusteredBarChart', x: 972, y: Y.meio, w: 292, h: H.meio,
+        titulo: '🏙️ Nota média por cidade da rota',
+        roles: {
+          Category: ['fato_feedback_cidade.cidade'],
+          Y: ['@Nota média por cidade'],
+          Tooltips: ['@Feedbacks por cidade', '@Nota média ajustada da cidade'],
+        },
+        ordem: { campo: '@Nota média por cidade', dir: 'Ascending' },
       },
       {
         // O ciclo inteiro numa linha so: o que o colaborador reclamou, a
@@ -335,10 +564,19 @@ const paginas = [
       },
     ],
     nota:
-      'Ordene a distribuição pelo VALOR da nota, não pela contagem — escala ordinal ' +
-      'reordenada por frequência deixa de ser legível como escala. "Rota mais crítica" ' +
-      'já exige ≥ 3 feedbacks: sem esse corte, uma rota com um único feedback ruim ' +
-      'vira "a pior da revenda" na primeira reunião.',
+      'A CIDADE vem do cruzamento do nº do mapa que o motorista digitou com o relatório de ' +
+      'rotas importado em /admin/rotas — um mapa que passa por três cidades entra nas três. ' +
+      '"Cidade mais crítica" exige ≥ 3 feedbacks e ignora o que não casou com nenhum mapa: ' +
+      'sem esse corte, uma cidade com um único feedback ruim vira "a pior da revenda" na ' +
+      'primeira reunião. O cartão ordena pela nota AJUSTADA por volume, não pela média simples ' +
+      'do gráfico: média de 3 feedbacks e de 6 não têm o mesmo peso, e sem o ajuste um empate ' +
+      'de médias era desempatado por ordem alfabética. Passe o mouse na barra para ver as duas ' +
+      'e o volume. Se o gráfico de cidades vier magro, é a roteirização que não foi ' +
+      'importada, não a operação que melhorou — confira "% Rotas localizadas". ' +
+      'Só aparecem as cidades das revendas que já usam o app: Barreiras ainda não aderiu, ' +
+      'então a ausência dela aqui é esperada e não é falha de cruzamento. ' +
+      'O eixo do gráfico de evolução é o DIA DO MÊS: escolha um mês no filtro, senão o dia 01 ' +
+      'de dois meses diferentes vira o mesmo ponto.',
   },
 
   // ================================================================
@@ -347,9 +585,28 @@ const paginas = [
     kpis: [
       ['🔍 Análises', '@Análises'],
       ['✅ % Conclusão', '@% Conclusão'],
-      ['🏁 % Chegou ao 5º', '@% Chegou ao 5º porquê'],
+      ['🏁 % Chegou ao 5º', '@% Chegou ao 5º porquê',
+        'Das análises CONCLUÍDAS, quantas percorreram os cinco porquês até o fim em vez de ' +
+        'parar no 2º ou no 3º. É medida de profundidade, não de volume: parar cedo costuma ' +
+        'achar sintoma ("o cliente estava fechado") e não causa ("não conferimos o horário na ' +
+        'véspera") — e ação tomada sobre sintoma volta como o mesmo problema no mês seguinte. ' +
+        'O denominador são só as concluídas: análise abandonada no meio não conta como quem ' +
+        'deixou de aprofundar.'],
       ['⚠️ Aguardando tratativa', '@Aguardando tratativa'],
-      ['⏱️ Horas até resposta', '@Horas médias até resposta'],
+      // TMR no lugar de "Horas até resposta".
+      //
+      // O cartao mostrava 96,4 e esperava que quem lesse dividisse por
+      // 24 de cabeca. A medida agora troca de unidade sozinha: abaixo de
+      // 24 h sai em horas, acima sai em dias -- e e justamente acima de
+      // 24 h que o numero deixa de ser detalhe operacional. Ver [TMR] em
+      // 07-medidas.dax.
+      ['⏱️ TMR — tempo médio de resposta', '@TMR',
+        'Tempo médio entre o motorista concluir a análise e a liderança responder. Sai em ' +
+        'HORAS até 24 h e em DIAS acima disso — 96,4 h não se lê como "quatro dias" sem ' +
+        'parar para dividir. É o indicador de saúde do módulo: análise concluída que ninguém ' +
+        'responde ensina o time a não preencher a próxima, e passando de ~48 h o 5 Porquês ' +
+        'morre por desuso antes de morrer por decisão. Só entram análises que JÁ receberam ' +
+        'resposta; as que ainda esperam estão no cartão "Aguardando tratativa".'],
       // Sexto cartao. A medida ja existia em 07-medidas.dax e nunca
       // tinha entrado em visual nenhum -- o denominador dela sao as
       // analises QUE RECEBERAM devolutiva, e nao todas: ninguem aceita
@@ -392,15 +649,30 @@ const paginas = [
         // nulo) nao aparece la. Se isso passar a acontecer, o lugar dela
         // e aqui.
         t: 'tableEx', x: 16, y: Y.base, w: 1248, h: H.base,
-        // Problema, causa raiz e acao sugerida sao frases inteiras.
-        quebraTexto: 200,
-        titulo: '📋 Problema · Causa · Ação — a pauta da reunião',
+        // Problema, causa raiz, acao e tratativa sao frases inteiras.
+        // 170 e nao 200: entrou uma sexta coluna de texto corrido.
+        quebraTexto: 170,
+        titulo: '📋 Problema · Causa · Ação · Tratativa — a pauta da reunião',
         roles: {
           Values: [
             'fato_cinco_porques_matriz.problema',
             'fato_cinco_porques_matriz.categoria',
             'fato_cinco_porques_matriz.causa_raiz',
             'fato_cinco_porques_matriz.acao_sugerida',
+            // A TRATATIVA DO ANALISTA, na mesma linha da pauta.
+            //
+            // Sem ela a tabela levava a reuniao ate "este problema, por
+            // esta causa, tantas vezes" e parava -- e a primeira
+            // pergunta que alguem fazia era "e o que a lideranca
+            // respondeu?". A resposta existia, mas so na pagina de
+            // Feedback da Rota, uma linha por feedback: quem lia a pauta
+            // tinha de trocar de pagina e cruzar a mao.
+            //
+            // Vale a MAIS RECENTE do grupo -- numa linha de tabela cabe
+            // uma frase. O historico completo continua em
+            // fato_cinco_porques, uma linha por analise, e a pagina de
+            // Detalhe o abre por colaborador.
+            'fato_cinco_porques_matriz.tratativa',
             'fato_cinco_porques_matriz.ocorrencias#soma',
             'fato_cinco_porques_matriz.tratadas#soma',
           ],
@@ -409,8 +681,12 @@ const paginas = [
       },
     ],
     nota:
-      '"Horas médias até resposta" é o indicador de saúde do módulo, não de volume. ' +
-      'Análise concluída que ninguém responde ensina o time a não preencher a próxima — ' +
+      '"% Chegou ao 5º" = das análises CONCLUÍDAS, quantas percorreram os cinco porquês até o ' +
+      'fim, em vez de parar no 2º ou 3º. É medida de profundidade: parar cedo costuma achar ' +
+      'sintoma ("o cliente estava fechado") e não causa ("não conferimos o horário na véspera"). ' +
+      'TMR = tempo médio entre concluir a análise e a liderança responder; sai em horas até 24 h ' +
+      'e em dias acima disso. É o indicador de saúde do módulo, não de volume: ' +
+      'análise concluída que ninguém responde ensina o time a não preencher a próxima — ' +
       'se passar de ~48 h, o módulo morre por desuso antes de morrer por decisão. ' +
       'No aceite, "Não respondeu" cobre dois casos diferentes: o motorista que recebeu ' +
       'a devolutiva e não respondeu, e a análise que nunca recebeu devolutiva nenhuma — ' +
@@ -426,7 +702,13 @@ const paginas = [
       ['👍 Curtidas', '@Curtidas'],
       ['❤️ Curtidas por comunicado', '@Curtidas por comunicado'],
       ['👥 % Participação', '@% Participação na comunicação'],
-      ['🔔 Cliques no aviso (piso)', '@Cliques no aviso (piso)'],
+      ['🔔 Cliques no aviso (piso)', '@Cliques no aviso (piso)',
+        'Quantas vezes alguém clicou no aviso do SINO, e não quantas pessoas leram o ' +
+        'comunicado. O app não registra abertura: não existe rota por comunicado nem tabela ' +
+        'de leitura. Este número vem de notificacao_estado, que por desenho só ganha linha de ' +
+        'quem interagiu com o sino — quem leu o jornal direto na tela inicial não aparece ' +
+        'aqui. Daí "(piso)": o alcance real é sempre MAIOR que este número, nunca menor. ' +
+        'Não renomeie para "visualizações". Curtida é o sinal confiável desta página.'],
     ],
     visuais: [
       {
@@ -481,6 +763,113 @@ const paginas = [
       'tabela de leitura. "Cliques no aviso" vem de notificacao_estado, que por desenho ' +
       'só ganha linha de quem interagiu com o sino: é PISO, nunca total. Curtida é o ' +
       'sinal confiável desta página. Não renomeie esse cartão para "visualizações".',
+  },
+
+  // ================================================================
+  {
+    // O CALENDARIO DO PLANO DE COMUNICACAO.
+    //
+    // Pagina propria, e nao um visual espremido no rodape da pagina de
+    // Comunicados. Um calendario e uma grade de seis semanas por sete
+    // dias com o titulo do comunicado dentro da celula: nos 166 px que
+    // sobravam la ele nao seria um calendario, seria uma tarja.
+    //
+    // A visao ja existe no app, em /admin/comunicados/calendario. Esta e
+    // a mesma leitura -- a diferenca e que aqui ela convive com curtida,
+    // participacao e categoria na mesma sessao de analise, e o gestor que
+    // ve o buraco de duas semanas ja ve o que aconteceu com o engajamento
+    // no mes em que isso ocorreu.
+    nome: '📅 Cronograma da Comunicação',
+    // Sem o filtro de Colaborador e sem o de Area: cronograma e o que a
+    // revenda PUBLICA, e nao tem colaborador nem area. Um filtro que nao
+    // altera nada da pagina so ensina o usuario a desconfiar dos que
+    // alteram.
+    filtros: [
+      { campo: 'dim_revenda.revenda', titulo: '🏢 Revenda' },
+      { campo: 'dim_calendario.ano_mes', titulo: '📆 Mês' },
+      { campo: 'fato_comunicado_agenda.tipo', titulo: '🏷️ Tipo de marca' },
+      { campo: 'fato_comunicado_agenda.categoria', titulo: '🗂️ Editoria' },
+    ],
+    kpis: [
+      ['📰 Comunicados publicados', '@Comunicados publicados'],
+      ['🗓️ Itens no cronograma', '@Itens do cronograma'],
+      ['⏳ Marcas na fila', '@Marcas na fila'],
+      ['🔔 Curtidas', '@Curtidas'],
+      ['👥 % Participação', '@% Participação na comunicação'],
+    ],
+    visuais: [
+      {
+        // A GRADE. Linhas = semana, colunas = dia da semana, celula = o
+        // numero do dia e o que sai nele.
+        //
+        // A pergunta do calendario nao e quanto se publicou -- e QUE DIAS
+        // FICARAM VAZIOS. Numa lista ordenada por data o buraco de duas
+        // semanas some entre duas linhas consecutivas; aqui ele e o
+        // retangulo com um numero e mais nada.
+        //
+        // TRES CORRECOES sobre a primeira versao, que ficou ilegivel:
+        //
+        //   1. A celula traz o NUMERO DO DIA. Antes vinha so a lista de
+        //      itens: dia sem publicacao ficava em branco, e a grade
+        //      tinha sete colunas de dia da semana e nenhuma data --
+        //      ninguem sabia se aquele retangulo era o dia 12 ou o 19.
+        //      Ver [Célula do calendário] em 07-medidas.dax.
+        //
+        //   2. DOMINGO PRIMEIRO, e nao segunda. dia_semana_abrev sai
+        //      "dom seg ter qua qui sex sáb" (ordenado por
+        //      dia_semana_dom no modelo). Calendario que comeca na
+        //      segunda nao e reconhecido como calendario -- e o app
+        //      monta a grade domingo-primeiro.
+        //
+        //   3. SEM TOTAIS. A matriz nasce com linha e coluna de total, e
+        //      num calendario isso somava os numeros dos dias: aparecia
+        //      "112" ao lado de sabado.
+        //   4. LARGURA TOTAL. A tabela de agenda detalhada que dividia a
+        //      pagina saiu: ela repetia em lista o que a grade ja diz, e
+        //      em 336 px nao cabia titulo de comunicado nenhum -- toda
+        //      linha terminava em reticencias. O espaco dela vale mais
+        //      como celula de calendario: sao 158 px por dia em vez de
+        //      118, e o titulo passa a caber dentro do dia em que sai.
+        //
+        //   5. GRADE VISIVEL. O tema desliga linha vertical em matriz,
+        //      que e o certo num cruzamento de numeros e errado aqui: a
+        //      grade E o calendario. Sem ela, a publicacao do dia 11 e a
+        //      do dia 12 sao dois blocos de texto encostados.
+        t: 'pivotTable', x: 16, y: Y.meio, w: 1248, h: 414,
+        grade: true,
+        // A celula leva o numero e uma linha por marca, separadas por
+        // quebra de linha (UNICHAR(10) na medida). Sem quebra de texto
+        // ligada, tudo vira uma linha so, cortada no fim da celula.
+        // 158 px e a setima parte de 1106 (a largura util depois do
+        // cabecalho de linha): e o que faz as sete colunas caberem sem
+        // barra de rolagem horizontal.
+        quebraTexto: 158,
+        semTotais: true,
+        titulo: '🗓️ O mês em grade — o que sai em cada dia',
+        roles: {
+          Rows: ['dim_calendario.semana_dom'],
+          Columns: ['dim_calendario.dia_semana_abrev'],
+          Values: ['@Célula do calendário'],
+        },
+      },
+      // A tabela "Agenda detalhada" ficava aqui e saiu em 23/08/2026.
+      //
+      // Ela nao acrescentava leitura: repetia em lista o que a grade ja
+      // mostra, e em 336 px toda linha terminava em reticencias -- data,
+      // hora, marca, titulo e situacao nao cabem lado a lado nessa
+      // largura. Tabela ilegivel ao lado de um calendario legivel so
+      // rouba espaco do calendario.
+      //
+      // O que ela respondia continua respondido: hora e marca estao
+      // dentro da celula do dia ("🔔 08:00 Titulo"), e a situacao esta na
+      // dica de ferramenta e no cartao "Marcas na fila".
+    ],
+    nota:
+      'Cada comunicado gera até DUAS marcas, e elas são coisas diferentes: 📰 é a matéria ' +
+      'entrando no jornal e 🔔 é o lembrete dela tocando o celular, que pode cair dias depois. ' +
+      'Comunicado sem lembrete agendado gera só a primeira. "Na fila" é o que ainda não ' +
+      'aconteceu — publicação agendada para o futuro, ou lembrete que ainda não disparou. ' +
+      'Escolha um mês no filtro: sem isso a grade empilha as semanas do ano inteiro.',
   },
 
   // ================================================================
@@ -639,9 +1028,19 @@ const paginas = [
     nome: '🧹 Programa 5S',
     kpis: [
       ['✅ % Conformidade', '@% Conformidade 5S'],
-      ['📋 Aderência ao plano', '@% Aderência ao plano'],
+      ['📋 Aderência ao plano', '@% Aderência ao plano',
+        'Auditorias REALIZADAS ÷ auditorias PLANEJADAS no período. Mede se o calendário do 5S ' +
+        'está sendo cumprido, e não a nota delas. É o indicador que sustenta todos os outros: ' +
+        '95% de conformidade em 3 áreas de 19 planejadas não diz nada sobre a revenda — área ' +
+        'não auditada não puxa média nenhuma para baixo, ela simplesmente some do relatório. ' +
+        'Leia este cartão ANTES do de conformidade.'],
       ['⚠️ Auditorias atrasadas', '@Auditorias atrasadas'],
-      ['🔴 NC em aberto', '@NC em aberto'],
+      ['🔴 NC em aberto', '@NC em aberto',
+        'Não conformidades ainda abertas: itens que uma auditoria reprovou, viraram ação no ' +
+        'plano e ainda não foram concluídos nem validados. É a fila de trabalho do 5S. ' +
+        'Diferente de "Ações atrasadas", que é o pedaço desta fila que já passou do prazo — ' +
+        'NC em aberto dentro do prazo é processo funcionando, não problema. Conta a ação, não ' +
+        'a auditoria: uma auditoria pode abrir várias.'],
       ['⏰ Ações atrasadas', '@Ações atrasadas'],
     ],
     visuais: [
@@ -723,8 +1122,18 @@ const paginas = [
     // A ressalva nao e decoracao: sem ela alguem le a serie de 2026
     // inteira como medicao, quando quatro meses entraram por estimativa
     // depois que a planilha de origem se perdeu.
-    rodape:
+    //
+    // Estava como "rodape" e o gerador so renderiza "nota" -- ou seja,
+    // este texto nunca chegou a aparecer no relatorio. Descoberto em
+    // 23/08/2026, quando as definicoes de "NC em aberto" e "% Aderencia
+    // ao plano" foram pedidas: elas ja estariam aqui embaixo.
+    nota:
       'Conformidade = itens conformes ÷ (conformes + não conformes); "não se aplica" fica fora da conta. '
+      + '"% Aderência ao plano" = auditorias REALIZADAS ÷ auditorias PLANEJADAS no período — mede se o '
+      + 'calendário do 5S está sendo cumprido, e não a nota delas: 95% de conformidade em 3 áreas de 19 '
+      + 'planejadas não diz nada sobre a revenda. "NC em aberto" = não conformidades (itens do plano de '
+      + 'ação abertos numa auditoria) que ainda não foram concluídas nem validadas — é a fila de trabalho '
+      + 'do 5S, e "Ações atrasadas" é o pedaço dela que já passou do prazo. '
       + 'Alguns meses de 2026 entraram por estimativa (campo "origem") porque o registro original se perdeu.',
   },
 
@@ -786,7 +1195,7 @@ const paginas = [
           Values: [
             'fato_ag_contagem.data', 'fato_ag_contagem.colaborador_nome',
             'fato_ag_contagem.tipo', 'fato_ag_contagem.formato',
-            'fato_ag_contagem.status', '@Total em caixas', '@Contagens',
+            'fato_ag_contagem.status', '@Total em caixas', '@Linhas lançadas',
           ],
         },
       },

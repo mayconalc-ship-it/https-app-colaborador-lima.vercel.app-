@@ -30,6 +30,17 @@ DEFINE
 // EXECUTIVO
 // ------------------------------------------------------------------
 
+// Carimbo de atualização, para a capa. O valor nasce congelado no
+// instante em que o modelo atualizou -- não é a hora de quem abre o
+// arquivo, e a diferença é o ponto: um .pbix aberto na segunda pode
+// estar com dado de sexta.
+//
+// SELECTEDVALUE e não MAX: a tabela tem uma linha só, e se um dia
+// passar a ter mais, "o maior carimbo" seria uma resposta errada
+// disfarçada de certa. Vazio avisa; número errado, não.
+MEASURE '_Medidas'[Atualizado em] =
+    SELECTEDVALUE ( dim_atualizacao[atualizado_rotulo] )
+
 MEASURE '_Medidas'[Colaboradores] =
     DISTINCTCOUNT ( dim_colaborador[colaborador_id] )
 
@@ -137,7 +148,10 @@ MEASURE '_Medidas'[Δ Última semana vs. média] =
 // ATIVO DE GIRO
 // ------------------------------------------------------------------
 
-MEASURE '_Medidas'[Contagens] =
+// LINHA LANÇADA, e não contagem. Uma pessoa que conta o pátio digita
+// dezenas destas -- uma por tipo/formato. O nome antigo era "Contagens",
+// e era ele que fazia a leitura errada parecer certa.
+MEASURE '_Medidas'[Linhas lançadas] =
     COUNTROWS ( fato_ag_contagem )
 
 MEASURE '_Medidas'[Contadores] =
@@ -154,8 +168,8 @@ MEASURE '_Medidas'[% Participação AG] =
 
 MEASURE '_Medidas'[% Lançado no dia] =
     DIVIDE (
-        CALCULATE ( [Contagens], fato_ag_contagem[lancado_no_dia] = TRUE () ),
-        [Contagens]
+        CALCULATE ( [Linhas lançadas], fato_ag_contagem[lancado_no_dia] = TRUE () ),
+        [Linhas lançadas]
     )
 
 MEASURE '_Medidas'[Atraso médio (dias)] =
@@ -164,7 +178,7 @@ MEASURE '_Medidas'[Atraso médio (dias)] =
 // Sinalizador de dado quebrado: se acender, falta cadastrar fator de
 // conversão de algum formato e o total em caixas está subestimado.
 MEASURE '_Medidas'[Linhas sem fator] =
-    CALCULATE ( [Contagens], fato_ag_contagem[fator_ausente] = TRUE () )
+    CALCULATE ( [Linhas lançadas], fato_ag_contagem[fator_ausente] = TRUE () )
 
 // O filtro parque_confiavel saiu destas quatro medidas.
 //
@@ -303,9 +317,17 @@ MEASURE '_Medidas'[Diferença] =
 // "Ocorrências de contagem" é quantas VEZES se contou, não quanto se
 // contou. É o que responde se a revenda está mantendo a rotina — volume
 // alto num dia só não é aderência.
-
+//
+// ERA COUNTROWS(fato_ag_contagem), o que contradizia o próprio nome e o
+// comentário acima: contava LINHA LANÇADA. Em 22/08/2026 o Matheus
+// contou o pátio uma vez e digitou 21 linhas — o gráfico diário subia
+// para 21 e dava a impressão de vinte e uma contagens naquele dia.
+//
+// fato_ag_dia_colaborador tem o grão certo: uma linha por pessoa por
+// dia, ou seja, uma linha por VEZ que alguém contou. Naquele dia, 1.
+// Para o volume de linhas, use [Linhas lançadas].
 MEASURE '_Medidas'[Ocorrências de contagem] =
-    COUNTROWS ( fato_ag_contagem )
+    COUNTROWS ( fato_ag_dia_colaborador )
 
 MEASURE '_Medidas'[Dias úteis no período] =
     CALCULATE (
@@ -316,6 +338,87 @@ MEASURE '_Medidas'[Dias úteis no período] =
 
 MEASURE '_Medidas'[% Dias com contagem] =
     DIVIDE ( [Dias com contagem], [Dias úteis no período] )
+
+// --- A meta da cia: 3 contagens por semana --------------------------
+//
+// "Contagem" aqui é DIA CONTADO, não linha lançada. Uma pessoa que
+// digita 40 linhas numa terça e some o resto da semana lançou 40
+// ocorrências e cumpriu UM terço da meta -- é isso que a régua da cia
+// quer dizer com "3 por semana". A leitura por volume continua
+// disponível em [Ocorrências de contagem], que mede outra coisa.
+//
+// A meta é constante e mora numa medida só. Quando a cia mudar de 3
+// para 4, muda-se aqui e os quatro indicadores abaixo acompanham -- e o
+// número não fica escrito à mão em cinco títulos de visual.
+MEASURE '_Medidas'[Meta semanal de contagens] =
+    3
+
+// Semanas do CALENDÁRIO já decorridas dentro do que estiver filtrado.
+// ja_aconteceu pelo mesmo motivo de [Dias úteis no período]: com o ano
+// inteiro aberto, contar as 52 semanas jogaria o denominador para o
+// futuro e todo mundo apareceria devendo meta que ainda nem venceu.
+MEASURE '_Medidas'[Semanas no período] =
+    CALCULATE (
+        DISTINCTCOUNT ( dim_calendario[ano_semana] ),
+        dim_calendario[ja_aconteceu] = TRUE ()
+    )
+
+MEASURE '_Medidas'[Meta de contagens] =
+    [Meta semanal de contagens] * [Semanas no período]
+
+MEASURE '_Medidas'[% da meta de contagens] =
+    DIVIDE ( [Dias com contagem], [Meta de contagens] )
+
+// O par do percentual acumulado, e o mais honesto dos dois: 12 dias
+// contados em 4 semanas dá 100% da meta mesmo que 8 deles tenham caído
+// na mesma semana. Esta medida conta SEMANA A SEMANA quantas fecharam
+// com 3 ou mais.
+MEASURE '_Medidas'[Semanas na meta] =
+    COUNTROWS (
+        FILTER (
+            CALCULATETABLE (
+                VALUES ( dim_calendario[ano_semana] ),
+                dim_calendario[ja_aconteceu] = TRUE ()
+            ),
+            [Dias com contagem] >= [Meta semanal de contagens]
+        )
+    )
+
+MEASURE '_Medidas'[% Semanas na meta] =
+    DIVIDE ( [Semanas na meta], [Semanas no período] )
+
+// O ritmo dia a dia. Devolve ZERO, e não vazio, no dia em que ninguém
+// contou -- e a diferença é o gráfico inteiro.
+//
+// [Ocorrências de contagem] vem vazia no dia sem lançamento, e categoria
+// vazia o Power BI simplesmente não desenha: a série pulava de 05 para
+// 09 e o buraco de três dias -- que é exatamente o que a meta existe
+// para vigiar -- sumia da tela. Com zero, a linha desce até o eixo e o
+// dia parado fica visível.
+//
+// ja_aconteceu impede que o resto do mês apareça como uma fileira de
+// zeros: dia que ainda não chegou não é dia sem contagem.
+//
+// CUIDADO com SELECTEDVALUE aqui -- foi assim que esta medida nasceu, e
+// o gráfico saiu COMPLETAMENTE VAZIO. O eixo é dia_rotulo ("05"), e sem
+// um mês escolhido esse "05" é o dia 5 de TODOS os meses do calendário:
+// alguns já aconteceram, outros não. SELECTEDVALUE de vários valores
+// devolve vazio, o IF nunca era verdadeiro e nenhuma categoria era
+// desenhada -- sem erro, sem visual vazio com aviso, só um gráfico em
+// branco.
+//
+// Contar os dias já decorridos por trás daquele rótulo resolve nos dois
+// casos: com um mês filtrado é exatamente um dia, e sem filtro é
+// qualquer dia 5 que já tenha passado. O gráfico deixa de depender de o
+// usuário ter lembrado de escolher o mês.
+MEASURE '_Medidas'[Contagens no dia] =
+    VAR DiasDecorridos =
+        CALCULATE (
+            COUNTROWS ( dim_calendario ),
+            dim_calendario[ja_aconteceu] = TRUE ()
+        )
+    RETURN
+        IF ( DiasDecorridos > 0, COALESCE ( [Ocorrências de contagem], 0 ) )
 
 MEASURE '_Medidas'[Recontagens pendentes] =
     CALCULATE (
@@ -368,19 +471,110 @@ MEASURE '_Medidas'[Ocorrências relatadas] =
 MEASURE '_Medidas'[% Rotas com ocorrência] =
     DIVIDE ( [Feedbacks com ocorrência], [Feedbacks] )
 
-// O corte de 3 feedbacks é proposital: uma rota com um único feedback
-// ruim viraria "a pior rota da revenda" e queimaria a credibilidade do
-// painel na primeira reunião.
-MEASURE '_Medidas'[Rota mais crítica] =
-    VAR Rotas =
-        ADDCOLUMNS (
-            VALUES ( fato_feedback_rota[rota] ),
-            "@Nota", CALCULATE ( AVERAGE ( fato_feedback_rota[nota] ) ),
-            "@Qtd", CALCULATE ( COUNTROWS ( fato_feedback_rota ) )
+// --- Cidade, e não rota --------------------------------------------
+//
+// "Rota mais crítica" saiu do painel em 23/08/2026, e o motivo não é
+// estatístico: é que o indicador não decidia nada. O número do mapa é
+// gerado pela roteirização do dia -- a rota 14768 de ontem não é a rota
+// 14768 do mês que vem --, então apontar um mapa como "o pior" não diz
+// onde agir, nem no dia seguinte.
+//
+// A CIDADE se repete. bi.fato_feedback_cidade cruza o mapa que o
+// motorista digitou com o relatório de rotas importado em /admin/rotas
+// e devolve por onde aquele mapa passou. "As notas caem toda vez que o
+// mapa passa por X" é uma frase sobre a qual dá para tomar decisão.
+//
+// O corte de 3 feedbacks continua, pelo mesmo motivo de antes: sem ele
+// uma cidade com um único feedback ruim vira "a pior da revenda" na
+// primeira reunião e o painel perde credibilidade de uma vez só.
+MEASURE '_Medidas'[Feedbacks por cidade] =
+    DISTINCTCOUNT ( fato_feedback_cidade[feedback_id] )
+
+MEASURE '_Medidas'[Nota média por cidade] =
+    AVERAGE ( fato_feedback_cidade[nota] )
+
+// --- Média ajustada: por que a simples não serve para ranquear -------
+//
+// Medido em 23/08/2026, com 68 feedbacks em 11 cidades:
+//
+//   CORIBE      6 feedbacks   média 1,33   3 notas ruins
+//   JABORANDI   3 feedbacks   média 1,33   1 nota ruim
+//
+// Empate na média simples. E empate em TOPN(1, ..., ASC) não devolve
+// uma linha: devolve as duas, e o MAXX que vem depois fica com o maior
+// TEXTO -- "JABORANDI" ganha de "CORIBE" por ordem alfabética. O painel
+// apontava uma cidade por causa da letra J.
+//
+// O problema é mais fundo que o desempate. Média de 3 observações e
+// média de 6 não têm o mesmo peso, e a de 3 varia muito mais: uma nota
+// ruim a mais em Jaborandi derruba a média em 0,33, e em Coribe em
+// 0,17. Ranquear as duas na mesma régua premia a amostra pequena.
+//
+// A correção é encolher a média de cada cidade em direção à média
+// geral, na proporção de quantas observações ela tem -- é a média
+// bayesiana que serviço de avaliação usa para não deixar um produto com
+// uma única nota 5 encabeçar a lista:
+//
+//   ajustada = (soma das notas + m × média geral) ÷ (n + m)
+//
+// m = 5 é o peso do "benefício da dúvida": uma cidade com 5 feedbacks
+// tem a nota puxada metade para a geral, uma com 20 quase não se move.
+// Com os números acima, Coribe sai em 1,54 e Jaborandi em 1,63 -- a
+// mesma média simples, e a ordem certa, porque Coribe sustentou aquela
+// média o dobro de vezes.
+//
+// A média SIMPLES continua sendo a do gráfico. Ela é a que o time
+// reconhece e a que se confere na mão; a ajustada serve para ordenar,
+// não para comunicar.
+MEASURE '_Medidas'[Nota média ajustada da cidade] =
+    VAR Peso = 5
+    VAR MediaGeral =
+        CALCULATE (
+            AVERAGE ( fato_feedback_cidade[nota] ),
+            ALLSELECTED ( fato_feedback_cidade )
         )
-    VAR Elegiveis = FILTER ( Rotas, [@Qtd] >= 3 )
+    VAR Observacoes = CALCULATE ( COUNTROWS ( fato_feedback_cidade ) )
+    VAR Soma = CALCULATE ( SUM ( fato_feedback_cidade[nota] ) )
     RETURN
-        MAXX ( TOPN ( 1, Elegiveis, [@Nota], ASC ), fato_feedback_rota[rota] )
+        DIVIDE ( Soma + Peso * MediaGeral, Observacoes + Peso )
+
+// Feedback cujo mapa não foi encontrado no relatório de rotas cai em
+// 'Rota não localizada' e NÃO pode concorrer a pior cidade -- seria uma
+// falha de importação virando diagnóstico de operação.
+//
+// O corte de 3 continua, e continua fazendo falta: a média ajustada
+// ordena bem, mas não impede que uma cidade com um único feedback
+// apareça no cartão. Em 23/08/2026 era o caso de SAO FELIX -- 1
+// feedback, nota 0.
+//
+// O segundo critério do TOPN (mais feedbacks primeiro) é a rede de
+// segurança: se duas cidades empatarem até na ajustada, ganha a que tem
+// mais observações. Nunca mais por ordem alfabética.
+MEASURE '_Medidas'[Cidade mais crítica] =
+    VAR Cidades =
+        CALCULATETABLE (
+            ADDCOLUMNS (
+                VALUES ( fato_feedback_cidade[cidade] ),
+                "@Ajustada", [Nota média ajustada da cidade],
+                "@Qtd", CALCULATE ( DISTINCTCOUNT ( fato_feedback_cidade[feedback_id] ) )
+            ),
+            fato_feedback_cidade[rota_localizada] = TRUE ()
+        )
+    VAR Elegiveis = FILTER ( Cidades, [@Qtd] >= 3 )
+    VAR Pior = TOPN ( 1, Elegiveis, [@Ajustada], ASC, [@Qtd], DESC )
+    RETURN
+        MAXX ( Pior, fato_feedback_cidade[cidade] )
+
+// Quanto do painel de cidade é confiável. Se cair, é sinal de que a
+// roteirização parou de ser importada -- e não de que a operação piorou.
+MEASURE '_Medidas'[% Rotas localizadas] =
+    DIVIDE (
+        CALCULATE (
+            [Feedbacks por cidade],
+            fato_feedback_cidade[rota_localizada] = TRUE ()
+        ),
+        [Feedbacks por cidade]
+    )
 
 // ------------------------------------------------------------------
 // CINCO PORQUÊS
@@ -415,6 +609,32 @@ MEASURE '_Medidas'[Aguardando tratativa] =
 
 MEASURE '_Medidas'[Horas médias até resposta] =
     AVERAGE ( fato_cinco_porques[horas_ate_resposta] )
+
+// TMR -- tempo médio de resposta, na unidade em que a liderança pensa.
+//
+// O cartão mostrava "Horas até resposta" e um número cru: 96,4. Ninguém
+// lê 96,4 h como "quatro dias" sem parar para dividir, e é justamente
+// acima de 24 h que o número deixa de ser um detalhe operacional e vira
+// o problema. Abaixo de 24 h a hora é a unidade útil ("respondemos em
+// 6 h"); acima, o dia é.
+//
+// Devolve TEXTO de propósito -- a unidade muda com o valor, e sufixo de
+// format string não faz isso. Por isso o nome está em MEDIDAS_TEXTO no
+// gerador: sem essa entrada, sairia com format string numérico em cima
+// de um texto. Para ordenar ou comparar, use [Horas médias até
+// resposta], que continua sendo o número.
+MEASURE '_Medidas'[TMR] =
+    VAR Horas = [Horas médias até resposta]
+    RETURN
+        IF (
+            ISBLANK ( Horas ),
+            BLANK (),
+            IF (
+                Horas < 24,
+                FORMAT ( Horas, "0.0" ) & " h",
+                FORMAT ( DIVIDE ( Horas, 24 ), "0.0" ) & " d"
+            )
+        )
 
 MEASURE '_Medidas'[% Aceite do motorista] =
     DIVIDE (
@@ -461,6 +681,64 @@ MEASURE '_Medidas'[Cliques no aviso (piso)] =
 
 MEASURE '_Medidas'[Dias até curtir (mediana)] =
     MEDIANX ( fato_comunicado_curtida, fato_comunicado_curtida[dias_ate_curtir] )
+
+// --- Cronograma (a visão de calendário do app) ----------------------
+//
+// A pergunta do calendário não é quanto se publicou -- é QUE DIAS
+// FICARAM VAZIOS. Uma lista ordenada por data não responde isso: o
+// buraco de duas semanas some entre duas linhas consecutivas. Numa
+// grade semana x dia da semana, ele é o retângulo em branco.
+
+MEASURE '_Medidas'[Itens do cronograma] =
+    COUNTROWS ( fato_comunicado_agenda )
+
+MEASURE '_Medidas'[Marcas na fila] =
+    CALCULATE (
+        [Itens do cronograma],
+        fato_comunicado_agenda[na_fila] = TRUE ()
+    )
+
+// O conteúdo da célula do calendário. Texto, e não contagem: numa grade
+// de 42 células, "2" não diz o que vai sair no dia -- e é exatamente
+// isso que o RH está olhando quando monta o mês.
+//
+// UNICHAR(10) é a quebra de linha. Ela só aparece com quebra automática
+// de texto ligada na matriz -- o gerador liga via quebraTexto.
+MEASURE '_Medidas'[Agenda do dia] =
+    CONCATENATEX (
+        fato_comunicado_agenda,
+        fato_comunicado_agenda[rotulo],
+        UNICHAR ( 10 ),
+        fato_comunicado_agenda[hora], ASC
+    )
+
+// A CÉLULA DO CALENDÁRIO -- o número do dia, e embaixo o que sai nele.
+//
+// É esta medida que faz a matriz virar calendário em vez de tabela
+// cruzada. A primeira versão punha só os itens na célula: dia vazio
+// ficava em branco, sem número, e quem olhava não sabia se aquele
+// retângulo era o dia 12 ou o dia 19 -- a grade tinha sete colunas de
+// dia da semana e nenhuma data. Era o "mês em grade" que não parecia
+// mês nenhum.
+//
+// O número do dia vem SEMPRE, mesmo sem publicação. É ele que desenha a
+// grade completa: a matriz omite a interseção cujo valor é vazio, então
+// sem o número os dias sem nada sumiriam e as colunas encolheriam umas
+// sobre as outras.
+//
+// SELECTEDVALUE devolve o dia só quando a célula é UM dia -- que é o
+// caso de toda interseção semana × dia da semana. Nas linhas de total
+// ele fica vazio e a célula sai limpa, em vez de somar dia do mês.
+MEASURE '_Medidas'[Célula do calendário] =
+    VAR Dia = SELECTEDVALUE ( dim_calendario[dia] )
+    VAR Itens = [Agenda do dia]
+    RETURN
+        IF (
+            ISBLANK ( Dia ),
+            BLANK (),
+            FORMAT ( Dia, "0" )
+                & IF ( ISBLANK ( Itens ), "", UNICHAR ( 10 ) & Itens )
+        )
 
 // ------------------------------------------------------------------
 // QUIZ
@@ -663,8 +941,34 @@ MEASURE '_Medidas'[Auditorias pendentes] =
 
 // Aderência é o indicador que sustenta todos os outros: 95% de
 // conformidade em 3 áreas de 19 auditadas não diz nada sobre a revenda.
+//
+// SÓ O QUE JÁ VENCEU ENTRA NA CONTA.
+//
+// A versão anterior dividia realizadas por TODAS as planejadas do
+// período filtrado -- inclusive as agendadas para depois de hoje. Com o
+// filtro aberto no ano, o plano de novembro e dezembro entrava no
+// denominador e a aderência aparecia bem abaixo de 100% mesmo com o
+// ciclo em dia. O indicador acusava atraso em auditoria que ainda nem
+// tinha chegado a data.
+//
+// Auditoria com data futura não é auditoria em falta: é compromisso. As
+// duas variáveis abaixo recortam o mesmo universo -- o que já venceu --
+// para numerador e denominador, então uma auditoria antecipada não
+// empurra o número acima de 100%.
 MEASURE '_Medidas'[% Aderência ao plano] =
-    DIVIDE ( [Auditorias realizadas], [Auditorias planejadas] )
+    VAR Vencidas =
+        CALCULATE (
+            COUNTROWS ( fato_5s_auditoria ),
+            fato_5s_auditoria[data] <= TODAY ()
+        )
+    VAR VencidasFeitas =
+        CALCULATE (
+            COUNTROWS ( fato_5s_auditoria ),
+            fato_5s_auditoria[data] <= TODAY (),
+            fato_5s_auditoria[realizada] = TRUE ()
+        )
+    RETURN
+        DIVIDE ( VencidasFeitas, Vencidas )
 
 MEASURE '_Medidas'[Auditorias atrasadas] =
     CALCULATE (

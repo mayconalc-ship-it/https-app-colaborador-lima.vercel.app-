@@ -97,6 +97,22 @@ table fato_cinco_porques_matriz
 
 		annotation UnderlyingDateTimeDataType = Date
 
+	column tratativa
+		dataType: string
+		lineageTag: 9479eda3-639c-4b9e-9e23-aa4dec30c6b9
+		summarizeBy: none
+		sourceColumn: tratativa
+
+		annotation SummarizationSetBy = Automatic
+
+	column com_tratativa
+		dataType: int64
+		lineageTag: 4a3aee11-6bdd-4b29-a7a6-a77ce9858eed
+		summarizeBy: none
+		sourceColumn: com_tratativa
+
+		annotation SummarizationSetBy = Automatic
+
 	partition fato_cinco_porques_matriz = m
 		mode: import
 		source =

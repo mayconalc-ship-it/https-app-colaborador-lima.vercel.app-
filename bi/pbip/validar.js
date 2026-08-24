@@ -190,6 +190,32 @@ for (const arq of arquivos) {
     }
   }
 
+  // Literais dos filtros. Um valor de TEXTO sem aspas dentro do
+  // Literal.Value nao e recusado por ninguem: o Desktop aceita o
+  // arquivo, comeca a renderizar e estoura em
+  //
+  //   TypeError: e[i].accept is not a function  (visitIn)
+  //
+  // ...que derruba o relatorio INTEIRO, sem dizer coluna, valor nem
+  // pagina. Aconteceu em 23/08/2026 com os dias da semana no filtro de
+  // domingo do Ativo de Giro. Um literal valido e: texto entre
+  // apostrofos, numero, numero com sufixo L ou D, true ou false.
+  const LITERAL_OK = /^('.*'|-?\d+(\.\d+)?[LDM]?|true|false|null)$/s;
+  for (const f of (j.filterConfig || {}).filters || []) {
+    for (const onde of (f.filter || {}).Where || []) {
+      const valores = ((onde.Condition || {}).In || {}).Values || [];
+      for (const linha of valores) {
+        for (const item of linha) {
+          const v = (item.Literal || {}).Value;
+          if (v === undefined) continue;
+          if (!LITERAL_OK.test(v)) {
+            falha(`${j.name}: literal de filtro sem aspas -- ${v} (texto precisa de 'aspas')`);
+          }
+        }
+      }
+    }
+  }
+
   if (!j.visual) continue;
   visuais++;
   const onde = `${j.visual.visualType} ${j.name}`;

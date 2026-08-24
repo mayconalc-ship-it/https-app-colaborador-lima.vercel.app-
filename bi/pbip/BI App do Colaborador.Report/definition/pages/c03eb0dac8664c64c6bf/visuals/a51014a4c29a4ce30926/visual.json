@@ -1,0 +1,91 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.12.0/schema.json",
+  "name": "a51014a4c29a4ce30926",
+  "position": {
+    "x": 16,
+    "y": 672,
+    "z": 6000,
+    "height": 30,
+    "width": 1248,
+    "tabOrder": 6000
+  },
+  "visual": {
+    "visualType": "textbox",
+    "objects": {
+      "general": [
+        {
+          "properties": {
+            "paragraphs": [
+              {
+                "textRuns": [
+                  {
+                    "value": "No modo de edição, os botões abrem com Ctrl+clique; no modo de leitura e no Power BI na web, com clique simples. Para voltar, use a seta no canto direito da faixa azul — ela volta para a página anterior, então funciona quando você chegou por aqui; quem entra direto por uma aba do rodapé volta pelas abas. Os filtros de Revenda, Período, Área e Colaborador estão sincronizados: o que você escolher numa página vale em todas. O filtro de Colaborador aceita busca — clique nele e digite as primeiras letras do nome. Duas páginas não aparecem aqui por não serem painel de gestão: \"Mapa do App\" (índice do menu, para quem administra) e \"Detalhe\" (destino de drill-through — clique com o botão direito em qualquer visual).",
+                    "textStyle": {
+                      "fontSize": "8pt",
+                      "color": "#64748B"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "visualContainerObjects": {
+      "title": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "false"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "border": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "false"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "background": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "false"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "dropShadow": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "false"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "drillFilterOtherVisuals": true
+  }
+}

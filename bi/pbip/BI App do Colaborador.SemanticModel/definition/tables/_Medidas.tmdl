@@ -2,6 +2,9 @@
 table _Medidas
 	lineageTag: 0b845ede-137d-4a59-9bca-96e68c0419c3
 
+	measure 'Atualizado em' = SELECTEDVALUE ( dim_atualizacao[atualizado_rotulo] )
+		lineageTag: c1f38414-2af7-4c66-8065-629ee9ac0979
+
 	measure Colaboradores = DISTINCTCOUNT ( dim_colaborador[colaborador_id] )
 		formatString: #,0
 		lineageTag: b970fc87-e828-49e5-85b5-cbb96e520616
@@ -85,12 +88,16 @@ table _Medidas
 			    [Interações — última semana válida] - [Interações — média semanal],
 			    [Interações — média semanal]
 			)
+			
+			// ------------------------------------------------------------------
+			// ATIVO DE GIRO
+			// ------------------------------------------------------------------
 		formatString: 0.0
 		lineageTag: 2a3c9355-dc28-4b2c-bb94-d644963a20d3
 
-	measure Contagens = COUNTROWS ( fato_ag_contagem )
+	measure 'Linhas lançadas' = COUNTROWS ( fato_ag_contagem )
 		formatString: #,0
-		lineageTag: 59fd3038-e5fd-4f2a-b71e-4bfea69816ff
+		lineageTag: a3ed21e4-7b75-4d06-a4dd-9e65e2f77c59
 
 	measure Contadores = DISTINCTCOUNT ( fato_ag_contagem[colaborador_id] )
 		formatString: #,0
@@ -110,8 +117,8 @@ table _Medidas
 
 	measure '% Lançado no dia' =
 			DIVIDE (
-			    CALCULATE ( [Contagens], fato_ag_contagem[lancado_no_dia] = TRUE () ),
-			    [Contagens]
+			    CALCULATE ( [Linhas lançadas], fato_ag_contagem[lancado_no_dia] = TRUE () ),
+			    [Linhas lançadas]
 			)
 		formatString: 0.0%
 		lineageTag: c9bec3f2-40b6-4ef5-aec4-3d174701cbc7
@@ -120,7 +127,7 @@ table _Medidas
 		formatString: 0.0
 		lineageTag: 36db1920-7325-42d7-9537-0ef24b84a718
 
-	measure 'Linhas sem fator' = CALCULATE ( [Contagens], fato_ag_contagem[fator_ausente] = TRUE () )
+	measure 'Linhas sem fator' = CALCULATE ( [Linhas lançadas], fato_ag_contagem[fator_ausente] = TRUE () )
 		formatString: #,0
 		lineageTag: c702d191-5d47-4b29-bc8b-6495e1e5a9d0
 
@@ -232,7 +239,7 @@ table _Medidas
 		formatString: #,0
 		lineageTag: 80bde363-2847-41ca-a4ec-e4b7da05d929
 
-	measure 'Ocorrências de contagem' = COUNTROWS ( fato_ag_contagem )
+	measure 'Ocorrências de contagem' = COUNTROWS ( fato_ag_dia_colaborador )
 		formatString: #,0
 		lineageTag: 960faa40-6b10-4f3b-9dbb-b2ddae40c42a
 
@@ -248,6 +255,54 @@ table _Medidas
 	measure '% Dias com contagem' = DIVIDE ( [Dias com contagem], [Dias úteis no período] )
 		formatString: 0.0%
 		lineageTag: 157da353-5267-449c-b541-756985baf995
+
+	measure 'Meta semanal de contagens' = 3
+		formatString: #,0
+		lineageTag: 83350b73-9a6d-4139-9016-6543158013d6
+
+	measure 'Semanas no período' =
+			CALCULATE (
+			    DISTINCTCOUNT ( dim_calendario[ano_semana] ),
+			    dim_calendario[ja_aconteceu] = TRUE ()
+			)
+		formatString: #,0
+		lineageTag: 957a34e3-2cfe-4913-ad26-2cc5f8d49b09
+
+	measure 'Meta de contagens' = [Meta semanal de contagens] * [Semanas no período]
+		formatString: #,0
+		lineageTag: 819be624-9810-48c3-aa74-85f71591b9cd
+
+	measure '% da meta de contagens' = DIVIDE ( [Dias com contagem], [Meta de contagens] )
+		formatString: 0.0%
+		lineageTag: 76f7ea53-a8e5-404b-a2d3-14a816b59776
+
+	measure 'Semanas na meta' =
+			COUNTROWS (
+			    FILTER (
+			        CALCULATETABLE (
+			            VALUES ( dim_calendario[ano_semana] ),
+			            dim_calendario[ja_aconteceu] = TRUE ()
+			        ),
+			        [Dias com contagem] >= [Meta semanal de contagens]
+			    )
+			)
+		formatString: #,0
+		lineageTag: d1142b5f-1b1e-4678-a6ad-54b9b095411a
+
+	measure '% Semanas na meta' = DIVIDE ( [Semanas na meta], [Semanas no período] )
+		formatString: 0.0%
+		lineageTag: 12760ca6-18a3-4f37-8db0-a543cdba93ac
+
+	measure 'Contagens no dia' =
+			VAR DiasDecorridos =
+			    CALCULATE (
+			        COUNTROWS ( dim_calendario ),
+			        dim_calendario[ja_aconteceu] = TRUE ()
+			    )
+			RETURN
+			    IF ( DiasDecorridos > 0, COALESCE ( [Ocorrências de contagem], 0 ) )
+		formatString: #,0
+		lineageTag: 59bbd394-7f2e-451e-bf00-8631985d5518
 
 	measure 'Recontagens pendentes' =
 			CALCULATE (
@@ -309,17 +364,54 @@ table _Medidas
 		formatString: 0.0%
 		lineageTag: 9f5ed942-0e30-494f-b4fb-cd7f95774053
 
-	measure 'Rota mais crítica' =
-			VAR Rotas =
-			    ADDCOLUMNS (
-			        VALUES ( fato_feedback_rota[rota] ),
-			        "@Nota", CALCULATE ( AVERAGE ( fato_feedback_rota[nota] ) ),
-			        "@Qtd", CALCULATE ( COUNTROWS ( fato_feedback_rota ) )
+	measure 'Feedbacks por cidade' = DISTINCTCOUNT ( fato_feedback_cidade[feedback_id] )
+		formatString: #,0
+		lineageTag: d798aeb9-072b-4333-b58f-853ddf578966
+
+	measure 'Nota média por cidade' = AVERAGE ( fato_feedback_cidade[nota] )
+		formatString: 0.0
+		lineageTag: 66d52304-8221-4ada-80ef-7f8e75c24605
+
+	measure 'Nota média ajustada da cidade' =
+			VAR Peso = 5
+			VAR MediaGeral =
+			    CALCULATE (
+			        AVERAGE ( fato_feedback_cidade[nota] ),
+			        ALLSELECTED ( fato_feedback_cidade )
 			    )
-			VAR Elegiveis = FILTER ( Rotas, [@Qtd] >= 3 )
+			VAR Observacoes = CALCULATE ( COUNTROWS ( fato_feedback_cidade ) )
+			VAR Soma = CALCULATE ( SUM ( fato_feedback_cidade[nota] ) )
 			RETURN
-			    MAXX ( TOPN ( 1, Elegiveis, [@Nota], ASC ), fato_feedback_rota[rota] )
-		lineageTag: d317a9a0-693d-4692-96af-ad6f645e5807
+			    DIVIDE ( Soma + Peso * MediaGeral, Observacoes + Peso )
+		formatString: 0.0
+		lineageTag: 32cd703a-150b-42d0-b8fd-7aa3aae965a9
+
+	measure 'Cidade mais crítica' =
+			VAR Cidades =
+			    CALCULATETABLE (
+			        ADDCOLUMNS (
+			            VALUES ( fato_feedback_cidade[cidade] ),
+			            "@Ajustada", [Nota média ajustada da cidade],
+			            "@Qtd", CALCULATE ( DISTINCTCOUNT ( fato_feedback_cidade[feedback_id] ) )
+			        ),
+			        fato_feedback_cidade[rota_localizada] = TRUE ()
+			    )
+			VAR Elegiveis = FILTER ( Cidades, [@Qtd] >= 3 )
+			VAR Pior = TOPN ( 1, Elegiveis, [@Ajustada], ASC, [@Qtd], DESC )
+			RETURN
+			    MAXX ( Pior, fato_feedback_cidade[cidade] )
+		lineageTag: 1ff9e972-b79c-4be7-81c3-607c01424fc7
+
+	measure '% Rotas localizadas' =
+			DIVIDE (
+			    CALCULATE (
+			        [Feedbacks por cidade],
+			        fato_feedback_cidade[rota_localizada] = TRUE ()
+			    ),
+			    [Feedbacks por cidade]
+			)
+		formatString: 0.0%
+		lineageTag: 856290db-0a8d-4656-a198-b9751aca7237
 
 	measure Análises = COUNTROWS ( fato_cinco_porques )
 		formatString: #,0
@@ -357,6 +449,20 @@ table _Medidas
 	measure 'Horas médias até resposta' = AVERAGE ( fato_cinco_porques[horas_ate_resposta] )
 		formatString: 0.0
 		lineageTag: 2647e78a-cb40-4c97-96ff-917e7f03369d
+
+	measure TMR =
+			VAR Horas = [Horas médias até resposta]
+			RETURN
+			    IF (
+			        ISBLANK ( Horas ),
+			        BLANK (),
+			        IF (
+			            Horas < 24,
+			            FORMAT ( Horas, "0.0" ) & " h",
+			            FORMAT ( DIVIDE ( Horas, 24 ), "0.0" ) & " d"
+			        )
+			    )
+		lineageTag: 02c56ac6-55ca-4ba5-abeb-4aa07d6a3724
 
 	measure '% Aceite do motorista' =
 			DIVIDE (
@@ -407,6 +513,39 @@ table _Medidas
 	measure 'Dias até curtir (mediana)' = MEDIANX ( fato_comunicado_curtida, fato_comunicado_curtida[dias_ate_curtir] )
 		formatString: #,0
 		lineageTag: 819027d5-aafa-4db7-a09e-5dae0a9a441b
+
+	measure 'Itens do cronograma' = COUNTROWS ( fato_comunicado_agenda )
+		formatString: #,0
+		lineageTag: ef565774-c3e9-4a57-b73b-f4f94f5f10e8
+
+	measure 'Marcas na fila' =
+			CALCULATE (
+			    [Itens do cronograma],
+			    fato_comunicado_agenda[na_fila] = TRUE ()
+			)
+		formatString: #,0
+		lineageTag: bf7dd64e-d74f-4a78-af2a-b6df24b82d08
+
+	measure 'Agenda do dia' =
+			CONCATENATEX (
+			    fato_comunicado_agenda,
+			    fato_comunicado_agenda[rotulo],
+			    UNICHAR ( 10 ),
+			    fato_comunicado_agenda[hora], ASC
+			)
+		lineageTag: 3f76e20c-7d33-4883-9113-c8e232b2c4b7
+
+	measure 'Célula do calendário' =
+			VAR Dia = SELECTEDVALUE ( dim_calendario[dia] )
+			VAR Itens = [Agenda do dia]
+			RETURN
+			    IF (
+			        ISBLANK ( Dia ),
+			        BLANK (),
+			        FORMAT ( Dia, "0" )
+			            & IF ( ISBLANK ( Itens ), "", UNICHAR ( 10 ) & Itens )
+			    )
+		lineageTag: aa250f5f-19bd-49d2-bc21-008ad24bf8c1
 
 	measure Participações = COUNTROWS ( fato_quiz_participacao )
 		formatString: #,0
@@ -588,7 +727,20 @@ table _Medidas
 		formatString: #,0
 		lineageTag: 5dd4199e-a0aa-4403-a252-217c784ae144
 
-	measure '% Aderência ao plano' = DIVIDE ( [Auditorias realizadas], [Auditorias planejadas] )
+	measure '% Aderência ao plano' =
+			VAR Vencidas =
+			    CALCULATE (
+			        COUNTROWS ( fato_5s_auditoria ),
+			        fato_5s_auditoria[data] <= TODAY ()
+			    )
+			VAR VencidasFeitas =
+			    CALCULATE (
+			        COUNTROWS ( fato_5s_auditoria ),
+			        fato_5s_auditoria[data] <= TODAY (),
+			        fato_5s_auditoria[realizada] = TRUE ()
+			    )
+			RETURN
+			    DIVIDE ( VencidasFeitas, Vencidas )
 		formatString: 0.0%
 		lineageTag: 9eb20a42-5397-45ae-9a72-775a222b6ed8
 

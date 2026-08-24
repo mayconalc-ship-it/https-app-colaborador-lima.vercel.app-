@@ -36,6 +36,7 @@ table dim_calendario
 		lineageTag: fd85e4db-dc15-49a4-a564-5dae5bba0def
 		summarizeBy: none
 		sourceColumn: mes_abrev
+		sortByColumn: mes
 
 		annotation SummarizationSetBy = Automatic
 
@@ -44,6 +45,7 @@ table dim_calendario
 		lineageTag: 0df541af-f9b3-41cf-81a8-bc2f9e1bcabb
 		summarizeBy: none
 		sourceColumn: mes_nome
+		sortByColumn: mes
 
 		annotation SummarizationSetBy = Automatic
 
@@ -122,6 +124,7 @@ table dim_calendario
 		lineageTag: e54811d8-e1a6-4c44-adbc-24b9d840412a
 		summarizeBy: none
 		sourceColumn: dia_semana_nome
+		sortByColumn: dia_semana
 
 		annotation SummarizationSetBy = Automatic
 
@@ -140,6 +143,51 @@ table dim_calendario
 		sourceColumn: ja_aconteceu
 
 		annotation SummarizationSetBy = Automatic
+
+	column dia
+		dataType: int64
+		lineageTag: db0b4c5b-b277-4550-89ae-38713f3c5cfa
+		summarizeBy: none
+		sourceColumn: dia
+
+		annotation SummarizationSetBy = Automatic
+
+	column dia_rotulo
+		dataType: string
+		lineageTag: 2f86e4d7-f61a-43c8-a4ff-ab8d048601de
+		summarizeBy: none
+		sourceColumn: dia_rotulo
+		sortByColumn: dia
+
+		annotation SummarizationSetBy = Automatic
+
+	column dia_semana_dom
+		dataType: int64
+		lineageTag: 93c23165-7da5-4fe9-a951-82191e566455
+		summarizeBy: none
+		sourceColumn: dia_semana_dom
+
+		annotation SummarizationSetBy = Automatic
+
+	column dia_semana_abrev
+		dataType: string
+		lineageTag: c849315f-b3e2-4643-8e40-192bf62ae8a5
+		summarizeBy: none
+		sourceColumn: dia_semana_abrev
+		sortByColumn: dia_semana_dom
+
+		annotation SummarizationSetBy = Automatic
+
+	column semana_dom
+		dataType: dateTime
+		formatString: dd/MM/yyyy
+		lineageTag: afc5789a-55b4-4dc6-9ce7-2adf078fb2bc
+		summarizeBy: none
+		sourceColumn: semana_dom
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation UnderlyingDateTimeDataType = Date
 
 	partition dim_calendario = m
 		mode: import

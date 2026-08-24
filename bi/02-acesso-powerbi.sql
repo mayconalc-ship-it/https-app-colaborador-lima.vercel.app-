@@ -71,7 +71,11 @@ alter default privileges in schema bi
 --          (select count(*) from bi.fato_quiz_participacao)                   as linhas_quiz,
 --          (select count(*) from bi.fato_comunicado)                          as linhas_comunicado;
 --
--- Esperado: views_criadas = 26, role_existe = 1, permissoes > 0.
+-- Esperado: views_criadas = 35, role_existe = 1, permissoes > 0.
+-- (Eram 26 ate 22/08/2026. Entraram fato_feedback_cidade,
+-- fato_comunicado_agenda e as demais views acrescentadas desde entao --
+-- se este numero vier MENOR que o de views, faltou rodar o 01 ou o
+-- recorte 09-atualizacao-23-08-2026.sql ate o fim.)
 -- As colunas de linhas sao o volume real do app -- zero ali significa que
 -- ainda nao ha lancamento, e nao falta de permissao.
 --

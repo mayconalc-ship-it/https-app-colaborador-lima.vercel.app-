@@ -1,0 +1,36 @@
+/// Uma linha: o instante em que o modelo foi atualizado, no fuso de Sao Paulo.
+table dim_atualizacao
+	lineageTag: 1bf02417-77bf-414e-9857-37c6653a6b93
+
+	column atualizado_em
+		dataType: dateTime
+		formatString: dd/MM/yyyy
+		lineageTag: ae47c154-6ed4-4e87-b655-def6aca4d9ed
+		summarizeBy: none
+		sourceColumn: atualizado_em
+
+		annotation SummarizationSetBy = Automatic
+
+	column atualizado_rotulo
+		dataType: string
+		lineageTag: 9046d8f8-677d-4edb-9fd4-6a808e33b7df
+		summarizeBy: none
+		sourceColumn: atualizado_rotulo
+
+		annotation SummarizationSetBy = Automatic
+
+	partition dim_atualizacao = m
+		mode: import
+		source =
+				let
+				    Agora = DateTimeZone.RemoveZone(DateTimeZone.SwitchZone(DateTimeZone.UtcNow(), -3)),
+				    Rotulo = DateTime.ToText(Agora, [Format="dd/MM/yyyy HH:mm", Culture="pt-BR"]),
+				    Tabela = #table(
+				        type table [atualizado_em = datetime, atualizado_rotulo = text],
+				        {{ Agora, Rotulo }}
+				    )
+				in
+				    Tabela
+
+	annotation PBI_ResultType = Table
+

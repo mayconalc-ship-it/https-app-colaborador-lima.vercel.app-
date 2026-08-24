@@ -252,7 +252,37 @@ select
   extract(isodow from d.data)::int as dia_semana,
   (array['Segunda','Terça','Quarta','Quinta','Sexta','Sábado','Domingo'])[extract(isodow from d.data)::int] as dia_semana_nome,
   (extract(isodow from d.data) >= 6) as fim_de_semana,
-  (d.data <= current_date)         as ja_aconteceu
+  (d.data <= current_date)         as ja_aconteceu,
+  -- Rotulo curto de dia, para eixo de grafico diario.
+  --
+  -- Existe por um motivo especifico: num eixo com a data inteira
+  -- ("01/08/2026", 10 caracteres) o Power BI nao consegue desenhar todos
+  -- os rotulos e passa a PULAR dias -- o grafico mostra 03, 06, 09 e
+  -- quem le acha que nos dias do meio nao houve nada. Com dois
+  -- caracteres cabem os 31 dias do mes.
+  --
+  -- dia_rotulo e TEXTO e por isso ordenaria em ordem alfabetica; a
+  -- coluna dia existe para ser o sortByColumn dele no modelo. Nao use
+  -- dia_rotulo em recorte de mais de um mes: "01" de agosto e "01" de
+  -- setembro sao a mesma categoria.
+  extract(day from d.data)::int    as dia,
+  to_char(d.data, 'DD')            as dia_rotulo,
+  -- Semana COMECANDO NO DOMINGO, para o calendario do plano de
+  -- comunicacao.
+  --
+  -- inicio_semana e dia_semana logo acima sao ISO: a semana comeca na
+  -- segunda. Isso e o certo para indicador de operacao -- semana util e
+  -- de segunda a sexta --, e errado para calendario: a tela de
+  -- /admin/comunicados/calendario monta a grade com domingo na primeira
+  -- coluna, como qualquer calendario de parede, e uma grade que comeca
+  -- na segunda nao e reconhecida como calendario por quem olha.
+  --
+  -- As tres convivem com as ISO de proposito, em vez de substitui-las:
+  -- trocar dia_semana por versao domingo-primeiro mudaria a conta de
+  -- fim_de_semana e de dias uteis, e o AG mede meta em cima disso.
+  (extract(dow from d.data) + 1)::int as dia_semana_dom,
+  (array['dom','seg','ter','qua','qui','sex','sáb'])[extract(dow from d.data)::int + 1] as dia_semana_abrev,
+  (d.data - extract(dow from d.data)::int)::date as semana_dom
 from dias d;
 
 comment on view bi.dim_calendario is
@@ -575,6 +605,86 @@ left join bi.dim_ocorrencia_rota d on d.ocorrencia_id = o.ocorrencia_id;
 comment on view bi.fato_feedback_ocorrencia is
   'Grao: feedback x ocorrencia (explodido). Conte DISTINCT feedback_id, nunca linhas.';
 
+-- ------------------------------------------------------------------
+-- O feedback cruzado com o relatorio de rotas -> CIDADE
+-- ------------------------------------------------------------------
+--
+-- Por que isto existe: "rota mais critica" nao decide nada. O numero do
+-- mapa muda todo dia -- a rota 14768 de ontem nao e a rota 14768 do mes
+-- que vem --, entao apontar um mapa como "o pior" nao diz onde agir. A
+-- CIDADE, sim: ela se repete, e "as notas caem toda vez que o mapa passa
+-- por Barreiras" e uma frase sobre a qual da para tomar decisao.
+--
+-- O cruzamento e possivel porque as duas pontas ja existem no banco:
+--   feedback_rota.rota  -> o motorista digita o numero do mapa (so
+--                          digitos: o app faz replace(/\D/g,'') antes de
+--                          gravar -- ver src/app/feedback-rota/actions.ts)
+--   rotas.mapa          -> a planilha do roteirizador importada em
+--                          /admin/rotas, sem zeros a esquerda, com as
+--                          cidades daquele mapa em rotas.cidades (jsonb)
+--
+-- A funcao abaixo poe os dois no mesmo formato. E o equivalente SQL de
+-- normalizarMapa() em src/lib/rotas.ts -- se a regra mudar la, mude aqui.
+create or replace function bi.mapa_normalizado(bruto text)
+returns text
+language sql
+immutable
+as $$
+  select nullif(
+    coalesce(
+      nullif(ltrim(regexp_replace(coalesce(bruto, ''), '\D', '', 'g'), '0'), ''),
+      regexp_replace(coalesce(bruto, ''), '\D', '', 'g')
+    ),
+    ''
+  )
+$$;
+
+-- Grao: feedback x cidade. Um feedback de um mapa que passa por tres
+-- cidades vira TRES linhas -- por isso [Feedbacks por cidade] conta
+-- feedback_id distinto, nunca linhas.
+--
+-- LEFT JOIN nas duas pontas de proposito. Feedback cujo mapa nao foi
+-- encontrado (roteirizacao ainda nao importada, numero digitado errado)
+-- continua aparecendo, com cidade 'Rota nao localizada' e
+-- rota_localizada = false. Descartar essas linhas em silencio faria a
+-- cobertura do cruzamento parecer 100% quando nao e.
+--
+-- O mapa se repete em datas diferentes (a chave de public.rotas e
+-- revenda+data+mapa), entao pega-se a roteirizacao mais recente ATE o
+-- dia do feedback: e a que estava valendo quando o motorista saiu.
+create or replace view bi.fato_feedback_cidade as
+select
+  f.id                                as feedback_id,
+  f.revenda_id,
+  f.colaborador_id,
+  bi.dia_local(f.criado_em)           as data,
+  coalesce(nullif(btrim(f.rota), ''), 'Sem rota informada') as rota,
+  f.nota,
+  (f.nota <= 1)                       as nota_ruim,
+  coalesce(
+    nullif(btrim(c.item ->> 'cidade'), ''),
+    'Rota não localizada'
+  )                                   as cidade,
+  coalesce((c.item ->> 'entregas')::int, 0) as entregas,
+  (r.mapa is not null)                as rota_localizada,
+  r.data                              as data_roteirizacao
+from public.feedback_rota f
+left join lateral (
+  select r2.mapa, r2.cidades, r2.data, r2.revenda_id
+    from public.rotas r2
+   where r2.revenda_id = f.revenda_id
+     and r2.mapa = bi.mapa_normalizado(f.rota)
+     and r2.data <= bi.dia_local(f.criado_em)
+   order by r2.data desc
+   limit 1
+) r on true
+left join lateral jsonb_array_elements(
+  case when jsonb_typeof(r.cidades) = 'array' then r.cidades else '[]'::jsonb end
+) as c(item) on true;
+
+comment on view bi.fato_feedback_cidade is
+  'Grao: feedback x cidade da rota. Conte DISTINCT feedback_id, nunca linhas.';
+
 -- ==================================================================
 -- 4) 5 PORQUES
 -- ==================================================================
@@ -692,7 +802,28 @@ select
   count(distinct a.rota)                              as rotas,
   count(*) filter (where a.tratativa_status = 'concluida') as tratadas,
   min(bi.dia_local(a.iniciada_em))                    as primeira_vez,
-  max(bi.dia_local(a.iniciada_em))                    as ultima_vez
+  max(bi.dia_local(a.iniciada_em))                    as ultima_vez,
+  -- A TRATATIVA DO ANALISTA, na mesma linha da pauta.
+  --
+  -- Sem ela a tabela leva a reuniao ate "este problema, por esta causa,
+  -- tantas vezes" e para -- e a primeira pergunta que alguem faz e "e o
+  -- que a lideranca respondeu?". A resposta existia, mas so na pagina de
+  -- Feedback da Rota, uma linha por feedback: quem estava lendo a pauta
+  -- tinha de trocar de pagina e cruzar a mao.
+  --
+  -- Vale a MAIS RECENTE do grupo, e nao um string_agg de todas: numa
+  -- linha de tabela cabe uma frase, e a devolutiva que interessa na
+  -- reuniao e a ultima que a lideranca deu para aquele problema. O
+  -- historico completo continua em bi.fato_cinco_porques, uma linha por
+  -- analise.
+  (array_remove(
+     array_agg(
+       nullif(btrim(coalesce(a.resposta_lideranca, '')), '')
+       order by a.resposta_lideranca_em desc nulls last, a.iniciada_em desc
+     ),
+     null
+   ))[1]                                              as tratativa,
+  count(*) filter (where a.resposta_lideranca is not null) as com_tratativa
 from public.cinco_porques_analises a
 where a.status = 'concluida'
 group by 1, 2, 3, 4, 5;
@@ -715,6 +846,93 @@ group by 1, 2, 3, 4, 5;
 -- Por isso as colunas se chamam curtidas/avisos_vistos/avisos_clicados, e
 -- nao "visualizacoes". Nomear direito aqui evita a reuniao em que alguem
 -- conclui que 12% do time le o jornal.
+
+-- ------------------------------------------------------------------
+-- EDITORIAS -- o nome e o emoji que o colaborador ve no jornal
+-- ------------------------------------------------------------------
+--
+-- comunicados.categoria guarda a CHAVE ('seguranca', 'saude'), e o
+-- rotulo mora em comunicado_editorias, POR REVENDA -- cada uma pode
+-- renomear e trocar o emoji das suas (ver src/lib/editorias.ts).
+-- initcap na chave, que era o que o BI fazia, devolvia "Seguranca" sem
+-- cedilha e "Saude" onde a tela do celular diz "Saude e Bem-estar". O
+-- BI e o app discordavam no nome da propria editoria.
+--
+-- Duas funcoes e nao um join porque as duas views que precisam disso ja
+-- tem lateral demais, e porque a agenda e um UNION ALL: o mesmo join
+-- teria de ser repetido nos dois lados, e um dia alguem mudaria so um.
+--
+-- Ficam ANTES das views que as usam: view em Postgres exige que a
+-- funcao exista na hora da criacao, e este arquivo roda de cima para
+-- baixo depois de um drop schema.
+--
+-- AS FUNCOES LEEM bi.dim_editoria, E NAO public.comunicado_editorias.
+--
+-- Isso nao e preciosismo -- a primeira versao lia a tabela direto e
+-- derrubou a atualizacao inteira do Power BI:
+--
+--   PostgreSQL 42501: permission denied for table comunicado_editorias
+--
+-- O motivo e uma diferenca que o resto deste arquivo esconde bem: view
+-- roda com os privilegios do DONO, mas corpo de funcao roda com os
+-- privilegios de QUEM CHAMA. bi.fato_comunicado e do postgres e le
+-- public.comunicados sem problema; quando ela chama a funcao, o corpo
+-- passa a ser verificado contra o powerbi_readonly, que nao tem -- e
+-- nao deve ter -- acesso a tabela nenhuma de public.
+--
+-- A saida NAO e SECURITY DEFINER. Seria mais curto e criaria uma
+-- segunda porta de entrada para public, fora do desenho de "so views
+-- do esquema bi leem as tabelas do app". bi.dim_editoria e essa view:
+-- o powerbi_readonly ja tem SELECT nela, e a funcao volta a funcionar
+-- com privilegio comum.
+create or replace view bi.dim_editoria as
+select
+  e.revenda_id,
+  e.id                        as editoria_id,
+  e.rotulo                    as editoria,
+  e.emoji,
+  e.emoji || ' ' || e.rotulo  as etiqueta,
+  e.cor,
+  e.ordem,
+  e.ativa
+from public.comunicado_editorias e;
+
+comment on view bi.dim_editoria is
+  'Editorias do jornal, por revenda. Rotulo e emoji como o colaborador ve no celular.';
+
+-- coalesce para a chave capitalizada: editoria de comunicado antigo que
+-- tenha sido apagada do cadastro continua legivel em vez de sair vazia.
+-- Perder a etiqueta e pior que mostrar a chave.
+create or replace function bi.editoria_rotulo(p_revenda uuid, p_chave text)
+returns text
+language sql
+stable
+as $$
+  select coalesce(
+    (select e.editoria
+       from bi.dim_editoria e
+      where e.revenda_id = p_revenda and e.editoria_id = p_chave
+      limit 1),
+    initcap(coalesce(p_chave, 'Geral'))
+  )
+$$;
+
+-- "🦺 Segurança" -- o emoji e o rotulo juntos, que e como a etiqueta
+-- aparece na tela do celular.
+create or replace function bi.editoria_etiqueta(p_revenda uuid, p_chave text)
+returns text
+language sql
+stable
+as $$
+  select coalesce(
+    (select e.etiqueta
+       from bi.dim_editoria e
+      where e.revenda_id = p_revenda and e.editoria_id = p_chave
+      limit 1),
+    '📰 ' || initcap(coalesce(p_chave, 'Geral'))
+  )
+$$;
+
 create or replace view bi.fato_comunicado as
 select
   c.id                        as comunicado_id,
@@ -722,7 +940,9 @@ select
   c.titulo,
   c.resumo,
   c.categoria                 as categoria_id,
-  initcap(c.categoria)        as categoria,
+  -- O rotulo da revenda, e nao initcap da chave: e o mesmo nome que o
+  -- colaborador ve na barra de editorias do jornal.
+  bi.editoria_rotulo(c.revenda_id, c.categoria) as categoria,
   coalesce(nullif(btrim(c.autor), ''), 'Sem autor') as autor,
   c.destaque,
   (c.imagem_url is not null)  as tem_imagem,
@@ -789,6 +1009,81 @@ select
 from public.comunicado_curtidas ck
 join public.comunicados c on c.id = ck.comunicado_id
 left join public.profiles p on p.id = ck.colaborador_id;
+
+-- ------------------------------------------------------------------
+-- CRONOGRAMA DE COMUNICACAO (a visao de calendario do app)
+-- ------------------------------------------------------------------
+--
+-- Espelha /admin/comunicados/calendario. A pergunta que a lista ordenada
+-- por data NAO responde e "que dias estao vazios?" -- buraco de duas
+-- semanas sem comunicacao nenhuma nao aparece numa lista e salta aos
+-- olhos numa grade.
+--
+-- Duas marcas por comunicado, e elas sao coisas diferentes:
+--   Publicacao -> a materia entrando no jornal
+--   Lembrete   -> o aviso dela tocando o celular, que pode ser dias depois
+--
+-- Por isso e um UNION ALL e nao duas colunas de data: no calendario elas
+-- caem em CELULAS diferentes. Um comunicado sem lembrete gera uma linha
+-- so; com lembrete, duas.
+--
+-- A data da publicacao sai de publicar_em quando ha agendamento, e de
+-- data quando nao ha -- e a mesma regra da tela.
+create or replace view bi.fato_comunicado_agenda as
+select
+  c.id                        as comunicado_id,
+  c.revenda_id,
+  c.titulo,
+  c.categoria                 as categoria_id,
+  bi.editoria_rotulo(c.revenda_id, c.categoria) as categoria,
+  'Publicação'::text          as tipo,
+  '📰'::text                  as marca,
+  coalesce(bi.dia_local(c.publicar_em), c.data) as data,
+  case
+    when c.publicar_em is null or c.publicar_em <= now() then 'Publicado'
+    else 'Na fila'
+  end                         as situacao,
+  (c.publicar_em is not null and c.publicar_em > now()) as na_fila,
+  to_char(c.publicar_em at time zone 'America/Sao_Paulo', 'HH24:MI') as hora,
+  -- A EDITORIA ABRE A LINHA, com o emoji dela.
+  --
+  -- Antes toda publicacao comecava com o mesmo '📰', que so repetia o
+  -- que a celula ja era. Numa grade em que cabem quatro linhas por dia,
+  -- o primeiro simbolo e a unica coisa que se le de relance -- e ele
+  -- tem de dizer DE QUE EDITORIA e a materia, que e o corte pelo qual o
+  -- plano de comunicacao se equilibra. E o mesmo emoji que o
+  -- colaborador ve no jornal do celular.
+  bi.editoria_etiqueta(c.revenda_id, c.categoria)
+        || ' · '
+        || coalesce(to_char(c.publicar_em at time zone 'America/Sao_Paulo', 'HH24:MI') || ' ', '')
+        || c.titulo           as rotulo
+from public.comunicados c
+
+union all
+
+select
+  c.id,
+  c.revenda_id,
+  c.titulo,
+  c.categoria,
+  bi.editoria_rotulo(c.revenda_id, c.categoria),
+  'Lembrete',
+  '🔔',
+  bi.dia_local(c.lembrete_em),
+  case when c.lembrete_enviado_em is not null then 'Enviado' else 'Na fila' end,
+  (c.lembrete_enviado_em is null),
+  to_char(c.lembrete_em at time zone 'America/Sao_Paulo', 'HH24:MI'),
+  -- O sino vem ANTES da editoria: e o que separa lembrete de
+  -- publicacao, e essa e a primeira distincao que o olho precisa fazer
+  -- na celula. A editoria vem logo atras, igual a da publicacao.
+  '🔔 ' || bi.editoria_etiqueta(c.revenda_id, c.categoria)
+        || ' · ' || to_char(c.lembrete_em at time zone 'America/Sao_Paulo', 'HH24:MI')
+        || ' ' || c.titulo
+from public.comunicados c
+where c.lembrete_em is not null;
+
+comment on view bi.fato_comunicado_agenda is
+  'Grao: comunicado x marca (publicacao ou lembrete). Base do calendario do plano de comunicacao.';
 
 -- ==================================================================
 -- 6) QUIZ / DESAFIO DO MES

@@ -1,37 +1,18 @@
 {
-  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.11.0/schema.json",
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.12.0/schema.json",
   "name": "670470c8c27b55f3e2ab",
   "position": {
     "x": 16,
     "y": 500,
-    "z": 14000,
+    "z": 15000,
     "height": 166,
     "width": 1248,
-    "tabOrder": 14000
+    "tabOrder": 15000
   },
   "visual": {
     "visualType": "pivotTable",
     "query": {
       "queryState": {
-        "Columns": {
-          "projections": [
-            {
-              "field": {
-                "Column": {
-                  "Expression": {
-                    "SourceRef": {
-                      "Entity": "fato_atividade"
-                    }
-                  },
-                  "Property": "modulo"
-                }
-              },
-              "queryRef": "fato_atividade.modulo",
-              "nativeQueryRef": "modulo",
-              "active": true
-            }
-          ]
-        },
         "Rows": {
           "projections": [
             {
@@ -47,6 +28,25 @@
               },
               "queryRef": "dim_colaborador.colaborador",
               "nativeQueryRef": "colaborador",
+              "active": true
+            }
+          ]
+        },
+        "Columns": {
+          "projections": [
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "fato_atividade"
+                    }
+                  },
+                  "Property": "modulo"
+                }
+              },
+              "queryRef": "fato_atividade.modulo",
+              "nativeQueryRef": "modulo",
               "active": true
             }
           ]
@@ -114,51 +114,5 @@
       ]
     },
     "drillFilterOtherVisuals": true
-  },
-  "filterConfig": {
-    "filters": [
-      {
-        "name": "fb060ad15f1e10e66702",
-        "field": {
-          "Column": {
-            "Expression": {
-              "SourceRef": {
-                "Entity": "dim_colaborador"
-              }
-            },
-            "Property": "colaborador"
-          }
-        },
-        "type": "Categorical"
-      },
-      {
-        "name": "a47776043aeb6de97d7a",
-        "field": {
-          "Column": {
-            "Expression": {
-              "SourceRef": {
-                "Entity": "fato_atividade"
-              }
-            },
-            "Property": "modulo"
-          }
-        },
-        "type": "Categorical"
-      },
-      {
-        "name": "351a6b3eb5b7c0aec75b",
-        "field": {
-          "Measure": {
-            "Expression": {
-              "SourceRef": {
-                "Entity": "_Medidas"
-              }
-            },
-            "Property": "Interações"
-          }
-        },
-        "type": "Advanced"
-      }
-    ]
   }
 }

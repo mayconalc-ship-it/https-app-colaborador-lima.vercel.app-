@@ -1,13 +1,13 @@
 {
-  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.11.0/schema.json",
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.12.0/schema.json",
   "name": "083035049725056148d6",
   "position": {
     "x": 16,
     "y": 460,
-    "z": 15000,
+    "z": 19000,
     "height": 206,
     "width": 450,
-    "tabOrder": 15000
+    "tabOrder": 19000
   },
   "visual": {
     "visualType": "pivotTable",
@@ -93,6 +93,26 @@
               "expr": {
                 "Literal": {
                   "Value": "11D"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "visualHeaderTooltip": [
+        {
+          "properties": {
+            "type": {
+              "expr": {
+                "Literal": {
+                  "Value": "'Text'"
+                }
+              }
+            },
+            "text": {
+              "expr": {
+                "Literal": {
+                  "Value": "'Só quem contou NO ÚLTIMO DIA CONTADO aparece aqui — não é o acumulado do período. Se falta alguém que você sabe que contou, é porque contou em outro dia: veja o cartão \"Último dia contado\" e a tabela \"Aderência por dia\". É fotografia de propósito: AG é contagem de ESTOQUE, e somar dois dias contaria o mesmo palete duas vezes. Para ver outro dia, ajuste o filtro de Período para esse dia nas duas pontas — o \"último dia\" é sempre o último DENTRO do que está filtrado. Compare o volume com o do dia anterior: dia com muito menos linha costuma ser contagem parcial, e a fotografia sai incompleta sem avisar.'"
                 }
               }
             }

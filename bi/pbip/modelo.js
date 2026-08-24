@@ -14,6 +14,60 @@
 const CHAVE = 'chave:s';
 
 const tabelas = [
+  // ---------------- CARIMBO DE ATUALIZACAO ----------------
+  {
+    // A unica tabela que NAO vem de uma view.
+    //
+    // O carimbo tem de ser o instante da ATUALIZACAO do modelo, e nao a
+    // hora de quem abre o arquivo -- sao coisas diferentes e a diferenca
+    // e o ponto: o .pbix aberto numa segunda pode estar com dado de
+    // sexta, e quem le precisa saber disso antes de levar o numero para
+    // a reuniao. Como o M so roda quando o modelo atualiza, o valor
+    // nasce congelado no instante certo.
+    //
+    // Nao precisou de view nova no banco: a expressao gera a linha em
+    // memoria. Uma view com now() daria o mesmo resultado e custaria uma
+    // ida ao SQL Editor.
+    //
+    // UtcNow + SwitchZone(-3), e nao LocalNow: LocalNow devolve a hora
+    // da maquina que atualiza. Hoje e o PC do escritorio e daria certo
+    // por acaso; no dia em que a atualizacao passar para o Power BI
+    // Service, a maquina esta em UTC e o carimbo apareceria tres horas
+    // adiantado -- errado de um jeito que ninguem conferiria.
+    nome: 'dim_atualizacao',
+    descricao: 'Uma linha: o instante em que o modelo foi atualizado, no fuso de Sao Paulo.',
+    colunas: 'atualizado_em:t atualizado_rotulo:s',
+    // Duas correcoes sobre a primeira versao, que derrubou a
+    // atualizacao inteira em 23/08/2026 -- e derrubou em cascata: o
+    // Power BI cancela TODAS as tabelas quando uma falha, e as outras 36
+    // aparecem com "um erro ao carregar uma tabela anterior cancelou o
+    // carregamento", que nao diz qual foi a culpada.
+    //
+    //   DateTime.ToText(valor, "dd/MM/yyyy HH:mm") passava o formato
+    //   como TEXTO. Essa assinatura e legada; a atual espera um registro
+    //   de opcoes, e passar texto onde se espera registro e o tipo de
+    //   erro que so aparece na hora da atualizacao.
+    //
+    //   DateTime.From sobre um datetimezone funciona por conversao
+    //   implicita. DateTimeZone.RemoveZone diz explicitamente o que se
+    //   quer -- o mesmo instante, sem o fuso pendurado.
+    //
+    // Culture pt-BR junto do formato: sem ela o rotulo depende da
+    // cultura da maquina que atualiza, que e a mesma armadilha do
+    // LocalNow explicada acima.
+    mExpressao: [
+      'let',
+      '    Agora = DateTimeZone.RemoveZone(DateTimeZone.SwitchZone(DateTimeZone.UtcNow(), -3)),',
+      '    Rotulo = DateTime.ToText(Agora, [Format="dd/MM/yyyy HH:mm", Culture="pt-BR"]),',
+      '    Tabela = #table(',
+      '        type table [atualizado_em = datetime, atualizado_rotulo = text],',
+      '        {{ Agora, Rotulo }}',
+      '    )',
+      'in',
+      '    Tabela',
+    ],
+  },
+
   // ---------------- DIMENSOES ----------------
   {
     nome: 'dim_revenda',
@@ -39,7 +93,21 @@ const tabelas = [
     colunas:
       'data:t ano:i mes:i mes_abrev:s mes_nome:s ano_mes:s mes_rotulo:s trimestre:s ' +
       'semana_iso:i ano_semana:s inicio_semana:t inicio_mes:t dia_semana:i ' +
-      'dia_semana_nome:s fim_de_semana:b ja_aconteceu:b',
+      'dia_semana_nome:s fim_de_semana:b ja_aconteceu:b dia:i dia_rotulo:s ' +
+      'dia_semana_dom:i dia_semana_abrev:s semana_dom:t',
+    // Sem isto, "Segunda" viria depois de "Sábado" e o calendario do plano
+    // de comunicacao sairia em ordem alfabetica. O par tem de ser 1:1 --
+    // por isso mes_rotulo ("ago/26") NAO entra aqui: dois anos diferentes
+    // cairiam no mesmo mes e o Power BI recusa a ordenacao.
+    ordenarPor: {
+      dia_semana_nome: 'dia_semana',
+      // dom, seg, ter... A coluna do calendario. Sem isto a grade
+      // comecaria em "dom, qua, qui, sáb, seg, sex, ter" -- alfabetico.
+      dia_semana_abrev: 'dia_semana_dom',
+      dia_rotulo: 'dia',
+      mes_nome: 'mes',
+      mes_abrev: 'mes',
+    },
   },
   {
     nome: 'dim_ocorrencia_rota',
@@ -155,6 +223,10 @@ const tabelas = [
       CHAVE,
     chaveComposta: true,
     data: 'data',
+    // A distribuicao das notas e uma escala ORDINAL. Sem esta linha o
+    // visual ordena "Boa, Ótima, Regular, Ruim" -- alfabetico -- e a
+    // escala deixa de ser legivel como escala.
+    ordenarPor: { nota_rotulo: 'nota' },
   },
   {
     nome: 'fato_feedback_ocorrencia',
@@ -162,9 +234,44 @@ const tabelas = [
     descricao: 'Explodido: um feedback com 3 ocorrencias vira 3 linhas. Conte DISTINCT feedback_id.',
     colunas:
       'feedback_id:s revenda_id:s colaborador_id:s rota:s nota:i data:t ocorrencia_id:s ' +
-      'ocorrencia:s grupo:s ' + CHAVE,
-    chaveComposta: true,
-    data: 'data',
+      'ocorrencia:s grupo:s',
+    // PENDURADO EM fato_feedback_rota, e nao nas dimensoes.
+    //
+    // Antes esta view se ligava a dim_colaborador e a dim_calendario
+    // como qualquer outro fato. Filtrava certo, mas NAO INTERAGIA:
+    // clicar em "Falta de produto" no grafico de problemas nao mexia em
+    // nada do resto da pagina. Filtro em fato nao viaja para outro fato
+    // -- ele sobe ate a dimensao e para, porque dimensao filtra fato e
+    // nao o contrario.
+    //
+    // O grao aqui e feedback x ocorrencia, entao o pai natural e o
+    // proprio feedback. Com a relacao nos DOIS SENTIDOS, clicar numa
+    // ocorrencia filtra os feedbacks que a contem, e dai a nota media, a
+    // distribuicao e a tabela do ciclo fechado acompanham.
+    //
+    // As ligacoes com dim_colaborador e dim_calendario sairam junto, e
+    // tinham de sair: mantidas, revenda e data teriam dois caminhos ate
+    // aqui (direto e via feedback) e o Power BI desativaria um em
+    // silencio. Revenda, area, colaborador e periodo continuam chegando
+    // -- passam por fato_feedback_rota.
+    paiFato: { tabela: 'fato_feedback_rota', coluna: 'feedback_id' },
+  },
+  {
+    // Substitui "rota mais critica" no painel. O numero do mapa nao se
+    // repete de um dia para o outro; a cidade, sim -- e e sobre ela que
+    // da para decidir alguma coisa.
+    nome: 'fato_feedback_cidade',
+    view: 'fato_feedback_cidade',
+    descricao:
+      'Explodido: um feedback de mapa com 3 cidades vira 3 linhas. Conte DISTINCT feedback_id.',
+    colunas:
+      'feedback_id:s revenda_id:s colaborador_id:s data:t rota:s nota:i nota_ruim:b ' +
+      'cidade:s entregas:i rota_localizada:b data_roteirizacao:t',
+    // Mesmo desenho da view de ocorrencias, pelo mesmo motivo: clicar em
+    // "Coribe" no grafico de cidades tem de filtrar a pagina inteira, e
+    // filtro em fato nao alcanca outro fato. Aqui o grao e feedback x
+    // cidade, e o pai e o feedback.
+    paiFato: { tabela: 'fato_feedback_rota', coluna: 'feedback_id' },
   },
 
   // ---------------- CINCO PORQUES ----------------
@@ -199,7 +306,8 @@ const tabelas = [
     descricao: 'Problema x causa x acao agrupado. E o entregavel da pagina.',
     colunas:
       'revenda_id:s problema:s categoria:s causa_raiz:s acao_sugerida:s ocorrencias:i ' +
-      'colaboradores:i rotas:i tratadas:i primeira_vez:t ultima_vez:t',
+      'colaboradores:i rotas:i tratadas:i primeira_vez:t ultima_vez:t ' +
+      'tratativa:s com_tratativa:i',
     revendaDireta: true,
   },
 
@@ -223,6 +331,19 @@ const tabelas = [
       'comunicado_id:s revenda_id:s titulo:s categoria_id:s colaborador_id:s colaborador:s ' +
       'area:s criado_em:t data:t dias_ate_curtir:i ' + CHAVE,
     chaveComposta: true,
+    data: 'data',
+  },
+  {
+    // O cronograma que a tela /admin/comunicados/calendario mostra, agora
+    // tambem no BI. Grao: uma MARCA -- publicacao ou lembrete --, porque
+    // as duas caem em celulas diferentes do calendario.
+    nome: 'fato_comunicado_agenda',
+    view: 'fato_comunicado_agenda',
+    descricao: 'Publicacoes e lembretes por dia. Base do calendario do plano de comunicacao.',
+    colunas:
+      'comunicado_id:s revenda_id:s titulo:s categoria_id:s categoria:s tipo:s marca:s ' +
+      'data:t situacao:s na_fila:b hora:s rotulo:s',
+    revendaDireta: true,
     data: 'data',
   },
 

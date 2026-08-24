@@ -50,13 +50,15 @@ relationship 7d51481e-6cf4-401f-bcda-78e5d2587a6c
 	fromColumn: fato_feedback_rota.chave
 	toColumn: dim_colaborador.chave
 
-relationship d2ede5e5-ffd2-4f93-bc2a-c950ff08bd18
-	fromColumn: fato_feedback_ocorrencia.data
-	toColumn: dim_calendario.data
+relationship 624220db-370b-48bd-b454-bb34cfda9798
+	crossFilteringBehavior: bothDirections
+	fromColumn: fato_feedback_ocorrencia.feedback_id
+	toColumn: fato_feedback_rota.feedback_id
 
-relationship bfe4d1e5-5ee0-4c1f-a586-649cdf5a29cb
-	fromColumn: fato_feedback_ocorrencia.chave
-	toColumn: dim_colaborador.chave
+relationship 7dd58349-48e2-4ca4-a77a-4e8b8ecd923d
+	crossFilteringBehavior: bothDirections
+	fromColumn: fato_feedback_cidade.feedback_id
+	toColumn: fato_feedback_rota.feedback_id
 
 relationship 1d5a4f31-9914-40f5-8ef8-cc9d09456d38
 	fromColumn: fato_cinco_porques.data
@@ -93,6 +95,14 @@ relationship 3b9516e7-4e46-405d-b6d9-5f1131d455b8
 relationship b9e046a4-012e-4346-b24e-88e86c58b2a9
 	fromColumn: fato_comunicado_curtida.chave
 	toColumn: dim_colaborador.chave
+
+relationship 437b8e30-9002-40d5-8df2-87606890c6cd
+	fromColumn: fato_comunicado_agenda.data
+	toColumn: dim_calendario.data
+
+relationship cc8f6c18-9644-43b1-aeae-2aef3278a5a2
+	fromColumn: fato_comunicado_agenda.revenda_id
+	toColumn: dim_revenda.revenda_id
 
 relationship fd6ec083-7822-4978-a497-6c603a8c8668
 	fromColumn: fato_quiz_participacao.data

@@ -1,13 +1,13 @@
 {
-  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.11.0/schema.json",
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.12.0/schema.json",
   "name": "90a5762107ce236369d0",
   "position": {
     "x": 16,
     "y": 672,
-    "z": 18000,
+    "z": 22000,
     "height": 30,
     "width": 1248,
-    "tabOrder": 18000
+    "tabOrder": 22000
   },
   "visual": {
     "visualType": "textbox",
@@ -19,7 +19,7 @@
               {
                 "textRuns": [
                   {
-                    "value": "VOLUME AQUI É FOTOGRAFIA, NÃO SOMA: os três visuais de baixo leem o último dia contado dentro do que estiver filtrado — mês, período ou um dia só. AG é contagem de estoque, e somar dois dias conta o mesmo palete duas vezes. Aderência e ranking, esses sim, somam o intervalo, porque medem frequência e não quantidade. Use o filtro de Mês para ler \"% Dias com contagem\": o denominador são os dias úteis já decorridos do que estiver selecionado, então com o ano inteiro aberto todo mundo parece ruim.",
+                    "value": "VOLUME AQUI É FOTOGRAFIA, NÃO SOMA: os três visuais de baixo leem o último dia contado dentro do que estiver filtrado — mês, período ou um dia só. AG é contagem de estoque, e somar dois dias conta o mesmo palete duas vezes. Aderência e ranking, esses sim, somam o intervalo, porque medem frequência e não quantidade. META DA CIA: 3 contagens por semana — e \"contagem\" aqui é DIA CONTADO, não linha lançada: 40 linhas numa terça e nada no resto da semana cumpre 1/3 da meta. \"% da meta\" é acumulado no período; \"% Semanas na meta\" cobra semana a semana, e é o mais duro dos dois. Use o filtro de Mês para ler os percentuais: o denominador são as semanas e os dias úteis JÁ DECORRIDOS do que estiver selecionado, então com o ano inteiro aberto todo mundo parece ruim.",
                     "textStyle": {
                       "fontSize": "8pt",
                       "color": "#64748B"
@@ -34,6 +34,45 @@
     },
     "visualContainerObjects": {
       "title": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "false"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "border": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "false"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "background": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "false"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "dropShadow": [
         {
           "properties": {
             "show": {

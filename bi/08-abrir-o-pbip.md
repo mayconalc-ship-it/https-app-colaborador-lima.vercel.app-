@@ -67,7 +67,7 @@ bi\pbip\BI App do Colaborador.pbip
 ```
 
 O Power BI Desktop abre o projeto já com modelo, medidas, relacionamentos,
-tema e as 8 páginas.
+tema e as 12 páginas.
 
 > Se o Desktop reclamar que projetos PBIP estão desabilitados:
 > **Arquivo > Opções > Recursos de visualização > Salvar como projeto do
@@ -238,7 +238,7 @@ node bi/pbip/gerar-pbip.js && node bi/pbip/validar.js
 O `validar.js` existe para pegar o erro que não dá erro: campo escrito
 errado em `paginas.js` gera um JSON perfeitamente válido, que o Desktop
 abre como um visual **vazio**, sem explicar por quê. Ele confere os 191
-campos das 8 páginas contra o modelo, mais sobreposição de visuais e
+campos das 12 páginas contra o modelo, mais sobreposição de visuais e
 estouro de canvas.
 
 Medidas **não** se editam aqui: elas são lidas de
