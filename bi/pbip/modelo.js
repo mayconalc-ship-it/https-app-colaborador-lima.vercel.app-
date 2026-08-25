@@ -220,6 +220,17 @@ const tabelas = [
       'qtd_ocorrencias:i sem_ocorrencia:b comentario:s tem_comentario:b ' +
       'tamanho_comentario:i criado_em:t data:t hora:i tem_cinco_porques:b ' +
       'cp_causa_raiz:s cp_devolutiva:s cp_aceite_rotulo:s cp_aceitou:b cp_devolutiva_em:t ' +
+      // reg_* fecha o mesmo ciclo que cp_* fecha para "Ruim", so que para
+      // a nota "Regular": a tratativa mora na PROPRIA linha do feedback,
+      // sem analise de causa raiz por tras. reg_conta_tmr e
+      // reg_horas_ate_resposta alimentam [Horas médias até resposta] em
+      // 07-medidas.dax -- reg_horas_ate_resposta ja vem NULL da view
+      // quando reg_conta_tmr e falso (feedback antigo, reaberto em massa
+      // pela migration 056), entao a media ja ignora esses backfills sem
+      // precisar filtrar por reg_conta_tmr aqui no modelo.
+      'reg_tratativa_status:s reg_tratada:b reg_devolutiva:s reg_respondida_lideranca:b ' +
+      'reg_devolutiva_em:t reg_aceitou:b reg_aceite_rotulo:s reg_conta_tmr:b ' +
+      'reg_horas_ate_resposta:n ' +
       CHAVE,
     chaveComposta: true,
     data: 'data',

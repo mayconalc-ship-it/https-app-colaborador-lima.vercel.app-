@@ -551,7 +551,30 @@ select
     else case when a.id is null then 'Sem análise' else 'Não respondeu' end
   end                                 as cp_aceite_rotulo,
   a.motorista_aceitou                 as cp_aceitou,
-  a.resposta_lideranca_em             as cp_devolutiva_em
+  a.resposta_lideranca_em             as cp_devolutiva_em,
+  -- Tratativa da lideranca sobre o proprio feedback "Regular" -- nao tem
+  -- relacao com o 5 Porques (colunas cp_* acima), que so existe para
+  -- feedback "Ruim". reg_conta_tmr comeca false nos feedbacks antigos,
+  -- reabertos em massa quando a tratativa de "Regular" foi lancada (ver
+  -- migration 056): sem essa marca, o TMR contaria como demora da
+  -- lideranca um atraso que era, na verdade, a funcionalidade nao existir
+  -- ainda. reg_horas_ate_resposta so calcula quando reg_conta_tmr e
+  -- verdadeiro, pelo mesmo motivo.
+  f.tratativa_status                  as reg_tratativa_status,
+  (f.tratativa_status = 'concluida')  as reg_tratada,
+  f.resposta_lideranca                as reg_devolutiva,
+  (f.resposta_lideranca is not null)  as reg_respondida_lideranca,
+  f.resposta_lideranca_em             as reg_devolutiva_em,
+  f.colaborador_aceitou               as reg_aceitou,
+  case f.colaborador_aceitou
+    when true  then 'Aceitou'
+    when false then 'Não aceitou'
+    else case when f.resposta_lideranca is null then 'Sem resposta' else 'Não respondeu' end
+  end                                  as reg_aceite_rotulo,
+  f.conta_tmr                         as reg_conta_tmr,
+  case when f.conta_tmr and f.resposta_lideranca_em is not null then
+    round(extract(epoch from (f.resposta_lideranca_em - f.criado_em)) / 3600.0, 1)
+  end                                  as reg_horas_ate_resposta
 from public.feedback_rota f
 left join public.profiles p on p.id = f.colaborador_id
 left join lateral (

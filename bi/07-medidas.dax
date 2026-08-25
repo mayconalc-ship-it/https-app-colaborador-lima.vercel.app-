@@ -607,8 +607,43 @@ MEASURE '_Medidas'[Aguardando tratativa] =
         fato_cinco_porques[tratada] = FALSE ()
     )
 
+// Média COMBINADA de duas origens: o 5 Porquês (que só existe para nota
+// "Ruim") e a tratativa direta do feedback "Regular" -- as duas fecham o
+// mesmo ciclo (liderança responde a um relato do motorista), só que uma
+// tem análise de causa raiz por trás e a outra não. Por isso não dá para
+// usar AVERAGE numa coluna só: é soma das duas somas dividida pela soma
+// das duas contagens, o que pondera por CASO respondido, não por módulo
+// -- um mês com 40 tratativas de Regular e 5 análises de 5 Porquês pesa
+// as 40 mais, e é assim que a liderança de fato vive o volume.
+//
+// fato_feedback_rota[reg_horas_ate_resposta] já vem NULL da view (ver
+// bi.fato_feedback_rota em 01-camada-semantica.sql) quando
+// reg_conta_tmr é falso -- é o caso do feedback "Regular" que já
+// existia antes da tratativa virar obrigatória (migration 056) e foi
+// reaberto em massa pra fila: contar o tempo desde o criado_em original
+// inflaria a métrica por um atraso que é do lançamento da
+// funcionalidade, não da liderança. Por isso o filtro aqui é só
+// ISBLANK, sem precisar repetir a condição de reg_conta_tmr.
 MEASURE '_Medidas'[Horas médias até resposta] =
-    AVERAGE ( fato_cinco_porques[horas_ate_resposta] )
+    VAR SomaCincoPorques =
+        CALCULATE ( SUM ( fato_cinco_porques[horas_ate_resposta] ) )
+    VAR QtdCincoPorques =
+        CALCULATE (
+            COUNTROWS ( fato_cinco_porques ),
+            NOT ISBLANK ( fato_cinco_porques[horas_ate_resposta] )
+        )
+    VAR SomaFeedbackRegular =
+        CALCULATE ( SUM ( fato_feedback_rota[reg_horas_ate_resposta] ) )
+    VAR QtdFeedbackRegular =
+        CALCULATE (
+            COUNTROWS ( fato_feedback_rota ),
+            NOT ISBLANK ( fato_feedback_rota[reg_horas_ate_resposta] )
+        )
+    RETURN
+        DIVIDE (
+            SomaCincoPorques + SomaFeedbackRegular,
+            QtdCincoPorques + QtdFeedbackRegular
+        )
 
 // TMR -- tempo médio de resposta, na unidade em que a liderança pensa.
 //

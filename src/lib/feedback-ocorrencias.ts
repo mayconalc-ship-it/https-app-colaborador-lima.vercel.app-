@@ -44,3 +44,16 @@ export function rotuloNota(nota: number) {
 export function notaRuim(nota: number) {
   return nota <= 1;
 }
+
+/** Rota "Ruim" (a pior nota) obriga o motorista a fazer o 5 Porquês antes
+ *  de conseguir enviar -- "Regular" segue outro caminho (tratativa da
+ *  liderança), não este. */
+export function notaExigeCincoPorques(nota: number) {
+  return nota === 0;
+}
+
+/** Rota "Regular" entra na fila de tratativa da liderança em
+ *  /admin/feedbacks -- é a liderança quem responde, não o motorista. */
+export function notaExigeTratativa(nota: number) {
+  return nota === 1;
+}

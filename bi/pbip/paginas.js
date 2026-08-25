@@ -600,13 +600,23 @@ const paginas = [
       // 24 h sai em horas, acima sai em dias -- e e justamente acima de
       // 24 h que o numero deixa de ser detalhe operacional. Ver [TMR] em
       // 07-medidas.dax.
+      //
+      // Combinado desde a tratativa do feedback "Regular" (ver
+      // [Horas médias até resposta] em 07-medidas.dax): pondera por CASO
+      // respondido, nao por modulo, entao um mes com muita tratativa de
+      // Regular pesa mais que um com poucas analises de 5 Porques -- e e
+      // assim que a lideranca de fato vive o volume de resposta.
       ['⏱️ TMR — tempo médio de resposta', '@TMR',
-        'Tempo médio entre o motorista concluir a análise e a liderança responder. Sai em ' +
-        'HORAS até 24 h e em DIAS acima disso — 96,4 h não se lê como "quatro dias" sem ' +
-        'parar para dividir. É o indicador de saúde do módulo: análise concluída que ninguém ' +
-        'responde ensina o time a não preencher a próxima, e passando de ~48 h o 5 Porquês ' +
-        'morre por desuso antes de morrer por decisão. Só entram análises que JÁ receberam ' +
-        'resposta; as que ainda esperam estão no cartão "Aguardando tratativa".'],
+        'Tempo médio para a liderança responder um relato do motorista — soma o 5 Porquês ' +
+        '(motorista concluiu a análise) com a tratativa direta do feedback "Regular", que não ' +
+        'tem análise de causa raiz por trás. Sai em HORAS até 24 h e em DIAS acima disso — ' +
+        '96,4 h não se lê como "quatro dias" sem parar para dividir. É o indicador de saúde ' +
+        'da resposta da liderança: caso concluído que ninguém responde ensina o time a não ' +
+        'preencher o próximo, e passando de ~48 h o módulo morre por desuso antes de morrer ' +
+        'por decisão. Só entram casos que JÁ receberam resposta, e feedback "Regular" que já ' +
+        'existia antes da tratativa virar obrigatória fica de fora da média (foi reaberto em ' +
+        'massa pela migration 056, e contar o tempo desde o envio original inflaria a métrica ' +
+        'por um atraso que é do lançamento da funcionalidade, não da liderança).'],
       // Sexto cartao. A medida ja existia em 07-medidas.dax e nunca
       // tinha entrado em visual nenhum -- o denominador dela sao as
       // analises QUE RECEBERAM devolutiva, e nao todas: ninguem aceita
@@ -684,10 +694,13 @@ const paginas = [
       '"% Chegou ao 5º" = das análises CONCLUÍDAS, quantas percorreram os cinco porquês até o ' +
       'fim, em vez de parar no 2º ou 3º. É medida de profundidade: parar cedo costuma achar ' +
       'sintoma ("o cliente estava fechado") e não causa ("não conferimos o horário na véspera"). ' +
-      'TMR = tempo médio entre concluir a análise e a liderança responder; sai em horas até 24 h ' +
-      'e em dias acima disso. É o indicador de saúde do módulo, não de volume: ' +
-      'análise concluída que ninguém responde ensina o time a não preencher a próxima — ' +
-      'se passar de ~48 h, o módulo morre por desuso antes de morrer por decisão. ' +
+      'TMR = tempo médio para a liderança responder, somando o 5 Porquês com a tratativa direta ' +
+      'do feedback "Regular"; sai em horas até 24 h e em dias acima disso. É o indicador de ' +
+      'saúde da resposta da liderança, não de volume: caso concluído que ninguém responde ' +
+      'ensina o time a não preencher o próximo — se passar de ~48 h, o módulo morre por desuso ' +
+      'antes de morrer por decisão. Feedback "Regular" que já existia antes da tratativa virar ' +
+      'obrigatória (migration 056) fica fora da média — contaria como demora da liderança um ' +
+      'atraso que é só o lançamento da funcionalidade. ' +
       'No aceite, "Não respondeu" cobre dois casos diferentes: o motorista que recebeu ' +
       'a devolutiva e não respondeu, e a análise que nunca recebeu devolutiva nenhuma — ' +
       'esta última aparece com a coluna de resposta vazia. Por isso "% Aceite" divide ' +

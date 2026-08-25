@@ -47,7 +47,7 @@ export default async function AnaliseCincoPorquesPage({
     ? await supabase
         .from("cinco_porques_analises")
         .select(
-          "id, problema_label, causa_raiz, categoria, acao_sugerida, status, resposta_lideranca, resposta_lideranca_em, motorista_aceitou",
+          "id, problema_label, causa_raiz, categoria, acao_sugerida, status, resposta_lideranca, resposta_lideranca_em, resposta_lideranca_nome, motorista_aceitou",
         )
         .eq("id", id)
         .eq("colaborador_id", user.id)
@@ -88,7 +88,7 @@ export default async function AnaliseCincoPorquesPage({
       {analise.resposta_lideranca ? (
         <div className="mt-4 rounded-2xl border border-primary/30 bg-primary-soft p-5 shadow-sm">
           <p className="text-xs font-semibold uppercase tracking-wide text-primary">
-            💬 Retorno da liderança
+            💬 Retorno de {analise.resposta_lideranca_nome ?? "liderança"}
           </p>
           <p className="mt-1 text-sm text-slate-800">{analise.resposta_lideranca}</p>
 

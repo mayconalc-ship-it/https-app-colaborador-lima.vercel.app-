@@ -10,14 +10,19 @@ import {
   construirRanking,
   diasAtrasISO,
   embalagemDeLinha,
+  formatarHoras,
   hojeISO,
   horasDeOperacao,
+  horasEntre,
+  mediaHorasPorItem,
   operacaoEmpilhadeiraDeLinha,
   pctAvariaConsolidado,
+  taxaPorHora,
+  turnoAtual,
   type Embalagem,
   type Turno,
 } from "@/lib/produtividade-armazem";
-import { BarraRanking, CartaoHero, type ItemBarra } from "./Graficos";
+import { BarraRanking, BlocoAtividade, CartaoHero, type ItemBarra } from "./Graficos";
 
 export const dynamic = "force-dynamic";
 
@@ -53,6 +58,7 @@ export default async function IndicadoresPage({
     { data: pickingsBanco },
     { data: operacoesBanco },
     { data: recebimentosBanco },
+    { data: execucoes5sBanco },
   ] = await Promise.all([
     supabase
       .from("pa_embalagens")
@@ -97,6 +103,13 @@ export default async function IndicadoresPage({
       .eq("revenda_id", revendaId)
       .gte("data_recebimento", de)
       .lte("data_recebimento", ate),
+    supabase
+      .from("pa_execucoes_5s")
+      .select("id, responsavel_id, responsavel_nome, inicio, fim")
+      .eq("revenda_id", revendaId)
+      .not("fim", "is", null)
+      .gte("inicio", de0)
+      .lte("inicio", ate23),
   ]);
 
   const embalagens: Embalagem[] = (embalagensBanco ?? []).map(embalagemDeLinha);
@@ -125,10 +138,28 @@ export default async function IndicadoresPage({
     turno: string;
     posicoes_reabastecidas: number | null;
   }[];
+  // 5S não tem coluna de turno (é uma execução, não um lançamento por
+  // turno) -- infere pelo horário real de início, com a mesma régua que
+  // decide o turno "agora" (ver turnoAtual em lib/produtividade-armazem).
+  const execucoes5sTodos = (execucoes5sBanco ?? []).map((e) => ({
+    colaborador_id: e.responsavel_id as string,
+    colaborador_nome: e.responsavel_nome as string,
+    turno: turnoAtual(new Date(e.inicio as string)) as string,
+  }));
 
   const reepacks = turnoFiltro ? reepacksTodos.filter((r) => r.turno === turnoFiltro) : reepacksTodos;
   const despejos = turnoFiltro ? despejosTodos.filter((d) => d.turno === turnoFiltro) : despejosTodos;
   const pickings = turnoFiltro ? pickingsTodos.filter((p) => p.turno === turnoFiltro) : pickingsTodos;
+  const execucoes5s = turnoFiltro ? execucoes5sTodos.filter((e) => e.turno === turnoFiltro) : execucoes5sTodos;
+
+  // ---- Reepack: agregados gerais (sem quebrar por embalagem) ----
+  const reepackQuantidadeTotal = reepacks.reduce((s, r) => s + r.quantidade, 0);
+  const reepackMediaHoras = mediaHorasPorItem(reepacks);
+
+  // ---- Despejo: agregado geral (litros/hora do total, não a média das taxas) ----
+  const despejoLitrosTotal = Math.round(despejos.reduce((s, d) => s + d.litros, 0) * 10) / 10;
+  const despejoHorasTotal = despejos.reduce((s, d) => s + horasEntre(d.inicio, d.fim), 0);
+  const despejoTaxaMediaHora = taxaPorHora(despejoLitrosTotal, despejoHorasTotal);
 
   const reepackPorEmbalagem = agruparPorEmbalagem(
     reepacks.map((r) => ({ embalagemId: r.embalagem_id, quantidade: r.quantidade, inicio: r.inicio, fim: r.fim })),
@@ -170,14 +201,34 @@ export default async function IndicadoresPage({
     .slice(0, 10);
 
   // ---- Atividade por turno ----
-  const barrasPorTurno: ItemBarra[] = TURNOS.map((t) => ({
-    rotulo: ROTULO_TURNO[t],
-    valor:
-      reepacksTodos.filter((r) => r.turno === t).length +
-      despejosTodos.filter((d) => d.turno === t).length +
-      pickingsTodos.filter((p) => p.turno === t).length,
-    detalhe: `${ROTULO_TURNO[t]}: ${reepacksTodos.filter((r) => r.turno === t).length} reepack, ${despejosTodos.filter((d) => d.turno === t).length} despejo, ${pickingsTodos.filter((p) => p.turno === t).length} picking`,
-  }));
+  // Uma linha por turno, uma coluna por atividade -- a métrica de cada
+  // coluna é a que faz sentido pra atividade (caixas, litros, posições,
+  // execuções), e "Total" é a contagem de lançamentos somada (unidades
+  // diferentes não dá pra somar direto).
+  const porTurno = TURNOS.map((t) => {
+    const reepacksT = reepacksTodos.filter((r) => r.turno === t);
+    const despejosT = despejosTodos.filter((d) => d.turno === t);
+    const pickingsT = pickingsTodos.filter((p) => p.turno === t);
+    const execucoes5sT = execucoes5sTodos.filter((e) => e.turno === t);
+    return {
+      turno: t,
+      reepackCx: reepacksT.reduce((s, r) => s + r.quantidade, 0),
+      despejoLitros: Math.round(despejosT.reduce((s, d) => s + d.litros, 0) * 10) / 10,
+      pickingPosicoes: pickingsT.reduce((s, p) => s + (p.posicoes_reabastecidas ?? 0), 0),
+      execucoes5s: execucoes5sT.length,
+      totalLancamentos: reepacksT.length + despejosT.length + pickingsT.length + execucoes5sT.length,
+    };
+  });
+  const totalGeral = porTurno.reduce(
+    (s, l) => ({
+      reepackCx: s.reepackCx + l.reepackCx,
+      despejoLitros: Math.round((s.despejoLitros + l.despejoLitros) * 10) / 10,
+      pickingPosicoes: s.pickingPosicoes + l.pickingPosicoes,
+      execucoes5s: s.execucoes5s + l.execucoes5s,
+      totalLancamentos: s.totalLancamentos + l.totalLancamentos,
+    }),
+    { reepackCx: 0, despejoLitros: 0, pickingPosicoes: 0, execucoes5s: 0, totalLancamentos: 0 },
+  );
 
   // ---- Empilhadeira: por máquina e por operador ----
   const operacoesRaw = (operacoesBanco ?? []) as unknown as (Parameters<typeof operacaoEmpilhadeiraDeLinha>[0] & {
@@ -201,8 +252,10 @@ export default async function IndicadoresPage({
     .sort((a, b) => b.valor - a.valor)
     .slice(0, 10);
   const horasEmpilhadeiraTotal = Math.round(operacoes.reduce((s, op) => s + horasDeOperacao(op), 0) * 10) / 10;
+  const mediaHorasPorOperacao = operacoes.length > 0 ? Math.round((horasEmpilhadeiraTotal / operacoes.length) * 100) / 100 : 0;
 
   // ---- % de avaria: geral e por transportadora ----
+  const carretasAvaliadas = (recebimentosBanco ?? []).length;
   type ItemRec = { quantidade_recebida: number; quantidade_avariada: number };
   const todosItens: ItemRec[] = (recebimentosBanco ?? []).flatMap((r) => r.pa_recebimento_itens ?? []);
   const pctAvariaGeral = pctAvariaConsolidado(
@@ -260,6 +313,7 @@ export default async function IndicadoresPage({
       colaboradorNome: p.colaborador_nome,
       posicoesReabastecidas: p.posicoes_reabastecidas,
     })),
+    execucoes5s.map((e) => ({ colaboradorId: e.colaborador_id, colaboradorNome: e.colaborador_nome })),
     embalagens,
   );
 
@@ -290,22 +344,40 @@ export default async function IndicadoresPage({
         </button>
       </form>
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <CartaoHero titulo="Reepack no período" valor={String(reepacks.length)} legenda="lançamentos" />
-        <CartaoHero titulo="Despejo no período" valor={`${despejos.reduce((s, d) => s + d.litros, 0).toFixed(0)} L`} />
-        <CartaoHero titulo="Empilhadeira ativa" valor={`${horasEmpilhadeiraTotal}h`} legenda="soma de todas as máquinas" />
-        <CartaoHero
-          titulo="% de avaria no recebido"
-          valor={`${pctAvariaGeral}%`}
-          alerta={pctAvariaGeral > 2}
-          positivo={pctAvariaGeral > 0 && pctAvariaGeral <= 2}
-        />
+      <div className="space-y-5">
+        <BlocoAtividade titulo="📦 Reepack">
+          <CartaoHero titulo="Lançamentos" valor={String(reepacks.length)} />
+          <CartaoHero titulo="Caixas reepackadas" valor={`${reepackQuantidadeTotal} cx`} />
+          <CartaoHero titulo="Duração média" valor={formatarHoras(reepackMediaHoras)} legenda="por lançamento" />
+        </BlocoAtividade>
+
+        <BlocoAtividade titulo="🧴 Despejo">
+          <CartaoHero titulo="Litros despejados" valor={`${despejoLitrosTotal.toFixed(1)} L`} />
+          <CartaoHero titulo="Taxa média" valor={`${despejoTaxaMediaHora.toFixed(1)} L/h`} legenda="litros ÷ horas do período" />
+          <CartaoHero titulo="Lançamentos" valor={String(despejos.length)} />
+        </BlocoAtividade>
+
+        <BlocoAtividade titulo="🏗️ Empilhadeira">
+          <CartaoHero titulo="Horas ativas" valor={`${horasEmpilhadeiraTotal}h`} legenda="soma de todas as máquinas" />
+          <CartaoHero titulo="Operações" valor={String(operacoes.length)} />
+          <CartaoHero titulo="Duração média" valor={formatarHoras(mediaHorasPorOperacao)} legenda="por operação" />
+        </BlocoAtividade>
+
+        <BlocoAtividade titulo="🚛 Recebimento">
+          <CartaoHero titulo="Carretas avaliadas" valor={String(carretasAvaliadas)} />
+          <CartaoHero
+            titulo="% de avaria no recebido"
+            valor={`${pctAvariaGeral}%`}
+            alerta={pctAvariaGeral > 2}
+            positivo={pctAvariaGeral > 0 && pctAvariaGeral <= 2}
+          />
+        </BlocoAtividade>
       </div>
 
       <div className="mt-6 grid gap-4 sm:grid-cols-2">
         <BarraRanking
           titulo="Reepack por colaborador"
-          subtitulo="Total de unidades no período"
+          subtitulo="Total de caixas no período"
           itens={barrasReepackColaborador}
           sufixo="cx"
         />
@@ -314,13 +386,6 @@ export default async function IndicadoresPage({
           subtitulo="Total de litros no período"
           itens={barrasDespejoColaborador}
           sufixo="L"
-        />
-        <BarraRanking
-          titulo="Atividade por turno"
-          subtitulo="Reepack + despejo + picking, somados"
-          itens={barrasPorTurno}
-          sufixo="lançamentos"
-          tom="gold"
         />
         <BarraRanking
           titulo="% de avaria por transportadora"
@@ -341,6 +406,48 @@ export default async function IndicadoresPage({
       </div>
 
       <section className="mt-8">
+        <h2 className="mb-3 text-sm font-bold uppercase text-slate-500">
+          Atividade por turno{turnoFiltro ? ` — ${ROTULO_TURNO[turnoFiltro]}` : ""}
+        </h2>
+        <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <table className="w-full min-w-[560px] text-sm">
+            <thead className="bg-slate-50 text-left text-xs uppercase text-slate-500">
+              <tr>
+                <th className="p-3">Turno</th>
+                <th className="p-3 text-right">📦 Reepack</th>
+                <th className="p-3 text-right">🧴 Despejo</th>
+                <th className="p-3 text-right">🧺 Picking</th>
+                <th className="p-3 text-right">🧹 5S</th>
+                <th className="p-3 text-right">Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              {porTurno.map((l) => (
+                <tr key={l.turno} className="border-t border-slate-100">
+                  <td className="p-3 font-semibold text-slate-800">{ROTULO_TURNO[l.turno]}</td>
+                  <td className="p-3 text-right tabular-nums">{l.reepackCx} cx</td>
+                  <td className="p-3 text-right tabular-nums">{l.despejoLitros} L</td>
+                  <td className="p-3 text-right tabular-nums">{l.pickingPosicoes}</td>
+                  <td className="p-3 text-right tabular-nums">{l.execucoes5s}</td>
+                  <td className="p-3 text-right font-bold tabular-nums text-slate-900">{l.totalLancamentos}</td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr className="border-t border-slate-200 bg-slate-50 font-bold">
+                <td className="p-3 text-slate-800">Total</td>
+                <td className="p-3 text-right tabular-nums">{totalGeral.reepackCx} cx</td>
+                <td className="p-3 text-right tabular-nums">{totalGeral.despejoLitros} L</td>
+                <td className="p-3 text-right tabular-nums">{totalGeral.pickingPosicoes}</td>
+                <td className="p-3 text-right tabular-nums">{totalGeral.execucoes5s}</td>
+                <td className="p-3 text-right tabular-nums text-slate-900">{totalGeral.totalLancamentos}</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </section>
+
+      <section className="mt-8">
         <div className="mb-3 flex items-baseline justify-between">
           <h2 className="text-sm font-bold uppercase text-slate-500">
             Ranking{turnoFiltro ? ` — ${ROTULO_TURNO[turnoFiltro]}` : ""}
@@ -350,43 +457,68 @@ export default async function IndicadoresPage({
         {ranking.length === 0 ? (
           <p className="rounded-xl bg-slate-50 p-4 text-sm text-slate-500">Nada no período.</p>
         ) : (
-          <ol className="space-y-2">
-            {ranking.map((r, i) => (
-              <li key={r.colaboradorId} className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
-                <div className="flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-3">
-                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary-soft text-base font-bold text-primary-dark">
+          <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
+            <table className="w-full min-w-[640px] text-sm">
+              <thead className="bg-slate-50 text-left text-xs uppercase text-slate-500">
+                <tr>
+                  <th className="p-3">#</th>
+                  <th className="p-3">Colaborador</th>
+                  <th className="p-3 text-right">📦 Reepack</th>
+                  <th className="p-3 text-right">🧴 Despejo</th>
+                  <th className="p-3 text-right">🧺 Picking</th>
+                  <th className="p-3 text-right">🧹 5S</th>
+                  <th className="p-3 text-right">Atividades</th>
+                  <th className="p-3 text-right">Pontuação</th>
+                </tr>
+              </thead>
+              <tbody>
+                {ranking.map((r, i) => (
+                  <tr key={r.colaboradorId} className={`border-t border-slate-100 ${i < 3 ? "bg-gold-soft/40" : ""}`}>
+                    <td className="p-3 font-bold text-slate-700">
                       {i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : i + 1}
-                    </span>
-                    <p className="text-sm font-bold text-slate-900">{r.colaboradorNome}</p>
-                  </div>
-                  <span className="shrink-0 rounded-lg bg-slate-100 px-3 py-1 text-sm font-bold text-slate-700">
-                    {r.pontuacao} pts
-                  </span>
-                </div>
-                <div className="mt-2 flex flex-wrap gap-1.5 pl-12">
-                  {r.totalReepacks > 0 && (
-                    <span className="rounded-full bg-primary-soft px-2 py-0.5 text-[11px] font-medium text-primary-dark">
-                      📦 {r.totalReepacks} cx reepack{r.reepacksPctMeta !== null ? ` · ${r.reepacksPctMeta}% da meta` : ""}
-                    </span>
-                  )}
-                  {r.totalDespejoLitros > 0 && (
-                    <span className="rounded-full bg-primary-soft px-2 py-0.5 text-[11px] font-medium text-primary-dark">
-                      🧴 {r.totalDespejoLitros} L despejo{r.despejoPctMeta !== null ? ` · ${r.despejoPctMeta}% da meta` : ""}
-                    </span>
-                  )}
-                  {r.posicoesPicking > 0 && (
-                    <span className="rounded-full bg-gold-soft px-2 py-0.5 text-[11px] font-medium text-primary-dark">
-                      🧺 {r.posicoesPicking} posições picking
-                    </span>
-                  )}
-                  {r.totalReepacks === 0 && r.totalDespejoLitros === 0 && r.posicoesPicking === 0 && (
-                    <span className="text-[11px] text-slate-400">Sem atividade registrada no período.</span>
-                  )}
-                </div>
-              </li>
-            ))}
-          </ol>
+                    </td>
+                    <td className="p-3 font-semibold text-slate-900">{r.colaboradorNome}</td>
+                    <td className="p-3 text-right tabular-nums">
+                      {r.totalReepacks > 0 ? (
+                        <>
+                          {r.totalReepacks} cx
+                          {r.reepacksPctMeta !== null && (
+                            <span className="ml-1 text-xs text-slate-400">({r.reepacksPctMeta}%)</span>
+                          )}
+                        </>
+                      ) : (
+                        <span className="text-slate-300">—</span>
+                      )}
+                    </td>
+                    <td className="p-3 text-right tabular-nums">
+                      {r.totalDespejoLitros > 0 ? (
+                        <>
+                          {r.totalDespejoLitros} L
+                          {r.despejoPctMeta !== null && (
+                            <span className="ml-1 text-xs text-slate-400">({r.despejoPctMeta}%)</span>
+                          )}
+                        </>
+                      ) : (
+                        <span className="text-slate-300">—</span>
+                      )}
+                    </td>
+                    <td className="p-3 text-right tabular-nums">
+                      {r.posicoesPicking > 0 ? r.posicoesPicking : <span className="text-slate-300">—</span>}
+                    </td>
+                    <td className="p-3 text-right tabular-nums">
+                      {r.totalExecucoes5s > 0 ? r.totalExecucoes5s : <span className="text-slate-300">—</span>}
+                    </td>
+                    <td className="p-3 text-right tabular-nums text-slate-500">{r.totalAtividades}</td>
+                    <td className="p-3 text-right">
+                      <span className="rounded-lg bg-slate-100 px-2.5 py-1 text-sm font-bold text-slate-700">
+                        {r.pontuacao} pts
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </section>
 

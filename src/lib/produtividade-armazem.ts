@@ -229,6 +229,26 @@ export function pctDaMeta(taxa: number, meta: number | null): number | null {
   return Math.round((taxa / meta) * 1000) / 10;
 }
 
+/** Duração média (h) de uma lista de itens com início/fim -- serve pra
+ *  "quanto tempo dura um reepack, em média", sem quebrar por embalagem. */
+export function mediaHorasPorItem(itens: { inicio: string; fim: string }[]): number {
+  if (itens.length === 0) return 0;
+  const total = itens.reduce((s, i) => s + horasEntre(i.inicio, i.fim), 0);
+  return Math.round((total / itens.length) * 100) / 100;
+}
+
+/** Mesma ideia de formatarDuracao, mas a partir de um número de horas já
+ *  calculado (médias, totais) em vez de duas datas -- pra nunca mostrar
+ *  "0h" quando o real é "3 min". */
+export function formatarHoras(horas: number): string {
+  if (horas <= 0) return "0s";
+  const segundos = horas * 3600;
+  if (segundos < 60) return `${Math.round(segundos)}s`;
+  const minutos = segundos / 60;
+  if (minutos < 60) return `${Math.round(minutos)} min`;
+  return `${Math.round(horas * 10) / 10}h`;
+}
+
 /** Data local (dd/mm) + hora (HH:MM), fuso de São Félix/Barreiras. */
 export function formatarDataHora(iso: string): string {
   return new Intl.DateTimeFormat("pt-BR", {
@@ -497,9 +517,13 @@ export type PontuacaoRanking = {
   posicoesPicking: number;
   totalReepacks: number;
   totalDespejoLitros: number;
-  /** Quantas linhas de atividade (reepack + despejo + picking) a pessoa
-   *  registrou -- é o critério de desempate: mesma pontuação, ganha quem
-   *  fez mais lançamentos no período. */
+  /** Informativo -- 5S não entra na conta da pontuação (ver
+   *  calcularPontuacao), só aparece na tabela pra mostrar o que a
+   *  pessoa fez. */
+  totalExecucoes5s: number;
+  /** Quantas linhas de atividade (reepack + despejo + picking + 5S) a
+   *  pessoa registrou -- é o critério de desempate: mesma pontuação,
+   *  ganha quem fez mais lançamentos no período. */
   totalAtividades: number;
   pontuacao: number;
 };
@@ -583,17 +607,20 @@ export function construirRanking(
   reepacks: { colaboradorId: string; colaboradorNome: string; embalagemId: string; quantidade: number; inicio: string; fim: string }[],
   despejos: { colaboradorId: string; colaboradorNome: string; embalagemId: string; litros: number; inicio: string; fim: string }[],
   pickings: { colaboradorId: string; colaboradorNome: string; posicoesReabastecidas: number | null }[],
+  execucoes5s: { colaboradorId: string; colaboradorNome: string }[],
   embalagens: Embalagem[],
 ): PontuacaoRanking[] {
   const pessoas = new Map<string, string>();
   for (const r of reepacks) pessoas.set(r.colaboradorId, r.colaboradorNome);
   for (const d of despejos) pessoas.set(d.colaboradorId, d.colaboradorNome);
   for (const p of pickings) pessoas.set(p.colaboradorId, p.colaboradorNome);
+  for (const e of execucoes5s) pessoas.set(e.colaboradorId, e.colaboradorNome);
 
   const resultado: PontuacaoRanking[] = [];
   for (const [colaboradorId, colaboradorNome] of pessoas) {
     const meusReepacks = reepacks.filter((r) => r.colaboradorId === colaboradorId);
     const meusDespejos = despejos.filter((d) => d.colaboradorId === colaboradorId);
+    const minhasExecucoes5s = execucoes5s.filter((e) => e.colaboradorId === colaboradorId);
     const minhasPosicoes = pickings
       .filter((p) => p.colaboradorId === colaboradorId)
       .reduce((s, p) => s + (p.posicoesReabastecidas ?? 0), 0);
@@ -616,7 +643,12 @@ export function construirRanking(
       posicoesPicking: minhasPosicoes,
       totalReepacks: meusReepacks.reduce((s, r) => s + r.quantidade, 0),
       totalDespejoLitros: Math.round(meusDespejos.reduce((s, d) => s + d.litros, 0) * 10) / 10,
-      totalAtividades: meusReepacks.length + meusDespejos.length + pickings.filter((p) => p.colaboradorId === colaboradorId).length,
+      totalExecucoes5s: minhasExecucoes5s.length,
+      totalAtividades:
+        meusReepacks.length +
+        meusDespejos.length +
+        pickings.filter((p) => p.colaboradorId === colaboradorId).length +
+        minhasExecucoes5s.length,
       pontuacao: calcularPontuacao(reepacksPctMeta, despejoPctMeta, minhasPosicoes),
     });
   }

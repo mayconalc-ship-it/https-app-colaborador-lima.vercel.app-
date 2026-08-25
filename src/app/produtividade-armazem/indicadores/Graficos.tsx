@@ -68,6 +68,24 @@ export function BarraRanking({
   );
 }
 
+/** Agrupa os cartões-hero de UMA atividade sob um título -- sem isso,
+ *  reepack/despejo/empilhadeira/recebimento viravam uma fileira só de
+ *  números soltos, sem deixar claro qual pertence a qual. */
+export function BlocoAtividade({
+  titulo,
+  children,
+}: {
+  titulo: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section>
+      <h2 className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">{titulo}</h2>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">{children}</div>
+    </section>
+  );
+}
+
 export function CartaoHero({
   titulo,
   valor,

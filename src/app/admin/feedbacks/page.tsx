@@ -8,7 +8,9 @@ import {
   rotuloNota,
   rotuloOcorrencia,
 } from "@/lib/feedback-ocorrencias";
+import { BotaoEnviar } from "@/components/BotaoEnviar";
 import { CincoPorquesTab } from "./CincoPorquesTab";
+import { salvarTratativaFeedback } from "./actions";
 
 const PERIODOS = [
   { dias: 7, label: "7 dias" },
@@ -41,7 +43,9 @@ export default async function AdminFeedbacksPage({
 
   const { data: feedbacks } = await admin
     .from("feedback_rota")
-    .select("id, colaborador_id, nota, rota, ocorrencias, comentario, criado_em")
+    .select(
+      "id, colaborador_id, nota, rota, ocorrencias, comentario, criado_em, tratativa_status, resposta_lideranca, resposta_lideranca_nome, colaborador_aceitou",
+    )
     .eq("revenda_id", revendaId)
     .gte("criado_em", desde.toISOString())
     .order("criado_em", { ascending: false });
@@ -60,6 +64,8 @@ export default async function AdminFeedbacksPage({
   const mediaNota = totalFeedbacks
     ? (feedbacks!.reduce((soma, f) => soma + f.nota, 0) / totalFeedbacks).toFixed(1)
     : "—";
+  const pendentesTratativa =
+    feedbacks?.filter((f) => f.tratativa_status === "pendente").length ?? 0;
 
   const contagemOcorrencias = new Map<string, number>();
   for (const f of feedbacks ?? []) {
@@ -128,7 +134,7 @@ export default async function AdminFeedbacksPage({
         <CincoPorquesTab revendaId={revendaId} desde={desde} />
       ) : (
         <>
-          <div className="mb-4 grid grid-cols-2 gap-3">
+          <div className="mb-4 grid grid-cols-3 gap-3">
             <div className="rounded-2xl border border-slate-200 bg-white p-4 text-center shadow-sm">
               <p className="text-2xl font-bold text-primary">{totalFeedbacks}</p>
               <p className="text-xs text-slate-500">respostas</p>
@@ -136,6 +142,10 @@ export default async function AdminFeedbacksPage({
             <div className="rounded-2xl border border-slate-200 bg-white p-4 text-center shadow-sm">
               <p className="text-2xl font-bold text-primary">{mediaNota}</p>
               <p className="text-xs text-slate-500">nota média (0 a 3)</p>
+            </div>
+            <div className="rounded-2xl border border-slate-200 bg-white p-4 text-center shadow-sm">
+              <p className="text-2xl font-bold text-primary">{pendentesTratativa}</p>
+              <p className="text-xs text-slate-500">aguardando tratativa</p>
             </div>
           </div>
 
@@ -176,10 +186,13 @@ export default async function AdminFeedbacksPage({
             <div className="space-y-3">
               {feedbacks!.map((f) => {
                 const perfil = nomePorId.get(f.colaborador_id);
+                const precisaTratativa = f.tratativa_status !== null;
                 return (
                   <div
                     key={f.id}
-                    className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
+                    className={`rounded-2xl border bg-white p-4 shadow-sm ${
+                      precisaTratativa ? "border-amber-300" : "border-slate-200"
+                    }`}
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
@@ -190,6 +203,17 @@ export default async function AdminFeedbacksPage({
                           {f.rota && (
                             <span className="rounded-full bg-primary-soft px-2 py-0.5 text-xs font-semibold text-primary">
                               Mapa {f.rota}
+                            </span>
+                          )}
+                          {precisaTratativa && (
+                            <span
+                              className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
+                                f.tratativa_status === "concluida"
+                                  ? "bg-emerald-50 text-emerald-700"
+                                  : "bg-amber-50 text-amber-700"
+                              }`}
+                            >
+                              {f.tratativa_status === "concluida" ? "Tratado" : "Pendente"}
                             </span>
                           )}
                         </div>
@@ -223,6 +247,44 @@ export default async function AdminFeedbacksPage({
                       <p className="mt-3 border-l-2 border-slate-200 pl-3 text-sm text-slate-600">
                         {f.comentario}
                       </p>
+                    )}
+
+                    {precisaTratativa && (
+                      <>
+                        {f.resposta_lideranca && (
+                          <p className="mt-2 text-xs font-medium text-slate-500">
+                            {f.colaborador_aceitou === null
+                              ? "Colaborador ainda não viu/decidiu sobre o retorno."
+                              : f.colaborador_aceitou
+                                ? "👍 Colaborador aceitou o retorno."
+                                : "👎 Colaborador não aceitou o retorno."}
+                          </p>
+                        )}
+
+                        <form action={salvarTratativaFeedback} className="mt-3 space-y-2">
+                          <input type="hidden" name="feedback_id" value={f.id} />
+                          <textarea
+                            name="resposta_lideranca"
+                            rows={2}
+                            defaultValue={f.resposta_lideranca ?? ""}
+                            placeholder="Responda ao colaborador o que foi feito..."
+                            className="w-full rounded-xl border border-slate-200 p-2 text-sm focus:border-primary focus:outline-none"
+                          />
+                          <div className="flex gap-2">
+                            <select
+                              name="tratativa_status"
+                              defaultValue={f.tratativa_status ?? "pendente"}
+                              className="rounded-xl border border-slate-200 p-2 text-sm"
+                            >
+                              <option value="pendente">Pendente</option>
+                              <option value="concluida">Concluída</option>
+                            </select>
+                            <BotaoEnviar className="flex-1 rounded-xl bg-primary py-2 text-sm font-semibold text-white hover:bg-primary-dark">
+                              Salvar
+                            </BotaoEnviar>
+                          </div>
+                        </form>
+                      </>
                     )}
                   </div>
                 );

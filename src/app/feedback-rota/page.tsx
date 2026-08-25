@@ -4,7 +4,12 @@ import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { PageHeader } from "@/components/PageHeader";
-import { NOTAS, OCORRENCIAS, notaRuim } from "@/lib/feedback-ocorrencias";
+import {
+  NOTAS,
+  OCORRENCIAS,
+  notaRuim,
+  notaExigeCincoPorques,
+} from "@/lib/feedback-ocorrencias";
 import { enviarFeedbackRota } from "./actions";
 
 export default function FeedbackRotaPage() {
@@ -21,6 +26,7 @@ export default function FeedbackRotaPage() {
   // pronto para envio -- mesma regra que hoje libera o botão único.
   const pronto =
     nota !== null && rota !== "" && !(notaRuim(nota) && comentario.trim() === "");
+  const ehRuim = nota !== null && notaExigeCincoPorques(nota);
 
   function alternarOcorrencia(id: string) {
     setMarcadas((atuais) =>
@@ -203,17 +209,32 @@ export default function FeedbackRotaPage() {
 
         {pronto ? (
           <div className="space-y-2">
-            <button
-              type="submit"
-              name="acao"
-              value="enviar"
-              disabled={pendente}
-              aria-busy={pendente}
-              className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-4 font-semibold text-white hover:bg-primary-dark disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {pendente && <span className="rodinha" aria-hidden="true" />}
-              {pendente ? "Enviando..." : "✅ Enviar feedback"}
-            </button>
+            {ehRuim && (
+              <div className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm">
+                <p className="font-semibold text-amber-800">
+                  🧠 Essa rota foi Ruim — vamos até a causa raiz?
+                </p>
+                <p className="mt-1 text-xs text-amber-700">
+                  Quando a rota é Ruim, o 5 Porquês é obrigatório antes de
+                  enviar. Leva só mais um minuto e é o que mais ajuda a
+                  gente a resolver de verdade.
+                </p>
+              </div>
+            )}
+
+            {!ehRuim && (
+              <button
+                type="submit"
+                name="acao"
+                value="enviar"
+                disabled={pendente}
+                aria-busy={pendente}
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-4 font-semibold text-white hover:bg-primary-dark disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {pendente && <span className="rodinha" aria-hidden="true" />}
+                {pendente ? "Enviando..." : "✅ Enviar feedback"}
+              </button>
+            )}
 
             <button
               type="submit"
@@ -223,7 +244,13 @@ export default function FeedbackRotaPage() {
               aria-busy={pendente}
               className="flex w-full flex-col items-center justify-center gap-0.5 rounded-xl border-2 border-primary bg-primary-soft py-3 font-semibold text-primary transition hover:bg-primary/10 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              <span>{pendente ? "Enviando..." : "🧠 Fazer 5 Porquês"}</span>
+              <span>
+                {pendente
+                  ? "Enviando..."
+                  : ehRuim
+                    ? "🧠 Fazer 5 Porquês (obrigatório)"
+                    : "🧠 Fazer 5 Porquês"}
+              </span>
               {!pendente && (
                 <span className="text-xs font-normal text-primary/80">
                   Encontre a causa raiz do problema

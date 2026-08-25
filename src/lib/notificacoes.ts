@@ -21,6 +21,7 @@ export type ModuloNotificavel =
   | "escala"
   | "rv"
   | "feedback"
+  | "feedback-tratativa"
   | "rotas"
   | "ativo-giro"
   | "quiz"
@@ -42,6 +43,7 @@ export const MODULOS_NOTIFICAVEIS: ModuloNotificavel[] = [
   "escala",
   "rv",
   "feedback",
+  "feedback-tratativa",
   "rotas",
   "ativo-giro",
   "quiz",
@@ -58,6 +60,7 @@ export const EMOJI_MODULO: Record<ModuloNotificavel, string> = {
   escala: "🗓️",
   rv: "💰",
   feedback: "📝",
+  "feedback-tratativa": "📝",
   rotas: "🚚",
   "ativo-giro": "🔁",
   quiz: "🏆",
@@ -74,6 +77,7 @@ export const ROTULO_MODULO: Record<ModuloNotificavel, string> = {
   escala: "Escala de Trabalho",
   rv: "Remuneração Variável",
   feedback: "Feedback da Rota",
+  "feedback-tratativa": "Feedback da Rota",
   rotas: "Minha Rota",
   "ativo-giro": "Ativo de Giro",
   quiz: "Desafio do Mês",
@@ -119,6 +123,7 @@ export const ROTULO_BOTAO: Record<ModuloNotificavel, string> = {
   escala: "Ver escala",
   rv: "Conferir minha RV",
   feedback: "Responder agora",
+  "feedback-tratativa": "Ver resposta",
   rotas: "Ver minha rota",
   "ativo-giro": "Recontar agora",
   quiz: "Participar",

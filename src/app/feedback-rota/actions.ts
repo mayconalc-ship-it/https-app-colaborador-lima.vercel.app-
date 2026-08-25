@@ -3,7 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { getRevendaId } from "@/lib/revendas";
 import { temAcessoModulo } from "@/lib/require-admin";
-import { notaRuim, OCORRENCIAS } from "@/lib/feedback-ocorrencias";
+import { notaRuim, notaExigeTratativa, OCORRENCIAS } from "@/lib/feedback-ocorrencias";
 
 const IDS_VALIDOS = new Set(OCORRENCIAS.map((o) => o.id as string));
 
@@ -61,6 +61,10 @@ export async function enviarFeedbackRota(
       rota,
       ocorrencias,
       comentario,
+      // Só "Regular" entra na fila de tratativa da liderança em
+      // /admin/feedbacks -- "Ruim" tem seu próprio caminho (5 Porquês) e
+      // "Boa"/"Ótima" não precisam de resposta nenhuma.
+      tratativa_status: notaExigeTratativa(nota) ? "pendente" : null,
     })
     .select("id")
     .single();
@@ -70,4 +74,33 @@ export async function enviarFeedbackRota(
   }
 
   return { ok: true, feedbackId: gravado.id };
+}
+
+/**
+ * O colaborador marca se aceita ou não o retorno que a liderança escreveu
+ * sobre o feedback "Regular". Espelha responderTratativa() do 5 Porquês
+ * (src/app/feedback-rota/5-porques/actions.ts) -- é só a opinião do
+ * colaborador, não mexe em tratativa_status, que é território do admin.
+ */
+export async function responderTratativaFeedback(dados: {
+  feedbackId: number;
+  aceitou: boolean;
+}): Promise<{ ok: true } | { ok: false; erro: string }> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, erro: "Sessão expirada. Entre novamente." };
+
+  const { error } = await supabase
+    .from("feedback_rota")
+    .update({
+      colaborador_aceitou: dados.aceitou,
+      colaborador_aceitou_em: new Date().toISOString(),
+    })
+    .eq("id", dados.feedbackId)
+    .eq("colaborador_id", user.id);
+
+  if (error) return { ok: false, erro: "Não foi possível registrar sua resposta." };
+  return { ok: true };
 }
