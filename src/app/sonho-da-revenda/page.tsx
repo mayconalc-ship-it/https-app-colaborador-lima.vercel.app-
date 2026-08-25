@@ -1,12 +1,14 @@
 import Link from "next/link";
 import { PageHeader } from "@/components/PageHeader";
 import { createClient } from "@/lib/supabase/server";
+import { requireAcessoModulo } from "@/lib/require-admin";
 
 export default async function SonhoRevendaPage({
   searchParams,
 }: {
   searchParams: Promise<{ ano?: string }>;
 }) {
+  await requireAcessoModulo("sonho");
   const { ano: anoParam } = await searchParams;
 
   const supabase = await createClient();

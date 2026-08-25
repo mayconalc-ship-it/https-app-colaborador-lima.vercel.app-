@@ -2,9 +2,11 @@ import { PageHeader } from "@/components/PageHeader";
 import { ConsultaRota } from "@/components/ConsultaRota";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getRevendaId } from "@/lib/revendas";
+import { requireAcessoModulo } from "@/lib/require-admin";
 import { METAS_PADRAO, type Metas } from "@/lib/rotas";
 
 export default async function MinhaRotaPage() {
+  await requireAcessoModulo("rotas");
   const admin = createAdminClient();
   const revendaId = await getRevendaId();
 

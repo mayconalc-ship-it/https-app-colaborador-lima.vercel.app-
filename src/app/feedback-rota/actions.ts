@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { getRevendaId } from "@/lib/revendas";
+import { temAcessoModulo } from "@/lib/require-admin";
 import { notaRuim, OCORRENCIAS } from "@/lib/feedback-ocorrencias";
 
 const IDS_VALIDOS = new Set(OCORRENCIAS.map((o) => o.id as string));
@@ -19,6 +20,9 @@ export async function enviarFeedbackRota(
   } = await supabase.auth.getUser();
 
   if (!user) return { ok: false, erro: "Sessão expirada. Entre novamente." };
+  if (!(await temAcessoModulo("feedbacks"))) {
+    return { ok: false, erro: "Você não tem acesso a este módulo." };
+  }
 
   const nota = Number(formData.get("nota"));
   if (!Number.isInteger(nota) || nota < 0 || nota > 3) {

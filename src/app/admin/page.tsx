@@ -3,14 +3,8 @@ import Link from "next/link";
 import { requireGestor } from "@/lib/require-admin";
 import { getConcessoes } from "@/lib/concessoes";
 import { getRevendaAtiva, getModulosDaRevenda } from "@/lib/revendas";
-import { MenuCard } from "@/components/MenuCard";
 import { PageHeader } from "@/components/PageHeader";
-import {
-  MODULOS,
-  MODULOS_DO_DONO,
-  ehOwner,
-  podeFazer,
-} from "@/lib/acessos";
+import { MODULOS, ehOwner, podeFazer } from "@/lib/acessos";
 
 export default async function AdminPage({
   searchParams,
@@ -41,8 +35,6 @@ export default async function AdminPage({
       podeFazer(perfil.role, concessoes, m.id, "ver"),
   );
 
-  const grupos = ["Conteúdo do app", "Pessoas e configuração"] as const;
-
   return (
     <div>
       <PageHeader
@@ -69,54 +61,16 @@ export default async function AdminPage({
         </p>
       )}
 
-      {liberados.length === 0 && !dono && (
+      {liberados.length === 0 && !dono ? (
         <div className="rounded-2xl border border-slate-200 bg-white p-6 text-center text-sm text-slate-500 shadow-sm">
           Você ainda não tem nenhum módulo liberado. Fale com o Admin do app.
         </div>
+      ) : (
+        <div className="rounded-2xl border border-slate-200 bg-white p-6 text-center text-sm text-slate-500 shadow-sm">
+          Escolha um módulo no menu à esquerda
+          <span className="md:hidden"> (toque em ☰)</span>.
+        </div>
       )}
-
-      <div className="space-y-6">
-        {grupos.map((grupo) => {
-          const itens = liberados.filter((m) => m.grupo === grupo);
-          if (itens.length === 0) return null;
-          return (
-            <section key={grupo}>
-              <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">
-                {grupo}
-              </h2>
-              <div className="grid grid-cols-2 gap-3">
-                {itens.map((m) => (
-                  <MenuCard
-                    key={m.id}
-                    href={m.href}
-                    title={m.rotulo}
-                    emoji={m.emoji}
-                  />
-                ))}
-              </div>
-            </section>
-          );
-        })}
-
-        {/* Área do dono. Nunca delegável: é aqui que se decide quem pode o quê. */}
-        {dono && (
-          <section>
-            <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">
-              Só do Admin
-            </h2>
-            <div className="grid grid-cols-2 gap-3">
-              {MODULOS_DO_DONO.map((m) => (
-                <MenuCard
-                  key={m.href}
-                  href={m.href}
-                  title={m.rotulo}
-                  emoji={m.emoji}
-                />
-              ))}
-            </div>
-          </section>
-        )}
-      </div>
 
       {!dono && (
         <p className="mt-6 text-xs text-slate-400">

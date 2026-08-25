@@ -19,6 +19,7 @@ export const MODULO_DO_ITEM: Record<string, ModuloId> = {
   "ativo-giro": "ativo-giro",
   quiz: "quiz",
   "5s": "5s",
+  "produtividade-armazem": "produtividade-armazem",
 };
 
 export type ItemMenu = {
@@ -47,6 +48,7 @@ export const MENU_PADRAO: ItemMenu[] = [
   // auditor, dono de área ou gestor do 5S -- quem não é vê o convite a
   // procurar o Admin, igual aos demais módulos de acesso restrito.
   { chave: "5s", titulo: "Programa 5S", emoji: "🧹", href: "/5s", ordem: 12, visivel: true },
+  { chave: "produtividade-armazem", titulo: "Produtividade do Armazém", emoji: "🏭", href: "/produtividade-armazem", ordem: 13, visivel: true },
   // "Minha Conta" fica oculto: já existe o botão "Conta" no topo de todas as
   // telas, e repetir ocupava espaço da grade sem acrescentar nada.
   { chave: "conta", titulo: "Minha Conta", emoji: "🔒", href: "/minha-conta", ordem: 9, visivel: false },

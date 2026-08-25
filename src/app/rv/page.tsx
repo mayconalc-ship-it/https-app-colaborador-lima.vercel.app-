@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { PageHeader } from "@/components/PageHeader";
 import { getPerfil } from "@/lib/sessao";
+import { requireAcessoModulo } from "@/lib/require-admin";
 import { buscarRVdoColaborador } from "@/lib/rv-server";
 import { chaveCompetencia, formatarCompetencia } from "@/lib/rv";
 import {
@@ -19,6 +20,7 @@ export default async function RVPage({
 }: {
   searchParams: Promise<{ mes?: string }>;
 }) {
+  await requireAcessoModulo("rv");
   const { mes: mesParam } = await searchParams;
 
   const perfil = await getPerfil();

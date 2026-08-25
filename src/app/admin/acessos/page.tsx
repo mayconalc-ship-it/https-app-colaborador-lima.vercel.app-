@@ -4,14 +4,17 @@ import { requireOwner } from "@/lib/require-admin";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { PageHeader } from "@/components/PageHeader";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
+import { CheckboxAutoEnvio } from "@/components/admin/CheckboxAutoEnvio";
 import {
   AJUDA_ACAO,
   MODULOS,
+  MODULOS_OPCIONAIS,
   ROTULO_ACAO,
   ROTULO_PAPEL,
+  moduloPorId,
   type Papel,
 } from "@/lib/acessos";
-import { definirPapel, salvarPermissoes } from "./actions";
+import { alternarModuloExtra, definirPapel, salvarPermissoes } from "./actions";
 
 export default async function GestaoDeAcessosPage({
   searchParams,
@@ -20,6 +23,11 @@ export default async function GestaoDeAcessosPage({
     erro?: string;
     sucesso?: string;
     busca?: string;
+    filtro?: string;
+    area?: string;
+    funcao?: string;
+    papel?: string;
+    revendaExtra?: string;
     revenda?: string;
   }>;
 }) {
@@ -28,6 +36,11 @@ export default async function GestaoDeAcessosPage({
     erro,
     sucesso,
     busca = "",
+    filtro = "",
+    area: areaFiltro = "",
+    funcao: funcaoFiltro = "",
+    papel: papelFiltro = "",
+    revendaExtra: revendaExtraFiltro = "",
     revenda: revendaParam,
   } = await searchParams;
 
@@ -58,26 +71,43 @@ export default async function GestaoDeAcessosPage({
     );
   }
 
-  const [{ data: pessoas }, { data: permissoes }, { data: vinculos }, { data: modulosAtivos }] =
-    await Promise.all([
-      admin
-        .from("profiles")
-        .select("id, nome, cpf, cargo, role")
-        .order("nome", { ascending: true }),
-      admin
-        .from("lideranca_permissoes")
-        .select("colaborador_id, modulo, acao")
-        .eq("revenda_id", escolhida.id),
-      admin
-        .from("colaborador_revendas")
-        .select("colaborador_id")
-        .eq("revenda_id", escolhida.id),
-      admin
-        .from("revenda_modulos")
-        .select("modulo")
-        .eq("revenda_id", escolhida.id)
-        .eq("ativo", true),
-    ]);
+  const [
+    { data: pessoas },
+    { data: permissoes },
+    { data: vinculos },
+    { data: modulosAtivos },
+    { data: extras },
+    { data: vinculosOutras },
+  ] = await Promise.all([
+    admin
+      .from("profiles")
+      .select("id, nome, cpf, cargo, area, role")
+      .order("nome", { ascending: true }),
+    admin
+      .from("lideranca_permissoes")
+      .select("colaborador_id, modulo, acao")
+      .eq("revenda_id", escolhida.id),
+    admin
+      .from("colaborador_revendas")
+      .select("colaborador_id")
+      .eq("revenda_id", escolhida.id),
+    admin
+      .from("revenda_modulos")
+      .select("modulo")
+      .eq("revenda_id", escolhida.id)
+      .eq("ativo", true),
+    admin
+      .from("colaborador_modulos_extra")
+      .select("colaborador_id, modulo")
+      .eq("revenda_id", escolhida.id),
+    // Vínculo com OUTRAS revendas -- só pra mostrar o selo "também em
+    // Barreiras" e servir de filtro. Tabela pequena (uma linha por pessoa
+    // por revenda), então não vale a pena restringir por id aqui.
+    admin
+      .from("colaborador_revendas")
+      .select("colaborador_id, revendas!inner(id, nome)")
+      .neq("revenda_id", escolhida.id),
+  ]);
 
   const porPessoa = new Map<string, Set<string>>();
   for (const p of permissoes ?? []) {
@@ -111,10 +141,68 @@ export default async function GestaoDeAcessosPage({
       (p.nome?.toLowerCase().includes(termo) || (p.cpf ?? "").includes(termo)),
   );
 
+  // Tabela de acesso por módulo: todo mundo desta revenda, dono de fora --
+  // ele já pode tudo, marcar um checkbox para ele não muda nada e só
+  // confundiria. Módulos opcionais que a revenda nem tem ligado não
+  // aparecem como coluna: liberar um módulo desligado prometeria um
+  // acesso que a tela dele não vai mostrar.
+  const modulosOpcionaisDaRevenda = MODULOS_OPCIONAIS.filter((m) =>
+    new Set((modulosAtivos ?? []).map((x) => x.modulo)).has(m),
+  );
+
+  // Outras revendas de cada pessoa -- selo informativo e filtro "também
+  // vinculado a".
+  const outrasRevendasPorPessoa = new Map<string, { id: string; nome: string }[]>();
+  for (const v of vinculosOutras ?? []) {
+    const r = (Array.isArray(v.revendas) ? v.revendas[0] : v.revendas) as {
+      id: string;
+      nome: string;
+    };
+    if (!r) continue;
+    const lista = outrasRevendasPorPessoa.get(v.colaborador_id) ?? [];
+    lista.push(r);
+    outrasRevendasPorPessoa.set(v.colaborador_id, lista);
+  }
+  const revendasDisponiveisParaFiltro = [
+    ...new Map(
+      [...outrasRevendasPorPessoa.values()].flat().map((r) => [r.id, r]),
+    ).values(),
+  ].sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
+
+  const termoTabela = filtro.trim().toLowerCase();
+  const baseRoster = todas.filter((p) => p.role !== "owner" && daRevenda.has(p.id));
+
+  // As opções dos seletores de Área e Função vêm de quem já está na
+  // revenda -- oferecer valor que ninguém daqui tem só confundiria com
+  // filtro que sempre devolve vazio.
+  const areasDisponiveis = [
+    ...new Set(baseRoster.map((p) => p.area).filter((v): v is string => !!v?.trim())),
+  ].sort((a, b) => a.localeCompare(b, "pt-BR"));
+  const funcoesDisponiveis = [
+    ...new Set(baseRoster.map((p) => p.cargo).filter((v): v is string => !!v?.trim())),
+  ].sort((a, b) => a.localeCompare(b, "pt-BR"));
+
+  const roster = baseRoster.filter(
+    (p) =>
+      (!termoTabela ||
+        p.nome?.toLowerCase().includes(termoTabela) ||
+        (p.cpf ?? "").includes(termoTabela)) &&
+      (!areaFiltro || p.area === areaFiltro) &&
+      (!funcaoFiltro || p.cargo === funcaoFiltro) &&
+      (!papelFiltro || p.role === papelFiltro) &&
+      (!revendaExtraFiltro ||
+        (outrasRevendasPorPessoa.get(p.id) ?? []).some((r) => r.id === revendaExtraFiltro)),
+  );
+  const extrasPorPessoa = new Map<string, Set<string>>();
+  for (const e of extras ?? []) {
+    if (!extrasPorPessoa.has(e.colaborador_id)) extrasPorPessoa.set(e.colaborador_id, new Set());
+    extrasPorPessoa.get(e.colaborador_id)!.add(e.modulo);
+  }
+
   return (
     <div>
       <PageHeader
-        title="🔐 Gestão de Acessos"
+        title="🔐 Usuários e Acessos"
         subtitle="Quem entra no Modo Liderança e o que cada um pode fazer"
       />
 
@@ -160,6 +248,164 @@ export default async function GestaoDeAcessosPage({
           fora.
         </p>
       </div>
+
+      {/* ---- Tabela de acesso por módulo opcional ---- */}
+      <section className="mb-6">
+        <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">
+          Acesso a módulos opcionais em {escolhida.nome}
+        </h2>
+        <p className="mb-3 text-xs text-slate-500">
+          Módulos que ficam escondidos até serem liberados pessoa por pessoa.
+          Vale para qualquer papel — colaborador ou liderança. Cada marcação
+          salva sozinha, sem precisar de um botão &quot;Salvar&quot;.
+        </p>
+
+        {modulosOpcionaisDaRevenda.length === 0 ? (
+          <div className="rounded-2xl border border-slate-200 bg-white p-6 text-center text-sm text-slate-500 shadow-sm">
+            Esta revenda ainda não tem nenhum módulo opcional ligado.
+          </div>
+        ) : (
+          <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+            <form
+              method="get"
+              className="flex flex-wrap gap-2 border-b border-slate-100 p-3"
+            >
+              <input type="hidden" name="revenda" value={escolhida.id} />
+              <input
+                name="filtro"
+                defaultValue={filtro}
+                placeholder="Buscar por nome ou CPF"
+                className="min-w-[10rem] flex-1 rounded-xl border border-slate-200 p-2.5 text-sm focus:border-primary focus:outline-none"
+              />
+              <select
+                name="area"
+                defaultValue={areaFiltro}
+                className="min-w-[9rem] rounded-xl border border-slate-200 bg-white p-2.5 text-sm focus:border-primary focus:outline-none"
+              >
+                <option value="">Todas as áreas</option>
+                {areasDisponiveis.map((a) => (
+                  <option key={a} value={a}>{a}</option>
+                ))}
+              </select>
+              <select
+                name="funcao"
+                defaultValue={funcaoFiltro}
+                className="min-w-[9rem] rounded-xl border border-slate-200 bg-white p-2.5 text-sm focus:border-primary focus:outline-none"
+              >
+                <option value="">Todas as funções</option>
+                {funcoesDisponiveis.map((f) => (
+                  <option key={f} value={f}>{f}</option>
+                ))}
+              </select>
+              <select
+                name="papel"
+                defaultValue={papelFiltro}
+                className="min-w-[8rem] rounded-xl border border-slate-200 bg-white p-2.5 text-sm focus:border-primary focus:outline-none"
+              >
+                <option value="">Todos os papéis</option>
+                <option value="colaborador">Colaborador</option>
+                <option value="lideranca">Liderança</option>
+              </select>
+              {revendasDisponiveisParaFiltro.length > 0 && (
+                <select
+                  name="revendaExtra"
+                  defaultValue={revendaExtraFiltro}
+                  className="min-w-[10rem] rounded-xl border border-slate-200 bg-white p-2.5 text-sm focus:border-primary focus:outline-none"
+                >
+                  <option value="">Qualquer vínculo extra</option>
+                  {revendasDisponiveisParaFiltro.map((r) => (
+                    <option key={r.id} value={r.id}>Também em {r.nome}</option>
+                  ))}
+                </select>
+              )}
+              <button
+                type="submit"
+                className="shrink-0 rounded-xl bg-slate-800 px-4 py-2.5 text-sm font-semibold text-white"
+              >
+                Filtrar
+              </button>
+              {(termoTabela || areaFiltro || funcaoFiltro || papelFiltro || revendaExtraFiltro) && (
+                <Link
+                  href={`/admin/acessos?revenda=${escolhida.id}`}
+                  className="flex items-center rounded-xl px-3 text-sm font-medium text-slate-500 hover:text-primary"
+                >
+                  Limpar
+                </Link>
+              )}
+            </form>
+            <p className="border-b border-slate-100 px-3 py-2 text-xs text-slate-400">
+              {roster.length} pessoa(s) encontrada(s).
+            </p>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-slate-50 text-left text-xs uppercase text-slate-500">
+                  <tr>
+                    <th className="p-3">Pessoa</th>
+                    {modulosOpcionaisDaRevenda.map((m) => (
+                      <th key={m} className="p-3 text-center">
+                        {moduloPorId(m)?.emoji} {moduloPorId(m)?.rotulo}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {roster.length === 0 ? (
+                    <tr>
+                      <td
+                        colSpan={modulosOpcionaisDaRevenda.length + 1}
+                        className="p-6 text-center text-sm text-slate-400"
+                      >
+                        Ninguém encontrado.
+                      </td>
+                    </tr>
+                  ) : (
+                    roster.map((p) => {
+                      const minhasExtras = extrasPorPessoa.get(p.id) ?? new Set<string>();
+                      const outras = outrasRevendasPorPessoa.get(p.id) ?? [];
+                      return (
+                        <tr key={p.id} className="border-t border-slate-100">
+                          <td className="min-w-[10rem] p-3">
+                            <p className="font-medium text-slate-800">
+                              {p.nome}
+                              {outras.length > 0 && (
+                                <span
+                                  className="ml-1.5 rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-500"
+                                  title={`Também em ${outras.map((r) => r.nome).join(", ")}`}
+                                >
+                                  +{outras.length}
+                                </span>
+                              )}
+                            </p>
+                            <p className="text-xs text-slate-400">
+                              {ROTULO_PAPEL[p.role as Papel] ?? p.role}
+                              {p.area ? ` · ${p.area}` : ""}
+                              {p.cargo ? ` · ${p.cargo}` : ""}
+                            </p>
+                          </td>
+                          {modulosOpcionaisDaRevenda.map((m) => (
+                            <td key={m} className="p-3 text-center">
+                              <form action={alternarModuloExtra}>
+                                <input type="hidden" name="id" value={p.id} />
+                                <input type="hidden" name="modulo" value={m} />
+                                <input type="hidden" name="revenda" value={escolhida.id} />
+                                <CheckboxAutoEnvio
+                                  marcado={minhasExtras.has(m)}
+                                  ariaLabel={`${moduloPorId(m)?.rotulo} para ${p.nome}`}
+                                />
+                              </form>
+                            </td>
+                          ))}
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </section>
 
       {/* ---- Promover alguém ---- */}
       <details className="mb-4 rounded-2xl border border-slate-200 bg-white shadow-sm">

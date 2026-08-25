@@ -1,13 +1,15 @@
+import { cache } from "react";
 import { redirect } from "next/navigation";
 import { getPerfil } from "@/lib/sessao";
 import { getConcessoes } from "@/lib/concessoes";
-import { getRevendaId, revendaTemModulo } from "@/lib/revendas";
+import { getRevendaId, getModulosDaRevenda, revendaTemModulo } from "@/lib/revendas";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
   chaveDaPermissao,
   ehOwner,
   podeFazer,
   temAlgumAcesso,
+  MODULOS_OPCIONAIS,
   type Acao,
   type ModuloId,
 } from "@/lib/acessos";
@@ -127,5 +129,48 @@ export async function requireAcessoModulo(modulo: ModuloId, destino = "/") {
 
   return perfil;
 }
+
+/**
+ * Todos os módulos opcionais que a pessoa enxerga NA REVENDA ATIVA, numa
+ * tacada só -- é o que o menu inicial usa para decidir quais cartões
+ * mostrar, sem repetir `temAcessoModulo` módulo por módulo (isso seria
+ * uma consulta a mais por módulo opcional a cada carregamento da home).
+ *
+ * Dono vê todos (por definição). Liderança com "ver" administrativo num
+ * módulo específico enxerga esse módulo como colaborador também --
+ * mexer no Jornal sem poder ler o próprio Jornal não faria sentido.
+ * Fora isso, só quem tem uma linha em `colaborador_modulos_extra`.
+ */
+export const getModulosAcessiveis = cache(async (): Promise<Set<ModuloId>> => {
+  const perfil = await getPerfil();
+  if (!perfil) return new Set();
+
+  const revendaId = await getRevendaId();
+  if (!revendaId) return new Set();
+
+  const modulosDaRevenda = await getModulosDaRevenda(revendaId);
+  const opcionaisDaRevenda = MODULOS_OPCIONAIS.filter((m) => modulosDaRevenda.has(m));
+
+  if (ehOwner(perfil.role)) return new Set(opcionaisDaRevenda);
+
+  const concessoes = await getConcessoes();
+  const jaTemPorPermissao = new Set(
+    opcionaisDaRevenda.filter((m) => podeFazer(perfil.role, concessoes, m, "ver")),
+  );
+
+  const faltam = opcionaisDaRevenda.filter((m) => !jaTemPorPermissao.has(m));
+  if (faltam.length === 0) return jaTemPorPermissao;
+
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("colaborador_modulos_extra")
+    .select("modulo")
+    .eq("colaborador_id", perfil.id)
+    .eq("revenda_id", revendaId)
+    .in("modulo", faltam);
+
+  for (const linha of data ?? []) jaTemPorPermissao.add(linha.modulo as ModuloId);
+  return jaTemPorPermissao;
+});
 
 export { chaveDaPermissao };

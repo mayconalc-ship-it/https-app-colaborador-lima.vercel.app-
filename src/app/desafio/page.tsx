@@ -3,6 +3,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
 import { decodificar } from "@/lib/texto-url";
 import { revendaTemModulo } from "@/lib/revendas";
+import { requireAcessoModulo } from "@/lib/require-admin";
 import { hojeIso } from "@/lib/pesquisa";
 import { AREAS } from "@/lib/areas";
 import {
@@ -27,6 +28,7 @@ export default async function DesafioPage({
 }: {
   searchParams: Promise<{ erro?: string }>;
 }) {
+  await requireAcessoModulo("quiz");
   const { erro } = await searchParams;
   const ctx = await getContexto();
 

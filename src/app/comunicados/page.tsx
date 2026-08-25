@@ -6,6 +6,7 @@ import { FotoAmpliavel } from "@/components/FotoAmpliavel";
 import { BotaoAgenda } from "@/components/BotaoAgenda";
 import { createClient } from "@/lib/supabase/server";
 import { getPerfil } from "@/lib/sessao";
+import { requireAcessoModulo } from "@/lib/require-admin";
 import { areaDoColaborador } from "@/lib/quiz";
 import { editoriasDoJornal } from "@/lib/editorias";
 import {
@@ -25,6 +26,7 @@ export default async function ComunicadosPage({
 }: {
   searchParams: Promise<{ editoria?: string; pagina?: string }>;
 }) {
+  await requireAcessoModulo("comunicados");
   const { editoria: filtro, pagina: paginaParam } = await searchParams;
   const editorias = await editoriasDoJornal();
   const filtroValido =

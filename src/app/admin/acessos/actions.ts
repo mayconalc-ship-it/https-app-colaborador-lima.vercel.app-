@@ -3,7 +3,13 @@
 import { redirect } from "next/navigation";
 import { requireOwner } from "@/lib/require-admin";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { ehAcaoValida, ehModuloValido, MODULOS } from "@/lib/acessos";
+import {
+  ehAcaoValida,
+  ehModuloValido,
+  moduloPorId,
+  MODULOS,
+  MODULOS_OPCIONAIS,
+} from "@/lib/acessos";
 
 function voltar(
   chave: "erro" | "sucesso",
@@ -106,6 +112,66 @@ export async function definirPapel(formData: FormData) {
     papel === "lideranca"
       ? `${alvo.nome} agora é liderança. Libere os módulos abaixo.`
       : `${alvo.nome} voltou a ser colaborador e perdeu as permissões de todas as revendas.`,
+    revendaId,
+  );
+}
+
+/**
+ * Liga/desliga um módulo opcional para UMA pessoa, na tabela de acesso.
+ *
+ * Generaliza o que antes só existia para o Ativo de Giro (em
+ * admin/colaboradores/actions.ts): mesma tabela (`colaborador_modulos_extra`),
+ * agora para qualquer módulo de `MODULOS_OPCIONAIS` e para qualquer
+ * pessoa, não só quem já era liderança.
+ */
+export async function alternarModuloExtra(formData: FormData) {
+  const eu = await requireOwner();
+
+  const id = (formData.get("id") as string) || "";
+  const modulo = (formData.get("modulo") as string) || "";
+  const revendaId = (formData.get("revenda") as string) || "";
+  const ligar = formData.get("ligar") === "true";
+
+  if (!id) voltar("erro", "Colaborador inválido.", revendaId);
+  if (!revendaId) voltar("erro", "Revenda inválida.");
+  if (!MODULOS_OPCIONAIS.includes(modulo as (typeof MODULOS_OPCIONAIS)[number])) {
+    voltar("erro", "Módulo inválido.", revendaId);
+  }
+
+  const alvo = await nomeDe(id);
+  if (!alvo) voltar("erro", "Colaborador não encontrado.", revendaId);
+
+  const admin = createAdminClient();
+  const rotuloModulo = moduloPorId(modulo)?.rotulo ?? modulo;
+
+  if (ligar) {
+    const { error } = await admin.from("colaborador_modulos_extra").upsert(
+      { colaborador_id: id, revenda_id: revendaId, modulo, liberado_por: eu.id },
+      { onConflict: "colaborador_id,revenda_id,modulo" },
+    );
+    if (error) voltar("erro", `Não foi possível liberar: ${error.message}`, revendaId);
+  } else {
+    const { error } = await admin
+      .from("colaborador_modulos_extra")
+      .delete()
+      .eq("colaborador_id", id)
+      .eq("revenda_id", revendaId)
+      .eq("modulo", modulo);
+    if (error) voltar("erro", `Não foi possível revogar: ${error.message}`, revendaId);
+  }
+
+  await registrar({
+    atorId: eu.id,
+    atorNome: eu.nome,
+    acao: ligar ? `Liberou ${rotuloModulo}` : `Revogou ${rotuloModulo}`,
+    alvoId: id,
+    alvoNome: alvo.nome,
+    revendaId,
+  });
+
+  voltar(
+    "sucesso",
+    `${rotuloModulo} ${ligar ? "liberado" : "revogado"} para ${alvo.nome}.`,
     revendaId,
   );
 }

@@ -3,6 +3,8 @@
 import { getPerfil } from "@/lib/sessao";
 import { getRevendaId } from "@/lib/revendas";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getModulosAcessiveis } from "@/lib/require-admin";
+import { type ModuloId } from "@/lib/acessos";
 import {
   PRIORIDADE,
   ROTULO_BOTAO,
@@ -10,6 +12,25 @@ import {
   type ModuloNotificavel,
   type TipoNotificacao,
 } from "@/lib/notificacoes";
+
+/**
+ * Nem todo módulo notificável tem controle de acesso por pessoa — só os
+ * que estão em `MODULOS_OPCIONAIS`. "5s" e "cinco-porques" ficam de fora
+ * de propósito (acesso próprio/aberto), então nunca são filtrados aqui.
+ */
+const MODULO_NOTIFICAVEL_PARA_ACESSO: Partial<Record<ModuloNotificavel, ModuloId>> = {
+  comunicados: "comunicados",
+  ranking: "ranking",
+  padroes: "padroes",
+  sonho: "sonho",
+  rotas: "rotas",
+  escala: "escala",
+  rv: "rv",
+  quiz: "quiz",
+  feedback: "feedbacks",
+  "ativo-giro": "ativo-giro",
+  "produtividade-armazem": "produtividade-armazem",
+};
 
 /** Nada mais antigo que isso aparece, mesmo que ninguém tenha visto. */
 const JANELA_DIAS = 21;
@@ -79,10 +100,11 @@ export async function carregarAvisos(): Promise<PainelAvisos> {
     { data: ajustes },
     { data: configFeedback },
     { count: feedbacksHoje },
+    modulosAcessiveis,
   ] = await Promise.all([
     admin
       .from("notificacoes")
-      .select("id, tipo, modulo, titulo, mensagem, url, prioridade, criado_em")
+      .select("id, tipo, modulo, titulo, mensagem, url, prioridade, criado_em, destinatario_id")
       .eq("revenda_id", revendaId)
       .eq("ativa", true)
       .gte("criado_em", desde.toISOString())
@@ -112,6 +134,7 @@ export async function carregarAvisos(): Promise<PainelAvisos> {
       .eq("revenda_id", revendaId)
       .eq("colaborador_id", perfil.id)
       .gte("criado_em", `${dia}T00:00:00`),
+    getModulosAcessiveis(),
   ]);
 
   const estado = new Map(
@@ -128,6 +151,14 @@ export async function carregarAvisos(): Promise<PainelAvisos> {
     // Quem entrou no app depois da publicação não precisa ver histórico
     // que não viveu.
     if (perfil.criadoEm && n.criado_em < perfil.criadoEm) continue;
+
+    // Aviso da revenda inteira (sem destinatário) de um módulo com controle
+    // de acesso próprio: só cai no sino de quem tem o módulo liberado agora.
+    // Direcionado a alguém específico passa direto — já foi convocado.
+    if (n.destinatario_id === null) {
+      const moduloDeAcesso = MODULO_NOTIFICAVEL_PARA_ACESSO[n.modulo as ModuloNotificavel];
+      if (moduloDeAcesso && !modulosAcessiveis.has(moduloDeAcesso)) continue;
+    }
 
     const chave = `n:${n.id}`;
     const st = estado.get(chave);
@@ -152,7 +183,9 @@ export async function carregarAvisos(): Promise<PainelAvisos> {
   // Não existe linha no banco para isto. É uma pergunta feita na hora às
   // tabelas que já existem -- por isso nunca fica desatualizada e não
   // precisa de nenhuma tarefa agendada.
-  const pendencia = pendenciaDeFeedback({
+  // Cobrar quem não tem o módulo liberado seria mandar a pessoa bater
+  // numa porta trancada.
+  const pendencia = !modulosAcessiveis.has("feedbacks") ? null : pendenciaDeFeedback({
     dia,
     ajustes,
     configAtiva: configFeedback?.ativa ?? true,

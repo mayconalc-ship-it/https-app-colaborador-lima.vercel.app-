@@ -3,21 +3,16 @@ import { createClient } from "@/lib/supabase/server";
 import { getPerfil } from "@/lib/sessao";
 import { getRevendaAtiva, getModulosDaRevenda } from "@/lib/revendas";
 import { MENU_PADRAO, MODULO_DO_ITEM } from "@/lib/menu";
-import { temAcessoModulo } from "@/lib/require-admin";
-
-// Itens de menu que, além de "visivel", exigem uma permissão específica
-// antes de aparecer. Módulos opcionais entram aqui.
-const MODULOS_RESTRITOS: Record<string, "ativo-giro"> = {
-  "ativo-giro": "ativo-giro",
-};
+import { getModulosAcessiveis } from "@/lib/require-admin";
+import { MODULOS_OPCIONAIS } from "@/lib/acessos";
 
 export default async function Home() {
   const supabase = await createClient();
 
-  const [perfil, revenda, acessoAtivoGiro] = await Promise.all([
+  const [perfil, revenda, modulosAcessiveis] = await Promise.all([
     getPerfil(),
     getRevendaAtiva(),
-    temAcessoModulo("ativo-giro"),
+    getModulosAcessiveis(),
   ]);
 
   // Sem revenda não há menu: o layout já mostra o aviso de cadastro
@@ -34,9 +29,6 @@ export default async function Home() {
   ]);
 
   const primeiroNome = perfil?.nome?.split(" ")[0] ?? "";
-  const acessosExtras: Record<string, boolean> = {
-    "ativo-giro": acessoAtivoGiro,
-  };
   const todos = itensBanco && itensBanco.length > 0 ? itensBanco : MENU_PADRAO;
   const itens = todos.filter((item) => {
     if (!item.visivel) return false;
@@ -46,8 +38,13 @@ export default async function Home() {
     const modulo = MODULO_DO_ITEM[item.chave];
     if (modulo && !modulosDaRevenda.has(modulo)) return false;
 
-    const restricao = MODULOS_RESTRITOS[item.chave];
-    return !restricao || acessosExtras[restricao];
+    // Módulo opcional (a lista em lib/acessos.ts): só entra quem tem
+    // concessão -- ver getModulosAcessiveis. Módulo fora dessa lista
+    // (ex.: 5S, que tem controle próprio) passa direto.
+    if (modulo && (MODULOS_OPCIONAIS as string[]).includes(modulo)) {
+      return modulosAcessiveis.has(modulo);
+    }
+    return true;
   });
 
   return (

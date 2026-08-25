@@ -2,6 +2,7 @@ import Link from "next/link";
 import { PageHeader } from "@/components/PageHeader";
 import { MonthSelect } from "@/components/MonthSelect";
 import { createClient } from "@/lib/supabase/server";
+import { requireAcessoModulo } from "@/lib/require-admin";
 import { NOMES_TIME, TIMES, ehTimeValido, type TimeRanking } from "@/lib/ranking-categorias";
 
 export default async function RankingPage({
@@ -9,6 +10,7 @@ export default async function RankingPage({
 }: {
   searchParams: Promise<{ time?: string; mes_ano?: string }>;
 }) {
+  await requireAcessoModulo("ranking");
   const { time: timeParam, mes_ano: mesParam } = await searchParams;
   const time: TimeRanking =
     timeParam && ehTimeValido(timeParam) ? timeParam : "DU";

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { PageHeader } from "@/components/PageHeader";
 import { createClient } from "@/lib/supabase/server";
 import { getRevendaId } from "@/lib/revendas";
+import { requireAcessoModulo } from "@/lib/require-admin";
 import { compararTextoPtBr, iconePorTipo } from "@/lib/padroes-pilares";
 import { listarPilares, escolherPilar } from "@/lib/pilares";
 
@@ -10,6 +11,7 @@ export default async function PadroesPage({
 }: {
   searchParams: Promise<{ pilar?: string }>;
 }) {
+  await requireAcessoModulo("padroes");
   const { pilar: pilarParam } = await searchParams;
 
   // Só os pilares marcados como visíveis pelo admin.

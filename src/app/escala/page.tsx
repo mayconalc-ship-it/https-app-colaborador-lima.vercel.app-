@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { PageHeader } from "@/components/PageHeader";
 import { createClient } from "@/lib/supabase/server";
+import { requireAcessoModulo } from "@/lib/require-admin";
 import { AREAS, ehAreaValida, ehPdf, type AreaId } from "@/lib/areas";
 
 export default async function EscalaPage({
@@ -8,6 +9,7 @@ export default async function EscalaPage({
 }: {
   searchParams: Promise<{ area?: string }>;
 }) {
+  await requireAcessoModulo("escala");
   const { area: areaParam } = await searchParams;
   const area: AreaId = ehAreaValida(areaParam ?? "") ? (areaParam as AreaId) : "DU";
 

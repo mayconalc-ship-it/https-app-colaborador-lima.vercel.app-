@@ -7,6 +7,7 @@ import { getPessoasDaArea } from "@/lib/quiz-server";
 import { hojeIso } from "@/lib/pesquisa";
 import { areaDoColaborador, diasRestantes } from "@/lib/quiz";
 import type { AreaId } from "@/lib/areas";
+import { FIM_TURNO, type Turno } from "@/lib/produtividade-armazem";
 
 /** De quanto em quanto tempo o próprio app varre a fila. */
 const INTERVALO_MINUTOS = 5;
@@ -36,6 +37,7 @@ export type Varredura = {
   desafios: number;
   cincoS: number;
   publicadas: number;
+  empilhadeiras: number;
   erro?: string;
 };
 
@@ -77,8 +79,9 @@ export async function varrerLembretes(): Promise<Varredura> {
   const enviados = await lembretesDeComunicado(admin);
   const cincoS = await lembretesDo5S(admin);
   const desafios = await lembretesDoDesafio(admin);
+  const empilhadeiras = await lembretesDeEmpilhadeira(admin);
 
-  return { ...enviados, cincoS, desafios, publicadas };
+  return { ...enviados, cincoS, desafios, publicadas, empilhadeiras };
 }
 
 /**
@@ -460,16 +463,104 @@ async function lembretesDo5S(admin: ReturnType<typeof createAdminClient>) {
 async function jaAvisado(
   admin: ReturnType<typeof createAdminClient>,
   chave: string,
+  modulo: string = "5s",
 ) {
   const { data } = await admin
     .from("notificacoes")
     .select("id")
-    .eq("modulo", "5s")
+    .eq("modulo", modulo)
     .eq("referencia_id", chave)
     .limit(1)
     .maybeSingle();
 
   return Boolean(data);
+}
+
+/**
+ * Cutuca o EMPILHADEIRISTA no fim do turno dele, se ele estiver com
+ * alguma empilhadeira aberta -- não importa qual máquina, o lembrete é
+ * da pessoa, não do patrimônio.
+ *
+ * Só toca se ela tiver operação aberta na hora do lembrete -- se já
+ * fechou tudo, não há o que lembrar. Uma janela de ~7 minutos ao redor
+ * do fim do turno absorve o intervalo da própria varredura (a cada 5
+ * min) sem duplicar aviso, porque a idempotência é por CHAVE-DIA
+ * (`pa-emp:<lembrete>:<hoje>`): dispara uma vez por dia, não uma vez por
+ * passada do cron.
+ */
+async function lembretesDeEmpilhadeira(admin: ReturnType<typeof createAdminClient>) {
+  const agora = new Date();
+  const hoje = agora.toISOString().slice(0, 10);
+  const minutosAgora = Number(
+    new Intl.DateTimeFormat("en-GB", {
+      timeZone: "America/Sao_Paulo",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    })
+      .format(agora)
+      .replace(":", ""),
+  );
+
+  const { data: lembretes } = await admin
+    .from("pa_empilhadeira_lembretes")
+    .select("id, revenda_id, operador_id, operador_nome, turno")
+    .eq("ativo", true);
+
+  let enviados = 0;
+
+  for (const l of lembretes ?? []) {
+    const [h, m] = FIM_TURNO[l.turno as Turno].split(":");
+    const minutosLembrete = Number(h) * 100 + Number(m);
+    // Distância em minutos, tratando a virada de hora (ex.: 08:58 vs 09:02).
+    const diffBruto = Math.abs(minutosAgora - minutosLembrete);
+    const diff = diffBruto > 50 ? 100 - diffBruto : diffBruto;
+    if (diff > 7) continue;
+
+    const chave = `pa-emp:${l.id}:${hoje}`;
+    if (await jaAvisado(admin, chave, "produtividade-armazem")) continue;
+
+    const { data: abertas } = await admin
+      .from("pa_empilhadeira_operacoes")
+      .select("empilhadeira_id, pa_empilhadeiras!inner(numero)")
+      .eq("operador_id", l.operador_id)
+      .eq("status", "aberta");
+
+    // Sem operação aberta não há o que lembrar. Sem carimbo aqui de
+    // propósito: a janela de 7 minutos já limita a repetição a duas ou
+    // três passadas do cron, não o dia inteiro -- não vale sujar a
+    // tabela de notificações com uma linha só para marcar "não avisei".
+    if (!abertas || abertas.length === 0) continue;
+
+    const numeros = abertas
+      .map((a) => (Array.isArray(a.pa_empilhadeiras) ? a.pa_empilhadeiras[0] : a.pa_empilhadeiras)?.numero)
+      .filter(Boolean)
+      .join(", ");
+
+    const titulo = "🏗️ Fim de turno";
+    const mensagem = `Não esqueça de fechar a empilhadeira ${numeros} antes de ir embora.`;
+
+    await criarNotificacao({
+      modulo: "produtividade-armazem",
+      tipo: "lembrete",
+      titulo,
+      mensagem,
+      url: "/produtividade-armazem/empilhadeira",
+      revendaId: l.revenda_id,
+      destinatarioId: l.operador_id,
+      referenciaId: chave,
+    });
+    await enviarPushDaRevenda(l.revenda_id, {
+      modulo: "produtividade-armazem",
+      titulo,
+      mensagem,
+      url: "/produtividade-armazem/empilhadeira",
+      apenas: [l.operador_id],
+    });
+    enviados++;
+  }
+
+  return enviados;
 }
 
 /**

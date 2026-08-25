@@ -30,7 +30,8 @@ export type ModuloId =
   | "rotas"
   | "ativo-giro"
   | "quiz"
-  | "5s";
+  | "5s"
+  | "produtividade-armazem";
 
 export type Modulo = {
   id: ModuloId;
@@ -133,6 +134,14 @@ export const MODULOS: Modulo[] = [
     acoes: ["ver", "criar", "editar", "excluir"],
   },
   {
+    id: "produtividade-armazem",
+    rotulo: "Produtividade do Armazém",
+    emoji: "🏭",
+    href: "/admin/produtividade-armazem",
+    grupo: "Conteúdo do app",
+    acoes: ["ver", "criar", "editar", "excluir"],
+  },
+  {
     id: "colaboradores",
     rotulo: "Colaboradores",
     emoji: "👥",
@@ -178,6 +187,40 @@ export const MODULOS: Modulo[] = [
   },
 ];
 
+/**
+ * Módulos que ficam escondidos por padrão mesmo com a revenda ligada --
+ * cada colaborador só vê depois de liberação individual, em
+ * `colaborador_modulos_extra`. Um módulo novo entra aqui e já aparece na
+ * tabela de acesso em /admin/acessos sem precisar de outra migration.
+ *
+ * Generalizado em 24/08/2026 (migration 053): antes só o Ativo de Giro
+ * passava por aqui, o resto do "Conteúdo do app" era visível pra
+ * qualquer um da revenda sem checagem individual. A migration 053
+ * já gravou a concessão de quem tinha acesso ANTES da mudança -- ninguém
+ * perdeu nada no dia da virada; dali em diante, restringir é o Admin
+ * desmarcando quem não deveria ter.
+ *
+ * De propósito FORA desta lista:
+ *   "5s"    -- já tem o próprio controle de acesso (auditor/dono de
+ *              área/gestor, em cinco_s_*), não é um simples liga/desliga.
+ *   colaboradores/metricas/pesquisa/menu -- são telas do Admin, não
+ *              conteúdo que um colaborador comum navegue; já protegidas
+ *              por `requireModulo`/permissão de liderança.
+ */
+export const MODULOS_OPCIONAIS: ModuloId[] = [
+  "ativo-giro",
+  "comunicados",
+  "ranking",
+  "padroes",
+  "sonho",
+  "rotas",
+  "escala",
+  "rv",
+  "quiz",
+  "feedbacks",
+  "produtividade-armazem",
+];
+
 const MAPA = new Map(MODULOS.map((m) => [m.id, m]));
 
 export function moduloPorId(id: string) {
@@ -210,7 +253,7 @@ export const MODULOS_DO_DONO = [
   },
   {
     href: "/admin/acessos",
-    rotulo: "Gestão de Acessos",
+    rotulo: "Usuários e Acessos",
     emoji: "🔐",
   },
   {
