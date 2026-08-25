@@ -7,6 +7,7 @@ import {
   ROTULO_TURNO,
   TURNOS,
   agruparPorEmbalagem,
+  calcularPontuacao,
   construirRanking,
   diasAtrasISO,
   embalagemDeLinha,
@@ -14,7 +15,7 @@ import {
   hojeISO,
   horasDeOperacao,
   horasEntre,
-  mediaHorasPorItem,
+  mediaPct,
   operacaoEmpilhadeiraDeLinha,
   pctAvariaConsolidado,
   taxaPorHora,
@@ -29,6 +30,11 @@ export const dynamic = "force-dynamic";
 const campo =
   "w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-base text-slate-900 focus:border-primary focus:outline-none";
 const rotulo = "mb-1 block text-xs font-semibold uppercase text-slate-500";
+
+/** Mesmo texto em todo canto que mostra "Pontuação" -- ver calcularPontuacao
+ *  em lib/produtividade-armazem.ts, a fórmula de verdade mora lá. */
+const EXPLICACAO_PONTUACAO =
+  "Pontuação = média das % de meta batidas em reepack e despejo (só entram embalagens com meta cadastrada) + 1 ponto a cada 20 posições de picking reabastecidas.";
 
 export default async function IndicadoresPage({
   searchParams,
@@ -154,7 +160,11 @@ export default async function IndicadoresPage({
 
   // ---- Reepack: agregados gerais (sem quebrar por embalagem) ----
   const reepackQuantidadeTotal = reepacks.reduce((s, r) => s + r.quantidade, 0);
-  const reepackMediaHoras = mediaHorasPorItem(reepacks);
+  // Duração média por CAIXA, não por lançamento -- um lançamento pode
+  // ter 2 caixas ou 20, então "duração média do lançamento" mistura
+  // sessões de tamanhos bem diferentes. Tempo total ÷ caixas totais.
+  const reepackHorasTotal = reepacks.reduce((s, r) => s + horasEntre(r.inicio, r.fim), 0);
+  const reepackMediaHorasPorCaixa = reepackQuantidadeTotal > 0 ? reepackHorasTotal / reepackQuantidadeTotal : 0;
 
   // ---- Despejo: agregado geral (litros/hora do total, não a média das taxas) ----
   const despejoLitrosTotal = Math.round(despejos.reduce((s, d) => s + d.litros, 0) * 10) / 10;
@@ -210,15 +220,56 @@ export default async function IndicadoresPage({
     const despejosT = despejosTodos.filter((d) => d.turno === t);
     const pickingsT = pickingsTodos.filter((p) => p.turno === t);
     const execucoes5sT = execucoes5sTodos.filter((e) => e.turno === t);
+
+    // Mesma fórmula da pontuação individual (ver calcularPontuacao),
+    // só que aplicada em cima do total do turno -- trata o turno como
+    // se fosse "uma pessoa só" pra comparar desempenho entre turnos.
+    const reepackAgrupadoT = agruparPorEmbalagem(
+      reepacksT.map((r) => ({ embalagemId: r.embalagem_id, quantidade: r.quantidade, inicio: r.inicio, fim: r.fim })),
+      embalagens,
+      (e) => e.metaReepacksHora,
+    );
+    const despejoAgrupadoT = agruparPorEmbalagem(
+      despejosT.map((d) => ({ embalagemId: d.embalagem_id, quantidade: d.litros, inicio: d.inicio, fim: d.fim })),
+      embalagens,
+      (e) => e.metaLitrosHora,
+    );
+    const posicoesPickingT = pickingsT.reduce((s, p) => s + (p.posicoes_reabastecidas ?? 0), 0);
+    const pontuacao = calcularPontuacao(
+      mediaPct(reepackAgrupadoT.map((r) => r.pctMeta)),
+      mediaPct(despejoAgrupadoT.map((d) => d.pctMeta)),
+      posicoesPickingT,
+    );
+
     return {
       turno: t,
       reepackCx: reepacksT.reduce((s, r) => s + r.quantidade, 0),
       despejoLitros: Math.round(despejosT.reduce((s, d) => s + d.litros, 0) * 10) / 10,
-      pickingPosicoes: pickingsT.reduce((s, p) => s + (p.posicoes_reabastecidas ?? 0), 0),
+      pickingPosicoes: posicoesPickingT,
       execucoes5s: execucoes5sT.length,
       totalLancamentos: reepacksT.length + despejosT.length + pickingsT.length + execucoes5sT.length,
+      pontuacao,
     };
   });
+  // Pontuação do total NÃO é a média das pontuações dos turnos (isso
+  // distorceria turnos com pouca atividade) -- é a mesma fórmula
+  // aplicada direto em cima dos dados do período inteiro.
+  const reepackAgrupadoGeral = agruparPorEmbalagem(
+    reepacksTodos.map((r) => ({ embalagemId: r.embalagem_id, quantidade: r.quantidade, inicio: r.inicio, fim: r.fim })),
+    embalagens,
+    (e) => e.metaReepacksHora,
+  );
+  const despejoAgrupadoGeral = agruparPorEmbalagem(
+    despejosTodos.map((d) => ({ embalagemId: d.embalagem_id, quantidade: d.litros, inicio: d.inicio, fim: d.fim })),
+    embalagens,
+    (e) => e.metaLitrosHora,
+  );
+  const pontuacaoGeral = calcularPontuacao(
+    mediaPct(reepackAgrupadoGeral.map((r) => r.pctMeta)),
+    mediaPct(despejoAgrupadoGeral.map((d) => d.pctMeta)),
+    pickingsTodos.reduce((s, p) => s + (p.posicoes_reabastecidas ?? 0), 0),
+  );
+
   const totalGeral = porTurno.reduce(
     (s, l) => ({
       reepackCx: s.reepackCx + l.reepackCx,
@@ -348,7 +399,7 @@ export default async function IndicadoresPage({
         <BlocoAtividade titulo="📦 Reepack">
           <CartaoHero titulo="Lançamentos" valor={String(reepacks.length)} />
           <CartaoHero titulo="Caixas reepackadas" valor={`${reepackQuantidadeTotal} cx`} />
-          <CartaoHero titulo="Duração média" valor={formatarHoras(reepackMediaHoras)} legenda="por lançamento" />
+          <CartaoHero titulo="Duração média" valor={formatarHoras(reepackMediaHorasPorCaixa)} legenda="por caixa" />
         </BlocoAtividade>
 
         <BlocoAtividade titulo="🫗 Despejo">
@@ -410,7 +461,7 @@ export default async function IndicadoresPage({
           Atividade por turno{turnoFiltro ? ` — ${ROTULO_TURNO[turnoFiltro]}` : ""}
         </h2>
         <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
-          <table className="w-full min-w-[560px] text-sm">
+          <table className="w-full min-w-[640px] text-sm">
             <thead className="bg-slate-50 text-left text-xs uppercase text-slate-500">
               <tr>
                 <th className="p-3">Turno</th>
@@ -419,6 +470,9 @@ export default async function IndicadoresPage({
                 <th className="p-3 text-right">🛒 Picking</th>
                 <th className="p-3 text-right">🧹 5S</th>
                 <th className="p-3 text-right">Total</th>
+                <th className="p-3 text-right" title={EXPLICACAO_PONTUACAO}>
+                  Pontuação ℹ️
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -430,6 +484,11 @@ export default async function IndicadoresPage({
                   <td className="p-3 text-right tabular-nums">{l.pickingPosicoes}</td>
                   <td className="p-3 text-right tabular-nums">{l.execucoes5s}</td>
                   <td className="p-3 text-right font-bold tabular-nums text-slate-900">{l.totalLancamentos}</td>
+                  <td className="p-3 text-right">
+                    <span className="rounded-lg bg-slate-100 px-2 py-0.5 text-xs font-bold text-slate-700">
+                      {l.pontuacao} pts
+                    </span>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -441,10 +500,12 @@ export default async function IndicadoresPage({
                 <td className="p-3 text-right tabular-nums">{totalGeral.pickingPosicoes}</td>
                 <td className="p-3 text-right tabular-nums">{totalGeral.execucoes5s}</td>
                 <td className="p-3 text-right tabular-nums text-slate-900">{totalGeral.totalLancamentos}</td>
+                <td className="p-3 text-right tabular-nums text-slate-900">{pontuacaoGeral} pts</td>
               </tr>
             </tfoot>
           </table>
         </div>
+        <p className="mt-2 text-xs text-slate-400">ℹ️ {EXPLICACAO_PONTUACAO}</p>
       </section>
 
       <section className="mt-8">
@@ -468,7 +529,9 @@ export default async function IndicadoresPage({
                   <th className="p-3 text-right">🛒 Picking</th>
                   <th className="p-3 text-right">🧹 5S</th>
                   <th className="p-3 text-right">Atividades</th>
-                  <th className="p-3 text-right">Pontuação</th>
+                  <th className="p-3 text-right" title={EXPLICACAO_PONTUACAO}>
+                    Pontuação ℹ️
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -520,6 +583,7 @@ export default async function IndicadoresPage({
             </table>
           </div>
         )}
+        <p className="mt-2 text-xs text-slate-400">ℹ️ {EXPLICACAO_PONTUACAO}</p>
       </section>
 
       <div className="mt-8 grid gap-4 sm:grid-cols-2">

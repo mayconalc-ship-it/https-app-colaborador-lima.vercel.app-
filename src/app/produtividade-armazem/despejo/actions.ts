@@ -123,6 +123,65 @@ export async function finalizarDespejo(formData: FormData) {
   redirect(`${ROTA}?sucesso=Despejo+finalizado`);
 }
 
+/**
+ * Corrige a quantidade de caixas de um lançamento já finalizado -- só
+ * isso, e só quem lançou (sem bypass de gestor de propósito: é
+ * autocorreção de erro de digitação, não uma ferramenta de gestão).
+ * Início e fim NUNCA entram aqui: dá pra corrigir "digitei 20 e era
+ * 12", não dá pra esticar o tempo do lançamento pra melhorar a taxa.
+ * O litro recalcula a partir da quantidade nova (mesmo Fator Hecto
+ * gravado na hora do lançamento original).
+ */
+export async function editarDespejo(formData: FormData) {
+  const { perfil, revendaId } = await exigirContexto();
+
+  const id = String(formData.get("id") ?? "");
+  if (!id) erro("Lançamento inválido.");
+
+  let quantidadePacotes: number;
+  try {
+    quantidadePacotes = inteiroNaoNegativo(formData.get("quantidade_pacotes"));
+  } catch (e) {
+    erro(e instanceof Error ? e.message : "Valor inválido.");
+  }
+  if (quantidadePacotes === 0) erro("Informe quantas caixas foram despejadas.");
+
+  const supabase = await createClient();
+
+  const { data: lancamento } = await supabase
+    .from("pa_despejo_lancamentos")
+    .select("id, produto_id")
+    .eq("id", id)
+    .eq("revenda_id", revendaId)
+    .eq("colaborador_id", perfil.id)
+    .not("fim", "is", null)
+    .maybeSingle();
+
+  if (!lancamento) erro("Lançamento não encontrado ou não é seu.");
+
+  const { data: produto } = await supabase
+    .from("pa_produtos")
+    .select("fator_hecto")
+    .eq("id", lancamento.produto_id ?? "")
+    .maybeSingle();
+
+  if (!produto?.fator_hecto) {
+    erro("Este produto não tem o Fator Hecto cadastrado. Peça ao Admin para conferir em Configuração.");
+  }
+
+  const litros = Math.round(quantidadePacotes * produto.fator_hecto * 100 * 100) / 100;
+
+  const { error } = await supabase
+    .from("pa_despejo_lancamentos")
+    .update({ quantidade_pacotes: quantidadePacotes, litros })
+    .eq("id", id);
+
+  if (error) erro(`Não foi possível editar: ${error.message}`);
+
+  revalidatePath(ROTA);
+  redirect(`${ROTA}?aba=historico&sucesso=Lançamento+atualizado`);
+}
+
 /** Desiste de um despejo iniciado por engano. */
 export async function cancelarDespejo(formData: FormData) {
   const { perfil, revendaId } = await exigirContexto();

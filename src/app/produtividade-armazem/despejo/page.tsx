@@ -22,7 +22,7 @@ import {
   type Embalagem,
   type ProdutoReepack,
 } from "@/lib/produtividade-armazem";
-import { cancelarDespejo, excluirDespejo, finalizarDespejo, iniciarDespejo } from "./actions";
+import { cancelarDespejo, editarDespejo, excluirDespejo, finalizarDespejo, iniciarDespejo } from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -279,6 +279,7 @@ export default async function DespejoPage({
                     produtoRotulo={produtoRotulo(l.produto_id, produtoPorId)}
                     meta={embalagemPorId.get(l.embalagem_id)?.metaLitrosHora ?? null}
                     podeExcluir={l.colaborador_id === perfil.id || podeExcluirQualquer}
+                    podeEditar={l.colaborador_id === perfil.id}
                   />
                 ))}
               </ul>
@@ -335,6 +336,7 @@ export default async function DespejoPage({
                   produtoRotulo={produtoRotulo(l.produto_id, produtoPorId)}
                   meta={embalagemPorId.get(l.embalagem_id)?.metaLitrosHora ?? null}
                   podeExcluir={l.colaborador_id === perfil.id || podeExcluirQualquer}
+                  podeEditar={l.colaborador_id === perfil.id}
                   mostrarColaborador
                 />
               ))}
@@ -358,12 +360,14 @@ function LinhaDespejo({
   produtoRotulo,
   meta,
   podeExcluir,
+  podeEditar,
   mostrarColaborador = false,
 }: {
   l: Lancamento;
   produtoRotulo: string;
   meta: number | null;
   podeExcluir: boolean;
+  podeEditar: boolean;
   mostrarColaborador?: boolean;
 }) {
   const horas = (new Date(l.fim).getTime() - new Date(l.inicio).getTime()) / 3_600_000;
@@ -371,45 +375,83 @@ function LinhaDespejo({
   const pct = pctDaMeta(taxa, meta);
 
   return (
-    <li className="flex items-start justify-between gap-3 rounded-xl border border-slate-200 bg-white p-3">
-      <div className="min-w-0">
-        <p className="text-sm font-semibold text-slate-900">
-          {produtoRotulo} · {l.quantidade_pacotes ?? "?"} cx ({l.litros} L) ·{" "}
-          {ROTULO_TURNO[l.turno as keyof typeof ROTULO_TURNO] ?? l.turno}
-        </p>
-        <p className="text-xs text-slate-500">
-          {formatarDataHora(l.inicio)} – {formatarDataHora(l.fim)} · {formatarDuracao(l.inicio, l.fim)}
-          {mostrarColaborador ? ` — ${l.colaborador_nome}` : ""}
-        </p>
-        {l.observacao && <p className="mt-1 text-xs text-slate-500">{l.observacao}</p>}
-      </div>
-      <div className="flex shrink-0 flex-col items-end gap-1">
-        <span
-          className="rounded-lg bg-slate-100 px-2 py-1 text-xs font-bold text-slate-700"
-          title="Taxa extrapolada para uma hora, a partir da duração real do lançamento"
-        >
-          {taxa.toFixed(1)} L/h
-        </span>
-        {pct !== null && (
+    <li className="rounded-xl border border-slate-200 bg-white p-3">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-slate-900">
+            {produtoRotulo} · {l.quantidade_pacotes ?? "?"} cx ({l.litros} L) ·{" "}
+            {ROTULO_TURNO[l.turno as keyof typeof ROTULO_TURNO] ?? l.turno}
+          </p>
+          <p className="text-xs text-slate-500">
+            {formatarDataHora(l.inicio)} – {formatarDataHora(l.fim)} · {formatarDuracao(l.inicio, l.fim)}
+            {mostrarColaborador ? ` — ${l.colaborador_nome}` : ""}
+          </p>
+          {l.observacao && <p className="mt-1 text-xs text-slate-500">{l.observacao}</p>}
+        </div>
+        <div className="flex shrink-0 flex-col items-end gap-1">
           <span
-            className={`rounded-lg px-2 py-0.5 text-[11px] font-semibold ${
-              pct >= 100 ? "bg-green-50 text-green-700" : "bg-amber-50 text-amber-800"
-            }`}
+            className="rounded-lg bg-slate-100 px-2 py-1 text-xs font-bold text-slate-700"
+            title="Taxa extrapolada para uma hora, a partir da duração real do lançamento"
           >
-            {pct}% da meta
+            {taxa.toFixed(1)} L/h
           </span>
-        )}
-        {podeExcluir && (
-          <BotaoExcluir
-            action={excluirDespejo}
-            campos={{ id: l.id }}
-            confirmacao="Excluir este lançamento de despejo?"
-            className="rounded-lg border border-red-200 px-2 py-1 text-xs font-semibold text-red-600 hover:bg-red-50"
-          >
-            Excluir
-          </BotaoExcluir>
-        )}
+          {pct !== null && (
+            <span
+              className={`rounded-lg px-2 py-0.5 text-[11px] font-semibold ${
+                pct >= 100 ? "bg-green-50 text-green-700" : "bg-amber-50 text-amber-800"
+              }`}
+            >
+              {pct}% da meta
+            </span>
+          )}
+          <div className="flex gap-1">
+            {podeEditar && (
+              <EditarQuantidadeDespejo id={l.id} quantidadeAtual={l.quantidade_pacotes ?? 0} />
+            )}
+            {podeExcluir && (
+              <BotaoExcluir
+                action={excluirDespejo}
+                campos={{ id: l.id }}
+                confirmacao="Excluir este lançamento de despejo?"
+                className="rounded-lg border border-red-200 px-2 py-1 text-xs font-semibold text-red-600 hover:bg-red-50"
+              >
+                Excluir
+              </BotaoExcluir>
+            )}
+          </div>
+        </div>
       </div>
     </li>
+  );
+}
+
+/** Só a quantidade dá pra corrigir -- início e fim não aparecem aqui de
+ *  propósito (ver comentário em editarDespejo, no actions.ts). */
+function EditarQuantidadeDespejo({ id, quantidadeAtual }: { id: string; quantidadeAtual: number }) {
+  return (
+    <details className="group">
+      <summary className="cursor-pointer list-none rounded-lg border border-slate-200 px-2 py-1 text-xs font-semibold text-slate-600 marker:content-none hover:bg-slate-50 [&::-webkit-details-marker]:hidden">
+        ✏️ Editar
+      </summary>
+      <form
+        action={editarDespejo}
+        className="mt-2 flex items-center gap-1.5 rounded-lg bg-slate-50 p-2"
+      >
+        <input type="hidden" name="id" value={id} />
+        <input
+          name="quantidade_pacotes"
+          type="number"
+          inputMode="numeric"
+          min={1}
+          defaultValue={quantidadeAtual}
+          required
+          className="w-16 rounded-lg border border-slate-300 bg-white px-2 py-1 text-sm text-slate-900 focus:border-primary focus:outline-none"
+        />
+        <span className="text-xs text-slate-500">cx</span>
+        <BotaoEnviar compacto className="rounded-lg bg-primary px-2 py-1 text-xs font-semibold text-white">
+          Salvar
+        </BotaoEnviar>
+      </form>
+    </details>
   );
 }

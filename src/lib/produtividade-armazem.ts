@@ -658,7 +658,7 @@ export function construirRanking(
   return resultado.sort((a, b) => b.pontuacao - a.pontuacao || b.totalAtividades - a.totalAtividades);
 }
 
-function mediaPct(valores: (number | null)[]): number | null {
+export function mediaPct(valores: (number | null)[]): number | null {
   const validos = valores.filter((v): v is number => v !== null);
   if (validos.length === 0) return null;
   return Math.round((validos.reduce((s, v) => s + v, 0) / validos.length) * 10) / 10;
