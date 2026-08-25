@@ -325,11 +325,24 @@ export type OperacaoEmpilhadeira = {
   status: "aberta" | "encerrada";
 };
 
-/** Horas de máquina rodada. Sem horímetro final, usa "agora" -- é o tempo
- *  corrido de operação aberta, para o indicador de tempo ativo. */
+/** Horas de máquina rodada, no relógio (início → fim, ou "agora" se ainda
+ *  aberta) -- serve pra mostrar "há quanto tempo essa operação está
+ *  aberta", não é um indicador de produtividade. */
 export function horasDeOperacao(op: OperacaoEmpilhadeira, agora = new Date()) {
   const fimMs = op.fim ? new Date(op.fim).getTime() : agora.getTime();
   return Math.max(fimMs - new Date(op.inicio).getTime(), 0) / 3_600_000;
+}
+
+/**
+ * Horas ATIVAS de verdade: o horímetro só anda com o motor ligado, então
+ * horímetro final − inicial é a hora real de máquina rodando -- diferente
+ * do tempo decorrido entre início e fim, que conta parada, intervalo,
+ * troca de turno etc. Só existe depois que a operação fecha (o horímetro
+ * final só é lido no fechamento); `null` enquanto estiver aberta.
+ */
+export function horasAtivasDeOperacao(op: OperacaoEmpilhadeira): number | null {
+  if (op.horimetroFinal === null) return null;
+  return Math.round((op.horimetroFinal - op.horimetroInicial) * 10) / 10;
 }
 
 export function operacaoEmpilhadeiraDeLinha(l: {
@@ -515,12 +528,17 @@ export type PontuacaoRanking = {
   reepacksPctMeta: number | null;
   despejoPctMeta: number | null;
   posicoesPicking: number;
+  /** % da média de posições por sessão de picking do PRÓPRIO recorte
+   *  (turno/período) -- ver pctRelativoAoGrupo. Sem meta cadastrada para
+   *  picking, a referência é a média de todo mundo no mesmo recorte. */
+  pickingPctMedia: number | null;
   totalReepacks: number;
   totalDespejoLitros: number;
-  /** Informativo -- 5S não entra na conta da pontuação (ver
-   *  calcularPontuacao), só aparece na tabela pra mostrar o que a
-   *  pessoa fez. */
   totalExecucoes5s: number;
+  /** % da média de execuções de 5S por pessoa do mesmo recorte -- mesma
+   *  ideia do picking, agora o 5S entra na pontuação de verdade (antes
+   *  era só informativo). */
+  cincoSPctMedia: number | null;
   /** Quantas linhas de atividade (reepack + despejo + picking + 5S) a
    *  pessoa registrou -- é o critério de desempate: mesma pontuação,
    *  ganha quem fez mais lançamentos no período. */
@@ -529,24 +547,52 @@ export type PontuacaoRanking = {
 };
 
 /**
- * Pontuação simples: média das % de meta atingidas em reepack e despejo
- * (só entram as que têm meta cadastrada), mais 1 ponto a cada 20 posições
- * de picking reabastecidas -- dá para pontuar mesmo quem só faz picking.
- * Não é ciência de dados, é o placar que o time entende de cabeça.
+ * % de um valor sobre a média de um grupo -- é como picking e 5S entram
+ * na pontuação no MESMO formato de reepack/despejo (uma porcentagem),
+ * mesmo sem ter meta cadastrada: a referência vira a média de todo mundo
+ * no mesmo recorte (turno/período), em vez de um número fixo no cadastro.
+ * `null` sem grupo pra comparar (grupo vazio ou média zero).
+ */
+export function pctRelativoAoGrupo(valor: number | null, mediaGrupo: number | null): number | null {
+  if (valor === null || mediaGrupo === null || mediaGrupo <= 0) return null;
+  return Math.round((valor / mediaGrupo) * 1000) / 10;
+}
+
+/** Média de posições por sessão de picking COM posições informadas --
+ *  passa o recorte que interessar (pessoa, turno, período inteiro) que a
+ *  função devolve a média daquele recorte. `null` sem nenhuma sessão
+ *  válida (não é 0, é "sem dado"). */
+export function mediaPosicoesPicking(pickings: { posicoesReabastecidas: number | null }[]): number | null {
+  const validos = pickings.filter((p): p is { posicoesReabastecidas: number } => p.posicoesReabastecidas !== null);
+  if (validos.length === 0) return null;
+  return validos.reduce((s, p) => s + p.posicoesReabastecidas, 0) / validos.length;
+}
+
+/** Média de execuções de 5S por pessoa distinta, sobre o recorte passado. */
+export function mediaExecucoes5sPorPessoa(execucoes: { colaboradorId: string }[]): number | null {
+  if (execucoes.length === 0) return null;
+  const pessoas = new Set(execucoes.map((e) => e.colaboradorId));
+  return execucoes.length / pessoas.size;
+}
+
+/**
+ * Pontuação: média simples das até 4 métricas que a pessoa (ou turno)
+ * realmente tem, todas na mesma escala de %:
+ *  - Reepack e Despejo: % da meta cadastrada por embalagem (pctDaMeta).
+ *  - Picking e 5S: % da média do grupo no mesmo recorte (pctRelativoAoGrupo)
+ *    -- não tem meta cadastrada, então a régua é "comparado com todo
+ *    mundo", pra ficar justo com as outras duas métricas em vez de somar
+ *    pontos soltos por posição/execução.
+ * Quem não fez uma atividade simplesmente não entra na média dela --
+ * ninguém é punido por não picotar, só pontuado pelo que fez.
  */
 export function calcularPontuacao(
   reepacksPctMeta: number | null,
   despejoPctMeta: number | null,
-  posicoesPicking: number,
+  pickingPctMedia: number | null,
+  cincoSPctMedia: number | null,
 ): number {
-  const percentuais = [reepacksPctMeta, despejoPctMeta].filter(
-    (p): p is number => p !== null,
-  );
-  const mediaPct =
-    percentuais.length > 0
-      ? percentuais.reduce((s, p) => s + p, 0) / percentuais.length
-      : 0;
-  return Math.round(mediaPct + posicoesPicking / 20);
+  return Math.round(mediaPct([reepacksPctMeta, despejoPctMeta, pickingPctMedia, cincoSPctMedia]) ?? 0);
 }
 
 // --------------------------------------------------------------------
@@ -616,14 +662,19 @@ export function construirRanking(
   for (const p of pickings) pessoas.set(p.colaboradorId, p.colaboradorNome);
   for (const e of execucoes5s) pessoas.set(e.colaboradorId, e.colaboradorNome);
 
+  // Referência do grupo (todo mundo deste recorte) para picking e 5S --
+  // ver pctRelativoAoGrupo: sem meta cadastrada, a régua é a média de
+  // quem participou, não um número fixo.
+  const mediaPosicoesGrupo = mediaPosicoesPicking(pickings);
+  const mediaExecucoes5sGrupo = mediaExecucoes5sPorPessoa(execucoes5s);
+
   const resultado: PontuacaoRanking[] = [];
   for (const [colaboradorId, colaboradorNome] of pessoas) {
     const meusReepacks = reepacks.filter((r) => r.colaboradorId === colaboradorId);
     const meusDespejos = despejos.filter((d) => d.colaboradorId === colaboradorId);
     const minhasExecucoes5s = execucoes5s.filter((e) => e.colaboradorId === colaboradorId);
-    const minhasPosicoes = pickings
-      .filter((p) => p.colaboradorId === colaboradorId)
-      .reduce((s, p) => s + (p.posicoesReabastecidas ?? 0), 0);
+    const meusPickings = pickings.filter((p) => p.colaboradorId === colaboradorId);
+    const minhasPosicoes = meusPickings.reduce((s, p) => s + (p.posicoesReabastecidas ?? 0), 0);
 
     const reepacksAgrupados = agruparPorEmbalagem(meusReepacks, embalagens, (e) => e.metaReepacksHora);
     const despejosAgrupados = agruparPorEmbalagem(
@@ -634,6 +685,11 @@ export function construirRanking(
 
     const reepacksPctMeta = mediaPct(reepacksAgrupados.map((r) => r.pctMeta));
     const despejoPctMeta = mediaPct(despejosAgrupados.map((d) => d.pctMeta));
+    const pickingPctMedia = pctRelativoAoGrupo(mediaPosicoesPicking(meusPickings), mediaPosicoesGrupo);
+    const cincoSPctMedia = pctRelativoAoGrupo(
+      minhasExecucoes5s.length > 0 ? minhasExecucoes5s.length : null,
+      mediaExecucoes5sGrupo,
+    );
 
     resultado.push({
       colaboradorId,
@@ -641,15 +697,13 @@ export function construirRanking(
       reepacksPctMeta,
       despejoPctMeta,
       posicoesPicking: minhasPosicoes,
+      pickingPctMedia,
       totalReepacks: meusReepacks.reduce((s, r) => s + r.quantidade, 0),
       totalDespejoLitros: Math.round(meusDespejos.reduce((s, d) => s + d.litros, 0) * 10) / 10,
       totalExecucoes5s: minhasExecucoes5s.length,
-      totalAtividades:
-        meusReepacks.length +
-        meusDespejos.length +
-        pickings.filter((p) => p.colaboradorId === colaboradorId).length +
-        minhasExecucoes5s.length,
-      pontuacao: calcularPontuacao(reepacksPctMeta, despejoPctMeta, minhasPosicoes),
+      cincoSPctMedia,
+      totalAtividades: meusReepacks.length + meusDespejos.length + meusPickings.length + minhasExecucoes5s.length,
+      pontuacao: calcularPontuacao(reepacksPctMeta, despejoPctMeta, pickingPctMedia, cincoSPctMedia),
     });
   }
 

@@ -7,6 +7,7 @@ import { getRevendaId } from "@/lib/revendas";
 import { requireAcessoModulo } from "@/lib/require-admin";
 import {
   formatarDataHora,
+  horasAtivasDeOperacao,
   horasDeOperacao,
   horasMediasPorTrocaGas,
   operacaoEmpilhadeiraDeLinha,
@@ -317,8 +318,8 @@ export default async function EmpilhadeiraDetalhePage({
                       {op.encerradoPorNome && ` · fechada por ${op.encerradoPorNome}`}
                     </p>
                   </div>
-                  <span className="shrink-0 rounded-lg bg-slate-100 px-2 py-1 text-xs font-bold text-slate-700">
-                    {horasDeOperacao(op).toFixed(1)}h
+                  <span className="shrink-0 rounded-lg bg-slate-100 px-2 py-1 text-xs font-bold text-slate-700" title="Horas ativas pelo horímetro">
+                    {(horasAtivasDeOperacao(op) ?? 0).toFixed(1)}h
                   </span>
                 </div>
                 <div className="mt-2 grid grid-cols-2 gap-2">

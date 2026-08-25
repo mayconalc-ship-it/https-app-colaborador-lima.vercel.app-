@@ -13,11 +13,14 @@ import {
   embalagemDeLinha,
   formatarHoras,
   hojeISO,
-  horasDeOperacao,
+  horasAtivasDeOperacao,
   horasEntre,
+  mediaExecucoes5sPorPessoa,
   mediaPct,
+  mediaPosicoesPicking,
   operacaoEmpilhadeiraDeLinha,
   pctAvariaConsolidado,
+  pctRelativoAoGrupo,
   taxaPorHora,
   turnoAtual,
   type Embalagem,
@@ -34,7 +37,7 @@ const rotulo = "mb-1 block text-xs font-semibold uppercase text-slate-500";
 /** Mesmo texto em todo canto que mostra "Pontuação" -- ver calcularPontuacao
  *  em lib/produtividade-armazem.ts, a fórmula de verdade mora lá. */
 const EXPLICACAO_PONTUACAO =
-  "Pontuação = média das % de meta batidas em reepack e despejo (só entram embalagens com meta cadastrada) + 1 ponto a cada 20 posições de picking reabastecidas.";
+  "Pontuação = média de até 4 métricas, todas em %: Reepack e Despejo = % da meta cadastrada por embalagem; Picking e 5S = % da média de todo mundo no mesmo recorte (sem meta cadastrada, a régua é comparar com o grupo). Quem não fez uma atividade não entra na média dela.";
 
 export default async function IndicadoresPage({
   searchParams,
@@ -215,6 +218,16 @@ export default async function IndicadoresPage({
   // coluna é a que faz sentido pra atividade (caixas, litros, posições,
   // execuções), e "Total" é a contagem de lançamentos somada (unidades
   // diferentes não dá pra somar direto).
+  // Referência do grupo pra picking e 5S (ver pctRelativoAoGrupo): a
+  // média de TODO o período, todos os turnos juntos -- é contra isso que
+  // cada turno é comparado, não meta cadastrada (picking/5S não têm).
+  const mediaPosicoesPeriodo = mediaPosicoesPicking(
+    pickingsTodos.map((p) => ({ posicoesReabastecidas: p.posicoes_reabastecidas })),
+  );
+  const mediaExecucoes5sPeriodo = mediaExecucoes5sPorPessoa(
+    execucoes5sTodos.map((e) => ({ colaboradorId: e.colaborador_id })),
+  );
+
   const porTurno = TURNOS.map((t) => {
     const reepacksT = reepacksTodos.filter((r) => r.turno === t);
     const despejosT = despejosTodos.filter((d) => d.turno === t);
@@ -235,10 +248,23 @@ export default async function IndicadoresPage({
       (e) => e.metaLitrosHora,
     );
     const posicoesPickingT = pickingsT.reduce((s, p) => s + (p.posicoes_reabastecidas ?? 0), 0);
+    const pickingPctT = pctRelativoAoGrupo(
+      mediaPosicoesPicking(pickingsT.map((p) => ({ posicoesReabastecidas: p.posicoes_reabastecidas }))),
+      mediaPosicoesPeriodo,
+    );
+    // mediaExecucoes5sPorPessoa de novo aqui (não .length direto): o
+    // turno reúne várias pessoas, então a régua tem que ser "execuções
+    // por pessoa no turno", do contrário um turno com mais gente sempre
+    // ganharia de um turno enxuto só por ter mais gente, não por render mais.
+    const cincoSPctT = pctRelativoAoGrupo(
+      mediaExecucoes5sPorPessoa(execucoes5sT.map((e) => ({ colaboradorId: e.colaborador_id }))),
+      mediaExecucoes5sPeriodo,
+    );
     const pontuacao = calcularPontuacao(
       mediaPct(reepackAgrupadoT.map((r) => r.pctMeta)),
       mediaPct(despejoAgrupadoT.map((d) => d.pctMeta)),
-      posicoesPickingT,
+      pickingPctT,
+      cincoSPctT,
     );
 
     return {
@@ -253,7 +279,9 @@ export default async function IndicadoresPage({
   });
   // Pontuação do total NÃO é a média das pontuações dos turnos (isso
   // distorceria turnos com pouca atividade) -- é a mesma fórmula
-  // aplicada direto em cima dos dados do período inteiro.
+  // aplicada direto em cima dos dados do período inteiro. Picking e 5S
+  // do total dão ~100% por construção (o período comparado com ele
+  // mesmo) -- é esperado, não é bug.
   const reepackAgrupadoGeral = agruparPorEmbalagem(
     reepacksTodos.map((r) => ({ embalagemId: r.embalagem_id, quantidade: r.quantidade, inicio: r.inicio, fim: r.fim })),
     embalagens,
@@ -267,7 +295,8 @@ export default async function IndicadoresPage({
   const pontuacaoGeral = calcularPontuacao(
     mediaPct(reepackAgrupadoGeral.map((r) => r.pctMeta)),
     mediaPct(despejoAgrupadoGeral.map((d) => d.pctMeta)),
-    pickingsTodos.reduce((s, p) => s + (p.posicoes_reabastecidas ?? 0), 0),
+    pctRelativoAoGrupo(mediaPosicoesPeriodo, mediaPosicoesPeriodo),
+    pctRelativoAoGrupo(mediaExecucoes5sPeriodo, mediaExecucoes5sPeriodo),
   );
 
   const totalGeral = porTurno.reduce(
@@ -282,16 +311,22 @@ export default async function IndicadoresPage({
   );
 
   // ---- Empilhadeira: por máquina e por operador ----
+  // Horas ativas de VERDADE vêm do horímetro (motor rodando), não do
+  // tempo decorrido entre início e fim -- e só existem depois que a
+  // operação fecha (o horímetro final só é lido no fechamento). Uma
+  // operação ainda aberta simplesmente não entra nesses somatórios.
   const operacoesRaw = (operacoesBanco ?? []) as unknown as (Parameters<typeof operacaoEmpilhadeiraDeLinha>[0] & {
     pa_empilhadeiras: { numero: string } | { numero: string }[] | null;
   })[];
   const operacoes = operacoesRaw.map((o) => operacaoEmpilhadeiraDeLinha(o));
+  const operacoesEncerradas = operacoes.filter((op) => op.horimetroFinal !== null);
 
   const horasPorMaquina = new Map<string, number>();
   const horasPorOperador = new Map<string, number>();
   for (const o of operacoesRaw) {
+    if (o.horimetro_final === null) continue;
     const numero = (Array.isArray(o.pa_empilhadeiras) ? o.pa_empilhadeiras[0] : o.pa_empilhadeiras)?.numero ?? "—";
-    const horas = horasDeOperacao(operacaoEmpilhadeiraDeLinha(o));
+    const horas = horasAtivasDeOperacao(operacaoEmpilhadeiraDeLinha(o)) ?? 0;
     horasPorMaquina.set(numero, (horasPorMaquina.get(numero) ?? 0) + horas);
     horasPorOperador.set(o.operador_nome, (horasPorOperador.get(o.operador_nome) ?? 0) + horas);
   }
@@ -302,8 +337,10 @@ export default async function IndicadoresPage({
     .map(([nome, h]) => ({ rotulo: nome, valor: Math.round(h * 10) / 10 }))
     .sort((a, b) => b.valor - a.valor)
     .slice(0, 10);
-  const horasEmpilhadeiraTotal = Math.round(operacoes.reduce((s, op) => s + horasDeOperacao(op), 0) * 10) / 10;
-  const mediaHorasPorOperacao = operacoes.length > 0 ? Math.round((horasEmpilhadeiraTotal / operacoes.length) * 100) / 100 : 0;
+  const horasEmpilhadeiraTotal =
+    Math.round(operacoesEncerradas.reduce((s, op) => s + (horasAtivasDeOperacao(op) ?? 0), 0) * 10) / 10;
+  const mediaHorasPorOperacao =
+    operacoesEncerradas.length > 0 ? Math.round((horasEmpilhadeiraTotal / operacoesEncerradas.length) * 100) / 100 : 0;
 
   // ---- % de avaria: geral e por transportadora ----
   const carretasAvaliadas = (recebimentosBanco ?? []).length;
@@ -409,9 +446,9 @@ export default async function IndicadoresPage({
         </BlocoAtividade>
 
         <BlocoAtividade titulo="🏗️ Empilhadeira">
-          <CartaoHero titulo="Horas ativas" valor={`${horasEmpilhadeiraTotal}h`} legenda="soma de todas as máquinas" />
+          <CartaoHero titulo="Horas ativas" valor={`${horasEmpilhadeiraTotal}h`} legenda="horímetro, operações encerradas" />
           <CartaoHero titulo="Operações" valor={String(operacoes.length)} />
-          <CartaoHero titulo="Duração média" valor={formatarHoras(mediaHorasPorOperacao)} legenda="por operação" />
+          <CartaoHero titulo="Duração média" valor={formatarHoras(mediaHorasPorOperacao)} legenda="por operação, horímetro" />
         </BlocoAtividade>
 
         <BlocoAtividade titulo="🚛 Recebimento">
@@ -566,10 +603,28 @@ export default async function IndicadoresPage({
                       )}
                     </td>
                     <td className="p-3 text-right tabular-nums">
-                      {r.posicoesPicking > 0 ? r.posicoesPicking : <span className="text-slate-300">—</span>}
+                      {r.posicoesPicking > 0 ? (
+                        <>
+                          {r.posicoesPicking}
+                          {r.pickingPctMedia !== null && (
+                            <span className="ml-1 text-xs text-slate-400">({r.pickingPctMedia}% da média)</span>
+                          )}
+                        </>
+                      ) : (
+                        <span className="text-slate-300">—</span>
+                      )}
                     </td>
                     <td className="p-3 text-right tabular-nums">
-                      {r.totalExecucoes5s > 0 ? r.totalExecucoes5s : <span className="text-slate-300">—</span>}
+                      {r.totalExecucoes5s > 0 ? (
+                        <>
+                          {r.totalExecucoes5s}
+                          {r.cincoSPctMedia !== null && (
+                            <span className="ml-1 text-xs text-slate-400">({r.cincoSPctMedia}% da média)</span>
+                          )}
+                        </>
+                      ) : (
+                        <span className="text-slate-300">—</span>
+                      )}
                     </td>
                     <td className="p-3 text-right tabular-nums text-slate-500">{r.totalAtividades}</td>
                     <td className="p-3 text-right">

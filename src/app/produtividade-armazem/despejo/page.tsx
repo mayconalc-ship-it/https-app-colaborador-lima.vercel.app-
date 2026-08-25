@@ -406,7 +406,7 @@ function LinhaDespejo({
           )}
           <div className="flex gap-1">
             {podeEditar && (
-              <EditarQuantidadeDespejo id={l.id} quantidadeAtual={l.quantidade_pacotes ?? 0} />
+              <EditarProdutoDespejo id={l.id} produtoAtual={produtoRotulo} />
             )}
             {podeExcluir && (
               <BotaoExcluir
@@ -425,30 +425,22 @@ function LinhaDespejo({
   );
 }
 
-/** Só a quantidade dá pra corrigir -- início e fim não aparecem aqui de
- *  propósito (ver comentário em editarDespejo, no actions.ts). */
-function EditarQuantidadeDespejo({ id, quantidadeAtual }: { id: string; quantidadeAtual: number }) {
+/** Só o PRODUTO dá pra corrigir -- início, fim e quantidade não aparecem
+ *  aqui de propósito (ver comentário em editarDespejo, no actions.ts). */
+function EditarProdutoDespejo({ id, produtoAtual }: { id: string; produtoAtual: string }) {
   return (
     <details className="group">
       <summary className="cursor-pointer list-none rounded-lg border border-slate-200 px-2 py-1 text-xs font-semibold text-slate-600 marker:content-none hover:bg-slate-50 [&::-webkit-details-marker]:hidden">
-        ✏️ Editar
+        ✏️ Editar produto
       </summary>
       <form
         action={editarDespejo}
-        className="mt-2 flex items-center gap-1.5 rounded-lg bg-slate-50 p-2"
+        className="mt-2 space-y-1.5 rounded-lg bg-slate-50 p-2"
       >
         <input type="hidden" name="id" value={id} />
-        <input
-          name="quantidade_pacotes"
-          type="number"
-          inputMode="numeric"
-          min={1}
-          defaultValue={quantidadeAtual}
-          required
-          className="w-16 rounded-lg border border-slate-300 bg-white px-2 py-1 text-sm text-slate-900 focus:border-primary focus:outline-none"
-        />
-        <span className="text-xs text-slate-500">cx</span>
-        <BotaoEnviar compacto className="rounded-lg bg-primary px-2 py-1 text-xs font-semibold text-white">
+        <p className="text-[11px] text-slate-500">Produto atual: {produtoAtual}</p>
+        <ComboboxProduto buscar={buscarProdutosReepack} placeholder="Digite o código ou a descrição do produto certo" />
+        <BotaoEnviar compacto className="w-full rounded-lg bg-primary px-2 py-1 text-xs font-semibold text-white">
           Salvar
         </BotaoEnviar>
       </form>
