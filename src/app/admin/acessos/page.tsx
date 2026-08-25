@@ -341,10 +341,18 @@ export default async function GestaoDeAcessosPage({
               <table className="w-full text-sm">
                 <thead className="bg-slate-50 text-left text-xs uppercase text-slate-500">
                   <tr>
-                    <th className="p-3">Pessoa</th>
+                    {/* Congelada: com 11 módulos a tabela fica bem mais larga
+                        que a tela, e sem isso ninguém sabe mais de quem é a
+                        linha depois de rolar pra marcar um módulo à direita. */}
+                    <th className="sticky left-0 z-10 min-w-[11rem] bg-slate-50 p-3 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.08)]">
+                      Pessoa
+                    </th>
                     {modulosOpcionaisDaRevenda.map((m) => (
-                      <th key={m} className="p-3 text-center">
-                        {moduloPorId(m)?.emoji} {moduloPorId(m)?.rotulo}
+                      <th key={m} className="w-16 p-2 text-center" title={moduloPorId(m)?.rotulo}>
+                        <span className="block text-base leading-none">{moduloPorId(m)?.emoji}</span>
+                        <span className="mt-1 block truncate text-[9px] normal-case leading-tight text-slate-400">
+                          {moduloPorId(m)?.rotulo}
+                        </span>
                       </th>
                     ))}
                   </tr>
@@ -365,7 +373,7 @@ export default async function GestaoDeAcessosPage({
                       const outras = outrasRevendasPorPessoa.get(p.id) ?? [];
                       return (
                         <tr key={p.id} className="border-t border-slate-100">
-                          <td className="min-w-[10rem] p-3">
+                          <td className="sticky left-0 z-10 min-w-[11rem] bg-white p-3 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.08)]">
                             <p className="font-medium text-slate-800">
                               {p.nome}
                               {outras.length > 0 && (
@@ -384,7 +392,7 @@ export default async function GestaoDeAcessosPage({
                             </p>
                           </td>
                           {modulosOpcionaisDaRevenda.map((m) => (
-                            <td key={m} className="p-3 text-center">
+                            <td key={m} className="w-16 p-2 text-center">
                               <form action={alternarModuloExtra}>
                                 <input type="hidden" name="id" value={p.id} />
                                 <input type="hidden" name="modulo" value={m} />

@@ -409,15 +409,55 @@ export async function importarProdutos(formData: FormData) {
   sucesso("recebimento", `${linhas.length} produtos importados`);
 }
 
+/** Vincula (ou desvincula) o produto a uma embalagem -- é isso que
+ *  libera o produto para aparecer no lançamento de Reepack/Despejo
+ *  (junto com o Fator Hecto, que já vem pronto da importação). */
+export async function vincularEmbalagemProduto(formData: FormData) {
+  await requireModulo("produtividade-armazem", "editar");
+  const revendaId = await exigirRevenda(ROTA);
+  const admin = createAdminClient();
+  const id = String(formData.get("id") ?? "");
+  const embalagemId = String(formData.get("embalagem_id") ?? "").trim() || null;
+  const { error } = await admin
+    .from("pa_produtos")
+    .update({ embalagem_id: embalagemId })
+    .eq("id", id)
+    .eq("revenda_id", revendaId);
+  if (error) erro("reepack-despejo", `Não foi possível vincular: ${error.message}`);
+  revalidatePath(ROTA);
+  sucesso("reepack-despejo", "Embalagem vinculada");
+}
+
+/** Ajusta o Fator/Fator Hecto na mão, para os poucos produtos que a
+ *  importação não conseguiu casar com a base do SAP. */
+export async function editarFatorProduto(formData: FormData) {
+  await requireModulo("produtividade-armazem", "editar");
+  const revendaId = await exigirRevenda(ROTA);
+  const admin = createAdminClient();
+  const id = String(formData.get("id") ?? "");
+  const unidadesPorCaixa = numeroOuNulo(formData.get("unidades_por_caixa"));
+  const fatorHecto = numeroOuNulo(formData.get("fator_hecto"));
+  const { error } = await admin
+    .from("pa_produtos")
+    .update({ unidades_por_caixa: unidadesPorCaixa, fator_hecto: fatorHecto })
+    .eq("id", id)
+    .eq("revenda_id", revendaId);
+  if (error) erro("reepack-despejo", `Não foi possível salvar: ${error.message}`);
+  revalidatePath(ROTA);
+  sucesso("reepack-despejo", "Fator atualizado");
+}
+
 export async function alternarProdutoAtivo(formData: FormData) {
   await requireModulo("produtividade-armazem", "editar");
   const revendaId = await exigirRevenda(ROTA);
   const admin = createAdminClient();
   const id = String(formData.get("id") ?? "");
   const ativo = formData.get("ativo") === "true";
+  // Vem de duas abas (Recebimento e Reepack/Despejo) -- volta pra quem chamou.
+  const aba = formData.get("aba") === "reepack-despejo" ? "reepack-despejo" : "recebimento";
   await admin.from("pa_produtos").update({ ativo: !ativo }).eq("id", id).eq("revenda_id", revendaId);
   revalidatePath(ROTA);
-  sucesso("recebimento", "Atualizado");
+  sucesso(aba, "Atualizado");
 }
 
 /** Busca de produto usada no combobox do lançamento de recebimento --
@@ -434,6 +474,28 @@ export async function buscarProdutos(termo: string) {
     .select("id, codigo, descricao")
     .eq("revenda_id", revendaId)
     .eq("ativo", true)
+    .or(`codigo.ilike.%${t}%,descricao.ilike.%${t}%`)
+    .order("codigo")
+    .limit(20);
+  return data ?? [];
+}
+
+/** Mesma busca, mas só entre os produtos prontos para Reepack/Despejo
+ *  (com Fator Hecto e embalagem vinculada) -- é a lista bem menor que
+ *  os dois lançamentos oferecem pra escolha. */
+export async function buscarProdutosReepack(termo: string) {
+  const revendaId = await exigirRevenda("/produtividade-armazem");
+  if (termo.trim().length < 2) return [];
+
+  const supabase = await createClient();
+  const t = termo.trim();
+  const { data } = await supabase
+    .from("pa_produtos")
+    .select("id, codigo, descricao")
+    .eq("revenda_id", revendaId)
+    .eq("ativo", true)
+    .not("fator_hecto", "is", null)
+    .not("embalagem_id", "is", null)
     .or(`codigo.ilike.%${t}%,descricao.ilike.%${t}%`)
     .order("codigo")
     .limit(20);

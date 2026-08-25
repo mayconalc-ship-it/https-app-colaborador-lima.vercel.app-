@@ -23,6 +23,10 @@ const exigirContexto = () => exigirContextoModulo(ROTA);
  * `quantidade` e `fim` ficam nulos até o "Finalizar" -- é assim que a
  * tela sabe que este é o lançamento em andamento.
  *
+ * A embalagem não é mais escolhida na tela -- vem junto do produto
+ * (pa_produtos.embalagem_id), gravada aqui para a meta de tempo por
+ * tipo continuar funcionando sem mudar o resto do painel.
+ *
  * A trava contra dois lançamentos abertos ao mesmo tempo é o índice
  * único parcial no banco (migration 052); aqui só traduzimos a
  * violação numa mensagem legível.
@@ -30,15 +34,29 @@ const exigirContexto = () => exigirContextoModulo(ROTA);
 export async function iniciarReepack(formData: FormData) {
   const { perfil, revendaId } = await exigirContexto();
 
-  const embalagemId = String(formData.get("embalagem_id") ?? "");
+  const produtoId = String(formData.get("produto_id") ?? "");
   const turno = formData.get("turno");
-  if (!embalagemId) erro("Escolha a embalagem.");
+  if (!produtoId) erro("Escolha o produto.");
   if (!ehTurno(turno)) erro("Escolha o turno.");
 
   const supabase = await createClient();
+
+  const { data: produto } = await supabase
+    .from("pa_produtos")
+    .select("id, embalagem_id, fator_hecto")
+    .eq("id", produtoId)
+    .eq("revenda_id", revendaId)
+    .eq("ativo", true)
+    .maybeSingle();
+
+  if (!produto || !produto.embalagem_id || produto.fator_hecto === null) {
+    erro("Este produto ainda não está pronto para reepack -- peça ao Admin para vincular a embalagem em Configuração.");
+  }
+
   const { error } = await supabase.from("pa_reepack_lancamentos").insert({
     revenda_id: revendaId,
-    embalagem_id: embalagemId,
+    embalagem_id: produto.embalagem_id,
+    produto_id: produto.id,
     colaborador_id: perfil.id,
     colaborador_nome: perfil.nome,
     turno,
@@ -54,8 +72,13 @@ export async function iniciarReepack(formData: FormData) {
   redirect(`${ROTA}?sucesso=Reepack+iniciado`);
 }
 
-/** Fecha o lançamento em andamento: grava fim = agora e a quantidade
- *  informada. Só o próprio dono do lançamento finaliza o dele. */
+/**
+ * Fecha o lançamento em andamento: grava fim = agora, a quantidade de
+ * caixas informada, e o litro já calculado (quantidade x Fator Hecto do
+ * produto x 100) -- GRAVADO, não recalculado depois se o fator mudar
+ * (mesmo desenho do litro do despejo, migration 051). Só o próprio
+ * dono do lançamento finaliza o dele.
+ */
 export async function finalizarReepack(formData: FormData) {
   const { perfil, revendaId } = await exigirContexto();
 
@@ -68,7 +91,7 @@ export async function finalizarReepack(formData: FormData) {
   } catch (e) {
     erro(e instanceof Error ? e.message : "Valor inválido.");
   }
-  if (quantidade === 0) erro("Informe quantos reepacks foram feitos.");
+  if (quantidade === 0) erro("Informe quantas caixas foram reepackadas.");
 
   const observacao = String(formData.get("observacao") ?? "").trim().slice(0, 300) || null;
 
@@ -76,7 +99,7 @@ export async function finalizarReepack(formData: FormData) {
 
   const { data: aberto } = await supabase
     .from("pa_reepack_lancamentos")
-    .select("id")
+    .select("id, produto_id")
     .eq("id", id)
     .eq("revenda_id", revendaId)
     .eq("colaborador_id", perfil.id)
@@ -85,9 +108,21 @@ export async function finalizarReepack(formData: FormData) {
 
   if (!aberto) erro("Este lançamento já foi finalizado ou não é seu.");
 
+  let litrosCalculados: number | null = null;
+  if (aberto.produto_id) {
+    const { data: produto } = await supabase
+      .from("pa_produtos")
+      .select("fator_hecto")
+      .eq("id", aberto.produto_id)
+      .maybeSingle();
+    if (produto?.fator_hecto != null) {
+      litrosCalculados = Math.round(quantidade * produto.fator_hecto * 100 * 100) / 100;
+    }
+  }
+
   const { error } = await supabase
     .from("pa_reepack_lancamentos")
-    .update({ fim: new Date().toISOString(), quantidade, observacao })
+    .update({ fim: new Date().toISOString(), quantidade, observacao, litros_calculados: litrosCalculados })
     .eq("id", id);
 
   if (error) erro(`Não foi possível finalizar: ${error.message}`);

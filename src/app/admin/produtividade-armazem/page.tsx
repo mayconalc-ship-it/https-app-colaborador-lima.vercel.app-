@@ -6,7 +6,16 @@ import { requireModulo } from "@/lib/require-admin";
 import { exigirRevenda } from "@/lib/revendas";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { ROTULO_SENSO, ROTULO_TURNO, SENSOS, TURNOS } from "@/lib/produtividade-armazem";
+import {
+  ROTULO_SENSO,
+  ROTULO_TURNO,
+  SENSOS,
+  TURNOS,
+  litrosPorCaixa,
+  produtoReepackDeLinha,
+  produtoProntoParaReepack,
+  type ProdutoReepack,
+} from "@/lib/produtividade-armazem";
 import {
   alternarEmbalagemAtivo,
   alternarEmpilhadeiraAtivo,
@@ -17,6 +26,7 @@ import {
   editarEmbalagem,
   editarEmpilhadeira,
   editarFabrica,
+  editarFatorProduto,
   editarItemChecklist5s,
   editarProduto,
   editarTransportadora,
@@ -35,13 +45,15 @@ import {
   salvarLembreteEmpilhadeira,
   salvarProduto,
   salvarTransportadora,
+  vincularEmbalagemProduto,
 } from "./actions";
 
 export const dynamic = "force-dynamic";
 
-type Aba = "embalagens" | "empilhadeiras" | "recebimento" | "cinco-s";
+type Aba = "embalagens" | "reepack-despejo" | "empilhadeiras" | "recebimento" | "cinco-s";
 const ABAS: { id: Aba; rotulo: string; emoji: string }[] = [
   { id: "embalagens", rotulo: "Embalagens", emoji: "📦" },
+  { id: "reepack-despejo", rotulo: "Reepack", emoji: "🧃" },
   { id: "empilhadeiras", rotulo: "Empilhadeiras", emoji: "🏗️" },
   { id: "recebimento", rotulo: "Recebimento", emoji: "🚛" },
   { id: "cinco-s", rotulo: "5S", emoji: "🧹" },
@@ -58,6 +70,7 @@ export default async function AdminProdutividadeArmazemPage({
     erro?: string;
     sucesso?: string;
     buscaProduto?: string;
+    buscaReepack?: string;
     buscaOperador?: string;
   }>;
 }) {
@@ -66,6 +79,7 @@ export default async function AdminProdutividadeArmazemPage({
   const sp = await searchParams;
   const aba: Aba = (ABAS.find((a) => a.id === sp.aba)?.id ?? "embalagens") as Aba;
   const buscaProduto = (sp.buscaProduto ?? "").trim();
+  const buscaReepack = (sp.buscaReepack ?? "").trim().toLowerCase();
   const buscaOperador = (sp.buscaOperador ?? "").trim();
 
   const supabase = await createClient();
@@ -79,6 +93,7 @@ export default async function AdminProdutividadeArmazemPage({
     { data: transportadoras },
     { data: produtos },
     { count: totalProdutos },
+    { data: produtosReepackBanco },
     { data: itensChecklist },
     { data: operadoresEncontrados },
   ] = await Promise.all([
@@ -107,6 +122,14 @@ export default async function AdminProdutividadeArmazemPage({
           .limit(100)
       : Promise.resolve({ data: [] as { id: string; codigo: string; descricao: string; ativo: boolean }[] }),
     supabase.from("pa_produtos").select("id", { count: "exact", head: true }).eq("revenda_id", revendaId),
+    aba === "reepack-despejo"
+      ? supabase
+          .from("pa_produtos")
+          .select("id, codigo, descricao, unidades_por_caixa, fator_hecto, embalagem_id, ativo")
+          .eq("revenda_id", revendaId)
+          .not("fator_hecto", "is", null)
+          .order("descricao")
+      : Promise.resolve({ data: [] as { id: string; codigo: string; descricao: string; unidades_por_caixa: number | null; fator_hecto: number | null; embalagem_id: string | null; ativo: boolean }[] }),
     supabase
       .from("pa_checklist_5s_itens")
       .select("id, senso, descricao, ativo")
@@ -130,11 +153,31 @@ export default async function AdminProdutividadeArmazemPage({
   const totalTransportadoras = transportadoras?.length ?? 0;
   const totalChecklist = itensChecklist?.length ?? 0;
 
+  const produtosReepack: (ProdutoReepack & { ativo: boolean })[] = (produtosReepackBanco ?? []).map((p) => ({
+    ...produtoReepackDeLinha(p),
+    ativo: p.ativo,
+  }));
+  const totalProdutosReepack = produtosReepack.length;
+  const pendentesReepack = produtosReepack.filter((p) => !produtoProntoParaReepack(p)).length;
+  const produtosReepackFiltrados = buscaReepack
+    ? produtosReepack.filter(
+        (p) => p.codigo.toLowerCase().includes(buscaReepack) || p.descricao.toLowerCase().includes(buscaReepack),
+      )
+    : produtosReepack;
+  // Quem ainda não tem embalagem vinculada sobe pro topo -- é o que falta
+  // fazer, e não deveria depender de rolar a lista inteira pra achar.
+  const produtosReepackOrdenados = [...produtosReepackFiltrados].sort((a, b) => {
+    const prontoA = produtoProntoParaReepack(a) ? 1 : 0;
+    const prontoB = produtoProntoParaReepack(b) ? 1 : 0;
+    return prontoA - prontoB || a.descricao.localeCompare(b.descricao, "pt-BR");
+  });
+  const embalagensAtivas = (embalagens ?? []).filter((e) => e.ativo);
+
   return (
     <div>
       <PageHeader
         title="Produtividade do Armazém — Configuração"
-        subtitle="Embalagens, empilhadeiras, catálogos de recebimento e checklist 5S."
+        subtitle="Embalagens, produtos do Reepack/Despejo, empilhadeiras, catálogos de recebimento e checklist 5S."
       />
 
       {sp.erro && (
@@ -154,7 +197,7 @@ export default async function AdminProdutividadeArmazemPage({
       {/* Segmented control: mesma ideia da barra do Admin -- ícone sempre
           visível, rótulo junto para não depender só da cor pra dizer qual
           aba está ativa. */}
-      <nav className="mb-6 grid grid-cols-4 gap-1.5 rounded-2xl border border-slate-200 bg-white p-1.5 shadow-sm">
+      <nav className="mb-6 grid grid-cols-5 gap-1.5 rounded-2xl border border-slate-200 bg-white p-1.5 shadow-sm">
         {ABAS.map((a) => (
           <a
             key={a.id}
@@ -294,6 +337,109 @@ export default async function AdminProdutividadeArmazemPage({
               }
             />
           ))}
+        </PainelCadastro>
+      )}
+
+      {aba === "reepack-despejo" && (
+        <PainelCadastro
+          titulo="Produtos do Reepack/Despejo"
+          contagem={totalProdutosReepack}
+          temItens={totalProdutosReepack > 0}
+          vazio="Nenhum produto importado ainda -- peça para rodar o script de importação a partir da base de códigos do SAP."
+          formNovo={
+            <div className="space-y-2">
+              <p className="text-xs text-slate-500">
+                Estes produtos vêm de uma importação (código Promax + descrição + Fator/Fator
+                Hecto direto do SAP) -- não se cadastra um a um aqui. O que falta fazer,
+                produto a produto, é <strong>vincular a embalagem</strong>: sem isso ele não
+                aparece na tela de lançamento, mesmo já tendo o litro calculado.
+              </p>
+              <form method="get" className="flex gap-2">
+                <input type="hidden" name="aba" value="reepack-despejo" />
+                <input
+                  name="buscaReepack"
+                  defaultValue={buscaReepack}
+                  placeholder="Buscar por código ou descrição"
+                  className={`${campo} flex-1`}
+                />
+                <button type="submit" className="shrink-0 rounded-lg bg-slate-800 px-3 py-2 text-sm font-semibold text-white">
+                  Buscar
+                </button>
+              </form>
+            </div>
+          }
+        >
+          {pendentesReepack > 0 && (
+            <p className="bg-amber-50 p-3 text-xs font-semibold text-amber-800">
+              ⚠️ {pendentesReepack} produto(s) sem embalagem vinculada -- não aparecem no
+              lançamento ainda. Estão no topo da lista.
+            </p>
+          )}
+          {produtosReepackOrdenados.map((p) => {
+            const pronto = produtoProntoParaReepack(p);
+            const embalagemAtual = (embalagens ?? []).find((e) => e.id === p.embalagemId);
+            return (
+              <ItemCadastro
+                key={p.id}
+                ativo={p.ativo}
+                titulo={`${pronto ? "" : "⚠️ "}${p.codigo} — ${p.descricao}`}
+                subtitulo={
+                  p.fatorHecto !== null
+                    ? `${p.unidadesPorCaixa ?? "?"} un/caixa · ${litrosPorCaixa(p.fatorHecto)} L/caixa · ${
+                        embalagemAtual ? embalagemAtual.nome : "sem embalagem vinculada"
+                      }`
+                    : "Sem Fator Hecto -- ajuste manual necessário"
+                }
+                acoes={
+                  <BotaoIcone
+                    action={alternarProdutoAtivo}
+                    campos={{ id: p.id, ativo: String(p.ativo), aba: "reepack-despejo" }}
+                    titulo={p.ativo ? "Desativar" : "Ativar"}
+                  >
+                    {p.ativo ? "🚫" : "✅"}
+                  </BotaoIcone>
+                }
+                formEditar={
+                  <div className="space-y-3">
+                    <form action={vincularEmbalagemProduto} className="flex gap-2">
+                      <input type="hidden" name="id" value={p.id} />
+                      <select name="embalagem_id" defaultValue={p.embalagemId ?? ""} className={`${campo} flex-1`}>
+                        <option value="">Sem embalagem</option>
+                        {embalagensAtivas.map((e) => (
+                          <option key={e.id} value={e.id}>{e.nome}</option>
+                        ))}
+                      </select>
+                      <BotaoEnviar compacto className="shrink-0 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-white">
+                        Vincular
+                      </BotaoEnviar>
+                    </form>
+                    <form action={editarFatorProduto} className="flex gap-2">
+                      <input type="hidden" name="id" value={p.id} />
+                      <input
+                        name="unidades_por_caixa"
+                        type="number"
+                        step="1"
+                        defaultValue={p.unidadesPorCaixa ?? ""}
+                        placeholder="Un/caixa"
+                        className={campo}
+                      />
+                      <input
+                        name="fator_hecto"
+                        type="number"
+                        step="0.000001"
+                        defaultValue={p.fatorHecto ?? ""}
+                        placeholder="Fator Hecto (hL/caixa)"
+                        className={campo}
+                      />
+                      <BotaoEnviar compacto className="shrink-0 rounded-lg bg-slate-800 px-3 py-1.5 text-xs font-semibold text-white">
+                        Corrigir
+                      </BotaoEnviar>
+                    </form>
+                  </div>
+                }
+              />
+            );
+          })}
         </PainelCadastro>
       )}
 

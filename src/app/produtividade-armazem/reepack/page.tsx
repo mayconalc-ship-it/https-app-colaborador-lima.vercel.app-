@@ -5,6 +5,8 @@ import { BotaoExcluir } from "@/components/BotaoExcluir";
 import { createClient } from "@/lib/supabase/server";
 import { getRevendaId } from "@/lib/revendas";
 import { podeNoModulo, requireAcessoModulo } from "@/lib/require-admin";
+import { buscarProdutosReepack } from "@/app/admin/produtividade-armazem/actions";
+import { ComboboxProduto } from "@/components/produtividade-armazem/ComboboxProduto";
 import {
   ROTULO_TURNO,
   TURNOS,
@@ -13,9 +15,11 @@ import {
   formatarDataHora,
   hojeISO,
   pctDaMeta,
+  produtoReepackDeLinha,
   taxaPorHora,
   turnoAtual,
   type Embalagem,
+  type ProdutoReepack,
   type UnidadeReepack,
 } from "@/lib/produtividade-armazem";
 import { cancelarReepack, excluirReepack, finalizarReepack, iniciarReepack } from "./actions";
@@ -31,10 +35,12 @@ const rotulo = "mb-1 block text-xs font-semibold uppercase text-slate-500";
 type Lancamento = {
   id: string;
   embalagem_id: string;
+  produto_id: string | null;
   colaborador_id: string;
   colaborador_nome: string;
   turno: string;
   quantidade: number;
+  litros_calculados: number | null;
   inicio: string;
   fim: string;
   observacao: string | null;
@@ -42,7 +48,7 @@ type Lancamento = {
 
 type Aberto = {
   id: string;
-  embalagem_id: string;
+  produto_id: string | null;
   turno: string;
   inicio: string;
 };
@@ -55,7 +61,7 @@ export default async function ReepackPage({
     de?: string;
     ate?: string;
     colab?: string;
-    embalagem?: string;
+    produto?: string;
     erro?: string;
     sucesso?: string;
   }>;
@@ -67,13 +73,13 @@ export default async function ReepackPage({
   const de = sp.de ?? diasAtrasISO(30);
   const ate = sp.ate ?? hojeISO();
   const colab = (sp.colab ?? "").trim();
-  const embalagemFiltro = (sp.embalagem ?? "").trim();
+  const produtoFiltro = (sp.produto ?? "").trim();
 
   const revendaId = await getRevendaId();
   if (!revendaId) redirect(`/?erro=${encodeURIComponent("Você não está em nenhuma revenda.")}`);
 
   const supabase = await createClient();
-  const [{ data: embalagensBanco }, { data: abertoBanco }, { data: minhas }, { data: doPeriodo }, podeExcluirQualquer] =
+  const [{ data: embalagensBanco }, { data: produtosBanco }, { data: abertoBanco }, { data: minhas }, { data: doPeriodo }, podeExcluirQualquer] =
     await Promise.all([
       supabase
         .from("pa_embalagens")
@@ -82,15 +88,23 @@ export default async function ReepackPage({
         .eq("ativo", true)
         .order("nome"),
       supabase
+        .from("pa_produtos")
+        .select("id, codigo, descricao, unidades_por_caixa, fator_hecto, embalagem_id")
+        .eq("revenda_id", revendaId)
+        .eq("ativo", true)
+        .not("fator_hecto", "is", null)
+        .not("embalagem_id", "is", null)
+        .order("descricao"),
+      supabase
         .from("pa_reepack_lancamentos")
-        .select("id, embalagem_id, turno, inicio")
+        .select("id, produto_id, turno, inicio")
         .eq("revenda_id", revendaId)
         .eq("colaborador_id", perfil.id)
         .is("fim", null)
         .maybeSingle(),
       supabase
         .from("pa_reepack_lancamentos")
-        .select("id, embalagem_id, colaborador_id, colaborador_nome, turno, quantidade, inicio, fim, observacao")
+        .select("id, embalagem_id, produto_id, colaborador_id, colaborador_nome, turno, quantidade, litros_calculados, inicio, fim, observacao")
         .eq("revenda_id", revendaId)
         .eq("colaborador_id", perfil.id)
         .not("fim", "is", null)
@@ -100,13 +114,13 @@ export default async function ReepackPage({
         ? (() => {
             let q = supabase
               .from("pa_reepack_lancamentos")
-              .select("id, embalagem_id, colaborador_id, colaborador_nome, turno, quantidade, inicio, fim, observacao")
+              .select("id, embalagem_id, produto_id, colaborador_id, colaborador_nome, turno, quantidade, litros_calculados, inicio, fim, observacao")
               .eq("revenda_id", revendaId)
               .not("fim", "is", null)
               .gte("inicio", `${de}T00:00:00`)
               .lte("inicio", `${ate}T23:59:59`);
             if (colab) q = q.eq("colaborador_id", colab);
-            if (embalagemFiltro) q = q.eq("embalagem_id", embalagemFiltro);
+            if (produtoFiltro) q = q.eq("produto_id", produtoFiltro);
             return q.order("inicio", { ascending: false }).limit(300);
           })()
         : Promise.resolve({ data: null }),
@@ -115,6 +129,8 @@ export default async function ReepackPage({
 
   const embalagens: Embalagem[] = (embalagensBanco ?? []).map(embalagemDeLinha);
   const embalagemPorId = new Map(embalagens.map((e) => [e.id, e]));
+  const produtos: ProdutoReepack[] = (produtosBanco ?? []).map(produtoReepackDeLinha);
+  const produtoPorId = new Map(produtos.map((p) => [p.id, p]));
   const aberto = abertoBanco as Aberto | null;
   const minhasLancamentos = (minhas ?? []) as Lancamento[];
   const historico = (doPeriodo ?? []) as Lancamento[];
@@ -125,8 +141,8 @@ export default async function ReepackPage({
   return (
     <div>
       <PageHeader
-        title="Reepack por Embalagem"
-        subtitle="Inicie ao começar, finalize para registrar quantas unidades você fez."
+        title="Reepack por Produto"
+        subtitle="Inicie ao começar, finalize informando quantas caixas você fez -- o litro sai sozinho."
       />
 
       {sp.erro && (
@@ -162,14 +178,14 @@ export default async function ReepackPage({
             >
               <input type="hidden" name="id" value={aberto.id} />
               <p className="text-sm font-bold text-amber-900">
-                🕐 Reepack em andamento — {embalagemPorId.get(aberto.embalagem_id)?.nome ?? "—"} ·{" "}
+                🕐 Reepack em andamento — {produtoRotulo(aberto.produto_id, produtoPorId)} ·{" "}
                 {ROTULO_TURNO[aberto.turno as keyof typeof ROTULO_TURNO] ?? aberto.turno}
               </p>
               <p className="text-xs text-amber-800">Iniciado às {formatarDataHora(aberto.inicio)}</p>
 
               <div>
                 <label className={rotulo} htmlFor="quantidade">
-                  Quantos {embalagemPorId.get(aberto.embalagem_id)?.unidadeReepack === "pc" ? "peças" : "caixas"} você fez?
+                  Quantas caixas você fez?
                 </label>
                 <input
                   id="quantidade"
@@ -203,10 +219,10 @@ export default async function ReepackPage({
                 Cancelar (comecei por engano)
               </BotaoExcluir>
             </form>
-          ) : embalagens.length === 0 ? (
+          ) : produtos.length === 0 ? (
             <p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-800">
-              Nenhuma embalagem cadastrada ainda. Peça ao Admin para cadastrar em
-              Configuração.
+              Nenhum produto pronto para reepack ainda. Peça ao Admin para
+              cadastrar em Configuração &gt; Reepack/Despejo.
             </p>
           ) : (
             <form
@@ -214,12 +230,8 @@ export default async function ReepackPage({
               className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4"
             >
               <div>
-                <label className={rotulo} htmlFor="embalagem_id">Embalagem</label>
-                <select id="embalagem_id" name="embalagem_id" required className={campo}>
-                  {embalagens.map((e) => (
-                    <option key={e.id} value={e.id}>{e.nome}</option>
-                  ))}
-                </select>
+                <label className={rotulo} htmlFor="produto_id">Produto</label>
+                <ComboboxProduto buscar={buscarProdutosReepack} placeholder="Digite o código ou a descrição do produto" />
               </div>
 
               <div>
@@ -266,7 +278,7 @@ export default async function ReepackPage({
                   <LinhaReepack
                     key={l.id}
                     l={l}
-                    embalagemNome={embalagemPorId.get(l.embalagem_id)?.nome ?? "—"}
+                    produtoRotulo={produtoRotulo(l.produto_id, produtoPorId)}
                     unidade={embalagemPorId.get(l.embalagem_id)?.unidadeReepack ?? "cx"}
                     meta={embalagemPorId.get(l.embalagem_id)?.metaReepacksHora ?? null}
                     podeExcluir={l.colaborador_id === perfil.id || podeExcluirQualquer}
@@ -291,11 +303,11 @@ export default async function ReepackPage({
               <input id="ate" type="date" name="ate" defaultValue={ate} className={campo} />
             </div>
             <div className="min-w-[10rem] flex-1">
-              <label className={rotulo} htmlFor="embalagem">Embalagem</label>
-              <select id="embalagem" name="embalagem" defaultValue={embalagemFiltro} className={campo}>
-                <option value="">Todas</option>
-                {embalagens.map((e) => (
-                  <option key={e.id} value={e.id}>{e.nome}</option>
+              <label className={rotulo} htmlFor="produto">Produto</label>
+              <select id="produto" name="produto" defaultValue={produtoFiltro} className={campo}>
+                <option value="">Todos</option>
+                {produtos.map((p) => (
+                  <option key={p.id} value={p.id}>{p.descricao}</option>
                 ))}
               </select>
             </div>
@@ -323,7 +335,7 @@ export default async function ReepackPage({
                 <LinhaReepack
                   key={l.id}
                   l={l}
-                  embalagemNome={embalagemPorId.get(l.embalagem_id)?.nome ?? "—"}
+                  produtoRotulo={produtoRotulo(l.produto_id, produtoPorId)}
                   unidade={embalagemPorId.get(l.embalagem_id)?.unidadeReepack ?? "cx"}
                   meta={embalagemPorId.get(l.embalagem_id)?.metaReepacksHora ?? null}
                   podeExcluir={l.colaborador_id === perfil.id || podeExcluirQualquer}
@@ -338,16 +350,23 @@ export default async function ReepackPage({
   );
 }
 
+/** Rótulo do produto pelo id -- lançamento antigo sem produto_id cai
+ *  num traço, em vez de quebrar a tela. */
+function produtoRotulo(produtoId: string | null, produtoPorId: Map<string, ProdutoReepack>): string {
+  if (!produtoId) return "—";
+  return produtoPorId.get(produtoId)?.descricao ?? "produto removido";
+}
+
 function LinhaReepack({
   l,
-  embalagemNome,
+  produtoRotulo,
   unidade,
   meta,
   podeExcluir,
   mostrarColaborador = false,
 }: {
   l: Lancamento;
-  embalagemNome: string;
+  produtoRotulo: string;
   unidade: UnidadeReepack;
   meta: number | null;
   podeExcluir: boolean;
@@ -361,11 +380,12 @@ function LinhaReepack({
     <li className="flex items-start justify-between gap-3 rounded-xl border border-slate-200 bg-white p-3">
       <div className="min-w-0">
         <p className="text-sm font-semibold text-slate-900">
-          {embalagemNome} · {l.quantidade} {unidade} · {ROTULO_TURNO[l.turno as keyof typeof ROTULO_TURNO] ?? l.turno}
+          {produtoRotulo} · {l.quantidade} {unidade} · {ROTULO_TURNO[l.turno as keyof typeof ROTULO_TURNO] ?? l.turno}
         </p>
         <p className="text-xs text-slate-500">
           {formatarDataHora(l.inicio)} – {formatarDataHora(l.fim)}
           {mostrarColaborador ? ` — ${l.colaborador_nome}` : ""}
+          {l.litros_calculados !== null ? ` · ${l.litros_calculados} L` : ""}
         </p>
         {l.observacao && <p className="mt-1 text-xs text-slate-500">{l.observacao}</p>}
       </div>

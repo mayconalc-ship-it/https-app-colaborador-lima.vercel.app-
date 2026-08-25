@@ -9,14 +9,24 @@ const campo =
 type Produto = { id: string; codigo: string; descricao: string };
 
 /**
- * Campo de produto com busca -- a base tem dezenas de milhares de
- * códigos, e um `<select>` com todos eles trava o navegador e pesa a
- * página inteira. Digita, espera meio segundo de silêncio, busca no
- * servidor (`buscarProdutos`, limitada a 20 resultados) e mostra a
- * lista pra escolher. O `produto_id` de verdade vai num campo escondido;
- * o texto visível é só o rótulo escolhido.
+ * Campo de produto com busca -- compartilhado por Recebimento (base com
+ * dezenas de milhares de códigos) e Reepack/Despejo (base bem menor, só
+ * os produtos prontos). Um `<select>` com a base inteira travaria o
+ * navegador, então digita, espera meio segundo de silêncio, busca no
+ * servidor (limitada a 20 resultados) e mostra a lista pra escolher. O
+ * `produto_id` de verdade vai num campo escondido; o texto visível é só
+ * o rótulo escolhido. `buscar` decide QUAL base pesquisar -- por padrão,
+ * a base inteira de Recebimento.
  */
-export function ComboboxProduto({ nomeCampo = "produto_id" }: { nomeCampo?: string }) {
+export function ComboboxProduto({
+  nomeCampo = "produto_id",
+  buscar = buscarProdutos,
+  placeholder = "Digite o código ou a descrição",
+}: {
+  nomeCampo?: string;
+  buscar?: (termo: string) => Promise<Produto[]>;
+  placeholder?: string;
+}) {
   const [termo, setTermo] = useState("");
   const [resultados, setResultados] = useState<Produto[]>([]);
   const [selecionado, setSelecionado] = useState<Produto | null>(null);
@@ -44,7 +54,7 @@ export function ComboboxProduto({ nomeCampo = "produto_id" }: { nomeCampo?: stri
     }
     relogio.current = setTimeout(() => {
       startTransition(async () => {
-        const r = await buscarProdutos(valor);
+        const r = await buscar(valor);
         setResultados(r);
       });
     }, 400);
@@ -64,7 +74,7 @@ export function ComboboxProduto({ nomeCampo = "produto_id" }: { nomeCampo?: stri
         value={termo}
         onChange={(e) => aoDigitar(e.target.value)}
         onFocus={() => setAberto(true)}
-        placeholder="Digite o código ou a descrição"
+        placeholder={placeholder}
         className={campo}
         autoComplete="off"
       />

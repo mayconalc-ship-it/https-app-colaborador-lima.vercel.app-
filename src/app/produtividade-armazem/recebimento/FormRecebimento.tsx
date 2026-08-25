@@ -4,7 +4,7 @@ import { useState } from "react";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
 import type { Fabrica, Transportadora } from "@/lib/produtividade-armazem";
 import { registrarRecebimento } from "./actions";
-import { ComboboxProduto } from "./ComboboxProduto";
+import { ComboboxProduto } from "@/components/produtividade-armazem/ComboboxProduto";
 
 const campo =
   "w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-base text-slate-900 focus:border-primary focus:outline-none";

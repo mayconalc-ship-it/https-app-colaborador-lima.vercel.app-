@@ -119,16 +119,66 @@ export function embalagemDeLinha(l: {
 }
 
 // --------------------------------------------------------------------
+// PRODUTO (Reepack/Despejo por produto -- ver migration 054)
+// --------------------------------------------------------------------
+// Antes, Reepack/Despejo pediam a EMBALAGEM genérica ("Lata 350ml C/12").
+// Agora a pessoa escolhe o PRODUTO específico, e o litro sai sozinho do
+// Fator Hecto que já vem pronto do SAP -- sem conta de cabeça, sem
+// digitação manual. Só produto com fatorHecto E embalagemId preenchidos
+// entra na lista de escolha do lançamento (ver ADMIN > Configuração >
+// Reepack/Despejo, onde o Admin vincula cada produto a uma embalagem).
+export type ProdutoReepack = {
+  id: string;
+  codigo: string;
+  descricao: string;
+  unidadesPorCaixa: number | null;
+  fatorHecto: number | null;
+  embalagemId: string | null;
+};
+
+export function produtoReepackDeLinha(l: {
+  id: string;
+  codigo: string;
+  descricao: string;
+  unidades_por_caixa: number | null;
+  fator_hecto: number | null;
+  embalagem_id: string | null;
+}): ProdutoReepack {
+  return {
+    id: l.id,
+    codigo: l.codigo,
+    descricao: l.descricao,
+    unidadesPorCaixa: l.unidades_por_caixa,
+    fatorHecto: l.fator_hecto,
+    embalagemId: l.embalagem_id,
+  };
+}
+
+/** Pronto para aparecer no lançamento: precisa do litro E da embalagem
+ *  (a embalagem é o que alimenta a meta de tempo por tipo). */
+export function produtoProntoParaReepack(p: ProdutoReepack): boolean {
+  return p.fatorHecto !== null && p.embalagemId !== null;
+}
+
+/** Litros de UMA caixa: Fator Hecto (hectolitros/caixa) x 100. */
+export function litrosPorCaixa(fatorHecto: number): number {
+  return Math.round(fatorHecto * 100 * 1000) / 1000;
+}
+
+// --------------------------------------------------------------------
 // LANÇAMENTOS (reepack, despejo, picking) - o horário sempre em ISO
 // --------------------------------------------------------------------
 export type ReepackLancamento = {
   id: string;
   embalagemId: string;
   embalagemNome: string;
+  produtoId: string | null;
+  produtoDescricao: string | null;
   colaboradorId: string;
   colaboradorNome: string;
   turno: Turno;
   quantidade: number;
+  litrosCalculados: number | null;
   inicio: string;
   fim: string;
   observacao: string | null;
@@ -138,6 +188,8 @@ export type DespejoLancamento = {
   id: string;
   embalagemId: string;
   embalagemNome: string;
+  produtoId: string | null;
+  produtoDescricao: string | null;
   colaboradorId: string;
   colaboradorNome: string;
   turno: Turno;

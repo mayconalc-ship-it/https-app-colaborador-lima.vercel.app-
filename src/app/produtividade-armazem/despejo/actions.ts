@@ -18,21 +18,38 @@ function erro(mensagem: string): never {
 
 const exigirContexto = () => exigirContextoModulo(ROTA);
 
-/** Abre o cronômetro do despejo -- mesmo desenho do reepack (ver
- *  reepack/actions.ts): inicio real, quantidade e fim ficam nulos até
- *  o "Finalizar". */
+/**
+ * Abre o cronômetro do despejo -- mesmo desenho do reepack (ver
+ * reepack/actions.ts): inicio real, quantidade e fim ficam nulos até o
+ * "Finalizar". A embalagem vem junto do produto escolhido, gravada
+ * para a meta de tempo por tipo continuar funcionando.
+ */
 export async function iniciarDespejo(formData: FormData) {
   const { perfil, revendaId } = await exigirContexto();
 
-  const embalagemId = String(formData.get("embalagem_id") ?? "");
+  const produtoId = String(formData.get("produto_id") ?? "");
   const turno = formData.get("turno");
-  if (!embalagemId) erro("Escolha a embalagem.");
+  if (!produtoId) erro("Escolha o produto.");
   if (!ehTurno(turno)) erro("Escolha o turno.");
 
   const supabase = await createClient();
+
+  const { data: produto } = await supabase
+    .from("pa_produtos")
+    .select("id, embalagem_id, fator_hecto")
+    .eq("id", produtoId)
+    .eq("revenda_id", revendaId)
+    .eq("ativo", true)
+    .maybeSingle();
+
+  if (!produto || !produto.embalagem_id || produto.fator_hecto === null) {
+    erro("Este produto ainda não está pronto para despejo -- peça ao Admin para vincular a embalagem em Configuração.");
+  }
+
   const { error } = await supabase.from("pa_despejo_lancamentos").insert({
     revenda_id: revendaId,
-    embalagem_id: embalagemId,
+    embalagem_id: produto.embalagem_id,
+    produto_id: produto.id,
     colaborador_id: perfil.id,
     colaborador_nome: perfil.nome,
     turno,
@@ -48,9 +65,12 @@ export async function iniciarDespejo(formData: FormData) {
   redirect(`${ROTA}?sucesso=Despejo+iniciado`);
 }
 
-/** Fecha o lançamento: grava fim = agora, converte pacotes em litros
- *  com o fator DE HOJE da embalagem (ver nota em produtividade-armazem-server
- *  sobre não recalcular o passado se o fator mudar). */
+/**
+ * Fecha o lançamento: grava fim = agora, converte caixas em litros com
+ * o Fator Hecto DE HOJE do produto (não recalcula o passado se o fator
+ * mudar depois -- mesmo desenho de antes, só que a fonte do fator
+ * agora é o produto, não mais a embalagem digitada a mão).
+ */
 export async function finalizarDespejo(formData: FormData) {
   const { perfil, revendaId } = await exigirContexto();
 
@@ -63,7 +83,7 @@ export async function finalizarDespejo(formData: FormData) {
   } catch (e) {
     erro(e instanceof Error ? e.message : "Valor inválido.");
   }
-  if (quantidadePacotes === 0) erro("Informe quantos pacotes foram despejados.");
+  if (quantidadePacotes === 0) erro("Informe quantas caixas foram despejadas.");
 
   const observacao = String(formData.get("observacao") ?? "").trim().slice(0, 300) || null;
 
@@ -71,7 +91,7 @@ export async function finalizarDespejo(formData: FormData) {
 
   const { data: aberto } = await supabase
     .from("pa_despejo_lancamentos")
-    .select("id, embalagem_id")
+    .select("id, produto_id")
     .eq("id", id)
     .eq("revenda_id", revendaId)
     .eq("colaborador_id", perfil.id)
@@ -80,18 +100,17 @@ export async function finalizarDespejo(formData: FormData) {
 
   if (!aberto) erro("Este lançamento já foi finalizado ou não é seu.");
 
-  const { data: embalagem } = await supabase
-    .from("pa_embalagens")
-    .select("litros_por_pacote")
-    .eq("id", aberto.embalagem_id)
-    .eq("revenda_id", revendaId)
+  const { data: produto } = await supabase
+    .from("pa_produtos")
+    .select("fator_hecto")
+    .eq("id", aberto.produto_id ?? "")
     .maybeSingle();
 
-  if (!embalagem?.litros_por_pacote) {
-    erro("Esta embalagem não tem o fator de litros por pacote cadastrado. Peça ao Admin para cadastrar em Configuração.");
+  if (!produto?.fator_hecto) {
+    erro("Este produto não tem o Fator Hecto cadastrado. Peça ao Admin para conferir em Configuração.");
   }
 
-  const litros = Math.round(quantidadePacotes * embalagem.litros_por_pacote * 100) / 100;
+  const litros = Math.round(quantidadePacotes * produto.fator_hecto * 100 * 100) / 100;
 
   const { error } = await supabase
     .from("pa_despejo_lancamentos")
