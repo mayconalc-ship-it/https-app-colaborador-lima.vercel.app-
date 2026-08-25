@@ -168,7 +168,7 @@ export default async function PickingPage({
               textoEnviando="Iniciando..."
               className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-white hover:bg-primary-dark"
             >
-              🧺 Iniciar reabastecimento
+              🛒 Iniciar reabastecimento
             </BotaoEnviar>
           </form>
         ))}

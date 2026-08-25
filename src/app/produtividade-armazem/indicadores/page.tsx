@@ -351,7 +351,7 @@ export default async function IndicadoresPage({
           <CartaoHero titulo="Duração média" valor={formatarHoras(reepackMediaHoras)} legenda="por lançamento" />
         </BlocoAtividade>
 
-        <BlocoAtividade titulo="🧴 Despejo">
+        <BlocoAtividade titulo="🫗 Despejo">
           <CartaoHero titulo="Litros despejados" valor={`${despejoLitrosTotal.toFixed(1)} L`} />
           <CartaoHero titulo="Taxa média" valor={`${despejoTaxaMediaHora.toFixed(1)} L/h`} legenda="litros ÷ horas do período" />
           <CartaoHero titulo="Lançamentos" valor={String(despejos.length)} />
@@ -415,8 +415,8 @@ export default async function IndicadoresPage({
               <tr>
                 <th className="p-3">Turno</th>
                 <th className="p-3 text-right">📦 Reepack</th>
-                <th className="p-3 text-right">🧴 Despejo</th>
-                <th className="p-3 text-right">🧺 Picking</th>
+                <th className="p-3 text-right">🫗 Despejo</th>
+                <th className="p-3 text-right">🛒 Picking</th>
                 <th className="p-3 text-right">🧹 5S</th>
                 <th className="p-3 text-right">Total</th>
               </tr>
@@ -464,8 +464,8 @@ export default async function IndicadoresPage({
                   <th className="p-3">#</th>
                   <th className="p-3">Colaborador</th>
                   <th className="p-3 text-right">📦 Reepack</th>
-                  <th className="p-3 text-right">🧴 Despejo</th>
-                  <th className="p-3 text-right">🧺 Picking</th>
+                  <th className="p-3 text-right">🫗 Despejo</th>
+                  <th className="p-3 text-right">🛒 Picking</th>
                   <th className="p-3 text-right">🧹 5S</th>
                   <th className="p-3 text-right">Atividades</th>
                   <th className="p-3 text-right">Pontuação</th>

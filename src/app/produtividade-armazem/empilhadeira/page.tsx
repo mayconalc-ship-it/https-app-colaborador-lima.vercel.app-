@@ -53,23 +53,34 @@ export default async function EmpilhadeiraIndexPage() {
         </p>
       )}
 
-      <ul className="space-y-2">
+      <ul className="grid gap-3 sm:grid-cols-2">
         {(maquinas ?? []).map((m) => {
           const aberta = abertaPorMaquina.get(m.id);
           return (
             <li key={m.id}>
               <a
                 href={`/produtividade-armazem/empilhadeira/${m.id}`}
-                className="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm hover:border-primary"
+                className={`flex items-center gap-3 rounded-2xl border-2 bg-white p-4 shadow-sm transition-colors hover:border-primary ${
+                  aberta ? "border-amber-200" : "border-slate-200"
+                }`}
               >
-                <div>
-                  <p className="text-sm font-bold text-slate-900">🏗️ {m.numero}</p>
+                <span
+                  className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-xl ${
+                    aberta ? "bg-amber-100" : "bg-primary-soft"
+                  }`}
+                >
+                  🏗️
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-bold uppercase tracking-wide text-slate-900">
+                    Empilhadeira {m.numero}
+                  </p>
                   {aberta ? (
-                    <p className="mt-1 text-xs font-medium text-amber-700">
+                    <p className="mt-0.5 truncate text-xs font-medium text-amber-700">
                       Em uso por {aberta.operador_nome} desde {formatarDataHora(aberta.inicio)}
                     </p>
                   ) : (
-                    <p className="mt-1 text-xs font-medium text-green-700">Livre</p>
+                    <p className="mt-0.5 text-xs font-medium text-green-700">Livre</p>
                   )}
                 </div>
                 <span

@@ -20,17 +20,25 @@ const campo =
   "w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-base text-slate-900 focus:border-primary focus:outline-none";
 const rotulo = "mb-1 block text-xs font-semibold uppercase text-slate-500";
 
+type Aba = "operacao" | "gas" | "historico";
+const ABAS: { id: Aba; rotulo: string; emoji: string }[] = [
+  { id: "operacao", rotulo: "Operação", emoji: "🕐" },
+  { id: "gas", rotulo: "Troca de Gás", emoji: "🔥" },
+  { id: "historico", rotulo: "Histórico", emoji: "📋" },
+];
+
 export default async function EmpilhadeiraDetalhePage({
   params,
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ erro?: string; sucesso?: string }>;
+  searchParams: Promise<{ aba?: string; erro?: string; sucesso?: string }>;
 }) {
   const perfil = await requireAcessoModulo("produtividade-armazem");
 
   const { id } = await params;
   const sp = await searchParams;
+  const aba: Aba = (ABAS.find((a) => a.id === sp.aba)?.id ?? "operacao") as Aba;
   const revendaId = await getRevendaId();
   if (!revendaId) redirect(`/?erro=${encodeURIComponent("Você não está em nenhuma revenda.")}`);
 
@@ -75,7 +83,10 @@ export default async function EmpilhadeiraDetalhePage({
 
   return (
     <div>
-      <PageHeader title={`Empilhadeira ${maquina.numero}`} subtitle="Abertura e fechamento de operação." />
+      <PageHeader
+        title={`🏗️ Empilhadeira ${maquina.numero}`}
+        subtitle={aberta ? `Em uso por ${aberta.operadorNome} desde ${formatarDataHora(aberta.inicio)}` : "Livre no momento."}
+      />
 
       {sp.erro && (
         <p className="mb-4 rounded-xl bg-red-50 p-3 text-sm font-medium text-red-700">{sp.erro}</p>
@@ -84,53 +95,121 @@ export default async function EmpilhadeiraDetalhePage({
         <p className="mb-4 rounded-xl bg-green-50 p-3 text-sm font-medium text-green-700">{sp.sucesso}</p>
       )}
 
-      {aberta ? (
-        <section className="space-y-4">
-          <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
-            <p className="text-sm font-bold text-amber-900">
-              Operação aberta por {aberta.operadorNome}
-            </p>
-            <p className="mt-1 text-xs text-amber-800">
-              Desde {formatarDataHora(aberta.inicio)} — horímetro inicial{" "}
-              {aberta.horimetroInicial} — {horasDeOperacao(aberta).toFixed(1)}h rodando.
-            </p>
-            {aberta.operadorId !== perfil.id && (
-              <p className="mt-2 text-xs font-medium text-amber-900">
-                Não foi você quem abriu. Se {aberta.operadorNome} não vai voltar, preencha o
-                horímetro final abaixo para fechar a operação antes de abrir a sua.
-              </p>
-            )}
-          </div>
+      {/* Mesmo padrão de segmented control do resto do módulo -- Troca de
+          Gás vira uma aba própria, separada de abrir/fechar operação, em
+          vez de morar embaixo do mesmo formulário. */}
+      <nav className="mb-6 grid grid-cols-3 gap-1.5 rounded-2xl border border-slate-200 bg-white p-1.5 shadow-sm">
+        {ABAS.map((a) => (
+          <a
+            key={a.id}
+            href={`?aba=${a.id}`}
+            aria-current={a.id === aba ? "page" : undefined}
+            className={`flex flex-col items-center gap-0.5 rounded-xl px-2 py-2 text-center text-xs font-semibold transition-colors ${
+              a.id === aba ? "bg-primary text-white shadow-sm" : "text-slate-500 hover:bg-slate-100"
+            }`}
+          >
+            <span className="text-base leading-none">{a.emoji}</span>
+            {a.rotulo}
+          </a>
+        ))}
+      </nav>
 
+      {aba === "operacao" &&
+        (aberta ? (
+          <section className="space-y-4">
+            <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
+              <p className="text-sm font-bold text-amber-900">
+                Operação aberta por {aberta.operadorNome}
+              </p>
+              <p className="mt-1 text-xs text-amber-800">
+                Desde {formatarDataHora(aberta.inicio)} — horímetro inicial{" "}
+                {aberta.horimetroInicial} — {horasDeOperacao(aberta).toFixed(1)}h rodando.
+              </p>
+              {aberta.operadorId !== perfil.id && (
+                <p className="mt-2 text-xs font-medium text-amber-900">
+                  Não foi você quem abriu. Se {aberta.operadorNome} não vai voltar, preencha o
+                  horímetro final abaixo para fechar a operação antes de abrir a sua.
+                </p>
+              )}
+            </div>
+
+            <form
+              action={fecharOperacao}
+              className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4"
+            >
+              <input type="hidden" name="operacao_id" value={aberta.id} />
+              <input type="hidden" name="empilhadeira_id" value={maquina.id} />
+
+              <div>
+                <label className={rotulo} htmlFor="horimetro_final">
+                  Horímetro final
+                </label>
+                <input
+                  id="horimetro_final"
+                  name="horimetro_final"
+                  type="number"
+                  inputMode="decimal"
+                  step="0.1"
+                  min={aberta.horimetroInicial}
+                  required
+                  className={campo}
+                />
+              </div>
+
+              <div>
+                <label className={rotulo} htmlFor="foto-fim">
+                  Foto do horímetro final (obrigatória)
+                </label>
+                <input
+                  id="foto-fim"
+                  name="foto"
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  required
+                  className={campo}
+                />
+              </div>
+
+              <BotaoEnviar
+                textoEnviando="Enviando..."
+                className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-white hover:bg-primary-dark"
+              >
+                {aberta.operadorId === perfil.id
+                  ? "Encerrar minha operação"
+                  : `Fechar operação de ${aberta.operadorNome}`}
+              </BotaoEnviar>
+            </form>
+          </section>
+        ) : (
           <form
-            action={fecharOperacao}
+            action={abrirOperacao}
             className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4"
           >
-            <input type="hidden" name="operacao_id" value={aberta.id} />
             <input type="hidden" name="empilhadeira_id" value={maquina.id} />
 
             <div>
-              <label className={rotulo} htmlFor="horimetro_final">
-                Horímetro final
+              <label className={rotulo} htmlFor="horimetro_inicial">
+                Horímetro inicial
               </label>
               <input
-                id="horimetro_final"
-                name="horimetro_final"
+                id="horimetro_inicial"
+                name="horimetro_inicial"
                 type="number"
                 inputMode="decimal"
                 step="0.1"
-                min={aberta.horimetroInicial}
+                min={0}
                 required
                 className={campo}
               />
             </div>
 
             <div>
-              <label className={rotulo} htmlFor="foto-fim">
-                Foto do horímetro final (obrigatória)
+              <label className={rotulo} htmlFor="foto-inicio">
+                Foto do horímetro inicial (obrigatória)
               </label>
               <input
-                id="foto-fim"
+                id="foto-inicio"
                 name="foto"
                 type="file"
                 accept="image/*"
@@ -140,133 +219,92 @@ export default async function EmpilhadeiraDetalhePage({
               />
             </div>
 
+            <p className="text-xs text-slate-500">
+              A operação fica aberta até você (ou outra pessoa) registrar o horímetro
+              final, no fim do expediente.
+            </p>
+
             <BotaoEnviar
-              textoEnviando="Enviando..."
+              textoEnviando="Abrindo..."
               className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-white hover:bg-primary-dark"
             >
-              {aberta.operadorId === perfil.id
-                ? "Encerrar minha operação"
-                : `Fechar operação de ${aberta.operadorNome}`}
+              ▶️ Abrir operação
             </BotaoEnviar>
           </form>
+        ))}
+
+      {aba === "gas" && (
+        <section className="space-y-4">
+          <div className="rounded-2xl border border-slate-200 bg-white p-4">
+            {ultimaTrocaGas && (
+              <p className="mb-3 text-xs text-slate-500">
+                Última troca: {ultimaTrocaGas.horimetro} h, por {ultimaTrocaGas.operadorNome} em{" "}
+                {formatarDataHora(ultimaTrocaGas.realizadaEm)}.
+                {mediaGas !== null && ` Média entre trocas: ${mediaGas}h por garrafa.`}
+              </p>
+            )}
+            <form action={registrarTrocaGas} className="space-y-3">
+              <input type="hidden" name="empilhadeira_id" value={maquina.id} />
+              <div>
+                <label className={rotulo} htmlFor="horimetro-gas">Horímetro no momento da troca</label>
+                <input
+                  id="horimetro-gas"
+                  name="horimetro"
+                  type="number"
+                  inputMode="decimal"
+                  step="0.1"
+                  min={0}
+                  required
+                  className={campo}
+                />
+                {ultimaTrocaGas && (
+                  <p className="mt-1 text-xs text-slate-400">Última troca: {ultimaTrocaGas.horimetro} h</p>
+                )}
+              </div>
+              <div>
+                <label className={rotulo} htmlFor="foto-gas">Foto do horímetro (obrigatória)</label>
+                <input
+                  id="foto-gas"
+                  name="foto"
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  required
+                  className={campo}
+                />
+              </div>
+              <BotaoEnviar
+                textoEnviando="Registrando..."
+                className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-white hover:bg-primary-dark"
+              >
+                🔥 Registrar troca de gás
+              </BotaoEnviar>
+            </form>
+          </div>
+
+          {trocasGas.length > 0 && (
+            <div className="rounded-2xl border border-slate-200 bg-white p-4">
+              <h2 className="mb-3 text-sm font-bold uppercase text-slate-500">Últimas trocas</h2>
+              <ul className="space-y-2">
+                {trocasGas.map((t) => (
+                  <li key={t.id} className="flex items-center justify-between gap-2 text-xs text-slate-600">
+                    <span>
+                      {formatarDataHora(t.realizadaEm)} — {t.operadorNome} — {t.horimetro} h
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </section>
-      ) : (
-        <form
-          action={abrirOperacao}
-          className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4"
-        >
-          <input type="hidden" name="empilhadeira_id" value={maquina.id} />
-
-          <div>
-            <label className={rotulo} htmlFor="horimetro_inicial">
-              Horímetro inicial
-            </label>
-            <input
-              id="horimetro_inicial"
-              name="horimetro_inicial"
-              type="number"
-              inputMode="decimal"
-              step="0.1"
-              min={0}
-              required
-              className={campo}
-            />
-          </div>
-
-          <div>
-            <label className={rotulo} htmlFor="foto-inicio">
-              Foto do horímetro inicial (obrigatória)
-            </label>
-            <input
-              id="foto-inicio"
-              name="foto"
-              type="file"
-              accept="image/*"
-              capture="environment"
-              required
-              className={campo}
-            />
-          </div>
-
-          <p className="text-xs text-slate-500">
-            A operação fica aberta até você (ou outra pessoa) registrar o horímetro
-            final, no fim do expediente.
-          </p>
-
-          <BotaoEnviar
-            textoEnviando="Abrindo..."
-            className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-white hover:bg-primary-dark"
-          >
-            Abrir operação
-          </BotaoEnviar>
-        </form>
       )}
 
-      <div className="mt-8 rounded-2xl border border-slate-200 bg-white p-4">
-        <h2 className="mb-1 text-sm font-bold uppercase text-slate-500">🔥 Troca de gás</h2>
-        {ultimaTrocaGas && (
-          <p className="mb-3 text-xs text-slate-500">
-            Última troca: {ultimaTrocaGas.horimetro} h, por {ultimaTrocaGas.operadorNome} em{" "}
-            {formatarDataHora(ultimaTrocaGas.realizadaEm)}.
-            {mediaGas !== null && ` Média entre trocas: ${mediaGas}h por garrafa.`}
+      {aba === "historico" &&
+        (historico.length === 0 ? (
+          <p className="rounded-xl bg-slate-50 p-4 text-sm text-slate-500">
+            Nenhuma operação encerrada ainda.
           </p>
-        )}
-        <form action={registrarTrocaGas} className="space-y-3">
-          <input type="hidden" name="empilhadeira_id" value={maquina.id} />
-          <div>
-            <label className={rotulo} htmlFor="horimetro-gas">Horímetro no momento da troca</label>
-            <input
-              id="horimetro-gas"
-              name="horimetro"
-              type="number"
-              inputMode="decimal"
-              step="0.1"
-              min={0}
-              required
-              className={campo}
-            />
-            {ultimaTrocaGas && (
-              <p className="mt-1 text-xs text-slate-400">Última troca: {ultimaTrocaGas.horimetro} h</p>
-            )}
-          </div>
-          <div>
-            <label className={rotulo} htmlFor="foto-gas">Foto do horímetro (obrigatória)</label>
-            <input
-              id="foto-gas"
-              name="foto"
-              type="file"
-              accept="image/*"
-              capture="environment"
-              required
-              className={campo}
-            />
-          </div>
-          <BotaoEnviar
-            textoEnviando="Registrando..."
-            className="w-full rounded-xl border border-primary px-4 py-2.5 text-sm font-semibold text-primary hover:bg-primary-soft"
-          >
-            Registrar troca de gás
-          </BotaoEnviar>
-        </form>
-
-        {trocasGas.length > 0 && (
-          <ul className="mt-4 space-y-2 border-t border-slate-100 pt-3">
-            {trocasGas.map((t) => (
-              <li key={t.id} className="flex items-center justify-between gap-2 text-xs text-slate-600">
-                <span>
-                  {formatarDataHora(t.realizadaEm)} — {t.operadorNome} — {t.horimetro} h
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-
-      {historico.length > 0 && (
-        <div className="mt-8">
-          <h2 className="mb-3 text-sm font-bold uppercase text-slate-500">
-            Últimas operações encerradas
-          </h2>
+        ) : (
           <ul className="space-y-2">
             {historico.map((op) => (
               <li key={op.id} className="rounded-xl border border-slate-200 bg-white p-3">
@@ -292,8 +330,7 @@ export default async function EmpilhadeiraDetalhePage({
               </li>
             ))}
           </ul>
-        </div>
-      )}
+        ))}
     </div>
   );
 }

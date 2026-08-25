@@ -4,11 +4,11 @@ import { podeNoModulo, requireAcessoModulo } from "@/lib/require-admin";
 
 const FUNCIONALIDADES = [
   { chave: "reepack", titulo: "Reepack", emoji: "📦", href: "/produtividade-armazem/reepack" },
-  { chave: "despejo", titulo: "Despejo", emoji: "🧴", href: "/produtividade-armazem/despejo" },
+  { chave: "despejo", titulo: "Despejo", emoji: "🫗", href: "/produtividade-armazem/despejo" },
   { chave: "empilhadeira", titulo: "Empilhadeira", emoji: "🏗️", href: "/produtividade-armazem/empilhadeira" },
   { chave: "recebimento", titulo: "Recebimento de Paletes", emoji: "🚛", href: "/produtividade-armazem/recebimento" },
   { chave: "cinco-s", titulo: "5S do Armazém", emoji: "🧹", href: "/produtividade-armazem/cinco-s" },
-  { chave: "picking", titulo: "Reabastecimento de Picking", emoji: "🧺", href: "/produtividade-armazem/picking" },
+  { chave: "picking", titulo: "Reabastecimento de Picking", emoji: "🛒", href: "/produtividade-armazem/picking" },
 ];
 
 export default async function ProdutividadeArmazemPage() {
