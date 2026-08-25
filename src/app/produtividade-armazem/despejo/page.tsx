@@ -171,41 +171,40 @@ export default async function DespejoPage({
       {aba === "lancar" && (
         <section className="space-y-6">
           {aberto ? (
-            <form
-              action={finalizarDespejo}
-              className="space-y-3 rounded-2xl border border-amber-200 bg-amber-50 p-4"
-            >
-              <input type="hidden" name="id" value={aberto.id} />
-              <p className="text-sm font-bold text-amber-900">
-                🕐 Despejo em andamento — {produtoRotulo(aberto.produto_id, produtoPorId)} ·{" "}
-                {ROTULO_TURNO[aberto.turno as keyof typeof ROTULO_TURNO] ?? aberto.turno}
-              </p>
-              <p className="text-xs text-amber-800">Iniciado às {formatarDataHora(aberto.inicio)}</p>
+            <div className="space-y-3 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+              <form action={finalizarDespejo} className="space-y-3">
+                <input type="hidden" name="id" value={aberto.id} />
+                <p className="text-sm font-bold text-amber-900">
+                  🕐 Despejo em andamento — {produtoRotulo(aberto.produto_id, produtoPorId)} ·{" "}
+                  {ROTULO_TURNO[aberto.turno as keyof typeof ROTULO_TURNO] ?? aberto.turno}
+                </p>
+                <p className="text-xs text-amber-800">Iniciado às {formatarDataHora(aberto.inicio)}</p>
 
-              <div>
-                <label className={rotulo} htmlFor="quantidade_pacotes">Quantas caixas você despejou?</label>
-                <input
-                  id="quantidade_pacotes"
-                  name="quantidade_pacotes"
-                  type="number"
-                  inputMode="numeric"
-                  min={1}
-                  required
-                  className={campo}
-                />
-                <p className="mt-1 text-xs text-slate-500">O litro é calculado sozinho, pelo Fator Hecto do produto.</p>
-              </div>
-              <div>
-                <label className={rotulo} htmlFor="observacao">Observação (opcional)</label>
-                <input id="observacao" name="observacao" maxLength={300} className={campo} />
-              </div>
+                <div>
+                  <label className={rotulo} htmlFor="quantidade_pacotes">Quantas caixas você despejou?</label>
+                  <input
+                    id="quantidade_pacotes"
+                    name="quantidade_pacotes"
+                    type="number"
+                    inputMode="numeric"
+                    min={1}
+                    required
+                    className={campo}
+                  />
+                  <p className="mt-1 text-xs text-slate-500">O litro é calculado sozinho, pelo Fator Hecto do produto.</p>
+                </div>
+                <div>
+                  <label className={rotulo} htmlFor="observacao">Observação (opcional)</label>
+                  <input id="observacao" name="observacao" maxLength={300} className={campo} />
+                </div>
 
-              <BotaoEnviar
-                textoEnviando="Finalizando..."
-                className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-white hover:bg-primary-dark"
-              >
-                Finalizar despejo
-              </BotaoEnviar>
+                <BotaoEnviar
+                  textoEnviando="Finalizando..."
+                  className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-white hover:bg-primary-dark"
+                >
+                  Finalizar despejo
+                </BotaoEnviar>
+              </form>
 
               <BotaoExcluir
                 action={cancelarDespejo}
@@ -216,7 +215,7 @@ export default async function DespejoPage({
               >
                 Cancelar (comecei por engano)
               </BotaoExcluir>
-            </form>
+            </div>
           ) : produtos.length === 0 ? (
             <p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-800">
               Nenhum produto pronto para despejo ainda. Peça ao Admin para

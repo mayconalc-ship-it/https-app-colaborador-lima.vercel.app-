@@ -172,42 +172,41 @@ export default async function ReepackPage({
       {aba === "lancar" && (
         <section className="space-y-6">
           {aberto ? (
-            <form
-              action={finalizarReepack}
-              className="space-y-3 rounded-2xl border border-amber-200 bg-amber-50 p-4"
-            >
-              <input type="hidden" name="id" value={aberto.id} />
-              <p className="text-sm font-bold text-amber-900">
-                🕐 Reepack em andamento — {produtoRotulo(aberto.produto_id, produtoPorId)} ·{" "}
-                {ROTULO_TURNO[aberto.turno as keyof typeof ROTULO_TURNO] ?? aberto.turno}
-              </p>
-              <p className="text-xs text-amber-800">Iniciado às {formatarDataHora(aberto.inicio)}</p>
+            <div className="space-y-3 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+              <form action={finalizarReepack} className="space-y-3">
+                <input type="hidden" name="id" value={aberto.id} />
+                <p className="text-sm font-bold text-amber-900">
+                  🕐 Reepack em andamento — {produtoRotulo(aberto.produto_id, produtoPorId)} ·{" "}
+                  {ROTULO_TURNO[aberto.turno as keyof typeof ROTULO_TURNO] ?? aberto.turno}
+                </p>
+                <p className="text-xs text-amber-800">Iniciado às {formatarDataHora(aberto.inicio)}</p>
 
-              <div>
-                <label className={rotulo} htmlFor="quantidade">
-                  Quantas caixas você fez?
-                </label>
-                <input
-                  id="quantidade"
-                  name="quantidade"
-                  type="number"
-                  inputMode="numeric"
-                  min={1}
-                  required
-                  className={campo}
-                />
-              </div>
-              <div>
-                <label className={rotulo} htmlFor="observacao">Observação (opcional)</label>
-                <input id="observacao" name="observacao" maxLength={300} className={campo} />
-              </div>
+                <div>
+                  <label className={rotulo} htmlFor="quantidade">
+                    Quantas caixas você fez?
+                  </label>
+                  <input
+                    id="quantidade"
+                    name="quantidade"
+                    type="number"
+                    inputMode="numeric"
+                    min={1}
+                    required
+                    className={campo}
+                  />
+                </div>
+                <div>
+                  <label className={rotulo} htmlFor="observacao">Observação (opcional)</label>
+                  <input id="observacao" name="observacao" maxLength={300} className={campo} />
+                </div>
 
-              <BotaoEnviar
-                textoEnviando="Finalizando..."
-                className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-white hover:bg-primary-dark"
-              >
-                Finalizar reepack
-              </BotaoEnviar>
+                <BotaoEnviar
+                  textoEnviando="Finalizando..."
+                  className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-white hover:bg-primary-dark"
+                >
+                  Finalizar reepack
+                </BotaoEnviar>
+              </form>
 
               <BotaoExcluir
                 action={cancelarReepack}
@@ -218,7 +217,7 @@ export default async function ReepackPage({
               >
                 Cancelar (comecei por engano)
               </BotaoExcluir>
-            </form>
+            </div>
           ) : produtos.length === 0 ? (
             <p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-800">
               Nenhum produto pronto para reepack ainda. Peça ao Admin para
