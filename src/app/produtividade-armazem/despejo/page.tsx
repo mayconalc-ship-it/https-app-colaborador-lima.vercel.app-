@@ -13,6 +13,7 @@ import {
   diasAtrasISO,
   embalagemDeLinha,
   formatarDataHora,
+  formatarDuracao,
   hojeISO,
   pctDaMeta,
   produtoReepackDeLinha,
@@ -377,13 +378,16 @@ function LinhaDespejo({
           {ROTULO_TURNO[l.turno as keyof typeof ROTULO_TURNO] ?? l.turno}
         </p>
         <p className="text-xs text-slate-500">
-          {formatarDataHora(l.inicio)} – {formatarDataHora(l.fim)}
+          {formatarDataHora(l.inicio)} – {formatarDataHora(l.fim)} · {formatarDuracao(l.inicio, l.fim)}
           {mostrarColaborador ? ` — ${l.colaborador_nome}` : ""}
         </p>
         {l.observacao && <p className="mt-1 text-xs text-slate-500">{l.observacao}</p>}
       </div>
       <div className="flex shrink-0 flex-col items-end gap-1">
-        <span className="rounded-lg bg-slate-100 px-2 py-1 text-xs font-bold text-slate-700">
+        <span
+          className="rounded-lg bg-slate-100 px-2 py-1 text-xs font-bold text-slate-700"
+          title="Taxa extrapolada para uma hora, a partir da duração real do lançamento"
+        >
           {taxa.toFixed(1)} L/h
         </span>
         {pct !== null && (

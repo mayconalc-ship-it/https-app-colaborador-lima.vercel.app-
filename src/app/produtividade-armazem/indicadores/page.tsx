@@ -142,8 +142,6 @@ export default async function IndicadoresPage({
   );
 
   // ---- Reepack e despejo por colaborador ----
-  const embalagemPorId = new Map(embalagens.map((e) => [e.id, e]));
-
   const reepackPorColaborador = new Map<string, { nome: string; quantidade: number; horas: number }>();
   for (const r of reepacks) {
     const atual = reepackPorColaborador.get(r.colaborador_id) ?? { nome: r.colaborador_nome, quantidade: 0, horas: 0 };
@@ -155,7 +153,7 @@ export default async function IndicadoresPage({
     .map(([, v]) => ({
       rotulo: v.nome,
       valor: v.quantidade,
-      detalhe: `${v.nome}: ${v.quantidade} un em ${Math.round(v.horas * 10) / 10}h`,
+      detalhe: `${v.nome}: ${v.quantidade} cx em ${Math.round(v.horas * 10) / 10}h`,
     }))
     .sort((a, b) => b.valor - a.valor)
     .slice(0, 10);
@@ -309,7 +307,7 @@ export default async function IndicadoresPage({
           titulo="Reepack por colaborador"
           subtitulo="Total de unidades no período"
           itens={barrasReepackColaborador}
-          sufixo="un"
+          sufixo="cx"
         />
         <BarraRanking
           titulo="Despejo por colaborador"
@@ -369,7 +367,7 @@ export default async function IndicadoresPage({
                 <div className="mt-2 flex flex-wrap gap-1.5 pl-12">
                   {r.totalReepacks > 0 && (
                     <span className="rounded-full bg-primary-soft px-2 py-0.5 text-[11px] font-medium text-primary-dark">
-                      📦 {r.totalReepacks} un reepack{r.reepacksPctMeta !== null ? ` · ${r.reepacksPctMeta}% da meta` : ""}
+                      📦 {r.totalReepacks} cx reepack{r.reepacksPctMeta !== null ? ` · ${r.reepacksPctMeta}% da meta` : ""}
                     </span>
                   )}
                   {r.totalDespejoLitros > 0 && (
@@ -397,11 +395,11 @@ export default async function IndicadoresPage({
           titulo="Reepack por embalagem"
           subtitulo="Taxa média no período"
           itens={reepackPorEmbalagem.map((l) => ({
-            rotulo: `${l.embalagemNome} (${embalagemPorId.get(l.embalagemId)?.unidadeReepack ?? "un"})`,
+            rotulo: l.embalagemNome,
             valor: l.taxa,
-            detalhe: `${l.embalagemNome}: ${l.quantidade} ${embalagemPorId.get(l.embalagemId)?.unidadeReepack ?? "un"} em ${l.horas}h${l.pctMeta !== null ? ` — ${l.pctMeta}% da meta` : ""}`,
+            detalhe: `${l.embalagemNome}: ${l.quantidade} cx em ${l.horas}h${l.pctMeta !== null ? ` — ${l.pctMeta}% da meta` : ""}`,
           }))}
-          sufixo="/h"
+          sufixo="cx/h"
         />
         <BarraRanking
           titulo="Despejo por embalagem"

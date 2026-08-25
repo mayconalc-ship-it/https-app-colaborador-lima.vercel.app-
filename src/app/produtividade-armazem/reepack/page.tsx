@@ -13,6 +13,7 @@ import {
   diasAtrasISO,
   embalagemDeLinha,
   formatarDataHora,
+  formatarDuracao,
   hojeISO,
   pctDaMeta,
   produtoReepackDeLinha,
@@ -20,7 +21,6 @@ import {
   turnoAtual,
   type Embalagem,
   type ProdutoReepack,
-  type UnidadeReepack,
 } from "@/lib/produtividade-armazem";
 import { cancelarReepack, excluirReepack, finalizarReepack, iniciarReepack } from "./actions";
 
@@ -278,7 +278,6 @@ export default async function ReepackPage({
                     key={l.id}
                     l={l}
                     produtoRotulo={produtoRotulo(l.produto_id, produtoPorId)}
-                    unidade={embalagemPorId.get(l.embalagem_id)?.unidadeReepack ?? "cx"}
                     meta={embalagemPorId.get(l.embalagem_id)?.metaReepacksHora ?? null}
                     podeExcluir={l.colaborador_id === perfil.id || podeExcluirQualquer}
                   />
@@ -335,7 +334,6 @@ export default async function ReepackPage({
                   key={l.id}
                   l={l}
                   produtoRotulo={produtoRotulo(l.produto_id, produtoPorId)}
-                  unidade={embalagemPorId.get(l.embalagem_id)?.unidadeReepack ?? "cx"}
                   meta={embalagemPorId.get(l.embalagem_id)?.metaReepacksHora ?? null}
                   podeExcluir={l.colaborador_id === perfil.id || podeExcluirQualquer}
                   mostrarColaborador
@@ -359,14 +357,12 @@ function produtoRotulo(produtoId: string | null, produtoPorId: Map<string, Produ
 function LinhaReepack({
   l,
   produtoRotulo,
-  unidade,
   meta,
   podeExcluir,
   mostrarColaborador = false,
 }: {
   l: Lancamento;
   produtoRotulo: string;
-  unidade: UnidadeReepack;
   meta: number | null;
   podeExcluir: boolean;
   mostrarColaborador?: boolean;
@@ -379,18 +375,18 @@ function LinhaReepack({
     <li className="flex items-start justify-between gap-3 rounded-xl border border-slate-200 bg-white p-3">
       <div className="min-w-0">
         <p className="text-sm font-semibold text-slate-900">
-          {produtoRotulo} · {l.quantidade} {unidade} · {ROTULO_TURNO[l.turno as keyof typeof ROTULO_TURNO] ?? l.turno}
+          {produtoRotulo} · {l.quantidade} cx · {ROTULO_TURNO[l.turno as keyof typeof ROTULO_TURNO] ?? l.turno}
         </p>
         <p className="text-xs text-slate-500">
-          {formatarDataHora(l.inicio)} – {formatarDataHora(l.fim)}
+          {formatarDataHora(l.inicio)} – {formatarDataHora(l.fim)} · {formatarDuracao(l.inicio, l.fim)}
           {mostrarColaborador ? ` — ${l.colaborador_nome}` : ""}
           {l.litros_calculados !== null ? ` · ${l.litros_calculados} L` : ""}
         </p>
         {l.observacao && <p className="mt-1 text-xs text-slate-500">{l.observacao}</p>}
       </div>
       <div className="flex shrink-0 flex-col items-end gap-1">
-        <span className="rounded-lg bg-slate-100 px-2 py-1 text-xs font-bold text-slate-700">
-          {taxa.toFixed(1)} {unidade}/h
+        <span className="rounded-lg bg-slate-100 px-2 py-1 text-xs font-bold text-slate-700" title="Taxa extrapolada para uma hora, a partir da duração real do lançamento">
+          {taxa.toFixed(1)} cx/h
         </span>
         {pct !== null && (
           <span

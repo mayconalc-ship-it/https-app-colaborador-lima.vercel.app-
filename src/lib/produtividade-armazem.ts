@@ -240,6 +240,22 @@ export function formatarDataHora(iso: string): string {
   }).format(new Date(iso));
 }
 
+/**
+ * Duração legível entre dois ISO, na unidade que faz sentido pro
+ * tamanho -- segundos abaixo de 1 minuto, minutos abaixo de 1 hora,
+ * horas dali pra cima. Sem isso, um lançamento de poucos segundos
+ * (ex.: teste rápido) só aparece como uma taxa por hora extrapolada
+ * gigante ("745 cx/h"), sem contexto de que a "hora" ali é imaginária.
+ */
+export function formatarDuracao(inicioISO: string, fimISO: string): string {
+  const segundos = Math.max((new Date(fimISO).getTime() - new Date(inicioISO).getTime()) / 1000, 0);
+  if (segundos < 60) return `${Math.round(segundos)}s`;
+  const minutos = segundos / 60;
+  if (minutos < 60) return `${Math.round(minutos)} min`;
+  const horas = minutos / 60;
+  return `${Math.round(horas * 10) / 10}h`;
+}
+
 export function formatarHora(iso: string): string {
   return new Intl.DateTimeFormat("pt-BR", {
     timeZone: "America/Sao_Paulo",
