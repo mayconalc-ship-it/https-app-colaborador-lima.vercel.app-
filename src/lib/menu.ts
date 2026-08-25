@@ -20,6 +20,8 @@ export const MODULO_DO_ITEM: Record<string, ModuloId> = {
   quiz: "quiz",
   "5s": "5s",
   "produtividade-armazem": "produtividade-armazem",
+  "carretas-portaria": "carretas-portaria",
+  "carretas-conferencia": "carretas-conferencia",
 };
 
 export type ItemMenu = {

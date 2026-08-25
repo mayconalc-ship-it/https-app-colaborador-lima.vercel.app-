@@ -31,7 +31,9 @@ export type ModuloId =
   | "ativo-giro"
   | "quiz"
   | "5s"
-  | "produtividade-armazem";
+  | "produtividade-armazem"
+  | "carretas-portaria"
+  | "carretas-conferencia";
 
 export type Modulo = {
   id: ModuloId;
@@ -142,6 +144,24 @@ export const MODULOS: Modulo[] = [
     acoes: ["ver", "criar", "editar", "excluir"],
   },
   {
+    id: "carretas-portaria",
+    // Sem tela de admin propria: os catalogos (fabrica/transportadora/
+    // produto) ja sao geridos em /admin/produtividade-armazem.
+    rotulo: "Portaria de Carretas",
+    emoji: "🚪",
+    href: "/carretas-portaria",
+    grupo: "Conteúdo do app",
+    acoes: ["ver", "criar"],
+  },
+  {
+    id: "carretas-conferencia",
+    rotulo: "Conferência de Carretas",
+    emoji: "📥",
+    href: "/carretas-conferencia",
+    grupo: "Conteúdo do app",
+    acoes: ["ver", "editar"],
+  },
+  {
     id: "colaboradores",
     rotulo: "Colaboradores",
     emoji: "👥",
@@ -219,6 +239,8 @@ export const MODULOS_OPCIONAIS: ModuloId[] = [
   "quiz",
   "feedbacks",
   "produtividade-armazem",
+  "carretas-portaria",
+  "carretas-conferencia",
 ];
 
 const MAPA = new Map(MODULOS.map((m) => [m.id, m]));
