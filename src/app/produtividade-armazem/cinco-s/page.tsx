@@ -14,7 +14,7 @@ export default async function CincoSPage({
 }: {
   searchParams: Promise<{ erro?: string; sucesso?: string }>;
 }) {
-  const perfil = await requireAcessoModulo("produtividade-armazem");
+  const perfil = await requireAcessoModulo("pa-cinco-s");
 
   const sp = await searchParams;
   const revendaId = await getRevendaId();

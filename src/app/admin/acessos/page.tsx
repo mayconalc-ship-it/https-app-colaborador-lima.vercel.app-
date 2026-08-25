@@ -199,6 +199,21 @@ export default async function GestaoDeAcessosPage({
     extrasPorPessoa.get(e.colaborador_id)!.add(e.modulo);
   }
 
+  // Agrupa colunas contíguas que pertencem ao mesmo "módulo guarda-chuva"
+  // (ex.: as seis funcionalidades de Produtividade do Armazém + as duas de
+  // Carretas) sob um cabeçalho comum -- é o que organiza a tabela em vez de
+  // espalhar oito colunas soltas junto com Comunicados, Ranking etc.
+  const gruposDeColunas: { rotuloGrupo: string | null; modulos: string[] }[] = [];
+  for (const m of modulosOpcionaisDaRevenda) {
+    const rotuloGrupo = moduloPorId(m)?.subGrupoDe ? (moduloPorId(moduloPorId(m)!.subGrupoDe!)?.rotulo ?? null) : null;
+    const ultimo = gruposDeColunas[gruposDeColunas.length - 1];
+    if (ultimo && ultimo.rotuloGrupo === rotuloGrupo) {
+      ultimo.modulos.push(m);
+    } else {
+      gruposDeColunas.push({ rotuloGrupo, modulos: [m] });
+    }
+  }
+
   return (
     <div>
       <PageHeader
@@ -341,12 +356,30 @@ export default async function GestaoDeAcessosPage({
               <table className="w-full text-sm">
                 <thead className="bg-slate-50 text-left text-xs uppercase text-slate-500">
                   <tr>
-                    {/* Congelada: com 11 módulos a tabela fica bem mais larga
-                        que a tela, e sem isso ninguém sabe mais de quem é a
-                        linha depois de rolar pra marcar um módulo à direita. */}
-                    <th className="sticky left-0 z-10 min-w-[11rem] bg-slate-50 p-3 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.08)]">
+                    {/* Congelada: com muitos módulos a tabela fica bem mais
+                        larga que a tela, e sem isso ninguém sabe mais de quem
+                        é a linha depois de rolar pra marcar um módulo à
+                        direita. rowSpan de 2 porque agora o cabeçalho tem uma
+                        segunda linha, de agrupamento. */}
+                    <th
+                      rowSpan={2}
+                      className="sticky left-0 z-10 min-w-[11rem] bg-slate-50 p-3 align-bottom shadow-[2px_0_4px_-2px_rgba(0,0,0,0.08)]"
+                    >
                       Pessoa
                     </th>
+                    {gruposDeColunas.map((g, i) => (
+                      <th
+                        key={i}
+                        colSpan={g.modulos.length}
+                        className={`p-1.5 text-center text-[10px] font-semibold normal-case tracking-normal text-slate-400 ${
+                          g.rotuloGrupo ? "border-b border-slate-200" : ""
+                        }`}
+                      >
+                        {g.rotuloGrupo ?? ""}
+                      </th>
+                    ))}
+                  </tr>
+                  <tr>
                     {modulosOpcionaisDaRevenda.map((m) => (
                       <th key={m} className="w-16 p-2 text-center" title={moduloPorId(m)?.rotulo}>
                         <span className="block text-base leading-none">{moduloPorId(m)?.emoji}</span>

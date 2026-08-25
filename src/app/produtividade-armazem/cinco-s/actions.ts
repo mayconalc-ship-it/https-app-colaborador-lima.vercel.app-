@@ -11,7 +11,7 @@ function erro(mensagem: string): never {
   redirect(`${ROTA}?erro=${encodeURIComponent(mensagem)}`);
 }
 
-const exigirContexto = () => exigirContextoModulo(ROTA);
+const exigirContexto = () => exigirContextoModulo("pa-cinco-s", ROTA);
 
 export async function iniciarExecucao5s() {
   const { perfil, revendaId } = await exigirContexto();

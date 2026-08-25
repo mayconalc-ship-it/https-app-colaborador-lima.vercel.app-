@@ -16,7 +16,7 @@ function erro(mensagem: string): never {
   redirect(`${ROTA}?erro=${encodeURIComponent(mensagem)}`);
 }
 
-const exigirContexto = () => exigirContextoModulo(ROTA);
+const exigirContexto = () => exigirContextoModulo("pa-reepack", ROTA);
 
 /**
  * Abre o cronômetro: grava o horário de início AGORA, no servidor.

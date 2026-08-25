@@ -1,20 +1,41 @@
 import { PageHeader } from "@/components/PageHeader";
 import { MenuCard } from "@/components/MenuCard";
-import { podeNoModulo, requireAcessoModulo } from "@/lib/require-admin";
+import { podeNoModulo, getModulosAcessiveis } from "@/lib/require-admin";
+import { requireAcessoArmazem } from "@/lib/produtividade-armazem-server";
+import { ehOwner } from "@/lib/acessos";
+import { getPerfil } from "@/lib/sessao";
+import type { ModuloId } from "@/lib/acessos";
 
-const FUNCIONALIDADES = [
-  { chave: "reepack", titulo: "Reepack", emoji: "📦", href: "/produtividade-armazem/reepack" },
-  { chave: "despejo", titulo: "Despejo", emoji: "🫗", href: "/produtividade-armazem/despejo" },
-  { chave: "empilhadeira", titulo: "Empilhadeira", emoji: "🏗️", href: "/produtividade-armazem/empilhadeira" },
-  { chave: "recebimento", titulo: "Recebimento de Paletes", emoji: "🚛", href: "/produtividade-armazem/recebimento" },
-  { chave: "cinco-s", titulo: "5S do Armazém", emoji: "🧹", href: "/produtividade-armazem/cinco-s" },
-  { chave: "picking", titulo: "Reabastecimento de Picking", emoji: "🛒", href: "/produtividade-armazem/picking" },
+// Cada card só aparece pra quem tem o sub-módulo concedido (ver
+// SUBMODULOS_ARMAZEM em lib/produtividade-armazem-server.ts) -- é o que
+// torna real o pedido de liberar cada funcionalidade separadamente, em vez
+// de um "produtividade-armazem" único que dava tudo de uma vez.
+const FUNCIONALIDADES: { chave: ModuloId; titulo: string; emoji: string; href: string }[] = [
+  { chave: "pa-reepack", titulo: "Reepack", emoji: "📦", href: "/produtividade-armazem/reepack" },
+  { chave: "pa-despejo", titulo: "Despejo", emoji: "🫗", href: "/produtividade-armazem/despejo" },
+  { chave: "pa-empilhadeira", titulo: "Empilhadeira", emoji: "🏗️", href: "/produtividade-armazem/empilhadeira" },
+  { chave: "pa-recebimento", titulo: "Recebimento de Paletes", emoji: "🚛", href: "/produtividade-armazem/recebimento" },
+  { chave: "pa-cinco-s", titulo: "5S do Armazém", emoji: "🧹", href: "/produtividade-armazem/cinco-s" },
+  { chave: "pa-picking", titulo: "Reabastecimento de Picking", emoji: "🛒", href: "/produtividade-armazem/picking" },
+  { chave: "carretas-portaria", titulo: "Portaria de Carretas", emoji: "🚪", href: "/carretas-portaria" },
+  { chave: "carretas-conferencia", titulo: "Conferência de Carretas", emoji: "📥", href: "/carretas-conferencia" },
 ];
 
 export default async function ProdutividadeArmazemPage() {
-  await requireAcessoModulo("produtividade-armazem");
+  await requireAcessoArmazem("/");
 
-  const podeConfigurar = await podeNoModulo("produtividade-armazem", "editar");
+  const [perfil, podeConfigurar, acessiveis] = await Promise.all([
+    getPerfil(),
+    podeNoModulo("produtividade-armazem", "editar"),
+    getModulosAcessiveis(),
+  ]);
+
+  // Dono e quem administra a área inteira (editar catálogos) veem tudo --
+  // as demais pessoas só o que foi concedido pessoa a pessoa.
+  const funcionalidades =
+    ehOwner(perfil?.role) || podeConfigurar
+      ? FUNCIONALIDADES
+      : FUNCIONALIDADES.filter((f) => acessiveis.has(f.chave));
 
   return (
     <div>
@@ -24,7 +45,7 @@ export default async function ProdutividadeArmazemPage() {
       />
 
       <div className="grid grid-cols-2 gap-3">
-        {FUNCIONALIDADES.map((f) => (
+        {funcionalidades.map((f) => (
           <MenuCard key={f.chave} href={f.href} title={f.titulo} emoji={f.emoji} />
         ))}
       </div>

@@ -11,7 +11,7 @@ function erro(id: string, mensagem: string): never {
   redirect(`${ROTA}/${id}?erro=${encodeURIComponent(mensagem)}`);
 }
 
-const exigirContexto = () => exigirContextoModulo(ROTA);
+const exigirContexto = () => exigirContextoModulo("pa-empilhadeira", ROTA);
 
 /**
  * Abre uma operação. A trava de verdade é o índice único parcial

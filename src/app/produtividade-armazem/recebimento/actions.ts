@@ -13,7 +13,7 @@ function erro(mensagem: string): never {
 }
 
 export async function registrarRecebimento(formData: FormData) {
-  const { perfil, revendaId } = await exigirContextoModulo(ROTA);
+  const { perfil, revendaId } = await exigirContextoModulo("pa-recebimento", ROTA);
 
   const fabricaId = String(formData.get("fabrica_id") ?? "");
   const transportadoraId = String(formData.get("transportadora_id") ?? "");

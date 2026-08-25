@@ -32,6 +32,12 @@ export type ModuloId =
   | "quiz"
   | "5s"
   | "produtividade-armazem"
+  | "pa-reepack"
+  | "pa-despejo"
+  | "pa-empilhadeira"
+  | "pa-recebimento"
+  | "pa-cinco-s"
+  | "pa-picking"
   | "carretas-portaria"
   | "carretas-conferencia";
 
@@ -43,6 +49,13 @@ export type Modulo = {
   grupo: "Conteúdo do app" | "Pessoas e configuração";
   /** Só as ações que fazem sentido neste módulo. */
   acoes: Acao[];
+  /**
+   * Agrupa este módulo sob um "módulo guarda-chuva" na tabela de acesso
+   * opcional (ver GRUPOS_OPCIONAIS abaixo) -- é o que permite liberar cada
+   * funcionalidade de Produtividade do Armazém pessoa a pessoa, mas com as
+   * colunas organizadas juntas em vez de espalhadas soltas na tabela.
+   */
+  subGrupoDe?: ModuloId;
 };
 
 export const MODULOS: Modulo[] = [
@@ -137,11 +150,70 @@ export const MODULOS: Modulo[] = [
   },
   {
     id: "produtividade-armazem",
+    // Continua existindo para a tela de configuração (catálogos: fábrica/
+    // transportadora/produto/embalagem/empilhadeira) e para a liderança
+    // que administra a área inteira. Não é mais um módulo opcional
+    // liberado por pessoa (ver MODULOS_OPCIONAIS) -- foi trocado pelos
+    // sub-módulos abaixo, um por funcionalidade.
     rotulo: "Produtividade do Armazém",
     emoji: "🏭",
     href: "/admin/produtividade-armazem",
     grupo: "Conteúdo do app",
     acoes: ["ver", "criar", "editar", "excluir"],
+  },
+  {
+    id: "pa-reepack",
+    rotulo: "Reepack",
+    emoji: "📦",
+    href: "/produtividade-armazem/reepack",
+    grupo: "Conteúdo do app",
+    acoes: ["ver"],
+    subGrupoDe: "produtividade-armazem",
+  },
+  {
+    id: "pa-despejo",
+    rotulo: "Despejo",
+    emoji: "🫗",
+    href: "/produtividade-armazem/despejo",
+    grupo: "Conteúdo do app",
+    acoes: ["ver"],
+    subGrupoDe: "produtividade-armazem",
+  },
+  {
+    id: "pa-empilhadeira",
+    rotulo: "Empilhadeira",
+    emoji: "🏗️",
+    href: "/produtividade-armazem/empilhadeira",
+    grupo: "Conteúdo do app",
+    acoes: ["ver"],
+    subGrupoDe: "produtividade-armazem",
+  },
+  {
+    id: "pa-recebimento",
+    rotulo: "Recebimento de Paletes",
+    emoji: "🚛",
+    href: "/produtividade-armazem/recebimento",
+    grupo: "Conteúdo do app",
+    acoes: ["ver"],
+    subGrupoDe: "produtividade-armazem",
+  },
+  {
+    id: "pa-cinco-s",
+    rotulo: "5S do Armazém",
+    emoji: "🧹",
+    href: "/produtividade-armazem/cinco-s",
+    grupo: "Conteúdo do app",
+    acoes: ["ver"],
+    subGrupoDe: "produtividade-armazem",
+  },
+  {
+    id: "pa-picking",
+    rotulo: "Reabastecimento de Picking",
+    emoji: "🛒",
+    href: "/produtividade-armazem/picking",
+    grupo: "Conteúdo do app",
+    acoes: ["ver"],
+    subGrupoDe: "produtividade-armazem",
   },
   {
     id: "carretas-portaria",
@@ -152,6 +224,7 @@ export const MODULOS: Modulo[] = [
     href: "/carretas-portaria",
     grupo: "Conteúdo do app",
     acoes: ["ver", "criar"],
+    subGrupoDe: "produtividade-armazem",
   },
   {
     id: "carretas-conferencia",
@@ -160,6 +233,7 @@ export const MODULOS: Modulo[] = [
     href: "/carretas-conferencia",
     grupo: "Conteúdo do app",
     acoes: ["ver", "editar"],
+    subGrupoDe: "produtividade-armazem",
   },
   {
     id: "colaboradores",
@@ -226,6 +300,18 @@ export const MODULOS: Modulo[] = [
  *   colaboradores/metricas/pesquisa/menu -- são telas do Admin, não
  *              conteúdo que um colaborador comum navegue; já protegidas
  *              por `requireModulo`/permissão de liderança.
+ *   "produtividade-armazem" -- vira SÓ a tela de configuração de
+ *              catálogos (liderança), não é mais um toggle por pessoa.
+ *
+ * Trocado em 25/08/2026: "produtividade-armazem" saiu daqui e virou seis
+ * módulos (pa-reepack, pa-despejo, pa-empilhadeira, pa-recebimento,
+ * pa-cinco-s, pa-picking), um por funcionalidade -- pedido do dono, que
+ * queria liberar cada uma separadamente em vez de tudo de uma vez. A
+ * migration 058 fez o mesmo backfill da 053: todo colaborador que já
+ * tinha "produtividade-armazem" ganhou as seis, ninguém perdeu acesso no
+ * dia da virada. Portaria/Conferência de Carretas entraram no mesmo
+ * grupo visual (`subGrupoDe`) por serem, na prática, mais uma
+ * funcionalidade de chão de armazém.
  */
 export const MODULOS_OPCIONAIS: ModuloId[] = [
   "ativo-giro",
@@ -238,7 +324,12 @@ export const MODULOS_OPCIONAIS: ModuloId[] = [
   "rv",
   "quiz",
   "feedbacks",
-  "produtividade-armazem",
+  "pa-reepack",
+  "pa-despejo",
+  "pa-empilhadeira",
+  "pa-recebimento",
+  "pa-cinco-s",
+  "pa-picking",
   "carretas-portaria",
   "carretas-conferencia",
 ];

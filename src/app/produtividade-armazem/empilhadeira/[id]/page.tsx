@@ -35,7 +35,7 @@ export default async function EmpilhadeiraDetalhePage({
   params: Promise<{ id: string }>;
   searchParams: Promise<{ aba?: string; erro?: string; sucesso?: string }>;
 }) {
-  const perfil = await requireAcessoModulo("produtividade-armazem");
+  const perfil = await requireAcessoModulo("pa-empilhadeira");
 
   const { id } = await params;
   const sp = await searchParams;

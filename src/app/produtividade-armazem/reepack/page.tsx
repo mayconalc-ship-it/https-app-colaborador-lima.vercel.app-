@@ -66,7 +66,7 @@ export default async function ReepackPage({
     sucesso?: string;
   }>;
 }) {
-  const perfil = await requireAcessoModulo("produtividade-armazem");
+  const perfil = await requireAcessoModulo("pa-reepack");
 
   const sp = await searchParams;
   const aba: Aba = sp.aba === "historico" ? "historico" : "lancar";

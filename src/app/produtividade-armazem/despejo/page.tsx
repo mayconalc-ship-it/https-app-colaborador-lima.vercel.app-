@@ -66,7 +66,7 @@ export default async function DespejoPage({
     sucesso?: string;
   }>;
 }) {
-  const perfil = await requireAcessoModulo("produtividade-armazem");
+  const perfil = await requireAcessoModulo("pa-despejo");
 
   const sp = await searchParams;
   const aba: Aba = sp.aba === "historico" ? "historico" : "lancar";

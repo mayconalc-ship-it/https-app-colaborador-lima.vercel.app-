@@ -39,7 +39,7 @@ export default async function PickingPage({
 }: {
   searchParams: Promise<{ aba?: string; de?: string; ate?: string; colab?: string; erro?: string; sucesso?: string }>;
 }) {
-  const perfil = await requireAcessoModulo("produtividade-armazem");
+  const perfil = await requireAcessoModulo("pa-picking");
 
   const sp = await searchParams;
   const aba: Aba = sp.aba === "historico" ? "historico" : "lancar";

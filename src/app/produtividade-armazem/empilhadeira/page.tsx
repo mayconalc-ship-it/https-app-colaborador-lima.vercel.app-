@@ -14,7 +14,7 @@ type OperacaoAberta = {
 };
 
 export default async function EmpilhadeiraIndexPage() {
-  await requireAcessoModulo("produtividade-armazem");
+  await requireAcessoModulo("pa-empilhadeira");
 
   const revendaId = await getRevendaId();
   if (!revendaId) redirect(`/?erro=${encodeURIComponent("Você não está em nenhuma revenda.")}`);

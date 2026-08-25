@@ -58,7 +58,7 @@ export default async function RecebimentoPage({
     sucesso?: string;
   }>;
 }) {
-  await requireAcessoModulo("produtividade-armazem");
+  await requireAcessoModulo("pa-recebimento");
 
   const sp = await searchParams;
   const aba: Aba = sp.aba === "historico" ? "historico" : "lancar";

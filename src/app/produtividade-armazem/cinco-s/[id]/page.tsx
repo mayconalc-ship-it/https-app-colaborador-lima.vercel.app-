@@ -16,7 +16,7 @@ export default async function ExecucaoCincoSPage({
   params: Promise<{ id: string }>;
   searchParams: Promise<{ erro?: string }>;
 }) {
-  const perfil = await requireAcessoModulo("produtividade-armazem");
+  const perfil = await requireAcessoModulo("pa-cinco-s");
 
   const { id } = await params;
   const sp = await searchParams;

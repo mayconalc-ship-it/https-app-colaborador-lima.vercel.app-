@@ -16,7 +16,7 @@ function erro(mensagem: string): never {
   redirect(`${ROTA}?erro=${encodeURIComponent(mensagem)}`);
 }
 
-const exigirContexto = () => exigirContextoModulo(ROTA);
+const exigirContexto = () => exigirContextoModulo("pa-despejo", ROTA);
 
 /**
  * Abre o cronômetro do despejo -- mesmo desenho do reepack (ver

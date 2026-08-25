@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { PageHeader } from "@/components/PageHeader";
 import { createClient } from "@/lib/supabase/server";
 import { getRevendaId } from "@/lib/revendas";
-import { requireAcessoModulo } from "@/lib/require-admin";
+import { requireAcessoArmazem } from "@/lib/produtividade-armazem-server";
 import {
   ROTULO_TURNO,
   TURNOS,
@@ -44,7 +44,7 @@ export default async function IndicadoresPage({
 }: {
   searchParams: Promise<{ de?: string; ate?: string; turno?: string }>;
 }) {
-  await requireAcessoModulo("produtividade-armazem");
+  await requireAcessoArmazem("/produtividade-armazem");
 
   const sp = await searchParams;
   const de = sp.de ?? diasAtrasISO(7);

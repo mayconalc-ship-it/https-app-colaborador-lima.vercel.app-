@@ -12,7 +12,7 @@ function erro(mensagem: string): never {
   redirect(`${ROTA}?erro=${encodeURIComponent(mensagem)}`);
 }
 
-const exigirContexto = () => exigirContextoModulo(ROTA);
+const exigirContexto = () => exigirContextoModulo("pa-picking", ROTA);
 
 export async function iniciarPicking(formData: FormData) {
   const { perfil, revendaId } = await exigirContexto();
