@@ -48,26 +48,58 @@ for (let i = 1; i < linhasBase.length; i++) {
 }
 console.log(`Base SAP: ${porProdSap.size} produtos com Fator/Fator Hecto válidos.`);
 
+// ---- 1b) Mesma base, mas por PROMAX -- para reconstruir as linhas
+//      deslocadas da planilha curada (ver abaixo).
+const porPromaxBase = new Map();
+for (let i = 1; i < linhasBase.length; i++) {
+  const linha = linhasBase[i];
+  if (!linha.trim()) continue;
+  const c = linha.split(";");
+  const promax = semZerosEsquerda(c[0]);
+  if (!promax || promax === "0") continue;
+  if (!porPromaxBase.has(promax)) {
+    porPromaxBase.set(promax, { descricao: (c[1] ?? "").trim(), prodSap: semZerosEsquerda(c[38]) });
+  }
+}
+
 // ---- 2) Lista curada: PROMAX (código) + PRODUTO (descrição) + PROD_SAP (chave de busca)
+//
+// Onze linhas da planilha vieram com os campos deslocados: o PROMAX
+// virou lixo ("5L", "5", "5 HF", "99") e a descrição virou um número
+// puro (o verdadeiro PROD_SAP, que foi parar uma casa adiante). Ex.:
+// "5L;7947;79475;38949;GUARANA CHP ANTARCTICA PET 2,5L CAIXA C/6;..."
+// -- aqui campo[1]="7947" É o Promax de verdade e campo[3]="38949" É
+// o PROD_SAP de verdade (confirmado batendo os dois contra a base do
+// SAP: "0007947;GUARANA CHP ANTARCTICA PET 2,5L CAIXA C/6;...;
+// 000038949;..."). Reconstrói em vez de descartar.
 const brutoCurada = fs.readFileSync(CURADA_PATH, "latin1");
 const linhasCurada = brutoCurada.split(/\r?\n/);
 const porCodigo = new Map();
 let duplicados = 0;
+let reconstruidas = 0;
 for (let i = 1; i < linhasCurada.length; i++) {
   const linha = linhasCurada[i];
   if (!linha.trim()) continue;
   const c = linha.split(";");
-  const codigo = (c[0] ?? "").trim();
-  const prodSap = semZerosEsquerda(c[2]);
-  const descricao = (c[3] ?? "").trim();
+  let codigo = (c[0] ?? "").trim();
+  let prodSap = semZerosEsquerda(c[2]);
+  let descricao = (c[3] ?? "").trim();
   if (!codigo || !descricao) continue;
 
-  // Algumas linhas da planilha vieram com os campos deslocados (a
-  // descrição virou um numero puro, tipo "38949") -- sinal de corrupcao
-  // na origem, nao vale cadastrar.
+  // Sinal de linha deslocada: a "descrição" é um número puro.
   if (/^\d+([.,]\d+)?$/.test(descricao)) {
-    console.log(`Ignorando linha corrompida: código "${codigo}" com descrição "${descricao}" (não parece nome de produto).`);
-    continue;
+    const promaxReal = semZerosEsquerda(c[1]);
+    const prodSapReal = semZerosEsquerda(c[3]);
+    const naBase = porPromaxBase.get(promaxReal);
+    if (naBase && naBase.prodSap === prodSapReal) {
+      codigo = promaxReal;
+      prodSap = prodSapReal;
+      descricao = naBase.descricao;
+      reconstruidas++;
+    } else {
+      console.log(`Não deu para reconstruir a linha: "${linha}"`);
+      continue;
+    }
   }
 
   const fator = porProdSap.get(prodSap);
@@ -80,6 +112,7 @@ for (let i = 1; i < linhasCurada.length; i++) {
     fator_hecto: fator?.fatorHecto ?? null,
   });
 }
+console.log(`Linhas reconstruídas (campos deslocados na origem): ${reconstruidas}`);
 const produtos = [...porCodigo.values()];
 const semMatch = produtos.filter((p) => p.fator_hecto === null).length;
 console.log(`Lista curada: ${produtos.length} produtos únicos (${duplicados} código(s) repetido(s) na planilha, mantida a última linha), ${semMatch} sem Fator Hecto encontrado na base (vão precisar de ajuste manual).`);
