@@ -135,6 +135,10 @@ export default async function DespejoPage({
         subtitle="Inicie ao começar, finalize informando quantas caixas você despejou -- o litro sai sozinho."
       />
 
+      <a href="/produtividade-armazem" className="mb-4 inline-flex text-sm font-medium text-primary hover:underline">
+        ← Produtividade do Armazém
+      </a>
+
       {sp.erro && (
         <p className="mb-4 rounded-xl bg-red-50 p-3 text-sm font-medium text-red-700">{sp.erro}</p>
       )}

@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { PageHeader } from "@/components/PageHeader";
 import { createClient } from "@/lib/supabase/server";
 import { getRevendaId } from "@/lib/revendas";
@@ -66,7 +67,20 @@ export default async function CarretasPortariaPage({
 
   return (
     <div>
-      <PageHeader title="🛂 Portaria" subtitle="Registre a chegada assim que a carreta entrar." />
+      <PageHeader title="👮 Recebimento de Carreta" subtitle="Registre a chegada assim que a carreta entrar." />
+
+      <a
+        href="/produtividade-armazem"
+        className="mb-2 inline-flex text-sm font-medium text-primary hover:underline"
+      >
+        ← Produtividade do Armazém
+      </a>
+      <Link
+        href="/carretas-conferencia"
+        className="mb-4 ml-4 inline-flex text-sm font-medium text-primary hover:underline"
+      >
+        🖥️ Ir para o Monitor de Recebimento →
+      </Link>
 
       {sp.erro && <p className="mb-4 rounded-xl bg-red-50 p-3 text-sm font-medium text-red-700">{sp.erro}</p>}
       {sp.sucesso && <p className="mb-4 rounded-xl bg-green-50 p-3 text-sm font-medium text-green-700">{sp.sucesso}</p>}

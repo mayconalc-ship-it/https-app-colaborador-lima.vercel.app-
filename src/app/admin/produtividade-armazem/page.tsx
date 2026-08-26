@@ -168,8 +168,8 @@ export default async function AdminProdutividadeArmazemPage({
           return q;
         })()
       : Promise.resolve({ data: [] as { id: string; nome: string; cargo: string | null }[] }),
-    supabase.from("pa_motoristas").select("id, nome, ativo").eq("revenda_id", revendaId).order("nome"),
-    supabase.from("pa_empilhadores").select("id, nome, ativo").eq("revenda_id", revendaId).order("nome"),
+    supabase.from("pa_motoristas").select("id, nome, cpf, ativo").eq("revenda_id", revendaId).order("nome"),
+    supabase.from("pa_empilhadores").select("id, nome, cpf, ativo").eq("revenda_id", revendaId).order("nome"),
     supabase.from("pa_ag_catalogo").select("id, codigo, descricao, unidade, ativo").eq("revenda_id", revendaId).order("codigo"),
     supabase.from("pa_recebimento_config").select("tma_alvo_minutos, dias_minimos_validade_alerta").eq("revenda_id", revendaId).maybeSingle(),
   ]);
@@ -567,8 +567,9 @@ export default async function AdminProdutividadeArmazemPage({
               temItens={totalMotoristas > 0}
               vazio="Nenhum motorista cadastrado."
               formNovo={
-                <form action={salvarMotorista} className="flex gap-2">
-                  <input name="nome" required className={`${campo} flex-1`} />
+                <form action={salvarMotorista} className="flex flex-wrap gap-2">
+                  <input name="nome" placeholder="Nome completo" required className={`${campo} flex-1`} />
+                  <input name="cpf" placeholder="CPF" inputMode="numeric" maxLength={14} required className={`${campo} w-40`} />
                   <BotaoEnviar className="shrink-0 rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-white">
                     Adicionar
                   </BotaoEnviar>
@@ -580,6 +581,7 @@ export default async function AdminProdutividadeArmazemPage({
                   key={m.id}
                   ativo={m.ativo}
                   titulo={m.nome}
+                  subtitulo={m.cpf ?? "sem CPF cadastrado"}
                   acoes={
                     <>
                       <BotaoIcone action={alternarMotoristaAtivo} campos={{ id: m.id, ativo: String(m.ativo) }} titulo={m.ativo ? "Desativar" : "Ativar"}>
@@ -596,9 +598,10 @@ export default async function AdminProdutividadeArmazemPage({
                     </>
                   }
                   formEditar={
-                    <form action={editarMotorista} className="flex gap-2">
+                    <form action={editarMotorista} className="flex flex-wrap gap-2">
                       <input type="hidden" name="id" value={m.id} />
-                      <input name="nome" defaultValue={m.nome} required className={`${campo} flex-1`} />
+                      <input name="nome" defaultValue={m.nome} placeholder="Nome completo" required className={`${campo} flex-1`} />
+                      <input name="cpf" defaultValue={m.cpf ?? ""} placeholder="CPF" inputMode="numeric" maxLength={14} required className={`${campo} w-40`} />
                       <BotaoEnviar compacto className="shrink-0 rounded-lg bg-slate-800 px-3 py-1.5 text-xs font-semibold text-white">
                         Salvar
                       </BotaoEnviar>
@@ -614,8 +617,9 @@ export default async function AdminProdutividadeArmazemPage({
               temItens={totalEmpilhadores > 0}
               vazio="Nenhum empilhador cadastrado."
               formNovo={
-                <form action={salvarEmpilhador} className="flex gap-2">
-                  <input name="nome" required className={`${campo} flex-1`} />
+                <form action={salvarEmpilhador} className="flex flex-wrap gap-2">
+                  <input name="nome" placeholder="Nome completo" required className={`${campo} flex-1`} />
+                  <input name="cpf" placeholder="CPF" inputMode="numeric" maxLength={14} required className={`${campo} w-40`} />
                   <BotaoEnviar className="shrink-0 rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-white">
                     Adicionar
                   </BotaoEnviar>
@@ -627,6 +631,7 @@ export default async function AdminProdutividadeArmazemPage({
                   key={e.id}
                   ativo={e.ativo}
                   titulo={e.nome}
+                  subtitulo={e.cpf ?? "sem CPF cadastrado"}
                   acoes={
                     <>
                       <BotaoIcone action={alternarEmpilhadorAtivo} campos={{ id: e.id, ativo: String(e.ativo) }} titulo={e.ativo ? "Desativar" : "Ativar"}>
@@ -643,9 +648,10 @@ export default async function AdminProdutividadeArmazemPage({
                     </>
                   }
                   formEditar={
-                    <form action={editarEmpilhador} className="flex gap-2">
+                    <form action={editarEmpilhador} className="flex flex-wrap gap-2">
                       <input type="hidden" name="id" value={e.id} />
-                      <input name="nome" defaultValue={e.nome} required className={`${campo} flex-1`} />
+                      <input name="nome" defaultValue={e.nome} placeholder="Nome completo" required className={`${campo} flex-1`} />
+                      <input name="cpf" defaultValue={e.cpf ?? ""} placeholder="CPF" inputMode="numeric" maxLength={14} required className={`${campo} w-40`} />
                       <BotaoEnviar compacto className="shrink-0 rounded-lg bg-slate-800 px-3 py-1.5 text-xs font-semibold text-white">
                         Salvar
                       </BotaoEnviar>

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { corSinalizador, formatarMinutos, minutosDesde, type CorSinalizador, type StatusAtendimento } from "@/lib/carretas";
+import { formatarHora } from "@/lib/produtividade-armazem";
 
 export type CardAtendimento = {
   id: string;
@@ -13,6 +14,7 @@ export type CardAtendimento = {
   transportadoraNome: string;
   chegadaEm: string;
   cargaAgendada: boolean;
+  agendamentoEm: string | null;
   status: StatusAtendimento;
 };
 
@@ -85,6 +87,7 @@ export function MonitorCarretas({
             placa_carreta: string;
             chegada_em: string;
             carga_agendada: boolean;
+            agendamento_em: string | null;
             status: StatusAtendimento;
           };
 
@@ -110,6 +113,7 @@ export function MonitorCarretas({
                       motoristaNome: linha.motorista_nome,
                       placaCarreta: linha.placa_carreta,
                       cargaAgendada: linha.carga_agendada,
+                      agendamentoEm: linha.agendamento_em,
                     }
                   : a,
               );
@@ -156,6 +160,11 @@ export function MonitorCarretas({
                     </div>
                     <p className="text-xs text-slate-600">{a.fabricaNome} → {a.transportadoraNome}</p>
                     <p className="text-xs text-slate-500">DT {a.numeroDt} — {a.motoristaNome}</p>
+                    {a.cargaAgendada && (
+                      <p className="mt-1 text-xs font-semibold text-primary">
+                        ⏰ Agendada {a.agendamentoEm ? `para ${formatarHora(a.agendamentoEm)}` : ""}
+                      </p>
+                    )}
                     <p className="mt-1 text-xs font-semibold text-slate-700">
                       Há {formatarMinutos(minutosDesde(a.chegadaEm, agora))}
                     </p>

@@ -24,6 +24,7 @@ type LinhaAtiva = {
   placa_carreta: string;
   chegada_em: string;
   carga_agendada: boolean;
+  agendamento_em: string | null;
   status: CardAtendimento["status"];
   pa_fabricas: { nome: string } | { nome: string }[] | null;
   pa_transportadoras: { nome: string } | { nome: string }[] | null;
@@ -67,7 +68,7 @@ export default async function CarretasConferenciaPage() {
   const [{ data: ativosBanco }, { data: finalizadosBanco }, { data: configBanco }] = await Promise.all([
     supabase
       .from("atendimentos_carretas")
-      .select("id, numero_dt, motorista_nome, placa_carreta, chegada_em, carga_agendada, status, pa_fabricas(nome), pa_transportadoras(nome)")
+      .select("id, numero_dt, motorista_nome, placa_carreta, chegada_em, carga_agendada, agendamento_em, status, pa_fabricas(nome), pa_transportadoras(nome)")
       .eq("revenda_id", revendaId)
       .in("status", ["aguardando_conferente", "em_descarga", "em_carga"])
       .order("chegada_em", { ascending: true }),
@@ -92,6 +93,7 @@ export default async function CarretasConferenciaPage() {
       placaCarreta: a.placa_carreta,
       chegadaEm: a.chegada_em,
       cargaAgendada: a.carga_agendada,
+      agendamentoEm: a.agendamento_em,
       status: a.status,
       fabricaNome: nomeRelacionado(a.pa_fabricas),
       transportadoraNome: nomeRelacionado(a.pa_transportadoras),
@@ -115,6 +117,19 @@ export default async function CarretasConferenciaPage() {
   return (
     <div>
       <PageHeader title="🖥️ Monitor de Recebimento" subtitle="Monitor ao vivo — atende, preenche e finaliza." />
+
+      <a
+        href="/produtividade-armazem"
+        className="mb-2 inline-flex text-sm font-medium text-primary hover:underline"
+      >
+        ← Produtividade do Armazém
+      </a>
+      <a
+        href="/carretas-portaria"
+        className="mb-4 ml-4 inline-flex text-sm font-medium text-primary hover:underline"
+      >
+        👮 Ir para o Recebimento de Carreta →
+      </a>
 
       <MonitorCarretas iniciais={ativos} revendaId={revendaId} tmaAlvoMinutos={tmaAlvoMinutos} />
 

@@ -46,6 +46,10 @@ export default async function EmpilhadeiraIndexPage() {
         subtitle="Escolha a máquina para abrir ou fechar a operação."
       />
 
+      <a href="/produtividade-armazem" className="mb-4 inline-flex text-sm font-medium text-primary hover:underline">
+        ← Produtividade do Armazém
+      </a>
+
       {(!maquinas || maquinas.length === 0) && (
         <p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-800">
           Nenhuma empilhadeira cadastrada ainda. Peça ao Admin para cadastrar em

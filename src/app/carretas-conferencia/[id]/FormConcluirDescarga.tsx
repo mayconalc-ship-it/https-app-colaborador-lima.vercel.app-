@@ -9,6 +9,7 @@ const campo =
 const rotulo = "mb-1 block text-xs font-semibold uppercase text-slate-500";
 
 type Ag = { id: string; codigo: string; descricao: string; unidade: string };
+type Fabrica = { id: string; nome: string };
 
 let contador = 0;
 function novaChave() {
@@ -19,9 +20,11 @@ function novaChave() {
 export function FormConcluirDescarga({
   atendimentoId,
   agCatalogo,
+  fabricas,
 }: {
   atendimentoId: string;
   agCatalogo: Ag[];
+  fabricas: Fabrica[];
 }) {
   const [retorno, setRetorno] = useState<"vazia" | "com_ag">("vazia");
   const [itensAg, setItensAg] = useState<string[]>([novaChave()]);
@@ -61,7 +64,12 @@ export function FormConcluirDescarga({
         <div className="space-y-3 rounded-xl bg-slate-50 p-3">
           <div>
             <label className={rotulo} htmlFor="destino_retorno">Destino da carreta</label>
-            <input id="destino_retorno" name="destino_retorno" required className={campo} />
+            <select id="destino_retorno" name="destino_retorno" required className={campo} defaultValue="">
+              <option value="" disabled>Escolha a fábrica de destino</option>
+              {fabricas.map((f) => (
+                <option key={f.id} value={f.nome}>{f.nome}</option>
+              ))}
+            </select>
           </div>
 
           <div className="space-y-2">

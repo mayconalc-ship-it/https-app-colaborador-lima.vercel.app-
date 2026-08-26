@@ -248,6 +248,19 @@ export async function alternarTransportadoraAtivo(formData: FormData) {
   sucesso("recebimento", "Atualizado");
 }
 
+/** Nome completo = pelo menos um sobrenome, não só o primeiro nome. */
+function ehNomeCompleto(nome: string): boolean {
+  return nome.trim().split(/\s+/).filter(Boolean).length >= 2;
+}
+
+/** CPF só com os 11 dígitos -- sem validar dígito verificador (mesmo
+ *  nível de rigor que o resto do app já usa pra CPF, ver profiles.cpf). */
+function cpfOuErro(v: FormDataEntryValue | null, aba: string): string {
+  const digitos = String(v ?? "").replace(/\D/g, "");
+  if (digitos.length !== 11) erro(aba, "Informe um CPF válido, com 11 dígitos.");
+  return digitos;
+}
+
 // -------------------- MOTORISTAS --------------------
 export async function salvarMotorista(formData: FormData) {
   await requireModulo("produtividade-armazem", "editar");
@@ -255,7 +268,9 @@ export async function salvarMotorista(formData: FormData) {
   const admin = createAdminClient();
   const nome = String(formData.get("nome") ?? "").trim();
   if (!nome) erro("recebimento", "Informe o nome do motorista.");
-  const { error } = await admin.from("pa_motoristas").insert({ revenda_id: revendaId, nome });
+  if (!ehNomeCompleto(nome)) erro("recebimento", "Informe o nome completo do motorista.");
+  const cpf = cpfOuErro(formData.get("cpf"), "recebimento");
+  const { error } = await admin.from("pa_motoristas").insert({ revenda_id: revendaId, nome, cpf });
   if (error) erro("recebimento", `Não foi possível salvar: ${error.message}`);
   revalidatePath(ROTA);
   sucesso("recebimento", "Motorista cadastrado");
@@ -268,7 +283,9 @@ export async function editarMotorista(formData: FormData) {
   const id = String(formData.get("id") ?? "");
   const nome = String(formData.get("nome") ?? "").trim();
   if (!nome) erro("recebimento", "Informe o nome do motorista.");
-  const { error } = await admin.from("pa_motoristas").update({ nome }).eq("id", id).eq("revenda_id", revendaId);
+  if (!ehNomeCompleto(nome)) erro("recebimento", "Informe o nome completo do motorista.");
+  const cpf = cpfOuErro(formData.get("cpf"), "recebimento");
+  const { error } = await admin.from("pa_motoristas").update({ nome, cpf }).eq("id", id).eq("revenda_id", revendaId);
   if (error) erro("recebimento", `Não foi possível salvar: ${error.message}`);
   revalidatePath(ROTA);
   sucesso("recebimento", "Motorista atualizado");
@@ -302,14 +319,11 @@ export async function buscarMotoristas(termo: string) {
   const revendaId = await exigirRevenda("/carretas-portaria");
   if (termo.trim().length < 2) return [];
   const supabase = await createClient();
-  const { data } = await supabase
-    .from("pa_motoristas")
-    .select("id, nome")
-    .eq("revenda_id", revendaId)
-    .eq("ativo", true)
-    .ilike("nome", `%${termo.trim()}%`)
-    .order("nome")
-    .limit(10);
+  const t = termo.trim();
+  const digitos = t.replace(/\D/g, "");
+  let consulta = supabase.from("pa_motoristas").select("id, nome").eq("revenda_id", revendaId).eq("ativo", true);
+  consulta = digitos.length >= 3 ? consulta.or(`nome.ilike.%${t}%,cpf.ilike.%${digitos}%`) : consulta.ilike("nome", `%${t}%`);
+  const { data } = await consulta.order("nome").limit(10);
   return data ?? [];
 }
 
@@ -320,7 +334,9 @@ export async function salvarEmpilhador(formData: FormData) {
   const admin = createAdminClient();
   const nome = String(formData.get("nome") ?? "").trim();
   if (!nome) erro("recebimento", "Informe o nome do empilhador.");
-  const { error } = await admin.from("pa_empilhadores").insert({ revenda_id: revendaId, nome });
+  if (!ehNomeCompleto(nome)) erro("recebimento", "Informe o nome completo do empilhador.");
+  const cpf = cpfOuErro(formData.get("cpf"), "recebimento");
+  const { error } = await admin.from("pa_empilhadores").insert({ revenda_id: revendaId, nome, cpf });
   if (error) erro("recebimento", `Não foi possível salvar: ${error.message}`);
   revalidatePath(ROTA);
   sucesso("recebimento", "Empilhador cadastrado");
@@ -333,7 +349,9 @@ export async function editarEmpilhador(formData: FormData) {
   const id = String(formData.get("id") ?? "");
   const nome = String(formData.get("nome") ?? "").trim();
   if (!nome) erro("recebimento", "Informe o nome do empilhador.");
-  const { error } = await admin.from("pa_empilhadores").update({ nome }).eq("id", id).eq("revenda_id", revendaId);
+  if (!ehNomeCompleto(nome)) erro("recebimento", "Informe o nome completo do empilhador.");
+  const cpf = cpfOuErro(formData.get("cpf"), "recebimento");
+  const { error } = await admin.from("pa_empilhadores").update({ nome, cpf }).eq("id", id).eq("revenda_id", revendaId);
   if (error) erro("recebimento", `Não foi possível salvar: ${error.message}`);
   revalidatePath(ROTA);
   sucesso("recebimento", "Empilhador atualizado");
@@ -367,14 +385,11 @@ export async function buscarEmpilhadores(termo: string) {
   const revendaId = await exigirRevenda("/carretas-conferencia");
   if (termo.trim().length < 2) return [];
   const supabase = await createClient();
-  const { data } = await supabase
-    .from("pa_empilhadores")
-    .select("id, nome")
-    .eq("revenda_id", revendaId)
-    .eq("ativo", true)
-    .ilike("nome", `%${termo.trim()}%`)
-    .order("nome")
-    .limit(10);
+  const t = termo.trim();
+  const digitos = t.replace(/\D/g, "");
+  let consulta = supabase.from("pa_empilhadores").select("id, nome").eq("revenda_id", revendaId).eq("ativo", true);
+  consulta = digitos.length >= 3 ? consulta.or(`nome.ilike.%${t}%,cpf.ilike.%${digitos}%`) : consulta.ilike("nome", `%${t}%`);
+  const { data } = await consulta.order("nome").limit(10);
   return data ?? [];
 }
 

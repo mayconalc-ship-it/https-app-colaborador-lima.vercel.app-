@@ -17,8 +17,8 @@ const FUNCIONALIDADES: { chave: ModuloId; titulo: string; emoji: string; href: s
   { chave: "pa-recebimento", titulo: "Recebimento de Paletes", emoji: "🚛", href: "/produtividade-armazem/recebimento" },
   { chave: "pa-cinco-s", titulo: "5S do Armazém", emoji: "🧹", href: "/produtividade-armazem/cinco-s" },
   { chave: "pa-picking", titulo: "Reabastecimento de Picking", emoji: "🛒", href: "/produtividade-armazem/picking" },
-  { chave: "carretas-portaria", titulo: "Portaria de Carretas", emoji: "🚪", href: "/carretas-portaria" },
-  { chave: "carretas-conferencia", titulo: "Conferência de Carretas", emoji: "📥", href: "/carretas-conferencia" },
+  { chave: "carretas-portaria", titulo: "Recebimento de Carreta", emoji: "👮", href: "/carretas-portaria" },
+  { chave: "carretas-conferencia", titulo: "Monitor de Recebimento", emoji: "🖥️", href: "/carretas-conferencia" },
 ];
 
 export default async function ProdutividadeArmazemPage() {

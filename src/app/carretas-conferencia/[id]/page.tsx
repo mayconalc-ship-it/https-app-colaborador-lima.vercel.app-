@@ -89,7 +89,7 @@ export default async function DetalheAtendimentoPage({ params }: { params: Promi
   if (!revendaId) redirect(`/?erro=${encodeURIComponent("Você não está em nenhuma revenda.")}`);
 
   const supabase = await createClient();
-  const [{ data: atendimentoBanco }, { data: notasBanco }, { data: itensBanco }, { data: agItensBanco }, { data: agCatalogoBanco }, { data: configBanco }] =
+  const [{ data: atendimentoBanco }, { data: notasBanco }, { data: itensBanco }, { data: agItensBanco }, { data: agCatalogoBanco }, { data: configBanco }, { data: fabricasBanco }] =
     await Promise.all([
       supabase
         .from("atendimentos_carretas")
@@ -119,6 +119,7 @@ export default async function DetalheAtendimentoPage({ params }: { params: Promi
         .select("tma_alvo_minutos, dias_minimos_validade_alerta")
         .eq("revenda_id", revendaId)
         .maybeSingle(),
+      supabase.from("pa_fabricas").select("id, nome").eq("revenda_id", revendaId).eq("ativo", true).order("nome"),
     ]);
 
   const a = atendimentoBanco as unknown as LinhaAtendimento | null;
@@ -129,6 +130,7 @@ export default async function DetalheAtendimentoPage({ params }: { params: Promi
   const agItens = (agItensBanco ?? []) as unknown as LinhaAgItem[];
   const agCatalogo = (agCatalogoBanco ?? []) as { id: string; codigo: string; descricao: string; unidade: string }[];
   const diasMinimosValidadeAlerta = configBanco?.dias_minimos_validade_alerta ?? RECEBIMENTO_CONFIG_PADRAO.diasMinimosValidadeAlerta;
+  const fabricas = (fabricasBanco ?? []) as { id: string; nome: string }[];
   const notasProduto = notas.filter((n) => n.tipo === "produto");
   const notasRemessa = notas.filter((n) => n.tipo === "remessa");
 
@@ -206,7 +208,7 @@ export default async function DetalheAtendimentoPage({ params }: { params: Promi
         <FormAssumir atendimentoId={a.id} diasMinimosValidadeAlerta={diasMinimosValidadeAlerta} />
       )}
 
-      {a.status === "em_descarga" && <FormConcluirDescarga atendimentoId={a.id} agCatalogo={agCatalogo} />}
+      {a.status === "em_descarga" && <FormConcluirDescarga atendimentoId={a.id} agCatalogo={agCatalogo} fabricas={fabricas} />}
 
       {a.status === "em_carga" && (
         <div className="space-y-4">
@@ -244,14 +246,16 @@ export default async function DetalheAtendimentoPage({ params }: { params: Promi
         <div className="space-y-4">
           <div className="rounded-2xl border border-green-200 bg-green-50 p-5 text-center">
             <span className="text-4xl">✅</span>
-            <p className="mt-2 text-base font-bold text-green-800">Atendimento finalizado</p>
+            <p className="mt-2 text-sm font-bold text-green-800">Atendimento finalizado</p>
             <p className="text-xs text-green-700">
               {a.finalizacao_em ? formatarDataHora(a.finalizacao_em) : "—"}
             </p>
+            <p className="mt-3 text-[11px] font-semibold uppercase tracking-wide text-green-700">TMA</p>
+            <p className="text-4xl font-extrabold text-green-800">{tma !== null ? formatarMinutos(tma) : "—"}</p>
           </div>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+
+          <div className="grid grid-cols-3 gap-3">
             {[
-              { rotulo: "TMA", valor: tma },
               { rotulo: "Espera portaria", valor: esperaPortaria },
               { rotulo: "Tempo de carga", valor: a.tem_carga ? tempoCarga : null },
               { rotulo: "Tempo no pátio", valor: tempoPatio },
@@ -264,6 +268,16 @@ export default async function DetalheAtendimentoPage({ params }: { params: Promi
               </div>
             ))}
           </div>
+          <details className="rounded-xl bg-slate-50 p-3 text-xs text-slate-500">
+            <summary className="cursor-pointer font-semibold text-slate-600">ℹ️ Como cada tempo é medido (os números não somam entre si)</summary>
+            <ul className="mt-2 space-y-1.5">
+              <li><strong>TMA</strong> — o principal: dura da chegada até o fim da descarga (ou do horário agendado até o fim da descarga, se era agendada). Já inclui a espera na portaria quando não há agendamento.</li>
+              <li><strong>Espera na portaria</strong> — só o pedaço entre a chegada e o conferente assumir. Não soma com o TMA: é um recorte DE DENTRO dele.</li>
+              <li><strong>Tempo de carga</strong> — só o carregamento de AG no retorno, começa depois que a descarga já terminou.</li>
+              <li><strong>Tempo no pátio</strong> — o relógio inteiro, da chegada até a saída. É o único cronometrado direto do início ao fim; os outros três olham pedaços que podem se sobrepor, por isso não dá pra somá-los e chegar nesse número.</li>
+            </ul>
+          </details>
+
           {(a.destino_retorno || agItens.length > 0) && (
             <div className="rounded-2xl border border-purple-200 bg-purple-50 p-4">
               <p className="flex items-center gap-1.5 text-sm font-bold text-purple-900">🔄 Retorno com AG</p>
