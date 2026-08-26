@@ -126,12 +126,12 @@ export function produtoReepackDeLinha(l: {
 /** Só os campos que a agregação do dashboard precisa (id, rótulo, meta) --
  *  ProdutoReepack serve aqui também (é um superconjunto), mas os pontos
  *  que só olham meta (indicadores/page.tsx) não precisam buscar codigo,
- *  fatorHecto etc. do banco só pra montar o tipo certo. */
+ *  fatorHecto etc. do banco só pra montar o tipo certo. Só Reepack usa
+ *  isto -- Despejo é por embalagem (ver EmbalagemDespejo). */
 export type ProdutoMeta = {
   id: string;
   descricao: string;
   metaReepackHora: number | null;
-  metaDespejoHora: number | null;
 };
 
 /** Pronto para aparecer no lançamento: precisa do litro E da embalagem
@@ -143,6 +143,43 @@ export function produtoProntoParaReepack(p: ProdutoReepack): boolean {
 /** Litros de UMA caixa: Fator Hecto (hectolitros/caixa) x 100. */
 export function litrosPorCaixa(fatorHecto: number): number {
   return Math.round(fatorHecto * 100 * 1000) / 1000;
+}
+
+// --------------------------------------------------------------------
+// EMBALAGEM (Despejo -- volta a ser por embalagem, não por produto)
+// --------------------------------------------------------------------
+// Reepack continua por PRODUTO (ver acima). Despejo volta a ser por
+// EMBALAGEM: o produto específico não importa pra essa operação, o que
+// importa é o tipo de embalagem despejada -- pedido do dono depois de
+// usar o app por um tempo. litrosPorPacote é o litro/caixa cadastrado
+// direto na embalagem (mesmo campo que já existia desde a 051, só
+// voltou a ser preenchido/usado); metaLitrosHora é a meta de despejo,
+// também por embalagem agora (antes tinha virado por produto na 060).
+export type EmbalagemDespejo = {
+  id: string;
+  nome: string;
+  litrosPorPacote: number | null;
+  metaLitrosHora: number | null;
+};
+
+export function embalagemDespejoDeLinha(l: {
+  id: string;
+  nome: string;
+  litros_por_pacote: number | null;
+  meta_litros_hora: number | null;
+}): EmbalagemDespejo {
+  return {
+    id: l.id,
+    nome: l.nome,
+    litrosPorPacote: l.litros_por_pacote,
+    metaLitrosHora: l.meta_litros_hora,
+  };
+}
+
+/** Pronta para aparecer no lançamento de despejo: precisa do litro por
+ *  pacote cadastrado -- sem isso não dá pra converter caixas em litros. */
+export function embalagemProntaParaDespejo(e: EmbalagemDespejo): boolean {
+  return e.litrosPorPacote !== null;
 }
 
 // --------------------------------------------------------------------
@@ -558,7 +595,8 @@ export function mediaExecucoes5sPorPessoa(execucoes: { colaboradorId: string }[]
 /**
  * Pontuação: média simples das até 4 métricas que a pessoa (ou turno)
  * realmente tem, todas na mesma escala de %:
- *  - Reepack e Despejo: % da meta cadastrada por produto (pctDaMeta).
+ *  - Reepack: % da meta cadastrada por produto; Despejo: % da meta
+ *    cadastrada por embalagem (pctDaMeta nos dois casos).
  *  - Picking e 5S: % da média do grupo no mesmo recorte (pctRelativoAoGrupo)
  *    -- não tem meta cadastrada, então a régua é "comparado com todo
  *    mundo", pra ficar justo com as outras duas métricas em vez de somar
@@ -625,6 +663,49 @@ export function agruparPorProduto(
     .sort((a, b) => b.quantidade - a.quantidade);
 }
 
+export type LinhaIndicadorEmbalagem = {
+  embalagemId: string;
+  embalagemNome: string;
+  quantidade: number;
+  horas: number;
+  taxa: number;
+  meta: number | null;
+  pctMeta: number | null;
+};
+
+/** Mesma ideia de agruparPorProduto, só que por embalagem -- é o que
+ *  Despejo usa agora (Reepack continua por produto, ver acima). */
+export function agruparPorEmbalagem(
+  lancamentos: { embalagemId: string; quantidade: number; inicio: string; fim: string }[],
+  embalagens: EmbalagemDespejo[],
+  pegarMeta: (e: EmbalagemDespejo) => number | null,
+): LinhaIndicadorEmbalagem[] {
+  const porEmbalagem = new Map<string, { quantidade: number; horas: number }>();
+  for (const l of lancamentos) {
+    const atual = porEmbalagem.get(l.embalagemId) ?? { quantidade: 0, horas: 0 };
+    atual.quantidade += l.quantidade;
+    atual.horas += horasEntre(l.inicio, l.fim);
+    porEmbalagem.set(l.embalagemId, atual);
+  }
+
+  return [...porEmbalagem.entries()]
+    .map(([embalagemId, soma]) => {
+      const embalagem = embalagens.find((e) => e.id === embalagemId);
+      const taxa = taxaPorHora(soma.quantidade, soma.horas);
+      const meta = embalagem ? pegarMeta(embalagem) : null;
+      return {
+        embalagemId,
+        embalagemNome: embalagem?.nome ?? "embalagem removida",
+        quantidade: soma.quantidade,
+        horas: Math.round(soma.horas * 10) / 10,
+        taxa,
+        meta,
+        pctMeta: pctDaMeta(taxa, meta),
+      };
+    })
+    .sort((a, b) => b.quantidade - a.quantidade);
+}
+
 /**
  * Ranking por colaborador e turno: uma linha por pessoa, com a média das
  * % de meta em reepack/despejo e as posições de picking somadas. Turno
@@ -633,10 +714,11 @@ export function agruparPorProduto(
  */
 export function construirRanking(
   reepacks: { colaboradorId: string; colaboradorNome: string; produtoId: string; quantidade: number; inicio: string; fim: string }[],
-  despejos: { colaboradorId: string; colaboradorNome: string; produtoId: string; litros: number; inicio: string; fim: string }[],
+  despejos: { colaboradorId: string; colaboradorNome: string; embalagemId: string; litros: number; inicio: string; fim: string }[],
   pickings: { colaboradorId: string; colaboradorNome: string; posicoesReabastecidas: number | null }[],
   execucoes5s: { colaboradorId: string; colaboradorNome: string }[],
   produtos: ProdutoMeta[],
+  embalagens: EmbalagemDespejo[],
 ): PontuacaoRanking[] {
   const pessoas = new Map<string, string>();
   for (const r of reepacks) pessoas.set(r.colaboradorId, r.colaboradorNome);
@@ -659,10 +741,10 @@ export function construirRanking(
     const minhasPosicoes = meusPickings.reduce((s, p) => s + (p.posicoesReabastecidas ?? 0), 0);
 
     const reepacksAgrupados = agruparPorProduto(meusReepacks, produtos, (p) => p.metaReepackHora);
-    const despejosAgrupados = agruparPorProduto(
+    const despejosAgrupados = agruparPorEmbalagem(
       meusDespejos.map((d) => ({ ...d, quantidade: d.litros })),
-      produtos,
-      (p) => p.metaDespejoHora,
+      embalagens,
+      (e) => e.metaLitrosHora,
     );
 
     const reepacksPctMeta = mediaPct(reepacksAgrupados.map((r) => r.pctMeta));

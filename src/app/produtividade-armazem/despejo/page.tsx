@@ -5,20 +5,18 @@ import { BotaoExcluir } from "@/components/BotaoExcluir";
 import { createClient } from "@/lib/supabase/server";
 import { getRevendaId } from "@/lib/revendas";
 import { podeNoModulo, requireAcessoModulo } from "@/lib/require-admin";
-import { buscarProdutosReepack } from "@/app/admin/produtividade-armazem/actions";
-import { ComboboxProduto } from "@/components/produtividade-armazem/ComboboxProduto";
 import {
   ROTULO_TURNO,
   TURNOS,
   diasAtrasISO,
+  embalagemDespejoDeLinha,
   formatarDataHora,
   formatarDuracao,
   hojeISO,
   pctDaMeta,
-  produtoReepackDeLinha,
   taxaPorHora,
   turnoAtual,
-  type ProdutoReepack,
+  type EmbalagemDespejo,
 } from "@/lib/produtividade-armazem";
 import { cancelarDespejo, editarDespejo, excluirDespejo, finalizarDespejo, iniciarDespejo } from "./actions";
 
@@ -33,7 +31,6 @@ const rotulo = "mb-1 block text-xs font-semibold uppercase text-slate-500";
 type Lancamento = {
   id: string;
   embalagem_id: string;
-  produto_id: string | null;
   colaborador_id: string;
   colaborador_nome: string;
   turno: string;
@@ -46,7 +43,7 @@ type Lancamento = {
 
 type Aberto = {
   id: string;
-  produto_id: string | null;
+  embalagem_id: string;
   turno: string;
   inicio: string;
 };
@@ -59,7 +56,7 @@ export default async function DespejoPage({
     de?: string;
     ate?: string;
     colab?: string;
-    produto?: string;
+    embalagem?: string;
     erro?: string;
     sucesso?: string;
   }>;
@@ -71,32 +68,31 @@ export default async function DespejoPage({
   const de = sp.de ?? diasAtrasISO(30);
   const ate = sp.ate ?? hojeISO();
   const colab = (sp.colab ?? "").trim();
-  const produtoFiltro = (sp.produto ?? "").trim();
+  const embalagemFiltro = (sp.embalagem ?? "").trim();
 
   const revendaId = await getRevendaId();
   if (!revendaId) redirect(`/?erro=${encodeURIComponent("Você não está em nenhuma revenda.")}`);
 
   const supabase = await createClient();
-  const [{ data: produtosBanco }, { data: abertoBanco }, { data: minhas }, { data: doPeriodo }, podeExcluirQualquer] =
+  const [{ data: embalagensBanco }, { data: abertoBanco }, { data: minhas }, { data: doPeriodo }, podeExcluirQualquer] =
     await Promise.all([
       supabase
-        .from("pa_produtos")
-        .select("id, codigo, descricao, unidades_por_caixa, fator_hecto, embalagem_id, meta_despejo_hora")
+        .from("pa_embalagens")
+        .select("id, nome, litros_por_pacote, meta_litros_hora")
         .eq("revenda_id", revendaId)
         .eq("ativo", true)
-        .not("fator_hecto", "is", null)
-        .not("embalagem_id", "is", null)
-        .order("descricao"),
+        .not("litros_por_pacote", "is", null)
+        .order("nome"),
       supabase
         .from("pa_despejo_lancamentos")
-        .select("id, produto_id, turno, inicio")
+        .select("id, embalagem_id, turno, inicio")
         .eq("revenda_id", revendaId)
         .eq("colaborador_id", perfil.id)
         .is("fim", null)
         .maybeSingle(),
       supabase
         .from("pa_despejo_lancamentos")
-        .select("id, embalagem_id, produto_id, colaborador_id, colaborador_nome, turno, quantidade_pacotes, litros, inicio, fim, observacao")
+        .select("id, embalagem_id, colaborador_id, colaborador_nome, turno, quantidade_pacotes, litros, inicio, fim, observacao")
         .eq("revenda_id", revendaId)
         .eq("colaborador_id", perfil.id)
         .not("fim", "is", null)
@@ -106,21 +102,21 @@ export default async function DespejoPage({
         ? (() => {
             let q = supabase
               .from("pa_despejo_lancamentos")
-              .select("id, embalagem_id, produto_id, colaborador_id, colaborador_nome, turno, quantidade_pacotes, litros, inicio, fim, observacao")
+              .select("id, embalagem_id, colaborador_id, colaborador_nome, turno, quantidade_pacotes, litros, inicio, fim, observacao")
               .eq("revenda_id", revendaId)
               .not("fim", "is", null)
               .gte("inicio", `${de}T00:00:00`)
               .lte("inicio", `${ate}T23:59:59`);
             if (colab) q = q.eq("colaborador_id", colab);
-            if (produtoFiltro) q = q.eq("produto_id", produtoFiltro);
+            if (embalagemFiltro) q = q.eq("embalagem_id", embalagemFiltro);
             return q.order("inicio", { ascending: false }).limit(300);
           })()
         : Promise.resolve({ data: null }),
       podeNoModulo("produtividade-armazem", "excluir"),
     ]);
 
-  const produtos: ProdutoReepack[] = (produtosBanco ?? []).map(produtoReepackDeLinha);
-  const produtoPorId = new Map(produtos.map((p) => [p.id, p]));
+  const embalagens: EmbalagemDespejo[] = (embalagensBanco ?? []).map(embalagemDespejoDeLinha);
+  const embalagemPorId = new Map(embalagens.map((e) => [e.id, e]));
   const aberto = abertoBanco as Aberto | null;
   const minhasLancamentos = (minhas ?? []) as Lancamento[];
   const historico = (doPeriodo ?? []) as Lancamento[];
@@ -131,7 +127,7 @@ export default async function DespejoPage({
   return (
     <div>
       <PageHeader
-        title="Despejo por Produto"
+        title="Despejo por Embalagem"
         subtitle="Inicie ao começar, finalize informando quantas caixas você despejou -- o litro sai sozinho."
       />
 
@@ -170,7 +166,7 @@ export default async function DespejoPage({
               <form action={finalizarDespejo} className="space-y-3">
                 <input type="hidden" name="id" value={aberto.id} />
                 <p className="text-sm font-bold text-amber-900">
-                  🕐 Despejo em andamento — {produtoRotulo(aberto.produto_id, produtoPorId)} ·{" "}
+                  🕐 Despejo em andamento — {embalagemRotulo(aberto.embalagem_id, embalagemPorId)} ·{" "}
                   {ROTULO_TURNO[aberto.turno as keyof typeof ROTULO_TURNO] ?? aberto.turno}
                 </p>
                 <p className="text-xs text-amber-800">Iniciado às {formatarDataHora(aberto.inicio)}</p>
@@ -186,7 +182,7 @@ export default async function DespejoPage({
                     required
                     className={campo}
                   />
-                  <p className="mt-1 text-xs text-slate-500">O litro é calculado sozinho, pelo Fator Hecto do produto.</p>
+                  <p className="mt-1 text-xs text-slate-500">O litro é calculado sozinho, pelo litro/pacote da embalagem.</p>
                 </div>
                 <div>
                   <label className={rotulo} htmlFor="observacao">Observação (opcional)</label>
@@ -211,10 +207,10 @@ export default async function DespejoPage({
                 Cancelar (comecei por engano)
               </BotaoExcluir>
             </div>
-          ) : produtos.length === 0 ? (
+          ) : embalagens.length === 0 ? (
             <p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-800">
-              Nenhum produto pronto para despejo ainda. Peça ao Admin para
-              cadastrar em Configuração &gt; Reepack/Despejo.
+              Nenhuma embalagem pronta para despejo ainda. Peça ao Admin para
+              cadastrar o litro por pacote em Configuração &gt; Produtos.
             </p>
           ) : (
             <form
@@ -222,8 +218,13 @@ export default async function DespejoPage({
               className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4"
             >
               <div>
-                <label className={rotulo} htmlFor="produto_id">Produto</label>
-                <ComboboxProduto buscar={buscarProdutosReepack} placeholder="Digite o código ou a descrição do produto" />
+                <label className={rotulo} htmlFor="embalagem_id">Embalagem</label>
+                <select id="embalagem_id" name="embalagem_id" required className={campo} defaultValue="">
+                  <option value="" disabled>Escolha a embalagem</option>
+                  {embalagens.map((e) => (
+                    <option key={e.id} value={e.id}>{e.nome}</option>
+                  ))}
+                </select>
               </div>
 
               <div>
@@ -270,8 +271,9 @@ export default async function DespejoPage({
                   <LinhaDespejo
                     key={l.id}
                     l={l}
-                    produtoRotulo={produtoRotulo(l.produto_id, produtoPorId)}
-                    meta={l.produto_id ? (produtoPorId.get(l.produto_id)?.metaDespejoHora ?? null) : null}
+                    embalagemRotulo={embalagemRotulo(l.embalagem_id, embalagemPorId)}
+                    embalagens={embalagens}
+                    meta={embalagemPorId.get(l.embalagem_id)?.metaLitrosHora ?? null}
                     podeExcluir={l.colaborador_id === perfil.id || podeExcluirQualquer}
                     podeEditar={l.colaborador_id === perfil.id}
                   />
@@ -295,11 +297,11 @@ export default async function DespejoPage({
               <input id="ate" type="date" name="ate" defaultValue={ate} className={campo} />
             </div>
             <div className="min-w-[10rem] flex-1">
-              <label className={rotulo} htmlFor="produto">Produto</label>
-              <select id="produto" name="produto" defaultValue={produtoFiltro} className={campo}>
-                <option value="">Todos</option>
-                {produtos.map((p) => (
-                  <option key={p.id} value={p.id}>{p.descricao}</option>
+              <label className={rotulo} htmlFor="embalagem">Embalagem</label>
+              <select id="embalagem" name="embalagem" defaultValue={embalagemFiltro} className={campo}>
+                <option value="">Todas</option>
+                {embalagens.map((e) => (
+                  <option key={e.id} value={e.id}>{e.nome}</option>
                 ))}
               </select>
             </div>
@@ -327,8 +329,9 @@ export default async function DespejoPage({
                 <LinhaDespejo
                   key={l.id}
                   l={l}
-                  produtoRotulo={produtoRotulo(l.produto_id, produtoPorId)}
-                  meta={l.produto_id ? (produtoPorId.get(l.produto_id)?.metaDespejoHora ?? null) : null}
+                  embalagemRotulo={embalagemRotulo(l.embalagem_id, embalagemPorId)}
+                  embalagens={embalagens}
+                  meta={embalagemPorId.get(l.embalagem_id)?.metaLitrosHora ?? null}
                   podeExcluir={l.colaborador_id === perfil.id || podeExcluirQualquer}
                   podeEditar={l.colaborador_id === perfil.id}
                   mostrarColaborador
@@ -342,23 +345,25 @@ export default async function DespejoPage({
   );
 }
 
-/** Rótulo do produto pelo id -- lançamento antigo sem produto_id cai
- *  num traço, em vez de quebrar a tela. */
-function produtoRotulo(produtoId: string | null, produtoPorId: Map<string, ProdutoReepack>): string {
-  if (!produtoId) return "—";
-  return produtoPorId.get(produtoId)?.descricao ?? "produto removido";
+/** Rótulo da embalagem pelo id -- lançamento sem embalagem correspondente
+ *  cai num traço, em vez de quebrar a tela. */
+function embalagemRotulo(embalagemId: string | null, embalagemPorId: Map<string, EmbalagemDespejo>): string {
+  if (!embalagemId) return "—";
+  return embalagemPorId.get(embalagemId)?.nome ?? "embalagem removida";
 }
 
 function LinhaDespejo({
   l,
-  produtoRotulo,
+  embalagemRotulo,
+  embalagens,
   meta,
   podeExcluir,
   podeEditar,
   mostrarColaborador = false,
 }: {
   l: Lancamento;
-  produtoRotulo: string;
+  embalagemRotulo: string;
+  embalagens: EmbalagemDespejo[];
   meta: number | null;
   podeExcluir: boolean;
   podeEditar: boolean;
@@ -373,7 +378,7 @@ function LinhaDespejo({
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-sm font-semibold text-slate-900">
-            {produtoRotulo} · {l.quantidade_pacotes ?? "?"} cx ({l.litros} L) ·{" "}
+            {embalagemRotulo} · {l.quantidade_pacotes ?? "?"} cx ({l.litros} L) ·{" "}
             {ROTULO_TURNO[l.turno as keyof typeof ROTULO_TURNO] ?? l.turno}
           </p>
           <p className="text-xs text-slate-500">
@@ -400,7 +405,7 @@ function LinhaDespejo({
           )}
           <div className="flex gap-1">
             {podeEditar && (
-              <EditarProdutoDespejo id={l.id} produtoAtual={produtoRotulo} />
+              <EditarEmbalagemDespejo id={l.id} embalagemAtual={embalagemRotulo} embalagens={embalagens} />
             )}
             {podeExcluir && (
               <BotaoExcluir
@@ -419,21 +424,34 @@ function LinhaDespejo({
   );
 }
 
-/** Só o PRODUTO dá pra corrigir -- início, fim e quantidade não aparecem
+/** Só a EMBALAGEM dá pra corrigir -- início, fim e quantidade não aparecem
  *  aqui de propósito (ver comentário em editarDespejo, no actions.ts). */
-function EditarProdutoDespejo({ id, produtoAtual }: { id: string; produtoAtual: string }) {
+function EditarEmbalagemDespejo({
+  id,
+  embalagemAtual,
+  embalagens,
+}: {
+  id: string;
+  embalagemAtual: string;
+  embalagens: EmbalagemDespejo[];
+}) {
   return (
     <details className="group">
       <summary className="cursor-pointer list-none rounded-lg border border-slate-200 px-2 py-1 text-xs font-semibold text-slate-600 marker:content-none hover:bg-slate-50 [&::-webkit-details-marker]:hidden">
-        ✏️ Editar produto
+        ✏️ Editar embalagem
       </summary>
       <form
         action={editarDespejo}
         className="mt-2 space-y-1.5 rounded-lg bg-slate-50 p-2"
       >
         <input type="hidden" name="id" value={id} />
-        <p className="text-[11px] text-slate-500">Produto atual: {produtoAtual}</p>
-        <ComboboxProduto buscar={buscarProdutosReepack} placeholder="Digite o código ou a descrição do produto certo" />
+        <p className="text-[11px] text-slate-500">Embalagem atual: {embalagemAtual}</p>
+        <select name="embalagem_id" required className={campo} defaultValue="">
+          <option value="" disabled>Escolha a embalagem certa</option>
+          {embalagens.map((e) => (
+            <option key={e.id} value={e.id}>{e.nome}</option>
+          ))}
+        </select>
         <BotaoEnviar compacto className="w-full rounded-lg bg-primary px-2 py-1 text-xs font-semibold text-white">
           Salvar
         </BotaoEnviar>

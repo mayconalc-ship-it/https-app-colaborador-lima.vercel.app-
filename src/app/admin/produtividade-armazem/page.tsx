@@ -27,6 +27,7 @@ import {
   alternarProdutoAtivo,
   alternarTransportadoraAtivo,
   editarAg,
+  editarEmbalagemDespejo,
   editarEmpilhadeira,
   editarEmpilhador,
   editarFabrica,
@@ -109,7 +110,11 @@ export default async function AdminProdutividadeArmazemPage({
     { data: agCatalogo },
     { data: recebimentoConfig },
   ] = await Promise.all([
-    supabase.from("pa_embalagens").select("id, nome").eq("revenda_id", revendaId).order("nome"),
+    supabase
+      .from("pa_embalagens")
+      .select("id, nome, litros_por_pacote, meta_litros_hora")
+      .eq("revenda_id", revendaId)
+      .order("nome"),
     supabase.from("pa_empilhadeiras").select("id, numero, ativo").eq("revenda_id", revendaId).order("numero"),
     supabase
       .from("pa_empilhadeira_lembretes")
@@ -174,6 +179,7 @@ export default async function AdminProdutividadeArmazemPage({
     supabase.from("pa_recebimento_config").select("tma_alvo_minutos, dias_minimos_validade_alerta").eq("revenda_id", revendaId).maybeSingle(),
   ]);
 
+  const totalEmbalagens = embalagens?.length ?? 0;
   const totalEmpilhadeiras = empilhadeiras?.length ?? 0;
   const totalFabricas = fabricas?.length ?? 0;
   const totalTransportadoras = transportadoras?.length ?? 0;
@@ -245,19 +251,71 @@ export default async function AdminProdutividadeArmazemPage({
       </nav>
 
       {aba === "reepack-despejo" && (
-        <PainelCadastro
-          titulo="Produtos do Reepack/Despejo"
+        <div className="space-y-6">
+          <PainelCadastro
+            titulo="Embalagens — Despejo"
+            contagem={totalEmbalagens}
+            temItens={totalEmbalagens > 0}
+            vazio="Nenhuma embalagem ainda -- importe a planilha de produtos, ela cria as embalagens sozinha."
+            formNovo={
+              <p className="text-xs text-slate-500">
+                Despejo é lançado por embalagem, não por produto -- ajuste aqui o litro por
+                pacote (converte caixas despejadas em litros) e a meta de L/h de cada uma. A
+                embalagem em si vem da planilha de produtos (cria sozinha pelo nome); aqui só
+                se ajustam esses dois números.
+              </p>
+            }
+          >
+            {(embalagens ?? []).map((e) => (
+              <ItemCadastro
+                key={e.id}
+                titulo={e.nome}
+                subtitulo={
+                  e.litros_por_pacote !== null
+                    ? `${e.litros_por_pacote} L/pacote${e.meta_litros_hora ? ` · meta ${e.meta_litros_hora} L/h` : ""}`
+                    : "⚠️ sem litro por pacote -- não aparece no lançamento de despejo"
+                }
+                formEditar={
+                  <form action={editarEmbalagemDespejo} className="flex flex-wrap gap-2">
+                    <input type="hidden" name="id" value={e.id} />
+                    <input
+                      name="litros_por_pacote"
+                      type="number"
+                      step="0.001"
+                      defaultValue={e.litros_por_pacote ?? ""}
+                      placeholder="Litros por pacote"
+                      className={campo}
+                    />
+                    <input
+                      name="meta_litros_hora"
+                      type="number"
+                      step="0.1"
+                      defaultValue={e.meta_litros_hora ?? ""}
+                      placeholder="Meta L/h"
+                      className={campo}
+                    />
+                    <BotaoEnviar compacto className="shrink-0 rounded-lg bg-slate-800 px-3 py-1.5 text-xs font-semibold text-white">
+                      Salvar
+                    </BotaoEnviar>
+                  </form>
+                }
+              />
+            ))}
+          </PainelCadastro>
+
+          <PainelCadastro
+          titulo="Produtos do Reepack"
           contagem={totalProdutosReepack}
           temItens={totalProdutosReepack > 0}
           vazio="Nenhum produto importado ainda -- importe a planilha de cadastro."
           formNovo={
             <div className="space-y-2">
               <p className="text-xs text-slate-500">
-                Cluster, Fator Hecto, caixas/pallet, unidades/caixa, tipo, embalagem e meta
-                (reepack em cx/h, despejo em L/h) de todo produto vêm desta planilha -- sem
-                cadastro um a um, sem vincular embalagem na mão. Produto novo ou meta nova?
-                Atualiza a planilha e importa de novo: quem já existe (mesmo código Promax) é
-                atualizado, nunca duplicado.
+                Cluster, Fator Hecto, caixas/pallet, unidades/caixa, tipo, embalagem e meta de
+                reepack (cx/h) de todo produto vêm desta planilha -- sem cadastro um a um, sem
+                vincular embalagem na mão. Produto novo ou meta nova? Atualiza a planilha e
+                importa de novo: quem já existe (mesmo código Promax) é atualizado, nunca
+                duplicado. Despejo agora é por embalagem, veja o cartão acima.
               </p>
               <form action={importarPlanilhaProdutos} className="flex flex-wrap items-center gap-2">
                 <input
@@ -314,7 +372,6 @@ export default async function AdminProdutividadeArmazemPage({
                         p.caixasPallet !== null ? `${p.caixasPallet} cx/pallet` : null,
                         embalagemNome ?? "sem embalagem vinculada",
                         `meta reepack ${p.metaReepackHora ?? "—"} cx/h`,
-                        `meta despejo ${p.metaDespejoHora ?? "—"} L/h`,
                       ]
                         .filter(Boolean)
                         .join(" · ")
@@ -332,7 +389,8 @@ export default async function AdminProdutividadeArmazemPage({
               />
             );
           })}
-        </PainelCadastro>
+          </PainelCadastro>
+        </div>
       )}
 
       {aba === "empilhadeiras" && (

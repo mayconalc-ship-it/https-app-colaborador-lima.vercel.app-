@@ -19,6 +19,13 @@ function sucesso(aba: string, mensagem: string): never {
   redirect(`${ROTA}?aba=${aba}&sucesso=${encodeURIComponent(mensagem)}`);
 }
 
+function numeroOuNulo(v: FormDataEntryValue | null): number | null {
+  const s = String(v ?? "").trim();
+  if (!s) return null;
+  const n = Number(s);
+  return Number.isFinite(n) ? n : null;
+}
+
 /** Traduz violação de chave estrangeira (23503) numa mensagem que explica
  *  o que fazer, em vez do código do Postgres. Todo excluir passa por aqui. */
 function erroDeExclusao(aba: string, mensagem: string): never {
@@ -474,6 +481,30 @@ export async function salvarConfigRecebimento(formData: FormData) {
   if (error) erro("recebimento", `Não foi possível salvar: ${error.message}`);
   revalidatePath(ROTA);
   sucesso("recebimento", "Configuração salva");
+}
+
+// -------------------- EMBALAGENS (DESPEJO) --------------------
+/** Despejo voltou a ser lançado por embalagem, não por produto -- essas
+ *  são as duas contas que faltam pra embalagem funcionar no lançamento:
+ *  litro por pacote (converte caixas despejadas em litros) e a meta de
+ *  L/h (usada nos indicadores). A embalagem em si continua vindo da
+ *  planilha de produtos (find-or-create pelo nome), sem cadastro manual
+ *  de "nova embalagem" aqui -- só ajusta esses dois números. */
+export async function editarEmbalagemDespejo(formData: FormData) {
+  await requireModulo("produtividade-armazem", "editar");
+  const revendaId = await exigirRevenda(ROTA);
+  const admin = createAdminClient();
+  const id = String(formData.get("id") ?? "");
+  const litrosPorPacote = numeroOuNulo(formData.get("litros_por_pacote"));
+  const metaLitrosHora = numeroOuNulo(formData.get("meta_litros_hora"));
+  const { error } = await admin
+    .from("pa_embalagens")
+    .update({ litros_por_pacote: litrosPorPacote, meta_litros_hora: metaLitrosHora })
+    .eq("id", id)
+    .eq("revenda_id", revendaId);
+  if (error) erro("reepack-despejo", `Não foi possível salvar: ${error.message}`);
+  revalidatePath(ROTA);
+  sucesso("reepack-despejo", "Embalagem atualizada");
 }
 
 // -------------------- PRODUTOS --------------------

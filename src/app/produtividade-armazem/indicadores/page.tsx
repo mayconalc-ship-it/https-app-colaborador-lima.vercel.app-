@@ -6,6 +6,7 @@ import { requireAcessoArmazem } from "@/lib/produtividade-armazem-server";
 import {
   ROTULO_TURNO,
   TURNOS,
+  agruparPorEmbalagem,
   agruparPorProduto,
   calcularPontuacao,
   construirRanking,
@@ -22,6 +23,7 @@ import {
   pctRelativoAoGrupo,
   taxaPorHora,
   turnoAtual,
+  type EmbalagemDespejo,
   type ProdutoMeta,
   type Turno,
 } from "@/lib/produtividade-armazem";
@@ -36,7 +38,7 @@ const rotulo = "mb-1 block text-xs font-semibold uppercase text-slate-500";
 /** Mesmo texto em todo canto que mostra "Pontuação" -- ver calcularPontuacao
  *  em lib/produtividade-armazem.ts, a fórmula de verdade mora lá. */
 const EXPLICACAO_PONTUACAO =
-  "Pontuação = média de até 4 métricas, todas em %: Reepack e Despejo = % da meta cadastrada por produto; Picking e 5S = % da média de todo mundo no mesmo recorte (sem meta cadastrada, a régua é comparar com o grupo). Quem não fez uma atividade não entra na média dela.";
+  "Pontuação = média de até 4 métricas, todas em %: Reepack = % da meta cadastrada por produto; Despejo = % da meta cadastrada por embalagem; Picking e 5S = % da média de todo mundo no mesmo recorte (sem meta cadastrada, a régua é comparar com o grupo). Quem não fez uma atividade não entra na média dela.";
 
 export default async function IndicadoresPage({
   searchParams,
@@ -61,6 +63,7 @@ export default async function IndicadoresPage({
 
   const [
     { data: produtosBanco },
+    { data: embalagensBanco },
     { data: reepacksBanco },
     { data: despejosBanco },
     { data: pickingsBanco },
@@ -70,7 +73,11 @@ export default async function IndicadoresPage({
   ] = await Promise.all([
     supabase
       .from("pa_produtos")
-      .select("id, descricao, meta_reepack_hora, meta_despejo_hora")
+      .select("id, descricao, meta_reepack_hora")
+      .eq("revenda_id", revendaId),
+    supabase
+      .from("pa_embalagens")
+      .select("id, nome, litros_por_pacote, meta_litros_hora")
       .eq("revenda_id", revendaId),
     supabase
       .from("pa_reepack_lancamentos")
@@ -81,7 +88,7 @@ export default async function IndicadoresPage({
       .lte("inicio", ate23),
     supabase
       .from("pa_despejo_lancamentos")
-      .select("produto_id, colaborador_id, colaborador_nome, turno, litros, inicio, fim")
+      .select("embalagem_id, colaborador_id, colaborador_nome, turno, litros, inicio, fim")
       .eq("revenda_id", revendaId)
       .not("fim", "is", null)
       .gte("inicio", de0)
@@ -122,7 +129,12 @@ export default async function IndicadoresPage({
     id: p.id,
     descricao: p.descricao,
     metaReepackHora: p.meta_reepack_hora,
-    metaDespejoHora: p.meta_despejo_hora,
+  }));
+  const embalagens: EmbalagemDespejo[] = (embalagensBanco ?? []).map((e) => ({
+    id: e.id,
+    nome: e.nome,
+    litrosPorPacote: e.litros_por_pacote,
+    metaLitrosHora: e.meta_litros_hora,
   }));
 
   const reepacksTodos = (reepacksBanco ?? []) as {
@@ -135,7 +147,7 @@ export default async function IndicadoresPage({
     fim: string;
   }[];
   const despejosTodos = (despejosBanco ?? []) as {
-    produto_id: string | null;
+    embalagem_id: string;
     colaborador_id: string;
     colaborador_nome: string;
     turno: string;
@@ -181,10 +193,10 @@ export default async function IndicadoresPage({
     produtos,
     (p) => p.metaReepackHora,
   );
-  const despejoPorProduto = agruparPorProduto(
-    despejos.map((d) => ({ produtoId: d.produto_id ?? "", quantidade: d.litros, inicio: d.inicio, fim: d.fim })),
-    produtos,
-    (p) => p.metaDespejoHora,
+  const despejoPorEmbalagem = agruparPorEmbalagem(
+    despejos.map((d) => ({ embalagemId: d.embalagem_id, quantidade: d.litros, inicio: d.inicio, fim: d.fim })),
+    embalagens,
+    (e) => e.metaLitrosHora,
   );
 
   // ---- Reepack e despejo por colaborador ----
@@ -244,10 +256,10 @@ export default async function IndicadoresPage({
       produtos,
       (p) => p.metaReepackHora,
     );
-    const despejoAgrupadoT = agruparPorProduto(
-      despejosT.map((d) => ({ produtoId: d.produto_id ?? "", quantidade: d.litros, inicio: d.inicio, fim: d.fim })),
-      produtos,
-      (p) => p.metaDespejoHora,
+    const despejoAgrupadoT = agruparPorEmbalagem(
+      despejosT.map((d) => ({ embalagemId: d.embalagem_id, quantidade: d.litros, inicio: d.inicio, fim: d.fim })),
+      embalagens,
+      (e) => e.metaLitrosHora,
     );
     const posicoesPickingT = pickingsT.reduce((s, p) => s + (p.posicoes_reabastecidas ?? 0), 0);
     const pickingPctT = pctRelativoAoGrupo(
@@ -289,10 +301,10 @@ export default async function IndicadoresPage({
     produtos,
     (p) => p.metaReepackHora,
   );
-  const despejoAgrupadoGeral = agruparPorProduto(
-    despejosTodos.map((d) => ({ produtoId: d.produto_id ?? "", quantidade: d.litros, inicio: d.inicio, fim: d.fim })),
-    produtos,
-    (p) => p.metaDespejoHora,
+  const despejoAgrupadoGeral = agruparPorEmbalagem(
+    despejosTodos.map((d) => ({ embalagemId: d.embalagem_id, quantidade: d.litros, inicio: d.inicio, fim: d.fim })),
+    embalagens,
+    (e) => e.metaLitrosHora,
   );
   const pontuacaoGeral = calcularPontuacao(
     mediaPct(reepackAgrupadoGeral.map((r) => r.pctMeta)),
@@ -393,7 +405,7 @@ export default async function IndicadoresPage({
     despejos.map((d) => ({
       colaboradorId: d.colaborador_id,
       colaboradorNome: d.colaborador_nome,
-      produtoId: d.produto_id ?? "",
+      embalagemId: d.embalagem_id,
       litros: d.litros,
       inicio: d.inicio,
       fim: d.fim,
@@ -405,6 +417,7 @@ export default async function IndicadoresPage({
     })),
     execucoes5s.map((e) => ({ colaboradorId: e.colaborador_id, colaboradorNome: e.colaborador_nome })),
     produtos,
+    embalagens,
   );
 
   return (
@@ -655,12 +668,12 @@ export default async function IndicadoresPage({
           sufixo="cx/h"
         />
         <BarraRanking
-          titulo="Despejo por produto"
+          titulo="Despejo por embalagem"
           subtitulo="Litros/hora, já convertidos"
-          itens={despejoPorProduto.map((l) => ({
-            rotulo: l.produtoDescricao,
+          itens={despejoPorEmbalagem.map((l) => ({
+            rotulo: l.embalagemNome,
             valor: l.taxa,
-            detalhe: `${l.produtoDescricao}: ${l.quantidade} L em ${l.horas}h${l.pctMeta !== null ? ` — ${l.pctMeta}% da meta` : ""}`,
+            detalhe: `${l.embalagemNome}: ${l.quantidade} L em ${l.horas}h${l.pctMeta !== null ? ` — ${l.pctMeta}% da meta` : ""}`,
           }))}
           sufixo="L/h"
           tom="gold"
