@@ -66,7 +66,7 @@ export default async function CarretasPortariaPage({
 
   return (
     <div>
-      <PageHeader title="Portaria de Carretas" subtitle="Registre a chegada assim que a carreta entrar." />
+      <PageHeader title="🛂 Portaria" subtitle="Registre a chegada assim que a carreta entrar." />
 
       {sp.erro && <p className="mb-4 rounded-xl bg-red-50 p-3 text-sm font-medium text-red-700">{sp.erro}</p>}
       {sp.sucesso && <p className="mb-4 rounded-xl bg-green-50 p-3 text-sm font-medium text-green-700">{sp.sucesso}</p>}

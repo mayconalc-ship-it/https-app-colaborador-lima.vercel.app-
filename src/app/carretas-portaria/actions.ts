@@ -50,6 +50,9 @@ export async function registrarAtendimento(formData: FormData) {
   const notasRemessa = notasDoFormulario(formData, "remessa");
   if (notasProduto.length === 0) erro("Informe ao menos uma NF produto.");
   if (notasRemessa.length === 0) erro("Informe ao menos uma NF remessa.");
+  if (notasProduto.some((n) => !/^\d+$/.test(n.numero))) {
+    erro("NF produto aceita só números -- confira o número digitado.");
+  }
 
   const supabase = await createClient();
   const { data: atendimento, error } = await supabase

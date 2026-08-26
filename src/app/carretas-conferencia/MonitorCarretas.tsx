@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { formatarMinutos, minutosDesde, type StatusAtendimento } from "@/lib/carretas";
+import { corSinalizador, formatarMinutos, minutosDesde, type CorSinalizador, type StatusAtendimento } from "@/lib/carretas";
 
 export type CardAtendimento = {
   id: string;
@@ -12,7 +12,20 @@ export type CardAtendimento = {
   fabricaNome: string;
   transportadoraNome: string;
   chegadaEm: string;
+  cargaAgendada: boolean;
   status: StatusAtendimento;
+};
+
+const COR_SINALIZADOR: Record<CorSinalizador, string> = {
+  verde: "bg-green-500",
+  amarelo: "bg-amber-500",
+  vermelho: "bg-red-500",
+};
+
+const TITULO_SINALIZADOR: Record<CorSinalizador, string> = {
+  verde: "Dentro do combinado (carga agendada)",
+  amarelo: "Sem agendamento",
+  vermelho: "TMA estourado",
 };
 
 const COLUNAS: { status: StatusAtendimento; titulo: string; cor: string }[] = [
@@ -26,7 +39,15 @@ const COLUNAS: { status: StatusAtendimento; titulo: string; cor: string }[] = [
  * no servidor (a tela não pode abrir vazia); dali em diante tudo chega por
  * WebSocket, mesmo desenho de PainelAoVivo.tsx.
  */
-export function MonitorCarretas({ iniciais, revendaId }: { iniciais: CardAtendimento[]; revendaId: string }) {
+export function MonitorCarretas({
+  iniciais,
+  revendaId,
+  tmaAlvoMinutos,
+}: {
+  iniciais: CardAtendimento[];
+  revendaId: string;
+  tmaAlvoMinutos: number;
+}) {
   const [atendimentos, setAtendimentos] = useState<CardAtendimento[]>(iniciais);
   const [agora, setAgora] = useState(() => new Date());
 
@@ -63,6 +84,7 @@ export function MonitorCarretas({ iniciais, revendaId }: { iniciais: CardAtendim
             motorista_nome: string;
             placa_carreta: string;
             chegada_em: string;
+            carga_agendada: boolean;
             status: StatusAtendimento;
           };
 
@@ -81,7 +103,14 @@ export function MonitorCarretas({ iniciais, revendaId }: { iniciais: CardAtendim
             if (existe) {
               return atuais.map((a) =>
                 a.id === linha.id
-                  ? { ...a, status: linha.status, numeroDt: linha.numero_dt, motoristaNome: linha.motorista_nome, placaCarreta: linha.placa_carreta }
+                  ? {
+                      ...a,
+                      status: linha.status,
+                      numeroDt: linha.numero_dt,
+                      motoristaNome: linha.motorista_nome,
+                      placaCarreta: linha.placa_carreta,
+                      cargaAgendada: linha.carga_agendada,
+                    }
                   : a,
               );
             }
@@ -110,20 +139,29 @@ export function MonitorCarretas({ iniciais, revendaId }: { iniciais: CardAtendim
                 Nada por aqui
               </p>
             ) : (
-              desta.map((a) => (
-                <a
-                  key={a.id}
-                  href={`/carretas-conferencia/${a.id}`}
-                  className={`block rounded-2xl border p-3 shadow-sm hover:shadow ${coluna.cor}`}
-                >
-                  <p className="text-sm font-bold text-slate-900">Carreta {a.placaCarreta}</p>
-                  <p className="text-xs text-slate-600">{a.fabricaNome} → {a.transportadoraNome}</p>
-                  <p className="text-xs text-slate-500">DT {a.numeroDt} — {a.motoristaNome}</p>
-                  <p className="mt-1 text-xs font-semibold text-slate-700">
-                    Há {formatarMinutos(minutosDesde(a.chegadaEm, agora))}
-                  </p>
-                </a>
-              ))
+              desta.map((a) => {
+                const cor = corSinalizador(a, tmaAlvoMinutos, agora);
+                return (
+                  <a
+                    key={a.id}
+                    href={`/carretas-conferencia/${a.id}`}
+                    className={`block rounded-2xl border p-3 shadow-sm hover:shadow ${coluna.cor}`}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="text-sm font-bold text-slate-900">Carreta {a.placaCarreta}</p>
+                      <span
+                        className={`mt-1 h-2.5 w-2.5 shrink-0 animate-pulse rounded-full ${COR_SINALIZADOR[cor]}`}
+                        title={TITULO_SINALIZADOR[cor]}
+                      />
+                    </div>
+                    <p className="text-xs text-slate-600">{a.fabricaNome} → {a.transportadoraNome}</p>
+                    <p className="text-xs text-slate-500">DT {a.numeroDt} — {a.motoristaNome}</p>
+                    <p className="mt-1 text-xs font-semibold text-slate-700">
+                      Há {formatarMinutos(minutosDesde(a.chegadaEm, agora))}
+                    </p>
+                  </a>
+                );
+              })
             )}
           </div>
         );

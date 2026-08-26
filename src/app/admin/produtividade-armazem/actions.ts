@@ -248,6 +248,219 @@ export async function alternarTransportadoraAtivo(formData: FormData) {
   sucesso("recebimento", "Atualizado");
 }
 
+// -------------------- MOTORISTAS --------------------
+export async function salvarMotorista(formData: FormData) {
+  await requireModulo("produtividade-armazem", "editar");
+  const revendaId = await exigirRevenda(ROTA);
+  const admin = createAdminClient();
+  const nome = String(formData.get("nome") ?? "").trim();
+  if (!nome) erro("recebimento", "Informe o nome do motorista.");
+  const { error } = await admin.from("pa_motoristas").insert({ revenda_id: revendaId, nome });
+  if (error) erro("recebimento", `Não foi possível salvar: ${error.message}`);
+  revalidatePath(ROTA);
+  sucesso("recebimento", "Motorista cadastrado");
+}
+
+export async function editarMotorista(formData: FormData) {
+  await requireModulo("produtividade-armazem", "editar");
+  const revendaId = await exigirRevenda(ROTA);
+  const admin = createAdminClient();
+  const id = String(formData.get("id") ?? "");
+  const nome = String(formData.get("nome") ?? "").trim();
+  if (!nome) erro("recebimento", "Informe o nome do motorista.");
+  const { error } = await admin.from("pa_motoristas").update({ nome }).eq("id", id).eq("revenda_id", revendaId);
+  if (error) erro("recebimento", `Não foi possível salvar: ${error.message}`);
+  revalidatePath(ROTA);
+  sucesso("recebimento", "Motorista atualizado");
+}
+
+export async function excluirMotorista(formData: FormData) {
+  await requireModulo("produtividade-armazem", "editar");
+  const revendaId = await exigirRevenda(ROTA);
+  const admin = createAdminClient();
+  const id = String(formData.get("id") ?? "");
+  const { error } = await admin.from("pa_motoristas").delete().eq("id", id).eq("revenda_id", revendaId);
+  if (error) erro("recebimento", `Não foi possível excluir: ${error.message}`);
+  revalidatePath(ROTA);
+  sucesso("recebimento", "Motorista excluído");
+}
+
+export async function alternarMotoristaAtivo(formData: FormData) {
+  await requireModulo("produtividade-armazem", "editar");
+  const revendaId = await exigirRevenda(ROTA);
+  const admin = createAdminClient();
+  const id = String(formData.get("id") ?? "");
+  const ativo = formData.get("ativo") === "true";
+  await admin.from("pa_motoristas").update({ ativo: !ativo }).eq("id", id).eq("revenda_id", revendaId);
+  revalidatePath(ROTA);
+  sucesso("recebimento", "Atualizado");
+}
+
+/** Busca de motorista usada no combobox da Portaria -- sugere, não
+ *  obriga: o campo continua texto livre em atendimentos_carretas. */
+export async function buscarMotoristas(termo: string) {
+  const revendaId = await exigirRevenda("/carretas-portaria");
+  if (termo.trim().length < 2) return [];
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("pa_motoristas")
+    .select("id, nome")
+    .eq("revenda_id", revendaId)
+    .eq("ativo", true)
+    .ilike("nome", `%${termo.trim()}%`)
+    .order("nome")
+    .limit(10);
+  return data ?? [];
+}
+
+// -------------------- EMPILHADORES --------------------
+export async function salvarEmpilhador(formData: FormData) {
+  await requireModulo("produtividade-armazem", "editar");
+  const revendaId = await exigirRevenda(ROTA);
+  const admin = createAdminClient();
+  const nome = String(formData.get("nome") ?? "").trim();
+  if (!nome) erro("recebimento", "Informe o nome do empilhador.");
+  const { error } = await admin.from("pa_empilhadores").insert({ revenda_id: revendaId, nome });
+  if (error) erro("recebimento", `Não foi possível salvar: ${error.message}`);
+  revalidatePath(ROTA);
+  sucesso("recebimento", "Empilhador cadastrado");
+}
+
+export async function editarEmpilhador(formData: FormData) {
+  await requireModulo("produtividade-armazem", "editar");
+  const revendaId = await exigirRevenda(ROTA);
+  const admin = createAdminClient();
+  const id = String(formData.get("id") ?? "");
+  const nome = String(formData.get("nome") ?? "").trim();
+  if (!nome) erro("recebimento", "Informe o nome do empilhador.");
+  const { error } = await admin.from("pa_empilhadores").update({ nome }).eq("id", id).eq("revenda_id", revendaId);
+  if (error) erro("recebimento", `Não foi possível salvar: ${error.message}`);
+  revalidatePath(ROTA);
+  sucesso("recebimento", "Empilhador atualizado");
+}
+
+export async function excluirEmpilhador(formData: FormData) {
+  await requireModulo("produtividade-armazem", "editar");
+  const revendaId = await exigirRevenda(ROTA);
+  const admin = createAdminClient();
+  const id = String(formData.get("id") ?? "");
+  const { error } = await admin.from("pa_empilhadores").delete().eq("id", id).eq("revenda_id", revendaId);
+  if (error) erro("recebimento", `Não foi possível excluir: ${error.message}`);
+  revalidatePath(ROTA);
+  sucesso("recebimento", "Empilhador excluído");
+}
+
+export async function alternarEmpilhadorAtivo(formData: FormData) {
+  await requireModulo("produtividade-armazem", "editar");
+  const revendaId = await exigirRevenda(ROTA);
+  const admin = createAdminClient();
+  const id = String(formData.get("id") ?? "");
+  const ativo = formData.get("ativo") === "true";
+  await admin.from("pa_empilhadores").update({ ativo: !ativo }).eq("id", id).eq("revenda_id", revendaId);
+  revalidatePath(ROTA);
+  sucesso("recebimento", "Atualizado");
+}
+
+/** Busca de empilhador usada no combobox da Conferência (item da
+ *  descarga) -- mesma ideia do motorista: sugere, não obriga. */
+export async function buscarEmpilhadores(termo: string) {
+  const revendaId = await exigirRevenda("/carretas-conferencia");
+  if (termo.trim().length < 2) return [];
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("pa_empilhadores")
+    .select("id, nome")
+    .eq("revenda_id", revendaId)
+    .eq("ativo", true)
+    .ilike("nome", `%${termo.trim()}%`)
+    .order("nome")
+    .limit(10);
+  return data ?? [];
+}
+
+// -------------------- AG (ATIVO DE GIRO QUE RETORNA NA CARRETA) --------------------
+export async function salvarAg(formData: FormData) {
+  await requireModulo("produtividade-armazem", "editar");
+  const revendaId = await exigirRevenda(ROTA);
+  const admin = createAdminClient();
+  const codigo = String(formData.get("codigo") ?? "").trim();
+  const descricao = String(formData.get("descricao") ?? "").trim();
+  const unidade = formData.get("unidade") === "unidade" ? "unidade" : "palete";
+  if (!codigo || !descricao) erro("recebimento", "Informe código e descrição do AG.");
+  const { error } = await admin.from("pa_ag_catalogo").insert({ revenda_id: revendaId, codigo, descricao, unidade });
+  if (error) erro("recebimento", `Não foi possível salvar: ${error.message}`);
+  revalidatePath(ROTA);
+  sucesso("recebimento", "AG cadastrado");
+}
+
+export async function editarAg(formData: FormData) {
+  await requireModulo("produtividade-armazem", "editar");
+  const revendaId = await exigirRevenda(ROTA);
+  const admin = createAdminClient();
+  const id = String(formData.get("id") ?? "");
+  const codigo = String(formData.get("codigo") ?? "").trim();
+  const descricao = String(formData.get("descricao") ?? "").trim();
+  const unidade = formData.get("unidade") === "unidade" ? "unidade" : "palete";
+  if (!codigo || !descricao) erro("recebimento", "Informe código e descrição do AG.");
+  const { error } = await admin
+    .from("pa_ag_catalogo")
+    .update({ codigo, descricao, unidade })
+    .eq("id", id)
+    .eq("revenda_id", revendaId);
+  if (error) erro("recebimento", `Não foi possível salvar: ${error.message}`);
+  revalidatePath(ROTA);
+  sucesso("recebimento", "AG atualizado");
+}
+
+export async function excluirAg(formData: FormData) {
+  await requireModulo("produtividade-armazem", "editar");
+  const revendaId = await exigirRevenda(ROTA);
+  const admin = createAdminClient();
+  const id = String(formData.get("id") ?? "");
+  const { error } = await admin.from("pa_ag_catalogo").delete().eq("id", id).eq("revenda_id", revendaId);
+  if (error) {
+    if (error.code === "23503") erroDeExclusao("recebimento", "este AG já foi usado num retorno de carreta");
+    erro("recebimento", `Não foi possível excluir: ${error.message}`);
+  }
+  revalidatePath(ROTA);
+  sucesso("recebimento", "AG excluído");
+}
+
+export async function alternarAgAtivo(formData: FormData) {
+  await requireModulo("produtividade-armazem", "editar");
+  const revendaId = await exigirRevenda(ROTA);
+  const admin = createAdminClient();
+  const id = String(formData.get("id") ?? "");
+  const ativo = formData.get("ativo") === "true";
+  await admin.from("pa_ag_catalogo").update({ ativo: !ativo }).eq("id", id).eq("revenda_id", revendaId);
+  revalidatePath(ROTA);
+  sucesso("recebimento", "Atualizado");
+}
+
+// -------------------- CONFIG DE RECEBIMENTO (TMA alvo, validade) --------------------
+export async function salvarConfigRecebimento(formData: FormData) {
+  await requireModulo("produtividade-armazem", "editar");
+  const revendaId = await exigirRevenda(ROTA);
+  const admin = createAdminClient();
+
+  const tmaAlvoMinutos = Number(formData.get("tma_alvo_minutos"));
+  const diasMinimosValidadeAlerta = Number(formData.get("dias_minimos_validade_alerta"));
+  if (!Number.isFinite(tmaAlvoMinutos) || tmaAlvoMinutos <= 0) {
+    erro("recebimento", "Informe um TMA alvo válido, em minutos.");
+  }
+  if (!Number.isFinite(diasMinimosValidadeAlerta) || diasMinimosValidadeAlerta < 0) {
+    erro("recebimento", "Informe os dias mínimos de validade.");
+  }
+
+  const { error } = await admin.from("pa_recebimento_config").upsert(
+    { revenda_id: revendaId, tma_alvo_minutos: tmaAlvoMinutos, dias_minimos_validade_alerta: diasMinimosValidadeAlerta },
+    { onConflict: "revenda_id" },
+  );
+  if (error) erro("recebimento", `Não foi possível salvar: ${error.message}`);
+  revalidatePath(ROTA);
+  sucesso("recebimento", "Configuração salva");
+}
+
 // -------------------- PRODUTOS --------------------
 export async function salvarProduto(formData: FormData) {
   await requireModulo("produtividade-armazem", "editar");

@@ -219,8 +219,8 @@ export const MODULOS: Modulo[] = [
     id: "carretas-portaria",
     // Sem tela de admin propria: os catalogos (fabrica/transportadora/
     // produto) ja sao geridos em /admin/produtividade-armazem.
-    rotulo: "Portaria de Carretas",
-    emoji: "🚪",
+    rotulo: "Portaria",
+    emoji: "🛂",
     href: "/carretas-portaria",
     grupo: "Conteúdo do app",
     acoes: ["ver", "criar"],
@@ -228,8 +228,8 @@ export const MODULOS: Modulo[] = [
   },
   {
     id: "carretas-conferencia",
-    rotulo: "Conferência de Carretas",
-    emoji: "📥",
+    rotulo: "Monitor de Recebimento",
+    emoji: "🖥️",
     href: "/carretas-conferencia",
     grupo: "Conteúdo do app",
     acoes: ["ver", "editar"],

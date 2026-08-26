@@ -16,29 +16,43 @@ import {
   produtoProntoParaReepack,
   type ProdutoReepack,
 } from "@/lib/produtividade-armazem";
+import { ROTULO_UNIDADE_AG, UNIDADES_AG } from "@/lib/carretas";
 import {
+  alternarAgAtivo,
   alternarEmpilhadeiraAtivo,
+  alternarEmpilhadorAtivo,
   alternarFabricaAtivo,
   alternarItemChecklist5sAtivo,
+  alternarMotoristaAtivo,
   alternarProdutoAtivo,
   alternarTransportadoraAtivo,
+  editarAg,
   editarEmpilhadeira,
+  editarEmpilhador,
   editarFabrica,
   editarItemChecklist5s,
+  editarMotorista,
   editarProduto,
   editarTransportadora,
+  excluirAg,
   excluirEmpilhadeira,
+  excluirEmpilhador,
   excluirFabrica,
   excluirItemChecklist5s,
   excluirLembreteEmpilhadeira,
+  excluirMotorista,
   excluirProduto,
   excluirTransportadora,
   importarPlanilhaProdutos,
   importarProdutos,
+  salvarAg,
+  salvarConfigRecebimento,
   salvarEmpilhadeira,
+  salvarEmpilhador,
   salvarFabrica,
   salvarItemChecklist5s,
   salvarLembreteEmpilhadeira,
+  salvarMotorista,
   salvarProduto,
   salvarTransportadora,
 } from "./actions";
@@ -90,6 +104,10 @@ export default async function AdminProdutividadeArmazemPage({
     { data: produtosReepackBanco },
     { data: itensChecklist },
     { data: operadoresEncontrados },
+    { data: motoristas },
+    { data: empilhadores },
+    { data: agCatalogo },
+    { data: recebimentoConfig },
   ] = await Promise.all([
     supabase.from("pa_embalagens").select("id, nome").eq("revenda_id", revendaId).order("nome"),
     supabase.from("pa_empilhadeiras").select("id, numero, ativo").eq("revenda_id", revendaId).order("numero"),
@@ -150,12 +168,19 @@ export default async function AdminProdutividadeArmazemPage({
           return q;
         })()
       : Promise.resolve({ data: [] as { id: string; nome: string; cargo: string | null }[] }),
+    supabase.from("pa_motoristas").select("id, nome, ativo").eq("revenda_id", revendaId).order("nome"),
+    supabase.from("pa_empilhadores").select("id, nome, ativo").eq("revenda_id", revendaId).order("nome"),
+    supabase.from("pa_ag_catalogo").select("id, codigo, descricao, unidade, ativo").eq("revenda_id", revendaId).order("codigo"),
+    supabase.from("pa_recebimento_config").select("tma_alvo_minutos, dias_minimos_validade_alerta").eq("revenda_id", revendaId).maybeSingle(),
   ]);
 
   const totalEmpilhadeiras = empilhadeiras?.length ?? 0;
   const totalFabricas = fabricas?.length ?? 0;
   const totalTransportadoras = transportadoras?.length ?? 0;
   const totalChecklist = itensChecklist?.length ?? 0;
+  const totalMotoristas = motoristas?.length ?? 0;
+  const totalEmpilhadores = empilhadores?.length ?? 0;
+  const totalAg = agCatalogo?.length ?? 0;
 
   const embalagemNomePorId = new Map((embalagens ?? []).map((e) => [e.id, e.nome]));
 
@@ -535,6 +560,207 @@ export default async function AdminProdutividadeArmazemPage({
                 />
               ))}
             </PainelCadastro>
+
+            <PainelCadastro
+              titulo="Motoristas"
+              contagem={totalMotoristas}
+              temItens={totalMotoristas > 0}
+              vazio="Nenhum motorista cadastrado."
+              formNovo={
+                <form action={salvarMotorista} className="flex gap-2">
+                  <input name="nome" required className={`${campo} flex-1`} />
+                  <BotaoEnviar className="shrink-0 rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-white">
+                    Adicionar
+                  </BotaoEnviar>
+                </form>
+              }
+            >
+              {(motoristas ?? []).map((m) => (
+                <ItemCadastro
+                  key={m.id}
+                  ativo={m.ativo}
+                  titulo={m.nome}
+                  acoes={
+                    <>
+                      <BotaoIcone action={alternarMotoristaAtivo} campos={{ id: m.id, ativo: String(m.ativo) }} titulo={m.ativo ? "Desativar" : "Ativar"}>
+                        {m.ativo ? "🚫" : "✅"}
+                      </BotaoIcone>
+                      <BotaoExcluir
+                        action={excluirMotorista}
+                        campos={{ id: m.id }}
+                        confirmacao={`Excluir "${m.nome}"?`}
+                        className="flex h-7 w-7 items-center justify-center rounded-lg text-sm hover:bg-red-50"
+                      >
+                        🗑️
+                      </BotaoExcluir>
+                    </>
+                  }
+                  formEditar={
+                    <form action={editarMotorista} className="flex gap-2">
+                      <input type="hidden" name="id" value={m.id} />
+                      <input name="nome" defaultValue={m.nome} required className={`${campo} flex-1`} />
+                      <BotaoEnviar compacto className="shrink-0 rounded-lg bg-slate-800 px-3 py-1.5 text-xs font-semibold text-white">
+                        Salvar
+                      </BotaoEnviar>
+                    </form>
+                  }
+                />
+              ))}
+            </PainelCadastro>
+
+            <PainelCadastro
+              titulo="Empilhadores"
+              contagem={totalEmpilhadores}
+              temItens={totalEmpilhadores > 0}
+              vazio="Nenhum empilhador cadastrado."
+              formNovo={
+                <form action={salvarEmpilhador} className="flex gap-2">
+                  <input name="nome" required className={`${campo} flex-1`} />
+                  <BotaoEnviar className="shrink-0 rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-white">
+                    Adicionar
+                  </BotaoEnviar>
+                </form>
+              }
+            >
+              {(empilhadores ?? []).map((e) => (
+                <ItemCadastro
+                  key={e.id}
+                  ativo={e.ativo}
+                  titulo={e.nome}
+                  acoes={
+                    <>
+                      <BotaoIcone action={alternarEmpilhadorAtivo} campos={{ id: e.id, ativo: String(e.ativo) }} titulo={e.ativo ? "Desativar" : "Ativar"}>
+                        {e.ativo ? "🚫" : "✅"}
+                      </BotaoIcone>
+                      <BotaoExcluir
+                        action={excluirEmpilhador}
+                        campos={{ id: e.id }}
+                        confirmacao={`Excluir "${e.nome}"?`}
+                        className="flex h-7 w-7 items-center justify-center rounded-lg text-sm hover:bg-red-50"
+                      >
+                        🗑️
+                      </BotaoExcluir>
+                    </>
+                  }
+                  formEditar={
+                    <form action={editarEmpilhador} className="flex gap-2">
+                      <input type="hidden" name="id" value={e.id} />
+                      <input name="nome" defaultValue={e.nome} required className={`${campo} flex-1`} />
+                      <BotaoEnviar compacto className="shrink-0 rounded-lg bg-slate-800 px-3 py-1.5 text-xs font-semibold text-white">
+                        Salvar
+                      </BotaoEnviar>
+                    </form>
+                  }
+                />
+              ))}
+            </PainelCadastro>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <PainelCadastro
+              titulo="AG (Ativo de Giro que retorna na carreta)"
+              contagem={totalAg}
+              temItens={totalAg > 0}
+              vazio="Nenhum AG cadastrado."
+              formNovo={
+                <form action={salvarAg} className="flex flex-wrap gap-2">
+                  <input name="codigo" placeholder="Código" required className={campo} />
+                  <input name="descricao" placeholder="Descrição" required className={`${campo} flex-1`} />
+                  <select name="unidade" className={campo} defaultValue="palete">
+                    {UNIDADES_AG.map((u) => (
+                      <option key={u} value={u}>{ROTULO_UNIDADE_AG[u]}</option>
+                    ))}
+                  </select>
+                  <BotaoEnviar className="shrink-0 rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-white">
+                    Adicionar
+                  </BotaoEnviar>
+                </form>
+              }
+            >
+              {(agCatalogo ?? []).map((a) => (
+                <ItemCadastro
+                  key={a.id}
+                  ativo={a.ativo}
+                  titulo={`${a.codigo} — ${a.descricao}`}
+                  subtitulo={ROTULO_UNIDADE_AG[a.unidade as "palete" | "unidade"] ?? a.unidade}
+                  acoes={
+                    <>
+                      <BotaoIcone action={alternarAgAtivo} campos={{ id: a.id, ativo: String(a.ativo) }} titulo={a.ativo ? "Desativar" : "Ativar"}>
+                        {a.ativo ? "🚫" : "✅"}
+                      </BotaoIcone>
+                      <BotaoExcluir
+                        action={excluirAg}
+                        campos={{ id: a.id }}
+                        confirmacao={`Excluir o AG "${a.codigo} — ${a.descricao}"?`}
+                        className="flex h-7 w-7 items-center justify-center rounded-lg text-sm hover:bg-red-50"
+                      >
+                        🗑️
+                      </BotaoExcluir>
+                    </>
+                  }
+                  formEditar={
+                    <form action={editarAg} className="flex flex-wrap gap-2">
+                      <input type="hidden" name="id" value={a.id} />
+                      <input name="codigo" defaultValue={a.codigo} className={`${campo} w-28`} />
+                      <input name="descricao" defaultValue={a.descricao} className={`${campo} flex-1`} />
+                      <select name="unidade" className={campo} defaultValue={a.unidade}>
+                        {UNIDADES_AG.map((u) => (
+                          <option key={u} value={u}>{ROTULO_UNIDADE_AG[u]}</option>
+                        ))}
+                      </select>
+                      <BotaoEnviar compacto className="shrink-0 rounded-lg bg-slate-800 px-3 py-1.5 text-xs font-semibold text-white">
+                        Salvar
+                      </BotaoEnviar>
+                    </form>
+                  }
+                />
+              ))}
+            </PainelCadastro>
+
+            <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+              <div className="border-b border-slate-100 p-4">
+                <h2 className="text-sm font-bold text-slate-900">⚙️ Configuração do Monitor</h2>
+                <p className="mt-1 text-xs text-slate-500">
+                  TMA alvo alimenta o sinalizador do Monitor de Recebimento (vermelho quando estourar).
+                  Dias mínimos de validade alimenta o alerta que o conferente vê ao lançar um item perto de vencer.
+                </p>
+              </div>
+              <form action={salvarConfigRecebimento} className="space-y-3 p-4">
+                <div>
+                  <label className="mb-1 block text-xs font-semibold uppercase text-slate-500" htmlFor="tma_alvo_minutos">
+                    TMA alvo (minutos)
+                  </label>
+                  <input
+                    id="tma_alvo_minutos"
+                    name="tma_alvo_minutos"
+                    type="number"
+                    min={1}
+                    step="1"
+                    required
+                    defaultValue={recebimentoConfig?.tma_alvo_minutos ?? 120}
+                    className={campo}
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-semibold uppercase text-slate-500" htmlFor="dias_minimos_validade_alerta">
+                    Dias mínimos de validade (alerta)
+                  </label>
+                  <input
+                    id="dias_minimos_validade_alerta"
+                    name="dias_minimos_validade_alerta"
+                    type="number"
+                    min={0}
+                    step="1"
+                    required
+                    defaultValue={recebimentoConfig?.dias_minimos_validade_alerta ?? 30}
+                    className={campo}
+                  />
+                </div>
+                <BotaoEnviar className="w-full rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-white">
+                  Salvar configuração
+                </BotaoEnviar>
+              </form>
+            </div>
           </div>
 
           <PainelCadastro

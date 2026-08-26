@@ -3,7 +3,9 @@
 import { useState } from "react";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
 import { ComboboxProduto } from "@/components/produtividade-armazem/ComboboxProduto";
-import { ROTULO_UNIDADE_ITEM, UNIDADES_ITEM } from "@/lib/carretas";
+import { ComboboxNome } from "@/components/produtividade-armazem/ComboboxNome";
+import { ROTULO_UNIDADE_ITEM, UNIDADES_ITEM, diasAteValidade } from "@/lib/carretas";
+import { buscarEmpilhadores } from "@/app/admin/produtividade-armazem/actions";
 import { assumirEDescarregar } from "./actions";
 
 const campo =
@@ -16,17 +18,50 @@ function novaChave() {
   return `item-${contador}`;
 }
 
-export function FormAssumir({ atendimentoId }: { atendimentoId: string }) {
+function CampoValidade({ diasMinimosValidadeAlerta }: { diasMinimosValidadeAlerta: number }) {
+  const [validade, setValidade] = useState("");
+  const dias = validade ? diasAteValidade(validade) : null;
+  const alerta = dias !== null && dias < diasMinimosValidadeAlerta;
+
+  return (
+    <div>
+      <label className={rotulo}>Validade</label>
+      <input
+        name="validade"
+        type="date"
+        value={validade}
+        onChange={(e) => setValidade(e.target.value)}
+        required
+        className={campo}
+      />
+      {alerta && (
+        <p className="mt-1 text-xs font-semibold text-amber-700">
+          ⚠️ {dias! < 0 ? "Produto já vencido." : `Vence em ${dias} dia${dias === 1 ? "" : "s"}`} — abaixo do
+          mínimo configurado ({diasMinimosValidadeAlerta} dias).
+        </p>
+      )}
+    </div>
+  );
+}
+
+export function FormAssumir({
+  atendimentoId,
+  diasMinimosValidadeAlerta,
+}: {
+  atendimentoId: string;
+  diasMinimosValidadeAlerta: number;
+}) {
   const [itens, setItens] = useState<string[]>([novaChave()]);
+  const [empilhadores, setEmpilhadores] = useState<Record<string, string>>({ [itens[0]]: "" });
 
   return (
     <form action={assumirEDescarregar} className="space-y-4">
       <input type="hidden" name="atendimento_id" value={atendimentoId} />
 
       <div className="space-y-3">
-        <h2 className="text-sm font-bold uppercase text-slate-500">Itens da descarga</h2>
+        <h2 className="text-sm font-bold uppercase text-slate-500">📦 Itens da descarga</h2>
         {itens.map((chave, i) => (
-          <div key={chave} className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4">
+          <div key={chave} className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold text-slate-500">Item {i + 1}</span>
               {itens.length > 1 && (
@@ -65,22 +100,32 @@ export function FormAssumir({ atendimentoId }: { atendimentoId: string }) {
                 <label className={rotulo}>Lote</label>
                 <input name="lote" required className={campo} />
               </div>
-              <div>
-                <label className={rotulo}>Validade</label>
-                <input name="validade" type="date" required className={campo} />
-              </div>
+              <CampoValidade diasMinimosValidadeAlerta={diasMinimosValidadeAlerta} />
             </div>
 
             <div>
               <label className={rotulo}>Empilhador</label>
-              <input name="empilhador" required className={campo} placeholder="Quem vai descarregar" />
+              <ComboboxNome
+                nome={empilhadores[chave] ?? ""}
+                onChange={(v) => setEmpilhadores((atual) => ({ ...atual, [chave]: v }))}
+                buscar={buscarEmpilhadores}
+                placeholder="Quem vai descarregar"
+                required
+              />
+              <input type="hidden" name="empilhador" value={empilhadores[chave] ?? ""} />
             </div>
           </div>
         ))}
 
         <button
           type="button"
-          onClick={() => setItens((atual) => [...atual, novaChave()])}
+          onClick={() =>
+            setItens((atual) => {
+              const chave = novaChave();
+              setEmpilhadores((e) => ({ ...e, [chave]: "" }));
+              return [...atual, chave];
+            })
+          }
           className="w-full rounded-xl border border-dashed border-slate-300 py-3 text-sm font-semibold text-slate-600 hover:border-primary hover:text-primary"
         >
           + Adicionar item
@@ -89,9 +134,9 @@ export function FormAssumir({ atendimentoId }: { atendimentoId: string }) {
 
       <BotaoEnviar
         textoEnviando="Assumindo..."
-        className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-white hover:bg-primary-dark"
+        className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-white shadow-sm hover:bg-primary-dark"
       >
-        Assumir e iniciar descarga
+        ▶️ Assumir e iniciar descarga
       </BotaoEnviar>
     </form>
   );

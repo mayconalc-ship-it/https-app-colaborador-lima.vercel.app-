@@ -6,7 +6,9 @@ import { getRevendaId } from "@/lib/revendas";
 import { requireAcessoModulo } from "@/lib/require-admin";
 import { formatarDataHora } from "@/lib/produtividade-armazem";
 import {
+  RECEBIMENTO_CONFIG_PADRAO,
   ROTULO_STATUS,
+  ROTULO_UNIDADE_AG,
   ROTULO_UNIDADE_ITEM,
   calcularEsperaPortariaMinutos,
   calcularTempoCargaMinutos,
@@ -14,6 +16,7 @@ import {
   calcularTmaMinutos,
   formatarMinutos,
   type AtendimentoCarreta,
+  type UnidadeAg,
   type UnidadeItem,
 } from "@/lib/carretas";
 import { FormAssumir } from "./FormAssumir";
@@ -40,6 +43,7 @@ type LinhaAtendimento = {
   inicio_carga_em: string | null;
   fim_carga_em: string | null;
   finalizacao_em: string | null;
+  destino_retorno: string | null;
   pa_fabricas: { nome: string } | { nome: string }[] | null;
   pa_transportadoras: { nome: string } | { nome: string }[] | null;
 };
@@ -56,6 +60,12 @@ type LinhaItem = {
   pa_produtos: { codigo: string; descricao: string } | { codigo: string; descricao: string }[] | null;
 };
 
+type LinhaAgItem = {
+  id: string;
+  quantidade: number;
+  pa_ag_catalogo: { codigo: string; descricao: string; unidade: string } | { codigo: string; descricao: string; unidade: string }[] | null;
+};
+
 function nomeRelacionado(v: { nome: string } | { nome: string }[] | null) {
   if (!v) return "—";
   return Array.isArray(v) ? (v[0]?.nome ?? "—") : v.nome;
@@ -66,6 +76,11 @@ function produtoRelacionado(v: LinhaItem["pa_produtos"]) {
   return p ? `${p.codigo} — ${p.descricao}` : "—";
 }
 
+function agRelacionado(v: LinhaAgItem["pa_ag_catalogo"]) {
+  const a = Array.isArray(v) ? v[0] : v;
+  return a ? { rotulo: `${a.codigo} — ${a.descricao}`, unidade: a.unidade as UnidadeAg } : null;
+}
+
 export default async function DetalheAtendimentoPage({ params }: { params: Promise<{ id: string }> }) {
   await requireAcessoModulo("carretas-conferencia");
   const { id } = await params;
@@ -74,27 +89,46 @@ export default async function DetalheAtendimentoPage({ params }: { params: Promi
   if (!revendaId) redirect(`/?erro=${encodeURIComponent("Você não está em nenhuma revenda.")}`);
 
   const supabase = await createClient();
-  const [{ data: atendimentoBanco }, { data: notasBanco }, { data: itensBanco }] = await Promise.all([
-    supabase
-      .from("atendimentos_carretas")
-      .select(
-        "id, numero_dt, motorista_nome, agendamento_em, carga_agendada, placa_cavalo, placa_carreta, chegada_em, portaria_nome, status, inicio_atendimento_em, conferente_nome, fim_descarga_em, tem_carga, inicio_carga_em, fim_carga_em, finalizacao_em, pa_fabricas(nome), pa_transportadoras(nome)",
-      )
-      .eq("id", id)
-      .eq("revenda_id", revendaId)
-      .maybeSingle(),
-    supabase.from("atendimento_carretas_notas").select("tipo, numero, serie").eq("atendimento_id", id),
-    supabase
-      .from("atendimento_carretas_itens")
-      .select("id, quantidade, unidade, lote, validade, empilhador, pa_produtos(codigo, descricao)")
-      .eq("atendimento_id", id),
-  ]);
+  const [{ data: atendimentoBanco }, { data: notasBanco }, { data: itensBanco }, { data: agItensBanco }, { data: agCatalogoBanco }, { data: configBanco }] =
+    await Promise.all([
+      supabase
+        .from("atendimentos_carretas")
+        .select(
+          "id, numero_dt, motorista_nome, agendamento_em, carga_agendada, placa_cavalo, placa_carreta, chegada_em, portaria_nome, status, inicio_atendimento_em, conferente_nome, fim_descarga_em, tem_carga, inicio_carga_em, fim_carga_em, finalizacao_em, destino_retorno, pa_fabricas(nome), pa_transportadoras(nome)",
+        )
+        .eq("id", id)
+        .eq("revenda_id", revendaId)
+        .maybeSingle(),
+      supabase.from("atendimento_carretas_notas").select("tipo, numero, serie").eq("atendimento_id", id),
+      supabase
+        .from("atendimento_carretas_itens")
+        .select("id, quantidade, unidade, lote, validade, empilhador, pa_produtos(codigo, descricao)")
+        .eq("atendimento_id", id),
+      supabase
+        .from("atendimento_carretas_ag_itens")
+        .select("id, quantidade, pa_ag_catalogo(codigo, descricao, unidade)")
+        .eq("atendimento_id", id),
+      supabase
+        .from("pa_ag_catalogo")
+        .select("id, codigo, descricao, unidade")
+        .eq("revenda_id", revendaId)
+        .eq("ativo", true)
+        .order("codigo"),
+      supabase
+        .from("pa_recebimento_config")
+        .select("tma_alvo_minutos, dias_minimos_validade_alerta")
+        .eq("revenda_id", revendaId)
+        .maybeSingle(),
+    ]);
 
   const a = atendimentoBanco as unknown as LinhaAtendimento | null;
   if (!a) notFound();
 
   const notas = (notasBanco ?? []) as LinhaNota[];
   const itens = (itensBanco ?? []) as unknown as LinhaItem[];
+  const agItens = (agItensBanco ?? []) as unknown as LinhaAgItem[];
+  const agCatalogo = (agCatalogoBanco ?? []) as { id: string; codigo: string; descricao: string; unidade: string }[];
+  const diasMinimosValidadeAlerta = configBanco?.dias_minimos_validade_alerta ?? RECEBIMENTO_CONFIG_PADRAO.diasMinimosValidadeAlerta;
   const notasProduto = notas.filter((n) => n.tipo === "produto");
   const notasRemessa = notas.filter((n) => n.tipo === "remessa");
 
@@ -114,9 +148,11 @@ export default async function DetalheAtendimentoPage({ params }: { params: Promi
   const tempoCarga = calcularTempoCargaMinutos(atendimentoCalc);
   const tempoPatio = calcularTempoPatioMinutos(atendimentoCalc);
 
+  const nomesEmpilhadores = [...new Set(itens.map((i) => i.empilhador).filter(Boolean))];
+
   return (
     <div>
-      <PageHeader title={`Carreta ${a.placa_carreta}`} subtitle={`DT ${a.numero_dt} — ${ROTULO_STATUS[a.status]}`} />
+      <PageHeader title={`🚛 Carreta ${a.placa_carreta}`} subtitle={`DT ${a.numero_dt} — ${ROTULO_STATUS[a.status]}`} />
 
       <div className="mb-4 space-y-1 rounded-2xl border border-slate-200 bg-white p-4 text-sm">
         <p><strong>{nomeRelacionado(a.pa_fabricas)}</strong> → {nomeRelacionado(a.pa_transportadoras)}</p>
@@ -166,31 +202,89 @@ export default async function DetalheAtendimentoPage({ params }: { params: Promi
         </div>
       )}
 
-      {a.status === "aguardando_conferente" && <FormAssumir atendimentoId={a.id} />}
+      {a.status === "aguardando_conferente" && (
+        <FormAssumir atendimentoId={a.id} diasMinimosValidadeAlerta={diasMinimosValidadeAlerta} />
+      )}
 
-      {a.status === "em_descarga" && <FormConcluirDescarga atendimentoId={a.id} />}
+      {a.status === "em_descarga" && <FormConcluirDescarga atendimentoId={a.id} agCatalogo={agCatalogo} />}
 
       {a.status === "em_carga" && (
-        <form action={concluirCarga}>
-          <input type="hidden" name="atendimento_id" value={a.id} />
-          <BotaoEnviar
-            textoEnviando="Concluindo..."
-            className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-white hover:bg-primary-dark"
-          >
-            Concluir carga e finalizar
-          </BotaoEnviar>
-        </form>
+        <div className="space-y-4">
+          {(a.destino_retorno || agItens.length > 0) && (
+            <div className="rounded-2xl border border-purple-200 bg-purple-50 p-4">
+              <p className="flex items-center gap-1.5 text-sm font-bold text-purple-900">🔄 Retorno com AG</p>
+              {a.destino_retorno && <p className="mt-1 text-sm text-purple-800">Destino: {a.destino_retorno}</p>}
+              {agItens.length > 0 && (
+                <ul className="mt-2 space-y-1 text-xs text-purple-700">
+                  {agItens.map((ai) => {
+                    const ag = agRelacionado(ai.pa_ag_catalogo);
+                    return (
+                      <li key={ai.id}>
+                        {ag?.rotulo ?? "—"} — {ai.quantidade} {ag ? ROTULO_UNIDADE_AG[ag.unidade] : ""}
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
+          )}
+          <form action={concluirCarga} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+            <input type="hidden" name="atendimento_id" value={a.id} />
+            <BotaoEnviar
+              textoEnviando="Concluindo..."
+              className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-white shadow-sm hover:bg-primary-dark"
+            >
+              ✅ Concluir carga e finalizar
+            </BotaoEnviar>
+          </form>
+        </div>
       )}
 
       {a.status === "finalizado" && (
-        <div className="space-y-2 rounded-2xl border border-green-200 bg-green-50 p-4 text-sm">
-          <p className="text-base font-bold text-green-800">
-            TMA: {tma !== null ? formatarMinutos(tma) : "—"}
-          </p>
-          <p className="text-slate-600">Espera na portaria: {esperaPortaria !== null ? formatarMinutos(esperaPortaria) : "—"}</p>
-          {a.tem_carga && <p className="text-slate-600">Tempo de carga: {tempoCarga !== null ? formatarMinutos(tempoCarga) : "—"}</p>}
-          <p className="text-slate-600">Tempo total no pátio: {tempoPatio !== null ? formatarMinutos(tempoPatio) : "—"}</p>
-          <p className="text-xs text-slate-400">Finalizado em {a.finalizacao_em ? formatarDataHora(a.finalizacao_em) : "—"}</p>
+        <div className="space-y-4">
+          <div className="rounded-2xl border border-green-200 bg-green-50 p-5 text-center">
+            <span className="text-4xl">✅</span>
+            <p className="mt-2 text-base font-bold text-green-800">Atendimento finalizado</p>
+            <p className="text-xs text-green-700">
+              {a.finalizacao_em ? formatarDataHora(a.finalizacao_em) : "—"}
+            </p>
+          </div>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            {[
+              { rotulo: "TMA", valor: tma },
+              { rotulo: "Espera portaria", valor: esperaPortaria },
+              { rotulo: "Tempo de carga", valor: a.tem_carga ? tempoCarga : null },
+              { rotulo: "Tempo no pátio", valor: tempoPatio },
+            ].map((c) => (
+              <div key={c.rotulo} className="rounded-2xl border border-slate-200 bg-white p-3 text-center shadow-sm">
+                <p className="text-[11px] font-semibold uppercase text-slate-400">{c.rotulo}</p>
+                <p className="mt-1 text-sm font-bold text-slate-800">
+                  {c.valor !== null && c.valor !== undefined ? formatarMinutos(c.valor) : "—"}
+                </p>
+              </div>
+            ))}
+          </div>
+          {(a.destino_retorno || agItens.length > 0) && (
+            <div className="rounded-2xl border border-purple-200 bg-purple-50 p-4">
+              <p className="flex items-center gap-1.5 text-sm font-bold text-purple-900">🔄 Retorno com AG</p>
+              {a.destino_retorno && <p className="mt-1 text-sm text-purple-800">Destino: {a.destino_retorno}</p>}
+              {agItens.length > 0 && (
+                <ul className="mt-2 space-y-1 text-xs text-purple-700">
+                  {agItens.map((ai) => {
+                    const ag = agRelacionado(ai.pa_ag_catalogo);
+                    return (
+                      <li key={ai.id}>
+                        {ag?.rotulo ?? "—"} — {ai.quantidade} {ag ? ROTULO_UNIDADE_AG[ag.unidade] : ""}
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
+          )}
+          {nomesEmpilhadores.length > 0 && (
+            <p className="text-xs text-slate-500">Empilhador(es): {nomesEmpilhadores.join(", ")}</p>
+          )}
         </div>
       )}
     </div>

@@ -33,6 +33,49 @@ export function ehUnidadeItem(v: unknown): v is UnidadeItem {
   return typeof v === "string" && (UNIDADES_ITEM as readonly string[]).includes(v);
 }
 
+export const UNIDADES_AG = ["palete", "unidade"] as const;
+export type UnidadeAg = (typeof UNIDADES_AG)[number];
+
+export const ROTULO_UNIDADE_AG: Record<UnidadeAg, string> = {
+  palete: "Palete",
+  unidade: "Unidade",
+};
+
+export function ehUnidadeAg(v: unknown): v is UnidadeAg {
+  return typeof v === "string" && (UNIDADES_AG as readonly string[]).includes(v);
+}
+
+export type AgCatalogo = {
+  id: string;
+  codigo: string;
+  descricao: string;
+  unidade: UnidadeAg;
+};
+
+export type RecebimentoConfig = {
+  tmaAlvoMinutos: number;
+  diasMinimosValidadeAlerta: number;
+};
+
+export const RECEBIMENTO_CONFIG_PADRAO: RecebimentoConfig = {
+  tmaAlvoMinutos: 120,
+  diasMinimosValidadeAlerta: 30,
+};
+
+/**
+ * Maiúsculo + máscara "AAA-0A00" (3 letras, hífen, 1 dígito, 1 letra, 2
+ * dígitos) aplicada enquanto a pessoa digita -- cobre tanto placa antiga
+ * quanto Mercosul (o hífen é só visual, não muda o valor gravado). Aceita
+ * digitar fora de ordem sem travar: só formata o que já foi digitado.
+ */
+export function formatarPlaca(v: string): string {
+  const limpo = v.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 7);
+  const letras = limpo.slice(0, 3);
+  const resto = limpo.slice(3);
+  if (!resto) return letras;
+  return `${letras}-${resto}`;
+}
+
 export type TipoNota = "produto" | "remessa";
 
 export type NotaFiscal = {
@@ -131,6 +174,37 @@ export function formatarMinutos(minutos: number): string {
  *  vivo do Monitor (client-side, recalculado a cada tick). */
 export function minutosDesde(iso: string, agora = new Date()): number {
   return Math.max(Math.floor((agora.getTime() - new Date(iso).getTime()) / 60_000), 0);
+}
+
+/** Dias inteiros até a validade (negativo se já venceu) -- fuso de
+ *  São Félix/Barreiras, pra não variar com o fuso do navegador de quem
+ *  está digitando. */
+export function diasAteValidade(validadeISO: string, agora = new Date()): number {
+  const hojeSP = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(agora);
+  const msPorDia = 86_400_000;
+  const hoje = new Date(`${hojeSP}T00:00:00`).getTime();
+  const validade = new Date(`${validadeISO}T00:00:00`).getTime();
+  return Math.round((validade - hoje) / msPorDia);
+}
+
+export type CorSinalizador = "verde" | "amarelo" | "vermelho";
+
+/**
+ * Cor do sinalizador do Monitor (só pra atendimentos ainda ativos -- os
+ * finalizados já saem da tela): estourou o TMA alvo = vermelho, não
+ * importa se era agendada ou não; senão, agendada = verde ("dentro do
+ * combinado"), sem agendamento = amarelo ("atenção, sem hora marcada").
+ * Minutos decorridos contam da chegada -- é o relógio que a pessoa vê
+ * rodando no card, mesma referência de `minutosDesde`.
+ */
+export function corSinalizador(
+  a: { chegadaEm: string; cargaAgendada: boolean },
+  tmaAlvoMinutos: number,
+  agora = new Date(),
+): CorSinalizador {
+  const decorridos = minutosDesde(a.chegadaEm, agora);
+  if (decorridos >= tmaAlvoMinutos) return "vermelho";
+  return a.cargaAgendada ? "verde" : "amarelo";
 }
 
 export function quantidadePositiva(v: unknown, max = 100_000): number {

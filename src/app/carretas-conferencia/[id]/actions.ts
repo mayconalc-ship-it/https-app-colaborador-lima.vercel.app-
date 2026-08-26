@@ -92,20 +92,50 @@ export async function assumirEDescarregar(formData: FormData) {
   redirect(`${rota(atendimentoId)}?sucesso=Descarga+iniciada`);
 }
 
+/**
+ * "Retorno vazio" (sem AG) segue exatamente o antigo "não" (finaliza
+ * direto). "Retorno com AG" segue o antigo "sim" (abre a fase de carga),
+ * só que agora grava destino + itens de AG junto -- a pergunta mudou pra
+ * refletir como a operação de verdade funciona (a carreta quase sempre
+ * volta com Ativo de Giro, não "outra carga qualquer").
+ */
 export async function concluirDescarga(formData: FormData) {
   const { revendaId } = await exigirContextoCarretas("carretas-conferencia", "/carretas-conferencia");
 
   const atendimentoId = String(formData.get("atendimento_id") ?? "");
   if (!atendimentoId) erro(atendimentoId, "Atendimento inválido.");
-  const temCarga = formData.get("tem_carga") === "sim";
+  const retornaComAg = formData.get("retorno") === "com_ag";
+
+  let destinoRetorno: string | null = null;
+  let itensAg: { agId: string; quantidade: number }[] = [];
+
+  if (retornaComAg) {
+    destinoRetorno = String(formData.get("destino_retorno") ?? "").trim();
+    if (!destinoRetorno) erro(atendimentoId, "Informe o destino da carreta.");
+
+    const agIds = formData.getAll("ag_id").map(String);
+    const quantidades = formData.getAll("ag_quantidade").map(String);
+    if (agIds.length === 0 || agIds.some((v) => !v)) {
+      erro(atendimentoId, "Escolha o AG de cada item.");
+    }
+    itensAg = agIds.map((agId, i) => {
+      let quantidade: number;
+      try {
+        quantidade = quantidadePositiva(quantidades[i]);
+      } catch {
+        erro(atendimentoId, "Quantidade inválida em um dos itens de AG.");
+      }
+      return { agId, quantidade };
+    });
+  }
 
   const agora = new Date().toISOString();
   const supabase = await createClient();
   const { data: atualizado, error } = await supabase
     .from("atendimentos_carretas")
     .update(
-      temCarga
-        ? { fim_descarga_em: agora, tem_carga: true, inicio_carga_em: agora, status: "em_carga" }
+      retornaComAg
+        ? { fim_descarga_em: agora, tem_carga: true, inicio_carga_em: agora, status: "em_carga", destino_retorno: destinoRetorno }
         : { fim_descarga_em: agora, tem_carga: false, finalizacao_em: agora, status: "finalizado" },
     )
     .eq("id", atendimentoId)
@@ -115,6 +145,18 @@ export async function concluirDescarga(formData: FormData) {
 
   if (error) erro(atendimentoId, `Não foi possível concluir a descarga: ${error.message}`);
   if (!atualizado || atualizado.length === 0) erro(atendimentoId, "Este atendimento já foi atualizado por outra pessoa.");
+
+  if (itensAg.length > 0) {
+    const { error: erroAg } = await supabase.from("atendimento_carretas_ag_itens").insert(
+      itensAg.map((i) => ({
+        revenda_id: revendaId,
+        atendimento_id: atendimentoId,
+        ag_id: i.agId,
+        quantidade: i.quantidade,
+      })),
+    );
+    if (erroAg) erro(atendimentoId, `Descarga concluída, mas os itens de AG falharam: ${erroAg.message}`);
+  }
 
   revalidatePath(rota(atendimentoId));
   revalidatePath("/carretas-conferencia");
