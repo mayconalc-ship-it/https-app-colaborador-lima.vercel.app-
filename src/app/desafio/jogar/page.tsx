@@ -55,11 +55,11 @@ export default async function JogarPage() {
       <Link
         href="/desafio"
         aria-label="Fechar"
-        className="toque-texto absolute right-0 top-0 flex h-9 w-9 items-center justify-center rounded-full text-xl leading-none text-slate-400 hover:bg-slate-100 hover:text-slate-700 active:bg-slate-100"
+        className="toque-texto absolute right-0 top-0 flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-xl font-bold leading-none text-slate-600 shadow-sm hover:bg-slate-200 hover:text-slate-900 active:bg-slate-200"
       >
         ✕
       </Link>
-      <p className="mb-1 pr-10 text-xs font-semibold uppercase tracking-wide text-slate-500">
+      <p className="mb-1 pr-12 text-xs font-semibold uppercase tracking-wide text-slate-500">
         {rodada.nome}
       </p>
       <Pergunta questao={questao} />

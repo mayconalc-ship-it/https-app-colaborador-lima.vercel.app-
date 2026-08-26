@@ -35,7 +35,7 @@ export function PageHeader({
         <Link
           href={fecharHref}
           aria-label="Fechar"
-          className="toque-texto absolute right-0 top-0 flex h-9 w-9 items-center justify-center rounded-full text-xl leading-none text-slate-400 hover:bg-slate-100 hover:text-slate-700 active:bg-slate-100"
+          className="toque-texto absolute right-0 top-0 flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-xl font-bold leading-none text-slate-600 shadow-sm hover:bg-slate-200 hover:text-slate-900 active:bg-slate-200"
         >
           ✕
         </Link>
@@ -46,7 +46,7 @@ export function PageHeader({
           </LinkVoltar>
         )
       )}
-      <h1 className={`text-2xl font-bold text-slate-900 ${fecharHref ? "pr-10" : ""}`}>{title}</h1>
+      <h1 className={`text-2xl font-bold text-slate-900 ${fecharHref ? "pr-12" : ""}`}>{title}</h1>
       {subtitle && <p className="mt-1 text-slate-500">{subtitle}</p>}
     </div>
   );
