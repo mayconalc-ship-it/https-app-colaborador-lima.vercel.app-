@@ -11,7 +11,6 @@ import {
   ROTULO_TURNO,
   TURNOS,
   diasAtrasISO,
-  embalagemDeLinha,
   formatarDataHora,
   formatarDuracao,
   hojeISO,
@@ -19,7 +18,6 @@ import {
   produtoReepackDeLinha,
   taxaPorHora,
   turnoAtual,
-  type Embalagem,
   type ProdutoReepack,
 } from "@/lib/produtividade-armazem";
 import { cancelarDespejo, editarDespejo, excluirDespejo, finalizarDespejo, iniciarDespejo } from "./actions";
@@ -79,17 +77,11 @@ export default async function DespejoPage({
   if (!revendaId) redirect(`/?erro=${encodeURIComponent("Você não está em nenhuma revenda.")}`);
 
   const supabase = await createClient();
-  const [{ data: embalagensBanco }, { data: produtosBanco }, { data: abertoBanco }, { data: minhas }, { data: doPeriodo }, podeExcluirQualquer] =
+  const [{ data: produtosBanco }, { data: abertoBanco }, { data: minhas }, { data: doPeriodo }, podeExcluirQualquer] =
     await Promise.all([
       supabase
-        .from("pa_embalagens")
-        .select("id, nome, tempo_padrao_reepack_segundos, tempo_padrao_despejo_segundos, meta_reepacks_hora, meta_litros_hora, unidade_reepack, litros_por_pacote")
-        .eq("revenda_id", revendaId)
-        .eq("ativo", true)
-        .order("nome"),
-      supabase
         .from("pa_produtos")
-        .select("id, codigo, descricao, unidades_por_caixa, fator_hecto, embalagem_id")
+        .select("id, codigo, descricao, unidades_por_caixa, fator_hecto, embalagem_id, meta_despejo_hora")
         .eq("revenda_id", revendaId)
         .eq("ativo", true)
         .not("fator_hecto", "is", null)
@@ -127,8 +119,6 @@ export default async function DespejoPage({
       podeNoModulo("produtividade-armazem", "excluir"),
     ]);
 
-  const embalagens: Embalagem[] = (embalagensBanco ?? []).map(embalagemDeLinha);
-  const embalagemPorId = new Map(embalagens.map((e) => [e.id, e]));
   const produtos: ProdutoReepack[] = (produtosBanco ?? []).map(produtoReepackDeLinha);
   const produtoPorId = new Map(produtos.map((p) => [p.id, p]));
   const aberto = abertoBanco as Aberto | null;
@@ -277,7 +267,7 @@ export default async function DespejoPage({
                     key={l.id}
                     l={l}
                     produtoRotulo={produtoRotulo(l.produto_id, produtoPorId)}
-                    meta={embalagemPorId.get(l.embalagem_id)?.metaLitrosHora ?? null}
+                    meta={l.produto_id ? (produtoPorId.get(l.produto_id)?.metaDespejoHora ?? null) : null}
                     podeExcluir={l.colaborador_id === perfil.id || podeExcluirQualquer}
                     podeEditar={l.colaborador_id === perfil.id}
                   />
@@ -334,7 +324,7 @@ export default async function DespejoPage({
                   key={l.id}
                   l={l}
                   produtoRotulo={produtoRotulo(l.produto_id, produtoPorId)}
-                  meta={embalagemPorId.get(l.embalagem_id)?.metaLitrosHora ?? null}
+                  meta={l.produto_id ? (produtoPorId.get(l.produto_id)?.metaDespejoHora ?? null) : null}
                   podeExcluir={l.colaborador_id === perfil.id || podeExcluirQualquer}
                   podeEditar={l.colaborador_id === perfil.id}
                   mostrarColaborador

@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import ExcelJS from "exceljs";
 import { requireModulo } from "@/lib/require-admin";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { exigirRevenda } from "@/lib/revendas";
@@ -18,13 +19,6 @@ function sucesso(aba: string, mensagem: string): never {
   redirect(`${ROTA}?aba=${aba}&sucesso=${encodeURIComponent(mensagem)}`);
 }
 
-function numeroOuNulo(v: FormDataEntryValue | null): number | null {
-  const s = String(v ?? "").trim();
-  if (!s) return null;
-  const n = Number(s);
-  return Number.isFinite(n) ? n : null;
-}
-
 /** Traduz violação de chave estrangeira (23503) numa mensagem que explica
  *  o que fazer, em vez do código do Postgres. Todo excluir passa por aqui. */
 function erroDeExclusao(aba: string, mensagem: string): never {
@@ -32,88 +26,6 @@ function erroDeExclusao(aba: string, mensagem: string): never {
     aba,
     `Não é possível excluir: ${mensagem}. Já existem lançamentos usando este cadastro -- desative em vez de excluir.`,
   );
-}
-
-// -------------------- EMBALAGENS --------------------
-export async function salvarEmbalagem(formData: FormData) {
-  await requireModulo("produtividade-armazem", "editar");
-  const revendaId = await exigirRevenda(ROTA);
-  const admin = createAdminClient();
-
-  const nome = String(formData.get("nome") ?? "").trim();
-  if (!nome) erro("embalagens", "Informe o nome da embalagem.");
-
-  const unidadeReepack = formData.get("unidade_reepack") === "pc" ? "pc" : "cx";
-
-  const { error } = await admin.from("pa_embalagens").insert({
-    revenda_id: revendaId,
-    nome,
-    unidade_reepack: unidadeReepack,
-    litros_por_pacote: numeroOuNulo(formData.get("litros_por_pacote")),
-    tempo_padrao_reepack_segundos: numeroOuNulo(formData.get("tempo_padrao_reepack_segundos")),
-    tempo_padrao_despejo_segundos: numeroOuNulo(formData.get("tempo_padrao_despejo_segundos")),
-    meta_reepacks_hora: numeroOuNulo(formData.get("meta_reepacks_hora")),
-    meta_litros_hora: numeroOuNulo(formData.get("meta_litros_hora")),
-  });
-  if (error) erro("embalagens", `Não foi possível salvar: ${error.message}`);
-
-  revalidatePath(ROTA);
-  sucesso("embalagens", "Embalagem cadastrada");
-}
-
-export async function editarEmbalagem(formData: FormData) {
-  await requireModulo("produtividade-armazem", "editar");
-  const revendaId = await exigirRevenda(ROTA);
-  const admin = createAdminClient();
-
-  const id = String(formData.get("id") ?? "");
-  const nome = String(formData.get("nome") ?? "").trim();
-  if (!nome) erro("embalagens", "Informe o nome da embalagem.");
-
-  const unidadeReepack = formData.get("unidade_reepack") === "pc" ? "pc" : "cx";
-
-  const { error } = await admin
-    .from("pa_embalagens")
-    .update({
-      nome,
-      unidade_reepack: unidadeReepack,
-      litros_por_pacote: numeroOuNulo(formData.get("litros_por_pacote")),
-      tempo_padrao_reepack_segundos: numeroOuNulo(formData.get("tempo_padrao_reepack_segundos")),
-      tempo_padrao_despejo_segundos: numeroOuNulo(formData.get("tempo_padrao_despejo_segundos")),
-      meta_reepacks_hora: numeroOuNulo(formData.get("meta_reepacks_hora")),
-      meta_litros_hora: numeroOuNulo(formData.get("meta_litros_hora")),
-    })
-    .eq("id", id)
-    .eq("revenda_id", revendaId);
-  if (error) erro("embalagens", `Não foi possível salvar: ${error.message}`);
-
-  revalidatePath(ROTA);
-  sucesso("embalagens", "Embalagem atualizada");
-}
-
-export async function excluirEmbalagem(formData: FormData) {
-  await requireModulo("produtividade-armazem", "editar");
-  const revendaId = await exigirRevenda(ROTA);
-  const admin = createAdminClient();
-  const id = String(formData.get("id") ?? "");
-  const { error } = await admin.from("pa_embalagens").delete().eq("id", id).eq("revenda_id", revendaId);
-  if (error) {
-    if (error.code === "23503") erroDeExclusao("embalagens", "esta embalagem está em uso");
-    erro("embalagens", `Não foi possível excluir: ${error.message}`);
-  }
-  revalidatePath(ROTA);
-  sucesso("embalagens", "Embalagem excluída");
-}
-
-export async function alternarEmbalagemAtivo(formData: FormData) {
-  await requireModulo("produtividade-armazem", "editar");
-  const revendaId = await exigirRevenda(ROTA);
-  const admin = createAdminClient();
-  const id = String(formData.get("id") ?? "");
-  const ativo = formData.get("ativo") === "true";
-  await admin.from("pa_embalagens").update({ ativo: !ativo }).eq("id", id).eq("revenda_id", revendaId);
-  revalidatePath(ROTA);
-  sucesso("embalagens", "Atualizado");
 }
 
 // -------------------- EMPILHADEIRAS --------------------
@@ -409,42 +321,194 @@ export async function importarProdutos(formData: FormData) {
   sucesso("recebimento", `${linhas.length} produtos importados`);
 }
 
-/** Vincula (ou desvincula) o produto a uma embalagem -- é isso que
- *  libera o produto para aparecer no lançamento de Reepack/Despejo
- *  (junto com o Fator Hecto, que já vem pronto da importação). */
-export async function vincularEmbalagemProduto(formData: FormData) {
-  await requireModulo("produtividade-armazem", "editar");
-  const revendaId = await exigirRevenda(ROTA);
-  const admin = createAdminClient();
-  const id = String(formData.get("id") ?? "");
-  const embalagemId = String(formData.get("embalagem_id") ?? "").trim() || null;
-  const { error } = await admin
-    .from("pa_produtos")
-    .update({ embalagem_id: embalagemId })
-    .eq("id", id)
-    .eq("revenda_id", revendaId);
-  if (error) erro("reepack-despejo", `Não foi possível vincular: ${error.message}`);
-  revalidatePath(ROTA);
-  sucesso("reepack-despejo", "Embalagem vinculada");
+/** Célula do ExcelJS -> texto, desembrulhando fórmula/rich text/hyperlink
+ *  (mesma lógica de lib/rv-server.ts, copiada aqui pra não criar uma
+ *  dependência cruzada entre os dois importadores por causa de 6 linhas). */
+function celulaTexto(valor: ExcelJS.CellValue): string {
+  if (valor === null || valor === undefined) return "";
+  if (typeof valor === "string") return valor.trim();
+  if (typeof valor === "number" || typeof valor === "boolean") return String(valor);
+  if (valor instanceof Date) return valor.toLocaleDateString("pt-BR");
+  if (typeof valor === "object") {
+    const obj = valor as unknown as Record<string, unknown>;
+    if ("result" in obj) return celulaTexto(obj.result as ExcelJS.CellValue);
+    if ("text" in obj) return String(obj.text).trim();
+    if ("richText" in obj) {
+      return (obj.richText as { text: string }[]).map((p) => p.text).join("").trim();
+    }
+    if ("hyperlink" in obj) return String(obj.text ?? "").trim();
+  }
+  return String(valor).trim();
 }
 
-/** Ajusta o Fator/Fator Hecto na mão, para os poucos produtos que a
- *  importação não conseguiu casar com a base do SAP. */
-export async function editarFatorProduto(formData: FormData) {
+/** Célula -> número, ou null se vazia/não numérica (planilha traz meta
+ *  em branco até a liderança definir -- não é 0, é "sem meta ainda"). */
+function celulaNumero(valor: ExcelJS.CellValue): number | null {
+  const texto = celulaTexto(valor).replace(",", ".");
+  if (!texto) return null;
+  const n = Number(texto);
+  return Number.isFinite(n) ? n : null;
+}
+
+/** Normaliza cabeçalho de coluna pra comparar sem depender de acento,
+ *  espaço a mais ou maiúscula/minúscula. */
+function normalizarCabecalho(texto: string): string {
+  return texto
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toUpperCase()
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/**
+ * Cadastro de produto para Reepack/Despejo, tudo de uma planilha só --
+ * substitui as duas telas que existiam antes (Embalagens + vincular
+ * produto a produto): código, descrição, cluster, Fator Hecto, caixas
+ * por pallet, unidades por caixa, tipo, embalagem e meta (reepack em
+ * caixas/hora, despejo em litros/hora) vêm todos da mesma linha.
+ *
+ * A embalagem é resolvida pelo NOME (find-or-create em pa_embalagens):
+ * se "LATA 350ML C/12" já existe pra esta revenda, reusa; se não,
+ * cria. Produto é upsert por (revenda_id, código) -- reimportar a
+ * planilha atualiza quem já existe, nunca duplica.
+ */
+export async function importarPlanilhaProdutos(formData: FormData) {
   await requireModulo("produtividade-armazem", "editar");
   const revendaId = await exigirRevenda(ROTA);
   const admin = createAdminClient();
-  const id = String(formData.get("id") ?? "");
-  const unidadesPorCaixa = numeroOuNulo(formData.get("unidades_por_caixa"));
-  const fatorHecto = numeroOuNulo(formData.get("fator_hecto"));
+
+  const arquivo = formData.get("arquivo");
+  if (!(arquivo instanceof File) || arquivo.size === 0) {
+    erro("reepack-despejo", "Escolha o arquivo da planilha (.xlsx).");
+  }
+
+  const workbook = new ExcelJS.Workbook();
+  try {
+    await workbook.xlsx.load(await arquivo.arrayBuffer());
+  } catch {
+    erro("reepack-despejo", "Não foi possível abrir o arquivo -- confira se é um .xlsx válido.");
+  }
+  const aba = workbook.worksheets[0];
+  if (!aba) erro("reepack-despejo", "Planilha vazia.");
+
+  const colunaPorCabecalho = new Map<string, number>();
+  aba.getRow(1).eachCell({ includeEmpty: true }, (cell, col) => {
+    const chave = normalizarCabecalho(celulaTexto(cell.value));
+    if (chave) colunaPorCabecalho.set(chave, col);
+  });
+  const coluna = (...nomes: string[]) => {
+    for (const n of nomes) {
+      const c = colunaPorCabecalho.get(n);
+      if (c) return c;
+    }
+    return null;
+  };
+
+  const colCodigo = coluna("PROMAX");
+  const colDescricao = coluna("PRODUTO");
+  const colCluster = coluna("CLUSTER PRODUTO");
+  const colFatorHecto = coluna("FATOR HECTO");
+  const colCaixasPallet = coluna("CAIXAS PALLET");
+  const colUnCx = coluna("UN/CX", "UN CX");
+  const colTipo = coluna("TIPO");
+  const colEmbalagem = coluna("EMBALAGEM");
+  const colMetaReepack = coluna("META_(CX)REPACK/H", "META (CX)REPACK/H", "META (CX) REPACK/H");
+  const colMetaDespejo = coluna("META_(L)DESPEJO/H", "META (L)DESPEJO/H", "META (L) DESPEJO/H");
+
+  if (!colCodigo || !colDescricao) {
+    erro("reepack-despejo", "A planilha precisa ter as colunas PROMAX e PRODUTO.");
+  }
+
+  type LinhaImportada = {
+    codigo: string;
+    descricao: string;
+    cluster: string | null;
+    fatorHecto: number | null;
+    caixasPallet: number | null;
+    unidadesPorCaixa: number | null;
+    tipo: "DESCARTAVEL" | "RETORNAVEL" | null;
+    embalagemNome: string | null;
+    metaReepack: number | null;
+    metaDespejo: number | null;
+  };
+  const linhas: LinhaImportada[] = [];
+
+  aba.eachRow({ includeEmpty: false }, (row, numeroLinha) => {
+    if (numeroLinha === 1) return;
+    const codigoTexto = celulaTexto(row.getCell(colCodigo).value).trim();
+    const descricao = celulaTexto(row.getCell(colDescricao).value).trim();
+    if (!codigoTexto || !descricao) return; // linha em branco/lixo, ignora
+
+    const tipoTexto = colTipo ? normalizarCabecalho(celulaTexto(row.getCell(colTipo).value)) : "";
+    const embalagemNome = colEmbalagem ? celulaTexto(row.getCell(colEmbalagem).value).trim() : "";
+
+    linhas.push({
+      codigo: codigoTexto,
+      descricao,
+      cluster: colCluster ? celulaTexto(row.getCell(colCluster).value).trim() || null : null,
+      fatorHecto: colFatorHecto ? celulaNumero(row.getCell(colFatorHecto).value) : null,
+      caixasPallet: colCaixasPallet ? celulaNumero(row.getCell(colCaixasPallet).value) : null,
+      unidadesPorCaixa: colUnCx ? celulaNumero(row.getCell(colUnCx).value) : null,
+      tipo: tipoTexto === "DESCARTAVEL" || tipoTexto === "RETORNAVEL" ? tipoTexto : null,
+      embalagemNome: embalagemNome || null,
+      metaReepack: colMetaReepack ? celulaNumero(row.getCell(colMetaReepack).value) : null,
+      metaDespejo: colMetaDespejo ? celulaNumero(row.getCell(colMetaDespejo).value) : null,
+    });
+  });
+
+  if (linhas.length === 0) {
+    erro("reepack-despejo", "Nenhuma linha válida encontrada (confira as colunas PROMAX e PRODUTO).");
+  }
+
+  // Embalagem: acha pelo nome (sem diferenciar maiúscula/minúscula, igual
+  // ao índice único do banco) e cria só as que ainda não existem.
+  const { data: embalagensExistentes } = await admin
+    .from("pa_embalagens")
+    .select("id, nome")
+    .eq("revenda_id", revendaId);
+  const embalagemIdPorNome = new Map(
+    (embalagensExistentes ?? []).map((e) => [e.nome.toLowerCase(), e.id] as const),
+  );
+
+  const faltantesPorChave = new Map<string, string>();
+  for (const l of linhas) {
+    if (!l.embalagemNome) continue;
+    const chave = l.embalagemNome.toLowerCase();
+    if (!embalagemIdPorNome.has(chave) && !faltantesPorChave.has(chave)) {
+      faltantesPorChave.set(chave, l.embalagemNome);
+    }
+  }
+  if (faltantesPorChave.size > 0) {
+    const { data: criadas, error: erroEmbalagem } = await admin
+      .from("pa_embalagens")
+      .insert([...faltantesPorChave.values()].map((nome) => ({ revenda_id: revendaId, nome })))
+      .select("id, nome");
+    if (erroEmbalagem) erro("reepack-despejo", `Não foi possível criar embalagem: ${erroEmbalagem.message}`);
+    for (const e of criadas ?? []) embalagemIdPorNome.set(e.nome.toLowerCase(), e.id);
+  }
+
+  const linhasParaUpsert = linhas.map((l) => ({
+    revenda_id: revendaId,
+    codigo: l.codigo,
+    descricao: l.descricao,
+    cluster_produto: l.cluster,
+    fator_hecto: l.fatorHecto,
+    caixas_pallet: l.caixasPallet,
+    unidades_por_caixa: l.unidadesPorCaixa,
+    tipo: l.tipo,
+    embalagem_id: l.embalagemNome ? (embalagemIdPorNome.get(l.embalagemNome.toLowerCase()) ?? null) : null,
+    meta_reepack_hora: l.metaReepack,
+    meta_despejo_hora: l.metaDespejo,
+  }));
+
   const { error } = await admin
     .from("pa_produtos")
-    .update({ unidades_por_caixa: unidadesPorCaixa, fator_hecto: fatorHecto })
-    .eq("id", id)
-    .eq("revenda_id", revendaId);
-  if (error) erro("reepack-despejo", `Não foi possível salvar: ${error.message}`);
+    .upsert(linhasParaUpsert, { onConflict: "revenda_id,codigo" });
+  if (error) erro("reepack-despejo", `Não foi possível importar: ${error.message}`);
+
   revalidatePath(ROTA);
-  sucesso("reepack-despejo", "Fator atualizado");
+  sucesso("reepack-despejo", `${linhasParaUpsert.length} produtos importados/atualizados`);
 }
 
 export async function alternarProdutoAtivo(formData: FormData) {

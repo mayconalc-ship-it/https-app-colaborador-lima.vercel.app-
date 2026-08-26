@@ -71,88 +71,68 @@ export function ehSenso(v: unknown): v is Senso {
 }
 
 // --------------------------------------------------------------------
-// EMBALAGENS (catálogo de Reepack e Despejo)
-// --------------------------------------------------------------------
-export const UNIDADES_REEPACK = ["cx", "pc"] as const;
-export type UnidadeReepack = (typeof UNIDADES_REEPACK)[number];
-
-export const ROTULO_UNIDADE_REEPACK: Record<UnidadeReepack, string> = {
-  cx: "caixa",
-  pc: "peça",
-};
-
-export function ehUnidadeReepack(v: unknown): v is UnidadeReepack {
-  return typeof v === "string" && (UNIDADES_REEPACK as readonly string[]).includes(v);
-}
-
-export type Embalagem = {
-  id: string;
-  nome: string;
-  tempoPadraoReepackSegundos: number | null;
-  tempoPadraoDespejoSegundos: number | null;
-  metaReepacksHora: number | null;
-  metaLitrosHora: number | null;
-  unidadeReepack: UnidadeReepack;
-  litrosPorPacote: number | null;
-};
-
-export function embalagemDeLinha(l: {
-  id: string;
-  nome: string;
-  tempo_padrao_reepack_segundos: number | null;
-  tempo_padrao_despejo_segundos: number | null;
-  meta_reepacks_hora: number | null;
-  meta_litros_hora: number | null;
-  unidade_reepack: string;
-  litros_por_pacote: number | null;
-}): Embalagem {
-  return {
-    id: l.id,
-    nome: l.nome,
-    tempoPadraoReepackSegundos: l.tempo_padrao_reepack_segundos,
-    tempoPadraoDespejoSegundos: l.tempo_padrao_despejo_segundos,
-    metaReepacksHora: l.meta_reepacks_hora,
-    metaLitrosHora: l.meta_litros_hora,
-    unidadeReepack: ehUnidadeReepack(l.unidade_reepack) ? l.unidade_reepack : "cx",
-    litrosPorPacote: l.litros_por_pacote,
-  };
-}
-
-// --------------------------------------------------------------------
-// PRODUTO (Reepack/Despejo por produto -- ver migration 054)
+// PRODUTO (Reepack/Despejo por produto -- ver migration 054 e 060)
 // --------------------------------------------------------------------
 // Antes, Reepack/Despejo pediam a EMBALAGEM genérica ("Lata 350ml C/12").
 // Agora a pessoa escolhe o PRODUTO específico, e o litro sai sozinho do
 // Fator Hecto que já vem pronto do SAP -- sem conta de cabeça, sem
 // digitação manual. Só produto com fatorHecto E embalagemId preenchidos
-// entra na lista de escolha do lançamento (ver ADMIN > Configuração >
-// Reepack/Despejo, onde o Admin vincula cada produto a uma embalagem).
+// entra na lista de escolha do lançamento. Desde a 060, cluster, tipo,
+// caixas/pallet, embalagem e meta (reepack em cx/h, despejo em L/h) vêm
+// todos juntos de uma planilha reimportada pelo Admin -- ver
+// importarPlanilhaProdutos em admin/produtividade-armazem/actions.ts.
 export type ProdutoReepack = {
   id: string;
   codigo: string;
   descricao: string;
+  clusterProduto: string | null;
   unidadesPorCaixa: number | null;
+  caixasPallet: number | null;
   fatorHecto: number | null;
+  tipo: string | null;
   embalagemId: string | null;
+  metaReepackHora: number | null;
+  metaDespejoHora: number | null;
 };
 
 export function produtoReepackDeLinha(l: {
   id: string;
   codigo: string;
   descricao: string;
+  cluster_produto?: string | null;
   unidades_por_caixa: number | null;
+  caixas_pallet?: number | null;
   fator_hecto: number | null;
+  tipo?: string | null;
   embalagem_id: string | null;
+  meta_reepack_hora?: number | null;
+  meta_despejo_hora?: number | null;
 }): ProdutoReepack {
   return {
     id: l.id,
     codigo: l.codigo,
     descricao: l.descricao,
+    clusterProduto: l.cluster_produto ?? null,
     unidadesPorCaixa: l.unidades_por_caixa,
+    caixasPallet: l.caixas_pallet ?? null,
     fatorHecto: l.fator_hecto,
+    tipo: l.tipo ?? null,
     embalagemId: l.embalagem_id,
+    metaReepackHora: l.meta_reepack_hora ?? null,
+    metaDespejoHora: l.meta_despejo_hora ?? null,
   };
 }
+
+/** Só os campos que a agregação do dashboard precisa (id, rótulo, meta) --
+ *  ProdutoReepack serve aqui também (é um superconjunto), mas os pontos
+ *  que só olham meta (indicadores/page.tsx) não precisam buscar codigo,
+ *  fatorHecto etc. do banco só pra montar o tipo certo. */
+export type ProdutoMeta = {
+  id: string;
+  descricao: string;
+  metaReepackHora: number | null;
+  metaDespejoHora: number | null;
+};
 
 /** Pronto para aparecer no lançamento: precisa do litro E da embalagem
  *  (a embalagem é o que alimenta a meta de tempo por tipo). */
@@ -578,7 +558,7 @@ export function mediaExecucoes5sPorPessoa(execucoes: { colaboradorId: string }[]
 /**
  * Pontuação: média simples das até 4 métricas que a pessoa (ou turno)
  * realmente tem, todas na mesma escala de %:
- *  - Reepack e Despejo: % da meta cadastrada por embalagem (pctDaMeta).
+ *  - Reepack e Despejo: % da meta cadastrada por produto (pctDaMeta).
  *  - Picking e 5S: % da média do grupo no mesmo recorte (pctRelativoAoGrupo)
  *    -- não tem meta cadastrada, então a régua é "comparado com todo
  *    mundo", pra ficar justo com as outras duas métricas em vez de somar
@@ -599,9 +579,9 @@ export function calcularPontuacao(
 // DASHBOARD -- agregação em cima de um recorte de período (ver nota no
 // topo do arquivo: sem tabela de consolidação, calcula na leitura).
 // --------------------------------------------------------------------
-export type LinhaIndicadorEmbalagem = {
-  embalagemId: string;
-  embalagemNome: string;
+export type LinhaIndicadorProduto = {
+  produtoId: string;
+  produtoDescricao: string;
   quantidade: number;
   horas: number;
   taxa: number;
@@ -609,30 +589,32 @@ export type LinhaIndicadorEmbalagem = {
   pctMeta: number | null;
 };
 
-/** Soma quantidade/litros e horas por embalagem, e calcula a taxa. Serve
+/** Soma quantidade/litros e horas por produto, e calcula a taxa. Serve
  *  tanto para reepack (quantidade) quanto para despejo (litros) -- quem
- *  chama decide qual campo é "quantidade". */
-export function agruparPorEmbalagem(
-  lancamentos: { embalagemId: string; quantidade: number; inicio: string; fim: string }[],
-  embalagens: Embalagem[],
-  pegarMeta: (e: Embalagem) => number | null,
-): LinhaIndicadorEmbalagem[] {
-  const porEmbalagem = new Map<string, { quantidade: number; horas: number }>();
+ *  chama decide qual campo é "quantidade". A meta é por PRODUTO (desde a
+ *  060), não mais por embalagem: dois produtos na mesma embalagem podem
+ *  ter ritmo de meta diferente. */
+export function agruparPorProduto(
+  lancamentos: { produtoId: string; quantidade: number; inicio: string; fim: string }[],
+  produtos: ProdutoMeta[],
+  pegarMeta: (p: ProdutoMeta) => number | null,
+): LinhaIndicadorProduto[] {
+  const porProduto = new Map<string, { quantidade: number; horas: number }>();
   for (const l of lancamentos) {
-    const atual = porEmbalagem.get(l.embalagemId) ?? { quantidade: 0, horas: 0 };
+    const atual = porProduto.get(l.produtoId) ?? { quantidade: 0, horas: 0 };
     atual.quantidade += l.quantidade;
     atual.horas += horasEntre(l.inicio, l.fim);
-    porEmbalagem.set(l.embalagemId, atual);
+    porProduto.set(l.produtoId, atual);
   }
 
-  return [...porEmbalagem.entries()]
-    .map(([embalagemId, soma]) => {
-      const embalagem = embalagens.find((e) => e.id === embalagemId);
+  return [...porProduto.entries()]
+    .map(([produtoId, soma]) => {
+      const produto = produtos.find((p) => p.id === produtoId);
       const taxa = taxaPorHora(soma.quantidade, soma.horas);
-      const meta = embalagem ? pegarMeta(embalagem) : null;
+      const meta = produto ? pegarMeta(produto) : null;
       return {
-        embalagemId,
-        embalagemNome: embalagem?.nome ?? "—",
+        produtoId,
+        produtoDescricao: produto?.descricao ?? "produto removido",
         quantidade: soma.quantidade,
         horas: Math.round(soma.horas * 10) / 10,
         taxa,
@@ -650,11 +632,11 @@ export function agruparPorEmbalagem(
  * turno que interessa já produz o ranking "daquele turno".
  */
 export function construirRanking(
-  reepacks: { colaboradorId: string; colaboradorNome: string; embalagemId: string; quantidade: number; inicio: string; fim: string }[],
-  despejos: { colaboradorId: string; colaboradorNome: string; embalagemId: string; litros: number; inicio: string; fim: string }[],
+  reepacks: { colaboradorId: string; colaboradorNome: string; produtoId: string; quantidade: number; inicio: string; fim: string }[],
+  despejos: { colaboradorId: string; colaboradorNome: string; produtoId: string; litros: number; inicio: string; fim: string }[],
   pickings: { colaboradorId: string; colaboradorNome: string; posicoesReabastecidas: number | null }[],
   execucoes5s: { colaboradorId: string; colaboradorNome: string }[],
-  embalagens: Embalagem[],
+  produtos: ProdutoMeta[],
 ): PontuacaoRanking[] {
   const pessoas = new Map<string, string>();
   for (const r of reepacks) pessoas.set(r.colaboradorId, r.colaboradorNome);
@@ -676,11 +658,11 @@ export function construirRanking(
     const meusPickings = pickings.filter((p) => p.colaboradorId === colaboradorId);
     const minhasPosicoes = meusPickings.reduce((s, p) => s + (p.posicoesReabastecidas ?? 0), 0);
 
-    const reepacksAgrupados = agruparPorEmbalagem(meusReepacks, embalagens, (e) => e.metaReepacksHora);
-    const despejosAgrupados = agruparPorEmbalagem(
+    const reepacksAgrupados = agruparPorProduto(meusReepacks, produtos, (p) => p.metaReepackHora);
+    const despejosAgrupados = agruparPorProduto(
       meusDespejos.map((d) => ({ ...d, quantidade: d.litros })),
-      embalagens,
-      (e) => e.metaLitrosHora,
+      produtos,
+      (p) => p.metaDespejoHora,
     );
 
     const reepacksPctMeta = mediaPct(reepacksAgrupados.map((r) => r.pctMeta));

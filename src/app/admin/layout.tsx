@@ -37,6 +37,13 @@ export default async function AdminLayout({
 
   const liberados = MODULOS.filter(
     (m) =>
+      // Sem subGrupoDe: só o módulo "guarda-chuva" (ex.: Produtividade do
+      // Armazém) aparece na barra lateral. Reepack, Despejo, Empilhadeira,
+      // Recebimento, 5S do Armazém, Picking e Carretas continuam com o
+      // próprio controle de acesso (tabela em /admin/acessos), só que agora
+      // se abrem de dentro da tela de configuração do módulo pai, não como
+      // um item a mais nesta barra.
+      !m.subGrupoDe &&
       modulosDaRevenda.has(m.id) &&
       podeFazer(perfil.role, concessoes, m.id, "ver"),
   );
