@@ -294,9 +294,18 @@ export const MODULOS: Modulo[] = [
  * perdeu nada no dia da virada; dali em diante, restringir é o Admin
  * desmarcando quem não deveria ter.
  *
+ * "5s" entrou nesta lista em 26/08/2026, a pedido do dono: antes ficava de
+ * fora porque já tinha controle próprio (auditor/dono de área, em
+ * cinco_s_*), mas isso só dá acesso RECORTADO por área -- não havia jeito
+ * de liberar alguém para ver o módulo inteiro sem também torná-lo auditor
+ * ou dono de uma área. Aqui o toggle some ADICIONA essa via de acesso (o
+ * "Visualizador" do módulo -- ver getContexto5S em cinco-s-server.ts); não
+ * substitui nem migra o cadastro de auditor/dono, que continua vivendo nas
+ * abas Auditores/Áreas de /admin/5s porque são vínculos operacionais, não
+ * só permissão. Quem já era auditor ou dono de área antes desta mudança
+ * não perdeu nada -- os dois caminhos convivem.
+ *
  * De propósito FORA desta lista:
- *   "5s"    -- já tem o próprio controle de acesso (auditor/dono de
- *              área/gestor, em cinco_s_*), não é um simples liga/desliga.
  *   colaboradores/metricas/pesquisa/menu -- são telas do Admin, não
  *              conteúdo que um colaborador comum navegue; já protegidas
  *              por `requireModulo`/permissão de liderança.
@@ -324,6 +333,7 @@ export const MODULOS_OPCIONAIS: ModuloId[] = [
   "rv",
   "quiz",
   "feedbacks",
+  "5s",
   "pa-reepack",
   "pa-despejo",
   "pa-empilhadeira",

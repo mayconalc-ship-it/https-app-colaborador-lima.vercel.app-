@@ -22,7 +22,10 @@ import type { Dashboard, Pergunta, Senso } from "@/lib/cinco-s";
  * com os cadastros do próprio módulo:
  *
  *   Administrador  = permissão "5s:editar" (owner ou liderança liberada)
- *   Visualizador   = permissão "5s:ver" e nada mais
+ *   Visualizador   = permissão "5s:ver", OU liberado em
+ *                    colaborador_modulos_extra (toggle de /admin/acessos,
+ *                    desde 26/08/2026) -- os dois dão o mesmo perfil: vê o
+ *                    módulo inteiro, todas as áreas, sem editar.
  *   Auditor        = está em cinco_s_auditores, ativo
  *   Dono da área   = tem vínculo vigente em cinco_s_area_donos
  *
@@ -65,16 +68,18 @@ export const getContexto5S = cache(async (): Promise<Contexto5S | null> => {
   if (!(await revendaTemModulo("5s"))) return null;
 
   const concessoes = await getConcessoes();
-  const gestor = podeFazer(perfil.role, concessoes, "5s", "ver");
+  const gestorPorPermissao = podeFazer(perfil.role, concessoes, "5s", "ver");
   const podeEditar = podeFazer(perfil.role, concessoes, "5s", "editar");
   const podeExcluir = podeFazer(perfil.role, concessoes, "5s", "excluir");
 
   const admin = createAdminClient();
 
-  // As duas consultas de vínculo vão juntas: são independentes, e
-  // esperar uma para começar a outra dobraria a latência da tela por
-  // nada.
-  const [{ data: auditor }, { data: donoDe }, { data: auditorDe }] =
+  // As quatro consultas de vínculo vão juntas: são independentes, e
+  // esperar uma para começar a outra multiplicaria a latência da tela por
+  // nada. "extra" é o toggle de /admin/acessos (colaborador_modulos_extra)
+  // -- mesmo mecanismo dos demais módulos opcionais, dá o perfil
+  // Visualizador sem precisar virar auditor nem dono de área.
+  const [{ data: auditor }, { data: donoDe }, { data: auditorDe }, { data: extra }] =
     await Promise.all([
       admin
         .from("cinco_s_auditores")
@@ -94,11 +99,19 @@ export const getContexto5S = cache(async (): Promise<Contexto5S | null> => {
         .select("area_id, cinco_s_areas!inner(revenda_id)")
         .eq("colaborador_id", perfil.id)
         .eq("cinco_s_areas.revenda_id", revendaId),
+      admin
+        .from("colaborador_modulos_extra")
+        .select("modulo")
+        .eq("colaborador_id", perfil.id)
+        .eq("revenda_id", revendaId)
+        .eq("modulo", "5s")
+        .maybeSingle(),
     ]);
 
   const areasComoDono = (donoDe ?? []).map((d) => d.area_id);
   const areasComoAuditor = (auditorDe ?? []).map((d) => d.area_id);
   const ehAuditor = Boolean(auditor);
+  const gestor = gestorPorPermissao || Boolean(extra);
 
   return {
     perfilId: perfil.id,

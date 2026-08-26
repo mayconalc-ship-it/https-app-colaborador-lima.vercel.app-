@@ -162,14 +162,43 @@ export const getModulosAcessiveis = cache(async (): Promise<Set<ModuloId>> => {
   if (faltam.length === 0) return jaTemPorPermissao;
 
   const admin = createAdminClient();
-  const { data } = await admin
-    .from("colaborador_modulos_extra")
-    .select("modulo")
-    .eq("colaborador_id", perfil.id)
-    .eq("revenda_id", revendaId)
-    .in("modulo", faltam);
 
-  for (const linha of data ?? []) jaTemPorPermissao.add(linha.modulo as ModuloId);
+  // "5s" tem uma segunda porta de entrada, além do toggle de módulo extra:
+  // ser auditor ou dono de área (cinco_s_auditores/cinco_s_area_donos) já
+  // dava acesso ao módulo antes de ele virar opcional (26/08/2026), quando
+  // o cartão aparecia para todo mundo sem checagem. Sem isto aqui, quem já
+  // era auditor/dono perderia o cartão do menu -- continuaria entrando
+  // pela URL direta (getContexto5S cobre isso), mas não acharia mais o
+  // caminho andando pelo app.
+  const [{ data: extras }, { data: auditor5s }, { data: donoDeArea5s }] = await Promise.all([
+    admin
+      .from("colaborador_modulos_extra")
+      .select("modulo")
+      .eq("colaborador_id", perfil.id)
+      .eq("revenda_id", revendaId)
+      .in("modulo", faltam),
+    faltam.includes("5s")
+      ? admin
+          .from("cinco_s_auditores")
+          .select("colaborador_id")
+          .eq("colaborador_id", perfil.id)
+          .eq("revenda_id", revendaId)
+          .eq("ativo", true)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
+    faltam.includes("5s")
+      ? admin
+          .from("cinco_s_area_donos")
+          .select("area_id, cinco_s_areas!inner(revenda_id)")
+          .eq("colaborador_id", perfil.id)
+          .is("ate", null)
+          .eq("cinco_s_areas.revenda_id", revendaId)
+      : Promise.resolve({ data: null }),
+  ]);
+
+  for (const linha of extras ?? []) jaTemPorPermissao.add(linha.modulo as ModuloId);
+  if (auditor5s || (donoDeArea5s && donoDeArea5s.length > 0)) jaTemPorPermissao.add("5s");
+
   return jaTemPorPermissao;
 });
 
