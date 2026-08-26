@@ -4,7 +4,6 @@ import { requireOwner } from "@/lib/require-admin";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { PageHeader } from "@/components/PageHeader";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
-import { CheckboxAutoEnvio } from "@/components/admin/CheckboxAutoEnvio";
 import {
   AJUDA_ACAO,
   MODULOS,
@@ -14,7 +13,7 @@ import {
   moduloPorId,
   type Papel,
 } from "@/lib/acessos";
-import { alternarModuloExtra, definirPapel, salvarPermissoes } from "./actions";
+import { definirPapel, liberarAcessosEmLote, salvarPermissoes } from "./actions";
 
 export default async function GestaoDeAcessosPage({
   searchParams,
@@ -271,8 +270,9 @@ export default async function GestaoDeAcessosPage({
         </h2>
         <p className="mb-3 text-xs text-slate-500">
           Módulos que ficam escondidos até serem liberados pessoa por pessoa.
-          Vale para qualquer papel — colaborador ou liderança. Cada marcação
-          salva sozinha, sem precisar de um botão &quot;Salvar&quot;.
+          Vale para qualquer papel — colaborador ou liderança. Marque quantos
+          quadradinhos quiser e só clique em &quot;Liberar acesso&quot; no
+          fim para gravar tudo de uma vez.
         </p>
 
         {modulosOpcionaisDaRevenda.length === 0 ? (
@@ -352,98 +352,113 @@ export default async function GestaoDeAcessosPage({
               {roster.length} pessoa(s) encontrada(s).
             </p>
 
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-slate-50 text-left text-xs uppercase text-slate-500">
-                  <tr>
-                    {/* Congelada: com muitos módulos a tabela fica bem mais
-                        larga que a tela, e sem isso ninguém sabe mais de quem
-                        é a linha depois de rolar pra marcar um módulo à
-                        direita. rowSpan de 2 porque agora o cabeçalho tem uma
-                        segunda linha, de agrupamento. */}
-                    <th
-                      rowSpan={2}
-                      className="sticky left-0 z-10 min-w-[11rem] bg-slate-50 p-3 align-bottom shadow-[2px_0_4px_-2px_rgba(0,0,0,0.08)]"
-                    >
-                      Pessoa
-                    </th>
-                    {gruposDeColunas.map((g, i) => (
-                      <th
-                        key={i}
-                        colSpan={g.modulos.length}
-                        className={`p-1.5 text-center text-[10px] font-semibold normal-case tracking-normal text-slate-400 ${
-                          g.rotuloGrupo ? "border-b border-slate-200" : ""
-                        }`}
-                      >
-                        {g.rotuloGrupo ?? ""}
-                      </th>
-                    ))}
-                  </tr>
-                  <tr>
-                    {modulosOpcionaisDaRevenda.map((m) => (
-                      <th key={m} className="w-16 p-2 text-center" title={moduloPorId(m)?.rotulo}>
-                        <span className="block text-base leading-none">{moduloPorId(m)?.emoji}</span>
-                        <span className="mt-1 block truncate text-[9px] normal-case leading-tight text-slate-400">
-                          {moduloPorId(m)?.rotulo}
-                        </span>
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {roster.length === 0 ? (
+            <form action={liberarAcessosEmLote}>
+              <input type="hidden" name="revenda" value={escolhida.id} />
+              <div className="max-h-[70vh] overflow-auto">
+                <table className="w-full text-sm">
+                  {/* sticky no <thead> inteiro (não célula a célula): as
+                      duas linhas de cabeçalho -- grupo e módulo -- rolam
+                      juntas como um bloco só, sem precisar calcular a
+                      altura da primeira pra encaixar a segunda embaixo. */}
+                  <thead className="sticky top-0 z-20 bg-slate-50 text-left text-xs uppercase text-slate-500">
                     <tr>
-                      <td
-                        colSpan={modulosOpcionaisDaRevenda.length + 1}
-                        className="p-6 text-center text-sm text-slate-400"
+                      {/* Congelada: com muitos módulos a tabela fica bem mais
+                          larga que a tela, e sem isso ninguém sabe mais de quem
+                          é a linha depois de rolar pra marcar um módulo à
+                          direita. rowSpan de 2 porque agora o cabeçalho tem uma
+                          segunda linha, de agrupamento. */}
+                      <th
+                        rowSpan={2}
+                        className="sticky left-0 z-20 min-w-[11rem] bg-slate-50 p-3 align-bottom shadow-[2px_0_4px_-2px_rgba(0,0,0,0.08)]"
                       >
-                        Ninguém encontrado.
-                      </td>
+                        Pessoa
+                      </th>
+                      {gruposDeColunas.map((g, i) => (
+                        <th
+                          key={i}
+                          colSpan={g.modulos.length}
+                          className={`bg-slate-50 p-1.5 text-center text-[10px] font-semibold normal-case tracking-normal text-slate-400 ${
+                            g.rotuloGrupo ? "border-b border-slate-200" : ""
+                          }`}
+                        >
+                          {g.rotuloGrupo ?? ""}
+                        </th>
+                      ))}
                     </tr>
-                  ) : (
-                    roster.map((p) => {
-                      const minhasExtras = extrasPorPessoa.get(p.id) ?? new Set<string>();
-                      const outras = outrasRevendasPorPessoa.get(p.id) ?? [];
-                      return (
-                        <tr key={p.id} className="border-t border-slate-100">
-                          <td className="sticky left-0 z-10 min-w-[11rem] bg-white p-3 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.08)]">
-                            <p className="font-medium text-slate-800">
-                              {p.nome}
-                              {outras.length > 0 && (
-                                <span
-                                  className="ml-1.5 rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-500"
-                                  title={`Também em ${outras.map((r) => r.nome).join(", ")}`}
-                                >
-                                  +{outras.length}
-                                </span>
-                              )}
-                            </p>
-                            <p className="text-xs text-slate-400">
-                              {ROTULO_PAPEL[p.role as Papel] ?? p.role}
-                              {p.area ? ` · ${p.area}` : ""}
-                              {p.cargo ? ` · ${p.cargo}` : ""}
-                            </p>
-                          </td>
-                          {modulosOpcionaisDaRevenda.map((m) => (
-                            <td key={m} className="w-16 p-2 text-center">
-                              <form action={alternarModuloExtra}>
-                                <input type="hidden" name="id" value={p.id} />
-                                <input type="hidden" name="modulo" value={m} />
-                                <input type="hidden" name="revenda" value={escolhida.id} />
-                                <CheckboxAutoEnvio
-                                  marcado={minhasExtras.has(m)}
-                                  ariaLabel={`${moduloPorId(m)?.rotulo} para ${p.nome}`}
-                                />
-                              </form>
+                    <tr>
+                      {modulosOpcionaisDaRevenda.map((m) => (
+                        <th key={m} className="w-16 bg-slate-50 p-2 text-center" title={moduloPorId(m)?.rotulo}>
+                          <span className="block text-base leading-none">{moduloPorId(m)?.emoji}</span>
+                          <span className="mt-1 block truncate text-[9px] normal-case leading-tight text-slate-400">
+                            {moduloPorId(m)?.rotulo}
+                          </span>
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {roster.length === 0 ? (
+                      <tr>
+                        <td
+                          colSpan={modulosOpcionaisDaRevenda.length + 1}
+                          className="p-6 text-center text-sm text-slate-400"
+                        >
+                          Ninguém encontrado.
+                        </td>
+                      </tr>
+                    ) : (
+                      roster.map((p) => {
+                        const minhasExtras = extrasPorPessoa.get(p.id) ?? new Set<string>();
+                        const outras = outrasRevendasPorPessoa.get(p.id) ?? [];
+                        return (
+                          <tr key={p.id} className="border-t border-slate-100">
+                            <td className="sticky left-0 z-10 min-w-[11rem] bg-white p-3 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.08)]">
+                              <p className="font-medium text-slate-800">
+                                {p.nome}
+                                {outras.length > 0 && (
+                                  <span
+                                    className="ml-1.5 rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-500"
+                                    title={`Também em ${outras.map((r) => r.nome).join(", ")}`}
+                                  >
+                                    +{outras.length}
+                                  </span>
+                                )}
+                              </p>
+                              <p className="text-xs text-slate-400">
+                                {ROTULO_PAPEL[p.role as Papel] ?? p.role}
+                                {p.area ? ` · ${p.area}` : ""}
+                                {p.cargo ? ` · ${p.cargo}` : ""}
+                              </p>
                             </td>
-                          ))}
-                        </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
-            </div>
+                            {modulosOpcionaisDaRevenda.map((m) => (
+                              <td key={m} className="w-16 p-2 text-center">
+                                <input type="hidden" name="universo" value={`${p.id}:${m}`} />
+                                <input
+                                  type="checkbox"
+                                  name="marcado"
+                                  value={`${p.id}:${m}`}
+                                  defaultChecked={minhasExtras.has(m)}
+                                  aria-label={`${moduloPorId(m)?.rotulo} para ${p.nome}`}
+                                  className="h-5 w-5 cursor-pointer rounded border-slate-300 text-primary"
+                                />
+                              </td>
+                            ))}
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+              <div className="border-t border-slate-100 p-3">
+                <BotaoEnviar
+                  textoEnviando="Aplicando..."
+                  className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-white hover:bg-primary-dark sm:w-auto"
+                >
+                  ✅ Liberar acesso
+                </BotaoEnviar>
+              </div>
+            </form>
           </div>
         )}
       </section>

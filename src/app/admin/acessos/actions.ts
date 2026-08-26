@@ -117,63 +117,115 @@ export async function definirPapel(formData: FormData) {
 }
 
 /**
- * Liga/desliga um módulo opcional para UMA pessoa, na tabela de acesso.
+ * Aplica em lote as marcações da tabela de módulos opcionais: a pessoa
+ * marca/desmarca vários quadradinhos à vontade e só quando aperta
+ * "Liberar acesso" é que qualquer coisa é gravada -- antes disso, nada
+ * muda no banco (substitui o antigo alternarModuloExtra, que salvava a
+ * cada clique).
  *
- * Generaliza o que antes só existia para o Ativo de Giro (em
- * admin/colaboradores/actions.ts): mesma tabela (`colaborador_modulos_extra`),
- * agora para qualquer módulo de `MODULOS_OPCIONAIS` e para qualquer
- * pessoa, não só quem já era liderança.
+ * `universo` carrega TODO par pessoa:módulo que apareceu na tabela (um
+ * hidden por célula, marcada ou não) -- é como a ação sabe distinguir
+ * "não mandou porque não apareceu na tela" (não mexe) de "não mandou
+ * porque desmarcou" (revoga). `marcado` só traz os pares que ficaram
+ * marcados no momento do envio.
+ *
+ * Descobre o estado atual antes de gravar e só grava/loga quem de fato
+ * mudou -- não teria sentido registrar auditoria pra 160 pessoas quando
+ * só 2 tiveram algo alterado de verdade.
  */
-export async function alternarModuloExtra(formData: FormData) {
+export async function liberarAcessosEmLote(formData: FormData) {
   const eu = await requireOwner();
-
-  const id = (formData.get("id") as string) || "";
-  const modulo = (formData.get("modulo") as string) || "";
   const revendaId = (formData.get("revenda") as string) || "";
-  const ligar = formData.get("ligar") === "true";
-
-  if (!id) voltar("erro", "Colaborador inválido.", revendaId);
   if (!revendaId) voltar("erro", "Revenda inválida.");
-  if (!MODULOS_OPCIONAIS.includes(modulo as (typeof MODULOS_OPCIONAIS)[number])) {
-    voltar("erro", "Módulo inválido.", revendaId);
+
+  const universoPorPessoa = new Map<string, Set<string>>();
+  for (const par of formData.getAll("universo").map(String)) {
+    const [id, modulo] = par.split(":");
+    if (!id || !MODULOS_OPCIONAIS.includes(modulo as (typeof MODULOS_OPCIONAIS)[number])) continue;
+    if (!universoPorPessoa.has(id)) universoPorPessoa.set(id, new Set());
+    universoPorPessoa.get(id)!.add(modulo);
+  }
+  if (universoPorPessoa.size === 0) voltar("erro", "Nenhuma alteração para aplicar.", revendaId);
+
+  const marcados = new Set(formData.getAll("marcado").map(String));
+  const admin = createAdminClient();
+
+  const { data: atuais } = await admin
+    .from("colaborador_modulos_extra")
+    .select("colaborador_id, modulo")
+    .eq("revenda_id", revendaId)
+    .in("colaborador_id", [...universoPorPessoa.keys()]);
+
+  const atuaisPorPessoa = new Map<string, Set<string>>();
+  for (const a of atuais ?? []) {
+    if (!atuaisPorPessoa.has(a.colaborador_id)) atuaisPorPessoa.set(a.colaborador_id, new Set());
+    atuaisPorPessoa.get(a.colaborador_id)!.add(a.modulo);
   }
 
-  const alvo = await nomeDe(id);
-  if (!alvo) voltar("erro", "Colaborador não encontrado.", revendaId);
+  const paraInserir: { colaborador_id: string; revenda_id: string; modulo: string; liberado_por: string }[] = [];
+  const paraApagarPorPessoa = new Map<string, string[]>();
+  const mudancaPorPessoa = new Map<string, { liberados: string[]; revogados: string[] }>();
 
-  const admin = createAdminClient();
-  const rotuloModulo = moduloPorId(modulo)?.rotulo ?? modulo;
+  for (const [id, modulosDoUniverso] of universoPorPessoa) {
+    const jaTinha = atuaisPorPessoa.get(id) ?? new Set<string>();
+    const liberados: string[] = [];
+    const revogados: string[] = [];
+    for (const modulo of modulosDoUniverso) {
+      const querAcesso = marcados.has(`${id}:${modulo}`);
+      const jaTem = jaTinha.has(modulo);
+      if (querAcesso && !jaTem) {
+        paraInserir.push({ colaborador_id: id, revenda_id: revendaId, modulo, liberado_por: eu.id });
+        liberados.push(modulo);
+      } else if (!querAcesso && jaTem) {
+        if (!paraApagarPorPessoa.has(id)) paraApagarPorPessoa.set(id, []);
+        paraApagarPorPessoa.get(id)!.push(modulo);
+        revogados.push(modulo);
+      }
+    }
+    if (liberados.length > 0 || revogados.length > 0) mudancaPorPessoa.set(id, { liberados, revogados });
+  }
 
-  if (ligar) {
-    const { error } = await admin.from("colaborador_modulos_extra").upsert(
-      { colaborador_id: id, revenda_id: revendaId, modulo, liberado_por: eu.id },
-      { onConflict: "colaborador_id,revenda_id,modulo" },
-    );
-    if (error) voltar("erro", `Não foi possível liberar: ${error.message}`, revendaId);
-  } else {
+  if (mudancaPorPessoa.size === 0) {
+    voltar("sucesso", "Nenhuma mudança em relação ao que já estava liberado.", revendaId);
+  }
+
+  for (const [colaboradorId, modulos] of paraApagarPorPessoa) {
     const { error } = await admin
       .from("colaborador_modulos_extra")
       .delete()
-      .eq("colaborador_id", id)
+      .eq("colaborador_id", colaboradorId)
       .eq("revenda_id", revendaId)
-      .eq("modulo", modulo);
+      .in("modulo", modulos);
     if (error) voltar("erro", `Não foi possível revogar: ${error.message}`, revendaId);
   }
 
-  await registrar({
-    atorId: eu.id,
-    atorNome: eu.nome,
-    acao: ligar ? `Liberou ${rotuloModulo}` : `Revogou ${rotuloModulo}`,
-    alvoId: id,
-    alvoNome: alvo.nome,
-    revendaId,
-  });
+  if (paraInserir.length > 0) {
+    const { error } = await admin
+      .from("colaborador_modulos_extra")
+      .upsert(paraInserir, { onConflict: "colaborador_id,revenda_id,modulo" });
+    if (error) voltar("erro", `Não foi possível liberar: ${error.message}`, revendaId);
+  }
 
-  voltar(
-    "sucesso",
-    `${rotuloModulo} ${ligar ? "liberado" : "revogado"} para ${alvo.nome}.`,
-    revendaId,
-  );
+  const { data: revenda } = await admin.from("revendas").select("nome").eq("id", revendaId).maybeSingle();
+  const { data: pessoas } = await admin.from("profiles").select("id, nome").in("id", [...mudancaPorPessoa.keys()]);
+  const nomePorId = new Map((pessoas ?? []).map((p) => [p.id, p.nome]));
+
+  for (const [id, { liberados, revogados }] of mudancaPorPessoa) {
+    const partes: string[] = [];
+    if (liberados.length > 0) partes.push(`liberou ${liberados.map((m) => moduloPorId(m)?.rotulo ?? m).join(", ")}`);
+    if (revogados.length > 0) partes.push(`revogou ${revogados.map((m) => moduloPorId(m)?.rotulo ?? m).join(", ")}`);
+    await registrar({
+      atorId: eu.id,
+      atorNome: eu.nome,
+      acao: "Alterou acessos em lote",
+      alvoId: id,
+      alvoNome: nomePorId.get(id) ?? id,
+      detalhes: `${revenda?.nome ?? "Revenda"} — ${partes.join(" · ")}`,
+      revendaId,
+    });
+  }
+
+  voltar("sucesso", `Acessos atualizados para ${mudancaPorPessoa.size} pessoa(s).`, revendaId);
 }
 
 /**
