@@ -96,6 +96,7 @@ export default async function AdminProdutividadeArmazemPage({
 
   const [
     { data: embalagens },
+    { data: embalagensDespejo },
     { data: empilhadeiras },
     { data: lembretes },
     { data: fabricas },
@@ -112,7 +113,12 @@ export default async function AdminProdutividadeArmazemPage({
   ] = await Promise.all([
     supabase
       .from("pa_embalagens")
-      .select("id, nome, litros_por_pacote, meta_litros_hora")
+      .select("id, nome")
+      .eq("revenda_id", revendaId)
+      .order("nome"),
+    supabase
+      .from("pa_embalagens_despejo")
+      .select("id, nome, litros_por_unidade, meta_litros_hora")
       .eq("revenda_id", revendaId)
       .order("nome"),
     supabase.from("pa_empilhadeiras").select("id, numero, ativo").eq("revenda_id", revendaId).order("numero"),
@@ -179,7 +185,7 @@ export default async function AdminProdutividadeArmazemPage({
     supabase.from("pa_recebimento_config").select("tma_alvo_minutos, dias_minimos_validade_alerta").eq("revenda_id", revendaId).maybeSingle(),
   ]);
 
-  const totalEmbalagens = embalagens?.length ?? 0;
+  const totalEmbalagensDespejo = embalagensDespejo?.length ?? 0;
   const totalEmpilhadeiras = empilhadeiras?.length ?? 0;
   const totalFabricas = fabricas?.length ?? 0;
   const totalTransportadoras = transportadoras?.length ?? 0;
@@ -254,36 +260,37 @@ export default async function AdminProdutividadeArmazemPage({
         <div className="space-y-6">
           <PainelCadastro
             titulo="Embalagens — Despejo"
-            contagem={totalEmbalagens}
-            temItens={totalEmbalagens > 0}
+            contagem={totalEmbalagensDespejo}
+            temItens={totalEmbalagensDespejo > 0}
             vazio="Nenhuma embalagem ainda -- importe a planilha de produtos, ela cria as embalagens sozinha."
             formNovo={
               <p className="text-xs text-slate-500">
-                Despejo é lançado por embalagem, não por produto -- ajuste aqui o litro por
-                pacote (converte caixas despejadas em litros) e a meta de L/h de cada uma. A
-                embalagem em si vem da planilha de produtos (cria sozinha pelo nome); aqui só
-                se ajustam esses dois números.
+                Despejo é lançado por embalagem, não por produto -- e tem catálogo PRÓPRIO,
+                diferente do Repack (mesma peça pode ter nome diferente nos dois:
+                &ldquo;Lata 350ml C/12&rdquo; no Repack, &ldquo;Lata 350ml&rdquo; no Despejo). O
+                litro por unidade já vem calculado da planilha de produtos (Fator Hecto ÷
+                Un/Cx); ajuste aqui só se precisar corrigir, e a meta de L/h de cada uma.
               </p>
             }
           >
-            {(embalagens ?? []).map((e) => (
+            {(embalagensDespejo ?? []).map((e) => (
               <ItemCadastro
                 key={e.id}
                 titulo={e.nome}
                 subtitulo={
-                  e.litros_por_pacote !== null
-                    ? `${e.litros_por_pacote} L/pacote${e.meta_litros_hora ? ` · meta ${e.meta_litros_hora} L/h` : ""}`
-                    : "⚠️ sem litro por pacote -- não aparece no lançamento de despejo"
+                  e.litros_por_unidade !== null
+                    ? `${e.litros_por_unidade} L/unidade${e.meta_litros_hora ? ` · meta ${e.meta_litros_hora} L/h` : ""}`
+                    : "⚠️ sem litro por unidade -- não aparece no lançamento de despejo"
                 }
                 formEditar={
                   <form action={editarEmbalagemDespejo} className="flex flex-wrap gap-2">
                     <input type="hidden" name="id" value={e.id} />
                     <input
-                      name="litros_por_pacote"
+                      name="litros_por_unidade"
                       type="number"
                       step="0.001"
-                      defaultValue={e.litros_por_pacote ?? ""}
-                      placeholder="Litros por pacote"
+                      defaultValue={e.litros_por_unidade ?? ""}
+                      placeholder="Litros por unidade"
                       className={campo}
                     />
                     <input
@@ -350,8 +357,8 @@ export default async function AdminProdutividadeArmazemPage({
           {pendentesReepack > 0 && (
             <p className="bg-amber-50 p-3 text-xs font-semibold text-amber-800">
               ⚠️ {pendentesReepack} produto(s) sem embalagem vinculada -- não aparecem no
-              lançamento ainda. Corrija a coluna EMBALAGEM na planilha e reimporte. Estão no
-              topo da lista.
+              lançamento ainda. Corrija a coluna EMBALAGEM_REPACK na planilha e reimporte. Estão
+              no topo da lista.
             </p>
           )}
           {produtosReepackOrdenados.map((p) => {

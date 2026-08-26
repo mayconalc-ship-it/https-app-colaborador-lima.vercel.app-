@@ -25,6 +25,9 @@ const exigirContexto = () => exigirContextoModulo("pa-despejo", ROTA);
  * não importa pra essa operação). `produto_id` fica de fora dos
  * lançamentos novos -- a coluna continua existindo só pra não quebrar
  * o histórico de antes desta mudança.
+ *
+ * A embalagem vem do catálogo PRÓPRIO do despejo (pa_embalagens_despejo,
+ * migration 064) -- não mais o mesmo catálogo do Repack.
  */
 export async function iniciarDespejo(formData: FormData) {
   const { perfil, revendaId } = await exigirContexto();
@@ -37,20 +40,20 @@ export async function iniciarDespejo(formData: FormData) {
   const supabase = await createClient();
 
   const { data: embalagem } = await supabase
-    .from("pa_embalagens")
-    .select("id, litros_por_pacote")
+    .from("pa_embalagens_despejo")
+    .select("id, litros_por_unidade")
     .eq("id", embalagemId)
     .eq("revenda_id", revendaId)
     .eq("ativo", true)
     .maybeSingle();
 
-  if (!embalagem || embalagem.litros_por_pacote === null) {
-    erro("Esta embalagem ainda não está pronta para despejo -- peça ao Admin para cadastrar o litro por pacote em Configuração.");
+  if (!embalagem || embalagem.litros_por_unidade === null) {
+    erro("Esta embalagem ainda não está pronta para despejo -- peça ao Admin para cadastrar o litro por unidade em Configuração.");
   }
 
   const { error } = await supabase.from("pa_despejo_lancamentos").insert({
     revenda_id: revendaId,
-    embalagem_id: embalagem.id,
+    embalagem_despejo_id: embalagem.id,
     colaborador_id: perfil.id,
     colaborador_nome: perfil.nome,
     turno,
@@ -67,10 +70,11 @@ export async function iniciarDespejo(formData: FormData) {
 }
 
 /**
- * Fecha o lançamento: grava fim = agora, converte caixas em litros com o
- * litro-por-pacote DE HOJE da embalagem (não recalcula o passado se o
- * valor mudar depois -- mesma regra de sempre, só que a fonte volta a
- * ser a embalagem, não mais o produto).
+ * Fecha o lançamento: grava fim = agora, converte UNIDADES em litros com
+ * o litro-por-unidade DE HOJE da embalagem (não recalcula o passado se o
+ * valor mudar depois -- mesma regra de sempre). Guarda no mesmo campo
+ * `quantidade_pacotes` de sempre -- o nome da coluna ficou, só o que ele
+ * representa mudou (unidade, não mais caixa/pacote, desde a 064).
  */
 export async function finalizarDespejo(formData: FormData) {
   const { perfil, revendaId } = await exigirContexto();
@@ -78,13 +82,13 @@ export async function finalizarDespejo(formData: FormData) {
   const id = String(formData.get("id") ?? "");
   if (!id) erro("Lançamento inválido.");
 
-  let quantidadePacotes: number;
+  let quantidade: number;
   try {
-    quantidadePacotes = inteiroNaoNegativo(formData.get("quantidade_pacotes"));
+    quantidade = inteiroNaoNegativo(formData.get("quantidade_pacotes"));
   } catch (e) {
     erro(e instanceof Error ? e.message : "Valor inválido.");
   }
-  if (quantidadePacotes === 0) erro("Informe quantas caixas foram despejadas.");
+  if (quantidade === 0) erro("Informe quantas unidades foram despejadas.");
 
   const observacao = String(formData.get("observacao") ?? "").trim().slice(0, 300) || null;
 
@@ -92,7 +96,7 @@ export async function finalizarDespejo(formData: FormData) {
 
   const { data: aberto } = await supabase
     .from("pa_despejo_lancamentos")
-    .select("id, embalagem_id")
+    .select("id, embalagem_despejo_id")
     .eq("id", id)
     .eq("revenda_id", revendaId)
     .eq("colaborador_id", perfil.id)
@@ -102,20 +106,20 @@ export async function finalizarDespejo(formData: FormData) {
   if (!aberto) erro("Este lançamento já foi finalizado ou não é seu.");
 
   const { data: embalagem } = await supabase
-    .from("pa_embalagens")
-    .select("litros_por_pacote")
-    .eq("id", aberto.embalagem_id)
+    .from("pa_embalagens_despejo")
+    .select("litros_por_unidade")
+    .eq("id", aberto.embalagem_despejo_id)
     .maybeSingle();
 
-  if (!embalagem?.litros_por_pacote) {
-    erro("Esta embalagem não tem o litro por pacote cadastrado. Peça ao Admin para conferir em Configuração.");
+  if (!embalagem?.litros_por_unidade) {
+    erro("Esta embalagem não tem o litro por unidade cadastrado. Peça ao Admin para conferir em Configuração.");
   }
 
-  const litros = Math.round(quantidadePacotes * embalagem.litros_por_pacote * 100) / 100;
+  const litros = Math.round(quantidade * embalagem.litros_por_unidade * 100) / 100;
 
   const { error } = await supabase
     .from("pa_despejo_lancamentos")
-    .update({ fim: new Date().toISOString(), quantidade_pacotes: quantidadePacotes, litros, observacao })
+    .update({ fim: new Date().toISOString(), quantidade_pacotes: quantidade, litros, observacao })
     .eq("id", id);
 
   if (error) erro(`Não foi possível finalizar: ${error.message}`);
@@ -128,10 +132,10 @@ export async function finalizarDespejo(formData: FormData) {
  * Corrige a EMBALAGEM de um lançamento já finalizado -- só isso, e só
  * quem lançou (sem bypass de gestor de propósito: é autocorreção de
  * "escolhi a embalagem errada", não uma ferramenta de gestão). Início,
- * fim e quantidade de caixas NUNCA entram aqui: dá pra corrigir "marquei
- * Lata 350ml mas era Lata 269ml", não dá pra esticar o tempo nem inflar
- * a quantidade pra melhorar a taxa. O litro recalcula a partir da
- * quantidade JÁ gravada x o litro-por-pacote da embalagem nova (mesma
+ * fim e quantidade NUNCA entram aqui: dá pra corrigir "marquei Lata
+ * 350ml mas era Lata 269ml", não dá pra esticar o tempo nem inflar a
+ * quantidade pra melhorar a taxa. O litro recalcula a partir da
+ * quantidade JÁ gravada x o litro-por-unidade da embalagem nova (mesma
  * regra do lançamento original).
  */
 export async function editarDespejo(formData: FormData) {
@@ -157,22 +161,22 @@ export async function editarDespejo(formData: FormData) {
   if (!lancamento.quantidade_pacotes) erro("Este lançamento não tem quantidade gravada.");
 
   const { data: embalagem } = await supabase
-    .from("pa_embalagens")
-    .select("id, litros_por_pacote")
+    .from("pa_embalagens_despejo")
+    .select("id, litros_por_unidade")
     .eq("id", embalagemId)
     .eq("revenda_id", revendaId)
     .eq("ativo", true)
     .maybeSingle();
 
-  if (!embalagem || embalagem.litros_por_pacote === null) {
-    erro("Esta embalagem ainda não está pronta para despejo -- peça ao Admin para cadastrar o litro por pacote em Configuração.");
+  if (!embalagem || embalagem.litros_por_unidade === null) {
+    erro("Esta embalagem ainda não está pronta para despejo -- peça ao Admin para cadastrar o litro por unidade em Configuração.");
   }
 
-  const litros = Math.round(lancamento.quantidade_pacotes * embalagem.litros_por_pacote * 100) / 100;
+  const litros = Math.round(lancamento.quantidade_pacotes * embalagem.litros_por_unidade * 100) / 100;
 
   const { error } = await supabase
     .from("pa_despejo_lancamentos")
-    .update({ embalagem_id: embalagem.id, litros })
+    .update({ embalagem_despejo_id: embalagem.id, litros })
     .eq("id", id);
 
   if (error) erro(`Não foi possível editar: ${error.message}`);

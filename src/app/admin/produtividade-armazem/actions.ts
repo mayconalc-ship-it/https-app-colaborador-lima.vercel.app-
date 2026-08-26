@@ -7,7 +7,7 @@ import { requireModulo } from "@/lib/require-admin";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { exigirRevenda } from "@/lib/revendas";
 import { createClient } from "@/lib/supabase/server";
-import { ehSenso, ehTurno } from "@/lib/produtividade-armazem";
+import { ehSenso, ehTurno, litrosPorCaixa } from "@/lib/produtividade-armazem";
 
 const ROTA = "/admin/produtividade-armazem";
 
@@ -484,22 +484,26 @@ export async function salvarConfigRecebimento(formData: FormData) {
 }
 
 // -------------------- EMBALAGENS (DESPEJO) --------------------
-/** Despejo voltou a ser lançado por embalagem, não por produto -- essas
- *  são as duas contas que faltam pra embalagem funcionar no lançamento:
- *  litro por pacote (converte caixas despejadas em litros) e a meta de
- *  L/h (usada nos indicadores). A embalagem em si continua vindo da
- *  planilha de produtos (find-or-create pelo nome), sem cadastro manual
- *  de "nova embalagem" aqui -- só ajusta esses dois números. */
+/** Despejo tem catálogo próprio de embalagem (pa_embalagens_despejo,
+ *  migration 064) -- diferente do catálogo do Repack. Litro por
+ *  UNIDADE (converte unidades despejadas em litros, desde 26/08/2026 --
+ *  antes era litro por pacote/caixa) e a meta de L/h (usada nos
+ *  indicadores) são as duas contas que faltam pra embalagem funcionar
+ *  no lançamento. A embalagem em si vem da planilha de produtos
+ *  (find-or-create pelo nome, coluna EMBALAGEM_DESPEJO -- e já chega
+ *  com o litro por unidade calculado sozinho, a partir do Fator Hecto
+ *  e do Un/CX); aqui só se ajustam esses dois números, se precisar
+ *  corrigir. */
 export async function editarEmbalagemDespejo(formData: FormData) {
   await requireModulo("produtividade-armazem", "editar");
   const revendaId = await exigirRevenda(ROTA);
   const admin = createAdminClient();
   const id = String(formData.get("id") ?? "");
-  const litrosPorPacote = numeroOuNulo(formData.get("litros_por_pacote"));
+  const litrosPorUnidade = numeroOuNulo(formData.get("litros_por_unidade"));
   const metaLitrosHora = numeroOuNulo(formData.get("meta_litros_hora"));
   const { error } = await admin
-    .from("pa_embalagens")
-    .update({ litros_por_pacote: litrosPorPacote, meta_litros_hora: metaLitrosHora })
+    .from("pa_embalagens_despejo")
+    .update({ litros_por_unidade: litrosPorUnidade, meta_litros_hora: metaLitrosHora })
     .eq("id", id)
     .eq("revenda_id", revendaId);
   if (error) erro("reepack-despejo", `Não foi possível salvar: ${error.message}`);
@@ -624,13 +628,18 @@ function normalizarCabecalho(texto: string): string {
  * Cadastro de produto para Reepack/Despejo, tudo de uma planilha só --
  * substitui as duas telas que existiam antes (Embalagens + vincular
  * produto a produto): código, descrição, cluster, Fator Hecto, caixas
- * por pallet, unidades por caixa, tipo, embalagem e meta (reepack em
- * caixas/hora, despejo em litros/hora) vêm todos da mesma linha.
+ * por pallet, unidades por caixa, tipo, embalagens (uma pro Repack,
+ * outra pro Despejo -- catálogos diferentes desde 26/08/2026) e meta
+ * (reepack em caixas/hora, despejo em litros/hora) vêm todos da mesma
+ * linha.
  *
- * A embalagem é resolvida pelo NOME (find-or-create em pa_embalagens):
- * se "LATA 350ML C/12" já existe pra esta revenda, reusa; se não,
- * cria. Produto é upsert por (revenda_id, código) -- reimportar a
- * planilha atualiza quem já existe, nunca duplica.
+ * As duas embalagens são resolvidas pelo NOME (find-or-create, cada
+ * uma no seu catálogo -- pa_embalagens pro Repack, pa_embalagens_despejo
+ * pro Despejo): se já existe pra esta revenda, reusa; se não, cria. A
+ * de despejo já nasce com o litro por unidade calculado (Fator Hecto x
+ * 100 ÷ Un/CX); a de repack nasce sem número nenhum, como sempre foi.
+ * Produto é upsert por (revenda_id, código) -- reimportar a planilha
+ * atualiza quem já existe, nunca duplica.
  */
 export async function importarPlanilhaProdutos(formData: FormData) {
   await requireModulo("produtividade-armazem", "editar");
@@ -671,7 +680,11 @@ export async function importarPlanilhaProdutos(formData: FormData) {
   const colCaixasPallet = coluna("CAIXAS PALLET");
   const colUnCx = coluna("UN/CX", "UN CX");
   const colTipo = coluna("TIPO");
-  const colEmbalagem = coluna("EMBALAGEM");
+  // EMBALAGEM_REPACK é o nome novo (planilha com a coluna de despejo
+  // separada, 26/08/2026); "EMBALAGEM" sozinho é aceito como sinônimo
+  // pra planilha antiga continuar importando sem quebrar.
+  const colEmbalagemRepack = coluna("EMBALAGEM_REPACK", "EMBALAGEM REPACK", "EMBALAGEM");
+  const colEmbalagemDespejo = coluna("EMBALAGEM_DESPEJO", "EMBALAGEM DESPEJO");
   const colMetaReepack = coluna("META_(CX)REPACK/H", "META (CX)REPACK/H", "META (CX) REPACK/H");
   const colMetaDespejo = coluna("META_(L)DESPEJO/H", "META (L)DESPEJO/H", "META (L) DESPEJO/H");
 
@@ -687,7 +700,8 @@ export async function importarPlanilhaProdutos(formData: FormData) {
     caixasPallet: number | null;
     unidadesPorCaixa: number | null;
     tipo: "DESCARTAVEL" | "RETORNAVEL" | null;
-    embalagemNome: string | null;
+    embalagemRepackNome: string | null;
+    embalagemDespejoNome: string | null;
     metaReepack: number | null;
     metaDespejo: number | null;
   };
@@ -700,7 +714,8 @@ export async function importarPlanilhaProdutos(formData: FormData) {
     if (!codigoTexto || !descricao) return; // linha em branco/lixo, ignora
 
     const tipoTexto = colTipo ? normalizarCabecalho(celulaTexto(row.getCell(colTipo).value)) : "";
-    const embalagemNome = colEmbalagem ? celulaTexto(row.getCell(colEmbalagem).value).trim() : "";
+    const embalagemRepackNome = colEmbalagemRepack ? celulaTexto(row.getCell(colEmbalagemRepack).value).trim() : "";
+    const embalagemDespejoNome = colEmbalagemDespejo ? celulaTexto(row.getCell(colEmbalagemDespejo).value).trim() : "";
 
     linhas.push({
       codigo: codigoTexto,
@@ -710,7 +725,8 @@ export async function importarPlanilhaProdutos(formData: FormData) {
       caixasPallet: colCaixasPallet ? celulaNumero(row.getCell(colCaixasPallet).value) : null,
       unidadesPorCaixa: colUnCx ? celulaNumero(row.getCell(colUnCx).value) : null,
       tipo: tipoTexto === "DESCARTAVEL" || tipoTexto === "RETORNAVEL" ? tipoTexto : null,
-      embalagemNome: embalagemNome || null,
+      embalagemRepackNome: embalagemRepackNome || null,
+      embalagemDespejoNome: embalagemDespejoNome || null,
       metaReepack: colMetaReepack ? celulaNumero(row.getCell(colMetaReepack).value) : null,
       metaDespejo: colMetaDespejo ? celulaNumero(row.getCell(colMetaDespejo).value) : null,
     });
@@ -720,8 +736,9 @@ export async function importarPlanilhaProdutos(formData: FormData) {
     erro("reepack-despejo", "Nenhuma linha válida encontrada (confira as colunas PROMAX e PRODUTO).");
   }
 
-  // Embalagem: acha pelo nome (sem diferenciar maiúscula/minúscula, igual
-  // ao índice único do banco) e cria só as que ainda não existem.
+  // Embalagem do Repack: acha pelo nome (sem diferenciar maiúscula/
+  // minúscula, igual ao índice único do banco) e cria só as que ainda
+  // não existem.
   const { data: embalagensExistentes } = await admin
     .from("pa_embalagens")
     .select("id, nome")
@@ -732,10 +749,10 @@ export async function importarPlanilhaProdutos(formData: FormData) {
 
   const faltantesPorChave = new Map<string, string>();
   for (const l of linhas) {
-    if (!l.embalagemNome) continue;
-    const chave = l.embalagemNome.toLowerCase();
+    if (!l.embalagemRepackNome) continue;
+    const chave = l.embalagemRepackNome.toLowerCase();
     if (!embalagemIdPorNome.has(chave) && !faltantesPorChave.has(chave)) {
-      faltantesPorChave.set(chave, l.embalagemNome);
+      faltantesPorChave.set(chave, l.embalagemRepackNome);
     }
   }
   if (faltantesPorChave.size > 0) {
@@ -745,6 +762,58 @@ export async function importarPlanilhaProdutos(formData: FormData) {
       .select("id, nome");
     if (erroEmbalagem) erro("reepack-despejo", `Não foi possível criar embalagem: ${erroEmbalagem.message}`);
     for (const e of criadas ?? []) embalagemIdPorNome.set(e.nome.toLowerCase(), e.id);
+  }
+
+  // Embalagem do Despejo: catálogo PRÓPRIO (pa_embalagens_despejo),
+  // separado do Repack -- mesmo find-or-create pelo nome, mas o litro
+  // por unidade sai sozinho na criação (Fator Hecto x 100 ÷ Un/CX de
+  // cada produto que usa essa embalagem de despejo), pela MODA entre os
+  // produtos que compartilham o nome -- alguns raramente divergem entre
+  // si (ex.: "LATA 269ML" com um SKU cadastrado como long neck por
+  // engano na planilha), e a moda é o valor que a maioria confirma.
+  // Reimportar NÃO sobrescreve o litro de quem já existe -- se o Admin
+  // corrigiu manualmente, a planilha não desfaz.
+  const { data: despejoExistentes } = await admin
+    .from("pa_embalagens_despejo")
+    .select("id, nome")
+    .eq("revenda_id", revendaId);
+  const despejoIdPorNome = new Map(
+    (despejoExistentes ?? []).map((e) => [e.nome.toLowerCase(), e.id] as const),
+  );
+
+  const candidatosLitroPorDespejo = new Map<string, number[]>();
+  for (const l of linhas) {
+    if (!l.embalagemDespejoNome || l.fatorHecto === null || !l.unidadesPorCaixa) continue;
+    const litrosPorUnidade = Math.round((litrosPorCaixa(l.fatorHecto) / l.unidadesPorCaixa) * 1000) / 1000;
+    const chave = l.embalagemDespejoNome.toLowerCase();
+    const arr = candidatosLitroPorDespejo.get(chave) ?? [];
+    arr.push(litrosPorUnidade);
+    candidatosLitroPorDespejo.set(chave, arr);
+  }
+  function modaOuNulo(valores: number[] | undefined): number | null {
+    if (!valores || valores.length === 0) return null;
+    const contagem = new Map<number, number>();
+    for (const v of valores) contagem.set(v, (contagem.get(v) ?? 0) + 1);
+    return [...contagem.entries()].sort((a, b) => b[1] - a[1])[0][0];
+  }
+
+  const despejoFaltantesPorChave = new Map<string, string>();
+  for (const l of linhas) {
+    if (!l.embalagemDespejoNome) continue;
+    const chave = l.embalagemDespejoNome.toLowerCase();
+    if (!despejoIdPorNome.has(chave) && !despejoFaltantesPorChave.has(chave)) {
+      despejoFaltantesPorChave.set(chave, l.embalagemDespejoNome);
+    }
+  }
+  if (despejoFaltantesPorChave.size > 0) {
+    const { error: erroDespejo } = await admin.from("pa_embalagens_despejo").insert(
+      [...despejoFaltantesPorChave.entries()].map(([chave, nome]) => ({
+        revenda_id: revendaId,
+        nome,
+        litros_por_unidade: modaOuNulo(candidatosLitroPorDespejo.get(chave)),
+      })),
+    );
+    if (erroDespejo) erro("reepack-despejo", `Não foi possível criar embalagem de despejo: ${erroDespejo.message}`);
   }
 
   // Código duplicado na planilha (aconteceu na real: 3 produtos repetidos)
@@ -765,7 +834,7 @@ export async function importarPlanilhaProdutos(formData: FormData) {
     caixas_pallet: l.caixasPallet,
     unidades_por_caixa: l.unidadesPorCaixa,
     tipo: l.tipo,
-    embalagem_id: l.embalagemNome ? (embalagemIdPorNome.get(l.embalagemNome.toLowerCase()) ?? null) : null,
+    embalagem_id: l.embalagemRepackNome ? (embalagemIdPorNome.get(l.embalagemRepackNome.toLowerCase()) ?? null) : null,
     meta_reepack_hora: l.metaReepack,
     meta_despejo_hora: l.metaDespejo,
   }));
@@ -776,7 +845,9 @@ export async function importarPlanilhaProdutos(formData: FormData) {
   if (error) erro("reepack-despejo", `Não foi possível importar: ${error.message}`);
 
   revalidatePath(ROTA);
-  sucesso("reepack-despejo", `${linhasParaUpsert.length} produtos importados/atualizados`);
+  const mensagemDespejo =
+    despejoFaltantesPorChave.size > 0 ? ` e ${despejoFaltantesPorChave.size} embalagem(ns) de despejo criada(s)` : "";
+  sucesso("reepack-despejo", `${linhasParaUpsert.length} produtos importados/atualizados${mensagemDespejo}`);
 }
 
 export async function alternarProdutoAtivo(formData: FormData) {

@@ -1,4 +1,4 @@
-import { redirect } from "next/navigation";
+﻿import { redirect } from "next/navigation";
 import { PageHeader } from "@/components/PageHeader";
 import { createClient } from "@/lib/supabase/server";
 import { getRevendaId } from "@/lib/revendas";
@@ -35,10 +35,10 @@ const campo =
   "w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-base text-slate-900 focus:border-primary focus:outline-none";
 const rotulo = "mb-1 block text-xs font-semibold uppercase text-slate-500";
 
-/** Mesmo texto em todo canto que mostra "Pontuação" -- ver calcularPontuacao
- *  em lib/produtividade-armazem.ts, a fórmula de verdade mora lá. */
+/** Mesmo texto em todo canto que mostra "PontuaÃ§Ã£o" -- ver calcularPontuacao
+ *  em lib/produtividade-armazem.ts, a fÃ³rmula de verdade mora lÃ¡. */
 const EXPLICACAO_PONTUACAO =
-  "Pontuação = média de até 4 métricas, todas em %: Reepack = % da meta cadastrada por produto; Despejo = % da meta cadastrada por embalagem; Picking e 5S = % da média de todo mundo no mesmo recorte (sem meta cadastrada, a régua é comparar com o grupo). Quem não fez uma atividade não entra na média dela.";
+  "PontuaÃ§Ã£o = mÃ©dia de atÃ© 4 mÃ©tricas, todas em %: Reepack = % da meta cadastrada por produto; Despejo = % da meta cadastrada por embalagem; Picking e 5S = % da mÃ©dia de todo mundo no mesmo recorte (sem meta cadastrada, a rÃ©gua Ã© comparar com o grupo). Quem nÃ£o fez uma atividade nÃ£o entra na mÃ©dia dela.";
 
 export default async function IndicadoresPage({
   searchParams,
@@ -55,7 +55,7 @@ export default async function IndicadoresPage({
     : null;
 
   const revendaId = await getRevendaId();
-  if (!revendaId) redirect(`/?erro=${encodeURIComponent("Você não está em nenhuma revenda.")}`);
+  if (!revendaId) redirect(`/?erro=${encodeURIComponent("VocÃª nÃ£o estÃ¡ em nenhuma revenda.")}`);
 
   const supabase = await createClient();
   const de0 = `${de}T00:00:00`;
@@ -76,8 +76,8 @@ export default async function IndicadoresPage({
       .select("id, descricao, meta_reepack_hora")
       .eq("revenda_id", revendaId),
     supabase
-      .from("pa_embalagens")
-      .select("id, nome, litros_por_pacote, meta_litros_hora")
+      .from("pa_embalagens_despejo")
+      .select("id, nome, litros_por_unidade, meta_litros_hora")
       .eq("revenda_id", revendaId),
     supabase
       .from("pa_reepack_lancamentos")
@@ -88,7 +88,7 @@ export default async function IndicadoresPage({
       .lte("inicio", ate23),
     supabase
       .from("pa_despejo_lancamentos")
-      .select("embalagem_id, colaborador_id, colaborador_nome, turno, litros, inicio, fim")
+      .select("embalagem_despejo_id, colaborador_id, colaborador_nome, turno, litros, inicio, fim")
       .eq("revenda_id", revendaId)
       .not("fim", "is", null)
       .gte("inicio", de0)
@@ -133,7 +133,7 @@ export default async function IndicadoresPage({
   const embalagens: EmbalagemDespejo[] = (embalagensBanco ?? []).map((e) => ({
     id: e.id,
     nome: e.nome,
-    litrosPorPacote: e.litros_por_pacote,
+    litrosPorUnidade: e.litros_por_unidade,
     metaLitrosHora: e.meta_litros_hora,
   }));
 
@@ -147,7 +147,7 @@ export default async function IndicadoresPage({
     fim: string;
   }[];
   const despejosTodos = (despejosBanco ?? []) as {
-    embalagem_id: string;
+    embalagem_despejo_id: string | null;
     colaborador_id: string;
     colaborador_nome: string;
     turno: string;
@@ -161,8 +161,8 @@ export default async function IndicadoresPage({
     turno: string;
     posicoes_reabastecidas: number | null;
   }[];
-  // 5S não tem coluna de turno (é uma execução, não um lançamento por
-  // turno) -- infere pelo horário real de início, com a mesma régua que
+  // 5S nÃ£o tem coluna de turno (Ã© uma execuÃ§Ã£o, nÃ£o um lanÃ§amento por
+  // turno) -- infere pelo horÃ¡rio real de inÃ­cio, com a mesma rÃ©gua que
   // decide o turno "agora" (ver turnoAtual em lib/produtividade-armazem).
   const execucoes5sTodos = (execucoes5sBanco ?? []).map((e) => ({
     colaborador_id: e.responsavel_id as string,
@@ -177,13 +177,13 @@ export default async function IndicadoresPage({
 
   // ---- Reepack: agregados gerais (sem quebrar por produto) ----
   const reepackQuantidadeTotal = reepacks.reduce((s, r) => s + r.quantidade, 0);
-  // Duração média por CAIXA, não por lançamento -- um lançamento pode
-  // ter 2 caixas ou 20, então "duração média do lançamento" mistura
-  // sessões de tamanhos bem diferentes. Tempo total ÷ caixas totais.
+  // DuraÃ§Ã£o mÃ©dia por CAIXA, nÃ£o por lanÃ§amento -- um lanÃ§amento pode
+  // ter 2 caixas ou 20, entÃ£o "duraÃ§Ã£o mÃ©dia do lanÃ§amento" mistura
+  // sessÃµes de tamanhos bem diferentes. Tempo total Ã· caixas totais.
   const reepackHorasTotal = reepacks.reduce((s, r) => s + horasEntre(r.inicio, r.fim), 0);
   const reepackMediaHorasPorCaixa = reepackQuantidadeTotal > 0 ? reepackHorasTotal / reepackQuantidadeTotal : 0;
 
-  // ---- Despejo: agregado geral (litros/hora do total, não a média das taxas) ----
+  // ---- Despejo: agregado geral (litros/hora do total, nÃ£o a mÃ©dia das taxas) ----
   const despejoLitrosTotal = Math.round(despejos.reduce((s, d) => s + d.litros, 0) * 10) / 10;
   const despejoHorasTotal = despejos.reduce((s, d) => s + horasEntre(d.inicio, d.fim), 0);
   const despejoTaxaMediaHora = taxaPorHora(despejoLitrosTotal, despejoHorasTotal);
@@ -194,7 +194,7 @@ export default async function IndicadoresPage({
     (p) => p.metaReepackHora,
   );
   const despejoPorEmbalagem = agruparPorEmbalagem(
-    despejos.map((d) => ({ embalagemId: d.embalagem_id, quantidade: d.litros, inicio: d.inicio, fim: d.fim })),
+    despejos.map((d) => ({ embalagemId: d.embalagem_despejo_id ?? "", quantidade: d.litros, inicio: d.inicio, fim: d.fim })),
     embalagens,
     (e) => e.metaLitrosHora,
   );
@@ -228,13 +228,13 @@ export default async function IndicadoresPage({
     .slice(0, 10);
 
   // ---- Atividade por turno ----
-  // Uma linha por turno, uma coluna por atividade -- a métrica de cada
-  // coluna é a que faz sentido pra atividade (caixas, litros, posições,
-  // execuções), e "Total" é a contagem de lançamentos somada (unidades
-  // diferentes não dá pra somar direto).
-  // Referência do grupo pra picking e 5S (ver pctRelativoAoGrupo): a
-  // média de TODO o período, todos os turnos juntos -- é contra isso que
-  // cada turno é comparado, não meta cadastrada (picking/5S não têm).
+  // Uma linha por turno, uma coluna por atividade -- a mÃ©trica de cada
+  // coluna Ã© a que faz sentido pra atividade (caixas, litros, posiÃ§Ãµes,
+  // execuÃ§Ãµes), e "Total" Ã© a contagem de lanÃ§amentos somada (unidades
+  // diferentes nÃ£o dÃ¡ pra somar direto).
+  // ReferÃªncia do grupo pra picking e 5S (ver pctRelativoAoGrupo): a
+  // mÃ©dia de TODO o perÃ­odo, todos os turnos juntos -- Ã© contra isso que
+  // cada turno Ã© comparado, nÃ£o meta cadastrada (picking/5S nÃ£o tÃªm).
   const mediaPosicoesPeriodo = mediaPosicoesPicking(
     pickingsTodos.map((p) => ({ posicoesReabastecidas: p.posicoes_reabastecidas })),
   );
@@ -248,16 +248,16 @@ export default async function IndicadoresPage({
     const pickingsT = pickingsTodos.filter((p) => p.turno === t);
     const execucoes5sT = execucoes5sTodos.filter((e) => e.turno === t);
 
-    // Mesma fórmula da pontuação individual (ver calcularPontuacao),
-    // só que aplicada em cima do total do turno -- trata o turno como
-    // se fosse "uma pessoa só" pra comparar desempenho entre turnos.
+    // Mesma fÃ³rmula da pontuaÃ§Ã£o individual (ver calcularPontuacao),
+    // sÃ³ que aplicada em cima do total do turno -- trata o turno como
+    // se fosse "uma pessoa sÃ³" pra comparar desempenho entre turnos.
     const reepackAgrupadoT = agruparPorProduto(
       reepacksT.map((r) => ({ produtoId: r.produto_id ?? "", quantidade: r.quantidade, inicio: r.inicio, fim: r.fim })),
       produtos,
       (p) => p.metaReepackHora,
     );
     const despejoAgrupadoT = agruparPorEmbalagem(
-      despejosT.map((d) => ({ embalagemId: d.embalagem_id, quantidade: d.litros, inicio: d.inicio, fim: d.fim })),
+      despejosT.map((d) => ({ embalagemId: d.embalagem_despejo_id ?? "", quantidade: d.litros, inicio: d.inicio, fim: d.fim })),
       embalagens,
       (e) => e.metaLitrosHora,
     );
@@ -266,10 +266,10 @@ export default async function IndicadoresPage({
       mediaPosicoesPicking(pickingsT.map((p) => ({ posicoesReabastecidas: p.posicoes_reabastecidas }))),
       mediaPosicoesPeriodo,
     );
-    // mediaExecucoes5sPorPessoa de novo aqui (não .length direto): o
-    // turno reúne várias pessoas, então a régua tem que ser "execuções
-    // por pessoa no turno", do contrário um turno com mais gente sempre
-    // ganharia de um turno enxuto só por ter mais gente, não por render mais.
+    // mediaExecucoes5sPorPessoa de novo aqui (nÃ£o .length direto): o
+    // turno reÃºne vÃ¡rias pessoas, entÃ£o a rÃ©gua tem que ser "execuÃ§Ãµes
+    // por pessoa no turno", do contrÃ¡rio um turno com mais gente sempre
+    // ganharia de um turno enxuto sÃ³ por ter mais gente, nÃ£o por render mais.
     const cincoSPctT = pctRelativoAoGrupo(
       mediaExecucoes5sPorPessoa(execucoes5sT.map((e) => ({ colaboradorId: e.colaborador_id }))),
       mediaExecucoes5sPeriodo,
@@ -291,18 +291,18 @@ export default async function IndicadoresPage({
       pontuacao,
     };
   });
-  // Pontuação do total NÃO é a média das pontuações dos turnos (isso
-  // distorceria turnos com pouca atividade) -- é a mesma fórmula
-  // aplicada direto em cima dos dados do período inteiro. Picking e 5S
-  // do total dão ~100% por construção (o período comparado com ele
-  // mesmo) -- é esperado, não é bug.
+  // PontuaÃ§Ã£o do total NÃƒO Ã© a mÃ©dia das pontuaÃ§Ãµes dos turnos (isso
+  // distorceria turnos com pouca atividade) -- Ã© a mesma fÃ³rmula
+  // aplicada direto em cima dos dados do perÃ­odo inteiro. Picking e 5S
+  // do total dÃ£o ~100% por construÃ§Ã£o (o perÃ­odo comparado com ele
+  // mesmo) -- Ã© esperado, nÃ£o Ã© bug.
   const reepackAgrupadoGeral = agruparPorProduto(
     reepacksTodos.map((r) => ({ produtoId: r.produto_id ?? "", quantidade: r.quantidade, inicio: r.inicio, fim: r.fim })),
     produtos,
     (p) => p.metaReepackHora,
   );
   const despejoAgrupadoGeral = agruparPorEmbalagem(
-    despejosTodos.map((d) => ({ embalagemId: d.embalagem_id, quantidade: d.litros, inicio: d.inicio, fim: d.fim })),
+    despejosTodos.map((d) => ({ embalagemId: d.embalagem_despejo_id ?? "", quantidade: d.litros, inicio: d.inicio, fim: d.fim })),
     embalagens,
     (e) => e.metaLitrosHora,
   );
@@ -324,11 +324,11 @@ export default async function IndicadoresPage({
     { reepackCx: 0, despejoLitros: 0, pickingPosicoes: 0, execucoes5s: 0, totalLancamentos: 0 },
   );
 
-  // ---- Empilhadeira: por máquina e por operador ----
-  // Horas ativas de VERDADE vêm do horímetro (motor rodando), não do
-  // tempo decorrido entre início e fim -- e só existem depois que a
-  // operação fecha (o horímetro final só é lido no fechamento). Uma
-  // operação ainda aberta simplesmente não entra nesses somatórios.
+  // ---- Empilhadeira: por mÃ¡quina e por operador ----
+  // Horas ativas de VERDADE vÃªm do horÃ­metro (motor rodando), nÃ£o do
+  // tempo decorrido entre inÃ­cio e fim -- e sÃ³ existem depois que a
+  // operaÃ§Ã£o fecha (o horÃ­metro final sÃ³ Ã© lido no fechamento). Uma
+  // operaÃ§Ã£o ainda aberta simplesmente nÃ£o entra nesses somatÃ³rios.
   const operacoesRaw = (operacoesBanco ?? []) as unknown as (Parameters<typeof operacaoEmpilhadeiraDeLinha>[0] & {
     pa_empilhadeiras: { numero: string } | { numero: string }[] | null;
   })[];
@@ -339,7 +339,7 @@ export default async function IndicadoresPage({
   const horasPorOperador = new Map<string, number>();
   for (const o of operacoesRaw) {
     if (o.horimetro_final === null) continue;
-    const numero = (Array.isArray(o.pa_empilhadeiras) ? o.pa_empilhadeiras[0] : o.pa_empilhadeiras)?.numero ?? "—";
+    const numero = (Array.isArray(o.pa_empilhadeiras) ? o.pa_empilhadeiras[0] : o.pa_empilhadeiras)?.numero ?? "â€”";
     const horas = horasAtivasDeOperacao(operacaoEmpilhadeiraDeLinha(o)) ?? 0;
     horasPorMaquina.set(numero, (horasPorMaquina.get(numero) ?? 0) + horas);
     horasPorOperador.set(o.operador_nome, (horasPorOperador.get(o.operador_nome) ?? 0) + horas);
@@ -375,7 +375,7 @@ export default async function IndicadoresPage({
   const avariaPorTransportadora = new Map<string, { recebido: number; avariado: number }>();
   for (const r of recebimentosBanco ?? []) {
     const t = Array.isArray(r.pa_transportadoras) ? r.pa_transportadoras[0] : r.pa_transportadoras;
-    const nome = t?.nome ?? "—";
+    const nome = t?.nome ?? "â€”";
     const atual = avariaPorTransportadora.get(nome) ?? { recebido: 0, avariado: 0 };
     for (const i of r.pa_recebimento_itens ?? []) {
       atual.recebido += i.quantidade_recebida;
@@ -405,7 +405,7 @@ export default async function IndicadoresPage({
     despejos.map((d) => ({
       colaboradorId: d.colaborador_id,
       colaboradorNome: d.colaborador_nome,
-      embalagemId: d.embalagem_id,
+      embalagemId: d.embalagem_despejo_id ?? "",
       litros: d.litros,
       inicio: d.inicio,
       fim: d.fim,
@@ -424,7 +424,7 @@ export default async function IndicadoresPage({
     <div>
       <PageHeader
         title="Indicadores e Ranking"
-        subtitle="Produtividade do Armazém no período."
+        subtitle="Produtividade do ArmazÃ©m no perÃ­odo."
         fecharHref="/produtividade-armazem"
       />
 
@@ -434,7 +434,7 @@ export default async function IndicadoresPage({
           <input id="de" type="date" name="de" defaultValue={de} className={campo} />
         </div>
         <div>
-          <label className={rotulo} htmlFor="ate">Até</label>
+          <label className={rotulo} htmlFor="ate">AtÃ©</label>
           <input id="ate" type="date" name="ate" defaultValue={ate} className={campo} />
         </div>
         <div>
@@ -452,25 +452,25 @@ export default async function IndicadoresPage({
       </form>
 
       <div className="space-y-5">
-        <BlocoAtividade titulo="📦 Reepack">
-          <CartaoHero titulo="Lançamentos" valor={String(reepacks.length)} />
+        <BlocoAtividade titulo="ðŸ“¦ Reepack">
+          <CartaoHero titulo="LanÃ§amentos" valor={String(reepacks.length)} />
           <CartaoHero titulo="Caixas reepackadas" valor={`${reepackQuantidadeTotal} cx`} />
-          <CartaoHero titulo="Duração média" valor={formatarHoras(reepackMediaHorasPorCaixa)} legenda="por caixa" />
+          <CartaoHero titulo="DuraÃ§Ã£o mÃ©dia" valor={formatarHoras(reepackMediaHorasPorCaixa)} legenda="por caixa" />
         </BlocoAtividade>
 
-        <BlocoAtividade titulo="🫗 Despejo">
+        <BlocoAtividade titulo="ðŸ«— Despejo">
           <CartaoHero titulo="Litros despejados" valor={`${despejoLitrosTotal.toFixed(1)} L`} />
-          <CartaoHero titulo="Taxa média" valor={`${despejoTaxaMediaHora.toFixed(1)} L/h`} legenda="litros ÷ horas do período" />
-          <CartaoHero titulo="Lançamentos" valor={String(despejos.length)} />
+          <CartaoHero titulo="Taxa mÃ©dia" valor={`${despejoTaxaMediaHora.toFixed(1)} L/h`} legenda="litros Ã· horas do perÃ­odo" />
+          <CartaoHero titulo="LanÃ§amentos" valor={String(despejos.length)} />
         </BlocoAtividade>
 
-        <BlocoAtividade titulo="🏗️ Empilhadeira">
-          <CartaoHero titulo="Horas ativas" valor={`${horasEmpilhadeiraTotal}h`} legenda="horímetro, operações encerradas" />
-          <CartaoHero titulo="Operações" valor={String(operacoes.length)} />
-          <CartaoHero titulo="Duração média" valor={formatarHoras(mediaHorasPorOperacao)} legenda="por operação, horímetro" />
+        <BlocoAtividade titulo="ðŸ—ï¸ Empilhadeira">
+          <CartaoHero titulo="Horas ativas" valor={`${horasEmpilhadeiraTotal}h`} legenda="horÃ­metro, operaÃ§Ãµes encerradas" />
+          <CartaoHero titulo="OperaÃ§Ãµes" valor={String(operacoes.length)} />
+          <CartaoHero titulo="DuraÃ§Ã£o mÃ©dia" valor={formatarHoras(mediaHorasPorOperacao)} legenda="por operaÃ§Ã£o, horÃ­metro" />
         </BlocoAtividade>
 
-        <BlocoAtividade titulo="🚛 Recebimento">
+        <BlocoAtividade titulo="ðŸš› Recebimento">
           <CartaoHero titulo="Carretas avaliadas" valor={String(carretasAvaliadas)} />
           <CartaoHero
             titulo="% de avaria no recebido"
@@ -484,13 +484,13 @@ export default async function IndicadoresPage({
       <div className="mt-6 grid gap-4 sm:grid-cols-2">
         <BarraRanking
           titulo="Reepack por colaborador"
-          subtitulo="Total de caixas no período"
+          subtitulo="Total de caixas no perÃ­odo"
           itens={barrasReepackColaborador}
           sufixo="cx"
         />
         <BarraRanking
           titulo="Despejo por colaborador"
-          subtitulo="Total de litros no período"
+          subtitulo="Total de litros no perÃ­odo"
           itens={barrasDespejoColaborador}
           sufixo="L"
         />
@@ -501,7 +501,7 @@ export default async function IndicadoresPage({
           sufixo="%"
         />
         <BarraRanking
-          titulo="Empilhadeira: horas por máquina"
+          titulo="Empilhadeira: horas por mÃ¡quina"
           itens={barrasHorasMaquina}
           sufixo="h"
         />
@@ -514,20 +514,20 @@ export default async function IndicadoresPage({
 
       <section className="mt-8">
         <h2 className="mb-3 text-sm font-bold uppercase text-slate-500">
-          Atividade por turno{turnoFiltro ? ` — ${ROTULO_TURNO[turnoFiltro]}` : ""}
+          Atividade por turno{turnoFiltro ? ` â€” ${ROTULO_TURNO[turnoFiltro]}` : ""}
         </h2>
         <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
           <table className="w-full min-w-[640px] text-sm">
             <thead className="bg-slate-50 text-left text-xs uppercase text-slate-500">
               <tr>
                 <th className="p-3">Turno</th>
-                <th className="p-3 text-right">📦 Reepack</th>
-                <th className="p-3 text-right">🫗 Despejo</th>
-                <th className="p-3 text-right">🛒 Picking</th>
-                <th className="p-3 text-right">🧹 5S</th>
+                <th className="p-3 text-right">ðŸ“¦ Reepack</th>
+                <th className="p-3 text-right">ðŸ«— Despejo</th>
+                <th className="p-3 text-right">ðŸ›’ Picking</th>
+                <th className="p-3 text-right">ðŸ§¹ 5S</th>
                 <th className="p-3 text-right">Total</th>
                 <th className="p-3 text-right" title={EXPLICACAO_PONTUACAO}>
-                  Pontuação ℹ️
+                  PontuaÃ§Ã£o â„¹ï¸
                 </th>
               </tr>
             </thead>
@@ -561,18 +561,18 @@ export default async function IndicadoresPage({
             </tfoot>
           </table>
         </div>
-        <p className="mt-2 text-xs text-slate-400">ℹ️ {EXPLICACAO_PONTUACAO}</p>
+        <p className="mt-2 text-xs text-slate-400">â„¹ï¸ {EXPLICACAO_PONTUACAO}</p>
       </section>
 
       <section className="mt-8">
         <div className="mb-3 flex items-baseline justify-between">
           <h2 className="text-sm font-bold uppercase text-slate-500">
-            Ranking{turnoFiltro ? ` — ${ROTULO_TURNO[turnoFiltro]}` : ""}
+            Ranking{turnoFiltro ? ` â€” ${ROTULO_TURNO[turnoFiltro]}` : ""}
           </h2>
-          <p className="text-xs text-slate-400">Empate: desempata quem fez mais lançamentos</p>
+          <p className="text-xs text-slate-400">Empate: desempata quem fez mais lanÃ§amentos</p>
         </div>
         {ranking.length === 0 ? (
-          <p className="rounded-xl bg-slate-50 p-4 text-sm text-slate-500">Nada no período.</p>
+          <p className="rounded-xl bg-slate-50 p-4 text-sm text-slate-500">Nada no perÃ­odo.</p>
         ) : (
           <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
             <table className="w-full min-w-[640px] text-sm">
@@ -580,13 +580,13 @@ export default async function IndicadoresPage({
                 <tr>
                   <th className="p-3">#</th>
                   <th className="p-3">Colaborador</th>
-                  <th className="p-3 text-right">📦 Reepack</th>
-                  <th className="p-3 text-right">🫗 Despejo</th>
-                  <th className="p-3 text-right">🛒 Picking</th>
-                  <th className="p-3 text-right">🧹 5S</th>
+                  <th className="p-3 text-right">ðŸ“¦ Reepack</th>
+                  <th className="p-3 text-right">ðŸ«— Despejo</th>
+                  <th className="p-3 text-right">ðŸ›’ Picking</th>
+                  <th className="p-3 text-right">ðŸ§¹ 5S</th>
                   <th className="p-3 text-right">Atividades</th>
                   <th className="p-3 text-right" title={EXPLICACAO_PONTUACAO}>
-                    Pontuação ℹ️
+                    PontuaÃ§Ã£o â„¹ï¸
                   </th>
                 </tr>
               </thead>
@@ -594,7 +594,7 @@ export default async function IndicadoresPage({
                 {ranking.map((r, i) => (
                   <tr key={r.colaboradorId} className={`border-t border-slate-100 ${i < 3 ? "bg-gold-soft/40" : ""}`}>
                     <td className="p-3 font-bold text-slate-700">
-                      {i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : i + 1}
+                      {i === 0 ? "ðŸ¥‡" : i === 1 ? "ðŸ¥ˆ" : i === 2 ? "ðŸ¥‰" : i + 1}
                     </td>
                     <td className="p-3 font-semibold text-slate-900">{r.colaboradorNome}</td>
                     <td className="p-3 text-right tabular-nums">
@@ -606,7 +606,7 @@ export default async function IndicadoresPage({
                           )}
                         </>
                       ) : (
-                        <span className="text-slate-300">—</span>
+                        <span className="text-slate-300">â€”</span>
                       )}
                     </td>
                     <td className="p-3 text-right tabular-nums">
@@ -618,7 +618,7 @@ export default async function IndicadoresPage({
                           )}
                         </>
                       ) : (
-                        <span className="text-slate-300">—</span>
+                        <span className="text-slate-300">â€”</span>
                       )}
                     </td>
                     <td className="p-3 text-right tabular-nums">
@@ -626,11 +626,11 @@ export default async function IndicadoresPage({
                         <>
                           {r.posicoesPicking}
                           {r.pickingPctMedia !== null && (
-                            <span className="ml-1 text-xs text-slate-400">({r.pickingPctMedia}% da média)</span>
+                            <span className="ml-1 text-xs text-slate-400">({r.pickingPctMedia}% da mÃ©dia)</span>
                           )}
                         </>
                       ) : (
-                        <span className="text-slate-300">—</span>
+                        <span className="text-slate-300">â€”</span>
                       )}
                     </td>
                     <td className="p-3 text-right tabular-nums">
@@ -638,11 +638,11 @@ export default async function IndicadoresPage({
                         <>
                           {r.totalExecucoes5s}
                           {r.cincoSPctMedia !== null && (
-                            <span className="ml-1 text-xs text-slate-400">({r.cincoSPctMedia}% da média)</span>
+                            <span className="ml-1 text-xs text-slate-400">({r.cincoSPctMedia}% da mÃ©dia)</span>
                           )}
                         </>
                       ) : (
-                        <span className="text-slate-300">—</span>
+                        <span className="text-slate-300">â€”</span>
                       )}
                     </td>
                     <td className="p-3 text-right tabular-nums text-slate-500">{r.totalAtividades}</td>
@@ -657,27 +657,27 @@ export default async function IndicadoresPage({
             </table>
           </div>
         )}
-        <p className="mt-2 text-xs text-slate-400">ℹ️ {EXPLICACAO_PONTUACAO}</p>
+        <p className="mt-2 text-xs text-slate-400">â„¹ï¸ {EXPLICACAO_PONTUACAO}</p>
       </section>
 
       <div className="mt-8 grid gap-4 sm:grid-cols-2">
         <BarraRanking
           titulo="Reepack por produto"
-          subtitulo="Taxa média no período"
+          subtitulo="Taxa mÃ©dia no perÃ­odo"
           itens={reepackPorProduto.map((l) => ({
             rotulo: l.produtoDescricao,
             valor: l.taxa,
-            detalhe: `${l.produtoDescricao}: ${l.quantidade} cx em ${l.horas}h${l.pctMeta !== null ? ` — ${l.pctMeta}% da meta` : ""}`,
+            detalhe: `${l.produtoDescricao}: ${l.quantidade} cx em ${l.horas}h${l.pctMeta !== null ? ` â€” ${l.pctMeta}% da meta` : ""}`,
           }))}
           sufixo="cx/h"
         />
         <BarraRanking
           titulo="Despejo por embalagem"
-          subtitulo="Litros/hora, já convertidos"
+          subtitulo="Litros/hora, jÃ¡ convertidos"
           itens={despejoPorEmbalagem.map((l) => ({
             rotulo: l.embalagemNome,
             valor: l.taxa,
-            detalhe: `${l.embalagemNome}: ${l.quantidade} L em ${l.horas}h${l.pctMeta !== null ? ` — ${l.pctMeta}% da meta` : ""}`,
+            detalhe: `${l.embalagemNome}: ${l.quantidade} L em ${l.horas}h${l.pctMeta !== null ? ` â€” ${l.pctMeta}% da meta` : ""}`,
           }))}
           sufixo="L/h"
           tom="gold"

@@ -151,35 +151,38 @@ export function litrosPorCaixa(fatorHecto: number): number {
 // Reepack continua por PRODUTO (ver acima). Despejo volta a ser por
 // EMBALAGEM: o produto específico não importa pra essa operação, o que
 // importa é o tipo de embalagem despejada -- pedido do dono depois de
-// usar o app por um tempo. litrosPorPacote é o litro/caixa cadastrado
-// direto na embalagem (mesmo campo que já existia desde a 051, só
-// voltou a ser preenchido/usado); metaLitrosHora é a meta de despejo,
-// também por embalagem agora (antes tinha virado por produto na 060).
+// usar o app por um tempo. Catálogo PRÓPRIO (pa_embalagens_despejo,
+// migration 064) -- diferente do catálogo do Repack (pa_embalagens):
+// a planilha de produtos manda um nome de embalagem pro Repack e outro,
+// mais simples, pro Despejo ("LATA 350ML C/12" vs "LATA 350ML").
+// litrosPorUnidade é o litro de UMA unidade despejada (não mais do
+// pacote/caixa inteiro -- pedido do dono, 26/08/2026); metaLitrosHora é
+// a meta de despejo, por embalagem.
 export type EmbalagemDespejo = {
   id: string;
   nome: string;
-  litrosPorPacote: number | null;
+  litrosPorUnidade: number | null;
   metaLitrosHora: number | null;
 };
 
 export function embalagemDespejoDeLinha(l: {
   id: string;
   nome: string;
-  litros_por_pacote: number | null;
+  litros_por_unidade: number | null;
   meta_litros_hora: number | null;
 }): EmbalagemDespejo {
   return {
     id: l.id,
     nome: l.nome,
-    litrosPorPacote: l.litros_por_pacote,
+    litrosPorUnidade: l.litros_por_unidade,
     metaLitrosHora: l.meta_litros_hora,
   };
 }
 
 /** Pronta para aparecer no lançamento de despejo: precisa do litro por
- *  pacote cadastrado -- sem isso não dá pra converter caixas em litros. */
+ *  unidade cadastrado -- sem isso não dá pra converter unidades em litros. */
 export function embalagemProntaParaDespejo(e: EmbalagemDespejo): boolean {
-  return e.litrosPorPacote !== null;
+  return e.litrosPorUnidade !== null;
 }
 
 // --------------------------------------------------------------------

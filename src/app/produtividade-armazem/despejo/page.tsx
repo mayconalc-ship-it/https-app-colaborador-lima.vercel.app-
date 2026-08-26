@@ -30,7 +30,7 @@ const rotulo = "mb-1 block text-xs font-semibold uppercase text-slate-500";
 
 type Lancamento = {
   id: string;
-  embalagem_id: string;
+  embalagem_despejo_id: string | null;
   colaborador_id: string;
   colaborador_nome: string;
   turno: string;
@@ -43,7 +43,7 @@ type Lancamento = {
 
 type Aberto = {
   id: string;
-  embalagem_id: string;
+  embalagem_despejo_id: string | null;
   turno: string;
   inicio: string;
 };
@@ -77,22 +77,22 @@ export default async function DespejoPage({
   const [{ data: embalagensBanco }, { data: abertoBanco }, { data: minhas }, { data: doPeriodo }, podeExcluirQualquer] =
     await Promise.all([
       supabase
-        .from("pa_embalagens")
-        .select("id, nome, litros_por_pacote, meta_litros_hora")
+        .from("pa_embalagens_despejo")
+        .select("id, nome, litros_por_unidade, meta_litros_hora")
         .eq("revenda_id", revendaId)
         .eq("ativo", true)
-        .not("litros_por_pacote", "is", null)
+        .not("litros_por_unidade", "is", null)
         .order("nome"),
       supabase
         .from("pa_despejo_lancamentos")
-        .select("id, embalagem_id, turno, inicio")
+        .select("id, embalagem_despejo_id, turno, inicio")
         .eq("revenda_id", revendaId)
         .eq("colaborador_id", perfil.id)
         .is("fim", null)
         .maybeSingle(),
       supabase
         .from("pa_despejo_lancamentos")
-        .select("id, embalagem_id, colaborador_id, colaborador_nome, turno, quantidade_pacotes, litros, inicio, fim, observacao")
+        .select("id, embalagem_despejo_id, colaborador_id, colaborador_nome, turno, quantidade_pacotes, litros, inicio, fim, observacao")
         .eq("revenda_id", revendaId)
         .eq("colaborador_id", perfil.id)
         .not("fim", "is", null)
@@ -102,13 +102,13 @@ export default async function DespejoPage({
         ? (() => {
             let q = supabase
               .from("pa_despejo_lancamentos")
-              .select("id, embalagem_id, colaborador_id, colaborador_nome, turno, quantidade_pacotes, litros, inicio, fim, observacao")
+              .select("id, embalagem_despejo_id, colaborador_id, colaborador_nome, turno, quantidade_pacotes, litros, inicio, fim, observacao")
               .eq("revenda_id", revendaId)
               .not("fim", "is", null)
               .gte("inicio", `${de}T00:00:00`)
               .lte("inicio", `${ate}T23:59:59`);
             if (colab) q = q.eq("colaborador_id", colab);
-            if (embalagemFiltro) q = q.eq("embalagem_id", embalagemFiltro);
+            if (embalagemFiltro) q = q.eq("embalagem_despejo_id", embalagemFiltro);
             return q.order("inicio", { ascending: false }).limit(300);
           })()
         : Promise.resolve({ data: null }),
@@ -128,7 +128,7 @@ export default async function DespejoPage({
     <div>
       <PageHeader
         title="Despejo por Embalagem"
-        subtitle="Inicie ao começar, finalize informando quantas caixas você despejou -- o litro sai sozinho."
+        subtitle="Inicie ao começar, finalize informando quantas unidades você despejou -- o litro sai sozinho."
         fecharHref="/produtividade-armazem"
       />
 
@@ -163,13 +163,13 @@ export default async function DespejoPage({
               <form action={finalizarDespejo} className="space-y-3">
                 <input type="hidden" name="id" value={aberto.id} />
                 <p className="text-sm font-bold text-amber-900">
-                  🕐 Despejo em andamento — {embalagemRotulo(aberto.embalagem_id, embalagemPorId)} ·{" "}
+                  🕐 Despejo em andamento — {embalagemRotulo(aberto.embalagem_despejo_id, embalagemPorId)} ·{" "}
                   {ROTULO_TURNO[aberto.turno as keyof typeof ROTULO_TURNO] ?? aberto.turno}
                 </p>
                 <p className="text-xs text-amber-800">Iniciado às {formatarDataHora(aberto.inicio)}</p>
 
                 <div>
-                  <label className={rotulo} htmlFor="quantidade_pacotes">Quantas caixas você despejou?</label>
+                  <label className={rotulo} htmlFor="quantidade_pacotes">Quantas unidades você despejou?</label>
                   <input
                     id="quantidade_pacotes"
                     name="quantidade_pacotes"
@@ -179,7 +179,7 @@ export default async function DespejoPage({
                     required
                     className={campo}
                   />
-                  <p className="mt-1 text-xs text-slate-500">O litro é calculado sozinho, pelo litro/pacote da embalagem.</p>
+                  <p className="mt-1 text-xs text-slate-500">O litro é calculado sozinho, pelo litro/unidade da embalagem.</p>
                 </div>
                 <div>
                   <label className={rotulo} htmlFor="observacao">Observação (opcional)</label>
@@ -207,7 +207,7 @@ export default async function DespejoPage({
           ) : embalagens.length === 0 ? (
             <p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-800">
               Nenhuma embalagem pronta para despejo ainda. Peça ao Admin para
-              cadastrar o litro por pacote em Configuração &gt; Produtos.
+              cadastrar o litro por unidade em Configuração &gt; Produtos.
             </p>
           ) : (
             <form
@@ -268,9 +268,9 @@ export default async function DespejoPage({
                   <LinhaDespejo
                     key={l.id}
                     l={l}
-                    embalagemRotulo={embalagemRotulo(l.embalagem_id, embalagemPorId)}
+                    embalagemRotulo={embalagemRotulo(l.embalagem_despejo_id, embalagemPorId)}
                     embalagens={embalagens}
-                    meta={embalagemPorId.get(l.embalagem_id)?.metaLitrosHora ?? null}
+                    meta={embalagemPorId.get(l.embalagem_despejo_id ?? "")?.metaLitrosHora ?? null}
                     podeExcluir={l.colaborador_id === perfil.id || podeExcluirQualquer}
                     podeEditar={l.colaborador_id === perfil.id}
                   />
@@ -326,9 +326,9 @@ export default async function DespejoPage({
                 <LinhaDespejo
                   key={l.id}
                   l={l}
-                  embalagemRotulo={embalagemRotulo(l.embalagem_id, embalagemPorId)}
+                  embalagemRotulo={embalagemRotulo(l.embalagem_despejo_id, embalagemPorId)}
                   embalagens={embalagens}
-                  meta={embalagemPorId.get(l.embalagem_id)?.metaLitrosHora ?? null}
+                  meta={embalagemPorId.get(l.embalagem_despejo_id ?? "")?.metaLitrosHora ?? null}
                   podeExcluir={l.colaborador_id === perfil.id || podeExcluirQualquer}
                   podeEditar={l.colaborador_id === perfil.id}
                   mostrarColaborador
@@ -375,7 +375,7 @@ function LinhaDespejo({
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-sm font-semibold text-slate-900">
-            {embalagemRotulo} · {l.quantidade_pacotes ?? "?"} cx ({l.litros} L) ·{" "}
+            {embalagemRotulo} · {l.quantidade_pacotes ?? "?"} un ({l.litros} L) ·{" "}
             {ROTULO_TURNO[l.turno as keyof typeof ROTULO_TURNO] ?? l.turno}
           </p>
           <p className="text-xs text-slate-500">
