@@ -32,7 +32,8 @@ const TITULO_SINALIZADOR: Record<CorSinalizador, string> = {
 
 const COLUNAS: { status: StatusAtendimento; titulo: string; cor: string }[] = [
   { status: "aguardando_conferente", titulo: "Aguardando conferente", cor: "border-amber-300 bg-amber-50" },
-  { status: "em_descarga", titulo: "Descarregando", cor: "border-blue-300 bg-blue-50" },
+  { status: "em_andamento", titulo: "Em andamento", cor: "border-blue-300 bg-blue-50" },
+  { status: "aguardando_retorno", titulo: "Aguardando retorno", cor: "border-cyan-300 bg-cyan-50" },
   { status: "em_carga", titulo: "Carregando", cor: "border-purple-300 bg-purple-50" },
 ];
 
@@ -130,7 +131,7 @@ export function MonitorCarretas({
   }, [revendaId]);
 
   return (
-    <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
       {COLUNAS.map((coluna) => {
         const desta = atendimentos.filter((a) => a.status === coluna.status);
         return (

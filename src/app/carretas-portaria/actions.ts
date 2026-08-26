@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { exigirContextoCarretas } from "@/lib/carretas-server";
+import { datetimeLocalParaUTC } from "@/lib/comunicados";
 
 const ROTA = "/carretas-portaria";
 
@@ -38,12 +39,16 @@ export async function registrarAtendimento(formData: FormData) {
   if (!placaCavalo) erro("Informe a placa do cavalo.");
   if (!placaCarreta) erro("Informe a placa da carreta.");
 
+  // datetime-local não carrega fuso -- new Date(string) sozinho seria
+  // interpretado no fuso do SERVIDOR (UTC na Vercel), não no de quem
+  // digitou, gravando 3h a menos do horário informado. datetimeLocalParaUTC
+  // (lib/comunicados.ts) já resolve isso certo (Brasil fixo em UTC-3).
   let agendamentoEm: string | null = null;
   if (cargaAgendada) {
     if (!agendamentoLocal) erro("Informe a data/hora do agendamento.");
-    const data = new Date(agendamentoLocal);
-    if (Number.isNaN(data.getTime())) erro("Data/hora do agendamento inválida.");
-    agendamentoEm = data.toISOString();
+    const iso = datetimeLocalParaUTC(agendamentoLocal);
+    if (!iso) erro("Data/hora do agendamento inválida.");
+    agendamentoEm = iso;
   }
 
   const notasProduto = notasDoFormulario(formData, "produto");

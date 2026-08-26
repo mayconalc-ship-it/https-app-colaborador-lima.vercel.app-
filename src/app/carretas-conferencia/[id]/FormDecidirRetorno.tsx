@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
-import { concluirDescarga } from "./actions";
+import { decidirRetorno } from "./actions";
 
 const campo =
   "w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-base text-slate-900 focus:border-primary focus:outline-none";
@@ -17,7 +17,7 @@ function novaChave() {
   return `ag-${contador}`;
 }
 
-export function FormConcluirDescarga({
+export function FormDecidirRetorno({
   atendimentoId,
   agCatalogo,
   fabricas,
@@ -30,7 +30,7 @@ export function FormConcluirDescarga({
   const [itensAg, setItensAg] = useState<string[]>([novaChave()]);
 
   return (
-    <form action={concluirDescarga} className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+    <form action={decidirRetorno} className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
       <input type="hidden" name="atendimento_id" value={atendimentoId} />
 
       <p className="text-sm font-bold text-slate-800">🔄 A carreta irá retornar vazia?</p>
@@ -110,9 +110,10 @@ export function FormConcluirDescarga({
               <button
                 type="button"
                 onClick={() => setItensAg((atual) => [...atual, novaChave()])}
+                aria-label="Adicionar item de AG"
                 className="w-full rounded-lg border border-dashed border-slate-300 py-2 text-xs font-semibold text-slate-600 hover:border-primary hover:text-primary"
               >
-                + Adicionar item de AG
+                +
               </button>
             )}
           </div>
@@ -120,10 +121,10 @@ export function FormConcluirDescarga({
       )}
 
       <BotaoEnviar
-        textoEnviando="Concluindo..."
+        textoEnviando="Confirmando..."
         className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-white shadow-sm hover:bg-primary-dark"
       >
-        {retorno === "com_ag" ? "Concluir descarga e iniciar carga de AG" : "Concluir descarga e finalizar"}
+        {retorno === "com_ag" ? "Confirmar retorno com AG" : "Confirmar retorno vazia"}
       </BotaoEnviar>
     </form>
   );

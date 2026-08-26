@@ -6,9 +6,19 @@
  * calculado na leitura, em cima dos timestamps gravados em cada etapa.
  */
 
+// Desde a 063: descarga e conferência viraram fases independentes (o
+// empilhador descarrega, o conferente confere o que chegou -- uma pode
+// começar sem a outra ter começado). O status não é mais uma linha reta
+// "aguardando -> descarregando -> carregando -> finalizado": vira
+// "aguardando -> em andamento (uma ou as duas fases rolando) -> aguardando
+// retorno (as duas terminaram, falta decidir vazia/com AG) -> carregando
+// (só se voltar com AG) -> finalizado". Quem manda em qual botão aparece
+// na tela é a presença dos timestamps (inicio/fim de cada fase), não o
+// status sozinho -- ver [id]/actions.ts.
 export const STATUS_ATENDIMENTO = [
   "aguardando_conferente",
-  "em_descarga",
+  "em_andamento",
+  "aguardando_retorno",
   "em_carga",
   "finalizado",
 ] as const;
@@ -16,7 +26,8 @@ export type StatusAtendimento = (typeof STATUS_ATENDIMENTO)[number];
 
 export const ROTULO_STATUS: Record<StatusAtendimento, string> = {
   aguardando_conferente: "Aguardando conferente",
-  em_descarga: "Descarregando",
+  em_andamento: "Em andamento",
+  aguardando_retorno: "Aguardando retorno",
   em_carga: "Carregando",
   finalizado: "Finalizado",
 };
@@ -89,7 +100,12 @@ export type ItemDescarga = {
   produtoId: string;
   produtoCodigo: string;
   produtoDescricao: string;
+  /** Quantidade RECEBIDA (boa + avariada) -- nome mantido por compatibilidade
+   *  com o histórico; "avariada" é o campo novo (ver quantidadeAvariada). */
   quantidade: number;
+  /** Null nos itens registrados antes da 063 -- não dava pra saber
+   *  retroativamente quanto daquele item era avaria. */
+  quantidadeAvariada: number | null;
   unidade: UnidadeItem;
   lote: string;
   validade: string;
@@ -112,6 +128,10 @@ export type AtendimentoCarreta = {
   portariaNome: string;
   status: StatusAtendimento;
   inicioAtendimentoEm: string | null;
+  inicioDescargaEm: string | null;
+  inicioConferenciaEm: string | null;
+  fimConferenciaEm: string | null;
+  retornoDecidoEm: string | null;
   conferenteNome: string | null;
   fimDescargaEm: string | null;
   temCarga: boolean | null;
@@ -132,20 +152,49 @@ function minutosEntre(inicioISO: string, fimISO: string): number {
 /**
  * TMA: se a carga era agendada, conta a partir do horário agendado (é a
  * régua que a fábrica/transportadora combinou); senão, conta a partir do
- * apontamento real da portaria. Só existe depois que a descarga termina.
+ * apontamento real da portaria (isso não mudou). O que muda desde a 063
+ * é o FIM: vai até o conferente decidir se a carreta volta vazia ou com
+ * AG (retornoDecidoEm), não mais só até o fim da descarga -- o tempo
+ * entre "descarga pronta" e "decisão de retorno" também é atendimento em
+ * andamento. Atendimentos finalizados antes da 063 não têm
+ * retornoDecidoEm, então caem no `??` e mantêm o número de sempre
+ * (fimDescargaEm) -- histórico não muda.
  */
 export function calcularTmaMinutos(a: AtendimentoCarreta): number | null {
-  if (!a.fimDescargaEm) return null;
+  const fim = a.retornoDecidoEm ?? a.fimDescargaEm;
+  if (!fim) return null;
   const inicio = a.cargaAgendada && a.agendamentoEm ? a.agendamentoEm : a.chegadaEm;
-  return Math.round(minutosEntre(inicio, a.fimDescargaEm));
+  return Math.round(minutosEntre(inicio, fim));
 }
 
-/** Espera na portaria: quanto tempo até o conferente assumir. Indicador
- *  auxiliar, não entra no TMA -- serve para separar "gargalo de fila" de
- *  "gargalo de descarga". */
+/** Espera na portaria: da chegada até alguém começar a trabalhar no
+ *  atendimento -- descarga ou conferência, o que vier primeiro (as duas
+ *  são independentes desde a 063). Indicador auxiliar, não entra no TMA
+ *  -- serve para separar "gargalo de fila" de "gargalo de descarga".
+ *  `inicioAtendimentoEm` é só o fallback pra atendimento de antes da 063,
+ *  que não tem os timestamps novos. */
 export function calcularEsperaPortariaMinutos(a: AtendimentoCarreta): number | null {
-  if (!a.inicioAtendimentoEm) return null;
-  return Math.round(minutosEntre(a.chegadaEm, a.inicioAtendimentoEm));
+  const candidatos = [a.inicioDescargaEm, a.inicioConferenciaEm, a.inicioAtendimentoEm].filter(
+    (v): v is string => v !== null,
+  );
+  if (candidatos.length === 0) return null;
+  const primeiro = candidatos.sort()[0];
+  return Math.round(minutosEntre(a.chegadaEm, primeiro));
+}
+
+/** Tempo de descarga: só a fase de descarga em si, do empilhador clicar
+ *  "Iniciar descarga" até "Finalizar descarga". Novo desde a 063 --
+ *  antes esse tempo ficava misturado dentro do TMA. */
+export function calcularTempoDescargaMinutos(a: AtendimentoCarreta): number | null {
+  if (!a.inicioDescargaEm || !a.fimDescargaEm) return null;
+  return Math.round(minutosEntre(a.inicioDescargaEm, a.fimDescargaEm));
+}
+
+/** Tempo de conferência: do conferente clicar "Conferir carga" até
+ *  "Finalizar conferência" -- contagem e registro dos itens que chegaram. */
+export function calcularTempoConferenciaMinutos(a: AtendimentoCarreta): number | null {
+  if (!a.inicioConferenciaEm || !a.fimConferenciaEm) return null;
+  return Math.round(minutosEntre(a.inicioConferenciaEm, a.fimConferenciaEm));
 }
 
 /** Tempo de carga, separado do TMA de descarga -- só existe quando
@@ -213,4 +262,25 @@ export function quantidadePositiva(v: unknown, max = 100_000): number {
     throw new Error("Quantidade inválida: use um número maior que zero.");
   }
   return Math.round(n * 100) / 100;
+}
+
+/** Igual ou maior que zero -- diferente de quantidadePositiva, "avariado"
+ *  pode legitimamente ser 0 (chegou tudo bom). */
+export function quantidadeNaoNegativa(v: unknown, max = 100_000): number {
+  const n = Number(v);
+  if (!Number.isFinite(n) || n < 0 || n > max) {
+    throw new Error("Quantidade avariada inválida: use um número maior ou igual a zero.");
+  }
+  return Math.round(n * 100) / 100;
+}
+
+/** % de avaria de UM atendimento: soma avariado / soma recebido de todos
+ *  os itens -- mesma conta de pctAvariaConsolidado (lib/produtividade-
+ *  armazem.ts), só que no formato de item deste módulo. `null` sem item
+ *  com quantidade recebida (não é 0%, é "sem dado"). */
+export function pctAvariaAtendimento(itens: { quantidade: number; quantidadeAvariada: number | null }[]): number | null {
+  const recebido = itens.reduce((s, i) => s + i.quantidade, 0);
+  if (recebido === 0) return null;
+  const avariado = itens.reduce((s, i) => s + (i.quantidadeAvariada ?? 0), 0);
+  return Math.round((avariado / recebido) * 1000) / 10;
 }

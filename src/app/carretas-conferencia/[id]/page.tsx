@@ -4,7 +4,7 @@ import { BotaoEnviar } from "@/components/BotaoEnviar";
 import { createClient } from "@/lib/supabase/server";
 import { getRevendaId } from "@/lib/revendas";
 import { requireAcessoModulo } from "@/lib/require-admin";
-import { formatarDataHora } from "@/lib/produtividade-armazem";
+import { formatarDataHora, formatarHora, LIMITE_AVARIA_ALERTA } from "@/lib/produtividade-armazem";
 import {
   RECEBIMENTO_CONFIG_PADRAO,
   ROTULO_STATUS,
@@ -12,16 +12,19 @@ import {
   ROTULO_UNIDADE_ITEM,
   calcularEsperaPortariaMinutos,
   calcularTempoCargaMinutos,
+  calcularTempoConferenciaMinutos,
+  calcularTempoDescargaMinutos,
   calcularTempoPatioMinutos,
   calcularTmaMinutos,
   formatarMinutos,
+  pctAvariaAtendimento,
   type AtendimentoCarreta,
   type UnidadeAg,
   type UnidadeItem,
 } from "@/lib/carretas";
-import { FormAssumir } from "./FormAssumir";
-import { FormConcluirDescarga } from "./FormConcluirDescarga";
-import { concluirCarga } from "./actions";
+import { FormFinalizarConferencia } from "./FormFinalizarConferencia";
+import { FormDecidirRetorno } from "./FormDecidirRetorno";
+import { concluirCarga, finalizarDescarga, iniciarConferencia, iniciarDescarga } from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -37,6 +40,10 @@ type LinhaAtendimento = {
   portaria_nome: string;
   status: AtendimentoCarreta["status"];
   inicio_atendimento_em: string | null;
+  inicio_descarga_em: string | null;
+  inicio_conferencia_em: string | null;
+  fim_conferencia_em: string | null;
+  retorno_decidido_em: string | null;
   conferente_nome: string | null;
   fim_descarga_em: string | null;
   tem_carga: boolean | null;
@@ -53,6 +60,7 @@ type LinhaNota = { tipo: "produto" | "remessa"; numero: string; serie: string };
 type LinhaItem = {
   id: string;
   quantidade: number;
+  quantidade_avariada: number | null;
   unidade: UnidadeItem;
   lote: string;
   validade: string;
@@ -94,7 +102,7 @@ export default async function DetalheAtendimentoPage({ params }: { params: Promi
       supabase
         .from("atendimentos_carretas")
         .select(
-          "id, numero_dt, motorista_nome, agendamento_em, carga_agendada, placa_cavalo, placa_carreta, chegada_em, portaria_nome, status, inicio_atendimento_em, conferente_nome, fim_descarga_em, tem_carga, inicio_carga_em, fim_carga_em, finalizacao_em, destino_retorno, pa_fabricas(nome), pa_transportadoras(nome)",
+          "id, numero_dt, motorista_nome, agendamento_em, carga_agendada, placa_cavalo, placa_carreta, chegada_em, portaria_nome, status, inicio_atendimento_em, inicio_descarga_em, inicio_conferencia_em, fim_conferencia_em, retorno_decidido_em, conferente_nome, fim_descarga_em, tem_carga, inicio_carga_em, fim_carga_em, finalizacao_em, destino_retorno, pa_fabricas(nome), pa_transportadoras(nome)",
         )
         .eq("id", id)
         .eq("revenda_id", revendaId)
@@ -102,7 +110,7 @@ export default async function DetalheAtendimentoPage({ params }: { params: Promi
       supabase.from("atendimento_carretas_notas").select("tipo, numero, serie").eq("atendimento_id", id),
       supabase
         .from("atendimento_carretas_itens")
-        .select("id, quantidade, unidade, lote, validade, empilhador, pa_produtos(codigo, descricao)")
+        .select("id, quantidade, quantidade_avariada, unidade, lote, validade, empilhador, pa_produtos(codigo, descricao)")
         .eq("atendimento_id", id),
       supabase
         .from("atendimento_carretas_ag_itens")
@@ -139,6 +147,10 @@ export default async function DetalheAtendimentoPage({ params }: { params: Promi
     agendamentoEm: a.agendamento_em,
     cargaAgendada: a.carga_agendada,
     inicioAtendimentoEm: a.inicio_atendimento_em,
+    inicioDescargaEm: a.inicio_descarga_em,
+    inicioConferenciaEm: a.inicio_conferencia_em,
+    fimConferenciaEm: a.fim_conferencia_em,
+    retornoDecidoEm: a.retorno_decidido_em,
     fimDescargaEm: a.fim_descarga_em,
     inicioCargaEm: a.inicio_carga_em,
     fimCargaEm: a.fim_carga_em,
@@ -147,10 +159,15 @@ export default async function DetalheAtendimentoPage({ params }: { params: Promi
 
   const tma = calcularTmaMinutos(atendimentoCalc);
   const esperaPortaria = calcularEsperaPortariaMinutos(atendimentoCalc);
+  const tempoDescarga = calcularTempoDescargaMinutos(atendimentoCalc);
+  const tempoConferencia = calcularTempoConferenciaMinutos(atendimentoCalc);
   const tempoCarga = calcularTempoCargaMinutos(atendimentoCalc);
   const tempoPatio = calcularTempoPatioMinutos(atendimentoCalc);
+  const pctAvaria = pctAvariaAtendimento(itens.map((i) => ({ quantidade: i.quantidade, quantidadeAvariada: i.quantidade_avariada })));
 
   const nomesEmpilhadores = [...new Set(itens.map((i) => i.empilhador).filter(Boolean))];
+
+  const emAndamento = a.status === "aguardando_conferente" || a.status === "em_andamento";
 
   return (
     <div>
@@ -183,7 +200,8 @@ export default async function DetalheAtendimentoPage({ params }: { params: Promi
             <thead className="bg-slate-50 text-left uppercase text-slate-500">
               <tr>
                 <th className="p-2">Produto</th>
-                <th className="p-2 text-right">Qtd.</th>
+                <th className="p-2 text-right">Recebido</th>
+                <th className="p-2 text-right">Avariado</th>
                 <th className="p-2">Lote</th>
                 <th className="p-2">Validade</th>
                 <th className="p-2">Empilhador</th>
@@ -194,6 +212,7 @@ export default async function DetalheAtendimentoPage({ params }: { params: Promi
                 <tr key={i.id} className="border-t border-slate-100">
                   <td className="p-2">{produtoRelacionado(i.pa_produtos)}</td>
                   <td className="p-2 text-right">{i.quantidade} {ROTULO_UNIDADE_ITEM[i.unidade]}</td>
+                  <td className="p-2 text-right">{i.quantidade_avariada ?? "—"}</td>
                   <td className="p-2">{i.lote}</td>
                   <td className="p-2">{i.validade}</td>
                   <td className="p-2">{i.empilhador}</td>
@@ -204,11 +223,68 @@ export default async function DetalheAtendimentoPage({ params }: { params: Promi
         </div>
       )}
 
-      {a.status === "aguardando_conferente" && (
-        <FormAssumir atendimentoId={a.id} diasMinimosValidadeAlerta={diasMinimosValidadeAlerta} />
+      {emAndamento && (
+        <div className="space-y-4">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+              <p className="mb-2 text-sm font-bold text-slate-800">📦 Descarga</p>
+              {!a.inicio_descarga_em ? (
+                <form action={iniciarDescarga}>
+                  <input type="hidden" name="atendimento_id" value={a.id} />
+                  <BotaoEnviar
+                    textoEnviando="Iniciando..."
+                    className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-white shadow-sm hover:bg-primary-dark"
+                  >
+                    ▶️ Iniciar descarga
+                  </BotaoEnviar>
+                </form>
+              ) : !a.fim_descarga_em ? (
+                <>
+                  <p className="mb-2 text-xs text-amber-700">🕐 Iniciada às {formatarHora(a.inicio_descarga_em)}</p>
+                  <form action={finalizarDescarga}>
+                    <input type="hidden" name="atendimento_id" value={a.id} />
+                    <BotaoEnviar
+                      textoEnviando="Finalizando..."
+                      className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-white shadow-sm hover:bg-primary-dark"
+                    >
+                      ✅ Finalizar descarga
+                    </BotaoEnviar>
+                  </form>
+                </>
+              ) : (
+                <p className="text-xs font-semibold text-green-700">✅ Descarga concluída às {formatarHora(a.fim_descarga_em)}</p>
+              )}
+            </div>
+
+            <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+              <p className="mb-2 text-sm font-bold text-slate-800">🔍 Conferência</p>
+              {!a.inicio_conferencia_em ? (
+                <form action={iniciarConferencia}>
+                  <input type="hidden" name="atendimento_id" value={a.id} />
+                  <BotaoEnviar
+                    textoEnviando="Iniciando..."
+                    className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-white shadow-sm hover:bg-primary-dark"
+                  >
+                    🔍 Conferir carga
+                  </BotaoEnviar>
+                </form>
+              ) : !a.fim_conferencia_em ? (
+                <p className="text-xs text-amber-700">🕐 Em andamento desde {formatarHora(a.inicio_conferencia_em)} -- preencha os itens abaixo.</p>
+              ) : (
+                <p className="text-xs font-semibold text-green-700">✅ Conferência concluída às {formatarHora(a.fim_conferencia_em)}</p>
+              )}
+            </div>
+          </div>
+
+          {a.inicio_conferencia_em && !a.fim_conferencia_em && (
+            <FormFinalizarConferencia atendimentoId={a.id} diasMinimosValidadeAlerta={diasMinimosValidadeAlerta} />
+          )}
+        </div>
       )}
 
-      {a.status === "em_descarga" && <FormConcluirDescarga atendimentoId={a.id} agCatalogo={agCatalogo} fabricas={fabricas} />}
+      {a.status === "aguardando_retorno" && (
+        <FormDecidirRetorno atendimentoId={a.id} agCatalogo={agCatalogo} fabricas={fabricas} />
+      )}
 
       {a.status === "em_carga" && (
         <div className="space-y-4">
@@ -250,31 +326,46 @@ export default async function DetalheAtendimentoPage({ params }: { params: Promi
             <p className="text-xs text-green-700">
               {a.finalizacao_em ? formatarDataHora(a.finalizacao_em) : "—"}
             </p>
-            <p className="mt-3 text-[11px] font-semibold uppercase tracking-wide text-green-700">TMA</p>
+            <p className="mt-3 text-[11px] font-semibold uppercase tracking-wide text-green-700">TMA Total</p>
             <p className="text-4xl font-extrabold text-green-800">{tma !== null ? formatarMinutos(tma) : "—"}</p>
           </div>
 
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
             {[
-              { rotulo: "Espera portaria", valor: esperaPortaria },
-              { rotulo: "Tempo de carga", valor: a.tem_carga ? tempoCarga : null },
-              { rotulo: "Tempo no pátio", valor: tempoPatio },
+              { rotulo: "Espera portaria", valor: esperaPortaria !== null ? formatarMinutos(esperaPortaria) : "—" },
+              { rotulo: "Tempo de descarga", valor: tempoDescarga !== null ? formatarMinutos(tempoDescarga) : "—" },
+              { rotulo: "Tempo de conferência", valor: tempoConferencia !== null ? formatarMinutos(tempoConferencia) : "—" },
+              ...(a.tem_carga ? [{ rotulo: "Tempo de carga", valor: tempoCarga !== null ? formatarMinutos(tempoCarga) : "—" }] : []),
+              { rotulo: "Tempo no pátio", valor: tempoPatio !== null ? formatarMinutos(tempoPatio) : "—" },
+              {
+                rotulo: "% Avaria",
+                valor: pctAvaria !== null ? `${pctAvaria}%` : "—",
+                alerta: pctAvaria !== null && pctAvaria > LIMITE_AVARIA_ALERTA,
+              },
             ].map((c) => (
-              <div key={c.rotulo} className="rounded-2xl border border-slate-200 bg-white p-3 text-center shadow-sm">
+              <div
+                key={c.rotulo}
+                className={`rounded-2xl border p-3 text-center shadow-sm ${
+                  "alerta" in c && c.alerta ? "border-red-200 bg-red-50" : "border-slate-200 bg-white"
+                }`}
+              >
                 <p className="text-[11px] font-semibold uppercase text-slate-400">{c.rotulo}</p>
-                <p className="mt-1 text-sm font-bold text-slate-800">
-                  {c.valor !== null && c.valor !== undefined ? formatarMinutos(c.valor) : "—"}
+                <p className={`mt-1 text-sm font-bold ${"alerta" in c && c.alerta ? "text-red-700" : "text-slate-800"}`}>
+                  {c.valor}
                 </p>
               </div>
             ))}
           </div>
           <details className="rounded-xl bg-slate-50 p-3 text-xs text-slate-500">
-            <summary className="cursor-pointer font-semibold text-slate-600">ℹ️ Como cada tempo é medido (os números não somam entre si)</summary>
+            <summary className="cursor-pointer font-semibold text-slate-600">ℹ️ Como cada indicador é medido</summary>
             <ul className="mt-2 space-y-1.5">
-              <li><strong>TMA</strong> — o principal: dura da chegada até o fim da descarga (ou do horário agendado até o fim da descarga, se era agendada). Já inclui a espera na portaria quando não há agendamento.</li>
-              <li><strong>Espera na portaria</strong> — só o pedaço entre a chegada e o conferente assumir. Não soma com o TMA: é um recorte DE DENTRO dele.</li>
-              <li><strong>Tempo de carga</strong> — só o carregamento de AG no retorno, começa depois que a descarga já terminou.</li>
-              <li><strong>Tempo no pátio</strong> — o relógio inteiro, da chegada até a saída. É o único cronometrado direto do início ao fim; os outros três olham pedaços que podem se sobrepor, por isso não dá pra somá-los e chegar nesse número.</li>
+              <li><strong>TMA Total</strong> — o principal: da chegada (ou do horário agendado, se era agendada) até o conferente decidir se a carreta volta vazia ou com AG. Inclui espera, descarga e conferência -- tudo o que acontece antes dessa decisão.</li>
+              <li><strong>Espera na portaria</strong> — da chegada até alguém começar a trabalhar (descarga ou conferência, o que vier primeiro). É um recorte DE DENTRO do TMA, não soma com ele.</li>
+              <li><strong>Tempo de descarga</strong> — só a fase de tirar as caixas do caminhão, do empilhador iniciar até finalizar.</li>
+              <li><strong>Tempo de conferência</strong> — só a fase de contar/registrar o que chegou, do conferente iniciar até finalizar. Pode acontecer ao mesmo tempo que a descarga, por isso os dois não somam pro TMA.</li>
+              <li><strong>Tempo de carga</strong> — só o carregamento de AG no retorno, começa depois da decisão de retorno.</li>
+              <li><strong>Tempo no pátio</strong> — o relógio inteiro, da chegada até a saída (inclui carregar AG, se houver). É o único cronometrado direto do início ao fim.</li>
+              <li><strong>% Avaria</strong> — soma de tudo que veio avariado dividido pela soma de tudo que foi recebido, olhando todos os itens da conferência.</li>
             </ul>
           </details>
 

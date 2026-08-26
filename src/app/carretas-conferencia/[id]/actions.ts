@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { exigirContextoCarretas } from "@/lib/carretas-server";
-import { ehUnidadeItem, quantidadePositiva } from "@/lib/carretas";
+import { ehUnidadeItem, quantidadeNaoNegativa, quantidadePositiva } from "@/lib/carretas";
 
 function rota(id: string) {
   return `/carretas-conferencia/${id}`;
@@ -15,18 +15,123 @@ function erro(id: string, mensagem: string): never {
 }
 
 /**
- * O conferente assume o card e preenche os itens da descarga na mesma
- * submissão -- é o mesmo instante que vira "início da descarga" (decisão
- * tomada na conversa que gerou este recurso, ver migration 057).
+ * Descarga e conferência são fases independentes (desde a 063) -- o
+ * empilhador descarrega, o conferente confere o que chegou, e uma pode
+ * começar sem a outra ter começado. Este helper faz a transição de
+ * status comum às quatro ações abaixo: sai de "aguardando_conferente"
+ * assim que QUALQUER uma das duas fases começa, e vira
+ * "aguardando_retorno" assim que as DUAS terminam (não importa a ordem).
  */
-export async function assumirEDescarregar(formData: FormData) {
-  const { perfil, revendaId } = await exigirContextoCarretas("carretas-conferencia", "/carretas-conferencia");
+async function statusAposFase(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  atendimentoId: string,
+): Promise<"em_andamento" | "aguardando_retorno"> {
+  const { data } = await supabase
+    .from("atendimentos_carretas")
+    .select("fim_descarga_em, fim_conferencia_em")
+    .eq("id", atendimentoId)
+    .maybeSingle();
+  return data?.fim_descarga_em && data?.fim_conferencia_em ? "aguardando_retorno" : "em_andamento";
+}
 
+/** O empilhador clica ao começar a tirar as caixas do caminhão. */
+export async function iniciarDescarga(formData: FormData) {
+  const { revendaId } = await exigirContextoCarretas("carretas-conferencia", "/carretas-conferencia");
+  const atendimentoId = String(formData.get("atendimento_id") ?? "");
+  if (!atendimentoId) erro(atendimentoId, "Atendimento inválido.");
+
+  const supabase = await createClient();
+  const { data: atualizado, error } = await supabase
+    .from("atendimentos_carretas")
+    .update({ inicio_descarga_em: new Date().toISOString(), status: "em_andamento" })
+    .eq("id", atendimentoId)
+    .eq("revenda_id", revendaId)
+    .is("inicio_descarga_em", null)
+    .in("status", ["aguardando_conferente", "em_andamento"])
+    .select("id");
+
+  if (error) erro(atendimentoId, `Não foi possível iniciar a descarga: ${error.message}`);
+  if (!atualizado || atualizado.length === 0) erro(atendimentoId, "A descarga já foi iniciada por outra pessoa.");
+
+  revalidatePath(rota(atendimentoId));
+  revalidatePath("/carretas-conferencia");
+  redirect(`${rota(atendimentoId)}?sucesso=Descarga+iniciada`);
+}
+
+/** O empilhador clica ao terminar de tirar tudo do caminhão. */
+export async function finalizarDescarga(formData: FormData) {
+  const { revendaId } = await exigirContextoCarretas("carretas-conferencia", "/carretas-conferencia");
+  const atendimentoId = String(formData.get("atendimento_id") ?? "");
+  if (!atendimentoId) erro(atendimentoId, "Atendimento inválido.");
+
+  const supabase = await createClient();
+  const { data: atualizado, error } = await supabase
+    .from("atendimentos_carretas")
+    .update({ fim_descarga_em: new Date().toISOString() })
+    .eq("id", atendimentoId)
+    .eq("revenda_id", revendaId)
+    .not("inicio_descarga_em", "is", null)
+    .is("fim_descarga_em", null)
+    .select("id");
+
+  if (error) erro(atendimentoId, `Não foi possível finalizar a descarga: ${error.message}`);
+  if (!atualizado || atualizado.length === 0) erro(atendimentoId, "A descarga já foi finalizada ou ainda não foi iniciada.");
+
+  const novoStatus = await statusAposFase(supabase, atendimentoId);
+  await supabase.from("atendimentos_carretas").update({ status: novoStatus }).eq("id", atendimentoId);
+
+  revalidatePath(rota(atendimentoId));
+  revalidatePath("/carretas-conferencia");
+  redirect(`${rota(atendimentoId)}?sucesso=Descarga+finalizada`);
+}
+
+/**
+ * O conferente clica ao começar a contar o que chegou no chão -- vira a
+ * pessoa responsável pelo atendimento (conferente_*), mas não mexe na
+ * descarga: pode clicar antes, durante ou depois dela.
+ */
+export async function iniciarConferencia(formData: FormData) {
+  const { perfil, revendaId } = await exigirContextoCarretas("carretas-conferencia", "/carretas-conferencia");
+  const atendimentoId = String(formData.get("atendimento_id") ?? "");
+  if (!atendimentoId) erro(atendimentoId, "Atendimento inválido.");
+
+  const supabase = await createClient();
+  const { data: atualizado, error } = await supabase
+    .from("atendimentos_carretas")
+    .update({
+      inicio_conferencia_em: new Date().toISOString(),
+      conferente_colaborador_id: perfil.id,
+      conferente_nome: perfil.nome,
+      status: "em_andamento",
+    })
+    .eq("id", atendimentoId)
+    .eq("revenda_id", revendaId)
+    .is("inicio_conferencia_em", null)
+    .in("status", ["aguardando_conferente", "em_andamento"])
+    .select("id");
+
+  if (error) erro(atendimentoId, `Não foi possível iniciar a conferência: ${error.message}`);
+  if (!atualizado || atualizado.length === 0) erro(atendimentoId, "A conferência já foi iniciada por outra pessoa.");
+
+  revalidatePath(rota(atendimentoId));
+  revalidatePath("/carretas-conferencia");
+  redirect(`${rota(atendimentoId)}?sucesso=Conferência+iniciada`);
+}
+
+/**
+ * O conferente salva os itens contados e encerra a conferência. Cada
+ * item grava quantidade RECEBIDA e quantidade AVARIADA (novo desde a
+ * 063 -- antes só existia "quantidade"), pra dar o % de avaria do
+ * atendimento na tela de finalizado.
+ */
+export async function finalizarConferencia(formData: FormData) {
+  const { revendaId } = await exigirContextoCarretas("carretas-conferencia", "/carretas-conferencia");
   const atendimentoId = String(formData.get("atendimento_id") ?? "");
   if (!atendimentoId) erro(atendimentoId, "Atendimento inválido.");
 
   const produtoIds = formData.getAll("produto_id").map(String);
   const quantidades = formData.getAll("quantidade").map(String);
+  const quantidadesAvariadas = formData.getAll("quantidade_avariada").map(String);
   const unidades = formData.getAll("unidade").map(String);
   const lotes = formData.getAll("lote").map(String);
   const validades = formData.getAll("validade").map(String);
@@ -38,10 +143,15 @@ export async function assumirEDescarregar(formData: FormData) {
 
   const itens = produtoIds.map((produtoId, i) => {
     let quantidade: number;
+    let quantidadeAvariada: number;
     try {
       quantidade = quantidadePositiva(quantidades[i]);
-    } catch {
-      erro(atendimentoId, "Quantidade inválida em um dos itens.");
+      quantidadeAvariada = quantidadeNaoNegativa(quantidadesAvariadas[i] || "0");
+    } catch (e) {
+      erro(atendimentoId, e instanceof Error ? e.message : "Quantidade inválida em um dos itens.");
+    }
+    if (quantidadeAvariada > quantidade) {
+      erro(atendimentoId, "A quantidade avariada não pode ser maior que a recebida.");
     }
     const unidade = unidades[i];
     if (!ehUnidadeItem(unidade)) erro(atendimentoId, "Escolha a unidade (palete/caixa) de cada item.");
@@ -51,7 +161,7 @@ export async function assumirEDescarregar(formData: FormData) {
     if (!lote) erro(atendimentoId, "Informe o lote de cada item.");
     if (!validade) erro(atendimentoId, "Informe a validade de cada item.");
     if (!empilhador) erro(atendimentoId, "Informe o empilhador de cada item.");
-    return { produtoId, quantidade, unidade, lote, validade, empilhador };
+    return { produtoId, quantidade, quantidadeAvariada, unidade, lote, validade, empilhador };
   });
 
   const supabase = await createClient();
@@ -62,6 +172,7 @@ export async function assumirEDescarregar(formData: FormData) {
       atendimento_id: atendimentoId,
       produto_id: i.produtoId,
       quantidade: i.quantidade,
+      quantidade_avariada: i.quantidadeAvariada,
       unidade: i.unidade,
       lote: i.lote,
       validade: i.validade,
@@ -70,36 +181,33 @@ export async function assumirEDescarregar(formData: FormData) {
   );
   if (erroItens) erro(atendimentoId, `Não foi possível salvar os itens: ${erroItens.message}`);
 
-  const agora = new Date().toISOString();
   const { data: atualizado, error } = await supabase
     .from("atendimentos_carretas")
-    .update({
-      conferente_colaborador_id: perfil.id,
-      conferente_nome: perfil.nome,
-      inicio_atendimento_em: agora,
-      status: "em_descarga",
-    })
+    .update({ fim_conferencia_em: new Date().toISOString() })
     .eq("id", atendimentoId)
     .eq("revenda_id", revendaId)
-    .eq("status", "aguardando_conferente")
+    .not("inicio_conferencia_em", "is", null)
+    .is("fim_conferencia_em", null)
     .select("id");
 
-  if (error) erro(atendimentoId, `Itens salvos, mas não foi possível assumir: ${error.message}`);
-  if (!atualizado || atualizado.length === 0) erro(atendimentoId, "Este atendimento já foi assumido por outra pessoa.");
+  if (error) erro(atendimentoId, `Itens salvos, mas não foi possível finalizar a conferência: ${error.message}`);
+  if (!atualizado || atualizado.length === 0) erro(atendimentoId, "A conferência já foi finalizada ou ainda não foi iniciada.");
+
+  const novoStatus = await statusAposFase(supabase, atendimentoId);
+  await supabase.from("atendimentos_carretas").update({ status: novoStatus }).eq("id", atendimentoId);
 
   revalidatePath(rota(atendimentoId));
   revalidatePath("/carretas-conferencia");
-  redirect(`${rota(atendimentoId)}?sucesso=Descarga+iniciada`);
+  redirect(`${rota(atendimentoId)}?sucesso=Conferência+finalizada`);
 }
 
 /**
- * "Retorno vazio" (sem AG) segue exatamente o antigo "não" (finaliza
- * direto). "Retorno com AG" segue o antigo "sim" (abre a fase de carga),
- * só que agora grava destino + itens de AG junto -- a pergunta mudou pra
- * refletir como a operação de verdade funciona (a carreta quase sempre
- * volta com Ativo de Giro, não "outra carga qualquer").
+ * "Retorno vazio" (sem AG) finaliza direto. "Retorno com AG" grava
+ * destino + itens de AG e abre a fase de carga. Só aparece quando
+ * descarga E conferência já terminaram (status = aguardando_retorno).
+ * `retorno_decidido_em` fecha o TMA (ver calcularTmaMinutos).
  */
-export async function concluirDescarga(formData: FormData) {
+export async function decidirRetorno(formData: FormData) {
   const { revendaId } = await exigirContextoCarretas("carretas-conferencia", "/carretas-conferencia");
 
   const atendimentoId = String(formData.get("atendimento_id") ?? "");
@@ -135,15 +243,15 @@ export async function concluirDescarga(formData: FormData) {
     .from("atendimentos_carretas")
     .update(
       retornaComAg
-        ? { fim_descarga_em: agora, tem_carga: true, inicio_carga_em: agora, status: "em_carga", destino_retorno: destinoRetorno }
-        : { fim_descarga_em: agora, tem_carga: false, finalizacao_em: agora, status: "finalizado" },
+        ? { retorno_decidido_em: agora, tem_carga: true, inicio_carga_em: agora, status: "em_carga", destino_retorno: destinoRetorno }
+        : { retorno_decidido_em: agora, tem_carga: false, finalizacao_em: agora, status: "finalizado" },
     )
     .eq("id", atendimentoId)
     .eq("revenda_id", revendaId)
-    .eq("status", "em_descarga")
+    .eq("status", "aguardando_retorno")
     .select("id");
 
-  if (error) erro(atendimentoId, `Não foi possível concluir a descarga: ${error.message}`);
+  if (error) erro(atendimentoId, `Não foi possível confirmar o retorno: ${error.message}`);
   if (!atualizado || atualizado.length === 0) erro(atendimentoId, "Este atendimento já foi atualizado por outra pessoa.");
 
   if (itensAg.length > 0) {
@@ -155,12 +263,12 @@ export async function concluirDescarga(formData: FormData) {
         quantidade: i.quantidade,
       })),
     );
-    if (erroAg) erro(atendimentoId, `Descarga concluída, mas os itens de AG falharam: ${erroAg.message}`);
+    if (erroAg) erro(atendimentoId, `Retorno confirmado, mas os itens de AG falharam: ${erroAg.message}`);
   }
 
   revalidatePath(rota(atendimentoId));
   revalidatePath("/carretas-conferencia");
-  redirect(`${rota(atendimentoId)}?sucesso=Descarga+concluída`);
+  redirect(`${rota(atendimentoId)}?sucesso=Retorno+confirmado`);
 }
 
 export async function concluirCarga(formData: FormData) {

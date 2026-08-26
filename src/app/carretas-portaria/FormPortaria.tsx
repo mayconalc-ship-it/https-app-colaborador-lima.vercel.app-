@@ -75,9 +75,10 @@ function ListaNotas({
       <button
         type="button"
         onClick={() => setChaves((atual) => [...atual, novaChave()])}
+        aria-label={`Adicionar NF ${titulo.toLowerCase()}`}
         className="w-full rounded-lg border border-dashed border-slate-300 py-2 text-xs font-semibold text-slate-600 hover:border-primary hover:text-primary"
       >
-        + Adicionar NF {titulo.toLowerCase()}
+        +
       </button>
     </div>
   );
