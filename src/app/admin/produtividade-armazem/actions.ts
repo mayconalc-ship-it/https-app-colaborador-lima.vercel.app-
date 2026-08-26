@@ -9,14 +9,6 @@ import { exigirRevenda } from "@/lib/revendas";
 import { createClient } from "@/lib/supabase/server";
 import { ehSenso, ehTurno, litrosPorCaixa } from "@/lib/produtividade-armazem";
 
-// A planilha de produtos chega pesada (4-5 MB, centenas de linhas com
-// estilo/fórmula cacheada) e importarPlanilhaProdutos faz várias idas ao
-// banco em sequência (embalagens de repack, embalagens de despejo, upsert
-// de produtos) -- sem isto, o limite padrão da Vercel (10s) cortava a
-// função no meio e o navegador via só "An unexpected response was
-// received from the server", sem nenhuma mensagem de erro de verdade.
-export const maxDuration = 60;
-
 const ROTA = "/admin/produtividade-armazem";
 
 function erro(aba: string, mensagem: string): never {

@@ -59,6 +59,15 @@ import {
 } from "./actions";
 
 export const dynamic = "force-dynamic";
+// A planilha de produtos chega pesada (4-5 MB, centenas de linhas com
+// estilo/fórmula cacheada) e importarPlanilhaProdutos faz várias idas ao
+// banco em sequência (embalagens de repack, embalagens de despejo, upsert
+// de produtos) -- sem isto, o limite padrão da Vercel (10s) cortava a
+// Server Action no meio e o navegador via só "An unexpected response was
+// received from the server", sem nenhuma mensagem de erro de verdade.
+// Precisa ficar aqui (na página), não no arquivo de actions -- um arquivo
+// "use server" só pode exportar funções async, nada mais.
+export const maxDuration = 60;
 
 type Aba = "reepack-despejo" | "empilhadeiras" | "recebimento" | "cinco-s";
 const ABAS: { id: Aba; rotulo: string; emoji: string }[] = [
