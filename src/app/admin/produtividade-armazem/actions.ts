@@ -488,7 +488,16 @@ export async function importarPlanilhaProdutos(formData: FormData) {
     for (const e of criadas ?? []) embalagemIdPorNome.set(e.nome.toLowerCase(), e.id);
   }
 
-  const linhasParaUpsert = linhas.map((l) => ({
+  // Código duplicado na planilha (aconteceu na real: 3 produtos repetidos)
+  // quebraria o upsert -- "ON CONFLICT DO UPDATE cannot affect row a
+  // second time" é o Postgres recusando mexer na mesma linha duas vezes
+  // no mesmo comando. Dedupe por código antes de upsertar, ficando com a
+  // ÚLTIMA ocorrência (é a mais "de baixo" na planilha, presumida a mais
+  // recente se alguém editou uma linha e esqueceu de apagar a antiga).
+  const linhasPorCodigo = new Map<string, LinhaImportada>();
+  for (const l of linhas) linhasPorCodigo.set(l.codigo, l);
+
+  const linhasParaUpsert = [...linhasPorCodigo.values()].map((l) => ({
     revenda_id: revendaId,
     codigo: l.codigo,
     descricao: l.descricao,
