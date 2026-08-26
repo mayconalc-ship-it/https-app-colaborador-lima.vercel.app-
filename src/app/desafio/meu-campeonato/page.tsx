@@ -57,6 +57,7 @@ export default async function MeuCampeonatoPage() {
       <PageHeader
         title="📈 Meu Campeonato"
         subtitle={`${rotuloArea} — temporada ${temporada}`}
+        fecharHref="/desafio"
       />
 
       {resumo.rodadas.length === 0 ? (
@@ -155,20 +156,12 @@ export default async function MeuCampeonatoPage() {
         </>
       )}
 
-      <div className="mt-4 grid gap-2 sm:grid-cols-2">
-        <Link
-          href="/desafio/classificacao?visao=campeonato"
-          className="rounded-xl bg-primary px-4 py-3 text-center text-sm font-semibold text-white hover:bg-primary-dark"
-        >
-          🏆 Ver o campeonato
-        </Link>
-        <Link
-          href="/desafio"
-          className="rounded-xl bg-white px-4 py-3 text-center text-sm font-semibold text-primary ring-1 ring-slate-200 hover:bg-slate-50"
-        >
-          ← Voltar ao desafio
-        </Link>
-      </div>
+      <Link
+        href="/desafio/classificacao?visao=campeonato"
+        className="mt-4 block rounded-xl bg-primary px-4 py-3 text-center text-sm font-semibold text-white hover:bg-primary-dark"
+      >
+        🏆 Ver o campeonato
+      </Link>
     </div>
   );
 }

@@ -52,6 +52,7 @@ export default async function ClassificacaoPage({
       <PageHeader
         title="🏆 Campeonato do Conhecimento"
         subtitle={rotuloArea.toUpperCase()}
+        fecharHref="/desafio"
       />
 
       <div className="mb-4 flex gap-2">
@@ -84,13 +85,6 @@ export default async function ClassificacaoPage({
       )}
 
       <Legenda />
-
-      <Link
-        href="/desafio"
-        className="mt-4 block rounded-xl bg-white px-4 py-3 text-center text-sm font-semibold text-primary ring-1 ring-slate-200 hover:bg-slate-50"
-      >
-        ← Voltar ao desafio
-      </Link>
     </div>
   );
 }

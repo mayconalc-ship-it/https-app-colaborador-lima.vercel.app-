@@ -164,14 +164,8 @@ export default async function PerguntaPage({
         subtitle={`${ROTULO_SENSO[pergunta.senso as Senso]}${
           competencia ? ` · ${rotuloCompetencia(competencia)}` : " · todo o histórico"
         }`}
+        fecharHref={`/5s/bi${competencia ? `?mes=${competencia}` : ""}`}
       />
-
-      <Link
-        href={`/5s/bi${competencia ? `?mes=${competencia}` : ""}`}
-        className="mb-4 inline-block text-sm text-primary hover:underline"
-      >
-        ← Voltar ao BI
-      </Link>
 
       <div className="mb-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
         <p className="text-sm leading-snug text-slate-700">{pergunta.texto}</p>

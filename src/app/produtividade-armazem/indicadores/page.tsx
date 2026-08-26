@@ -422,7 +422,11 @@ export default async function IndicadoresPage({
 
   return (
     <div>
-      <PageHeader title="Indicadores e Ranking" subtitle="Produtividade do Armazém no período." />
+      <PageHeader
+        title="Indicadores e Ranking"
+        subtitle="Produtividade do Armazém no período."
+        fecharHref="/produtividade-armazem"
+      />
 
       <form method="get" className="mb-6 flex flex-wrap items-end gap-2">
         <div>

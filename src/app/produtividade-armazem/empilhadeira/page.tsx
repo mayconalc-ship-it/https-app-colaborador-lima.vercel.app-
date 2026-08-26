@@ -44,11 +44,8 @@ export default async function EmpilhadeiraIndexPage() {
       <PageHeader
         title="Controle de Empilhadeira"
         subtitle="Escolha a máquina para abrir ou fechar a operação."
+        fecharHref="/produtividade-armazem"
       />
-
-      <a href="/produtividade-armazem" className="mb-4 inline-flex text-sm font-medium text-primary hover:underline">
-        ← Produtividade do Armazém
-      </a>
 
       {(!maquinas || maquinas.length === 0) && (
         <p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-800">

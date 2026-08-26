@@ -33,7 +33,7 @@ export default async function CincoPorquesPage({
   if (!feedbackId || !Number.isInteger(id)) {
     return (
       <div>
-        <PageHeader title="🧠 Fazer 5 Porquês" />
+        <PageHeader title="🧠 Fazer 5 Porquês" fecharHref="/feedback-rota" />
         <BloqueioSemFeedback />
       </div>
     );
@@ -46,7 +46,7 @@ export default async function CincoPorquesPage({
   if (!user) {
     return (
       <div>
-        <PageHeader title="🧠 Fazer 5 Porquês" />
+        <PageHeader title="🧠 Fazer 5 Porquês" fecharHref="/feedback-rota" />
         <BloqueioSemFeedback />
       </div>
     );
@@ -67,7 +67,7 @@ export default async function CincoPorquesPage({
   if (!feedback) {
     return (
       <div>
-        <PageHeader title="🧠 Fazer 5 Porquês" />
+        <PageHeader title="🧠 Fazer 5 Porquês" fecharHref="/feedback-rota" />
         <BloqueioSemFeedback />
       </div>
     );
@@ -81,7 +81,11 @@ export default async function CincoPorquesPage({
 
   return (
     <div>
-      <PageHeader title="🧠 Fazer 5 Porquês" subtitle="Encontre a causa raiz do problema" />
+      <PageHeader
+        title="🧠 Fazer 5 Porquês"
+        subtitle="Encontre a causa raiz do problema"
+        fecharHref="/feedback-rota"
+      />
       <FluxoCincoPorques
         feedbackRotaId={feedback.id}
         rota={feedback.rota}

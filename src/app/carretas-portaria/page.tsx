@@ -67,17 +67,15 @@ export default async function CarretasPortariaPage({
 
   return (
     <div>
-      <PageHeader title="👮 Recebimento de Carreta" subtitle="Registre a chegada assim que a carreta entrar." />
+      <PageHeader
+        title="👮 Recebimento de Carreta"
+        subtitle="Registre a chegada assim que a carreta entrar."
+        fecharHref="/produtividade-armazem"
+      />
 
-      <a
-        href="/produtividade-armazem"
-        className="mb-2 inline-flex text-sm font-medium text-primary hover:underline"
-      >
-        ← Produtividade do Armazém
-      </a>
       <Link
         href="/carretas-conferencia"
-        className="mb-4 ml-4 inline-flex text-sm font-medium text-primary hover:underline"
+        className="mb-4 inline-flex text-sm font-medium text-primary hover:underline"
       >
         🖥️ Ir para o Monitor de Recebimento →
       </Link>

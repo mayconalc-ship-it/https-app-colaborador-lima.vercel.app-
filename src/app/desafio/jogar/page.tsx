@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import {
   getContexto,
@@ -45,8 +46,20 @@ export default async function JogarPage() {
   // leva adiante no tempo de quem está lendo.
 
   return (
-    <div>
-      <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+    <div className="relative">
+      {/* Mesmo botão de fechar do PageHeader (mesmo estilo/posição), mas
+          sem o cabeçalho inteiro -- o nome da rodada abaixo já cumpre o
+          papel do título, e um <h1> a mais só pesaria a tela do quiz, que
+          é feita para focar na pergunta. Sair aqui é seguro: nada é
+          perdido, a rodada retoma de onde parou na próxima vez. */}
+      <Link
+        href="/desafio"
+        aria-label="Fechar"
+        className="toque-texto absolute right-0 top-0 flex h-9 w-9 items-center justify-center rounded-full text-xl leading-none text-slate-400 hover:bg-slate-100 hover:text-slate-700 active:bg-slate-100"
+      >
+        ✕
+      </Link>
+      <p className="mb-1 pr-10 text-xs font-semibold uppercase tracking-wide text-slate-500">
         {rodada.nome}
       </p>
       <Pergunta questao={questao} />

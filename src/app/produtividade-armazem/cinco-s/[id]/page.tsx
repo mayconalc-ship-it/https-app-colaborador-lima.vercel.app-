@@ -54,6 +54,7 @@ export default async function ExecucaoCincoSPage({
       <PageHeader
         title="Checklist 5S"
         subtitle={finalizada ? "Execução encerrada." : `Iniciada às ${formatarDataHora(execucao.inicio)}`}
+        fecharHref="/produtividade-armazem/cinco-s"
       />
 
       {sp.erro && (

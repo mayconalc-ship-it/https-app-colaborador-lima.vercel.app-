@@ -171,7 +171,11 @@ export default async function DetalheAtendimentoPage({ params }: { params: Promi
 
   return (
     <div>
-      <PageHeader title={`🚛 Carreta ${a.placa_carreta}`} subtitle={`DT ${a.numero_dt} — ${ROTULO_STATUS[a.status]}`} />
+      <PageHeader
+        title={`🚛 Carreta ${a.placa_carreta}`}
+        subtitle={`DT ${a.numero_dt} — ${ROTULO_STATUS[a.status]}`}
+        fecharHref="/carretas-conferencia"
+      />
 
       <div className="mb-4 space-y-1 rounded-2xl border border-slate-200 bg-white p-4 text-sm">
         <p><strong>{nomeRelacionado(a.pa_fabricas)}</strong> → {nomeRelacionado(a.pa_transportadoras)}</p>

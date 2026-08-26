@@ -80,11 +80,11 @@ export default async function PickingPage({
 
   return (
     <div>
-      <PageHeader title="Reabastecimento de Picking" subtitle="Registre início e fim do reabastecimento." />
-
-      <a href="/produtividade-armazem" className="mb-4 inline-flex text-sm font-medium text-primary hover:underline">
-        ← Produtividade do Armazém
-      </a>
+      <PageHeader
+        title="Reabastecimento de Picking"
+        subtitle="Registre início e fim do reabastecimento."
+        fecharHref="/produtividade-armazem"
+      />
 
       {sp.erro && (
         <p className="mb-4 rounded-xl bg-red-50 p-3 text-sm font-medium text-red-700">{sp.erro}</p>

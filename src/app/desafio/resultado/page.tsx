@@ -52,7 +52,7 @@ export default async function ResultadoPage() {
 
   return (
     <div>
-      <PageHeader title="Desafio concluído!" subtitle={rodada.nome} />
+      <PageHeader title="Desafio concluído!" subtitle={rodada.nome} fecharHref="/desafio" />
 
       {participacao.status !== "concluida" && (
         <p className="mb-4 rounded-lg bg-amber-50 p-3 text-sm text-amber-800">

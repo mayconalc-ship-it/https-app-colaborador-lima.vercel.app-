@@ -87,6 +87,7 @@ export default async function EmpilhadeiraDetalhePage({
       <PageHeader
         title={`🏗️ Empilhadeira ${maquina.numero}`}
         subtitle={aberta ? `Em uso por ${aberta.operadorNome} desde ${formatarDataHora(aberta.inicio)}` : "Livre no momento."}
+        fecharHref="/produtividade-armazem/empilhadeira"
       />
 
       {sp.erro && (

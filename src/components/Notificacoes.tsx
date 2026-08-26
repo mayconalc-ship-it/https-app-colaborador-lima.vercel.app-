@@ -73,6 +73,17 @@ export function Notificacoes() {
     setBalao(null);
   }
 
+  // Mesmo padrão de fechamento do resto do app (FotoAmpliavel, Confirmacao):
+  // Escape fecha, além do clique no X e do clique fora da lista.
+  useEffect(() => {
+    if (!listaAberta) return;
+    const aoTeclar = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setListaAberta(false);
+    };
+    window.addEventListener("keydown", aoTeclar);
+    return () => window.removeEventListener("keydown", aoTeclar);
+  }, [listaAberta]);
+
   return (
     <>
       {/* ---- Sino no cabeçalho ---- */}
@@ -102,18 +113,33 @@ export function Notificacoes() {
             onClick={() => setListaAberta(false)}
             aria-hidden="true"
           />
-          <div className="absolute inset-x-2 top-16 z-50 max-h-[70vh] overflow-y-auto rounded-2xl border border-slate-200 bg-white shadow-2xl sm:left-auto sm:right-4 sm:w-96">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Notificações"
+            className="absolute inset-x-2 top-16 z-50 max-h-[70vh] overflow-y-auto rounded-2xl border border-slate-200 bg-white shadow-2xl sm:left-auto sm:right-4 sm:w-96"
+          >
             <div className="flex items-center justify-between gap-2 border-b border-slate-100 p-4">
               <h2 className="text-sm font-bold text-slate-800">Notificações</h2>
-              {naoVistos > 0 && (
+              <div className="flex items-center gap-3">
+                {naoVistos > 0 && (
+                  <button
+                    type="button"
+                    onClick={limparTudo}
+                    className="text-xs font-medium text-primary hover:underline"
+                  >
+                    Marcar todas como lidas
+                  </button>
+                )}
                 <button
                   type="button"
-                  onClick={limparTudo}
-                  className="text-xs font-medium text-primary hover:underline"
+                  onClick={() => setListaAberta(false)}
+                  aria-label="Fechar notificações"
+                  className="-mr-1 shrink-0 rounded-lg px-2 py-1 text-lg leading-none text-slate-400 hover:bg-slate-100"
                 >
-                  Marcar todas como lidas
+                  ×
                 </button>
-              )}
+              </div>
             </div>
 
             <InterruptorPush />

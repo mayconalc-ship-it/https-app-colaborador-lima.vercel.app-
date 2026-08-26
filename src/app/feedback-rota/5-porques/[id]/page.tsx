@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getRevendaId } from "@/lib/revendas";
 import { rotuloCategoria } from "@/lib/cinco-porques-problemas";
@@ -22,7 +21,7 @@ export default async function AnaliseCincoPorquesPage({
   if (!Number.isInteger(id)) {
     return (
       <div>
-        <PageHeader title="🧠 5 Porquês" />
+        <PageHeader title="🧠 5 Porquês" fecharHref="/feedback-rota" />
         <NaoEncontrada />
       </div>
     );
@@ -35,7 +34,7 @@ export default async function AnaliseCincoPorquesPage({
   if (!user) {
     return (
       <div>
-        <PageHeader title="🧠 5 Porquês" />
+        <PageHeader title="🧠 5 Porquês" fecharHref="/feedback-rota" />
         <NaoEncontrada />
       </div>
     );
@@ -58,7 +57,7 @@ export default async function AnaliseCincoPorquesPage({
   if (!analise || analise.status !== "concluida") {
     return (
       <div>
-        <PageHeader title="🧠 5 Porquês" />
+        <PageHeader title="🧠 5 Porquês" fecharHref="/feedback-rota" />
         <NaoEncontrada />
       </div>
     );
@@ -66,7 +65,7 @@ export default async function AnaliseCincoPorquesPage({
 
   return (
     <div>
-      <PageHeader title="🧠 5 Porquês" subtitle={analise.problema_label} />
+      <PageHeader title="🧠 5 Porquês" subtitle={analise.problema_label} fecharHref="/feedback-rota" />
 
       <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
         <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
@@ -99,13 +98,6 @@ export default async function AnaliseCincoPorquesPage({
           A liderança ainda não respondeu esta análise.
         </div>
       )}
-
-      <Link
-        href="/"
-        className="mt-4 flex w-full items-center justify-center rounded-xl border border-slate-200 bg-white py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-      >
-        Voltar ao menu
-      </Link>
     </div>
   );
 }
@@ -114,12 +106,6 @@ function NaoEncontrada() {
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-6 text-center text-sm text-slate-500 shadow-sm">
       Não encontramos essa análise.
-      <Link
-        href="/feedback-rota"
-        className="mt-4 block rounded-xl bg-primary px-5 py-2 text-sm font-semibold text-white hover:bg-primary-dark"
-      >
-        Ir para o Feedback da Rota
-      </Link>
     </div>
   );
 }

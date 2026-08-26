@@ -201,6 +201,7 @@ export default async function AcoesPage({
             ? "Todas as ações do programa"
             : "As ações das suas áreas e as atribuídas a você"
         }
+        fecharHref="/5s"
       />
 
       <div className="mb-4 grid grid-cols-3 gap-2 sm:grid-cols-6">

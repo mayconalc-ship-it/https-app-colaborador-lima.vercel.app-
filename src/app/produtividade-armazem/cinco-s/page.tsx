@@ -40,11 +40,11 @@ export default async function CincoSPage({
 
   return (
     <div>
-      <PageHeader title="5S do Armazém" subtitle="Registre o início, o checklist e o fim da execução." />
-
-      <a href="/produtividade-armazem" className="mb-4 inline-flex text-sm font-medium text-primary hover:underline">
-        ← Produtividade do Armazém
-      </a>
+      <PageHeader
+        title="5S do Armazém"
+        subtitle="Registre o início, o checklist e o fim da execução."
+        fecharHref="/produtividade-armazem"
+      />
 
       {sp.erro && (
         <p className="mb-4 rounded-xl bg-red-50 p-3 text-sm font-medium text-red-700">{sp.erro}</p>

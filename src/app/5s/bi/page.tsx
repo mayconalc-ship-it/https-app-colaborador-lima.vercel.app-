@@ -148,6 +148,7 @@ export default async function BI5SPage({
         subtitle={
           mes ? rotuloCompetencia(mes) : "Todo o histórico"
         }
+        fecharHref="/5s"
       />
 
       {/* ---- Filtros ---- */}

@@ -125,6 +125,7 @@ export default async function AuditoriaPage({
           .split("-")
           .reverse()
           .join("/")} · ${nomeDoAuditor}`}
+        fecharHref="/5s"
       />
 
       {finalizada ? (
@@ -168,12 +169,6 @@ export default async function AuditoriaPage({
           <p className="mt-1 text-xs text-slate-400">
             {respostas?.length ?? 0} de {perguntas.length} itens respondidos.
           </p>
-          <Link
-            href="/5s"
-            className="mt-4 inline-block rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-white"
-          >
-            Voltar ao 5S
-          </Link>
         </div>
       )}
     </div>

@@ -180,17 +180,15 @@ export default async function CarretasConferenciaPage() {
 
   return (
     <div>
-      <PageHeader title="🖥️ Monitor de Recebimento" subtitle="Monitor ao vivo — atende, preenche e finaliza." />
+      <PageHeader
+        title="🖥️ Monitor de Recebimento"
+        subtitle="Monitor ao vivo — atende, preenche e finaliza."
+        fecharHref="/produtividade-armazem"
+      />
 
       <a
-        href="/produtividade-armazem"
-        className="mb-2 inline-flex text-sm font-medium text-primary hover:underline"
-      >
-        ← Produtividade do Armazém
-      </a>
-      <a
         href="/carretas-portaria"
-        className="mb-4 ml-4 inline-flex text-sm font-medium text-primary hover:underline"
+        className="mb-4 inline-flex text-sm font-medium text-primary hover:underline"
       >
         👮 Ir para o Recebimento de Carreta →
       </a>

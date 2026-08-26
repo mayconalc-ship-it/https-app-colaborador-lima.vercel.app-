@@ -1,7 +1,6 @@
 ﻿"use client";
 
 import { useState, useTransition } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { PageHeader } from "@/components/PageHeader";
 import {
@@ -70,12 +69,6 @@ export default function FeedbackRotaPage() {
           <p className="mt-1 text-sm text-green-700">
             Obrigado. Isso ajuda a gente a resolver os problemas da rota.
           </p>
-          <Link
-            href="/"
-            className="mt-4 inline-block rounded-xl bg-primary px-5 py-2 text-sm font-semibold text-white hover:bg-primary-dark"
-          >
-            Voltar ao menu
-          </Link>
         </div>
       </div>
     );
