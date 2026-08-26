@@ -35,7 +35,7 @@ export function PageHeader({
         <Link
           href={fecharHref}
           aria-label="Fechar"
-          className="toque-texto absolute right-0 top-0 flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-xl font-bold leading-none text-slate-600 shadow-sm hover:bg-slate-200 hover:text-slate-900 active:bg-slate-200"
+          className="toque-texto absolute -right-1 -top-1 flex h-10 w-10 items-center justify-center rounded-full bg-red-100 text-xl font-bold leading-none text-red-600 shadow-sm hover:bg-red-200 hover:text-red-700 active:bg-red-200"
         >
           ✕
         </Link>

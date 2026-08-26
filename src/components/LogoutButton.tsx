@@ -2,11 +2,20 @@
 
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { useConfirmacao } from "@/components/Confirmacao";
 
 export function LogoutButton() {
   const router = useRouter();
+  const confirmar = useConfirmacao();
 
   async function handleLogout() {
+    const ok = await confirmar({
+      titulo: "Sair do app?",
+      confirmar: "Sair",
+      perigo: false,
+    });
+    if (!ok) return;
+
     const supabase = createClient();
     await supabase.auth.signOut();
     router.push("/login");
