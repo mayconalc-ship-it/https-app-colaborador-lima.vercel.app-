@@ -2,10 +2,16 @@
 
 import { useState } from "react";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
+import { BotaoAdicionarLinha } from "@/components/BotaoMais";
+import { SelectComCadastroRapido } from "@/components/SelectComCadastroRapido";
 import { ComboboxNome } from "@/components/produtividade-armazem/ComboboxNome";
 import type { Fabrica, Transportadora } from "@/lib/produtividade-armazem";
 import { formatarPlaca } from "@/lib/carretas";
 import { buscarMotoristas } from "@/app/admin/produtividade-armazem/actions";
+import {
+  criarFabricaRapida,
+  criarTransportadoraRapida,
+} from "@/app/produtividade-armazem/catalogos-rapidos";
 import { criarMotoristaRapido, registrarAtendimento } from "./actions";
 
 const campo =
@@ -72,14 +78,9 @@ function ListaNotas({
           )}
         </div>
       ))}
-      <button
-        type="button"
-        onClick={() => setChaves((atual) => [...atual, novaChave()])}
-        aria-label={`Adicionar NF ${titulo.toLowerCase()}`}
-        className="w-full rounded-lg border border-dashed border-slate-300 py-2 text-xs font-semibold text-slate-600 hover:border-primary hover:text-primary"
-      >
-        +
-      </button>
+      <BotaoAdicionarLinha onClick={() => setChaves((atual) => [...atual, novaChave()])}>
+        Adicionar {titulo.toLowerCase()}
+      </BotaoAdicionarLinha>
     </div>
   );
 }
@@ -87,9 +88,11 @@ function ListaNotas({
 export function FormPortaria({
   fabricas,
   transportadoras,
+  podeEditarCatalogo = false,
 }: {
   fabricas: Fabrica[];
   transportadoras: Transportadora[];
+  podeEditarCatalogo?: boolean;
 }) {
   const [cargaAgendada, setCargaAgendada] = useState(false);
   const [motorista, setMotorista] = useState("");
@@ -106,19 +109,27 @@ export function FormPortaria({
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className={rotulo} htmlFor="fabrica_id">Fornecedor/Fábrica</label>
-            <select id="fabrica_id" name="fabrica_id" required className={campo}>
-              {fabricas.map((f) => (
-                <option key={f.id} value={f.id}>{f.nome}</option>
-              ))}
-            </select>
+            <SelectComCadastroRapido
+              id="fabrica_id"
+              name="fabrica_id"
+              required
+              opcoes={fabricas.map((f) => ({ valor: f.id, rotulo: f.nome }))}
+              criarRapido={podeEditarCatalogo ? criarFabricaRapida : undefined}
+              campos={[{ nome: "nome", rotulo: "Nome da fábrica" }]}
+              tituloCadastro="Nova fábrica"
+            />
           </div>
           <div>
             <label className={rotulo} htmlFor="transportadora_id">Transportador</label>
-            <select id="transportadora_id" name="transportadora_id" required className={campo}>
-              {transportadoras.map((t) => (
-                <option key={t.id} value={t.id}>{t.nome}</option>
-              ))}
-            </select>
+            <SelectComCadastroRapido
+              id="transportadora_id"
+              name="transportadora_id"
+              required
+              opcoes={transportadoras.map((t) => ({ valor: t.id, rotulo: t.nome }))}
+              criarRapido={podeEditarCatalogo ? criarTransportadoraRapida : undefined}
+              campos={[{ nome: "nome", rotulo: "Nome da transportadora" }]}
+              tituloCadastro="Nova transportadora"
+            />
           </div>
         </div>
 

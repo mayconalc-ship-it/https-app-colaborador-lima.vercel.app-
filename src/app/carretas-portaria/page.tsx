@@ -3,7 +3,7 @@ import Link from "next/link";
 import { PageHeader } from "@/components/PageHeader";
 import { createClient } from "@/lib/supabase/server";
 import { getRevendaId } from "@/lib/revendas";
-import { requireAcessoModulo } from "@/lib/require-admin";
+import { podeNoModulo, requireAcessoModulo } from "@/lib/require-admin";
 import type { Fabrica, Transportadora } from "@/lib/produtividade-armazem";
 import { formatarDataHora } from "@/lib/produtividade-armazem";
 import { ROTULO_STATUS, calcularTmaMinutos, formatarMinutos, type AtendimentoCarreta } from "@/lib/carretas";
@@ -38,6 +38,9 @@ export default async function CarretasPortariaPage({
   searchParams: Promise<{ aba?: string; erro?: string; sucesso?: string }>;
 }) {
   await requireAcessoModulo("carretas-portaria");
+  // O "+" de cadastrar fábrica/transportadora na hora só aparece para quem
+  // já podia mexer nesses catálogos pelo Admin. A ação confere de novo.
+  const podeEditarCatalogo = await podeNoModulo("produtividade-armazem", "editar");
 
   const sp = await searchParams;
   const aba: Aba = sp.aba === "historico" ? "historico" : "lancar";
@@ -105,7 +108,11 @@ export default async function CarretasPortariaPage({
             de lançar uma chegada.
           </p>
         ) : (
-          <FormPortaria fabricas={fabricas} transportadoras={transportadoras} />
+          <FormPortaria
+            fabricas={fabricas}
+            transportadoras={transportadoras}
+            podeEditarCatalogo={podeEditarCatalogo}
+          />
         ))}
 
       {aba === "historico" &&

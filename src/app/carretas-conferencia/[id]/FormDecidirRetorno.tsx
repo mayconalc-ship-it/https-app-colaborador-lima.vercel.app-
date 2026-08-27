@@ -2,7 +2,23 @@
 
 import { useState } from "react";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
+import { BotaoAdicionarLinha } from "@/components/BotaoMais";
+import { SelectComCadastroRapido, type OpcaoSelect } from "@/components/SelectComCadastroRapido";
+import type { CampoRapido } from "@/components/CadastroRapido";
+import { ROTULO_UNIDADE_AG, UNIDADES_AG } from "@/lib/carretas";
+import { criarAgRapido, criarFabricaRapida } from "@/app/produtividade-armazem/catalogos-rapidos";
 import { decidirRetorno } from "./actions";
+
+const CAMPOS_AG: CampoRapido[] = [
+  { nome: "codigo", rotulo: "Código" },
+  { nome: "descricao", rotulo: "Descrição" },
+  {
+    nome: "unidade",
+    rotulo: "Unidade",
+    tipo: "select",
+    opcoes: UNIDADES_AG.map((u) => ({ valor: u, rotulo: ROTULO_UNIDADE_AG[u] })),
+  },
+];
 
 const campo =
   "w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-base text-slate-900 focus:border-primary focus:outline-none";
@@ -21,13 +37,22 @@ export function FormDecidirRetorno({
   atendimentoId,
   agCatalogo,
   fabricas,
+  podeEditarCatalogo = false,
 }: {
   atendimentoId: string;
   agCatalogo: Ag[];
   fabricas: Fabrica[];
+  podeEditarCatalogo?: boolean;
 }) {
   const [retorno, setRetorno] = useState<"vazia" | "com_ag">("vazia");
   const [itensAg, setItensAg] = useState<string[]>([novaChave()]);
+  // AG cadastrado pelo "+" numa linha precisa aparecer em TODAS as linhas,
+  // por isso a lista extra mora aqui, no pai, e não dentro de cada select.
+  const [agExtras, setAgExtras] = useState<OpcaoSelect[]>([]);
+  const opcoesAg: OpcaoSelect[] = [
+    ...agCatalogo.map((a) => ({ valor: a.id, rotulo: `${a.codigo} — ${a.descricao}` })),
+    ...agExtras,
+  ];
 
   return (
     <form action={decidirRetorno} className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -64,12 +89,19 @@ export function FormDecidirRetorno({
         <div className="space-y-3 rounded-xl bg-slate-50 p-3">
           <div>
             <label className={rotulo} htmlFor="destino_retorno">Destino da carreta</label>
-            <select id="destino_retorno" name="destino_retorno" required className={campo} defaultValue="">
-              <option value="" disabled>Escolha a fábrica de destino</option>
-              {fabricas.map((f) => (
-                <option key={f.id} value={f.nome}>{f.nome}</option>
-              ))}
-            </select>
+            {/* O destino grava o NOME da fábrica, não o id -- daí o
+                usarRotuloComoValor. */}
+            <SelectComCadastroRapido
+              id="destino_retorno"
+              name="destino_retorno"
+              required
+              placeholder="Escolha a fábrica de destino"
+              opcoes={fabricas.map((f) => ({ valor: f.nome, rotulo: f.nome }))}
+              usarRotuloComoValor
+              criarRapido={podeEditarCatalogo ? criarFabricaRapida : undefined}
+              campos={[{ nome: "nome", rotulo: "Nome da fábrica" }]}
+              tituloCadastro="Nova fábrica"
+            />
           </div>
 
           <div className="space-y-2">
@@ -81,14 +113,22 @@ export function FormDecidirRetorno({
             ) : (
               itensAg.map((chave, i) => (
                 <div key={chave} className="flex items-end gap-2 rounded-lg bg-white p-2 shadow-sm">
-                  <div className="flex-1">
+                  <div className="min-w-0 flex-1">
                     {i === 0 && <label className={rotulo}>AG</label>}
-                    <select name="ag_id" required className={campo} defaultValue="">
-                      <option value="" disabled>Escolha o AG</option>
-                      {agCatalogo.map((a) => (
-                        <option key={a.id} value={a.id}>{a.codigo} — {a.descricao}</option>
-                      ))}
-                    </select>
+                    <SelectComCadastroRapido
+                      name="ag_id"
+                      required
+                      placeholder="Escolha o AG"
+                      opcoes={opcoesAg}
+                      criarRapido={podeEditarCatalogo ? criarAgRapido : undefined}
+                      campos={CAMPOS_AG}
+                      tituloCadastro="Novo AG"
+                      aoCriar={(nova) =>
+                        setAgExtras((atual) =>
+                          atual.some((o) => o.valor === nova.valor) ? atual : [...atual, nova],
+                        )
+                      }
+                    />
                   </div>
                   <div className="w-28">
                     {i === 0 && <label className={rotulo}>Qtd.</label>}
@@ -107,14 +147,9 @@ export function FormDecidirRetorno({
               ))
             )}
             {agCatalogo.length > 0 && (
-              <button
-                type="button"
-                onClick={() => setItensAg((atual) => [...atual, novaChave()])}
-                aria-label="Adicionar item de AG"
-                className="w-full rounded-lg border border-dashed border-slate-300 py-2 text-xs font-semibold text-slate-600 hover:border-primary hover:text-primary"
-              >
-                +
-              </button>
+              <BotaoAdicionarLinha onClick={() => setItensAg((atual) => [...atual, novaChave()])}>
+                Adicionar item de AG
+              </BotaoAdicionarLinha>
             )}
           </div>
         </div>

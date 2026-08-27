@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { PageHeader } from "@/components/PageHeader";
 import { createClient } from "@/lib/supabase/server";
 import { getRevendaId } from "@/lib/revendas";
-import { requireAcessoModulo } from "@/lib/require-admin";
+import { podeNoModulo, requireAcessoModulo } from "@/lib/require-admin";
 import {
   LIMITE_AVARIA_ALERTA,
   diasAtrasISO,
@@ -59,6 +59,8 @@ export default async function RecebimentoPage({
   }>;
 }) {
   await requireAcessoModulo("pa-recebimento");
+  // "+" de fábrica/transportadora só para quem já podia editar o catálogo.
+  const podeEditarCatalogo = await podeNoModulo("produtividade-armazem", "editar");
 
   const sp = await searchParams;
   const aba: Aba = sp.aba === "historico" ? "historico" : "lancar";
@@ -142,7 +144,11 @@ export default async function RecebimentoPage({
             lançar um recebimento.
           </p>
         ) : (
-          <FormRecebimento fabricas={fabricas} transportadoras={transportadoras} />
+          <FormRecebimento
+            fabricas={fabricas}
+            transportadoras={transportadoras}
+            podeEditarCatalogo={podeEditarCatalogo}
+          />
         ))}
 
       {aba === "historico" && (

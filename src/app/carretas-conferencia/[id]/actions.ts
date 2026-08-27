@@ -26,7 +26,7 @@ function erro(id: string, mensagem: string): never {
  */
 export async function criarEmpilhadorRapido(
   formData: FormData,
-): Promise<{ ok: true; nome: string } | { ok: false; erro: string }> {
+): Promise<{ ok: true; valor: string; rotulo: string } | { ok: false; erro: string }> {
   const [podeConferencia, podeDescarga] = await Promise.all([
     temAcessoModulo("carretas-conferencia"),
     temAcessoModulo("carretas-descarga"),
@@ -57,7 +57,8 @@ export async function criarEmpilhadorRapido(
     return { ok: false, erro: `Não foi possível cadastrar: ${error.message}` };
   }
 
-  return { ok: true, nome: data.nome };
+  // Empilhador é texto livre no item da conferência -- grava o nome.
+  return { ok: true, valor: data.nome, rotulo: data.nome };
 }
 
 /**

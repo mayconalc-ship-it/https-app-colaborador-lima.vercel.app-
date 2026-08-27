@@ -29,7 +29,7 @@ function erro(mensagem: string): never {
  */
 export async function criarMotoristaRapido(
   formData: FormData,
-): Promise<{ ok: true; nome: string } | { ok: false; erro: string }> {
+): Promise<{ ok: true; valor: string; rotulo: string } | { ok: false; erro: string }> {
   if (!(await temAcessoModulo("carretas-portaria"))) {
     return { ok: false, erro: "Sem permissão para cadastrar motorista." };
   }
@@ -57,7 +57,8 @@ export async function criarMotoristaRapido(
   }
 
   revalidatePath(ROTA);
-  return { ok: true, nome: data.nome };
+  // Motorista é texto livre no atendimento -- o valor gravado é o nome.
+  return { ok: true, valor: data.nome, rotulo: data.nome };
 }
 
 function notasDoFormulario(formData: FormData, tipo: "produto" | "remessa") {

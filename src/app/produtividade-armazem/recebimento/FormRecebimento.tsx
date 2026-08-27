@@ -2,7 +2,13 @@
 
 import { useState } from "react";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
+import { BotaoAdicionarLinha } from "@/components/BotaoMais";
+import { SelectComCadastroRapido } from "@/components/SelectComCadastroRapido";
 import type { Fabrica, Transportadora } from "@/lib/produtividade-armazem";
+import {
+  criarFabricaRapida,
+  criarTransportadoraRapida,
+} from "@/app/produtividade-armazem/catalogos-rapidos";
 import { registrarRecebimento } from "./actions";
 import { ComboboxProduto } from "@/components/produtividade-armazem/ComboboxProduto";
 
@@ -19,9 +25,11 @@ function novaChave() {
 export function FormRecebimento({
   fabricas,
   transportadoras,
+  podeEditarCatalogo = false,
 }: {
   fabricas: Fabrica[];
   transportadoras: Transportadora[];
+  podeEditarCatalogo?: boolean;
 }) {
   const [itens, setItens] = useState<string[]>([novaChave()]);
 
@@ -31,19 +39,27 @@ export function FormRecebimento({
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className={rotulo} htmlFor="fabrica_id">Fábrica de saída</label>
-            <select id="fabrica_id" name="fabrica_id" required className={campo}>
-              {fabricas.map((f) => (
-                <option key={f.id} value={f.id}>{f.nome}</option>
-              ))}
-            </select>
+            <SelectComCadastroRapido
+              id="fabrica_id"
+              name="fabrica_id"
+              required
+              opcoes={fabricas.map((f) => ({ valor: f.id, rotulo: f.nome }))}
+              criarRapido={podeEditarCatalogo ? criarFabricaRapida : undefined}
+              campos={[{ nome: "nome", rotulo: "Nome da fábrica" }]}
+              tituloCadastro="Nova fábrica"
+            />
           </div>
           <div>
             <label className={rotulo} htmlFor="transportadora_id">Transportadora</label>
-            <select id="transportadora_id" name="transportadora_id" required className={campo}>
-              {transportadoras.map((t) => (
-                <option key={t.id} value={t.id}>{t.nome}</option>
-              ))}
-            </select>
+            <SelectComCadastroRapido
+              id="transportadora_id"
+              name="transportadora_id"
+              required
+              opcoes={transportadoras.map((t) => ({ valor: t.id, rotulo: t.nome }))}
+              criarRapido={podeEditarCatalogo ? criarTransportadoraRapida : undefined}
+              campos={[{ nome: "nome", rotulo: "Nome da transportadora" }]}
+              tituloCadastro="Nova transportadora"
+            />
           </div>
         </div>
 
@@ -127,13 +143,9 @@ export function FormRecebimento({
           </div>
         ))}
 
-        <button
-          type="button"
-          onClick={() => setItens((atual) => [...atual, novaChave()])}
-          className="w-full rounded-xl border border-dashed border-slate-300 py-3 text-sm font-semibold text-slate-600 hover:border-primary hover:text-primary"
-        >
-          + Adicionar produto
-        </button>
+        <BotaoAdicionarLinha onClick={() => setItens((atual) => [...atual, novaChave()])}>
+          Adicionar produto
+        </BotaoAdicionarLinha>
       </div>
 
       <BotaoEnviar

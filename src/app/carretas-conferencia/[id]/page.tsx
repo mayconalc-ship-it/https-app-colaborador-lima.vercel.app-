@@ -102,9 +102,11 @@ export default async function DetalheAtendimentoPage({ params }: { params: Promi
   if (!podeVerConferencia && !podeVerDescarga) {
     redirect(`/?erro=${encodeURIComponent("Você não tem acesso a este módulo. Fale com o Admin.")}`);
   }
-  const [podeConferir, podeDescarregar] = await Promise.all([
+  const [podeConferir, podeDescarregar, podeEditarCatalogo] = await Promise.all([
     podeNoModulo("carretas-conferencia", "editar"),
     podeNoModulo("carretas-descarga", "editar"),
+    // "+" de fábrica/AG só para quem já podia editar esses catálogos.
+    podeNoModulo("produtividade-armazem", "editar"),
   ]);
 
   const { id } = await params;
@@ -325,7 +327,12 @@ export default async function DetalheAtendimentoPage({ params }: { params: Promi
           aparecem pra todo mundo lá embaixo, em "em_carga"/"finalizado"). */}
       {a.status === "aguardando_retorno" && (
         podeConferir ? (
-          <FormDecidirRetorno atendimentoId={a.id} agCatalogo={agCatalogo} fabricas={fabricas} />
+          <FormDecidirRetorno
+            atendimentoId={a.id}
+            agCatalogo={agCatalogo}
+            fabricas={fabricas}
+            podeEditarCatalogo={podeEditarCatalogo}
+          />
         ) : (
           <p className="rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-500 shadow-sm">
             Aguardando o conferente decidir se a carreta volta vazia ou carregada.

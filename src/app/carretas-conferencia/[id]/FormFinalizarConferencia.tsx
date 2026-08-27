@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
+import { BotaoAdicionarLinha } from "@/components/BotaoMais";
 import { ComboboxProduto } from "@/components/produtividade-armazem/ComboboxProduto";
 import { ComboboxNome } from "@/components/produtividade-armazem/ComboboxNome";
 import { ROTULO_UNIDADE_ITEM, UNIDADES_ITEM, diasAteValidade } from "@/lib/carretas";
@@ -134,8 +135,7 @@ export function FormFinalizarConferencia({
           </div>
         ))}
 
-        <button
-          type="button"
+        <BotaoAdicionarLinha
           onClick={() =>
             setItens((atual) => {
               const chave = novaChave();
@@ -143,11 +143,9 @@ export function FormFinalizarConferencia({
               return [...atual, chave];
             })
           }
-          aria-label="Adicionar item"
-          className="w-full rounded-xl border border-dashed border-slate-300 py-3 text-sm font-semibold text-slate-600 hover:border-primary hover:text-primary"
         >
-          +
-        </button>
+          Adicionar item
+        </BotaoAdicionarLinha>
       </div>
 
       <BotaoEnviar
