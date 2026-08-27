@@ -2,7 +2,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
 import { BotaoExcluir } from "@/components/BotaoExcluir";
 import { PainelCadastro, ItemCadastro, BotaoIcone } from "@/components/admin/CadastroCard";
-import { requireModulo } from "@/lib/require-admin";
+import { podeNoModulo, requireModulo } from "@/lib/require-admin";
 import { exigirRevenda } from "@/lib/revendas";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -24,6 +24,7 @@ import {
   alternarEmpilhadorAtivo,
   alternarFabricaAtivo,
   alternarItemChecklist5sAtivo,
+  alternarMotivoFefoAtivo,
   alternarMotoristaAtivo,
   alternarProdutoAtivo,
   alternarTransportadoraAtivo,
@@ -34,6 +35,7 @@ import {
   editarEmpilhador,
   editarFabrica,
   editarItemChecklist5s,
+  editarMotivoFefo,
   editarMotorista,
   editarProduto,
   editarTransportadora,
@@ -43,6 +45,7 @@ import {
   excluirFabrica,
   excluirItemChecklist5s,
   excluirLembreteEmpilhadeira,
+  excluirMotivoFefo,
   excluirMotorista,
   excluirProduto,
   excluirTransportadora,
@@ -55,6 +58,7 @@ import {
   salvarFabrica,
   salvarItemChecklist5s,
   salvarLembreteEmpilhadeira,
+  salvarMotivoFefo,
   salvarMotorista,
   salvarProduto,
   salvarTransportadora,
@@ -71,12 +75,13 @@ export const dynamic = "force-dynamic";
 // "use server" só pode exportar funções async, nada mais.
 export const maxDuration = 60;
 
-type Aba = "reepack-despejo" | "empilhadeiras" | "recebimento" | "cinco-s";
+type Aba = "reepack-despejo" | "empilhadeiras" | "recebimento" | "cinco-s" | "fefo";
 const ABAS: { id: Aba; rotulo: string; emoji: string }[] = [
   { id: "reepack-despejo", rotulo: "Produtos", emoji: "📦" },
   { id: "empilhadeiras", rotulo: "Empilhadeiras", emoji: "🏗️" },
   { id: "recebimento", rotulo: "Recebimento", emoji: "🚛" },
   { id: "cinco-s", rotulo: "5S", emoji: "🧹" },
+  { id: "fefo", rotulo: "FEFO", emoji: "🚨" },
 ];
 
 const campo =
@@ -124,6 +129,8 @@ export default async function AdminProdutividadeArmazemPage({
     { data: agCatalogo },
     { data: recebimentoConfig },
     { data: operacoesEncontradas },
+    { data: motivosFefo },
+    podeExcluir,
   ] = await Promise.all([
     supabase
       .from("pa_embalagens")
@@ -219,7 +226,18 @@ export default async function AdminProdutividadeArmazemPage({
             pa_empilhadeiras: { numero: string } | { numero: string }[] | null;
           }[],
         }),
+    supabase
+      .from("pa_fefo_motivos")
+      .select("id, nome, ajuda, emoji, ordem, ativo")
+      .eq("revenda_id", revendaId)
+      .order("ordem")
+      .order("nome"),
+    // Apagar motivo é a única ação atrás de "excluir" -- pedido do dono:
+    // desativar qualquer um com "editar" pode; apagar, não.
+    podeNoModulo("produtividade-armazem", "excluir"),
   ]);
+
+  const totalMotivosFefo = motivosFefo?.length ?? 0;
 
   const totalEmbalagensDespejo = embalagensDespejo?.length ?? 0;
   const totalEmpilhadeiras = empilhadeiras?.length ?? 0;
@@ -1048,6 +1066,76 @@ export default async function AdminProdutividadeArmazemPage({
             </div>
           </PainelCadastro>
         </div>
+      )}
+
+      {aba === "fefo" && (
+        <PainelCadastro
+          titulo="Motivos de quebra de FEFO"
+          contagem={totalMotivosFefo}
+          novoRotulo="Novo motivo"
+          temItens={totalMotivosFefo > 0}
+          vazio="Nenhum motivo cadastrado."
+          formNovo={
+            <div className="space-y-2">
+              <p className="text-xs text-slate-500">
+                É o que o colaborador escolhe ao informar uma quebra. A explicação aparece embaixo
+                da opção -- sem ela, duas pessoas classificam a mesma quebra de jeitos diferentes e
+                agrupar por motivo deixa de dizer alguma coisa. A ordem define a posição na lista.
+              </p>
+              <form action={salvarMotivoFefo} className="flex flex-wrap gap-2">
+                <input name="emoji" placeholder="🚨" maxLength={4} className={`${campo} w-16`} />
+                <input name="nome" placeholder="Nome do motivo" required className={`${campo} flex-1`} />
+                <input name="ordem" type="number" placeholder="Ordem" className={`${campo} w-20`} />
+                <input name="ajuda" placeholder="Quando usar este motivo" className={`${campo} w-full`} />
+                <BotaoEnviar className="rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-white">
+                  Adicionar
+                </BotaoEnviar>
+              </form>
+            </div>
+          }
+        >
+          {(motivosFefo ?? []).map((m) => (
+            <ItemCadastro
+              key={m.id}
+              ativo={m.ativo}
+              titulo={`${m.emoji ? `${m.emoji} ` : ""}${m.nome}`}
+              subtitulo={m.ajuda ?? "sem explicação cadastrada"}
+              acoes={
+                <>
+                  <BotaoIcone
+                    action={alternarMotivoFefoAtivo}
+                    campos={{ id: m.id, ativo: String(m.ativo), aba: "fefo" }}
+                    titulo={m.ativo ? "Desativar" : "Ativar"}
+                  >
+                    {m.ativo ? "🚫" : "✅"}
+                  </BotaoIcone>
+                  {podeExcluir && (
+                    <BotaoExcluir
+                      action={excluirMotivoFefo}
+                      campos={{ id: m.id }}
+                      confirmacao={`Excluir o motivo "${m.nome}"? Se já foi usado numa ocorrência, prefira Desativar.`}
+                      className="flex h-7 w-7 items-center justify-center rounded-lg text-sm hover:bg-red-50"
+                    >
+                      🗑️
+                    </BotaoExcluir>
+                  )}
+                </>
+              }
+              formEditar={
+                <form action={editarMotivoFefo} className="flex flex-wrap gap-2">
+                  <input type="hidden" name="id" value={m.id} />
+                  <input name="emoji" defaultValue={m.emoji ?? ""} maxLength={4} className={`${campo} w-16`} />
+                  <input name="nome" defaultValue={m.nome} required className={`${campo} flex-1`} />
+                  <input name="ordem" type="number" defaultValue={m.ordem} className={`${campo} w-20`} />
+                  <input name="ajuda" defaultValue={m.ajuda ?? ""} placeholder="Quando usar" className={`${campo} w-full`} />
+                  <BotaoEnviar compacto className="shrink-0 rounded-lg bg-slate-800 px-3 py-1.5 text-xs font-semibold text-white">
+                    Salvar
+                  </BotaoEnviar>
+                </form>
+              }
+            />
+          ))}
+        </PainelCadastro>
       )}
 
       {aba === "cinco-s" && (

@@ -10,13 +10,7 @@ import { getPerfil } from "@/lib/sessao";
 import { subirFotoHorimetro } from "@/lib/produtividade-armazem-server";
 import { criarNotificacao } from "@/lib/notificacoes-server";
 import { enviarPushDaRevenda } from "@/lib/push-server";
-import {
-  TIPO_QUEBRA_FEFO,
-  ehDepositoFefo,
-  ehRuaFefo,
-  ehTipoQuebraFefo,
-  rotuloValidade,
-} from "@/lib/fefo";
+import { ehDepositoFefo, ehRuaFefo, rotuloValidade } from "@/lib/fefo";
 
 const ROTA = "/fefo";
 
@@ -66,7 +60,7 @@ export async function registrarQuebraFefo(formData: FormData) {
   const revendaId = await exigirRevenda(ROTA);
 
   const produtoId = String(formData.get("produto_id") ?? "");
-  const tipo = formData.get("tipo");
+  const motivoId = String(formData.get("motivo_id") ?? "");
   const deposito = String(formData.get("deposito") ?? "").toUpperCase();
   const ruaBruta = String(formData.get("rua") ?? "");
   const validade = String(formData.get("validade") ?? "").trim();
@@ -76,7 +70,7 @@ export async function registrarQuebraFefo(formData: FormData) {
   const ruaBloqueada = formData.get("rua_bloqueada") === "on";
 
   if (!produtoId) erro("Escolha o produto.");
-  if (!ehTipoQuebraFefo(tipo)) erro("Escolha o tipo da quebra de FEFO.");
+  if (!motivoId) erro("Escolha o motivo da quebra de FEFO.");
   if (!ehDepositoFefo(deposito)) erro("Escolha o depósito (A, B ou C).");
   if (!ehRuaFefo(ruaBruta)) erro("Escolha a rua (de 1 a 10).");
   if (!validade) erro("Informe a validade do palete encontrado.");
@@ -103,12 +97,24 @@ export async function registrarQuebraFefo(formData: FormData) {
   }
 
   const supabase = await createClient();
+
+  // O motivo tem que ser da PRÓPRIA revenda e estar ativo -- senão daria
+  // para mandar o id de um motivo de outra revenda no formulário.
+  const { data: motivo } = await supabase
+    .from("pa_fefo_motivos")
+    .select("id, nome")
+    .eq("id", motivoId)
+    .eq("revenda_id", revendaId)
+    .eq("ativo", true)
+    .maybeSingle();
+  if (!motivo) erro("Motivo inválido ou desativado. Escolha outro.");
+
   const { data: criada, error } = await supabase
     .from("pa_fefo_ocorrencias")
     .insert({
       revenda_id: revendaId,
       produto_id: produtoId,
-      tipo,
+      motivo_id: motivo.id,
       quantidade,
       validade,
       menor_validade: menorValidade,
@@ -140,7 +146,7 @@ export async function registrarQuebraFefo(formData: FormData) {
     const nomeProduto = produto ? `${produto.codigo} — ${produto.descricao}` : "produto";
     const prazo = rotuloValidade(validade);
     const titulo = `🚨 Quebra de FEFO — Depósito ${deposito}, rua ${ruaBruta}`;
-    const mensagem = `${TIPO_QUEBRA_FEFO[tipo].rotulo}. ${nomeProduto}, ${quantidade} un. ${prazo.texto}. Informado por ${perfil.nome}.`;
+    const mensagem = `${motivo.nome}. ${nomeProduto}, ${quantidade} un. ${prazo.texto}. Informado por ${perfil.nome}.`;
 
     await criarNotificacao({
       modulo: "produtividade-armazem",

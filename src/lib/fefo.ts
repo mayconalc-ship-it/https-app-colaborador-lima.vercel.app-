@@ -6,48 +6,30 @@
  * bloqueia palete no sistema e não substitui a conferência semanal.
  */
 
-export const TIPOS_QUEBRA_FEFO = [
-  "data_maior_liberada",
-  "sem_nri",
-  "vencimento_proximo",
-  "sem_bloqueio",
-  "outro",
-] as const;
-export type TipoQuebraFefo = (typeof TIPOS_QUEBRA_FEFO)[number];
-
-export function ehTipoQuebraFefo(v: unknown): v is TipoQuebraFefo {
-  return typeof v === "string" && (TIPOS_QUEBRA_FEFO as readonly string[]).includes(v);
-}
-
-/** Cada tipo veio de uma regra escrita no padrão -- a explicação aparece
- *  na tela para quem informa não ter que adivinhar em qual encaixa. */
-export const TIPO_QUEBRA_FEFO: Record<TipoQuebraFefo, { rotulo: string; emoji: string; ajuda: string }> = {
-  data_maior_liberada: {
-    rotulo: "Pegaram o palete de data mais longa",
-    emoji: "📅",
-    ajuda: "Existe outro palete do mesmo produto com validade menor, e o que estava sendo usado é o de data mais longa.",
-  },
-  sem_nri: {
-    rotulo: "Palete sem NRI (ou NRI incompleta)",
-    emoji: "🏷️",
-    ajuda: "O padrão exige a NRI impressa e colada em pelo menos três lados do palete, com a validade visível.",
-  },
-  vencimento_proximo: {
-    rotulo: "Menos de 45 dias, sem segregação",
-    emoji: "⏳",
-    ajuda: "Produto com menos de 45 dias de validade deveria estar segregado, conforme as regras do padrão.",
-  },
-  sem_bloqueio: {
-    rotulo: "Deveria estar bloqueado e não estava",
-    emoji: "🔓",
-    ajuda: "Faltou a trava pallet no palete de data mais longa ou no produto próximo do vencimento.",
-  },
-  outro: {
-    rotulo: "Outro",
-    emoji: "❓",
-    ajuda: "Não encaixa nos anteriores. Descreva na observação o que você encontrou.",
-  },
+/**
+ * Motivo da quebra. Deixou de ser lista fixa no código (migration 067,
+ * pedido do dono): motivo novo nasce no próprio app, pelo Admin. A
+ * operação descobre caso novo antes de alguém lembrar de pedir deploy.
+ *
+ * A `ajuda` não é enfeite: sem ela duas pessoas classificam a mesma
+ * quebra de jeitos diferentes, e aí agrupar por motivo não diz nada.
+ */
+export type MotivoFefo = {
+  id: string;
+  nome: string;
+  ajuda: string | null;
+  emoji: string | null;
+  ativo?: boolean;
 };
+
+/** Os quatro que a migration 067 semeia, a partir do padrão. Serve de
+ *  referência para quem for cadastrar mais -- não é usado em runtime. */
+export const MOTIVOS_DO_PADRAO = [
+  "Pegaram o palete de data mais longa",
+  "Palete sem NRI (ou NRI incompleta)",
+  "Menos de 45 dias, sem segregação",
+  "Deveria estar bloqueado e não estava",
+] as const;
 
 export const DEPOSITOS_FEFO = ["A", "B", "C"] as const;
 export type DepositoFefo = (typeof DEPOSITOS_FEFO)[number];

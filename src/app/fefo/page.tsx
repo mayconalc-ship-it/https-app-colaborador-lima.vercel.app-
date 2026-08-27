@@ -7,12 +7,7 @@ import { getRevendaId } from "@/lib/revendas";
 import { getPerfil } from "@/lib/sessao";
 import { temAcessoModulo } from "@/lib/require-admin";
 import { formatarDataHora } from "@/lib/produtividade-armazem";
-import {
-  TIPO_QUEBRA_FEFO,
-  diasAberta,
-  ehTipoQuebraFefo,
-  rotuloValidade,
-} from "@/lib/fefo";
+import { diasAberta, rotuloValidade, type MotivoFefo } from "@/lib/fefo";
 import { FormQuebraFefo } from "./FormQuebraFefo";
 import { tratarQuebraFefo } from "./actions";
 
@@ -25,7 +20,6 @@ const campo =
 
 type Ocorrencia = {
   id: string;
-  tipo: string;
   quantidade: number;
   validade: string;
   menor_validade: string;
@@ -43,11 +37,18 @@ type Ocorrencia = {
   tratado_por_nome: string | null;
   tratado_em: string | null;
   pa_produtos: { codigo: string; descricao: string } | { codigo: string; descricao: string }[] | null;
+  pa_fefo_motivos: { nome: string; emoji: string | null } | { nome: string; emoji: string | null }[] | null;
 };
 
 function produtoRotulo(v: Ocorrencia["pa_produtos"]) {
   const p = Array.isArray(v) ? v[0] : v;
   return p ? `${p.codigo} — ${p.descricao}` : "—";
+}
+
+function motivoRotulo(v: Ocorrencia["pa_fefo_motivos"]) {
+  const m = Array.isArray(v) ? v[0] : v;
+  if (!m) return "—";
+  return `${m.emoji ? `${m.emoji} ` : ""}${m.nome}`;
 }
 
 export default async function FefoPage({
@@ -77,9 +78,9 @@ export default async function FefoPage({
 
   const supabase = await createClient();
   const colunas =
-    "id, tipo, quantidade, validade, menor_validade, deposito, rua, ponto, rua_bloqueada, foto_url, observacao, colaborador_id, colaborador_nome, criado_em, status, acao, tratado_por_nome, tratado_em, pa_produtos(codigo, descricao)";
+    "id, quantidade, validade, menor_validade, deposito, rua, ponto, rua_bloqueada, foto_url, observacao, colaborador_id, colaborador_nome, criado_em, status, acao, tratado_por_nome, tratado_em, pa_produtos(codigo, descricao), pa_fefo_motivos(nome, emoji)";
 
-  const [{ data: produtosBanco }, { data: minhasBanco }, { data: todasBanco }] = await Promise.all([
+  const [{ data: produtosBanco }, { data: minhasBanco }, { data: todasBanco }, { data: motivosBanco }] = await Promise.all([
     podeInformar
       ? supabase
           .from("pa_produtos")
@@ -102,6 +103,13 @@ export default async function FefoPage({
           .order("criado_em", { ascending: false })
           .limit(100)
       : Promise.resolve({ data: [] as Ocorrencia[] }),
+    supabase
+      .from("pa_fefo_motivos")
+      .select("id, nome, ajuda, emoji")
+      .eq("revenda_id", revendaId)
+      .eq("ativo", true)
+      .order("ordem")
+      .order("nome"),
   ]);
 
   const clusters = [
@@ -111,6 +119,7 @@ export default async function FefoPage({
     ...new Set((produtosBanco ?? []).map((p) => p.tipo).filter((t): t is string => Boolean(t))),
   ].sort();
 
+  const motivos = (motivosBanco ?? []) as MotivoFefo[];
   const minhas = (minhasBanco ?? []) as unknown as Ocorrencia[];
   const todas = (todasBanco ?? []) as unknown as Ocorrencia[];
   const abertas = todas.filter((o) => o.status === "aberta");
@@ -155,7 +164,7 @@ export default async function FefoPage({
 
       {aba === "informar" && podeInformar && (
         <section className="space-y-6">
-          <FormQuebraFefo clusters={clusters} tipos={tipos} />
+          <FormQuebraFefo clusters={clusters} tipos={tipos} motivos={motivos} />
 
           <div>
             <h2 className="mb-3 text-sm font-bold uppercase text-slate-500">O que eu informei</h2>
@@ -220,7 +229,6 @@ function CartaoOcorrencia({
   mostrarQuemInformou?: boolean;
   podeTratar?: boolean;
 }) {
-  const tipo = ehTipoQuebraFefo(o.tipo) ? TIPO_QUEBRA_FEFO[o.tipo] : null;
   const prazo = rotuloValidade(o.validade);
   const aberta = o.status === "aberta";
   const dias = diasAberta(o.criado_em);
@@ -233,9 +241,7 @@ function CartaoOcorrencia({
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-sm font-bold text-slate-900">
-            {tipo ? `${tipo.emoji} ${tipo.rotulo}` : o.tipo}
-          </p>
+          <p className="text-sm font-bold text-slate-900">{motivoRotulo(o.pa_fefo_motivos)}</p>
           <p className="mt-0.5 break-words text-sm text-slate-700">{produtoRotulo(o.pa_produtos)}</p>
           <p className="text-xs text-slate-600">
             {o.quantidade} un · Depósito {o.deposito}, rua {o.rua}

@@ -195,6 +195,99 @@ export async function corrigirHorimetroOperacao(formData: FormData) {
   sucesso("empilhadeiras", "Horímetro corrigido");
 }
 
+// -------------------- MOTIVOS DE QUEBRA DE FEFO --------------------
+/**
+ * Os motivos deixaram de ser lista fixa no código (migration 067): a
+ * operação descobre caso novo antes de alguém pedir deploy, então o
+ * cadastro mora aqui.
+ *
+ * Excluir é a ÚNICA ação separada, atrás de "excluir" em vez de
+ * "editar" -- pedido do dono (27/08/2026): apagar motivo fica com ele.
+ * Para tirar de circulação sem perder o histórico, use Desativar.
+ */
+export async function salvarMotivoFefo(formData: FormData) {
+  await requireModulo("produtividade-armazem", "editar");
+  const revendaId = await exigirRevenda(ROTA);
+  const admin = createAdminClient();
+
+  const nome = String(formData.get("nome") ?? "").trim();
+  if (!nome) erro("fefo", "Informe o nome do motivo.");
+  const ajuda = String(formData.get("ajuda") ?? "").trim() || null;
+  const emoji = String(formData.get("emoji") ?? "").trim().slice(0, 4) || null;
+  const ordem = numeroOuNulo(formData.get("ordem")) ?? 0;
+
+  const { error } = await admin
+    .from("pa_fefo_motivos")
+    .insert({ revenda_id: revendaId, nome, ajuda, emoji, ordem });
+  if (error) {
+    if (error.code === "23505") erro("fefo", "Já existe um motivo com esse nome.");
+    erro("fefo", `Não foi possível salvar: ${error.message}`);
+  }
+
+  revalidatePath(ROTA);
+  revalidatePath("/fefo");
+  sucesso("fefo", "Motivo cadastrado");
+}
+
+export async function editarMotivoFefo(formData: FormData) {
+  await requireModulo("produtividade-armazem", "editar");
+  const revendaId = await exigirRevenda(ROTA);
+  const admin = createAdminClient();
+
+  const id = String(formData.get("id") ?? "");
+  const nome = String(formData.get("nome") ?? "").trim();
+  if (!nome) erro("fefo", "Informe o nome do motivo.");
+  const ajuda = String(formData.get("ajuda") ?? "").trim() || null;
+  const emoji = String(formData.get("emoji") ?? "").trim().slice(0, 4) || null;
+  const ordem = numeroOuNulo(formData.get("ordem")) ?? 0;
+
+  const { error } = await admin
+    .from("pa_fefo_motivos")
+    .update({ nome, ajuda, emoji, ordem })
+    .eq("id", id)
+    .eq("revenda_id", revendaId);
+  if (error) {
+    if (error.code === "23505") erro("fefo", "Já existe um motivo com esse nome.");
+    erro("fefo", `Não foi possível salvar: ${error.message}`);
+  }
+
+  revalidatePath(ROTA);
+  revalidatePath("/fefo");
+  sucesso("fefo", "Motivo atualizado");
+}
+
+export async function alternarMotivoFefoAtivo(formData: FormData) {
+  await requireModulo("produtividade-armazem", "editar");
+  const revendaId = await exigirRevenda(ROTA);
+  const admin = createAdminClient();
+  const id = String(formData.get("id") ?? "");
+  const ativo = formData.get("ativo") === "true";
+  await admin.from("pa_fefo_motivos").update({ ativo: !ativo }).eq("id", id).eq("revenda_id", revendaId);
+  revalidatePath(ROTA);
+  revalidatePath("/fefo");
+  sucesso("fefo", ativo ? "Motivo desativado" : "Motivo ativado");
+}
+
+export async function excluirMotivoFefo(formData: FormData) {
+  // "excluir", não "editar": apagar motivo fica só com quem tem essa ação.
+  await requireModulo("produtividade-armazem", "excluir");
+  const revendaId = await exigirRevenda(ROTA);
+  const admin = createAdminClient();
+  const id = String(formData.get("id") ?? "");
+
+  const { error } = await admin.from("pa_fefo_motivos").delete().eq("id", id).eq("revenda_id", revendaId);
+  if (error) {
+    // A FK é restrict: motivo já usado numa ocorrência não some, senão o
+    // histórico perderia a classificação.
+    if (error.code === "23503") erroDeExclusao("fefo", "este motivo já foi usado numa ocorrência");
+    erro("fefo", `Não foi possível excluir: ${error.message}`);
+  }
+
+  revalidatePath(ROTA);
+  revalidatePath("/fefo");
+  sucesso("fefo", "Motivo excluído");
+}
+
 // -------------------- FÁBRICAS / TRANSPORTADORAS --------------------
 export async function salvarFabrica(formData: FormData) {
   await requireModulo("produtividade-armazem", "editar");
