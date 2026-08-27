@@ -10,8 +10,12 @@ import { ComboboxProdutoReepack } from "@/components/produtividade-armazem/Combo
 import {
   COOKIE_REEPACK_CLUSTER,
   COOKIE_REEPACK_TIPO,
+  ETAPAS_REEPACK,
+  ETAPA_REEPACK,
   ROTULO_TURNO,
   TURNOS,
+  ehEtapaReepack,
+  type EtapaReepack,
   diasAtrasISO,
   formatarDataHora,
   formatarDuracao,
@@ -39,6 +43,7 @@ type Lancamento = {
   colaborador_id: string;
   colaborador_nome: string;
   turno: string;
+  etapa: string;
   quantidade: number;
   litros_calculados: number | null;
   inicio: string;
@@ -50,14 +55,45 @@ type Aberto = {
   id: string;
   produto_id: string | null;
   turno: string;
+  etapa: string;
   inicio: string;
 };
+
+const COLUNAS_LANCAMENTO =
+  "id, embalagem_id, produto_id, colaborador_id, colaborador_nome, turno, etapa, quantidade, litros_calculados, inicio, fim, observacao";
+
+/** O card que explica onde começa e onde para o cronômetro. Sem isto,
+ *  cada pessoa marca um ponto diferente e os tempos não se comparam --
+ *  que é justamente o que a cronoanálise do POP-ARM-001 quer evitar. */
+function CartaoGatilho({ etapa }: { etapa: EtapaReepack }) {
+  const e = ETAPA_REEPACK[etapa];
+  return (
+    <details className="rounded-2xl border border-slate-200 bg-white">
+      <summary className="cursor-pointer list-none p-3 text-xs font-semibold text-primary-dark marker:content-none [&::-webkit-details-marker]:hidden">
+        ℹ️ Quando começar e quando parar o cronômetro — {e.rotulo}
+      </summary>
+      <div className="space-y-2 border-t border-slate-100 p-3 text-xs">
+        <p className="text-slate-700">
+          <strong className="text-green-700">▶️ Comece a contar quando:</strong> {e.inicio}
+        </p>
+        <p className="text-slate-700">
+          <strong className="text-red-700">⏹️ Pare de contar quando:</strong> {e.fim}
+        </p>
+        <p className="text-slate-500">
+          <strong>Não entra nesta etapa:</strong> {e.naoEntra}
+        </p>
+        <p className="text-[11px] text-slate-400">{e.secoesPop}</p>
+      </div>
+    </details>
+  );
+}
 
 export default async function ReepackPage({
   searchParams,
 }: {
   searchParams: Promise<{
     aba?: string;
+    etapa?: string;
     de?: string;
     ate?: string;
     colab?: string;
@@ -74,6 +110,11 @@ export default async function ReepackPage({
   const ate = sp.ate ?? hojeISO();
   const colab = (sp.colab ?? "").trim();
   const produtoFiltro = (sp.produto ?? "").trim();
+  // Na aba Lançar, ?etapa= escolhe qual atividade vai ser cronometrada;
+  // no Histórico, filtra a lista. Sem parâmetro, abre no Repack -- que
+  // era o único fluxo antes de a Seleção existir.
+  const etapaEscolhida: EtapaReepack = ehEtapaReepack(sp.etapa) ? sp.etapa : "repack";
+  const etapaFiltro = ehEtapaReepack(sp.etapa) ? sp.etapa : "";
 
   const revendaId = await getRevendaId();
   if (!revendaId) redirect(`/?erro=${encodeURIComponent("Você não está em nenhuma revenda.")}`);
@@ -91,14 +132,14 @@ export default async function ReepackPage({
         .order("descricao"),
       supabase
         .from("pa_reepack_lancamentos")
-        .select("id, produto_id, turno, inicio")
+        .select("id, produto_id, turno, etapa, inicio")
         .eq("revenda_id", revendaId)
         .eq("colaborador_id", perfil.id)
         .is("fim", null)
         .maybeSingle(),
       supabase
         .from("pa_reepack_lancamentos")
-        .select("id, embalagem_id, produto_id, colaborador_id, colaborador_nome, turno, quantidade, litros_calculados, inicio, fim, observacao")
+        .select(COLUNAS_LANCAMENTO)
         .eq("revenda_id", revendaId)
         .eq("colaborador_id", perfil.id)
         .not("fim", "is", null)
@@ -108,13 +149,14 @@ export default async function ReepackPage({
         ? (() => {
             let q = supabase
               .from("pa_reepack_lancamentos")
-              .select("id, embalagem_id, produto_id, colaborador_id, colaborador_nome, turno, quantidade, litros_calculados, inicio, fim, observacao")
+              .select(COLUNAS_LANCAMENTO)
               .eq("revenda_id", revendaId)
               .not("fim", "is", null)
               .gte("inicio", `${de}T00:00:00`)
               .lte("inicio", `${ate}T23:59:59`);
             if (colab) q = q.eq("colaborador_id", colab);
             if (produtoFiltro) q = q.eq("produto_id", produtoFiltro);
+            if (etapaFiltro) q = q.eq("etapa", etapaFiltro);
             return q.order("inicio", { ascending: false }).limit(300);
           })()
         : Promise.resolve({ data: null }),
@@ -139,6 +181,7 @@ export default async function ReepackPage({
   const tipoInicial = tipos.includes(tipoCookie) ? tipoCookie : "";
 
   const aberto = abertoBanco as Aberto | null;
+  const etapaDoAberto: EtapaReepack = ehEtapaReepack(aberto?.etapa) ? aberto.etapa : "repack";
   const minhasLancamentos = (minhas ?? []) as Lancamento[];
   const historico = (doPeriodo ?? []) as Lancamento[];
 
@@ -184,14 +227,20 @@ export default async function ReepackPage({
               <form action={finalizarReepack} className="space-y-3">
                 <input type="hidden" name="id" value={aberto.id} />
                 <p className="text-sm font-bold text-amber-900">
-                  🕐 Reepack em andamento — {produtoRotulo(aberto.produto_id, produtoPorId)} ·{" "}
+                  🕐 {ETAPA_REEPACK[etapaDoAberto].rotulo} em andamento —{" "}
+                  {produtoRotulo(aberto.produto_id, produtoPorId)} ·{" "}
                   {ROTULO_TURNO[aberto.turno as keyof typeof ROTULO_TURNO] ?? aberto.turno}
                 </p>
                 <p className="text-xs text-amber-800">Iniciado às {formatarDataHora(aberto.inicio)}</p>
+                {/* O gatilho de PARAR fica à vista enquanto o cronômetro
+                    corre -- é o momento em que ele é consultado. */}
+                <p className="rounded-lg bg-white/70 p-2 text-xs text-amber-900">
+                  <strong>⏹️ Pare quando:</strong> {ETAPA_REEPACK[etapaDoAberto].fim}
+                </p>
 
                 <div>
                   <label className={rotulo} htmlFor="quantidade">
-                    Quantas caixas você fez?
+                    Quantas {ETAPA_REEPACK[etapaDoAberto].unidade}?
                   </label>
                   <input
                     id="quantidade"
@@ -212,14 +261,14 @@ export default async function ReepackPage({
                   textoEnviando="Finalizando..."
                   className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-white hover:bg-primary-dark"
                 >
-                  Finalizar reepack
+                  Finalizar {ETAPA_REEPACK[etapaDoAberto].curto.toLowerCase()}
                 </BotaoEnviar>
               </form>
 
               <BotaoExcluir
                 action={cancelarReepack}
                 campos={{ id: aberto.id }}
-                confirmacao="Cancelar este reepack? Ele será apagado, sem contar como produção."
+                confirmacao="Cancelar esta atividade? Ela será apagada, sem contar como produção."
                 rotuloConfirmar="Cancelar"
                 className="w-full rounded-xl border border-amber-300 px-4 py-2 text-xs font-semibold text-amber-800 hover:bg-amber-100"
               >
@@ -232,45 +281,70 @@ export default async function ReepackPage({
               cadastrar em Configuração &gt; Reepack/Despejo.
             </p>
           ) : (
-            <form
-              action={iniciarReepack}
-              className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4"
-            >
-              <ComboboxProdutoReepack
-                clusters={clusters}
-                tipos={tipos}
-                clusterInicial={clusterInicial}
-                tipoInicial={tipoInicial}
-              />
+            <>
+              {/* Escolha da atividade -- são etapas separadas do POP, cada
+                  uma com o próprio cronômetro e a própria referência. */}
+              <nav className="grid grid-cols-2 gap-2">
+                {ETAPAS_REEPACK.map((e) => (
+                  <a
+                    key={e}
+                    href={`?etapa=${e}`}
+                    aria-current={e === etapaEscolhida ? "page" : undefined}
+                    className={`flex flex-col items-center gap-0.5 rounded-xl px-3 py-3 text-center text-sm font-semibold ${
+                      e === etapaEscolhida
+                        ? "bg-primary text-white ring-2 ring-primary/30 ring-offset-1"
+                        : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                    }`}
+                  >
+                    <span className="text-lg leading-none">{ETAPA_REEPACK[e].emoji}</span>
+                    {ETAPA_REEPACK[e].rotulo}
+                  </a>
+                ))}
+              </nav>
 
-              <div>
-                <span className={rotulo}>Turno</span>
-                <div className="grid grid-cols-3 gap-2">
-                  {TURNOS.map((t) => (
-                    <label
-                      key={t}
-                      className="flex cursor-pointer items-center justify-center rounded-xl border border-slate-300 py-2 text-sm font-semibold text-slate-700 has-[:checked]:border-primary has-[:checked]:bg-primary-soft has-[:checked]:text-primary-dark"
-                    >
-                      <input
-                        type="radio"
-                        name="turno"
-                        value={t}
-                        defaultChecked={t === turnoAtual()}
-                        className="sr-only"
-                      />
-                      {ROTULO_TURNO[t]}
-                    </label>
-                  ))}
-                </div>
-              </div>
+              <CartaoGatilho etapa={etapaEscolhida} />
 
-              <BotaoEnviar
-                textoEnviando="Iniciando..."
-                className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-white hover:bg-primary-dark"
+              <form
+                action={iniciarReepack}
+                className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4"
               >
-                ▶️ Iniciar reepack
-              </BotaoEnviar>
-            </form>
+                <input type="hidden" name="etapa" value={etapaEscolhida} />
+                <ComboboxProdutoReepack
+                  clusters={clusters}
+                  tipos={tipos}
+                  clusterInicial={clusterInicial}
+                  tipoInicial={tipoInicial}
+                />
+
+                <div>
+                  <span className={rotulo}>Turno</span>
+                  <div className="grid grid-cols-3 gap-2">
+                    {TURNOS.map((t) => (
+                      <label
+                        key={t}
+                        className="flex cursor-pointer items-center justify-center rounded-xl border border-slate-300 py-2 text-sm font-semibold text-slate-700 has-[:checked]:border-primary has-[:checked]:bg-primary-soft has-[:checked]:text-primary-dark"
+                      >
+                        <input
+                          type="radio"
+                          name="turno"
+                          value={t}
+                          defaultChecked={t === turnoAtual()}
+                          className="sr-only"
+                        />
+                        {ROTULO_TURNO[t]}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                <BotaoEnviar
+                  textoEnviando="Iniciando..."
+                  className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-white hover:bg-primary-dark"
+                >
+                  ▶️ Iniciar {ETAPA_REEPACK[etapaEscolhida].curto.toLowerCase()}
+                </BotaoEnviar>
+              </form>
+            </>
           )}
 
           <div>
@@ -319,6 +393,15 @@ export default async function ReepackPage({
                 <option value="">Todos</option>
                 {produtos.map((p) => (
                   <option key={p.id} value={p.id}>{p.descricao}</option>
+                ))}
+              </select>
+            </div>
+            <div className="col-span-2 min-w-0 sm:col-span-1 sm:min-w-[9rem]">
+              <label className={rotulo} htmlFor="etapa">Atividade</label>
+              <select id="etapa" name="etapa" defaultValue={etapaFiltro} className={campo}>
+                <option value="">Todas</option>
+                {ETAPAS_REEPACK.map((e) => (
+                  <option key={e} value={e}>{ETAPA_REEPACK[e].rotulo}</option>
                 ))}
               </select>
             </div>
@@ -394,15 +477,22 @@ function LinhaReepack({
 }) {
   const horas = (new Date(l.fim).getTime() - new Date(l.inicio).getTime()) / 3_600_000;
   const taxa = taxaPorHora(l.quantidade, horas);
-  const pct = pctDaMeta(taxa, meta);
+  const etapa: EtapaReepack = ehEtapaReepack(l.etapa) ? l.etapa : "repack";
+  // Meta cadastrada é a de repack (cx/h). A Seleção ainda não tem a
+  // dela -- é justamente o que a cronoanálise está medindo -- então não
+  // mostra "% da meta" em vez de comparar com a régua errada.
+  const pct = etapa === "repack" ? pctDaMeta(taxa, meta) : null;
 
   return (
     <li className="rounded-xl border border-slate-200 bg-white p-3">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-sm font-semibold text-slate-900">
-            {produtoRotulo} · {l.quantidade} cx · {ROTULO_TURNO[l.turno as keyof typeof ROTULO_TURNO] ?? l.turno}
+            <span className="mr-1">{ETAPA_REEPACK[etapa].emoji}</span>
+            {produtoRotulo} · {l.quantidade} {etapa === "repack" ? "cx" : "un"} ·{" "}
+            {ROTULO_TURNO[l.turno as keyof typeof ROTULO_TURNO] ?? l.turno}
           </p>
+          <p className="text-[11px] font-semibold uppercase text-slate-400">{ETAPA_REEPACK[etapa].rotulo}</p>
           <p className="text-xs text-slate-500">
             {formatarDataHora(l.inicio)} – {formatarDataHora(l.fim)} · {formatarDuracao(l.inicio, l.fim)}
             {mostrarColaborador ? ` — ${l.colaborador_nome}` : ""}
@@ -412,7 +502,7 @@ function LinhaReepack({
         </div>
         <div className="flex shrink-0 flex-col items-end gap-1">
           <span className="rounded-lg bg-slate-100 px-2 py-1 text-xs font-bold text-slate-700" title="Taxa extrapolada para uma hora, a partir da duração real do lançamento">
-            {taxa.toFixed(1)} cx/h
+            {taxa.toFixed(1)} {etapa === "repack" ? "cx/h" : "un/h"}
           </span>
           {pct !== null && (
             <span

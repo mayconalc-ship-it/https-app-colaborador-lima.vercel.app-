@@ -8,7 +8,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { podeNoModulo } from "@/lib/require-admin";
 import { getRevendaId } from "@/lib/revendas";
 import { exigirContextoModulo } from "@/lib/produtividade-armazem-server";
-import { ehTurno, inteiroNaoNegativo } from "@/lib/produtividade-armazem";
+import { ETAPA_REEPACK, ehEtapaReepack, ehTurno, inteiroNaoNegativo } from "@/lib/produtividade-armazem";
 
 const ROTA = "/produtividade-armazem/reepack";
 
@@ -36,6 +36,10 @@ export async function iniciarReepack(formData: FormData) {
 
   const produtoId = String(formData.get("produto_id") ?? "");
   const turno = formData.get("turno");
+  // Etapa do POP-ARM-001 (migration 065). Sem etapa válida cai em
+  // "repack", que era o único comportamento antes de a Seleção existir.
+  const etapaBruta = formData.get("etapa");
+  const etapa = ehEtapaReepack(etapaBruta) ? etapaBruta : "repack";
   if (!produtoId) erro("Escolha o produto.");
   if (!ehTurno(turno)) erro("Escolha o turno.");
 
@@ -60,16 +64,21 @@ export async function iniciarReepack(formData: FormData) {
     colaborador_id: perfil.id,
     colaborador_nome: perfil.nome,
     turno,
+    etapa,
     inicio: new Date().toISOString(),
   });
 
   if (error) {
-    if (error.code === "23505") erro("Você já tem um reepack em andamento. Finalize antes de iniciar outro.");
+    // A trava é por pessoa, não por etapa: não dá para triar e reembalar
+    // ao mesmo tempo, então uma atividade aberta bloqueia a outra.
+    if (error.code === "23505") {
+      erro("Você já tem uma atividade em andamento. Finalize antes de iniciar outra.");
+    }
     erro(`Não foi possível iniciar: ${error.message}`);
   }
 
   revalidatePath(ROTA);
-  redirect(`${ROTA}?sucesso=Reepack+iniciado`);
+  redirect(`${ROTA}?sucesso=${encodeURIComponent(`${ETAPA_REEPACK[etapa].rotulo} iniciada`)}`);
 }
 
 /**
@@ -91,7 +100,7 @@ export async function finalizarReepack(formData: FormData) {
   } catch (e) {
     erro(e instanceof Error ? e.message : "Valor inválido.");
   }
-  if (quantidade === 0) erro("Informe quantas caixas foram reepackadas.");
+  if (quantidade === 0) erro("Informe a quantidade produzida.");
 
   const observacao = String(formData.get("observacao") ?? "").trim().slice(0, 300) || null;
 
@@ -99,7 +108,7 @@ export async function finalizarReepack(formData: FormData) {
 
   const { data: aberto } = await supabase
     .from("pa_reepack_lancamentos")
-    .select("id, produto_id")
+    .select("id, produto_id, etapa")
     .eq("id", id)
     .eq("revenda_id", revendaId)
     .eq("colaborador_id", perfil.id)
@@ -108,8 +117,14 @@ export async function finalizarReepack(formData: FormData) {
 
   if (!aberto) erro("Este lançamento já foi finalizado ou não é seu.");
 
+  const etapa = ehEtapaReepack(aberto.etapa) ? aberto.etapa : "repack";
+
+  // Litro só faz sentido no repack: lá a quantidade é em CAIXAS, e o
+  // Fator Hecto converte caixa -> litro. Na seleção a quantidade é em
+  // unidades triadas, então multiplicar pelo mesmo fator daria um litro
+  // inflado por um número de caixas que nunca existiu.
   let litrosCalculados: number | null = null;
-  if (aberto.produto_id) {
+  if (etapa === "repack" && aberto.produto_id) {
     const { data: produto } = await supabase
       .from("pa_produtos")
       .select("fator_hecto")
@@ -128,7 +143,7 @@ export async function finalizarReepack(formData: FormData) {
   if (error) erro(`Não foi possível finalizar: ${error.message}`);
 
   revalidatePath(ROTA);
-  redirect(`${ROTA}?sucesso=Reepack+finalizado`);
+  redirect(`${ROTA}?sucesso=${encodeURIComponent(`${ETAPA_REEPACK[etapa].rotulo} finalizada`)}`);
 }
 
 /**
@@ -152,7 +167,7 @@ export async function editarReepack(formData: FormData) {
 
   const { data: lancamento } = await supabase
     .from("pa_reepack_lancamentos")
-    .select("id, quantidade")
+    .select("id, quantidade, etapa")
     .eq("id", id)
     .eq("revenda_id", revendaId)
     .eq("colaborador_id", perfil.id)
@@ -173,7 +188,11 @@ export async function editarReepack(formData: FormData) {
     erro("Este produto ainda não está pronto para reepack -- peça ao Admin para vincular a embalagem em Configuração.");
   }
 
-  const litrosCalculados = Math.round(lancamento.quantidade * produto.fator_hecto * 100 * 100) / 100;
+  // Mesma regra do finalizarReepack: litro só existe no repack.
+  const litrosCalculados =
+    lancamento.etapa === "selecao"
+      ? null
+      : Math.round(lancamento.quantidade * produto.fator_hecto * 100 * 100) / 100;
 
   const { error } = await supabase
     .from("pa_reepack_lancamentos")

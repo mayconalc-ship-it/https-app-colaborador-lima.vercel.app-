@@ -37,6 +37,55 @@ export function ehTurno(v: unknown): v is Turno {
   return typeof v === "string" && (TURNOS as readonly string[]).includes(v);
 }
 
+/**
+ * As duas etapas cronometradas do POP-ARM-001 (migration 065). São
+ * atividades separadas de propósito: um lote muito avariado consome o
+ * tempo na Seleção, e somar tudo num número só fazia isso aparecer como
+ * "repack lento".
+ *
+ * Os gatilhos vêm literalmente do POP (aba "Guia de Etapas" da
+ * cronoanálise) e aparecem na tela porque cronometragem só serve para
+ * alguma coisa se todo mundo começar e parar o relógio no mesmo ponto --
+ * duas pessoas com critérios diferentes produzem dois números que não
+ * dá para comparar. Por isso o "não entra" também está aqui: é onde a
+ * medição costuma escorregar.
+ */
+export const ETAPAS_REEPACK = ["selecao", "repack"] as const;
+export type EtapaReepack = (typeof ETAPAS_REEPACK)[number];
+
+export function ehEtapaReepack(v: unknown): v is EtapaReepack {
+  return typeof v === "string" && (ETAPAS_REEPACK as readonly string[]).includes(v);
+}
+
+export const ETAPA_REEPACK: Record<
+  EtapaReepack,
+  { rotulo: string; curto: string; emoji: string; secoesPop: string; inicio: string; fim: string; naoEntra: string; unidade: string }
+> = {
+  selecao: {
+    rotulo: "Seleção e Triagem",
+    curto: "Seleção",
+    emoji: "🔍",
+    secoesPop: "POP-ARM-001, seções 7.2, 7.3 e 7.4",
+    inicio:
+      "Você começa a inspecionar o lote/pallet avariado: verifica a embalagem, classifica a avaria e separa o que é impróprio (descarte) do que está conforme — lava, seca e inspeciona cada embalagem uma a uma.",
+    fim: "O produto está triado, limpo e inspecionado — pronto na bancada para ser reembalado.",
+    naoEntra:
+      "Deslocamento até a bombona de descarte, preenchimento do BO de quebra e tempo parado esperando pallet.",
+    unidade: "unidades triadas",
+  },
+  repack: {
+    rotulo: "Reembalagem (Repack)",
+    curto: "Repack",
+    emoji: "📦",
+    secoesPop: "POP-ARM-001, seções 7.5 e 7.6",
+    inicio:
+      "Você começa a cortar o Shrink na medida (régua da bancada) para a embalagem que já saiu da Seleção.",
+    fim: "A sopradora térmica termina o encolhimento do Shrink e o pacote está pronto e finalizado.",
+    naoEntra: "O tempo de seleção e limpeza (Etapa 1) e o tempo de inspeção final.",
+    unidade: "caixas reembaladas",
+  },
+};
+
 /** Turno provável de agora, para o formulário já abrir marcado certo. */
 export function turnoAtual(agora = new Date()): Turno {
   const hora = Number(

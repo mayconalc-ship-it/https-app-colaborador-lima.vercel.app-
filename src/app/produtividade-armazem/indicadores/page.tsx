@@ -79,10 +79,16 @@ export default async function IndicadoresPage({
       .from("pa_embalagens_despejo")
       .select("id, nome, litros_por_unidade, meta_litros_hora")
       .eq("revenda_id", revendaId),
+    // Só a etapa de REPACK entra aqui. Desde a 065 a mesma tabela guarda
+    // também a Seleção e Triagem, cuja quantidade é em unidades triadas --
+    // somar as duas inflaria "caixas reepackadas" e derrubaria a taxa de
+    // cx/h, misturando duas atividades que existem separadas justamente
+    // para não serem comparadas com a mesma régua.
     supabase
       .from("pa_reepack_lancamentos")
       .select("produto_id, colaborador_id, colaborador_nome, turno, quantidade, inicio, fim")
       .eq("revenda_id", revendaId)
+      .eq("etapa", "repack")
       .not("fim", "is", null)
       .gte("inicio", de0)
       .lte("inicio", ate23),
