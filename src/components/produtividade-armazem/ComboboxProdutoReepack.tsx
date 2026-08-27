@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useTransition } from "react";
 import { buscarProdutosReepack } from "@/app/admin/produtividade-armazem/actions";
+import { COOKIE_REEPACK_CLUSTER, COOKIE_REEPACK_DIAS, COOKIE_REEPACK_PATH, COOKIE_REEPACK_TIPO } from "@/lib/produtividade-armazem";
 
 const campo =
   "w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-base text-slate-900 focus:border-primary focus:outline-none";
@@ -15,10 +16,46 @@ const ROTULO_TIPO: Record<string, string> = {
 };
 
 /**
+ * Lê o MESMO cookie que o servidor já leu pra montar `inicial` -- os dois
+ * lados precisam concordar (mesmo raciocínio de `combinacaoInicial` em
+ * ativo-de-giro/FormContagem.tsx). Sem isto, o valor calculado aqui
+ * dentro do useState(() => ...) divergiria do HTML que o servidor mandou
+ * e o React "corrigiria" com um piscar visível.
+ */
+function valorDoCookie(nome: string, inicial: string): string {
+  if (typeof document === "undefined") return inicial;
+  const bruto = document.cookie
+    .split(";")
+    .map((p) => p.trim())
+    .find((p) => p.startsWith(`${nome}=`))
+    ?.slice(nome.length + 1);
+  if (!bruto) return inicial;
+  try {
+    return decodeURIComponent(bruto);
+  } catch {
+    return inicial;
+  }
+}
+
+/** Grava assim que a pessoa troca o seletor -- não só quando lança --
+ *  pra sobreviver a um recarregamento no meio do caminho. */
+function lembrarFiltro(nome: string, valor: string) {
+  if (typeof document === "undefined") return;
+  const idade = 60 * 60 * 24 * COOKIE_REEPACK_DIAS;
+  document.cookie = `${nome}=${encodeURIComponent(valor)}; path=${COOKIE_REEPACK_PATH}; max-age=${idade}; samesite=lax`;
+}
+
+/**
  * Cluster → Tipo → Produto, pedido do dono (27/08/2026) pra achar produto
  * mais rápido numa base de centenas de itens. Os dois primeiros filtram o
  * terceiro: escolher só Cluster e Tipo já lista os produtos (sem precisar
  * digitar nada), e digitar dentro disso refina por nome ou código.
+ *
+ * O filtro sobrevive a iniciar/finalizar um reepack (a tela recarrega de
+ * verdade, é uma Server Action) porque fica em cookie -- `clusterInicial`/
+ * `tipoInicial` vêm do servidor (que já leu o mesmo cookie), e o estado
+ * nasce deles em vez de num efeito, pro React não ter que "corrigir" a
+ * tela visivelmente depois de montada.
  *
  * Fica em um componente à parte do ComboboxProduto genérico (usado por
  * Recebimento) de propósito -- aqui o `buscar` precisa reagir à troca dos
@@ -28,16 +65,26 @@ const ROTULO_TIPO: Record<string, string> = {
 export function ComboboxProdutoReepack({
   clusters,
   tipos,
+  clusterInicial = "",
+  tipoInicial = "",
   valorInicial,
   nomeCampo = "produto_id",
 }: {
   clusters: string[];
   tipos: string[];
+  clusterInicial?: string;
+  tipoInicial?: string;
   valorInicial?: string;
   nomeCampo?: string;
 }) {
-  const [cluster, setCluster] = useState("");
-  const [tipo, setTipo] = useState("");
+  const [cluster, setCluster] = useState(() => {
+    const v = valorDoCookie(COOKIE_REEPACK_CLUSTER, clusterInicial);
+    return clusters.includes(v) ? v : "";
+  });
+  const [tipo, setTipo] = useState(() => {
+    const v = valorDoCookie(COOKIE_REEPACK_TIPO, tipoInicial);
+    return tipos.includes(v) ? v : "";
+  });
   const [termo, setTermo] = useState("");
   const [resultados, setResultados] = useState<Produto[]>([]);
   const [selecionado, setSelecionado] = useState<Produto | null>(null);
@@ -52,6 +99,13 @@ export function ComboboxProdutoReepack({
     }
     document.addEventListener("mousedown", aoClicarFora);
     return () => document.removeEventListener("mousedown", aoClicarFora);
+  }, []);
+
+  // O filtro já nasce certo (veio do cookie, acima) -- só falta buscar a
+  // lista de produtos que ele aponta, uma vez, ao montar.
+  useEffect(() => {
+    if (cluster || tipo) buscar("", cluster, tipo);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- só na montagem
   }, []);
 
   // Dispara a busca quando o termo muda (com debounce, digitação é
@@ -85,6 +139,7 @@ export function ComboboxProdutoReepack({
     setSelecionado(null);
     setAberto(true);
     buscar(termo, valor, tipo);
+    lembrarFiltro(COOKIE_REEPACK_CLUSTER, valor);
   }
 
   function aoMudarTipo(valor: string) {
@@ -92,6 +147,7 @@ export function ComboboxProdutoReepack({
     setSelecionado(null);
     setAberto(true);
     buscar(termo, cluster, valor);
+    lembrarFiltro(COOKIE_REEPACK_TIPO, valor);
   }
 
   function escolher(p: Produto) {

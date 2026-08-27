@@ -11,6 +11,19 @@
  * linha só, então não há o que valha a pena pré-calcular no banco.
  */
 
+/**
+ * Onde o filtro de Cluster/Tipo do Reepack fica lembrado -- cookie, e não
+ * localStorage, pro SERVIDOR já desenhar a tela com o filtro certo (mesmo
+ * raciocínio de COOKIE_ULTIMA em lib/ativo-giro.ts: com localStorage a
+ * tela nasceria sem filtro e corrigiria só depois de montar -- pisca, e
+ * ainda dependeria de sincronizar estado dentro de um efeito). O
+ * formulário grava os dois assim que a pessoa troca um seletor.
+ */
+export const COOKIE_REEPACK_CLUSTER = "pa_reepack_cluster";
+export const COOKIE_REEPACK_TIPO = "pa_reepack_tipo";
+export const COOKIE_REEPACK_PATH = "/produtividade-armazem/reepack";
+export const COOKIE_REEPACK_DIAS = 180;
+
 export const TURNOS = ["manha", "tarde", "noite"] as const;
 export type Turno = (typeof TURNOS)[number];
 

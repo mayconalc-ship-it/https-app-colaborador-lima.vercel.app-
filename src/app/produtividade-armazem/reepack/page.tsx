@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
 import { PageHeader } from "@/components/PageHeader";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
 import { BotaoExcluir } from "@/components/BotaoExcluir";
@@ -7,6 +8,8 @@ import { getRevendaId } from "@/lib/revendas";
 import { podeNoModulo, requireAcessoModulo } from "@/lib/require-admin";
 import { ComboboxProdutoReepack } from "@/components/produtividade-armazem/ComboboxProdutoReepack";
 import {
+  COOKIE_REEPACK_CLUSTER,
+  COOKIE_REEPACK_TIPO,
   ROTULO_TURNO,
   TURNOS,
   diasAtrasISO,
@@ -124,6 +127,17 @@ export default async function ReepackPage({
     (a, b) => a.localeCompare(b, "pt-BR"),
   );
   const tipos = [...new Set(produtos.map((p) => p.tipo).filter((t): t is string => Boolean(t)))].sort();
+
+  // Filtro lembrado do último uso (cookie -- ver COOKIE_REEPACK_CLUSTER em
+  // lib/produtividade-armazem.ts). Só aceita o que ainda existe na lista
+  // de hoje -- se a planilha mudou e o cluster salvo sumiu, nasce em
+  // "Todos" em vez de mostrar um filtro fantasma.
+  const jar = await cookies();
+  const clusterCookie = decodeURIComponent(jar.get(COOKIE_REEPACK_CLUSTER)?.value ?? "");
+  const tipoCookie = decodeURIComponent(jar.get(COOKIE_REEPACK_TIPO)?.value ?? "");
+  const clusterInicial = clusters.includes(clusterCookie) ? clusterCookie : "";
+  const tipoInicial = tipos.includes(tipoCookie) ? tipoCookie : "";
+
   const aberto = abertoBanco as Aberto | null;
   const minhasLancamentos = (minhas ?? []) as Lancamento[];
   const historico = (doPeriodo ?? []) as Lancamento[];
@@ -222,7 +236,12 @@ export default async function ReepackPage({
               action={iniciarReepack}
               className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4"
             >
-              <ComboboxProdutoReepack clusters={clusters} tipos={tipos} />
+              <ComboboxProdutoReepack
+                clusters={clusters}
+                tipos={tipos}
+                clusterInicial={clusterInicial}
+                tipoInicial={tipoInicial}
+              />
 
               <div>
                 <span className={rotulo}>Turno</span>
