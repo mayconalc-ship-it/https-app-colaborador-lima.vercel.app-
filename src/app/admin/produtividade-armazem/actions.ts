@@ -150,6 +150,51 @@ export async function excluirLembreteEmpilhadeira(formData: FormData) {
   sucesso("empilhadeiras", "Lembrete excluído");
 }
 
+/**
+ * Corrige o horímetro (inicial e/ou final) de uma operação já lançada --
+ * pedido do dono, 27/08/2026: empilhador digitou sem o ponto decimal e não
+ * havia jeito de corrigir depois, nem para admin nem para liderança.
+ * Só o número muda -- não mexe em status/fim, então uma operação ainda
+ * aberta continua aberta mesmo que o horímetro final venha preenchido aqui
+ * (a UI só mostra esse campo para operação já encerrada, exatamente para
+ * evitar essa inconsistência).
+ */
+export async function corrigirHorimetroOperacao(formData: FormData) {
+  await requireModulo("produtividade-armazem", "editar");
+  const revendaId = await exigirRevenda(ROTA);
+  const admin = createAdminClient();
+
+  const id = String(formData.get("id") ?? "");
+  const horimetroInicial = numeroOuNulo(formData.get("horimetro_inicial"));
+  if (horimetroInicial === null || horimetroInicial < 0) {
+    erro("empilhadeiras", "Informe um horímetro inicial válido.");
+  }
+
+  const horimetroFinalTexto = String(formData.get("horimetro_final") ?? "").trim();
+  const dados: { horimetro_inicial: number; horimetro_final?: number } = { horimetro_inicial: horimetroInicial };
+  if (horimetroFinalTexto) {
+    const horimetroFinal = numeroOuNulo(formData.get("horimetro_final"));
+    if (horimetroFinal === null || horimetroFinal < 0) {
+      erro("empilhadeiras", "Informe um horímetro final válido.");
+    }
+    if (horimetroFinal < horimetroInicial) {
+      erro("empilhadeiras", "O horímetro final não pode ser menor que o inicial.");
+    }
+    dados.horimetro_final = horimetroFinal;
+  }
+
+  const { error } = await admin
+    .from("pa_empilhadeira_operacoes")
+    .update(dados)
+    .eq("id", id)
+    .eq("revenda_id", revendaId);
+  if (error) erro("empilhadeiras", `Não foi possível corrigir: ${error.message}`);
+
+  revalidatePath(ROTA);
+  revalidatePath("/produtividade-armazem/empilhadeira");
+  sucesso("empilhadeiras", "Horímetro corrigido");
+}
+
 // -------------------- FÁBRICAS / TRANSPORTADORAS --------------------
 export async function salvarFabrica(formData: FormData) {
   await requireModulo("produtividade-armazem", "editar");

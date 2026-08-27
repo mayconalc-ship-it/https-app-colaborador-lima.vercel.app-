@@ -11,6 +11,7 @@ import {
   ROTULO_TURNO,
   SENSOS,
   TURNOS,
+  formatarDataHora,
   litrosPorCaixa,
   produtoReepackDeLinha,
   produtoProntoParaReepack,
@@ -26,6 +27,7 @@ import {
   alternarMotoristaAtivo,
   alternarProdutoAtivo,
   alternarTransportadoraAtivo,
+  corrigirHorimetroOperacao,
   editarAg,
   editarEmbalagemDespejo,
   editarEmpilhadeira,
@@ -90,6 +92,7 @@ export default async function AdminProdutividadeArmazemPage({
     buscaProduto?: string;
     buscaReepack?: string;
     buscaOperador?: string;
+    buscaHorimetro?: string;
   }>;
 }) {
   await requireModulo("produtividade-armazem", "editar");
@@ -99,6 +102,7 @@ export default async function AdminProdutividadeArmazemPage({
   const buscaProduto = (sp.buscaProduto ?? "").trim();
   const buscaReepack = (sp.buscaReepack ?? "").trim().toLowerCase();
   const buscaOperador = (sp.buscaOperador ?? "").trim();
+  const buscaHorimetro = (sp.buscaHorimetro ?? "").trim();
 
   const supabase = await createClient();
   const admin = createAdminClient();
@@ -119,6 +123,7 @@ export default async function AdminProdutividadeArmazemPage({
     { data: empilhadores },
     { data: agCatalogo },
     { data: recebimentoConfig },
+    { data: operacoesEncontradas },
   ] = await Promise.all([
     supabase
       .from("pa_embalagens")
@@ -192,6 +197,28 @@ export default async function AdminProdutividadeArmazemPage({
     supabase.from("pa_empilhadores").select("id, nome, cpf, ativo").eq("revenda_id", revendaId).order("nome"),
     supabase.from("pa_ag_catalogo").select("id, codigo, descricao, unidade, ativo").eq("revenda_id", revendaId).order("codigo"),
     supabase.from("pa_recebimento_config").select("tma_alvo_minutos, dias_minimos_validade_alerta").eq("revenda_id", revendaId).maybeSingle(),
+    aba === "empilhadeiras" && buscaHorimetro.length >= 2
+      ? supabase
+          .from("pa_empilhadeira_operacoes")
+          .select(
+            "id, operador_nome, horimetro_inicial, horimetro_final, inicio, fim, status, pa_empilhadeiras(numero)",
+          )
+          .eq("revenda_id", revendaId)
+          .ilike("operador_nome", `%${buscaHorimetro}%`)
+          .order("inicio", { ascending: false })
+          .limit(20)
+      : Promise.resolve({
+          data: [] as {
+            id: string;
+            operador_nome: string;
+            horimetro_inicial: number;
+            horimetro_final: number | null;
+            inicio: string;
+            fim: string | null;
+            status: string;
+            pa_empilhadeiras: { numero: string } | { numero: string }[] | null;
+          }[],
+        }),
   ]);
 
   const totalEmbalagensDespejo = embalagensDespejo?.length ?? 0;
@@ -532,6 +559,90 @@ export default async function AdminProdutividadeArmazemPage({
                     }
                   />
                 ))
+              )}
+            </div>
+          </div>
+
+          <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+            <div className="border-b border-slate-100 p-4">
+              <h2 className="text-sm font-bold text-slate-900">🛠️ Corrigir horímetro de operação</h2>
+              <p className="mt-1 text-xs text-slate-500">
+                Para quando o operador digitou o horímetro errado (ex: sem o ponto decimal).
+                Só corrige o número -- não reabre nem fecha a operação.
+              </p>
+
+              <form method="get" className="mt-3 flex gap-2">
+                <input type="hidden" name="aba" value="empilhadeiras" />
+                <input
+                  name="buscaHorimetro"
+                  defaultValue={buscaHorimetro}
+                  placeholder="Buscar operação pelo nome do operador"
+                  className={`${campo} flex-1`}
+                />
+                <button type="submit" className="shrink-0 rounded-lg bg-slate-800 px-3 py-2 text-sm font-semibold text-white">
+                  Buscar
+                </button>
+              </form>
+            </div>
+
+            <div className="divide-y divide-slate-100">
+              {buscaHorimetro.length > 0 && buscaHorimetro.length < 2 ? (
+                <p className="p-6 text-center text-sm text-slate-400">Digite ao menos 2 letras.</p>
+              ) : buscaHorimetro.length === 0 ? (
+                <p className="p-6 text-center text-sm text-slate-400">Busque pelo nome do operador para ver as operações dele.</p>
+              ) : (operacoesEncontradas ?? []).length === 0 ? (
+                <p className="p-6 text-center text-sm text-slate-400">Nenhuma operação encontrada.</p>
+              ) : (
+                (operacoesEncontradas ?? []).map((o) => {
+                  const maquina = Array.isArray(o.pa_empilhadeiras) ? o.pa_empilhadeiras[0] : o.pa_empilhadeiras;
+                  const encerrada = o.status === "encerrada";
+                  return (
+                    <form
+                      key={o.id}
+                      action={corrigirHorimetroOperacao}
+                      className="space-y-2 p-3"
+                    >
+                      <input type="hidden" name="id" value={o.id} />
+                      <p className="text-xs text-slate-500">
+                        🏗️ {maquina?.numero ?? "—"} — {o.operador_nome} — {formatarDataHora(o.inicio)}
+                        {o.fim && ` até ${formatarDataHora(o.fim)}`}
+                        {!encerrada && " · em aberto"}
+                      </p>
+                      <div className="flex flex-wrap items-end gap-2">
+                        <div>
+                          <label className="mb-1 block text-xs font-semibold uppercase text-slate-500">Horímetro inicial</label>
+                          <input
+                            name="horimetro_inicial"
+                            type="number"
+                            inputMode="decimal"
+                            step="0.1"
+                            min={0}
+                            required
+                            defaultValue={o.horimetro_inicial}
+                            className={`${campo} w-32`}
+                          />
+                        </div>
+                        {encerrada && (
+                          <div>
+                            <label className="mb-1 block text-xs font-semibold uppercase text-slate-500">Horímetro final</label>
+                            <input
+                              name="horimetro_final"
+                              type="number"
+                              inputMode="decimal"
+                              step="0.1"
+                              min={0}
+                              defaultValue={o.horimetro_final ?? ""}
+                              className={`${campo} w-32`}
+                            />
+                          </div>
+                        )}
+                        <BotaoEnviar compacto className="shrink-0 rounded-lg bg-slate-800 px-3 py-1.5 text-xs font-semibold text-white">
+                          Salvar
+                        </BotaoEnviar>
+                      </div>
+                    </form>
+                  );
+                })
               )}
             </div>
           </div>
