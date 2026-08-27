@@ -23,6 +23,10 @@ const FUNCIONALIDADES: { chave: ModuloId; titulo: string; emoji: string; href: s
   { chave: "pa-picking", titulo: "Reabastecimento de Picking", emoji: "🛒", href: "/produtividade-armazem/picking" },
   { chave: "carretas-portaria", titulo: "Recebimento de Carreta", emoji: "👮", href: "/carretas-portaria" },
   { chave: "carretas-conferencia", titulo: "Monitor de Recebimento", emoji: "🖥️", href: "/carretas-conferencia" },
+  // Um card só para os dois papéis (informar e controle): a tela é a
+  // mesma e decide sozinha o que mostrar para quem abriu.
+  { chave: "fefo", titulo: "Quebra de FEFO", emoji: "🚨", href: "/fefo" },
+  { chave: "fefo-controle", titulo: "Quebra de FEFO", emoji: "🚨", href: "/fefo" },
 ];
 
 export default async function ProdutividadeArmazemPage() {
@@ -36,10 +40,17 @@ export default async function ProdutividadeArmazemPage() {
 
   // Dono e quem administra a área inteira (editar catálogos) veem tudo --
   // as demais pessoas só o que foi concedido pessoa a pessoa.
-  const funcionalidades =
+  const visiveis =
     ehOwner(perfil?.role) || podeConfigurar
       ? FUNCIONALIDADES
       : FUNCIONALIDADES.filter((f) => acessiveis.has(f.chave));
+
+  // Uma tela pode ser alcançada por mais de uma permissão (o FEFO tem
+  // "informar" e "controle"). Quem tem as duas não precisa ver o card
+  // repetido -- a própria tela decide o que mostrar para cada papel.
+  const funcionalidades = visiveis.filter(
+    (f, i) => visiveis.findIndex((o) => o.href === f.href) === i,
+  );
 
   return (
     <div>

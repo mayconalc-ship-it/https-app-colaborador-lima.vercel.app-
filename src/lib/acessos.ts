@@ -40,7 +40,9 @@ export type ModuloId =
   | "pa-picking"
   | "carretas-portaria"
   | "carretas-conferencia"
-  | "carretas-descarga";
+  | "carretas-descarga"
+  | "fefo"
+  | "fefo-controle";
 
 export type Modulo = {
   id: ModuloId;
@@ -255,6 +257,29 @@ export const MODULOS: Modulo[] = [
     subGrupoDe: "produtividade-armazem",
   },
   {
+    id: "fefo",
+    rotulo: "Quebra de FEFO (informar)",
+    emoji: "🚨",
+    href: "/fefo",
+    grupo: "Conteúdo do app",
+    // Quem acha a quebra no armazém avisa por aqui. Separado de
+    // "fefo-controle" a pedido do dono (27/08/2026): quem aponta não é
+    // quem fecha a ocorrência.
+    acoes: ["ver", "criar"],
+    subGrupoDe: "produtividade-armazem",
+  },
+  {
+    id: "fefo-controle",
+    rotulo: "Quebra de FEFO (controle)",
+    emoji: "🧭",
+    href: "/fefo",
+    grupo: "Conteúdo do app",
+    // Mesma tela: quem tem isto enxerga as ocorrências de todo mundo e
+    // responde qual ação foi tomada.
+    acoes: ["ver", "editar"],
+    subGrupoDe: "produtividade-armazem",
+  },
+  {
     id: "colaboradores",
     rotulo: "Colaboradores",
     emoji: "👥",
@@ -362,6 +387,8 @@ export const MODULOS_OPCIONAIS: ModuloId[] = [
   "carretas-portaria",
   "carretas-conferencia",
   "carretas-descarga",
+  "fefo",
+  "fefo-controle",
 ];
 
 const MAPA = new Map(MODULOS.map((m) => [m.id, m]));

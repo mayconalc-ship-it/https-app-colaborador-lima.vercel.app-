@@ -39,10 +39,10 @@ function valorDoCookie(nome: string, inicial: string): string {
 
 /** Grava assim que a pessoa troca o seletor -- não só quando lança --
  *  pra sobreviver a um recarregamento no meio do caminho. */
-function lembrarFiltro(nome: string, valor: string) {
+function lembrarFiltro(nome: string, valor: string, caminho: string) {
   if (typeof document === "undefined") return;
   const idade = 60 * 60 * 24 * COOKIE_REEPACK_DIAS;
-  document.cookie = `${nome}=${encodeURIComponent(valor)}; path=${COOKIE_REEPACK_PATH}; max-age=${idade}; samesite=lax`;
+  document.cookie = `${nome}=${encodeURIComponent(valor)}; path=${caminho}; max-age=${idade}; samesite=lax`;
 }
 
 /**
@@ -69,6 +69,8 @@ export function ComboboxProdutoReepack({
   tipoInicial = "",
   valorInicial,
   nomeCampo = "produto_id",
+  buscarProdutos = buscarProdutosReepack,
+  cookiePath = COOKIE_REEPACK_PATH,
 }: {
   clusters: string[];
   tipos: string[];
@@ -76,6 +78,16 @@ export function ComboboxProdutoReepack({
   tipoInicial?: string;
   valorInicial?: string;
   nomeCampo?: string;
+  /** Qual base pesquisar. O Reepack só enxerga produto pronto para
+   *  reembalar; o FEFO precisa da base inteira, porque a quebra acontece
+   *  com qualquer SKU no estoque. */
+  buscarProdutos?: (
+    termo: string,
+    filtros?: { cluster?: string; tipo?: string },
+  ) => Promise<Produto[]>;
+  /** O cookie do filtro é por tela: lembrar "Cerveja/Descartável" do
+   *  Reepack não deve mandar na tela de FEFO. */
+  cookiePath?: string;
 }) {
   const [cluster, setCluster] = useState(() => {
     const v = valorDoCookie(COOKIE_REEPACK_CLUSTER, clusterInicial);
@@ -118,7 +130,7 @@ export function ComboboxProdutoReepack({
       return;
     }
     startTransition(async () => {
-      const r = await buscarProdutosReepack(termoAtual, {
+      const r = await buscarProdutos(termoAtual, {
         cluster: clusterAtual || undefined,
         tipo: tipoAtual || undefined,
       });
@@ -139,7 +151,7 @@ export function ComboboxProdutoReepack({
     setSelecionado(null);
     setAberto(true);
     buscar(termo, valor, tipo);
-    lembrarFiltro(COOKIE_REEPACK_CLUSTER, valor);
+    lembrarFiltro(COOKIE_REEPACK_CLUSTER, valor, cookiePath);
   }
 
   function aoMudarTipo(valor: string) {
@@ -147,7 +159,7 @@ export function ComboboxProdutoReepack({
     setSelecionado(null);
     setAberto(true);
     buscar(termo, cluster, valor);
-    lembrarFiltro(COOKIE_REEPACK_TIPO, valor);
+    lembrarFiltro(COOKIE_REEPACK_TIPO, valor, cookiePath);
   }
 
   function escolher(p: Produto) {

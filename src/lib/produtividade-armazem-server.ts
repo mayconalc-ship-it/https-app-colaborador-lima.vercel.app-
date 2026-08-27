@@ -40,6 +40,8 @@ export const SUBMODULOS_ARMAZEM: ModuloId[] = [
   "carretas-portaria",
   "carretas-conferencia",
   "carretas-descarga",
+  "fefo",
+  "fefo-controle",
 ];
 
 /** Passa quem: é dono; é liderança com a permissão de administrar a área
@@ -118,6 +120,7 @@ export async function comprimirParaWebp(
 export async function subirFotoHorimetro(
   arquivo: File,
   prefixo: string,
+  pasta = "empilhadeira",
 ): Promise<{ ok: true; url: string } | { ok: false; erro: string }> {
   if (arquivo.size > TAMANHO_MAXIMO) {
     return { ok: false, erro: "A foto passa de 8 MB. Tente outra." };
@@ -128,7 +131,7 @@ export async function subirFotoHorimetro(
 
   const admin = createAdminClient();
   const { dados, contentType, extensao } = await comprimirParaWebp(arquivo);
-  const caminho = `produtividade-armazem/empilhadeira/${prefixo}-${Date.now()}.${extensao}`;
+  const caminho = `produtividade-armazem/${pasta}/${prefixo}-${Date.now()}.${extensao}`;
 
   const { error } = await admin.storage.from("conteudo").upload(caminho, dados, {
     contentType,
