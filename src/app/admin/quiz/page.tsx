@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { PageHeader } from "@/components/PageHeader";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
+import { CLASSE_MAIS } from "@/components/BotaoMais";
 import { decodificar } from "@/lib/texto-url";
 import { requireModulo, podeNoModulo } from "@/lib/require-admin";
 import { getRevendaId } from "@/lib/revendas";
@@ -142,9 +143,13 @@ export default async function AdminQuizPage({
 
       {/* Nova rodada */}
       {podeCriar && (
-        <details className="mb-6 rounded-2xl border border-slate-200 bg-white shadow-sm">
-          <summary className="cursor-pointer p-4 font-semibold text-slate-800">
-            ➕ Criar nova rodada
+        <details className="group mb-6 rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <summary className="flex cursor-pointer list-none items-center gap-2 p-4 font-semibold text-slate-800 marker:content-none [&::-webkit-details-marker]:hidden">
+            <span className={`${CLASSE_MAIS} h-7 transition-transform group-open:rotate-45`} aria-hidden="true">
+              +
+            </span>
+            <span className="group-open:hidden">Criar nova rodada</span>
+            <span className="hidden group-open:inline">Fechar</span>
           </summary>
           <form action={criarRodada} className="space-y-3 border-t border-slate-100 p-4">
             <div className="flex gap-2">

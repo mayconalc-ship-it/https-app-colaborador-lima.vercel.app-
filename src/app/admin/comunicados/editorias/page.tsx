@@ -5,6 +5,7 @@ import { exigirRevenda } from "@/lib/revendas";
 import { editoriasDaRevenda } from "@/lib/editorias";
 import { PageHeader } from "@/components/PageHeader";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
+import { CLASSE_MAIS } from "@/components/BotaoMais";
 import { LinkVoltar } from "@/components/LinkVoltar";
 import { CamposDaEditoria, EditoriaItem } from "@/components/EditoriaItem";
 import {
@@ -73,9 +74,13 @@ export default async function EditoriasPage({
         </p>
       )}
 
-      <details className="mb-4 rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <summary className="cursor-pointer p-4 font-semibold text-primary">
-          + Nova editoria
+      <details className="group mb-4 rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <summary className="flex cursor-pointer list-none items-center gap-2 p-4 font-semibold text-primary-dark marker:content-none [&::-webkit-details-marker]:hidden">
+          <span className={`${CLASSE_MAIS} h-7 transition-transform group-open:rotate-45`} aria-hidden="true">
+            +
+          </span>
+          <span className="group-open:hidden">Nova editoria</span>
+          <span className="hidden group-open:inline">Fechar</span>
         </summary>
         <form action={criarEditoria} className="border-t border-slate-100 p-4">
           <CamposDaEditoria />

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PageHeader } from "@/components/PageHeader";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
+import { CLASSE_MAIS } from "@/components/BotaoMais";
 import { BotaoExcluir } from "@/components/BotaoExcluir";
 import { TabelaRodada } from "@/components/TabelaCampeonato";
 import { decodificar } from "@/lib/texto-url";
@@ -667,9 +668,13 @@ export default async function RodadaPage({
             )}
           </div>
 
-          <details className="mt-2 rounded-2xl border border-slate-200 bg-white shadow-sm">
-            <summary className="cursor-pointer p-4 font-semibold text-slate-800">
-              ➕ Nova pergunta
+          <details className="group mt-2 rounded-2xl border border-slate-200 bg-white shadow-sm">
+            <summary className="flex cursor-pointer list-none items-center gap-2 p-4 font-semibold text-slate-800 marker:content-none [&::-webkit-details-marker]:hidden">
+              <span className={`${CLASSE_MAIS} h-7 transition-transform group-open:rotate-45`} aria-hidden="true">
+                +
+              </span>
+              <span className="group-open:hidden">Nova pergunta</span>
+              <span className="hidden group-open:inline">Fechar</span>
             </summary>
             <form
               action={criarQuestao}
