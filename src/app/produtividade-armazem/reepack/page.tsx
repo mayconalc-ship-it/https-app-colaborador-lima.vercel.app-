@@ -80,7 +80,7 @@ export default async function ReepackPage({
     await Promise.all([
       supabase
         .from("pa_produtos")
-        .select("id, codigo, descricao, unidades_por_caixa, fator_hecto, embalagem_id, meta_reepack_hora")
+        .select("id, codigo, descricao, cluster_produto, tipo, unidades_por_caixa, fator_hecto, embalagem_id, meta_reepack_hora")
         .eq("revenda_id", revendaId)
         .eq("ativo", true)
         .not("fator_hecto", "is", null)
