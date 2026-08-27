@@ -163,7 +163,13 @@ export async function finalizarDescarga(formData: FormData) {
 /**
  * O conferente clica ao começar a contar o que chegou no chão -- vira a
  * pessoa responsável pelo atendimento (conferente_*), mas não mexe na
- * descarga: pode clicar antes, durante ou depois dela.
+ * descarga: pode clicar antes, durante ou DEPOIS dela.
+ *
+ * "Depois" inclui o atendimento já encerrado: desde 27/08/2026 o ciclo
+ * fecha no fim da descarga (o caminhão vai embora), e a contagem do que
+ * chegou segue no chão do armazém. Aconteceu de verdade -- carreta
+ * finalizada com a conferência por fazer, e sem jeito de lançar o tempo.
+ * Por isso não há mais trava por status aqui.
  */
 export async function iniciarConferencia(formData: FormData) {
   const { perfil, revendaId } = await exigirContextoCarretas("carretas-conferencia", "/carretas-conferencia");
@@ -177,16 +183,23 @@ export async function iniciarConferencia(formData: FormData) {
       inicio_conferencia_em: new Date().toISOString(),
       conferente_colaborador_id: perfil.id,
       conferente_nome: perfil.nome,
-      status: "em_andamento",
     })
     .eq("id", atendimentoId)
     .eq("revenda_id", revendaId)
     .is("inicio_conferencia_em", null)
-    .in("status", ["aguardando_conferente", "em_andamento"])
     .select("id");
 
   if (error) erro(atendimentoId, `Não foi possível iniciar a conferência: ${error.message}`);
   if (!atualizado || atualizado.length === 0) erro(atendimentoId, "A conferência já foi iniciada por outra pessoa.");
+
+  // Sai de "aguardando_conferente" só se ainda estiver lá. Um atendimento
+  // já finalizado NÃO volta para "em_andamento" -- a carreta saiu, e
+  // reabrir o ciclo estragaria o TMA que já foi apurado.
+  await supabase
+    .from("atendimentos_carretas")
+    .update({ status: "em_andamento" })
+    .eq("id", atendimentoId)
+    .eq("status", "aguardando_conferente");
 
   revalidatePath(rota(atendimentoId));
   revalidatePath("/carretas-conferencia");

@@ -201,6 +201,9 @@ export default async function DetalheAtendimentoPage({ params }: { params: Promi
   const nomesEmpilhadores = [...new Set(itens.map((i) => i.empilhador).filter(Boolean))];
 
   const emAndamento = a.status === "aguardando_conferente" || a.status === "em_andamento";
+  // Pendência que sobrevive ao fim do ciclo: a carreta pode ter ido
+  // embora com a contagem por fazer.
+  const conferenciaPendente = !a.fim_conferencia_em;
   // A decisão do retorno virou um fato registrado assim que o conferente
   // sabe (27/08/2026) -- normalmente na chegada, antes de descarga e
   // conferência terminarem. `tem_carga` nulo = ainda não decidiu.
@@ -309,32 +312,49 @@ export default async function DetalheAtendimentoPage({ params }: { params: Promi
               )}
             </div>
 
-            <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-              <p className="mb-2 text-sm font-bold text-slate-800">🔍 Conferência</p>
-              {!a.inicio_conferencia_em ? (
-                podeConferir ? (
-                  <form action={iniciarConferencia}>
-                    <input type="hidden" name="atendimento_id" value={a.id} />
-                    <BotaoEnviar
-                      textoEnviando="Iniciando..."
-                      className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-white shadow-sm hover:bg-primary-dark"
-                    >
-                      🔍 Conferir carga
-                    </BotaoEnviar>
-                  </form>
-                ) : (
-                  <p className="text-xs text-slate-500">Aguardando o conferente iniciar a conferência.</p>
-                )
-              ) : !a.fim_conferencia_em ? (
-                <p className="text-xs text-amber-700">🕐 Em andamento desde {formatarHora(a.inicio_conferencia_em)} -- preencha os itens abaixo.</p>
+          </div>
+        </div>
+      )}
+
+      {/* A CONFERÊNCIA vive fora do bloco "em andamento" de propósito.
+          Desde 27/08/2026 o ciclo fecha no fim da descarga -- o caminhão
+          vai embora e a contagem segue no chão do armazém. Prendendo esta
+          seção ao status, a carreta finalizava e o conferente perdia o
+          acesso para lançar: aconteceu de verdade, e o tempo de
+          conferência daquele atendimento não teve como ser apurado. */}
+      {conferenciaPendente && (
+        <div className={`mt-4 space-y-4 ${emAndamento ? "" : "rounded-2xl border-2 border-amber-300 bg-amber-50 p-4"}`}>
+          {!emAndamento && (
+            <p className="text-sm font-bold text-amber-900">
+              ⏳ Esta carreta já foi encerrada, mas a conferência ainda está pendente.
+            </p>
+          )}
+
+          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+            <p className="mb-2 text-sm font-bold text-slate-800">🔍 Conferência</p>
+            {!a.inicio_conferencia_em ? (
+              podeConferir ? (
+                <form action={iniciarConferencia}>
+                  <input type="hidden" name="atendimento_id" value={a.id} />
+                  <BotaoEnviar
+                    textoEnviando="Iniciando..."
+                    className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-white shadow-sm hover:bg-primary-dark"
+                  >
+                    🔍 Conferir carga
+                  </BotaoEnviar>
+                </form>
               ) : (
-                <p className="text-xs font-semibold text-green-700">✅ Conferência concluída às {formatarHora(a.fim_conferencia_em)}</p>
-              )}
-            </div>
+                <p className="text-xs text-slate-500">Aguardando o conferente iniciar a conferência.</p>
+              )
+            ) : (
+              <p className="text-xs text-amber-700">
+                🕐 Em andamento desde {formatarHora(a.inicio_conferencia_em)} -- preencha os itens abaixo.
+              </p>
+            )}
           </div>
 
-          {a.inicio_conferencia_em && !a.fim_conferencia_em && (
-            podeConferir ? (
+          {a.inicio_conferencia_em &&
+            (podeConferir ? (
               <FormFinalizarConferencia
                 atendimentoId={a.id}
                 diasMinimosValidadeAlerta={diasMinimosValidadeAlerta}
@@ -344,9 +364,14 @@ export default async function DetalheAtendimentoPage({ params }: { params: Promi
               <p className="rounded-2xl border border-slate-200 bg-white p-4 text-xs text-slate-500 shadow-sm">
                 O conferente está preenchendo os itens da conferência.
               </p>
-            )
-          )}
+            ))}
         </div>
+      )}
+
+      {a.fim_conferencia_em && emAndamento && (
+        <p className="mt-4 rounded-2xl border border-slate-200 bg-white p-4 text-xs font-semibold text-green-700 shadow-sm">
+          ✅ Conferência concluída às {formatarHora(a.fim_conferencia_em)}
+        </p>
       )}
 
       {/* "Vazia ou carregada?" é do conferente e aparece assim que ele

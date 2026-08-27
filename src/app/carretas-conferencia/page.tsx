@@ -81,7 +81,7 @@ export default async function CarretasConferenciaPage() {
   const inicioHoje = new Date();
   inicioHoje.setHours(0, 0, 0, 0);
 
-  const [{ data: ativosBanco }, { data: finalizadosBanco }, { data: configBanco }] = await Promise.all([
+  const [{ data: ativosBanco }, { data: finalizadosBanco }, { data: configBanco }, { data: pendentesBanco }] = await Promise.all([
     supabase
       .from("atendimentos_carretas")
       .select("id, numero_dt, motorista_nome, placa_carreta, chegada_em, carga_agendada, agendamento_em, status, pa_fabricas(nome), pa_transportadoras(nome)")
@@ -99,6 +99,19 @@ export default async function CarretasConferenciaPage() {
       .order("finalizacao_em", { ascending: false })
       .limit(20),
     supabase.from("pa_recebimento_config").select("tma_alvo_minutos").eq("revenda_id", revendaId).maybeSingle(),
+    // Ciclo fechado, conferência por fazer. Some das colunas do monitor
+    // (que só mostram atendimento ativo) e ficaria enterrada em
+    // "Finalizados" -- foi assim que um atendimento real perdeu o tempo
+    // de conferência. Sem corte por data: pendência velha é a que mais
+    // precisa aparecer.
+    supabase
+      .from("atendimentos_carretas")
+      .select("id, numero_dt, placa_carreta, chegada_em, status, inicio_conferencia_em, pa_fabricas(nome)")
+      .eq("revenda_id", revendaId)
+      .in("status", ["em_carga", "finalizado"])
+      .is("fim_conferencia_em", null)
+      .order("chegada_em", { ascending: true })
+      .limit(30),
   ]);
 
   const ativos = ((ativosBanco ?? []) as unknown as LinhaAtiva[]).map(
@@ -115,6 +128,16 @@ export default async function CarretasConferenciaPage() {
       transportadoraNome: nomeRelacionado(a.pa_transportadoras),
     }),
   );
+
+  const conferenciasPendentes = (pendentesBanco ?? []) as unknown as {
+    id: string;
+    numero_dt: string;
+    placa_carreta: string;
+    chegada_em: string;
+    status: string;
+    inicio_conferencia_em: string | null;
+    pa_fabricas: { nome: string } | { nome: string }[] | null;
+  }[];
 
   const finalizados = (finalizadosBanco ?? []) as unknown as LinhaFinalizada[];
   const tmaAlvoMinutos = configBanco?.tma_alvo_minutos ?? RECEBIMENTO_CONFIG_PADRAO.tmaAlvoMinutos;
@@ -201,6 +224,40 @@ export default async function CarretasConferenciaPage() {
       >
         👮 Ir para o Recebimento de Carreta →
       </a>
+
+      {/* Fica ANTES do monitor de propósito: é trabalho que já deveria
+          ter sido feito, e some das colunas por já estar encerrado. */}
+      {conferenciasPendentes.length > 0 && (
+        <div className="mb-4 rounded-2xl border-2 border-amber-300 bg-amber-50 p-4">
+          <p className="text-sm font-bold text-amber-900">
+            ⏳ Conferência pendente ({conferenciasPendentes.length})
+          </p>
+          <p className="mt-0.5 text-xs text-amber-800">
+            A carreta já saiu, mas a contagem do que chegou ainda não foi lançada.
+          </p>
+          <ul className="mt-3 space-y-2">
+            {conferenciasPendentes.map((p) => (
+              <li key={p.id}>
+                <a
+                  href={`/carretas-conferencia/${p.id}`}
+                  className="flex items-center justify-between gap-3 rounded-xl bg-white p-3 shadow-sm hover:bg-amber-100"
+                >
+                  <span className="min-w-0">
+                    <span className="block text-sm font-semibold text-slate-900">
+                      {nomeRelacionado(p.pa_fabricas)} — Carreta {p.placa_carreta}
+                    </span>
+                    <span className="block text-xs text-slate-500">
+                      DT {p.numero_dt} · Chegou {formatarDataHora(p.chegada_em)} ·{" "}
+                      {p.inicio_conferencia_em ? "iniciada, falta finalizar" : "nem iniciada"}
+                    </span>
+                  </span>
+                  <span className="shrink-0 text-sm font-semibold text-primary">Lançar →</span>
+                </a>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       <MonitorCarretas iniciais={ativos} revendaId={revendaId} tmaAlvoMinutos={tmaAlvoMinutos} />
 
