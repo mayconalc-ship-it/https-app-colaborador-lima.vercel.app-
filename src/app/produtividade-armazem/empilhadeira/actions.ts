@@ -3,7 +3,11 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { exigirContextoModulo, subirFotoHorimetro } from "@/lib/produtividade-armazem-server";
+import { comprimirParaWebp, exigirContextoModulo, subirFotoHorimetro } from "@/lib/produtividade-armazem-server";
+import { ehMediaTypeAceito, lerHorimetroNaFoto, ocrHorimetroConfigurado } from "@/lib/empilhadeira-ocr";
+import { registrarUsoIA } from "@/lib/ia-uso";
+import { getRevendaId } from "@/lib/revendas";
+import { getPerfil } from "@/lib/sessao";
 
 const ROTA = "/produtividade-armazem/empilhadeira";
 
@@ -12,6 +16,49 @@ function erro(id: string, mensagem: string): never {
 }
 
 const exigirContexto = () => exigirContextoModulo("pa-empilhadeira", ROTA);
+
+/**
+ * Lê o horímetro na foto ANTES do formulário ser enviado -- o campo de
+ * horímetro se pré-preenche com o valor lido, e o operador só confere
+ * (pode corrigir à mão se a leitura vier errada ou vazia). Chamada direto
+ * do componente cliente quando a foto é escolhida, não de um `<form
+ * action>` -- por isso devolve um objeto normal em vez de redirecionar.
+ *
+ * Silenciosa de propósito: sem chave de IA configurada, ou se a leitura
+ * falhar por qualquer motivo, devolve "não deu para ler" em vez de erro --
+ * o campo continua digitável na mão, que é como funcionava antes disto
+ * existir.
+ */
+export async function lerHorimetroDaFoto(
+  formData: FormData,
+): Promise<{ legivel: boolean; valor: number | null }> {
+  const perfil = await getPerfil();
+  if (!perfil) return { legivel: false, valor: null };
+  if (!ocrHorimetroConfigurado()) return { legivel: false, valor: null };
+
+  const foto = formData.get("foto");
+  if (!(foto instanceof File) || foto.size === 0) return { legivel: false, valor: null };
+
+  try {
+    const { dados, contentType } = await comprimirParaWebp(foto);
+    if (!ehMediaTypeAceito(contentType)) return { legivel: false, valor: null };
+
+    const leitura = await lerHorimetroNaFoto(dados, contentType);
+    const revendaId = await getRevendaId();
+    await registrarUsoIA({
+      recurso: "leitura_horimetro",
+      modelo: "claude-haiku-4-5",
+      revendaId,
+      colaboradorId: perfil.id,
+      entrada: leitura.custo.entrada,
+      saida: leitura.custo.saida,
+    });
+
+    return { legivel: leitura.legivel, valor: leitura.valor };
+  } catch {
+    return { legivel: false, valor: null };
+  }
+}
 
 /**
  * Abre uma operação. A trava de verdade é o índice único parcial

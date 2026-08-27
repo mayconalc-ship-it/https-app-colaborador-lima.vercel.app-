@@ -2,6 +2,7 @@ import { redirect, notFound } from "next/navigation";
 import { PageHeader } from "@/components/PageHeader";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
 import { FotoEvidencia } from "@/components/FotoEvidencia";
+import { CampoHorimetroComFoto } from "@/components/produtividade-armazem/CampoHorimetroComFoto";
 import { createClient } from "@/lib/supabase/server";
 import { getRevendaId } from "@/lib/revendas";
 import { requireAcessoModulo } from "@/lib/require-admin";
@@ -16,10 +17,6 @@ import {
 import { abrirOperacao, fecharOperacao, registrarTrocaGas } from "../actions";
 
 export const dynamic = "force-dynamic";
-
-const campo =
-  "w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-base text-slate-900 focus:border-primary focus:outline-none";
-const rotulo = "mb-1 block text-xs font-semibold uppercase text-slate-500";
 
 type Aba = "operacao" | "gas" | "historico";
 const ABAS: { id: Aba; rotulo: string; emoji: string }[] = [
@@ -119,16 +116,16 @@ export default async function EmpilhadeiraDetalhePage({
       {aba === "operacao" &&
         (aberta ? (
           <section className="space-y-4">
-            <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
-              <p className="text-sm font-bold text-amber-900">
+            <div className="min-w-0 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+              <p className="break-words text-sm font-bold text-amber-900">
                 Operação aberta por {aberta.operadorNome}
               </p>
-              <p className="mt-1 text-xs text-amber-800">
+              <p className="mt-1 break-words text-xs text-amber-800">
                 Desde {formatarDataHora(aberta.inicio)} — horímetro inicial{" "}
                 {aberta.horimetroInicial} — {horasDeOperacao(aberta).toFixed(1)}h rodando.
               </p>
               {aberta.operadorId !== perfil.id && (
-                <p className="mt-2 text-xs font-medium text-amber-900">
+                <p className="mt-2 break-words text-xs font-medium text-amber-900">
                   Não foi você quem abriu. Se {aberta.operadorNome} não vai voltar, preencha o
                   horímetro final abaixo para fechar a operação antes de abrir a sua.
                 </p>
@@ -142,36 +139,15 @@ export default async function EmpilhadeiraDetalhePage({
               <input type="hidden" name="operacao_id" value={aberta.id} />
               <input type="hidden" name="empilhadeira_id" value={maquina.id} />
 
-              <div>
-                <label className={rotulo} htmlFor="horimetro_final">
-                  Horímetro final
-                </label>
-                <input
-                  id="horimetro_final"
-                  name="horimetro_final"
-                  type="number"
-                  inputMode="decimal"
-                  step="0.1"
-                  min={aberta.horimetroInicial}
-                  required
-                  className={campo}
-                />
-              </div>
-
-              <div>
-                <label className={rotulo} htmlFor="foto-fim">
-                  Foto do horímetro final (obrigatória)
-                </label>
-                <input
-                  id="foto-fim"
-                  name="foto"
-                  type="file"
-                  accept="image/*"
-                  capture="environment"
-                  required
-                  className={campo}
-                />
-              </div>
+              <CampoHorimetroComFoto
+                idFoto="foto-fim"
+                nomeFoto="foto"
+                idHorimetro="horimetro_final"
+                nomeHorimetro="horimetro_final"
+                labelFoto="Foto do horímetro final (obrigatória)"
+                labelHorimetro="Horímetro final"
+                min={aberta.horimetroInicial}
+              />
 
               <BotaoEnviar
                 textoEnviando="Enviando..."
@@ -190,36 +166,15 @@ export default async function EmpilhadeiraDetalhePage({
           >
             <input type="hidden" name="empilhadeira_id" value={maquina.id} />
 
-            <div>
-              <label className={rotulo} htmlFor="horimetro_inicial">
-                Horímetro inicial
-              </label>
-              <input
-                id="horimetro_inicial"
-                name="horimetro_inicial"
-                type="number"
-                inputMode="decimal"
-                step="0.1"
-                min={0}
-                required
-                className={campo}
-              />
-            </div>
-
-            <div>
-              <label className={rotulo} htmlFor="foto-inicio">
-                Foto do horímetro inicial (obrigatória)
-              </label>
-              <input
-                id="foto-inicio"
-                name="foto"
-                type="file"
-                accept="image/*"
-                capture="environment"
-                required
-                className={campo}
-              />
-            </div>
+            <CampoHorimetroComFoto
+              idFoto="foto-inicio"
+              nomeFoto="foto"
+              idHorimetro="horimetro_inicial"
+              nomeHorimetro="horimetro_inicial"
+              labelFoto="Foto do horímetro inicial (obrigatória)"
+              labelHorimetro="Horímetro inicial"
+              min={0}
+            />
 
             <p className="text-xs text-slate-500">
               A operação fica aberta até você (ou outra pessoa) registrar o horímetro
@@ -247,34 +202,17 @@ export default async function EmpilhadeiraDetalhePage({
             )}
             <form action={registrarTrocaGas} className="space-y-3">
               <input type="hidden" name="empilhadeira_id" value={maquina.id} />
-              <div>
-                <label className={rotulo} htmlFor="horimetro-gas">Horímetro no momento da troca</label>
-                <input
-                  id="horimetro-gas"
-                  name="horimetro"
-                  type="number"
-                  inputMode="decimal"
-                  step="0.1"
-                  min={0}
-                  required
-                  className={campo}
-                />
-                {ultimaTrocaGas && (
-                  <p className="mt-1 text-xs text-slate-400">Última troca: {ultimaTrocaGas.horimetro} h</p>
-                )}
-              </div>
-              <div>
-                <label className={rotulo} htmlFor="foto-gas">Foto do horímetro (obrigatória)</label>
-                <input
-                  id="foto-gas"
-                  name="foto"
-                  type="file"
-                  accept="image/*"
-                  capture="environment"
-                  required
-                  className={campo}
-                />
-              </div>
+
+              <CampoHorimetroComFoto
+                idFoto="foto-gas"
+                nomeFoto="foto"
+                idHorimetro="horimetro-gas"
+                nomeHorimetro="horimetro"
+                labelFoto="Foto do horímetro (obrigatória)"
+                labelHorimetro="Horímetro no momento da troca"
+                min={0}
+              />
+
               <BotaoEnviar
                 textoEnviando="Registrando..."
                 className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-white hover:bg-primary-dark"

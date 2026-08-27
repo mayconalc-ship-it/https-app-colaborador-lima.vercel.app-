@@ -13,6 +13,7 @@ const PERIODOS = [
 const ROTULO_RECURSO: Record<string, string> = {
   cinco_porques: "5 Porquês",
   quiz: "Quiz (Desafio do Mês)",
+  leitura_horimetro: "Leitura de horímetro (Empilhadeira)",
 };
 
 type Registro = {

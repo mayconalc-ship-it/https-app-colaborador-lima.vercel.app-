@@ -1,5 +1,6 @@
 import "server-only";
 
+import sharp from "sharp";
 import { redirect } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { SEGUNDOS_DE_CACHE } from "@/lib/storage";
@@ -74,6 +75,40 @@ const TAMANHO_MAXIMO = 8 * 1024 * 1024;
 const TIPOS_ACEITOS = ["image/jpeg", "image/png", "image/webp", "image/heic"];
 
 /**
+ * Converte pra WebP antes de subir -- pedido do dono, 27/08/2026: a foto
+ * do horímetro só existe para conferência/auditoria, não precisa do
+ * arquivo original (JPEG de câmera de celular, às vezes 3-4 MB) inteiro.
+ * 1600px no lado maior é bem mais do que precisa pra ler um mostrador de
+ * horímetro, e qualidade 80 do WebP já fica visualmente idêntica ao
+ * original nesse uso.
+ *
+ * Se o sharp falhar por qualquer motivo (formato exótico, arquivo
+ * corrompido), sobe o arquivo original sem compressão -- o operador não
+ * pode ficar travado por causa disso, a foto em si continua servindo pra
+ * auditoria mesmo maior.
+ */
+export async function comprimirParaWebp(
+  arquivo: File,
+): Promise<{ dados: Buffer; contentType: string; extensao: string }> {
+  try {
+    const bruto = Buffer.from(await arquivo.arrayBuffer());
+    const webp = await sharp(bruto)
+      .rotate() // aplica a orientação EXIF antes de descartá-la
+      .resize({ width: 1600, height: 1600, fit: "inside", withoutEnlargement: true })
+      .webp({ quality: 80 })
+      .toBuffer();
+    return { dados: webp, contentType: "image/webp", extensao: "webp" };
+  } catch {
+    const bruto = Buffer.from(await arquivo.arrayBuffer());
+    const extensao = (arquivo.name.split(".").pop() ?? "jpg")
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, "")
+      .slice(0, 5);
+    return { dados: bruto, contentType: arquivo.type || "image/jpeg", extensao: extensao || "jpg" };
+  }
+}
+
+/**
  * Sobe a foto do horímetro no mesmo bucket `conteudo` que o resto do app
  * usa (comunicados, padrões, evidências do 5S). Caminho com timestamp:
  * nunca sobrescreve, então serve com cache imutável de um ano -- ver
@@ -91,14 +126,11 @@ export async function subirFotoHorimetro(
   }
 
   const admin = createAdminClient();
-  const extensao = (arquivo.name.split(".").pop() ?? "jpg")
-    .toLowerCase()
-    .replace(/[^a-z0-9]/g, "")
-    .slice(0, 5);
-  const caminho = `produtividade-armazem/empilhadeira/${prefixo}-${Date.now()}.${extensao || "jpg"}`;
+  const { dados, contentType, extensao } = await comprimirParaWebp(arquivo);
+  const caminho = `produtividade-armazem/empilhadeira/${prefixo}-${Date.now()}.${extensao}`;
 
-  const { error } = await admin.storage.from("conteudo").upload(caminho, arquivo, {
-    contentType: arquivo.type || "image/jpeg",
+  const { error } = await admin.storage.from("conteudo").upload(caminho, dados, {
+    contentType,
     upsert: true,
     cacheControl: SEGUNDOS_DE_CACHE,
   });

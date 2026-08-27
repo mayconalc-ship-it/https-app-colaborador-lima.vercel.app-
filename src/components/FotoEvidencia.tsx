@@ -1,26 +1,41 @@
+"use client";
+
 import Image from "next/image";
+import { useEffect, useRef, useState } from "react";
+
+/** Passos do zoom. O toque alterna entre o primeiro e o segundo. */
+const ESCALAS = [1, 2, 3];
+
+/** Movimento em pixels abaixo do qual o gesto conta como toque, não arrasto. */
+const TOLERANCIA_TOQUE = 8;
 
 /**
- * Foto de evidência do 5S, no tamanho que a tela realmente usa.
+ * Foto de evidência (5S, Empilhadeira), no tamanho que a tela realmente usa
+ * -- e ampliável ao toque, mesmo comportamento do FotoAmpliavel do Jornal
+ * (zoom por botão, arrasto na mão, Escape fecha). Antes de 27/08/2026 esta
+ * caixa era só uma miniatura sem zoom nenhum; a lógica de ampliar foi
+ * trazida de lá porque as duas telas têm exatamente o mesmo problema --
+ * conferir um detalhe pequeno (o número do horímetro, uma não conformidade)
+ * numa foto recortada em 80-160px de altura.
  *
- * As fotos do 5S vêm da câmera do celular do auditor, sem passar por
+ * As fotos do 5S e da Empilhadeira vêm da câmera do celular sem passar por
  * compressão nenhuma: medido em 21/08/2026, as maiores tinham 3,6 MB. E
  * eram entregues assim, inteiras, para caber numa faixa de 100 pixels de
  * altura -- em lista, várias por tela.
  *
  * Com `next/image` o servidor entrega WebP do tamanho do espaço, e o
  * arquivo grande é buscado uma vez só, pelo otimizador, em vez de uma vez
- * por pessoa que abre a auditoria.
+ * por pessoa que abre a tela.
  *
- * Isso importa duas vezes. Para quem usa: a auditoria abre no 4G do
- * armazém em vez de ficar em branco. Para a conta: o armazenamento do
- * Supabase responde `Cache-Control: no-cache` e ignora o que a gente pede
- * no envio (conferido em 22/08/2026, inclusive em arquivo recém-subido),
- * então SEM o otimizador cada visita rebaixava a foto inteira de novo.
+ * Isso importa duas vezes. Para quem usa: a tela abre no 4G do armazém em
+ * vez de ficar em branco. Para a conta: o armazenamento do Supabase
+ * responde `Cache-Control: no-cache` e ignora o que a gente pede no envio
+ * (conferido em 22/08/2026, inclusive em arquivo recém-subido), então SEM
+ * o otimizador cada visita rebaixava a foto inteira de novo.
  *
- * A caixa tem altura antes de a foto chegar -- é o mesmo cuidado do
- * FotoAmpliavel: sem altura reservada a lista dá um pulo quando as fotos
- * carregam, e quem está lendo perde a linha.
+ * A caixa tem altura antes de a foto chegar -- sem altura reservada a
+ * lista dá um pulo quando as fotos carregam, e quem está lendo perde a
+ * linha.
  */
 export function FotoEvidencia({
   src,
@@ -34,11 +49,194 @@ export function FotoEvidencia({
   classeCaixa: string;
   sizes?: string;
 }) {
+  const [carregada, setCarregada] = useState(false);
+  const [aberta, setAberta] = useState(false);
+  const [escala, setEscala] = useState(1);
+  const [pos, setPos] = useState({ x: 0, y: 0 });
+
+  const botaoFechar = useRef<HTMLButtonElement>(null);
+  const palco = useRef<HTMLDivElement>(null);
+  const foto = useRef<HTMLImageElement>(null);
+
+  // Guardados em ref porque mudam a cada movimento do dedo: usar estado
+  // aqui redesenharia a tela dezenas de vezes por segundo.
+  const arrasto = useRef({ ativo: false, x: 0, y: 0, andou: 0 });
+
+  useEffect(() => {
+    if (!aberta) return;
+
+    function aoTeclar(e: KeyboardEvent) {
+      if (e.key === "Escape") fechar();
+    }
+
+    // Sem isso a página de trás rola junto com a foto ampliada.
+    const overflowAnterior = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    document.addEventListener("keydown", aoTeclar);
+    botaoFechar.current?.focus();
+
+    return () => {
+      document.body.style.overflow = overflowAnterior;
+      document.removeEventListener("keydown", aoTeclar);
+    };
+  }, [aberta]);
+
+  function fechar() {
+    setAberta(false);
+    setEscala(1);
+    setPos({ x: 0, y: 0 });
+  }
+
+  /** Impede que a foto seja arrastada para fora da tela. */
+  function limitar(x: number, y: number, escalaAtual: number) {
+    const caixa = palco.current?.getBoundingClientRect();
+    const img = foto.current;
+    if (!caixa || !img) return { x, y };
+
+    const limiteX = Math.max(0, (img.offsetWidth * escalaAtual - caixa.width) / 2);
+    const limiteY = Math.max(0, (img.offsetHeight * escalaAtual - caixa.height) / 2);
+
+    return {
+      x: Math.min(limiteX, Math.max(-limiteX, x)),
+      y: Math.min(limiteY, Math.max(-limiteY, y)),
+    };
+  }
+
+  function mudarEscala(nova: number) {
+    const alvo = Math.min(ESCALAS[ESCALAS.length - 1], Math.max(1, nova));
+    setEscala(alvo);
+    // Ao voltar para o tamanho normal a foto volta ao centro.
+    setPos(alvo === 1 ? { x: 0, y: 0 } : (p) => limitar(p.x, p.y, alvo));
+  }
+
   return (
-    <div
-      className={`relative overflow-hidden rounded-xl bg-slate-100 ${classeCaixa}`}
-    >
-      <Image src={src} alt={alt} fill sizes={sizes} className="object-cover" />
-    </div>
+    <>
+      <button
+        type="button"
+        onClick={() => setAberta(true)}
+        aria-label={`Ver "${alt}" em tela cheia`}
+        className={`group relative block cursor-zoom-in overflow-hidden rounded-xl bg-slate-100 ${classeCaixa}`}
+      >
+        {/* O cinza pulsando é o que a pessoa vê no lugar da foto enquanto
+            ela vem. Some no `onLoad`; se a foto falhar, fica um retângulo
+            cinza parado -- melhor do que a página dar um pulo. */}
+        {!carregada && (
+          <span aria-hidden="true" className="absolute inset-0 animate-pulse bg-slate-200" />
+        )}
+        <Image
+          src={src}
+          alt={alt}
+          fill
+          sizes={sizes}
+          onLoad={() => setCarregada(true)}
+          className={`object-cover transition-opacity duration-300 ${carregada ? "opacity-100" : "opacity-0"}`}
+        />
+        {/* A lupa avisa que a foto abre — sem ela ninguém descobre o toque. */}
+        <span
+          aria-hidden="true"
+          className="absolute bottom-1 right-1 rounded-md bg-black/55 px-1.5 py-0.5 text-xs leading-none text-white"
+        >
+          🔍
+        </span>
+      </button>
+
+      {aberta && (
+        <div role="dialog" aria-modal="true" aria-label={alt} className="fixed inset-0 z-50 bg-black/90">
+          <div
+            ref={palco}
+            className="absolute inset-0 flex items-center justify-center overflow-hidden p-3"
+            // "none" entrega os gestos para o nosso código. Sem isso o
+            // Android tenta rolar a página e briga com o arrasto.
+            style={{ touchAction: "none" }}
+            onPointerDown={(e) => {
+              arrasto.current = {
+                ativo: true,
+                x: e.clientX - pos.x,
+                y: e.clientY - pos.y,
+                andou: 0,
+              };
+              e.currentTarget.setPointerCapture(e.pointerId);
+            }}
+            onPointerMove={(e) => {
+              if (!arrasto.current.ativo) return;
+
+              const x = e.clientX - arrasto.current.x;
+              const y = e.clientY - arrasto.current.y;
+              arrasto.current.andou = Math.max(
+                arrasto.current.andou,
+                Math.abs(x - pos.x) + Math.abs(y - pos.y),
+              );
+
+              if (escala > 1) setPos(limitar(x, y, escala));
+            }}
+            onPointerUp={(e) => {
+              const { andou } = arrasto.current;
+              arrasto.current.ativo = false;
+
+              // Arrastou: já movemos a foto, não é para interpretar como toque.
+              if (andou > TOLERANCIA_TOQUE) return;
+
+              const naFoto = foto.current?.contains(e.target as Node);
+              if (naFoto) mudarEscala(escala > 1 ? 1 : 2);
+              else fechar();
+            }}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              ref={foto}
+              src={src}
+              alt={alt}
+              draggable={false}
+              className={`max-h-full max-w-full select-none object-contain ${
+                escala > 1 ? "cursor-grab" : "cursor-zoom-in"
+              }`}
+              style={{
+                transform: `translate(${pos.x}px, ${pos.y}px) scale(${escala})`,
+                transition: arrasto.current.ativo ? "none" : "transform 150ms",
+              }}
+            />
+          </div>
+
+          {/* Botões de zoom: no celular o app trava a pinça, então sem eles
+              não haveria como ampliar de verdade. */}
+          <div className="absolute bottom-14 left-1/2 flex -translate-x-1/2 items-center gap-2 rounded-full bg-white/95 p-1.5 shadow-lg">
+            <button
+              type="button"
+              onClick={() => mudarEscala(escala - 1)}
+              disabled={escala <= 1}
+              aria-label="Diminuir"
+              className="h-10 w-10 rounded-full text-xl font-bold text-slate-700 disabled:opacity-30"
+            >
+              −
+            </button>
+            <span className="w-12 text-center text-sm font-semibold tabular-nums text-slate-600">
+              {escala}×
+            </span>
+            <button
+              type="button"
+              onClick={() => mudarEscala(escala + 1)}
+              disabled={escala >= ESCALAS[ESCALAS.length - 1]}
+              aria-label="Aumentar"
+              className="h-10 w-10 rounded-full text-xl font-bold text-slate-700 disabled:opacity-30"
+            >
+              +
+            </button>
+          </div>
+
+          <button
+            type="button"
+            ref={botaoFechar}
+            onClick={fechar}
+            className="absolute right-3 top-3 rounded-xl bg-white px-4 py-2 text-sm font-semibold text-slate-800 shadow-lg hover:bg-slate-100"
+          >
+            ✕ Fechar
+          </button>
+
+          <p className="pointer-events-none absolute inset-x-0 bottom-4 text-center text-xs text-white/70">
+            {escala > 1 ? "Arraste para percorrer a foto" : "Toque na foto ou use + para ampliar"}
+          </p>
+        </div>
+      )}
+    </>
   );
 }

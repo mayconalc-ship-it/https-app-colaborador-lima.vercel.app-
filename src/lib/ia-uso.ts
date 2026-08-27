@@ -18,7 +18,7 @@ function custoUsd(modelo: string, entrada: number, saida: number): number {
   return (entrada / 1_000_000) * preco.entrada + (saida / 1_000_000) * preco.saida;
 }
 
-export type RecursoIA = "cinco_porques" | "quiz";
+export type RecursoIA = "cinco_porques" | "quiz" | "leitura_horimetro";
 
 /**
  * Grava uma chamada de IA para o painel de créditos.
