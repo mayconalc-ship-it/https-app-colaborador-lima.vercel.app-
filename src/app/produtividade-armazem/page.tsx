@@ -14,7 +14,11 @@ const FUNCIONALIDADES: { chave: ModuloId; titulo: string; emoji: string; href: s
   { chave: "pa-reepack", titulo: "Reepack", emoji: "📦", href: "/produtividade-armazem/reepack" },
   { chave: "pa-despejo", titulo: "Despejo", emoji: "🫗", href: "/produtividade-armazem/despejo" },
   { chave: "pa-empilhadeira", titulo: "Empilhadeira", emoji: "🏗️", href: "/produtividade-armazem/empilhadeira" },
-  { chave: "pa-recebimento", titulo: "Recebimento de Paletes", emoji: "🚛", href: "/produtividade-armazem/recebimento" },
+  // "Recebimento de Paletes" saiu da vitrine em 27/08/2026, a pedido do
+  // dono: o Monitor de Recebimento (Carretas) já cobre recebido/avariado
+  // por item na descarga, e as duas telas duplicavam o mesmo acesso. A
+  // rota /produtividade-armazem/recebimento e a concessão "pa-recebimento"
+  // continuam existindo -- só o card de entrada foi removido.
   { chave: "pa-cinco-s", titulo: "5S do Armazém", emoji: "🧹", href: "/produtividade-armazem/cinco-s" },
   { chave: "pa-picking", titulo: "Reabastecimento de Picking", emoji: "🛒", href: "/produtividade-armazem/picking" },
   { chave: "carretas-portaria", titulo: "Recebimento de Carreta", emoji: "👮", href: "/carretas-portaria" },
