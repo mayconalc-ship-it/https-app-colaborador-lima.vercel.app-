@@ -309,6 +309,22 @@ function CartaoOcorrencia({
       {podeTratar && aberta && (
         <form action={tratarQuebraFefo} className="mt-3 space-y-2 rounded-xl bg-white p-3">
           <input type="hidden" name="id" value={o.id} />
+
+          {/* Quem informou nem sempre sabe a menor data do estoque. O
+              campo só aparece quando ela ficou em branco -- completar é
+              uma coisa, reescrever o que o colega informou é outra. */}
+          {!o.menor_validade && (
+            <div>
+              <label
+                className="mb-1 block text-xs font-semibold uppercase text-slate-500"
+                htmlFor={`menor-${o.id}`}
+              >
+                Menor validade no estoque <span className="normal-case text-slate-400">(se souber)</span>
+              </label>
+              <input id={`menor-${o.id}`} name="menor_validade" type="date" className={campo} />
+            </div>
+          )}
+
           <label className="mb-1 block text-xs font-semibold uppercase text-slate-500" htmlFor={`acao-${o.id}`}>
             Qual ação foi tomada?
           </label>

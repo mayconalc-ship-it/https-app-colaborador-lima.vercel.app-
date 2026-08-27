@@ -203,15 +203,39 @@ export async function tratarQuebraFefo(formData: FormData) {
   if (!acao) erro("Descreva a ação tomada.");
 
   const admin = createAdminClient();
+
+  // Quem informou pode não saber a menor data do estoque -- o controle
+  // completa aqui. Só PREENCHE o que está em branco: sobrescrever o que
+  // o colaborador informou mudaria o registro dele sem deixar rastro.
+  const menorValidade = String(formData.get("menor_validade") ?? "").trim();
+  const dados: Record<string, unknown> = {
+    status: "tratada",
+    acao,
+    tratado_por_id: perfil.id,
+    tratado_por_nome: perfil.nome,
+    tratado_em: new Date().toISOString(),
+  };
+
+  if (menorValidade) {
+    const { data: atual } = await admin
+      .from("pa_fefo_ocorrencias")
+      .select("validade, menor_validade")
+      .eq("id", id)
+      .eq("revenda_id", revendaId)
+      .maybeSingle();
+    if (!atual) erro("Ocorrência não encontrada.");
+    if (atual.menor_validade) {
+      erro("Esta ocorrência já tem a menor validade informada.");
+    }
+    if (menorValidade > atual.validade) {
+      erro("A menor validade do estoque não pode ser maior que a validade do palete encontrado.");
+    }
+    dados.menor_validade = menorValidade;
+  }
+
   const { data: atualizada, error } = await admin
     .from("pa_fefo_ocorrencias")
-    .update({
-      status: "tratada",
-      acao,
-      tratado_por_id: perfil.id,
-      tratado_por_nome: perfil.nome,
-      tratado_em: new Date().toISOString(),
-    })
+    .update(dados)
     .eq("id", id)
     .eq("revenda_id", revendaId)
     .eq("status", "aberta")
