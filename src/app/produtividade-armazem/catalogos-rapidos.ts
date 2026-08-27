@@ -2,9 +2,10 @@
 
 import { revalidatePath } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { podeNoModulo } from "@/lib/require-admin";
+import { podeNoModulo, temAcessoModulo } from "@/lib/require-admin";
 import { getRevendaId } from "@/lib/revendas";
 import { ehUnidadeAg } from "@/lib/carretas";
+import type { ModuloId } from "@/lib/acessos";
 
 /**
  * Cadastro rápido dos catálogos de armazém, chamado pelo "+" quadrado azul
@@ -26,9 +27,26 @@ import { ehUnidadeAg } from "@/lib/carretas";
 
 type Resultado = { ok: true; valor: string; rotulo: string } | { ok: false; erro: string };
 
-/** Permissão + revenda, o par que toda ação daqui precisa. */
-async function contexto(): Promise<{ ok: true; revendaId: string } | { ok: false; erro: string }> {
-  if (!(await podeNoModulo("produtividade-armazem", "editar"))) {
+/**
+ * Permissão + revenda, o par que toda ação daqui precisa.
+ *
+ * Passa quem tem a permissão de liderança do catálogo (a mesma do Admin)
+ * OU quem está numa das telas de operação que legitimamente precisa
+ * cadastrar aquilo na hora -- o conferente descobre uma fábrica de destino
+ * ou um AG novo com a carreta parada no pátio, e mandar ele "pedir pro
+ * Admin" trava a operação (pedido do dono, 27/08/2026).
+ *
+ * Mesma ideia que já valia para motorista e empilhador: a liberação
+ * individual do módulo é o que autoriza, não a permissão de liderança.
+ */
+async function contexto(
+  modulosDaOperacao: ModuloId[],
+): Promise<{ ok: true; revendaId: string } | { ok: false; erro: string }> {
+  const permitido = await Promise.all([
+    podeNoModulo("produtividade-armazem", "editar"),
+    ...modulosDaOperacao.map((m) => temAcessoModulo(m)),
+  ]);
+  if (!permitido.some(Boolean)) {
     return { ok: false, erro: "Você não tem permissão para cadastrar neste catálogo." };
   }
   const revendaId = await getRevendaId();
@@ -42,7 +60,8 @@ function erroDoBanco(mensagem: string, codigo?: string) {
 }
 
 export async function criarFabricaRapida(formData: FormData): Promise<Resultado> {
-  const ctx = await contexto();
+  // Conferente cadastra a fábrica de destino do retorno sem sair da tela.
+  const ctx = await contexto(["carretas-conferencia"]);
   if (!ctx.ok) return ctx;
 
   const nome = String(formData.get("nome") ?? "").trim();
@@ -61,7 +80,8 @@ export async function criarFabricaRapida(formData: FormData): Promise<Resultado>
 }
 
 export async function criarTransportadoraRapida(formData: FormData): Promise<Resultado> {
-  const ctx = await contexto();
+  // Só liderança por enquanto: nenhuma tela de operação mostra este "+".
+  const ctx = await contexto([]);
   if (!ctx.ok) return ctx;
 
   const nome = String(formData.get("nome") ?? "").trim();
@@ -80,7 +100,8 @@ export async function criarTransportadoraRapida(formData: FormData): Promise<Res
 }
 
 export async function criarAgRapido(formData: FormData): Promise<Resultado> {
-  const ctx = await contexto();
+  // AG só aparece na decisão de retorno, que é do conferente.
+  const ctx = await contexto(["carretas-conferencia"]);
   if (!ctx.ok) return ctx;
 
   const codigo = String(formData.get("codigo") ?? "").trim();

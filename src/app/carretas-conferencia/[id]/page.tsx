@@ -108,9 +108,12 @@ export default async function DetalheAtendimentoPage({ params }: { params: Promi
   if (!podeConferir && !podeDescarregar) {
     redirect(`/?erro=${encodeURIComponent("Você não tem acesso a este módulo. Fale com o Admin.")}`);
   }
-  // O "+" de cadastrar fábrica/AG é outra história: mexer em catálogo
-  // continua exigindo a permissão de liderança, como no Admin.
-  const podeEditarCatalogo = await podeNoModulo("produtividade-armazem", "editar");
+  // O conferente cadastra fábrica de destino e AG na hora (pedido do dono,
+  // 27/08/2026): ele descobre destino/AG novo com a carreta parada no
+  // pátio, e mandar pedir pro Admin travaria a operação. A ação no
+  // servidor aceita exatamente as mesmas duas portas (ver
+  // catalogos-rapidos.ts) -- esconder o botão não seria controle de acesso.
+  const podeEditarCatalogo = podeConferir || (await podeNoModulo("produtividade-armazem", "editar"));
 
   const { id } = await params;
 
