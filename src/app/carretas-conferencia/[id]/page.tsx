@@ -3,7 +3,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
 import { createClient } from "@/lib/supabase/server";
 import { getRevendaId } from "@/lib/revendas";
-import { requireAcessoModulo } from "@/lib/require-admin";
+import { podeNoModulo, temAcessoModulo } from "@/lib/require-admin";
 import { formatarDataHora, formatarHora, LIMITE_AVARIA_ALERTA } from "@/lib/produtividade-armazem";
 import {
   RECEBIMENTO_CONFIG_PADRAO,
@@ -90,7 +90,23 @@ function agRelacionado(v: LinhaAgItem["pa_ag_catalogo"]) {
 }
 
 export default async function DetalheAtendimentoPage({ params }: { params: Promise<{ id: string }> }) {
-  await requireAcessoModulo("carretas-conferencia");
+  // Conferente e empilhador são módulos separados desde 27/08/2026 (cada
+  // um só executa a própria etapa -- ver [id]/actions.ts), mas os dois
+  // continuam abrindo a MESMA tela: quem tiver qualquer um dos dois entra
+  // para acompanhar; os botões de cada etapa é que ficam condicionados a
+  // ter a permissão específica dela.
+  const [podeVerConferencia, podeVerDescarga] = await Promise.all([
+    temAcessoModulo("carretas-conferencia"),
+    temAcessoModulo("carretas-descarga"),
+  ]);
+  if (!podeVerConferencia && !podeVerDescarga) {
+    redirect(`/?erro=${encodeURIComponent("Você não tem acesso a este módulo. Fale com o Admin.")}`);
+  }
+  const [podeConferir, podeDescarregar] = await Promise.all([
+    podeNoModulo("carretas-conferencia", "editar"),
+    podeNoModulo("carretas-descarga", "editar"),
+  ]);
+
   const { id } = await params;
 
   const revendaId = await getRevendaId();
@@ -233,27 +249,35 @@ export default async function DetalheAtendimentoPage({ params }: { params: Promi
             <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
               <p className="mb-2 text-sm font-bold text-slate-800">📦 Descarga</p>
               {!a.inicio_descarga_em ? (
-                <form action={iniciarDescarga}>
-                  <input type="hidden" name="atendimento_id" value={a.id} />
-                  <BotaoEnviar
-                    textoEnviando="Iniciando..."
-                    className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-white shadow-sm hover:bg-primary-dark"
-                  >
-                    ▶️ Iniciar descarga
-                  </BotaoEnviar>
-                </form>
+                podeDescarregar ? (
+                  <form action={iniciarDescarga}>
+                    <input type="hidden" name="atendimento_id" value={a.id} />
+                    <BotaoEnviar
+                      textoEnviando="Iniciando..."
+                      className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-white shadow-sm hover:bg-primary-dark"
+                    >
+                      ▶️ Iniciar descarga
+                    </BotaoEnviar>
+                  </form>
+                ) : (
+                  <p className="text-xs text-slate-500">Aguardando o empilhador iniciar a descarga.</p>
+                )
               ) : !a.fim_descarga_em ? (
                 <>
                   <p className="mb-2 text-xs text-amber-700">🕐 Iniciada às {formatarHora(a.inicio_descarga_em)}</p>
-                  <form action={finalizarDescarga}>
-                    <input type="hidden" name="atendimento_id" value={a.id} />
-                    <BotaoEnviar
-                      textoEnviando="Finalizando..."
-                      className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-white shadow-sm hover:bg-primary-dark"
-                    >
-                      ✅ Finalizar descarga
-                    </BotaoEnviar>
-                  </form>
+                  {podeDescarregar ? (
+                    <form action={finalizarDescarga}>
+                      <input type="hidden" name="atendimento_id" value={a.id} />
+                      <BotaoEnviar
+                        textoEnviando="Finalizando..."
+                        className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-white shadow-sm hover:bg-primary-dark"
+                      >
+                        ✅ Finalizar descarga
+                      </BotaoEnviar>
+                    </form>
+                  ) : (
+                    <p className="text-xs text-slate-500">Aguardando o empilhador finalizar a descarga.</p>
+                  )}
                 </>
               ) : (
                 <p className="text-xs font-semibold text-green-700">✅ Descarga concluída às {formatarHora(a.fim_descarga_em)}</p>
@@ -263,15 +287,19 @@ export default async function DetalheAtendimentoPage({ params }: { params: Promi
             <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
               <p className="mb-2 text-sm font-bold text-slate-800">🔍 Conferência</p>
               {!a.inicio_conferencia_em ? (
-                <form action={iniciarConferencia}>
-                  <input type="hidden" name="atendimento_id" value={a.id} />
-                  <BotaoEnviar
-                    textoEnviando="Iniciando..."
-                    className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-white shadow-sm hover:bg-primary-dark"
-                  >
-                    🔍 Conferir carga
-                  </BotaoEnviar>
-                </form>
+                podeConferir ? (
+                  <form action={iniciarConferencia}>
+                    <input type="hidden" name="atendimento_id" value={a.id} />
+                    <BotaoEnviar
+                      textoEnviando="Iniciando..."
+                      className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-white shadow-sm hover:bg-primary-dark"
+                    >
+                      🔍 Conferir carga
+                    </BotaoEnviar>
+                  </form>
+                ) : (
+                  <p className="text-xs text-slate-500">Aguardando o conferente iniciar a conferência.</p>
+                )
               ) : !a.fim_conferencia_em ? (
                 <p className="text-xs text-amber-700">🕐 Em andamento desde {formatarHora(a.inicio_conferencia_em)} -- preencha os itens abaixo.</p>
               ) : (
@@ -281,13 +309,28 @@ export default async function DetalheAtendimentoPage({ params }: { params: Promi
           </div>
 
           {a.inicio_conferencia_em && !a.fim_conferencia_em && (
-            <FormFinalizarConferencia atendimentoId={a.id} diasMinimosValidadeAlerta={diasMinimosValidadeAlerta} />
+            podeConferir ? (
+              <FormFinalizarConferencia atendimentoId={a.id} diasMinimosValidadeAlerta={diasMinimosValidadeAlerta} />
+            ) : (
+              <p className="rounded-2xl border border-slate-200 bg-white p-4 text-xs text-slate-500 shadow-sm">
+                O conferente está preenchendo os itens da conferência.
+              </p>
+            )
           )}
         </div>
       )}
 
+      {/* "Vazia ou carregada?" só aparece pro conferente decidir -- o
+          empilhador só vai ver o resultado depois de decidido (destino/AG
+          aparecem pra todo mundo lá embaixo, em "em_carga"/"finalizado"). */}
       {a.status === "aguardando_retorno" && (
-        <FormDecidirRetorno atendimentoId={a.id} agCatalogo={agCatalogo} fabricas={fabricas} />
+        podeConferir ? (
+          <FormDecidirRetorno atendimentoId={a.id} agCatalogo={agCatalogo} fabricas={fabricas} />
+        ) : (
+          <p className="rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-500 shadow-sm">
+            Aguardando o conferente decidir se a carreta volta vazia ou carregada.
+          </p>
+        )
       )}
 
       {a.status === "em_carga" && (
@@ -310,15 +353,21 @@ export default async function DetalheAtendimentoPage({ params }: { params: Promi
               )}
             </div>
           )}
-          <form action={concluirCarga} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-            <input type="hidden" name="atendimento_id" value={a.id} />
-            <BotaoEnviar
-              textoEnviando="Concluindo..."
-              className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-white shadow-sm hover:bg-primary-dark"
-            >
-              ✅ Concluir carga e finalizar
-            </BotaoEnviar>
-          </form>
+          {podeDescarregar ? (
+            <form action={concluirCarga} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+              <input type="hidden" name="atendimento_id" value={a.id} />
+              <BotaoEnviar
+                textoEnviando="Concluindo..."
+                className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-white shadow-sm hover:bg-primary-dark"
+              >
+                ✅ Concluir carga e finalizar
+              </BotaoEnviar>
+            </form>
+          ) : (
+            <p className="rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-500 shadow-sm">
+              Aguardando o empilhador concluir o carregamento.
+            </p>
+          )}
         </div>
       )}
 

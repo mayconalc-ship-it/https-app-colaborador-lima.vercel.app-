@@ -3,13 +3,61 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { exigirContextoCarretas } from "@/lib/carretas-server";
+import { temAcessoModulo } from "@/lib/require-admin";
+import { getRevendaId } from "@/lib/revendas";
 import { datetimeLocalParaUTC } from "@/lib/comunicados";
 
 const ROTA = "/carretas-portaria";
 
 function erro(mensagem: string): never {
   redirect(`${ROTA}?erro=${encodeURIComponent(mensagem)}`);
+}
+
+/**
+ * Cadastro rápido de motorista, direto do "+" no campo da Portaria
+ * (pedido do dono, 27/08/2026) -- sem sair da tela de registrar chegada.
+ * Mesma validação do cadastro em Admin (nome completo + CPF de 11
+ * dígitos), mas com o gate mais permissivo de quem já pode registrar
+ * atendimento aqui (não exige o "produtividade-armazem:editar" completo
+ * que o cadastro do Admin pede -- senão o porteiro comum não conseguiria
+ * usar o botão).
+ *
+ * Devolve um objeto normal (nunca redireciona): é chamado direto do
+ * componente cliente, não de um `<form action>`.
+ */
+export async function criarMotoristaRapido(
+  formData: FormData,
+): Promise<{ ok: true; nome: string } | { ok: false; erro: string }> {
+  if (!(await temAcessoModulo("carretas-portaria"))) {
+    return { ok: false, erro: "Sem permissão para cadastrar motorista." };
+  }
+  const revendaId = await getRevendaId();
+  if (!revendaId) return { ok: false, erro: "Você não está em nenhuma revenda." };
+
+  const nome = String(formData.get("nome") ?? "").trim();
+  if (!nome) return { ok: false, erro: "Informe o nome do motorista." };
+  if (nome.split(/\s+/).filter(Boolean).length < 2) {
+    return { ok: false, erro: "Informe o nome completo do motorista." };
+  }
+  const cpf = String(formData.get("cpf") ?? "").replace(/\D/g, "");
+  if (cpf.length !== 11) return { ok: false, erro: "Informe um CPF válido, com 11 dígitos." };
+
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from("pa_motoristas")
+    .insert({ revenda_id: revendaId, nome, cpf })
+    .select("nome")
+    .single();
+
+  if (error) {
+    if (error.code === "23505") return { ok: false, erro: "Já existe um motorista cadastrado com esse nome." };
+    return { ok: false, erro: `Não foi possível cadastrar: ${error.message}` };
+  }
+
+  revalidatePath(ROTA);
+  return { ok: true, nome: data.nome };
 }
 
 function notasDoFormulario(formData: FormData, tipo: "produto" | "remessa") {
@@ -57,6 +105,9 @@ export async function registrarAtendimento(formData: FormData) {
   if (notasRemessa.length === 0) erro("Informe ao menos uma NF remessa.");
   if (notasProduto.some((n) => !/^\d+$/.test(n.numero))) {
     erro("NF produto aceita só números -- confira o número digitado.");
+  }
+  if (notasRemessa.some((n) => !/^\d+$/.test(n.numero))) {
+    erro("NF remessa aceita só números -- confira o número digitado.");
   }
 
   const supabase = await createClient();

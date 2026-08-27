@@ -6,7 +6,7 @@ import { ComboboxProduto } from "@/components/produtividade-armazem/ComboboxProd
 import { ComboboxNome } from "@/components/produtividade-armazem/ComboboxNome";
 import { ROTULO_UNIDADE_ITEM, UNIDADES_ITEM, diasAteValidade } from "@/lib/carretas";
 import { buscarEmpilhadores } from "@/app/admin/produtividade-armazem/actions";
-import { finalizarConferencia } from "./actions";
+import { criarEmpilhadorRapido, finalizarConferencia } from "./actions";
 
 const campo =
   "w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-base text-slate-900 focus:border-primary focus:outline-none";
@@ -127,6 +127,7 @@ export function FormFinalizarConferencia({
                 buscar={buscarEmpilhadores}
                 placeholder="Quem descarregou"
                 required
+                criarRapido={criarEmpilhadorRapido}
               />
               <input type="hidden" name="empilhador" value={empilhadores[chave] ?? ""} />
             </div>

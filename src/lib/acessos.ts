@@ -39,7 +39,8 @@ export type ModuloId =
   | "pa-cinco-s"
   | "pa-picking"
   | "carretas-portaria"
-  | "carretas-conferencia";
+  | "carretas-conferencia"
+  | "carretas-descarga";
 
 export type Modulo = {
   id: ModuloId;
@@ -228,10 +229,28 @@ export const MODULOS: Modulo[] = [
   },
   {
     id: "carretas-conferencia",
-    rotulo: "Monitor de Recebimento",
+    rotulo: "Monitor de Recebimento (Conferente)",
     emoji: "🖥️",
     href: "/carretas-conferencia",
     grupo: "Conteúdo do app",
+    // "editar" aqui é especificamente conferir carga, finalizar
+    // conferência e decidir o retorno (vazia/com AG) -- as ações de
+    // descarga (iniciar/finalizar descarga, concluir carga) moraram
+    // sempre na mesma tela mas viraram um módulo à parte
+    // (carretas-descarga) em 27/08/2026, pedido do dono: conferente e
+    // empilhador são funções diferentes, cada uma só mexe na sua etapa.
+    acoes: ["ver", "editar"],
+    subGrupoDe: "produtividade-armazem",
+  },
+  {
+    id: "carretas-descarga",
+    rotulo: "Monitor de Recebimento (Empilhador)",
+    emoji: "🏗️",
+    href: "/carretas-conferencia",
+    grupo: "Conteúdo do app",
+    // Mesma tela do Monitor de Recebimento -- só as ações de descarga
+    // (iniciar/finalizar descarga, concluir a carga de retorno) ficam
+    // atrás desta permissão, separada da de conferência.
     acoes: ["ver", "editar"],
     subGrupoDe: "produtividade-armazem",
   },
@@ -342,6 +361,7 @@ export const MODULOS_OPCIONAIS: ModuloId[] = [
   "pa-picking",
   "carretas-portaria",
   "carretas-conferencia",
+  "carretas-descarga",
 ];
 
 const MAPA = new Map(MODULOS.map((m) => [m.id, m]));

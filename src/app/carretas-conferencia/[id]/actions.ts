@@ -3,7 +3,10 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { exigirContextoCarretas } from "@/lib/carretas-server";
+import { temAcessoModulo } from "@/lib/require-admin";
+import { getRevendaId } from "@/lib/revendas";
 import { ehUnidadeItem, quantidadeNaoNegativa, quantidadePositiva } from "@/lib/carretas";
 
 function rota(id: string) {
@@ -12,6 +15,49 @@ function rota(id: string) {
 
 function erro(id: string, mensagem: string): never {
   redirect(`${rota(id)}?erro=${encodeURIComponent(mensagem)}`);
+}
+
+/**
+ * Cadastro rápido de empilhador, direto do "+" no campo da Conferência
+ * (pedido do dono, 27/08/2026) -- mesma ideia do criarMotoristaRapido em
+ * carretas-portaria/actions.ts. Quem tem acesso de conferência OU de
+ * descarga pode cadastrar -- o campo empilhador aparece pros dois lados
+ * eventualmente precisarem indicar quem descarregou.
+ */
+export async function criarEmpilhadorRapido(
+  formData: FormData,
+): Promise<{ ok: true; nome: string } | { ok: false; erro: string }> {
+  const [podeConferencia, podeDescarga] = await Promise.all([
+    temAcessoModulo("carretas-conferencia"),
+    temAcessoModulo("carretas-descarga"),
+  ]);
+  if (!podeConferencia && !podeDescarga) {
+    return { ok: false, erro: "Sem permissão para cadastrar empilhador." };
+  }
+  const revendaId = await getRevendaId();
+  if (!revendaId) return { ok: false, erro: "Você não está em nenhuma revenda." };
+
+  const nome = String(formData.get("nome") ?? "").trim();
+  if (!nome) return { ok: false, erro: "Informe o nome do empilhador." };
+  if (nome.split(/\s+/).filter(Boolean).length < 2) {
+    return { ok: false, erro: "Informe o nome completo do empilhador." };
+  }
+  const cpf = String(formData.get("cpf") ?? "").replace(/\D/g, "");
+  if (cpf.length !== 11) return { ok: false, erro: "Informe um CPF válido, com 11 dígitos." };
+
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from("pa_empilhadores")
+    .insert({ revenda_id: revendaId, nome, cpf })
+    .select("nome")
+    .single();
+
+  if (error) {
+    if (error.code === "23505") return { ok: false, erro: "Já existe um empilhador cadastrado com esse nome." };
+    return { ok: false, erro: `Não foi possível cadastrar: ${error.message}` };
+  }
+
+  return { ok: true, nome: data.nome };
 }
 
 /**
@@ -36,7 +82,7 @@ async function statusAposFase(
 
 /** O empilhador clica ao começar a tirar as caixas do caminhão. */
 export async function iniciarDescarga(formData: FormData) {
-  const { revendaId } = await exigirContextoCarretas("carretas-conferencia", "/carretas-conferencia");
+  const { revendaId } = await exigirContextoCarretas("carretas-descarga", "/carretas-conferencia");
   const atendimentoId = String(formData.get("atendimento_id") ?? "");
   if (!atendimentoId) erro(atendimentoId, "Atendimento inválido.");
 
@@ -60,7 +106,7 @@ export async function iniciarDescarga(formData: FormData) {
 
 /** O empilhador clica ao terminar de tirar tudo do caminhão. */
 export async function finalizarDescarga(formData: FormData) {
-  const { revendaId } = await exigirContextoCarretas("carretas-conferencia", "/carretas-conferencia");
+  const { revendaId } = await exigirContextoCarretas("carretas-descarga", "/carretas-conferencia");
   const atendimentoId = String(formData.get("atendimento_id") ?? "");
   if (!atendimentoId) erro(atendimentoId, "Atendimento inválido.");
 
@@ -272,7 +318,7 @@ export async function decidirRetorno(formData: FormData) {
 }
 
 export async function concluirCarga(formData: FormData) {
-  const { revendaId } = await exigirContextoCarretas("carretas-conferencia", "/carretas-conferencia");
+  const { revendaId } = await exigirContextoCarretas("carretas-descarga", "/carretas-conferencia");
 
   const atendimentoId = String(formData.get("atendimento_id") ?? "");
   if (!atendimentoId) erro(atendimentoId, "Atendimento inválido.");

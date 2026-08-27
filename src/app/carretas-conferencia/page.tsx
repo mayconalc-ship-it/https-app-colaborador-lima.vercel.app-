@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { PageHeader } from "@/components/PageHeader";
 import { createClient } from "@/lib/supabase/server";
 import { getRevendaId } from "@/lib/revendas";
-import { requireAcessoModulo } from "@/lib/require-admin";
+import { temAcessoModulo } from "@/lib/require-admin";
 import { formatarDataHora, LIMITE_AVARIA_ALERTA } from "@/lib/produtividade-armazem";
 import {
   RECEBIMENTO_CONFIG_PADRAO,
@@ -63,7 +63,16 @@ function nomeRelacionado(v: { nome: string } | { nome: string }[] | null) {
 }
 
 export default async function CarretasConferenciaPage() {
-  await requireAcessoModulo("carretas-conferencia");
+  // Conferente e empilhador viraram módulos separados (ver [id]/actions.ts)
+  // -- os dois continuam abrindo o mesmo Monitor pra acompanhar tudo,
+  // então basta ter QUALQUER um dos dois pra entrar aqui.
+  const [podeConferencia, podeDescarga] = await Promise.all([
+    temAcessoModulo("carretas-conferencia"),
+    temAcessoModulo("carretas-descarga"),
+  ]);
+  if (!podeConferencia && !podeDescarga) {
+    redirect(`/?erro=${encodeURIComponent("Você não tem acesso a este módulo. Fale com o Admin.")}`);
+  }
 
   const revendaId = await getRevendaId();
   if (!revendaId) redirect(`/?erro=${encodeURIComponent("Você não está em nenhuma revenda.")}`);

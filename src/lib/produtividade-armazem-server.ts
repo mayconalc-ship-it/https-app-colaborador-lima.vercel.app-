@@ -39,6 +39,7 @@ export const SUBMODULOS_ARMAZEM: ModuloId[] = [
   "pa-picking",
   "carretas-portaria",
   "carretas-conferencia",
+  "carretas-descarga",
 ];
 
 /** Passa quem: é dono; é liderança com a permissão de administrar a área

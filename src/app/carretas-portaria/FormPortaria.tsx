@@ -6,7 +6,7 @@ import { ComboboxNome } from "@/components/produtividade-armazem/ComboboxNome";
 import type { Fabrica, Transportadora } from "@/lib/produtividade-armazem";
 import { formatarPlaca } from "@/lib/carretas";
 import { buscarMotoristas } from "@/app/admin/produtividade-armazem/actions";
-import { registrarAtendimento } from "./actions";
+import { criarMotoristaRapido, registrarAtendimento } from "./actions";
 
 const campo =
   "w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-base text-slate-900 focus:border-primary focus:outline-none";
@@ -142,6 +142,7 @@ export function FormPortaria({
             buscar={buscarMotoristas}
             placeholder="Digite o nome do motorista"
             required
+            criarRapido={criarMotoristaRapido}
           />
           <input type="hidden" name="motorista_nome" value={motorista} />
         </div>
@@ -211,7 +212,7 @@ export function FormPortaria({
       </div>
 
       <ListaNotas titulo="NFs Produto" prefixo="produto" somenteNumeros />
-      <ListaNotas titulo="NFs Remessa" prefixo="remessa" />
+      <ListaNotas titulo="NFs Remessa" prefixo="remessa" somenteNumeros />
 
       <BotaoEnviar
         textoEnviando="Registrando..."
