@@ -152,16 +152,19 @@ function minutosEntre(inicioISO: string, fimISO: string): number {
 /**
  * TMA: se a carga era agendada, conta a partir do horário agendado (é a
  * régua que a fábrica/transportadora combinou); senão, conta a partir do
- * apontamento real da portaria (isso não mudou). O que muda desde a 063
- * é o FIM: vai até o conferente decidir se a carreta volta vazia ou com
- * AG (retornoDecidoEm), não mais só até o fim da descarga -- o tempo
- * entre "descarga pronta" e "decisão de retorno" também é atendimento em
- * andamento. Atendimentos finalizados antes da 063 não têm
- * retornoDecidoEm, então caem no `??` e mantêm o número de sempre
- * (fimDescargaEm) -- histórico não muda.
+ * apontamento real da portaria.
+ *
+ * O FIM é o fim da DESCARGA (decisão do dono, 27/08/2026). Entre a 063 e
+ * esta data o fim era a decisão de retorno, mas ela passou a ser
+ * registrada logo na chegada -- o conferente já sabe se a carreta volta
+ * carregada. Mantê-la como fim zeraria o TMA de todo mundo e faria o
+ * indicador parecer ótimo sem nada ter melhorado.
+ *
+ * Uma definição só, para carreta velha e nova: nada de `??` com dois
+ * critérios convivendo, que foi o problema do Despejo (caixa x unidade).
  */
 export function calcularTmaMinutos(a: AtendimentoCarreta): number | null {
-  const fim = a.retornoDecidoEm ?? a.fimDescargaEm;
+  const fim = a.fimDescargaEm;
   if (!fim) return null;
   const inicio = a.cargaAgendada && a.agendamentoEm ? a.agendamentoEm : a.chegadaEm;
   return Math.round(minutosEntre(inicio, fim));

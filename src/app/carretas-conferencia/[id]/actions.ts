@@ -64,21 +64,49 @@ export async function criarEmpilhadorRapido(
 /**
  * Descarga e conferência são fases independentes (desde a 063) -- o
  * empilhador descarrega, o conferente confere o que chegou, e uma pode
- * começar sem a outra ter começado. Este helper faz a transição de
- * status comum às quatro ações abaixo: sai de "aguardando_conferente"
- * assim que QUALQUER uma das duas fases começa, e vira
- * "aguardando_retorno" assim que as DUAS terminam (não importa a ordem).
+ * começar sem a outra ter começado.
+ *
+ * Quem manda no destino da carreta é a DESCARGA (pedido do dono,
+ * 27/08/2026): terminada a descarga o caminhão pode ir embora, e a
+ * conferência do que chegou continua no chão do armazém depois. Segurar o
+ * motorista esperando a contagem só queimaria pátio.
+ *
+ * Por isso a decisão do retorno virou um FATO à parte, que o conferente
+ * registra assim que sabe -- e não mais o gatilho que finaliza. Ao fim da
+ * descarga, o que já foi decidido é aplicado:
+ *   vazia   -> finalizado
+ *   com AG  -> em_carga (o empilhador carrega)
+ *   nada    -> aguardando_retorno (a decisão ainda não veio)
  */
-async function statusAposFase(
+async function aplicarFimDaDescarga(
   supabase: Awaited<ReturnType<typeof createClient>>,
   atendimentoId: string,
-): Promise<"em_andamento" | "aguardando_retorno"> {
+  agora: string,
+) {
   const { data } = await supabase
     .from("atendimentos_carretas")
-    .select("fim_descarga_em, fim_conferencia_em")
+    .select("tem_carga")
     .eq("id", atendimentoId)
     .maybeSingle();
-  return data?.fim_descarga_em && data?.fim_conferencia_em ? "aguardando_retorno" : "em_andamento";
+
+  if (data?.tem_carga === true) {
+    // Carregar só pode começar depois de terminar de descarregar, mesmo
+    // que o conferente tenha decidido o retorno lá no começo.
+    return supabase
+      .from("atendimentos_carretas")
+      .update({ status: "em_carga", inicio_carga_em: agora })
+      .eq("id", atendimentoId);
+  }
+  if (data?.tem_carga === false) {
+    return supabase
+      .from("atendimentos_carretas")
+      .update({ status: "finalizado", finalizacao_em: agora })
+      .eq("id", atendimentoId);
+  }
+  return supabase
+    .from("atendimentos_carretas")
+    .update({ status: "aguardando_retorno" })
+    .eq("id", atendimentoId);
 }
 
 /** O empilhador clica ao começar a tirar as caixas do caminhão. */
@@ -111,10 +139,11 @@ export async function finalizarDescarga(formData: FormData) {
   const atendimentoId = String(formData.get("atendimento_id") ?? "");
   if (!atendimentoId) erro(atendimentoId, "Atendimento inválido.");
 
+  const agora = new Date().toISOString();
   const supabase = await createClient();
   const { data: atualizado, error } = await supabase
     .from("atendimentos_carretas")
-    .update({ fim_descarga_em: new Date().toISOString() })
+    .update({ fim_descarga_em: agora })
     .eq("id", atendimentoId)
     .eq("revenda_id", revendaId)
     .not("inicio_descarga_em", "is", null)
@@ -124,8 +153,7 @@ export async function finalizarDescarga(formData: FormData) {
   if (error) erro(atendimentoId, `Não foi possível finalizar a descarga: ${error.message}`);
   if (!atualizado || atualizado.length === 0) erro(atendimentoId, "A descarga já foi finalizada ou ainda não foi iniciada.");
 
-  const novoStatus = await statusAposFase(supabase, atendimentoId);
-  await supabase.from("atendimentos_carretas").update({ status: novoStatus }).eq("id", atendimentoId);
+  await aplicarFimDaDescarga(supabase, atendimentoId, agora);
 
   revalidatePath(rota(atendimentoId));
   revalidatePath("/carretas-conferencia");
@@ -240,8 +268,9 @@ export async function finalizarConferencia(formData: FormData) {
   if (error) erro(atendimentoId, `Itens salvos, mas não foi possível finalizar a conferência: ${error.message}`);
   if (!atualizado || atualizado.length === 0) erro(atendimentoId, "A conferência já foi finalizada ou ainda não foi iniciada.");
 
-  const novoStatus = await statusAposFase(supabase, atendimentoId);
-  await supabase.from("atendimentos_carretas").update({ status: novoStatus }).eq("id", atendimentoId);
+  // A conferência não mexe mais no destino da carreta -- quem manda nisso
+  // é a descarga. Terminar a contagem depois que o caminhão já saiu é o
+  // caso NORMAL agora, e não pode reabrir um atendimento finalizado.
 
   revalidatePath(rota(atendimentoId));
   revalidatePath("/carretas-conferencia");
@@ -249,10 +278,18 @@ export async function finalizarConferencia(formData: FormData) {
 }
 
 /**
- * "Retorno vazio" (sem AG) finaliza direto. "Retorno com AG" grava
- * destino + itens de AG e abre a fase de carga. Só aparece quando
- * descarga E conferência já terminaram (status = aguardando_retorno).
- * `retorno_decidido_em` fecha o TMA (ver calcularTmaMinutos).
+ * O conferente informa se a carreta volta vazia ou carregada -- e, se
+ * carregada, com qual destino e quais AGs.
+ *
+ * Desde 27/08/2026 (pedido do dono) isto é um FATO registrado assim que
+ * ele sabe, normalmente logo na chegada, e não mais o botão que finaliza
+ * o atendimento. Registrar cedo tem dois ganhos: o empilhador já enxerga
+ * o que vai carregar enquanto descarrega, e ninguém fica esperando o fim
+ * da conferência para saber o destino do caminhão.
+ *
+ * O status só anda quando a DESCARGA termina (ver aplicarFimDaDescarga).
+ * A exceção é decidir DEPOIS que a descarga já acabou -- aí a transição
+ * que ficou pendente acontece agora.
  */
 export async function decidirRetorno(formData: FormData) {
   const { revendaId } = await exigirContextoCarretas("carretas-conferencia", "/carretas-conferencia");
@@ -286,17 +323,18 @@ export async function decidirRetorno(formData: FormData) {
 
   const agora = new Date().toISOString();
   const supabase = await createClient();
+  // Grava só a DECISÃO. Nada de status/finalização aqui -- quem aplica é
+  // o fim da descarga. Aceita qualquer atendimento ainda em andamento e
+  // que ninguém tenha decidido antes (`tem_carga is null` segura o clique
+  // duplo e a corrida entre dois conferentes).
   const { data: atualizado, error } = await supabase
     .from("atendimentos_carretas")
-    .update(
-      retornaComAg
-        ? { retorno_decidido_em: agora, tem_carga: true, inicio_carga_em: agora, status: "em_carga", destino_retorno: destinoRetorno }
-        : { retorno_decidido_em: agora, tem_carga: false, finalizacao_em: agora, status: "finalizado" },
-    )
+    .update({ retorno_decidido_em: agora, tem_carga: retornaComAg, destino_retorno: destinoRetorno })
     .eq("id", atendimentoId)
     .eq("revenda_id", revendaId)
-    .eq("status", "aguardando_retorno")
-    .select("id");
+    .is("tem_carga", null)
+    .in("status", ["aguardando_conferente", "em_andamento", "aguardando_retorno"])
+    .select("id, fim_descarga_em");
 
   if (error) erro(atendimentoId, `Não foi possível confirmar o retorno: ${error.message}`);
   if (!atualizado || atualizado.length === 0) erro(atendimentoId, "Este atendimento já foi atualizado por outra pessoa.");
@@ -311,6 +349,12 @@ export async function decidirRetorno(formData: FormData) {
       })),
     );
     if (erroAg) erro(atendimentoId, `Retorno confirmado, mas os itens de AG falharam: ${erroAg.message}`);
+  }
+
+  // Decidiu depois que a descarga já tinha acabado: a transição que ficou
+  // pendente naquele momento (aguardando_retorno) acontece agora.
+  if (atualizado[0]?.fim_descarga_em) {
+    await aplicarFimDaDescarga(supabase, atendimentoId, agora);
   }
 
   revalidatePath(rota(atendimentoId));

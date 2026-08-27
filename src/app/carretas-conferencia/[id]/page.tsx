@@ -192,6 +192,14 @@ export default async function DetalheAtendimentoPage({ params }: { params: Promi
   const nomesEmpilhadores = [...new Set(itens.map((i) => i.empilhador).filter(Boolean))];
 
   const emAndamento = a.status === "aguardando_conferente" || a.status === "em_andamento";
+  // A decisão do retorno virou um fato registrado assim que o conferente
+  // sabe (27/08/2026) -- normalmente na chegada, antes de descarga e
+  // conferência terminarem. `tem_carga` nulo = ainda não decidiu.
+  const retornoDecidido = a.tem_carga !== null;
+  const podeDecidirRetorno = podeConferir && !retornoDecidido && a.status !== "finalizado";
+  // O empilhador precisa ver o que vai carregar ENQUANTO descarrega, para
+  // já separar o AG -- era isso que só aparecia depois, em "em_carga".
+  const mostrarPlanoDeRetorno = retornoDecidido && a.status !== "finalizado";
 
   return (
     <div>
@@ -328,29 +336,32 @@ export default async function DetalheAtendimentoPage({ params }: { params: Promi
         </div>
       )}
 
-      {/* "Vazia ou carregada?" só aparece pro conferente decidir -- o
-          empilhador só vai ver o resultado depois de decidido (destino/AG
-          aparecem pra todo mundo lá embaixo, em "em_carga"/"finalizado"). */}
-      {a.status === "aguardando_retorno" && (
-        podeConferir ? (
-          <FormDecidirRetorno
-            atendimentoId={a.id}
-            agCatalogo={agCatalogo}
-            fabricas={fabricas}
-            podeEditarCatalogo={podeEditarCatalogo}
-          />
-        ) : (
-          <p className="rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-500 shadow-sm">
-            Aguardando o conferente decidir se a carreta volta vazia ou carregada.
-          </p>
-        )
+      {/* "Vazia ou carregada?" é do conferente e aparece assim que ele
+          entra -- ele já sabe pela DT, não precisa esperar descarga nem
+          conferência terminarem. */}
+      {podeDecidirRetorno && (
+        <FormDecidirRetorno
+          atendimentoId={a.id}
+          agCatalogo={agCatalogo}
+          fabricas={fabricas}
+          podeEditarCatalogo={podeEditarCatalogo}
+        />
       )}
 
-      {a.status === "em_carga" && (
-        <div className="space-y-4">
-          {(a.destino_retorno || agItens.length > 0) && (
+      {!podeConferir && !retornoDecidido && a.status !== "finalizado" && (
+        <p className="rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-500 shadow-sm">
+          Aguardando o conferente informar se a carreta volta vazia ou carregada.
+        </p>
+      )}
+
+      {/* Plano de retorno: some do "só depois de tudo pronto" e passa a
+          aparecer assim que o conferente decide, para o empilhador já ir
+          separando o AG enquanto descarrega. */}
+      {mostrarPlanoDeRetorno && (
+        <div className="mt-4">
+          {a.tem_carga ? (
             <div className="rounded-2xl border border-purple-200 bg-purple-50 p-4">
-              <p className="flex items-center gap-1.5 text-sm font-bold text-purple-900">🔄 Retorno com AG</p>
+              <p className="flex items-center gap-1.5 text-sm font-bold text-purple-900">🔄 Vai retornar com AG</p>
               {a.destino_retorno && <p className="mt-1 text-sm text-purple-800">Destino: {a.destino_retorno}</p>}
               {agItens.length > 0 && (
                 <ul className="mt-2 space-y-1 text-xs text-purple-700">
@@ -364,8 +375,22 @@ export default async function DetalheAtendimentoPage({ params }: { params: Promi
                   })}
                 </ul>
               )}
+              {a.status !== "em_carga" && (
+                <p className="mt-2 text-xs text-purple-700">
+                  Pode ir separando. O carregamento libera quando a descarga terminar.
+                </p>
+              )}
             </div>
+          ) : (
+            <p className="rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-600 shadow-sm">
+              ↩️ Esta carreta volta <strong>vazia</strong> — finaliza sozinha quando a descarga terminar.
+            </p>
           )}
+        </div>
+      )}
+
+      {a.status === "em_carga" && (
+        <div className="mt-4 space-y-4">
           {podeDescarregar ? (
             <form action={concluirCarga} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
               <input type="hidden" name="atendimento_id" value={a.id} />
@@ -425,7 +450,7 @@ export default async function DetalheAtendimentoPage({ params }: { params: Promi
           <details className="rounded-xl bg-slate-50 p-3 text-xs text-slate-500">
             <summary className="cursor-pointer font-semibold text-slate-600">ℹ️ Como cada indicador é medido</summary>
             <ul className="mt-2 space-y-1.5">
-              <li><strong>TMA Total</strong> — o principal: da chegada (ou do horário agendado, se era agendada) até o conferente decidir se a carreta volta vazia ou com AG. Inclui espera, descarga e conferência -- tudo o que acontece antes dessa decisão.</li>
+              <li><strong>TMA Total</strong> — o principal: da chegada (ou do horário agendado, se era agendada) até o FIM DA DESCARGA. É o tempo em que a carreta esteve presa ao armazém: terminada a descarga o caminhão pode ir embora, e a conferência do que chegou segue no chão depois.</li>
               <li><strong>Espera na portaria</strong> — da chegada até alguém começar a trabalhar (descarga ou conferência, o que vier primeiro). É um recorte DE DENTRO do TMA, não soma com ele.</li>
               <li><strong>Tempo de descarga</strong> — só a fase de tirar as caixas do caminhão, do empilhador iniciar até finalizar.</li>
               <li><strong>Tempo de conferência</strong> — só a fase de contar/registrar o que chegou, do conferente iniciar até finalizar. Pode acontecer ao mesmo tempo que a descarga, por isso os dois não somam pro TMA.</li>
