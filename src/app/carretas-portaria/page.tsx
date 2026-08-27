@@ -3,7 +3,7 @@ import Link from "next/link";
 import { PageHeader } from "@/components/PageHeader";
 import { createClient } from "@/lib/supabase/server";
 import { getRevendaId } from "@/lib/revendas";
-import { podeNoModulo, requireAcessoModulo } from "@/lib/require-admin";
+import { requireAcessoModulo } from "@/lib/require-admin";
 import type { Fabrica, Transportadora } from "@/lib/produtividade-armazem";
 import { formatarDataHora } from "@/lib/produtividade-armazem";
 import { ROTULO_STATUS, calcularTmaMinutos, formatarMinutos, type AtendimentoCarreta } from "@/lib/carretas";
@@ -38,9 +38,12 @@ export default async function CarretasPortariaPage({
   searchParams: Promise<{ aba?: string; erro?: string; sucesso?: string }>;
 }) {
   await requireAcessoModulo("carretas-portaria");
-  // O "+" de cadastrar fábrica/transportadora na hora só aparece para quem
-  // já podia mexer nesses catálogos pelo Admin. A ação confere de novo.
-  const podeEditarCatalogo = await podeNoModulo("produtividade-armazem", "editar");
+  // Quem chegou aqui já tem o módulo da Portaria, e desde 27/08/2026
+  // (pedido do dono) isso basta para cadastrar fábrica/transportadora na
+  // hora: carreta nova chega com fornecedor/transportador que ainda não
+  // está no catálogo, e esperar o Admin deixaria o motorista parado no
+  // portão. A ação no servidor aceita a mesma porta (catalogos-rapidos.ts).
+  const podeEditarCatalogo = true;
 
   const sp = await searchParams;
   const aba: Aba = sp.aba === "historico" ? "historico" : "lancar";

@@ -60,8 +60,9 @@ function erroDoBanco(mensagem: string, codigo?: string) {
 }
 
 export async function criarFabricaRapida(formData: FormData): Promise<Resultado> {
-  // Conferente cadastra a fábrica de destino do retorno sem sair da tela.
-  const ctx = await contexto(["carretas-conferencia"]);
+  // Porteiro cadastra a fábrica de origem na chegada; conferente cadastra
+  // a de destino do retorno. Os dois, com a carreta parada na frente.
+  const ctx = await contexto(["carretas-portaria", "carretas-conferencia"]);
   if (!ctx.ok) return ctx;
 
   const nome = String(formData.get("nome") ?? "").trim();
@@ -80,8 +81,8 @@ export async function criarFabricaRapida(formData: FormData): Promise<Resultado>
 }
 
 export async function criarTransportadoraRapida(formData: FormData): Promise<Resultado> {
-  // Só liderança por enquanto: nenhuma tela de operação mostra este "+".
-  const ctx = await contexto([]);
+  // Transportadora nova aparece na chegada, com o motorista esperando.
+  const ctx = await contexto(["carretas-portaria"]);
   if (!ctx.ok) return ctx;
 
   const nome = String(formData.get("nome") ?? "").trim();
