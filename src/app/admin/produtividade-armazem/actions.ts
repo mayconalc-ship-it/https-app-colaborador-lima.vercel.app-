@@ -886,22 +886,42 @@ export async function buscarProdutos(termo: string) {
 /** Mesma busca, mas só entre os produtos prontos para Reepack/Despejo
  *  (com Fator Hecto e embalagem vinculada) -- é a lista bem menor que
  *  os dois lançamentos oferecem pra escolha. */
-export async function buscarProdutosReepack(termo: string) {
+/**
+ * Busca com Cluster e Tipo opcionais (filtro em cascata pedido pelo dono,
+ * 27/08/2026): sem eles, é preciso digitar pelo menos 2 letras, como
+ * sempre; com um dos dois marcado, dá pra navegar a lista mesmo sem
+ * digitar nada -- é o que permite "Cluster: Cerveja, Tipo: Descartável"
+ * sozinhos já mostrarem os produtos.
+ *
+ * Limite subiu de 20 pra 50: com "ANTARCTICA" sem filtro nenhum, por
+ * exemplo, existem 37 produtos numa revenda só, ordenados por código
+ * (texto, não número) -- o 9067 caía na posição 28 e nunca aparecia com
+ * o limite antigo. 50 cobre esse caso; o par Cluster+Tipo reduz ainda
+ * mais o total normalmente.
+ */
+export async function buscarProdutosReepack(
+  termo: string,
+  filtros?: { cluster?: string; tipo?: string },
+) {
   const revendaId = await exigirRevenda("/produtividade-armazem");
-  if (termo.trim().length < 2) return [];
+  const t = termo.trim();
+  const temFiltro = Boolean(filtros?.cluster || filtros?.tipo);
+  if (t.length < 2 && !temFiltro) return [];
 
   const supabase = await createClient();
-  const t = termo.trim();
-  const { data } = await supabase
+  let consulta = supabase
     .from("pa_produtos")
     .select("id, codigo, descricao")
     .eq("revenda_id", revendaId)
     .eq("ativo", true)
     .not("fator_hecto", "is", null)
-    .not("embalagem_id", "is", null)
-    .or(`codigo.ilike.%${t}%,descricao.ilike.%${t}%`)
-    .order("codigo")
-    .limit(20);
+    .not("embalagem_id", "is", null);
+
+  if (filtros?.cluster) consulta = consulta.eq("cluster_produto", filtros.cluster);
+  if (filtros?.tipo) consulta = consulta.eq("tipo", filtros.tipo);
+  if (t) consulta = consulta.or(`codigo.ilike.%${t}%,descricao.ilike.%${t}%`);
+
+  const { data } = await consulta.order("codigo").limit(50);
   return data ?? [];
 }
 

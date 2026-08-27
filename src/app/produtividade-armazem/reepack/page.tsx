@@ -5,8 +5,7 @@ import { BotaoExcluir } from "@/components/BotaoExcluir";
 import { createClient } from "@/lib/supabase/server";
 import { getRevendaId } from "@/lib/revendas";
 import { podeNoModulo, requireAcessoModulo } from "@/lib/require-admin";
-import { buscarProdutosReepack } from "@/app/admin/produtividade-armazem/actions";
-import { ComboboxProduto } from "@/components/produtividade-armazem/ComboboxProduto";
+import { ComboboxProdutoReepack } from "@/components/produtividade-armazem/ComboboxProdutoReepack";
 import {
   ROTULO_TURNO,
   TURNOS,
@@ -121,6 +120,10 @@ export default async function ReepackPage({
 
   const produtos: ProdutoReepack[] = (produtosBanco ?? []).map(produtoReepackDeLinha);
   const produtoPorId = new Map(produtos.map((p) => [p.id, p]));
+  const clusters = [...new Set(produtos.map((p) => p.clusterProduto).filter((c): c is string => Boolean(c)))].sort(
+    (a, b) => a.localeCompare(b, "pt-BR"),
+  );
+  const tipos = [...new Set(produtos.map((p) => p.tipo).filter((t): t is string => Boolean(t)))].sort();
   const aberto = abertoBanco as Aberto | null;
   const minhasLancamentos = (minhas ?? []) as Lancamento[];
   const historico = (doPeriodo ?? []) as Lancamento[];
@@ -219,10 +222,7 @@ export default async function ReepackPage({
               action={iniciarReepack}
               className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4"
             >
-              <div>
-                <label className={rotulo} htmlFor="produto_id">Produto</label>
-                <ComboboxProduto buscar={buscarProdutosReepack} placeholder="Digite o código ou a descrição do produto" />
-              </div>
+              <ComboboxProdutoReepack clusters={clusters} tipos={tipos} />
 
               <div>
                 <span className={rotulo}>Turno</span>
@@ -272,6 +272,8 @@ export default async function ReepackPage({
                     meta={l.produto_id ? (produtoPorId.get(l.produto_id)?.metaReepackHora ?? null) : null}
                     podeExcluir={l.colaborador_id === perfil.id || podeExcluirQualquer}
                     podeEditar={l.colaborador_id === perfil.id}
+                    clusters={clusters}
+                    tipos={tipos}
                   />
                 ))}
               </ul>
@@ -282,17 +284,17 @@ export default async function ReepackPage({
 
       {aba === "historico" && (
         <section>
-          <form method="get" className="mb-4 flex flex-wrap items-end gap-2">
+          <form method="get" className="mb-4 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-end">
             <input type="hidden" name="aba" value="historico" />
-            <div>
+            <div className="min-w-0">
               <label className={rotulo} htmlFor="de">De</label>
-              <input id="de" type="date" name="de" defaultValue={de} className={campo} />
+              <input id="de" type="date" name="de" defaultValue={de} className={`${campo} sm:w-auto`} />
             </div>
-            <div>
+            <div className="min-w-0">
               <label className={rotulo} htmlFor="ate">Até</label>
-              <input id="ate" type="date" name="ate" defaultValue={ate} className={campo} />
+              <input id="ate" type="date" name="ate" defaultValue={ate} className={`${campo} sm:w-auto`} />
             </div>
-            <div className="min-w-[10rem] flex-1">
+            <div className="col-span-2 min-w-0 sm:col-span-1 sm:min-w-[10rem] sm:flex-1">
               <label className={rotulo} htmlFor="produto">Produto</label>
               <select id="produto" name="produto" defaultValue={produtoFiltro} className={campo}>
                 <option value="">Todos</option>
@@ -301,7 +303,7 @@ export default async function ReepackPage({
                 ))}
               </select>
             </div>
-            <div className="min-w-[10rem] flex-1">
+            <div className="col-span-2 min-w-0 sm:col-span-1 sm:min-w-[10rem] sm:flex-1">
               <label className={rotulo} htmlFor="colab">Colaborador</label>
               <select id="colab" name="colab" defaultValue={colab} className={campo}>
                 <option value="">Todos</option>
@@ -310,7 +312,10 @@ export default async function ReepackPage({
                 ))}
               </select>
             </div>
-            <button type="submit" className="rounded-lg bg-slate-800 px-3 py-2 text-sm font-semibold text-white">
+            <button
+              type="submit"
+              className="col-span-2 rounded-lg bg-slate-800 px-3 py-2 text-sm font-semibold text-white sm:col-span-1"
+            >
               Filtrar
             </button>
           </form>
@@ -330,6 +335,8 @@ export default async function ReepackPage({
                   podeExcluir={l.colaborador_id === perfil.id || podeExcluirQualquer}
                   podeEditar={l.colaborador_id === perfil.id}
                   mostrarColaborador
+                  clusters={clusters}
+                  tipos={tipos}
                 />
               ))}
             </ul>
@@ -354,6 +361,8 @@ function LinhaReepack({
   podeExcluir,
   podeEditar,
   mostrarColaborador = false,
+  clusters,
+  tipos,
 }: {
   l: Lancamento;
   produtoRotulo: string;
@@ -361,6 +370,8 @@ function LinhaReepack({
   podeExcluir: boolean;
   podeEditar: boolean;
   mostrarColaborador?: boolean;
+  clusters: string[];
+  tipos: string[];
 }) {
   const horas = (new Date(l.fim).getTime() - new Date(l.inicio).getTime()) / 3_600_000;
   const taxa = taxaPorHora(l.quantidade, horas);
@@ -395,7 +406,7 @@ function LinhaReepack({
           )}
           <div className="flex gap-1">
             {podeEditar && (
-              <EditarProdutoReepack id={l.id} produtoAtual={produtoRotulo} />
+              <EditarProdutoReepack id={l.id} produtoAtual={produtoRotulo} clusters={clusters} tipos={tipos} />
             )}
             {podeExcluir && (
               <BotaoExcluir
@@ -416,7 +427,17 @@ function LinhaReepack({
 
 /** Só o PRODUTO dá pra corrigir -- início, fim e quantidade não aparecem
  *  aqui de propósito (ver comentário em editarReepack, no actions.ts). */
-function EditarProdutoReepack({ id, produtoAtual }: { id: string; produtoAtual: string }) {
+function EditarProdutoReepack({
+  id,
+  produtoAtual,
+  clusters,
+  tipos,
+}: {
+  id: string;
+  produtoAtual: string;
+  clusters: string[];
+  tipos: string[];
+}) {
   return (
     <details className="group">
       <summary className="cursor-pointer list-none rounded-lg border border-slate-200 px-2 py-1 text-xs font-semibold text-slate-600 marker:content-none hover:bg-slate-50 [&::-webkit-details-marker]:hidden">
@@ -428,7 +449,7 @@ function EditarProdutoReepack({ id, produtoAtual }: { id: string; produtoAtual: 
       >
         <input type="hidden" name="id" value={id} />
         <p className="text-[11px] text-slate-500">Produto atual: {produtoAtual}</p>
-        <ComboboxProduto buscar={buscarProdutosReepack} placeholder="Digite o código ou a descrição do produto certo" />
+        <ComboboxProdutoReepack clusters={clusters} tipos={tipos} />
         <BotaoEnviar compacto className="w-full rounded-lg bg-primary px-2 py-1 text-xs font-semibold text-white">
           Salvar
         </BotaoEnviar>
