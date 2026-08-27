@@ -95,19 +95,22 @@ export default async function DetalheAtendimentoPage({ params }: { params: Promi
   // continuam abrindo a MESMA tela: quem tiver qualquer um dos dois entra
   // para acompanhar; os botões de cada etapa é que ficam condicionados a
   // ter a permissão específica dela.
-  const [podeVerConferencia, podeVerDescarga] = await Promise.all([
+  // Quem PODE EXECUTAR cada etapa tem que sair da MESMA fonte que a ação
+  // de servidor consulta (exigirContextoCarretas -> requireAcessoModulo ->
+  // temAcessoModulo, que lê colaborador_modulos_extra). Usar podeNoModulo
+  // aqui escondeu os botões de todo mundo em 27/08/2026: conferente e
+  // empilhador recebem acesso pela liberação individual, não por permissão
+  // de liderança -- e podeNoModulo só enxerga a segunda.
+  const [podeConferir, podeDescarregar] = await Promise.all([
     temAcessoModulo("carretas-conferencia"),
     temAcessoModulo("carretas-descarga"),
   ]);
-  if (!podeVerConferencia && !podeVerDescarga) {
+  if (!podeConferir && !podeDescarregar) {
     redirect(`/?erro=${encodeURIComponent("Você não tem acesso a este módulo. Fale com o Admin.")}`);
   }
-  const [podeConferir, podeDescarregar, podeEditarCatalogo] = await Promise.all([
-    podeNoModulo("carretas-conferencia", "editar"),
-    podeNoModulo("carretas-descarga", "editar"),
-    // "+" de fábrica/AG só para quem já podia editar esses catálogos.
-    podeNoModulo("produtividade-armazem", "editar"),
-  ]);
+  // O "+" de cadastrar fábrica/AG é outra história: mexer em catálogo
+  // continua exigindo a permissão de liderança, como no Admin.
+  const podeEditarCatalogo = await podeNoModulo("produtividade-armazem", "editar");
 
   const { id } = await params;
 
