@@ -10,7 +10,13 @@ import { getPerfil } from "@/lib/sessao";
 import { subirFotoHorimetro } from "@/lib/produtividade-armazem-server";
 import { criarNotificacao } from "@/lib/notificacoes-server";
 import { enviarPushDaRevenda } from "@/lib/push-server";
-import { ehDepositoFefo, ehRuaFefo, rotuloValidade } from "@/lib/fefo";
+import {
+  ROTULO_UNIDADE_FEFO_CURTO,
+  ehDepositoFefo,
+  ehRuaFefo,
+  ehUnidadeFefo,
+  rotuloValidade,
+} from "@/lib/fefo";
 
 const ROTA = "/fefo";
 
@@ -74,14 +80,16 @@ export async function registrarQuebraFefo(formData: FormData) {
   if (!ehDepositoFefo(deposito)) erro("Escolha o depósito (A, B ou C).");
   if (!ehRuaFefo(ruaBruta)) erro("Escolha a rua (de 1 a 10).");
   if (!validade) erro("Informe a validade do palete encontrado.");
-  if (!menorValidade) erro("Informe a menor validade que existe no estoque.");
 
-  // A menor data não pode ser MAIOR que a do palete achado -- se fosse,
-  // não haveria data menor sendo pulada. O banco também segura isso
-  // (constraint pa_fefo_datas_coerentes), aqui é só pra mensagem boa.
-  if (menorValidade > validade) {
+  // Menor validade é OPCIONAL: quem acha a quebra no corredor nem sempre
+  // sabe a menor data do estoque inteiro, e exigir isso faria a pessoa
+  // desistir de avisar. Quando vier, ainda tem que ser coerente.
+  if (menorValidade && menorValidade > validade) {
     erro("A menor validade do estoque não pode ser maior que a validade do palete encontrado.");
   }
+
+  const unidade = String(formData.get("unidade") ?? "");
+  if (!ehUnidadeFefo(unidade)) erro("Escolha a unidade (palete, caixa ou unidade).");
 
   const quantidade = Number(formData.get("quantidade"));
   if (!Number.isInteger(quantidade) || quantidade <= 0) erro("Informe a quantidade encontrada.");
@@ -116,8 +124,9 @@ export async function registrarQuebraFefo(formData: FormData) {
       produto_id: produtoId,
       motivo_id: motivo.id,
       quantidade,
+      unidade,
       validade,
-      menor_validade: menorValidade,
+      menor_validade: menorValidade || null,
       deposito,
       rua: Number(ruaBruta),
       ponto,
@@ -146,7 +155,7 @@ export async function registrarQuebraFefo(formData: FormData) {
     const nomeProduto = produto ? `${produto.codigo} — ${produto.descricao}` : "produto";
     const prazo = rotuloValidade(validade);
     const titulo = `🚨 Quebra de FEFO — Depósito ${deposito}, rua ${ruaBruta}`;
-    const mensagem = `${motivo.nome}. ${nomeProduto}, ${quantidade} un. ${prazo.texto}. Informado por ${perfil.nome}.`;
+    const mensagem = `${motivo.nome}. ${nomeProduto}, ${quantidade} ${ROTULO_UNIDADE_FEFO_CURTO[unidade]}. ${prazo.texto}. Informado por ${perfil.nome}.`;
 
     await criarNotificacao({
       modulo: "produtividade-armazem",

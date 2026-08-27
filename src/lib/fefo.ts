@@ -31,6 +31,31 @@ export const MOTIVOS_DO_PADRAO = [
   "Deveria estar bloqueado e não estava",
 ] as const;
 
+/**
+ * Unidade da quantidade encontrada. Sem ela "12" é ambíguo -- 12 paletes
+ * e 12 garrafas são problemas de tamanhos bem diferentes, e duas
+ * ocorrências do mesmo produto não dariam para somar.
+ */
+export const UNIDADES_FEFO = ["palete", "caixa", "unidade"] as const;
+export type UnidadeFefo = (typeof UNIDADES_FEFO)[number];
+
+export const ROTULO_UNIDADE_FEFO: Record<UnidadeFefo, string> = {
+  palete: "Palete(s)",
+  caixa: "Caixa(s)",
+  unidade: "Unidade(s)",
+};
+
+/** Forma curta, para caber no cartão da lista. */
+export const ROTULO_UNIDADE_FEFO_CURTO: Record<UnidadeFefo, string> = {
+  palete: "plt",
+  caixa: "cx",
+  unidade: "un",
+};
+
+export function ehUnidadeFefo(v: unknown): v is UnidadeFefo {
+  return typeof v === "string" && (UNIDADES_FEFO as readonly string[]).includes(v);
+}
+
 export const DEPOSITOS_FEFO = ["A", "B", "C"] as const;
 export type DepositoFefo = (typeof DEPOSITOS_FEFO)[number];
 

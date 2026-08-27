@@ -6,7 +6,9 @@ import { ComboboxProdutoReepack } from "@/components/produtividade-armazem/Combo
 import {
   DEPOSITOS_FEFO,
   DIAS_VALIDADE_CRITICA,
+  ROTULO_UNIDADE_FEFO,
   RUAS_FEFO,
+  UNIDADES_FEFO,
   rotuloValidade,
   type MotivoFefo,
 } from "@/lib/fefo";
@@ -89,17 +91,27 @@ export function FormQuebraFefo({
           buscarProdutos={buscarProdutosFefo}
           cookiePath="/fefo"
         />
-        <div>
-          <label className={rotulo} htmlFor="quantidade">Quantidade encontrada</label>
-          <input
-            id="quantidade"
-            name="quantidade"
-            type="number"
-            inputMode="numeric"
-            min={1}
-            required
-            className={campo}
-          />
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className={rotulo} htmlFor="quantidade">Quantidade</label>
+            <input
+              id="quantidade"
+              name="quantidade"
+              type="number"
+              inputMode="numeric"
+              min={1}
+              required
+              className={campo}
+            />
+          </div>
+          <div>
+            <label className={rotulo} htmlFor="unidade">Unidade</label>
+            <select id="unidade" name="unidade" required className={campo} defaultValue="caixa">
+              {UNIDADES_FEFO.map((u) => (
+                <option key={u} value={u}>{ROTULO_UNIDADE_FEFO[u]}</option>
+              ))}
+            </select>
+          </div>
         </div>
       </div>
 
@@ -146,19 +158,24 @@ export function FormQuebraFefo({
             )}
           </div>
           <div>
-            <label className={rotulo} htmlFor="menor_validade">Menor validade no estoque</label>
+            <label className={rotulo} htmlFor="menor_validade">
+              Menor validade no estoque <span className="normal-case text-slate-400">(opcional)</span>
+            </label>
             <input
               id="menor_validade"
               name="menor_validade"
               type="date"
-              required
               value={menorValidade}
               onChange={(e) => setMenorValidade(e.target.value)}
               className={campo}
             />
-            {datasInvertidas && (
+            {datasInvertidas ? (
               <p className="mt-1 text-xs font-semibold text-red-600">
                 A menor validade não pode ser maior que a do palete encontrado.
+              </p>
+            ) : (
+              <p className="mt-1 text-xs text-slate-400">
+                Se você não souber, deixe em branco — o controle completa depois.
               </p>
             )}
           </div>

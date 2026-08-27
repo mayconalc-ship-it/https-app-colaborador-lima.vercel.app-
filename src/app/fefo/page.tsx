@@ -7,7 +7,13 @@ import { getRevendaId } from "@/lib/revendas";
 import { getPerfil } from "@/lib/sessao";
 import { temAcessoModulo } from "@/lib/require-admin";
 import { formatarDataHora } from "@/lib/produtividade-armazem";
-import { diasAberta, rotuloValidade, type MotivoFefo } from "@/lib/fefo";
+import {
+  ROTULO_UNIDADE_FEFO_CURTO,
+  diasAberta,
+  ehUnidadeFefo,
+  rotuloValidade,
+  type MotivoFefo,
+} from "@/lib/fefo";
 import { FormQuebraFefo } from "./FormQuebraFefo";
 import { tratarQuebraFefo } from "./actions";
 
@@ -21,8 +27,9 @@ const campo =
 type Ocorrencia = {
   id: string;
   quantidade: number;
+  unidade: string;
   validade: string;
-  menor_validade: string;
+  menor_validade: string | null;
   deposito: string;
   rua: number;
   ponto: string | null;
@@ -78,7 +85,7 @@ export default async function FefoPage({
 
   const supabase = await createClient();
   const colunas =
-    "id, quantidade, validade, menor_validade, deposito, rua, ponto, rua_bloqueada, foto_url, observacao, colaborador_id, colaborador_nome, criado_em, status, acao, tratado_por_nome, tratado_em, pa_produtos(codigo, descricao), pa_fefo_motivos(nome, emoji)";
+    "id, quantidade, unidade, validade, menor_validade, deposito, rua, ponto, rua_bloqueada, foto_url, observacao, colaborador_id, colaborador_nome, criado_em, status, acao, tratado_por_nome, tratado_em, pa_produtos(codigo, descricao), pa_fefo_motivos(nome, emoji)";
 
   const [{ data: produtosBanco }, { data: minhasBanco }, { data: todasBanco }, { data: motivosBanco }] = await Promise.all([
     podeInformar
@@ -244,7 +251,8 @@ function CartaoOcorrencia({
           <p className="text-sm font-bold text-slate-900">{motivoRotulo(o.pa_fefo_motivos)}</p>
           <p className="mt-0.5 break-words text-sm text-slate-700">{produtoRotulo(o.pa_produtos)}</p>
           <p className="text-xs text-slate-600">
-            {o.quantidade} un · Depósito {o.deposito}, rua {o.rua}
+            {o.quantidade} {ehUnidadeFefo(o.unidade) ? ROTULO_UNIDADE_FEFO_CURTO[o.unidade] : o.unidade} ·
+            Depósito {o.deposito}, rua {o.rua}
             {o.ponto ? ` · ${o.ponto}` : ""}
           </p>
         </div>
@@ -268,7 +276,11 @@ function CartaoOcorrencia({
         <span className={prazo.critico ? "font-semibold text-red-700" : "text-slate-500"}>
           {prazo.critico ? "⚠️ " : ""}Validade {o.validade} — {prazo.texto}
         </span>
-        <span className="text-slate-500">Menor no estoque: {o.menor_validade}</span>
+        {o.menor_validade ? (
+          <span className="text-slate-500">Menor no estoque: {o.menor_validade}</span>
+        ) : (
+          <span className="text-slate-400">Menor no estoque: não informada</span>
+        )}
       </div>
 
       {o.observacao && <p className="mt-2 text-xs text-slate-600">{o.observacao}</p>}
