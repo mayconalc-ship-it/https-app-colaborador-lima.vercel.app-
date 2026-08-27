@@ -52,9 +52,11 @@ function CampoValidade({ diasMinimosValidadeAlerta }: { diasMinimosValidadeAlert
 export function FormFinalizarConferencia({
   atendimentoId,
   diasMinimosValidadeAlerta,
+  empilhadoresCadastrados = [],
 }: {
   atendimentoId: string;
   diasMinimosValidadeAlerta: number;
+  empilhadoresCadastrados?: { id: string; nome: string }[];
 }) {
   const [itens, setItens] = useState<string[]>([novaChave()]);
   const [empilhadores, setEmpilhadores] = useState<Record<string, string>>({ [itens[0]]: "" });
@@ -129,6 +131,7 @@ export function FormFinalizarConferencia({
                 placeholder="Quem descarregou"
                 required
                 criarRapido={criarEmpilhadorRapido}
+                sugestoes={empilhadoresCadastrados}
               />
               <input type="hidden" name="empilhador" value={empilhadores[chave] ?? ""} />
             </div>

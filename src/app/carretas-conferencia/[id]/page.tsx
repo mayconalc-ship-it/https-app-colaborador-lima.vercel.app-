@@ -121,7 +121,7 @@ export default async function DetalheAtendimentoPage({ params }: { params: Promi
   if (!revendaId) redirect(`/?erro=${encodeURIComponent("Você não está em nenhuma revenda.")}`);
 
   const supabase = await createClient();
-  const [{ data: atendimentoBanco }, { data: notasBanco }, { data: itensBanco }, { data: agItensBanco }, { data: agCatalogoBanco }, { data: configBanco }, { data: fabricasBanco }] =
+  const [{ data: atendimentoBanco }, { data: notasBanco }, { data: itensBanco }, { data: agItensBanco }, { data: agCatalogoBanco }, { data: configBanco }, { data: fabricasBanco }, { data: empilhadoresBanco }] =
     await Promise.all([
       supabase
         .from("atendimentos_carretas")
@@ -152,6 +152,14 @@ export default async function DetalheAtendimentoPage({ params }: { params: Promi
         .eq("revenda_id", revendaId)
         .maybeSingle(),
       supabase.from("pa_fabricas").select("id, nome").eq("revenda_id", revendaId).eq("ativo", true).order("nome"),
+      // Catálogo curto (empilhadores da casa): vai pronto para a tela, para
+      // a lista abrir no primeiro toque em vez de exigir 2 letras certas.
+      supabase
+        .from("pa_empilhadores")
+        .select("id, nome")
+        .eq("revenda_id", revendaId)
+        .eq("ativo", true)
+        .order("nome"),
     ]);
 
   const a = atendimentoBanco as unknown as LinhaAtendimento | null;
@@ -163,6 +171,7 @@ export default async function DetalheAtendimentoPage({ params }: { params: Promi
   const agCatalogo = (agCatalogoBanco ?? []) as { id: string; codigo: string; descricao: string; unidade: string }[];
   const diasMinimosValidadeAlerta = configBanco?.dias_minimos_validade_alerta ?? RECEBIMENTO_CONFIG_PADRAO.diasMinimosValidadeAlerta;
   const fabricas = (fabricasBanco ?? []) as { id: string; nome: string }[];
+  const empilhadores = (empilhadoresBanco ?? []) as { id: string; nome: string }[];
   const notasProduto = notas.filter((n) => n.tipo === "produto");
   const notasRemessa = notas.filter((n) => n.tipo === "remessa");
 
@@ -326,7 +335,11 @@ export default async function DetalheAtendimentoPage({ params }: { params: Promi
 
           {a.inicio_conferencia_em && !a.fim_conferencia_em && (
             podeConferir ? (
-              <FormFinalizarConferencia atendimentoId={a.id} diasMinimosValidadeAlerta={diasMinimosValidadeAlerta} />
+              <FormFinalizarConferencia
+                atendimentoId={a.id}
+                diasMinimosValidadeAlerta={diasMinimosValidadeAlerta}
+                empilhadoresCadastrados={empilhadores}
+              />
             ) : (
               <p className="rounded-2xl border border-slate-200 bg-white p-4 text-xs text-slate-500 shadow-sm">
                 O conferente está preenchendo os itens da conferência.

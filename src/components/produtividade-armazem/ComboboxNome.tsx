@@ -36,6 +36,7 @@ export function ComboboxNome({
   required = false,
   className,
   criarRapido,
+  sugestoes = [],
 }: {
   nome: string;
   onChange: (valor: string) => void;
@@ -44,6 +45,11 @@ export function ComboboxNome({
   required?: boolean;
   className?: string;
   criarRapido?: CriarRapido;
+  /** Lista já cadastrada, mostrada assim que o campo recebe o toque --
+   *  sem exigir que a pessoa acerte 2 letras de um nome que ela não sabe.
+   *  Vale para catálogo curto (empilhadores da casa); para lista grande
+   *  (motoristas de fora) deixe vazio e confie na busca. */
+  sugestoes?: Pessoa[];
 }) {
   const [resultados, setResultados] = useState<Pessoa[]>([]);
   const [aberto, setAberto] = useState(false);
@@ -84,6 +90,12 @@ export function ComboboxNome({
     setAberto(false);
   }
 
+  // Digitou 2+ letras: manda a busca no servidor. Antes disso, mostra o
+  // catálogo que veio pronto -- é o que faz a lista aparecer no primeiro
+  // toque, sem a pessoa ter que adivinhar o começo do nome.
+  const buscando = nome.trim().length >= 2;
+  const lista = buscando ? resultados : sugestoes;
+
   return (
     <div ref={caixaRef} className="relative">
       <input
@@ -109,14 +121,19 @@ export function ComboboxNome({
           +
         </button>
       )}
-      {aberto && nome.trim().length >= 2 && (
+      {aberto && (buscando || sugestoes.length > 0) && (
         <div className="absolute z-10 mt-1 max-h-56 w-full overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-lg">
-          {pending ? (
+          {!buscando && (
+            <p className="border-b border-slate-100 px-3 py-1.5 text-[11px] font-semibold uppercase text-slate-400">
+              Cadastrados
+            </p>
+          )}
+          {buscando && pending ? (
             <p className="p-3 text-sm text-slate-400">Buscando...</p>
-          ) : resultados.length === 0 ? (
+          ) : lista.length === 0 ? (
             <p className="p-3 text-sm text-slate-400">Nenhum nome cadastrado com isso -- pode digitar mesmo assim.</p>
           ) : (
-            resultados.map((p) => (
+            lista.map((p) => (
               <button
                 key={p.id}
                 type="button"
