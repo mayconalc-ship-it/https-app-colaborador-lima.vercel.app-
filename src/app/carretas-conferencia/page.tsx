@@ -3,7 +3,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { createClient } from "@/lib/supabase/server";
 import { getRevendaId } from "@/lib/revendas";
 import { temAcessoModulo } from "@/lib/require-admin";
-import { formatarDataHora, hojeISO, LIMITE_AVARIA_ALERTA } from "@/lib/produtividade-armazem";
+import { diasAtrasISO, formatarDataHora, hojeISO, LIMITE_AVARIA_ALERTA } from "@/lib/produtividade-armazem";
 import {
   RECEBIMENTO_CONFIG_PADRAO,
   calcularEsperaPortariaMinutos,
@@ -62,7 +62,13 @@ function nomeRelacionado(v: { nome: string } | { nome: string }[] | null) {
   return Array.isArray(v) ? (v[0]?.nome ?? "—") : v.nome;
 }
 
-export default async function CarretasConferenciaPage() {
+export default async function CarretasConferenciaPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ de?: string; ate?: string }>;
+}) {
+  const sp = await searchParams;
+
   // Conferente e empilhador viraram módulos separados (ver [id]/actions.ts)
   // -- os dois continuam abrindo o mesmo Monitor pra acompanhar tudo,
   // então basta ter QUALQUER um dos dois pra entrar aqui.
@@ -86,7 +92,22 @@ export default async function CarretasConferenciaPage() {
   // mais horário de verão, então o -03:00 fixo é exato.
   const inicioHoje = new Date(`${hojeISO()}T00:00:00-03:00`);
 
-  const [{ data: ativosBanco }, { data: finalizadosBanco }, { data: configBanco }, { data: pendentesBanco }] = await Promise.all([
+  // O Dash tem período PRÓPRIO, separado da lista "Finalizados hoje":
+  // uma semana por padrão, para enxergar o retroativo e não só o dia --
+  // média de um dia só oscila demais para servir de acompanhamento.
+  const de = sp.de ?? diasAtrasISO(6);
+  const ate = sp.ate ?? hojeISO();
+  const inicioPeriodo = new Date(`${de}T00:00:00-03:00`);
+  const fimPeriodo = new Date(`${ate}T23:59:59.999-03:00`);
+  const filtrouPeriodo = Boolean(sp.de || sp.ate);
+
+  const [
+    { data: ativosBanco },
+    { data: finalizadosBanco },
+    { data: configBanco },
+    { data: pendentesBanco },
+    { data: periodoBanco },
+  ] = await Promise.all([
     supabase
       .from("atendimentos_carretas")
       .select("id, numero_dt, motorista_nome, placa_carreta, chegada_em, carga_agendada, agendamento_em, status, pa_fabricas(nome), pa_transportadoras(nome)")
@@ -117,6 +138,18 @@ export default async function CarretasConferenciaPage() {
       .is("fim_conferencia_em", null)
       .order("chegada_em", { ascending: true })
       .limit(30),
+    // Base do Dash: finalizados no período escolhido.
+    supabase
+      .from("atendimentos_carretas")
+      .select(
+        "id, chegada_em, agendamento_em, carga_agendada, inicio_atendimento_em, inicio_descarga_em, inicio_conferencia_em, fim_conferencia_em, retorno_decidido_em, fim_descarga_em, tem_carga, inicio_carga_em, fim_carga_em, finalizacao_em",
+      )
+      .eq("revenda_id", revendaId)
+      .eq("status", "finalizado")
+      .gte("finalizacao_em", inicioPeriodo.toISOString())
+      .lte("finalizacao_em", fimPeriodo.toISOString())
+      .order("finalizacao_em", { ascending: false })
+      .limit(500),
   ]);
 
   const ativos = ((ativosBanco ?? []) as unknown as LinhaAtiva[]).map(
@@ -147,7 +180,12 @@ export default async function CarretasConferenciaPage() {
   const finalizados = (finalizadosBanco ?? []) as unknown as LinhaFinalizada[];
   const tmaAlvoMinutos = configBanco?.tma_alvo_minutos ?? RECEBIMENTO_CONFIG_PADRAO.tmaAlvoMinutos;
 
-  const idsFinalizados = finalizados.map((f) => f.id);
+  const doPeriodo = (periodoBanco ?? []) as unknown as LinhaFinalizada[];
+
+  // Uma consulta de itens só, cobrindo a lista de hoje E o período do
+  // Dash -- os dois conjuntos costumam se sobrepor, e buscar duas vezes
+  // seria pagar o dobro pelo mesmo dado.
+  const idsFinalizados = [...new Set([...finalizados.map((f) => f.id), ...doPeriodo.map((f) => f.id)])];
   const { data: itensFinalizadosBanco } = idsFinalizados.length > 0
     ? await supabase
         .from("atendimento_carretas_itens")
@@ -166,8 +204,8 @@ export default async function CarretasConferenciaPage() {
     itensPorAtendimento.set(i.atendimento_id, itensAtual);
   }
 
-  // ---- Dash do recebimento: agrega os finalizados de hoje ----
-  const metricasFinalizados = finalizados.map((f) => {
+  // ---- Dash do recebimento: agrega os finalizados DO PERÍODO ----
+  const metricasFinalizados = doPeriodo.map((f) => {
     const calc = {
       chegadaEm: f.chegada_em,
       agendamentoEm: f.agendamento_em,
@@ -200,7 +238,7 @@ export default async function CarretasConferenciaPage() {
   }
 
   const dash = {
-    total: finalizados.length,
+    total: doPeriodo.length,
     tmaMedio: media(metricasFinalizados.map((m) => m.tma)),
     esperaMedia: media(metricasFinalizados.map((m) => m.esperaPortaria)),
     descargaMedia: media(metricasFinalizados.map((m) => m.tempoDescarga)),
@@ -328,18 +366,55 @@ export default async function CarretasConferenciaPage() {
         </div>
       </details>
 
-      <details className="mt-4 rounded-2xl border border-slate-200 bg-white">
+      {/* Fica aberto quando veio filtro na URL: o formulário recarrega a
+          página, e um <details> que fecha sozinho esconderia o resultado
+          que a pessoa acabou de pedir. */}
+      <details className="mt-4 rounded-2xl border border-slate-200 bg-white" open={filtrouPeriodo}>
         <summary className="cursor-pointer list-none p-4 text-sm font-semibold text-slate-700">
           📊 Dash do recebimento
         </summary>
         <div className="border-t border-slate-100 p-4">
+          <form method="get" className="mb-4 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-end">
+            <div className="min-w-0">
+              <label className="mb-1 block text-xs font-semibold uppercase text-slate-500" htmlFor="de">
+                De
+              </label>
+              <input
+                id="de"
+                type="date"
+                name="de"
+                defaultValue={de}
+                className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-base text-slate-900 focus:border-primary focus:outline-none sm:w-auto"
+              />
+            </div>
+            <div className="min-w-0">
+              <label className="mb-1 block text-xs font-semibold uppercase text-slate-500" htmlFor="ate">
+                Até
+              </label>
+              <input
+                id="ate"
+                type="date"
+                name="ate"
+                defaultValue={ate}
+                className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-base text-slate-900 focus:border-primary focus:outline-none sm:w-auto"
+              />
+            </div>
+            <button
+              type="submit"
+              className="col-span-2 rounded-lg bg-slate-800 px-3 py-2 text-sm font-semibold text-white sm:col-span-1"
+            >
+              Filtrar
+            </button>
+          </form>
+
           {dash.total === 0 ? (
-            <p className="text-sm text-slate-400">Sem atendimentos finalizados hoje ainda.</p>
+            <p className="text-sm text-slate-400">Nenhuma carreta finalizada neste período.</p>
           ) : (
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
               <div className="rounded-2xl border p-3 text-center shadow-sm">
-                <p className="text-xs font-semibold uppercase text-slate-500">Atendimentos hoje</p>
+                <p className="text-xs font-semibold uppercase text-slate-500">Atendimentos</p>
                 <p className="mt-1 text-lg font-bold text-slate-900">{dash.total}</p>
+                <p className="text-[10px] text-slate-400">no período</p>
               </div>
               <div className="rounded-2xl border p-3 text-center shadow-sm">
                 <p className="text-xs font-semibold uppercase text-slate-500">TMA médio</p>
@@ -392,6 +467,62 @@ export default async function CarretasConferenciaPage() {
               </div>
             </div>
           )}
+
+          {/* Recolhida: quem já sabe não tropeça nela, e quem tem dúvida
+              não precisa perguntar. Mesma explicação da tela de detalhe
+              do atendimento -- uma definição só para os dois lugares. */}
+          <details className="mt-4 rounded-xl bg-slate-50 p-3 text-xs text-slate-500">
+            <summary className="cursor-pointer font-semibold text-slate-600">
+              ℹ️ O que significa cada indicador
+            </summary>
+            <ul className="mt-2 space-y-1.5">
+              <li>
+                <strong>Período</strong> — todos os números deste painel seguem as datas escolhidas
+                acima (uma semana, por padrão). A lista &ldquo;Finalizados hoje&rdquo; é separada e
+                mostra só o dia. O dia vira à meia-noite de Brasília.
+              </li>
+              <li>
+                <strong>Atendimentos</strong> — quantas carretas foram finalizadas no período.
+              </li>
+              <li>
+                <strong>TMA médio</strong> — o principal: da chegada (ou do horário agendado, se era
+                agendada) até o FIM DA DESCARGA. É o tempo em que a carreta ficou presa ao armazém;
+                terminada a descarga o caminhão pode ir embora, e a conferência do que chegou segue
+                no chão depois.
+              </li>
+              <li>
+                <strong>Espera na portaria</strong> — da chegada até alguém começar a trabalhar
+                (descarga ou conferência, o que vier primeiro). É um recorte DE DENTRO do TMA, não
+                soma com ele. Serve para separar fila de gargalo na descarga.
+              </li>
+              <li>
+                <strong>Tempo médio de descarga</strong> — só a fase de tirar as caixas do caminhão,
+                do empilhador iniciar até finalizar.
+              </li>
+              <li>
+                <strong>Tempo médio de conferência</strong> — só a contagem e o registro do que
+                chegou, do conferente iniciar até finalizar. Pode acontecer ao mesmo tempo que a
+                descarga, por isso os dois não somam para o TMA.
+              </li>
+              <li>
+                <strong>Tempo médio de carga</strong> — só o carregamento de AG no retorno, contado
+                a partir do fim da descarga. Média apenas entre as carretas que voltaram carregadas.
+              </li>
+              <li>
+                <strong>% Avaria médio</strong> — tudo que chegou avariado dividido por tudo que foi
+                recebido, olhando os itens lançados na conferência.
+              </li>
+              <li>
+                <strong>Vazias × carregadas</strong> — quantas voltaram sem nada e quantas voltaram
+                com AG.
+              </li>
+              <li>
+                <strong>Tempo no pátio</strong> (aparece no detalhe de cada carreta) — o relógio
+                inteiro, da chegada até a saída, incluindo o carregamento de AG quando houver. É o
+                único medido direto do início ao fim; por isso costuma ser maior que o TMA.
+              </li>
+            </ul>
+          </details>
         </div>
       </details>
     </div>
