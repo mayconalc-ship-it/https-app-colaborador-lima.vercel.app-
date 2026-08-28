@@ -18,6 +18,7 @@ import {
   mediaExecucoes5sPorPessoa,
   mediaPct,
   mediaPosicoesPicking,
+  mediaTaxaPorPessoa,
   operacaoEmpilhadeiraDeLinha,
   pctAvariaConsolidado,
   pctRelativoAoGrupo,
@@ -38,7 +39,7 @@ const rotulo = "mb-1 block text-xs font-semibold uppercase text-slate-500";
 /** Mesmo texto em todo canto que mostra "Pontuação" -- ver calcularPontuacao
  *  em lib/produtividade-armazem.ts, a fórmula de verdade mora lá. */
 const EXPLICACAO_PONTUACAO =
-  "Pontuação = média de até 4 métricas, todas em %: Reepack = % da meta cadastrada por produto; Despejo = % da meta cadastrada por embalagem; Picking e 5S = % da média de todo mundo no mesmo recorte (sem meta cadastrada, a régua é comparar com o grupo). Quem não fez uma atividade não entra na média dela.";
+  "Pontuação = média de até 5 métricas, todas em %: Reepack = % da meta cadastrada por produto; Despejo = % da meta cadastrada por embalagem; Seleção, Picking e 5S = % da média de todo mundo no mesmo recorte (sem meta cadastrada, a régua é comparar com o grupo). Na Seleção a comparação é pela TAXA (un/h), não pelo total — quem triou mais tempo não passa na frente de quem triou mais rápido. Quem não fez uma atividade não entra na média dela.";
 
 export default async function IndicadoresPage({
   searchParams,
@@ -65,6 +66,7 @@ export default async function IndicadoresPage({
     { data: produtosBanco },
     { data: embalagensBanco },
     { data: reepacksBanco },
+    { data: selecoesBanco },
     { data: despejosBanco },
     { data: pickingsBanco },
     { data: operacoesBanco },
@@ -89,6 +91,18 @@ export default async function IndicadoresPage({
       .select("produto_id, colaborador_id, colaborador_nome, turno, quantidade, inicio, fim")
       .eq("revenda_id", revendaId)
       .eq("etapa", "repack")
+      .not("fim", "is", null)
+      .gte("inicio", de0)
+      .lte("inicio", ate23),
+    // Seleção e Triagem: mesma tabela, etapa própria (migration 065).
+    // Consulta separada de propósito -- a quantidade dela é em unidades
+    // triadas, então somar com as caixas do repack daria um número que
+    // não quer dizer nada.
+    supabase
+      .from("pa_reepack_lancamentos")
+      .select("colaborador_id, colaborador_nome, turno, quantidade, inicio, fim")
+      .eq("revenda_id", revendaId)
+      .eq("etapa", "selecao")
       .not("fim", "is", null)
       .gte("inicio", de0)
       .lte("inicio", ate23),
@@ -152,6 +166,14 @@ export default async function IndicadoresPage({
     inicio: string;
     fim: string;
   }[];
+  const selecoesTodas = (selecoesBanco ?? []) as {
+    colaborador_id: string;
+    colaborador_nome: string;
+    turno: string;
+    quantidade: number;
+    inicio: string;
+    fim: string;
+  }[];
   const despejosTodos = (despejosBanco ?? []) as {
     embalagem_despejo_id: string | null;
     colaborador_id: string;
@@ -176,6 +198,7 @@ export default async function IndicadoresPage({
     turno: turnoAtual(new Date(e.inicio as string)) as string,
   }));
 
+  const selecoes = turnoFiltro ? selecoesTodas.filter((s) => s.turno === turnoFiltro) : selecoesTodas;
   const reepacks = turnoFiltro ? reepacksTodos.filter((r) => r.turno === turnoFiltro) : reepacksTodos;
   const despejos = turnoFiltro ? despejosTodos.filter((d) => d.turno === turnoFiltro) : despejosTodos;
   const pickings = turnoFiltro ? pickingsTodos.filter((p) => p.turno === turnoFiltro) : pickingsTodos;
@@ -188,6 +211,13 @@ export default async function IndicadoresPage({
   // sessões de tamanhos bem diferentes. Tempo total ÷ caixas totais.
   const reepackHorasTotal = reepacks.reduce((s, r) => s + horasEntre(r.inicio, r.fim), 0);
   const reepackMediaHorasPorCaixa = reepackQuantidadeTotal > 0 ? reepackHorasTotal / reepackQuantidadeTotal : 0;
+
+  // ---- Seleção e Triagem: etapa 1 do Repack (migration 065) ----
+  // Sem meta cadastrada ainda -- é o que a cronoanálise está medindo --
+  // então aqui só o realizado, sem "% da meta".
+  const selecaoQuantidadeTotal = selecoes.reduce((s, x) => s + x.quantidade, 0);
+  const selecaoHorasTotal = selecoes.reduce((s, x) => s + horasEntre(x.inicio, x.fim), 0);
+  const selecaoTaxaHora = taxaPorHora(selecaoQuantidadeTotal, selecaoHorasTotal);
 
   // ---- Despejo: agregado geral (litros/hora do total, não a média das taxas) ----
   const despejoLitrosTotal = Math.round(despejos.reduce((s, d) => s + d.litros, 0) * 10) / 10;
@@ -247,9 +277,13 @@ export default async function IndicadoresPage({
   const mediaExecucoes5sPeriodo = mediaExecucoes5sPorPessoa(
     execucoes5sTodos.map((e) => ({ colaboradorId: e.colaborador_id })),
   );
+  // Seleção compara TAXA (un/h), não total: um turno mais longo não é
+  // melhor por ter triado mais, e sim quem triou mais rápido.
+  const mediaTaxaSelecaoPeriodo = mediaTaxaPorPessoa(selecoesTodas);
 
   const porTurno = TURNOS.map((t) => {
     const reepacksT = reepacksTodos.filter((r) => r.turno === t);
+    const selecoesT = selecoesTodas.filter((s) => s.turno === t);
     const despejosT = despejosTodos.filter((d) => d.turno === t);
     const pickingsT = pickingsTodos.filter((p) => p.turno === t);
     const execucoes5sT = execucoes5sTodos.filter((e) => e.turno === t);
@@ -280,20 +314,24 @@ export default async function IndicadoresPage({
       mediaExecucoes5sPorPessoa(execucoes5sT.map((e) => ({ colaboradorId: e.colaborador_id }))),
       mediaExecucoes5sPeriodo,
     );
+    const selecaoPctT = pctRelativoAoGrupo(mediaTaxaPorPessoa(selecoesT), mediaTaxaSelecaoPeriodo);
     const pontuacao = calcularPontuacao(
       mediaPct(reepackAgrupadoT.map((r) => r.pctMeta)),
       mediaPct(despejoAgrupadoT.map((d) => d.pctMeta)),
       pickingPctT,
       cincoSPctT,
+      selecaoPctT,
     );
 
     return {
       turno: t,
+      selecaoUn: selecoesT.reduce((s, x) => s + x.quantidade, 0),
       reepackCx: reepacksT.reduce((s, r) => s + r.quantidade, 0),
       despejoLitros: Math.round(despejosT.reduce((s, d) => s + d.litros, 0) * 10) / 10,
       pickingPosicoes: posicoesPickingT,
       execucoes5s: execucoes5sT.length,
-      totalLancamentos: reepacksT.length + despejosT.length + pickingsT.length + execucoes5sT.length,
+      totalLancamentos:
+        selecoesT.length + reepacksT.length + despejosT.length + pickingsT.length + execucoes5sT.length,
       pontuacao,
     };
   });
@@ -317,17 +355,19 @@ export default async function IndicadoresPage({
     mediaPct(despejoAgrupadoGeral.map((d) => d.pctMeta)),
     pctRelativoAoGrupo(mediaPosicoesPeriodo, mediaPosicoesPeriodo),
     pctRelativoAoGrupo(mediaExecucoes5sPeriodo, mediaExecucoes5sPeriodo),
+    pctRelativoAoGrupo(mediaTaxaSelecaoPeriodo, mediaTaxaSelecaoPeriodo),
   );
 
   const totalGeral = porTurno.reduce(
     (s, l) => ({
+      selecaoUn: s.selecaoUn + l.selecaoUn,
       reepackCx: s.reepackCx + l.reepackCx,
       despejoLitros: Math.round((s.despejoLitros + l.despejoLitros) * 10) / 10,
       pickingPosicoes: s.pickingPosicoes + l.pickingPosicoes,
       execucoes5s: s.execucoes5s + l.execucoes5s,
       totalLancamentos: s.totalLancamentos + l.totalLancamentos,
     }),
-    { reepackCx: 0, despejoLitros: 0, pickingPosicoes: 0, execucoes5s: 0, totalLancamentos: 0 },
+    { selecaoUn: 0, reepackCx: 0, despejoLitros: 0, pickingPosicoes: 0, execucoes5s: 0, totalLancamentos: 0 },
   );
 
   // ---- Empilhadeira: por máquina e por operador ----
@@ -424,6 +464,13 @@ export default async function IndicadoresPage({
     execucoes5s.map((e) => ({ colaboradorId: e.colaborador_id, colaboradorNome: e.colaborador_nome })),
     produtos,
     embalagens,
+    selecoes.map((s) => ({
+      colaboradorId: s.colaborador_id,
+      colaboradorNome: s.colaborador_nome,
+      quantidade: s.quantidade,
+      inicio: s.inicio,
+      fim: s.fim,
+    })),
   );
 
   return (
@@ -458,6 +505,16 @@ export default async function IndicadoresPage({
       </form>
 
       <div className="space-y-5">
+        <BlocoAtividade titulo="🔍 Seleção e Triagem">
+          <CartaoHero titulo="Lançamentos" valor={String(selecoes.length)} />
+          <CartaoHero titulo="Unidades triadas" valor={`${selecaoQuantidadeTotal} un`} />
+          <CartaoHero
+            titulo="Taxa média"
+            valor={`${selecaoTaxaHora.toFixed(1)} un/h`}
+            legenda="unidades ÷ horas do período"
+          />
+        </BlocoAtividade>
+
         <BlocoAtividade titulo="📦 Reepack">
           <CartaoHero titulo="Lançamentos" valor={String(reepacks.length)} />
           <CartaoHero titulo="Caixas reepackadas" valor={`${reepackQuantidadeTotal} cx`} />
@@ -533,6 +590,7 @@ export default async function IndicadoresPage({
               <thead className="bg-slate-50 text-left text-xs uppercase text-slate-500">
                 <tr>
                   <th className="p-3">Turno</th>
+                  <th className="p-3 text-right">🔍 Seleção</th>
                   <th className="p-3 text-right">📦 Reepack</th>
                   <th className="p-3 text-right">🫗 Despejo</th>
                   <th className="p-3 text-right">🛒 Picking</th>
@@ -547,6 +605,7 @@ export default async function IndicadoresPage({
                 {porTurno.map((l) => (
                   <tr key={l.turno} className="border-t border-slate-100">
                     <td className="p-3 font-semibold text-slate-800">{ROTULO_TURNO[l.turno]}</td>
+                    <td className="p-3 text-right tabular-nums">{l.selecaoUn} un</td>
                     <td className="p-3 text-right tabular-nums">{l.reepackCx} cx</td>
                     <td className="p-3 text-right tabular-nums">{l.despejoLitros} L</td>
                     <td className="p-3 text-right tabular-nums">{l.pickingPosicoes}</td>
@@ -563,6 +622,7 @@ export default async function IndicadoresPage({
               <tfoot>
                 <tr className="border-t border-slate-200 bg-slate-50 font-bold">
                   <td className="p-3 text-slate-800">Total</td>
+                  <td className="p-3 text-right tabular-nums">{totalGeral.selecaoUn} un</td>
                   <td className="p-3 text-right tabular-nums">{totalGeral.reepackCx} cx</td>
                   <td className="p-3 text-right tabular-nums">{totalGeral.despejoLitros} L</td>
                   <td className="p-3 text-right tabular-nums">{totalGeral.pickingPosicoes}</td>
@@ -594,6 +654,7 @@ export default async function IndicadoresPage({
                   <tr>
                     <th className="p-3">#</th>
                     <th className="p-3">Colaborador</th>
+                    <th className="p-3 text-right">🔍 Seleção</th>
                     <th className="p-3 text-right">📦 Reepack</th>
                     <th className="p-3 text-right">🫗 Despejo</th>
                     <th className="p-3 text-right">🛒 Picking</th>
@@ -611,6 +672,18 @@ export default async function IndicadoresPage({
                         {i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : i + 1}
                       </td>
                       <td className="p-3 font-semibold text-slate-900">{r.colaboradorNome}</td>
+                      <td className="p-3 text-right tabular-nums">
+                        {r.totalSelecao > 0 ? (
+                          <>
+                            {r.totalSelecao} un
+                            {r.selecaoPctMedia !== null && (
+                              <span className="ml-1 text-xs text-slate-400">({r.selecaoPctMedia}% da média)</span>
+                            )}
+                          </>
+                        ) : (
+                          <span className="text-slate-300">—</span>
+                        )}
+                      </td>
                       <td className="p-3 text-right tabular-nums">
                         {r.totalReepacks > 0 ? (
                           <>
