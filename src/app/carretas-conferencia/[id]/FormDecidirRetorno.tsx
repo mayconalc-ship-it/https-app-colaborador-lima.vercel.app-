@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
+import { useConfirmarEnvio } from "@/components/Confirmacao";
 import { BotaoAdicionarLinha } from "@/components/BotaoMais";
 import { SelectComCadastroRapido, type OpcaoSelect } from "@/components/SelectComCadastroRapido";
 import type { CampoRapido } from "@/components/CadastroRapido";
@@ -44,6 +45,7 @@ export function FormDecidirRetorno({
   fabricas: Fabrica[];
   podeEditarCatalogo?: boolean;
 }) {
+  const confirmarEnvio = useConfirmarEnvio();
   const [retorno, setRetorno] = useState<"vazia" | "com_ag">("vazia");
   const [itensAg, setItensAg] = useState<string[]>([novaChave()]);
   // AG cadastrado pelo "+" numa linha precisa aparecer em TODAS as linhas,
@@ -55,21 +57,57 @@ export function FormDecidirRetorno({
   ];
 
   return (
-    <form action={decidirRetorno} className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+    <form
+      action={decidirRetorno}
+      // Só "vazia" pede confirmação: ela encerra o ciclo quando a descarga
+      // terminar, e não há tela para desfazer. "Com AG" abre a fase de
+      // carga, que ainda passa pelo empilhador antes de fechar -- pedir
+      // confirmação nas duas viraria clique automático, e aí nenhuma das
+      // duas seria lida.
+      onSubmit={
+        retorno === "vazia"
+          ? confirmarEnvio({
+              titulo: "Confirmar que a carreta volta VAZIA?",
+              detalhe:
+                "Ela será finalizada assim que a descarga terminar, e não há como desfazer por aqui.",
+              confirmar: "Sim, volta vazia",
+              perigo: false,
+            })
+          : undefined
+      }
+      className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
+    >
       <input type="hidden" name="atendimento_id" value={atendimentoId} />
 
-      <p className="text-sm font-bold text-slate-800">🔄 A carreta irá retornar vazia?</p>
+      <p className="text-sm font-bold text-slate-800">🔄 A carreta vai levar AG na volta?</p>
+
+      {/* Cada opção tem a PRÓPRIA cor, não a mesma cor de "selecionado".
+          Com as duas em azul, o conferente confirmava no automático e só
+          percebia a escolha errada depois. O roxo é o mesmo já usado nos
+          blocos de "Retorno com AG" no resto da tela. */}
       <div className="flex flex-col gap-2 sm:flex-row">
         {(
           [
-            { v: "vazia", rotulo: "Sim, vazia" },
-            { v: "com_ag", rotulo: "Não — irá retornar com AG" },
+            {
+              v: "vazia",
+              titulo: "NÃO — volta vazia",
+              ajuda: "Sai sem carga",
+              emoji: "↩️",
+              ativo: "border-slate-800 bg-slate-800 text-white",
+            },
+            {
+              v: "com_ag",
+              titulo: "SIM — volta com AG",
+              ajuda: "Escolher destino e itens",
+              emoji: "🔄",
+              ativo: "border-purple-600 bg-purple-600 text-white",
+            },
           ] as const
-        ).map(({ v, rotulo: r }) => (
+        ).map(({ v, titulo, ajuda, emoji, ativo }) => (
           <label
             key={v}
-            className={`flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-xl border py-3 text-sm font-semibold ${
-              retorno === v ? "border-primary bg-primary-soft text-primary-dark" : "border-slate-300 text-slate-700"
+            className={`flex flex-1 cursor-pointer flex-col items-center gap-0.5 rounded-xl border-2 px-3 py-4 text-center ${
+              retorno === v ? ativo : "border-slate-300 bg-white text-slate-700 hover:border-slate-400"
             }`}
           >
             <input
@@ -80,7 +118,9 @@ export function FormDecidirRetorno({
               onChange={() => setRetorno(v)}
               className="sr-only"
             />
-            {r}
+            <span className="text-xl leading-none">{emoji}</span>
+            <span className="text-sm font-bold">{titulo}</span>
+            <span className={`text-xs ${retorno === v ? "opacity-80" : "text-slate-500"}`}>{ajuda}</span>
           </label>
         ))}
       </div>
@@ -155,11 +195,15 @@ export function FormDecidirRetorno({
         </div>
       )}
 
+      {/* O botão herda a cor da escolha: confirmar em azul, com a opção
+          marcada em roxo ou preto, deixava o "confirmo o quê?" no ar. */}
       <BotaoEnviar
         textoEnviando="Confirmando..."
-        className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-white shadow-sm hover:bg-primary-dark"
+        className={`w-full rounded-xl px-4 py-3 text-sm font-semibold text-white shadow-sm ${
+          retorno === "com_ag" ? "bg-purple-600 hover:bg-purple-700" : "bg-slate-800 hover:bg-slate-900"
+        }`}
       >
-        {retorno === "com_ag" ? "Confirmar retorno com AG" : "Confirmar retorno vazia"}
+        {retorno === "com_ag" ? "🔄 Confirmar: volta com AG" : "↩️ Confirmar: volta vazia"}
       </BotaoEnviar>
     </form>
   );
