@@ -5,10 +5,19 @@ import { getRevendaId } from "@/lib/revendas";
 import { requireAcessoModulo } from "@/lib/require-admin";
 import { diasAtrasISO, formatarDataHora, hojeISO } from "@/lib/produtividade-armazem";
 import {
+  ORDENS_RANKING,
+  ROTULO_GRANULARIDADE,
+  ROTULO_ORDEM_RANKING,
   ROTULO_STATUS_CICLO,
+  GRANULARIDADES,
   cicloContaParaMaquina,
+  ehGranularidade,
+  ehOrdemRanking,
+  evolucaoDosCiclos,
   formatarNumeroBr,
   montarCiclos,
+  operadoresDaMaquina,
+  ordenarOperadores,
   resumirPorMaquina,
   resumirPorOperador,
   type SessaoUso,
@@ -48,7 +57,14 @@ function Cartao({
 export default async function DashboardGasPage({
   searchParams,
 }: {
-  searchParams: Promise<{ de?: string; ate?: string; maquina?: string }>;
+  searchParams: Promise<{
+    de?: string;
+    ate?: string;
+    maquina?: string;
+    operador?: string;
+    ordem?: string;
+    granularidade?: string;
+  }>;
 }) {
   await requireAcessoModulo("pa-empilhadeira");
 
@@ -56,6 +72,9 @@ export default async function DashboardGasPage({
   const de = sp.de ?? diasAtrasISO(29);
   const ate = sp.ate ?? hojeISO();
   const maquinaFiltro = (sp.maquina ?? "").trim();
+  const operadorFiltro = (sp.operador ?? "").trim();
+  const ordem = ehOrdemRanking(sp.ordem) ? sp.ordem : "horas";
+  const granularidade = ehGranularidade(sp.granularidade) ? sp.granularidade : "dia";
 
   const revendaId = await getRevendaId();
   if (!revendaId) redirect(`/?erro=${encodeURIComponent("Você não está em nenhuma revenda.")}`);
@@ -113,8 +132,20 @@ export default async function DashboardGasPage({
   }));
 
   const ciclos = montarCiclos(trocas, sessoes, numeroDaMaquina);
-  const porOperador = resumirPorOperador(ciclos);
+  const porOperadorTodos = resumirPorOperador(ciclos);
   const porMaquina = resumirPorMaquina(ciclos);
+  const evolucao = evolucaoDosCiclos(ciclos, granularidade);
+
+  // O filtro de operador afeta só as visões DELE. Os cartões e os ciclos
+  // continuam mostrando a máquina inteira -- filtrar o consumo do ciclo
+  // por pessoa daria um "total" que não é total de nada.
+  const porOperador = operadorFiltro
+    ? porOperadorTodos.filter((o) => o.operadorId === operadorFiltro)
+    : porOperadorTodos;
+  const rankingOperadores = ordenarOperadores(porOperador, ordem);
+  const operadorEscolhido = operadorFiltro
+    ? porOperadorTodos.find((o) => o.operadorId === operadorFiltro) ?? null
+    : null;
 
   // ---- Cartões ----
   const validos = ciclos.filter(cicloContaParaMaquina);
@@ -162,6 +193,17 @@ export default async function DashboardGasPage({
             ))}
           </select>
         </div>
+        <div className="col-span-2 min-w-0 sm:col-span-1 sm:min-w-[10rem]">
+          <label className={rotulo} htmlFor="operador">Operador</label>
+          <select id="operador" name="operador" defaultValue={operadorFiltro} className={campo}>
+            <option value="">Todos</option>
+            {porOperadorTodos.map((o) => (
+              <option key={o.operadorId} value={o.operadorId}>{o.operadorNome}</option>
+            ))}
+          </select>
+        </div>
+        <input type="hidden" name="ordem" value={ordem} />
+        <input type="hidden" name="granularidade" value={granularidade} />
         <button
           type="submit"
           className="col-span-2 rounded-lg bg-slate-800 px-3 py-2 text-sm font-semibold text-white sm:col-span-1"
@@ -187,7 +229,7 @@ export default async function DashboardGasPage({
             />
             <Cartao titulo="P20 por dia" valor={formatarNumeroBr(p20PorDia, 2)} legenda={`em ${diasDoPeriodo} dias`} />
             <Cartao titulo="Empilhadeiras" valor={String(porMaquina.length)} legenda="com ciclo no período" />
-            <Cartao titulo="Operadores" valor={String(porOperador.length)} legenda="com horas atribuídas" />
+            <Cartao titulo="Operadores" valor={String(porOperadorTodos.length)} legenda="com horas atribuídas" />
             <Cartao
               titulo="Ciclos confiáveis"
               valor={`${pctConfiavel}%`}
@@ -231,6 +273,208 @@ export default async function DashboardGasPage({
               máquina, mas não entra na análise por operador — não há a quem atribuir.
             </p>
           )}
+
+          {/* ---- Operador escolhido no filtro (item 12) ---- */}
+          {operadorEscolhido && (
+            <div className="mt-4 rounded-2xl border-2 border-primary bg-primary-soft p-4">
+              <p className="text-sm font-bold text-primary-dark">👷 {operadorEscolhido.operadorNome}</p>
+              <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                <Cartao titulo="Horas de uso" valor={`${formatarNumeroBr(operadorEscolhido.horas)}h`} />
+                <Cartao titulo="P20 equivalente" valor={operadorEscolhido.p20Equivalente.toFixed(3)} />
+                <Cartao
+                  titulo="Média h/P20"
+                  valor={operadorEscolhido.horasPorP20 !== null ? `${formatarNumeroBr(operadorEscolhido.horasPorP20)} h` : "—"}
+                />
+                <Cartao
+                  titulo="Empilhadeiras"
+                  valor={String(operadorEscolhido.empilhadeiras)}
+                  legenda={`${operadorEscolhido.sessoes} participações em ciclo`}
+                />
+              </div>
+              <p className="mt-2 text-xs text-primary-dark">
+                Representa {formatarNumeroBr(operadorEscolhido.pctDoConsumo)}% do gás consumido no período.
+              </p>
+            </div>
+          )}
+
+          {/* ---- Ranking de operadores (item 10) ---- */}
+          <details className="mt-6 rounded-2xl border border-slate-200 bg-white">
+            <summary className="cursor-pointer list-none p-4 text-sm font-semibold text-slate-700">
+              🏆 Ranking de operadores ({rankingOperadores.length})
+            </summary>
+            <div className="border-t border-slate-100 p-4">
+              <form method="get" className="mb-3 flex flex-wrap items-end gap-2">
+                <input type="hidden" name="de" value={de} />
+                <input type="hidden" name="ate" value={ate} />
+                <input type="hidden" name="maquina" value={maquinaFiltro} />
+                <input type="hidden" name="operador" value={operadorFiltro} />
+                <input type="hidden" name="granularidade" value={granularidade} />
+                <div className="min-w-0 flex-1">
+                  <label className={rotulo} htmlFor="ordem">Ordenar por</label>
+                  <select id="ordem" name="ordem" defaultValue={ordem} className={campo}>
+                    {ORDENS_RANKING.map((o) => (
+                      <option key={o} value={o}>{ROTULO_ORDEM_RANKING[o]}</option>
+                    ))}
+                  </select>
+                </div>
+                <button type="submit" className="shrink-0 rounded-lg bg-slate-800 px-3 py-2 text-sm font-semibold text-white">
+                  Aplicar
+                </button>
+              </form>
+
+              {rankingOperadores.length === 0 ? (
+                <p className="text-sm text-slate-400">Nenhum operador com horas atribuídas no período.</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[560px] text-xs">
+                    <thead className="bg-slate-50 text-left uppercase text-slate-500">
+                      <tr>
+                        <th className="p-2">Operador</th>
+                        <th className="p-2 text-right">Horas</th>
+                        <th className="p-2 text-right">P20 equiv.</th>
+                        <th className="p-2 text-right">h/P20</th>
+                        <th className="p-2 text-right">% consumo</th>
+                        <th className="p-2 text-right">Ciclos</th>
+                        <th className="p-2 text-right">Máquinas</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {rankingOperadores.map((o) => (
+                        <tr key={o.operadorId} className="border-t border-slate-100">
+                          <td className="p-2 font-medium text-slate-800">{o.operadorNome}</td>
+                          <td className="p-2 text-right tabular-nums">{formatarNumeroBr(o.horas)}</td>
+                          <td className="p-2 text-right tabular-nums">{o.p20Equivalente.toFixed(3)}</td>
+                          <td className="p-2 text-right font-bold tabular-nums text-slate-900">
+                            {o.horasPorP20 !== null ? formatarNumeroBr(o.horasPorP20) : "—"}
+                          </td>
+                          <td className="p-2 text-right tabular-nums">{formatarNumeroBr(o.pctDoConsumo)}%</td>
+                          <td className="p-2 text-right tabular-nums text-slate-500">{o.sessoes}</td>
+                          <td className="p-2 text-right tabular-nums text-slate-500">{o.empilhadeiras}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              <p className="mt-3 rounded-xl bg-amber-50 p-3 text-xs text-amber-800">
+                ⚠️ Não leia isto como desempenho individual. Dentro de um mesmo ciclo, todo mundo tem a mesma
+                média de h/P20 — é como o rateio por tempo funciona. A diferença entre pessoas vem de QUAIS
+                máquinas e ciclos cada uma pegou, e operações diferentes exigem esforços diferentes da máquina.
+                É indicador de acompanhamento operacional.
+              </p>
+            </div>
+          </details>
+
+          {/* ---- Por empilhadeira (item 11) ---- */}
+          <details className="mt-4 rounded-2xl border border-slate-200 bg-white">
+            <summary className="cursor-pointer list-none p-4 text-sm font-semibold text-slate-700">
+              🏗️ Por empilhadeira ({porMaquina.length})
+            </summary>
+            <div className="space-y-3 border-t border-slate-100 p-4">
+              {porMaquina.length === 0 ? (
+                <p className="text-sm text-slate-400">Nenhuma máquina com ciclo fechado no período.</p>
+              ) : (
+                porMaquina.map((m) => {
+                  const ops = operadoresDaMaquina(ciclos, m.empilhadeiraId);
+                  return (
+                    <div key={m.empilhadeiraId} className="rounded-xl border border-slate-200 p-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-sm font-bold text-slate-900">🏗️ Empilhadeira {m.numero}</p>
+                          <p className="text-xs text-slate-500">
+                            {formatarNumeroBr(m.horas)}h · {m.p20} P20 · {m.ciclos} ciclo(s) ·{" "}
+                            {m.operadores} operador(es)
+                          </p>
+                          {m.horasNaoIdentificadas > 0 && (
+                            <p className="text-xs text-amber-700">
+                              {formatarNumeroBr(m.horasNaoIdentificadas)}h sem sessão registrada
+                            </p>
+                          )}
+                        </div>
+                        <span className="shrink-0 rounded-lg bg-slate-100 px-2 py-1 text-xs font-bold text-slate-700">
+                          {m.horasPorP20 !== null ? `${formatarNumeroBr(m.horasPorP20)} h/P20` : "—"}
+                        </span>
+                      </div>
+
+                      {ops.length > 0 && (
+                        <ul className="mt-2 space-y-1 border-t border-slate-100 pt-2">
+                          {ops.map((o) => (
+                            <li key={o.operadorId} className="flex items-baseline justify-between gap-2 text-xs">
+                              <span className="min-w-0 truncate text-slate-600">{o.operadorNome}</span>
+                              <span className="shrink-0 tabular-nums text-slate-500">
+                                {formatarNumeroBr(o.horas)}h · {o.p20Equivalente.toFixed(3)} P20
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </details>
+
+          {/* ---- Evolução histórica (item 13) ---- */}
+          <details className="mt-4 rounded-2xl border border-slate-200 bg-white">
+            <summary className="cursor-pointer list-none p-4 text-sm font-semibold text-slate-700">
+              📈 Evolução da média h/P20
+            </summary>
+            <div className="border-t border-slate-100 p-4">
+              <form method="get" className="mb-3 flex flex-wrap items-end gap-2">
+                <input type="hidden" name="de" value={de} />
+                <input type="hidden" name="ate" value={ate} />
+                <input type="hidden" name="maquina" value={maquinaFiltro} />
+                <input type="hidden" name="operador" value={operadorFiltro} />
+                <input type="hidden" name="ordem" value={ordem} />
+                <div className="min-w-0 flex-1">
+                  <label className={rotulo} htmlFor="granularidade">Agrupar</label>
+                  <select id="granularidade" name="granularidade" defaultValue={granularidade} className={campo}>
+                    {GRANULARIDADES.map((g) => (
+                      <option key={g} value={g}>{ROTULO_GRANULARIDADE[g]}</option>
+                    ))}
+                  </select>
+                </div>
+                <button type="submit" className="shrink-0 rounded-lg bg-slate-800 px-3 py-2 text-sm font-semibold text-white">
+                  Aplicar
+                </button>
+              </form>
+
+              {evolucao.length === 0 ? (
+                <p className="text-sm text-slate-400">Sem ciclos suficientes para montar a evolução.</p>
+              ) : (
+                <ul className="space-y-2.5">
+                  {evolucao.map((p) => {
+                    const maior = Math.max(...evolucao.map((x) => x.horasPorP20));
+                    return (
+                      <li key={p.chave}>
+                        <div className="mb-1 flex items-baseline justify-between gap-2 text-xs">
+                          <span className="min-w-0 truncate font-medium text-slate-700">{p.rotulo}</span>
+                          <span className="shrink-0 font-bold text-slate-900">
+                            {formatarNumeroBr(p.horasPorP20)} h/P20
+                            <span className="ml-1 font-normal text-slate-400">
+                              ({p.p20} P20)
+                            </span>
+                          </span>
+                        </div>
+                        <div className="h-2 overflow-hidden rounded-full bg-slate-100">
+                          <div
+                            className="h-2 rounded-full bg-primary"
+                            style={{ width: `${Math.max(3, (p.horasPorP20 / maior) * 100)}%` }}
+                          />
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+              <p className="mt-3 text-xs text-slate-400">
+                O ciclo entra no período em que FECHOU — é quando o botijão acabou e o consumo virou fato.
+                Barra maior = botijão rendendo mais horas.
+              </p>
+            </div>
+          </details>
 
           {/* ---- Auditoria: como o número foi montado ---- */}
           <h2 className="mb-3 mt-6 text-sm font-bold uppercase text-slate-500">Ciclos de consumo</h2>

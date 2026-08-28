@@ -432,6 +432,141 @@ export function avaliarHorimetro(
   return { nivel: "ok", diferenca };
 }
 
+export const ORDENS_RANKING = ["eficiencia", "pior", "consumo", "horas"] as const;
+export type OrdemRanking = (typeof ORDENS_RANKING)[number];
+
+export const ROTULO_ORDEM_RANKING: Record<OrdemRanking, string> = {
+  eficiencia: "Maior eficiência (h/P20)",
+  pior: "Menor eficiência (h/P20)",
+  consumo: "Maior consumo (P20)",
+  horas: "Mais horas",
+};
+
+export function ehOrdemRanking(v: unknown): v is OrdemRanking {
+  return typeof v === "string" && (ORDENS_RANKING as readonly string[]).includes(v);
+}
+
+export function ordenarOperadores(lista: ResumoOperador[], ordem: OrdemRanking): ResumoOperador[] {
+  const copia = [...lista];
+  switch (ordem) {
+    case "eficiencia":
+      // Sem h/P20 (nenhum ciclo elegível) vai para o fim nas duas
+      // ordenações -- não é "o melhor" nem "o pior", é sem dado.
+      return copia.sort((a, b) => (b.horasPorP20 ?? -1) - (a.horasPorP20 ?? -1));
+    case "pior":
+      return copia.sort(
+        (a, b) => (a.horasPorP20 ?? Number.MAX_SAFE_INTEGER) - (b.horasPorP20 ?? Number.MAX_SAFE_INTEGER),
+      );
+    case "consumo":
+      return copia.sort((a, b) => b.p20Equivalente - a.p20Equivalente);
+    case "horas":
+      return copia.sort((a, b) => b.horas - a.horas);
+  }
+}
+
+export const GRANULARIDADES = ["dia", "semana", "mes"] as const;
+export type Granularidade = (typeof GRANULARIDADES)[number];
+
+export const ROTULO_GRANULARIDADE: Record<Granularidade, string> = {
+  dia: "Por dia",
+  semana: "Por semana",
+  mes: "Por mês",
+};
+
+export function ehGranularidade(v: unknown): v is Granularidade {
+  return typeof v === "string" && (GRANULARIDADES as readonly string[]).includes(v);
+}
+
+export type PontoEvolucao = {
+  chave: string;
+  rotulo: string;
+  ciclos: number;
+  horas: number;
+  p20: number;
+  horasPorP20: number;
+};
+
+const DIA_SP = new Intl.DateTimeFormat("en-CA", {
+  timeZone: "America/Sao_Paulo",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
+
+/**
+ * Evolução da média de horas/P20 ao longo do tempo.
+ *
+ * O ciclo entra no período em que FECHOU -- é quando o botijão acabou e o
+ * consumo virou fato. Usar a abertura jogaria o consumo para trás e
+ * mexeria em números de semanas já fechadas toda vez que um ciclo longo
+ * terminasse.
+ *
+ * A data sai no fuso da operação: com a data crua, tudo que acontece
+ * depois das 21h cairia no dia seguinte (a Vercel roda em UTC).
+ */
+export function evolucaoDosCiclos(ciclos: CicloP20[], granularidade: Granularidade): PontoEvolucao[] {
+  const acc = new Map<string, { rotulo: string; ciclos: number; horas: number }>();
+
+  for (const c of ciclos) {
+    if (!cicloContaParaMaquina(c)) continue;
+    const dia = DIA_SP.format(new Date(c.fechadoEm)); // AAAA-MM-DD
+    const [ano, mes, d] = dia.split("-");
+
+    let chave = dia;
+    let rotulo = `${d}/${mes}`;
+    if (granularidade === "mes") {
+      chave = `${ano}-${mes}`;
+      rotulo = `${mes}/${ano}`;
+    } else if (granularidade === "semana") {
+      // Segunda-feira da semana daquele dia.
+      const data = new Date(`${dia}T12:00:00Z`);
+      const diaDaSemana = (data.getUTCDay() + 6) % 7; // 0 = segunda
+      data.setUTCDate(data.getUTCDate() - diaDaSemana);
+      chave = data.toISOString().slice(0, 10);
+      const [, m2, d2] = chave.split("-");
+      rotulo = `Semana de ${d2}/${m2}`;
+    }
+
+    const a = acc.get(chave) ?? { rotulo, ciclos: 0, horas: 0 };
+    a.ciclos += 1;
+    a.horas += c.horas;
+    acc.set(chave, a);
+  }
+
+  return [...acc.entries()]
+    .map(([chave, a]) => ({
+      chave,
+      rotulo: a.rotulo,
+      ciclos: a.ciclos,
+      horas: arredondar(a.horas, 1),
+      p20: a.ciclos,
+      horasPorP20: arredondar(a.horas / a.ciclos, 1),
+    }))
+    .sort((x, y) => x.chave.localeCompare(y.chave));
+}
+
+/** Consumo de uma máquina quebrado por operador -- alimenta o item 11. */
+export function operadoresDaMaquina(ciclos: CicloP20[], empilhadeiraId: string) {
+  const acc = new Map<string, { nome: string; horas: number; p20: number }>();
+  for (const c of ciclos) {
+    if (c.empilhadeiraId !== empilhadeiraId || !cicloContaParaOperador(c)) continue;
+    for (const o of c.porOperador) {
+      const a = acc.get(o.operadorId) ?? { nome: o.operadorNome, horas: 0, p20: 0 };
+      a.horas += o.horas;
+      a.p20 += o.p20Equivalente;
+      acc.set(o.operadorId, a);
+    }
+  }
+  return [...acc.entries()]
+    .map(([operadorId, a]) => ({
+      operadorId,
+      operadorNome: a.nome,
+      horas: arredondar(a.horas, 1),
+      p20Equivalente: arredondar(a.p20, 3),
+    }))
+    .sort((a, b) => b.horas - a.horas);
+}
+
 /** "8,0 h/P20" -- com vírgula, que é como o time lê. */
 export function formatarNumeroBr(v: number, casas = 1) {
   return v.toLocaleString("pt-BR", { minimumFractionDigits: casas, maximumFractionDigits: casas });
