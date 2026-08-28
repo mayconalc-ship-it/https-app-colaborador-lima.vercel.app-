@@ -39,7 +39,9 @@ export function BarraRanking({
   const fmt = formatarValor ?? ((v: number) => v.toLocaleString("pt-BR", { maximumFractionDigits: 1 }));
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+    // `min-w-0` também aqui: como item de grid, este cartão herda
+    // min-width auto e esticaria junto com o conteúdo mais largo.
+    <div className="min-w-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
       <h3 className="text-sm font-bold text-slate-900">{titulo}</h3>
       {subtitulo && <p className="mb-3 mt-0.5 text-xs text-slate-500">{subtitulo}</p>}
       {itens.length === 0 ? (
@@ -48,8 +50,14 @@ export function BarraRanking({
         <ul className="mt-3 space-y-2.5">
           {itens.map((item) => (
             <li key={item.rotulo} title={item.detalhe ?? `${item.rotulo}: ${fmt(item.valor)} ${sufixo}`}>
+              {/* `min-w-0` é o que faz o `truncate` funcionar: sem ele o
+                  item de flex se recusa a encolher abaixo do próprio texto,
+                  o corte nunca acontece e nomes longos de produto
+                  ("ORIGINAL LT 269ML SH C15 NPAL") empurram o cartão para
+                  fora da tela -- a página inteira passava a rolar de lado
+                  no celular ao expandir a seção. */}
               <div className="mb-1 flex items-baseline justify-between gap-2 text-xs">
-                <span className="truncate font-medium text-slate-700">{item.rotulo}</span>
+                <span className="min-w-0 truncate font-medium text-slate-700">{item.rotulo}</span>
                 <span className={`shrink-0 font-bold ${cor.texto}`}>
                   {fmt(item.valor)} {sufixo}
                 </span>
