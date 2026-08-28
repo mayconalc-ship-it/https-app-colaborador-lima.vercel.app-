@@ -161,9 +161,13 @@ export async function finalizarDescarga(formData: FormData) {
 }
 
 /**
- * O conferente clica ao começar a contar o que chegou no chão -- vira a
- * pessoa responsável pelo atendimento (conferente_*), mas não mexe na
- * descarga: pode clicar antes, durante ou DEPOIS dela.
+ * O conferente clica ao começar a contar o que chegou no chão. Não mexe
+ * na descarga: pode clicar antes, durante ou DEPOIS dela.
+ *
+ * O nome gravado aqui é PROVISÓRIO -- serve para a tela mostrar quem
+ * está com a conferência na mão agora. Quem fica no registro é quem
+ * LANÇAR a contagem (ver finalizarConferencia): abrir a tela é um toque,
+ * e um toque por engano não pode assinar o trabalho de outra pessoa.
  *
  * "Depois" inclui o atendimento já encerrado: desde 27/08/2026 o ciclo
  * fecha no fim da descarga (o caminhão vai embora), e a contagem do que
@@ -213,7 +217,7 @@ export async function iniciarConferencia(formData: FormData) {
  * atendimento na tela de finalizado.
  */
 export async function finalizarConferencia(formData: FormData) {
-  const { revendaId } = await exigirContextoCarretas("carretas-conferencia", "/carretas-conferencia");
+  const { perfil, revendaId } = await exigirContextoCarretas("carretas-conferencia", "/carretas-conferencia");
   const atendimentoId = String(formData.get("atendimento_id") ?? "");
   if (!atendimentoId) erro(atendimentoId, "Atendimento inválido.");
 
@@ -271,7 +275,16 @@ export async function finalizarConferencia(formData: FormData) {
 
   const { data: atualizado, error } = await supabase
     .from("atendimentos_carretas")
-    .update({ fim_conferencia_em: new Date().toISOString() })
+    .update({
+      fim_conferencia_em: new Date().toISOString(),
+      // O conferente do registro é QUEM LANÇOU a contagem, não quem
+      // abriu a tela. Antes o nome era carimbado no "Conferir carga" e
+      // nunca mais mexido: um toque por engano roubava o crédito de quem
+      // fez o trabalho. Aconteceu de verdade -- a DT 740912 saiu no nome
+      // de quem só abriu, e quem contou não aparecia em lugar nenhum.
+      conferente_colaborador_id: perfil.id,
+      conferente_nome: perfil.nome,
+    })
     .eq("id", atendimentoId)
     .eq("revenda_id", revendaId)
     .not("inicio_conferencia_em", "is", null)
