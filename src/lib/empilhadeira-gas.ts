@@ -375,6 +375,63 @@ export function resumirPorMaquina(ciclos: CicloP20[]): ResumoMaquina[] {
     .sort((a, b) => (b.horasPorP20 ?? 0) - (a.horasPorP20 ?? 0));
 }
 
+/**
+ * Acima disto, o horímetro informado não pode ser real e o lançamento é
+ * recusado. Mil horas são ~40 dias de motor ligado sem parar entre duas
+ * leituras -- na prática é sempre o ponto decimal esquecido.
+ *
+ * Generoso de propósito: bloquear cedo demais faria o app recusar
+ * lançamento legítimo de máquina que ficou semanas parada, e aí a pessoa
+ * desiste de apontar. O aviso visual (bem mais baixo) é que educa; o
+ * bloqueio só existe para o absurdo.
+ */
+export const SALTO_IMPOSSIVEL_HORAS = 1000;
+
+/** A partir daqui a tela avisa, mas deixa passar -- pode ser real. */
+export const SALTO_SUSPEITO_HORAS = 24;
+
+export type AvaliacaoHorimetro =
+  | { nivel: "ok"; diferenca: number }
+  | { nivel: "atencao"; diferenca: number; mensagem: string }
+  | { nivel: "impossivel"; diferenca: number; mensagem: string };
+
+/**
+ * Compara o horímetro digitado com a última leitura conhecida da
+ * máquina. Serve para a tela avisar enquanto a pessoa digita E para a
+ * ação no servidor recusar o impossível -- a mesma régua nos dois
+ * lugares, para a tela nunca prometer algo que o servidor recusa.
+ */
+export function avaliarHorimetro(
+  informado: number,
+  ultimoConhecido: number | null,
+): AvaliacaoHorimetro {
+  if (ultimoConhecido === null) return { nivel: "ok", diferenca: 0 };
+  const diferenca = arredondar(informado - ultimoConhecido, 1);
+
+  if (diferenca < 0) {
+    return {
+      nivel: "atencao",
+      diferenca,
+      mensagem: `Menor que a última leitura (${formatarNumeroBr(ultimoConhecido)} h). O horímetro não anda para trás -- confira antes de enviar.`,
+    };
+  }
+  if (diferenca > SALTO_IMPOSSIVEL_HORAS) {
+    return {
+      nivel: "impossivel",
+      diferenca,
+      mensagem: `Isso daria ${formatarNumeroBr(diferenca)} horas desde a última leitura (${formatarNumeroBr(ultimoConhecido)} h). Confira o ponto decimal -- 5485,0 digitado como 54850 dá exatamente esse tipo de salto.`,
+    };
+  }
+  if (diferenca > SALTO_SUSPEITO_HORAS) {
+    return {
+      nivel: "atencao",
+      diferenca,
+      mensagem: `São ${formatarNumeroBr(diferenca)} horas desde a última leitura (${formatarNumeroBr(ultimoConhecido)} h). Confira se está certo.`,
+    };
+  }
+  return { nivel: "ok", diferenca };
+}
+
 /** "8,0 h/P20" -- com vírgula, que é como o time lê. */
 export function formatarNumeroBr(v: number, casas = 1) {
   return v.toLocaleString("pt-BR", { minimumFractionDigits: casas, maximumFractionDigits: casas });

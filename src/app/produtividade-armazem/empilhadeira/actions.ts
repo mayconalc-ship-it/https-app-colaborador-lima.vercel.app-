@@ -4,6 +4,8 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { exigirContextoModulo, subirFotoHorimetro } from "@/lib/produtividade-armazem-server";
+import { avaliarHorimetro } from "@/lib/empilhadeira-gas";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 const ROTA = "/produtividade-armazem/empilhadeira";
 
@@ -12,6 +14,56 @@ function erro(id: string, mensagem: string): never {
 }
 
 const exigirContexto = () => exigirContextoModulo("pa-empilhadeira", ROTA);
+
+/**
+ * Última leitura conhecida da máquina: o maior horímetro entre operações
+ * e trocas de gás. Serve de referência para recusar salto impossível --
+ * a tela já avisa enquanto a pessoa digita, mas esconder o botão nunca
+ * foi controle: a régua tem que valer aqui também.
+ */
+async function ultimoHorimetroDaMaquina(
+  empilhadeiraId: string,
+  revendaId: string,
+): Promise<number | null> {
+  const admin = createAdminClient();
+  const [{ data: op }, { data: troca }] = await Promise.all([
+    admin
+      .from("pa_empilhadeira_operacoes")
+      .select("horimetro_inicial, horimetro_final")
+      .eq("empilhadeira_id", empilhadeiraId)
+      .eq("revenda_id", revendaId)
+      .order("inicio", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    admin
+      .from("pa_empilhadeira_trocas_gas")
+      .select("horimetro")
+      .eq("empilhadeira_id", empilhadeiraId)
+      .eq("revenda_id", revendaId)
+      .order("realizada_em", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+  ]);
+
+  const valores = [
+    op?.horimetro_final ?? op?.horimetro_inicial ?? null,
+    troca?.horimetro ?? null,
+  ].filter((v): v is number => v !== null && Number.isFinite(Number(v)));
+
+  return valores.length > 0 ? Math.max(...valores.map(Number)) : null;
+}
+
+/** Recusa o que não pode ser real. Erro de digitação vira dado ruim para
+ *  sempre -- e dado ruim num indicador destrói a confiança na tela toda. */
+async function exigirHorimetroPlausivel(
+  empilhadeiraId: string,
+  revendaId: string,
+  informado: number,
+) {
+  const ultimo = await ultimoHorimetroDaMaquina(empilhadeiraId, revendaId);
+  const avaliacao = avaliarHorimetro(informado, ultimo);
+  if (avaliacao.nivel === "impossivel") erro(empilhadeiraId, avaliacao.mensagem);
+}
 
 /**
  * Abre uma operação. A trava de verdade é o índice único parcial
@@ -35,6 +87,8 @@ export async function abrirOperacao(formData: FormData) {
   if (!(foto instanceof File) || foto.size === 0) {
     erro(empilhadeiraId, "A foto do horímetro é obrigatória para abrir a operação.");
   }
+
+  await exigirHorimetroPlausivel(empilhadeiraId, revendaId, horimetro);
 
   const enviada = await subirFotoHorimetro(foto, `${empilhadeiraId}/abertura-${perfil.id}`);
   if (!enviada.ok) erro(empilhadeiraId, enviada.erro);
@@ -150,6 +204,8 @@ export async function registrarTrocaGas(formData: FormData) {
   if (!(foto instanceof File) || foto.size === 0) {
     erro(empilhadeiraId, "A foto do horímetro é obrigatória para registrar a troca.");
   }
+
+  await exigirHorimetroPlausivel(empilhadeiraId, revendaId, horimetro);
 
   const enviada = await subirFotoHorimetro(foto, `${empilhadeiraId}/troca-gas-${perfil.id}`);
   if (!enviada.ok) erro(empilhadeiraId, enviada.erro);

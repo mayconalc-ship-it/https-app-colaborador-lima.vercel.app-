@@ -77,6 +77,26 @@ export default async function EmpilhadeiraDetalhePage({
   const historico = (historicoBanco ?? []).map(operacaoEmpilhadeiraDeLinha);
   const trocasGas = (trocasGasBanco ?? []).map(trocaGasDeLinha);
   const ultimaTrocaGas = trocasGas[0] ?? null;
+
+  // Última leitura conhecida da máquina -- o campo compara com ela
+  // enquanto a pessoa digita, e é assim que "5485,0" digitado como
+  // "54850" aparece na hora como um salto impossível.
+  const ultimoHorimetro =
+    [
+      aberta?.horimetroInicial ?? null,
+      historico[0]?.horimetroFinal ?? null,
+      historico[0]?.horimetroInicial ?? null,
+      ultimaTrocaGas?.horimetro ?? null,
+    ].filter((v): v is number => v !== null && Number.isFinite(v)).length > 0
+      ? Math.max(
+          ...[
+            aberta?.horimetroInicial ?? null,
+            historico[0]?.horimetroFinal ?? null,
+            historico[0]?.horimetroInicial ?? null,
+            ultimaTrocaGas?.horimetro ?? null,
+          ].filter((v): v is number => v !== null && Number.isFinite(v)),
+        )
+      : null;
   const mediaGas = horasMediasPorTrocaGas([...trocasGas].reverse());
 
   return (
@@ -147,6 +167,7 @@ export default async function EmpilhadeiraDetalhePage({
                 labelFoto="Foto do horímetro final (obrigatória)"
                 labelHorimetro="Horímetro final"
                 min={aberta.horimetroInicial}
+                ultimoHorimetro={ultimoHorimetro}
               />
 
               <BotaoEnviar
@@ -174,6 +195,7 @@ export default async function EmpilhadeiraDetalhePage({
               labelFoto="Foto do horímetro inicial (obrigatória)"
               labelHorimetro="Horímetro inicial"
               min={0}
+              ultimoHorimetro={ultimoHorimetro}
             />
 
             <p className="text-xs text-slate-500">
@@ -211,6 +233,7 @@ export default async function EmpilhadeiraDetalhePage({
                 labelFoto="Foto do horímetro (obrigatória)"
                 labelHorimetro="Horímetro no momento da troca"
                 min={0}
+                ultimoHorimetro={ultimoHorimetro}
               />
 
               <BotaoEnviar
