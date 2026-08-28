@@ -9,6 +9,7 @@ import { getPerfil } from "@/lib/sessao";
 import { criarNotificacao } from "@/lib/notificacoes-server";
 import { enviarPushDaRevenda } from "@/lib/push-server";
 import { ehAreaValida, type AreaId } from "@/lib/areas";
+import { hojeIso } from "@/lib/pesquisa";
 import {
   getPessoasDaArea,
   getRodada,
@@ -260,26 +261,43 @@ export async function publicarRodada(formData: FormData) {
     );
   }
 
+  const agora = new Date().toISOString();
+  // Publicar é uma coisa, avisar é outra. Publicar em agosto um desafio
+  // que só abre em setembro é normal -- avisar o time nesse momento não
+  // é: getRodadaAtual só devolve a rodada dentro do período, então o
+  // aviso levaria a uma tela vazia. Aconteceu em 27/08/2026.
+  const comecouHoje = rodada.inicio <= hojeIso();
+
   const { error } = await admin
     .from("quiz_rodadas")
-    .update({ status: "publicada", publicada_em: new Date().toISOString() })
+    .update({
+      status: "publicada",
+      publicada_em: agora,
+      // Marca já como avisada quando o aviso sai agora; deixa nulo para
+      // a varredura de lembretes avisar no dia do início.
+      aviso_inicio_em: comecouHoje ? agora : null,
+    })
     .eq("id", rodada.id)
     .eq("revenda_id", revendaId);
 
   if (error) redirect(`${destino}?erro=${encodeURIComponent(error.message)}`);
 
-  const avisados = await avisarDaArea(revendaId, rodada.area, {
-    titulo: "🏆 Novo desafio disponível",
-    mensagem: `${rodada.nome} — ${rodada.totalPerguntas} perguntas, ${
-      rodada.totalPerguntas * PONTOS_POR_QUESTAO
-    } pontos em jogo.`,
-  });
+  const avisados = comecouHoje
+    ? await avisarDaArea(revendaId, rodada.area, {
+        titulo: "🏆 Novo desafio disponível",
+        mensagem: `${rodada.nome} — ${rodada.totalPerguntas} perguntas, ${
+          rodada.totalPerguntas * PONTOS_POR_QUESTAO
+        } pontos em jogo.`,
+      })
+    : 0;
 
   revalidatePath("/desafio");
   revalidatePath("/");
   redirect(
     `${destino}?sucesso=${encodeURIComponent(
-      `Rodada publicada. ${resumoDoAviso(avisados, rodada.area)}`,
+      comecouHoje
+        ? `Rodada publicada. ${resumoDoAviso(avisados, rodada.area)}`
+        : `Rodada publicada. O time será avisado em ${formatarDiaBr(rodada.inicio)}, quando o desafio abrir.`,
     )}`,
   );
 }
@@ -1001,6 +1019,12 @@ async function avisarDaArea(
   });
 
   return pessoas.length;
+}
+
+/** "2026-09-01" vira "01/09" -- só para a mensagem de confirmação. */
+function formatarDiaBr(iso: string) {
+  const [, mes, dia] = iso.split("-");
+  return `${dia}/${mes}`;
 }
 
 /** "12 pessoas avisadas" — ou o alerta de que não havia quem avisar. */

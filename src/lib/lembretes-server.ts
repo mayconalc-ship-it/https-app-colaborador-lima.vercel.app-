@@ -37,6 +37,8 @@ export type Varredura = {
   desafios: number;
   cincoS: number;
   publicadas: number;
+  /** Rodadas de desafio que estrearam hoje e tiveram o time avisado. */
+  aberturas: number;
   empilhadeiras: number;
   erro?: string;
 };
@@ -76,12 +78,17 @@ export async function varrerLembretes(): Promise<Varredura> {
   // na esmagadora maioria das varreduras, zero linhas. Ficarem atrás de
   // uma etapa que notifica cem pessoas era trocar o certo pelo caro.
   const publicadas = await publicacoesAgendadas(admin);
+  // Abertura de desafio entra junto das publicações agendadas, e antes
+  // dos lembretes: é o mesmo tipo de coisa (algo que ESTREIA hoje e o
+  // time ainda não sabe), e é barato -- na quase totalidade das
+  // varreduras, zero linhas.
+  const aberturas = await aberturasDoDesafio(admin);
   const enviados = await lembretesDeComunicado(admin);
   const cincoS = await lembretesDo5S(admin);
   const desafios = await lembretesDoDesafio(admin);
   const empilhadeiras = await lembretesDeEmpilhadeira(admin);
 
-  return { ...enviados, cincoS, desafios, publicadas, empilhadeiras };
+  return { ...enviados, cincoS, desafios, publicadas, aberturas, empilhadeiras };
 }
 
 /**
@@ -561,6 +568,71 @@ async function lembretesDeEmpilhadeira(admin: ReturnType<typeof createAdminClien
   }
 
   return enviados;
+}
+
+/**
+ * Avisa o time no dia em que o desafio ABRE.
+ *
+ * Antes o aviso saía no ato da publicação, o que dava certo só por
+ * coincidência -- quando a rodada começava no mesmo dia. Em 27/08/2026 o
+ * desafio de SETEMBRO foi publicado e todo mundo recebeu "Novo desafio
+ * disponível" na hora, para uma tela que só abriria no dia 1º
+ * (getRodadaAtual filtra por período). Aviso que leva a lugar nenhum
+ * ensina o time a ignorar o sino.
+ *
+ * Mesmo desenho da publicação agendada do Jornal: carimbo em
+ * `aviso_inicio_em`, gravado MESMO quando não há ninguém para avisar --
+ * senão a rodada voltaria à fila a cada varredura, para sempre.
+ */
+async function aberturasDoDesafio(admin: ReturnType<typeof createAdminClient>) {
+  const hoje = hojeIso();
+
+  const { data: rodadas } = await admin
+    .from("quiz_rodadas")
+    .select("id, revenda_id, nome, area, total_perguntas")
+    .eq("status", "publicada")
+    .is("aviso_inicio_em", null)
+    .lte("inicio", hoje)
+    .gte("fim", hoje);
+
+  let avisadas = 0;
+
+  for (const r of rodadas ?? []) {
+    // Carimba ANTES de avisar: se o envio falhar no meio, a rodada não
+    // volta na próxima varredura e ninguém recebe o aviso duas vezes.
+    await admin
+      .from("quiz_rodadas")
+      .update({ aviso_inicio_em: new Date().toISOString() })
+      .eq("id", r.id);
+
+    const pessoas = await getPessoasDaArea(r.revenda_id, r.area as AreaId);
+    if (pessoas.length === 0) continue;
+
+    const mensagem = `${r.nome} — ${r.total_perguntas} perguntas para responder neste mês.`;
+    await Promise.all(
+      pessoas.map((colaboradorId) =>
+        criarNotificacao({
+          modulo: "quiz",
+          tipo: "novo",
+          titulo: "🏆 Novo desafio disponível",
+          mensagem,
+          url: "/desafio",
+          revendaId: r.revenda_id,
+          destinatarioId: colaboradorId,
+        }),
+      ),
+    );
+    await enviarPushDaRevenda(r.revenda_id, {
+      modulo: "quiz",
+      titulo: "🏆 Novo desafio disponível",
+      mensagem,
+      url: "/desafio",
+      apenas: pessoas,
+    });
+    avisadas++;
+  }
+
+  return avisadas;
 }
 
 /**
