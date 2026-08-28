@@ -195,6 +195,37 @@ export async function corrigirHorimetroOperacao(formData: FormData) {
   sucesso("empilhadeiras", "Horímetro corrigido");
 }
 
+/**
+ * Valor do botijão P20, usado pelo dashboard de consumo de gás para
+ * virar custo por hora. Um valor por revenda -- decisão do dono
+ * (28/08/2026): valor único, não histórico por troca.
+ */
+export async function salvarCustoP20(formData: FormData) {
+  await requireModulo("produtividade-armazem", "editar");
+  const revendaId = await exigirRevenda(ROTA);
+  const admin = createAdminClient();
+
+  // Vazio LIMPA o valor: o dashboard some com os cartões de dinheiro e
+  // segue mostrando horas e consumo. Melhor que travar num número velho.
+  const bruto = String(formData.get("custo_p20") ?? "").trim().replace(",", ".");
+  const custo = bruto === "" ? null : Number(bruto);
+  if (custo !== null && (!Number.isFinite(custo) || custo < 0)) {
+    erro("empilhadeiras", "Informe um valor válido para o P20.");
+  }
+
+  const { error } = await admin
+    .from("pa_empilhadeira_config")
+    .upsert(
+      { revenda_id: revendaId, custo_p20: custo, atualizado_em: new Date().toISOString() },
+      { onConflict: "revenda_id" },
+    );
+  if (error) erro("empilhadeiras", `Não foi possível salvar: ${error.message}`);
+
+  revalidatePath(ROTA);
+  revalidatePath("/produtividade-armazem/empilhadeira/gas");
+  sucesso("empilhadeiras", custo === null ? "Valor do P20 removido" : "Valor do P20 atualizado");
+}
+
 // -------------------- MOTIVOS DE QUEBRA DE FEFO --------------------
 /**
  * Os motivos deixaram de ser lista fixa no código (migration 067): a

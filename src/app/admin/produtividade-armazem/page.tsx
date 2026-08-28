@@ -56,6 +56,7 @@ import {
   salvarEmpilhadeira,
   salvarEmpilhador,
   salvarFabrica,
+  salvarCustoP20,
   salvarItemChecklist5s,
   salvarLembreteEmpilhadeira,
   salvarMotivoFefo,
@@ -131,6 +132,7 @@ export default async function AdminProdutividadeArmazemPage({
     { data: operacoesEncontradas },
     { data: motivosFefo },
     podeExcluir,
+    { data: empilhadeiraConfig },
   ] = await Promise.all([
     supabase
       .from("pa_embalagens")
@@ -235,6 +237,7 @@ export default async function AdminProdutividadeArmazemPage({
     // Apagar motivo é a única ação atrás de "excluir" -- pedido do dono:
     // desativar qualquer um com "editar" pode; apagar, não.
     podeNoModulo("produtividade-armazem", "excluir"),
+    supabase.from("pa_empilhadeira_config").select("custo_p20").eq("revenda_id", revendaId).maybeSingle(),
   ]);
 
   const totalMotivosFefo = motivosFefo?.length ?? 0;
@@ -503,6 +506,37 @@ export default async function AdminProdutividadeArmazemPage({
               />
             ))}
           </PainelCadastro>
+
+          <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+            <div className="border-b border-slate-100 p-4">
+              <h2 className="text-sm font-bold text-slate-900">⛽ Valor do botijão P20</h2>
+              <p className="mt-1 text-xs text-slate-500">
+                Vira custo por hora no dashboard de consumo de gás. Deixe em branco para não mostrar
+                valores — as horas e o consumo aparecem do mesmo jeito.
+              </p>
+            </div>
+            <form action={salvarCustoP20} className="flex flex-wrap items-end gap-2 p-4">
+              <div className="flex-1">
+                <label className="mb-1 block text-xs font-semibold uppercase text-slate-500" htmlFor="custo_p20">
+                  Valor do P20 (R$)
+                </label>
+                <input
+                  id="custo_p20"
+                  name="custo_p20"
+                  type="number"
+                  inputMode="decimal"
+                  min={0}
+                  step="0.01"
+                  placeholder="Ex: 120,00"
+                  defaultValue={empilhadeiraConfig?.custo_p20 ?? ""}
+                  className={campo}
+                />
+              </div>
+              <BotaoEnviar className="shrink-0 rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-white">
+                Salvar
+              </BotaoEnviar>
+            </form>
+          </div>
 
           <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
             <div className="border-b border-slate-100 p-4">

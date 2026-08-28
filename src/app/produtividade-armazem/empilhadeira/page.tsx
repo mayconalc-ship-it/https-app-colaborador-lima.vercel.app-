@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { PageHeader } from "@/components/PageHeader";
 import { createClient } from "@/lib/supabase/server";
 import { getRevendaId } from "@/lib/revendas";
@@ -46,6 +47,24 @@ export default async function EmpilhadeiraIndexPage() {
         subtitle="Escolha a máquina para abrir ou fechar a operação."
         fecharHref="/produtividade-armazem"
       />
+
+      <Link
+        href="/produtividade-armazem/empilhadeira/gas"
+        className="mb-4 flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm hover:border-primary"
+      >
+        <span className="flex min-w-0 items-center gap-3">
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary-soft text-xl">
+            ⛽
+          </span>
+          <span className="min-w-0">
+            <span className="block text-sm font-bold text-slate-900">Consumo de gás P20</span>
+            <span className="block text-xs text-slate-500">
+              Horas por botijão, rateado entre quem usou a máquina
+            </span>
+          </span>
+        </span>
+        <span className="shrink-0 text-sm font-semibold text-primary">Ver →</span>
+      </Link>
 
       {(!maquinas || maquinas.length === 0) && (
         <p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-800">

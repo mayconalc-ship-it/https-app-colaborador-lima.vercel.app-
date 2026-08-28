@@ -1,0 +1,362 @@
+/**
+ * Ciclo de P20 e rateio entre operadores.
+ *
+ * A regra central (spec do dono, 28/08/2026):
+ *
+ *   Empilhadeira -> ciclo entre trocas -> horímetro -> sessões de uso
+ *   -> horas por operador -> rateio proporcional -> indicadores
+ *
+ * NÃO existe vínculo fixo entre operador e empilhadeira: a mesma máquina
+ * roda com 2, 3 ou mais pessoas dentro do mesmo botijão. O equipamento é
+ * que define o ciclo; o operador entra pelas horas que usou.
+ *
+ * Tudo aqui sai de dados que já existiam no módulo -- `pa_empilhadeira_
+ * operacoes` (a "sessão de utilização") e `pa_empilhadeira_trocas_gas`
+ * (o marco de fim de ciclo). Nada é recalculado no banco: o cálculo mora
+ * na leitura, como o resto do painel do armazém.
+ */
+
+/** Uma sessão de utilização já encerrada (com horímetro final). */
+export type SessaoUso = {
+  id: string;
+  empilhadeiraId: string;
+  operadorId: string;
+  operadorNome: string;
+  horimetroInicial: number;
+  horimetroFinal: number | null;
+  inicio: string;
+  fim: string | null;
+};
+
+/** Uma troca de botijão -- o marco que fecha um ciclo e abre o próximo. */
+export type TrocaGas = {
+  id: string;
+  empilhadeiraId: string;
+  operadorNome: string;
+  horimetro: number;
+  realizadaEm: string;
+};
+
+export type FatiaOperador = {
+  operadorId: string;
+  operadorNome: string;
+  horas: number;
+  /** Fração do ciclo, de 0 a 1. */
+  fracao: number;
+  /** Quantos P20 equivalentes couberam a esta pessoa neste ciclo. */
+  p20Equivalente: number;
+};
+
+export type StatusCiclo =
+  /** Horímetros válidos e sessões cobrindo o ciclo inteiro. */
+  | "completo"
+  /** Sobrou tempo sem sessão registrada -- ver horasNaoIdentificadas. */
+  | "parcial"
+  /** Nenhuma sessão no intervalo: consumo real, mas sem a quem atribuir. */
+  | "sem_sessoes"
+  /** Horímetro andou para trás ou ficou igual entre as trocas. */
+  | "horimetro_invalido";
+
+export type CicloP20 = {
+  empilhadeiraId: string;
+  empilhadeiraNumero: string;
+  /** 1, 2, 3... na ordem em que os ciclos daquela máquina aconteceram. */
+  numero: number;
+  horimetroInicial: number;
+  horimetroFinal: number;
+  /** Horas do ciclo, pelo horímetro -- a fonte principal, como pede a spec. */
+  horas: number;
+  abertoEm: string;
+  fechadoEm: string;
+  trocadoPor: string;
+  porOperador: FatiaOperador[];
+  horasAtribuidas: number;
+  /** Horas do ciclo que nenhuma sessão cobriu. Não são distribuídas a
+   *  ninguém de propósito (item 7 da spec). */
+  horasNaoIdentificadas: number;
+  /** Fração do P20 que ficou sem dono, pelo mesmo motivo. */
+  p20NaoIdentificado: number;
+  status: StatusCiclo;
+};
+
+const CASAS = 100; // arredonda em 2 casas sem acumular erro de float
+
+function arredondar(v: number, casas = 2) {
+  const f = casas === 2 ? CASAS : 10 ** casas;
+  return Math.round(v * f) / f;
+}
+
+/**
+ * Sobreposição entre a faixa de horímetro da sessão e a do ciclo.
+ *
+ * É por AQUI que a conta fecha. Uma sessão pode atravessar a troca de
+ * gás -- o operador começa antes e termina depois -- e dizer que ela
+ * "pertence" a um ciclo jogaria horas inteiras para o lado errado.
+ * Medindo a sobreposição, cada ciclo recebe exatamente a parte que
+ * aconteceu dentro dele, e a soma continua batendo com o horímetro.
+ */
+function sobreposicao(
+  sessaoInicio: number,
+  sessaoFim: number,
+  cicloInicio: number,
+  cicloFim: number,
+): number {
+  return Math.max(0, Math.min(sessaoFim, cicloFim) - Math.max(sessaoInicio, cicloInicio));
+}
+
+/**
+ * Monta os ciclos de uma revenda inteira.
+ *
+ * A PRIMEIRA troca de cada empilhadeira nunca vira ciclo: sem um ponto
+ * anterior não há intervalo para medir (item 18 da spec). Ela fica sendo
+ * só o marco de partida.
+ */
+export function montarCiclos(
+  trocas: TrocaGas[],
+  sessoes: SessaoUso[],
+  numeroDaEmpilhadeira: Map<string, string>,
+): CicloP20[] {
+  const porMaquina = new Map<string, TrocaGas[]>();
+  for (const t of trocas) {
+    const lista = porMaquina.get(t.empilhadeiraId) ?? [];
+    lista.push(t);
+    porMaquina.set(t.empilhadeiraId, lista);
+  }
+
+  // Só sessões ENCERRADAS entram: sem horímetro final não há faixa para
+  // sobrepor, e chutar o valor inventaria consumo (item 8 da spec).
+  const encerradas = sessoes.filter(
+    (s): s is SessaoUso & { horimetroFinal: number } => s.horimetroFinal !== null,
+  );
+
+  const ciclos: CicloP20[] = [];
+
+  for (const [empilhadeiraId, lista] of porMaquina) {
+    // Ordena pelo horímetro; empate desempata pela data, porque duas
+    // trocas com o mesmo horímetro são o caso do botijão trocado logo
+    // em seguida, sem a máquina ter rodado.
+    const ordenadas = [...lista].sort(
+      (a, b) => a.horimetro - b.horimetro || a.realizadaEm.localeCompare(b.realizadaEm),
+    );
+
+    const daMaquina = encerradas.filter((s) => s.empilhadeiraId === empilhadeiraId);
+
+    for (let i = 1; i < ordenadas.length; i++) {
+      const anterior = ordenadas[i - 1];
+      const atual = ordenadas[i];
+      const horas = arredondar(atual.horimetro - anterior.horimetro, 1);
+
+      const base = {
+        empilhadeiraId,
+        empilhadeiraNumero: numeroDaEmpilhadeira.get(empilhadeiraId) ?? "—",
+        numero: i,
+        horimetroInicial: anterior.horimetro,
+        horimetroFinal: atual.horimetro,
+        horas,
+        abertoEm: anterior.realizadaEm,
+        fechadoEm: atual.realizadaEm,
+        trocadoPor: atual.operadorNome,
+      };
+
+      // Horímetro parado ou andando para trás: não dá para medir nada,
+      // e distribuir um consumo sobre zero hora explodiria a conta.
+      if (horas <= 0) {
+        ciclos.push({
+          ...base,
+          porOperador: [],
+          horasAtribuidas: 0,
+          horasNaoIdentificadas: 0,
+          p20NaoIdentificado: 1,
+          status: "horimetro_invalido",
+        });
+        continue;
+      }
+
+      // Soma as horas de cada operador dentro da faixa deste ciclo.
+      const horasPorOperador = new Map<string, { nome: string; horas: number }>();
+      for (const s of daMaquina) {
+        const dentro = sobreposicao(
+          s.horimetroInicial,
+          s.horimetroFinal,
+          base.horimetroInicial,
+          base.horimetroFinal,
+        );
+        if (dentro <= 0) continue;
+        const atualOp = horasPorOperador.get(s.operadorId) ?? { nome: s.operadorNome, horas: 0 };
+        atualOp.horas += dentro;
+        horasPorOperador.set(s.operadorId, atualOp);
+      }
+
+      // O rateio usa as horas do CICLO como denominador, não a soma das
+      // sessões. Assim a parte sem sessão registrada fica visivelmente
+      // "de ninguém" em vez de ser empurrada para quem estava por perto
+      // (item 7), e operador + não identificado continua somando 1 P20
+      // (item 4). As duas exigências só convivem desta forma.
+      const porOperador: FatiaOperador[] = [...horasPorOperador.entries()]
+        .map(([operadorId, v]) => ({
+          operadorId,
+          operadorNome: v.nome,
+          horas: arredondar(v.horas, 1),
+          fracao: arredondar(v.horas / horas, 4),
+          p20Equivalente: arredondar(v.horas / horas, 3),
+        }))
+        .sort((a, b) => b.horas - a.horas);
+
+      const horasAtribuidas = arredondar(
+        porOperador.reduce((s, o) => s + o.horas, 0),
+        1,
+      );
+      const horasNaoIdentificadas = arredondar(Math.max(0, horas - horasAtribuidas), 1);
+
+      // O não identificado é o RESTO do que sobrou depois de arredondar
+      // as fatias, não a sua própria divisão arredondada. Calculado à
+      // parte, os arredondamentos somavam 1,001 P20 -- pouco, mas o item
+      // 4 exige que a soma feche exatamente no consumo real, e um total
+      // que não fecha é a primeira coisa que faz alguém duvidar do
+      // número inteiro.
+      const p20DosOperadores = porOperador.reduce((s, o) => s + o.p20Equivalente, 0);
+
+      ciclos.push({
+        ...base,
+        porOperador,
+        horasAtribuidas,
+        horasNaoIdentificadas,
+        p20NaoIdentificado: arredondar(Math.max(0, 1 - p20DosOperadores), 3),
+        status:
+          porOperador.length === 0
+            ? "sem_sessoes"
+            : horasNaoIdentificadas > 0.05
+              ? "parcial"
+              : "completo",
+      });
+    }
+  }
+
+  return ciclos.sort((a, b) => b.fechadoEm.localeCompare(a.fechadoEm));
+}
+
+export const ROTULO_STATUS_CICLO: Record<StatusCiclo, string> = {
+  completo: "Completo",
+  parcial: "Utilização não identificada",
+  sem_sessoes: "Consumo não atribuível",
+  horimetro_invalido: "Horímetro inconsistente",
+};
+
+/** Ciclo cujo indicador de horas/P20 pode ser usado: o horímetro precisa
+ *  ser válido. Falta de sessão não invalida o consumo da MÁQUINA (item
+ *  19) -- só impede a análise individual. */
+export function cicloContaParaMaquina(c: CicloP20) {
+  return c.status !== "horimetro_invalido";
+}
+
+/** Ciclo que pode entrar na análise por OPERADOR: precisa ter sessão. */
+export function cicloContaParaOperador(c: CicloP20) {
+  return c.status === "completo" || c.status === "parcial";
+}
+
+export type ResumoOperador = {
+  operadorId: string;
+  operadorNome: string;
+  horas: number;
+  p20Equivalente: number;
+  /** Horas por P20 -- o indicador de acompanhamento do item 5. */
+  horasPorP20: number | null;
+  sessoes: number;
+  empilhadeiras: number;
+  /** Fatia do consumo total do período. */
+  pctDoConsumo: number;
+};
+
+export function resumirPorOperador(ciclos: CicloP20[]): ResumoOperador[] {
+  const elegiveis = ciclos.filter(cicloContaParaOperador);
+  const acc = new Map<
+    string,
+    { nome: string; horas: number; p20: number; maquinas: Set<string>; fatias: number }
+  >();
+
+  for (const c of elegiveis) {
+    for (const o of c.porOperador) {
+      const a = acc.get(o.operadorId) ?? {
+        nome: o.operadorNome,
+        horas: 0,
+        p20: 0,
+        maquinas: new Set<string>(),
+        fatias: 0,
+      };
+      a.horas += o.horas;
+      a.p20 += o.p20Equivalente;
+      a.maquinas.add(c.empilhadeiraId);
+      a.fatias += 1;
+      acc.set(o.operadorId, a);
+    }
+  }
+
+  const p20Total = [...acc.values()].reduce((s, a) => s + a.p20, 0);
+
+  return [...acc.entries()]
+    .map(([operadorId, a]) => ({
+      operadorId,
+      operadorNome: a.nome,
+      horas: arredondar(a.horas, 1),
+      p20Equivalente: arredondar(a.p20, 3),
+      horasPorP20: a.p20 > 0 ? arredondar(a.horas / a.p20, 1) : null,
+      sessoes: a.fatias,
+      empilhadeiras: a.maquinas.size,
+      pctDoConsumo: p20Total > 0 ? arredondar((a.p20 / p20Total) * 100, 1) : 0,
+    }))
+    .sort((a, b) => b.horas - a.horas);
+}
+
+export type ResumoMaquina = {
+  empilhadeiraId: string;
+  numero: string;
+  ciclos: number;
+  horas: number;
+  p20: number;
+  horasPorP20: number | null;
+  operadores: number;
+  horasNaoIdentificadas: number;
+};
+
+export function resumirPorMaquina(ciclos: CicloP20[]): ResumoMaquina[] {
+  const acc = new Map<
+    string,
+    { numero: string; ciclos: number; horas: number; p20: number; ops: Set<string>; naoId: number }
+  >();
+
+  for (const c of ciclos) {
+    if (!cicloContaParaMaquina(c)) continue;
+    const a = acc.get(c.empilhadeiraId) ?? {
+      numero: c.empilhadeiraNumero,
+      ciclos: 0,
+      horas: 0,
+      p20: 0,
+      ops: new Set<string>(),
+      naoId: 0,
+    };
+    a.ciclos += 1;
+    a.horas += c.horas;
+    a.p20 += 1; // um ciclo = um botijão
+    a.naoId += c.horasNaoIdentificadas;
+    for (const o of c.porOperador) a.ops.add(o.operadorId);
+    acc.set(c.empilhadeiraId, a);
+  }
+
+  return [...acc.entries()]
+    .map(([empilhadeiraId, a]) => ({
+      empilhadeiraId,
+      numero: a.numero,
+      ciclos: a.ciclos,
+      horas: arredondar(a.horas, 1),
+      p20: a.p20,
+      horasPorP20: a.p20 > 0 ? arredondar(a.horas / a.p20, 1) : null,
+      operadores: a.ops.size,
+      horasNaoIdentificadas: arredondar(a.naoId, 1),
+    }))
+    .sort((a, b) => (b.horasPorP20 ?? 0) - (a.horasPorP20 ?? 0));
+}
+
+/** "8,0 h/P20" -- com vírgula, que é como o time lê. */
+export function formatarNumeroBr(v: number, casas = 1) {
+  return v.toLocaleString("pt-BR", { minimumFractionDigits: casas, maximumFractionDigits: casas });
+}
