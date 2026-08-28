@@ -377,6 +377,13 @@ export function hojeISO() {
   return DIA_SP.format(new Date());
 }
 
+/** O DIA de um timestamp, no fuso da operação -- não no do servidor.
+ *  A Vercel roda em UTC: usar a data crua jogaria tudo que acontece
+ *  depois das 21h para o dia seguinte, bem no fim do turno da noite. */
+export function diaLocalISO(iso: string) {
+  return DIA_SP.format(new Date(iso));
+}
+
 export function diasAtrasISO(n: number) {
   return DIA_SP.format(new Date(Date.now() - n * 86_400_000));
 }

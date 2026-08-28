@@ -10,6 +10,7 @@ import {
   agruparPorProduto,
   calcularPontuacao,
   construirRanking,
+  diaLocalISO,
   diasAtrasISO,
   formatarHoras,
   hojeISO,
@@ -218,6 +219,42 @@ export default async function IndicadoresPage({
   const selecaoQuantidadeTotal = selecoes.reduce((s, x) => s + x.quantidade, 0);
   const selecaoHorasTotal = selecoes.reduce((s, x) => s + horasEntre(x.inicio, x.fim), 0);
   const selecaoTaxaHora = taxaPorHora(selecaoQuantidadeTotal, selecaoHorasTotal);
+
+  // ---- Tempo de bancada: Seleção + Repack ----
+  // O POP trata as duas como etapas do MESMO ciclo (POP-ARM-001, 7.2 a
+  // 7.6): o produto sai do pallet avariado, é triado e volta embalado --
+  // tudo na bancada. Separado, cada tempo diz pouco; somado, dá a carga
+  // real de trabalho ali.
+  //
+  // A divisão entre as duas é o número que interessa: foi justamente por
+  // suspeitar que um lote muito avariado consome o tempo na triagem (e
+  // aparecia como "repack lento") que as etapas foram separadas.
+  const bancadaHoras = selecaoHorasTotal + reepackHorasTotal;
+  const bancadaPctSelecao = bancadaHoras > 0 ? Math.round((selecaoHorasTotal / bancadaHoras) * 100) : 0;
+
+  // Média POR DIA TRABALHADO, não por dia do período: contar domingo e
+  // dia sem lançamento derrubaria a média e faria a bancada parecer
+  // ociosa quando ela só não operou.
+  const diasComBancada = new Set(
+    [...selecoes, ...reepacks].map((l) => diaLocalISO(l.inicio)),
+  ).size;
+  const bancadaMediaDia = diasComBancada > 0 ? bancadaHoras / diasComBancada : 0;
+
+  // Tempo de bancada por pessoa -- quem passou mais tempo ali.
+  const bancadaPorColaborador = new Map<string, { nome: string; horas: number }>();
+  for (const l of [...selecoes, ...reepacks]) {
+    const atual = bancadaPorColaborador.get(l.colaborador_id) ?? { nome: l.colaborador_nome, horas: 0 };
+    atual.horas += horasEntre(l.inicio, l.fim);
+    bancadaPorColaborador.set(l.colaborador_id, atual);
+  }
+  const barrasBancadaColaborador: ItemBarra[] = [...bancadaPorColaborador.values()]
+    .map((v) => ({
+      rotulo: v.nome,
+      valor: Math.round(v.horas * 10) / 10,
+      detalhe: `${v.nome}: ${formatarHoras(v.horas)} de bancada no período`,
+    }))
+    .sort((a, b) => b.valor - a.valor)
+    .slice(0, 10);
 
   // ---- Despejo: agregado geral (litros/hora do total, não a média das taxas) ----
   const despejoLitrosTotal = Math.round(despejos.reduce((s, d) => s + d.litros, 0) * 10) / 10;
@@ -505,6 +542,28 @@ export default async function IndicadoresPage({
       </form>
 
       <div className="space-y-5">
+        {/* Vem primeiro: é a visão do ciclo inteiro. Os blocos abaixo
+            abrem cada etapa. */}
+        <BlocoAtividade titulo="🧰 Tempo de bancada (Seleção + Repack)">
+          <CartaoHero
+            titulo="Tempo total"
+            valor={formatarHoras(bancadaHoras)}
+            legenda={`em ${diasComBancada} dia${diasComBancada === 1 ? "" : "s"} com lançamento`}
+          />
+          <CartaoHero
+            titulo="Média por dia"
+            valor={formatarHoras(bancadaMediaDia)}
+            legenda="só dias que tiveram bancada"
+          />
+          <CartaoHero
+            titulo="Onde o tempo foi"
+            valor={`${bancadaPctSelecao}% / ${100 - bancadaPctSelecao}%`}
+            legenda="triagem / reembalagem"
+          />
+          <CartaoHero titulo="Tempo triando" valor={formatarHoras(selecaoHorasTotal)} />
+          <CartaoHero titulo="Tempo reembalando" valor={formatarHoras(reepackHorasTotal)} />
+        </BlocoAtividade>
+
         <BlocoAtividade titulo="🔍 Seleção e Triagem">
           <CartaoHero titulo="Lançamentos" valor={String(selecoes.length)} />
           <CartaoHero titulo="Unidades triadas" valor={`${selecaoQuantidadeTotal} un`} />
@@ -544,11 +603,46 @@ export default async function IndicadoresPage({
         </BlocoAtividade>
       </div>
 
+      <details className="mt-3 rounded-xl bg-slate-50 p-3 text-xs text-slate-500">
+        <summary className="cursor-pointer font-semibold text-slate-600">
+          ℹ️ Como o tempo de bancada é medido
+        </summary>
+        <ul className="mt-2 space-y-1.5">
+          <li>
+            <strong>Tempo total</strong> — soma das horas de Seleção e de Repack no período. São as
+            duas etapas que acontecem na bancada (POP-ARM-001, seções 7.2 a 7.6): o produto sai do
+            palete avariado, é triado e volta embalado.
+          </li>
+          <li>
+            <strong>Média por dia</strong> — dividida pelos dias que <em>tiveram</em> lançamento, não
+            pelos dias do período. Contar domingo e dia parado faria a bancada parecer ociosa quando
+            ela apenas não operou.
+          </li>
+          <li>
+            <strong>Onde o tempo foi</strong> — quanto do total ficou em cada etapa. É o número que
+            motivou separá-las: um lote muito avariado consome o tempo na triagem, e antes isso
+            aparecia como &ldquo;repack lento&rdquo;. Se a triagem passar a puxar a maior fatia, o
+            gargalo está na qualidade do que chega, não na velocidade de quem embala.
+          </li>
+          <li>
+            Cada lançamento conta do início ao fim do cronômetro. Duas pessoas trabalhando ao mesmo
+            tempo somam as duas horas — é carga de trabalho, não tempo de relógio na parede.
+          </li>
+        </ul>
+      </details>
+
       <details className="mt-6 rounded-2xl border border-slate-200 bg-white">
         <summary className="cursor-pointer list-none p-4 text-sm font-semibold text-slate-700">
           📊 Comparativos por colaborador e máquina
         </summary>
         <div className="grid gap-4 border-t border-slate-100 p-4 sm:grid-cols-2">
+          <BarraRanking
+            titulo="Tempo de bancada por colaborador"
+            subtitulo="Triagem + reembalagem somadas"
+            itens={barrasBancadaColaborador}
+            sufixo="h"
+            tom="gold"
+          />
           <BarraRanking
             titulo="Reepack por colaborador"
             subtitulo="Total de caixas no período"
