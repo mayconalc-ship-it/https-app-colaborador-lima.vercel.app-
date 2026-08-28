@@ -29,6 +29,7 @@ import {
   alternarProdutoAtivo,
   alternarTransportadoraAtivo,
   corrigirHorimetroOperacao,
+  corrigirHorimetroTrocaGas,
   editarAg,
   editarEmbalagemDespejo,
   editarEmpilhadeira,
@@ -133,6 +134,7 @@ export default async function AdminProdutividadeArmazemPage({
     { data: motivosFefo },
     podeExcluir,
     { data: empilhadeiraConfig },
+    { data: trocasGas },
   ] = await Promise.all([
     supabase
       .from("pa_embalagens")
@@ -238,6 +240,15 @@ export default async function AdminProdutividadeArmazemPage({
     // desativar qualquer um com "editar" pode; apagar, não.
     podeNoModulo("produtividade-armazem", "excluir"),
     supabase.from("pa_empilhadeira_config").select("custo_p20").eq("revenda_id", revendaId).maybeSingle(),
+    // Trocas de gás recentes, para corrigir horímetro digitado errado.
+    aba === "empilhadeiras"
+      ? supabase
+          .from("pa_empilhadeira_trocas_gas")
+          .select("id, horimetro, realizada_em, operador_nome, pa_empilhadeiras(numero)")
+          .eq("revenda_id", revendaId)
+          .order("realizada_em", { ascending: false })
+          .limit(20)
+      : Promise.resolve({ data: [] as Record<string, unknown>[] }),
   ]);
 
   const totalMotivosFefo = motivosFefo?.length ?? 0;
@@ -611,6 +622,54 @@ export default async function AdminProdutividadeArmazemPage({
                     }
                   />
                 ))
+              )}
+            </div>
+          </div>
+
+          <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+            <div className="border-b border-slate-100 p-4">
+              <h2 className="text-sm font-bold text-slate-900">⛽ Corrigir horímetro de troca de gás</h2>
+              <p className="mt-1 text-xs text-slate-500">
+                Um horímetro digitado sem o ponto (5485,0 virando 54850) distorce o ciclo inteiro no
+                dashboard de consumo. Últimas 20 trocas.
+              </p>
+            </div>
+            <div className="divide-y divide-slate-100">
+              {(trocasGas ?? []).length === 0 ? (
+                <p className="p-6 text-center text-sm text-slate-400">Nenhuma troca registrada.</p>
+              ) : (
+                (trocasGas ?? []).map((t) => {
+                  const maq = Array.isArray(t.pa_empilhadeiras) ? t.pa_empilhadeiras[0] : t.pa_empilhadeiras;
+                  return (
+                    <form key={t.id as string} action={corrigirHorimetroTrocaGas} className="space-y-2 p-3">
+                      <input type="hidden" name="id" value={t.id as string} />
+                      <p className="text-xs text-slate-500">
+                        🏗️ {maq?.numero ?? "—"} — {t.operador_nome as string} —{" "}
+                        {formatarDataHora(t.realizada_em as string)}
+                      </p>
+                      <div className="flex flex-wrap items-end gap-2">
+                        <div>
+                          <label className="mb-1 block text-xs font-semibold uppercase text-slate-500">
+                            Horímetro da troca
+                          </label>
+                          <input
+                            name="horimetro"
+                            type="number"
+                            inputMode="decimal"
+                            step="0.1"
+                            min={0}
+                            required
+                            defaultValue={String(t.horimetro)}
+                            className={`${campo} w-36`}
+                          />
+                        </div>
+                        <BotaoEnviar compacto className="shrink-0 rounded-lg bg-slate-800 px-3 py-1.5 text-xs font-semibold text-white">
+                          Salvar
+                        </BotaoEnviar>
+                      </div>
+                    </form>
+                  );
+                })
               )}
             </div>
           </div>

@@ -55,7 +55,10 @@ export type StatusCiclo =
   /** Nenhuma sessão no intervalo: consumo real, mas sem a quem atribuir. */
   | "sem_sessoes"
   /** Horímetro andou para trás ou ficou igual entre as trocas. */
-  | "horimetro_invalido";
+  | "horimetro_invalido"
+  /** Salto grande demais para ser real -- quase sempre digitação sem o
+   *  ponto decimal (5485,0 virando 54850). */
+  | "salto_suspeito";
 
 export type CicloP20 = {
   empilhadeiraId: string;
@@ -80,6 +83,20 @@ export type CicloP20 = {
 };
 
 const CASAS = 100; // arredonda em 2 casas sem acumular erro de float
+
+/**
+ * Acima disto, o ciclo não entra em média nenhuma.
+ *
+ * Uma empilhadeira roda umas 8h por dia; um botijão dura em torno de 8 a
+ * 20 horas. 200 horas seriam semanas de motor ligado sem trocar o gás --
+ * na prática é sempre horímetro digitado sem o ponto (5485,0 virando
+ * 54850). Aconteceu de verdade na empilhadeira 012, e um único registro
+ * assim puxava a média para 16.458 h/P20.
+ *
+ * Deixar de fora é melhor que "corrigir" chutando: o número errado fica
+ * visível na tela para alguém arrumar, em vez de sumir dentro da média.
+ */
+const HORAS_MAXIMAS_POR_CICLO = 200;
 
 function arredondar(v: number, casas = 2) {
   const f = casas === 2 ? CASAS : 10 ** casas;
@@ -158,16 +175,17 @@ export function montarCiclos(
         trocadoPor: atual.operadorNome,
       };
 
-      // Horímetro parado ou andando para trás: não dá para medir nada,
-      // e distribuir um consumo sobre zero hora explodiria a conta.
-      if (horas <= 0) {
+      // Horímetro parado, andando para trás, ou com salto impossível:
+      // nos dois casos o ciclo fica de fora das médias, mas aparece na
+      // lista para alguém corrigir o lançamento.
+      if (horas <= 0 || horas > HORAS_MAXIMAS_POR_CICLO) {
         ciclos.push({
           ...base,
           porOperador: [],
           horasAtribuidas: 0,
           horasNaoIdentificadas: 0,
           p20NaoIdentificado: 1,
-          status: "horimetro_invalido",
+          status: horas <= 0 ? "horimetro_invalido" : "salto_suspeito",
         });
         continue;
       }
@@ -240,13 +258,14 @@ export const ROTULO_STATUS_CICLO: Record<StatusCiclo, string> = {
   parcial: "Utilização não identificada",
   sem_sessoes: "Consumo não atribuível",
   horimetro_invalido: "Horímetro inconsistente",
+  salto_suspeito: "Horímetro provavelmente digitado errado",
 };
 
 /** Ciclo cujo indicador de horas/P20 pode ser usado: o horímetro precisa
  *  ser válido. Falta de sessão não invalida o consumo da MÁQUINA (item
  *  19) -- só impede a análise individual. */
 export function cicloContaParaMaquina(c: CicloP20) {
-  return c.status !== "horimetro_invalido";
+  return c.status !== "horimetro_invalido" && c.status !== "salto_suspeito";
 }
 
 /** Ciclo que pode entrar na análise por OPERADOR: precisa ter sessão. */

@@ -196,6 +196,39 @@ export async function corrigirHorimetroOperacao(formData: FormData) {
 }
 
 /**
+ * Corrige o horímetro de uma TROCA DE GÁS já lançada.
+ *
+ * A correção de horímetro criada em 27/08/2026 só cobria as operações --
+ * a troca de gás ficou de fora, e o mesmo erro de digitar sem o ponto
+ * (5485,0 virando 54850) não tinha conserto. Achado ao montar o
+ * dashboard de consumo: um único registro assim jogava a média da
+ * empilhadeira para 16.458 h/P20.
+ */
+export async function corrigirHorimetroTrocaGas(formData: FormData) {
+  await requireModulo("produtividade-armazem", "editar");
+  const revendaId = await exigirRevenda(ROTA);
+  const admin = createAdminClient();
+
+  const id = String(formData.get("id") ?? "");
+  const horimetro = numeroOuNulo(formData.get("horimetro"));
+  if (!id) erro("empilhadeiras", "Troca inválida.");
+  if (horimetro === null || horimetro < 0) {
+    erro("empilhadeiras", "Informe um horímetro válido.");
+  }
+
+  const { error } = await admin
+    .from("pa_empilhadeira_trocas_gas")
+    .update({ horimetro })
+    .eq("id", id)
+    .eq("revenda_id", revendaId);
+  if (error) erro("empilhadeiras", `Não foi possível corrigir: ${error.message}`);
+
+  revalidatePath(ROTA);
+  revalidatePath("/produtividade-armazem/empilhadeira/gas");
+  sucesso("empilhadeiras", "Horímetro da troca corrigido");
+}
+
+/**
  * Valor do botijão P20, usado pelo dashboard de consumo de gás para
  * virar custo por hora. Um valor por revenda -- decisão do dono
  * (28/08/2026): valor único, não histórico por troca.
