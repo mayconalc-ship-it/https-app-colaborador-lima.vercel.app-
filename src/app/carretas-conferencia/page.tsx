@@ -3,7 +3,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { createClient } from "@/lib/supabase/server";
 import { getRevendaId } from "@/lib/revendas";
 import { temAcessoModulo } from "@/lib/require-admin";
-import { formatarDataHora, LIMITE_AVARIA_ALERTA } from "@/lib/produtividade-armazem";
+import { formatarDataHora, hojeISO, LIMITE_AVARIA_ALERTA } from "@/lib/produtividade-armazem";
 import {
   RECEBIMENTO_CONFIG_PADRAO,
   calcularEsperaPortariaMinutos,
@@ -78,8 +78,13 @@ export default async function CarretasConferenciaPage() {
   if (!revendaId) redirect(`/?erro=${encodeURIComponent("Você não está em nenhuma revenda.")}`);
 
   const supabase = await createClient();
-  const inicioHoje = new Date();
-  inicioHoje.setHours(0, 0, 0, 0);
+  // "Hoje" é o dia no BRASIL, não no fuso do servidor -- a Vercel roda em
+  // UTC. Com `new Date().setHours(0,0,0,0)` o dia virava às 21h de
+  // Brasília, e tudo que fosse finalizado entre 21h e a meia-noite sumia
+  // de "Finalizados hoje" e do Dash: justamente o fim do turno da noite.
+  // hojeISO() já devolve a data em America/Sao_Paulo; o Brasil não tem
+  // mais horário de verão, então o -03:00 fixo é exato.
+  const inicioHoje = new Date(`${hojeISO()}T00:00:00-03:00`);
 
   const [{ data: ativosBanco }, { data: finalizadosBanco }, { data: configBanco }, { data: pendentesBanco }] = await Promise.all([
     supabase
