@@ -616,10 +616,13 @@ export type PontuacaoRanking = {
   colaboradorNome: string;
   reepacksPctMeta: number | null;
   despejoPctMeta: number | null;
-  posicoesPicking: number;
-  /** % da média de posições por sessão de picking do PRÓPRIO recorte
-   *  (turno/período) -- ver pctRelativoAoGrupo. Sem meta cadastrada para
-   *  picking, a referência é a média de todo mundo no mesmo recorte. */
+  /** HL abastecidos no picking. Substituiu "posições reabastecidas" em
+   *  29/08/2026: aquele campo era opcional e ficou nulo em 100% das
+   *  sessões, então o picking nunca pontuou de fato. */
+  hlPicking: number;
+  /** % da TAXA média (HL/h) do grupo no mesmo recorte -- não do total,
+   *  pela mesma razão da Seleção: quem abasteceu 2 horas não é melhor
+   *  que quem abasteceu 1 hora no mesmo ritmo. */
   pickingPctMedia: number | null;
   totalReepacks: number;
   totalDespejoLitros: number;
@@ -652,14 +655,19 @@ export function pctRelativoAoGrupo(valor: number | null, mediaGrupo: number | nu
   return Math.round((valor / mediaGrupo) * 1000) / 10;
 }
 
-/** Média de posições por sessão de picking COM posições informadas --
- *  passa o recorte que interessar (pessoa, turno, período inteiro) que a
- *  função devolve a média daquele recorte. `null` sem nenhuma sessão
- *  válida (não é 0, é "sem dado"). */
-export function mediaPosicoesPicking(pickings: { posicoesReabastecidas: number | null }[]): number | null {
-  const validos = pickings.filter((p): p is { posicoesReabastecidas: number } => p.posicoesReabastecidas !== null);
-  if (validos.length === 0) return null;
-  return validos.reduce((s, p) => s + p.posicoesReabastecidas, 0) / validos.length;
+/**
+ * Taxa de abastecimento do picking em HL/h, do recorte passado (pessoa,
+ * turno ou o período inteiro). `null` sem sessão válida -- é "sem dado",
+ * não zero.
+ *
+ * É `mediaTaxaPorPessoa` com a quantidade em HL: soma o HL e divide pelo
+ * tempo total, em vez de tirar média das taxas de cada sessão. Trocou a
+ * média de "posições reabastecidas" em 29/08/2026, junto com o módulo.
+ */
+export function mediaHlPicking(
+  sessoes: { quantidade: number; inicio: string; fim: string }[],
+): number | null {
+  return mediaTaxaPorPessoa(sessoes);
 }
 
 /** Média de execuções de 5S por pessoa distinta, sobre o recorte passado. */
@@ -695,7 +703,9 @@ export function mediaTaxaPorPessoa(
  *  - Picking, 5S e Seleção: % da média do grupo no mesmo recorte
  *    (pctRelativoAoGrupo) -- não têm meta cadastrada, então a régua é
  *    "comparado com todo mundo", pra ficar justo com as outras métricas
- *    em vez de somar pontos soltos por posição/execução.
+ *    em vez de somar pontos soltos por HL/execução. Picking e Seleção
+ *    comparam a TAXA (HL/h e un/h), não o total: quem trabalhou mais
+ *    tempo não passa na frente de quem rendeu mais rápido.
  * Quem não fez uma atividade simplesmente não entra na média dela --
  * ninguém é punido por não picotar, só pontuado pelo que fez.
  *
@@ -810,14 +820,16 @@ export function agruparPorEmbalagem(
 
 /**
  * Ranking por colaborador e turno: uma linha por pessoa, com a média das
- * % de meta em reepack/despejo e as posições de picking somadas. Turno
+ * % de meta em reepack/despejo e o HL de picking somado. Turno
  * filtra o recorte ANTES de chamar esta função -- passar só as linhas do
  * turno que interessa já produz o ranking "daquele turno".
  */
 export function construirRanking(
   reepacks: { colaboradorId: string; colaboradorNome: string; produtoId: string; quantidade: number; inicio: string; fim: string }[],
   despejos: { colaboradorId: string; colaboradorNome: string; embalagemId: string; litros: number; inicio: string; fim: string }[],
-  pickings: { colaboradorId: string; colaboradorNome: string; posicoesReabastecidas: number | null }[],
+  /** Abastecimento do picking, com `quantidade` em HL -- a mesma forma
+   *  das seleções, porque a régua dos dois é a taxa por hora. */
+  pickings: { colaboradorId: string; colaboradorNome: string; quantidade: number; inicio: string; fim: string }[],
   execucoes5s: { colaboradorId: string; colaboradorNome: string }[],
   produtos: ProdutoMeta[],
   embalagens: EmbalagemDespejo[],
@@ -835,7 +847,7 @@ export function construirRanking(
   // Referência do grupo (todo mundo deste recorte) para picking, 5S e
   // seleção -- ver pctRelativoAoGrupo: sem meta cadastrada, a régua é a
   // média de quem participou, não um número fixo.
-  const mediaPosicoesGrupo = mediaPosicoesPicking(pickings);
+  const mediaHlPickingGrupo = mediaHlPicking(pickings);
   const mediaExecucoes5sGrupo = mediaExecucoes5sPorPessoa(execucoes5s);
   // A régua da seleção é a TAXA (un/h), não o total: quem triou 2 horas
   // não é melhor que quem triou 1 hora no mesmo ritmo.
@@ -847,7 +859,7 @@ export function construirRanking(
     const meusDespejos = despejos.filter((d) => d.colaboradorId === colaboradorId);
     const minhasExecucoes5s = execucoes5s.filter((e) => e.colaboradorId === colaboradorId);
     const meusPickings = pickings.filter((p) => p.colaboradorId === colaboradorId);
-    const minhasPosicoes = meusPickings.reduce((s, p) => s + (p.posicoesReabastecidas ?? 0), 0);
+    const meuHlPicking = Math.round(meusPickings.reduce((s, p) => s + p.quantidade, 0) * 10) / 10;
 
     const reepacksAgrupados = agruparPorProduto(meusReepacks, produtos, (p) => p.metaReepackHora);
     const despejosAgrupados = agruparPorEmbalagem(
@@ -860,7 +872,7 @@ export function construirRanking(
 
     const reepacksPctMeta = mediaPct(reepacksAgrupados.map((r) => r.pctMeta));
     const despejoPctMeta = mediaPct(despejosAgrupados.map((d) => d.pctMeta));
-    const pickingPctMedia = pctRelativoAoGrupo(mediaPosicoesPicking(meusPickings), mediaPosicoesGrupo);
+    const pickingPctMedia = pctRelativoAoGrupo(mediaHlPicking(meusPickings), mediaHlPickingGrupo);
     const cincoSPctMedia = pctRelativoAoGrupo(
       minhasExecucoes5s.length > 0 ? minhasExecucoes5s.length : null,
       mediaExecucoes5sGrupo,
@@ -872,7 +884,7 @@ export function construirRanking(
       colaboradorNome,
       reepacksPctMeta,
       despejoPctMeta,
-      posicoesPicking: minhasPosicoes,
+      hlPicking: meuHlPicking,
       pickingPctMedia,
       totalReepacks: meusReepacks.reduce((s, r) => s + r.quantidade, 0),
       totalDespejoLitros: Math.round(meusDespejos.reduce((s, d) => s + d.litros, 0) * 10) / 10,

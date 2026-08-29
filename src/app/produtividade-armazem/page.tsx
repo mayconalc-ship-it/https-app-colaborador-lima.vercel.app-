@@ -20,7 +20,10 @@ const FUNCIONALIDADES: { chave: ModuloId; titulo: string; emoji: string; href: s
   // rota /produtividade-armazem/recebimento e a concessão "pa-recebimento"
   // continuam existindo -- só o card de entrada foi removido.
   { chave: "pa-cinco-s", titulo: "5S do Armazém", emoji: "🧹", href: "/produtividade-armazem/cinco-s" },
-  { chave: "pa-picking", titulo: "Reabastecimento de Picking", emoji: "🛒", href: "/produtividade-armazem/picking" },
+  // Trocado em 29/08/2026: o card aponta para o Abastecimento (produto e
+  // HL) no lugar do antigo Reabastecimento por "posições". A rota velha
+  // continua de pé, só de leitura, para o histórico não sumir.
+  { chave: "pa-picking", titulo: "Abastecimento do Picking", emoji: "🛒", href: "/produtividade-armazem/abastecimento" },
   { chave: "carretas-portaria", titulo: "Recebimento de Carreta", emoji: "👮", href: "/carretas-portaria" },
   { chave: "carretas-conferencia", titulo: "Monitor de Recebimento", emoji: "🖥️", href: "/carretas-conferencia" },
   // Um card só para os dois papéis (informar e controle): a tela é a

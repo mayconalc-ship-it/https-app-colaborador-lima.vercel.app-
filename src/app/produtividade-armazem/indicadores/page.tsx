@@ -18,7 +18,7 @@ import {
   horasEntre,
   mediaExecucoes5sPorPessoa,
   mediaPct,
-  mediaPosicoesPicking,
+  mediaHlPicking,
   mediaTaxaPorPessoa,
   operacaoEmpilhadeiraDeLinha,
   pctAvariaConsolidado,
@@ -40,7 +40,7 @@ const rotulo = "mb-1 block text-xs font-semibold uppercase text-slate-500";
 /** Mesmo texto em todo canto que mostra "Pontuação" -- ver calcularPontuacao
  *  em lib/produtividade-armazem.ts, a fórmula de verdade mora lá. */
 const EXPLICACAO_PONTUACAO =
-  "Pontuação = média de até 5 métricas, todas em %: Reepack = % da meta cadastrada por produto; Despejo = % da meta cadastrada por embalagem; Seleção, Picking e 5S = % da média de todo mundo no mesmo recorte (sem meta cadastrada, a régua é comparar com o grupo). Na Seleção a comparação é pela TAXA (un/h), não pelo total — quem triou mais tempo não passa na frente de quem triou mais rápido. Quem não fez uma atividade não entra na média dela.";
+  "Pontuação = média de até 5 métricas, todas em %: Reepack = % da meta cadastrada por produto; Despejo = % da meta cadastrada por embalagem; Seleção, Picking e 5S = % da média de todo mundo no mesmo recorte (sem meta cadastrada, a régua é comparar com o grupo). Na Seleção (un/h) e no Picking (HL/h) a comparação é pela TAXA, não pelo total — quem trabalhou mais tempo não passa na frente de quem rendeu mais rápido. Quem não fez uma atividade não entra na média dela.";
 
 export default async function IndicadoresPage({
   searchParams,
@@ -117,9 +117,13 @@ export default async function IndicadoresPage({
       .not("fim", "is", null)
       .gte("inicio", de0)
       .lte("inicio", ate23),
+    // Abastecimento do Picking. Trocou pa_reabastecimentos_picking em
+    // 29/08/2026: aquela tabela media "posições", campo opcional que
+    // ficou nulo em 100% das sessões -- o picking nunca pontuou de fato.
+    // Os itens vêm embutidos para o HL sair na mesma ida ao banco.
     supabase
-      .from("pa_reabastecimentos_picking")
-      .select("colaborador_id, colaborador_nome, turno, posicoes_reabastecidas")
+      .from("pa_abastecimentos")
+      .select("colaborador_id, colaborador_nome, turno, inicio, fim, pa_abastecimento_itens(hl_calculado)")
       .eq("revenda_id", revendaId)
       .gte("inicio", de0)
       .lte("inicio", ate23)
@@ -194,12 +198,23 @@ export default async function IndicadoresPage({
     inicio: string;
     fim: string;
   }[];
-  const pickingsTodos = (pickingsBanco ?? []) as {
+  // Cada sessão de abastecimento vira uma linha com o HL somado dos itens
+  // -- é a forma que o ranking e os cartões consomem (quantidade + tempo).
+  const pickingsTodos = ((pickingsBanco ?? []) as {
     colaborador_id: string;
     colaborador_nome: string;
     turno: string;
-    posicoes_reabastecidas: number | null;
-  }[];
+    inicio: string;
+    fim: string;
+    pa_abastecimento_itens: { hl_calculado: number }[] | null;
+  }[]).map((s) => ({
+    colaborador_id: s.colaborador_id,
+    colaborador_nome: s.colaborador_nome,
+    turno: s.turno,
+    inicio: s.inicio,
+    fim: s.fim,
+    hl: Math.round((s.pa_abastecimento_itens ?? []).reduce((t, i) => t + i.hl_calculado, 0) * 1000) / 1000,
+  }));
   // 5S não tem coluna de turno (é uma execução, não um lançamento por
   // turno) -- infere pelo horário real de início, com a mesma régua que
   // decide o turno "agora" (ver turnoAtual em lib/produtividade-armazem).
@@ -312,14 +327,14 @@ export default async function IndicadoresPage({
 
   // ---- Atividade por turno ----
   // Uma linha por turno, uma coluna por atividade -- a métrica de cada
-  // coluna é a que faz sentido pra atividade (caixas, litros, posições,
+  // coluna é a que faz sentido pra atividade (caixas, litros, HL,
   // execuções), e "Total" é a contagem de lançamentos somada (unidades
   // diferentes não dá pra somar direto).
   // Referência do grupo pra picking e 5S (ver pctRelativoAoGrupo): a
   // média de TODO o período, todos os turnos juntos -- é contra isso que
   // cada turno é comparado, não meta cadastrada (picking/5S não têm).
-  const mediaPosicoesPeriodo = mediaPosicoesPicking(
-    pickingsTodos.map((p) => ({ posicoesReabastecidas: p.posicoes_reabastecidas })),
+  const mediaHlPickingPeriodo = mediaHlPicking(
+    pickingsTodos.map((p) => ({ quantidade: p.hl, inicio: p.inicio, fim: p.fim })),
   );
   const mediaExecucoes5sPeriodo = mediaExecucoes5sPorPessoa(
     execucoes5sTodos.map((e) => ({ colaboradorId: e.colaborador_id })),
@@ -348,10 +363,10 @@ export default async function IndicadoresPage({
       embalagens,
       (e) => e.metaLitrosHora,
     );
-    const posicoesPickingT = pickingsT.reduce((s, p) => s + (p.posicoes_reabastecidas ?? 0), 0);
+    const hlPickingT = Math.round(pickingsT.reduce((s, p) => s + p.hl, 0) * 10) / 10;
     const pickingPctT = pctRelativoAoGrupo(
-      mediaPosicoesPicking(pickingsT.map((p) => ({ posicoesReabastecidas: p.posicoes_reabastecidas }))),
-      mediaPosicoesPeriodo,
+      mediaHlPicking(pickingsT.map((p) => ({ quantidade: p.hl, inicio: p.inicio, fim: p.fim }))),
+      mediaHlPickingPeriodo,
     );
     // mediaExecucoes5sPorPessoa de novo aqui (não .length direto): o
     // turno reúne várias pessoas, então a régua tem que ser "execuções
@@ -375,7 +390,7 @@ export default async function IndicadoresPage({
       selecaoUn: selecoesT.reduce((s, x) => s + x.quantidade, 0),
       reepackCx: reepacksT.reduce((s, r) => s + r.quantidade, 0),
       despejoLitros: Math.round(despejosT.reduce((s, d) => s + d.litros, 0) * 10) / 10,
-      pickingPosicoes: posicoesPickingT,
+      pickingHl: hlPickingT,
       execucoes5s: execucoes5sT.length,
       totalLancamentos:
         selecoesT.length + reepacksT.length + despejosT.length + pickingsT.length + execucoes5sT.length,
@@ -400,7 +415,7 @@ export default async function IndicadoresPage({
   const pontuacaoGeral = calcularPontuacao(
     mediaPct(reepackAgrupadoGeral.map((r) => r.pctMeta)),
     mediaPct(despejoAgrupadoGeral.map((d) => d.pctMeta)),
-    pctRelativoAoGrupo(mediaPosicoesPeriodo, mediaPosicoesPeriodo),
+    pctRelativoAoGrupo(mediaHlPickingPeriodo, mediaHlPickingPeriodo),
     pctRelativoAoGrupo(mediaExecucoes5sPeriodo, mediaExecucoes5sPeriodo),
     pctRelativoAoGrupo(mediaTaxaSelecaoPeriodo, mediaTaxaSelecaoPeriodo),
   );
@@ -410,11 +425,11 @@ export default async function IndicadoresPage({
       selecaoUn: s.selecaoUn + l.selecaoUn,
       reepackCx: s.reepackCx + l.reepackCx,
       despejoLitros: Math.round((s.despejoLitros + l.despejoLitros) * 10) / 10,
-      pickingPosicoes: s.pickingPosicoes + l.pickingPosicoes,
+      pickingHl: Math.round((s.pickingHl + l.pickingHl) * 10) / 10,
       execucoes5s: s.execucoes5s + l.execucoes5s,
       totalLancamentos: s.totalLancamentos + l.totalLancamentos,
     }),
-    { selecaoUn: 0, reepackCx: 0, despejoLitros: 0, pickingPosicoes: 0, execucoes5s: 0, totalLancamentos: 0 },
+    { selecaoUn: 0, reepackCx: 0, despejoLitros: 0, pickingHl: 0, execucoes5s: 0, totalLancamentos: 0 },
   );
 
   // ---- Empilhadeira: por máquina e por operador ----
@@ -516,7 +531,9 @@ export default async function IndicadoresPage({
     pickings.map((p) => ({
       colaboradorId: p.colaborador_id,
       colaboradorNome: p.colaborador_nome,
-      posicoesReabastecidas: p.posicoes_reabastecidas,
+      quantidade: p.hl,
+      inicio: p.inicio,
+      fim: p.fim,
     })),
     execucoes5s.map((e) => ({ colaboradorId: e.colaborador_id, colaboradorNome: e.colaborador_nome })),
     produtos,
@@ -739,7 +756,7 @@ export default async function IndicadoresPage({
                     <td className="p-3 text-right tabular-nums">{l.selecaoUn} un</td>
                     <td className="p-3 text-right tabular-nums">{l.reepackCx} cx</td>
                     <td className="p-3 text-right tabular-nums">{l.despejoLitros} L</td>
-                    <td className="p-3 text-right tabular-nums">{l.pickingPosicoes}</td>
+                    <td className="p-3 text-right tabular-nums">{l.pickingHl} HL</td>
                     <td className="p-3 text-right tabular-nums">{l.execucoes5s}</td>
                     <td className="p-3 text-right font-bold tabular-nums text-slate-900">{l.totalLancamentos}</td>
                     <td className="p-3 text-right">
@@ -756,7 +773,7 @@ export default async function IndicadoresPage({
                   <td className="p-3 text-right tabular-nums">{totalGeral.selecaoUn} un</td>
                   <td className="p-3 text-right tabular-nums">{totalGeral.reepackCx} cx</td>
                   <td className="p-3 text-right tabular-nums">{totalGeral.despejoLitros} L</td>
-                  <td className="p-3 text-right tabular-nums">{totalGeral.pickingPosicoes}</td>
+                  <td className="p-3 text-right tabular-nums">{totalGeral.pickingHl} HL</td>
                   <td className="p-3 text-right tabular-nums">{totalGeral.execucoes5s}</td>
                   <td className="p-3 text-right tabular-nums text-slate-900">{totalGeral.totalLancamentos}</td>
                   <td className="p-3 text-right tabular-nums text-slate-900">{pontuacaoGeral} pts</td>
@@ -840,9 +857,9 @@ export default async function IndicadoresPage({
                         )}
                       </td>
                       <td className="p-3 text-right tabular-nums">
-                        {r.posicoesPicking > 0 ? (
+                        {r.hlPicking > 0 ? (
                           <>
-                            {r.posicoesPicking}
+                            {r.hlPicking} HL
                             {r.pickingPctMedia !== null && (
                               <span className="ml-1 text-xs text-slate-400">({r.pickingPctMedia}% da média)</span>
                             )}

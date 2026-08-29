@@ -211,9 +211,15 @@ export const MODULOS: Modulo[] = [
   },
   {
     id: "pa-picking",
-    rotulo: "Reabastecimento de Picking",
+    rotulo: "Abastecimento do Picking",
     emoji: "🛒",
-    href: "/produtividade-armazem/picking",
+    // O id continua "pa-picking" de propósito: em 29/08/2026 a tela foi
+    // trocada pelo Abastecimento (produto e HL no lugar de "posições",
+    // campo que ficou vazio em 100% das sessões antigas). Manter o id
+    // fez todo mundo que já tinha picking entrar na tela nova sem
+    // reconceder acesso pessoa a pessoa -- e evitou um segundo módulo
+    // medindo a mesma atividade, o erro do "Recebimento de Paletes".
+    href: "/produtividade-armazem/abastecimento",
     grupo: "Conteúdo do app",
     acoes: ["ver"],
     subGrupoDe: "produtividade-armazem",
