@@ -14,34 +14,41 @@ import { dataParaIso, normalizarMapa } from "@/lib/rotas";
 // RESPONSABILIDADE
 // --------------------------------------------------------------------
 
-export const RESPONSABILIDADES = ["cliente", "operacao", "entrega", "nao_conta", "nao_classificado"] as const;
+/** Os clusters da casa, como a operação fala. */
+export const RESPONSABILIDADES = [
+  "mercado",
+  "armazem_financeiro",
+  "vendas",
+  "entrega",
+  "nao_classificado",
+] as const;
 export type Responsabilidade = (typeof RESPONSABILIDADES)[number];
 
 export const ROTULO_RESPONSABILIDADE: Record<Responsabilidade, { curto: string; longo: string; ajuda: string }> = {
-  cliente: {
-    curto: "Cliente",
-    longo: "Do cliente",
-    ajuda: "PDV fechado, sem dinheiro, cancelou o pedido — a entrega chegou, o cliente é que não recebeu.",
+  mercado: {
+    curto: "Mercado",
+    longo: "Mercado",
+    ajuda: "PDV fechado, sem dinheiro, cancelou o pedido — a entrega chegou, o PDV é que não recebeu.",
   },
-  operacao: {
-    curto: "Operação",
-    longo: "Da operação",
-    ajuda: "Carga errada, NF errada, falta de produto, roteirização — resolvido antes da rua.",
+  armazem_financeiro: {
+    curto: "Armazém/Fin.",
+    longo: "Armazém/Financeiro",
+    ajuda: "Carga errada, NF errada, falta de produto, cancelamento fiscal — resolvido antes da rua.",
+  },
+  vendas: {
+    curto: "Vendas",
+    longo: "Vendas",
+    ajuda: "Pedido que não devia ter sido feito: não fez pedido, pedido duplicado, preço ou prazo errado.",
   },
   entrega: {
     curto: "Entrega",
-    longo: "Da entrega",
+    longo: "Entrega",
     ajuda: "Tempo insuficiente, entrega atrasada — o que de fato acontece na rua.",
-  },
-  nao_conta: {
-    curto: "Não conta",
-    longo: "Fora do indicador",
-    ajuda: "Transferência para a fábrica e afins. Aparece para a liderança, mas não entra no número de ninguém.",
   },
   nao_classificado: {
     curto: "A classificar",
     longo: "Ainda não classificado",
-    ajuda: "Motivo novo, que ainda não foi encaixado numa das faixas. Enquanto isso fica de fora da conta.",
+    ajuda: "Motivo novo, que ainda não foi encaixado num cluster. Enquanto isso fica de fora da conta.",
   },
 };
 
@@ -84,53 +91,57 @@ export const MOTIVOS_FORA_DO_INDICADOR = new Set<string>([
  * Vem da leitura das descrições dos 30 motivos que apareceram em 2026.
  */
 export const CLASSIFICACAO_SUGERIDA: Record<string, Responsabilidade> = {
-  // --- do cliente ---
-  "33": "cliente", // Nao Fez Pedido
-  "37": "cliente", // PDV Fechado
-  "38": "cliente", // Sem Dinheiro
-  "39": "cliente", // Cliente Cancelou
-  "40": "cliente", // Horario de Entrega
-  "41": "cliente", // Sem Vasilhame
-  "43": "cliente", // Forma de Pagamento
-  "44": "cliente", // Estoque Cheio
-  "46": "cliente", // Endereco Nao Encontrado
-  "47": "cliente", // Dificil Acesso
-  "48": "cliente", // PDV Fechado Apos
-  "49": "cliente", // Area de Risco
-  "70": "cliente", // CLIENTE CANCELOU
-  "82": "cliente", // ENDERECO NAO ENCONTRADO
+  // --- MERCADO: a entrega chegou, o PDV é que não recebeu ---
+  "37": "mercado", // PDV Fechado
+  "38": "mercado", // Sem Dinheiro
+  "39": "mercado", // Cliente Cancelou
+  "40": "mercado", // Horario de Entrega
+  "41": "mercado", // Sem Vasilhame
+  "43": "mercado", // Forma de Pagamento
+  "44": "mercado", // Estoque Cheio
+  "46": "mercado", // Endereco Nao Encontrado
+  "47": "mercado", // Dificil Acesso
+  "48": "mercado", // PDV Fechado Apos
+  "49": "mercado", // Area de Risco
+  "70": "mercado", // CLIENTE CANCELOU
+  "82": "mercado", // ENDERECO NAO ENCONTRADO
 
-  // --- da operação / armazém ---
-  "2": "operacao",  // Sem Vasilhame Ambev
-  "19": "operacao", // (C)Produtiv. / roterizacao
-  "34": "operacao", // Pedido Duplicado
-  "35": "operacao", // Preco Errado
-  "36": "operacao", // Prazo Errado
-  "42": "operacao", // Produto/Quantidade Errada
-  "50": "operacao", // CARGA ERRADA ARMAZEM
-  "51": "operacao", // NF ERRADA
-  "52": "operacao", // FALTA PRODUTO ESTOQUE
-  "53": "operacao", // PROD PROXIMO VENCIM. COMERCIAL
-  "55": "operacao", // QUALIDADE DO PRODUTO
-  "57": "operacao", // Produto Danificado
-  "58": "operacao", // Carga Errada
-  "59": "operacao", // Qualidade do Produto
-  "63": "operacao", // PRODUTO / QTDE. ERRADA
-  "68": "operacao", // TROCA (SEM SELO / QTDE. ERRADA)
-  "81": "operacao", // PRODUTO DANIFICADO / FALTA
+  // --- VENDAS: pedido que não devia ter sido feito daquele jeito ---
+  "22": "vendas", // (C)Solicitacao vendas/cliente
+  "23": "vendas", // (C)Pedidos duplicados
+  "33": "vendas", // Nao Fez Pedido
+  "34": "vendas", // Pedido Duplicado
+  "35": "vendas", // Preco Errado
+  "36": "vendas", // Prazo Errado
 
-  // --- da entrega ---
+  // --- ARMAZÉM / FINANCEIRO: resolvido antes da rua ---
+  "2": "armazem_financeiro",  // Sem Vasilhame Ambev
+  "19": "armazem_financeiro", // (C)Produtiv. / roterizacao
+  "42": "armazem_financeiro", // Produto/Quantidade Errada
+  "50": "armazem_financeiro", // CARGA ERRADA ARMAZEM
+  "51": "armazem_financeiro", // NF ERRADA
+  "52": "armazem_financeiro", // FALTA PRODUTO ESTOQUE
+  "53": "armazem_financeiro", // PROD PROXIMO VENCIM. COMERCIAL
+  "55": "armazem_financeiro", // QUALIDADE DO PRODUTO
+  "57": "armazem_financeiro", // Produto Danificado
+  "58": "armazem_financeiro", // Carga Errada
+  "59": "armazem_financeiro", // Qualidade do Produto
+  "63": "armazem_financeiro", // PRODUTO / QTDE. ERRADA
+  "68": "armazem_financeiro", // TROCA (SEM SELO / QTDE. ERRADA)
+  "81": "armazem_financeiro", // PRODUTO DANIFICADO / FALTA
+
+  // --- ENTREGA: o que de fato acontece na rua ---
   "32": "entrega", // ENTREGA ATRASADA (BUFFER)
   "45": "entrega", // Tempo Insuficiente
   "87": "entrega", // TEMPO INSUFICIENTE
 
-  // --- da operação, mas fora do indicador (ver MOTIVOS_FORA_DO_INDICADOR) ---
-  "3": "operacao", // Devolucao NFe
-  "4": "operacao", // Devolucao NFe
-  "5": "operacao", // Canc.Por Prazo Expirado SEFAZ
-  "6": "operacao", // Canc. Aut. NF Ret. Vasilhame
-  "7": "operacao", // OUTROS MOTIVOS VALIDADO AC
-  "8": "operacao", // Mapa nao carregado / nao canc.
+  // --- Armazém/Financeiro, mas FORA do indicador (ver MOTIVOS_FORA_DO_INDICADOR) ---
+  "3": "armazem_financeiro", // Devolucao NFe
+  "4": "armazem_financeiro", // Devolucao NFe
+  "5": "armazem_financeiro", // Canc.Por Prazo Expirado SEFAZ
+  "6": "armazem_financeiro", // Canc. Aut. NF Ret. Vasilhame
+  "7": "armazem_financeiro", // OUTROS MOTIVOS VALIDADO AC
+  "8": "armazem_financeiro", // Mapa nao carregado / nao canc.
 };
 
 /** O que sugerir para um motivo novo, nos dois eixos. */
@@ -197,7 +208,13 @@ export type NotaDevolvida = {
   motoristaCodigo: string | null;
 };
 
-/** O dia de um motorista: o denominador do indicador. */
+/**
+ * O dia de um motorista: o denominador do indicador.
+ *
+ * `pdvsEntregues` e `pdvsDevolvidos` contam PONTOS DE VENDA DISTINTOS --
+ * é a régua principal, porque é assim que a operação mede (inclusive na
+ * RV). Um mesmo PDV com duas notas no dia conta uma vez só.
+ */
 export type DiaDoMotorista = {
   data: string;
   motoristaCodigo: string;
@@ -205,6 +222,12 @@ export type DiaDoMotorista = {
   valorEntregue: number;
   notasDevolvidas: number;
   valorDevolvido: number;
+  pdvsEntregues: number;
+  pdvsDevolvidos: number;
+  /** Os códigos, para quem chama conseguir descontar os motivos que não
+   *  entram na conta antes de gravar. */
+  pdvsEntreguesCodigos: string[];
+  pdvsDevolvidosPorMotivo: { pdv: string; motivo: string | null }[];
 };
 
 /**
@@ -254,7 +277,8 @@ export function lerRelatorioDeDevolucao(texto: string): {
 
   const notas: NotaDevolvida[] = [];
   const vistas = new Set<string>();
-  const porDia = new Map<string, DiaDoMotorista>();
+  type Acumulado = DiaDoMotorista & { setEntregues: Set<string> };
+  const porDia = new Map<string, Acumulado>();
   const txt = (c: string[], idx: number) => (idx >= 0 ? c[idx]?.trim() || null : null);
 
   for (const linha of linhas.slice(1)) {
@@ -270,6 +294,7 @@ export function lerRelatorioDeDevolucao(texto: string): {
 
     // --- O agregado do dia, que vale para entregue e devolvida ---
     const motorista = normalizarCodigo(c[i.motorista]);
+    const pdv = txt(c, i.clienteCodigo);
     if (motorista) {
       const chaveDia = `${data}|${motorista}`;
       const dia = porDia.get(chaveDia) ?? {
@@ -279,14 +304,22 @@ export function lerRelatorioDeDevolucao(texto: string): {
         valorEntregue: 0,
         notasDevolvidas: 0,
         valorDevolvido: 0,
+        pdvsEntregues: 0,
+        pdvsDevolvidos: 0,
+        pdvsEntreguesCodigos: [],
+        pdvsDevolvidosPorMotivo: [],
+        setEntregues: new Set<string>(),
       };
       const v = i.valor >= 0 ? dinheiro(c[i.valor]) : 0;
       if (status === "A") {
         dia.notasEntregues++;
         dia.valorEntregue += v;
+        // PDV distinto: o mesmo cliente com duas notas no dia conta uma vez.
+        if (pdv) dia.setEntregues.add(pdv);
       } else {
         dia.notasDevolvidas++;
         dia.valorDevolvido += v;
+        if (pdv) dia.pdvsDevolvidosPorMotivo.push({ pdv, motivo: normalizarCodigo(c[i.motivo]) });
       }
       porDia.set(chaveDia, dia);
     }
@@ -320,13 +353,40 @@ export function lerRelatorioDeDevolucao(texto: string): {
   }
 
   // Centavos não sobrevivem à soma de milhares de notas sem isto.
-  const dias = [...porDia.values()].map((d) => ({
-    ...d,
-    valorEntregue: Math.round(d.valorEntregue * 100) / 100,
-    valorDevolvido: Math.round(d.valorDevolvido * 100) / 100,
-  }));
+  const dias: DiaDoMotorista[] = [...porDia.values()].map((d) => {
+    const { setEntregues, ...resto } = d;
+    return {
+      ...resto,
+      valorEntregue: Math.round(d.valorEntregue * 100) / 100,
+      valorDevolvido: Math.round(d.valorDevolvido * 100) / 100,
+      pdvsEntreguesCodigos: [...setEntregues],
+      pdvsEntregues: setEntregues.size,
+      // Quantos PDVs distintos tiveram devolução, sem filtrar motivo. Quem
+      // grava aplica a régua do Admin e recalcula -- ver contarPdvsQueContam.
+      pdvsDevolvidos: new Set(d.pdvsDevolvidosPorMotivo.map((x) => x.pdv)).size,
+    };
+  });
 
   return { notas, dias, faltando: [], linhasLidas: linhas.length - 1 };
+}
+
+/**
+ * PDVs distintos com devolução que CONTA, descontando os motivos que a
+ * liderança tirou do indicador.
+ *
+ * Feito à parte da leitura porque a régua mora no banco: o mesmo arquivo
+ * dá números diferentes conforme a classificação dos motivos.
+ */
+export function contarPdvsQueContam(
+  devolvidos: { pdv: string; motivo: string | null }[],
+  motivoConta: (codigo: string | null) => boolean,
+): number {
+  const pdvs = new Set<string>();
+  for (const d of devolvidos) {
+    if (!motivoConta(d.motivo)) continue;
+    pdvs.add(d.pdv);
+  }
+  return pdvs.size;
 }
 
 // --------------------------------------------------------------------
@@ -338,15 +398,29 @@ export function lerRelatorioDeDevolucao(texto: string): {
 export const META_PADRAO_PCT = 1.6;
 
 /**
- * O % de devolução de um dia: devolvido sobre o que passou pelas mãos da
- * pessoa (entregue + devolvido).
+ * O INDICADOR PRINCIPAL: % de PDVs com devolução sobre os PDVs
+ * atendidos. É como a operação mede, inclusive para a RV.
  *
- * `foraDoIndicador` sai dos DOIS lados da divisão -- é transferência
- * para a fábrica e cancelamento fiscal, que não são entrega nem falha.
- * Sem tirar, uma única nota de R$ 547 mil jogaria o dia para 96%.
+ * `null` sem PDV atendido: dia sem entrega não tem percentual, e mostrar
+ * 0% daria a impressão de dia perfeito.
  *
- * `null` quando não houve movimento: dia sem entrega não tem percentual,
- * e mostrar 0% daria a impressão de dia perfeito.
+ * A régua é grossa no dia, e é bom saber: com ~16 PDVs por dia, uma
+ * única devolução dá ~6%. Medido nos 8 meses de 2026, a operação roda a
+ * 1,47% e 18% dos dias passam de 1,6% -- que são exatamente os dias que
+ * tiveram alguma devolução.
+ */
+export function pctPdvDoDia(pdvsEntregues: number, pdvsDevolvidos: number): number | null {
+  const base = pdvsEntregues + pdvsDevolvidos;
+  if (base <= 0) return null;
+  return Math.round((pdvsDevolvidos / base) * 10000) / 100;
+}
+
+/**
+ * O mesmo em VALOR -- segundo plano na tela, mas continua existindo.
+ *
+ * `foraDoIndicador` sai dos DOIS lados da divisão: é transferência para
+ * a fábrica e cancelamento fiscal, que não são entrega nem falha. Sem
+ * tirar, uma única nota de R$ 547 mil jogaria o dia para 96%.
  */
 export function pctDoDia(
   valorEntregue: number,
@@ -410,10 +484,10 @@ export type ResumoDevolucao = {
 export function resumirDevolucao(linhas: LinhaDevolucao[]): ResumoDevolucao {
   const vazio = () => ({ notas: 0, valor: 0 });
   const por: Record<Responsabilidade, { notas: number; valor: number }> = {
-    cliente: vazio(),
-    operacao: vazio(),
+    mercado: vazio(),
+    armazem_financeiro: vazio(),
+    vendas: vazio(),
     entrega: vazio(),
-    nao_conta: vazio(),
     nao_classificado: vazio(),
   };
   const fora = vazio();
@@ -422,8 +496,9 @@ export function resumirDevolucao(linhas: LinhaDevolucao[]): ResumoDevolucao {
   for (const l of linhas) {
     if (l.responsabilidade === "nao_classificado") aClassificar++;
     // "Entra na conta" é decisão à parte de "de quem foi": uma NF
-    // rejeitada é da operação e mesmo assim não entra no percentual.
-    if (l.contaNoIndicador === false || l.responsabilidade === "nao_classificado" || l.responsabilidade === "nao_conta") {
+    // rejeitada é do Armazém/Financeiro e mesmo assim não entra no
+    // percentual.
+    if (l.contaNoIndicador === false || l.responsabilidade === "nao_classificado") {
       fora.notas++;
       fora.valor += l.valor;
       continue;
@@ -437,7 +512,7 @@ export function resumirDevolucao(linhas: LinhaDevolucao[]): ResumoDevolucao {
     por[k].valor = Math.round(por[k].valor * 100) / 100;
   }
 
-  const contam: Responsabilidade[] = ["cliente", "operacao", "entrega"];
+  const contam: Responsabilidade[] = ["mercado", "armazem_financeiro", "vendas", "entrega"];
   return {
     notas: contam.reduce((s, k) => s + por[k].notas, 0),
     valor: Math.round(contam.reduce((s, k) => s + por[k].valor, 0) * 100) / 100,

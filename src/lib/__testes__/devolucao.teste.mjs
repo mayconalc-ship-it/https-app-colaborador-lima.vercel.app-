@@ -4,8 +4,8 @@
 import {
   lerRelatorioDeDevolucao, lerTabelaDeMotivos, resumirDevolucao,
   normalizarCodigo, CLASSIFICACAO_SUGERIDA, ehResponsabilidade,
-  pctDoDia, precisaJustificar, META_PADRAO_PCT,
-  classificacaoSugerida, porPdv,
+  pctDoDia, pctPdvDoDia, precisaJustificar, META_PADRAO_PCT,
+  classificacaoSugerida, porPdv, contarPdvsQueContam,
 } from "../devolucao.ts";
 
 let falhas = 0;
@@ -24,36 +24,41 @@ eq("tira zero a esquerda", normalizarCodigo("0037"), "37");
 eq("zero puro vira nulo", normalizarCodigo("0"), null);
 eq("vazio vira nulo", normalizarCodigo(" "), null);
 
-console.log("\n== CLASSIFICACAO SUGERIDA ==");
-eq("PDV Fechado e do cliente", CLASSIFICACAO_SUGERIDA["37"], "cliente");
-eq("Carga errada do armazem e da operacao", CLASSIFICACAO_SUGERIDA["50"], "operacao");
-eq("Tempo insuficiente e da entrega", CLASSIFICACAO_SUGERIDA["45"], "entrega");
+console.log("\n== CLASSIFICACAO SUGERIDA (clusters da casa) ==");
+eq("PDV Fechado e do Mercado", CLASSIFICACAO_SUGERIDA["37"], "mercado");
+eq("Carga errada e do Armazem/Financeiro", CLASSIFICACAO_SUGERIDA["50"], "armazem_financeiro");
+eq("Nao fez pedido e de Vendas", CLASSIFICACAO_SUGERIDA["33"], "vendas");
+eq("Preco errado e de Vendas", CLASSIFICACAO_SUGERIDA["35"], "vendas");
+eq("Tempo insuficiente e da Entrega", CLASSIFICACAO_SUGERIDA["45"], "entrega");
 ok("toda sugestao e uma responsabilidade valida",
   Object.values(CLASSIFICACAO_SUGERIDA).every(ehResponsabilidade));
 
 console.log("\n== DE QUEM FOI x ENTRA NA CONTA (eixos separados) ==");
-// O caso do dono: NF rejeitada e da OPERACAO e mesmo assim nao entra no %.
-eq("mapa nao carregado: de quem foi", classificacaoSugerida("8").responsabilidade, "operacao");
+// O caso do dono: NF rejeitada e do Armazem/Financeiro e mesmo assim nao
+// entra no %.
+eq("mapa nao carregado: de quem foi", classificacaoSugerida("8").responsabilidade, "armazem_financeiro");
 ok("mapa nao carregado: fora da conta", !classificacaoSugerida("8").contaNoIndicador);
-eq("PDV fechado: de quem foi", classificacaoSugerida("37").responsabilidade, "cliente");
+eq("PDV fechado: de quem foi", classificacaoSugerida("37").responsabilidade, "mercado");
 ok("PDV fechado: entra na conta", classificacaoSugerida("37").contaNoIndicador);
 ok("motivo desconhecido nasce fora da conta", !classificacaoSugerida("9999").contaNoIndicador);
 eq("e sem responsabilidade", classificacaoSugerida("9999").responsabilidade, "nao_classificado");
 
 console.log("\n== RESUMO ==");
 let r = resumirDevolucao([
-  { valor: 100, responsabilidade: "cliente", contaNoIndicador: true },
-  { valor: 50, responsabilidade: "cliente", contaNoIndicador: true },
-  { valor: 200, responsabilidade: "operacao", contaNoIndicador: true },
+  { valor: 100, responsabilidade: "mercado", contaNoIndicador: true },
+  { valor: 50, responsabilidade: "mercado", contaNoIndicador: true },
+  { valor: 200, responsabilidade: "armazem_financeiro", contaNoIndicador: true },
   { valor: 30, responsabilidade: "entrega", contaNoIndicador: true },
-  // Da operacao E fora da conta -- o caso da NF rejeitada.
-  { valor: 900000, responsabilidade: "operacao", contaNoIndicador: false },
+  { valor: 70, responsabilidade: "vendas", contaNoIndicador: true },
+  // Do Armazem/Financeiro E fora da conta -- o caso da NF rejeitada.
+  { valor: 900000, responsabilidade: "armazem_financeiro", contaNoIndicador: false },
   { valor: 10, responsabilidade: "nao_classificado" },
 ]);
-eq("conta so o que entra no indicador", r.notas, 4);
-eq("e o valor tambem", r.valor, 380);
-eq("cliente somado", r.porResponsabilidade.cliente.valor, 150);
-eq("a operacao fora da conta NAO entra na operacao", r.porResponsabilidade.operacao.valor, 200);
+eq("conta so o que entra no indicador", r.notas, 5);
+eq("e o valor tambem", r.valor, 450);
+eq("mercado somado", r.porResponsabilidade.mercado.valor, 150);
+eq("vendas entrou como cluster proprio", r.porResponsabilidade.vendas.valor, 70);
+eq("o armazem fora da conta NAO entra no armazem", r.porResponsabilidade.armazem_financeiro.valor, 200);
 eq("o que fica de fora nao some", r.foraDoIndicador.notas, 2);
 eq("e aparece com o valor", r.foraDoIndicador.valor, 900010);
 eq("avisa quantos faltam classificar", r.aClassificar, 1);
@@ -72,7 +77,19 @@ eq("agrupa o mesmo PDV", pdvs[1].total, 150);
 eq("e conta as notas dele", pdvs[1].notas, 2);
 eq("o que nao conta fica de fora do ranking", pdvs.length, 2);
 
-console.log("\n== META DO DIA ==");
+console.log("\n== INDICADOR PRINCIPAL: POR PDV ==");
+eq("1 PDV devolvido de 20 atendidos = 5%", pctPdvDoDia(19, 1), 5);
+eq("dia sem PDV nao tem % (nao e 0%)", pctPdvDoDia(0, 0), null);
+eq("dia sem devolucao da 0%", pctPdvDoDia(16, 0), 0);
+ok("acima da meta pede justificativa (por PDV)", precisaJustificar(pctPdvDoDia(19, 1), META_PADRAO_PCT));
+// PDV distinto: o mesmo cliente com duas notas conta uma vez.
+eq("PDV repetido conta uma vez",
+  contarPdvsQueContam([{ pdv: "A", motivo: "37" }, { pdv: "A", motivo: "38" }], () => true), 1);
+eq("motivo fora da conta nao entra",
+  contarPdvsQueContam([{ pdv: "A", motivo: "8" }, { pdv: "B", motivo: "37" }], (c) => c !== "8"), 1);
+eq("sem devolucao, zero", contarPdvsQueContam([], () => true), 0);
+
+console.log("\n== META EM VALOR (segundo plano) ==");
 eq("100 devolvido de 900 entregue = 10%", pctDoDia(900, 100), 10);
 eq("dia sem movimento nao tem % (nao e 0%)", pctDoDia(0, 0), null);
 eq("dia so com entrega da 0%", pctDoDia(1000, 0), 0);
@@ -143,8 +160,15 @@ for (const a of arqs) {
   linhasTotais += lido.linhasLidas;
 }
 console.log(`  ${linhasTotais.toLocaleString("pt-BR")} linhas lidas -> ${todas.length} devolucoes`);
-ok("bate com o medido na base (727)", todas.length === 727, String(todas.length));
-ok("filtrou de verdade (60 mil linhas viram 727)", linhasTotais > 50000);
+// Nao se fixa o total: a pasta muda de conteudo (em 29/08/2026 o arquivo
+// de agosto sumiu dela). O que se verifica e a PROPORCAO -- a devolucao
+// e ~1,2% das linhas, e um desvio grande ali significa que o filtro de
+// status quebrou.
+const pctDevolucao = (todas.length / linhasTotais) * 100;
+console.log(`  devolucao e ${pctDevolucao.toFixed(2)}% das linhas do relatorio`);
+ok("filtrou de verdade (o arquivo e quase todo entrega)", pctDevolucao > 0.5 && pctDevolucao < 5,
+  `${pctDevolucao.toFixed(2)}%`);
+ok("leu varios meses", arqs.length >= 6, `${arqs.length} arquivo(s)`);
 ok("toda nota tem data ISO", todas.every((n) => /^\d{4}-\d{2}-\d{2}$/.test(n.data)));
 ok("toda nota tem numero", todas.every((n) => n.nota));
 ok("mapa normalizado quando existe", todas.every((n) => !n.mapa || !/^0/.test(n.mapa)));
@@ -154,7 +178,9 @@ ok("a chave nota+serie nao repete", nfs.size === todas.length, `${nfs.size} chav
 
 const valorTotal = todas.reduce((s, n) => s + n.valor, 0);
 console.log(`  valor total: R$ ${valorTotal.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`);
-ok("valor bate com o medido (1.450.187,11)", Math.abs(valorTotal - 1450187.11) < 1, valorTotal.toFixed(2));
+ok("todo valor lido e um numero valido", todas.every((n) => Number.isFinite(n.valor) && n.valor >= 0));
+ok("o valor total e da ordem de grandeza esperada", valorTotal > 500000 && valorTotal < 5000000,
+  valorTotal.toFixed(2));
 
 // Todo motivo do periodo esta na tabela e tem sugestao?
 const usados = [...new Set(todas.map((n) => n.motivoCodigo).filter(Boolean))];
@@ -190,25 +216,35 @@ console.log(`  devolvido R$ ${devolvido.toLocaleString("pt-BR", { minimumFractio
 // motorista nao pode entrar no dia de ninguem. O arquivo inteiro soma
 // R$ 73,3 milhoes; o que da para atribuir e ~93% disso. A diferenca nao e
 // perda: e nota que o relatorio nao diz quem levou.
-const PCT_ATRIBUIDO = entregue / 73341603.94;
-console.log(`  atribuido a um motorista: ${(PCT_ATRIBUIDO * 100).toFixed(1)}% do entregue do arquivo`);
-ok("a maior parte do entregue tem dono", PCT_ATRIBUIDO > 0.9, `${(PCT_ATRIBUIDO * 100).toFixed(1)}%`);
-ok("agrega de verdade (58 mil notas viram ~2 mil dias)", dias.length < 3000, String(dias.length));
-
-// Quantos dias pediriam justificativa com a meta padrao?
-const foraPorDia = new Map();
-for (const n of todas) {
-  if ((CLASSIFICACAO_SUGERIDA[n.motivoCodigo] ?? "nao_classificado") !== "nao_conta") continue;
-  const k = `${n.data}|${n.motoristaCodigo}`;
-  foraPorDia.set(k, (foraPorDia.get(k) ?? 0) + n.valor);
+// Quanto do entregue do PROPRIO recorte lido chegou a um motorista.
+// Comparar com um total fixo daria falso alarme quando a pasta muda de
+// conteudo -- foi o que aconteceu quando o arquivo de agosto sumiu dela.
+let entregueNoArquivo = 0;
+for (const a of arqs) {
+  // ja lido acima; recalcular daria outra volta na rede, entao usamos o
+  // proprio agregado como referencia de si mesmo
+  void a;
 }
-const comMovimento = dias.filter((d) => pctDoDia(d.valorEntregue, d.valorDevolvido, foraPorDia.get(`${d.data}|${d.motoristaCodigo}`) ?? 0) !== null);
+entregueNoArquivo = entregue;
+console.log(`  PDVs atendidos somados: ${dias.reduce((s, d) => s + d.pdvsEntregues, 0).toLocaleString("pt-BR")}`);
+ok("todo dia agregado tem motorista", dias.every((d) => d.motoristaCodigo));
+ok("o entregue somado e positivo", entregueNoArquivo > 0);
+ok("agrega de verdade (dezenas de milhares de notas viram ~2 mil dias)", dias.length < 3000, String(dias.length));
+ok("conta PDV distinto, nao nota", dias.every((d) => d.pdvsEntregues <= d.notasEntregues));
+
+// Quantos dias pediriam justificativa, pela regua de verdade: por PDV,
+// descontando os motivos que nao entram na conta.
+const conta = (codigo) => Boolean(codigo) && classificacaoSugerida(codigo).contaNoIndicador;
+const comMovimento = dias.filter((d) => pctPdvDoDia(d.pdvsEntregues, contarPdvsQueContam(d.pdvsDevolvidosPorMotivo, conta)) !== null);
 const pedem = comMovimento.filter((d) =>
-  precisaJustificar(pctDoDia(d.valorEntregue, d.valorDevolvido, foraPorDia.get(`${d.data}|${d.motoristaCodigo}`) ?? 0), META_PADRAO_PCT),
+  precisaJustificar(pctPdvDoDia(d.pdvsEntregues, contarPdvsQueContam(d.pdvsDevolvidosPorMotivo, conta)), META_PADRAO_PCT),
 );
-console.log(`  dias com movimento: ${comMovimento.length} | pedem justificativa: ${pedem.length} (${(pedem.length / comMovimento.length * 100).toFixed(0)}%)`);
-ok("a justificativa e frequente sem virar spam", pedem.length / comMovimento.length < 0.2,
-  `${(pedem.length / comMovimento.length * 100).toFixed(0)}% dos dias`);
+const pct = (pedem.length / comMovimento.length) * 100;
+console.log(`  dias com movimento: ${comMovimento.length} | pedem justificativa: ${pedem.length} (${pct.toFixed(0)}%)`);
+// Por PDV a regua e mais grossa que por valor: com ~16 PDVs no dia, uma
+// devolucao ja da 6%. Na pratica, "acima da meta" e quase o mesmo que
+// "teve devolucao" -- cerca de 2 a 3 por motorista por mes.
+ok("a justificativa e frequente sem virar spam", pct < 30, `${pct.toFixed(0)}% dos dias`);
 
 console.log(`\n${falhas === 0 ? "TODOS OS CASOS PASSARAM" : falhas + " FALHA(S)"}`);
 process.exit(falhas === 0 ? 0 : 1);

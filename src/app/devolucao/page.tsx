@@ -12,6 +12,7 @@ import {
   ROTULO_RESPONSABILIDADE,
   formatarReais,
   pctDoDia,
+  pctPdvDoDia,
   precisaJustificar,
   porPdv,
   resumirDevolucao,
@@ -27,6 +28,9 @@ const MAXIMO_DE_DIAS = 92;
 type Dia = {
   data: string;
   motorista_colaborador_id: string | null;
+  /** O indicador principal: pontos de venda distintos. */
+  pdvs_entregues: number;
+  pdvs_devolvidos: number;
   notas_entregues: number;
   valor_entregue: number;
   notas_devolvidas: number;
@@ -72,7 +76,7 @@ export default async function DevolucaoPage({
   const [{ data: diasBanco }, { data: notasBanco }, { data: cfg }, { data: motivosBanco }] = await Promise.all([
     supabase
       .from("devolucao_dia")
-      .select("data, motorista_colaborador_id, notas_entregues, valor_entregue, notas_devolvidas, valor_devolvido, valor_fora_do_indicador")
+      .select("data, motorista_colaborador_id, pdvs_entregues, pdvs_devolvidos, notas_entregues, valor_entregue, notas_devolvidas, valor_devolvido, valor_fora_do_indicador")
       .eq("revenda_id", revendaId)
       .gte("data", de)
       .lte("data", ate)
@@ -112,7 +116,13 @@ export default async function DevolucaoPage({
   const entregue = dias.reduce((s, d) => s + Number(d.valor_entregue), 0);
   const devolvido = dias.reduce((s, d) => s + Number(d.valor_devolvido), 0);
   const fora = dias.reduce((s, d) => s + Number(d.valor_fora_do_indicador), 0);
-  const pctPeriodo = pctDoDia(entregue, devolvido, fora);
+
+  // O indicador PRINCIPAL é por ponto de venda -- é como a operação mede,
+  // inclusive para a RV. O valor fica em segundo plano.
+  const pdvsEntregues = dias.reduce((s, d) => s + Number(d.pdvs_entregues ?? 0), 0);
+  const pdvsDevolvidos = dias.reduce((s, d) => s + Number(d.pdvs_devolvidos ?? 0), 0);
+  const pctPeriodo = pctPdvDoDia(pdvsEntregues, pdvsDevolvidos);
+  const pctValor = pctDoDia(entregue, devolvido, fora);
 
   const resumo = resumirDevolucao(
     notas.map((n) => {
@@ -125,10 +135,9 @@ export default async function DevolucaoPage({
     }),
   );
 
-  // Os dias que passaram da meta e ainda não foram explicados.
-  const acimaDaMeta = todosDias.filter((d) =>
-    precisaJustificar(pctDoDia(Number(d.valor_entregue), Number(d.valor_devolvido), Number(d.valor_fora_do_indicador)), meta),
-  );
+  // A régua do dia é a mesma do indicador: por ponto de venda.
+  const pctDia = (d: Dia) => pctPdvDoDia(Number(d.pdvs_entregues ?? 0), Number(d.pdvs_devolvidos ?? 0));
+  const acimaDaMeta = todosDias.filter((d) => precisaJustificar(pctDia(d), meta));
   const { data: jaJustificados } = acimaDaMeta.length
     ? await supabase
         .from("devolucao_justificativas")
@@ -139,15 +148,29 @@ export default async function DevolucaoPage({
 
   const pendentes = diaSelecionado ? acimaDaMeta.filter((d) => d.data === diaSelecionado) : acimaDaMeta;
 
+  // Três estados no calendário, a pedido do dono: verde para o dia que
+  // teve entrega e nenhuma devolução, âmbar para o dia que teve devolução
+  // mas ficou na meta, e vermelho para o dia que estourou.
+  const porData = new Map(todosDias.map((d) => [d.data, d]));
   const faixa = serieDeDias(
     de,
     ate,
-    todosDias.map((d) => ({
-      dataAvaliacao: d.data,
-      nota: precisaJustificar(pctDoDia(Number(d.valor_entregue), Number(d.valor_devolvido), Number(d.valor_fora_do_indicador)), meta) ? 1 : 5,
-    })),
+    todosDias.map((d) => ({ dataAvaliacao: d.data, nota: Number(d.pdvs_devolvidos ?? 0) > 0 ? 1 : 5 })),
     MAXIMO_DE_DIAS,
-  );
+  ).map((d) => {
+    const doDia = porData.get(d.dia);
+    const pct = doDia ? pctDia(doDia) : null;
+    return {
+      dia: d.dia,
+      total: doDia ? Number(doDia.pdvs_entregues ?? 0) + Number(doDia.pdvs_devolvidos ?? 0) : 0,
+      alerta: doDia ? Number(doDia.pdvs_devolvidos ?? 0) : 0,
+      grave: precisaJustificar(pct, meta),
+      titulo: !doDia
+        ? `${formatarData(d.dia)} — você não entregou neste dia`
+        : `${formatarData(d.dia)} — ${doDia.pdvs_entregues} PDV(s) atendidos, ${doDia.pdvs_devolvidos} com devolução` +
+          (pct === null ? "" : ` (${pct.toFixed(2)}%, meta ${meta}%)`),
+    };
+  });
 
   const qs = (extra: Record<string, string | null>) => {
     const p = new URLSearchParams({ de, ate });
@@ -173,7 +196,10 @@ export default async function DevolucaoPage({
 
       <Hero
         pct={pctPeriodo}
+        pctValor={pctValor}
         meta={meta}
+        pdvsEntregues={pdvsEntregues}
+        pdvsDevolvidos={pdvsDevolvidos}
         entregue={entregue}
         resumo={resumo}
         de={de}
@@ -182,24 +208,19 @@ export default async function DevolucaoPage({
       />
 
       <FaixaDeDias
-        dias={faixa.map((d) => ({
-          dia: d.dia,
-          total: d.total,
-          alerta: d.abaixoDaMeta,
-          titulo:
-            d.total === 0
-              ? `${formatarData(d.dia)} — você não entregou neste dia`
-              : `${formatarData(d.dia)} — ${d.abaixoDaMeta ? "acima" : "dentro"} da meta de ${meta}%`,
-        }))}
+        dias={faixa}
         diaSelecionado={diaSelecionado}
         base={(d) => qs({ dia: d === diaSelecionado ? null : d })}
         rotulos={{
           titulo: "Seus dias no período",
-          bom: `Dentro da meta (${meta}%)`,
-          alerta: "Acima da meta",
+          bom: "Entregou sem devolução",
+          alerta: `Teve devolução, dentro da meta`,
+          grave: `Acima da meta (${meta}%)`,
           vazio: "Sem entrega",
           aviso: (n) =>
-            n === 1 ? "1 dia acima da meta — toque nele para explicar." : `${n} dias acima da meta — toque neles para explicar.`,
+            n === 1
+              ? "1 dia acima da meta — toque nele para explicar."
+              : `${n} dias acima da meta — toque neles para explicar.`,
         }}
       />
 
@@ -361,7 +382,10 @@ function FiltroDePeriodo({ de, ate, hoje }: { de: string; ate: string; hoje: str
 
 function Hero({
   pct,
+  pctValor,
   meta,
+  pdvsEntregues,
+  pdvsDevolvidos,
   entregue,
   resumo,
   de,
@@ -369,7 +393,10 @@ function Hero({
   dia,
 }: {
   pct: number | null;
+  pctValor: number | null;
   meta: number;
+  pdvsEntregues: number;
+  pdvsDevolvidos: number;
   entregue: number;
   resumo: ReturnType<typeof resumirDevolucao>;
   de: string;
@@ -392,20 +419,30 @@ function Hero({
   return (
     <div
       className={`overflow-hidden rounded-3xl shadow-sm ${
-        dentro ? "bg-gradient-to-br from-emerald-500 to-teal-600" : "bg-gradient-to-br from-amber-500 to-orange-600"
+        dentro ? "bg-gradient-to-br from-emerald-600 to-teal-700" : "bg-gradient-to-br from-rose-700 to-red-800"
       }`}
     >
       <div className="p-6 text-center text-white">
         <p className="text-[11px] font-semibold uppercase tracking-wide text-white/70">{rotulo}</p>
+        {/* O número grande é por PDV -- é como a operação mede. */}
         <p className="mt-3 text-5xl font-black leading-none tabular-nums">
           {pct.toFixed(2)}
           <span className="text-2xl">%</span>
         </p>
+        <p className="mt-1 text-xs font-semibold uppercase tracking-wide text-white/70">dos pontos de venda</p>
+        <p className="mt-2 text-sm text-white/80">
+          {pdvsDevolvidos} de {pdvsEntregues + pdvsDevolvidos} PDVs com devolução
+        </p>
         <p className="mt-1 text-sm text-white/80">
           {dentro ? `dentro da meta de ${meta}%` : `acima da meta de ${meta}%`}
         </p>
-        <p className="mt-2 text-xs text-white/60">
-          {formatarReais(resumo.valor)} devolvidos de {formatarReais(entregue)} entregues
+      </div>
+
+      {/* O valor continua existindo, em segundo plano. */}
+      <div className="border-t border-white/20 bg-black/10 px-4 py-3 text-center text-white">
+        <p className="text-xs text-white/70">
+          Em valor: <strong>{formatarReais(resumo.valor)}</strong> de {formatarReais(entregue)} entregues
+          {pctValor !== null && <span className="text-white/50"> · {pctValor.toFixed(2)}%</span>}
         </p>
       </div>
     </div>
@@ -415,7 +452,7 @@ function Hero({
 /** O coração do módulo: o valor sempre com a responsabilidade do lado.
  *  Sozinho, o número vira acusação. */
 function PorResponsabilidade({ resumo }: { resumo: ReturnType<typeof resumirDevolucao> }) {
-  const faixas: Responsabilidade[] = ["cliente", "operacao", "entrega"];
+  const faixas: Responsabilidade[] = ["mercado", "armazem_financeiro", "vendas", "entrega"];
   const maior = Math.max(...faixas.map((f) => resumo.porResponsabilidade[f].valor), 1);
 
   return (
@@ -482,22 +519,24 @@ function CartaoDoDia({
   justificativa: { texto: string; criado_em: string } | null;
   souMotorista: boolean;
 }) {
-  const pct = pctDoDia(Number(dia.valor_entregue), Number(dia.valor_devolvido), Number(dia.valor_fora_do_indicador));
+  const pct = pctPdvDoDia(Number(dia.pdvs_entregues ?? 0), Number(dia.pdvs_devolvidos ?? 0));
 
   return (
-    <li className="overflow-hidden rounded-2xl border border-amber-200 bg-white">
-      <div className="bg-amber-50 px-4 py-3">
+    <li className="overflow-hidden rounded-2xl border border-rose-200 bg-white">
+      <div className="bg-rose-50 px-4 py-3">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <p className="text-sm font-bold text-slate-900">{formatarData(dia.data)}</p>
             <p className="text-xs text-slate-500">
-              {formatarReais(Number(dia.valor_devolvido))} devolvidos de{" "}
-              {formatarReais(Number(dia.valor_entregue))} entregues
+              {dia.pdvs_devolvidos} de {Number(dia.pdvs_entregues ?? 0) + Number(dia.pdvs_devolvidos ?? 0)} PDVs
+              com devolução
             </p>
-            <p className="text-[11px] text-slate-400">você era o {souMotorista ? "motorista" : "ajudante"}</p>
+            <p className="text-[11px] text-slate-400">
+              {formatarReais(Number(dia.valor_devolvido))} · você era o {souMotorista ? "motorista" : "ajudante"}
+            </p>
           </div>
           <div className="shrink-0 text-right">
-            <p className="text-lg font-bold tabular-nums text-amber-700">{pct?.toFixed(2)}%</p>
+            <p className="text-lg font-bold tabular-nums text-rose-800">{pct?.toFixed(2)}%</p>
             <p className="text-[11px] text-slate-400">meta {meta}%</p>
           </div>
         </div>

@@ -8,6 +8,7 @@ import { baixarTextoDoDrive, idDaPasta, listarArquivosDaPasta, listarSubpastas }
 import { gravarEmLotes, lerTudoEmPaginas } from "@/lib/rating-server";
 import {
   classificacaoSugerida,
+  contarPdvsQueContam,
   ehResponsabilidade,
   lerRelatorioDeDevolucao,
   lerTabelaDeMotivos,
@@ -54,28 +55,47 @@ export async function salvarConfigDeDevolucao(formData: FormData) {
 }
 
 /** A régua de quem é a responsabilidade daquele motivo. */
-export async function classificarMotivo(formData: FormData) {
+/**
+ * Salva a classificação de TODOS os motivos de uma vez.
+ *
+ * Um formulário por motivo obrigava a salvar 30 vezes -- pedido do dono
+ * em 29/08/2026: "deixe mexer em todos e só o botão para alterar".
+ *
+ * O formulário manda um `resp-<codigo>` para cada motivo listado e um
+ * `conta-<codigo>` só para os marcados (checkbox desmarcado não é
+ * enviado). Por isso a lista de códigos vem num campo à parte: sem ela,
+ * desmarcar todos seria indistinguível de não enviar nada.
+ */
+export async function classificarMotivos(formData: FormData) {
   await requireModulo("devolucao", "editar");
 
-  const codigo = String(formData.get("codigo") ?? "").trim();
-  const responsabilidade = formData.get("responsabilidade");
-  if (!codigo) voltar("erro", "Motivo inválido.");
-  if (!ehResponsabilidade(responsabilidade)) voltar("erro", "Classificação inválida.");
-
-  // Independente da responsabilidade: uma NF rejeitada é da operação e
-  // mesmo assim não entra no % da revenda.
-  const conta = formData.get("conta") === "on";
+  const codigos = String(formData.get("codigos") ?? "").split(",").map((c) => c.trim()).filter(Boolean);
+  if (codigos.length === 0) voltar("erro", "Nenhum motivo para salvar.");
 
   const admin = createAdminClient();
   const revendaId = await exigirRevenda(ROTA);
-  const { error } = await admin
-    .from("devolucao_motivos")
-    .update({ responsabilidade, conta_no_indicador: conta, atualizado_em: new Date().toISOString() })
-    .eq("revenda_id", revendaId)
-    .eq("codigo", codigo);
 
-  if (error) voltar("erro", `Não foi possível salvar: ${error.message}`);
-  voltar("sucesso", conta ? "Salvo — este motivo entra na conta." : "Salvo — este motivo fica fora da conta.");
+  let alterados = 0;
+  for (const codigo of codigos) {
+    const responsabilidade = formData.get(`resp-${codigo}`);
+    if (!ehResponsabilidade(responsabilidade)) continue;
+    // Independente da responsabilidade: uma NF rejeitada é do
+    // Armazém/Financeiro e mesmo assim não entra no % da revenda.
+    const conta = formData.get(`conta-${codigo}`) === "on";
+
+    const { error } = await admin
+      .from("devolucao_motivos")
+      .update({ responsabilidade, conta_no_indicador: conta, atualizado_em: new Date().toISOString() })
+      .eq("revenda_id", revendaId)
+      .eq("codigo", codigo);
+    if (error) voltar("erro", `Não foi possível salvar o motivo ${codigo}: ${error.message}`);
+    alterados++;
+  }
+
+  voltar(
+    "sucesso",
+    `${alterados} motivo(s) salvos. Reimporte para o percentual por PDV refletir a mudança.`,
+  );
 }
 
 /**
@@ -266,6 +286,11 @@ export async function importarDevolucao(formData: FormData) {
         atual.valorEntregue += d.valorEntregue;
         atual.notasDevolvidas += d.notasDevolvidas;
         atual.valorDevolvido += d.valorDevolvido;
+        // PDV distinto continua distinto entre arquivos: junta as listas
+        // e conta uma vez só no fim.
+        atual.pdvsEntreguesCodigos = [...new Set([...atual.pdvsEntreguesCodigos, ...d.pdvsEntreguesCodigos])];
+        atual.pdvsEntregues = atual.pdvsEntreguesCodigos.length;
+        atual.pdvsDevolvidosPorMotivo = [...atual.pdvsDevolvidosPorMotivo, ...d.pdvsDevolvidosPorMotivo];
       }
     }
 
@@ -322,6 +347,13 @@ export async function importarDevolucao(formData: FormData) {
         notas_devolvidas: d.notasDevolvidas,
         valor_devolvido: Math.round(d.valorDevolvido * 100) / 100,
         valor_fora_do_indicador: Math.round((foraPorDia.get(k) ?? 0) * 100) / 100,
+        // O indicador principal: PDVs DISTINTOS. Os devolvidos já
+        // descontam o motivo que a liderança tirou da conta.
+        pdvs_entregues: d.pdvsEntregues,
+        pdvs_devolvidos: contarPdvsQueContam(
+          d.pdvsDevolvidosPorMotivo,
+          (codigo) => Boolean(codigo) && !foraDoIndicador.has(codigo as string),
+        ),
         importado_em: new Date().toISOString(),
       };
     });

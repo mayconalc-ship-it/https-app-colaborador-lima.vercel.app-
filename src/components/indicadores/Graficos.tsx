@@ -18,8 +18,18 @@ import Link from "next/link";
  *    convivem há rótulo escrito ao lado.
  */
 export const COR_AZUL = "#0b4da2";
-export const COR_VERDE = "#059669";
+export const COR_VERDE = "#047857";
 export const COR_AMBAR = "#d97706";
+/**
+ * O terceiro estado do calendário (dia que estourou a meta). O trio
+ * verde/âmbar/vermelho passou nas CINCO checagens do validador sem um
+ * único aviso -- inclusive na separação para daltonismo, que o par
+ * anterior (#059669 + #d97706) não passava.
+ *
+ * O vermelho é rose-800, não o vermelho comum: com #dc2626 a distância
+ * para o âmbar cai para ΔE 14,4, difícil de separar até com visão normal.
+ */
+export const COR_VERMELHO = "#9f1239";
 
 const NOME_DO_MES = [
   "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
@@ -37,6 +47,9 @@ export type DiaDaFaixa = {
   total: number;
   /** Quantos problemas no dia. > 0 pinta de âmbar e mostra o contador. */
   alerta: number;
+  /** Terceiro estado, opcional: pinta de vermelho. Na devolução é o dia
+   *  que estourou a meta -- diferente do dia que só teve devolução. */
+  grave?: boolean;
   /** O texto do balão -- a tela sabe o vocabulário, o gráfico não. */
   titulo: string;
 };
@@ -45,6 +58,8 @@ export type RotulosDaFaixa = {
   titulo: string;
   bom: string;
   alerta: string;
+  /** Só aparece na legenda quando algum dia vem com `grave`. */
+  grave?: string;
   vazio: string;
   /** Frase do rodapé quando há dias com problema. Recebe a contagem. */
   aviso: (quantos: number) => string;
@@ -75,7 +90,12 @@ export function FaixaDeDias({
   }
 
   const comMovimento = dias.filter((d) => d.total > 0).length;
-  const comProblema = dias.filter((d) => d.alerta > 0).length;
+  // Quando existe o terceiro estado, o aviso do rodapé fala dele -- na
+  // devolução "teve devolução" e "estourou a meta" são coisas diferentes.
+  const usaGrave = dias.some((d) => d.grave !== undefined);
+  const comProblema = usaGrave
+    ? dias.filter((d) => d.grave).length
+    : dias.filter((d) => d.alerta > 0).length;
 
   return (
     <section className="rounded-2xl border border-slate-200 bg-white p-4">
@@ -109,6 +129,12 @@ export function FaixaDeDias({
           <span className="h-3 w-3 rounded" style={{ background: COR_AMBAR }} />
           {rotulos.alerta}
         </span>
+        {rotulos.grave && (
+          <span className="flex items-center gap-1.5">
+            <span className="h-3 w-3 rounded" style={{ background: COR_VERMELHO }} />
+            {rotulos.grave}
+          </span>
+        )}
         <span className="flex items-center gap-1.5">
           <span className="h-3 w-3 rounded border border-dashed border-slate-300 bg-slate-50" />
           {rotulos.vazio}
@@ -172,16 +198,21 @@ function MesDoCalendario({
 function CelulaDoDia({ dia, selecionado, href }: { dia: DiaDaFaixa; selecionado: boolean; href: string }) {
   const numero = dia.dia.slice(8);
   const vazio = dia.total === 0;
-  const problema = dia.alerta > 0;
+  const grave = Boolean(dia.grave);
+  const problema = grave || dia.alerta > 0;
 
   const conteudo = (
     <>
       {numero}
-      {/* Codificação secundária: quem não separa verde de âmbar enxerga o
-          contador e o anel. */}
+      {/* Codificação secundária: quem não separa as cores enxerga o
+          contador, o anel e o "!" do dia grave. */}
       {problema && (
-        <span className="absolute -right-0.5 -top-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-white text-[9px] font-black text-amber-700 shadow">
-          {dia.alerta}
+        <span
+          className={`absolute -right-0.5 -top-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-white text-[9px] font-black shadow ${
+            grave ? "text-rose-800" : "text-amber-700"
+          }`}
+        >
+          {grave ? "!" : dia.alerta}
         </span>
       )}
       {!vazio && !problema && <span className="text-[8px] font-normal opacity-80">{dia.total}</span>}
@@ -215,7 +246,7 @@ function CelulaDoDia({ dia, selecionado, href }: { dia: DiaDaFaixa; selecionado:
       className={`${base} text-white transition-transform hover:scale-110 ${
         selecionado ? "scale-110 ring-2 ring-slate-900 ring-offset-2" : ""
       }`}
-      style={{ background: problema ? COR_AMBAR : COR_VERDE }}
+      style={{ background: grave ? COR_VERMELHO : dia.alerta > 0 ? COR_AMBAR : COR_VERDE }}
     >
       {conteudo}
     </Link>

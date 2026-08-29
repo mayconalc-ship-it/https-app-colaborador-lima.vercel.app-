@@ -10,7 +10,7 @@ import {
   ROTULO_RESPONSABILIDADE,
   type Responsabilidade,
 } from "@/lib/devolucao";
-import { classificarMotivo, importarDevolucao, salvarConfigDeDevolucao } from "./actions";
+import { classificarMotivos, importarDevolucao, salvarConfigDeDevolucao } from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -19,6 +19,7 @@ const campo =
 const rotulo = "mb-1 block text-xs font-semibold uppercase text-slate-500";
 
 type Motivo = {
+  usos: number;
   codigo: string;
   descricao: string;
   responsabilidade: Responsabilidade;
@@ -48,11 +49,19 @@ export default async function AdminDevolucaoPage({
       admin.from("devolucao_notas").select("motivo_codigo").eq("revenda_id", revendaId).limit(1000),
     ]);
 
-  const todosMotivos = (motivosBanco ?? []) as Motivo[];
   // A tabela tem 94 códigos, mas só 30 aparecem de verdade. Mostrar os 94
   // faria a liderança classificar 64 motivos que nunca vão acontecer.
-  const codigosUsados = new Set((usados ?? []).map((n) => n.motivo_codigo).filter(Boolean));
-  const motivos = mostrarTodos ? todosMotivos : todosMotivos.filter((m) => codigosUsados.has(m.codigo));
+  const usosPorCodigo = new Map<string, number>();
+  for (const n of usados ?? []) {
+    if (!n.motivo_codigo) continue;
+    usosPorCodigo.set(n.motivo_codigo, (usosPorCodigo.get(n.motivo_codigo) ?? 0) + 1);
+  }
+  const todosMotivos = ((motivosBanco ?? []) as Omit<Motivo, "usos">[])
+    .map((m) => ({ ...m, usos: usosPorCodigo.get(m.codigo) ?? 0 }))
+    // Do maior motivo para o menor: quem classifica quer resolver
+    // primeiro o que mais acontece.
+    .sort((a, b) => b.usos - a.usos || a.descricao.localeCompare(b.descricao, "pt-BR"));
+  const motivos = mostrarTodos ? todosMotivos : todosMotivos.filter((m) => m.usos > 0);
   const aClassificar = motivos.filter((m) => m.responsabilidade === "nao_classificado").length;
   const meta = cfg?.meta_pct ?? META_PADRAO_PCT;
 
@@ -186,62 +195,69 @@ export default async function AdminDevolucaoPage({
             Nenhum motivo ainda. Importe as devoluções primeiro.
           </p>
         ) : (
-          <ul className="mt-3 space-y-2">
-            {motivos.map((m) => (
-              <li
-                key={m.codigo}
-                className={`rounded-xl border p-3 ${
-                  m.conta_no_indicador ? "border-slate-200" : "border-slate-200 bg-slate-50"
-                }`}
-              >
-                <div className="mb-2 flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold text-slate-900">{m.descricao}</p>
-                    <p className="font-mono text-[11px] text-slate-400">código {m.codigo}</p>
-                  </div>
-                  {!m.conta_no_indicador && (
-                    <span className="shrink-0 rounded-lg bg-slate-200 px-2 py-0.5 text-[10px] font-bold uppercase text-slate-600">
-                      fora da conta
-                    </span>
-                  )}
-                </div>
-                <form action={classificarMotivo} className="space-y-2">
-                  <input type="hidden" name="codigo" value={m.codigo} />
-                  <div className="flex items-center gap-2">
-                    <select name="responsabilidade" defaultValue={m.responsabilidade} className={`${campo} flex-1`}>
-                      {RESPONSABILIDADES.filter((r) => r !== "nao_conta").map((r) => (
-                        <option key={r} value={r}>
-                          {ROTULO_RESPONSABILIDADE[r].longo}
-                        </option>
-                      ))}
-                    </select>
-                    <BotaoEnviar
-                      compacto
-                      className="shrink-0 rounded-xl bg-slate-800 px-4 py-2.5 text-sm font-semibold text-white"
-                    >
-                      Salvar
-                    </BotaoEnviar>
-                  </div>
-                  {/* Eixo separado de propósito: NF rejeitada é da
-                      operação E não entra no percentual da revenda. */}
-                  <label className="flex items-start gap-2 text-xs text-slate-700">
-                    <input
-                      type="checkbox"
-                      name="conta"
-                      defaultChecked={m.conta_no_indicador}
-                      className="mt-0.5"
-                    />
-                    <span>
-                      Entra no <strong>% de devolução</strong>
-                      <span className="block text-[11px] text-slate-400">
-                        Desmarque para o motivo aparecer no histórico mas ficar fora do percentual.
-                      </span>
-                    </span>
-                  </label>
-                </form>
-              </li>
-            ))}
-          </ul>
+          /* Um formulário só para todos: com 30 motivos, salvar um a um
+             eram 30 recarregamentos de página. */
+          <form action={classificarMotivos} className="mt-3">
+            <input type="hidden" name="codigos" value={motivos.map((m) => m.codigo).join(",")} />
+
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[34rem] border-collapse text-sm">
+                <thead>
+                  <tr className="border-b border-slate-200 text-left text-[11px] uppercase text-slate-400">
+                    <th className="pb-2 pr-2 font-semibold">Motivo</th>
+                    <th className="pb-2 pr-2 font-semibold">Responsável</th>
+                    <th className="pb-2 text-center font-semibold">Entra no %</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {motivos.map((m) => (
+                    <tr key={m.codigo} className="border-b border-slate-100 last:border-0">
+                      <td className="py-2 pr-2 align-middle">
+                        <p className="text-sm font-medium leading-tight text-slate-900">{m.descricao}</p>
+                        <p className="font-mono text-[10px] text-slate-400">
+                          {m.codigo}
+                          {m.usos > 0 && <span className="ml-1 font-sans text-slate-500">· {m.usos} devolução(ões)</span>}
+                        </p>
+                      </td>
+                      <td className="py-2 pr-2 align-middle">
+                        <select
+                          name={`resp-${m.codigo}`}
+                          defaultValue={m.responsabilidade}
+                          aria-label={`Responsável pelo motivo ${m.descricao}`}
+                          className="w-full rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-xs text-slate-900 focus:border-primary focus:outline-none"
+                        >
+                          {RESPONSABILIDADES.map((r) => (
+                            <option key={r} value={r}>
+                              {ROTULO_RESPONSABILIDADE[r].longo}
+                            </option>
+                          ))}
+                        </select>
+                      </td>
+                      <td className="py-2 text-center align-middle">
+                        <input
+                          type="checkbox"
+                          name={`conta-${m.codigo}`}
+                          defaultChecked={m.conta_no_indicador}
+                          aria-label={`O motivo ${m.descricao} entra no percentual`}
+                          className="h-4 w-4"
+                        />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <BotaoEnviar
+              textoEnviando="Salvando..."
+              className="mt-4 w-full rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-white hover:bg-primary-dark"
+            >
+              Salvar todos os motivos
+            </BotaoEnviar>
+            <p className="mt-1.5 text-center text-[11px] text-slate-400">
+              Depois de salvar, reimporte para o percentual por PDV refletir a mudança.
+            </p>
+          </form>
         )}
 
         <details className="mt-4">
