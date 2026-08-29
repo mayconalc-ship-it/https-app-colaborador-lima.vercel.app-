@@ -60,8 +60,11 @@ export default async function IndicadoresPage({
   if (!revendaId) redirect(`/?erro=${encodeURIComponent("Você não está em nenhuma revenda.")}`);
 
   const supabase = await createClient();
-  const de0 = `${de}T00:00:00`;
-  const ate23 = `${ate}T23:59:59`;
+  // Fuso da operação, explícito. Sem o -03:00 o Postgres interpreta a
+  // data crua em UTC, e o recorte escorregava 3 horas -- o começo do dia
+  // pegava o fim da noite anterior e perdia o fim da noite do próprio dia.
+  const de0 = `${de}T00:00:00-03:00`;
+  const ate23 = `${ate}T23:59:59-03:00`;
 
   const [
     { data: produtosBanco },
@@ -130,13 +133,20 @@ export default async function IndicadoresPage({
       .gte("inicio", de0)
       .lte("inicio", ate23),
     supabase
-      .from("pa_recebimentos")
+      // Avaria vem do RECEBIMENTO DE CARRETA, que é o que a operação usa.
+      // Até 28/08/2026 esta consulta lia pa_recebimentos -- o módulo
+      // "Recebimento de Paletes", tirado do menu por estar duplicado.
+      // O indicador ficou congelado em dados velhos daquele módulo e a
+      // carreta conferida no dia nunca aparecia aqui, por estar em outra
+      // tabela. Nenhum filtro de data resolveria.
+      .from("atendimentos_carretas")
       .select(
-        "id, pa_transportadoras(nome), pa_recebimento_itens(quantidade_recebida, quantidade_avariada, pct_avaria)",
+        "id, pa_transportadoras(nome), atendimento_carretas_itens(quantidade, quantidade_avariada)",
       )
       .eq("revenda_id", revendaId)
-      .gte("data_recebimento", de)
-      .lte("data_recebimento", ate),
+      .eq("status", "finalizado")
+      .gte("finalizacao_em", de0)
+      .lte("finalizacao_em", ate23),
     supabase
       .from("pa_execucoes_5s")
       .select("id, responsavel_id, responsavel_nome, inicio, fim")
@@ -440,29 +450,39 @@ export default async function IndicadoresPage({
     operacoesEncerradas.length > 0 ? Math.round((horasEmpilhadeiraTotal / operacoesEncerradas.length) * 100) / 100 : 0;
 
   // ---- % de avaria: geral e por transportadora ----
-  const carretasAvaliadas = (recebimentosBanco ?? []).length;
-  type ItemRec = { quantidade_recebida: number; quantidade_avariada: number };
-  const todosItens: ItemRec[] = (recebimentosBanco ?? []).flatMap((r) => r.pa_recebimento_itens ?? []);
+  type ItemCarreta = { quantidade: number; quantidade_avariada: number | null };
+  type CarretaAvaria = {
+    pa_transportadoras: { nome: string } | { nome: string }[] | null;
+    atendimento_carretas_itens: ItemCarreta[] | null;
+  };
+  const carretas = (recebimentosBanco ?? []) as unknown as CarretaAvaria[];
+
+  // Só conta como "avaliada" a carreta que teve itens lançados: sem
+  // conferência não há avaria medida, e incluí-la puxaria o percentual
+  // para baixo fingindo que nada veio avariado.
+  const carretasComItens = carretas.filter((c) => (c.atendimento_carretas_itens ?? []).length > 0);
+  const carretasAvaliadas = carretasComItens.length;
+  const todosItens: ItemCarreta[] = carretasComItens.flatMap((c) => c.atendimento_carretas_itens ?? []);
   const pctAvariaGeral = pctAvariaConsolidado(
     todosItens.map((i) => ({
       id: "",
       produtoId: "",
       produtoCodigo: "",
       produtoDescricao: "",
-      quantidadeRecebida: i.quantidade_recebida,
-      quantidadeAvariada: i.quantidade_avariada,
+      quantidadeRecebida: i.quantidade,
+      quantidadeAvariada: i.quantidade_avariada ?? 0,
       pctAvaria: 0,
     })),
   );
 
   const avariaPorTransportadora = new Map<string, { recebido: number; avariado: number }>();
-  for (const r of recebimentosBanco ?? []) {
-    const t = Array.isArray(r.pa_transportadoras) ? r.pa_transportadoras[0] : r.pa_transportadoras;
+  for (const c of carretasComItens) {
+    const t = Array.isArray(c.pa_transportadoras) ? c.pa_transportadoras[0] : c.pa_transportadoras;
     const nome = t?.nome ?? "—";
     const atual = avariaPorTransportadora.get(nome) ?? { recebido: 0, avariado: 0 };
-    for (const i of r.pa_recebimento_itens ?? []) {
-      atual.recebido += i.quantidade_recebida;
-      atual.avariado += i.quantidade_avariada;
+    for (const i of c.atendimento_carretas_itens ?? []) {
+      atual.recebido += i.quantidade;
+      atual.avariado += i.quantidade_avariada ?? 0;
     }
     avariaPorTransportadora.set(nome, atual);
   }
@@ -588,12 +608,29 @@ export default async function IndicadoresPage({
 
         <BlocoAtividade titulo="🏗️ Empilhadeira">
           <CartaoHero titulo="Horas ativas" valor={`${horasEmpilhadeiraTotal}h`} legenda="horímetro, operações encerradas" />
-          <CartaoHero titulo="Operações" valor={String(operacoes.length)} />
+          {/* Mostra as ENCERRADAS, que é o denominador da duração média.
+              Antes o cartão contava também as abertas: quem tentasse
+              conferir dividindo as horas por este número não chegava na
+              média mostrada ao lado, e um indicador que não fecha na
+              conferência do usuário perde a confiança dele. */}
+          <CartaoHero
+            titulo="Operações"
+            valor={String(operacoesEncerradas.length)}
+            legenda={
+              operacoes.length > operacoesEncerradas.length
+                ? `${operacoes.length - operacoesEncerradas.length} ainda em aberto`
+                : "encerradas"
+            }
+          />
           <CartaoHero titulo="Duração média" valor={formatarHoras(mediaHorasPorOperacao)} legenda="por operação, horímetro" />
         </BlocoAtividade>
 
         <BlocoAtividade titulo="🚛 Recebimento">
-          <CartaoHero titulo="Carretas avaliadas" valor={String(carretasAvaliadas)} />
+          <CartaoHero
+            titulo="Carretas avaliadas"
+            valor={String(carretasAvaliadas)}
+            legenda="com conferência lançada"
+          />
           <CartaoHero
             titulo="% de avaria no recebido"
             valor={`${pctAvariaGeral}%`}
