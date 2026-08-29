@@ -22,6 +22,7 @@ export const MODULO_DO_ITEM: Record<string, ModuloId> = {
   "produtividade-armazem": "produtividade-armazem",
   "carretas-portaria": "carretas-portaria",
   "carretas-conferencia": "carretas-conferencia",
+  rating: "rating",
 };
 
 export type ItemMenu = {
@@ -51,6 +52,10 @@ export const MENU_PADRAO: ItemMenu[] = [
   // procurar o Admin, igual aos demais módulos de acesso restrito.
   { chave: "5s", titulo: "Programa 5S", emoji: "🧹", href: "/5s", ordem: 12, visivel: true },
   { chave: "produtividade-armazem", titulo: "Produtividade do Armazém", emoji: "🏭", href: "/produtividade-armazem", ordem: 13, visivel: true },
+  // Módulo opcional: o motorista e o ajudante veem as PRÓPRIAS avaliações.
+  // Sem a linha em MODULO_DO_ITEM acima, este cartão apareceria para todo
+  // mundo e levaria a uma tela de "sem acesso".
+  { chave: "rating", titulo: "Meu Rating", emoji: "⭐", href: "/rating", ordem: 14, visivel: true },
   // "Minha Conta" fica oculto: já existe o botão "Conta" no topo de todas as
   // telas, e repetir ocupava espaço da grade sem acrescentar nada.
   { chave: "conta", titulo: "Minha Conta", emoji: "🔒", href: "/minha-conta", ordem: 9, visivel: false },
