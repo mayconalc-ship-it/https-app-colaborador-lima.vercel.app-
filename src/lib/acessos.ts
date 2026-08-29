@@ -44,7 +44,8 @@ export type ModuloId =
   | "fefo"
   | "fefo-controle"
   | "rating"
-  | "refugo";
+  | "refugo"
+  | "devolucao";
 
 export type Modulo = {
   id: ModuloId;
@@ -106,6 +107,15 @@ export const MODULOS: Modulo[] = [
     // só veem as PRÓPRIAS avaliações, e para isso basta a concessão do
     // módulo (sem ação) -- quem não entrega não tem o que ver aqui.
     acoes: ["ver", "criar"],
+  },
+  {
+    id: "devolucao",
+    rotulo: "Devolução",
+    emoji: "↩️",
+    href: "/admin/devolucao",
+    grupo: "Conteúdo do app",
+    // "criar" = importar; "editar" = a meta e a classificação dos motivos.
+    acoes: ["ver", "criar", "editar"],
   },
   {
     id: "refugo",
@@ -421,6 +431,7 @@ export const MODULOS_OPCIONAIS: ModuloId[] = [
   "fefo-controle",
   "rating",
   "refugo",
+  "devolucao",
 ];
 
 const MAPA = new Map(MODULOS.map((m) => [m.id, m]));

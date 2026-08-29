@@ -24,6 +24,7 @@ export const MODULO_DO_ITEM: Record<string, ModuloId> = {
   "carretas-conferencia": "carretas-conferencia",
   rating: "rating",
   refugo: "refugo",
+  devolucao: "devolucao",
 };
 
 export type ItemMenu = {
@@ -58,6 +59,7 @@ export const MENU_PADRAO: ItemMenu[] = [
   // mundo e levaria a uma tela de "sem acesso".
   { chave: "rating", titulo: "Meu Rating", emoji: "⭐", href: "/rating", ordem: 14, visivel: true },
   { chave: "refugo", titulo: "Meu Refugo", emoji: "♻️", href: "/refugo", ordem: 15, visivel: true },
+  { chave: "devolucao", titulo: "Minha Devolução", emoji: "↩️", href: "/devolucao", ordem: 16, visivel: true },
   // "Minha Conta" fica oculto: já existe o botão "Conta" no topo de todas as
   // telas, e repetir ocupava espaço da grade sem acrescentar nada.
   { chave: "conta", titulo: "Minha Conta", emoji: "🔒", href: "/minha-conta", ordem: 9, visivel: false },
