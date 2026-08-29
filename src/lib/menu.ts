@@ -23,6 +23,7 @@ export const MODULO_DO_ITEM: Record<string, ModuloId> = {
   "carretas-portaria": "carretas-portaria",
   "carretas-conferencia": "carretas-conferencia",
   rating: "rating",
+  refugo: "refugo",
 };
 
 export type ItemMenu = {
@@ -56,6 +57,7 @@ export const MENU_PADRAO: ItemMenu[] = [
   // Sem a linha em MODULO_DO_ITEM acima, este cartão apareceria para todo
   // mundo e levaria a uma tela de "sem acesso".
   { chave: "rating", titulo: "Meu Rating", emoji: "⭐", href: "/rating", ordem: 14, visivel: true },
+  { chave: "refugo", titulo: "Meu Refugo", emoji: "♻️", href: "/refugo", ordem: 15, visivel: true },
   // "Minha Conta" fica oculto: já existe o botão "Conta" no topo de todas as
   // telas, e repetir ocupava espaço da grade sem acrescentar nada.
   { chave: "conta", titulo: "Minha Conta", emoji: "🔒", href: "/minha-conta", ordem: 9, visivel: false },

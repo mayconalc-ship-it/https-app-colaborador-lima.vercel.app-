@@ -17,7 +17,8 @@ import {
   type Classificacao,
 } from "@/lib/rating";
 import { Estrelas } from "./Estrelas";
-import { BarrasHorizontais, DistribuicaoDeNotas, FaixaDeDias } from "./Graficos";
+import { BarrasHorizontais, FaixaDeDias } from "@/components/indicadores/Graficos";
+import { DistribuicaoDeNotas } from "./Graficos";
 import { responderAvaliacao } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -131,9 +132,28 @@ export default async function RatingPage({
       <Hero resumo={resumo} de={de} ate={ate} dia={diaSelecionado} />
 
       <FaixaDeDias
-        dias={dias}
+        dias={dias.map((d) => ({
+          dia: d.dia,
+          total: d.total,
+          alerta: d.abaixoDaMeta,
+          titulo:
+            d.total === 0
+              ? `${formatarData(d.dia)} — nenhuma entrega sua foi avaliada`
+              : `${formatarData(d.dia)} — ${d.total} avaliação(ões), média ${d.media}` +
+                (d.abaixoDaMeta ? `, ${d.abaixoDaMeta} abaixo de 5` : ", todas 5 estrelas"),
+        }))}
         diaSelecionado={diaSelecionado}
         base={(d) => qs({ dia: d === diaSelecionado ? null : d })}
+        rotulos={{
+          titulo: "Seus dias no período",
+          bom: "Todas 5 estrelas",
+          alerta: "Teve nota abaixo de 5",
+          vazio: "Sem avaliação",
+          aviso: (n) =>
+            n === 1
+              ? "1 dia com cliente insatisfeito — toque nele para ver."
+              : `${n} dias com cliente insatisfeito — toque neles para ver.`,
+        }}
       />
 
       {/* Logo ABAIXO do calendário, não no topo: é onde o dedo está

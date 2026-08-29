@@ -43,7 +43,8 @@ export type ModuloId =
   | "carretas-descarga"
   | "fefo"
   | "fefo-controle"
-  | "rating";
+  | "rating"
+  | "refugo";
 
 export type Modulo = {
   id: ModuloId;
@@ -105,6 +106,17 @@ export const MODULOS: Modulo[] = [
     // só veem as PRÓPRIAS avaliações, e para isso basta a concessão do
     // módulo (sem ação) -- quem não entrega não tem o que ver aqui.
     acoes: ["ver", "criar"],
+  },
+  {
+    id: "refugo",
+    rotulo: "Refugo de Vasilhame",
+    emoji: "♻️",
+    href: "/admin/refugo",
+    grupo: "Conteúdo do app",
+    // "criar" = importar o relatório; "editar" = cadastrar o valor dos
+    // materiais. O motorista, o ajudante e o conferente só veem o
+    // próprio refugo, e para isso basta a concessão do módulo.
+    acoes: ["ver", "criar", "editar"],
   },
   {
     id: "rotas",
@@ -408,6 +420,7 @@ export const MODULOS_OPCIONAIS: ModuloId[] = [
   "fefo",
   "fefo-controle",
   "rating",
+  "refugo",
 ];
 
 const MAPA = new Map(MODULOS.map((m) => [m.id, m]));
