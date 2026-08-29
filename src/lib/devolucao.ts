@@ -50,15 +50,38 @@ export function ehResponsabilidade(v: unknown): v is Responsabilidade {
 }
 
 /**
+ * DE QUEM FOI e ENTRA NA CONTA são coisas diferentes.
+ *
+ * Um cancelamento por NF rejeitada é falha da OPERAÇÃO, mas não é
+ * devolução de verdade e não deve entrar no % da revenda. Com um campo
+ * só, para tirar do percentual era preciso mentir sobre de quem foi.
+ *
+ * `responsabilidade` responde "de quem foi"; `conta_no_indicador`
+ * responde "entra no %". Os dois se ajustam no Admin.
+ */
+export type ClassificacaoDoMotivo = {
+  responsabilidade: Responsabilidade;
+  contaNoIndicador: boolean;
+};
+
+/** Motivo que ainda não conta: fora do indicador até alguém decidir. */
+export const MOTIVOS_FORA_DO_INDICADOR = new Set<string>([
+  "3",  // Devolucao NFe
+  "4",  // Devolucao NFe
+  "5",  // Canc.Por Prazo Expirado SEFAZ
+  "6",  // Canc. Aut. NF Ret. Vasilhame
+  "7",  // OUTROS MOTIVOS VALIDADO AC
+  // Carrega as quatro notas de transferência para a FABRICA CAMACARI --
+  // R$ 836 mil, 58% do valor devolvido do ano.
+  "8",  // Mapa nao carregado / nao canc.
+]);
+
+/**
  * Classificação SUGERIDA, aplicada só a motivo que ainda não foi
  * classificado pela liderança. É ponto de partida, não verdade: a régua
  * de verdade mora no banco e se muda na tela do Admin.
  *
  * Vem da leitura das descrições dos 30 motivos que apareceram em 2026.
- * O motivo 8 ("Mapa não carregado / não canc.") entra como `nao_conta`
- * porque é ele que carrega as quatro notas de transferência para a
- * FABRICA CAMACARI -- R$ 836 mil, 58% do valor devolvido do ano. Se a
- * liderança quiser as pequenas de volta, é só reclassificar.
  */
 export const CLASSIFICACAO_SUGERIDA: Record<string, Responsabilidade> = {
   // --- do cliente ---
@@ -101,14 +124,24 @@ export const CLASSIFICACAO_SUGERIDA: Record<string, Responsabilidade> = {
   "45": "entrega", // Tempo Insuficiente
   "87": "entrega", // TEMPO INSUFICIENTE
 
-  // --- fora do indicador ---
-  "3": "nao_conta", // Devolucao NFe
-  "4": "nao_conta", // Devolucao NFe
-  "5": "nao_conta", // Canc.Por Prazo Expirado SEFAZ
-  "6": "nao_conta", // Canc. Aut. NF Ret. Vasilhame
-  "7": "nao_conta", // OUTROS MOTIVOS VALIDADO AC
-  "8": "nao_conta", // Mapa nao carregado / nao canc.
+  // --- da operação, mas fora do indicador (ver MOTIVOS_FORA_DO_INDICADOR) ---
+  "3": "operacao", // Devolucao NFe
+  "4": "operacao", // Devolucao NFe
+  "5": "operacao", // Canc.Por Prazo Expirado SEFAZ
+  "6": "operacao", // Canc. Aut. NF Ret. Vasilhame
+  "7": "operacao", // OUTROS MOTIVOS VALIDADO AC
+  "8": "operacao", // Mapa nao carregado / nao canc.
 };
+
+/** O que sugerir para um motivo novo, nos dois eixos. */
+export function classificacaoSugerida(codigo: string): ClassificacaoDoMotivo {
+  return {
+    responsabilidade: CLASSIFICACAO_SUGERIDA[codigo] ?? "nao_classificado",
+    // Motivo desconhecido nasce fora do indicador: nunca entra como
+    // número de alguém antes de a liderança olhar.
+    contaNoIndicador: Boolean(CLASSIFICACAO_SUGERIDA[codigo]) && !MOTIVOS_FORA_DO_INDICADOR.has(codigo),
+  };
+}
 
 // --------------------------------------------------------------------
 // LEITURA DO RELATÓRIO
@@ -358,12 +391,16 @@ export function lerTabelaDeMotivos(texto: string): Map<string, string> {
 export type LinhaDevolucao = {
   valor: number;
   responsabilidade: Responsabilidade;
+  /** A régua do Admin. Ausente = não conta, para motivo novo nunca virar
+   *  número de alguém antes de a liderança olhar. */
+  contaNoIndicador?: boolean;
 };
 
 export type ResumoDevolucao = {
-  /** Só o que entra no indicador -- fora `nao_conta` e `nao_classificado`. */
+  /** Só o que entra no indicador. */
   notas: number;
   valor: number;
+  /** A quebra por responsabilidade, SÓ do que conta. */
   porResponsabilidade: Record<Responsabilidade, { notas: number; valor: number }>;
   /** Fora do indicador, mostrado à parte para ninguém achar que sumiu. */
   foraDoIndicador: { notas: number; valor: number };
@@ -379,30 +416,67 @@ export function resumirDevolucao(linhas: LinhaDevolucao[]): ResumoDevolucao {
     nao_conta: vazio(),
     nao_classificado: vazio(),
   };
+  const fora = vazio();
+  let aClassificar = 0;
 
   for (const l of linhas) {
+    if (l.responsabilidade === "nao_classificado") aClassificar++;
+    // "Entra na conta" é decisão à parte de "de quem foi": uma NF
+    // rejeitada é da operação e mesmo assim não entra no percentual.
+    if (l.contaNoIndicador === false || l.responsabilidade === "nao_classificado" || l.responsabilidade === "nao_conta") {
+      fora.notas++;
+      fora.valor += l.valor;
+      continue;
+    }
     const alvo = por[l.responsabilidade] ?? por.nao_classificado;
     alvo.notas++;
     alvo.valor += l.valor;
   }
+
   for (const k of Object.keys(por) as Responsabilidade[]) {
     por[k].valor = Math.round(por[k].valor * 100) / 100;
   }
 
   const contam: Responsabilidade[] = ["cliente", "operacao", "entrega"];
-  const notas = contam.reduce((s, k) => s + por[k].notas, 0);
-  const valor = Math.round(contam.reduce((s, k) => s + por[k].valor, 0) * 100) / 100;
-
   return {
-    notas,
-    valor,
+    notas: contam.reduce((s, k) => s + por[k].notas, 0),
+    valor: Math.round(contam.reduce((s, k) => s + por[k].valor, 0) * 100) / 100,
     porResponsabilidade: por,
-    foraDoIndicador: {
-      notas: por.nao_conta.notas + por.nao_classificado.notas,
-      valor: Math.round((por.nao_conta.valor + por.nao_classificado.valor) * 100) / 100,
-    },
-    aClassificar: por.nao_classificado.notas,
+    foraDoIndicador: { notas: fora.notas, valor: Math.round(fora.valor * 100) / 100 },
+    aClassificar,
   };
+}
+
+// --------------------------------------------------------------------
+// POR PDV
+// --------------------------------------------------------------------
+
+export type LinhaPdv = {
+  clienteCodigo: string | null;
+  clienteNome: string | null;
+  valor: number;
+  contaNoIndicador?: boolean;
+};
+
+/**
+ * Devolução por ponto de venda, do maior valor para o menor. Só o que
+ * entra no indicador -- transferência para a fábrica ficaria em primeiro
+ * lugar e esconderia os clientes de verdade.
+ */
+export function porPdv(linhas: LinhaPdv[]): { chave: string; total: number; notas: number }[] {
+  const mapa = new Map<string, { valor: number; notas: number }>();
+  for (const l of linhas) {
+    if (l.contaNoIndicador === false) continue;
+    const nome = l.clienteNome?.trim() || (l.clienteCodigo ? `Cliente ${l.clienteCodigo}` : null);
+    if (!nome) continue;
+    const o = mapa.get(nome) ?? { valor: 0, notas: 0 };
+    o.valor += l.valor;
+    o.notas++;
+    mapa.set(nome, o);
+  }
+  return [...mapa]
+    .map(([chave, o]) => ({ chave, total: Math.round(o.valor * 100) / 100, notas: o.notas }))
+    .sort((a, b) => b.total - a.total);
 }
 
 export function formatarReais(v: number): string {

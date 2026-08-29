@@ -13,6 +13,7 @@ import {
   formatarReais,
   pctDoDia,
   precisaJustificar,
+  porPdv,
   resumirDevolucao,
   type Responsabilidade,
 } from "@/lib/devolucao";
@@ -86,13 +87,21 @@ export default async function DevolucaoPage({
       .order("valor", { ascending: false })
       .limit(500),
     supabase.from("devolucao_config").select("meta_pct").eq("revenda_id", revendaId).maybeSingle(),
-    supabase.from("devolucao_motivos").select("codigo, descricao, responsabilidade").eq("revenda_id", revendaId),
+    supabase.from("devolucao_motivos").select("codigo, descricao, responsabilidade, conta_no_indicador").eq("revenda_id", revendaId),
   ]);
 
   const meta = Number(cfg?.meta_pct ?? META_PADRAO_PCT);
   const motivos = new Map(
-    (motivosBanco ?? []).map((m) => [m.codigo, { descricao: m.descricao, responsabilidade: m.responsabilidade as Responsabilidade }]),
+    (motivosBanco ?? []).map((m) => [
+      m.codigo,
+      {
+        descricao: m.descricao,
+        responsabilidade: m.responsabilidade as Responsabilidade,
+        contaNoIndicador: m.conta_no_indicador !== false,
+      },
+    ]),
   );
+  const doMotivo = (codigo: string | null) => (codigo ? motivos.get(codigo) : undefined);
 
   const todosDias = (diasBanco ?? []) as Dia[];
   const todasNotas = (notasBanco ?? []) as Nota[];
@@ -106,10 +115,14 @@ export default async function DevolucaoPage({
   const pctPeriodo = pctDoDia(entregue, devolvido, fora);
 
   const resumo = resumirDevolucao(
-    notas.map((n) => ({
-      valor: Number(n.valor),
-      responsabilidade: (n.motivo_codigo ? motivos.get(n.motivo_codigo)?.responsabilidade : undefined) ?? "nao_classificado",
-    })),
+    notas.map((n) => {
+      const m = doMotivo(n.motivo_codigo);
+      return {
+        valor: Number(n.valor),
+        responsabilidade: m?.responsabilidade ?? "nao_classificado",
+        contaNoIndicador: m?.contaNoIndicador ?? false,
+      };
+    }),
   );
 
   // Os dias que passaram da meta e ainda não foram explicados.
@@ -247,8 +260,23 @@ export default async function DevolucaoPage({
           />
 
           <BarrasHorizontais
-            titulo="Clientes que mais devolveram"
-            subtitulo="Vale uma conversa na próxima entrega"
+            titulo="Devolução por PDV"
+            subtitulo="Quanto voltou de cada cliente, em reais"
+            itens={porPdv(
+              notas.map((n) => ({
+                clienteCodigo: null,
+                clienteNome: n.cliente_nome,
+                valor: Number(n.valor),
+                contaNoIndicador: doMotivo(n.motivo_codigo)?.contaNoIndicador ?? false,
+              })),
+            )}
+            vazio="Nenhum cliente devolveu no período."
+            maximoDeItens={10}
+          />
+
+          <BarrasHorizontais
+            titulo="PDVs que mais devolveram"
+            subtitulo="Pela quantidade de notas, não pelo valor"
             itens={contarClientes(notas)}
             vazio="Nenhum cliente devolveu no período."
           />

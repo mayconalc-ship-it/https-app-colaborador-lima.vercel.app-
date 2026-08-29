@@ -7,7 +7,7 @@ import { exigirRevenda } from "@/lib/revendas";
 import { baixarTextoDoDrive, idDaPasta, listarArquivosDaPasta, listarSubpastas } from "@/lib/drive-pasta";
 import { gravarEmLotes, lerTudoEmPaginas } from "@/lib/rating-server";
 import {
-  CLASSIFICACAO_SUGERIDA,
+  classificacaoSugerida,
   ehResponsabilidade,
   lerRelatorioDeDevolucao,
   lerTabelaDeMotivos,
@@ -62,16 +62,20 @@ export async function classificarMotivo(formData: FormData) {
   if (!codigo) voltar("erro", "Motivo inválido.");
   if (!ehResponsabilidade(responsabilidade)) voltar("erro", "Classificação inválida.");
 
+  // Independente da responsabilidade: uma NF rejeitada é da operação e
+  // mesmo assim não entra no % da revenda.
+  const conta = formData.get("conta") === "on";
+
   const admin = createAdminClient();
   const revendaId = await exigirRevenda(ROTA);
   const { error } = await admin
     .from("devolucao_motivos")
-    .update({ responsabilidade, atualizado_em: new Date().toISOString() })
+    .update({ responsabilidade, conta_no_indicador: conta, atualizado_em: new Date().toISOString() })
     .eq("revenda_id", revendaId)
     .eq("codigo", codigo);
 
   if (error) voltar("erro", `Não foi possível salvar: ${error.message}`);
-  voltar("sucesso", "Classificação salva.");
+  voltar("sucesso", conta ? "Salvo — este motivo entra na conta." : "Salvo — este motivo fica fora da conta.");
 }
 
 /**
@@ -126,13 +130,17 @@ export async function importarDevolucao(formData: FormData) {
 
         const novos = [...motivos]
           .filter(([codigo]) => !conhecidos.has(codigo))
-          .map(([codigo, descricao]) => ({
-            revenda_id: revendaId,
-            codigo,
-            descricao,
-            responsabilidade: CLASSIFICACAO_SUGERIDA[codigo] ?? "nao_classificado",
-            atualizado_em: new Date().toISOString(),
-          }));
+          .map(([codigo, descricao]) => {
+            const s = classificacaoSugerida(codigo);
+            return {
+              revenda_id: revendaId,
+              codigo,
+              descricao,
+              responsabilidade: s.responsabilidade,
+              conta_no_indicador: s.contaNoIndicador,
+              atualizado_em: new Date().toISOString(),
+            };
+          });
 
         if (novos.length > 0) {
           await gravarEmLotes(novos, 500, (lote) =>
@@ -269,11 +277,19 @@ export async function importarDevolucao(formData: FormData) {
   if (diasAcumulados.size > 0) {
     // Quanto do devolvido do dia NÃO conta para a meta -- é o que sai dos
     // dois lados da divisão para o percentual ser justo.
-    const { linhas: motivos } = await lerTudoEmPaginas<{ codigo: string; responsabilidade: string }>((de, ate) =>
-      admin.from("devolucao_motivos").select("codigo, responsabilidade").eq("revenda_id", revendaId).range(de, ate),
+    const { linhas: motivos } = await lerTudoEmPaginas<{
+      codigo: string; responsabilidade: string; conta_no_indicador: boolean;
+    }>((de, ate) =>
+      admin
+        .from("devolucao_motivos")
+        .select("codigo, responsabilidade, conta_no_indicador")
+        .eq("revenda_id", revendaId)
+        .range(de, ate),
     );
     const foraDoIndicador = new Set(
-      motivos.filter((m) => m.responsabilidade === "nao_conta" || m.responsabilidade === "nao_classificado").map((m) => m.codigo),
+      motivos
+        .filter((m) => !m.conta_no_indicador || m.responsabilidade === "nao_classificado")
+        .map((m) => m.codigo),
     );
 
     const chaves = [...diasAcumulados.keys()];

@@ -5,6 +5,7 @@ import {
   lerRelatorioDeDevolucao, lerTabelaDeMotivos, resumirDevolucao,
   normalizarCodigo, CLASSIFICACAO_SUGERIDA, ehResponsabilidade,
   pctDoDia, precisaJustificar, META_PADRAO_PCT,
+  classificacaoSugerida, porPdv,
 } from "../devolucao.ts";
 
 let falhas = 0;
@@ -27,27 +28,49 @@ console.log("\n== CLASSIFICACAO SUGERIDA ==");
 eq("PDV Fechado e do cliente", CLASSIFICACAO_SUGERIDA["37"], "cliente");
 eq("Carga errada do armazem e da operacao", CLASSIFICACAO_SUGERIDA["50"], "operacao");
 eq("Tempo insuficiente e da entrega", CLASSIFICACAO_SUGERIDA["45"], "entrega");
-eq("Mapa nao carregado fica fora do indicador", CLASSIFICACAO_SUGERIDA["8"], "nao_conta");
 ok("toda sugestao e uma responsabilidade valida",
   Object.values(CLASSIFICACAO_SUGERIDA).every(ehResponsabilidade));
 
+console.log("\n== DE QUEM FOI x ENTRA NA CONTA (eixos separados) ==");
+// O caso do dono: NF rejeitada e da OPERACAO e mesmo assim nao entra no %.
+eq("mapa nao carregado: de quem foi", classificacaoSugerida("8").responsabilidade, "operacao");
+ok("mapa nao carregado: fora da conta", !classificacaoSugerida("8").contaNoIndicador);
+eq("PDV fechado: de quem foi", classificacaoSugerida("37").responsabilidade, "cliente");
+ok("PDV fechado: entra na conta", classificacaoSugerida("37").contaNoIndicador);
+ok("motivo desconhecido nasce fora da conta", !classificacaoSugerida("9999").contaNoIndicador);
+eq("e sem responsabilidade", classificacaoSugerida("9999").responsabilidade, "nao_classificado");
+
 console.log("\n== RESUMO ==");
 let r = resumirDevolucao([
-  { valor: 100, responsabilidade: "cliente" },
-  { valor: 50, responsabilidade: "cliente" },
-  { valor: 200, responsabilidade: "operacao" },
-  { valor: 30, responsabilidade: "entrega" },
-  { valor: 900000, responsabilidade: "nao_conta" },
+  { valor: 100, responsabilidade: "cliente", contaNoIndicador: true },
+  { valor: 50, responsabilidade: "cliente", contaNoIndicador: true },
+  { valor: 200, responsabilidade: "operacao", contaNoIndicador: true },
+  { valor: 30, responsabilidade: "entrega", contaNoIndicador: true },
+  // Da operacao E fora da conta -- o caso da NF rejeitada.
+  { valor: 900000, responsabilidade: "operacao", contaNoIndicador: false },
   { valor: 10, responsabilidade: "nao_classificado" },
 ]);
 eq("conta so o que entra no indicador", r.notas, 4);
 eq("e o valor tambem", r.valor, 380);
 eq("cliente somado", r.porResponsabilidade.cliente.valor, 150);
+eq("a operacao fora da conta NAO entra na operacao", r.porResponsabilidade.operacao.valor, 200);
 eq("o que fica de fora nao some", r.foraDoIndicador.notas, 2);
 eq("e aparece com o valor", r.foraDoIndicador.valor, 900010);
 eq("avisa quantos faltam classificar", r.aClassificar, 1);
 r = resumirDevolucao([]);
 eq("sem nota, zero", r.notas, 0);
+
+console.log("\n== POR PDV ==");
+const pdvs = porPdv([
+  { clienteCodigo: "1", clienteNome: "BAR DO ZE", valor: 100, contaNoIndicador: true },
+  { clienteCodigo: "1", clienteNome: "BAR DO ZE", valor: 50, contaNoIndicador: true },
+  { clienteCodigo: "2", clienteNome: "MERCEARIA", valor: 200, contaNoIndicador: true },
+  { clienteCodigo: "3", clienteNome: "FABRICA", valor: 900000, contaNoIndicador: false },
+]);
+eq("o maior valor vem primeiro", pdvs[0].chave, "MERCEARIA");
+eq("agrupa o mesmo PDV", pdvs[1].total, 150);
+eq("e conta as notas dele", pdvs[1].notas, 2);
+eq("o que nao conta fica de fora do ranking", pdvs.length, 2);
 
 console.log("\n== META DO DIA ==");
 eq("100 devolvido de 900 entregue = 10%", pctDoDia(900, 100), 10);
@@ -143,7 +166,10 @@ ok("todo motivo usado tem classificacao sugerida", semSugestao.length === 0,
   semSugestao.map((c) => `${c} = ${motivos.get(c)}`).join(" | "));
 
 const resumo = resumirDevolucao(
-  todas.map((n) => ({ valor: n.valor, responsabilidade: CLASSIFICACAO_SUGERIDA[n.motivoCodigo] ?? "nao_classificado" })),
+  todas.map((n) => {
+    const s = classificacaoSugerida(n.motivoCodigo ?? "");
+    return { valor: n.valor, responsabilidade: s.responsabilidade, contaNoIndicador: s.contaNoIndicador };
+  }),
 );
 console.log(`\n  com a classificacao sugerida:`);
 for (const [k, v] of Object.entries(resumo.porResponsabilidade))

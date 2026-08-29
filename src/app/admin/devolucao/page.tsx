@@ -18,7 +18,12 @@ const campo =
   "w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-base text-slate-900 focus:border-primary focus:outline-none";
 const rotulo = "mb-1 block text-xs font-semibold uppercase text-slate-500";
 
-type Motivo = { codigo: string; descricao: string; responsabilidade: Responsabilidade };
+type Motivo = {
+  codigo: string;
+  descricao: string;
+  responsabilidade: Responsabilidade;
+  conta_no_indicador: boolean;
+};
 
 export default async function AdminDevolucaoPage({
   searchParams,
@@ -35,7 +40,7 @@ export default async function AdminDevolucaoPage({
   const [{ data: cfg }, { data: motivosBanco }, { count: notas }, { count: dias }, { count: justificativas }, { data: ratingCfg }, { data: usados }] =
     await Promise.all([
       admin.from("devolucao_config").select("pasta_link, meta_pct, ultima_sincronizacao, ultimo_resultado").eq("revenda_id", revendaId).maybeSingle(),
-      admin.from("devolucao_motivos").select("codigo, descricao, responsabilidade").eq("revenda_id", revendaId).order("codigo"),
+      admin.from("devolucao_motivos").select("codigo, descricao, responsabilidade, conta_no_indicador").eq("revenda_id", revendaId).order("codigo"),
       admin.from("devolucao_notas").select("*", { count: "exact", head: true }).eq("revenda_id", revendaId),
       admin.from("devolucao_dia").select("*", { count: "exact", head: true }).eq("revenda_id", revendaId),
       admin.from("devolucao_justificativas").select("*", { count: "exact", head: true }).eq("revenda_id", revendaId),
@@ -183,24 +188,56 @@ export default async function AdminDevolucaoPage({
         ) : (
           <ul className="mt-3 space-y-2">
             {motivos.map((m) => (
-              <li key={m.codigo} className="rounded-xl border border-slate-200 p-3">
-                <p className="text-sm font-semibold text-slate-900">{m.descricao}</p>
-                <p className="mb-2 font-mono text-[11px] text-slate-400">código {m.codigo}</p>
-                <form action={classificarMotivo} className="flex items-center gap-2">
+              <li
+                key={m.codigo}
+                className={`rounded-xl border p-3 ${
+                  m.conta_no_indicador ? "border-slate-200" : "border-slate-200 bg-slate-50"
+                }`}
+              >
+                <div className="mb-2 flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-slate-900">{m.descricao}</p>
+                    <p className="font-mono text-[11px] text-slate-400">código {m.codigo}</p>
+                  </div>
+                  {!m.conta_no_indicador && (
+                    <span className="shrink-0 rounded-lg bg-slate-200 px-2 py-0.5 text-[10px] font-bold uppercase text-slate-600">
+                      fora da conta
+                    </span>
+                  )}
+                </div>
+                <form action={classificarMotivo} className="space-y-2">
                   <input type="hidden" name="codigo" value={m.codigo} />
-                  <select name="responsabilidade" defaultValue={m.responsabilidade} className={`${campo} flex-1`}>
-                    {RESPONSABILIDADES.map((r) => (
-                      <option key={r} value={r}>
-                        {ROTULO_RESPONSABILIDADE[r].longo}
-                      </option>
-                    ))}
-                  </select>
-                  <BotaoEnviar
-                    compacto
-                    className="shrink-0 rounded-xl bg-slate-800 px-4 py-2.5 text-sm font-semibold text-white"
-                  >
-                    Salvar
-                  </BotaoEnviar>
+                  <div className="flex items-center gap-2">
+                    <select name="responsabilidade" defaultValue={m.responsabilidade} className={`${campo} flex-1`}>
+                      {RESPONSABILIDADES.filter((r) => r !== "nao_conta").map((r) => (
+                        <option key={r} value={r}>
+                          {ROTULO_RESPONSABILIDADE[r].longo}
+                        </option>
+                      ))}
+                    </select>
+                    <BotaoEnviar
+                      compacto
+                      className="shrink-0 rounded-xl bg-slate-800 px-4 py-2.5 text-sm font-semibold text-white"
+                    >
+                      Salvar
+                    </BotaoEnviar>
+                  </div>
+                  {/* Eixo separado de propósito: NF rejeitada é da
+                      operação E não entra no percentual da revenda. */}
+                  <label className="flex items-start gap-2 text-xs text-slate-700">
+                    <input
+                      type="checkbox"
+                      name="conta"
+                      defaultChecked={m.conta_no_indicador}
+                      className="mt-0.5"
+                    />
+                    <span>
+                      Entra no <strong>% de devolução</strong>
+                      <span className="block text-[11px] text-slate-400">
+                        Desmarque para o motivo aparecer no histórico mas ficar fora do percentual.
+                      </span>
+                    </span>
+                  </label>
                 </form>
               </li>
             ))}
