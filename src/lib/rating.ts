@@ -395,12 +395,89 @@ export function desenhoDasEstrelas(estrelas: number): {
 export function motivosMaisComuns(
   avaliacoes: { motivo: string | null }[],
 ): { motivo: string; total: number }[] {
+  return contarPor(avaliacoes, (a) => a.motivo).map(({ chave, total }) => ({ motivo: chave, total }));
+}
+
+/**
+ * Conta ocorrências por um campo qualquer, do mais frequente para o
+ * menos. Nulo e vazio ficam de fora -- "sem cidade" não é uma cidade.
+ */
+export function contarPor<T>(
+  itens: T[],
+  campo: (item: T) => string | null | undefined,
+): { chave: string; total: number }[] {
   const mapa = new Map<string, number>();
-  for (const a of avaliacoes) {
-    if (!a.motivo) continue;
-    mapa.set(a.motivo, (mapa.get(a.motivo) ?? 0) + 1);
+  for (const i of itens) {
+    const v = campo(i);
+    if (!v) continue;
+    mapa.set(v, (mapa.get(v) ?? 0) + 1);
   }
   return [...mapa]
-    .map(([motivo, total]) => ({ motivo, total }))
-    .sort((a, b) => b.total - a.total);
+    .map(([chave, total]) => ({ chave, total }))
+    .sort((a, b) => b.total - a.total || a.chave.localeCompare(b.chave, "pt-BR"));
+}
+
+export type DiaDoPeriodo = {
+  dia: string;
+  total: number;
+  abaixoDaMeta: number;
+  media: number | null;
+};
+
+/**
+ * Um item por dia do intervalo, INCLUSIVE os dias sem avaliação -- é o
+ * que faz a faixa mostrar o vazio como vazio, em vez de encolher e dar a
+ * impressão de que todo dia teve entrega avaliada.
+ *
+ * Medido nos dados reais: numa janela de 30 dias, a mediana é de 4 dias
+ * com avaliação. O normal é a faixa ser quase toda vazia.
+ */
+export function serieDeDias(
+  de: string,
+  ate: string,
+  avaliacoes: { dataAvaliacao: string; nota: number }[],
+  maximoDeDias = 92,
+): DiaDoPeriodo[] {
+  const porDia = new Map<string, { total: number; soma: number; abaixo: number }>();
+  for (const a of avaliacoes) {
+    const o = porDia.get(a.dataAvaliacao) ?? { total: 0, soma: 0, abaixo: 0 };
+    o.total++;
+    o.soma += a.nota;
+    if (precisaFeedback(a.nota)) o.abaixo++;
+    porDia.set(a.dataAvaliacao, o);
+  }
+
+  const dias: DiaDoPeriodo[] = [];
+  // Passeia em UTC para o dia não escorregar: as datas aqui são "dia
+  // civil" (YYYY-MM-DD), não instantes, e somar 24h num Date local
+  // erraria na virada do horário de verão.
+  const inicio = Date.parse(`${de}T00:00:00Z`);
+  const fim = Date.parse(`${ate}T00:00:00Z`);
+  if (!Number.isFinite(inicio) || !Number.isFinite(fim) || fim < inicio) return dias;
+
+  for (let t = inicio, n = 0; t <= fim && n < maximoDeDias; t += 86_400_000, n++) {
+    const dia = new Date(t).toISOString().slice(0, 10);
+    const o = porDia.get(dia);
+    dias.push({
+      dia,
+      total: o?.total ?? 0,
+      abaixoDaMeta: o?.abaixo ?? 0,
+      media: o && o.total > 0 ? Math.round((o.soma / o.total) * 100) / 100 : null,
+    });
+  }
+  return dias;
+}
+
+/** Quantos dias separam duas datas (YYYY-MM-DD), contando as duas pontas. */
+export function diasNoIntervalo(de: string, ate: string): number {
+  const a = Date.parse(`${de}T00:00:00Z`);
+  const b = Date.parse(`${ate}T00:00:00Z`);
+  if (!Number.isFinite(a) || !Number.isFinite(b) || b < a) return 0;
+  return Math.round((b - a) / 86_400_000) + 1;
+}
+
+/** Subtrai dias de uma data YYYY-MM-DD, sem passar pelo fuso local. */
+export function diasAntes(dia: string, n: number): string {
+  const t = Date.parse(`${dia}T00:00:00Z`);
+  return new Date(t - n * 86_400_000).toISOString().slice(0, 10);
 }

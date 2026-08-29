@@ -1,21 +1,31 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { PageHeader } from "@/components/PageHeader";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
 import { createClient } from "@/lib/supabase/server";
 import { getRevendaId } from "@/lib/revendas";
 import { requireAcessoModulo } from "@/lib/require-admin";
-import { diasAtrasISO, formatarData, hojeISO } from "@/lib/produtividade-armazem";
+import { formatarData, hojeISO } from "@/lib/produtividade-armazem";
 import {
   ROTULO_CLASSIFICACAO,
-  motivosMaisComuns,
+  contarPor,
+  diasAntes,
+  diasNoIntervalo,
   precisaFeedback,
   resumirRating,
+  serieDeDias,
   type Classificacao,
 } from "@/lib/rating";
 import { Estrelas } from "./Estrelas";
+import { BarrasHorizontais, DistribuicaoDeNotas, FaixaDeDias } from "./Graficos";
 import { responderAvaliacao } from "./actions";
 
 export const dynamic = "force-dynamic";
+
+/** Teto do intervalo. Protege de dois jeitos: a consulta do PostgREST
+ *  para em 1.000 linhas sem avisar, e a faixa de dias vira ilegível com
+ *  centenas de quadrados. 92 dias cobrem um trimestre inteiro. */
+const MAXIMO_DE_DIAS = 92;
 
 type Avaliacao = {
   id: string;
@@ -35,46 +45,52 @@ type Feedback = { avaliacao_id: string; texto: string; criado_em: string };
 const COLUNAS =
   "id, data_avaliacao, nota, classificacao, mapa, nome_pdv, cidade, motivo, comentario, motorista_colaborador_id";
 
+const campo =
+  "w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-base text-slate-900 focus:border-primary focus:outline-none";
+
 export default async function RatingPage({
   searchParams,
 }: {
-  searchParams: Promise<{ dia?: string; de?: string; ate?: string; erro?: string; sucesso?: string }>;
+  searchParams: Promise<{ de?: string; ate?: string; dia?: string; erro?: string; sucesso?: string }>;
 }) {
   const perfil = await requireAcessoModulo("rating");
-
   const sp = await searchParams;
-  const dia = sp.dia ?? hojeISO();
-  const de = sp.de ?? diasAtrasISO(30);
-  const ate = sp.ate ?? hojeISO();
+
+  const hoje = hojeISO();
+  // `dia` é um atalho da faixa de dias: seleciona um dia só, sem perder
+  // o intervalo que a pessoa tinha escolhido.
+  const diaSelecionado = sp.dia && /^\d{4}-\d{2}-\d{2}$/.test(sp.dia) ? sp.dia : null;
+  let de = sp.de && /^\d{4}-\d{2}-\d{2}$/.test(sp.de) ? sp.de : diasAntes(hoje, 29);
+  let ate = sp.ate && /^\d{4}-\d{2}-\d{2}$/.test(sp.ate) ? sp.ate : hoje;
+  if (ate < de) [de, ate] = [ate, de];
+  // Corta pela ponta mais recente: quem esticou demais quer ver o fim.
+  if (diasNoIntervalo(de, ate) > MAXIMO_DE_DIAS) de = diasAntes(ate, MAXIMO_DE_DIAS - 1);
 
   const revendaId = await getRevendaId();
   if (!revendaId) redirect(`/?erro=${encodeURIComponent("Você não está em nenhuma revenda.")}`);
 
   const supabase = await createClient();
 
-  // O RLS já limita às avaliações da própria pessoa (migration 072) --
-  // não existe filtro por colaborador aqui de propósito: se um dia a
-  // consulta esquecer o filtro, o banco continua não entregando a nota
-  // do colega.
-  const [{ data: doDia }, { data: doPeriodo }] = await Promise.all([
-    supabase
-      .from("rating_avaliacoes")
-      .select(COLUNAS)
-      .eq("revenda_id", revendaId)
-      .eq("data_avaliacao", dia)
-      .order("nota", { ascending: true }),
-    supabase
-      .from("rating_avaliacoes")
-      .select("data_avaliacao, nota, classificacao, motivo")
-      .eq("revenda_id", revendaId)
-      .gte("data_avaliacao", de)
-      .lte("data_avaliacao", ate),
-  ]);
+  // O RLS já limita às avaliações da própria pessoa (migration 072). Não
+  // existe filtro por colaborador aqui de propósito: se um dia a consulta
+  // esquecer o filtro, o banco continua não entregando a nota do colega.
+  const { data: doPeriodo } = await supabase
+    .from("rating_avaliacoes")
+    .select(COLUNAS)
+    .eq("revenda_id", revendaId)
+    .gte("data_avaliacao", de)
+    .lte("data_avaliacao", ate)
+    .order("data_avaliacao", { ascending: false })
+    .order("nota", { ascending: true })
+    .limit(2000);
 
-  const avaliacoesDoDia = (doDia ?? []) as Avaliacao[];
-  const periodo = (doPeriodo ?? []) as { data_avaliacao: string; nota: number; classificacao: Classificacao; motivo: string | null }[];
+  const periodo = (doPeriodo ?? []) as Avaliacao[];
+  const doDia = diaSelecionado ? periodo.filter((a) => a.data_avaliacao === diaSelecionado) : null;
+  const emFoco = doDia ?? periodo;
 
-  const pendentes = avaliacoesDoDia.filter((a) => precisaFeedback(a.nota));
+  const resumo = resumirRating(emFoco);
+  const dias = serieDeDias(de, ate, periodo.map((a) => ({ dataAvaliacao: a.data_avaliacao, nota: a.nota })), MAXIMO_DE_DIAS);
+  const pendentes = emFoco.filter((a) => precisaFeedback(a.nota));
 
   // As respostas já enviadas, para o formulário nascer preenchido em vez
   // de parecer que a pessoa não respondeu.
@@ -88,55 +104,52 @@ export default async function RatingPage({
     ((feedbacksBanco ?? []) as Feedback[]).map((f) => [f.avaliacao_id, f]),
   );
 
-  const resumoDia = resumirRating(avaliacoesDoDia);
-  const resumoPeriodo = resumirRating(periodo);
+  const abaixo = emFoco.filter((a) => precisaFeedback(a.nota));
+  const contagemDeNotas: Record<number, number> = {};
+  for (const a of emFoco) contagemDeNotas[a.nota] = (contagemDeNotas[a.nota] ?? 0) + 1;
 
-  // Últimos 14 dias com avaliação, para a faixa de dias no rodapé.
-  const porDia = new Map<string, { total: number; abaixo: number }>();
-  for (const a of periodo) {
-    const o = porDia.get(a.data_avaliacao) ?? { total: 0, abaixo: 0 };
-    o.total++;
-    if (precisaFeedback(a.nota)) o.abaixo++;
-    porDia.set(a.data_avaliacao, o);
-  }
-  const ultimosDias = [...porDia.entries()].sort((a, b) => b[0].localeCompare(a[0])).slice(0, 14).reverse();
+  const qs = (extra: Record<string, string | null>) => {
+    const p = new URLSearchParams({ de, ate });
+    for (const [k, v] of Object.entries(extra)) {
+      if (v === null) p.delete(k);
+      else p.set(k, v);
+    }
+    return `/rating?${p.toString()}`;
+  };
 
   return (
-    <div className="pb-8">
+    <div className="space-y-4 pb-8">
       <PageHeader title="Meu Rating" subtitle="Como os clientes avaliaram as suas entregas." fecharHref="/" />
 
-      {sp.erro && <p className="mb-4 rounded-xl bg-red-50 p-3 text-sm font-medium text-red-700">{sp.erro}</p>}
+      {sp.erro && <p className="rounded-xl bg-red-50 p-3 text-sm font-medium text-red-700">{sp.erro}</p>}
       {sp.sucesso && (
-        <p className="mb-4 rounded-xl bg-green-50 p-3 text-sm font-medium text-green-700">{sp.sucesso}</p>
+        <p className="rounded-xl bg-green-50 p-3 text-sm font-medium text-green-700">{sp.sucesso}</p>
       )}
 
-      {/* ---------------- O DIA ---------------- */}
-      <form method="get" className="mb-4 flex items-end gap-2">
-        <div className="flex-1">
-          <label className="mb-1 block text-xs font-semibold uppercase text-slate-500" htmlFor="dia">
-            Dia
-          </label>
-          <input
-            id="dia"
-            type="date"
-            name="dia"
-            defaultValue={dia}
-            max={hojeISO()}
-            className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-base text-slate-900 focus:border-primary focus:outline-none"
-          />
-        </div>
-        <button type="submit" className="rounded-xl bg-slate-800 px-4 py-2.5 text-sm font-semibold text-white">
-          Ver
-        </button>
-      </form>
+      <FiltroDePeriodo de={de} ate={ate} hoje={hoje} />
 
-      <CartaoDoDia dia={dia} resumo={resumoDia} />
+      {diaSelecionado && (
+        <div className="flex items-center justify-between gap-2 rounded-xl bg-slate-900 px-4 py-2.5 text-white">
+          <span className="text-sm font-semibold">Vendo só {formatarData(diaSelecionado)}</span>
+          <Link href={qs({ dia: null })} className="shrink-0 text-xs font-semibold underline underline-offset-2">
+            ver o período todo
+          </Link>
+        </div>
+      )}
+
+      <Hero resumo={resumo} de={de} ate={ate} dia={diaSelecionado} />
+
+      <FaixaDeDias
+        dias={dias}
+        diaSelecionado={diaSelecionado}
+        base={(d) => qs({ dia: d === diaSelecionado ? null : d })}
+      />
 
       {/* ---------------- PENDÊNCIAS ---------------- */}
-      {pendentes.length > 0 && (
-        <section className="mt-5">
-          <h2 className="mb-1 text-sm font-bold uppercase text-slate-500">
-            {pendentes.length === 1 ? "Cliente insatisfeito" : `${pendentes.length} clientes insatisfeitos`}
+      {pendentes.length > 0 ? (
+        <section>
+          <h2 className="mb-1 text-sm font-bold text-slate-900">
+            {pendentes.length === 1 ? "1 cliente insatisfeito" : `${pendentes.length} clientes insatisfeitos`}
           </h2>
           <p className="mb-3 text-xs text-slate-500">
             A meta é 5 estrelas. Conta pra gente o que aconteceu — isso ajuda a resolver o problema, não é
@@ -147,103 +160,146 @@ export default async function RatingPage({
               <CartaoPendencia
                 key={a.id}
                 avaliacao={a}
-                dia={dia}
+                de={de}
+                ate={ate}
+                dia={diaSelecionado}
                 souMotorista={a.motorista_colaborador_id === perfil.id}
                 feedback={feedbackPorAvaliacao.get(a.id) ?? null}
               />
             ))}
           </ul>
         </section>
-      )}
-
-      {avaliacoesDoDia.length > 0 && pendentes.length === 0 && (
-        <div className="mt-5 rounded-2xl border border-green-200 bg-green-50 p-4 text-center">
-          <p className="text-3xl">🎉</p>
-          <p className="mt-1 text-sm font-bold text-green-800">Nenhum cliente insatisfeito neste dia</p>
-          <p className="text-xs text-green-700">
-            As {avaliacoesDoDia.length} entregas avaliadas fecharam com 5 estrelas.
-          </p>
-        </div>
-      )}
-
-      {/* ---------------- PERÍODO ---------------- */}
-      <section className="mt-8">
-        <h2 className="mb-3 text-sm font-bold uppercase text-slate-500">Últimos 30 dias</h2>
-
-        <div className="grid grid-cols-3 gap-2">
-          <Indicador titulo="Entregas avaliadas" valor={String(resumoPeriodo.total)} />
-          <Indicador
-            titulo="Média"
-            valor={resumoPeriodo.media !== null ? resumoPeriodo.media.toFixed(2) : "—"}
-          />
-          <Indicador
-            titulo="Abaixo da meta"
-            valor={String(resumoPeriodo.abaixoDaMeta)}
-            destaque={resumoPeriodo.abaixoDaMeta > 0}
-          />
-        </div>
-
-        {ultimosDias.length > 0 && (
-          <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-4">
-            <p className="mb-3 text-xs font-semibold uppercase text-slate-400">Dia a dia</p>
-            <div className="flex items-end gap-1.5">
-              {ultimosDias.map(([d, o]) => (
-                <a
-                  key={d}
-                  href={`?dia=${d}`}
-                  title={`${formatarData(d)} — ${o.total} avaliação(ões)${o.abaixo ? `, ${o.abaixo} abaixo da meta` : ""}`}
-                  className="group flex flex-1 flex-col items-center gap-1"
-                >
-                  <span
-                    className={`w-full rounded-t transition-all group-hover:opacity-80 ${
-                      o.abaixo > 0 ? "bg-amber-400" : "bg-green-400"
-                    } ${d === dia ? "ring-2 ring-primary ring-offset-1" : ""}`}
-                    style={{ height: `${Math.max(o.total * 6, 8)}px` }}
-                  />
-                  <span className="text-[9px] text-slate-400">{d.slice(8)}</span>
-                </a>
-              ))}
-            </div>
-            <p className="mt-2 text-[11px] text-slate-400">
-              Verde: nenhum cliente insatisfeito · Amarelo: teve avaliação abaixo de 5
+      ) : (
+        emFoco.length > 0 && (
+          <div className="rounded-2xl border border-green-200 bg-green-50 p-5 text-center">
+            <p className="text-3xl">🎉</p>
+            <p className="mt-1 text-sm font-bold text-green-800">Nenhum cliente insatisfeito</p>
+            <p className="text-xs text-green-700">
+              As {emFoco.length} entregas avaliadas fecharam com 5 estrelas.
             </p>
           </div>
-        )}
+        )
+      )}
 
-        {resumoPeriodo.abaixoDaMeta > 0 && (
-          <div className="mt-3 rounded-2xl border border-slate-200 bg-white p-4">
-            <p className="mb-2 text-xs font-semibold uppercase text-slate-400">
-              Por que os clientes reclamaram
-            </p>
-            <ul className="space-y-1.5">
-              {motivosMaisComuns(periodo.filter((a) => precisaFeedback(a.nota))).map((m) => (
-                <li key={m.motivo} className="flex items-center justify-between gap-3 text-sm">
-                  <span className="min-w-0 truncate text-slate-700">{m.motivo}</span>
-                  <span className="shrink-0 rounded-lg bg-slate-100 px-2 py-0.5 text-xs font-bold text-slate-600">
-                    {m.total}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-      </section>
+      {/* ---------------- ANÁLISES ---------------- */}
+      {emFoco.length > 0 && (
+        <>
+          <DistribuicaoDeNotas contagem={contagemDeNotas} />
+
+          <BarrasHorizontais
+            titulo="Por que os clientes reclamaram"
+            subtitulo={`Motivo das ${abaixo.length} avaliações abaixo de 5 estrelas`}
+            itens={contarPor(abaixo, (a) => a.motivo)}
+            vazio="Nenhuma reclamação no período. 👏"
+          />
+
+          <BarrasHorizontais
+            titulo="Cidades com nota baixa"
+            subtitulo="Onde as reclamações se concentram"
+            itens={contarPor(abaixo, (a) => a.cidade)}
+            vazio="Nenhuma cidade com reclamação no período."
+          />
+
+          <BarrasHorizontais
+            titulo="Clientes que mais reclamaram"
+            subtitulo="Vale uma conversa na próxima entrega"
+            itens={contarPor(abaixo, (a) => a.nome_pdv)}
+            vazio="Nenhum cliente reclamou no período."
+          />
+
+          <BarrasHorizontais
+            titulo="Cidades onde você mais entrega"
+            subtitulo="Todas as avaliações do período, não só as ruins"
+            itens={contarPor(emFoco, (a) => a.cidade)}
+          />
+
+          <Comentarios avaliacoes={abaixo.filter((a) => a.comentario)} />
+        </>
+      )}
     </div>
   );
 }
 
 // ==================== COMPONENTES ====================
 
-function CartaoDoDia({ dia, resumo }: { dia: string; resumo: ReturnType<typeof resumirRating> }) {
+/** Atalhos de período + intervalo livre. O atalho cobre o uso do dia a
+ *  dia; o intervalo existe para quem quer conferir um mês fechado. */
+function FiltroDePeriodo({ de, ate, hoje }: { de: string; ate: string; hoje: string }) {
+  const atalhos: [string, number][] = [["7 dias", 7], ["15 dias", 15], ["30 dias", 30], ["90 dias", 90]];
+  const diasAtuais = diasNoIntervalo(de, ate);
+
+  return (
+    <section className="rounded-2xl border border-slate-200 bg-white p-3">
+      <div className="flex flex-wrap gap-1.5">
+        {atalhos.map(([rotulo, n]) => {
+          const ativo = ate === hoje && diasAtuais === n;
+          return (
+            <Link
+              key={n}
+              href={`/rating?de=${diasAntes(hoje, n - 1)}&ate=${hoje}`}
+              aria-current={ativo ? "page" : undefined}
+              className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${
+                ativo ? "bg-primary text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+              }`}
+            >
+              {rotulo}
+            </Link>
+          );
+        })}
+      </div>
+
+      <details className="mt-2">
+        <summary className="cursor-pointer list-none text-xs font-semibold text-primary marker:content-none [&::-webkit-details-marker]:hidden">
+          Escolher outro período
+        </summary>
+        <form method="get" className="mt-2 flex items-end gap-2">
+          <div className="min-w-0 flex-1">
+            <label className="mb-1 block text-[11px] font-semibold uppercase text-slate-500" htmlFor="de">
+              De
+            </label>
+            <input id="de" type="date" name="de" defaultValue={de} max={hoje} className={campo} />
+          </div>
+          <div className="min-w-0 flex-1">
+            <label className="mb-1 block text-[11px] font-semibold uppercase text-slate-500" htmlFor="ate">
+              Até
+            </label>
+            <input id="ate" type="date" name="ate" defaultValue={ate} max={hoje} className={campo} />
+          </div>
+          <button type="submit" className="shrink-0 rounded-xl bg-slate-800 px-4 py-2.5 text-sm font-semibold text-white">
+            Ver
+          </button>
+        </form>
+        <p className="mt-1.5 text-[11px] text-slate-400">
+          No máximo {MAXIMO_DE_DIAS} dias por consulta.
+        </p>
+      </details>
+    </section>
+  );
+}
+
+function Hero({
+  resumo,
+  de,
+  ate,
+  dia,
+}: {
+  resumo: ReturnType<typeof resumirRating>;
+  de: string;
+  ate: string;
+  dia: string | null;
+}) {
+  const rotuloPeriodo = dia
+    ? formatarData(dia)
+    : `${formatarData(de)} a ${formatarData(ate)}`;
+
   if (resumo.total === 0) {
     return (
       <div className="rounded-3xl border border-slate-200 bg-slate-50 p-8 text-center">
-        <Estrelas valor={0} tamanho={26} />
-        <p className="mt-3 text-sm font-semibold text-slate-500">
-          Nenhuma entrega sua foi avaliada em {formatarData(dia)}
-        </p>
+        <Estrelas valor={0} tamanho={24} />
+        <p className="mt-3 text-sm font-semibold text-slate-500">Nenhuma entrega sua foi avaliada</p>
         <p className="mt-1 text-xs text-slate-400">
-          Nem todo cliente responde a pesquisa — dia sem avaliação não é dia sem entrega.
+          {rotuloPeriodo} · nem todo cliente responde a pesquisa, então período sem avaliação não é período sem
+          entrega.
         </p>
       </div>
     );
@@ -260,15 +316,11 @@ function CartaoDoDia({ dia, resumo }: { dia: string; resumo: ReturnType<typeof r
       }`}
     >
       <div className="p-6 text-center text-white">
-        <p className="text-xs font-semibold uppercase tracking-wide text-white/70">{formatarData(dia)}</p>
-
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-white/70">{rotuloPeriodo}</p>
         <div className="mt-3 flex justify-center">
-          <Estrelas valor={resumo.estrelas ?? 0} tamanho={34} />
+          <Estrelas valor={resumo.estrelas ?? 0} tamanho={32} />
         </div>
-
-        <p className="mt-3 text-5xl font-black leading-none tabular-nums">
-          {resumo.media?.toFixed(2)}
-        </p>
+        <p className="mt-3 text-5xl font-black leading-none tabular-nums">{resumo.media?.toFixed(2)}</p>
         <p className="mt-1 text-sm text-white/80">
           {resumo.total} {resumo.total === 1 ? "entrega avaliada" : "entregas avaliadas"}
         </p>
@@ -292,56 +344,71 @@ function Fatia({ rotulo, valor }: { rotulo: string; valor: number }) {
   );
 }
 
-function Indicador({ titulo, valor, destaque = false }: { titulo: string; valor: string; destaque?: boolean }) {
+function Comentarios({ avaliacoes }: { avaliacoes: Avaliacao[] }) {
+  if (avaliacoes.length === 0) return null;
   return (
-    <div
-      className={`min-w-0 rounded-2xl border p-3 text-center ${
-        destaque ? "border-amber-200 bg-amber-50" : "border-slate-200 bg-white"
-      }`}
-    >
-      <p className={`truncate text-2xl font-bold tabular-nums ${destaque ? "text-amber-700" : "text-slate-900"}`}>
-        {valor}
+    <section className="rounded-2xl border border-slate-200 bg-white p-4">
+      <h2 className="text-sm font-bold text-slate-900">O que os clientes escreveram</h2>
+      <p className="mt-0.5 text-[11px] text-slate-400">
+        Nem todo cliente escreve — {avaliacoes.length} deixaram comentário
       </p>
-      <p className="mt-0.5 text-[11px] font-semibold uppercase leading-tight text-slate-400">{titulo}</p>
-    </div>
+      <ul className="mt-3 space-y-3">
+        {avaliacoes.map((a) => (
+          <li key={a.id} className="border-l-2 border-amber-300 pl-3">
+            <p className="text-xs italic text-slate-700">“{a.comentario}”</p>
+            <p className="mt-1 text-[11px] text-slate-400">
+              {a.nome_pdv ?? "cliente"} · {a.cidade ?? "—"} · {formatarData(a.data_avaliacao)} · {a.nota}★
+            </p>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 
 function CartaoPendencia({
   avaliacao,
+  de,
+  ate,
   dia,
   souMotorista,
   feedback,
 }: {
   avaliacao: Avaliacao;
-  dia: string;
+  de: string;
+  ate: string;
+  dia: string | null;
   souMotorista: boolean;
   feedback: Feedback | null;
 }) {
-  const cor = avaliacao.classificacao === "detrator" ? "red" : "amber";
+  const detrator = avaliacao.classificacao === "detrator";
 
   return (
     <li
       className={`overflow-hidden rounded-2xl border bg-white ${
-        cor === "red" ? "border-red-200" : "border-amber-200"
+        detrator ? "border-red-200" : "border-amber-200"
       }`}
     >
-      <div className={`px-4 py-3 ${cor === "red" ? "bg-red-50" : "bg-amber-50"}`}>
+      <div className={`px-4 py-3 ${detrator ? "bg-red-50" : "bg-amber-50"}`}>
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <p className="truncate text-sm font-bold text-slate-900">
               {avaliacao.nome_pdv ?? "Cliente não identificado"}
             </p>
             <p className="truncate text-xs text-slate-500">
-              {avaliacao.cidade ?? "—"} · mapa {avaliacao.mapa} ·{" "}
+              {avaliacao.cidade ?? "—"} · {formatarData(avaliacao.data_avaliacao)} · mapa {avaliacao.mapa}
+            </p>
+            <p className="text-[11px] text-slate-400">
               {souMotorista ? "você era o motorista" : "você era o ajudante"}
             </p>
           </div>
           <div className="shrink-0 text-right">
-            <Estrelas valor={avaliacao.nota} tamanho={15} />
+            <Estrelas valor={avaliacao.nota} tamanho={14} />
+            {/* Rótulo escrito ao lado da cor: vermelho e âmbar são
+                próximos demais para carregarem o sentido sozinhos. */}
             <p
               className={`mt-0.5 text-[11px] font-bold uppercase ${
-                cor === "red" ? "text-red-700" : "text-amber-700"
+                detrator ? "text-red-700" : "text-amber-700"
               }`}
             >
               {ROTULO_CLASSIFICACAO[avaliacao.classificacao]}
@@ -363,7 +430,9 @@ function CartaoPendencia({
 
       <form action={responderAvaliacao} className="space-y-2 p-4">
         <input type="hidden" name="avaliacao_id" value={avaliacao.id} />
-        <input type="hidden" name="dia" value={dia} />
+        <input type="hidden" name="de" value={de} />
+        <input type="hidden" name="ate" value={ate} />
+        {dia && <input type="hidden" name="dia" value={dia} />}
 
         <label className="block text-xs font-semibold uppercase text-slate-500" htmlFor={`texto-${avaliacao.id}`}>
           {feedback ? "Sua resposta" : "O que aconteceu nessa entrega?"}

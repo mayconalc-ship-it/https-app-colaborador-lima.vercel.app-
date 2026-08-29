@@ -6,7 +6,8 @@ import ExcelJS from "exceljs";
 import {
   classificacaoDaNota, cpfValido, normalizarCpf, precisaFeedback,
   lerCadastroPessoas, lerViagens, lerAvaliacoes, resumirRating,
-  desenhoDasEstrelas, motivosMaisComuns,
+  desenhoDasEstrelas, motivosMaisComuns, contarPor, serieDeDias,
+  diasNoIntervalo, diasAntes,
 } from "../rating.ts";
 
 let falhas = 0;
@@ -50,6 +51,35 @@ r = resumirRating([]);
 eq("sem avaliacao a media e nula, nao zero", r.media, null);
 const d = desenhoDasEstrelas(4.5);
 ok("4,5 estrelas = 4 cheias + 1 meia", d.cheias === 4 && d.meia && d.vazias === 0);
+
+console.log("\n== FAIXA DE DIAS ==");
+const serie = serieDeDias("2026-08-01", "2026-08-05", [
+  { dataAvaliacao: "2026-08-01", nota: 5 },
+  { dataAvaliacao: "2026-08-01", nota: 3 },
+  { dataAvaliacao: "2026-08-04", nota: 5 },
+]);
+eq("um item por dia, inclusive os vazios", serie.length, 5);
+eq("dia 01 tem 2 avaliacoes", serie[0].total, 2);
+eq("dia 01 tem 1 abaixo da meta", serie[0].abaixoDaMeta, 1);
+eq("dia 01 media 4", serie[0].media, 4);
+eq("dia 02 sem avaliacao aparece zerado", serie[1].total, 0);
+eq("dia sem avaliacao tem media nula, nao zero", serie[1].media, null);
+eq("dia 04 entrou", serie[3].total, 1);
+// A virada de mes e o horario de verao ja quebraram contagem de dia antes.
+eq("atravessa a virada do mes", serieDeDias("2026-08-30", "2026-09-02", []).length, 4);
+eq("intervalo invertido devolve vazio", serieDeDias("2026-08-10", "2026-08-01", []).length, 0);
+eq("respeita o teto de dias", serieDeDias("2026-01-01", "2026-12-31", [], 92).length, 92);
+eq("dias no intervalo conta as duas pontas", diasNoIntervalo("2026-08-01", "2026-08-30"), 30);
+eq("diasAntes nao escorrega no fuso", diasAntes("2026-03-01", 1), "2026-02-28");
+
+console.log("\n== CONTAGEM POR CAMPO ==");
+const contagem = contarPor(
+  [{ c: "Santana" }, { c: "Correntina" }, { c: "Santana" }, { c: null }, { c: "" }],
+  (x) => x.c,
+);
+eq("nulo e vazio ficam de fora", contagem.length, 2);
+eq("o mais frequente vem primeiro", contagem[0].chave, "Santana");
+eq("com a contagem certa", contagem[0].total, 2);
 
 // ---------------- 2. Arquivos reais ----------------
 //

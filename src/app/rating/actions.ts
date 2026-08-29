@@ -9,9 +9,20 @@ import { precisaFeedback } from "@/lib/rating";
 
 const ROTA = "/rating";
 
-function erro(mensagem: string, dia?: string): never {
-  const d = dia ? `dia=${dia}&` : "";
-  redirect(`${ROTA}?${d}erro=${encodeURIComponent(mensagem)}`);
+/** Volta para a MESMA tela que a pessoa estava vendo -- perder o filtro
+ *  de período depois de responder daria a impressão de que a resposta
+ *  sumiu junto com a avaliação. */
+function voltar(
+  filtro: { de?: string; ate?: string; dia?: string },
+  chave: "erro" | "sucesso",
+  mensagem: string,
+): never {
+  const p = new URLSearchParams();
+  if (filtro.de) p.set("de", filtro.de);
+  if (filtro.ate) p.set("ate", filtro.ate);
+  if (filtro.dia) p.set("dia", filtro.dia);
+  p.set(chave, mensagem);
+  redirect(`${ROTA}?${p.toString()}`);
 }
 
 /**
@@ -24,15 +35,18 @@ function erro(mensagem: string, dia?: string): never {
  */
 export async function responderAvaliacao(formData: FormData) {
   const perfil = await requireAcessoModulo("rating", ROTA);
+
+  const texto1 = (n: string) => String(formData.get(n) ?? "").trim() || undefined;
+  const filtro = { de: texto1("de"), ate: texto1("ate"), dia: texto1("dia") };
+
   const revendaId = await getRevendaId();
-  if (!revendaId) erro("Você não está em nenhuma revenda.");
+  if (!revendaId) voltar(filtro, "erro", "Você não está em nenhuma revenda.");
 
   const avaliacaoId = String(formData.get("avaliacao_id") ?? "");
-  const dia = String(formData.get("dia") ?? "") || undefined;
   const texto = String(formData.get("texto") ?? "").trim().slice(0, 1000);
 
-  if (!avaliacaoId) erro("Avaliação inválida.", dia);
-  if (!texto) erro("Escreva o que aconteceu antes de enviar.", dia);
+  if (!avaliacaoId) voltar(filtro, "erro", "Avaliação inválida.");
+  if (!texto) voltar(filtro, "erro", "Escreva o que aconteceu antes de enviar.");
 
   const supabase = await createClient();
 
@@ -43,12 +57,12 @@ export async function responderAvaliacao(formData: FormData) {
     .eq("revenda_id", revendaId)
     .maybeSingle();
 
-  if (!avaliacao) erro("Esta avaliação não é sua ou não existe mais.", dia);
+  if (!avaliacao) voltar(filtro, "erro", "Esta avaliação não é sua ou não existe mais.");
 
   // 5 estrelas não pede explicação -- deixar responder aqui abriria uma
   // porta para escrever em cima de entrega que ninguém questionou.
   if (!precisaFeedback(avaliacao.nota)) {
-    erro("Esta entrega foi avaliada com 5 estrelas, não precisa de resposta.", dia);
+    voltar(filtro, "erro", "Esta entrega foi avaliada com 5 estrelas, não precisa de resposta.");
   }
 
   const papel =
@@ -67,8 +81,8 @@ export async function responderAvaliacao(formData: FormData) {
     { onConflict: "avaliacao_id,colaborador_id" },
   );
 
-  if (error) erro(`Não foi possível enviar: ${error.message}`, dia);
+  if (error) voltar(filtro, "erro", `Não foi possível enviar: ${error.message}`);
 
   revalidatePath(ROTA);
-  redirect(`${ROTA}?${dia ? `dia=${dia}&` : ""}sucesso=${encodeURIComponent("Resposta enviada. Obrigado!")}`);
+  voltar(filtro, "sucesso", "Resposta enviada. Obrigado!");
 }
