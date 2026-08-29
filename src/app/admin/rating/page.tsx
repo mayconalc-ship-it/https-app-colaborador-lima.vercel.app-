@@ -3,7 +3,7 @@ import { BotaoEnviar } from "@/components/BotaoEnviar";
 import { requireModulo } from "@/lib/require-admin";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getRevendaId } from "@/lib/revendas";
-import { formatarDataHora } from "@/lib/produtividade-armazem";
+import { diasAtrasISO, formatarDataHora } from "@/lib/produtividade-armazem";
 import { importarRating, salvarPastaDeRating } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -23,19 +23,38 @@ export default async function AdminRatingPage({
   const revendaId = await getRevendaId();
   const admin = createAdminClient();
 
-  const [{ data: config }, { count: avaliacoes }, { count: pessoas }, { count: viagens }, { count: feedbacks }, { data: semDono }] =
+  const [{ data: config }, { count: avaliacoes }, { count: pessoas }, { count: viagens }, { count: feedbacks }, { data: semDono }, { data: viagensRecentes }] =
     await Promise.all([
       admin.from("rating_config").select("pasta_link, ultima_sincronizacao, ultimo_resultado").eq("revenda_id", revendaId).maybeSingle(),
       admin.from("rating_avaliacoes").select("*", { count: "exact", head: true }).eq("revenda_id", revendaId),
       admin.from("rating_pessoas").select("*", { count: "exact", head: true }).eq("revenda_id", revendaId),
       admin.from("rating_viagens").select("*", { count: "exact", head: true }).eq("revenda_id", revendaId),
       admin.from("rating_feedbacks").select("*", { count: "exact", head: true }).eq("revenda_id", revendaId),
-      admin.from("rating_pessoas").select("tipo, codigo, nome, cpf, colaborador_id").eq("revenda_id", revendaId).is("colaborador_id", null).limit(200),
+      admin.from("rating_pessoas").select("tipo, codigo, nome, cpf, colaborador_id").eq("revenda_id", revendaId).is("colaborador_id", null),
+      admin
+        .from("rating_viagens")
+        .select("motorista_codigo, ajudante1_codigo, ajudante2_codigo")
+        .eq("revenda_id", revendaId)
+        .gte("data", diasAtrasISO(90)),
     ]);
 
-  // Quem está no cadastro do ERP mas não achou perfil no app: é aqui que
-  // se descobre que alguém não vai ver o próprio rating.
-  const naoVinculados = (semDono ?? []) as { tipo: string; codigo: string; nome: string; cpf: string | null }[];
+  // Quem está no cadastro do ERP, não achou perfil no app E de fato
+  // rodou nos últimos 90 dias.
+  //
+  // O filtro dos 90 dias é o que torna este painel útil. O cadastro do
+  // ERP é corporativo: 337 pessoas, entre outras filiais, freteiros e
+  // quem já saiu da empresa. Sem o filtro, a lista vinha com 304 nomes
+  // que ninguém pode resolver -- e uma lista assim ensina a pessoa a
+  // ignorar o aviso. Com ele sobram 8, e esses valem uma conferida.
+  const ativos = new Set<string>();
+  for (const v of viagensRecentes ?? []) {
+    if (v.motorista_codigo) ativos.add(`motorista:${v.motorista_codigo}`);
+    for (const c of [v.ajudante1_codigo, v.ajudante2_codigo]) {
+      if (c) ativos.add(`ajudante:${c}`);
+    }
+  }
+  const todosSemPerfil = (semDono ?? []) as { tipo: string; codigo: string; nome: string; cpf: string | null }[];
+  const naoVinculados = todosSemPerfil.filter((p) => ativos.has(`${p.tipo}:${p.codigo}`));
 
   return (
     <div>
@@ -134,12 +153,13 @@ export default async function AdminRatingPage({
       {naoVinculados.length > 0 && (
         <details className="rounded-2xl border border-amber-200 bg-amber-50">
           <summary className="cursor-pointer list-none p-4 text-sm font-semibold text-amber-900 marker:content-none [&::-webkit-details-marker]:hidden">
-            ⚠️ {naoVinculados.length} pessoa(s) do cadastro sem perfil no app
+            ⚠️ {naoVinculados.length} pessoa(s) rodando sem perfil no app
           </summary>
           <div className="border-t border-amber-200 p-4">
             <p className="mb-3 text-xs text-amber-800">
-              Essas pessoas entregam, mas não vão ver o próprio rating: ou não têm login no app, ou o CPF do
-              cadastro do ERP não bate com o do perfil. Muitas são de outras filiais e podem ser ignoradas.
+              Rodaram nos últimos 90 dias mas não vão ver o próprio rating: ou não têm login no app, ou o CPF do
+              cadastro do ERP não bate com o do perfil. <strong>Freteiro e quem já saiu da empresa aparecem aqui
+              e não são problema</strong> — o que vale conferir é gente da casa que deveria ter acesso.
             </p>
             <ul className="max-h-64 space-y-1 overflow-y-auto">
               {naoVinculados.map((p) => (
