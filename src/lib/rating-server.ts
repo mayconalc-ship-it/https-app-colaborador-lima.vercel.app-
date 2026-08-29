@@ -74,6 +74,36 @@ export async function lerPlanilhaLogCo(
 }
 
 /**
+ * Lê uma tabela INTEIRA, em páginas.
+ *
+ * O PostgREST devolve no máximo 1.000 linhas por chamada e NÃO avisa que
+ * cortou -- vem uma lista curta, sem erro nenhum. Custou caro: a primeira
+ * importação leu só as 1.000 primeiras das 3.651 viagens, e 90% das
+ * avaliações ficaram sem dono. Janeiro e fevereiro funcionaram (estavam
+ * entre as 1.000 primeiras) e o resto do ano não -- o que fez o problema
+ * parecer buraco nos relatórios, em vez de limite de leitura.
+ *
+ * Qualquer consulta que possa passar de 1.000 linhas tem que vir por aqui.
+ */
+export async function lerTudoEmPaginas<T>(
+  buscarPagina: (
+    de: number,
+    ate: number,
+  ) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>,
+  tamanho = 1000,
+): Promise<{ linhas: T[]; erro?: string }> {
+  const linhas: T[] = [];
+  for (let de = 0; ; de += tamanho) {
+    const { data, error } = await buscarPagina(de, de + tamanho - 1);
+    if (error) return { linhas, erro: error.message };
+    if (!data || data.length === 0) break;
+    linhas.push(...data);
+    if (data.length < tamanho) break;
+  }
+  return { linhas };
+}
+
+/**
  * Grava em lotes -- 14 mil linhas de uma vez estoura o limite do
  * PostgREST. Devolve a mensagem do primeiro erro, ou null se tudo entrou.
  *

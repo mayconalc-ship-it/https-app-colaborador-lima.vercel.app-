@@ -128,15 +128,6 @@ export default async function RatingPage({
 
       <FiltroDePeriodo de={de} ate={ate} hoje={hoje} />
 
-      {diaSelecionado && (
-        <div className="flex items-center justify-between gap-2 rounded-xl bg-slate-900 px-4 py-2.5 text-white">
-          <span className="text-sm font-semibold">Vendo só {formatarData(diaSelecionado)}</span>
-          <Link href={qs({ dia: null })} className="shrink-0 text-xs font-semibold underline underline-offset-2">
-            ver o período todo
-          </Link>
-        </div>
-      )}
-
       <Hero resumo={resumo} de={de} ate={ate} dia={diaSelecionado} />
 
       <FaixaDeDias
@@ -144,6 +135,28 @@ export default async function RatingPage({
         diaSelecionado={diaSelecionado}
         base={(d) => qs({ dia: d === diaSelecionado ? null : d })}
       />
+
+      {/* Logo ABAIXO do calendário, não no topo: é onde o dedo está
+          depois de tocar num dia, e o clique não rola a página. */}
+      {diaSelecionado && (
+        <div className="flex items-center justify-between gap-3 rounded-xl bg-slate-900 px-4 py-3 text-white">
+          <div className="min-w-0">
+            <p className="text-sm font-semibold">Vendo só {formatarData(diaSelecionado)}</p>
+            <p className="text-[11px] text-white/60">
+              {emFoco.length === 0
+                ? "nenhuma avaliação neste dia"
+                : `${emFoco.length} avaliação${emFoco.length > 1 ? "ões" : ""}` +
+                  (pendentes.length ? ` · ${pendentes.length} abaixo de 5` : " · todas 5 estrelas")}
+            </p>
+          </div>
+          <Link
+            href={qs({ dia: null })}
+            className="shrink-0 rounded-lg bg-white/15 px-3 py-1.5 text-xs font-semibold hover:bg-white/25"
+          >
+            Ver o período
+          </Link>
+        </div>
+      )}
 
       {/* ---------------- PENDÊNCIAS ---------------- */}
       {pendentes.length > 0 ? (

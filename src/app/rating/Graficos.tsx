@@ -30,6 +30,11 @@ const AMBAR = "#d97706";
  * daria a impressão de que toda entrega é avaliada, e o motorista acharia
  * que sumiram avaliações dele.
  */
+const NOME_DO_MES = [
+  "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
+  "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
+];
+
 export function FaixaDeDias({
   dias,
   diaSelecionado,
@@ -41,9 +46,17 @@ export function FaixaDeDias({
 }) {
   if (dias.length === 0) return null;
 
-  // Alinha a primeira semana no dia da semana certo (domingo = 0).
-  const primeiro = new Date(`${dias[0].dia}T00:00:00Z`).getUTCDay();
-  const vazios = Array.from({ length: primeiro }, (_, i) => i);
+  // Um bloco por MÊS. Num período de 90 dias, a corrida contínua de
+  // quadrados não deixava ver onde um mês termina e o outro começa --
+  // pedido do dono em 29/08/2026. Cada mês reinicia o alinhamento da
+  // semana, como num calendário de parede.
+  const meses = new Map<string, DiaDoPeriodo[]>();
+  for (const d of dias) {
+    const chave = d.dia.slice(0, 7);
+    const lista = meses.get(chave) ?? [];
+    lista.push(d);
+    meses.set(chave, lista);
+  }
 
   const comAvaliacao = dias.filter((d) => d.total > 0).length;
   const comProblema = dias.filter((d) => d.abaixoDaMeta > 0).length;
@@ -57,17 +70,16 @@ export function FaixaDeDias({
         </span>
       </div>
 
-      <div className="grid grid-cols-7 gap-1.5">
-        {["D", "S", "T", "Q", "Q", "S", "S"].map((d, i) => (
-          <span key={i} className="text-center text-[10px] font-semibold uppercase text-slate-300">
-            {d}
-          </span>
-        ))}
-        {vazios.map((i) => (
-          <span key={`vazio-${i}`} />
-        ))}
-        {dias.map((d) => (
-          <CelulaDoDia key={d.dia} dia={d} selecionado={d.dia === diaSelecionado} href={base(d.dia)} />
+      <div className="space-y-4">
+        {[...meses].map(([chave, diasDoMes]) => (
+          <MesDoCalendario
+            key={chave}
+            chave={chave}
+            dias={diasDoMes}
+            diaSelecionado={diaSelecionado}
+            base={base}
+            mostrarNome={meses.size > 1}
+          />
         ))}
       </div>
 
@@ -101,6 +113,56 @@ export function FaixaDeDias({
   );
 }
 
+function MesDoCalendario({
+  chave,
+  dias,
+  diaSelecionado,
+  base,
+  mostrarNome,
+}: {
+  chave: string;
+  dias: DiaDoPeriodo[];
+  diaSelecionado: string | null;
+  base: (dia: string) => string;
+  mostrarNome: boolean;
+}) {
+  const [ano, mes] = chave.split("-");
+  // Cada mês alinha a própria primeira semana (domingo = 0).
+  const primeiro = new Date(`${dias[0].dia}T00:00:00Z`).getUTCDay();
+  const avaliados = dias.filter((d) => d.total > 0).length;
+  const problemas = dias.filter((d) => d.abaixoDaMeta > 0).length;
+
+  return (
+    <div>
+      {mostrarNome && (
+        <div className="mb-1.5 flex items-baseline justify-between gap-2 border-b border-slate-100 pb-1">
+          <h3 className="text-xs font-bold uppercase tracking-wide text-slate-600">
+            {NOME_DO_MES[Number(mes) - 1]} <span className="font-normal text-slate-400">{ano}</span>
+          </h3>
+          <span className="text-[11px] text-slate-400">
+            {avaliados === 0
+              ? "sem avaliação"
+              : `${avaliados} dia${avaliados > 1 ? "s" : ""}${problemas ? ` · ${problemas} com nota baixa` : ""}`}
+          </span>
+        </div>
+      )}
+      <div className="grid grid-cols-7 gap-1.5">
+        {["D", "S", "T", "Q", "Q", "S", "S"].map((d, i) => (
+          <span key={i} className="text-center text-[10px] font-semibold uppercase text-slate-300">
+            {d}
+          </span>
+        ))}
+        {Array.from({ length: primeiro }, (_, i) => (
+          <span key={`vazio-${i}`} />
+        ))}
+        {dias.map((d) => (
+          <CelulaDoDia key={d.dia} dia={d} selecionado={d.dia === diaSelecionado} href={base(d.dia)} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function CelulaDoDia({
   dia,
   selecionado,
@@ -119,20 +181,8 @@ function CelulaDoDia({
     : `${formatarData(dia.dia)} — ${dia.total} avaliação(ões), média ${dia.media}` +
       (problema ? `, ${dia.abaixoDaMeta} abaixo de 5` : ", todas 5 estrelas");
 
-  const fundo = vazio ? undefined : problema ? AMBAR : VERDE;
-
-  return (
-    <Link
-      href={href}
-      title={titulo}
-      aria-label={titulo}
-      className={`relative flex aspect-square flex-col items-center justify-center rounded-lg text-[11px] font-bold transition-transform hover:scale-110 ${
-        vazio
-          ? "border border-dashed border-slate-200 bg-slate-50 text-slate-300"
-          : "text-white"
-      } ${selecionado ? "ring-2 ring-slate-900 ring-offset-1" : ""}`}
-      style={fundo ? { background: fundo } : undefined}
-    >
+  const conteudo = (
+    <>
       {numero}
       {/* Codificação secundária: quem não separa verde de âmbar enxerga o
           ponto e a contagem. */}
@@ -142,6 +192,39 @@ function CelulaDoDia({
         </span>
       )}
       {!vazio && !problema && <span className="text-[8px] font-normal opacity-80">{dia.total}</span>}
+    </>
+  );
+
+  const base =
+    "relative flex aspect-square flex-col items-center justify-center rounded-lg text-[11px] font-bold";
+
+  // Dia sem avaliação não é link: clicar nele levaria a uma tela vazia,
+  // que parece erro do app em vez de "não teve avaliação nesse dia".
+  if (vazio) {
+    return (
+      <span
+        title={titulo}
+        aria-label={titulo}
+        className={`${base} cursor-default border border-dashed border-slate-200 bg-slate-50 text-slate-300`}
+      >
+        {conteudo}
+      </span>
+    );
+  }
+
+  return (
+    <Link
+      href={href}
+      title={titulo}
+      aria-label={`${titulo}${selecionado ? " (selecionado — toque para ver o período todo)" : ""}`}
+      aria-current={selecionado ? "date" : undefined}
+      scroll={false}
+      className={`${base} text-white transition-transform hover:scale-110 ${
+        selecionado ? "scale-110 ring-2 ring-slate-900 ring-offset-2" : ""
+      }`}
+      style={{ background: problema ? AMBAR : VERDE }}
+    >
+      {conteudo}
     </Link>
   );
 }

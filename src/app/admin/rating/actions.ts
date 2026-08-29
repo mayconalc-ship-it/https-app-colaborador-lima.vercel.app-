@@ -11,7 +11,7 @@ import {
   listarSubpastas,
 } from "@/lib/drive-pasta";
 import { lerCadastroPessoas, lerViagens, precisaFeedback } from "@/lib/rating";
-import { gravarEmLotes, lerPlanilhaLogCo } from "@/lib/rating-server";
+import { gravarEmLotes, lerPlanilhaLogCo, lerTudoEmPaginas } from "@/lib/rating-server";
 
 const ROTA = "/admin/rating";
 
@@ -132,20 +132,29 @@ export async function importarRating(formData: FormData) {
   // ---------- 2. LIGAR O CADASTRO AOS PERFIS DO APP ----------
   // O CPF é a única chave que os dois lados têm. Feito em memória e num
   // update só por pessoa: são ~250 linhas, não vale um join no banco.
-  const { data: perfis } = await admin.from("profiles").select("id, cpf");
+  // Paginado pelo mesmo motivo das viagens: hoje são 69 perfis, mas o dia
+  // em que passarem de 1.000 o corte seria silencioso.
+  const { linhas: perfis } = await lerTudoEmPaginas<{ id: string; cpf: string | null }>((de, ate) =>
+    admin.from("profiles").select("id, cpf").range(de, ate),
+  );
   const perfilPorCpf = new Map<string, string>();
-  for (const p of perfis ?? []) {
+  for (const p of perfis) {
     const digitos = String(p.cpf ?? "").replace(/\D/g, "");
     if (digitos.length === 11) perfilPorCpf.set(digitos, p.id);
   }
 
-  const { data: pessoas } = await admin
-    .from("rating_pessoas")
-    .select("tipo, codigo, cpf, colaborador_id")
-    .eq("revenda_id", revendaId);
+  const { linhas: pessoas } = await lerTudoEmPaginas<{
+    tipo: string; codigo: string; cpf: string | null; colaborador_id: string | null;
+  }>((de, ate) =>
+    admin
+      .from("rating_pessoas")
+      .select("tipo, codigo, cpf, colaborador_id")
+      .eq("revenda_id", revendaId)
+      .range(de, ate),
+  );
 
   let vinculadas = 0;
-  for (const pessoa of pessoas ?? []) {
+  for (const pessoa of pessoas) {
     if (!pessoa.cpf) continue;
     const perfilId = perfilPorCpf.get(pessoa.cpf) ?? null;
     if (perfilId === pessoa.colaborador_id) {
@@ -210,22 +219,40 @@ export async function importarRating(formData: FormData) {
     voltar("erro", `Pasta ${PASTA_AVALIACOES} não encontrada. ${relatorio.join(" · ")}`);
   }
 
-  // Mapas e pessoas já gravados: é com eles que cada avaliação acha o dono.
-  const { data: viagensBanco } = await admin
-    .from("rating_viagens")
-    .select("mapa, motorista_codigo, motorista_nome, ajudante1_codigo, ajudante1_nome, ajudante2_codigo, ajudante2_nome")
-    .eq("revenda_id", revendaId);
-  const viagemPorMapa = new Map((viagensBanco ?? []).map((v) => [v.mapa, v]));
+  // Mapas e pessoas já gravados: é com eles que cada avaliação acha o
+  // dono. As DUAS leituras passam de 1.000 linhas (3.651 viagens), então
+  // vão paginadas -- ler sem paginar foi o que deixou 90% das avaliações
+  // órfãs na primeira importação. Ver lerTudoEmPaginas.
+  type ViagemBanco = {
+    mapa: string;
+    motorista_codigo: string | null; motorista_nome: string | null;
+    ajudante1_codigo: string | null; ajudante1_nome: string | null;
+    ajudante2_codigo: string | null; ajudante2_nome: string | null;
+  };
+  const { linhas: viagensBanco, erro: erroViagens } = await lerTudoEmPaginas<ViagemBanco>((de, ate) =>
+    admin
+      .from("rating_viagens")
+      .select("mapa, motorista_codigo, motorista_nome, ajudante1_codigo, ajudante1_nome, ajudante2_codigo, ajudante2_nome")
+      .eq("revenda_id", revendaId)
+      .range(de, ate),
+  );
+  if (erroViagens) {
+    await registrar(admin, revendaId, [...relatorio, `erro ao ler as viagens: ${erroViagens}`]);
+    voltar("erro", `Não consegui ler as viagens: ${erroViagens}`);
+  }
+  const viagemPorMapa = new Map(viagensBanco.map((v) => [v.mapa, v]));
 
-  const { data: pessoasBanco } = await admin
-    .from("rating_pessoas")
-    .select("tipo, codigo, nome, colaborador_id")
-    .eq("revenda_id", revendaId);
+  type PessoaBanco = { tipo: string; codigo: string; nome: string; colaborador_id: string | null };
+  const { linhas: pessoasBanco } = await lerTudoEmPaginas<PessoaBanco>((de, ate) =>
+    admin
+      .from("rating_pessoas")
+      .select("tipo, codigo, nome, colaborador_id")
+      .eq("revenda_id", revendaId)
+      .range(de, ate),
+  );
   // A chave é tipo+código de propósito: o mesmo número é uma pessoa como
   // motorista e outra como ajudante.
-  const pessoaPorChave = new Map(
-    (pessoasBanco ?? []).map((p) => [`${p.tipo}:${p.codigo}`, p]),
-  );
+  const pessoaPorChave = new Map(pessoasBanco.map((p) => [`${p.tipo}:${p.codigo}`, p]));
 
   const { arquivos } = await listarArquivosDaPasta(pastaAvaliacoes.id);
   const mesAtual = String(new Date().getMonth() + 1).padStart(2, "0");
