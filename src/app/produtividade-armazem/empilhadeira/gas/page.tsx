@@ -3,7 +3,13 @@ import { PageHeader } from "@/components/PageHeader";
 import { createClient } from "@/lib/supabase/server";
 import { getRevendaId } from "@/lib/revendas";
 import { requireAcessoModulo } from "@/lib/require-admin";
-import { diasAtrasISO, formatarDataHora, hojeISO } from "@/lib/produtividade-armazem";
+import {
+  ROTULO_TURNO,
+  diasAtrasISO,
+  formatarDataHora,
+  hojeISO,
+  turnoAtual,
+} from "@/lib/produtividade-armazem";
 import {
   ORDENS_RANKING,
   ROTULO_GRANULARIDADE,
@@ -29,6 +35,29 @@ export const dynamic = "force-dynamic";
 const campo =
   "w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-base text-slate-900 focus:border-primary focus:outline-none";
 const rotulo = "mb-1 block text-xs font-semibold uppercase text-slate-500";
+
+/**
+ * Turnos que uma janela de tempo atravessa. Um buraco de madrugada
+ * costuma cair inteiro na noite; um que cruza a virada aparece como
+ * "noite e manhã" -- e aí a conversa é com os dois turnos.
+ */
+function descreverTurnos(desdeISO: string, ateISO: string) {
+  const inicio = new Date(desdeISO);
+  const fim = new Date(ateISO);
+  const encontrados = new Set<string>();
+
+  // Anda de hora em hora: barato (a janela é de horas, não de meses) e
+  // pega a virada de turno sem precisar recriar as faixas aqui.
+  for (let t = inicio.getTime(); t <= fim.getTime(); t += 3_600_000) {
+    encontrados.add(ROTULO_TURNO[turnoAtual(new Date(t))]);
+    if (encontrados.size === 3) break;
+  }
+  encontrados.add(ROTULO_TURNO[turnoAtual(fim)]);
+
+  const lista = [...encontrados];
+  if (lista.length === 1) return `turno da ${lista[0].toLowerCase()}`;
+  return `turnos: ${lista.join(", ").toLowerCase()}`;
+}
 
 function Cartao({
   titulo,
@@ -549,7 +578,7 @@ export default async function DashboardGasPage({
                             ))}
                             {c.horasNaoIdentificadas > 0 && (
                               <tr className="border-t border-slate-100 bg-amber-50">
-                                <td className="p-2 font-medium text-amber-800">Não identificado</td>
+                                <td className="p-2 font-medium text-amber-800">Sem apontamento</td>
                                 <td className="p-2 text-right tabular-nums text-amber-800">
                                   {formatarNumeroBr(c.horasNaoIdentificadas)}
                                 </td>
@@ -571,6 +600,40 @@ export default async function DashboardGasPage({
                             </tr>
                           </tfoot>
                         </table>
+                      </div>
+                    )}
+
+                    {/* Onde, no relógio, ficaram as horas sem dono. Sem
+                        isto "3,9h não identificadas" não diz com quem
+                        falar; com a janela e o turno, diz. */}
+                    {c.buracos.length > 0 && (
+                      <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3">
+                        <p className="text-xs font-bold text-amber-900">
+                          🔎 Quando a máquina rodou sem apontamento
+                        </p>
+                        <ul className="mt-2 space-y-2">
+                          {c.buracos.map((b, i) => (
+                            <li key={i} className="text-xs text-amber-800">
+                              <span className="font-semibold">{formatarNumeroBr(b.horas)}h</span>{" "}
+                              <span className="text-amber-700">
+                                (horímetro {formatarNumeroBr(b.horimetroInicial)} →{" "}
+                                {formatarNumeroBr(b.horimetroFinal)})
+                              </span>
+                              {b.desde && b.ate && (
+                                <span className="block text-amber-700">
+                                  Entre {formatarDataHora(b.desde)} e {formatarDataHora(b.ate)}
+                                  {" · "}
+                                  {descreverTurnos(b.desde, b.ate)}
+                                </span>
+                              )}
+                            </li>
+                          ))}
+                        </ul>
+                        <p className="mt-2 text-[11px] text-amber-700">
+                          O horímetro só anda com o motor ligado — se avançou, alguém operou sem abrir
+                          operação no app. O nome não é deduzido de propósito: chutar por escala colocaria
+                          o gás na conta de quem talvez nem tenha encostado na máquina.
+                        </p>
                       </div>
                     )}
                   </div>

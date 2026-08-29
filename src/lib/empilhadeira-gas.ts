@@ -60,6 +60,25 @@ export type StatusCiclo =
    *  ponto decimal (5485,0 virando 54850). */
   | "salto_suspeito";
 
+/**
+ * Um pedaço do ciclo em que a máquina rodou sem ninguém com operação
+ * aberta. O horímetro só anda com o motor ligado -- se ele avançou,
+ * alguém operou e não apontou.
+ *
+ * A janela de relógio é o que torna isso acionável: "3,9h não
+ * identificadas" não diz com quem falar; "entre 25/08 20:39 e 26/08
+ * 05:45" diz.
+ */
+export type BuracoUso = {
+  horimetroInicial: number;
+  horimetroFinal: number;
+  horas: number;
+  /** Fim da sessão anterior (ou a troca que abriu o ciclo). */
+  desde: string | null;
+  /** Início da sessão seguinte (ou a troca que fechou o ciclo). */
+  ate: string | null;
+};
+
 export type CicloP20 = {
   empilhadeiraId: string;
   empilhadeiraNumero: string;
@@ -79,6 +98,8 @@ export type CicloP20 = {
   horasNaoIdentificadas: number;
   /** Fração do P20 que ficou sem dono, pelo mesmo motivo. */
   p20NaoIdentificado: number;
+  /** Onde, no tempo, ficaram as horas sem apontamento. */
+  buracos: BuracoUso[];
   status: StatusCiclo;
 };
 
@@ -185,13 +206,17 @@ export function montarCiclos(
           horasAtribuidas: 0,
           horasNaoIdentificadas: 0,
           p20NaoIdentificado: 1,
+          buracos: [],
           status: horas <= 0 ? "horimetro_invalido" : "salto_suspeito",
         });
         continue;
       }
 
-      // Soma as horas de cada operador dentro da faixa deste ciclo.
+      // Soma as horas de cada operador dentro da faixa deste ciclo, e
+      // guarda os TRECHOS cobertos -- é a partir deles que se descobre
+      // onde ficaram as horas sem apontamento.
       const horasPorOperador = new Map<string, { nome: string; horas: number }>();
+      const cobertos: { hi: number; hf: number; inicio: string | null; fim: string | null }[] = [];
       for (const s of daMaquina) {
         const dentro = sobreposicao(
           s.horimetroInicial,
@@ -203,6 +228,45 @@ export function montarCiclos(
         const atualOp = horasPorOperador.get(s.operadorId) ?? { nome: s.operadorNome, horas: 0 };
         atualOp.horas += dentro;
         horasPorOperador.set(s.operadorId, atualOp);
+        cobertos.push({
+          hi: Math.max(s.horimetroInicial, base.horimetroInicial),
+          hf: Math.min(s.horimetroFinal, base.horimetroFinal),
+          inicio: s.inicio || null,
+          fim: s.fim,
+        });
+      }
+
+      // Varre o ciclo em ordem de horímetro e anota o que ficou de fora.
+      // Trechos podem se sobrepor (duas pessoas na mesma faixa), por
+      // isso a varredura anda com um "até onde já cobri" em vez de
+      // comparar cada um com o vizinho.
+      const buracos: BuracoUso[] = [];
+      const emOrdem = [...cobertos].sort((a, b) => a.hi - b.hi);
+      let cobertoAte = base.horimetroInicial;
+      let ultimoFim: string | null = base.abertoEm;
+      for (const t of emOrdem) {
+        if (t.hi > cobertoAte + 0.05) {
+          buracos.push({
+            horimetroInicial: arredondar(cobertoAte, 1),
+            horimetroFinal: arredondar(t.hi, 1),
+            horas: arredondar(t.hi - cobertoAte, 1),
+            desde: ultimoFim,
+            ate: t.inicio,
+          });
+        }
+        if (t.hf > cobertoAte) {
+          cobertoAte = t.hf;
+          ultimoFim = t.fim;
+        }
+      }
+      if (base.horimetroFinal > cobertoAte + 0.05) {
+        buracos.push({
+          horimetroInicial: arredondar(cobertoAte, 1),
+          horimetroFinal: arredondar(base.horimetroFinal, 1),
+          horas: arredondar(base.horimetroFinal - cobertoAte, 1),
+          desde: ultimoFim,
+          ate: base.fechadoEm,
+        });
       }
 
       // O rateio usa as horas do CICLO como denominador, não a soma das
@@ -240,6 +304,7 @@ export function montarCiclos(
         horasAtribuidas,
         horasNaoIdentificadas,
         p20NaoIdentificado: arredondar(Math.max(0, 1 - p20DosOperadores), 3),
+        buracos,
         status:
           porOperador.length === 0
             ? "sem_sessoes"

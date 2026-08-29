@@ -101,5 +101,54 @@ const maq = resumirPorMaquina(ciclos);
 conferir("maquina ainda conta o consumo (item 19)", maq[0].horasPorP20, 9);
 conferir("mas nenhum operador entra", resumirPorOperador(ciclos).length, 0);
 
+console.log("\n== BURACO DE APONTAMENTO (caso real da empilhadeira 012) ==");
+// Ciclo 5476->5485. Jose sai no 5479,3 e Maciel so entra no 5483,2.
+ciclos = montarCiclos(
+  [
+    { id: "t1", empilhadeiraId: "m2", operadorNome: "X", horimetro: 5476, realizadaEm: "2026-08-25T18:01:00Z" },
+    { id: "t2", empilhadeiraId: "m2", operadorNome: "Y", horimetro: 5485, realizadaEm: "2026-08-26T11:30:00Z" },
+  ],
+  [
+    { id: "s1", empilhadeiraId: "m2", operadorId: "jose", operadorNome: "Jose", horimetroInicial: 5475.3, horimetroFinal: 5479.3, inicio: "2026-08-25T17:00:00Z", fim: "2026-08-25T23:39:00Z" },
+    { id: "s2", empilhadeiraId: "m2", operadorId: "maciel", operadorNome: "Maciel", horimetroInicial: 5483.2, horimetroFinal: 5488, inicio: "2026-08-26T08:45:00Z", fim: "2026-08-26T16:49:00Z" },
+  ],
+  numeros,
+);
+c = ciclos[0];
+conferir("um buraco encontrado", c.buracos.length, 1);
+conferir("buraco de 3,9h", c.buracos[0].horas, 3.9);
+conferir("buraco comeca em 5479,3", c.buracos[0].horimetroInicial, 5479.3);
+conferir("buraco termina em 5483,2", c.buracos[0].horimetroFinal, 5483.2);
+console.log(`  janela: ${c.buracos[0].desde} -> ${c.buracos[0].ate}`);
+conferir("horas nao identificadas batem com o buraco", c.horasNaoIdentificadas, 3.9);
+
+console.log("\n== CICLO SEM BURACO (cobertura completa) ==");
+ciclos = montarCiclos(
+  [
+    { id: "t1", empilhadeiraId: "m2", operadorNome: "X", horimetro: 100, realizadaEm: "2026-08-01T08:00:00Z" },
+    { id: "t2", empilhadeiraId: "m2", operadorNome: "Y", horimetro: 108, realizadaEm: "2026-08-01T16:00:00Z" },
+  ],
+  [
+    { id: "s1", empilhadeiraId: "m2", operadorId: "a", operadorNome: "A", horimetroInicial: 100, horimetroFinal: 104, inicio: "2026-08-01T08:00:00Z", fim: "2026-08-01T12:00:00Z" },
+    { id: "s2", empilhadeiraId: "m2", operadorId: "b", operadorNome: "B", horimetroInicial: 104, horimetroFinal: 108, inicio: "2026-08-01T12:00:00Z", fim: "2026-08-01T16:00:00Z" },
+  ],
+  numeros,
+);
+conferir("nenhum buraco", ciclos[0].buracos.length, 0);
+
+console.log("\n== SESSOES SOBREPOSTAS NAO VIRAM BURACO FALSO ==");
+ciclos = montarCiclos(
+  [
+    { id: "t1", empilhadeiraId: "m2", operadorNome: "X", horimetro: 200, realizadaEm: "2026-08-01T08:00:00Z" },
+    { id: "t2", empilhadeiraId: "m2", operadorNome: "Y", horimetro: 210, realizadaEm: "2026-08-01T18:00:00Z" },
+  ],
+  [
+    { id: "s1", empilhadeiraId: "m2", operadorId: "a", operadorNome: "A", horimetroInicial: 200, horimetroFinal: 207, inicio: "2026-08-01T08:00:00Z", fim: "2026-08-01T15:00:00Z" },
+    { id: "s2", empilhadeiraId: "m2", operadorId: "b", operadorNome: "B", horimetroInicial: 203, horimetroFinal: 210, inicio: "2026-08-01T11:00:00Z", fim: "2026-08-01T18:00:00Z" },
+  ],
+  numeros,
+);
+conferir("sobreposicao nao gera buraco", ciclos[0].buracos.length, 0);
+
 console.log(`\n${falhas === 0 ? "TODOS OS CASOS PASSARAM" : falhas + " FALHA(S)"}`);
 process.exit(falhas === 0 ? 0 : 1);
