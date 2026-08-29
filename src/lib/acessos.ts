@@ -42,7 +42,8 @@ export type ModuloId =
   | "carretas-conferencia"
   | "carretas-descarga"
   | "fefo"
-  | "fefo-controle";
+  | "fefo-controle"
+  | "rating";
 
 export type Modulo = {
   id: ModuloId;
@@ -93,6 +94,17 @@ export const MODULOS: Modulo[] = [
     href: "/admin/sonho-da-revenda",
     grupo: "Conteúdo do app",
     acoes: ["ver", "criar", "editar", "excluir"],
+  },
+  {
+    id: "rating",
+    rotulo: "Rating de Entrega",
+    emoji: "⭐",
+    href: "/admin/rating",
+    grupo: "Conteúdo do app",
+    // "criar" = importar os relatórios do Drive. O motorista e o ajudante
+    // só veem as PRÓPRIAS avaliações, e para isso basta a concessão do
+    // módulo (sem ação) -- quem não entrega não tem o que ver aqui.
+    acoes: ["ver", "criar"],
   },
   {
     id: "rotas",
@@ -395,6 +407,7 @@ export const MODULOS_OPCIONAIS: ModuloId[] = [
   "carretas-descarga",
   "fefo",
   "fefo-controle",
+  "rating",
 ];
 
 const MAPA = new Map(MODULOS.map((m) => [m.id, m]));

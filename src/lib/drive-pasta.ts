@@ -43,17 +43,30 @@ export async function listarArquivosDaPasta(
   }
 
   const arquivos: ArquivoDaPasta[] = [];
-  const re = /aria-label=\\?"([^"\\]+?\.(?:csv|xlsx|xls))\s/gi;
+  // Pega todo aria-label e filtra depois pela extensão -- exigir a
+  // extensão dentro do próprio regex quebrava quando o Google mudava o
+  // texto que vem depois do nome ("Microsoft Excel Shared", "CSV Shared").
+  const re = /aria-label=\\?"([^"\\]{2,160})"/g;
   let m: RegExpExecArray | null;
 
   while ((m = re.exec(html)) !== null) {
-    const nome = m[1];
-    // O id aparece ANTES do nome, no atributo ssk do mesmo bloco.
-    const antes = html.slice(Math.max(0, m.index - 800), m.index);
-    const ids = [...antes.matchAll(/[:']([a-zA-Z0-9_-]{25,44})-\d+-\d+'/g)];
-    const id = ids.length ? ids[ids.length - 1][1] : null;
+    const comExtensao = m[1].match(/([\w\-. ()]+\.(?:csv|xlsx|xls))/i);
+    if (!comExtensao) continue;
 
-    if (id && !arquivos.some((a) => a.id === id)) arquivos.push({ id, nome });
+    // O id vem DEPOIS do nome, no ssk do mesmo elemento:
+    //   aria-label="X.xlsx ..." ... ssk='5:auSv138:<ID>-0-16'
+    //
+    // Até 29/08/2026 este código procurava para TRÁS. Funcionava por
+    // sorte: em arquivo CSV o ícone é pequeno e o ssk do item anterior
+    // caía dentro da janela. No XLSX o ícone é um SVG grande, empurrava
+    // o ssk para fora, e a pasta inteira aparecia vazia.
+    const depois = html.slice(m.index, m.index + 400);
+    const achado = depois.match(/ssk='[^']*?:([a-zA-Z0-9_-]{25,44})-\d+-\d+'/);
+    const id = achado ? achado[1] : null;
+
+    if (id && !arquivos.some((a) => a.id === id)) {
+      arquivos.push({ id, nome: comExtensao[1].trim() });
+    }
   }
 
   if (arquivos.length === 0) {
@@ -91,6 +104,84 @@ export async function baixarTextoDoDrive(id: string) {
       return utf8.includes("\uFFFD")
         ? new TextDecoder("latin1").decode(bytes)
         : utf8;
+    } catch {
+      // tenta o próximo endereço
+    }
+  }
+  return null;
+}
+
+/**
+ * Lista as SUBPASTAS de uma pasta pública.
+ *
+ * O Rating não vive numa pasta só: a operação organiza um diretório por
+ * relatório (01.20.01.47, 03.11.29, LOG.CO...). Cadastrar cinco links no
+ * Admin seria cinco chances de colar o errado -- cadastra-se a pasta mãe
+ * e o app acha as filhas pelo nome.
+ *
+ * Mesmo desenho (e mesma fragilidade) de `listarArquivosDaPasta`: o
+ * Drive marca pasta com "Shared folder" no rótulo.
+ */
+export async function listarSubpastas(
+  pastaId: string,
+): Promise<{ pastas: ArquivoDaPasta[]; erro?: string }> {
+  let html: string;
+  try {
+    const r = await fetch(`https://drive.google.com/drive/folders/${pastaId}`, {
+      headers: { "user-agent": "Mozilla/5.0" },
+      cache: "no-store",
+    });
+    if (!r.ok) return { pastas: [], erro: `o Google respondeu ${r.status}` };
+    html = await r.text();
+  } catch (e) {
+    return { pastas: [], erro: (e as Error).message };
+  }
+
+  const pastas: ArquivoDaPasta[] = [];
+  const re = /aria-label=\\?"([^"\\]{2,160})"/g;
+  let m: RegExpExecArray | null;
+
+  while ((m = re.exec(html)) !== null) {
+    const rotulo = m[1];
+    if (!/\sShared folder$/i.test(rotulo)) continue;
+    const nome = rotulo.replace(/\sShared folder$/i, "").trim();
+    if (!nome) continue;
+
+    const depois = html.slice(m.index, m.index + 400);
+    const achado = depois.match(/ssk='[^']*?:([a-zA-Z0-9_-]{25,44})-\d+-\d+'/);
+    const id = achado ? achado[1] : null;
+    if (id && !pastas.some((p) => p.id === id)) pastas.push({ id, nome });
+  }
+
+  if (pastas.length === 0) {
+    return {
+      pastas: [],
+      erro:
+        "não encontrei nenhuma subpasta. Confira se a pasta mãe está compartilhada como 'Qualquer pessoa com o link'",
+    };
+  }
+  return { pastas };
+}
+
+/**
+ * Baixa um arquivo BINÁRIO do Drive (o .xlsx do LOG.CO). Diferente do
+ * `baixarTextoDoDrive`, não decodifica nada -- xlsx é um zip, e tratar
+ * como texto corrompe.
+ *
+ * A checagem é a assinatura "PK" do zip, não o content-type: quando o
+ * Drive quer confirmar o download ele responde 200 com uma página HTML,
+ * e sem esta conferência a planilha "baixada" seria esse HTML.
+ */
+export async function baixarBytesDoDrive(id: string): Promise<Buffer | null> {
+  for (const url of [
+    `https://drive.usercontent.google.com/download?id=${id}&export=download`,
+    `https://drive.google.com/uc?export=download&id=${id}`,
+  ]) {
+    try {
+      const r = await fetch(url, { cache: "no-store" });
+      if (!r.ok) continue;
+      const b = Buffer.from(await r.arrayBuffer());
+      if (b[0] === 0x50 && b[1] === 0x4b) return b;
     } catch {
       // tenta o próximo endereço
     }
