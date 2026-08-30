@@ -82,6 +82,7 @@ type CarretaParaCorrigir = {
   id: string;
   numero_dt: string;
   placa_carreta: string;
+  motorista_nome: string;
   chegada_em: string;
   carga_agendada: boolean;
   agendamento_em: string | null;
@@ -275,7 +276,7 @@ export default async function AdminProdutividadeArmazemPage({
     aba === "recebimento"
       ? supabase
           .from("atendimentos_carretas")
-          .select("id, numero_dt, placa_carreta, chegada_em, carga_agendada, agendamento_em, status")
+          .select("id, numero_dt, placa_carreta, motorista_nome, chegada_em, carga_agendada, agendamento_em, status")
           .eq("revenda_id", revendaId)
           .order("chegada_em", { ascending: false })
           .limit(30)
@@ -820,11 +821,8 @@ export default async function AdminProdutividadeArmazemPage({
                         <p className="text-sm font-semibold text-slate-900">
                           DT {c.numero_dt} — Carreta {c.placa_carreta}
                         </p>
-                        {/* Só chegada e agendamento: é o que se compara
-                            para saber se a marcação está certa. Nome do
-                            motorista não ajuda a decidir isso. */}
                         <p className="text-xs text-slate-500">
-                          Chegou {formatarDataHora(c.chegada_em)}
+                          {c.motorista_nome} · chegou {formatarDataHora(c.chegada_em)}
                         </p>
                         <p className="text-xs font-semibold text-primary">
                           {c.carga_agendada

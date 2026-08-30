@@ -348,8 +348,7 @@ export default async function CarretasConferenciaPage({
                             aconteceu na DT 741490. */}
                         {f.carga_agendada && (
                           <p className="text-xs font-semibold text-primary">
-                            ⏰ Agendada{f.agendamento_em ? ` para ${formatarDataHora(f.agendamento_em)}` : ""} — o TMA
-                            conta a partir daqui
+                            ⏰ Agendada{f.agendamento_em ? ` para ${formatarDataHora(f.agendamento_em)}` : ""}
                           </p>
                         )}
                       </div>
