@@ -1240,11 +1240,26 @@ export async function importarPlanilhaProdutos(formData: FormData) {
   // não existem.
   const { data: embalagensExistentes } = await admin
     .from("pa_embalagens")
-    .select("id, nome")
+    .select("id, nome, ativo")
     .eq("revenda_id", revendaId);
   const embalagemIdPorNome = new Map(
     (embalagensExistentes ?? []).map((e) => [e.nome.toLowerCase(), e.id] as const),
   );
+
+  // Embalagem DESATIVADA que volta na planilha é REATIVADA.
+  //
+  // A busca acima é por nome e ignora `ativo` de propósito -- o índice
+  // único do banco também ignora, então criar outra daria conflito. Mas
+  // sem reativar, o produto ficaria ligado a uma embalagem inativa: ela
+  // some do cadastro e das listas, e o vínculo vira um fantasma. Se a
+  // planilha traz a embalagem de volta, ela voltou a existir.
+  const inativasQueVoltaram = (embalagensExistentes ?? [])
+    .filter((e) => !e.ativo)
+    .filter((e) => linhas.some((l) => l.embalagemRepackNome?.toLowerCase() === e.nome.toLowerCase()))
+    .map((e) => e.id);
+  if (inativasQueVoltaram.length > 0) {
+    await admin.from("pa_embalagens").update({ ativo: true }).in("id", inativasQueVoltaram);
+  }
 
   const faltantesPorChave = new Map<string, string>();
   for (const l of linhas) {
