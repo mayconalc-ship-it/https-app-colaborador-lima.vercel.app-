@@ -3,7 +3,7 @@
 // sobrando), entao so o arquivo de verdade prova que funciona.
 //   $env:RV_PLANILHA_DU = "<id da planilha de Distribuicao>"
 //   npx tsx src/lib/__testes__/meus-indicadores.teste.mjs
-import { montarResumo, vazio, CAMPOS_DO_RESUMO } from "../meus-indicadores.ts";
+import { montarResumo, vazio, CAMPOS_DO_RESUMO, paraNumero, formatarCampo } from "../meus-indicadores.ts";
 
 let falhas = 0;
 function ok(nome, cond, detalhe = "") {
@@ -32,6 +32,40 @@ eq("idem para caixas", r.find((c) => c.chave === "qt_caixas").valor, "3.087,06")
 // "Valor devolução" e "TT-Devolução" NAO podem virar "Qt Devolução".
 r = montarResumo(det([["Valor devolução", "R$ 120,00"], ["TT-Devolução", "R$ 633,45"]]));
 eq("nao confunde Valor devolucao com Qt Devolucao", r.find((c) => c.chave === "qt_devolucao").valor, null);
+
+console.log("\n== LER NUMERO (portugues e ingles) ==");
+eq("virgula decimal com milhar", paraNumero("3.087,06"), 3087.06);
+eq("so virgula decimal", paraNumero("889,19"), 889.19);
+eq("ponto como milhar (3 digitos)", paraNumero("3.087"), 3087);
+eq("ponto como decimal", paraNumero("3.5"), 3.5);
+eq("inteiro puro", paraNumero("408"), 408);
+eq("tira o sinal de porcento", paraNumero("1,23%"), 1.23);
+eq("milhar duplo", paraNumero("1.234.567,89"), 1234567.89);
+eq("texto nao numerico vira nulo", paraNumero("abc"), null);
+eq("vazio vira nulo", paraNumero(""), null);
+eq("nulo vira nulo", paraNumero(null), null);
+
+console.log("\n== FORMATAR PARA A TELA ==");
+eq("caixas ganham separador de milhar", formatarCampo("3087.06", "decimal"), "3.087,06");
+eq("caixas ja formatadas continuam iguais", formatarCampo("3.087,06", "decimal"), "3.087,06");
+eq("caixas abaixo de mil nao ganham ponto", formatarCampo("889,19", "decimal"), "889,19");
+eq("caixas sempre com duas casas", formatarCampo("3087", "decimal"), "3.087,00");
+eq("caixas arredondam para duas casas", formatarCampo("3087,456", "decimal"), "3.087,46");
+
+eq("percentual ja em % continua", formatarCampo("1,23%", "percentual"), "1,23%");
+// O caso que o dono relatou: veio decimal em vez de porcentagem.
+eq("decimal vira porcentagem", formatarCampo("0,0123", "percentual"), "1,23%");
+eq("decimal em ingles tambem", formatarCampo("0.0123", "percentual"), "1,23%");
+eq("percentual sem sinal acima de 1 fica como esta", formatarCampo("2,24", "percentual"), "2,24%");
+eq("zero vira 0,00%", formatarCampo("0", "percentual"), "0,00%");
+eq("percentual arredonda para duas casas", formatarCampo("1,236%", "percentual"), "1,24%");
+// 0,60% tem % e vale menos que 1 -- nao pode virar 60%.
+eq("meio porcento COM sinal nao vira 60%", formatarCampo("0,60%", "percentual"), "0,60%");
+
+eq("inteiro ganha separador", formatarCampo("1204", "inteiro"), "1.204");
+eq("inteiro pequeno sem separador", formatarCampo("24", "inteiro"), "24");
+eq("texto que nao e numero passa direto", formatarCampo("n/d", "inteiro"), "n/d");
+eq("nulo continua nulo", formatarCampo(null, "inteiro"), null);
 
 console.log("\n== VAZIO ==");
 ok("nulo e vazio", vazio(null));
