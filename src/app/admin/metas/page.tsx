@@ -12,8 +12,65 @@ import {
   type DefinicaoDeMeta,
   type GrupoDeMetas as IdDeGrupo,
 } from "@/lib/metas";
+import {
+  AMOSTRA_MINIMA,
+  DIAS_DE_HISTORICO,
+  confiavel,
+  historicoDasMetas,
+  historicoPorItem,
+  type Realizado,
+} from "@/lib/metas-historico";
 import { GrupoDeMetas } from "./GrupoDeMetas";
 import { salvarMetas, salvarMetasPorItem } from "./actions";
+
+/** Número no formato da meta, para virar valor de campo. */
+function paraTexto(v: number, casas: number): string {
+  return String(Number(v.toFixed(casas)));
+}
+
+/**
+ * O rodapé de cada campo: o que a operação já faz, com a amostra.
+ *
+ * A amostra é o que separa "21,1 cx/h em 34 lançamentos" de "411 L/h em
+ * um lançamento de dois minutos". Sem ela, o segundo vira meta.
+ */
+function Historico({
+  realizado,
+  casas,
+  sufixo,
+  sugerido,
+}: {
+  realizado: Realizado | undefined;
+  casas: number;
+  sufixo: string;
+  sugerido: boolean;
+}) {
+  if (!realizado) {
+    return (
+      <p className="mt-1.5 text-[11px] text-slate-400">
+        Sem apontamento nos últimos {DIAS_DE_HISTORICO} dias.
+      </p>
+    );
+  }
+
+  const pouco = !confiavel(realizado);
+  return (
+    <p className={`mt-1.5 text-[11px] ${pouco ? "text-amber-600" : "text-slate-500"}`}>
+      {pouco ? "⚠️ " : "📊 "}
+      Realizado:{" "}
+      <strong className="tabular-nums">
+        {realizado.valor.toLocaleString("pt-BR", {
+          minimumFractionDigits: casas,
+          maximumFractionDigits: casas,
+        })}
+        {sufixo ? ` ${sufixo}` : ""}
+      </strong>{" "}
+      em {realizado.amostra} {realizado.unidadeDaAmostra}
+      {pouco && " — amostra pequena, use com cuidado"}
+      {sugerido && !pouco && " · já preenchido para você"}
+    </p>
+  );
+}
 
 export const dynamic = "force-dynamic";
 
@@ -56,8 +113,15 @@ export default async function AdminMetasPage({
   }
 
   const admin = createAdminClient();
-  const [{ data: metasBanco }, { data: recebimento }, { data: devolucao }, { data: produtos }, { data: embalagens }] =
-    await Promise.all([
+  const [
+    { data: metasBanco },
+    { data: recebimento },
+    { data: devolucao },
+    { data: produtos },
+    { data: embalagens },
+    historico,
+    porItem,
+  ] = await Promise.all([
       admin.from("pa_metas").select("chave, valor").eq("revenda_id", revendaId),
       admin.from("pa_recebimento_config").select("tma_alvo_minutos").eq("revenda_id", revendaId).maybeSingle(),
       admin.from("devolucao_config").select("meta_pct").eq("revenda_id", revendaId).maybeSingle(),
@@ -72,6 +136,8 @@ export default async function AdminMetasPage({
         .select("id, nome, meta_litros_hora")
         .eq("revenda_id", revendaId)
         .order("nome"),
+      historicoDasMetas(revendaId),
+      historicoPorItem(revendaId),
     ]);
 
   const porChave = new Map(
@@ -89,8 +155,26 @@ export default async function AdminMetasPage({
     return v === null || v === undefined ? null : Number(v);
   };
 
-  const paraCampo = (v: number | null, casas: number) =>
-    v === null ? "" : casas === 0 ? String(v) : String(Number(v.toFixed(casas)));
+  /**
+   * O que aparece no campo.
+   *
+   * Meta cadastrada manda sempre. Sem meta, entra o REALIZADO como
+   * sugestão -- mas só quando a amostra sustenta: preencher o campo com
+   * um número tirado de um lançamento de dois minutos seria pior que
+   * deixar vazio, porque o vazio pelo menos não é salvo por engano.
+   */
+  const paraCampo = (v: number | null, casas: number, sugestao?: Realizado) => {
+    if (v !== null) return casas === 0 ? String(v) : paraTexto(v, casas);
+    if (sugestao && confiavel(sugestao)) {
+      const arredondado = Number(sugestao.valor.toFixed(casas));
+      // Sugestão que arredonda para ZERO não preenche. Meta zero não é um
+      // ponto de partida: em "maior é melhor" ela é batida por qualquer
+      // coisa, e em "menor é melhor" ela é impossível. Aconteceu com o 5S
+      // (0,33 execução por pessoa/mês vira "0") e com a devolução.
+      if (arredondado > 0) return String(arredondado);
+    }
+    return "";
+  };
 
   // Listas por item, já filtradas pela busca.
   const produtosFiltrados = (produtos ?? []).filter((p) =>
@@ -145,6 +229,13 @@ export default async function AdminMetasPage({
           </div>
         </div>
         <p className="mt-3 text-xs text-slate-500">
+          Onde não há meta cadastrada, o campo já vem com o{" "}
+          <strong>realizado dos últimos {DIAS_DE_HISTORICO} dias</strong> como ponto de partida —
+          destacado em azul, e só quando a amostra tem pelo menos {AMOSTRA_MINIMA} apontamentos.{" "}
+          <strong>É sugestão: só vira meta quando você clicar em Salvar.</strong> Ajuste antes, se
+          a régua for outra.
+        </p>
+        <p className="mt-1.5 text-xs text-slate-500">
           Deixar um campo <strong>em branco apaga a meta</strong> — o cartão volta a ficar neutro,
           sem cor. É diferente de cadastrar zero, que passa a cobrar zero.
         </p>
@@ -180,13 +271,23 @@ export default async function AdminMetasPage({
                   <input type="hidden" name="estado" value={estado} />
 
                   <div className="grid gap-3 sm:grid-cols-2">
-                    {metas.map((m) => (
-                      <CampoDeMeta
-                        key={m.chave}
-                        def={m}
-                        valor={paraCampo(valorDe(m), m.casas)}
-                      />
-                    ))}
+                    {metas.map((m) => {
+                      const atual = valorDe(m);
+                      const realizado = historico.get(m.chave);
+                      const valor = paraCampo(atual, m.casas, realizado);
+                      return (
+                        <CampoDeMeta
+                          key={m.chave}
+                          def={m}
+                          valor={valor}
+                          realizado={realizado}
+                          // Sugerido = veio do histórico, não do cadastro.
+                          // Derivado do valor final para não destacar em
+                          // azul um campo que acabou ficando vazio.
+                          sugerido={atual === null && valor !== ""}
+                        />
+                      );
+                    })}
                   </div>
 
                   <BotaoEnviar
@@ -208,13 +309,22 @@ export default async function AdminMetasPage({
                   estado={estado}
                   sufixo="cx/h"
                   passo="0.1"
-                  itens={produtosFiltrados.map((p) => ({
-                    id: p.id,
-                    rotulo: p.descricao ?? p.codigo ?? "(sem descrição)",
-                    detalhe: p.codigo ?? undefined,
-                    valor: p.meta_reepack_hora === null ? "" : String(p.meta_reepack_hora),
-                  }))}
+                  casas={1}
+                  itens={produtosFiltrados.map((p) => {
+                    const r = porItem.repack.get(p.id);
+                    const atual = p.meta_reepack_hora === null ? null : Number(p.meta_reepack_hora);
+                    const valor = paraCampo(atual, 1, r);
+                    return {
+                      id: p.id,
+                      rotulo: p.descricao ?? p.codigo ?? "(sem descrição)",
+                      detalhe: p.codigo ?? undefined,
+                      valor,
+                      realizado: r,
+                      sugerido: atual === null && valor !== "",
+                    };
+                  })}
                   total={(produtos ?? []).length}
+                  comHistorico={porItem.repack.size}
                 />
               )}
 
@@ -228,12 +338,21 @@ export default async function AdminMetasPage({
                   estado={estado}
                   sufixo="L/h"
                   passo="0.1"
-                  itens={embalagensFiltradas.map((e) => ({
-                    id: e.id,
-                    rotulo: e.nome ?? "(sem nome)",
-                    valor: e.meta_litros_hora === null ? "" : String(e.meta_litros_hora),
-                  }))}
+                  casas={1}
+                  itens={embalagensFiltradas.map((e) => {
+                    const r = porItem.despejo.get(e.id);
+                    const atual = e.meta_litros_hora === null ? null : Number(e.meta_litros_hora);
+                    const valor = paraCampo(atual, 1, r);
+                    return {
+                      id: e.id,
+                      rotulo: e.nome ?? "(sem nome)",
+                      valor,
+                      realizado: r,
+                      sugerido: atual === null && valor !== "",
+                    };
+                  })}
                   total={(embalagens ?? []).length}
+                  comHistorico={porItem.despejo.size}
                 />
               )}
 
@@ -254,9 +373,23 @@ export default async function AdminMetasPage({
 
 // ==================== PEÇAS ====================
 
-function CampoDeMeta({ def, valor }: { def: DefinicaoDeMeta; valor: string }) {
+function CampoDeMeta({
+  def,
+  valor,
+  realizado,
+  sugerido,
+}: {
+  def: DefinicaoDeMeta;
+  valor: string;
+  realizado: Realizado | undefined;
+  sugerido: boolean;
+}) {
   return (
-    <div className="min-w-0 rounded-xl border border-slate-200 bg-slate-50 p-3">
+    <div
+      className={`min-w-0 rounded-xl border p-3 ${
+        sugerido ? "border-primary/40 bg-primary-soft/40" : "border-slate-200 bg-slate-50"
+      }`}
+    >
       <label
         className="block text-sm font-semibold text-slate-800"
         htmlFor={`meta_${def.chave}`}
@@ -282,9 +415,12 @@ function CampoDeMeta({ def, valor }: { def: DefinicaoDeMeta; valor: string }) {
         )}
       </div>
 
-      <p className="mt-1.5 text-[11px] text-slate-400">
-        {def.sentido === "menor_melhor" ? "↓ menor é melhor" : "↑ maior é melhor"}
-      </p>
+      <div className="mt-1.5 flex flex-wrap items-baseline justify-between gap-x-2">
+        <span className="text-[11px] text-slate-400">
+          {def.sentido === "menor_melhor" ? "↓ menor é melhor" : "↑ maior é melhor"}
+        </span>
+      </div>
+      <Historico realizado={realizado} casas={def.casas} sufixo={def.sufixo} sugerido={sugerido} />
     </div>
   );
 }
@@ -298,8 +434,10 @@ function ListaDeItens({
   estado,
   sufixo,
   passo,
+  casas,
   itens,
   total,
+  comHistorico,
 }: {
   tipo: "reepack" | "despejo";
   titulo: string;
@@ -309,8 +447,19 @@ function ListaDeItens({
   estado: string;
   sufixo: string;
   passo: string;
-  itens: { id: string; rotulo: string; detalhe?: string; valor: string }[];
+  casas: number;
+  itens: {
+    id: string;
+    rotulo: string;
+    detalhe?: string;
+    valor: string;
+    realizado?: Realizado;
+    sugerido: boolean;
+  }[];
   total: number;
+  /** Quantos itens do cadastro TÊM apontamento. É o número que interessa
+   *  para cadastrar: os outros nunca passaram pela bancada. */
+  comHistorico: number;
 }) {
   // A busca é um GET e precisa devolver o estado da tela, senão filtrar
   // fecharia o grupo que a pessoa acabou de abrir.
@@ -320,6 +469,15 @@ function ListaDeItens({
     <div className="rounded-xl border border-slate-200 p-3">
       <h3 className="text-sm font-bold text-slate-900">{titulo}</h3>
       <p className="mt-0.5 text-xs text-slate-500">{ajuda}</p>
+
+      {/* O número que decide o trabalho: dos itens cadastrados, só uma
+          parte passou pela bancada nos últimos 90 dias. Cadastrar meta
+          para os outros é adivinhar. */}
+      <p className="mt-2 rounded-lg bg-primary-soft/50 p-2 text-[11px] text-slate-600">
+        📊 <strong>{comHistorico}</strong> de {total} têm apontamento nos últimos{" "}
+        {DIAS_DE_HISTORICO} dias — esses vêm com o realizado preenchido. Os demais nunca passaram
+        pela bancada no período, e ficam em branco de propósito.
+      </p>
 
       <form method="get" className="mt-3 flex gap-2">
         {[...doEstado.entries()]
@@ -341,12 +499,11 @@ function ListaDeItens({
         </button>
       </form>
 
-      {busca && (
-        <p className="mt-2 text-xs text-slate-500">
-          Mostrando {itens.length} de {total}. Salvar grava só o que está na tela — o resto fica
-          como estava.
-        </p>
-      )}
+      <p className="mt-2 text-xs text-slate-500">
+        {busca && `Mostrando ${itens.length} de ${total}. `}
+        Salvar grava <strong>tudo o que está na tela</strong>, incluindo os campos já preenchidos
+        com o realizado. O que o filtro escondeu fica como estava.
+      </p>
 
       {itens.length === 0 ? (
         <p className="mt-3 text-sm text-slate-400">Nada encontrado com esse filtro.</p>
@@ -360,9 +517,26 @@ function ListaDeItens({
               <li key={i.id} className="flex items-center gap-3 py-2">
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm text-slate-800">{i.rotulo}</span>
-                  {i.detalhe && (
+                  {i.realizado ? (
+                    <span
+                      className={`block truncate text-[11px] ${
+                        confiavel(i.realizado) ? "text-slate-500" : "text-amber-600"
+                      }`}
+                    >
+                      {confiavel(i.realizado) ? "📊" : "⚠️"} realizado{" "}
+                      <strong className="tabular-nums">
+                        {i.realizado.valor.toLocaleString("pt-BR", {
+                          minimumFractionDigits: casas,
+                          maximumFractionDigits: casas,
+                        })}{" "}
+                        {sufixo}
+                      </strong>{" "}
+                      · {i.realizado.amostra} lanç.
+                      {!confiavel(i.realizado) && ` (menos de ${AMOSTRA_MINIMA})`}
+                    </span>
+                  ) : i.detalhe ? (
                     <span className="block truncate text-[11px] text-slate-400">{i.detalhe}</span>
-                  )}
+                  ) : null}
                 </span>
                 <span className="flex shrink-0 items-center gap-1.5">
                   <input
@@ -374,7 +548,9 @@ function ListaDeItens({
                     defaultValue={i.valor}
                     placeholder="—"
                     aria-label={`Meta de ${i.rotulo}`}
-                    className="w-24 rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-right text-sm text-slate-900 focus:border-primary focus:outline-none"
+                    className={`w-24 rounded-lg border bg-white px-2 py-1.5 text-right text-sm text-slate-900 focus:border-primary focus:outline-none ${
+                      i.sugerido ? "border-primary/50 bg-primary-soft/30" : "border-slate-300"
+                    }`}
                   />
                   <span className="w-9 text-[11px] font-semibold text-slate-400">{sufixo}</span>
                 </span>
