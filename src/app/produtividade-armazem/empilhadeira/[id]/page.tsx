@@ -15,6 +15,8 @@ import {
   trocaGasDeLinha,
 } from "@/lib/produtividade-armazem";
 import { abrirOperacao, fecharOperacao, registrarTrocaGas } from "../actions";
+import { AlertaGasP20 } from "@/components/produtividade-armazem/AlertaGasP20";
+import { lerConfigDeGas, pedidoDeGasAberto } from "@/lib/gas-p20-server";
 
 export const dynamic = "force-dynamic";
 
@@ -73,6 +75,11 @@ export default async function EmpilhadeiraDetalhePage({
 
   if (!maquina) notFound();
 
+  const [pedidoGas, configGas] = await Promise.all([
+    pedidoDeGasAberto(revendaId),
+    lerConfigDeGas(revendaId),
+  ]);
+
   const aberta = abertaBanco ? operacaoEmpilhadeiraDeLinha(abertaBanco) : null;
   const historico = (historicoBanco ?? []).map(operacaoEmpilhadeiraDeLinha);
   const trocasGas = (trocasGasBanco ?? []).map(trocaGasDeLinha);
@@ -112,6 +119,14 @@ export default async function EmpilhadeiraDetalhePage({
       )}
       {sp.sucesso && (
         <p className="mb-4 rounded-xl bg-green-50 p-3 text-sm font-medium text-green-700">{sp.sucesso}</p>
+      )}
+
+      {pedidoGas && (
+        <AlertaGasP20
+          pedido={pedidoGas}
+          config={configGas}
+          voltarPara={`/produtividade-armazem/empilhadeira/${maquina.id}?aba=gas`}
+        />
       )}
 
       {/* Mesmo padrão de segmented control do resto do módulo -- Troca de
@@ -236,6 +251,62 @@ export default async function EmpilhadeiraDetalhePage({
                 ultimoHorimetro={ultimoHorimetro}
               />
 
+              {/* A contagem do DEPÓSITO, não da máquina. É ela que acende
+                  o alerta de reposição -- por isso é pedida em toda troca,
+                  e não só quando alguém lembra. */}
+              <fieldset className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                <legend className="px-1 text-xs font-semibold uppercase text-slate-500">
+                  Botijões P20 no estoque
+                </legend>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="min-w-0">
+                    <label
+                      htmlFor="botijoes_cheios"
+                      className="mb-1 block text-xs font-semibold text-slate-600"
+                    >
+                      🟢 Cheios
+                    </label>
+                    <input
+                      id="botijoes_cheios"
+                      name="botijoes_cheios"
+                      type="number"
+                      inputMode="numeric"
+                      min={0}
+                      max={999}
+                      step={1}
+                      required
+                      placeholder="0"
+                      className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-base text-slate-900 focus:border-primary focus:outline-none"
+                    />
+                  </div>
+                  <div className="min-w-0">
+                    <label
+                      htmlFor="botijoes_vazios"
+                      className="mb-1 block text-xs font-semibold text-slate-600"
+                    >
+                      ⚪ Vazios
+                    </label>
+                    <input
+                      id="botijoes_vazios"
+                      name="botijoes_vazios"
+                      type="number"
+                      inputMode="numeric"
+                      min={0}
+                      max={999}
+                      step={1}
+                      required
+                      placeholder="0"
+                      className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-base text-slate-900 focus:border-primary focus:outline-none"
+                    />
+                  </div>
+                </div>
+                <p className="mt-2 text-xs text-slate-500">
+                  Conte os botijões do depósito depois de trocar. Com{" "}
+                  {configGas.estoqueMinimo} cheio(s) ou menos, o app abre um pedido de gás e avisa
+                  quem precisa saber.
+                </p>
+              </fieldset>
+
               <BotaoEnviar
                 textoEnviando="Registrando..."
                 className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-white hover:bg-primary-dark"
@@ -248,11 +319,22 @@ export default async function EmpilhadeiraDetalhePage({
           {trocasGas.length > 0 && (
             <div className="rounded-2xl border border-slate-200 bg-white p-4">
               <h2 className="mb-3 text-sm font-bold uppercase text-slate-500">Últimas trocas</h2>
+              {/* Data, nome e horímetro em UMA linha flex estouravam a
+                  tela: item de flex não encolhe abaixo do conteúdo, e nome
+                  completo de operador é comprido. Duas linhas, com o
+                  horímetro fixo à direita. */}
               <ul className="space-y-2">
                 {trocasGas.map((t) => (
-                  <li key={t.id} className="flex items-center justify-between gap-2 text-xs text-slate-600">
-                    <span>
-                      {formatarDataHora(t.realizadaEm)} — {t.operadorNome} — {t.horimetro} h
+                  <li
+                    key={t.id}
+                    className="flex items-start justify-between gap-2 text-xs text-slate-600"
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate font-medium text-slate-800">{t.operadorNome}</p>
+                      <p className="text-slate-500">{formatarDataHora(t.realizadaEm)}</p>
+                    </div>
+                    <span className="shrink-0 rounded-lg bg-slate-100 px-2 py-1 font-bold tabular-nums text-slate-700">
+                      {t.horimetro} h
                     </span>
                   </li>
                 ))}

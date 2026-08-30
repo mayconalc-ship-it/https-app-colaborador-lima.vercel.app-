@@ -278,6 +278,7 @@ export async function corrigirHorimetroTrocaGas(formData: FormData) {
   sucesso("empilhadeiras", "Horímetro da troca corrigido");
 }
 
+
 /**
  * Valor do botijão P20, usado pelo dashboard de consumo de gás para
  * virar custo por hora. Um valor por revenda -- decisão do dono
@@ -307,6 +308,189 @@ export async function salvarCustoP20(formData: FormData) {
   revalidatePath(ROTA);
   revalidatePath("/produtividade-armazem/empilhadeira/gas");
   sucesso("empilhadeiras", custo === null ? "Valor do P20 removido" : "Valor do P20 atualizado");
+}
+
+/**
+ * Tira do Storage as fotos de um registro que foi apagado.
+ *
+ * A URL pública é ".../object/public/conteudo/<caminho>"; o Storage quer
+ * só o <caminho>. Se não der para extrair, tudo bem: o registro já foi
+ * embora, e um arquivo órfão não vale desfazer a exclusão.
+ */
+async function apagarFotos(
+  admin: ReturnType<typeof createAdminClient>,
+  urls: (string | null | undefined)[],
+) {
+  const marca = "/object/public/conteudo/";
+  const caminhos = urls
+    .filter((u): u is string => typeof u === "string" && u.includes(marca))
+    .map((u) => decodeURIComponent(u.slice(u.indexOf(marca) + marca.length).split("?")[0]))
+    .filter(Boolean);
+  if (caminhos.length > 0) await admin.storage.from("conteudo").remove(caminhos);
+}
+
+/**
+ * Apaga uma operação de empilhadeira -- registro e as duas fotos.
+ *
+ * Mesmo degrau da exclusão de troca de gás: uma operação lançada por
+ * engano, ou com a foto errada, não tem conserto no lugar. A foto É a
+ * evidência do horímetro; trocá-la seria pior que apagar o registro.
+ *
+ * Apagar mexe no cálculo de horas do operador e no rateio de gás do
+ * ciclo. É o efeito desejado quando o registro é falso -- mas por isso
+ * fica atrás de "excluir", não de "editar".
+ */
+export async function excluirOperacaoEmpilhadeira(formData: FormData) {
+  await requireModulo("produtividade-armazem", "excluir");
+  const revendaId = await exigirRevenda(ROTA);
+  const admin = createAdminClient();
+
+  const id = String(formData.get("id") ?? "");
+  if (!id) erro("empilhadeiras", "Operação inválida.");
+
+  // Lê antes de apagar: depois do delete não há mais como saber quais
+  // arquivos eram.
+  const { data: op } = await admin
+    .from("pa_empilhadeira_operacoes")
+    .select("foto_inicial_url, foto_final_url")
+    .eq("id", id)
+    .eq("revenda_id", revendaId)
+    .maybeSingle();
+
+  const { error } = await admin
+    .from("pa_empilhadeira_operacoes")
+    .delete()
+    .eq("id", id)
+    .eq("revenda_id", revendaId);
+  if (error) erro("empilhadeiras", `Não foi possível excluir: ${error.message}`);
+
+  await apagarFotos(admin, [op?.foto_inicial_url as string, op?.foto_final_url as string]);
+
+  revalidatePath(ROTA);
+  revalidatePath("/produtividade-armazem/empilhadeira");
+  revalidatePath("/produtividade-armazem/empilhadeira/gas");
+  sucesso("empilhadeiras", "Operação excluída");
+}
+
+/**
+ * Apaga uma troca de gás inteira -- registro e foto.
+ *
+ * Corrigir o horímetro não resolve tudo: uma troca lançada por engano, ou
+ * com a foto errada, não tem como ser consertada no lugar (a foto é a
+ * evidência, e trocá-la seria pior que apagar). Fica atrás de "excluir",
+ * o mesmo degrau dos motivos de FEFO -- apagar dado do chão de fábrica
+ * não é a mesma permissão que editar.
+ *
+ * A foto sai do Storage junto: deixar o arquivo para trás guardaria no
+ * bucket público exatamente a imagem que a pessoa quis remover.
+ */
+export async function excluirTrocaGas(formData: FormData) {
+  await requireModulo("produtividade-armazem", "excluir");
+  const revendaId = await exigirRevenda(ROTA);
+  const admin = createAdminClient();
+
+  const id = String(formData.get("id") ?? "");
+  if (!id) erro("empilhadeiras", "Troca inválida.");
+
+  // Lê antes de apagar: depois do delete não há mais como saber qual
+  // arquivo era.
+  const { data: troca } = await admin
+    .from("pa_empilhadeira_trocas_gas")
+    .select("foto_url")
+    .eq("id", id)
+    .eq("revenda_id", revendaId)
+    .maybeSingle();
+
+  const { error } = await admin
+    .from("pa_empilhadeira_trocas_gas")
+    .delete()
+    .eq("id", id)
+    .eq("revenda_id", revendaId);
+  if (error) erro("empilhadeiras", `Não foi possível excluir: ${error.message}`);
+
+  await apagarFotos(admin, [troca?.foto_url as string]);
+
+  revalidatePath(ROTA);
+  revalidatePath("/produtividade-armazem/empilhadeira/gas");
+  sucesso("empilhadeiras", "Troca de gás excluída");
+}
+
+// -------------------- ALERTA DE GÁS P20 --------------------
+/**
+ * Fornecedor e limite do alerta.
+ *
+ * O telefone é gravado como foi digitado, sem máscara: 0800, ramal e
+ * WhatsApp de vendedor não cabem num formato só, e normalizar aqui
+ * significaria recusar número válido. A tela formata na exibição.
+ */
+export async function salvarAlertaGas(formData: FormData) {
+  await requireModulo("produtividade-armazem", "editar");
+  const revendaId = await exigirRevenda(ROTA);
+  const admin = createAdminClient();
+
+  const nome = String(formData.get("fornecedor_nome") ?? "").trim();
+  const telefone = String(formData.get("fornecedor_telefone") ?? "").trim();
+
+  const brutoMinimo = String(formData.get("estoque_minimo_p20") ?? "").trim();
+  const minimo = Number(brutoMinimo);
+  if (!Number.isInteger(minimo) || minimo < 0) {
+    erro("empilhadeiras", "O estoque mínimo deve ser um número inteiro igual ou maior que zero.");
+  }
+
+  const { error } = await admin.from("pa_empilhadeira_config").upsert(
+    {
+      revenda_id: revendaId,
+      estoque_minimo_p20: minimo,
+      fornecedor_nome: nome || null,
+      fornecedor_telefone: telefone || null,
+      atualizado_em: new Date().toISOString(),
+    },
+    { onConflict: "revenda_id" },
+  );
+  if (error) erro("empilhadeiras", `Não foi possível salvar: ${error.message}`);
+
+  revalidatePath(ROTA);
+  revalidatePath("/produtividade-armazem/empilhadeira");
+  sucesso("empilhadeiras", "Alerta de gás atualizado");
+}
+
+/** Acrescenta alguém da liderança à lista que recebe o aviso de gás. */
+export async function adicionarNotificadoGas(formData: FormData) {
+  await requireModulo("produtividade-armazem", "editar");
+  const revendaId = await exigirRevenda(ROTA);
+  const admin = createAdminClient();
+
+  const colaboradorId = String(formData.get("colaborador_id") ?? "");
+  if (!colaboradorId) erro("empilhadeiras", "Pessoa inválida.");
+
+  // Clicar duas vezes no mesmo nome não pode virar erro na cara do Admin.
+  const { error } = await admin
+    .from("pa_gas_notificados")
+    .upsert(
+      { revenda_id: revendaId, colaborador_id: colaboradorId },
+      { onConflict: "revenda_id,colaborador_id" },
+    );
+  if (error) erro("empilhadeiras", `Não foi possível incluir: ${error.message}`);
+
+  revalidatePath(ROTA);
+  sucesso("empilhadeiras", "Pessoa incluída no aviso de gás");
+}
+
+export async function removerNotificadoGas(formData: FormData) {
+  await requireModulo("produtividade-armazem", "editar");
+  const revendaId = await exigirRevenda(ROTA);
+  const admin = createAdminClient();
+
+  const colaboradorId = String(formData.get("colaborador_id") ?? "");
+  const { error } = await admin
+    .from("pa_gas_notificados")
+    .delete()
+    .eq("revenda_id", revendaId)
+    .eq("colaborador_id", colaboradorId);
+  if (error) erro("empilhadeiras", `Não foi possível remover: ${error.message}`);
+
+  revalidatePath(ROTA);
+  sucesso("empilhadeiras", "Pessoa removida do aviso de gás");
 }
 
 // -------------------- MOTIVOS DE QUEBRA DE FEFO --------------------

@@ -58,6 +58,11 @@ import {
   salvarEmpilhador,
   salvarFabrica,
   salvarCustoP20,
+  salvarAlertaGas,
+  excluirTrocaGas,
+  excluirOperacaoEmpilhadeira,
+  adicionarNotificadoGas,
+  removerNotificadoGas,
   salvarItemChecklist5s,
   salvarLembreteEmpilhadeira,
   salvarMotivoFefo,
@@ -78,6 +83,9 @@ export const dynamic = "force-dynamic";
 // "use server" só pode exportar funções async, nada mais.
 export const maxDuration = 60;
 
+import { ESTOQUE_MINIMO_PADRAO } from "@/lib/gas-p20";
+import { FotoEvidencia } from "@/components/FotoEvidencia";
+
 type CarretaParaCorrigir = {
   id: string;
   numero_dt: string;
@@ -87,6 +95,13 @@ type CarretaParaCorrigir = {
   carga_agendada: boolean;
   agendamento_em: string | null;
   status: string;
+};
+
+/** O PostgREST devolve o relacionamento como objeto ou array conforme a
+ *  cardinalidade que ele infere -- por isso os dois. */
+type NotificadoGas = {
+  colaborador_id: string;
+  profiles: { nome: string; cargo: string | null } | { nome: string; cargo: string | null }[] | null;
 };
 
 /** "2026-08-29T17:00:00Z" -> "2026-08-29T14:00", que é o formato que o
@@ -122,6 +137,7 @@ export default async function AdminProdutividadeArmazemPage({
     buscaReepack?: string;
     buscaOperador?: string;
     buscaHorimetro?: string;
+    buscaLideranca?: string;
   }>;
 }) {
   await requireModulo("produtividade-armazem", "editar");
@@ -132,6 +148,7 @@ export default async function AdminProdutividadeArmazemPage({
   const buscaReepack = (sp.buscaReepack ?? "").trim().toLowerCase();
   const buscaOperador = (sp.buscaOperador ?? "").trim();
   const buscaHorimetro = (sp.buscaHorimetro ?? "").trim();
+  const buscaLideranca = (sp.buscaLideranca ?? "").trim();
 
   const supabase = await createClient();
   const admin = createAdminClient();
@@ -158,6 +175,8 @@ export default async function AdminProdutividadeArmazemPage({
     { data: empilhadeiraConfig },
     { data: trocasGas },
     { data: carretasRecentes },
+    { data: notificadosGas },
+    { data: liderancaEncontrada },
   ] = await Promise.all([
     supabase
       .from("pa_embalagens")
@@ -235,7 +254,7 @@ export default async function AdminProdutividadeArmazemPage({
       ? supabase
           .from("pa_empilhadeira_operacoes")
           .select(
-            "id, operador_nome, horimetro_inicial, horimetro_final, inicio, fim, status, pa_empilhadeiras(numero)",
+            "id, operador_nome, horimetro_inicial, horimetro_final, inicio, fim, status, foto_inicial_url, foto_final_url, pa_empilhadeiras(numero)",
           )
           .eq("revenda_id", revendaId)
           .ilike("operador_nome", `%${buscaHorimetro}%`)
@@ -250,6 +269,8 @@ export default async function AdminProdutividadeArmazemPage({
             inicio: string;
             fim: string | null;
             status: string;
+            foto_inicial_url: string | null;
+            foto_final_url: string | null;
             pa_empilhadeiras: { numero: string } | { numero: string }[] | null;
           }[],
         }),
@@ -262,12 +283,18 @@ export default async function AdminProdutividadeArmazemPage({
     // Apagar motivo é a única ação atrás de "excluir" -- pedido do dono:
     // desativar qualquer um com "editar" pode; apagar, não.
     podeNoModulo("produtividade-armazem", "excluir"),
-    supabase.from("pa_empilhadeira_config").select("custo_p20").eq("revenda_id", revendaId).maybeSingle(),
+    supabase
+      .from("pa_empilhadeira_config")
+      .select("custo_p20, estoque_minimo_p20, fornecedor_nome, fornecedor_telefone")
+      .eq("revenda_id", revendaId)
+      .maybeSingle(),
     // Trocas de gás recentes, para corrigir horímetro digitado errado.
     aba === "empilhadeiras"
       ? supabase
           .from("pa_empilhadeira_trocas_gas")
-          .select("id, horimetro, realizada_em, operador_nome, pa_empilhadeiras(numero)")
+          .select(
+            "id, horimetro, realizada_em, operador_nome, foto_url, botijoes_cheios, botijoes_vazios, pa_empilhadeiras(numero)",
+          )
           .eq("revenda_id", revendaId)
           .order("realizada_em", { ascending: false })
           .limit(20)
@@ -281,6 +308,24 @@ export default async function AdminProdutividadeArmazemPage({
           .order("chegada_em", { ascending: false })
           .limit(30)
       : Promise.resolve({ data: [] as CarretaParaCorrigir[] }),
+    // Quem recebe o aviso de gás acabando. O nome vem junto para a lista
+    // não virar uma coluna de uuid.
+    aba === "empilhadeiras"
+      ? admin
+          .from("pa_gas_notificados")
+          .select("colaborador_id, profiles(nome, cargo)")
+          .eq("revenda_id", revendaId)
+      : Promise.resolve({ data: [] as NotificadoGas[] }),
+    aba === "empilhadeiras" && buscaLideranca.length >= 2
+      ? (() => {
+          let q = admin.from("profiles").select("id, nome, cargo").limit(10);
+          const digitos = buscaLideranca.replace(/\D/g, "");
+          q = digitos
+            ? q.or(`nome.ilike.%${buscaLideranca}%,cpf.ilike.%${digitos}%`)
+            : q.ilike("nome", `%${buscaLideranca}%`);
+          return q;
+        })()
+      : Promise.resolve({ data: [] as { id: string; nome: string; cargo: string | null }[] }),
   ]);
 
   const totalMotivosFefo = motivosFefo?.length ?? 0;
@@ -581,6 +626,154 @@ export default async function AdminProdutividadeArmazemPage({
             </form>
           </div>
 
+          {/* ---- Alerta de gás acabando ---- */}
+          <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+            <div className="border-b border-slate-100 p-4">
+              <h2 className="text-sm font-bold text-slate-900">🔥 Alerta de gás P20 acabando</h2>
+              <p className="mt-1 text-xs text-slate-500">
+                Em toda troca o empilhador conta os botijões do depósito. Caindo ao mínimo, o app
+                abre um pedido e manda o aviso com o telefone do fornecedor — e o alerta fica na
+                tela até alguém confirmar que solicitou.
+              </p>
+            </div>
+
+            <form action={salvarAlertaGas} className="space-y-3 p-4">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="min-w-0">
+                  <label className={rotulo} htmlFor="fornecedor_nome">Fornecedor</label>
+                  <input
+                    id="fornecedor_nome"
+                    name="fornecedor_nome"
+                    maxLength={120}
+                    placeholder="Ex: Ultragaz Barreiras"
+                    defaultValue={empilhadeiraConfig?.fornecedor_nome ?? ""}
+                    className={campo}
+                  />
+                </div>
+                <div className="min-w-0">
+                  <label className={rotulo} htmlFor="fornecedor_telefone">Telefone</label>
+                  <input
+                    id="fornecedor_telefone"
+                    name="fornecedor_telefone"
+                    type="tel"
+                    maxLength={40}
+                    placeholder="Ex: (77) 99999-8888"
+                    defaultValue={empilhadeiraConfig?.fornecedor_telefone ?? ""}
+                    className={campo}
+                  />
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-end gap-2">
+                <div className="min-w-0 flex-1">
+                  <label className={rotulo} htmlFor="estoque_minimo_p20">
+                    Acender alerta com até quantos cheios
+                  </label>
+                  <input
+                    id="estoque_minimo_p20"
+                    name="estoque_minimo_p20"
+                    type="number"
+                    inputMode="numeric"
+                    min={0}
+                    max={99}
+                    step={1}
+                    required
+                    defaultValue={empilhadeiraConfig?.estoque_minimo_p20 ?? ESTOQUE_MINIMO_PADRAO}
+                    className={campo}
+                  />
+                </div>
+                <BotaoEnviar className="shrink-0 rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-white">
+                  Salvar
+                </BotaoEnviar>
+              </div>
+              <p className="text-xs text-slate-400">
+                Sem telefone cadastrado o aviso ainda é enviado — só sem o número para ligar.
+              </p>
+            </form>
+
+            {/* ---- Quem recebe o aviso ---- */}
+            <div className="border-t border-slate-100 p-4">
+              <h3 className="text-sm font-bold text-slate-900">🔔 Quem é avisado</h3>
+              <p className="mt-1 text-xs text-slate-500">
+                O empilhador que registrou a troca recebe sempre. Aqui você escolhe quem mais da
+                liderança recebe o mesmo aviso.
+              </p>
+
+              <form method="get" className="mt-3 flex gap-2">
+                <input type="hidden" name="aba" value="empilhadeiras" />
+                <input
+                  name="buscaLideranca"
+                  defaultValue={buscaLideranca}
+                  placeholder="Buscar pessoa por nome ou CPF"
+                  className={`${campo} flex-1`}
+                />
+                <button
+                  type="submit"
+                  className="shrink-0 rounded-lg bg-slate-800 px-3 py-2 text-sm font-semibold text-white"
+                >
+                  Buscar
+                </button>
+              </form>
+
+              {buscaLideranca.length >= 2 && (
+                <div className="mt-3 space-y-2 rounded-xl bg-slate-50 p-2">
+                  {(liderancaEncontrada ?? []).length === 0 ? (
+                    <p className="p-2 text-xs text-slate-400">Ninguém encontrado.</p>
+                  ) : (
+                    (liderancaEncontrada ?? []).map((p) => (
+                      <form
+                        key={p.id}
+                        action={adicionarNotificadoGas}
+                        className="flex items-center gap-2 rounded-lg bg-white p-2 shadow-sm"
+                      >
+                        <input type="hidden" name="colaborador_id" value={p.id} />
+                        <span className="min-w-0 flex-1 truncate text-sm text-slate-700">
+                          {p.nome}
+                          {p.cargo && <span className="text-xs text-slate-400"> · {p.cargo}</span>}
+                        </span>
+                        <BotaoEnviar
+                          compacto
+                          className="shrink-0 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-white"
+                        >
+                          Incluir
+                        </BotaoEnviar>
+                      </form>
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div className="divide-y divide-slate-100">
+              {((notificadosGas ?? []) as NotificadoGas[]).length === 0 ? (
+                <p className="p-6 text-center text-sm text-slate-400">
+                  Ninguém da liderança está sendo avisado ainda.
+                </p>
+              ) : (
+                ((notificadosGas ?? []) as NotificadoGas[]).map((n) => {
+                  const p = Array.isArray(n.profiles) ? n.profiles[0] : n.profiles;
+                  return (
+                    <ItemCadastro
+                      key={n.colaborador_id}
+                      titulo={p?.nome ?? "(sem nome)"}
+                      subtitulo={p?.cargo ?? undefined}
+                      acoes={
+                        <BotaoExcluir
+                          action={removerNotificadoGas}
+                          campos={{ colaborador_id: n.colaborador_id }}
+                          confirmacao={`Parar de avisar ${p?.nome ?? "esta pessoa"} sobre gás acabando?`}
+                          className="flex h-7 w-7 items-center justify-center rounded-lg text-sm hover:bg-red-50"
+                        >
+                          🗑️
+                        </BotaoExcluir>
+                      }
+                    />
+                  );
+                })
+              )}
+            </div>
+          </div>
+
           <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
             <div className="border-b border-slate-100 p-4">
               <h2 className="text-sm font-bold text-slate-900">🔔 Lembrete de fechamento</h2>
@@ -660,10 +853,11 @@ export default async function AdminProdutividadeArmazemPage({
 
           <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
             <div className="border-b border-slate-100 p-4">
-              <h2 className="text-sm font-bold text-slate-900">⛽ Corrigir horímetro de troca de gás</h2>
+              <h2 className="text-sm font-bold text-slate-900">⛽ Corrigir ou excluir troca de gás</h2>
               <p className="mt-1 text-xs text-slate-500">
                 Um horímetro digitado sem o ponto (5485,0 virando 54850) distorce o ciclo inteiro no
-                dashboard de consumo. Últimas 20 trocas.
+                dashboard de consumo. Se a troca foi lançada por engano — ou com a foto errada —
+                use o 🗑️: a foto sai junto. Últimas 20 trocas.
               </p>
             </div>
             <div className="divide-y divide-slate-100">
@@ -672,14 +866,38 @@ export default async function AdminProdutividadeArmazemPage({
               ) : (
                 (trocasGas ?? []).map((t) => {
                   const maq = Array.isArray(t.pa_empilhadeiras) ? t.pa_empilhadeiras[0] : t.pa_empilhadeiras;
+                  const descricao = `${maq?.numero ?? "—"} — ${t.operador_nome as string} — ${formatarDataHora(
+                    t.realizada_em as string,
+                  )}`;
                   return (
-                    <form key={t.id as string} action={corrigirHorimetroTrocaGas} className="space-y-2 p-3">
-                      <input type="hidden" name="id" value={t.id as string} />
-                      <p className="text-xs text-slate-500">
-                        🏗️ {maq?.numero ?? "—"} — {t.operador_nome as string} —{" "}
-                        {formatarDataHora(t.realizada_em as string)}
-                      </p>
-                      <div className="flex flex-wrap items-end gap-2">
+                    <div key={t.id as string} className="space-y-2 p-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="min-w-0 flex-1 text-xs text-slate-500">🏗️ {descricao}</p>
+                        {podeExcluir && (
+                          <BotaoExcluir
+                            action={excluirTrocaGas}
+                            campos={{ id: t.id as string }}
+                            confirmacao={`Excluir a troca de gás de ${descricao}? A foto também será apagada. Não dá para desfazer.`}
+                            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-sm hover:bg-red-50"
+                          >
+                            🗑️
+                          </BotaoExcluir>
+                        )}
+                      </div>
+
+                      {/* A foto vem junto: é por ela que se reconhece a
+                          troca lançada errada -- o horímetro e a data
+                          sozinhos não dizem qual imagem está no registro. */}
+                      {typeof t.foto_url === "string" && t.foto_url && (
+                        <FotoEvidencia
+                          src={t.foto_url}
+                          alt={`Horímetro da troca — ${descricao}`}
+                          classeCaixa="h-24 w-24"
+                        />
+                      )}
+
+                      <form action={corrigirHorimetroTrocaGas} className="flex flex-wrap items-end gap-2">
+                        <input type="hidden" name="id" value={t.id as string} />
                         <div>
                           <label className="mb-1 block text-xs font-semibold uppercase text-slate-500">
                             Horímetro da troca
@@ -698,8 +916,8 @@ export default async function AdminProdutividadeArmazemPage({
                         <BotaoEnviar compacto className="shrink-0 rounded-lg bg-slate-800 px-3 py-1.5 text-xs font-semibold text-white">
                           Salvar
                         </BotaoEnviar>
-                      </div>
-                    </form>
+                      </form>
+                    </div>
                   );
                 })
               )}
@@ -708,10 +926,11 @@ export default async function AdminProdutividadeArmazemPage({
 
           <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
             <div className="border-b border-slate-100 p-4">
-              <h2 className="text-sm font-bold text-slate-900">🛠️ Corrigir horímetro de operação</h2>
+              <h2 className="text-sm font-bold text-slate-900">🛠️ Corrigir ou excluir operação</h2>
               <p className="mt-1 text-xs text-slate-500">
                 Para quando o operador digitou o horímetro errado (ex: sem o ponto decimal).
-                Só corrige o número -- não reabre nem fecha a operação.
+                Só corrige o número -- não reabre nem fecha a operação. Se a operação foi lançada
+                por engano, ou com a foto errada, use o 🗑️: as fotos saem junto.
               </p>
 
               <form method="get" className="mt-3 flex gap-2">
@@ -739,19 +958,52 @@ export default async function AdminProdutividadeArmazemPage({
                 (operacoesEncontradas ?? []).map((o) => {
                   const maquina = Array.isArray(o.pa_empilhadeiras) ? o.pa_empilhadeiras[0] : o.pa_empilhadeiras;
                   const encerrada = o.status === "encerrada";
+                  const descricao = `${maquina?.numero ?? "—"} — ${o.operador_nome} — ${formatarDataHora(o.inicio)}`;
                   return (
-                    <form
-                      key={o.id}
-                      action={corrigirHorimetroOperacao}
-                      className="space-y-2 p-3"
-                    >
-                      <input type="hidden" name="id" value={o.id} />
-                      <p className="text-xs text-slate-500">
-                        🏗️ {maquina?.numero ?? "—"} — {o.operador_nome} — {formatarDataHora(o.inicio)}
-                        {o.fim && ` até ${formatarDataHora(o.fim)}`}
-                        {!encerrada && " · em aberto"}
-                      </p>
-                      <div className="flex flex-wrap items-end gap-2">
+                    <div key={o.id} className="space-y-2 p-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="min-w-0 flex-1 text-xs text-slate-500">
+                          🏗️ {descricao}
+                          {o.fim && ` até ${formatarDataHora(o.fim)}`}
+                          {!encerrada && " · em aberto"}
+                        </p>
+                        {podeExcluir && (
+                          <BotaoExcluir
+                            action={excluirOperacaoEmpilhadeira}
+                            campos={{ id: o.id }}
+                            confirmacao={`Excluir a operação de ${descricao}? As fotos também serão apagadas. Não dá para desfazer.`}
+                            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-sm hover:bg-red-50"
+                          >
+                            🗑️
+                          </BotaoExcluir>
+                        )}
+                      </div>
+
+                      {/* A foto é o que identifica a operação lançada
+                          errada -- horímetro e data sozinhos não dizem
+                          qual imagem foi anexada. */}
+                      <div className="flex flex-wrap gap-2">
+                        {o.foto_inicial_url && (
+                          <FotoEvidencia
+                            src={o.foto_inicial_url}
+                            alt={`Horímetro inicial — ${descricao}`}
+                            classeCaixa="h-24 w-24"
+                          />
+                        )}
+                        {o.foto_final_url && (
+                          <FotoEvidencia
+                            src={o.foto_final_url}
+                            alt={`Horímetro final — ${descricao}`}
+                            classeCaixa="h-24 w-24"
+                          />
+                        )}
+                      </div>
+
+                      <form
+                        action={corrigirHorimetroOperacao}
+                        className="flex flex-wrap items-end gap-2"
+                      >
+                        <input type="hidden" name="id" value={o.id} />
                         <div>
                           <label className="mb-1 block text-xs font-semibold uppercase text-slate-500">Horímetro inicial</label>
                           <input
@@ -782,8 +1034,8 @@ export default async function AdminProdutividadeArmazemPage({
                         <BotaoEnviar compacto className="shrink-0 rounded-lg bg-slate-800 px-3 py-1.5 text-xs font-semibold text-white">
                           Salvar
                         </BotaoEnviar>
-                      </div>
-                    </form>
+                      </form>
+                    </div>
                   );
                 })
               )}

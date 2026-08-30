@@ -5,6 +5,8 @@ import { createClient } from "@/lib/supabase/server";
 import { getRevendaId } from "@/lib/revendas";
 import { requireAcessoModulo } from "@/lib/require-admin";
 import { formatarDataHora } from "@/lib/produtividade-armazem";
+import { AlertaGasP20 } from "@/components/produtividade-armazem/AlertaGasP20";
+import { lerConfigDeGas, pedidoDeGasAberto } from "@/lib/gas-p20-server";
 
 export const dynamic = "force-dynamic";
 
@@ -14,11 +16,21 @@ type OperacaoAberta = {
   inicio: string;
 };
 
-export default async function EmpilhadeiraIndexPage() {
+export default async function EmpilhadeiraIndexPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ erro?: string; sucesso?: string }>;
+}) {
   await requireAcessoModulo("pa-empilhadeira");
 
+  const sp = await searchParams;
   const revendaId = await getRevendaId();
   if (!revendaId) redirect(`/?erro=${encodeURIComponent("Você não está em nenhuma revenda.")}`);
+
+  const [pedidoGas, configGas] = await Promise.all([
+    pedidoDeGasAberto(revendaId),
+    lerConfigDeGas(revendaId),
+  ]);
 
   const supabase = await createClient();
   const [{ data: maquinas }, { data: abertas }] = await Promise.all([
@@ -47,6 +59,23 @@ export default async function EmpilhadeiraIndexPage() {
         subtitle="Escolha a máquina para abrir ou fechar a operação."
         fecharHref="/produtividade-armazem"
       />
+
+      {sp.erro && (
+        <p className="mb-4 rounded-xl bg-red-50 p-3 text-sm font-medium text-red-700">{sp.erro}</p>
+      )}
+      {sp.sucesso && (
+        <p className="mb-4 rounded-xl bg-green-50 p-3 text-sm font-medium text-green-700">
+          {sp.sucesso}
+        </p>
+      )}
+
+      {pedidoGas && (
+        <AlertaGasP20
+          pedido={pedidoGas}
+          config={configGas}
+          voltarPara="/produtividade-armazem/empilhadeira"
+        />
+      )}
 
       <Link
         href="/produtividade-armazem/empilhadeira/gas"

@@ -5,6 +5,7 @@ import { getRevendaAtiva, getModulosDaRevenda } from "@/lib/revendas";
 import { MENU_PADRAO, MODULO_DO_ITEM } from "@/lib/menu";
 import { getModulosAcessiveis } from "@/lib/require-admin";
 import { MODULOS_OPCIONAIS } from "@/lib/acessos";
+import { RodapeOuvidoria } from "@/components/RodapeOuvidoria";
 
 export default async function Home() {
   const supabase = await createClient();
@@ -65,6 +66,8 @@ export default async function Home() {
           />
         ))}
       </div>
+
+      <RodapeOuvidoria />
     </div>
   );
 }

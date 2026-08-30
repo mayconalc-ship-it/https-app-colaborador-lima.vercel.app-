@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { exigirContextoModulo, subirFotoHorimetro } from "@/lib/produtividade-armazem-server";
 import { avaliarHorimetro } from "@/lib/empilhadeira-gas";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { avaliarEstoqueDeGas } from "@/lib/gas-p20-server";
 
 const ROTA = "/produtividade-armazem/empilhadeira";
 
@@ -205,6 +206,21 @@ export async function registrarTrocaGas(formData: FormData) {
     erro(empilhadeiraId, "A foto do horímetro é obrigatória para registrar a troca.");
   }
 
+  // A contagem do depósito é obrigatória: é ela que acende o alerta de
+  // reposição, e uma troca sem contagem deixa o estoque cego até a
+  // próxima. Zero é resposta válida -- por isso o teste é de campo vazio,
+  // não de valor falsy.
+  const cheiosBruto = String(formData.get("botijoes_cheios") ?? "").trim();
+  const vaziosBruto = String(formData.get("botijoes_vazios") ?? "").trim();
+  if (!cheiosBruto || !vaziosBruto) {
+    erro(empilhadeiraId, "Informe quantos botijões P20 cheios e vazios há no estoque.");
+  }
+  const cheios = Number(cheiosBruto);
+  const vazios = Number(vaziosBruto);
+  if (!Number.isInteger(cheios) || cheios < 0 || !Number.isInteger(vazios) || vazios < 0) {
+    erro(empilhadeiraId, "A contagem de botijões deve ser um número inteiro igual ou maior que zero.");
+  }
+
   await exigirHorimetroPlausivel(empilhadeiraId, revendaId, horimetro);
 
   const enviada = await subirFotoHorimetro(foto, `${empilhadeiraId}/troca-gas-${perfil.id}`);
@@ -221,18 +237,36 @@ export async function registrarTrocaGas(formData: FormData) {
     .limit(1)
     .maybeSingle();
 
-  const { error } = await supabase.from("pa_empilhadeira_trocas_gas").insert({
-    revenda_id: revendaId,
-    empilhadeira_id: empilhadeiraId,
-    operador_id: perfil.id,
-    operador_nome: perfil.nome,
-    horimetro,
-    foto_url: enviada.url,
-  });
+  const { data: gravada, error } = await supabase
+    .from("pa_empilhadeira_trocas_gas")
+    .insert({
+      revenda_id: revendaId,
+      empilhadeira_id: empilhadeiraId,
+      operador_id: perfil.id,
+      operador_nome: perfil.nome,
+      horimetro,
+      foto_url: enviada.url,
+      botijoes_cheios: cheios,
+      botijoes_vazios: vazios,
+    })
+    .select("id")
+    .maybeSingle();
 
   if (error) erro(empilhadeiraId, `Não foi possível salvar a troca: ${error.message}`);
 
+  // Depois de gravar, nunca antes: um alerta disparado por uma troca que
+  // não salvou mandaria todo mundo pedir gás por causa de um erro de rede.
+  await avaliarEstoqueDeGas({
+    revendaId,
+    trocaId: (gravada?.id as string) ?? null,
+    cheios,
+    vazios,
+    operadorId: perfil.id,
+    operadorNome: perfil.nome,
+  });
+
   revalidatePath(`${ROTA}/${empilhadeiraId}`);
+  revalidatePath(ROTA);
 
   const aviso =
     ultima && horimetro < ultima.horimetro
@@ -241,4 +275,43 @@ export async function registrarTrocaGas(formData: FormData) {
         )}`
       : "&sucesso=Troca+de+gás+registrada";
   redirect(`${ROTA}/${empilhadeiraId}?${aviso.slice(1)}`);
+}
+
+/**
+ * "Já pedi o gás" -- é o que apaga o alerta.
+ *
+ * Qualquer pessoa da revenda pode confirmar, e fica gravado quem foi: o
+ * empilhador é quem liga, mas se o supervisor resolveu antes, exigir que
+ * o empilhador clique deixaria o alerta aceso sem motivo. Reabrir não
+ * existe -- a próxima troca com estoque baixo abre um pedido novo.
+ */
+export async function confirmarPedidoDeGas(formData: FormData) {
+  const { perfil, revendaId } = await exigirContexto();
+
+  const pedidoId = String(formData.get("pedido_id") ?? "");
+  const voltarPara = String(formData.get("voltar_para") ?? ROTA);
+  if (!pedidoId) redirect(`${voltarPara}?erro=${encodeURIComponent("Pedido inválido.")}`);
+
+  const observacao = String(formData.get("observacao") ?? "").trim();
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("pa_gas_pedidos")
+    .update({
+      confirmado_em: new Date().toISOString(),
+      confirmado_por: perfil.id,
+      confirmado_por_nome: perfil.nome,
+      observacao: observacao || null,
+    })
+    .eq("id", pedidoId)
+    .eq("revenda_id", revendaId)
+    .is("confirmado_em", null);
+
+  if (error) {
+    redirect(`${voltarPara}?erro=${encodeURIComponent(`Não foi possível confirmar: ${error.message}`)}`);
+  }
+
+  revalidatePath(ROTA);
+  revalidatePath(voltarPara);
+  redirect(`${voltarPara}?sucesso=${encodeURIComponent("Pedido de gás confirmado. Obrigado!")}`);
 }
