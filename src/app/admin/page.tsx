@@ -31,6 +31,10 @@ export default async function AdminPage({
   // ele configurar a RV de uma revenda que ainda não tem RV.
   const liberados = MODULOS.filter(
     (m) =>
+      // Módulo sem tela de Admin (ex.: Meus Indicadores) não vira cartão:
+      // o href aponta para a tela do colaborador, e clicar aqui tirava o
+      // gestor do Modo Liderança. A concessão segue na Gestão de Acessos.
+      !m.semTelaAdmin &&
       modulosDaRevenda.has(m.id) &&
       podeFazer(perfil.role, concessoes, m.id, "ver"),
   );

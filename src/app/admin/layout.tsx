@@ -44,6 +44,11 @@ export default async function AdminLayout({
       // se abrem de dentro da tela de configuração do módulo pai, não como
       // um item a mais nesta barra.
       !m.subGrupoDe &&
+      // Módulo sem tela de Admin (ex.: Meus Indicadores) fica de fora: o
+      // href dele aponta para a tela do colaborador, e o item na barra
+      // jogava o gestor para fora do Modo Liderança. A concessão continua
+      // na Gestão de Acessos.
+      !m.semTelaAdmin &&
       modulosDaRevenda.has(m.id) &&
       podeFazer(perfil.role, concessoes, m.id, "ver"),
   );

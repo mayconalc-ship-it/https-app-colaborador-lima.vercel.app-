@@ -63,6 +63,15 @@ export type Modulo = {
    * colunas organizadas juntas em vez de espalhadas soltas na tabela.
    */
   subGrupoDe?: ModuloId;
+  /**
+   * Este módulo NÃO tem tela de Admin própria -- fica fora da barra
+   * lateral do Modo Liderança, mas continua na Gestão de Acessos para ser
+   * liberado pessoa a pessoa.
+   *
+   * Sem isto o item entrava na barra apontando para a tela do colaborador,
+   * e clicar nele jogava o gestor para fora do Admin.
+   */
+  semTelaAdmin?: boolean;
 };
 
 export const MODULOS: Modulo[] = [
@@ -119,6 +128,7 @@ export const MODULOS: Modulo[] = [
     href: "/meus-indicadores",
     grupo: "Conteúdo do app",
     acoes: ["ver"],
+    semTelaAdmin: true,
   },
   {
     id: "devolucao",
