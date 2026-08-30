@@ -920,6 +920,69 @@ export async function salvarConfigRecebimento(formData: FormData) {
 }
 
 // -------------------- EMBALAGENS (DESPEJO) --------------------
+/**
+ * Embalagem do REPACK (pa_embalagens).
+ *
+ * O catálogo nasce da planilha de produtos, como o do Despejo -- por isso
+ * aqui não há "criar": há o ajuste do que a importação não sabe. Hoje é a
+ * meta de caixas por hora, que é a régua do acompanhamento por embalagem.
+ *
+ * Vazio LIMPA a meta: o cartão volta a ficar sem régua, que é diferente
+ * de cadastrar zero.
+ */
+export async function editarEmbalagemRepack(formData: FormData) {
+  await requireModulo("produtividade-armazem", "editar");
+  const revendaId = await exigirRevenda(ROTA);
+  const admin = createAdminClient();
+
+  const id = String(formData.get("id") ?? "");
+  if (!id) erro("reepack-despejo", "Embalagem inválida.");
+
+  const bruto = String(formData.get("meta_reepacks_hora") ?? "").trim().replace(",", ".");
+  const meta = bruto === "" ? null : Number(bruto);
+  if (meta !== null && (!Number.isFinite(meta) || meta < 0)) {
+    erro("reepack-despejo", "Informe uma meta válida (número igual ou maior que zero).");
+  }
+
+  const { error } = await admin
+    .from("pa_embalagens")
+    .update({ meta_reepacks_hora: meta })
+    .eq("id", id)
+    .eq("revenda_id", revendaId);
+  if (error) erro("reepack-despejo", `Não foi possível salvar: ${error.message}`);
+
+  revalidatePath(ROTA);
+  revalidatePath("/produtividade-armazem/indicadores");
+  sucesso("reepack-despejo", meta === null ? "Meta removida" : "Meta da embalagem atualizada");
+}
+
+/**
+ * Liga/desliga uma embalagem do Repack.
+ *
+ * É o que consolida a lista na prática: a duplicata que a importação
+ * deixou para trás some do cadastro sem apagar nenhum histórico, e volta
+ * com um clique se tiver sido a errada.
+ */
+export async function alternarEmbalagemRepackAtivo(formData: FormData) {
+  await requireModulo("produtividade-armazem", "editar");
+  const revendaId = await exigirRevenda(ROTA);
+  const admin = createAdminClient();
+
+  const id = String(formData.get("id") ?? "");
+  const ativo = String(formData.get("ativo") ?? "") === "true";
+  if (!id) erro("reepack-despejo", "Embalagem inválida.");
+
+  const { error } = await admin
+    .from("pa_embalagens")
+    .update({ ativo: !ativo })
+    .eq("id", id)
+    .eq("revenda_id", revendaId);
+  if (error) erro("reepack-despejo", `Não foi possível alterar: ${error.message}`);
+
+  revalidatePath(ROTA);
+  sucesso("reepack-despejo", ativo ? "Embalagem desativada" : "Embalagem reativada");
+}
+
 /** Despejo tem catálogo próprio de embalagem (pa_embalagens_despejo,
  *  migration 064) -- diferente do catálogo do Repack. Litro por
  *  UNIDADE (converte unidades despejadas em litros, desde 26/08/2026 --

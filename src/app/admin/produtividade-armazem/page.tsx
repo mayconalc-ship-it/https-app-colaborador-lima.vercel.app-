@@ -1,4 +1,4 @@
-import { PageHeader } from "@/components/PageHeader";
+﻿import { PageHeader } from "@/components/PageHeader";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
 import { BotaoExcluir } from "@/components/BotaoExcluir";
 import { PainelCadastro, ItemCadastro, BotaoIcone } from "@/components/admin/CadastroCard";
@@ -59,6 +59,8 @@ import {
   salvarFabrica,
   salvarCustoP20,
   salvarAlertaGas,
+  editarEmbalagemRepack,
+  alternarEmbalagemRepackAtivo,
   excluirTrocaGas,
   excluirOperacaoEmpilhadeira,
   adicionarNotificadoGas,
@@ -180,7 +182,7 @@ export default async function AdminProdutividadeArmazemPage({
   ] = await Promise.all([
     supabase
       .from("pa_embalagens")
-      .select("id, nome")
+      .select("id, nome, meta_reepacks_hora, ativo")
       .eq("revenda_id", revendaId)
       .order("nome"),
     supabase
@@ -331,6 +333,23 @@ export default async function AdminProdutividadeArmazemPage({
   const totalMotivosFefo = motivosFefo?.length ?? 0;
 
   const totalEmbalagensDespejo = embalagensDespejo?.length ?? 0;
+
+  // Embalagens do Repack: quantas ativas, e quantos produtos usam cada
+  // uma. A contagem de produtos é o que separa uma embalagem de verdade
+  // da órfã que a importação deixou para trás ao mudar de nome.
+  const embalagensRepack = (embalagens ?? []) as {
+    id: string;
+    nome: string;
+    meta_reepacks_hora: number | null;
+    ativo: boolean;
+  }[];
+  const embalagensRepackAtivas = embalagensRepack.filter((e) => e.ativo);
+  const produtosPorEmbalagem = new Map<string, number>();
+  for (const p of (produtosReepackBanco ?? []) as { embalagem_id?: string | null }[]) {
+    if (p.embalagem_id) {
+      produtosPorEmbalagem.set(p.embalagem_id, (produtosPorEmbalagem.get(p.embalagem_id) ?? 0) + 1);
+    }
+  }
   const totalEmpilhadeiras = empilhadeiras?.length ?? 0;
   const totalFabricas = fabricas?.length ?? 0;
   const totalTransportadoras = transportadoras?.length ?? 0;
@@ -403,6 +422,65 @@ export default async function AdminProdutividadeArmazemPage({
 
       {aba === "reepack-despejo" && (
         <div className="space-y-6">
+          <PainelCadastro
+            titulo="Embalagens — Repack"
+            contagem={embalagensRepackAtivas.length}
+            temItens={(embalagensRepack ?? []).length > 0}
+            vazio="Nenhuma embalagem ainda -- importe a planilha de produtos, ela cria as embalagens sozinha."
+            formNovo={
+              <p className="text-xs text-slate-500">
+                Catálogo do Repack, criado pela planilha de produtos (o Despejo tem o dele, logo
+                abaixo). Aqui você ajusta a <strong>meta de caixas por hora</strong> de cada tipo —
+                é a régua do acompanhamento por embalagem — e desativa a duplicata que a importação
+                deixou para trás quando o nome mudou na planilha. Desativar não apaga histórico.
+              </p>
+            }
+          >
+            {(embalagensRepack ?? []).map((e) => {
+              const produtos = produtosPorEmbalagem.get(e.id) ?? 0;
+              return (
+                <ItemCadastro
+                  key={e.id}
+                  ativo={e.ativo}
+                  titulo={e.nome}
+                  subtitulo={
+                    produtos === 0
+                      ? "⚠️ nenhum produto usa esta embalagem"
+                      : `${produtos} produto(s)${
+                          e.meta_reepacks_hora ? ` · meta ${e.meta_reepacks_hora} cx/h` : " · sem meta"
+                        }`
+                  }
+                  acoes={
+                    <BotaoIcone
+                      action={alternarEmbalagemRepackAtivo}
+                      campos={{ id: e.id, ativo: String(e.ativo) }}
+                      titulo={e.ativo ? "Desativar" : "Ativar"}
+                    >
+                      {e.ativo ? "🚫" : "✅"}
+                    </BotaoIcone>
+                  }
+                  formEditar={
+                    <form action={editarEmbalagemRepack} className="flex flex-wrap gap-2">
+                      <input type="hidden" name="id" value={e.id} />
+                      <input
+                        name="meta_reepacks_hora"
+                        type="number"
+                        step="0.1"
+                        min={0}
+                        defaultValue={e.meta_reepacks_hora ?? ""}
+                        placeholder="Meta cx/h"
+                        className={campo}
+                      />
+                      <BotaoEnviar compacto className="shrink-0 rounded-lg bg-slate-800 px-3 py-1.5 text-xs font-semibold text-white">
+                        Salvar
+                      </BotaoEnviar>
+                    </form>
+                  }
+                />
+              );
+            })}
+          </PainelCadastro>
+
           <PainelCadastro
             titulo="Embalagens — Despejo"
             contagem={totalEmbalagensDespejo}
