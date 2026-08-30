@@ -79,14 +79,45 @@ export async function historicoDasMetas(
   const desdeData = desde.slice(0, 10);
   const fora = new Map<string, Realizado>();
 
-  const [selecoes, pickings, itens, carretas, trocas, operacoes, execucoes5s, dias5, avaliacoes, afericoes] =
-    await Promise.all([
+  const [
+    selecoes,
+    repacks,
+    despejos,
+    pickings,
+    itens,
+    carretas,
+    trocas,
+    operacoes,
+    execucoes5s,
+    dias5,
+    avaliacoes,
+    afericoes,
+  ] = await Promise.all([
       lerTudo<Linha>((de, ate) =>
         admin
           .from("pa_reepack_lancamentos")
           .select("quantidade, inicio, fim")
           .eq("revenda_id", revendaId)
           .eq("etapa", "selecao")
+          .not("fim", "is", null)
+          .gte("inicio", desde)
+          .range(de, ate),
+      ),
+      lerTudo<Linha>((de, ate) =>
+        admin
+          .from("pa_reepack_lancamentos")
+          .select("quantidade, inicio, fim")
+          .eq("revenda_id", revendaId)
+          .eq("etapa", "repack")
+          .not("fim", "is", null)
+          .gte("inicio", desde)
+          .range(de, ate),
+      ),
+      lerTudo<Linha>((de, ate) =>
+        admin
+          .from("pa_despejo_lancamentos")
+          .select("litros, inicio, fim")
+          .eq("revenda_id", revendaId)
           .not("fim", "is", null)
           .gte("inicio", desde)
           .range(de, ate),
@@ -178,6 +209,47 @@ export async function historicoDasMetas(
     const h = selecoes.reduce((s, l) => s + horasEntre(l.inicio as string, l.fim as string), 0);
     const taxa = taxaPorHora(qtd, h);
     if (taxa > 0) fora.set("selecao_un_hora", { valor: taxa, amostra: selecoes.length, unidadeDaAmostra: "lançamentos" });
+  }
+
+  // ---- Bancada: horas por dia trabalhado, e minutos por caixa ----
+  // Por dia TRABALHADO, não por dia do período: contar domingo e dia
+  // parado faria a bancada parecer ociosa quando ela apenas não operou.
+  const daBancada = [...selecoes, ...repacks];
+  if (daBancada.length > 0) {
+    const horas = daBancada.reduce((s, l) => s + horasEntre(l.inicio as string, l.fim as string), 0);
+    const diasTrabalhados = new Set(daBancada.map((l) => String(l.inicio).slice(0, 10))).size;
+    if (diasTrabalhados > 0) {
+      fora.set("bancada_horas_dia", {
+        valor: horas / diasTrabalhados,
+        amostra: diasTrabalhados,
+        unidadeDaAmostra: "dias com lançamento",
+      });
+    }
+  }
+  if (repacks.length > 0) {
+    const caixas = repacks.reduce((s, l) => s + Number(l.quantidade), 0);
+    const horas = repacks.reduce((s, l) => s + horasEntre(l.inicio as string, l.fim as string), 0);
+    if (caixas > 0) {
+      fora.set("reepack_minutos_caixa", {
+        valor: (horas / caixas) * 60,
+        amostra: repacks.length,
+        unidadeDaAmostra: "lançamentos",
+      });
+    }
+  }
+
+  // ---- Despejo: litros por hora do conjunto ----
+  if (despejos.length > 0) {
+    const litros = despejos.reduce((s, l) => s + Number(l.litros), 0);
+    const horas = despejos.reduce((s, l) => s + horasEntre(l.inicio as string, l.fim as string), 0);
+    const taxa = taxaPorHora(litros, horas);
+    if (taxa > 0) {
+      fora.set("despejo_litros_hora", {
+        valor: taxa,
+        amostra: despejos.length,
+        unidadeDaAmostra: "lançamentos",
+      });
+    }
   }
 
   // ---- Picking: HL por hora ----

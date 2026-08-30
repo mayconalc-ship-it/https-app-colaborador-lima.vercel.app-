@@ -417,7 +417,11 @@ function CampoDeMeta({
 
       <div className="mt-1.5 flex flex-wrap items-baseline justify-between gap-x-2">
         <span className="text-[11px] text-slate-400">
-          {def.sentido === "menor_melhor" ? "↓ menor é melhor" : "↑ maior é melhor"}
+          {def.tipo === "referencia"
+            ? "referência, não é meta"
+            : def.sentido === "menor_melhor"
+              ? "↓ menor é melhor"
+              : "↑ maior é melhor"}
         </span>
       </div>
       <Historico realizado={realizado} casas={def.casas} sufixo={def.sufixo} sugerido={sugerido} />

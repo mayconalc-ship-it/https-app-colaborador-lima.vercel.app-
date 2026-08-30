@@ -1,4 +1,4 @@
-import { redirect } from "next/navigation";
+﻿import { redirect } from "next/navigation";
 import { PageHeader } from "@/components/PageHeader";
 import { createClient } from "@/lib/supabase/server";
 import { getRevendaId } from "@/lib/revendas";
@@ -47,7 +47,7 @@ import {
   type TrocaGas,
 } from "@/lib/empilhadeira-gas";
 import { CATALOGO_DE_METAS, avaliarMeta, media } from "@/lib/metas";
-import { BarraRanking, BlocoAtividade, CartaoHero, type ItemBarra } from "./Graficos";
+import { BarraRanking, BlocoAtividade, CartaoHero, TermometroDaBombona, type ItemBarra } from "./Graficos";
 
 export const dynamic = "force-dynamic";
 
@@ -635,12 +635,23 @@ export default async function IndicadoresPage({
   const leitura = (chave: string, realizado: number | null) => {
     const def = CATALOGO_DE_METAS.find((d) => d.chave === chave);
     const alvo = metaDe.get(chave);
-    if (!def || alvo === undefined || realizado === null) return null;
+    // Referência não pinta cartão: a capacidade da bombona não tem lado
+    // certo, e verde/vermelho ali diria uma coisa que não existe.
+    if (!def || def.tipo === "referencia" || alvo === undefined || realizado === null) return null;
     return avaliarMeta(realizado, alvo, def.sentido, { sufixo: def.sufixo, casas: def.casas });
   };
 
   const leituraAvaria = leitura("avaria_pct", pctAvariaGeral);
   const leituraSelecao = leitura("selecao_un_hora", selecaoTaxaHora);
+  const leituraBancadaDia = leitura("bancada_horas_dia", bancadaMediaDia);
+  const leituraDespejo = leitura("despejo_litros_hora", despejoTaxaMediaHora);
+
+  // Em MINUTOS por caixa: em horas o número fica em "0,04h", que não se
+  // lê e não se cadastra como meta.
+  const reepackMinutosPorCaixa = reepackMediaHorasPorCaixa * 60;
+  const leituraDuracaoCaixa = leitura("reepack_minutos_caixa", reepackMinutosPorCaixa);
+
+  const capacidadeBombona = metaDe.get("despejo_capacidade_bombona") ?? 1000;
 
   // HL por hora do Abastecimento do Picking, no recorte já filtrado por
   // turno -- mesma função que a pontuação usa, para os dois números não
@@ -787,6 +798,7 @@ export default async function IndicadoresPage({
           />
           <CartaoHero
             titulo="Média por dia"
+            meta={leituraBancadaDia}
             valor={formatarHoras(bancadaMediaDia)}
             legenda="só dias que tiveram bancada"
           />
@@ -813,12 +825,22 @@ export default async function IndicadoresPage({
         <BlocoAtividade titulo="📦 Reepack">
           <CartaoHero titulo="Lançamentos" valor={String(reepacks.length)} />
           <CartaoHero titulo="Caixas reepackadas" valor={`${reepackQuantidadeTotal} cx`} />
-          <CartaoHero titulo="Duração média" valor={formatarHoras(reepackMediaHorasPorCaixa)} legenda="por caixa" />
+          <CartaoHero
+            titulo="Duração média"
+            valor={`${formatarNumeroBr(reepackMinutosPorCaixa, 2)} min`}
+            legenda="por caixa reembalada"
+            meta={leituraDuracaoCaixa}
+          />
         </BlocoAtividade>
 
         <BlocoAtividade titulo="🫗 Despejo">
-          <CartaoHero titulo="Litros despejados" valor={`${despejoLitrosTotal.toFixed(1)} L`} />
-          <CartaoHero titulo="Taxa média" valor={`${despejoTaxaMediaHora.toFixed(1)} L/h`} legenda="litros ÷ horas do período" />
+          <TermometroDaBombona litros={despejoLitrosTotal} capacidade={capacidadeBombona} />
+          <CartaoHero
+            titulo="Taxa média"
+            valor={`${despejoTaxaMediaHora.toFixed(1)} L/h`}
+            legenda="litros ÷ horas do período"
+            meta={leituraDespejo}
+          />
           <CartaoHero titulo="Lançamentos" valor={String(despejos.length)} />
         </BlocoAtividade>
 

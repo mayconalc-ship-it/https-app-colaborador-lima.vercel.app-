@@ -107,6 +107,70 @@ export function BlocoAtividade({
  * `alerta`/`positivo` continuam para os cartões que não têm meta
  * cadastrada e usam régua própria.
  */
+/**
+ * Termômetro: quanto do volume já foi despejado, contra a capacidade da
+ * bombona.
+ *
+ * O número da tela é o TOTAL DO PERÍODO, não o que está dentro da
+ * bombona agora -- e isso muda a leitura. Num período curto ele responde
+ * "falta quanto para encher"; num longo, "quantas bombonas isso deu". O
+ * rodapé diz qual dos dois está acontecendo em vez de deixar quem lê
+ * concluir a coisa errada.
+ */
+export function TermometroDaBombona({
+  litros,
+  capacidade,
+}: {
+  litros: number;
+  capacidade: number;
+}) {
+  if (capacidade <= 0) return null;
+
+  const bombonas = litros / capacidade;
+  const cheias = Math.floor(bombonas);
+  const restoPct = Math.min((bombonas - cheias) * 100, 100);
+  // Encheu pelo menos uma: a barra fica cheia, e a contagem embaixo é que
+  // conta a história. Barra "180%" não existe.
+  const preenchido = cheias >= 1 ? 100 : restoPct;
+  const transbordou = cheias >= 1;
+
+  return (
+    <div className="min-w-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="flex items-baseline justify-between gap-2">
+        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+          Litros despejados
+        </p>
+        <p className="shrink-0 text-[11px] text-slate-400">
+          bombona de {capacidade.toLocaleString("pt-BR")} L
+        </p>
+      </div>
+
+      <p className="mt-1 text-3xl font-extrabold text-slate-900">
+        {litros.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} L
+      </p>
+
+      <div className="mt-2 h-4 overflow-hidden rounded-full bg-slate-100" role="img"
+        aria-label={`${Math.round(preenchido)}% da bombona`}>
+        <div
+          className={`h-4 rounded-full transition-all ${transbordou ? "bg-amber-500" : "bg-primary"}`}
+          // 2px de mínimo: barra de largura zero some, e some sem dizer
+          // que o valor é pequeno -- parece que não carregou.
+          style={{ width: `${Math.max(preenchido, litros > 0 ? 2 : 0)}%` }}
+        />
+      </div>
+
+      <p className="mt-1.5 text-[11px] text-slate-500">
+        {litros === 0
+          ? "Nada despejado no período."
+          : transbordou
+            ? `${bombonas.toLocaleString("pt-BR", { maximumFractionDigits: 2 })} bombona(s) no período` +
+              (restoPct > 0 ? ` — a última em ${Math.round(restoPct)}%` : "")
+            : `${Math.round(restoPct)}% da bombona — faltam ${(capacidade - litros).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} L para encher`}
+      </p>
+    </div>
+  );
+}
+
 export function CartaoHero({
   titulo,
   valor,

@@ -69,7 +69,25 @@ ok("meta de config aponta a coluna",
 ok("meta de pa_metas nao tem coluna",
   CATALOGO_DE_METAS.filter((m) => m.fonte === "pa_metas").every((m) => !m.coluna));
 ok("grupo com metas devolve elas", metasDoGrupo("recebimento").length === 2);
-ok("grupo sem metas devolve vazio", metasDoGrupo("despejo").length === 0);
+ok("grupo inexistente devolve vazio", metasDoGrupo("nao-existe").length === 0);
+ok("todo grupo do catalogo tem ao menos uma meta",
+  GRUPOS_DE_METAS.every((g) => metasDoGrupo(g).length > 0 || g === "bancada" || g === "despejo"));
+
+// A capacidade da bombona NAO e meta: encher nao e bom nem ruim, e um
+// fato do equipamento. Se virar meta, o cartao passa a pintar de verde
+// ou vermelho um numero que nao tem lado certo.
+const bombona = CATALOGO_DE_METAS.find((m) => m.chave === "despejo_capacidade_bombona");
+ok("capacidade da bombona existe", !!bombona);
+eq("capacidade e referencia, nao meta", bombona.tipo, "referencia");
+ok("as demais nao sao referencia",
+  CATALOGO_DE_METAS.filter((m) => m.chave !== "despejo_capacidade_bombona")
+    .every((m) => m.tipo !== "referencia"));
+// Duracao por caixa em MINUTOS: em horas o valor fica em "0,04h", que
+// nao se le nem se cadastra.
+eq("duracao por caixa e em minutos",
+  CATALOGO_DE_METAS.find((m) => m.chave === "reepack_minutos_caixa").sufixo, "min");
+eq("duracao por caixa e menor_melhor",
+  CATALOGO_DE_METAS.find((m) => m.chave === "reepack_minutos_caixa").sentido, "menor_melhor");
 ok("rating e maior_melhor", CATALOGO_DE_METAS.find((m) => m.chave === "rating_nota_media").sentido === "maior_melhor");
 ok("TMA e menor_melhor", CATALOGO_DE_METAS.find((m) => m.chave === "tma_alvo_minutos").sentido === "menor_melhor");
 // h/P20 e a pegadinha do sentido: botijao que dura MAIS e melhor.

@@ -133,6 +133,13 @@ export type DefinicaoDeMeta = {
   fonte: FonteDaMeta;
   /** Só quando a fonte é uma config que já existia. */
   coluna?: string;
+  /**
+   * "referencia" = número que a operação cadastra mas que NÃO é meta: a
+   * capacidade da bombona, por exemplo. Não pinta cartão de verde nem de
+   * vermelho, e o cadastro não mostra "maior é melhor" -- encher a
+   * bombona não é bom nem ruim, é um fato do equipamento.
+   */
+  tipo?: "meta" | "referencia";
 };
 
 /**
@@ -179,6 +186,55 @@ export const CATALOGO_DE_METAS: DefinicaoDeMeta[] = [
     casas: 0,
     passo: "1",
     fonte: "pa_metas",
+  },
+  {
+    chave: "bancada_horas_dia",
+    grupo: "bancada",
+    rotulo: "Tempo de bancada por dia",
+    ajuda:
+      "Horas de Seleção + Repack por dia TRABALHADO (não por dia do período — dia parado não entra). É meta de ocupação: abaixo dela a bancada rendeu menos horas do que se espera.",
+    sufixo: "h/dia",
+    sentido: "maior_melhor",
+    casas: 1,
+    passo: "0.1",
+    fonte: "pa_metas",
+  },
+  {
+    chave: "reepack_minutos_caixa",
+    grupo: "bancada",
+    rotulo: "Duração por caixa no Repack",
+    ajuda:
+      "Quanto tempo uma caixa leva para ser reembalada. MENOR é melhor. Lembre que pack diferente tem tempo diferente — esta é a média geral; a régua por tipo fica na meta de cx/h de cada embalagem.",
+    sufixo: "min",
+    sentido: "menor_melhor",
+    casas: 2,
+    passo: "0.01",
+    fonte: "pa_metas",
+  },
+  {
+    chave: "despejo_litros_hora",
+    grupo: "despejo",
+    rotulo: "Taxa média de despejo",
+    ajuda:
+      "Litros despejados por hora, somando todas as embalagens do período. A meta por embalagem continua existindo à parte — esta é a do conjunto.",
+    sufixo: "L/h",
+    sentido: "maior_melhor",
+    casas: 1,
+    passo: "0.1",
+    fonte: "pa_metas",
+  },
+  {
+    chave: "despejo_capacidade_bombona",
+    grupo: "despejo",
+    rotulo: "Capacidade da bombona",
+    ajuda:
+      "Quantos litros a bombona comporta. Não é meta: é o que faz o termômetro de litros despejados encher. Padrão 1.000 L.",
+    sufixo: "L",
+    sentido: "maior_melhor",
+    casas: 0,
+    passo: "10",
+    fonte: "pa_metas",
+    tipo: "referencia",
   },
   {
     chave: "picking_hl_hora",
