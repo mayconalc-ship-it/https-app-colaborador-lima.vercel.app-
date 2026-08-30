@@ -8,6 +8,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { exigirRevenda } from "@/lib/revendas";
 import { createClient } from "@/lib/supabase/server";
 import { ehSenso, ehTurno, litrosPorCaixa } from "@/lib/produtividade-armazem";
+import { datetimeLocalParaUTC } from "@/lib/comunicados";
 
 const ROTA = "/admin/produtividade-armazem";
 
@@ -148,6 +149,55 @@ export async function excluirLembreteEmpilhadeira(formData: FormData) {
   await admin.from("pa_empilhadeira_lembretes").delete().eq("id", id).eq("revenda_id", revendaId);
   revalidatePath(ROTA);
   sucesso("empilhadeiras", "Lembrete excluído");
+}
+
+/**
+ * Corrige o AGENDAMENTO de um atendimento de carreta -- pedido do dono,
+ * 30/08/2026. A portaria pode marcar "carga agendada" por engano, ou
+ * digitar o horário errado, e isso muda de onde o TMA começa a contar:
+ * uma carreta que chegou 13h47 com agendamento às 14h tem 13 minutos de
+ * espera que somem da conta.
+ *
+ * SÓ o agendamento se corrige aqui, de propósito. Chegada, início e fim
+ * de descarga, carga e conferência são apontamentos do que aconteceu --
+ * deixá-los editáveis seria dar a alguém a chave para melhorar o próprio
+ * TMA depois do fato. Se um desses estiver errado, é caso de conversa com
+ * quem apontou, não de campo no Admin.
+ */
+export async function corrigirAgendamentoCarreta(formData: FormData) {
+  await requireModulo("produtividade-armazem", "editar");
+  const revendaId = await exigirRevenda(ROTA);
+  const admin = createAdminClient();
+
+  const id = String(formData.get("id") ?? "");
+  if (!id) erro("recebimento", "Atendimento inválido.");
+
+  const agendada = formData.get("carga_agendada") === "on";
+  const quando = String(formData.get("agendamento_em") ?? "").trim();
+
+  let agendamentoEm: string | null = null;
+  if (agendada) {
+    if (!quando) erro("recebimento", "Informe a data/hora do agendamento.");
+    // datetime-local não carrega fuso: sem isto o horário digitado seria
+    // lido como UTC e gravaria 3h a menos.
+    const iso = datetimeLocalParaUTC(quando);
+    if (!iso) erro("recebimento", "Data/hora do agendamento inválida.");
+    agendamentoEm = iso;
+  }
+
+  const { error } = await admin
+    .from("atendimentos_carretas")
+    .update({ carga_agendada: agendada, agendamento_em: agendamentoEm })
+    .eq("id", id)
+    .eq("revenda_id", revendaId);
+  if (error) erro("recebimento", `Não foi possível corrigir: ${error.message}`);
+
+  revalidatePath(ROTA);
+  // O TMA é calculado na leitura, então as duas telas do recebimento já
+  // mostram o número novo.
+  revalidatePath("/carretas-conferencia");
+  revalidatePath("/carretas-portaria");
+  sucesso("recebimento", agendada ? "Agendamento corrigido" : "Marcado como sem agendamento");
 }
 
 /**

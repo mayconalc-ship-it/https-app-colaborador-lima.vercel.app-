@@ -64,6 +64,7 @@ import {
   salvarMotorista,
   salvarProduto,
   salvarTransportadora,
+  corrigirAgendamentoCarreta,
 } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -77,6 +78,25 @@ export const dynamic = "force-dynamic";
 // "use server" só pode exportar funções async, nada mais.
 export const maxDuration = 60;
 
+type CarretaParaCorrigir = {
+  id: string;
+  numero_dt: string;
+  placa_carreta: string;
+  chegada_em: string;
+  carga_agendada: boolean;
+  agendamento_em: string | null;
+  status: string;
+};
+
+/** "2026-08-29T17:00:00Z" -> "2026-08-29T14:00", que é o formato que o
+ *  input datetime-local entende, já no horário de Brasília. */
+function paraDatetimeLocal(iso: string | null): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  const emBrasilia = new Date(d.getTime() - 3 * 60 * 60 * 1000);
+  return emBrasilia.toISOString().slice(0, 16);
+}
+
 type Aba = "reepack-despejo" | "empilhadeiras" | "recebimento" | "cinco-s" | "fefo";
 const ABAS: { id: Aba; rotulo: string; emoji: string }[] = [
   { id: "reepack-despejo", rotulo: "Produtos", emoji: "📦" },
@@ -88,6 +108,7 @@ const ABAS: { id: Aba; rotulo: string; emoji: string }[] = [
 
 const campo =
   "w-full rounded-lg border border-slate-300 bg-white px-2.5 py-2 text-base text-slate-900 focus:border-primary focus:outline-none";
+const rotulo = "mb-1 block text-xs font-semibold uppercase text-slate-500";
 
 export default async function AdminProdutividadeArmazemPage({
   searchParams,
@@ -135,6 +156,7 @@ export default async function AdminProdutividadeArmazemPage({
     podeExcluir,
     { data: empilhadeiraConfig },
     { data: trocasGas },
+    { data: carretasRecentes },
   ] = await Promise.all([
     supabase
       .from("pa_embalagens")
@@ -249,6 +271,15 @@ export default async function AdminProdutividadeArmazemPage({
           .order("realizada_em", { ascending: false })
           .limit(20)
       : Promise.resolve({ data: [] as Record<string, unknown>[] }),
+    // Atendimentos recentes, para corrigir agendamento lançado errado.
+    aba === "recebimento"
+      ? supabase
+          .from("atendimentos_carretas")
+          .select("id, numero_dt, placa_carreta, chegada_em, carga_agendada, agendamento_em, status")
+          .eq("revenda_id", revendaId)
+          .order("chegada_em", { ascending: false })
+          .limit(30)
+      : Promise.resolve({ data: [] as CarretaParaCorrigir[] }),
   ]);
 
   const totalMotivosFefo = motivosFefo?.length ?? 0;
@@ -762,6 +793,89 @@ export default async function AdminProdutividadeArmazemPage({
 
       {aba === "recebimento" && (
         <div className="space-y-6">
+          {/* Correção do agendamento -- pedido do dono, 30/08/2026. Fica
+              no topo porque é o que se procura quando algo saiu errado; o
+              resto da aba é cadastro, que se mexe uma vez e esquece. */}
+          <div className="rounded-2xl border border-slate-200 bg-white">
+            <div className="border-b border-slate-100 p-4">
+              <h2 className="text-sm font-bold text-slate-900">Corrigir agendamento da carreta</h2>
+              <p className="mt-1 text-xs text-slate-500">
+                O agendamento decide <strong>de onde o TMA começa a contar</strong>. Marcado por engano, a
+                espera entre a chegada e o horário agendado desaparece da conta.
+              </p>
+              <p className="mt-2 rounded-lg bg-slate-50 p-2 text-[11px] text-slate-500">
+                Só o agendamento se corrige aqui. Chegada, descarga, carga e conferência são apontamentos do que
+                aconteceu — editá-los seria dar a alguém a chave para melhorar o próprio TMA depois do fato.
+              </p>
+            </div>
+            <div className="divide-y divide-slate-100">
+              {(carretasRecentes ?? []).length === 0 ? (
+                <p className="p-6 text-center text-sm text-slate-400">Nenhum atendimento registrado ainda.</p>
+              ) : (
+                (carretasRecentes ?? []).map((c: CarretaParaCorrigir) => (
+                  <form key={c.id} action={corrigirAgendamentoCarreta} className="space-y-2 p-4">
+                    <input type="hidden" name="id" value={c.id} />
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-slate-900">
+                          DT {c.numero_dt} — Carreta {c.placa_carreta}
+                        </p>
+                        {/* Só chegada e agendamento: é o que se compara
+                            para saber se a marcação está certa. Nome do
+                            motorista não ajuda a decidir isso. */}
+                        <p className="text-xs text-slate-500">
+                          Chegou {formatarDataHora(c.chegada_em)}
+                        </p>
+                        <p className="text-xs font-semibold text-primary">
+                          {c.carga_agendada
+                            ? `⏰ Agendada${c.agendamento_em ? ` para ${formatarDataHora(c.agendamento_em)}` : " (sem horário)"}`
+                            : "Sem agendamento — o TMA conta da chegada"}
+                        </p>
+                      </div>
+                      <span className="shrink-0 rounded-lg bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-600">
+                        {c.status}
+                      </span>
+                    </div>
+
+                    <label className="flex items-center gap-2 text-sm text-slate-700">
+                      <input
+                        type="checkbox"
+                        name="carga_agendada"
+                        defaultChecked={c.carga_agendada}
+                        className="h-4 w-4"
+                      />
+                      ⏰ Carga agendada
+                    </label>
+
+                    <div className="flex items-end gap-2">
+                      <div className="min-w-0 flex-1">
+                        <label className={rotulo} htmlFor={`ag-${c.id}`}>
+                          Data/hora do agendamento
+                        </label>
+                        <input
+                          id={`ag-${c.id}`}
+                          type="datetime-local"
+                          name="agendamento_em"
+                          defaultValue={paraDatetimeLocal(c.agendamento_em)}
+                          className={campo}
+                        />
+                      </div>
+                      <BotaoEnviar
+                        compacto
+                        className="shrink-0 rounded-xl bg-slate-800 px-4 py-2.5 text-sm font-semibold text-white"
+                      >
+                        Salvar
+                      </BotaoEnviar>
+                    </div>
+                    <p className="text-[11px] text-slate-400">
+                      Desmarcando a caixa, o TMA passa a contar da chegada. O horário é ignorado nesse caso.
+                    </p>
+                  </form>
+                ))
+              )}
+            </div>
+          </div>
+
           <div className="grid gap-4 sm:grid-cols-2">
             <PainelCadastro
               titulo="Fábricas"
