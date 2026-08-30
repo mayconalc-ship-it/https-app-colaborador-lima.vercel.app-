@@ -46,7 +46,8 @@ export type ModuloId =
   | "rating"
   | "refugo"
   | "devolucao"
-  | "meus-indicadores";
+  | "meus-indicadores"
+  | "justificativas";
 
 export type Modulo = {
   id: ModuloId;
@@ -129,6 +130,18 @@ export const MODULOS: Modulo[] = [
     grupo: "Conteúdo do app",
     acoes: ["ver"],
     semTelaAdmin: true,
+  },
+  {
+    id: "justificativas",
+    rotulo: "Justificativas",
+    emoji: "🗣️",
+    href: "/admin/justificativas",
+    grupo: "Conteúdo do app",
+    // Só leitura, e de propósito: a explicação é do colaborador. A
+    // liderança lê para tratar, não para editar -- um texto que pode ser
+    // mexido por quem foi explicado deixa de ser a versão de quem
+    // escreveu.
+    acoes: ["ver"],
   },
   {
     id: "devolucao",
