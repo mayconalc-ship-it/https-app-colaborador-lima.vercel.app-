@@ -218,6 +218,9 @@ export default async function CarretasConferenciaPage({
       fimDescargaEm: f.fim_descarga_em,
       inicioCargaEm: f.inicio_carga_em,
       fimCargaEm: f.fim_carga_em,
+      // Sem isto o TMA não sabe que a carreta voltou carregada e pararia
+      // no fim da descarga.
+      temCarga: f.tem_carga,
       finalizacaoEm: f.finalizacao_em,
     } as AtendimentoCarreta;
     return {
@@ -338,6 +341,17 @@ export default async function CarretasConferenciaPage({
                           DT {f.numero_dt} — Carreta {f.placa_carreta} — {f.motorista_nome}
                         </p>
                         <p className="text-xs text-slate-500">Chegou {formatarDataHora(f.chegada_em)}</p>
+                        {/* O agendamento MUDA de onde o TMA começa, então
+                            precisa estar à vista aqui. Sem isto o cartão
+                            só mostrava a chegada, e quem olhava concluía
+                            que a carreta não era agendada -- foi o que
+                            aconteceu na DT 741490. */}
+                        {f.carga_agendada && (
+                          <p className="text-xs font-semibold text-primary">
+                            ⏰ Agendada{f.agendamento_em ? ` para ${formatarDataHora(f.agendamento_em)}` : ""} — o TMA
+                            conta a partir daqui
+                          </p>
+                        )}
                       </div>
                       {m.tma !== null && (
                         <span className="shrink-0 rounded-lg bg-green-50 px-2 py-1 text-xs font-bold text-green-700">
@@ -486,9 +500,11 @@ export default async function CarretasConferenciaPage({
               </li>
               <li>
                 <strong>TMA médio</strong> — o principal: da chegada (ou do horário agendado, se era
-                agendada) até o FIM DA DESCARGA. É o tempo em que a carreta ficou presa ao armazém;
-                terminada a descarga o caminhão pode ir embora, e a conferência do que chegou segue
-                no chão depois.
+                agendada) até a carreta estar liberada para sair. Quando ela vai embora vazia, isso é
+                o <strong>fim da descarga</strong>; quando volta carregada de AG, é o{" "}
+                <strong>fim do carregamento</strong>, porque até lá ela continua ocupando o pátio. O
+                tempo parado entre a descarga e a carga conta, e a conferência nunca entra — a
+                carreta não espera por ela.
               </li>
               <li>
                 <strong>Espera na portaria</strong> — da chegada até alguém começar a trabalhar

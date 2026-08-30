@@ -187,6 +187,9 @@ export default async function DetalheAtendimentoPage({ params }: { params: Promi
     fimDescargaEm: a.fim_descarga_em,
     inicioCargaEm: a.inicio_carga_em,
     fimCargaEm: a.fim_carga_em,
+    // Sem isto o TMA não sabe que a carreta voltou carregada e pararia
+    // no fim da descarga.
+    temCarga: a.tem_carga,
     finalizacaoEm: a.finalizacao_em,
   } as AtendimentoCarreta;
 

@@ -150,21 +150,37 @@ function minutosEntre(inicioISO: string, fimISO: string): number {
 }
 
 /**
- * TMA: se a carga era agendada, conta a partir do horário agendado (é a
- * régua que a fábrica/transportadora combinou); senão, conta a partir do
- * apontamento real da portaria.
+ * TMA: quanto a carreta ocupou a operação, do começo combinado até ela
+ * estar liberada para sair.
  *
- * O FIM é o fim da DESCARGA (decisão do dono, 27/08/2026). Entre a 063 e
- * esta data o fim era a decisão de retorno, mas ela passou a ser
- * registrada logo na chegada -- o conferente já sabe se a carreta volta
- * carregada. Mantê-la como fim zeraria o TMA de todo mundo e faria o
- * indicador parecer ótimo sem nada ter melhorado.
+ * INÍCIO -- se a carga era agendada, conta do horário agendado (é a régua
+ * que a fábrica/transportadora combinou); senão, do apontamento real da
+ * portaria.
  *
- * Uma definição só, para carreta velha e nova: nada de `??` com dois
- * critérios convivendo, que foi o problema do Despejo (caixa x unidade).
+ * FIM -- depende de a carreta voltar carregada (decisão do dono,
+ * 30/08/2026):
+ *   - sem retorno: acaba na DESCARGA, que é quando ela pode ir embora;
+ *   - com carga de AG: acaba no fim do CARREGAMENTO, porque até lá ela
+ *     continua ocupando o pátio.
+ *
+ * O que apareceu na DT 741490: a carreta voltou carregada para o CDR
+ * Camaçari e ficou 42 minutos carregando depois da descarga. Parando na
+ * descarga, o TMA dava 58 min para uma carreta que passou 1h52 no pátio.
+ *
+ * A CONFERÊNCIA nunca entra: a carreta não espera por ela. Na DT 741087 a
+ * conferência terminou 2 horas depois de a carreta sair, e contá-la
+ * inflaria o indicador com tempo que não é da carreta.
+ *
+ * O VÃO entre descarga e carga CONTA -- a carreta está parada no pátio
+ * esperando, e esse tempo é da operação. Por isso o cálculo é do começo
+ * ao fim, e não a soma das fases.
  */
 export function calcularTmaMinutos(a: AtendimentoCarreta): number | null {
-  const fim = a.fimDescargaEm;
+  // Carreta que volta carregada só está liberada quando o AG termina.
+  // Enquanto o carregamento não fecha, não há TMA -- o atendimento não
+  // acabou, e mostrar o tempo até a descarga seria um número menor que a
+  // realidade.
+  const fim = a.temCarga ? a.fimCargaEm : a.fimDescargaEm;
   if (!fim) return null;
   const inicio = a.cargaAgendada && a.agendamentoEm ? a.agendamentoEm : a.chegadaEm;
   return Math.round(minutosEntre(inicio, fim));

@@ -23,6 +23,8 @@ type LinhaBanco = {
   carga_agendada: boolean;
   status: AtendimentoCarreta["status"];
   fim_descarga_em: string | null;
+  tem_carga: boolean | null;
+  fim_carga_em: string | null;
   pa_fabricas: { nome: string } | { nome: string }[] | null;
   pa_transportadoras: { nome: string } | { nome: string }[] | null;
 };
@@ -59,7 +61,7 @@ export default async function CarretasPortariaPage({
       ? supabase
           .from("atendimentos_carretas")
           .select(
-            "id, numero_dt, motorista_nome, placa_carreta, chegada_em, agendamento_em, carga_agendada, status, fim_descarga_em, pa_fabricas(nome), pa_transportadoras(nome)",
+            "id, numero_dt, motorista_nome, placa_carreta, chegada_em, agendamento_em, carga_agendada, status, fim_descarga_em, tem_carga, fim_carga_em, pa_fabricas(nome), pa_transportadoras(nome)",
           )
           .eq("revenda_id", revendaId)
           .order("chegada_em", { ascending: false })
@@ -125,12 +127,16 @@ export default async function CarretasPortariaPage({
           <ul className="space-y-3">
             {historico.map((h) => {
               const tma =
-                h.status === "finalizado" && h.fim_descarga_em
+                h.status === "finalizado"
                   ? calcularTmaMinutos({
                       chegadaEm: h.chegada_em,
                       agendamentoEm: h.agendamento_em,
                       cargaAgendada: h.carga_agendada,
                       fimDescargaEm: h.fim_descarga_em,
+                      // Carreta que volta carregada fecha o TMA no fim do
+                      // carregamento, não na descarga.
+                      temCarga: h.tem_carga,
+                      fimCargaEm: h.fim_carga_em,
                     } as AtendimentoCarreta)
                   : null;
               return (
