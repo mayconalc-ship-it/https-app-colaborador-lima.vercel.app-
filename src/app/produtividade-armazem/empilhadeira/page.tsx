@@ -102,14 +102,20 @@ export default async function EmpilhadeiraIndexPage({
         </p>
       )}
 
-      <ul className="grid gap-3 sm:grid-cols-2">
+      {/* min-w-0 no <li>: item de grid tem min-width auto e nao encolhe
+          abaixo do conteudo. O truncate la dentro aplica white-space:
+          nowrap, entao "Em uso por FULANO DE TAL desde ..." virava a
+          largura minima da trilha e empurrava a pagina inteira para fora
+          da tela. O min-w-0 do div interno nao alcanca isso -- quem manda
+          na largura da trilha e o item do grid. */}
+      <ul className="grid min-w-0 gap-3 sm:grid-cols-2">
         {(maquinas ?? []).map((m) => {
           const aberta = abertaPorMaquina.get(m.id);
           return (
-            <li key={m.id}>
+            <li key={m.id} className="min-w-0">
               <a
                 href={`/produtividade-armazem/empilhadeira/${m.id}`}
-                className={`flex items-center gap-3 rounded-2xl border-2 bg-white p-4 shadow-sm transition-colors hover:border-primary ${
+                className={`flex items-center gap-3 overflow-hidden rounded-2xl border-2 bg-white p-4 shadow-sm transition-colors hover:border-primary ${
                   aberta ? "border-amber-200" : "border-slate-200"
                 }`}
               >
