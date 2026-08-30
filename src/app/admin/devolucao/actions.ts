@@ -5,6 +5,7 @@ import { requireModulo } from "@/lib/require-admin";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { exigirRevenda } from "@/lib/revendas";
 import { baixarTextoDoDrive, idDaPasta, listarArquivosDaPasta, listarSubpastas } from "@/lib/drive-pasta";
+import { hojeISO } from "@/lib/produtividade-armazem";
 import { gravarEmLotes, lerTudoEmPaginas } from "@/lib/rating-server";
 import {
   classificacaoSugerida,
@@ -211,8 +212,10 @@ export async function importarDevolucao(formData: FormData) {
   }
 
   const { arquivos } = await listarArquivosDaPasta(pastaNotas.id);
-  const mesAtual = String(new Date().getMonth() + 1).padStart(2, "0");
-  const anoAtual = String(new Date().getFullYear());
+  // O mês é o da OPERAÇÃO, não o do servidor: a Vercel roda em UTC e às
+  // 21h de 31/08 em São Paulo já é 01/09 lá. Sem isto, a importação do
+  // "mês corrente" procuraria o arquivo do mês seguinte na virada.
+  const [anoAtual, mesAtual] = hojeISO().split("-");
   const escolhidos = tudo ? arquivos : arquivos.filter((a) => a.nome.includes(`${mesAtual}.${anoAtual}`));
 
   if (escolhidos.length === 0) {

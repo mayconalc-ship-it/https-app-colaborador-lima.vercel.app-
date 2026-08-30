@@ -83,7 +83,11 @@ export default async function RatingPage({
     .lte("data_avaliacao", ate)
     .order("data_avaliacao", { ascending: false })
     .order("nota", { ascending: true })
-    .limit(2000);
+    // 1.000 é o teto do PostgREST, não uma escolha: pedir mais não traz
+    // mais. Cabe porque o RLS entrega só as avaliações da própria pessoa
+    // (~150 por mês) e o intervalo é limitado a 92 dias -- no pior caso
+    // dá umas 450 linhas, com folga.
+    .limit(1000);
 
   const periodo = (doPeriodo ?? []) as Avaliacao[];
   const doDia = diaSelecionado ? periodo.filter((a) => a.data_avaliacao === diaSelecionado) : null;

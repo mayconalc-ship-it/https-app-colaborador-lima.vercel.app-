@@ -76,7 +76,10 @@ export default async function RefugoPage({
       .gte("data", de)
       .lte("data", ate)
       .order("data", { ascending: false })
-      .limit(2000),
+      // 1.000 é o teto do PostgREST, não uma escolha. Cabe com folga: o
+      // RLS entrega só as aferições da própria pessoa, e são 434 no ano
+      // inteiro para a operação toda.
+      .limit(1000),
     supabase.from("refugo_itens").select("codigo, valor_unitario").eq("revenda_id", revendaId),
   ]);
 
