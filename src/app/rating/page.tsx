@@ -75,6 +75,19 @@ export default async function RatingPage({
   // O RLS já limita às avaliações da própria pessoa (migration 072). Não
   // existe filtro por colaborador aqui de propósito: se um dia a consulta
   // esquecer o filtro, o banco continua não entregando a nota do colega.
+  // A meta de nota média, cadastrada em Admin > Metas. É ela que decide
+  // se o dia fica âmbar (teve detrator, mas a média segurou) ou vermelho
+  // (a média caiu abaixo da régua).
+  const { data: metaBanco } = await supabase
+    .from("pa_metas")
+    .select("valor")
+    .eq("revenda_id", revendaId)
+    .eq("chave", "rating_nota_media")
+    .maybeSingle();
+  const metaRating = metaBanco?.valor === undefined || metaBanco?.valor === null
+    ? null
+    : Number(metaBanco.valor);
+
   const { data: doPeriodo } = await supabase
     .from("rating_avaliacoes")
     .select(COLUNAS)
@@ -95,21 +108,28 @@ export default async function RatingPage({
 
   const resumo = resumirRating(emFoco);
   const dias = serieDeDias(de, ate, periodo.map((a) => ({ dataAvaliacao: a.data_avaliacao, nota: a.nota })), MAXIMO_DE_DIAS);
-  const pendentes = emFoco.filter((a) => precisaFeedback(a.nota));
+  // Tudo que pede explicação -- respondido ou não. A separação entre
+  // "pendente" e "enviado" vem depois, quando já sabemos quais têm
+  // feedback gravado.
+  const pedemFeedback = emFoco.filter((a) => precisaFeedback(a.nota));
 
-  // As respostas já enviadas, para o formulário nascer preenchido em vez
-  // de parecer que a pessoa não respondeu.
-  const { data: feedbacksBanco } = pendentes.length
+  const { data: feedbacksBanco } = pedemFeedback.length
     ? await supabase
         .from("rating_feedbacks")
         .select("avaliacao_id, texto, criado_em")
-        .in("avaliacao_id", pendentes.map((a) => a.id))
+        .in("avaliacao_id", pedemFeedback.map((a) => a.id))
     : { data: [] };
   const feedbackPorAvaliacao = new Map(
     ((feedbacksBanco ?? []) as Feedback[]).map((f) => [f.avaliacao_id, f]),
   );
 
-  const abaixo = emFoco.filter((a) => precisaFeedback(a.nota));
+  // Respondida SAI de pendências. Antes o card ficava lá para sempre, com
+  // o formulário aberto, e não havia como a pessoa saber o que ainda
+  // faltava -- que é a única pergunta que essa lista responde.
+  const pendentes = pedemFeedback.filter((a) => !feedbackPorAvaliacao.has(a.id));
+  const respondidas = pedemFeedback.filter((a) => feedbackPorAvaliacao.has(a.id));
+
+  const abaixo = pedemFeedback;
   const contagemDeNotas: Record<number, number> = {};
   for (const a of emFoco) contagemDeNotas[a.nota] = (contagemDeNotas[a.nota] ?? 0) + 1;
 
@@ -142,28 +162,45 @@ export default async function RatingPage({
 
       <Hero resumo={resumo} de={de} ate={ate} dia={diaSelecionado} />
 
+      {/* Três estados, iguais aos da Devolução: verde entregou sem
+          problema, âmbar teve detrator mas a média segurou a meta,
+          vermelho a média do dia ficou ABAIXO da meta. Sem meta
+          cadastrada o vermelho não existe -- pintar sem régua seria
+          inventar uma. */}
       <FaixaDeDias
         dias={dias.map((d) => ({
           dia: d.dia,
           total: d.total,
           alerta: d.abaixoDaMeta,
+          // `media` é nula no dia sem avaliação -- esse dia não é grave,
+          // é vazio, e tratar nulo como zero pintaria de vermelho todo
+          // domingo.
+          grave: metaRating !== null && d.media !== null && d.media < metaRating,
           titulo:
             d.total === 0
               ? `${formatarData(d.dia)} — nenhuma entrega sua foi avaliada`
               : `${formatarData(d.dia)} — ${d.total} avaliação(ões), média ${d.media}` +
-                (d.abaixoDaMeta ? `, ${d.abaixoDaMeta} abaixo de 5` : ", todas 5 estrelas"),
+                (d.abaixoDaMeta ? `, ${d.abaixoDaMeta} abaixo de 5` : ", todas 5 estrelas") +
+                (metaRating !== null && d.media !== null && d.media < metaRating
+                  ? ` · abaixo da meta de ${metaRating}`
+                  : ""),
         }))}
         diaSelecionado={diaSelecionado}
         base={(d) => qs({ dia: d === diaSelecionado ? null : d })}
         rotulos={{
           titulo: "Seus dias no período",
           bom: "Todas 5 estrelas",
-          alerta: "Teve nota abaixo de 5",
+          alerta: metaRating !== null ? "Teve nota abaixo de 5, na meta" : "Teve nota abaixo de 5",
+          grave: metaRating !== null ? `Média abaixo da meta (${metaRating} ★)` : undefined,
           vazio: "Sem avaliação",
           aviso: (n) =>
-            n === 1
-              ? "1 dia com cliente insatisfeito — toque nele para ver."
-              : `${n} dias com cliente insatisfeito — toque neles para ver.`,
+            metaRating !== null
+              ? n === 1
+                ? "1 dia abaixo da meta — toque nele para explicar."
+                : `${n} dias abaixo da meta — toque neles para explicar.`
+              : n === 1
+                ? "1 dia com cliente insatisfeito — toque nele para ver."
+                : `${n} dias com cliente insatisfeito — toque neles para ver.`,
         }}
       />
 
@@ -190,10 +227,10 @@ export default async function RatingPage({
       )}
 
       {/* ---------------- PENDÊNCIAS ---------------- */}
-      {pendentes.length > 0 ? (
+      {pendentes.length > 0 && (
         <section>
           <h2 className="mb-1 text-sm font-bold text-slate-900">
-            {pendentes.length === 1 ? "1 cliente insatisfeito" : `${pendentes.length} clientes insatisfeitos`}
+            ⏳ Pendências ({pendentes.length})
           </h2>
           <p className="mb-3 text-xs text-slate-500">
             A meta é 5 estrelas. Conta pra gente o que aconteceu — isso ajuda a resolver o problema, não é
@@ -208,21 +245,64 @@ export default async function RatingPage({
                 ate={ate}
                 dia={diaSelecionado}
                 souMotorista={a.motorista_colaborador_id === perfil.id}
-                feedback={feedbackPorAvaliacao.get(a.id) ?? null}
+                feedback={null}
               />
             ))}
           </ul>
         </section>
-      ) : (
-        emFoco.length > 0 && (
-          <div className="rounded-2xl border border-green-200 bg-green-50 p-5 text-center">
-            <p className="text-3xl">🎉</p>
-            <p className="mt-1 text-sm font-bold text-green-800">Nenhum cliente insatisfeito</p>
-            <p className="text-xs text-green-700">
-              As {emFoco.length} entregas avaliadas fecharam com 5 estrelas.
-            </p>
-          </div>
-        )
+      )}
+
+      {/* ---------------- JÁ RESPONDIDAS ---------------- */}
+      {respondidas.length > 0 && (
+        <details className="overflow-hidden rounded-2xl border border-green-200 bg-green-50">
+          <summary className="cursor-pointer list-none p-4 text-sm font-bold text-green-800">
+            ✅ Feedback enviado ({respondidas.length})
+          </summary>
+          <ul className="space-y-2 border-t border-green-100 p-3">
+            {respondidas.map((a) => {
+              const f = feedbackPorAvaliacao.get(a.id)!;
+              return (
+                <li key={a.id} className="min-w-0 rounded-xl bg-white p-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold text-slate-900">
+                        {a.nome_pdv ?? "Cliente não identificado"}
+                      </p>
+                      <p className="truncate text-xs text-slate-500">
+                        {a.cidade ?? "—"} · {formatarData(a.data_avaliacao)} · mapa {a.mapa}
+                      </p>
+                    </div>
+                    <div className="shrink-0">
+                      <Estrelas valor={a.nota} tamanho={12} />
+                    </div>
+                  </div>
+                  <p className="mt-2 border-l-2 border-green-300 pl-2 text-xs italic text-slate-600">
+                    “{f.texto}”
+                  </p>
+                  <p className="mt-1 text-[11px] text-slate-400">
+                    Enviado em {formatarData(f.criado_em.slice(0, 10))}
+                  </p>
+                </li>
+              );
+            })}
+          </ul>
+        </details>
+      )}
+
+      {pendentes.length === 0 && respondidas.length > 0 && (
+        <p className="rounded-xl bg-green-50 p-3 text-center text-xs font-semibold text-green-800">
+          👏 Você respondeu todas as avaliações abaixo de 5 estrelas do período.
+        </p>
+      )}
+
+      {pendentes.length === 0 && respondidas.length === 0 && emFoco.length > 0 && (
+        <div className="rounded-2xl border border-green-200 bg-green-50 p-5 text-center">
+          <p className="text-3xl">🎉</p>
+          <p className="mt-1 text-sm font-bold text-green-800">Nenhum cliente insatisfeito</p>
+          <p className="text-xs text-green-700">
+            As {emFoco.length} entregas avaliadas fecharam com 5 estrelas.
+          </p>
+        </div>
       )}
 
       {/* ---------------- ANÁLISES ---------------- */}

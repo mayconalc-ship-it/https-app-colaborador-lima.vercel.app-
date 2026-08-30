@@ -146,7 +146,12 @@ export default async function DevolucaoPage({
     : { data: [] };
   const justificativaPorDia = new Map((jaJustificados ?? []).map((j) => [j.data, j]));
 
-  const pendentes = diaSelecionado ? acimaDaMeta.filter((d) => d.data === diaSelecionado) : acimaDaMeta;
+  const noFoco = diaSelecionado ? acimaDaMeta.filter((d) => d.data === diaSelecionado) : acimaDaMeta;
+  // Dia justificado SAI de pendências. Antes ficava na lista para sempre,
+  // com o formulário aberto -- e a lista deixava de responder a única
+  // pergunta que ela existe para responder: o que ainda falta.
+  const pendentes = noFoco.filter((d) => !justificativaPorDia.has(d.data));
+  const justificados = noFoco.filter((d) => justificativaPorDia.has(d.data));
 
   // Três estados no calendário, a pedido do dono: verde para o dia que
   // teve entrega e nenhuma devolução, âmbar para o dia que teve devolução
@@ -242,7 +247,8 @@ export default async function DevolucaoPage({
       {pendentes.length > 0 && (
         <section>
           <h2 className="mb-1 text-sm font-bold text-slate-900">
-            {pendentes.length === 1 ? "1 dia acima da meta" : `${pendentes.length} dias acima da meta`}
+            ⏳ Pendências ({pendentes.length}
+            {pendentes.length === 1 ? " dia acima da meta" : " dias acima da meta"})
           </h2>
           <p className="mb-3 text-xs text-slate-500">
             Conta pra gente o que aconteceu. Boa parte da devolução é do cliente ou da operação — sua explicação
@@ -265,6 +271,41 @@ export default async function DevolucaoPage({
             ))}
           </ul>
         </section>
+      )}
+
+      {justificados.length > 0 && (
+        <details className="overflow-hidden rounded-2xl border border-green-200 bg-green-50">
+          <summary className="cursor-pointer list-none p-4 text-sm font-bold text-green-800">
+            ✅ Justificativa enviada ({justificados.length})
+          </summary>
+          <ul className="space-y-2 border-t border-green-100 p-3">
+            {justificados.map((d) => {
+              const j = justificativaPorDia.get(d.data)!;
+              const pct = pctDia(d);
+              return (
+                <li key={d.data} className="min-w-0 rounded-xl bg-white p-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="min-w-0 truncate text-sm font-semibold text-slate-900">
+                      {formatarData(d.data)}
+                    </p>
+                    <span className="shrink-0 rounded-lg bg-slate-100 px-2 py-0.5 text-xs font-bold tabular-nums text-slate-700">
+                      {pct === null ? "—" : `${pct.toFixed(2)}%`}
+                    </span>
+                  </div>
+                  <p className="mt-2 border-l-2 border-green-300 pl-2 text-xs italic text-slate-600">
+                    “{j.texto}”
+                  </p>
+                </li>
+              );
+            })}
+          </ul>
+        </details>
+      )}
+
+      {pendentes.length === 0 && justificados.length > 0 && (
+        <p className="rounded-xl bg-green-50 p-3 text-center text-xs font-semibold text-green-800">
+          👏 Você justificou todos os dias acima da meta do período.
+        </p>
       )}
 
       {/* ---------- ANÁLISES ---------- */}
