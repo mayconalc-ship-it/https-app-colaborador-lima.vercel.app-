@@ -29,9 +29,28 @@ import {
   type ProdutoMeta,
   type Turno,
 } from "@/lib/produtividade-armazem";
+import {
+  RECEBIMENTO_CONFIG_PADRAO,
+  calcularEsperaPortariaMinutos,
+  calcularTempoConferenciaMinutos,
+  calcularTempoDescargaMinutos,
+  calcularTempoPatioMinutos,
+  calcularTmaMinutos,
+  formatarMinutos,
+  type AtendimentoCarreta,
+} from "@/lib/carretas";
+import {
+  cicloContaParaMaquina,
+  formatarNumeroBr,
+  montarCiclos,
+  type SessaoUso,
+  type TrocaGas,
+} from "@/lib/empilhadeira-gas";
+import { CATALOGO_DE_METAS, avaliarMeta, media } from "@/lib/metas";
 import { BarraRanking, BlocoAtividade, CartaoHero, type ItemBarra } from "./Graficos";
 
 export const dynamic = "force-dynamic";
+
 
 const campo =
   "w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-base text-slate-900 focus:border-primary focus:outline-none";
@@ -76,6 +95,10 @@ export default async function IndicadoresPage({
     { data: operacoesBanco },
     { data: recebimentosBanco },
     { data: execucoes5sBanco },
+    { data: recebimentoConfig },
+    { data: trocasGasBanco },
+    { data: empilhadeiraConfig },
+    { data: metasBanco },
   ] = await Promise.all([
     supabase
       .from("pa_produtos")
@@ -144,8 +167,10 @@ export default async function IndicadoresPage({
       // carreta conferida no dia nunca aparecia aqui, por estar em outra
       // tabela. Nenhum filtro de data resolveria.
       .from("atendimentos_carretas")
+      // Os carimbos de tempo entram aqui para o TMA e as fases saírem na
+      // mesma ida ao banco -- o cálculo mora em lib/carretas.ts.
       .select(
-        "id, pa_transportadoras(nome), atendimento_carretas_itens(quantidade, quantidade_avariada)",
+        "id, pa_transportadoras(nome), atendimento_carretas_itens(quantidade, quantidade_avariada), chegada_em, agendamento_em, carga_agendada, inicio_atendimento_em, inicio_descarga_em, fim_descarga_em, inicio_conferencia_em, fim_conferencia_em, tem_carga, inicio_carga_em, fim_carga_em, finalizacao_em",
       )
       .eq("revenda_id", revendaId)
       .eq("status", "finalizado")
@@ -158,6 +183,30 @@ export default async function IndicadoresPage({
       .not("fim", "is", null)
       .gte("inicio", de0)
       .lte("inicio", ate23),
+    // A meta de TMA é cadastrada no Admin -- é a régua da operação, não um
+    // limiar escrito aqui.
+    supabase
+      .from("pa_recebimento_config")
+      .select("tma_alvo_minutos")
+      .eq("revenda_id", revendaId)
+      .maybeSingle(),
+    // Trocas de gás: viram os ciclos de P20 do bloco da empilhadeira.
+    // SEM recorte de data de propósito -- um ciclo vai de uma troca até a
+    // seguinte, e cortar no início do período jogaria fora a troca
+    // anterior, que é o ponto de partida do primeiro ciclo.
+    supabase
+      .from("pa_empilhadeira_trocas_gas")
+      .select("id, empilhadeira_id, operador_id, operador_nome, horimetro, realizada_em")
+      .eq("revenda_id", revendaId)
+      .order("realizada_em", { ascending: true }),
+    supabase
+      .from("pa_empilhadeira_config")
+      .select("custo_p20")
+      .eq("revenda_id", revendaId)
+      .maybeSingle(),
+    // As metas cadastradas em Admin > Metas. Sem linha = sem meta, e o
+    // cartão fica neutro em vez de cobrar um número que ninguém definiu.
+    supabase.from("pa_metas").select("chave, valor").eq("revenda_id", revendaId),
   ]);
 
   const produtos: ProdutoMeta[] = (produtosBanco ?? []).map((p) => ({
@@ -501,6 +550,119 @@ export default async function IndicadoresPage({
     }
     avariaPorTransportadora.set(nome, atual);
   }
+  // ---- Tempos do recebimento ----
+  // O cálculo mora em lib/carretas.ts. Aqui só a média de cada fase, e
+  // cada uma ignora as carretas em que aquela fase não foi apontada --
+  // contar como zero faria a operação parecer mais rápida do que é.
+  //
+  // Mapeado campo a campo de propósito. O banco devolve snake_case e o
+  // tipo é camelCase: um `as AtendimentoCarreta` em cima da linha crua
+  // compila liso e entrega tudo undefined, e o TMA viraria null em
+  // silêncio para todas as carretas.
+  const atendimentos: AtendimentoCarreta[] = ((recebimentosBanco ?? []) as Record<string, unknown>[]).map(
+    (a) =>
+      ({
+        chegadaEm: a.chegada_em as string,
+        agendamentoEm: (a.agendamento_em as string) ?? null,
+        cargaAgendada: Boolean(a.carga_agendada),
+        inicioAtendimentoEm: (a.inicio_atendimento_em as string) ?? null,
+        inicioDescargaEm: (a.inicio_descarga_em as string) ?? null,
+        fimDescargaEm: (a.fim_descarga_em as string) ?? null,
+        inicioConferenciaEm: (a.inicio_conferencia_em as string) ?? null,
+        fimConferenciaEm: (a.fim_conferencia_em as string) ?? null,
+        temCarga: (a.tem_carga as boolean) ?? null,
+        inicioCargaEm: (a.inicio_carga_em as string) ?? null,
+        fimCargaEm: (a.fim_carga_em as string) ?? null,
+        finalizacaoEm: (a.finalizacao_em as string) ?? null,
+      }) as AtendimentoCarreta,
+  );
+  const tmaMedio = media(atendimentos.map(calcularTmaMinutos));
+  const esperaMedia = media(atendimentos.map(calcularEsperaPortariaMinutos));
+  const descargaMedia = media(atendimentos.map(calcularTempoDescargaMinutos));
+  const conferenciaMedia = media(atendimentos.map(calcularTempoConferenciaMinutos));
+  const patioMedio = media(atendimentos.map(calcularTempoPatioMinutos));
+  const comRetorno = atendimentos.filter((a) => a.temCarga).length;
+
+  const metaTma = Number(
+    recebimentoConfig?.tma_alvo_minutos ?? RECEBIMENTO_CONFIG_PADRAO.tmaAlvoMinutos,
+  );
+  const leituraTma =
+    tmaMedio === null ? null : avaliarMeta(tmaMedio, metaTma, "menor_melhor", { sufixo: "min" });
+
+  // ---- Metas cadastradas ----
+  // `null` em qualquer ponto (meta não cadastrada OU realizado sem
+  // medição) devolve null, e o cartão fica sem cor. Pintar sem régua
+  // seria inventar uma.
+  const metaDe = new Map(
+    ((metasBanco ?? []) as { chave: string; valor: number }[]).map((m) => [m.chave, Number(m.valor)]),
+  );
+  const leitura = (chave: string, realizado: number | null) => {
+    const def = CATALOGO_DE_METAS.find((d) => d.chave === chave);
+    const alvo = metaDe.get(chave);
+    if (!def || alvo === undefined || realizado === null) return null;
+    return avaliarMeta(realizado, alvo, def.sentido, { sufixo: def.sufixo, casas: def.casas });
+  };
+
+  const leituraAvaria = leitura("avaria_pct", pctAvariaGeral);
+  const leituraSelecao = leitura("selecao_un_hora", selecaoTaxaHora);
+
+  // HL por hora do Abastecimento do Picking, no recorte já filtrado por
+  // turno -- mesma função que a pontuação usa, para os dois números não
+  // discordarem na mesma tela.
+  const pickingHlTotal = Math.round(pickings.reduce((s, p) => s + p.hl, 0) * 10) / 10;
+  const pickingHlHora = mediaHlPicking(
+    pickings.map((p) => ({ quantidade: p.hl, inicio: p.inicio, fim: p.fim })),
+  );
+  const leituraPicking = leitura("picking_hl_hora", pickingHlHora);
+
+  // ---- Gás da empilhadeira ----
+  // Reaproveita o mesmo motor do dashboard de consumo: um ciclo vai de
+  // uma troca de P20 até a seguinte, rateado pelas horas de quem usou.
+  const numeroDaMaquina = new Map<string, string>();
+  for (const op of operacoes) {
+    if (op.empilhadeiraNumero) numeroDaMaquina.set(op.empilhadeiraId, op.empilhadeiraNumero);
+  }
+  const trocasGas: TrocaGas[] = ((trocasGasBanco ?? []) as Record<string, unknown>[]).map((t) => ({
+    id: t.id as string,
+    empilhadeiraId: t.empilhadeira_id as string,
+    operadorId: t.operador_id as string,
+    operadorNome: t.operador_nome as string,
+    horimetro: Number(t.horimetro),
+    realizadaEm: t.realizada_em as string,
+  }));
+  const sessoesParaGas: SessaoUso[] = operacoesEncerradas.map((op) => ({
+    id: op.id,
+    empilhadeiraId: op.empilhadeiraId,
+    operadorId: op.operadorId,
+    operadorNome: op.operadorNome,
+    horimetroInicial: op.horimetroInicial,
+    horimetroFinal: op.horimetroFinal,
+    inicio: op.inicio,
+    fim: op.fim,
+  }));
+
+  // O ciclo entra no período em que FECHOU -- é quando o botijão acabou e
+  // o consumo virou fato.
+  //
+  // Comparado como INSTANTE, não como texto: o banco devolve o carimbo em
+  // +00:00 e o recorte é escrito em -03:00. Como string, uma troca da
+  // meia-noite UTC (21h do dia anterior no armazém) pareceria maior que o
+  // início do período e entraria no dia errado.
+  const inicioMs = new Date(de0).getTime();
+  const fimMs = new Date(ate23).getTime();
+  const ciclosDoPeriodo = montarCiclos(trocasGas, sessoesParaGas, numeroDaMaquina)
+    .filter(cicloContaParaMaquina)
+    .filter((c) => {
+      const t = new Date(c.fechadoEm).getTime();
+      return t >= inicioMs && t <= fimMs;
+    });
+  const p20NoPeriodo = ciclosDoPeriodo.length;
+  const horasDosCiclos = ciclosDoPeriodo.reduce((s, c) => s + c.horas, 0);
+  const mediaHorasPorP20 = p20NoPeriodo > 0 ? horasDosCiclos / p20NoPeriodo : null;
+  const custoP20 = empilhadeiraConfig?.custo_p20 ?? null;
+  const custoDoGas = custoP20 !== null ? custoP20 * p20NoPeriodo : null;
+  const leituraHorasP20 = leitura("empilhadeira_horas_p20", mediaHorasPorP20);
+
   const barrasAvariaTransportadora: ItemBarra[] = [...avariaPorTransportadora.entries()]
     .filter(([, v]) => v.recebido > 0)
     .map(([nome, v]) => ({
@@ -605,6 +767,7 @@ export default async function IndicadoresPage({
           <CartaoHero titulo="Lançamentos" valor={String(selecoes.length)} />
           <CartaoHero titulo="Unidades triadas" valor={`${selecaoQuantidadeTotal} un`} />
           <CartaoHero
+            meta={leituraSelecao}
             titulo="Taxa média"
             valor={`${selecaoTaxaHora.toFixed(1)} un/h`}
             legenda="unidades ÷ horas do período"
@@ -621,6 +784,17 @@ export default async function IndicadoresPage({
           <CartaoHero titulo="Litros despejados" valor={`${despejoLitrosTotal.toFixed(1)} L`} />
           <CartaoHero titulo="Taxa média" valor={`${despejoTaxaMediaHora.toFixed(1)} L/h`} legenda="litros ÷ horas do período" />
           <CartaoHero titulo="Lançamentos" valor={String(despejos.length)} />
+        </BlocoAtividade>
+
+        <BlocoAtividade titulo="🧃 Abastecimento do Picking">
+          <CartaoHero titulo="Sessões" valor={String(pickings.length)} legenda="encerradas no período" />
+          <CartaoHero titulo="HL abastecidos" valor={`${formatarNumeroBr(pickingHlTotal, 1)} HL`} />
+          <CartaoHero
+            titulo="Taxa média"
+            valor={pickingHlHora === null ? "—" : `${formatarNumeroBr(pickingHlHora, 2)} HL/h`}
+            legenda="HL ÷ horas de sessão"
+            meta={leituraPicking}
+          />
         </BlocoAtividade>
 
         <BlocoAtividade titulo="🏗️ Empilhadeira">
@@ -640,22 +814,127 @@ export default async function IndicadoresPage({
             }
           />
           <CartaoHero titulo="Duração média" valor={formatarHoras(mediaHorasPorOperacao)} legenda="por operação, horímetro" />
+
+          {/* Gás: o ciclo do P20, mesmo motor do dashboard de consumo. */}
+          <CartaoHero
+            titulo="P20 consumidos"
+            valor={String(p20NoPeriodo)}
+            legenda="ciclos fechados no período"
+          />
+          <CartaoHero
+            titulo="Média horas/P20"
+            valor={mediaHorasPorP20 === null ? "—" : `${formatarNumeroBr(mediaHorasPorP20)}h`}
+            legenda="quanto rende um botijão"
+            meta={leituraHorasP20}
+          />
+          {custoDoGas !== null && (
+            <CartaoHero
+              titulo="Custo do gás"
+              valor={`R$ ${custoDoGas.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+              legenda={`P20 a R$ ${formatarNumeroBr(custoP20 ?? 0, 2)}`}
+            />
+          )}
         </BlocoAtividade>
 
         <BlocoAtividade titulo="🚛 Recebimento">
           <CartaoHero
-            titulo="Carretas avaliadas"
-            valor={String(carretasAvaliadas)}
-            legenda="com conferência lançada"
+            titulo="Carretas finalizadas"
+            valor={String(atendimentos.length)}
+            legenda={
+              comRetorno > 0
+                ? `${comRetorno} voltaram carregadas de AG`
+                : "nenhuma voltou carregada"
+            }
           />
           <CartaoHero
-            titulo="% de avaria no recebido"
+            titulo="TMA médio"
+            valor={tmaMedio === null ? "—" : formatarMinutos(Math.round(tmaMedio))}
+            legenda="da chegada (ou do agendado) até a liberação"
+            meta={leituraTma}
+          />
+          {/* A conferência conta em PALETES: um palete com uma garrafa
+              quebrada conta inteiro, por isso o valor fica na casa das
+              dezenas de %. Enquanto não houver meta cadastrada, sem cor --
+              o antigo limiar de 2% nunca foi régua deste número e faria o
+              cartão gritar vermelho para sempre. */}
+          <CartaoHero
+            titulo="% de paletes com avaria"
             valor={`${pctAvariaGeral}%`}
-            alerta={pctAvariaGeral > 2}
-            positivo={pctAvariaGeral > 0 && pctAvariaGeral <= 2}
+            legenda="paletes tocados, não volume"
+            meta={leituraAvaria}
+          />
+          <CartaoHero
+            titulo="Carretas com conferência"
+            valor={String(carretasAvaliadas)}
+            legenda="é a base do % de avaria"
+          />
+
+          {/* Fases: sem meta cadastrada, então sem cor. São o
+              diagnóstico de ONDE o TMA foi gasto -- pintar de vermelho
+              um número sem régua seria inventar uma. */}
+          <CartaoHero
+            titulo="Espera na portaria"
+            valor={esperaMedia === null ? "—" : formatarMinutos(Math.round(esperaMedia))}
+            legenda="chegada até alguém começar"
+          />
+          <CartaoHero
+            titulo="Tempo de descarga"
+            valor={descargaMedia === null ? "—" : formatarMinutos(Math.round(descargaMedia))}
+            legenda="início ao fim da descarga"
+          />
+          <CartaoHero
+            titulo="Tempo de conferência"
+            valor={conferenciaMedia === null ? "—" : formatarMinutos(Math.round(conferenciaMedia))}
+            legenda="não entra no TMA"
+          />
+          <CartaoHero
+            titulo="Tempo no pátio"
+            valor={patioMedio === null ? "—" : formatarMinutos(Math.round(patioMedio))}
+            legenda="chegada até a finalização"
           />
         </BlocoAtividade>
+
       </div>
+
+      <details className="mt-3 rounded-xl bg-slate-50 p-3 text-xs text-slate-500">
+        <summary className="cursor-pointer font-semibold text-slate-600">
+          ℹ️ Como o recebimento e a empilhadeira são medidos
+        </summary>
+        <ul className="mt-2 space-y-1.5">
+          <li>
+            <strong>TMA</strong> — quanto a carreta ocupou a operação. Começa no horário{" "}
+            <em>agendado</em> quando havia agendamento, senão na chegada apontada pela portaria.
+            Termina no fim da descarga; se a carreta voltou carregada de AG, termina no fim do{" "}
+            <strong>carregamento</strong> — até lá ela continua no pátio. O vão entre descarga e
+            carga conta.
+          </li>
+          <li>
+            <strong>A conferência nunca entra no TMA</strong> — a carreta não espera por ela. Já
+            houve conferência terminando duas horas depois de a carreta sair; contá-la infla o
+            indicador com tempo que não é da carreta.
+          </li>
+          <li>
+            <strong>Cor dos cartões</strong> — verde quando a meta está batida, vermelho quando
+            não, com a diferença embaixo. Só os cartões que <em>têm</em> régua ganham cor: as fases
+            do atendimento não têm meta cadastrada, e pintá-las seria inventar uma. A meta de TMA
+            se cadastra em Admin → Produtividade do Armazém → Recebimento.
+          </li>
+          <li>
+            <strong>% de paletes com avaria</strong> — a conferência conta em{" "}
+            <strong>paletes</strong>, e um palete com uma garrafa quebrada conta como palete
+            avariado inteiro. Por isso o número fica na casa das dezenas: ele diz quantos paletes
+            foram <em>tocados</em> por avaria, não quanto do volume veio avariado. Só entram
+            carretas com conferência lançada — sem conferência não há avaria medida, e incluí-las
+            puxaria o percentual para baixo fingindo que nada veio avariado. Este cartão ainda não
+            tem meta cadastrada.
+          </li>
+          <li>
+            <strong>P20</strong> — um ciclo vai de uma troca de gás até a seguinte, e entra no
+            período em que <em>fechou</em>, que é quando o botijão acabou. A primeira troca de cada
+            máquina não vira ciclo: sem um ponto anterior não há intervalo para medir.
+          </li>
+        </ul>
+      </details>
 
       <details className="mt-3 rounded-xl bg-slate-50 p-3 text-xs text-slate-500">
         <summary className="cursor-pointer font-semibold text-slate-600">

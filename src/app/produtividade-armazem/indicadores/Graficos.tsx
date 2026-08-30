@@ -6,6 +6,8 @@
  * o essencial de interação sem precisar de JavaScript no cliente.
  */
 
+import type { LeituraDaMeta } from "@/lib/metas";
+
 export type ItemBarra = {
   rotulo: string;
   valor: number;
@@ -94,34 +96,60 @@ export function BlocoAtividade({
   );
 }
 
+/**
+ * Cartão de número grande.
+ *
+ * Com `meta`, ele se pinta sozinho: fundo verde claro batendo, vermelho
+ * claro não batendo, e a diferença aparece embaixo em texto discreto --
+ * quem já viu a cor não precisa ler o resto, e quem quer o tamanho do
+ * buraco tem o número ali sem o cartão virar um relatório.
+ *
+ * `alerta`/`positivo` continuam para os cartões que não têm meta
+ * cadastrada e usam régua própria.
+ */
 export function CartaoHero({
   titulo,
   valor,
   legenda,
   alerta = false,
   positivo = false,
+  meta,
 }: {
   titulo: string;
   valor: string;
   legenda?: string;
   alerta?: boolean;
   positivo?: boolean;
+  meta?: LeituraDaMeta | null;
 }) {
+  // A meta manda na cor quando existe: ela é a régua da operação, não um
+  // limiar escrito no código.
+  const ruim = meta ? !meta.batendo : alerta;
+  const bom = meta ? meta.batendo : positivo;
+
   return (
     <div
-      className={`rounded-2xl border p-4 shadow-sm ${
-        alerta ? "border-red-200 bg-red-50" : positivo ? "border-green-200 bg-green-50" : "border-slate-200 bg-white"
+      className={`min-w-0 rounded-2xl border p-4 shadow-sm ${
+        ruim ? "border-red-200 bg-red-50" : bom ? "border-green-200 bg-green-50" : "border-slate-200 bg-white"
       }`}
     >
       <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{titulo}</p>
       <p
-        className={`mt-1 text-3xl font-extrabold ${
-          alerta ? "text-red-700" : positivo ? "text-green-700" : "text-slate-900"
+        className={`mt-1 break-words text-3xl font-extrabold ${
+          ruim ? "text-red-700" : bom ? "text-green-700" : "text-slate-900"
         }`}
       >
         {valor}
       </p>
       {legenda && <p className="mt-1 text-xs text-slate-500">{legenda}</p>}
+      {meta && (
+        // Discreto de propósito: é a informação de terceiro nível do
+        // cartão, depois do número e da cor.
+        <p className={`mt-1 text-[11px] ${ruim ? "text-red-600/70" : "text-green-700/70"}`}>
+          {meta.batendo ? "✓ " : ""}
+          {meta.texto}
+        </p>
+      )}
     </div>
   );
 }

@@ -47,7 +47,8 @@ export type ModuloId =
   | "refugo"
   | "devolucao"
   | "meus-indicadores"
-  | "justificativas";
+  | "justificativas"
+  | "metas";
 
 export type Modulo = {
   id: ModuloId;
@@ -130,6 +131,16 @@ export const MODULOS: Modulo[] = [
     grupo: "Conteúdo do app",
     acoes: ["ver"],
     semTelaAdmin: true,
+  },
+  {
+    id: "metas",
+    rotulo: "Metas",
+    emoji: "🎯",
+    href: "/admin/metas",
+    grupo: "Pessoas e configuração",
+    // Sem "excluir": apagar uma meta é deixar o campo em branco, dentro
+    // do próprio cadastro -- não é uma ação separada.
+    acoes: ["ver", "editar"],
   },
   {
     id: "justificativas",
