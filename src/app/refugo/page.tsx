@@ -15,6 +15,10 @@ import {
   type Alerta,
 } from "@/lib/refugo";
 import { BarrasHorizontais, FaixaDeDias } from "@/components/indicadores/Graficos";
+import { BotaoEnviar } from "@/components/BotaoEnviar";
+import { justificarRefugo } from "./actions";
+
+type Justificativa = { afericao_id: string; texto: string; criado_em: string };
 
 export const dynamic = "force-dynamic";
 
@@ -48,7 +52,13 @@ const campo =
 export default async function RefugoPage({
   searchParams,
 }: {
-  searchParams: Promise<{ de?: string; ate?: string; dia?: string }>;
+  searchParams: Promise<{
+    de?: string;
+    ate?: string;
+    dia?: string;
+    erro?: string;
+    sucesso?: string;
+  }>;
 }) {
   const perfil = await requireAcessoModulo("refugo");
   const sp = await searchParams;
@@ -115,6 +125,19 @@ export default async function RefugoPage({
 
   const comRefugo = emFoco.filter((a) => a.qt_faltante + a.qt_qualidade > 0);
 
+  // Só das aferições em foco -- e só se houver alguma com refugo, para
+  // não gastar uma ida ao banco num período limpo.
+  const { data: justificativasBanco } = comRefugo.length
+    ? await supabase
+        .from("refugo_justificativas")
+        .select("afericao_id, texto, criado_em")
+        .in("afericao_id", comRefugo.map((a) => a.id))
+    : { data: [] as Justificativa[] };
+
+  const justificativaPorAfericao = new Map(
+    ((justificativasBanco ?? []) as Justificativa[]).map((j) => [j.afericao_id, j]),
+  );
+
   const qs = (extra: Record<string, string | null>) => {
     const p = new URLSearchParams({ de, ate });
     for (const [k, v] of Object.entries(extra)) {
@@ -131,6 +154,13 @@ export default async function RefugoPage({
         subtitle="Como as garrafas que voltaram nos seus mapas foram aferidas."
         fecharHref="/meus-indicadores"
       />
+
+      {sp.erro && (
+        <p className="rounded-xl bg-red-50 p-3 text-sm font-medium text-red-700">{sp.erro}</p>
+      )}
+      {sp.sucesso && (
+        <p className="rounded-xl bg-green-50 p-3 text-sm font-medium text-green-700">{sp.sucesso}</p>
+      )}
 
       <FiltroDePeriodo de={de} ate={ate} hoje={hoje} />
 
@@ -194,7 +224,9 @@ export default async function RefugoPage({
             </p>
           </div>
           <p className="mt-2 text-[11px] text-red-700">
-            Leve o número do mapa para a liderança abrir o chamado de correção.
+            Leve o número do mapa para a liderança abrir o chamado de correção — e conte o que
+            aconteceu na aferição, aqui embaixo na lista. É onde a sua versão fica registrada
+            junto com o número.
           </p>
         </section>
       ))}
@@ -217,7 +249,15 @@ export default async function RefugoPage({
             vazio="Nenhum refugo no período."
           />
 
-          <ListaDeAfericoes afericoes={emFoco} perfilId={perfil.id} valorPorItem={valorPorItem} />
+          <ListaDeAfericoes
+            afericoes={emFoco}
+            perfilId={perfil.id}
+            valorPorItem={valorPorItem}
+            justificativaPorAfericao={justificativaPorAfericao}
+            de={de}
+            ate={ate}
+            dia={diaSelecionado}
+          />
         </>
       ) : (
         <div className="rounded-2xl border border-slate-200 bg-slate-50 p-6 text-center">
@@ -371,16 +411,25 @@ function ListaDeAfericoes({
   afericoes,
   perfilId,
   valorPorItem,
+  justificativaPorAfericao,
+  de,
+  ate,
+  dia,
 }: {
   afericoes: Afericao[];
   perfilId: string;
   valorPorItem: Map<string, number>;
+  justificativaPorAfericao: Map<string, Justificativa>;
+  de: string;
+  ate: string;
+  dia: string | null;
 }) {
   return (
     <section>
       <h2 className="mb-1 text-sm font-bold text-slate-900">Aferição por mapa</h2>
       <p className="mb-3 text-xs text-slate-500">
-        Cada linha é um tipo de garrafa aferido num mapa seu.
+        Cada linha é um tipo de garrafa aferido num mapa seu. Onde deu refugo, você pode contar o
+        que aconteceu.
       </p>
       <ul className="space-y-2">
         {afericoes.map((a) => {
@@ -435,10 +484,82 @@ function ListaDeAfericoes({
                   ))}
                 </div>
               )}
+
+              {/* Só onde deu refugo. Numa aferição 100% boa não há o que
+                  explicar, e o campo ali viraria ruído em 74% das linhas. */}
+              {refugo > 0 && (
+                <ExplicacaoDoRefugo
+                  afericaoId={a.id}
+                  justificativa={justificativaPorAfericao.get(a.id) ?? null}
+                  de={de}
+                  ate={ate}
+                  dia={dia}
+                />
+              )}
             </li>
           );
         })}
       </ul>
     </section>
+  );
+}
+
+/**
+ * O campo em que o colaborador conta o que aconteceu.
+ *
+ * Vem fechado num <details>: a maioria das aferições com refugo é de
+ * poucas garrafas e não pede explicação nenhuma. Aberto por padrão, a
+ * lista viraria uma parede de caixas de texto e o campo perderia o peso
+ * justamente onde ele importa.
+ */
+function ExplicacaoDoRefugo({
+  afericaoId,
+  justificativa,
+  de,
+  ate,
+  dia,
+}: {
+  afericaoId: string;
+  justificativa: Justificativa | null;
+  de: string;
+  ate: string;
+  dia: string | null;
+}) {
+  return (
+    <details className="mt-2 border-t border-slate-100 pt-2" open={!justificativa ? false : true}>
+      <summary className="cursor-pointer list-none text-xs font-semibold text-primary">
+        {justificativa ? "✅ Sua explicação" : "🗣️ Contar o que aconteceu"}
+      </summary>
+
+      <form action={justificarRefugo} className="mt-2 space-y-2">
+        <input type="hidden" name="afericao_id" value={afericaoId} />
+        <input type="hidden" name="de" value={de} />
+        <input type="hidden" name="ate" value={ate} />
+        {dia && <input type="hidden" name="dia" value={dia} />}
+
+        <textarea
+          name="texto"
+          rows={3}
+          maxLength={1000}
+          required
+          defaultValue={justificativa?.texto ?? ""}
+          placeholder="Ex.: a garrafa já veio trincada do carregamento; o cliente devolveu o vasilhame quebrado…"
+          className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-primary focus:outline-none"
+        />
+
+        <BotaoEnviar
+          textoEnviando="Enviando..."
+          className="w-full rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white hover:bg-primary-dark"
+        >
+          {justificativa ? "Atualizar explicação" : "Enviar explicação"}
+        </BotaoEnviar>
+
+        {justificativa && (
+          <p className="text-center text-[11px] text-slate-400">
+            Enviada em {formatarData(justificativa.criado_em.slice(0, 10))}
+          </p>
+        )}
+      </form>
+    </details>
   );
 }
