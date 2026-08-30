@@ -45,7 +45,8 @@ export type ModuloId =
   | "fefo-controle"
   | "rating"
   | "refugo"
-  | "devolucao";
+  | "devolucao"
+  | "meus-indicadores";
 
 export type Modulo = {
   id: ModuloId;
@@ -107,6 +108,17 @@ export const MODULOS: Modulo[] = [
     // só veem as PRÓPRIAS avaliações, e para isso basta a concessão do
     // módulo (sem ação) -- quem não entrega não tem o que ver aqui.
     acoes: ["ver", "criar"],
+  },
+  {
+    id: "meus-indicadores",
+    rotulo: "Meus Indicadores",
+    emoji: "📊",
+    // Não tem tela de Admin própria: o que se administra são os três
+    // módulos de dentro (Rating, Refugo, Devolução), cada um com a sua.
+    // Esta concessão só abre a vitrine.
+    href: "/meus-indicadores",
+    grupo: "Conteúdo do app",
+    acoes: ["ver"],
   },
   {
     id: "devolucao",
@@ -432,7 +444,19 @@ export const MODULOS_OPCIONAIS: ModuloId[] = [
   "rating",
   "refugo",
   "devolucao",
+  "meus-indicadores",
 ];
+
+/**
+ * Os três indicadores pessoais do motorista/ajudante vivem DENTRO de
+ * "Meus Indicadores" (pedido do dono, 30/08/2026), do mesmo jeito que as
+ * funcionalidades de chão vivem dentro de Produtividade do Armazém.
+ *
+ * A concessão continua sendo por módulo -- dá para liberar só o Rating
+ * para alguém. O que muda é o caminho: em vez de três cartões soltos na
+ * tela inicial, um só que leva à vitrine.
+ */
+export const SUBMODULOS_INDICADORES: ModuloId[] = ["rating", "refugo", "devolucao"];
 
 const MAPA = new Map(MODULOS.map((m) => [m.id, m]));
 
