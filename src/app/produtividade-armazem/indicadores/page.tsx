@@ -99,6 +99,7 @@ export default async function IndicadoresPage({
     { data: trocasGasBanco },
     { data: empilhadeiraConfig },
     { data: metasBanco },
+    { data: embalagensRepackBanco },
   ] = await Promise.all([
     supabase
       .from("pa_produtos")
@@ -115,7 +116,10 @@ export default async function IndicadoresPage({
     // para não serem comparadas com a mesma régua.
     supabase
       .from("pa_reepack_lancamentos")
-      .select("produto_id, colaborador_id, colaborador_nome, turno, quantidade, inicio, fim")
+      // embalagem_id vem gravado no lançamento (vem do produto): é o que
+      // permite acompanhar o Repack por TIPO DE EMBALAGEM, e não só por
+      // produto -- lata 350 e long neck não embalam no mesmo ritmo.
+      .select("produto_id, embalagem_id, colaborador_id, colaborador_nome, turno, quantidade, inicio, fim")
       .eq("revenda_id", revendaId)
       .eq("etapa", "repack")
       .not("fim", "is", null)
@@ -207,6 +211,8 @@ export default async function IndicadoresPage({
     // As metas cadastradas em Admin > Metas. Sem linha = sem meta, e o
     // cartão fica neutro em vez de cobrar um número que ninguém definiu.
     supabase.from("pa_metas").select("chave, valor").eq("revenda_id", revendaId),
+    // As embalagens do Repack (pa_embalagens), diferentes das do Despejo.
+    supabase.from("pa_embalagens").select("id, nome").eq("revenda_id", revendaId),
   ]);
 
   const produtos: ProdutoMeta[] = (produtosBanco ?? []).map((p) => ({
@@ -223,6 +229,7 @@ export default async function IndicadoresPage({
 
   const reepacksTodos = (reepacksBanco ?? []) as {
     produto_id: string | null;
+    embalagem_id: string | null;
     colaborador_id: string;
     colaborador_nome: string;
     turno: string;
@@ -354,6 +361,35 @@ export default async function IndicadoresPage({
     atual.horas += (new Date(r.fim).getTime() - new Date(r.inicio).getTime()) / 3_600_000;
     reepackPorColaborador.set(r.colaborador_id, atual);
   }
+  // ---- Repack por EMBALAGEM ----
+  // Segmentado por tipo, e não só por produto: uma lata 350 e um long
+  // neck não embalam no mesmo ritmo, e o número por produto é fino demais
+  // para enxergar isso -- 25 produtos com um lançamento cada não formam
+  // padrão nenhum. A embalagem junta.
+  const nomeDaEmbalagem = new Map(
+    ((embalagensRepackBanco ?? []) as { id: string; nome: string }[]).map((e) => [e.id, e.nome]),
+  );
+  const repackPorEmbalagem = new Map<string, { quantidade: number; horas: number; lancamentos: number }>();
+  for (const r of reepacks) {
+    if (!r.embalagem_id) continue;
+    const atual = repackPorEmbalagem.get(r.embalagem_id) ?? { quantidade: 0, horas: 0, lancamentos: 0 };
+    atual.quantidade += r.quantidade;
+    atual.horas += horasEntre(r.inicio, r.fim);
+    atual.lancamentos++;
+    repackPorEmbalagem.set(r.embalagem_id, atual);
+  }
+  const barrasRepackEmbalagem: ItemBarra[] = [...repackPorEmbalagem.entries()]
+    .map(([id, v]) => ({
+      rotulo: nomeDaEmbalagem.get(id) ?? "(embalagem removida)",
+      // A barra mostra a TAXA, não o total: quem embalou mais tempo não
+      // passa na frente de quem rendeu mais rápido.
+      valor: taxaPorHora(v.quantidade, v.horas),
+      detalhe: `${nomeDaEmbalagem.get(id) ?? "?"}: ${v.quantidade} cx em ${
+        Math.round(v.horas * 10) / 10
+      }h · ${v.lancamentos} lançamento(s)`,
+    }))
+    .sort((a, b) => b.valor - a.valor);
+
   const barrasReepackColaborador: ItemBarra[] = [...reepackPorColaborador.entries()]
     .map(([, v]) => ({
       rotulo: v.nome,
@@ -981,6 +1017,12 @@ export default async function IndicadoresPage({
             subtitulo="Total de caixas no período"
             itens={barrasReepackColaborador}
             sufixo="cx"
+          />
+          <BarraRanking
+            titulo="Repack por embalagem"
+            subtitulo="Caixas por hora, por tipo de embalagem"
+            itens={barrasRepackEmbalagem}
+            sufixo="cx/h"
           />
           <BarraRanking
             titulo="Despejo por colaborador"
