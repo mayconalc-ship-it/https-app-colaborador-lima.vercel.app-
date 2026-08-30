@@ -73,16 +73,21 @@ function CartaoGatilho({ etapa }: { etapa: EtapaReepack }) {
         ℹ️ Quando começar e quando parar o cronômetro — {e.rotulo}
       </summary>
       <div className="space-y-2 border-t border-slate-100 p-3 text-xs">
-        <p className="text-slate-700">
-          <strong className="text-green-700">▶️ Comece a contar quando:</strong> {e.inicio}
-        </p>
-        <p className="text-slate-700">
-          <strong className="text-red-700">⏹️ Pare de contar quando:</strong> {e.fim}
-        </p>
+        <div>
+          <p className="text-slate-700">
+            <strong className="text-green-700">▶️ Comece a contar quando:</strong> {e.inicio}
+          </p>
+          <p className="text-[11px] text-slate-400">{e.refInicio}</p>
+        </div>
+        <div>
+          <p className="text-slate-700">
+            <strong className="text-red-700">⏹️ Pare de contar quando:</strong> {e.fim}
+          </p>
+          <p className="text-[11px] text-slate-400">{e.refFim}</p>
+        </div>
         <p className="text-slate-500">
           <strong>Não entra nesta etapa:</strong> {e.naoEntra}
         </p>
-        <p className="text-[11px] text-slate-400">{e.secoesPop}</p>
       </div>
     </details>
   );
@@ -113,7 +118,11 @@ export default async function ReepackPage({
   // Na aba Lançar, ?etapa= escolhe qual atividade vai ser cronometrada;
   // no Histórico, filtra a lista. Sem parâmetro, abre no Repack -- que
   // era o único fluxo antes de a Seleção existir.
-  const etapaEscolhida: EtapaReepack = ehEtapaReepack(sp.etapa) ? sp.etapa : "repack";
+  // Abre em SELEÇÃO: é a primeira etapa da execução do Repack, e o app
+  // tem que abrir no começo do trabalho, não no fim dele. Depois disso
+  // manda a URL -- e as ações devolvem a etapa que a pessoa acabou de
+  // usar, para ela continuar de onde estava.
+  const etapaEscolhida: EtapaReepack = ehEtapaReepack(sp.etapa) ? sp.etapa : "selecao";
   const etapaFiltro = ehEtapaReepack(sp.etapa) ? sp.etapa : "";
 
   const revendaId = await getRevendaId();

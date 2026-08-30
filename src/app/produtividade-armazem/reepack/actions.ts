@@ -1,4 +1,4 @@
-"use server";
+﻿"use server";
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
@@ -12,8 +12,14 @@ import { ETAPA_REEPACK, ehEtapaReepack, ehTurno, inteiroNaoNegativo } from "@/li
 
 const ROTA = "/produtividade-armazem/reepack";
 
-function erro(mensagem: string): never {
-  redirect(`${ROTA}?erro=${encodeURIComponent(mensagem)}`);
+/** Devolve a etapa junto do erro: sem ela a pessoa perde a aba que
+ *  escolheu justamente quando algo deu errado, que é a pior hora para
+ *  fazê-la reescolher. */
+function erro(mensagem: string, etapa?: string): never {
+  const p = new URLSearchParams();
+  if (etapa) p.set("etapa", etapa);
+  p.set("erro", mensagem);
+  redirect(`${ROTA}?${p.toString()}`);
 }
 
 const exigirContexto = () => exigirContextoModulo("pa-reepack", ROTA);
@@ -40,8 +46,8 @@ export async function iniciarReepack(formData: FormData) {
   // "repack", que era o único comportamento antes de a Seleção existir.
   const etapaBruta = formData.get("etapa");
   const etapa = ehEtapaReepack(etapaBruta) ? etapaBruta : "repack";
-  if (!produtoId) erro("Escolha o produto.");
-  if (!ehTurno(turno)) erro("Escolha o turno.");
+  if (!produtoId) erro("Escolha o produto.", etapa);
+  if (!ehTurno(turno)) erro("Escolha o turno.", etapa);
 
   const supabase = await createClient();
 
@@ -54,7 +60,7 @@ export async function iniciarReepack(formData: FormData) {
     .maybeSingle();
 
   if (!produto || !produto.embalagem_id || produto.fator_hecto === null) {
-    erro("Este produto ainda não está pronto para reepack -- peça ao Admin para vincular a embalagem em Configuração.");
+    erro("Este produto ainda não está pronto para reepack -- peça ao Admin para vincular a embalagem em Configuração.", etapa);
   }
 
   const { error } = await supabase.from("pa_reepack_lancamentos").insert({
@@ -72,13 +78,18 @@ export async function iniciarReepack(formData: FormData) {
     // A trava é por pessoa, não por etapa: não dá para triar e reembalar
     // ao mesmo tempo, então uma atividade aberta bloqueia a outra.
     if (error.code === "23505") {
-      erro("Você já tem uma atividade em andamento. Finalize antes de iniciar outra.");
+      erro("Você já tem uma atividade em andamento. Finalize antes de iniciar outra.", etapa);
     }
-    erro(`Não foi possível iniciar: ${error.message}`);
+    erro(`Não foi possível iniciar: ${error.message}`, etapa);
   }
 
   revalidatePath(ROTA);
-  redirect(`${ROTA}?sucesso=${encodeURIComponent(`${ETAPA_REEPACK[etapa].rotulo} iniciada`)}`);
+  // Devolve a etapa na URL: a tela reabre na atividade que a pessoa
+  // acabou de usar, em vez de voltar para o padrão e obrigá-la a
+  // reescolher a cada lançamento.
+  redirect(
+    `${ROTA}?etapa=${etapa}&sucesso=${encodeURIComponent(`${ETAPA_REEPACK[etapa].rotulo} iniciada`)}`,
+  );
 }
 
 /**
@@ -143,7 +154,9 @@ export async function finalizarReepack(formData: FormData) {
   if (error) erro(`Não foi possível finalizar: ${error.message}`);
 
   revalidatePath(ROTA);
-  redirect(`${ROTA}?sucesso=${encodeURIComponent(`${ETAPA_REEPACK[etapa].rotulo} finalizada`)}`);
+  redirect(
+    `${ROTA}?etapa=${etapa}&sucesso=${encodeURIComponent(`${ETAPA_REEPACK[etapa].rotulo} finalizada`)}`,
+  );
 }
 
 /**

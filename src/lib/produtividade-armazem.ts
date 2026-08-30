@@ -59,16 +59,35 @@ export function ehEtapaReepack(v: unknown): v is EtapaReepack {
 
 export const ETAPA_REEPACK: Record<
   EtapaReepack,
-  { rotulo: string; curto: string; emoji: string; secoesPop: string; inicio: string; fim: string; naoEntra: string; unidade: string }
+  {
+    rotulo: string;
+    curto: string;
+    emoji: string;
+    secoesPop: string;
+    inicio: string;
+    /** Onde no padrão está o gatilho de INÍCIO. Fica ao lado da frase, e
+     *  não só no rodapé: quem discorda do gatilho precisa saber onde
+     *  conferir sem procurar. */
+    refInicio: string;
+    fim: string;
+    refFim: string;
+    naoEntra: string;
+    unidade: string;
+  }
 > = {
   selecao: {
     rotulo: "Seleção e Triagem",
     curto: "Seleção",
     emoji: "🔍",
     secoesPop: "POP-ARM-001, seções 7.2, 7.3 e 7.4",
+    // Lavar e secar SAÍRAM daqui (30/08/2026, correção do dono): lavar
+    // embalagem não faz parte do padrão -- e o que não se lava não se
+    // seca. O que a etapa tem é inspeção e separação.
     inicio:
-      "Você começa a inspecionar o lote/pallet avariado: verifica a embalagem, classifica a avaria e separa o que é impróprio (descarte) do que está conforme — lava, seca e inspeciona cada embalagem uma a uma.",
-    fim: "O produto está triado, limpo e inspecionado — pronto na bancada para ser reembalado.",
+      "Você começa a inspecionar o lote/pallet avariado: verifica a embalagem, classifica a avaria e separa o que é impróprio (descarte) do que está conforme, inspecionando cada embalagem uma a uma.",
+    refInicio: "POP-ARM-001, seções 7.2 e 7.3",
+    fim: "O produto já está triado — pronto na bancada para ser reembalado.",
+    refFim: "POP-ARM-001, seção 7.4",
     naoEntra:
       "Deslocamento até a bombona de descarte, preenchimento do BO de quebra e tempo parado esperando pallet.",
     unidade: "unidades triadas",
@@ -80,8 +99,10 @@ export const ETAPA_REEPACK: Record<
     secoesPop: "POP-ARM-001, seções 7.5 e 7.6",
     inicio:
       "Você começa a cortar o Shrink na medida (régua da bancada) para a embalagem que já saiu da Seleção.",
+    refInicio: "POP-ARM-001, seção 7.5",
     fim: "A sopradora térmica termina o encolhimento do Shrink e o pacote está pronto e finalizado.",
-    naoEntra: "O tempo de seleção e limpeza (Etapa 1) e o tempo de inspeção final.",
+    refFim: "POP-ARM-001, seção 7.6",
+    naoEntra: "O tempo de seleção e triagem (Etapa 1) e o tempo de inspeção final.",
     unidade: "caixas reembaladas",
   },
 };

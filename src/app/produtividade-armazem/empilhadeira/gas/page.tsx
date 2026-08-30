@@ -1,5 +1,6 @@
-import { redirect } from "next/navigation";
+﻿import { redirect } from "next/navigation";
 import { PageHeader } from "@/components/PageHeader";
+import { FiltroNoLugar } from "@/components/FiltroNoLugar";
 import { createClient } from "@/lib/supabase/server";
 import { getRevendaId } from "@/lib/revendas";
 import { requireAcessoModulo } from "@/lib/require-admin";
@@ -93,6 +94,8 @@ export default async function DashboardGasPage({
     operador?: string;
     ordem?: string;
     granularidade?: string;
+    /** Qual agrupamento fica aberto depois de filtrar. Ver FiltroNoLugar. */
+    secao?: string;
   }>;
 }) {
   await requireAcessoModulo("pa-empilhadeira");
@@ -104,6 +107,8 @@ export default async function DashboardGasPage({
   const operadorFiltro = (sp.operador ?? "").trim();
   const ordem = ehOrdemRanking(sp.ordem) ? sp.ordem : "horas";
   const granularidade = ehGranularidade(sp.granularidade) ? sp.granularidade : "dia";
+  // Qual agrupamento continua aberto depois de aplicar um filtro.
+  const secao = (sp.secao ?? "").trim();
 
   const revendaId = await getRevendaId();
   if (!revendaId) redirect(`/?erro=${encodeURIComponent("Você não está em nenhuma revenda.")}`);
@@ -163,6 +168,33 @@ export default async function DashboardGasPage({
   const ciclos = montarCiclos(trocas, sessoes, numeroDaMaquina);
   const porOperadorTodos = resumirPorOperador(ciclos);
   const porMaquina = resumirPorMaquina(ciclos);
+
+  /**
+   * Máquinas que TRABALHARAM mas não têm ciclo fechado.
+   *
+   * A lista acima é montada a partir de ciclos de P20, e um ciclo precisa
+   * de DUAS trocas -- a primeira é só o ponto de partida. Uma máquina com
+   * uma troca só (a 02, em 30/08/2026) sumia da tela inteira, apesar de
+   * ter horas registradas. Sumir é pior que aparecer sem número: quem
+   * olha conclui que a máquina não rodou.
+   */
+  const comCiclo = new Set(porMaquina.map((m) => m.empilhadeiraId));
+  const horasSemCiclo = new Map<string, { horas: number; sessoes: number; trocas: number }>();
+  for (const s of sessoes) {
+    if (comCiclo.has(s.empilhadeiraId)) continue;
+    if (s.horimetroFinal === null) continue;
+    const atual = horasSemCiclo.get(s.empilhadeiraId) ?? { horas: 0, sessoes: 0, trocas: 0 };
+    atual.horas += Math.max(s.horimetroFinal - s.horimetroInicial, 0);
+    atual.sessoes++;
+    horasSemCiclo.set(s.empilhadeiraId, atual);
+  }
+  for (const t of trocas) {
+    const atual = horasSemCiclo.get(t.empilhadeiraId);
+    if (atual) atual.trocas++;
+  }
+  const semCiclo = [...horasSemCiclo.entries()]
+    .map(([id, v]) => ({ id, numero: numeroDaMaquina.get(id) ?? "—", ...v }))
+    .sort((a, b) => b.horas - a.horas);
   const evolucao = evolucaoDosCiclos(ciclos, granularidade);
 
   // O filtro de operador afeta só as visões DELE. Os cartões e os ciclos
@@ -327,12 +359,12 @@ export default async function DashboardGasPage({
           )}
 
           {/* ---- Ranking de operadores (item 10) ---- */}
-          <details className="mt-6 rounded-2xl border border-slate-200 bg-white">
+          <details open={secao === "ranking"} className="mt-6 rounded-2xl border border-slate-200 bg-white">
             <summary className="cursor-pointer list-none p-4 text-sm font-semibold text-slate-700">
               🏆 Ranking de operadores ({rankingOperadores.length})
             </summary>
             <div className="border-t border-slate-100 p-4">
-              <form method="get" className="mb-3 flex flex-wrap items-end gap-2">
+              <FiltroNoLugar secao="ranking" className="mb-3 flex flex-wrap items-end gap-2">
                 <input type="hidden" name="de" value={de} />
                 <input type="hidden" name="ate" value={ate} />
                 <input type="hidden" name="maquina" value={maquinaFiltro} />
@@ -349,7 +381,7 @@ export default async function DashboardGasPage({
                 <button type="submit" className="shrink-0 rounded-lg bg-slate-800 px-3 py-2 text-sm font-semibold text-white">
                   Aplicar
                 </button>
-              </form>
+              </FiltroNoLugar>
 
               {rankingOperadores.length === 0 ? (
                 <p className="text-sm text-slate-400">Nenhum operador com horas atribuídas no período.</p>
@@ -396,14 +428,40 @@ export default async function DashboardGasPage({
           </details>
 
           {/* ---- Por empilhadeira (item 11) ---- */}
-          <details className="mt-4 rounded-2xl border border-slate-200 bg-white">
+          <details open={secao === "maquinas"} className="mt-4 rounded-2xl border border-slate-200 bg-white">
             <summary className="cursor-pointer list-none p-4 text-sm font-semibold text-slate-700">
-              🏗️ Por empilhadeira ({porMaquina.length})
+              🏗️ Por empilhadeira ({porMaquina.length + semCiclo.length})
             </summary>
             <div className="space-y-3 border-t border-slate-100 p-4">
-              {porMaquina.length === 0 ? (
+              {/* As que rodaram mas ainda não fecharam ciclo. Aparecem com
+                  as horas e sem h/P20 -- é o que elas têm. */}
+              {semCiclo.map((m) => (
+                <div key={m.id} className="rounded-xl border border-amber-200 bg-amber-50 p-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-bold text-amber-900">🏗️ Empilhadeira {m.numero}</p>
+                      <p className="text-xs text-amber-800">
+                        {formatarNumeroBr(Math.round(m.horas * 10) / 10)}h em {m.sessoes} operação(ões)
+                        {" · "}
+                        {m.trocas === 0
+                          ? "nenhuma troca de gás registrada"
+                          : `${m.trocas} troca(s) de gás`}
+                      </p>
+                    </div>
+                    <span className="shrink-0 rounded-lg bg-amber-100 px-2 py-1 text-xs font-bold text-amber-800">
+                      sem ciclo
+                    </span>
+                  </div>
+                  <p className="mt-2 text-[11px] text-amber-700">
+                    Ainda não dá para medir consumo aqui: um ciclo vai de uma troca de P20 até a
+                    seguinte, e esta máquina precisa de mais uma troca para fechar o primeiro.
+                  </p>
+                </div>
+              ))}
+
+              {porMaquina.length === 0 && semCiclo.length === 0 ? (
                 <p className="text-sm text-slate-400">Nenhuma máquina com ciclo fechado no período.</p>
-              ) : (
+              ) : porMaquina.length === 0 ? null : (
                 porMaquina.map((m) => {
                   const ops = operadoresDaMaquina(ciclos, m.empilhadeiraId);
                   return (
@@ -446,12 +504,12 @@ export default async function DashboardGasPage({
           </details>
 
           {/* ---- Evolução histórica (item 13) ---- */}
-          <details className="mt-4 rounded-2xl border border-slate-200 bg-white">
+          <details open={secao === "evolucao"} className="mt-4 rounded-2xl border border-slate-200 bg-white">
             <summary className="cursor-pointer list-none p-4 text-sm font-semibold text-slate-700">
               📈 Evolução da média h/P20
             </summary>
             <div className="border-t border-slate-100 p-4">
-              <form method="get" className="mb-3 flex flex-wrap items-end gap-2">
+              <FiltroNoLugar secao="evolucao" className="mb-3 flex flex-wrap items-end gap-2">
                 <input type="hidden" name="de" value={de} />
                 <input type="hidden" name="ate" value={ate} />
                 <input type="hidden" name="maquina" value={maquinaFiltro} />
@@ -468,7 +526,7 @@ export default async function DashboardGasPage({
                 <button type="submit" className="shrink-0 rounded-lg bg-slate-800 px-3 py-2 text-sm font-semibold text-white">
                   Aplicar
                 </button>
-              </form>
+              </FiltroNoLugar>
 
               {evolucao.length === 0 ? (
                 <p className="text-sm text-slate-400">Sem ciclos suficientes para montar a evolução.</p>
