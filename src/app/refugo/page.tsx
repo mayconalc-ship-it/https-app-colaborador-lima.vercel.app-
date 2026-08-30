@@ -129,7 +129,7 @@ export default async function RefugoPage({
       <PageHeader
         title="Meu Refugo"
         subtitle="Como as garrafas que voltaram nos seus mapas foram aferidas."
-        fecharHref="/"
+        fecharHref="/meus-indicadores"
       />
 
       <FiltroDePeriodo de={de} ate={ate} hoje={hoje} />

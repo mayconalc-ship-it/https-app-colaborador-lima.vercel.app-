@@ -185,8 +185,8 @@ export default async function DevolucaoPage({
     <div className="space-y-4 pb-8">
       <PageHeader
         title="Minha Devolução"
-        subtitle={`O que voltou das suas entregas. Meta: até ${meta}% do valor.`}
-        fecharHref="/"
+        subtitle={`O que voltou das suas entregas. Meta: até ${meta}% dos PDVs.`}
+        fecharHref="/meus-indicadores"
       />
 
       {sp.erro && <p className="rounded-xl bg-red-50 p-3 text-sm font-medium text-red-700">{sp.erro}</p>}

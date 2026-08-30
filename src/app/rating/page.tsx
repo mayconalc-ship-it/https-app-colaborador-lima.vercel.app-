@@ -124,7 +124,14 @@ export default async function RatingPage({
 
   return (
     <div className="space-y-4 pb-8">
-      <PageHeader title="Meu Rating" subtitle="Como os clientes avaliaram as suas entregas." fecharHref="/" />
+      {/* Fecha para a vitrine, não para a tela inicial: o Rating é
+          submódulo de Meus Indicadores, e voltar dois níveis de uma vez
+          obriga a pessoa a refazer o caminho para ver o próximo. */}
+      <PageHeader
+        title="Meu Rating"
+        subtitle="Como os clientes avaliaram as suas entregas."
+        fecharHref="/meus-indicadores"
+      />
 
       {sp.erro && <p className="rounded-xl bg-red-50 p-3 text-sm font-medium text-red-700">{sp.erro}</p>}
       {sp.sucesso && (
