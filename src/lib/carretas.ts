@@ -187,6 +187,22 @@ export function calcularTmaMinutos(a: AtendimentoCarreta): number | null {
 }
 
 /**
+ * A carreta chegou ANTES do horário agendado?
+ *
+ * Enquanto a hora marcada não chega, o TMA não começou -- ele conta do
+ * agendamento, não da chegada. Sem este estado o card mostrava "faltam
+ * 2h41min", que é o alvo inteiro, dando a impressão de um relógio
+ * correndo que ainda nem partiu.
+ */
+export function aguardandoAgendamento(
+  a: { cargaAgendada: boolean; agendamentoEm: string | null },
+  agora = new Date(),
+): boolean {
+  if (!a.cargaAgendada || !a.agendamentoEm) return false;
+  return new Date(a.agendamentoEm).getTime() > agora.getTime();
+}
+
+/**
  * O TMA correndo AGORA, para a carreta que ainda está no pátio.
  *
  * Mesma régua do TMA fechado: começa no horário AGENDADO quando havia
@@ -294,16 +310,22 @@ export type CorSinalizador = "verde" | "amarelo" | "vermelho";
  * finalizados já saem da tela): estourou o TMA alvo = vermelho, não
  * importa se era agendada ou não; senão, agendada = verde ("dentro do
  * combinado"), sem agendamento = amarelo ("atenção, sem hora marcada").
- * Minutos decorridos contam da chegada -- é o relógio que a pessoa vê
- * rodando no card, mesma referência de `minutosDesde`.
+ *
+ * Conta pelo RELÓGIO DO TMA, não pela chegada. Contava pela chegada
+ * quando o card só mostrava o tempo de pátio; agora que o card mostra o
+ * TMA, a bolinha tinha que dizer a mesma coisa que o número embaixo
+ * dela. A diferença aparece na carreta que chega muito antes da hora
+ * marcada: pela chegada ela ficava vermelha antes de o TMA começar.
  */
 export function corSinalizador(
-  a: { chegadaEm: string; cargaAgendada: boolean },
+  a: { chegadaEm: string; cargaAgendada: boolean; agendamentoEm?: string | null },
   tmaAlvoMinutos: number,
   agora = new Date(),
 ): CorSinalizador {
-  const decorridos = minutosDesde(a.chegadaEm, agora);
-  if (decorridos >= tmaAlvoMinutos) return "vermelho";
+  const alvo = { ...a, agendamentoEm: a.agendamentoEm ?? null };
+  // Ainda não deu a hora: o TMA não começou, então não há o que estourar.
+  if (aguardandoAgendamento(alvo, agora)) return "verde";
+  if (tmaEmAndamentoMinutos(alvo, agora) >= tmaAlvoMinutos) return "vermelho";
   return a.cargaAgendada ? "verde" : "amarelo";
 }
 

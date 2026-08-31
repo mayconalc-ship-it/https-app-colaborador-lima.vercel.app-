@@ -7,6 +7,7 @@ import {
   formatarMinutos,
   minutosDesde,
   tmaEmAndamentoMinutos,
+  aguardandoAgendamento,
   type CorSinalizador,
   type StatusAtendimento,
 } from "@/lib/carretas";
@@ -158,6 +159,10 @@ export function MonitorCarretas({
                 const tmaAgora = tmaEmAndamentoMinutos(a, agora);
                 const restam = tmaAlvoMinutos - tmaAgora;
                 const estourou = restam < 0;
+                // Chegou antes da hora marcada: o relógio do TMA ainda
+                // não partiu, e "faltam 2h41min" (o alvo inteiro) daria a
+                // impressão de que já está correndo.
+                const aguardando = aguardandoAgendamento(a, agora);
                 return (
                   <a
                     key={a.id}
@@ -194,24 +199,30 @@ export function MonitorCarretas({
                         <span>TMA</span>
                         <span
                           className={`shrink-0 font-bold tabular-nums ${
-                            estourou ? "text-red-700" : "text-slate-900"
+                            aguardando ? "text-slate-400" : estourou ? "text-red-700" : "text-slate-900"
                           }`}
                         >
-                          {formatarMinutos(tmaAgora)}
+                          {aguardando ? "—" : formatarMinutos(tmaAgora)}
                         </span>
                       </p>
                       <p
                         className={`rounded-lg px-2 py-1 text-center text-[11px] font-bold ${
-                          estourou
-                            ? "bg-red-100 text-red-800"
-                            : restam <= 30
-                              ? "bg-amber-100 text-amber-800"
-                              : "bg-slate-100 text-slate-600"
+                          aguardando
+                            ? "bg-blue-100 text-blue-800"
+                            : estourou
+                              ? "bg-red-100 text-red-800"
+                              : restam <= 30
+                                ? "bg-amber-100 text-amber-800"
+                                : "bg-slate-100 text-slate-600"
                         }`}
                       >
-                        {estourou
-                          ? `estourou há ${formatarMinutos(-restam)}`
-                          : `faltam ${formatarMinutos(restam)} para estourar`}
+                        {aguardando
+                          ? `⏳ aguardando o agendamento${
+                              a.agendamentoEm ? ` · ${formatarHora(a.agendamentoEm)}` : ""
+                            }`
+                          : estourou
+                            ? `estourou há ${formatarMinutos(-restam)}`
+                            : `faltam ${formatarMinutos(restam)} para estourar`}
                       </p>
                     </div>
                   </a>

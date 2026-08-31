@@ -5,6 +5,8 @@
 import {
   calcularTmaMinutos,
   tmaEmAndamentoMinutos,
+  aguardandoAgendamento,
+  corSinalizador,
   minutosAteEstourarTma,
   calcularEsperaPortariaMinutos,
   calcularTempoDescargaMinutos,
@@ -152,5 +154,61 @@ eq("exatamente no limite da zero",
   minutosAteEstourarTma(
     { chegadaEm: h("08:00"), cargaAgendada: false, agendamentoEm: null }, 60,
     new Date(h("09:00"))), 0);
+
+console.log("\n== AGENDADA QUE AINDA NAO DEU A HORA ==");
+// Chegou antes do agendado: o TMA nao comecou. Sem este estado o card
+// mostrava "faltam 2h41min" -- o alvo inteiro -- como se o relogio
+// estivesse correndo.
+eq("chegou antes do agendado esta aguardando",
+  aguardandoAgendamento(
+    { cargaAgendada: true, agendamentoEm: h("10:00") }, new Date(h("09:00"))), true);
+
+eq("passou da hora agendada NAO esta aguardando",
+  aguardandoAgendamento(
+    { cargaAgendada: true, agendamentoEm: h("10:00") }, new Date(h("10:01"))), false);
+
+// No minuto exato ja comecou -- o agendamento e o inicio, nao um limite
+// que ainda precisa ser ultrapassado.
+eq("no minuto exato ja comecou",
+  aguardandoAgendamento(
+    { cargaAgendada: true, agendamentoEm: h("10:00") }, new Date(h("10:00"))), false);
+
+eq("sem agendamento nunca aguarda",
+  aguardandoAgendamento({ cargaAgendada: false, agendamentoEm: null }, new Date(h("09:00"))), false);
+
+// Marcada como agendada mas sem horario: nao da para aguardar uma hora
+// que nao existe.
+eq("agendada sem horario nao aguarda",
+  aguardandoAgendamento({ cargaAgendada: true, agendamentoEm: null }, new Date(h("09:00"))), false);
+
+// Enquanto aguarda, o TMA fica em zero (minutosEntre nunca e negativo).
+eq("TMA fica zerado enquanto aguarda",
+  tmaEmAndamentoMinutos(
+    { chegadaEm: h("09:00"), cargaAgendada: true, agendamentoEm: h("10:00") },
+    new Date(h("09:30"))), 0);
+
+console.log("\n== A BOLINHA SEGUE O TMA, NAO A CHEGADA ==");
+// Chegou 4h antes do agendado. Pela CHEGADA ela ja teria passado do alvo
+// e a bolinha ficaria vermelha antes de o TMA comecar.
+eq("chegou muito cedo NAO fica vermelha",
+  corSinalizador(
+    { chegadaEm: h("06:00"), cargaAgendada: true, agendamentoEm: h("10:00") },
+    161, new Date(h("09:00"))), "verde");
+
+eq("agendada que estourou fica vermelha",
+  corSinalizador(
+    { chegadaEm: h("08:00"), cargaAgendada: true, agendamentoEm: h("08:00") },
+    161, new Date(h("11:00"))), "vermelho");
+
+eq("sem agendamento e dentro do alvo fica amarela",
+  corSinalizador(
+    { chegadaEm: h("08:00"), cargaAgendada: false, agendamentoEm: null },
+    161, new Date(h("09:00"))), "amarelo");
+
+eq("sem agendamento que estourou fica vermelha",
+  corSinalizador(
+    { chegadaEm: h("08:00"), cargaAgendada: false, agendamentoEm: null },
+    161, new Date(h("11:00"))), "vermelho");
 console.log(`\n${falhas === 0 ? "TODOS OS CASOS PASSARAM" : falhas + " FALHA(S)"}`);
 process.exit(falhas === 0 ? 0 : 1);
+
