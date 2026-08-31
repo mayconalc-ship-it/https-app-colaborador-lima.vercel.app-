@@ -352,9 +352,24 @@ export default async function CarretasConferenciaPage({
                           </p>
                         )}
                       </div>
+                      {/* A cor sai da META, não é fixa. Este badge nascia
+                          verde no código: uma carreta de 3h15 com alvo de
+                          88 min aparecia como se estivesse dentro. */}
                       {m.tma !== null && (
-                        <span className="shrink-0 rounded-lg bg-green-50 px-2 py-1 text-xs font-bold text-green-700">
+                        <span
+                          title={`Meta: ${formatarMinutos(tmaAlvoMinutos)}`}
+                          className={`shrink-0 rounded-lg px-2 py-1 text-xs font-bold ${
+                            m.tma > tmaAlvoMinutos
+                              ? "bg-red-50 text-red-700"
+                              : "bg-green-50 text-green-700"
+                          }`}
+                        >
                           TMA {formatarMinutos(m.tma)}
+                          {m.tma > tmaAlvoMinutos && (
+                            <span className="ml-1 font-normal">
+                              (+{formatarMinutos(m.tma - tmaAlvoMinutos)})
+                            </span>
+                          )}
                         </span>
                       )}
                     </div>
@@ -429,11 +444,30 @@ export default async function CarretasConferenciaPage({
                 <p className="mt-1 text-lg font-bold text-slate-900">{dash.total}</p>
                 <p className="text-[10px] text-slate-400">no período</p>
               </div>
-              <div className="rounded-2xl border p-3 text-center shadow-sm">
+              {/* Mesma régua do badge de cada carreta: sem a meta ao lado,
+                  o número médio não diz se o período foi bom. */}
+              <div
+                className={`rounded-2xl border p-3 text-center shadow-sm ${
+                  dash.tmaMedio === null
+                    ? ""
+                    : dash.tmaMedio > tmaAlvoMinutos
+                      ? "border-red-200 bg-red-50"
+                      : "border-green-200 bg-green-50"
+                }`}
+              >
                 <p className="text-xs font-semibold uppercase text-slate-500">TMA médio</p>
-                <p className="mt-1 text-lg font-bold text-slate-900">
+                <p
+                  className={`mt-1 text-lg font-bold ${
+                    dash.tmaMedio === null
+                      ? "text-slate-900"
+                      : dash.tmaMedio > tmaAlvoMinutos
+                        ? "text-red-700"
+                        : "text-green-700"
+                  }`}
+                >
                   {dash.tmaMedio !== null ? formatarMinutos(dash.tmaMedio) : "—"}
                 </p>
+                <p className="text-[10px] text-slate-400">meta {formatarMinutos(tmaAlvoMinutos)}</p>
               </div>
               <div className="rounded-2xl border p-3 text-center shadow-sm">
                 <p className="text-xs font-semibold uppercase text-slate-500">Espera na portaria</p>

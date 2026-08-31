@@ -6,7 +6,13 @@ import { getRevendaId } from "@/lib/revendas";
 import { requireAcessoModulo } from "@/lib/require-admin";
 import type { Fabrica, Transportadora } from "@/lib/produtividade-armazem";
 import { formatarDataHora } from "@/lib/produtividade-armazem";
-import { ROTULO_STATUS, calcularTmaMinutos, formatarMinutos, type AtendimentoCarreta } from "@/lib/carretas";
+import {
+  RECEBIMENTO_CONFIG_PADRAO,
+  ROTULO_STATUS,
+  calcularTmaMinutos,
+  formatarMinutos,
+  type AtendimentoCarreta,
+} from "@/lib/carretas";
 import { FormPortaria } from "./FormPortaria";
 
 export const dynamic = "force-dynamic";
@@ -54,7 +60,12 @@ export default async function CarretasPortariaPage({
   if (!revendaId) redirect(`/?erro=${encodeURIComponent("Você não está em nenhuma revenda.")}`);
 
   const supabase = await createClient();
-  const [{ data: fabricasBanco }, { data: transportadorasBanco }, { data: historicoBanco }] = await Promise.all([
+  const [
+    { data: fabricasBanco },
+    { data: transportadorasBanco },
+    { data: historicoBanco },
+    { data: configBanco },
+  ] = await Promise.all([
     supabase.from("pa_fabricas").select("id, nome").eq("revenda_id", revendaId).eq("ativo", true).order("nome"),
     supabase.from("pa_transportadoras").select("id, nome").eq("revenda_id", revendaId).eq("ativo", true).order("nome"),
     aba === "historico"
@@ -67,11 +78,20 @@ export default async function CarretasPortariaPage({
           .order("chegada_em", { ascending: false })
           .limit(50)
       : Promise.resolve({ data: null }),
+    // A meta, para o TMA do histórico dizer se ficou dentro dela.
+    supabase
+      .from("pa_recebimento_config")
+      .select("tma_alvo_minutos")
+      .eq("revenda_id", revendaId)
+      .maybeSingle(),
   ]);
 
   const fabricas: Fabrica[] = fabricasBanco ?? [];
   const transportadoras: Transportadora[] = transportadorasBanco ?? [];
   const historico = (historicoBanco ?? []) as unknown as LinhaBanco[];
+  const tmaAlvoMinutos = Number(
+    configBanco?.tma_alvo_minutos ?? RECEBIMENTO_CONFIG_PADRAO.tmaAlvoMinutos,
+  );
 
   return (
     <div>
@@ -155,7 +175,16 @@ export default async function CarretasPortariaPage({
                     </span>
                   </div>
                   {tma !== null && (
-                    <p className="mt-2 text-xs font-semibold text-primary">TMA: {formatarMinutos(tma)}</p>
+                    <p
+                  className={`mt-2 text-xs font-semibold ${
+                    tma > tmaAlvoMinutos ? "text-red-700" : "text-green-700"
+                  }`}
+                >
+                  TMA: {formatarMinutos(tma)}
+                  <span className="ml-1 font-normal text-slate-400">
+                    (meta {formatarMinutos(tmaAlvoMinutos)})
+                  </span>
+                </p>
                   )}
                 </li>
               );
