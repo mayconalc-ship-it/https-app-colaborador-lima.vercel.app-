@@ -1,9 +1,11 @@
-// A regra do TMA, que ja mudou tres vezes. Cada troca aqui e uma decisao
+﻿// A regra do TMA, que ja mudou tres vezes. Cada troca aqui e uma decisao
 // de operacao, nao de codigo -- por isso vale um teste que fale a lingua
 // da operacao.
 //   npx tsx src/lib/__testes__/carretas.teste.mjs
 import {
   calcularTmaMinutos,
+  tmaEmAndamentoMinutos,
+  minutosAteEstourarTma,
   calcularEsperaPortariaMinutos,
   calcularTempoDescargaMinutos,
   calcularTempoCargaMinutos,
@@ -106,5 +108,49 @@ eq("conferencia longa nao infla o TMA",
     temCarga: true, fimCargaEm: h("19:25"),
   }), 100);
 
+
+console.log("\n== TMA CORRENDO NO MONITOR ==");
+// Nao agendada: conta da chegada, igual ao relogio do card.
+eq("nao agendada conta da chegada",
+  tmaEmAndamentoMinutos(
+    { chegadaEm: h("08:00"), cargaAgendada: false, agendamentoEm: null },
+    new Date(h("10:00"))), 120);
+
+// Agendada: conta do AGENDADO. E por isso que o TMA nao bate com o
+// "Ha 2h52min" do card, que sempre conta da chegada.
+eq("agendada conta do agendado",
+  tmaEmAndamentoMinutos(
+    { chegadaEm: h("07:30"), cargaAgendada: true, agendamentoEm: h("08:00") },
+    new Date(h("10:00"))), 120);
+
+// Chegou DEPOIS do agendado: o TMA ja comecou antes de ela chegar.
+eq("chegou atrasada, TMA maior que o patio",
+  tmaEmAndamentoMinutos(
+    { chegadaEm: h("09:00"), cargaAgendada: true, agendamentoEm: h("08:00") },
+    new Date(h("10:00"))), 120);
+
+// Marcada como agendada sem horario: cai na chegada.
+eq("agendada sem horario cai na chegada",
+  tmaEmAndamentoMinutos(
+    { chegadaEm: h("08:00"), cargaAgendada: true, agendamentoEm: null },
+    new Date(h("09:00"))), 60);
+
+console.log("\n== QUANTO FALTA PARA ESTOURAR ==");
+eq("ainda dentro",
+  minutosAteEstourarTma(
+    { chegadaEm: h("08:00"), cargaAgendada: false, agendamentoEm: null }, 161,
+    new Date(h("09:00"))), 101);
+
+// Ja estourou: devolve NEGATIVO, nao zero. Zerar esconderia o caso que
+// precisa de acao.
+eq("ja estourou devolve negativo",
+  minutosAteEstourarTma(
+    { chegadaEm: h("08:00"), cargaAgendada: false, agendamentoEm: null }, 161,
+    new Date(h("11:15"))), -34);
+
+eq("exatamente no limite da zero",
+  minutosAteEstourarTma(
+    { chegadaEm: h("08:00"), cargaAgendada: false, agendamentoEm: null }, 60,
+    new Date(h("09:00"))), 0);
 console.log(`\n${falhas === 0 ? "TODOS OS CASOS PASSARAM" : falhas + " FALHA(S)"}`);
 process.exit(falhas === 0 ? 0 : 1);

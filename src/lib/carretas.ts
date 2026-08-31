@@ -186,6 +186,38 @@ export function calcularTmaMinutos(a: AtendimentoCarreta): number | null {
   return Math.round(minutosEntre(inicio, fim));
 }
 
+/**
+ * O TMA correndo AGORA, para a carreta que ainda está no pátio.
+ *
+ * Mesma régua do TMA fechado: começa no horário AGENDADO quando havia
+ * agendamento, senão na chegada. É por isso que ele não é o mesmo número
+ * do "Há 2h 52min" do card -- aquele conta sempre da chegada, e numa
+ * carreta agendada os dois divergem de propósito.
+ */
+export function tmaEmAndamentoMinutos(
+  a: { chegadaEm: string; cargaAgendada: boolean; agendamentoEm: string | null },
+  agora = new Date(),
+): number {
+  const inicio = a.cargaAgendada && a.agendamentoEm ? a.agendamentoEm : a.chegadaEm;
+  return Math.round(minutosEntre(inicio, agora.toISOString()));
+}
+
+/**
+ * Quanto falta para estourar o TMA. Negativo = já estourou, e por
+ * quanto.
+ *
+ * Devolve o número com sinal em vez de zerar no estouro: "faltam -34min"
+ * é a informação que interessa depois que o alvo passou, e zerar
+ * esconderia justamente o caso que precisa de ação.
+ */
+export function minutosAteEstourarTma(
+  a: { chegadaEm: string; cargaAgendada: boolean; agendamentoEm: string | null },
+  tmaAlvoMinutos: number,
+  agora = new Date(),
+): number {
+  return tmaAlvoMinutos - tmaEmAndamentoMinutos(a, agora);
+}
+
 /** Espera na portaria: da chegada até alguém começar a trabalhar no
  *  atendimento -- descarga ou conferência, o que vier primeiro (as duas
  *  são independentes desde a 063). Indicador auxiliar, não entra no TMA

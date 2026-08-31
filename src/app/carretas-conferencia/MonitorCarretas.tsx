@@ -1,8 +1,15 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { corSinalizador, formatarMinutos, minutosDesde, type CorSinalizador, type StatusAtendimento } from "@/lib/carretas";
+import {
+  corSinalizador,
+  formatarMinutos,
+  minutosDesde,
+  tmaEmAndamentoMinutos,
+  type CorSinalizador,
+  type StatusAtendimento,
+} from "@/lib/carretas";
 import { formatarHora } from "@/lib/produtividade-armazem";
 
 export type CardAtendimento = {
@@ -146,6 +153,11 @@ export function MonitorCarretas({
             ) : (
               desta.map((a) => {
                 const cor = corSinalizador(a, tmaAlvoMinutos, agora);
+                // O TMA correndo, que NÃO é o mesmo do relógio de pátio:
+                // numa carreta agendada ele começa no horário agendado.
+                const tmaAgora = tmaEmAndamentoMinutos(a, agora);
+                const restam = tmaAlvoMinutos - tmaAgora;
+                const estourou = restam < 0;
                 return (
                   <a
                     key={a.id}
@@ -166,9 +178,42 @@ export function MonitorCarretas({
                         ⏰ Agendada {a.agendamentoEm ? `para ${formatarHora(a.agendamentoEm)}` : ""}
                       </p>
                     )}
-                    <p className="mt-1 text-xs font-semibold text-slate-700">
-                      Há {formatarMinutos(minutosDesde(a.chegadaEm, agora))}
-                    </p>
+                    {/* Dois relógios, e eles medem coisas diferentes: o
+                        de cima é o pátio (sempre da chegada), o de baixo
+                        é o TMA (do horário agendado, quando havia). Numa
+                        carreta agendada os dois divergem, e é exatamente
+                        aí que mostrar só um confunde. */}
+                    <div className="mt-2 space-y-1 border-t border-slate-200/70 pt-2">
+                      <p className="flex items-baseline justify-between gap-2 text-xs text-slate-500">
+                        <span>No pátio</span>
+                        <span className="shrink-0 font-semibold tabular-nums text-slate-700">
+                          {formatarMinutos(minutosDesde(a.chegadaEm, agora))}
+                        </span>
+                      </p>
+                      <p className="flex items-baseline justify-between gap-2 text-xs text-slate-500">
+                        <span>TMA</span>
+                        <span
+                          className={`shrink-0 font-bold tabular-nums ${
+                            estourou ? "text-red-700" : "text-slate-900"
+                          }`}
+                        >
+                          {formatarMinutos(tmaAgora)}
+                        </span>
+                      </p>
+                      <p
+                        className={`rounded-lg px-2 py-1 text-center text-[11px] font-bold ${
+                          estourou
+                            ? "bg-red-100 text-red-800"
+                            : restam <= 30
+                              ? "bg-amber-100 text-amber-800"
+                              : "bg-slate-100 text-slate-600"
+                        }`}
+                      >
+                        {estourou
+                          ? `estourou há ${formatarMinutos(-restam)}`
+                          : `faltam ${formatarMinutos(restam)} para estourar`}
+                      </p>
+                    </div>
                   </a>
                 );
               })
