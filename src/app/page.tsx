@@ -2,7 +2,16 @@ import { MenuCard } from "@/components/MenuCard";
 import { createClient } from "@/lib/supabase/server";
 import { getPerfil } from "@/lib/sessao";
 import { getRevendaAtiva, getModulosDaRevenda } from "@/lib/revendas";
-import { MENU_PADRAO, MODULO_DO_ITEM } from "@/lib/menu";
+import { DESTAQUES_DO_MENU, MENU_PADRAO, MODULO_DO_ITEM, agruparItens } from "@/lib/menu";
+
+/**
+ * A frase abaixo do título nos cartões grandes. Só nos destaques: num
+ * cartão pequeno ela viraria ruído, e num grande o espaço já existe.
+ */
+const LEGENDA_DO_DESTAQUE: Record<string, string> = {
+  rv: "Seu resultado do mês e a composição do valor",
+  "produtividade-armazem": "Reepack, despejo, empilhadeira e recebimento",
+};
 import { getModulosAcessiveis } from "@/lib/require-admin";
 import { MODULOS_OPCIONAIS } from "@/lib/acessos";
 import { RodapeOuvidoria } from "@/components/RodapeOuvidoria";
@@ -56,14 +65,32 @@ export default async function Home() {
         </h1>
         <p className="text-slate-500">Escolha uma opção abaixo</p>
       </div>
-      <div className="grid grid-cols-2 gap-3">
-        {itens.map((item) => (
-          <MenuCard
-            key={item.chave}
-            href={item.href}
-            title={item.titulo}
-            emoji={item.emoji}
-          />
+      {/* Agrupado, não uma grade de 13. Cada bloco responde a uma pergunta
+          diferente, e a ordem é a do dia: o que eu consulto sobre mim, o
+          que eu executo, o que a empresa me diz, o que me engaja. */}
+      <div className="flex flex-col gap-7">
+        {agruparItens(itens).map((bloco) => (
+          <section key={bloco.id}>
+            <div className="mb-2.5">
+              <h2 className="text-sm font-bold uppercase tracking-wide text-slate-500">
+                {bloco.titulo}
+              </h2>
+              <p className="text-xs text-slate-400">{bloco.subtitulo}</p>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              {bloco.itens.map((item) => (
+                <MenuCard
+                  key={item.chave}
+                  chave={item.chave}
+                  href={item.href}
+                  title={item.titulo}
+                  emoji={item.emoji}
+                  destaque={DESTAQUES_DO_MENU.has(item.chave)}
+                  legenda={LEGENDA_DO_DESTAQUE[item.chave]}
+                />
+              ))}
+            </div>
+          </section>
         ))}
       </div>
 

@@ -37,6 +37,93 @@ export type ItemMenu = {
   visivel: boolean;
 };
 
+/**
+ * OS BLOCOS DA TELA INICIAL
+ *
+ * A home era uma grade plana de até 13 cartões: "Minha RV" (consulta),
+ * "Feedback da Rota" (registro), "Desafio do Mês" (engajamento) e
+ * "Produtividade do Armazém" (que abre outro submenu) tinham exatamente o
+ * mesmo peso. A pessoa procurava por varredura, não por lógica.
+ *
+ * Os quatro blocos abaixo respondem a perguntas diferentes, e é essa a
+ * ordem em que elas aparecem no dia:
+ *
+ *   1. o que eu consulto sobre mim
+ *   2. o que eu executo e registro
+ *   3. o que a empresa me comunica
+ *   4. o que me engaja
+ *
+ * Item cuja chave não está em bloco nenhum cai em "Minha Rotina" -- é o
+ * que garante que um item novo criado no banco apareça em algum lugar em
+ * vez de sumir da tela.
+ */
+export const BLOCOS_DO_MENU = [
+  {
+    id: "rotina",
+    titulo: "Minha rotina",
+    subtitulo: "Seus números e sua programação",
+    chaves: ["rv", "meus-indicadores", "escala", "rota"],
+  },
+  {
+    id: "operacao",
+    titulo: "Minha operação",
+    subtitulo: "O que você executa e registra",
+    chaves: ["produtividade-armazem", "feedback", "ativo-giro"],
+  },
+  {
+    id: "empresa",
+    titulo: "Da empresa",
+    subtitulo: "Comunicados, padrões e metas da revenda",
+    chaves: ["comunicados", "padroes", "sonho", "5s"],
+  },
+  {
+    id: "engajamento",
+    titulo: "Engajamento",
+    subtitulo: "Desafio e ranking",
+    chaves: ["quiz", "ranking"],
+  },
+] as const;
+
+export type BlocoDoMenu = (typeof BLOCOS_DO_MENU)[number];
+
+/**
+ * Os itens que ganham cartão GRANDE, ocupando a linha inteira.
+ *
+ * Não é gosto: é o que os dados de uso dizem. Em 60 dias, `/rv` teve
+ * 1.762 aberturas de 53 pessoas -- o módulo mais aberto do app depois da
+ * própria home -- e `/produtividade-armazem` teve 1.165 de 41. Esses dois
+ * são o motivo de muita gente abrir o app; tratá-los como mais um cartão
+ * de 1/2 de largura era desperdiçar a tela onde o dedo já vai.
+ */
+export const DESTAQUES_DO_MENU = new Set(["rv", "produtividade-armazem"]);
+
+/**
+ * Distribui os itens visíveis nos blocos, preservando a ordem do banco.
+ *
+ * Com UMA exceção: o destaque vai para o topo do bloco dele. O cartão de
+ * destaque ocupa a linha inteira, então no meio da grade ele quebra o
+ * fluxo de duas colunas e deixa um buraco ao lado do vizinho de cima --
+ * foi o que aconteceu com a Escala, que ficava sozinha porque a RV vinha
+ * logo depois. No topo ele funciona como cabeçalho do bloco, que é o
+ * papel que os números de uso dizem que ele tem.
+ */
+export function agruparItens<T extends { chave: string }>(itens: T[]) {
+  const usadas = new Set<string>();
+  const blocos = BLOCOS_DO_MENU.map((b) => {
+    const doBloco = itens.filter((i) => (b.chaves as readonly string[]).includes(i.chave));
+    for (const i of doBloco) usadas.add(i.chave);
+    const destaques = doBloco.filter((i) => DESTAQUES_DO_MENU.has(i.chave));
+    const resto = doBloco.filter((i) => !DESTAQUES_DO_MENU.has(i.chave));
+    return { ...b, itens: [...destaques, ...resto] };
+  });
+
+  // Item sem bloco entra no primeiro, em vez de desaparecer.
+  const sobrando = itens.filter((i) => !usadas.has(i.chave));
+  if (sobrando.length > 0) blocos[0].itens = [...blocos[0].itens, ...sobrando];
+
+  return blocos.filter((b) => b.itens.length > 0);
+}
+
 // Usado enquanto a tabela menu_itens nao estiver populada.
 export const MENU_PADRAO: ItemMenu[] = [
   { chave: "sonho", titulo: "Sonho da Revenda", emoji: "🎯", href: "/sonho-da-revenda", ordem: 1, visivel: true },
