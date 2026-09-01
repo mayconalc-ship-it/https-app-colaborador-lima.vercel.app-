@@ -35,9 +35,13 @@ const FUNCIONALIDADES: { chave: ModuloId; titulo: string; emoji: string; href: s
 export default async function ProdutividadeArmazemPage() {
   await requireAcessoArmazem("/");
 
-  const [perfil, podeConfigurar, acessiveis] = await Promise.all([
+  const [perfil, podeConfigurar, podeVerIndicadores, acessiveis] = await Promise.all([
     getPerfil(),
     podeNoModulo("produtividade-armazem", "editar"),
+    // "ver" é a régua dos INDICADORES (leitura de gestão); "editar" é a
+    // da configuração. São coisas diferentes: um supervisor pode
+    // acompanhar o ranking sem poder cadastrar produto.
+    podeNoModulo("produtividade-armazem", "ver"),
     getModulosAcessiveis(),
   ]);
 
@@ -68,12 +72,19 @@ export default async function ProdutividadeArmazemPage() {
         ))}
       </div>
 
-      <a
-        href="/produtividade-armazem/indicadores"
-        className="mt-6 inline-flex w-full items-center justify-center rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-white hover:bg-primary-dark"
-      >
-        📊 Ver indicadores e ranking
-      </a>
+      {/* Só para quem tem leitura do módulo no Admin. O botão era mostrado
+          para todo mundo que chegava neste hub, e a tela do outro lado
+          também não checava nada -- ranking de colegas à vista de quem só
+          opera. A tela agora recusa por conta própria; este `if` evita
+          oferecer um caminho que vai ser negado. */}
+      {podeVerIndicadores && (
+        <a
+          href="/produtividade-armazem/indicadores"
+          className="mt-6 inline-flex w-full items-center justify-center rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-white hover:bg-primary-dark"
+        >
+          📊 Ver indicadores e ranking
+        </a>
+      )}
 
       {podeConfigurar && (
         <a

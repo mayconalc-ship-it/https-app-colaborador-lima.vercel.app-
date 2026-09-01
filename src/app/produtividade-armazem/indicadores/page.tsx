@@ -3,6 +3,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { createClient } from "@/lib/supabase/server";
 import { getRevendaId } from "@/lib/revendas";
 import { requireAcessoArmazem } from "@/lib/produtividade-armazem-server";
+import { podeNoModulo } from "@/lib/require-admin";
 import {
   ROTULO_TURNO,
   TURNOS,
@@ -67,6 +68,25 @@ export default async function IndicadoresPage({
   searchParams: Promise<{ de?: string; ate?: string; turno?: string }>;
 }) {
   await requireAcessoArmazem("/produtividade-armazem");
+
+  // ESTA TELA É DE GESTÃO, não da rotina de quem opera.
+  //
+  // Ela mostra ranking, pontuação e comparativo por colaborador. Até
+  // 31/08/2026 bastava ter acesso a QUALQUER funcionalidade do armazém
+  // para entrar: o empilhador que só troca gás via o ranking de
+  // produtividade de todos os colegas. Nos 60 dias anteriores, 14 pessoas
+  // abriram esta tela enquanto só 7 tinham acesso ao Modo Liderança.
+  //
+  // A régua passa a ser a permissão de LEITURA do módulo no Admin, que é
+  // a mesma que abre o painel de gestão do armazém. Quem opera continua
+  // vendo os próprios números em Meus Indicadores.
+  if (!(await podeNoModulo("produtividade-armazem", "ver"))) {
+    redirect(
+      `/produtividade-armazem?erro=${encodeURIComponent(
+        "Os indicadores e o ranking do armazém são da liderança. Seus próprios números ficam em Meus Indicadores.",
+      )}`,
+    );
+  }
 
   const sp = await searchParams;
   const de = sp.de ?? diasAtrasISO(7);
