@@ -1,9 +1,16 @@
-import { requireGestor } from "@/lib/require-admin";
+﻿import { requireGestor } from "@/lib/require-admin";
 import { VoltarAoPainel } from "@/components/VoltarAoPainel";
 import { AdminSidebar, type GrupoNav } from "@/components/admin/AdminSidebar";
 import { getConcessoes } from "@/lib/concessoes";
 import { getRevendaAtiva, getModulosDaRevenda } from "@/lib/revendas";
-import { MODULOS, MODULOS_DO_DONO, ehOwner, podeFazer } from "@/lib/acessos";
+import {
+  EMOJI_GRUPO_ADMIN,
+  GRUPOS_DO_ADMIN,
+  MODULOS,
+  MODULOS_DO_DONO,
+  ehOwner,
+  podeFazer,
+} from "@/lib/acessos";
 
 /**
  * Faixa presente em todo o Modo Liderança.
@@ -53,11 +60,11 @@ export default async function AdminLayout({
       podeFazer(perfil.role, concessoes, m.id, "ver"),
   );
 
-  const grupos: GrupoNav[] = (
-    ["Conteúdo do app", "Pessoas e configuração"] as const
-  )
+  // A ordem vem de GRUPOS_DO_ADMIN, em lib/acessos.ts -- uma gaveta some
+  // sozinha quando a pessoa não tem nada liberado dentro dela.
+  const grupos: GrupoNav[] = GRUPOS_DO_ADMIN
     .map((titulo) => ({
-      titulo,
+      titulo: `${EMOJI_GRUPO_ADMIN[titulo]} ${titulo}`,
       itens: liberados
         .filter((m) => m.grupo === titulo)
         .map((m) => ({ id: m.id, href: m.href, rotulo: m.rotulo, emoji: m.emoji })),

@@ -4,7 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { PageHeader } from "@/components/PageHeader";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
 import { MarcaApp } from "@/components/MarcaApp";
-import { MODULOS } from "@/lib/acessos";
+import { GRUPOS_DO_ADMIN, MODULOS } from "@/lib/acessos";
 import {
   alternarRevenda,
   criarRevenda,
@@ -50,7 +50,9 @@ export default async function RevendasPage({
     );
   }
 
-  const grupos = ["Conteúdo do app", "Pessoas e configuração"] as const;
+  // Mesmas gavetas da barra do Modo Liderança: quem liga um módulo para a
+  // revenda enxerga a mesma organização que vai encontrar depois.
+  const grupos = GRUPOS_DO_ADMIN;
 
   return (
     <div>

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Mapa de permissões do app.
  *
  * Três papéis, e a diferença entre eles é o QUANTO, não o QUE:
@@ -50,12 +50,52 @@ export type ModuloId =
   | "justificativas"
   | "metas";
 
+/**
+ * As gavetas do Modo Liderança, na ordem em que aparecem.
+ *
+ * A ordem não é alfabética: é a do dia de quem administra. Comunicação e
+ * Engajamento são o que se publica; Indicadores é o que se acompanha;
+ * Operação é o que se configura para o chão de fábrica; Pessoas e
+ * Configuração são os menos frequentes e ficam no fim.
+ */
+export const GRUPOS_DO_ADMIN = [
+  "Comunicação",
+  "Engajamento",
+  "Indicadores",
+  "Operação",
+  "Pessoas",
+  "Configuração",
+] as const;
+
+export type GrupoDoAdmin = (typeof GRUPOS_DO_ADMIN)[number];
+
+/** Emoji de cada gaveta, para a barra não ser só uma lista de texto. */
+export const EMOJI_GRUPO_ADMIN: Record<GrupoDoAdmin, string> = {
+  "Comunicação": "📣",
+  "Engajamento": "🎯",
+  "Indicadores": "📊",
+  "Operação": "🏭",
+  "Pessoas": "👥",
+  "Configuração": "⚙️",
+};
+
 export type Modulo = {
   id: ModuloId;
   rotulo: string;
   emoji: string;
   href: string;
-  grupo: "Conteúdo do app" | "Pessoas e configuração";
+  /**
+   * A gaveta do módulo na barra do Modo Liderança.
+   *
+   * Eram duas ("Conteúdo do app" e "Pessoas e configuração"), e a primeira
+   * acumulou 27 itens de naturezas diferentes: publicar comunicado,
+   * importar planilha, cadastrar produto e ler justificativa de motorista
+   * moravam juntos. O nome não descrevia nenhum deles.
+   *
+   * As seis abaixo são a natureza REAL do que a tela faz. A ordem em que
+   * aparecem está em GRUPOS_DO_ADMIN, logo abaixo.
+   */
+  grupo: GrupoDoAdmin;
   /** Só as ações que fazem sentido neste módulo. */
   acoes: Acao[];
   /**
@@ -82,7 +122,7 @@ export const MODULOS: Modulo[] = [
     rotulo: "Jornal / Comunicados",
     emoji: "📰",
     href: "/admin/comunicados",
-    grupo: "Conteúdo do app",
+    grupo: "Comunicação",
     acoes: ["ver", "criar", "editar", "excluir"],
   },
   {
@@ -90,7 +130,7 @@ export const MODULOS: Modulo[] = [
     rotulo: "Ranking Super Matinal",
     emoji: "🏆",
     href: "/admin/ranking",
-    grupo: "Conteúdo do app",
+    grupo: "Engajamento",
     acoes: ["ver", "criar", "editar", "excluir"],
   },
   {
@@ -98,7 +138,7 @@ export const MODULOS: Modulo[] = [
     rotulo: "Padrões",
     emoji: "📋",
     href: "/admin/padroes",
-    grupo: "Conteúdo do app",
+    grupo: "Comunicação",
     acoes: ["ver", "criar", "editar", "excluir"],
   },
   {
@@ -106,7 +146,7 @@ export const MODULOS: Modulo[] = [
     rotulo: "Sonho da Revenda",
     emoji: "🎯",
     href: "/admin/sonho-da-revenda",
-    grupo: "Conteúdo do app",
+    grupo: "Comunicação",
     acoes: ["ver", "criar", "editar", "excluir"],
   },
   {
@@ -114,7 +154,7 @@ export const MODULOS: Modulo[] = [
     rotulo: "Rating de Entrega",
     emoji: "⭐",
     href: "/admin/rating",
-    grupo: "Conteúdo do app",
+    grupo: "Indicadores",
     // "criar" = importar os relatórios do Drive. O motorista e o ajudante
     // só veem as PRÓPRIAS avaliações, e para isso basta a concessão do
     // módulo (sem ação) -- quem não entrega não tem o que ver aqui.
@@ -128,7 +168,7 @@ export const MODULOS: Modulo[] = [
     // módulos de dentro (Rating, Refugo, Devolução), cada um com a sua.
     // Esta concessão só abre a vitrine.
     href: "/meus-indicadores",
-    grupo: "Conteúdo do app",
+    grupo: "Indicadores",
     acoes: ["ver"],
     semTelaAdmin: true,
   },
@@ -137,7 +177,7 @@ export const MODULOS: Modulo[] = [
     rotulo: "Metas",
     emoji: "🎯",
     href: "/admin/metas",
-    grupo: "Pessoas e configuração",
+    grupo: "Configuração",
     // Sem "excluir": apagar uma meta é deixar o campo em branco, dentro
     // do próprio cadastro -- não é uma ação separada.
     acoes: ["ver", "editar"],
@@ -147,7 +187,7 @@ export const MODULOS: Modulo[] = [
     rotulo: "Justificativas",
     emoji: "🗣️",
     href: "/admin/justificativas",
-    grupo: "Conteúdo do app",
+    grupo: "Indicadores",
     // Só leitura, e de propósito: a explicação é do colaborador. A
     // liderança lê para tratar, não para editar -- um texto que pode ser
     // mexido por quem foi explicado deixa de ser a versão de quem
@@ -159,7 +199,7 @@ export const MODULOS: Modulo[] = [
     rotulo: "Devolução",
     emoji: "↩️",
     href: "/admin/devolucao",
-    grupo: "Conteúdo do app",
+    grupo: "Indicadores",
     // "criar" = importar; "editar" = a meta e a classificação dos motivos.
     acoes: ["ver", "criar", "editar"],
   },
@@ -168,7 +208,7 @@ export const MODULOS: Modulo[] = [
     rotulo: "Refugo de Vasilhame",
     emoji: "♻️",
     href: "/admin/refugo",
-    grupo: "Conteúdo do app",
+    grupo: "Indicadores",
     // "criar" = importar o relatório; "editar" = cadastrar o valor dos
     // materiais. O motorista, o ajudante e o conferente só veem o
     // próprio refugo, e para isso basta a concessão do módulo.
@@ -179,7 +219,7 @@ export const MODULOS: Modulo[] = [
     rotulo: "Minha Rota (pré-rota)",
     emoji: "🚚",
     href: "/admin/rotas",
-    grupo: "Conteúdo do app",
+    grupo: "Operação",
     // "criar" = importar a planilha. O colaborador só consulta, e para
     // isso não precisa de permissão nenhuma.
     acoes: ["ver", "criar", "excluir"],
@@ -189,7 +229,7 @@ export const MODULOS: Modulo[] = [
     rotulo: "Escala de Trabalho",
     emoji: "🗓️",
     href: "/admin/escala",
-    grupo: "Conteúdo do app",
+    grupo: "Comunicação",
     acoes: ["ver", "editar"],
   },
   {
@@ -197,7 +237,7 @@ export const MODULOS: Modulo[] = [
     rotulo: "Remuneração Variável",
     emoji: "💰",
     href: "/admin/rv",
-    grupo: "Conteúdo do app",
+    grupo: "Indicadores",
     acoes: ["ver", "editar"],
   },
   {
@@ -205,7 +245,7 @@ export const MODULOS: Modulo[] = [
     rotulo: "Ativo de Giro",
     emoji: "📦",
     href: "/admin/ativo-de-giro",
-    grupo: "Conteúdo do app",
+    grupo: "Operação",
     acoes: ["ver", "criar", "editar", "excluir"],
   },
   {
@@ -216,7 +256,7 @@ export const MODULOS: Modulo[] = [
     rotulo: "Desafio do Mês",
     emoji: "🧠",
     href: "/admin/quiz",
-    grupo: "Conteúdo do app",
+    grupo: "Engajamento",
     acoes: ["ver", "criar", "editar", "excluir"],
   },
   {
@@ -224,7 +264,7 @@ export const MODULOS: Modulo[] = [
     rotulo: "Programa 5S",
     emoji: "🧹",
     href: "/admin/5s",
-    grupo: "Conteúdo do app",
+    grupo: "Operação",
     // "editar" é o que separa quem administra o programa de quem só
     // acompanha: com ele a pessoa cadastra área, planeja auditoria e
     // valida ação; sem ele, abre o BI e olha. É o perfil "Liderança /
@@ -241,7 +281,7 @@ export const MODULOS: Modulo[] = [
     rotulo: "Produtividade do Armazém",
     emoji: "🏭",
     href: "/admin/produtividade-armazem",
-    grupo: "Conteúdo do app",
+    grupo: "Operação",
     acoes: ["ver", "criar", "editar", "excluir"],
   },
   {
@@ -249,7 +289,7 @@ export const MODULOS: Modulo[] = [
     rotulo: "Reepack",
     emoji: "📦",
     href: "/produtividade-armazem/reepack",
-    grupo: "Conteúdo do app",
+    grupo: "Operação",
     acoes: ["ver"],
     subGrupoDe: "produtividade-armazem",
   },
@@ -258,7 +298,7 @@ export const MODULOS: Modulo[] = [
     rotulo: "Despejo",
     emoji: "🫗",
     href: "/produtividade-armazem/despejo",
-    grupo: "Conteúdo do app",
+    grupo: "Operação",
     acoes: ["ver"],
     subGrupoDe: "produtividade-armazem",
   },
@@ -267,7 +307,7 @@ export const MODULOS: Modulo[] = [
     rotulo: "Empilhadeira",
     emoji: "🏗️",
     href: "/produtividade-armazem/empilhadeira",
-    grupo: "Conteúdo do app",
+    grupo: "Operação",
     acoes: ["ver"],
     subGrupoDe: "produtividade-armazem",
   },
@@ -276,7 +316,7 @@ export const MODULOS: Modulo[] = [
     rotulo: "Recebimento de Paletes",
     emoji: "🚛",
     href: "/produtividade-armazem/recebimento",
-    grupo: "Conteúdo do app",
+    grupo: "Operação",
     acoes: ["ver"],
     subGrupoDe: "produtividade-armazem",
   },
@@ -285,7 +325,7 @@ export const MODULOS: Modulo[] = [
     rotulo: "5S do Armazém",
     emoji: "🧹",
     href: "/produtividade-armazem/cinco-s",
-    grupo: "Conteúdo do app",
+    grupo: "Operação",
     acoes: ["ver"],
     subGrupoDe: "produtividade-armazem",
   },
@@ -300,7 +340,7 @@ export const MODULOS: Modulo[] = [
     // reconceder acesso pessoa a pessoa -- e evitou um segundo módulo
     // medindo a mesma atividade, o erro do "Recebimento de Paletes".
     href: "/produtividade-armazem/abastecimento",
-    grupo: "Conteúdo do app",
+    grupo: "Operação",
     acoes: ["ver"],
     subGrupoDe: "produtividade-armazem",
   },
@@ -311,7 +351,7 @@ export const MODULOS: Modulo[] = [
     rotulo: "Recebimento de Carreta",
     emoji: "👮",
     href: "/carretas-portaria",
-    grupo: "Conteúdo do app",
+    grupo: "Operação",
     acoes: ["ver", "criar"],
     subGrupoDe: "produtividade-armazem",
   },
@@ -320,7 +360,7 @@ export const MODULOS: Modulo[] = [
     rotulo: "Monitor de Recebimento (Conferente)",
     emoji: "🖥️",
     href: "/carretas-conferencia",
-    grupo: "Conteúdo do app",
+    grupo: "Operação",
     // "editar" aqui é especificamente conferir carga, finalizar
     // conferência e decidir o retorno (vazia/com AG) -- as ações de
     // descarga (iniciar/finalizar descarga, concluir carga) moraram
@@ -335,7 +375,7 @@ export const MODULOS: Modulo[] = [
     rotulo: "Monitor de Recebimento (Empilhador)",
     emoji: "🏗️",
     href: "/carretas-conferencia",
-    grupo: "Conteúdo do app",
+    grupo: "Operação",
     // Mesma tela do Monitor de Recebimento -- só as ações de descarga
     // (iniciar/finalizar descarga, concluir a carga de retorno) ficam
     // atrás desta permissão, separada da de conferência.
@@ -347,7 +387,7 @@ export const MODULOS: Modulo[] = [
     rotulo: "Quebra de FEFO (informar)",
     emoji: "🚨",
     href: "/fefo",
-    grupo: "Conteúdo do app",
+    grupo: "Operação",
     // Quem acha a quebra no armazém avisa por aqui. Separado de
     // "fefo-controle" a pedido do dono (27/08/2026): quem aponta não é
     // quem fecha a ocorrência.
@@ -359,7 +399,7 @@ export const MODULOS: Modulo[] = [
     rotulo: "Quebra de FEFO (controle)",
     emoji: "🧭",
     href: "/fefo",
-    grupo: "Conteúdo do app",
+    grupo: "Operação",
     // Mesma tela: quem tem isto enxerga as ocorrências de todo mundo e
     // responde qual ação foi tomada.
     acoes: ["ver", "editar"],
@@ -370,7 +410,7 @@ export const MODULOS: Modulo[] = [
     rotulo: "Colaboradores",
     emoji: "👥",
     href: "/admin/colaboradores",
-    grupo: "Pessoas e configuração",
+    grupo: "Pessoas",
     // "promover" é à parte de propósito: dá para confiar o cadastro a
     // alguém sem confiar a ela o poder de criar novas lideranças.
     acoes: ["ver", "criar", "editar", "excluir", "promover"],
@@ -380,7 +420,7 @@ export const MODULOS: Modulo[] = [
     rotulo: "Feedbacks das Rotas",
     emoji: "📝",
     href: "/admin/feedbacks",
-    grupo: "Pessoas e configuração",
+    grupo: "Indicadores",
     // "editar" = responder a tratativa das análises de 5 Porquês. Quem só
     // tem "ver" acompanha a fila, mas não grava resposta para o motorista.
     acoes: ["ver", "editar"],
@@ -390,7 +430,7 @@ export const MODULOS: Modulo[] = [
     rotulo: "Uso do App",
     emoji: "📊",
     href: "/admin/metricas",
-    grupo: "Pessoas e configuração",
+    grupo: "Indicadores",
     acoes: ["ver"],
   },
   {
@@ -398,7 +438,7 @@ export const MODULOS: Modulo[] = [
     rotulo: "Pesquisa de Satisfação",
     emoji: "⭐",
     href: "/admin/pesquisa",
-    grupo: "Pessoas e configuração",
+    grupo: "Engajamento",
     acoes: ["ver", "editar"],
   },
   {
@@ -406,7 +446,7 @@ export const MODULOS: Modulo[] = [
     rotulo: "Ordem do Menu",
     emoji: "🔀",
     href: "/admin/menu",
-    grupo: "Pessoas e configuração",
+    grupo: "Configuração",
     acoes: ["ver", "editar"],
   },
 ];
