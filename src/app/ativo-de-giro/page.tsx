@@ -1,5 +1,6 @@
-import { redirect } from "next/navigation";
+﻿import { redirect } from "next/navigation";
 import { PageHeader } from "@/components/PageHeader";
+import { FiltroNoLugar } from "@/components/FiltroNoLugar";
 import { getPerfil } from "@/lib/sessao";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -58,8 +59,9 @@ const rotulo = "mb-1 block text-xs font-semibold uppercase text-slate-500";
  * período escolhido, a pessoa filtrada sumiria da própria lista ao trocar
  * de data, e a tela voltaria sozinha para "Todos".
  *
- * É um `<select>` dentro de um form `method="get"` -- mesma mecânica do
- * filtro de data que já existia, e que funciona sem JavaScript.
+ * É um `<select>` dentro do FiltroNoLugar -- mesma mecânica do filtro de
+ * data, que atualiza a tela sem rolar de volta para o topo, e ainda cai
+ * num GET comum se o JavaScript não carregar.
  */
 function SeletorColaborador({
   contadores,
@@ -387,7 +389,7 @@ export default async function AtivoDeGiroPage({
       )}
 
       {(aba === "painel" || aba === "conciliacao") && (
-        <form method="get" className="mb-4 flex flex-wrap items-end gap-2">
+        <FiltroNoLugar className="mb-4 flex flex-wrap items-end gap-2">
           <input type="hidden" name="aba" value={aba} />
           <div>
             <label className={rotulo} htmlFor="data">
@@ -408,7 +410,7 @@ export default async function AtivoDeGiroPage({
           >
             Ver
           </button>
-        </form>
+        </FiltroNoLugar>
       )}
 
       {aba === "conciliacao" && (
@@ -624,7 +626,7 @@ export default async function AtivoDeGiroPage({
 
       {aba === "historico" && (
         <section>
-          <form method="get" className="mb-4 flex flex-wrap items-end gap-2">
+          <FiltroNoLugar className="mb-4 flex flex-wrap items-end gap-2">
             <input type="hidden" name="aba" value="historico" />
             <div>
               <label className={rotulo} htmlFor="de">
@@ -645,7 +647,7 @@ export default async function AtivoDeGiroPage({
             >
               Filtrar
             </button>
-          </form>
+          </FiltroNoLugar>
 
           {contagensPeriodo.length === 0 ? (
             <p className="rounded-xl bg-slate-50 p-4 text-sm text-slate-500">

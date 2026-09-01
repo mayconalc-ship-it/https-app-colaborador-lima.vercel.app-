@@ -1,6 +1,7 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import { redirect } from "next/navigation";
 import { PageHeader } from "@/components/PageHeader";
+import { FiltroNoLugar } from "@/components/FiltroNoLugar";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
 import { createClient } from "@/lib/supabase/server";
 import { getRevendaId } from "@/lib/revendas";
@@ -403,7 +404,7 @@ function FiltroDePeriodo({ de, ate, hoje }: { de: string; ate: string; hoje: str
         <summary className="cursor-pointer list-none text-xs font-semibold text-primary marker:content-none [&::-webkit-details-marker]:hidden">
           Escolher outro período
         </summary>
-        <form method="get" className="mt-2 flex items-end gap-2">
+        <FiltroNoLugar className="mt-2 flex items-end gap-2">
           <div className="min-w-0 flex-1">
             <label className="mb-1 block text-[11px] font-semibold uppercase text-slate-500" htmlFor="de">De</label>
             <input id="de" type="date" name="de" defaultValue={de} max={hoje} className={campo} />
@@ -415,7 +416,7 @@ function FiltroDePeriodo({ de, ate, hoje }: { de: string; ate: string; hoje: str
           <button type="submit" className="shrink-0 rounded-xl bg-slate-800 px-4 py-2.5 text-sm font-semibold text-white">
             Ver
           </button>
-        </form>
+        </FiltroNoLugar>
       </details>
     </section>
   );

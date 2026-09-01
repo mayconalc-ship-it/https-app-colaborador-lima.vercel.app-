@@ -96,7 +96,22 @@ const POR_CHAVE: Record<string, LucideIcon> = {
   metas: Award,
 };
 
+/**
+ * A CHAVE GERAL DO SISTEMA DE ÍCONES.
+ *
+ * `false` = o app desenha os emoji do banco, como sempre fez.
+ * `true`  = passa a desenhar os ícones de traço mapeados acima.
+ *
+ * Está desligado por decisão do dono (31/08/2026): a home agrupada foi
+ * aprovada, os ícones ficam para depois. O mapeamento inteiro continua
+ * aqui de propósito -- ligar é trocar esta linha, e não refazer o
+ * trabalho. Nenhuma tela precisa mudar nos dois estados, porque quem
+ * decide é o componente Icone.
+ */
+export const USAR_ICONES = false;
+
 export function iconeDe(chave: string): LucideIcon | null {
+  if (!USAR_ICONES) return null;
   return POR_CHAVE[chave] ?? null;
 }
 
@@ -120,8 +135,10 @@ export function Icone({
   const Desenho = iconeDe(chave);
 
   if (!Desenho) {
+    // O emoji do banco. `tamanho` vira o corpo da fonte para o cartão
+    // grande e o pequeno continuarem com o mesmo peso visual.
     return (
-      <span aria-hidden className={className} style={{ fontSize: tamanho * 0.9, lineHeight: 1 }}>
+      <span aria-hidden className={className} style={{ fontSize: tamanho * 1.15, lineHeight: 1 }}>
         {emoji ?? "•"}
       </span>
     );

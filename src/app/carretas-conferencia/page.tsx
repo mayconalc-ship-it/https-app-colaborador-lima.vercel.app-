@@ -1,5 +1,6 @@
-import { redirect } from "next/navigation";
+﻿import { redirect } from "next/navigation";
 import { PageHeader } from "@/components/PageHeader";
+import { FiltroNoLugar } from "@/components/FiltroNoLugar";
 import { createClient } from "@/lib/supabase/server";
 import { getRevendaId } from "@/lib/revendas";
 import { temAcessoModulo } from "@/lib/require-admin";
@@ -402,7 +403,7 @@ export default async function CarretasConferenciaPage({
           📊 Dash do recebimento
         </summary>
         <div className="border-t border-slate-100 p-4">
-          <form method="get" className="mb-4 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-end">
+          <FiltroNoLugar className="mb-4 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-end">
             <div className="min-w-0">
               <label className="mb-1 block text-xs font-semibold uppercase text-slate-500" htmlFor="de">
                 De
@@ -433,7 +434,7 @@ export default async function CarretasConferenciaPage({
             >
               Filtrar
             </button>
-          </form>
+          </FiltroNoLugar>
 
           {dash.total === 0 ? (
             <p className="text-sm text-slate-400">Nenhuma carreta finalizada neste período.</p>
