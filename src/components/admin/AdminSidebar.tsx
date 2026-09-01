@@ -41,7 +41,42 @@ export function AdminSidebar({
 
   const ativo = (href: string) => pathname === href || pathname?.startsWith(`${href}/`);
 
+  /**
+   * A gaveta que contém a tela aberta começa aberta; as outras, fechadas.
+   *
+   * Deriva da rota em vez de guardar estado: quem clica num item de uma
+   * gaveta navega e continua vendo aquela gaveta aberta, sem precisar de
+   * localStorage nem de um efeito que pisca depois da montagem. O que se
+   * perde é a gaveta que a pessoa abriu só para espiar e não usou --
+   * troca barata pela ausência de estado persistido.
+   */
+  const grupoDaTelaAtual =
+    grupos.find((g) => g.itens.some((i) => ativo(i.href)))?.titulo ?? null;
+
+  const [abertos, setAbertos] = useState<Set<string>>(
+    () => new Set(grupoDaTelaAtual ? [grupoDaTelaAtual] : []),
+  );
+
+  const alternar = (titulo: string) =>
+    setAbertos((atual) => {
+      const novo = new Set(atual);
+      if (novo.has(titulo)) novo.delete(titulo);
+      else novo.add(titulo);
+      return novo;
+    });
+
   const fechar = () => setAbertoMobile(false);
+
+  /**
+   * Some de verdade quando a barra está recolhida.
+   *
+   * A barra encolhe para 64px mas o conteúdo tem 256px fixos, e o
+   * `overflow-x-hidden` cortava os rótulos no meio da palavra -- não era
+   * nome escondido, era nome decepado, e parecia erro de renderização.
+   * Agora o texto zera a opacidade junto com a largura e volta no hover.
+   */
+  const classeRotulo =
+    "truncate whitespace-nowrap transition-opacity duration-150 md:opacity-0 md:group-hover:opacity-100";
 
   const classeItem = (href: string, tom: "primary" | "gold") =>
     `flex items-center gap-3 rounded-xl px-2 py-2.5 text-sm font-medium ${
@@ -94,7 +129,7 @@ export function AdminSidebar({
               <span className="flex h-6 w-6 shrink-0 items-center justify-center text-lg">
                 {home.emoji}
               </span>
-              <span className="truncate">{home.rotulo}</span>
+              <span className={classeRotulo}>{home.rotulo}</span>
             </Link>
             <button
               type="button"
@@ -106,31 +141,57 @@ export function AdminSidebar({
             </button>
           </div>
 
-          {grupos.map((grupo) => (
-            <div key={grupo.titulo} className="mb-2">
-              <p className="mb-1 px-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
-                {grupo.titulo}
-              </p>
-              {grupo.itens.map((item) => (
-                <Link
-                  key={item.id}
-                  href={item.href}
-                  onClick={fechar}
-                  title={item.rotulo}
-                  className={classeItem(item.href, "primary")}
+          {grupos.map((grupo) => {
+            const aberta = abertos.has(grupo.titulo);
+            const temAtivo = grupo.itens.some((i) => ativo(i.href));
+            return (
+              <div key={grupo.titulo} className="mb-1">
+                {/* O cabeçalho da gaveta só existe quando há espaço para
+                    ler o nome: na barra recolhida ele viraria um texto
+                    cortado, e um botão que não se lê não é um botão.
+                    Recolhida, os ícones aparecem soltos e levam direto. */}
+                <button
+                  type="button"
+                  onClick={() => alternar(grupo.titulo)}
+                  aria-expanded={aberta}
+                  className={`flex w-full items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-xs font-semibold uppercase tracking-wide transition-colors md:hidden md:group-hover:flex ${
+                    temAtivo ? "text-primary-dark" : "text-slate-400"
+                  } hover:bg-slate-100`}
                 >
-                  <span className="flex h-6 w-6 shrink-0 items-center justify-center text-lg">
-                    {item.emoji}
+                  <span className="truncate">{grupo.titulo}</span>
+                  <span className="flex items-center gap-1.5 text-[10px] text-slate-400">
+                    <span className="tabular-nums">{grupo.itens.length}</span>
+                    <span className={`transition-transform ${aberta ? "rotate-180" : ""}`}>▾</span>
                   </span>
-                  <span className="truncate">{item.rotulo}</span>
-                </Link>
-              ))}
-            </div>
-          ))}
+                </button>
+
+                {/* Aberta: sempre visível. Fechada: some no celular e na
+                    barra expandida, mas os ícones CONTINUAM na barra
+                    recolhida -- senão ela ficaria quase vazia e o atalho
+                    de um clique se perderia. */}
+                <div className={aberta ? "block" : "hidden md:block md:group-hover:hidden"}>
+                  {grupo.itens.map((item) => (
+                    <Link
+                      key={item.id}
+                      href={item.href}
+                      onClick={fechar}
+                      title={item.rotulo}
+                      className={classeItem(item.href, "primary")}
+                    >
+                      <span className="flex h-6 w-6 shrink-0 items-center justify-center text-lg">
+                        {item.emoji}
+                      </span>
+                      <span className={classeRotulo}>{item.rotulo}</span>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
 
           {grupoDono && grupoDono.length > 0 && (
             <div className="mt-2 border-t border-slate-100 pt-2">
-              <p className="mb-1 px-2 text-xs font-semibold uppercase tracking-wide text-gold">
+              <p className="mb-1 truncate px-2 text-xs font-semibold uppercase tracking-wide text-gold transition-opacity duration-150 md:opacity-0 md:group-hover:opacity-100">
                 Só do Admin
               </p>
               {grupoDono.map((item) => (
@@ -144,7 +205,7 @@ export function AdminSidebar({
                   <span className="flex h-6 w-6 shrink-0 items-center justify-center text-lg">
                     {item.emoji}
                   </span>
-                  <span className="truncate">{item.rotulo}</span>
+                  <span className={classeRotulo}>{item.rotulo}</span>
                 </Link>
               ))}
             </div>
