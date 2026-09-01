@@ -96,7 +96,19 @@ export function SelectComCadastroRapido({
       {podeCadastrar && (
         <button
           type="button"
-          onClick={() => setPopoverAberto(true)}
+          onClick={() => {
+            // Pergunta antes de abrir. O "+" fica colado no select e é
+            // tocado sem querer no celular -- e o que ele abre não é
+            // "escolher outro item", é CRIAR um registro no catálogo da
+            // revenda, que passa a valer para todo mundo.
+            const ok = window.confirm(
+              `${tituloCadastro ?? "Novo cadastro"}\n\n` +
+                "Isto cria um registro NOVO no catálogo, e ele passa a valer para todo mundo.\n\n" +
+                "Confira antes se o que você procura já não está na lista.\n\n" +
+                "Tem certeza que quer cadastrar?",
+            );
+            if (ok) setPopoverAberto(true);
+          }}
           aria-label="Cadastrar novo"
           className={`absolute right-1 top-1 h-[calc(100%-0.5rem)] ${CLASSE_MAIS} hover:bg-primary-dark`}
         >

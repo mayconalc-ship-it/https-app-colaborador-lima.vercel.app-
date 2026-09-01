@@ -151,10 +151,18 @@ export function FormDecidirRetorno({
                 Nenhum AG cadastrado ainda -- peça ao Admin para cadastrar em Configuração &gt; Recebimento.
               </p>
             ) : (
+              /* EMPILHADO no celular. Em linha, o select do AG dividia
+                 uns 300px com a quantidade e o "Remover", sobravam ~100px
+                 e o item escolhido ("00123 — PALETE PBR") não cabia: a
+                 pessoa escolhia e não via o que tinha escolhido. Lado a
+                 lado só a partir de sm, onde há largura para os três. */
               itensAg.map((chave, i) => (
-                <div key={chave} className="flex items-end gap-2 rounded-lg bg-white p-2 shadow-sm">
-                  <div className="min-w-0 flex-1">
-                    {i === 0 && <label className={rotulo}>AG</label>}
+                <div
+                  key={chave}
+                  className="min-w-0 rounded-lg bg-white p-2 shadow-sm sm:flex sm:items-end sm:gap-2"
+                >
+                  <div className="min-w-0 sm:flex-1">
+                    <label className={rotulo}>AG {itensAg.length > 1 ? i + 1 : ""}</label>
                     <SelectComCadastroRapido
                       name="ag_id"
                       required
@@ -170,19 +178,30 @@ export function FormDecidirRetorno({
                       }
                     />
                   </div>
-                  <div className="w-28">
-                    {i === 0 && <label className={rotulo}>Qtd.</label>}
-                    <input name="ag_quantidade" type="number" inputMode="decimal" min={0} step="0.01" required className={campo} />
+
+                  <div className="mt-2 flex items-end gap-2 sm:mt-0">
+                    <div className="min-w-0 flex-1 sm:w-28 sm:flex-none">
+                      <label className={rotulo}>Qtd.</label>
+                      <input
+                        name="ag_quantidade"
+                        type="number"
+                        inputMode="decimal"
+                        min={0}
+                        step="0.01"
+                        required
+                        className={campo}
+                      />
+                    </div>
+                    {itensAg.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => setItensAg((atual) => atual.filter((c) => c !== chave))}
+                        className="shrink-0 rounded-lg border border-red-200 px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-50"
+                      >
+                        Remover
+                      </button>
+                    )}
                   </div>
-                  {itensAg.length > 1 && (
-                    <button
-                      type="button"
-                      onClick={() => setItensAg((atual) => atual.filter((c) => c !== chave))}
-                      className="mb-2 shrink-0 text-xs font-semibold text-red-600 hover:underline"
-                    >
-                      Remover
-                    </button>
-                  )}
                 </div>
               ))
             )}
