@@ -48,7 +48,8 @@ export type ModuloId =
   | "devolucao"
   | "meus-indicadores"
   | "justificativas"
-  | "metas";
+  | "metas"
+  | "fontes-dados";
 
 /**
  * As gavetas do Modo Liderança, na ordem em que aparecem.
@@ -171,6 +172,19 @@ export const MODULOS: Modulo[] = [
     grupo: "Indicadores",
     acoes: ["ver"],
     semTelaAdmin: true,
+  },
+  {
+    id: "fontes-dados",
+    rotulo: "Fontes de Dados",
+    emoji: "🔌",
+    href: "/admin/fontes-de-dados",
+    grupo: "Configuração",
+    // Só "ver": a tela lista todas as fontes, mas a EDIÇÃO de cada uma
+    // herda a permissão do módulo dela (quem podia importar o Rating
+    // continua sendo quem configura a fonte do Rating). Sem isso, esta
+    // concessão viraria um atalho para configurar módulos que a pessoa
+    // não administra.
+    acoes: ["ver"],
   },
   {
     id: "metas",
