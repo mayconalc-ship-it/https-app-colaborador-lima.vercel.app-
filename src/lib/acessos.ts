@@ -373,7 +373,7 @@ export const MODULOS: Modulo[] = [
   {
     id: "pa-bate-palete",
     rotulo: "Bate Palete",
-    emoji: "🪵",
+    emoji: "🔨",
     href: "/produtividade-armazem/bate-palete",
     grupo: "Operação",
     acoes: ["ver"],
