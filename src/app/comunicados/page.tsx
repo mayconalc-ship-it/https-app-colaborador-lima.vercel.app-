@@ -9,6 +9,7 @@ import { getPerfil } from "@/lib/sessao";
 import { requireAcessoModulo } from "@/lib/require-admin";
 import { areaDoColaborador } from "@/lib/quiz";
 import { editoriasDoJornal } from "@/lib/editorias";
+import { nomeCurto } from "@/lib/nomes";
 import {
   dataDeHoje,
   editoria,
@@ -104,16 +105,46 @@ export default async function ComunicadosPage({
         .in("comunicado_id", ids)
     : { data: [] };
 
-  const totalPorPost = new Map<number, number>();
   const curtidosPorMim = new Set<number>();
   for (const c of curtidas ?? []) {
-    totalPorPost.set(
-      c.comunicado_id,
-      (totalPorPost.get(c.comunicado_id) ?? 0) + 1,
-    );
     if (usuarioId && c.colaborador_id === usuarioId) {
       curtidosPorMim.add(c.comunicado_id);
     }
+  }
+
+  /**
+   * QUEM curtiu, e não só quantos -- pedido do dono (03/09/2026).
+   *
+   * Os nomes saem da MESMA consulta de curtidas que já rodava para o
+   * contador: só faltava trocar os ids por nomes, numa segunda consulta.
+   * Contar de um lado e listar de outro abriria a porta para o contador
+   * dizer 12 e a lista mostrar 11.
+   *
+   * A lista vai SEM MIM. O meu nome entra como "Você" no componente, a
+   * partir do mesmo estado que pinta o coração -- senão, ao curtir, o
+   * contador subiria na hora (é otimista) e a lista só depois de
+   * recarregar.
+   */
+  const idsQueCurtiram = [
+    ...new Set((curtidas ?? []).map((c) => c.colaborador_id).filter((id) => id !== usuarioId)),
+  ];
+
+  const { data: quemCurtiu } = idsQueCurtiram.length
+    ? await supabase.from("profiles").select("id, nome").in("id", idsQueCurtiram)
+    : { data: [] };
+
+  const nomePorId = new Map((quemCurtiu ?? []).map((p) => [p.id, nomeCurto(p.nome)]));
+
+  const nomesPorPost = new Map<number, string[]>();
+  for (const c of curtidas ?? []) {
+    if (c.colaborador_id === usuarioId) continue;
+    // Cadastro sem nome não vira linha em branco na lista: fica de fora,
+    // e o contador acompanha, porque ele sai desta mesma lista.
+    const nome = nomePorId.get(c.colaborador_id);
+    if (!nome) continue;
+    const lista = nomesPorPost.get(c.comunicado_id) ?? [];
+    lista.push(nome);
+    nomesPorPost.set(c.comunicado_id, lista);
   }
 
   // A capa grande só na visão geral e na primeira página.
@@ -215,7 +246,13 @@ export default async function ComunicadosPage({
               {capa.imagem_url && (
                 // object-contain, e não cover: os comunicados costumam ser
                 // cartazes cheios de texto, e recortar esconde justamente a
-                // informação. Fundo escuro para a arte se destacar.
+                // informação.
+                //
+                // O que sobrava da caixa era tarja PRETA, e ficava feio
+                // (queixa do dono, 03/09/2026). Agora o vazio é preenchido
+                // por uma cópia desfocada da própria imagem -- ver
+                // FotoAmpliavel. O `bg-slate-900` fica como fundo de
+                // emergência, para o instante antes de a foto chegar.
                 //
                 // A altura é fixa de propósito. Antes era `max-h`, ou seja,
                 // o navegador só sabia o tamanho da caixa depois de baixar a
@@ -276,7 +313,7 @@ export default async function ComunicadosPage({
                   <BotaoCurtir
                     comunicadoId={capa.id}
                     curtidoInicial={curtidosPorMim.has(capa.id)}
-                    totalInicial={totalPorPost.get(capa.id) ?? 0}
+                    outrosNomes={nomesPorPost.get(capa.id) ?? []}
                   />
                   {dataParaMim(capa) && (
                     <BotaoAgenda
@@ -371,7 +408,7 @@ export default async function ComunicadosPage({
                           <BotaoCurtir
                             comunicadoId={c.id}
                             curtidoInicial={curtidosPorMim.has(c.id)}
-                            totalInicial={totalPorPost.get(c.id) ?? 0}
+                            outrosNomes={nomesPorPost.get(c.id) ?? []}
                           />
                           {dataParaMim(c) && (
                             <BotaoAgenda

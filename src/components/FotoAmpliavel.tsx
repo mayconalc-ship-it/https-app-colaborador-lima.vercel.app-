@@ -133,6 +133,41 @@ export function FotoAmpliavel({
             className="absolute inset-0 animate-pulse bg-slate-200"
           />
         )}
+        {/*
+          FUNDO DESFOCADO NO LUGAR DAS BARRAS PRETAS.
+
+          Cartaz do jornal quase nunca tem a proporção da caixa, e com
+          `contain` sobravam duas tarjas pretas nas laterais -- a queixa do
+          dono em 03/09/2026: "não está preenchendo a tela toda da capa".
+
+          Trocar para `cover` resolveria a tarja e criaria coisa pior:
+          esses cartazes são cheios de texto, e recortar esconde justamente
+          a informação (é o motivo de o `contain` ter sido escolhido).
+
+          A saída é a mesma que o Instagram e o YouTube usam: a caixa é
+          preenchida por uma cópia AMPLIADA E DESFOCADA da própria imagem,
+          e o cartaz inteiro fica por cima, sem corte nenhum. A cópia pede
+          uma variante minúscula (`sizes="64px"`) porque vai ser borrada de
+          qualquer jeito -- custa alguns KB, não uma segunda foto.
+        */}
+        {ajuste === "contain" && (
+          <Image
+            src={src}
+            alt=""
+            aria-hidden="true"
+            fill
+            sizes="64px"
+            // A ampliação vai em `style`, não como classe: o <Image fill>
+            // escreve `transform` inline e a utilitária do Tailwind
+            // perdia a disputa em silêncio -- conferido no navegador, o
+            // computed vinha "none". Sem ela o desfoque desbota nas
+            // bordas e reaparece uma auréola clara onde havia a tarja.
+            style={{ transform: "scale(1.25)" }}
+            className={`object-cover blur-2xl brightness-90 transition-opacity duration-300 ${
+              carregada ? "opacity-100" : "opacity-0"
+            }`}
+          />
+        )}
         <Image
           src={src}
           alt=""

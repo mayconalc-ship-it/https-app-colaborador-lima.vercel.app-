@@ -14,7 +14,8 @@ const LEGENDA_DO_DESTAQUE: Record<string, string> = {
 };
 import { getModulosAcessiveis } from "@/lib/require-admin";
 import { MODULOS_OPCIONAIS } from "@/lib/acessos";
-import { RodapeOuvidoria } from "@/components/RodapeOuvidoria";
+import { RodapeCanais } from "@/components/RodapeCanais";
+import { FaixaParcerias } from "@/components/FaixaParcerias";
 
 export default async function Home() {
   const supabase = await createClient();
@@ -94,7 +95,19 @@ export default async function Home() {
         ))}
       </div>
 
-      <RodapeOuvidoria />
+      {/* Depois do menu e antes do rodapé, de propósito.
+          Acima, competiria com o trabalho -- e parceria é um benefício,
+          não uma tarefa. Dentro de um dos blocos, viraria mais um cartão
+          quadrado entre treze, que é exatamente onde ela já estava
+          escondida. Retangular e colorida, no fim, ela é a única coisa
+          diferente da tela: acha-se sem procurar.
+
+          Só para quem tem o Jornal: a faixa leva a uma editoria dele, e
+          oferecer um caminho que termina em "sem acesso" é pior do que
+          não oferecer. */}
+      {modulosAcessiveis.has("comunicados") && <FaixaParcerias />}
+
+      <RodapeCanais />
     </div>
   );
 }
