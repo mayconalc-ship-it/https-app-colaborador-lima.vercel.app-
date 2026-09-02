@@ -1,4 +1,4 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import { PageHeader } from "@/components/PageHeader";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -14,6 +14,25 @@ import {
   type Fonte,
 } from "@/lib/fontes-de-dados";
 import { salvarFonte } from "./actions";
+import { importarRating } from "@/app/admin/rating/actions";
+import { importarRefugo } from "@/app/admin/refugo/actions";
+import { importarDevolucao } from "@/app/admin/devolucao/actions";
+import { atualizarRotas } from "@/app/admin/rotas/actions";
+
+/**
+ * O botão "Atualizar agora" chama a MESMA action do módulo, passando
+ * `voltar_para` para o resultado aparecer aqui. Nenhuma lógica de
+ * importação foi copiada -- só o destino do redirecionamento muda.
+ *
+ * A RV fica de fora: são várias planilhas por área, sem um "importar"
+ * único; ela é lida na hora em que a tela do colaborador abre.
+ */
+const IMPORTAR: Record<string, ((f: FormData) => Promise<void>) | undefined> = {
+  rating: importarRating,
+  refugo: importarRefugo,
+  devolucao: importarDevolucao,
+  rotas: atualizarRotas,
+};
 
 export const dynamic = "force-dynamic";
 
@@ -33,10 +52,16 @@ type Estado = {
  * telas, sete layouts, e nenhum lugar que respondesse a pergunta acima.
  * Esta tela responde, e é onde se edita o link.
  *
- * O IMPORT continua na tela do módulo, de propósito: importar é uma ação
- * com consequência (reescreve dados do período) e mora junto do histórico
- * e das mensagens de erro que explicam o que aconteceu. Aqui se configura
- * de onde vem; lá se puxa.
+ * O botão de ATUALIZAR fica aqui também, e não só na tela do módulo. A
+ * primeira versão deixava o import só lá, com o argumento de que ele mora
+ * junto do histórico -- mas a página acaba de dizer "sem atualizar há 4
+ * dias" e mandar a pessoa navegar para outro lugar para agir sobre o que
+ * ela acabou de ler é o oposto de juntar tudo num lugar só.
+ *
+ * A lógica não é duplicada: o formulário chama a MESMA action do módulo,
+ * passando `voltar_para` para o resultado aparecer onde o clique
+ * aconteceu. A tela do módulo continua com o botão dela, para quem chega
+ * por lá.
  */
 export default async function FontesDeDadosPage({
   searchParams,
@@ -142,6 +167,7 @@ export default async function FontesDeDadosPage({
             estado={estados.get(f.chave) ?? null}
             podeEditar={permissoes.get(f.chave) ?? false}
             rvLinhas={f.chave === "rv" ? rvLinhas : undefined}
+            atualizar={IMPORTAR[f.chave]}
           />
         ))}
       </div>
@@ -173,9 +199,9 @@ export default async function FontesDeDadosPage({
       </details>
 
       <p className="rounded-xl bg-slate-50 p-3 text-xs text-slate-500">
-        💡 Aqui se configura <strong>de onde vem</strong>. A importação em si continua na tela de
-        cada módulo — importar reescreve os dados do período, e a mensagem de erro que explica o que
-        aconteceu mora junto do histórico de lá.
+        💡 <strong>Atualizar</strong> lê a fonte e traz o que há de novo para o app — é o que faz o
+        número aparecer para o colaborador. A tela de cada módulo continua com o botão dela e com o
+        histórico completo das importações anteriores.
       </p>
     </div>
   );
@@ -186,11 +212,13 @@ function CartaoDaFonte({
   estado,
   podeEditar,
   rvLinhas,
+  atualizar,
 }: {
   fonte: Fonte;
   estado: Estado | null;
   podeEditar: boolean;
   rvLinhas?: { area: string; rotulo: string; csv_url: string | null }[];
+  atualizar?: (f: FormData) => Promise<void>;
 }) {
   const configurada = !!estado?.pasta_link;
   const velha = configurada && estaVelha(estado?.ultima_sincronizacao);
@@ -225,9 +253,32 @@ function CartaoDaFonte({
             <strong className="text-slate-700">{tempoDesde(estado?.ultima_sincronizacao)}</strong>
           </span>
           <Link href={fonte.telaDoModulo} className="font-semibold text-primary hover:underline">
-            Importar na tela do módulo →
+            Abrir a tela do módulo →
           </Link>
         </div>
+
+        {/* O BOTÃO DE ATUALIZAR mora aqui, e não só na tela do módulo.
+            A página acabou de dizer "sem atualizar há 4 dias"; mandar a
+            pessoa navegar para outro lugar para agir sobre o que ela
+            acabou de ler é o oposto de juntar tudo num lugar só.
+
+            A lógica de importação NÃO é duplicada: o formulário chama a
+            mesma action do módulo, passando para onde voltar. O resultado
+            aparece aqui, onde o clique aconteceu. */}
+        {atualizar && podeEditar && (
+          <form action={atualizar} className="mt-3">
+            <input type="hidden" name="voltar_para" value="/admin/fontes-de-dados" />
+            <BotaoEnviar
+              textoEnviando="Atualizando..."
+              className="w-full rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-white hover:bg-primary-dark sm:w-auto"
+            >
+              ↻ Atualizar agora
+            </BotaoEnviar>
+            {fonte.aoAtualizar && (
+              <p className="mt-1 text-[11px] text-slate-400">{fonte.aoAtualizar}</p>
+            )}
+          </form>
+        )}
 
         {estado?.ultimo_resultado && (
           <p className="mt-2 break-words border-l-2 border-slate-200 pl-2 text-[11px] text-slate-500">

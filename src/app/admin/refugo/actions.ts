@@ -11,8 +11,8 @@ import { lerRelatorioDeRefugo } from "@/lib/refugo";
 const ROTA = "/admin/refugo";
 const PASTA_REFUGO = "Refugo";
 
-function voltar(chave: "erro" | "sucesso", mensagem: string): never {
-  redirect(`${ROTA}?${chave}=${encodeURIComponent(mensagem)}`);
+function voltar(chave: "erro" | "sucesso", mensagem: string, destino = ROTA): never {
+  redirect(`${destino}?${chave}=${encodeURIComponent(mensagem)}`);
 }
 
 /** Compara nome de gente ignorando acento, caixa e espaço repetido. */
@@ -63,7 +63,14 @@ export async function salvarValorDoItem(formData: FormData) {
  * Depende do Rating já ter sido importado: é de lá que vêm o cadastro de
  * pessoas e a tabela de viagens.
  */
-export async function importarRefugo() {
+export async function importarRefugo(formData?: FormData) {
+  // Quem chamou: a tela do modulo (padrao) ou Fontes de Dados. E o
+  // que permite o botao de atualizar existir nos dois lugares sem a
+  // logica de importacao ser duplicada -- so o destino do resultado
+  // muda, e a mensagem aparece onde a pessoa clicou.
+  const destino = String(formData?.get("voltar_para") ?? "") || ROTA;
+  const voltarAqui: (c: "erro" | "sucesso", m: string) => never = (c, m) => voltar(c, m, destino);
+
   await requireModulo("refugo", "criar");
 
   const admin = createAdminClient();
@@ -78,16 +85,16 @@ export async function importarRefugo() {
   // não há link próprio o app reaproveita aquele -- uma coisa a menos
   // para colar errado.
   const pastaMae = cfg?.pasta_id || cfgRating?.pasta_id;
-  if (!pastaMae) voltar("erro", "Cadastre o link da pasta do Drive (aqui ou em Rating de Entrega).");
+  if (!pastaMae) voltarAqui("erro", "Cadastre o link da pasta do Drive (aqui ou em Rating de Entrega).");
 
   const { pastas, erro } = await listarSubpastas(pastaMae);
-  if (erro) voltar("erro", `Não consegui ler a pasta: ${erro}.`);
+  if (erro) voltarAqui("erro", `Não consegui ler a pasta: ${erro}.`);
 
   const pasta = pastas.find((p) => p.nome.trim().toLowerCase() === PASTA_REFUGO.toLowerCase());
-  if (!pasta) voltar("erro", `Não achei a subpasta "${PASTA_REFUGO}" dentro da pasta do Drive.`);
+  if (!pasta) voltarAqui("erro", `Não achei a subpasta "${PASTA_REFUGO}" dentro da pasta do Drive.`);
 
   const { arquivos } = await listarArquivosDaPasta(pasta.id);
-  if (arquivos.length === 0) voltar("erro", `A pasta "${PASTA_REFUGO}" está vazia.`);
+  if (arquivos.length === 0) voltarAqui("erro", `A pasta "${PASTA_REFUGO}" está vazia.`);
 
   // --- Quem é quem: vem do Rating, que já resolveu CPF -> perfil ---
   type Pessoa = { tipo: string; codigo: string; nome: string; colaborador_id: string | null };
@@ -229,6 +236,6 @@ export async function importarRefugo() {
       { onConflict: "revenda_id" },
     );
 
-  if (total === 0) voltar("erro", `Nenhuma aferição importada. ${relatorio.join(" · ")}`);
-  voltar("sucesso", `Importado: ${relatorio.join(" · ")}`);
+  if (total === 0) voltarAqui("erro", `Nenhuma aferição importada. ${relatorio.join(" · ")}`);
+  voltarAqui("sucesso", `Importado: ${relatorio.join(" · ")}`);
 }

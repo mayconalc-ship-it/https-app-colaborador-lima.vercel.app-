@@ -13,8 +13,10 @@ import {
 } from "@/lib/drive-pasta";
 import { lerPlanilhaDeRotas } from "@/lib/rotas";
 
-function voltar(chave: "erro" | "sucesso", mensagem: string): never {
-  redirect(`/admin/rotas?${chave}=${encodeURIComponent(mensagem)}`);
+const ROTA = "/admin/rotas";
+
+function voltar(chave: "erro" | "sucesso", mensagem: string, destino = ROTA): never {
+  redirect(`${destino}?${chave}=${encodeURIComponent(mensagem)}`);
 }
 
 
@@ -74,6 +76,13 @@ export async function salvarMetasDeRota(formData: FormData) {
  * aparece no relatório da tela, para você conferir o que foi lido.
  */
 export async function atualizarRotas(formData: FormData) {
+  // Quem chamou: a tela do modulo (padrao) ou Fontes de Dados. E o
+  // que permite o botao de atualizar existir nos dois lugares sem a
+  // logica de importacao ser duplicada -- so o destino do resultado
+  // muda, e a mensagem aparece onde a pessoa clicou.
+  const destino = String(formData?.get("voltar_para") ?? "") || ROTA;
+  const voltarAqui: (c: "erro" | "sucesso", m: string) => never = (c, m) => voltar(c, m, destino);
+
   const eu = await requireModulo("rotas", "criar");
   const avisar = formData.get("avisar") === "on";
 
@@ -87,11 +96,11 @@ export async function atualizarRotas(formData: FormData) {
     .maybeSingle();
 
   if (!config?.pasta_id) {
-    voltar("erro", "Cadastre primeiro o link da pasta do Drive.");
+    voltarAqui("erro", "Cadastre primeiro o link da pasta do Drive.");
   }
 
   const { arquivos, erro } = await listarArquivosDaPasta(config.pasta_id);
-  if (erro) voltar("erro", `Não consegui ler a pasta: ${erro}.`);
+  if (erro) voltarAqui("erro", `Não consegui ler a pasta: ${erro}.`);
 
   const relatorio: string[] = [];
   let totalRotas = 0;
@@ -163,7 +172,7 @@ export async function atualizarRotas(formData: FormData) {
     .eq("revenda_id", revendaId);
 
   if (totalRotas === 0) {
-    voltar("erro", `Nenhuma rota importada. ${relatorio.join(" · ")}`);
+    voltarAqui("erro", `Nenhuma rota importada. ${relatorio.join(" · ")}`);
   }
 
   if (avisar) {
@@ -176,7 +185,7 @@ export async function atualizarRotas(formData: FormData) {
     });
   }
 
-  voltar(
+  voltarAqui(
     "sucesso",
     `${totalRotas} rota(s) atualizada(s) de ${arquivos.length} arquivo(s). ${relatorio.join(" · ")}`,
   );

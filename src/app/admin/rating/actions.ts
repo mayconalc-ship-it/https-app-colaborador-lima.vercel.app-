@@ -16,8 +16,8 @@ import { gravarEmLotes, lerPlanilhaLogCo, lerTudoEmPaginas } from "@/lib/rating-
 
 const ROTA = "/admin/rating";
 
-function voltar(chave: "erro" | "sucesso", mensagem: string): never {
-  redirect(`${ROTA}?${chave}=${encodeURIComponent(mensagem)}`);
+function voltar(chave: "erro" | "sucesso", mensagem: string, destino = ROTA): never {
+  redirect(`${destino}?${chave}=${encodeURIComponent(mensagem)}`);
 }
 
 /** Nome da subpasta -> o que ela contém. */
@@ -42,6 +42,13 @@ const PASTA_AVALIACOES = "LOG.CO";
  * sem mudar nada nos meses fechados. `tudo=on` faz a carga completa.
  */
 export async function importarRating(formData: FormData) {
+  // Quem chamou: a tela do modulo (padrao) ou Fontes de Dados. E o
+  // que permite o botao de atualizar existir nos dois lugares sem a
+  // logica de importacao ser duplicada -- so o destino do resultado
+  // muda, e a mensagem aparece onde a pessoa clicou.
+  const destino = String(formData?.get("voltar_para") ?? "") || ROTA;
+  const voltarAqui: (c: "erro" | "sucesso", m: string) => never = (c, m) => voltar(c, m, destino);
+
   await requireModulo("rating", "criar");
   const tudo = formData.get("tudo") === "on";
 
@@ -53,10 +60,10 @@ export async function importarRating(formData: FormData) {
     .select("pasta_id")
     .eq("revenda_id", revendaId)
     .maybeSingle();
-  if (!config?.pasta_id) voltar("erro", "Cadastre primeiro o link da pasta do Drive.");
+  if (!config?.pasta_id) voltarAqui("erro", "Cadastre primeiro o link da pasta do Drive.");
 
   const { pastas, erro } = await listarSubpastas(config.pasta_id);
-  if (erro) voltar("erro", `Não consegui ler a pasta: ${erro}.`);
+  if (erro) voltarAqui("erro", `Não consegui ler a pasta: ${erro}.`);
 
   const acharPasta = (nome: string) => pastas.find((p) => p.nome.trim() === nome);
   const relatorio: string[] = [];
@@ -199,7 +206,7 @@ export async function importarRating(formData: FormData) {
   const pastaAvaliacoes = acharPasta(PASTA_AVALIACOES);
   if (!pastaAvaliacoes) {
     await registrar(admin, revendaId, relatorio);
-    voltar("erro", `Pasta ${PASTA_AVALIACOES} não encontrada. ${relatorio.join(" · ")}`);
+    voltarAqui("erro", `Pasta ${PASTA_AVALIACOES} não encontrada. ${relatorio.join(" · ")}`);
   }
 
   // Mapas e pessoas já gravados: é com eles que cada avaliação acha o
@@ -221,7 +228,7 @@ export async function importarRating(formData: FormData) {
   );
   if (erroViagens) {
     await registrar(admin, revendaId, [...relatorio, `erro ao ler as viagens: ${erroViagens}`]);
-    voltar("erro", `Não consegui ler as viagens: ${erroViagens}`);
+    voltarAqui("erro", `Não consegui ler as viagens: ${erroViagens}`);
   }
   const viagemPorMapa = new Map(viagensBanco.map((v) => [v.mapa, v]));
 
@@ -324,9 +331,9 @@ export async function importarRating(formData: FormData) {
   await registrar(admin, revendaId, relatorio);
 
   if (totalAvaliacoes === 0) {
-    voltar("erro", `Nenhuma avaliação importada. ${relatorio.join(" · ")}`);
+    voltarAqui("erro", `Nenhuma avaliação importada. ${relatorio.join(" · ")}`);
   }
-  voltar("sucesso", `Importado: ${relatorio.join(" · ")}`);
+  voltarAqui("sucesso", `Importado: ${relatorio.join(" · ")}`);
 }
 
 async function registrar(

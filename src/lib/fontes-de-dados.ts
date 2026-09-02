@@ -1,4 +1,4 @@
-/**
+﻿/**
  * DE ONDE VÊM OS DADOS DO APP
  *
  * A configuração da fonte morava dentro da tela de cada módulo: o link do
@@ -36,6 +36,14 @@ export type Fonte = {
   modulo: string;
   /** Texto de ajuda específico: cada fonte tem uma pegadinha diferente. */
   ajuda: string;
+  /**
+   * O que o botão de atualizar faz, em uma frase.
+   *
+   * Cada import tem um custo diferente -- o da devolução lê ~7 mil linhas
+   * por mês e leva minutos; o do refugo é quase instantâneo. Dizer antes
+   * evita a pessoa achar que travou e clicar de novo.
+   */
+  aoAtualizar?: string;
 };
 
 export const FONTES: Fonte[] = [
@@ -47,6 +55,7 @@ export const FONTES: Fonte[] = [
     tabela: "rating_config",
     telaDoModulo: "/admin/rating",
     modulo: "rating",
+    aoAtualizar: "Lê os quatro relatórios da pasta. Leva cerca de um minuto.",
     ajuda:
       "Aponte para a pasta MÃE no Drive. O app varre as subpastas sozinho e reconhece os relatórios 01.20.01.47, 01.20.01.48, 03.11.29 e o LOG.CO pelo nome do arquivo.",
   },
@@ -58,6 +67,7 @@ export const FONTES: Fonte[] = [
     tabela: "refugo_config",
     telaDoModulo: "/admin/refugo",
     modulo: "refugo",
+    aoAtualizar: "Lê a subpasta Refugo. Rápido, mas depende do Rating já ter sido importado.",
     ajuda:
       "Deixar em branco faz o Refugo usar a MESMA pasta do Rating -- é o comportamento normal quando os relatórios chegam juntos.",
   },
@@ -69,6 +79,7 @@ export const FONTES: Fonte[] = [
     tabela: "devolucao_config",
     telaDoModulo: "/admin/devolucao",
     modulo: "devolucao",
+    aoAtualizar: "Traz só o mês corrente. Cada arquivo tem ~7 mil linhas — pode levar alguns minutos.",
     ajuda:
       "Precisa do 03.02.37 (as notas) e do 01.20.01.06 (a tabela de motivos). Sem o segundo, os motivos aparecem como código.",
   },
@@ -80,6 +91,7 @@ export const FONTES: Fonte[] = [
     tabela: "rotas_config",
     telaDoModulo: "/admin/rotas",
     modulo: "rotas",
+    aoAtualizar: "Lê o CSV mais recente da pasta.",
     ajuda: "Aponte para a pasta onde o CSV da pré-rota é depositado todo dia.",
   },
   {

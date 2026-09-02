@@ -1,4 +1,4 @@
-"use server";
+﻿"use server";
 
 import { redirect } from "next/navigation";
 import { requireModulo } from "@/lib/require-admin";
@@ -20,8 +20,8 @@ const ROTA = "/admin/devolucao";
 const PASTA_MOTIVOS = "01.20.01.06";
 const PASTA_NOTAS = "03.02.37";
 
-function voltar(chave: "erro" | "sucesso", mensagem: string): never {
-  redirect(`${ROTA}?${chave}=${encodeURIComponent(mensagem)}`);
+function voltar(chave: "erro" | "sucesso", mensagem: string, destino = ROTA): never {
+  redirect(`${destino}?${chave}=${encodeURIComponent(mensagem)}`);
 }
 
 export async function salvarConfigDeDevolucao(formData: FormData) {
@@ -124,6 +124,13 @@ export async function classificarMotivos(formData: FormData) {
  *    entregue individual para nada.
  */
 export async function importarDevolucao(formData: FormData) {
+  // Quem chamou: a tela do modulo (padrao) ou Fontes de Dados. E o
+  // que permite o botao de atualizar existir nos dois lugares sem a
+  // logica de importacao ser duplicada -- so o destino do resultado
+  // muda, e a mensagem aparece onde a pessoa clicou.
+  const destino = String(formData?.get("voltar_para") ?? "") || ROTA;
+  const voltarAqui: (c: "erro" | "sucesso", m: string) => never = (c, m) => voltar(c, m, destino);
+
   await requireModulo("devolucao", "criar");
   const tudo = formData.get("tudo") === "on";
 
@@ -136,10 +143,10 @@ export async function importarDevolucao(formData: FormData) {
   ]);
 
   const pastaMae = cfg?.pasta_id || cfgRating?.pasta_id;
-  if (!pastaMae) voltar("erro", "Cadastre o link da pasta do Drive (aqui ou em Rating de Entrega).");
+  if (!pastaMae) voltarAqui("erro", "Cadastre o link da pasta do Drive (aqui ou em Rating de Entrega).");
 
   const { pastas, erro } = await listarSubpastas(pastaMae);
-  if (erro) voltar("erro", `Não consegui ler a pasta: ${erro}.`);
+  if (erro) voltarAqui("erro", `Não consegui ler a pasta: ${erro}.`);
 
   const relatorio: string[] = [];
 
@@ -218,7 +225,7 @@ export async function importarDevolucao(formData: FormData) {
   const pastaNotas = pastas.find((p) => p.nome.trim() === PASTA_NOTAS);
   if (!pastaNotas) {
     await registrar(admin, revendaId, relatorio);
-    voltar("erro", `Pasta ${PASTA_NOTAS} não encontrada. ${relatorio.join(" · ")}`);
+    voltarAqui("erro", `Pasta ${PASTA_NOTAS} não encontrada. ${relatorio.join(" · ")}`);
   }
 
   const { arquivos } = await listarArquivosDaPasta(pastaNotas.id);
@@ -384,9 +391,9 @@ export async function importarDevolucao(formData: FormData) {
   await registrar(admin, revendaId, relatorio);
 
   if (totalNotas === 0 && totalDias === 0) {
-    voltar("erro", `Nada importado. ${relatorio.join(" · ")}`);
+    voltarAqui("erro", `Nada importado. ${relatorio.join(" · ")}`);
   }
-  voltar("sucesso", `Importado: ${relatorio.join(" · ")}`);
+  voltarAqui("sucesso", `Importado: ${relatorio.join(" · ")}`);
 }
 
 async function registrar(
