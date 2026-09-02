@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Vocabulário da central de notificações.
  *
  * Fica separado do servidor de propósito: a tela do colaborador importa
@@ -27,7 +27,8 @@ export type ModuloNotificavel =
   | "quiz"
   | "cinco-porques"
   | "5s"
-  | "produtividade-armazem";
+  | "produtividade-armazem"
+  | "meus-indicadores";
 
 /**
  * A mesma lista, em forma de array.
@@ -50,6 +51,7 @@ export const MODULOS_NOTIFICAVEIS: ModuloNotificavel[] = [
   "cinco-porques",
   "5s",
   "produtividade-armazem",
+  "meus-indicadores",
 ];
 
 export const EMOJI_MODULO: Record<ModuloNotificavel, string> = {
@@ -67,6 +69,7 @@ export const EMOJI_MODULO: Record<ModuloNotificavel, string> = {
   "cinco-porques": "🧠",
   "5s": "🧹",
   "produtividade-armazem": "🏭",
+  "meus-indicadores": "📊",
 };
 
 export const ROTULO_MODULO: Record<ModuloNotificavel, string> = {
@@ -84,6 +87,7 @@ export const ROTULO_MODULO: Record<ModuloNotificavel, string> = {
   "cinco-porques": "5 Porquês",
   "5s": "Programa 5S",
   "produtividade-armazem": "Produtividade do Armazém",
+  "meus-indicadores": "Meus Indicadores",
 };
 
 /**
@@ -130,6 +134,7 @@ export const ROTULO_BOTAO: Record<ModuloNotificavel, string> = {
   "cinco-porques": "Ver resposta",
   "5s": "Abrir o 5S",
   "produtividade-armazem": "Abrir empilhadeira",
+  "meus-indicadores": "Ver meus indicadores",
 };
 
 /** "há 2 min", "há 3 h", "ontem" — mais legível que data completa. */

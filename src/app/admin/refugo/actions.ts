@@ -1,6 +1,7 @@
 ﻿"use server";
 
 import { redirect } from "next/navigation";
+import { avisarIndicadorAtualizado } from "@/lib/aviso-indicadores-server";
 import { requireModulo } from "@/lib/require-admin";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { exigirRevenda } from "@/lib/revendas";
@@ -237,5 +238,11 @@ export async function importarRefugo(formData?: FormData) {
     );
 
   if (total === 0) voltarAqui("erro", `Nenhuma aferição importada. ${relatorio.join(" · ")}`);
+
+  // Avisa quem ficou com pendencia. Direcionado: so quem tem algo a
+  // explicar recebe, com o numero dele. Silencioso -- um erro de
+  // notificacao nao pode derrubar um import que ja gravou tudo.
+  await avisarIndicadorAtualizado(revendaId, "refugo");
+
   voltarAqui("sucesso", `Importado: ${relatorio.join(" · ")}`);
 }
