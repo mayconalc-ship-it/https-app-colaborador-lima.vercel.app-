@@ -1,10 +1,11 @@
-import { PageHeader } from "@/components/PageHeader";
+﻿import { PageHeader } from "@/components/PageHeader";
+import { FonteConfigurada } from "@/components/admin/FonteConfigurada";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
 import { requireModulo } from "@/lib/require-admin";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getRevendaId } from "@/lib/revendas";
 import { diasAtrasISO, formatarDataHora } from "@/lib/produtividade-armazem";
-import { importarRating, salvarPastaDeRating } from "./actions";
+import { importarRating } from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -89,27 +90,16 @@ export default async function AdminRatingPage({
         </div>
       </details>
 
-      {/* ---------- Pasta ---------- */}
-      <form action={salvarPastaDeRating} className="mb-5 space-y-2 rounded-2xl border border-slate-200 bg-white p-4">
-        <label className={rotulo} htmlFor="link">Pasta do Drive (a pasta MÃE, com as 4 subpastas)</label>
-        <input
-          id="link"
-          name="link"
-          defaultValue={config?.pasta_link ?? ""}
-          placeholder="https://drive.google.com/drive/folders/..."
-          className={campo}
-        />
-        <p className="text-[11px] text-slate-400">
-          Precisa estar compartilhada como “Qualquer pessoa com o link”. O app procura sozinho as subpastas
-          01.20.01.47, 01.20.01.48, 03.11.29 e LOG.CO.
-        </p>
-        <BotaoEnviar
-          textoEnviando="Salvando..."
-          className="w-full rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-        >
-          Salvar pasta
-        </BotaoEnviar>
-      </form>
+      {/* A configuração da pasta saiu daqui: ela agora mora em
+          Admin > Fontes de Dados, junto com as outras seis. Esta tela
+          continua sendo onde se IMPORTA -- importar reescreve os dados do
+          período, e a mensagem que explica o resultado mora junto do
+          histórico daqui. */}
+      <FonteConfigurada
+        rotulo="Rating de Entrega"
+        link={config?.pasta_link ?? null}
+        ultima={config?.ultima_sincronizacao ?? null}
+      />
 
       {/* ---------- Importar ---------- */}
       <form action={importarRating} className="mb-5 space-y-3 rounded-2xl border border-slate-200 bg-white p-4">

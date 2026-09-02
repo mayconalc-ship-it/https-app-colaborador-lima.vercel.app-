@@ -1,4 +1,4 @@
-"use server";
+﻿"use server";
 
 import { redirect } from "next/navigation";
 import { requireModulo } from "@/lib/require-admin";
@@ -17,37 +17,6 @@ function voltar(chave: "erro" | "sucesso", mensagem: string): never {
   redirect(`/admin/rotas?${chave}=${encodeURIComponent(mensagem)}`);
 }
 
-/** Guarda o link da pasta para não precisar colar de novo. */
-export async function salvarPastaDeRotas(formData: FormData) {
-  await requireModulo("rotas", "criar");
-
-  const link = ((formData.get("link") as string) || "").trim();
-  const pasta = idDaPasta(link);
-
-  if (!pasta) {
-    voltar(
-      "erro",
-      "Não reconheci o link. Abra a PASTA no Drive e copie o endereço da barra do navegador.",
-    );
-  }
-
-  const admin = createAdminClient();
-  const revendaId = await exigirRevenda("/admin/rotas");
-
-  // Uma pasta do Drive por revenda: cada operação roteiriza a sua.
-  const { error } = await admin.from("rotas_config").upsert(
-    {
-      revenda_id: revendaId,
-      pasta_id: pasta,
-      pasta_link: link,
-      atualizado_em: new Date().toISOString(),
-    },
-    { onConflict: "revenda_id" },
-  );
-
-  if (error) voltar("erro", error.message);
-  voltar("sucesso", "Pasta salva. Agora é só clicar em Atualizar rotas.");
-}
 
 /**
  * Metas da operação.

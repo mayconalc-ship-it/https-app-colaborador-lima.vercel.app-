@@ -1,10 +1,10 @@
-"use server";
+﻿"use server";
 
 import { redirect } from "next/navigation";
 import { requireModulo } from "@/lib/require-admin";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { exigirRevenda } from "@/lib/revendas";
-import { baixarTextoDoDrive, idDaPasta, listarArquivosDaPasta, listarSubpastas } from "@/lib/drive-pasta";
+import { baixarTextoDoDrive, listarArquivosDaPasta, listarSubpastas } from "@/lib/drive-pasta";
 import { gravarEmLotes, lerTudoEmPaginas } from "@/lib/rating-server";
 import { lerRelatorioDeRefugo } from "@/lib/refugo";
 
@@ -24,25 +24,6 @@ function mesmoNome(a: string | null, b: string | null): boolean {
   return Boolean(x) && x === y;
 }
 
-export async function salvarPastaDeRefugo(formData: FormData) {
-  await requireModulo("refugo", "criar");
-
-  const link = ((formData.get("link") as string) || "").trim();
-  // Vazio é válido: significa "usar a mesma pasta do Rating".
-  const pasta = link ? idDaPasta(link) : null;
-  if (link && !pasta) {
-    voltar("erro", "Não reconheci o link. Abra a pasta MÃE no Drive e copie o endereço da barra do navegador.");
-  }
-
-  const admin = createAdminClient();
-  const revendaId = await exigirRevenda(ROTA);
-  const { error } = await admin.from("refugo_config").upsert(
-    { revenda_id: revendaId, pasta_id: pasta, pasta_link: link || null, atualizado_em: new Date().toISOString() },
-    { onConflict: "revenda_id" },
-  );
-  if (error) voltar("erro", error.message);
-  voltar("sucesso", pasta ? "Pasta salva." : "Vai usar a mesma pasta do Rating.");
-}
 
 /** O valor unitário de um item, em reais por garrafa. */
 export async function salvarValorDoItem(formData: FormData) {

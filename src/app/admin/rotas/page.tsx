@@ -1,15 +1,15 @@
-import { decodificar } from "@/lib/texto-url";
+﻿import { decodificar } from "@/lib/texto-url";
 import { requireModulo, podeNoModulo } from "@/lib/require-admin";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { exigirRevenda } from "@/lib/revendas";
 import { PageHeader } from "@/components/PageHeader";
+import { FonteConfigurada } from "@/components/admin/FonteConfigurada";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
 import { formatarDataBr } from "@/lib/rotas";
 import {
   apagarRotasDoDia,
   atualizarRotas,
   salvarMetasDeRota,
-  salvarPastaDeRotas,
 } from "./actions";
 
 export default async function AdminRotasPage({
@@ -114,55 +114,15 @@ export default async function AdminRotasPage({
         </form>
       )}
 
-      {/* ---- Pasta ---- */}
+      {/* Configuração da pasta saiu daqui, para Admin > Fontes de Dados.
+          Esta tela continua sendo onde se importa e onde se vê o
+          histórico do que entrou. */}
       {podeImportar && (
-        <details
-          open={!config?.pasta_link}
-          className="mb-4 rounded-2xl border border-slate-200 bg-white shadow-sm"
-        >
-          <summary className="cursor-pointer p-4 font-semibold text-primary">
-            📁 Pasta do Drive
-            {config?.pasta_link ? "" : " — precisa cadastrar"}
-          </summary>
-          <form
-            action={salvarPastaDeRotas}
-            className="space-y-3 border-t border-slate-100 p-4"
-          >
-            <div>
-              <label
-                htmlFor="link"
-                className="mb-1 block text-sm font-medium text-slate-700"
-              >
-                Link da pasta
-              </label>
-              <input
-                id="link"
-                name="link"
-                required
-                defaultValue={config?.pasta_link ?? ""}
-                placeholder="https://drive.google.com/drive/folders/..."
-                className="w-full rounded-xl border border-slate-200 p-3 text-base focus:border-primary focus:outline-none"
-              />
-              <p className="mt-1 text-xs text-slate-400">
-                Abra a pasta no Drive e copie o endereço da barra do
-                navegador. Ela precisa estar compartilhada como
-                &quot;Qualquer pessoa com o link&quot;.
-              </p>
-            </div>
-
-            <button
-              type="submit"
-              className="w-full rounded-xl bg-primary py-3 font-semibold text-white hover:bg-primary-dark"
-            >
-              Salvar pasta
-            </button>
-
-            <p className="rounded-lg bg-slate-50 p-3 text-xs text-slate-500">
-              Cadastre uma vez só. A cada mês, basta jogar o arquivo novo
-              dentro dessa pasta — o app encontra sozinho.
-            </p>
-          </form>
-        </details>
+        <FonteConfigurada
+          rotulo="Minha Rota"
+          link={config?.pasta_link ?? null}
+          ultima={config?.ultima_sincronizacao ?? null}
+        />
       )}
 
       {/* ---- Metas ---- */}

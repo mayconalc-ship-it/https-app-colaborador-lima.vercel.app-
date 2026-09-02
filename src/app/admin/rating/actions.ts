@@ -1,4 +1,4 @@
-"use server";
+﻿"use server";
 
 import { redirect } from "next/navigation";
 import { requireModulo } from "@/lib/require-admin";
@@ -26,24 +26,6 @@ const PASTA_AJUDANTES = "01.20.01.48";
 const PASTA_VIAGENS = "03.11.29";
 const PASTA_AVALIACOES = "LOG.CO";
 
-export async function salvarPastaDeRating(formData: FormData) {
-  await requireModulo("rating", "criar");
-
-  const link = ((formData.get("link") as string) || "").trim();
-  const pasta = idDaPasta(link);
-  if (!pasta) {
-    voltar("erro", "Não reconheci o link. Abra a pasta MÃE no Drive e copie o endereço da barra do navegador.");
-  }
-
-  const admin = createAdminClient();
-  const revendaId = await exigirRevenda(ROTA);
-  const { error } = await admin.from("rating_config").upsert(
-    { revenda_id: revendaId, pasta_id: pasta, pasta_link: link, atualizado_em: new Date().toISOString() },
-    { onConflict: "revenda_id" },
-  );
-  if (error) voltar("erro", error.message);
-  voltar("sucesso", "Pasta salva. Agora clique em Importar.");
-}
 
 /**
  * Importa os quatro relatórios e monta a corrente:

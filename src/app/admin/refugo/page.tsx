@@ -1,11 +1,12 @@
-import { PageHeader } from "@/components/PageHeader";
+﻿import { PageHeader } from "@/components/PageHeader";
+import { FonteConfigurada } from "@/components/admin/FonteConfigurada";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
 import { requireModulo } from "@/lib/require-admin";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getRevendaId } from "@/lib/revendas";
 import { formatarDataHora } from "@/lib/produtividade-armazem";
 import { formatarReais } from "@/lib/refugo";
-import { importarRefugo, salvarPastaDeRefugo, salvarValorDoItem } from "./actions";
+import { importarRefugo, salvarValorDoItem } from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -72,26 +73,19 @@ export default async function AdminRefugoPage({
         </div>
       </details>
 
-      <form action={salvarPastaDeRefugo} className="mb-5 space-y-2 rounded-2xl border border-slate-200 bg-white p-4">
-        <label className={rotulo} htmlFor="link">Pasta do Drive (opcional)</label>
-        <input
-          id="link"
-          name="link"
-          defaultValue={cfg?.pasta_link ?? ""}
-          placeholder={ratingCfg?.pasta_link ? "usando a mesma pasta do Rating" : "https://drive.google.com/drive/folders/..."}
-          className={campo}
-        />
-        <p className="text-[11px] text-slate-400">
-          A pasta <strong>Refugo</strong> fica dentro da mesma pasta mãe do Rating. Deixando em branco, o app usa
-          aquele link.
-        </p>
-        <BotaoEnviar
-          textoEnviando="Salvando..."
-          className="w-full rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-        >
-          Salvar pasta
-        </BotaoEnviar>
-      </form>
+      {/* Configuração da pasta saiu daqui, para Admin > Fontes de Dados.
+          Sem link não é erro no Refugo: significa usar a mesma pasta do
+          Rating, que é o normal quando os relatórios chegam juntos. */}
+      <FonteConfigurada
+        rotulo="Refugo"
+        link={cfg?.pasta_link ?? null}
+        ultima={cfg?.ultima_sincronizacao ?? null}
+        observacaoQuandoVazio={
+          ratingCfg?.pasta_link
+            ? "Sem pasta própria — usando a mesma pasta do Rating, que é o normal."
+            : "Sem pasta própria e sem pasta do Rating. A importação não tem de onde ler."
+        }
+      />
 
       <form action={importarRefugo} className="mb-5">
         <BotaoEnviar

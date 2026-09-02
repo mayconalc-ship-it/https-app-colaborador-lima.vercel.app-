@@ -27,9 +27,20 @@ function voltar(chave: "erro" | "sucesso", mensagem: string): never {
 export async function salvarConfigDeDevolucao(formData: FormData) {
   await requireModulo("devolucao", "editar");
 
-  const link = ((formData.get("link") as string) || "").trim();
+  /**
+   * O campo de pasta saiu desta tela (foi para Admin > Fontes de Dados),
+   * mas o formulário da META continua chamando esta mesma action. Sem
+   * este `has`, um `formData.get("link")` ausente virava string vazia e
+   * a gravação apagava a pasta configurada TODA VEZ que alguém salvasse
+   * a meta -- e a próxima importação não teria de onde ler, sem nenhuma
+   * mensagem dizendo por quê.
+   *
+   * Com ele, a pasta só é tocada quando o campo realmente veio.
+   */
+  const temCampoDeLink = formData.has("link");
+  const link = temCampoDeLink ? String(formData.get("link") ?? "").trim() : "";
   const pasta = link ? idDaPasta(link) : null;
-  if (link && !pasta) {
+  if (temCampoDeLink && link && !pasta) {
     voltar("erro", "Não reconheci o link. Abra a pasta MÃE no Drive e copie o endereço da barra do navegador.");
   }
 
@@ -44,8 +55,7 @@ export async function salvarConfigDeDevolucao(formData: FormData) {
   const { error } = await admin.from("devolucao_config").upsert(
     {
       revenda_id: revendaId,
-      pasta_id: pasta,
-      pasta_link: link || null,
+      ...(temCampoDeLink ? { pasta_id: pasta, pasta_link: link || null } : {}),
       meta_pct: meta,
       atualizado_em: new Date().toISOString(),
     },
