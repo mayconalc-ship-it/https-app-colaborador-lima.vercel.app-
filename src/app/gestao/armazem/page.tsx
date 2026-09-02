@@ -49,6 +49,14 @@ import {
   type TrocaGas,
 } from "@/lib/empilhadeira-gas";
 import { CATALOGO_DE_METAS, avaliarMeta, media } from "@/lib/metas";
+import {
+  indicadoresDoOperador,
+  indicadoresDoSolicitante,
+  resumirPeriodo,
+  type Prioridade,
+  type Ressuprimento,
+} from "@/lib/ressuprimento";
+import { formatarMinutos as formatarMinutosCurto } from "@/lib/abastecimento";
 import { BarraRanking, BlocoAtividade, CartaoHero, TermometroDaBombona, type ItemBarra } from "./Graficos";
 
 export const dynamic = "force-dynamic";
@@ -121,6 +129,7 @@ export default async function IndicadoresPage({
     { data: empilhadeiraConfig },
     { data: metasBanco },
     { data: embalagensRepackBanco },
+    { data: ressuprimentosBanco },
   ] = await Promise.all([
     supabase
       .from("pa_produtos")
@@ -234,7 +243,74 @@ export default async function IndicadoresPage({
     supabase.from("pa_metas").select("chave, valor").eq("revenda_id", revendaId),
     // As embalagens do Repack (pa_embalagens), diferentes das do Despejo.
     supabase.from("pa_embalagens").select("id, nome").eq("revenda_id", revendaId),
+    // Ressuprimento: o pedido, o transporte e o abastecimento. O que
+    // interessa aqui não é o volume -- esse já está no bloco do
+    // Abastecimento -- é o TEMPO ENTRE os três, que é onde a operação
+    // espera e onde nada era medido até 02/09/2026.
+    supabase
+      .from("pa_ressuprimentos")
+      .select(
+        "id, criado_em, solicitante_id, solicitante_nome, prioridade, operador_id, operador_nome, transporte_inicio, cancelado_em, pa_ressuprimento_itens(id, produto_id, unidade, quantidade, hl_calculado, entregue_em), pa_abastecimentos(inicio, fim, colaborador_nome)",
+      )
+      .eq("revenda_id", revendaId)
+      .gte("criado_em", de0)
+      .lte("criado_em", ate23),
   ]);
+
+  /**
+   * O ressuprimento no formato puro de lib/ressuprimento -- nenhum status
+   * vem do banco, tudo sai dos carimbos de tempo na leitura.
+   */
+  const ressuprimentos: Ressuprimento[] = (
+    (ressuprimentosBanco ?? []) as unknown as {
+      id: string;
+      criado_em: string;
+      solicitante_id: string;
+      solicitante_nome: string;
+      prioridade: string;
+      operador_id: string | null;
+      operador_nome: string | null;
+      transporte_inicio: string | null;
+      cancelado_em: string | null;
+      pa_ressuprimento_itens: {
+        id: string;
+        produto_id: string;
+        unidade: string;
+        quantidade: number;
+        hl_calculado: number;
+        entregue_em: string | null;
+      }[];
+      pa_abastecimentos: { inicio: string; fim: string | null; colaborador_nome: string }[];
+    }[]
+  ).map((l) => {
+    const sessao = l.pa_abastecimentos?.[0] ?? null;
+    return {
+      id: l.id,
+      criadoEm: l.criado_em,
+      solicitanteId: l.solicitante_id,
+      solicitanteNome: l.solicitante_nome,
+      prioridade: (l.prioridade === "urgente" ? "urgente" : "normal") as Prioridade,
+      transporteInicio: l.transporte_inicio,
+      operadorId: l.operador_id,
+      operadorNome: l.operador_nome,
+      canceladoEm: l.cancelado_em,
+      itens: (l.pa_ressuprimento_itens ?? []).map((i) => ({
+        id: i.id,
+        produtoId: i.produto_id,
+        unidade: i.unidade,
+        quantidade: Number(i.quantidade),
+        hl: Number(i.hl_calculado),
+        entregueEm: i.entregue_em,
+      })),
+      abastecimentoInicio: sessao?.inicio ?? null,
+      abastecimentoFim: sessao?.fim ?? null,
+      abastecedorNome: sessao?.colaborador_nome ?? null,
+    };
+  });
+
+  const resumoRessuprimento = resumirPeriodo(ressuprimentos);
+  const operadoresRessuprimento = indicadoresDoOperador(ressuprimentos);
+  const solicitantesRessuprimento = indicadoresDoSolicitante(ressuprimentos);
 
   const produtos: ProdutoMeta[] = (produtosBanco ?? []).map((p) => ({
     id: p.id,
@@ -929,6 +1005,102 @@ export default async function IndicadoresPage({
             meta={leituraPicking}
           />
         </BlocoAtividade>
+
+        {/* O bloco mede o que acontece ENTRE as pessoas -- o volume já
+            está no bloco de cima. Só aparece quando houve solicitação no
+            período: um bloco de zeros ensinaria a ignorá-lo. */}
+        {resumoRessuprimento.total > 0 && (
+          <BlocoAtividade titulo="🧾 Ressuprimento — tempos e movimentos">
+            <CartaoHero
+              titulo="Ciclo médio"
+              valor={
+                resumoRessuprimento.cicloMedio === null
+                  ? "—"
+                  : formatarMinutosCurto(resumoRessuprimento.cicloMedio)
+              }
+              legenda={`do pedido ao picking abastecido · ${resumoRessuprimento.concluidas} concluída(s)`}
+            />
+            {/* O número que muda decisão. Um ciclo de 40 minutos com 35 de
+                espera não se resolve treinando quem abastece. */}
+            <CartaoHero
+              titulo="Disso, esperando"
+              valor={
+                resumoRessuprimento.pctEspera === null
+                  ? "—"
+                  : `${formatarNumeroBr(resumoRessuprimento.pctEspera, 1)}%`
+              }
+              legenda="fila da empilhadeira + espera na área"
+            />
+            <CartaoHero
+              titulo="Espera pela empilhadeira"
+              valor={
+                resumoRessuprimento.esperaEmpilhadeiraMedia === null
+                  ? "—"
+                  : formatarMinutosCurto(resumoRessuprimento.esperaEmpilhadeiraMedia)
+              }
+              legenda="do pedido até alguém aceitar"
+            />
+            <CartaoHero
+              titulo="Transporte"
+              valor={
+                resumoRessuprimento.transporteMedio === null
+                  ? "—"
+                  : formatarMinutosCurto(resumoRessuprimento.transporteMedio)
+              }
+              legenda="do aceite até o último item na área"
+            />
+            <CartaoHero
+              titulo="Espera pelo ajudante"
+              valor={
+                resumoRessuprimento.esperaAjudanteMedia === null
+                  ? "—"
+                  : formatarMinutosCurto(resumoRessuprimento.esperaAjudanteMedia)
+              }
+              legenda="da área até começar a abastecer"
+            />
+            <CartaoHero
+              titulo="Solicitações"
+              valor={String(resumoRessuprimento.total)}
+              legenda={`${resumoRessuprimento.abertas} em aberto · ${resumoRessuprimento.canceladas} cancelada(s)`}
+            />
+          </BlocoAtividade>
+        )}
+
+        {operadoresRessuprimento.length > 0 && (
+          <BlocoAtividade titulo="🏗️ Quem transportou o ressuprimento">
+            <div className="col-span-full">
+              <BarraRanking
+                titulo="HL transportados"
+                itens={operadoresRessuprimento.map((o) => ({
+                  rotulo: o.operadorNome,
+                  valor: o.hl,
+                  detalhe: `${o.entregas} entrega(s) · ${
+                    o.transporteMedio === null ? "sem tempo" : formatarMinutosCurto(o.transporteMedio)
+                  } por viagem`,
+                }))}
+                sufixo=" HL"
+              />
+            </div>
+          </BlocoAtividade>
+        )}
+
+        {solicitantesRessuprimento.length > 0 && (
+          <BlocoAtividade titulo="🧾 Quem pediu">
+            <div className="col-span-full">
+              <BarraRanking
+                titulo="Solicitações no período"
+                itens={solicitantesRessuprimento.map((s) => ({
+                  rotulo: s.solicitanteNome,
+                  valor: s.solicitacoes,
+                  detalhe: `${formatarNumeroBr(s.hl, 1)} HL · ${s.urgentes} urgente(s)${
+                    s.canceladas > 0 ? ` · ${s.canceladas} cancelada(s)` : ""
+                  }`,
+                }))}
+                sufixo=""
+              />
+            </div>
+          </BlocoAtividade>
+        )}
 
         <BlocoAtividade titulo="🏗️ Empilhadeira">
           <CartaoHero titulo="Horas ativas" valor={`${horasEmpilhadeiraTotal}h`} legenda="horímetro, operações encerradas" />

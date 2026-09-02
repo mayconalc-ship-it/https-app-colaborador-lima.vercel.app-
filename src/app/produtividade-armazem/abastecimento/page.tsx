@@ -62,6 +62,10 @@ type Sessao = {
   inicio: string;
   fim: string | null;
   observacao: string | null;
+  /** Preenchido quando a sessão nasceu de uma solicitação de
+   *  ressuprimento (ver lib/ressuprimento.ts). Nulo no lançamento avulso,
+   *  que continua valendo. */
+  ressuprimento_id: string | null;
 };
 
 type Item = {
@@ -73,7 +77,7 @@ type Item = {
   hl_calculado: number;
 };
 
-const COLUNAS_SESSAO = "id, colaborador_id, colaborador_nome, tipo, turno, inicio, fim, observacao";
+const COLUNAS_SESSAO = "id, colaborador_id, colaborador_nome, tipo, turno, inicio, fim, observacao, ressuprimento_id";
 const COLUNAS_ITEM = "id, abastecimento_id, produto_id, unidade, quantidade, hl_calculado";
 
 /** Paletes equivalentes de um item já gravado. Recalcula a partir do
@@ -508,6 +512,15 @@ function SessaoEmAndamento({
           {ROTULO_TURNO[sessao.turno as keyof typeof ROTULO_TURNO] ?? sessao.turno}
         </p>
         <p className="text-xs text-amber-800">Iniciado às {formatarDataHora(sessao.inicio)}</p>
+        {/* Os itens desta sessão já vieram preenchidos, e sem esta linha a
+            pessoa abriria a tela sem entender de onde saíram -- ou
+            apagaria tudo achando que era lançamento de outro. */}
+        {sessao.ressuprimento_id && (
+          <p className="mt-1 text-xs font-medium text-amber-900">
+            🧾 Veio de uma solicitação de ressuprimento. Os itens já estão lançados — tire ou
+            acrescente o que for diferente do que você abasteceu de verdade.
+          </p>
+        )}
       </div>
 
       {/* Os números vivos da sessão. HL/h só aparece com item lançado --

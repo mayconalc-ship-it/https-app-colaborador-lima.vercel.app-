@@ -24,6 +24,12 @@ const FUNCIONALIDADES: { chave: ModuloId; titulo: string; emoji: string; href: s
   // HL) no lugar do antigo Reabastecimento por "posições". A rota velha
   // continua de pé, só de leitura, para o histórico não sumir.
   { chave: "pa-picking", titulo: "Abastecimento do Picking", emoji: "🛒", href: "/produtividade-armazem/abastecimento" },
+  // A mesma tela serve aos três papéis do ressuprimento e decide sozinha
+  // o que mostrar para quem abriu -- por isso ela aparece por três
+  // concessões diferentes, como o FEFO. A duplicata some no filtro por
+  // href, logo abaixo.
+  { chave: "pa-ressuprimento", titulo: "Ressuprimento do Picking", emoji: "🧾", href: "/produtividade-armazem/ressuprimento" },
+  { chave: "pa-empilhadeira", titulo: "Ressuprimento do Picking", emoji: "🧾", href: "/produtividade-armazem/ressuprimento" },
   { chave: "carretas-portaria", titulo: "Recebimento de Carreta", emoji: "👮", href: "/carretas-portaria" },
   { chave: "carretas-conferencia", titulo: "Monitor de Recebimento", emoji: "🖥️", href: "/carretas-conferencia" },
   // Um card só para os dois papéis (informar e controle): a tela é a

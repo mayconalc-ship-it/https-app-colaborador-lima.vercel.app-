@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Mapa de permissões do app.
  *
  * Três papéis, e a diferença entre eles é o QUANTO, não o QUE:
@@ -38,6 +38,7 @@ export type ModuloId =
   | "pa-recebimento"
   | "pa-cinco-s"
   | "pa-picking"
+  | "pa-ressuprimento"
   | "carretas-portaria"
   | "carretas-conferencia"
   | "carretas-descarga"
@@ -370,6 +371,20 @@ export const MODULOS: Modulo[] = [
     subGrupoDe: "produtividade-armazem",
   },
   {
+    id: "pa-ressuprimento",
+    rotulo: "Solicitar Ressuprimento",
+    emoji: "🧾",
+    href: "/produtividade-armazem/ressuprimento",
+    grupo: "Operação",
+    // Esta concessão é a de PEDIR. Quem transporta entra pela concessão
+    // que já tem ("pa-empilhadeira") e quem abastece pela dela
+    // ("pa-picking") -- a mesma tela decide o que mostrar para cada um.
+    // Um módulo por papel obrigaria a conceder três coisas para um fluxo
+    // que a operação enxerga como uma só.
+    acoes: ["ver"],
+    subGrupoDe: "produtividade-armazem",
+  },
+  {
     id: "carretas-portaria",
     // Sem tela de admin propria: os catalogos (fabrica/transportadora/
     // produto) ja sao geridos em /admin/produtividade-armazem.
@@ -548,6 +563,7 @@ export const MODULOS_OPCIONAIS: ModuloId[] = [
   "pa-recebimento",
   "pa-cinco-s",
   "pa-picking",
+  "pa-ressuprimento",
   "carretas-portaria",
   "carretas-conferencia",
   "carretas-descarga",
