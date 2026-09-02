@@ -471,6 +471,11 @@ export default async function AbastecimentoPage({
                 turnoSugerido={turnoAtual(agora)}
                 tipoInicial={tipoDoHorario}
                 avisoSeDestoar={avisoSeDestoar}
+                // O MESMO filtro lembrado que a sessão em andamento
+                // recebe. Sem estas duas, pedir produto recomeçava do
+                // "Todos" a cada item -- e a tela de lançar, não.
+                clusterInicial={clusters.includes(clusterCookie) ? clusterCookie : ""}
+                tipoDoProdutoInicial={tipos.includes(tipoCookie) ? tipoCookie : ""}
               />
             </div>
           </details>

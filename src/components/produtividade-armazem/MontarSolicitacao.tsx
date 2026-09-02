@@ -49,10 +49,19 @@ export function MontarSolicitacao({
   turnoSugerido,
   tipoInicial,
   avisoSeDestoar,
+  clusterInicial,
+  tipoDoProdutoInicial,
 }: {
   clusters: string[];
   tipos: string[];
   turnoSugerido: Turno;
+  /** O filtro Cluster/Tipo lembrado do último uso, lido do cookie PELO
+   *  SERVIDOR -- ver o comentário no ComboboxProdutoReepack abaixo. */
+  clusterInicial: string;
+  /** O "tipo" do PRODUTO (Descartável/Retornável), não o do abastecimento.
+   *  Os dois se chamam "tipo" e ficam a três linhas de distância; o nome
+   *  aqui é diferente de propósito, para não trocar um pelo outro. */
+  tipoDoProdutoInicial: string;
   /** O tipo que o HORÁRIO sugere -- calculado no servidor, no fuso da
    *  operação (ver tipoSugerido em lib/abastecimento). */
   tipoInicial: TipoAbastecimento;
@@ -110,10 +119,26 @@ export function MontarSolicitacao({
           solicitação porque um <form> dentro de outro não existe em HTML,
           e o combobox precisa de um para o FormData de cima ler o id. */}
       <form id="form-item-solicitacao" className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+        {/*
+          `clusterInicial`/`tipoInicial` NÃO são opcionais de verdade, por
+          mais que o tipo diga que sim -- e foi assim que este defeito
+          entrou (visto pelo dono em 03/09/2026: "não está seguindo a
+          mesma regra do filtro do reepack").
+
+          O combobox lembra o filtro em cookie, e QUEM LÊ o cookie primeiro
+          é o servidor: ele manda o HTML já com "Cerveja / Descartável"
+          escolhidos. Sem essas duas props o servidor mandava "Todos", o
+          cliente lia o cookie e escolhia outra coisa -- e aí ou o React
+          corrige com um piscar, ou a pessoa recomeça o filtro a cada item
+          que adiciona. Numa base de centenas de produtos, refazer
+          Cluster → Tipo a cada item é o suficiente para largar a tela.
+        */}
         <ComboboxProdutoReepack
           key={rodada}
           clusters={clusters}
           tipos={tipos}
+          clusterInicial={clusterInicial}
+          tipoInicial={tipoDoProdutoInicial}
           buscarProdutos={buscarProdutosAbastecimento}
           cookiePath={COOKIE_ABASTECIMENTO_PATH}
         />
