@@ -38,6 +38,7 @@ export type ModuloId =
   | "pa-recebimento"
   | "pa-cinco-s"
   | "pa-picking"
+  | "pa-bate-palete"
   | "carretas-portaria"
   | "carretas-conferencia"
   | "carretas-descarga"
@@ -369,6 +370,15 @@ export const MODULOS: Modulo[] = [
     acoes: ["ver"],
     subGrupoDe: "produtividade-armazem",
   },
+  {
+    id: "pa-bate-palete",
+    rotulo: "Bate Palete",
+    emoji: "🪵",
+    href: "/produtividade-armazem/bate-palete",
+    grupo: "Operação",
+    acoes: ["ver"],
+    subGrupoDe: "produtividade-armazem",
+  },
   // NÃO existe um módulo "pa-ressuprimento". Existiu por um dia
   // (migration 085) e foi desfeito na 086, a pedido do dono: pedir,
   // transportar e abastecer são etapas da MESMA atividade. Quem pede e
@@ -554,6 +564,7 @@ export const MODULOS_OPCIONAIS: ModuloId[] = [
   "pa-recebimento",
   "pa-cinco-s",
   "pa-picking",
+  "pa-bate-palete",
   "carretas-portaria",
   "carretas-conferencia",
   "carretas-descarga",

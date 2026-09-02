@@ -37,6 +37,7 @@ export const SUBMODULOS_ARMAZEM: ModuloId[] = [
   "pa-recebimento",
   "pa-cinco-s",
   "pa-picking",
+  "pa-bate-palete",
   "carretas-portaria",
   "carretas-conferencia",
   "carretas-descarga",
