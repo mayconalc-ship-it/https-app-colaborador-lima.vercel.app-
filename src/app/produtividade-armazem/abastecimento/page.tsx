@@ -443,6 +443,9 @@ export default async function AbastecimentoPage({
                     podeTransportar={podeTransportar}
                     podeAbastecer
                     temSessaoAberta={Boolean(aberta)}
+                    // Mesma régua do abastecimento: a liderança apaga
+                    // qualquer um, a pessoa apaga o próprio.
+                    podeExcluir={podeExcluirQualquer || r.solicitanteId === perfil.id}
                     nomeDoProduto={nomeDoProduto}
                     turnoSugerido={turnoAtual(agora)}
                   />

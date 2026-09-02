@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getPerfil } from "@/lib/sessao";
 import { getRevendaId } from "@/lib/revendas";
-import { temAcessoModulo } from "@/lib/require-admin";
+import { podeNoModulo, temAcessoModulo } from "@/lib/require-admin";
 import { exigirContextoModulo } from "@/lib/produtividade-armazem-server";
 import { ehTurno } from "@/lib/produtividade-armazem";
 import { calcularHl, ehTipoAbastecimento, ehUnidadeAbastecimento } from "@/lib/abastecimento";
@@ -378,6 +378,69 @@ export async function iniciarAbastecimentoDaSolicitacao(formData: FormData) {
       `Abastecimento iniciado com ${itens.length} item(ns) da solicitação.`,
     )}`,
   );
+}
+
+/**
+ * Apaga o pedido de vez -- o teste, o engano, o dedo torto.
+ *
+ * É diferente de cancelar, e as duas coisas precisam existir. Cancelar é
+ * um FATO da operação: pediu, desistiu, e isso conta no indicador de quem
+ * pede demais. Excluir é dizer que o pedido nunca devia ter existido, e
+ * por isso ele some do banco em vez de virar uma linha "cancelada" que
+ * suja a contagem para sempre.
+ *
+ * Quem apaga: quem pediu (o próprio engano) e a liderança com
+ * "produtividade-armazem:excluir" (o engano dos outros) -- exatamente a
+ * mesma regra do abastecimento e do reepack.
+ *
+ * Os itens vão junto, pelo cascade da FK.
+ */
+export async function excluirSolicitacao(formData: FormData) {
+  const perfil = await getPerfil();
+  if (!perfil) redirect("/login");
+
+  const revendaId = await getRevendaId();
+  if (!revendaId) erro("Você não está em nenhuma revenda.");
+
+  const id = String(formData.get("id") ?? "");
+  if (!id) erro("Pedido inválido.");
+
+  const admin = createAdminClient();
+
+  const { data: pedido } = await admin
+    .from("pa_ressuprimentos")
+    .select("id, solicitante_id")
+    .eq("id", id)
+    .eq("revenda_id", revendaId)
+    .maybeSingle();
+
+  if (!pedido) erro("Pedido não encontrado.");
+
+  const gestor = await podeNoModulo("produtividade-armazem", "excluir");
+  if (!gestor && pedido.solicitante_id !== perfil.id) {
+    erro("Você só pode excluir os pedidos que você mesmo fez.");
+  }
+
+  // Já virou abastecimento: apagar aqui deixaria a sessão apontando para
+  // um pedido que "nunca existiu" -- ela sobreviveria como lançamento
+  // avulso, e o HL dela continuaria contando sem ninguém entender de onde
+  // veio. Apaga-se o abastecimento primeiro, no Histórico.
+  const { count } = await admin
+    .from("pa_abastecimentos")
+    .select("*", { count: "exact", head: true })
+    .eq("ressuprimento_id", id);
+
+  if (count) {
+    erro(
+      "Este pedido já virou abastecimento. Exclua o abastecimento primeiro, no Histórico, e depois volte aqui.",
+    );
+  }
+
+  const { error } = await admin.from("pa_ressuprimentos").delete().eq("id", id);
+  if (error) erro(`Não foi possível excluir: ${error.message}`);
+
+  revalidatePath(ROTA);
+  pronto("Pedido excluído.");
 }
 
 /**

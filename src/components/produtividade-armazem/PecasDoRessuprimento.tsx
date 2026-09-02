@@ -1,4 +1,5 @@
 import { BotaoEnviar } from "@/components/BotaoEnviar";
+import { BotaoExcluir } from "@/components/BotaoExcluir";
 import { ROTULO_TURNO, TURNOS, formatarDataHora } from "@/lib/produtividade-armazem";
 import {
   ROTULO_UNIDADE_ABASTECIMENTO_CURTO,
@@ -19,6 +20,7 @@ import {
   cancelarSolicitacao,
   entregarItem,
   entregarTudo,
+  excluirSolicitacao,
   iniciarAbastecimentoDaSolicitacao,
 } from "@/app/produtividade-armazem/abastecimento/ressuprimento-actions";
 
@@ -46,6 +48,7 @@ export function CartaoDoPedido({
   podeTransportar,
   podeAbastecer,
   temSessaoAberta,
+  podeExcluir,
   nomeDoProduto,
   turnoSugerido,
 }: {
@@ -56,6 +59,16 @@ export function CartaoDoPedido({
   podeAbastecer: boolean;
   /** Já tem um abastecimento correndo? Então não pode começar outro. */
   temSessaoAberta: boolean;
+  /**
+   * Pode APAGAR o pedido: a liderança com "produtividade-armazem:excluir"
+   * (o engano dos outros) ou a própria pessoa no pedido dela (o engano
+   * próprio) -- a mesma regra do abastecimento e do reepack.
+   *
+   * É diferente de cancelar, que continua com quem pediu e quem
+   * transporta: cancelar guarda o fato, excluir diz que ele nunca devia
+   * ter existido.
+   */
+  podeExcluir: boolean;
   nomeDoProduto: (id: string) => string;
   turnoSugerido: string;
 }) {
@@ -225,27 +238,63 @@ export function CartaoDoPedido({
           </p>
         ) : null}
 
-        {/* Cancelar só enquanto ninguém começou a abastecer: depois disso
-            o trabalho aconteceu, e apagar o pedido deixaria uma sessão
-            apontando para algo que "nunca existiu". */}
+        {/* Cancelar e excluir moram juntos mas NÃO são a mesma coisa, e a
+            gaveta diz isso em uma linha cada.
+
+            Cancelar é um fato da operação: pediu, desistiu, e isso conta
+            no indicador de quem pede demais. Excluir é dizer que o pedido
+            nunca devia ter existido -- teste, dedo torto -- e por isso ele
+            some, em vez de virar uma linha "cancelada" que suja a
+            contagem para sempre.
+
+            Só enquanto ninguém começou a abastecer: depois disso o
+            trabalho aconteceu. */}
         {!r.canceladoEm &&
           !r.abastecimentoInicio &&
-          (r.solicitanteId === euId || meuTransporte) && (
+          (r.solicitanteId === euId || meuTransporte || podeExcluir) && (
             <details className="mt-2">
-              <summary className="cursor-pointer text-xs text-slate-400">Cancelar este pedido</summary>
-              <form action={cancelarSolicitacao} className="mt-2 flex gap-2">
-                <input type="hidden" name="id" value={r.id} />
-                <input
-                  name="motivo"
-                  required
-                  maxLength={200}
-                  placeholder="Por quê? (ex.: não tem no bloco)"
-                  className="min-w-0 flex-1 rounded-xl border border-slate-300 bg-white px-3 py-2 text-base text-slate-900 focus:border-primary focus:outline-none"
-                />
-                <BotaoEnviar className="shrink-0 rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-500 hover:bg-slate-50">
-                  Cancelar
-                </BotaoEnviar>
-              </form>
+              <summary className="cursor-pointer text-xs text-slate-400">
+                Cancelar ou excluir este pedido
+              </summary>
+
+              {(r.solicitanteId === euId || meuTransporte) && (
+                <>
+                  <p className="mt-2 text-xs text-slate-500">
+                    <strong>Cancelar</strong> guarda o pedido com o motivo — foi um pedido de
+                    verdade que não deu certo.
+                  </p>
+                  <form action={cancelarSolicitacao} className="mt-1 flex gap-2">
+                    <input type="hidden" name="id" value={r.id} />
+                    <input
+                      name="motivo"
+                      required
+                      maxLength={200}
+                      placeholder="Por quê? (ex.: não tem no bloco)"
+                      className="min-w-0 flex-1 rounded-xl border border-slate-300 bg-white px-3 py-2 text-base text-slate-900 focus:border-primary focus:outline-none"
+                    />
+                    <BotaoEnviar className="shrink-0 rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-500 hover:bg-slate-50">
+                      Cancelar
+                    </BotaoEnviar>
+                  </form>
+                </>
+              )}
+
+              {podeExcluir && (
+                <div className="mt-3 border-t border-slate-100 pt-3">
+                  <p className="mb-1 text-xs text-slate-500">
+                    <strong>Excluir</strong> apaga de vez, sem deixar rastro no indicador — é para
+                    teste e engano.
+                  </p>
+                  <BotaoExcluir
+                    action={excluirSolicitacao}
+                    campos={{ id: r.id }}
+                    confirmacao="Excluir este pedido e os itens dele? Não dá para desfazer."
+                    className="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50"
+                  >
+                    🗑️ Excluir o pedido
+                  </BotaoExcluir>
+                </div>
+              )}
             </details>
           )}
       </div>
