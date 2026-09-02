@@ -103,12 +103,62 @@ function recalcular() {
  * App" é que fica sem a lista. Presença é informação de apoio; não pode
  * derrubar a tela de ninguém.
  */
-export async function iniciarPresenca(eu: {
-  id: string;
-  revendaId: string;
-}) {
+export async function iniciarPresenca(eu: { id: string; revendaId: string }) {
   if (canal && revendaDoCanal === eu.revendaId) return;
 
+  /*
+    TRAVA DE CONCORRÊNCIA.
+
+    A guarda de cima não bastava, e o erro que ela existia para evitar
+    continuou aparecendo no console de toda tela:
+
+      cannot add `presence` callbacks for realtime:presenca:<uuid>
+      after `subscribe()`
+
+    O motivo é que esta função é ASSÍNCRONA e o `canal` só é preenchido lá
+    embaixo, depois de dois `await`. Duas chamadas quase simultâneas -- o
+    React executa o efeito duas vezes em desenvolvimento, e a navegação
+    remonta o componente -- passavam as DUAS pela guarda com `canal` ainda
+    nulo, e as duas criavam o canal do mesmo tópico. A segunda pendurava
+    `.on("presence")` num tópico que a primeira já tinha assinado, e o
+    Supabase recusa.
+
+    Uma abertura de cada vez: quem chega no meio espera a que está
+    correndo e, ao acordar, refaz a pergunta -- porque a essa altura o
+    canal provavelmente já é o dela.
+  */
+  if (abrindo) {
+    await abrindo.catch(() => {});
+    if (canal && revendaDoCanal === eu.revendaId) return;
+  }
+
+  const tarefa = abrir(eu);
+  abrindo = tarefa;
+  try {
+    await tarefa;
+  } catch {
+    /*
+      Falha calada, como diz o comentário acima -- e agora de verdade.
+      Quem chama faz `void iniciarPresenca(...)`, sem catch: qualquer coisa
+      lançada aqui dentro virava um "Uncaught (in promise)" vermelho no
+      console de TODA tela do app, para um recurso que é só de apoio.
+
+      Zera o canal para que a próxima tentativa possa acontecer -- deixar
+      `canal` preenchido depois de uma falha travaria a presença até
+      alguém recarregar a página.
+    */
+    canal = null;
+    revendaDoCanal = null;
+    estado = { presentes: [], conectado: false };
+    avisarTodos();
+  } finally {
+    if (abrindo === tarefa) abrindo = null;
+  }
+}
+
+let abrindo: Promise<void> | null = null;
+
+async function abrir(eu: { id: string; revendaId: string }) {
   const supabase = createClient();
 
   if (canal) {
@@ -134,8 +184,30 @@ export async function iniciarPresenca(eu: {
     return;
   }
 
+  const topico = topicoDaRevenda(eu.revendaId);
+
+  /*
+    Varre canal antigo do MESMO tópico antes de abrir o novo.
+
+    A trava acima resolve as chamadas simultâneas desta sessão, mas o
+    cliente do Supabase vive fora deste módulo e sobrevive a ele: uma
+    recarga de módulo em desenvolvimento zera o `canal` daqui e deixa o
+    canal de verdade pendurado no cliente. Sem esta varredura, o próximo
+    `.on("presence")` cai no mesmo tópico já assinado -- o mesmo erro,
+    por outra porta.
+  */
+  try {
+    for (const antigo of supabase.getChannels()) {
+      if (antigo.topic === topico || antigo.topic === `realtime:${topico}`) {
+        await supabase.removeChannel(antigo);
+      }
+    }
+  } catch {
+    // idem: presença não derruba tela.
+  }
+
   revendaDoCanal = eu.revendaId;
-  canal = supabase.channel(topicoDaRevenda(eu.revendaId), {
+  canal = supabase.channel(topico, {
     config: { private: true, presence: { key: eu.id } },
   });
 
