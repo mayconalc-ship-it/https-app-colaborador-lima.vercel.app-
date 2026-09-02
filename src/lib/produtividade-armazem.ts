@@ -658,10 +658,21 @@ export type PontuacaoRanking = {
    *  senão quem triou mais tempo ganharia de quem triou mais rápido. */
   selecaoPctMedia: number | null;
   /** Quantas linhas de atividade (reepack + despejo + picking + 5S) a
-   *  pessoa registrou -- é o critério de desempate: mesma pontuação,
-   *  ganha quem fez mais lançamentos no período. */
+   *  pessoa registrou. Informativo -- deixou de ser o desempate, porque
+   *  premiava quem fatiava o trabalho em muitos lançamentos curtos. */
   totalAtividades: number;
-  pontuacao: number;
+  /**
+   * Horas com tempo medido no período. É o PESO da nota e o desempate --
+   * e a razão de existir de HORAS_MINIMAS_NO_RANKING.
+   */
+  horasApontadas: number;
+  /**
+   * `null` quando a amostra é curta demais para virar nota (ver
+   * HORAS_MINIMAS_NO_RANKING). A pessoa aparece na lista com o que
+   * produziu, mas sem posição -- ausência de medição não é desempenho
+   * ruim, e mostrá-la como zero seria dizer que foi.
+   */
+  pontuacao: number | null;
 };
 
 /**
@@ -734,16 +745,73 @@ export function mediaTaxaPorPessoa(
  * Repack (migration 065). Fica na régua do grupo, e não em meta, porque
  * a meta dela é justamente o que a cronoanálise está medindo.
  */
-export function calcularPontuacao(
-  reepacksPctMeta: number | null,
-  despejoPctMeta: number | null,
-  pickingPctMedia: number | null,
-  cincoSPctMedia: number | null,
-  selecaoPctMedia: number | null = null,
-): number {
-  return Math.round(
-    mediaPct([reepacksPctMeta, despejoPctMeta, pickingPctMedia, cincoSPctMedia, selecaoPctMedia]) ?? 0,
-  );
+export type ParcelaDaNota = { pct: number | null; horas: number };
+
+/**
+ * Horas apontadas abaixo das quais a pessoa NÃO recebe pontuação.
+ *
+ * Não é rigor por rigor. Medido em 03/09/2026: um terço dos lançamentos
+ * dura menos de 3 minutos, e o menor tem 18 segundos. Uma taxa calculada
+ * em cima de 18 segundos não descreve ritmo nenhum -- descreve o
+ * arredondamento. Com amostra curta a pessoa aparece na lista, com o que
+ * produziu, mas sem nota: liderar um ranking com 24 minutos de trabalho é
+ * o que faz o resto do time parar de acreditar nele.
+ */
+export const HORAS_MINIMAS_NO_RANKING = 1;
+
+/**
+ * Média das parcelas PONDERADA PELAS HORAS de cada uma.
+ *
+ * É o conserto da injustiça que o dono apontou. A pontuação era média
+ * SIMPLES, em dois níveis (entre produtos e entre atividades), e nenhum
+ * deles olhava o tempo. Duas consequências, as duas medidas no dado real:
+ *
+ *   Quem trabalhou 24 minutos numa atividade disputava de igual para
+ *   igual com quem trabalhou 14 horas em três.
+ *
+ *   Quem faz MAIS atividades era penalizado: uma nota ruim pesava 1/5 em
+ *   vez de 1/1, então especializar-se na atividade mais fácil rendia
+ *   mais do que ajudar em tudo.
+ *
+ * Ponderando pelas horas, cada atividade pesa o que ocupou do dia --
+ * que é exatamente o que "produtividade" quer dizer. Um lançamento de 2
+ * minutos com taxa absurda continua entrando, mas com o peso de 2
+ * minutos.
+ *
+ * `null` quando não há nenhuma parcela com pct e tempo -- e não zero, que
+ * afirmaria desempenho ruim onde não houve medição.
+ */
+export function mediaPonderadaPorHoras(parcelas: ParcelaDaNota[]): number | null {
+  let soma = 0;
+  let peso = 0;
+  for (const p of parcelas) {
+    if (p.pct === null || !(p.horas > 0)) continue;
+    soma += p.pct * p.horas;
+    peso += p.horas;
+  }
+  if (peso <= 0) return null;
+  return Math.round((soma / peso) * 10) / 10;
+}
+
+/**
+ * Pontuação da pessoa (ou do turno): quanto ela entregou em relação ao
+ * esperado, no tempo que trabalhou.
+ *
+ * Só entram atividades com TEMPO MEDIDO -- reepack, despejo, picking e
+ * seleção. O 5S ficou de fora da nota (mudança de 03/09/2026): as
+ * execuções não têm início e fim, então não há como pesá-las por tempo, e
+ * incluí-las obrigaria a inventar uma duração. Elas continuam visíveis na
+ * linha da pessoa, ao lado da nota; o que mudou é que deixaram de mexer
+ * num número que agora significa "ritmo".
+ *
+ * `null` quando a amostra é curta demais para significar alguma coisa
+ * (ver HORAS_MINIMAS_NO_RANKING).
+ */
+export function calcularPontuacao(parcelas: ParcelaDaNota[]): number | null {
+  const horas = parcelas.reduce((s, p) => s + (p.pct !== null ? p.horas : 0), 0);
+  if (horas < HORAS_MINIMAS_NO_RANKING) return null;
+  const media = mediaPonderadaPorHoras(parcelas);
+  return media === null ? null : Math.round(media);
 }
 
 // --------------------------------------------------------------------
@@ -891,8 +959,27 @@ export function construirRanking(
 
     const minhasSelecoes = selecoes.filter((s) => s.colaboradorId === colaboradorId);
 
-    const reepacksPctMeta = mediaPct(reepacksAgrupados.map((r) => r.pctMeta));
-    const despejoPctMeta = mediaPct(despejosAgrupados.map((d) => d.pctMeta));
+    /*
+      PONDERADO PELAS HORAS já aqui, no nível do produto.
+
+      Era `mediaPct` -- média simples entre as linhas de produto. Um
+      produto com 2 minutos e 300% da meta pesava o mesmo que um produto
+      com 6 horas e 100%. Este é o primeiro dos dois níveis de média
+      simples que faziam o ranking mentir; o segundo está em
+      calcularPontuacao.
+    */
+    const reepacksPctMeta = mediaPonderadaPorHoras(
+      reepacksAgrupados.map((r) => ({ pct: r.pctMeta, horas: r.horas })),
+    );
+    const despejoPctMeta = mediaPonderadaPorHoras(
+      despejosAgrupados.map((d) => ({ pct: d.pctMeta, horas: d.horas })),
+    );
+
+    // As horas de cada atividade -- o peso de cada parcela da nota.
+    const horasReepack = meusReepacks.reduce((s, r) => s + horasEntre(r.inicio, r.fim), 0);
+    const horasDespejo = meusDespejos.reduce((s, d) => s + horasEntre(d.inicio, d.fim), 0);
+    const horasPicking = meusPickings.reduce((s, p) => s + horasEntre(p.inicio, p.fim), 0);
+    const horasSelecao = minhasSelecoes.reduce((s, x) => s + horasEntre(x.inicio, x.fim), 0);
     const pickingPctMedia = pctRelativoAoGrupo(mediaHlPicking(meusPickings), mediaHlPickingGrupo);
     const cincoSPctMedia = pctRelativoAoGrupo(
       minhasExecucoes5s.length > 0 ? minhasExecucoes5s.length : null,
@@ -919,19 +1006,34 @@ export function construirRanking(
         meusPickings.length +
         minhasExecucoes5s.length +
         minhasSelecoes.length,
-      pontuacao: calcularPontuacao(
-        reepacksPctMeta,
-        despejoPctMeta,
-        pickingPctMedia,
-        cincoSPctMedia,
-        selecaoPctMedia,
-      ),
+      horasApontadas: Math.round((horasReepack + horasDespejo + horasPicking + horasSelecao) * 100) / 100,
+      pontuacao: calcularPontuacao([
+        { pct: reepacksPctMeta, horas: horasReepack },
+        { pct: despejoPctMeta, horas: horasDespejo },
+        { pct: pickingPctMedia, horas: horasPicking },
+        { pct: selecaoPctMedia, horas: horasSelecao },
+      ]),
     });
   }
 
-  // Desempate: mesma pontuação, ganha quem registrou mais atividades no
-  // período -- critério explícito, não sorte de ordenação de array.
-  return resultado.sort((a, b) => b.pontuacao - a.pontuacao || b.totalAtividades - a.totalAtividades);
+  /*
+    Quem tem nota vem primeiro; quem não tem (amostra curta) vai para o
+    fim, ordenado pelo tempo apontado.
+
+    Sem esta separação, `null` viraria 0 na comparação e a pessoa de
+    amostra curta apareceria em ÚLTIMO como se tivesse ido mal -- quando
+    o que houve foi ausência de medição, não desempenho ruim.
+
+    Desempate entre quem tem nota: mais tempo apontado ganha. Antes era
+    "mais lançamentos", o que premiava quem fatiava o trabalho em muitos
+    lançamentos curtos.
+  */
+  return resultado.sort((a, b) => {
+    if (a.pontuacao === null && b.pontuacao === null) return b.horasApontadas - a.horasApontadas;
+    if (a.pontuacao === null) return 1;
+    if (b.pontuacao === null) return -1;
+    return b.pontuacao - a.pontuacao || b.horasApontadas - a.horasApontadas;
+  });
 }
 
 export function mediaPct(valores: (number | null)[]): number | null {

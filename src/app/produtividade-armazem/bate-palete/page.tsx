@@ -519,7 +519,7 @@ function SessaoAberta({
         </div>
 
         <div>
-          <label className={rotulo} htmlFor="obs-item">Observação (opcional)</label>
+          <label className={rotulo} htmlFor="obs-item">Observação deste lote (opcional)</label>
           <input id="obs-item" name="observacao" maxLength={200} placeholder="Ex.: palete veio tombado" className={campo} />
         </div>
 
@@ -534,9 +534,23 @@ function SessaoAberta({
       {/* --- Finalizar --- */}
       <form action={finalizarBatePalete} className="space-y-3">
         <input type="hidden" name="id" value={sessao.id} />
+        {/* A observação do LOTE fica no formulário de cima e explica um
+            palete específico ("veio tombado"). Esta é do turno inteiro,
+            para o que não cabe num lote ("faltou empilhadeira").
+
+            As duas tinham o mesmo rótulo e viravam duas caixas idênticas
+            na mesma tela -- o dono viu na hora. Rótulo e exemplo
+            diferentes resolvem sem tirar nenhuma das duas: elas guardam
+            coisas diferentes no banco. */}
         <div>
-          <label className={rotulo} htmlFor="observacao">Observação (opcional)</label>
-          <input id="observacao" name="observacao" maxLength={300} className={campo} />
+          <label className={rotulo} htmlFor="observacao">Observação do turno (opcional)</label>
+          <input
+            id="observacao"
+            name="observacao"
+            maxLength={300}
+            placeholder="Ex.: faltou empilhadeira parte do turno"
+            className={campo}
+          />
         </div>
         <BotaoEnviar
           textoEnviando="Finalizando..."

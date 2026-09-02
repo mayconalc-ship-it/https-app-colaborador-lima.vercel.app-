@@ -10,8 +10,10 @@ import {
   TURNOS,
   agruparPorEmbalagem,
   agruparPorProduto,
+  HORAS_MINIMAS_NO_RANKING,
   calcularPontuacao,
   construirRanking,
+  mediaPonderadaPorHoras,
   diaLocalISO,
   diasAtrasISO,
   formatarHoras,
@@ -77,7 +79,7 @@ const rotulo = "mb-1 block text-xs font-semibold uppercase text-slate-500";
 /** Mesmo texto em todo canto que mostra "Pontuação" -- ver calcularPontuacao
  *  em lib/produtividade-armazem.ts, a fórmula de verdade mora lá. */
 const EXPLICACAO_PONTUACAO =
-  "Pontuação = média de até 5 métricas, todas em %: Reepack = % da meta cadastrada por produto; Despejo = % da meta cadastrada por embalagem; Seleção, Picking e 5S = % da média de todo mundo no mesmo recorte (sem meta cadastrada, a régua é comparar com o grupo). Na Seleção (un/h) e no Picking (HL/h) a comparação é pela TAXA, não pelo total — quem trabalhou mais tempo não passa na frente de quem rendeu mais rápido. Quem não fez uma atividade não entra na média dela.";
+  "Pontuação = média das atividades PONDERADA PELAS HORAS de cada uma: uma atividade pesa o quanto ocupou do dia. Reepack = % da meta por produto; Despejo = % da meta por embalagem; Seleção (un/h) e Picking (HL/h) = % da média do grupo no mesmo recorte, pela TAXA e não pelo total. Quem não fez uma atividade não entra na média dela. Abaixo de 1h apontada no período não há nota — amostra curta não vira ritmo. O 5S aparece na linha mas não entra na nota: as execuções não têm tempo medido, e sem tempo não há como pesá-las.";
 
 export default async function IndicadoresPage({
   searchParams,
@@ -633,13 +635,26 @@ export default async function IndicadoresPage({
       mediaExecucoes5sPeriodo,
     );
     const selecaoPctT = pctRelativoAoGrupo(mediaTaxaPorPessoa(selecoesT), mediaTaxaSelecaoPeriodo);
-    const pontuacao = calcularPontuacao(
-      mediaPct(reepackAgrupadoT.map((r) => r.pctMeta)),
-      mediaPct(despejoAgrupadoT.map((d) => d.pctMeta)),
-      pickingPctT,
-      cincoSPctT,
-      selecaoPctT,
-    );
+    // Ponderado pelas horas do turno, igual à nota individual: um turno
+    // que gastou 6h em despejo e 10 min em picking não pode ter as duas
+    // parcelas pesando o mesmo.
+    const horasReepackT = reepacksT.reduce((s, r) => s + horasEntre(r.inicio, r.fim), 0);
+    const horasDespejoT = despejosT.reduce((s, d) => s + horasEntre(d.inicio, d.fim), 0);
+    const horasPickingT = pickingsT.reduce((s, p) => s + horasEntre(p.inicio, p.fim), 0);
+    const horasSelecaoT = selecoesT.reduce((s, x) => s + horasEntre(x.inicio, x.fim), 0);
+    const pontuacao = calcularPontuacao([
+      {
+        pct: mediaPonderadaPorHoras(reepackAgrupadoT.map((r) => ({ pct: r.pctMeta, horas: r.horas }))),
+        horas: horasReepackT,
+      },
+      {
+        pct: mediaPonderadaPorHoras(despejoAgrupadoT.map((d) => ({ pct: d.pctMeta, horas: d.horas }))),
+        horas: horasDespejoT,
+      },
+      { pct: pickingPctT, horas: horasPickingT },
+      { pct: selecaoPctT, horas: horasSelecaoT },
+    ]);
+
 
     return {
       turno: t,
@@ -668,13 +683,22 @@ export default async function IndicadoresPage({
     embalagens,
     (e) => e.metaLitrosHora,
   );
-  const pontuacaoGeral = calcularPontuacao(
-    mediaPct(reepackAgrupadoGeral.map((r) => r.pctMeta)),
-    mediaPct(despejoAgrupadoGeral.map((d) => d.pctMeta)),
-    pctRelativoAoGrupo(mediaHlPickingPeriodo, mediaHlPickingPeriodo),
-    pctRelativoAoGrupo(mediaExecucoes5sPeriodo, mediaExecucoes5sPeriodo),
-    pctRelativoAoGrupo(mediaTaxaSelecaoPeriodo, mediaTaxaSelecaoPeriodo),
-  );
+  const horasReepackGeral = reepacksTodos.reduce((s, r) => s + horasEntre(r.inicio, r.fim), 0);
+  const horasDespejoGeral = despejosTodos.reduce((s, d) => s + horasEntre(d.inicio, d.fim), 0);
+  const horasPickingGeral = pickingsTodos.reduce((s, p) => s + horasEntre(p.inicio, p.fim), 0);
+  const horasSelecaoGeral = selecoesTodas.reduce((s, x) => s + horasEntre(x.inicio, x.fim), 0);
+  const pontuacaoGeral = calcularPontuacao([
+    {
+      pct: mediaPonderadaPorHoras(reepackAgrupadoGeral.map((r) => ({ pct: r.pctMeta, horas: r.horas }))),
+      horas: horasReepackGeral,
+    },
+    {
+      pct: mediaPonderadaPorHoras(despejoAgrupadoGeral.map((d) => ({ pct: d.pctMeta, horas: d.horas }))),
+      horas: horasDespejoGeral,
+    },
+    { pct: pctRelativoAoGrupo(mediaHlPickingPeriodo, mediaHlPickingPeriodo), horas: horasPickingGeral },
+    { pct: pctRelativoAoGrupo(mediaTaxaSelecaoPeriodo, mediaTaxaSelecaoPeriodo), horas: horasSelecaoGeral },
+  ]);
 
   const totalGeral = porTurno.reduce(
     (s, l) => ({
@@ -1482,7 +1506,7 @@ export default async function IndicadoresPage({
                     <td className="p-3 text-right font-bold tabular-nums text-slate-900">{l.totalLancamentos}</td>
                     <td className="p-3 text-right">
                       <span className="rounded-lg bg-slate-100 px-2 py-0.5 text-xs font-bold text-slate-700">
-                        {l.pontuacao} pts
+                        {l.pontuacao === null ? "—" : `${l.pontuacao} pts`}
                       </span>
                     </td>
                   </tr>
@@ -1601,11 +1625,25 @@ export default async function IndicadoresPage({
                           <span className="text-slate-300">—</span>
                         )}
                       </td>
-                      <td className="p-3 text-right tabular-nums text-slate-500">{r.totalAtividades}</td>
+                      <td className="p-3 text-right tabular-nums text-slate-500">
+                        {formatarHoras(r.horasApontadas)}
+                      </td>
                       <td className="p-3 text-right">
-                        <span className="rounded-lg bg-slate-100 px-2.5 py-1 text-sm font-bold text-slate-700">
-                          {r.pontuacao} pts
-                        </span>
+                        {/* Amostra curta NAO vira "0 pts": zero diria que a
+                            pessoa foi mal, quando o que houve foi falta de
+                            medicao. Ver HORAS_MINIMAS_NO_RANKING. */}
+                        {r.pontuacao === null ? (
+                          <span
+                            className="rounded-lg bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-400"
+                            title={`Menos de ${HORAS_MINIMAS_NO_RANKING}h apontada no período — pouco para virar nota.`}
+                          >
+                            amostra curta
+                          </span>
+                        ) : (
+                          <span className="rounded-lg bg-slate-100 px-2.5 py-1 text-sm font-bold text-slate-700">
+                            {r.pontuacao} pts
+                          </span>
+                        )}
                       </td>
                     </tr>
                   ))}
