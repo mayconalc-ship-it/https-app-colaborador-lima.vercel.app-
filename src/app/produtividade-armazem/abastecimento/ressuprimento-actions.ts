@@ -14,16 +14,25 @@ import { ehPrioridade, ROTA_RESSUPRIMENTO } from "@/lib/ressuprimento";
 
 const ROTA = ROTA_RESSUPRIMENTO;
 
-function erro(mensagem: string, aba = ""): never {
-  const q = new URLSearchParams({ erro: mensagem });
-  if (aba) q.set("aba", aba);
-  redirect(`${ROTA}?${q}`);
+/**
+ * Toda ação volta para a MESMA lista de pedidos.
+ *
+ * Estas funções tinham um parâmetro `aba`, e era ele o problema: depois
+ * de marcar a entrega, a pessoa era devolvida para a aba "Fila", onde o
+ * pedido já não estava -- tinha virado "na área", que morava em outra
+ * aba. O dono passou sete minutos procurando (16:52 às 16:59 de
+ * 02/09/2026, catorze aberturas da tela).
+ *
+ * Agora o cartão não muda de lugar e o destino de toda ação é sempre o
+ * mesmo: a pessoa cai olhando exatamente para o cartão em que acabou de
+ * mexer, já com o próximo botão.
+ */
+function erro(mensagem: string): never {
+  redirect(`${ROTA}?${new URLSearchParams({ erro: mensagem })}`);
 }
 
-function pronto(mensagem: string, aba = ""): never {
-  const q = new URLSearchParams({ sucesso: mensagem });
-  if (aba) q.set("aba", aba);
-  redirect(`${ROTA}?${q}`);
+function pronto(mensagem: string): never {
+  redirect(`${ROTA}?${new URLSearchParams({ sucesso: mensagem })}`);
 }
 
 /**
@@ -76,10 +85,10 @@ export async function criarSolicitacao(formData: FormData) {
   const unidades = formData.getAll("item_unidade").map(String);
   const quantidades = formData.getAll("item_quantidade").map(String);
 
-  if (produtoIds.length === 0) erro("Adicione pelo menos um produto à solicitação.");
-  if (produtoIds.length > 40) erro("Uma solicitação de cada vez, com até 40 itens.");
+  if (produtoIds.length === 0) erro("Adicione pelo menos um produto ao pedido.");
+  if (produtoIds.length > 40) erro("Um pedido de cada vez, com até 40 itens.");
   if (unidades.length !== produtoIds.length || quantidades.length !== produtoIds.length) {
-    erro("A lista de itens chegou incompleta. Monte a solicitação de novo.");
+    erro("A lista de itens chegou incompleta. Monte o pedido de novo.");
   }
 
   const supabase = await createClient();
@@ -97,7 +106,7 @@ export async function criarSolicitacao(formData: FormData) {
 
   for (let i = 0; i < produtoIds.length; i++) {
     const produto = porId.get(produtoIds[i]);
-    if (!produto) erro("Um dos produtos não foi encontrado. Monte a solicitação de novo.");
+    if (!produto) erro("Um dos produtos não foi encontrado. Monte o pedido de novo.");
 
     const unidade = unidades[i];
     if (!ehUnidadeAbastecimento(unidade)) erro("Escolha se cada item é caixa ou palete.");
@@ -140,7 +149,7 @@ export async function criarSolicitacao(formData: FormData) {
     .select("id")
     .maybeSingle();
 
-  if (error || !criada) erro(`Não foi possível criar a solicitação: ${error?.message ?? "tente de novo"}`);
+  if (error || !criada) erro(`Não foi possível criar o pedido: ${error?.message ?? "tente de novo"}`);
 
   const { error: erroItens } = await supabase
     .from("pa_ressuprimento_itens")
@@ -154,7 +163,7 @@ export async function criarSolicitacao(formData: FormData) {
   }
 
   revalidatePath(ROTA);
-  pronto(`Solicitação enviada com ${itens.length} item(ns).`, "minhas");
+  pronto(`Pedido enviado com ${itens.length} item(ns). A empilhadeira já está vendo.`);
 }
 
 /**
@@ -170,7 +179,7 @@ export async function aceitarSolicitacao(formData: FormData) {
   const { perfil, revendaId } = await contextoOperador();
 
   const id = String(formData.get("id") ?? "");
-  if (!id) erro("Solicitação inválida.", "fila");
+  if (!id) erro("Pedido inválido.");
 
   const admin = createAdminClient();
   const { data, error } = await admin
@@ -186,13 +195,13 @@ export async function aceitarSolicitacao(formData: FormData) {
     .is("cancelado_em", null)
     .select("id");
 
-  if (error) erro(`Não foi possível aceitar: ${error.message}`, "fila");
+  if (error) erro(`Não foi possível aceitar: ${error.message}`);
   if (!data || data.length === 0) {
-    erro("Esta solicitação já foi aceita por outra pessoa, ou foi cancelada.", "fila");
+    erro("Este pedido já foi aceito por outra pessoa, ou foi cancelado.");
   }
 
   revalidatePath(ROTA);
-  pronto("Solicitação aceita. Marque cada item ao deixar na área.", "fila");
+  pronto("Pedido aceito. Toque em \"Deixei tudo na área\" quando terminar a viagem.");
 }
 
 /**
@@ -206,7 +215,7 @@ export async function entregarItem(formData: FormData) {
   const { perfil, revendaId } = await contextoOperador();
 
   const itemId = String(formData.get("item_id") ?? "");
-  if (!itemId) erro("Item inválido.", "fila");
+  if (!itemId) erro("Item inválido.");
 
   const admin = createAdminClient();
 
@@ -223,20 +232,20 @@ export async function entregarItem(formData: FormData) {
     | { operador_id: string | null; cancelado_em: string | null }
     | undefined;
 
-  if (!item || !pedido) erro("Item não encontrado.", "fila");
-  if (pedido.cancelado_em) erro("Esta solicitação foi cancelada.", "fila");
-  if (pedido.operador_id !== perfil.id) erro("Esta entrega é de outro operador.", "fila");
-  if (item.entregue_em) erro("Este item já estava marcado como entregue.", "fila");
+  if (!item || !pedido) erro("Item não encontrado.");
+  if (pedido.cancelado_em) erro("Este pedido foi cancelado.");
+  if (pedido.operador_id !== perfil.id) erro("Esta entrega é de outro operador.");
+  if (item.entregue_em) erro("Este item já estava marcado como entregue.");
 
   const { error } = await admin
     .from("pa_ressuprimento_itens")
     .update({ entregue_em: new Date().toISOString(), entregue_por: perfil.id })
     .eq("id", itemId);
 
-  if (error) erro(`Não foi possível marcar a entrega: ${error.message}`, "fila");
+  if (error) erro(`Não foi possível marcar a entrega: ${error.message}`);
 
   revalidatePath(ROTA);
-  pronto("Item entregue na área.", "fila");
+  pronto("Item entregue na área.");
 }
 
 /** Marca de uma vez os itens que ainda faltam -- a viagem única, que é o
@@ -246,7 +255,7 @@ export async function entregarTudo(formData: FormData) {
   const { perfil, revendaId } = await contextoOperador();
 
   const id = String(formData.get("id") ?? "");
-  if (!id) erro("Solicitação inválida.", "fila");
+  if (!id) erro("Pedido inválido.");
 
   const admin = createAdminClient();
   const { data: pedido } = await admin
@@ -256,9 +265,9 @@ export async function entregarTudo(formData: FormData) {
     .eq("revenda_id", revendaId)
     .maybeSingle();
 
-  if (!pedido) erro("Solicitação não encontrada.", "fila");
-  if (pedido.cancelado_em) erro("Esta solicitação foi cancelada.", "fila");
-  if (pedido.operador_id !== perfil.id) erro("Esta entrega é de outro operador.", "fila");
+  if (!pedido) erro("Pedido não encontrado.");
+  if (pedido.cancelado_em) erro("Este pedido foi cancelado.");
+  if (pedido.operador_id !== perfil.id) erro("Esta entrega é de outro operador.");
 
   const { error } = await admin
     .from("pa_ressuprimento_itens")
@@ -266,10 +275,10 @@ export async function entregarTudo(formData: FormData) {
     .eq("ressuprimento_id", id)
     .is("entregue_em", null);
 
-  if (error) erro(`Não foi possível marcar as entregas: ${error.message}`, "fila");
+  if (error) erro(`Não foi possível marcar as entregas: ${error.message}`);
 
   revalidatePath(ROTA);
-  pronto("Tudo entregue na área.", "fila");
+  pronto("Tudo entregue na área.");
 }
 
 /**
@@ -289,10 +298,10 @@ export async function iniciarAbastecimentoDaSolicitacao(formData: FormData) {
   const { perfil, revendaId } = await contextoPicking();
 
   const id = String(formData.get("id") ?? "");
-  if (!id) erro("Solicitação inválida.", "abastecer");
+  if (!id) erro("Pedido inválido.");
 
   const turno = formData.get("turno");
-  if (!ehTurno(turno)) erro("Escolha o turno.", "abastecer");
+  if (!ehTurno(turno)) erro("Escolha o turno.");
 
   const admin = createAdminClient();
 
@@ -303,8 +312,8 @@ export async function iniciarAbastecimentoDaSolicitacao(formData: FormData) {
     .eq("revenda_id", revendaId)
     .maybeSingle();
 
-  if (!pedido) erro("Solicitação não encontrada.", "abastecer");
-  if (pedido.cancelado_em) erro("Esta solicitação foi cancelada.", "abastecer");
+  if (!pedido) erro("Pedido não encontrado.");
+  if (pedido.cancelado_em) erro("Este pedido foi cancelado.");
 
   const itens = (pedido.pa_ressuprimento_itens ?? []) as {
     id: string;
@@ -316,7 +325,7 @@ export async function iniciarAbastecimentoDaSolicitacao(formData: FormData) {
   }[];
 
   if (itens.length === 0 || itens.some((i) => !i.entregue_em)) {
-    erro("Ainda falta item chegar na área. Espere a empilhadeira terminar a entrega.", "abastecer");
+    erro("Ainda falta item chegar na área. Espere a empilhadeira terminar a entrega.");
   }
 
   const supabase = await createClient();
@@ -341,11 +350,10 @@ export async function iniciarAbastecimentoDaSolicitacao(formData: FormData) {
   if (error) {
     if (error.code === "23505") {
       erro(
-        "Você já tem um abastecimento em andamento, ou esta solicitação já está sendo atendida. Finalize antes de começar outro.",
-        "abastecer",
+        "Você já tem um abastecimento em andamento, ou este pedido já está sendo atendido. Finalize antes de começar outro.",
       );
     }
-    erro(`Não foi possível começar: ${error.message}`, "abastecer");
+    erro(`Não foi possível começar: ${error.message}`);
   }
 
   const { error: erroItens } = await supabase.from("pa_abastecimento_itens").insert(
@@ -361,7 +369,7 @@ export async function iniciarAbastecimentoDaSolicitacao(formData: FormData) {
 
   if (erroItens) {
     await supabase.from("pa_abastecimentos").delete().eq("id", sessao!.id);
-    erro(`Não foi possível copiar os itens: ${erroItens.message}`, "abastecer");
+    erro(`Não foi possível copiar os itens: ${erroItens.message}`);
   }
 
   revalidatePath(ROTA);
@@ -402,7 +410,7 @@ export async function cancelarSolicitacao(formData: FormData) {
 
   const id = String(formData.get("id") ?? "");
   const motivo = String(formData.get("motivo") ?? "").trim().slice(0, 200) || null;
-  if (!id) erro("Solicitação inválida.");
+  if (!id) erro("Pedido inválido.");
   if (!motivo) erro("Diga o motivo do cancelamento -- é o que evita o mesmo pedido voltar amanhã.");
 
   const admin = createAdminClient();
@@ -414,8 +422,8 @@ export async function cancelarSolicitacao(formData: FormData) {
     .eq("revenda_id", revendaId)
     .maybeSingle();
 
-  if (!pedido) erro("Solicitação não encontrada.");
-  if (pedido.cancelado_em) erro("Esta solicitação já estava cancelada.");
+  if (!pedido) erro("Pedido não encontrado.");
+  if (pedido.cancelado_em) erro("Este pedido já estava cancelado.");
   if (pedido.solicitante_id !== perfil.id && pedido.operador_id !== perfil.id) {
     erro("Só quem pediu ou quem está transportando pode cancelar.");
   }
@@ -428,7 +436,7 @@ export async function cancelarSolicitacao(formData: FormData) {
     .select("*", { count: "exact", head: true })
     .eq("ressuprimento_id", id);
 
-  if (count) erro("Esta solicitação já foi para o abastecimento e não pode mais ser cancelada.");
+  if (count) erro("Este pedido já foi para o abastecimento e não pode mais ser cancelado.");
 
   const { error } = await admin
     .from("pa_ressuprimentos")
@@ -442,5 +450,5 @@ export async function cancelarSolicitacao(formData: FormData) {
   if (error) erro(`Não foi possível cancelar: ${error.message}`);
 
   revalidatePath(ROTA);
-  pronto("Solicitação cancelada.");
+  pronto("Pedido cancelado.");
 }

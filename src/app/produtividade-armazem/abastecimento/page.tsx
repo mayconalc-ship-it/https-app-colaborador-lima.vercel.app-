@@ -39,24 +39,12 @@ import {
 } from "@/lib/abastecimento";
 import {
   estaAberta,
-  estadoDe,
   ordenarFila,
-  temposDoCiclo,
-  transporteFim,
   type Prioridade,
   type Ressuprimento,
 } from "@/lib/ressuprimento";
 import { MontarSolicitacao } from "@/components/produtividade-armazem/MontarSolicitacao";
-import {
-  CabecalhoDaSolicitacao,
-  CartaoTransporte,
-  ItensDaSolicitacao,
-  TempoDoCiclo,
-} from "@/components/produtividade-armazem/PecasDoRessuprimento";
-import {
-  cancelarSolicitacao,
-  iniciarAbastecimentoDaSolicitacao,
-} from "./ressuprimento-actions";
+import { CartaoDoPedido } from "@/components/produtividade-armazem/PecasDoRessuprimento";
 import {
   adicionarItem,
   buscarProdutosAbastecimento,
@@ -70,16 +58,16 @@ import {
 export const dynamic = "force-dynamic";
 
 /**
- * As abas da tela.
+ * As abas da tela: o TRABALHO e duas consultas.
  *
- * "solicitar" e "fila" chegaram aqui em 02/09/2026: nasceram numa tela
- * própria (migration 085) e o dono corrigiu -- pedir, transportar e
- * abastecer são etapas da MESMA atividade, e dois cards na vitrine
- * obrigariam a operação a entender uma divisão que só existia no código.
+ * Chegaram a ser cinco (Lançar, Solicitar, Fila, Histórico, Ranking) e o
+ * pedido pulava entre as três primeiras conforme mudava de estado. Hoje
+ * "Pedidos" é a lista única onde ele nasce, é buscado, é abastecido e
+ * morre -- ver o comentário do CartaoDoPedido.
  */
-type Aba = "lancar" | "solicitar" | "fila" | "historico" | "ranking";
+type Aba = "pedidos" | "historico" | "ranking";
 
-const ABAS_VALIDAS: Aba[] = ["lancar", "solicitar", "fila", "historico", "ranking"];
+const ABAS_VALIDAS: Aba[] = ["pedidos", "historico", "ranking"];
 
 const campo =
   "w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-base text-slate-900 focus:border-primary focus:outline-none";
@@ -202,7 +190,7 @@ export default async function AbastecimentoPage({
   const perfil = await requireAcessoModulo("pa-picking");
 
   const sp = await searchParams;
-  const aba: Aba = ABAS_VALIDAS.includes(sp.aba as Aba) ? (sp.aba as Aba) : "lancar";
+  const aba: Aba = ABAS_VALIDAS.includes(sp.aba as Aba) ? (sp.aba as Aba) : "pedidos";
   const de = sp.de ?? diasAtrasISO(30);
   const ate = sp.ate ?? hojeISO();
   const turnoFiltro = ehTurno(sp.turno) ? sp.turno : "";
@@ -287,13 +275,11 @@ export default async function AbastecimentoPage({
   );
 
   const agora = new Date();
-  const filaDeTransporte = ordenarFila(
-    solicitacoes.filter((r) => estaAberta(r) && !transporteFim(r)),
-  );
-  const esperandoNaArea = solicitacoes.filter((r) => estadoDe(r) === "na_area");
-  const minhasSolicitacoes = solicitacoes.filter(
-    (r) => r.solicitanteId === perfil.id || r.operadorId === perfil.id,
-  );
+
+  // UMA lista, do pedido ao abastecimento. O cartao mostra a proxima acao
+  // de quem esta olhando -- ninguem precisa saber em que aba o trabalho
+  // mora, porque ele nao muda de lugar.
+  const pedidosAbertos = ordenarFila(solicitacoes.filter(estaAberta));
 
   // Completo até as 10h, pontual depois -- o combinado da operação. O
   // horário SUGERE (e avisa quando a escolha destoa), nunca bloqueia:
@@ -377,13 +363,12 @@ export default async function AbastecimentoPage({
       <nav className="mb-4 flex flex-wrap gap-2">
         {(
           [
-            ["lancar", "Lançar", null],
-            ["solicitar", "Solicitar", null],
-            // A fila só existe para quem transporta. Mostrá-la a todo
-            // mundo ofereceria um caminho que termina em "sem permissão".
-            ...(podeTransportar
-              ? ([["fila", "Fila", filaDeTransporte.length]] as [Aba, string, number | null][])
-              : []),
+            // Três abas, não cinco. "Pedidos" é o TRABALHO -- pedir,
+            // buscar, abastecer e finalizar, tudo na mesma lista. As
+            // outras duas são consulta. Abas com nome de papel
+            // ("Solicitar", "Fila") obrigavam cada pessoa a descobrir
+            // qual era a dela, e faziam o pedido pular de aba sozinho.
+            ["pedidos", "Pedidos", pedidosAbertos.length],
             ["historico", "Histórico", null],
             ["ranking", "Ranking de SKU", null],
           ] as [Aba, string, number | null][]
@@ -404,135 +389,24 @@ export default async function AbastecimentoPage({
         ))}
       </nav>
 
-      {/* ---------------- SOLICITAR ---------------- */}
-      {aba === "solicitar" && (
+      {/* ---------------- PEDIDOS: TUDO NUM LUGAR SÓ ---------------- */}
+      {/*
+        Antes eram três abas -- Solicitar, Fila e Lançar -- e o pedido
+        PULAVA de uma para a outra conforme mudava de estado. O teste do
+        dono mostrou o estrago: criou 16:34, aceitou 16:35, marcou a
+        entrega 16:35, e depois abriu a tela catorze vezes entre 16:52 e
+        16:59 procurando o pedido, que tinha ido para outra aba sem avisar.
+
+        Agora é uma lista só. O cartão fica onde está do começo ao fim e
+        mostra UM botão de cada vez, o da próxima ação de quem está
+        olhando. Ninguém precisa saber em que aba o trabalho mora.
+      */}
+      {aba === "pedidos" && (
         <section className="space-y-6">
-          <MontarSolicitacao
-            clusters={clusters}
-            tipos={tipos}
-            turnoSugerido={turnoAtual(agora)}
-            tipoInicial={tipoDoHorario}
-            avisoSeDestoar={avisoSeDestoar}
-          />
-
-          {minhasSolicitacoes.length > 0 && (
-            <div>
-              <h2 className="mb-3 text-sm font-bold uppercase text-slate-500">
-                Minhas solicitações ({DIAS_DE_SOLICITACAO} dias)
-              </h2>
-              <div className="space-y-3">
-                {minhasSolicitacoes.map((r) => {
-                  const t = temposDoCiclo(r);
-                  return (
-                    <div key={r.id} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-                      <CabecalhoDaSolicitacao r={r} agora={agora} />
-                      <ItensDaSolicitacao r={r} nomeDoProduto={nomeDoProduto} />
-
-                      {t.ciclo !== null && (
-                        <dl className="mt-3 grid grid-cols-2 gap-2 rounded-xl bg-slate-50 p-3 text-xs sm:grid-cols-5">
-                          <TempoDoCiclo rotulo="Espera empilh." minutos={t.esperaEmpilhadeira} />
-                          <TempoDoCiclo rotulo="Transporte" minutos={t.transporte} />
-                          <TempoDoCiclo rotulo="Espera ajudante" minutos={t.esperaAjudante} />
-                          <TempoDoCiclo rotulo="Abastecimento" minutos={t.abastecimento} />
-                          <TempoDoCiclo rotulo="Ciclo" minutos={t.ciclo} destaque />
-                        </dl>
-                      )}
-
-                      {r.canceladoEm ? (
-                        <p className="mt-2 text-xs text-slate-500">Motivo: {r.motivo}</p>
-                      ) : (
-                        estaAberta(r) &&
-                        !r.abastecimentoInicio && (
-                          <form action={cancelarSolicitacao} className="mt-3 flex gap-2">
-                            <input type="hidden" name="id" value={r.id} />
-                            <input
-                              name="motivo"
-                              required
-                              maxLength={200}
-                              placeholder="Motivo do cancelamento"
-                              className="min-w-0 flex-1 rounded-xl border border-slate-300 bg-white px-3 py-2 text-base text-slate-900 focus:border-primary focus:outline-none"
-                            />
-                            <BotaoEnviar className="shrink-0 rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-500 hover:bg-slate-50">
-                              Cancelar
-                            </BotaoEnviar>
-                          </form>
-                        )
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-        </section>
-      )}
-
-      {/* ---------------- FILA DA EMPILHADEIRA ---------------- */}
-      {aba === "fila" && podeTransportar && (
-        <section className="space-y-3">
-          {/* O que ESTE operador já aceitou vem primeiro: é o trabalho na
-              mão dele, e procurá-lo no meio da fila dos outros seria o
-              caminho mais longo para a tarefa mais urgente. */}
-          {filaDeTransporte
-            .filter((r) => r.operadorId === perfil.id)
-            .map((r) => (
-              <CartaoTransporte key={r.id} r={r} nomeDoProduto={nomeDoProduto} agora={agora} meu />
-            ))}
-
-          {filaDeTransporte.length === 0 ? (
-            <p className="rounded-xl bg-slate-50 p-4 text-sm text-slate-500">
-              Nenhuma solicitação esperando. Quando alguém pedir, aparece aqui.
-            </p>
-          ) : (
-            filaDeTransporte
-              .filter((r) => r.operadorId !== perfil.id)
-              .map((r) => (
-                <CartaoTransporte key={r.id} r={r} nomeDoProduto={nomeDoProduto} agora={agora} />
-              ))
-          )}
-        </section>
-      )}
-
-      {/* ---------------- VISÃO 1, 2 e 3: LANÇAR ---------------- */}
-      {aba === "lancar" && (
-        <section className="space-y-6">
-          {/* O que a empilhadeira já deixou na área, esperando alguém
-              abastecer. Fica ANTES do formulário de iniciar do zero: se
-              tem material posto no chão esperando, é isso que a pessoa
-              deveria pegar primeiro. */}
-          {!aberta && esperandoNaArea.length > 0 && (
-            <div>
-              <h2 className="mb-3 text-sm font-bold uppercase text-slate-500">
-                📍 Esperando na área ({esperandoNaArea.length})
-              </h2>
-              <div className="space-y-3">
-                {esperandoNaArea.map((r) => (
-                  <div key={r.id} className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
-                    <CabecalhoDaSolicitacao r={r} agora={agora} />
-                    <ItensDaSolicitacao r={r} nomeDoProduto={nomeDoProduto} />
-                    <form action={iniciarAbastecimentoDaSolicitacao} className="mt-3 flex gap-2">
-                      <input type="hidden" name="id" value={r.id} />
-                      <select
-                        name="turno"
-                        defaultValue={turnoAtual(agora)}
-                        aria-label="Turno"
-                        className="w-auto rounded-xl border border-slate-300 bg-white px-3 py-2 text-base text-slate-900 focus:border-primary focus:outline-none"
-                      >
-                        {TURNOS.map((t) => (
-                          <option key={t} value={t}>{ROTULO_TURNO[t]}</option>
-                        ))}
-                      </select>
-                      <BotaoEnviar className="flex-1 rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-white hover:bg-primary-dark">
-                        🛒 Abastecer esta solicitação
-                      </BotaoEnviar>
-                    </form>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {aberta ? (
+          {/* O cronômetro correndo vem primeiro: é o único item da tela
+              com tempo passando, e enterrá-lo abaixo da lista faria a
+              pessoa esquecer de finalizar. */}
+          {aberta && (
             <SessaoEmAndamento
               sessao={aberta}
               itens={itensPorSessao.get(aberta.id) ?? []}
@@ -543,10 +417,74 @@ export default async function AbastecimentoPage({
               clusterInicial={clusters.includes(clusterCookie) ? clusterCookie : ""}
               tipoInicial={tipos.includes(tipoCookie) ? tipoCookie : ""}
             />
-          ) : (
-            <>
-              {/* Tipo é escolha de ANTES: o abastecimento completo e o
-                  ressuprimento pontual têm ritmos diferentes, e misturar
+          )}
+
+          <div>
+            <h2 className="mb-3 text-sm font-bold uppercase text-slate-500">
+              Pedidos em aberto
+              {pedidosAbertos.length > 0 && (
+                <span className="ml-2 font-normal text-slate-400">({pedidosAbertos.length})</span>
+              )}
+            </h2>
+
+            {pedidosAbertos.length === 0 ? (
+              <p className="rounded-xl bg-slate-50 p-4 text-sm text-slate-500">
+                Nenhum pedido em aberto. Quando alguém pedir produto para o picking, ele aparece
+                aqui e fica até ser abastecido.
+              </p>
+            ) : (
+              <div className="space-y-3">
+                {pedidosAbertos.map((r) => (
+                  <CartaoDoPedido
+                    key={r.id}
+                    r={r}
+                    agora={agora}
+                    euId={perfil.id}
+                    podeTransportar={podeTransportar}
+                    podeAbastecer
+                    temSessaoAberta={Boolean(aberta)}
+                    nomeDoProduto={nomeDoProduto}
+                    turnoSugerido={turnoAtual(agora)}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Fechado por padrão quando já há pedido na lista: o trabalho
+              que existe vem antes do trabalho novo. Sem nenhum pedido,
+              abre sozinho -- é a única coisa a fazer na tela. */}
+          <details
+            open={pedidosAbertos.length === 0 && !aberta}
+            className="rounded-2xl border border-slate-200 bg-white"
+          >
+            <summary className="cursor-pointer list-none p-4 text-sm font-bold text-primary-dark marker:content-none [&::-webkit-details-marker]:hidden">
+              ➕ Pedir produto para o picking
+            </summary>
+            <div className="border-t border-slate-100 p-4">
+              <MontarSolicitacao
+                clusters={clusters}
+                tipos={tipos}
+                turnoSugerido={turnoAtual(agora)}
+                tipoInicial={tipoDoHorario}
+                avisoSeDestoar={avisoSeDestoar}
+              />
+            </div>
+          </details>
+
+          {/* O caminho de sempre, para quem abastece sem ter pedido nada
+              -- a reposição que a pessoa faz por conta própria. Continua
+              existindo (ninguém perdeu funcionalidade), mas deixou de ser
+              a primeira coisa da tela: hoje o normal é haver um pedido. */}
+          {!aberta && (
+            <details className="rounded-2xl border border-slate-200 bg-white">
+              <summary className="cursor-pointer list-none p-4 text-sm font-bold text-slate-600 marker:content-none [&::-webkit-details-marker]:hidden">
+                ▶️ Abastecer sem pedido
+              </summary>
+              <div className="space-y-4 border-t border-slate-100 p-4">
+              {/* Tipo é escolha de ANTES: o abastecimento completo (a
+                  varredura da manhã, fechada às 10h) e o pontual (a
+                  reposição esporádica) têm ritmos diferentes, e misturar
                   os dois num indicador só esconde os dois. */}
               <nav className="grid grid-cols-2 gap-2">
                 {TIPOS_ABASTECIMENTO.map((t) => (
@@ -621,7 +559,8 @@ export default async function AbastecimentoPage({
                   ▶️ Iniciar {TIPO_ABASTECIMENTO[tipoEscolhido].curto.toLowerCase()}
                 </BotaoEnviar>
               </form>
-            </>
+              </div>
+            </details>
           )}
 
           <div>
