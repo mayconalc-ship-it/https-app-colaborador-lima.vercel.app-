@@ -8,6 +8,7 @@ import {
   dentroDoPeriodo,
   grupoDaNota,
   hojeIso,
+  ciclosSugeridos,
   rotuloCiclo,
   rotuloMotivo,
   type ConfigPesquisa,
@@ -77,6 +78,11 @@ export default async function AdminPesquisaPage({
   ).sort((a, b) => b.localeCompare(a));
 
   const cicloVisto = cicloParam && ciclos.includes(cicloParam) ? cicloParam : cfg.ciclo;
+
+  // As opções do "Iniciar um novo ciclo": janela em volta do mês de hoje,
+  // mais o ciclo configurado e os que já têm resposta -- ordenados pela
+  // distância até hoje. Ver ciclosSugeridos em lib/pesquisa.ts.
+  const sugestoes = ciclosSugeridos(cfg.ciclo, hojeIso(), ciclos);
   const doCiclo = respostas.filter((r) => r.ciclo === cicloVisto);
 
   const total = doCiclo.length;
@@ -285,12 +291,39 @@ export default async function AdminPesquisaPage({
             Todos voltam a poder responder. <strong>Nada é apagado</strong> — as
             respostas antigas continuam guardadas no ciclo delas.
           </p>
-          <input
+          {/*
+            MENU SUSPENSO, e não texto livre -- pedido do dono.
+
+            Digitar "AAAA-MM" à mão tem dois jeitos de dar errado que não
+            avisam: trocar o ano na virada (2026-01 vira 2025-01) e
+            inverter mês e ano. O menu não aceita nenhum dos dois.
+
+            A ordem é a DISTÂNCIA até o mês de hoje -- os mais próximos
+            primeiro, e no empate o futuro na frente. Quem abre esta tela
+            quase sempre vai começar o mês que vem; deixar 2025 no topo
+            porque "vem antes" obriga a rolar para achar o que se usa.
+
+            O ciclo que está rodando aparece, desabilitado: iniciá-lo de
+            novo seria recusado pela ação, e oferecer um caminho que
+            termina em erro é pior do que não oferecer.
+          */}
+          <label htmlFor="novo_ciclo" className="mb-1 block text-sm font-medium text-slate-700">
+            Ciclo a iniciar
+          </label>
+          <select
+            id="novo_ciclo"
             name="novo_ciclo"
             required
-            placeholder="2026-09"
+            defaultValue={sugestoes.find((c) => !c.atual)?.ciclo ?? ""}
             className="w-full rounded-xl border border-slate-200 p-3 text-base focus:border-primary focus:outline-none"
-          />
+          >
+            {sugestoes.map((c) => (
+              <option key={c.ciclo} value={c.ciclo} disabled={c.atual}>
+                {c.rotulo}
+                {c.atual ? " — ciclo atual" : ""}
+              </option>
+            ))}
+          </select>
           <BotaoEnviar
             textoEnviando="Iniciando..."
             className="w-full rounded-xl border-2 border-primary py-3 font-semibold text-primary hover:bg-primary-soft"
