@@ -60,36 +60,18 @@ export const EPI_URL = "https://forms.office.com/r/MGf5xTSDzr";
  * alguém faz neste app. Dar a mesma área aos dois faz o barulho do
  * comum abafar o que precisa de coragem.
  *
- * A ouvidoria fica com o cartão inteiro e o QR. O EPI vira uma faixa de
- * uma linha logo abaixo: continua achável em um toque, ocupando um
- * terço da altura.
+ * A ouvidoria fica com o cartão inteiro e o QR; o EPI, com uma faixa de
+ * uma linha -- um terço da altura, e continua achável em um toque.
+ *
+ * A ORDEM é o EPI em cima, e ela não contradiz o parágrafo acima: quem
+ * separa os dois é o TAMANHO, não a posição. Pedir EPI é o que acontece
+ * toda semana; deixar o item frequente na frente é o que se faz em
+ * qualquer lista. A ouvidoria continua sendo a peça grande, com QR e
+ * botão azul -- ela não precisa vir primeiro para ser a mais visível.
  */
 export function RodapeCanais() {
   return (
     <footer className="mt-10 space-y-3 border-t border-slate-200 pt-6">
-      <div className="flex min-w-0 items-start gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-        {/* No próprio celular ninguém escaneia a própria tela -- o QR é
-            para mostrar a outra pessoa ou imprimir e colar na parede. Quem
-            está com o app aberto usa o link. Por isso o link é o alvo de
-            toque grande e o QR fica do lado, pequeno. */}
-        <QrOuvidoria className="h-24 w-24 shrink-0 rounded-lg border border-slate-200" />
-
-        <div className="min-w-0 flex-1">
-          <p className="text-sm font-bold text-slate-900">🗣️ Canal de Ouvidoria</p>
-          <p className="mt-1 text-xs text-slate-500">
-            Denúncias, sugestões e outros assuntos. Aponte a câmera para o QR ou toque no botão.
-          </p>
-          <a
-            href={OUVIDORIA_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white hover:bg-primary-dark"
-          >
-            Abrir a ouvidoria →
-          </a>
-        </div>
-      </div>
-
       {/* A faixa do EPI: uma linha, sem QR e sem botão colorido. O
           formulário se abre com um toque no próprio retângulo -- um botão
           dentro de uma faixa desta altura seria um alvo dentro de outro,
@@ -113,6 +95,29 @@ export function RodapeCanais() {
           ›
         </span>
       </a>
+
+      <div className="flex min-w-0 items-start gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+        {/* No próprio celular ninguém escaneia a própria tela -- o QR é
+            para mostrar a outra pessoa ou imprimir e colar na parede. Quem
+            está com o app aberto usa o link. Por isso o link é o alvo de
+            toque grande e o QR fica do lado, pequeno. */}
+        <QrOuvidoria className="h-24 w-24 shrink-0 rounded-lg border border-slate-200" />
+
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-bold text-slate-900">🗣️ Canal de Ouvidoria</p>
+          <p className="mt-1 text-xs text-slate-500">
+            Denúncias, sugestões e outros assuntos. Aponte a câmera para o QR ou toque no botão.
+          </p>
+          <a
+            href={OUVIDORIA_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white hover:bg-primary-dark"
+          >
+            Abrir a ouvidoria →
+          </a>
+        </div>
+      </div>
     </footer>
   );
 }
