@@ -62,29 +62,68 @@ export async function FaixaParcerias() {
   const nomes = (materias ?? []).map((m) => nomeDoParceiro(m.titulo));
   const sobra = total - nomes.length;
 
+  /*
+    O CARTÃO É AZUL, não verde.
+
+    A primeira versão era esmeralda -- uma cor que não existe em lugar
+    nenhum deste app. Ficava com cara de aviso de outro sistema colado na
+    tela. Aqui a paleta é o azul #0b4da2 e o dourado #ffc72c da marca, e o
+    cartão passa a usar os dois: fundo azul em degradê, o aperto de mão em
+    dourado.
+
+    Escuro de propósito. É a única peça escura de uma tela de cartões
+    brancos -- é assim que ela é achada sem procurar, que era o pedido do
+    RH. E como não há outra peça escura, o destaque não disputa com nada.
+  */
   return (
     <Link
       href={`/comunicados?editoria=${EDITORIA_PARCERIAS}`}
-      className="mt-7 flex min-w-0 items-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 transition-colors hover:bg-emerald-100"
+      className="mt-7 block overflow-hidden rounded-2xl bg-gradient-to-br from-primary-dark to-primary p-4 shadow-lg shadow-primary/20 transition-transform active:scale-[0.99]"
     >
-      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white text-2xl shadow-sm">
-        {editoria.emoji || "🤝"}
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="block font-bold text-emerald-900">
-          Parcerias e descontos
-          <span className="ml-2 text-xs font-semibold tabular-nums text-emerald-700">{total}</span>
+      <div className="flex min-w-0 items-center gap-3">
+        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gold text-2xl">
+          {editoria.emoji || "🤝"}
         </span>
-        {/* Os nomes são o motivo do toque. Sem eles a faixa é só mais um
-            botão pedindo curiosidade. */}
-        <span className="mt-0.5 block truncate text-sm text-emerald-800">
-          {nomes.join(" · ")}
-          {sobra > 0 && ` · e mais ${sobra}`}
+        <span className="min-w-0 flex-1">
+          <span className="flex items-center gap-2">
+            <span className="truncate font-bold text-white">Parcerias e descontos</span>
+            <span className="shrink-0 rounded-full bg-gold px-2 py-0.5 text-xs font-bold tabular-nums text-primary-dark">
+              {total}
+            </span>
+          </span>
+          <span className="mt-0.5 block text-xs text-white/70">
+            Vantagens para quem é do time
+          </span>
         </span>
-      </span>
-      <span className="shrink-0 text-emerald-700" aria-hidden="true">
-        ›
-      </span>
+        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white/15 text-sm text-white" aria-hidden="true">
+          ›
+        </span>
+      </div>
+
+      {/*
+        Um chip por parceiro, em vez de uma linha de nomes separados por
+        ponto. Três nomes emendados viravam uma frase que ninguém lê até o
+        fim; separados, o olho pega "MisterFarma" de relance -- e é o nome
+        do parceiro, não a palavra "parcerias", que faz alguém tocar.
+
+        Envolvem para a linha de baixo em vez de cortar: no celular, um
+        `truncate` comia justamente o terceiro nome.
+      */}
+      <div className="mt-3 flex flex-wrap gap-1.5">
+        {nomes.map((n) => (
+          <span
+            key={n}
+            className="rounded-full bg-white/15 px-2.5 py-1 text-xs font-medium text-white"
+          >
+            {n}
+          </span>
+        ))}
+        {sobra > 0 && (
+          <span className="rounded-full px-2.5 py-1 text-xs font-medium text-white/60">
+            +{sobra}
+          </span>
+        )}
+      </div>
     </Link>
   );
 }
