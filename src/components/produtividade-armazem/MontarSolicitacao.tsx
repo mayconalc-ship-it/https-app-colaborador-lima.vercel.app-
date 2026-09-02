@@ -113,189 +113,258 @@ export function MontarSolicitacao({
     setRodada((r) => r + 1);
   }
 
+
+  const temItens = itens.length > 0;
+
   return (
-    <div className="space-y-4">
-      {/* Formulário SÓ do combobox: fica separado do que envia a
-          solicitação porque um <form> dentro de outro não existe em HTML,
-          e o combobox precisa de um para o FormData de cima ler o id. */}
-      <form id="form-item-solicitacao" className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-        {/*
-          `clusterInicial`/`tipoInicial` NÃO são opcionais de verdade, por
-          mais que o tipo diga que sim -- e foi assim que este defeito
-          entrou (visto pelo dono em 03/09/2026: "não está seguindo a
-          mesma regra do filtro do reepack").
+    <div className="space-y-3">
+      {/* ---------- PASSO 1: O TIPO ----------
+          Vem primeiro, e sempre visível. Antes ficava dentro do bloco que
+          só aparecia depois do primeiro produto -- o dono viu na hora:
+          "ao entrar não vejo de cara as opções de Completo e de Pontual,
+          depois de enviar o primeiro produto é que ele aparece".
 
-          O combobox lembra o filtro em cookie, e QUEM LÊ o cookie primeiro
-          é o servidor: ele manda o HTML já com "Cerveja / Descartável"
-          escolhidos. Sem essas duas props o servidor mandava "Todos", o
-          cliente lia o cookie e escolhia outra coisa -- e aí ou o React
-          corrige com um piscar, ou a pessoa recomeça o filtro a cada item
-          que adiciona. Numa base de centenas de produtos, refazer
-          Cluster → Tipo a cada item é o suficiente para largar a tela.
-        */}
-        <ComboboxProdutoReepack
-          key={rodada}
-          clusters={clusters}
-          tipos={tipos}
-          clusterInicial={clusterInicial}
-          tipoInicial={tipoDoProdutoInicial}
-          buscarProdutos={buscarProdutosAbastecimento}
-          cookiePath={COOKIE_ABASTECIMENTO_PATH}
-        />
-
+          E a ordem não é estética: o tipo é a única escolha que muda o
+          significado de tudo o que vem depois. Uma varredura da manhã e um
+          chamado pontual não se comparam pelo mesmo relógio, e descobrir
+          isso só no fim convida a errar no piloto automático. */}
+      <Passo numero={1} titulo="Que abastecimento é este?">
         <div className="grid grid-cols-2 gap-2">
-          <div>
-            <label className={rotulo} htmlFor="unidade-item">Unidade</label>
-            <select
-              id="unidade-item"
-              value={unidade}
-              onChange={(e) => setUnidade(e.target.value as UnidadeAbastecimento)}
-              className={campo}
+          {TIPOS_ABASTECIMENTO.map((t) => (
+            <label
+              key={t}
+              className={`flex cursor-pointer flex-col items-center gap-1 rounded-xl border-2 px-3 py-3 text-center ${
+                tipo === t
+                  ? "border-primary bg-primary-soft text-primary-dark"
+                  : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+              }`}
             >
-              {UNIDADES_ABASTECIMENTO.map((u) => (
-                <option key={u} value={u}>{ROTULO_UNIDADE_ABASTECIMENTO[u]}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className={rotulo} htmlFor="qtd-item">Quantidade</label>
-            <input
-              id="qtd-item"
-              type="number"
-              inputMode="decimal"
-              step="0.5"
-              min="0"
-              value={quantidade}
-              onChange={(e) => setQuantidade(e.target.value)}
-              className={campo}
-            />
-          </div>
+              <input
+                type="radio"
+                name="tipo-visivel"
+                value={t}
+                checked={tipo === t}
+                onChange={() => setTipo(t)}
+                className="sr-only"
+              />
+              <span className="text-2xl leading-none">{TIPO_ABASTECIMENTO[t].emoji}</span>
+              <span className="text-sm font-bold">{TIPO_ABASTECIMENTO[t].curto}</span>
+            </label>
+          ))}
         </div>
-
-        <button
-          type="button"
-          onClick={adicionar}
-          className="w-full rounded-xl border border-primary bg-primary-soft px-4 py-3 text-sm font-semibold text-primary-dark hover:bg-primary-soft/70"
-        >
-          ➕ Adicionar à solicitação
-        </button>
-      </form>
-
-      {itens.length === 0 ? (
-        <p className="rounded-xl bg-slate-50 p-4 text-sm text-slate-500">
-          Escolha os produtos que precisam subir para o picking. A empilhadeira só vê a
-          solicitação depois que você enviar.
+        <p className="mt-2 text-xs leading-relaxed text-slate-500">
+          {TIPO_ABASTECIMENTO[tipo].descricao}
         </p>
-      ) : (
-        <form action={criarSolicitacao} className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-          <h2 className="text-sm font-semibold text-slate-800">
-            Itens da solicitação
-            <span className="ml-2 font-normal text-slate-400">({itens.length})</span>
-          </h2>
+        {/* O aviso é do horário de quando a tela abriu -- serve para pegar
+            a escolha distraída, não para impedir a deliberada. Bloquear
+            obrigaria a inventar exceção para o primeiro dia atípico. */}
+        {avisoSeDestoar && tipo !== tipoInicial && (
+          <p className="mt-2 rounded-lg bg-amber-50 p-2 text-xs text-amber-800">⚠️ {avisoSeDestoar}</p>
+        )}
+      </Passo>
 
-          <ul className="space-y-2">
+      {/* ---------- PASSO 2: OS PRODUTOS ---------- */}
+      <Passo numero={2} titulo="O que precisa subir para o picking" contagem={itens.length}>
+        {/* Formulário SÓ do combobox: fica separado do que envia o pedido
+            porque um <form> dentro de outro não existe em HTML, e o
+            combobox precisa de um para o FormData de cima ler o id. */}
+        <form id="form-item-solicitacao" className="space-y-3">
+          {/*
+            `clusterInicial`/`tipoInicial` NÃO são opcionais de verdade, por
+            mais que o tipo diga que sim. O combobox lembra o filtro em
+            cookie, e QUEM LÊ o cookie primeiro é o servidor: sem essas
+            props ele manda "Todos", o cliente lê o cookie e escolhe outra
+            coisa -- e a pessoa recomeça o filtro a cada item que adiciona.
+          */}
+          <ComboboxProdutoReepack
+            key={rodada}
+            clusters={clusters}
+            tipos={tipos}
+            clusterInicial={clusterInicial}
+            tipoInicial={tipoDoProdutoInicial}
+            buscarProdutos={buscarProdutosAbastecimento}
+            cookiePath={COOKIE_ABASTECIMENTO_PATH}
+          />
+
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className={rotulo} htmlFor="unidade-item">Unidade</label>
+              <select
+                id="unidade-item"
+                value={unidade}
+                onChange={(e) => setUnidade(e.target.value as UnidadeAbastecimento)}
+                className={campo}
+              >
+                {UNIDADES_ABASTECIMENTO.map((u) => (
+                  <option key={u} value={u}>{ROTULO_UNIDADE_ABASTECIMENTO[u]}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className={rotulo} htmlFor="qtd-item">Quantidade</label>
+              <input
+                id="qtd-item"
+                type="number"
+                inputMode="decimal"
+                step="0.5"
+                min="0"
+                value={quantidade}
+                onChange={(e) => setQuantidade(e.target.value)}
+                className={campo}
+              />
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={adicionar}
+            className="w-full rounded-xl border-2 border-primary bg-primary-soft px-4 py-3 text-sm font-bold text-primary-dark hover:bg-primary-soft/70"
+          >
+            ➕ Adicionar ao pedido
+          </button>
+        </form>
+
+        {temItens && (
+          <ul className="mt-3 space-y-2">
             {itens.map((i) => (
               <li
                 key={i.chave}
-                className="flex min-w-0 items-center gap-2 rounded-xl bg-slate-50 p-3 text-sm"
+                className="flex min-w-0 items-center gap-2 rounded-xl bg-slate-50 p-3 text-sm ring-1 ring-slate-200"
               >
-                <span className="min-w-0 flex-1 truncate text-slate-700">{i.produtoRotulo}</span>
-                <span className="shrink-0 font-semibold tabular-nums text-slate-800">
-                  {i.quantidade} {ROTULO_UNIDADE_ABASTECIMENTO[i.unidade].toLowerCase()}
-                  {Number(i.quantidade.replace(",", ".")) > 1 ? "s" : ""}
+                <span className="min-w-0 flex-1 leading-snug text-slate-700">{i.produtoRotulo}</span>
+                <span className="shrink-0 text-right">
+                  <span className="block text-base font-bold leading-none tabular-nums text-slate-900">
+                    {i.quantidade}
+                  </span>
+                  <span className="block text-xs text-slate-500">
+                    {ROTULO_UNIDADE_ABASTECIMENTO[i.unidade].toLowerCase()}
+                    {Number(i.quantidade.replace(",", ".")) > 1 ? "s" : ""}
+                  </span>
                 </span>
                 <button
                   type="button"
                   onClick={() => setItens((a) => a.filter((x) => x.chave !== i.chave))}
-                  aria-label={`Tirar ${i.produtoRotulo} da solicitação`}
+                  aria-label={`Tirar ${i.produtoRotulo} do pedido`}
                   className="shrink-0 rounded-lg px-2 py-1 text-slate-400 hover:bg-slate-200"
                 >
                   ✕
                 </button>
-                <input type="hidden" name="item_produto_id" value={i.produtoId} />
-                <input type="hidden" name="item_unidade" value={i.unidade} />
-                <input type="hidden" name="item_quantidade" value={i.quantidade} />
               </li>
             ))}
           </ul>
+        )}
+      </Passo>
 
-          {/* O tipo vem ANTES do turno e da prioridade porque é a escolha
-              que muda o significado de tudo o que vem depois: uma
-              varredura da manhã e um chamado pontual não se comparam pelo
-              mesmo relógio. */}
-          <div>
-            <span className={rotulo}>Tipo</span>
+      {/* ---------- PASSO 3: ENVIAR ----------
+          Aparece apagado enquanto não há produto, em vez de sumir: quem
+          abre a tela precisa ver que existe um fim, e um passo que aparece
+          do nada assusta mais do que um passo desligado. */}
+      <Passo numero={3} titulo="Enviar para a empilhadeira" apagado={!temItens}>
+        {!temItens ? (
+          <p className="text-sm text-slate-400">
+            Adicione pelo menos um produto acima. A empilhadeira só vê o pedido depois que você
+            enviar.
+          </p>
+        ) : (
+          <form action={criarSolicitacao} className="space-y-3">
+            {/* O tipo é escolhido no passo 1, e viaja escondido daqui --
+                junto dos itens, que também são estado desta tela. */}
+            <input type="hidden" name="tipo" value={tipo} />
+            {itens.map((i) => (
+              <div key={i.chave}>
+                <input type="hidden" name="item_produto_id" value={i.produtoId} />
+                <input type="hidden" name="item_unidade" value={i.unidade} />
+                <input type="hidden" name="item_quantidade" value={i.quantidade} />
+              </div>
+            ))}
+
             <div className="grid grid-cols-2 gap-2">
-              {TIPOS_ABASTECIMENTO.map((t) => (
-                <label
-                  key={t}
-                  className={`flex cursor-pointer items-center justify-center gap-2 rounded-xl border px-3 py-2.5 text-sm font-semibold ${
-                    tipo === t
-                      ? "border-primary bg-primary-soft text-primary-dark"
-                      : "border-slate-200 text-slate-600 hover:bg-slate-50"
-                  }`}
-                >
-                  <input
-                    type="radio"
-                    name="tipo"
-                    value={t}
-                    checked={tipo === t}
-                    onChange={() => setTipo(t)}
-                    className="sr-only"
-                  />
-                  <span className="text-lg leading-none">{TIPO_ABASTECIMENTO[t].emoji}</span>
-                  {TIPO_ABASTECIMENTO[t].curto}
-                </label>
-              ))}
+              <div>
+                <label className={rotulo} htmlFor="turno">Turno</label>
+                <select id="turno" name="turno" defaultValue={turnoSugerido} className={campo}>
+                  {TURNOS.map((t) => (
+                    <option key={t} value={t}>{ROTULO_TURNO[t]}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className={rotulo} htmlFor="prioridade">Prioridade</label>
+                <select id="prioridade" name="prioridade" defaultValue="normal" className={campo}>
+                  {PRIORIDADES.map((p) => (
+                    <option key={p} value={p}>
+                      {ROTULO_PRIORIDADE[p].emoji} {ROTULO_PRIORIDADE[p].rotulo}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
-            <p className="mt-1.5 text-xs text-slate-500">{TIPO_ABASTECIMENTO[tipo].descricao}</p>
-            {/* O aviso é do horário de quando a tela abriu -- serve para
-                pegar a escolha distraída, não para impedir a deliberada.
-                Bloquear obrigaria a inventar exceção para o primeiro dia
-                atípico, e sempre existe um. */}
-            {avisoSeDestoar && tipo !== tipoInicial && (
-              <p className="mt-1.5 rounded-lg bg-amber-50 p-2 text-xs text-amber-800">⚠️ {avisoSeDestoar}</p>
-            )}
-          </div>
+            <p className="text-xs text-slate-400">{ROTULO_PRIORIDADE.urgente.ajuda}</p>
 
-          <div className="grid grid-cols-2 gap-2">
             <div>
-              <label className={rotulo} htmlFor="turno">Turno</label>
-              <select id="turno" name="turno" defaultValue={turnoSugerido} className={campo}>
-                {TURNOS.map((t) => (
-                  <option key={t} value={t}>{ROTULO_TURNO[t]}</option>
-                ))}
-              </select>
+              <label className={rotulo} htmlFor="observacao">Onde está / observação (opcional)</label>
+              <input
+                id="observacao"
+                name="observacao"
+                maxLength={300}
+                placeholder="Ex.: corredor 3, posição do fundo"
+                className={campo}
+              />
             </div>
-            <div>
-              <label className={rotulo} htmlFor="prioridade">Prioridade</label>
-              <select id="prioridade" name="prioridade" defaultValue="normal" className={campo}>
-                {PRIORIDADES.map((p) => (
-                  <option key={p} value={p}>
-                    {ROTULO_PRIORIDADE[p].emoji} {ROTULO_PRIORIDADE[p].rotulo}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-          <p className="text-xs text-slate-400">{ROTULO_PRIORIDADE.urgente.ajuda}</p>
 
-          <div>
-            <label className={rotulo} htmlFor="observacao">Observação (opcional)</label>
-            <input
-              id="observacao"
-              name="observacao"
-              maxLength={300}
-              placeholder="Ex.: corredor 3, posição do fundo"
-              className={campo}
-            />
-          </div>
-
-          <BotaoEnviar className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-white hover:bg-primary-dark">
-            📤 Enviar para a empilhadeira
-          </BotaoEnviar>
-        </form>
-      )}
+            <BotaoEnviar className="w-full rounded-xl bg-primary px-4 py-3.5 text-sm font-bold text-white hover:bg-primary-dark">
+              📤 Enviar pedido ({itens.length} {itens.length === 1 ? "item" : "itens"})
+            </BotaoEnviar>
+          </form>
+        )}
+      </Passo>
     </div>
+  );
+}
+
+/**
+ * Uma etapa numerada, no formato do Monitor de Recebimento -- pedido do
+ * dono: "deixe essas etapas no mesmo formato do monitor de pedidos".
+ *
+ * O número não é enfeite: ele diz que existe uma ORDEM e quantas paradas
+ * faltam. Antes os três blocos tinham o mesmo peso visual e a pessoa não
+ * sabia por onde começar -- foi assim que o tipo de abastecimento acabou
+ * sendo a última coisa a ser informada, quando devia ser a primeira.
+ */
+function Passo({
+  numero,
+  titulo,
+  contagem,
+  apagado = false,
+  children,
+}: {
+  numero: number;
+  titulo: string;
+  contagem?: number;
+  apagado?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <section
+      className={`rounded-2xl border bg-white p-4 shadow-sm ${
+        apagado ? "border-slate-200 opacity-60" : "border-slate-200"
+      }`}
+    >
+      <h2 className="mb-3 flex items-center gap-2">
+        <span
+          className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
+            apagado ? "bg-slate-200 text-slate-500" : "bg-primary text-white"
+          }`}
+        >
+          {numero}
+        </span>
+        <span className="min-w-0 flex-1 text-sm font-bold text-slate-800">{titulo}</span>
+        {contagem !== undefined && contagem > 0 && (
+          <span className="shrink-0 rounded-full bg-primary-soft px-2 py-0.5 text-xs font-bold tabular-nums text-primary-dark">
+            {contagem}
+          </span>
+        )}
+      </h2>
+      {children}
+    </section>
   );
 }

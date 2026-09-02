@@ -38,13 +38,18 @@ import {
   type UnidadeAbastecimento,
 } from "@/lib/abastecimento";
 import {
+  ROTULO_ESTADO,
   estaAberta,
+  estadoDe,
   ordenarFila,
+  type Estado,
   type Prioridade,
   type Ressuprimento,
 } from "@/lib/ressuprimento";
 import { MontarSolicitacao } from "@/components/produtividade-armazem/MontarSolicitacao";
 import { CartaoDoPedido } from "@/components/produtividade-armazem/PecasDoRessuprimento";
+import { PainelDoAbastecimento } from "@/components/produtividade-armazem/PainelDoAbastecimento";
+import type { SessaoAnalise } from "@/lib/abastecimento-analise";
 import {
   adicionarItem,
   buscarProdutosAbastecimento,
@@ -103,6 +108,37 @@ const COLUNAS_ITEM = "id, abastecimento_id, produto_id, unidade, quantidade, hl_
 /** Quantos dias de solicitação a tela carrega. Curto de propósito: a fila
  *  é do turno, não do mês -- o histórico longo vive na aba Histórico. */
 const DIAS_DE_SOLICITACAO = 3;
+
+/**
+ * As etapas do pedido, na ordem em que acontecem.
+ *
+ * O título é o que a etapa ESPERA, não o nome do estado: "esperando a
+ * empilhadeira" diz o que falta; "aberta" só diz o que o banco guardou. É
+ * o mesmo desenho das colunas do Monitor de Recebimento, que a operação
+ * já sabe ler.
+ */
+const ETAPAS_DO_PEDIDO: { estado: Estado; titulo: string; moldura: string }[] = [
+  {
+    estado: "aberta",
+    titulo: "Esperando a empilhadeira buscar",
+    moldura: "border-slate-200 bg-slate-50",
+  },
+  {
+    estado: "em_transporte",
+    titulo: "A empilhadeira está trazendo",
+    moldura: "border-blue-200 bg-blue-50",
+  },
+  {
+    estado: "na_area",
+    titulo: "Na área — falta levar ao picking",
+    moldura: "border-amber-200 bg-amber-50",
+  },
+  {
+    estado: "abastecendo",
+    titulo: "Abastecendo o picking agora",
+    moldura: "border-green-200 bg-green-50",
+  },
+];
 
 type LinhaRessuprimento = {
   id: string;
@@ -274,12 +310,16 @@ export default async function AbastecimentoPage({
     ressuprimentoDaLinha,
   );
 
-  const agora = new Date();
 
   // UMA lista, do pedido ao abastecimento. O cartao mostra a proxima acao
   // de quem esta olhando -- ninguem precisa saber em que aba o trabalho
   // mora, porque ele nao muda de lugar.
   const pedidosAbertos = ordenarFila(solicitacoes.filter(estaAberta));
+
+  // Um relógio só para a tela inteira: cada `new Date()` a mais faria dois
+  // cartões calcularem "parado há" a partir de instantes diferentes.
+  const agora = new Date();
+
 
   // Completo até as 10h, pontual depois -- o combinado da operação. O
   // horário SUGERE (e avisa quando a escolha destoa), nunca bloqueia:
@@ -288,10 +328,6 @@ export default async function AbastecimentoPage({
   const outroTipo: TipoAbastecimento = tipoDoHorario === "completo" ? "pontual" : "completo";
   const avisoSeDestoar = avisoDoTipo(outroTipo, agora);
 
-  const nomeDoProduto = (id: string) => {
-    const p = produtoPorId.get(id);
-    return p ? `${p.codigo} — ${p.descricao}` : "produto";
-  };
 
   const produtos = produtosBanco ?? [];
   const produtoPorId = new Map(produtos.map((p) => [p.id, p]));
@@ -343,6 +379,33 @@ export default async function AbastecimentoPage({
       })),
     );
   }
+
+  /**
+   * As sessões do período no formato que a análise entende.
+   *
+   * O HL e os paletes saem dos ITENS já carregados, não de uma consulta
+   * nova: o painel e a lista precisam contar a mesma coisa, e dois
+   * caminhos até o mesmo número é como eles começam a divergir.
+   */
+  const paraAnalise: SessaoAnalise[] = doPeriodo.map((s) => {
+    const meus = itensPorSessao.get(s.id) ?? [];
+    return {
+      id: s.id,
+      colaboradorId: s.colaborador_id,
+      colaboradorNome: s.colaborador_nome,
+      tipo: s.tipo,
+      turno: s.turno,
+      inicio: s.inicio,
+      fim: s.fim,
+      deSolicitacao: Boolean(s.ressuprimento_id),
+      hl: meus.reduce((x, i) => x + i.hl_calculado, 0),
+      paletes: meus.reduce(
+        (x, i) => x + paletesDoItem(i, produtoPorId.get(i.produto_id)?.caixas_pallet ?? null),
+        0,
+      ),
+      itens: meus.length,
+    };
+  });
 
   const contadores = new Map<string, string>();
   for (const s of doPeriodo) contadores.set(s.colaborador_id, s.colaborador_nome);
@@ -419,48 +482,93 @@ export default async function AbastecimentoPage({
             />
           )}
 
-          <div>
-            <h2 className="mb-3 text-sm font-bold uppercase text-slate-500">
-              Pedidos em aberto
-              {pedidosAbertos.length > 0 && (
-                <span className="ml-2 font-normal text-slate-400">({pedidosAbertos.length})</span>
-              )}
-            </h2>
+          {/*
+            OS PEDIDOS, AGRUPADOS POR ETAPA -- o formato do Monitor de
+            Recebimento, pedido do dono. Cada etapa é uma gaveta com a
+            contagem no rótulo: dá para ver de relance quantos estão
+            esperando empilhadeira, quantos estão na área, sem abrir nada.
 
+            FECHADAS por padrão, também a pedido dele. A tela abre pelo
+            que se FAZ (pedir), e não por uma lista de trabalho alheio --
+            quem quer a lista abre a etapa dela e ela fica aberta enquanto
+            estiver ali.
+
+            A exceção é a etapa que espera ESTA pessoa: se sobrou um
+            pedido para ela buscar ou abastecer, aquela gaveta nasce
+            aberta. Uma gaveta fechada sobre trabalho que é seu é a mesma
+            armadilha das abas de antes, só que com outro nome.
+          */}
+          <div className="space-y-2">
             {pedidosAbertos.length === 0 ? (
               <p className="rounded-xl bg-slate-50 p-4 text-sm text-slate-500">
                 Nenhum pedido em aberto. Quando alguém pedir produto para o picking, ele aparece
                 aqui e fica até ser abastecido.
               </p>
             ) : (
-              <div className="space-y-3">
-                {pedidosAbertos.map((r) => (
-                  <CartaoDoPedido
-                    key={r.id}
-                    r={r}
-                    agora={agora}
-                    euId={perfil.id}
-                    podeTransportar={podeTransportar}
-                    podeAbastecer
-                    temSessaoAberta={Boolean(aberta)}
-                    // Mesma régua do abastecimento: a liderança apaga
-                    // qualquer um, a pessoa apaga o próprio.
-                    podeExcluir={podeExcluirQualquer || r.solicitanteId === perfil.id}
-                    nomeDoProduto={nomeDoProduto}
-                    turnoSugerido={turnoAtual(agora)}
-                  />
-                ))}
-              </div>
+              ETAPAS_DO_PEDIDO.map((etapa) => {
+                const desta = pedidosAbertos.filter((r) => estadoDe(r) === etapa.estado);
+                if (desta.length === 0) return null;
+
+                // "É comigo?" -- é o que decide se a gaveta nasce aberta.
+                const esperaPorMim =
+                  (etapa.estado === "aberta" && podeTransportar) ||
+                  (etapa.estado === "em_transporte" &&
+                    desta.some((r) => r.operadorId === perfil.id)) ||
+                  (etapa.estado === "na_area" && !aberta);
+
+                return (
+                  <details
+                    key={etapa.estado}
+                    open={esperaPorMim}
+                    className={`overflow-hidden rounded-2xl border ${etapa.moldura}`}
+                  >
+                    <summary className="flex cursor-pointer list-none items-center gap-2 p-3 marker:content-none [&::-webkit-details-marker]:hidden">
+                      <span className="text-lg leading-none">{ROTULO_ESTADO[etapa.estado].emoji}</span>
+                      <span className="min-w-0 flex-1 text-sm font-bold text-slate-800">
+                        {etapa.titulo}
+                      </span>
+                      <span className="shrink-0 rounded-full bg-white px-2 py-0.5 text-xs font-bold tabular-nums text-slate-700 ring-1 ring-slate-200">
+                        {desta.length}
+                      </span>
+                      <span className="shrink-0 text-slate-400">▾</span>
+                    </summary>
+                    <div className="space-y-3 border-t border-white/60 p-3">
+                      {desta.map((r) => (
+                        <CartaoDoPedido
+                          key={r.id}
+                          r={r}
+                          agora={agora}
+                          euId={perfil.id}
+                          podeTransportar={podeTransportar}
+                          podeAbastecer
+                          temSessaoAberta={Boolean(aberta)}
+                          // Mesma régua do abastecimento: a liderança apaga
+                          // qualquer um, a pessoa apaga o próprio.
+                          podeExcluir={podeExcluirQualquer || r.solicitanteId === perfil.id}
+                          produtoPorId={produtoPorId}
+                          turnoSugerido={turnoAtual(agora)}
+                        />
+                      ))}
+                    </div>
+                  </details>
+                );
+              })
             )}
           </div>
 
-          {/* Fechado por padrão quando já há pedido na lista: o trabalho
-              que existe vem antes do trabalho novo. Sem nenhum pedido,
-              abre sozinho -- é a única coisa a fazer na tela. */}
-          <details
-            open={pedidosAbertos.length === 0 && !aberta}
-            className="rounded-2xl border border-slate-200 bg-white"
-          >
+          {/*
+            ABERTO por padrão. Chegou a ser o contrário -- fechava quando
+            havia pedido na lista -- e isso desfazia o pedido do dono: "a
+            primeira coisa que precisa ser informado é o tipo de
+            abastecimento". Com a gaveta fechada, o tipo voltava a ficar
+            escondido atrás de um toque.
+
+            Funciona junto com a outra metade: as etapas dos pedidos são
+            gavetas FECHADAS, então esta ficar aberta não briga com nada.
+            Só fecha enquanto existe um abastecimento correndo, porque aí
+            o trabalho é terminar aquele, não começar outro.
+          */}
+          <details open={!aberta} className="rounded-2xl border border-slate-200 bg-white">
             <summary className="cursor-pointer list-none p-4 text-sm font-bold text-primary-dark marker:content-none [&::-webkit-details-marker]:hidden">
               ➕ Pedir produto para o picking
             </summary>
@@ -625,13 +733,22 @@ export default async function AbastecimentoPage({
 
       {/* ---------------- VISÃO 5: RANKING DE SKU ---------------- */}
       {aba === "ranking" && (
-        <section>
+        <section className="space-y-4">
           <FiltroPeriodo aba="ranking" de={de} ate={ate} turno={turnoFiltro} colab={colab} contadores={contadores} />
-          <RankingSku
-            sessoes={doPeriodo}
-            itensPorSessao={itensPorSessao}
-            produtoPorId={produtoPorId}
-          />
+
+          {/* O painel da atividade vem antes do ranking de SKU: a pergunta
+              "como estamos?" é mais frequente que "qual produto pesa
+              mais?", e antes só a segunda tinha resposta aqui. */}
+          <PainelDoAbastecimento sessoes={paraAnalise} />
+
+          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+            <h2 className="mb-3 text-sm font-bold text-slate-900">Ranking de SKU</h2>
+            <RankingSku
+              sessoes={doPeriodo}
+              itensPorSessao={itensPorSessao}
+              produtoPorId={produtoPorId}
+            />
+          </div>
         </section>
       )}
     </div>
@@ -726,21 +843,36 @@ function SessaoEmAndamento({
 }) {
   const tipo: TipoAbastecimento = ehTipoAbastecimento(sessao.tipo) ? sessao.tipo : "completo";
 
+  /*
+    VERDE quando o abastecimento veio de um pedido, âmbar quando é avulso.
+
+    Pedido do dono: "após clicar em abastecer isto, mude a cor da tela para
+    um verde ou azul". A cor é a confirmação de que o toque pegou -- entre
+    tocar em "Levar para o picking" e a tela recarregar, a única prova de
+    que alguma coisa aconteceu era o texto mudar. Verde é o mesmo da etapa
+    "abastecendo" na lista de pedidos, então a tela inteira conta a mesma
+    história.
+  */
+  const daSolicitacao = Boolean(sessao.ressuprimento_id);
+  const tom = daSolicitacao
+    ? { caixa: "border-green-300 bg-green-50", titulo: "text-green-900", texto: "text-green-800" }
+    : { caixa: "border-amber-200 bg-amber-50", titulo: "text-amber-900", texto: "text-amber-800" };
+
   return (
-    <div className="space-y-4 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+    <div className={`space-y-4 rounded-2xl border p-4 ${tom.caixa}`}>
       <div>
-        <p className="text-sm font-bold text-amber-900">
+        <p className={`text-sm font-bold ${tom.titulo}`}>
           🕐 {TIPO_ABASTECIMENTO[tipo].rotulo} em andamento —{" "}
           {ROTULO_TURNO[sessao.turno as keyof typeof ROTULO_TURNO] ?? sessao.turno}
         </p>
-        <p className="text-xs text-amber-800">Iniciado às {formatarDataHora(sessao.inicio)}</p>
+        <p className={`text-xs ${tom.texto}`}>Iniciado às {formatarDataHora(sessao.inicio)}</p>
         {/* Os itens desta sessão já vieram preenchidos, e sem esta linha a
             pessoa abriria a tela sem entender de onde saíram -- ou
             apagaria tudo achando que era lançamento de outro. */}
-        {sessao.ressuprimento_id && (
-          <p className="mt-1 text-xs font-medium text-amber-900">
-            🧾 Veio de uma solicitação. Os itens já estão lançados — remova o que você não
-            chegou a abastecer e finalize.
+        {daSolicitacao && (
+          <p className={`mt-1 text-xs font-medium ${tom.titulo}`}>
+            🧾 Veio de um pedido. Os itens já estão lançados — remova o que você não chegou a
+            abastecer e finalize.
           </p>
         )}
       </div>
