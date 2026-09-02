@@ -49,7 +49,8 @@ export type ModuloId =
   | "meus-indicadores"
   | "justificativas"
   | "metas"
-  | "fontes-dados";
+  | "fontes-dados"
+  | "perfis-acesso";
 
 /**
  * As gavetas do Modo Liderança, na ordem em que aparecem.
@@ -418,6 +419,17 @@ export const MODULOS: Modulo[] = [
     // responde qual ação foi tomada.
     acoes: ["ver", "editar"],
     subGrupoDe: "produtividade-armazem",
+  },
+  {
+    id: "perfis-acesso",
+    rotulo: "Perfis de Acesso",
+    emoji: "🎫",
+    href: "/admin/perfis-de-acesso",
+    grupo: "Pessoas",
+    // "editar" cria e aplica perfil; "excluir" apaga o perfil (o que
+    // NAO tira permissao de ninguem -- as concessoes ja foram gravadas
+    // e vivem por conta propria).
+    acoes: ["ver", "editar", "excluir"],
   },
   {
     id: "colaboradores",
