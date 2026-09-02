@@ -49,6 +49,9 @@ import {
   type TrocaGas,
 } from "@/lib/empilhadeira-gas";
 import { CATALOGO_DE_METAS, avaliarMeta, media } from "@/lib/metas";
+import { PainelDoAbastecimento } from "@/components/produtividade-armazem/PainelDoAbastecimento";
+import type { SessaoAnalise } from "@/lib/abastecimento-analise";
+import { avariaPorProduto, pctAvaria as pctAvariaBatePalete } from "@/lib/bate-palete";
 import {
   indicadoresDoOperador,
   indicadoresDoSolicitante,
@@ -134,6 +137,7 @@ export default async function IndicadoresPage({
     { data: empilhadeiraConfig },
     { data: metasBanco },
     { data: embalagensRepackBanco },
+    { data: batePaleteBanco },
     { data: ressuprimentosBanco },
   ] = await Promise.all([
     supabase
@@ -185,7 +189,7 @@ export default async function IndicadoresPage({
     // Os itens vêm embutidos para o HL sair na mesma ida ao banco.
     supabase
       .from("pa_abastecimentos")
-      .select("colaborador_id, colaborador_nome, turno, inicio, fim, pa_abastecimento_itens(hl_calculado)")
+      .select("id, colaborador_id, colaborador_nome, tipo, turno, inicio, fim, ressuprimento_id, pa_abastecimento_itens(hl_calculado)")
       .eq("revenda_id", revendaId)
       .gte("inicio", de0)
       .lte("inicio", ate23)
@@ -248,6 +252,16 @@ export default async function IndicadoresPage({
     supabase.from("pa_metas").select("chave, valor").eq("revenda_id", revendaId),
     // As embalagens do Repack (pa_embalagens), diferentes das do Despejo.
     supabase.from("pa_embalagens").select("id, nome").eq("revenda_id", revendaId),
+    // Bate palete: o lote batido e quanto dele estava avariado. O
+    // percentual sai da soma dos dois -- nunca da media de percentuais,
+    // que trataria um lote de 2 HL igual a um de 200.
+    supabase
+      .from("pa_bate_palete")
+      .select("id, colaborador_nome, turno, inicio, fim, pa_bate_palete_itens(produto_id, hl_batido, hl_avariado)")
+      .eq("revenda_id", revendaId)
+      .not("fim", "is", null)
+      .gte("inicio", de0)
+      .lte("inicio", ate23),
     // Ressuprimento: o pedido, o transporte e o abastecimento. O que
     // interessa aqui não é o volume -- esse já está no bloco do
     // Abastecimento -- é o TEMPO ENTRE os três, que é onde a operação
@@ -365,14 +379,19 @@ export default async function IndicadoresPage({
   }[];
   // Cada sessão de abastecimento vira uma linha com o HL somado dos itens
   // -- é a forma que o ranking e os cartões consomem (quantidade + tempo).
-  const pickingsTodos = ((pickingsBanco ?? []) as {
+  const pickingsBrutos = (pickingsBanco ?? []) as {
+    id: string;
     colaborador_id: string;
     colaborador_nome: string;
+    tipo: string;
     turno: string;
     inicio: string;
     fim: string;
+    ressuprimento_id: string | null;
     pa_abastecimento_itens: { hl_calculado: number }[] | null;
-  }[]).map((s) => ({
+  }[];
+
+  const pickingsTodos = pickingsBrutos.map((s) => ({
     colaborador_id: s.colaborador_id,
     colaborador_nome: s.colaborador_nome,
     turno: s.turno,
@@ -380,6 +399,49 @@ export default async function IndicadoresPage({
     fim: s.fim,
     hl: Math.round((s.pa_abastecimento_itens ?? []).reduce((t, i) => t + i.hl_calculado, 0) * 1000) / 1000,
   }));
+
+  /**
+   * O painel do Abastecimento, que morava na tela de quem executa.
+   *
+   * Veio para cá em 03/09/2026, a pedido do dono: dashboard mora em um
+   * lugar só. A tela de lançamento ficou com Lançar e Histórico -- o que
+   * a pessoa FAZ; o que se ACOMPANHA é aqui.
+   */
+  const abastecimentoParaAnalise: SessaoAnalise[] = pickingsBrutos.map((s) => ({
+    id: s.id,
+    colaboradorId: s.colaborador_id,
+    colaboradorNome: s.colaborador_nome,
+    tipo: s.tipo,
+    turno: s.turno,
+    inicio: s.inicio,
+    fim: s.fim,
+    deSolicitacao: Boolean(s.ressuprimento_id),
+    hl: (s.pa_abastecimento_itens ?? []).reduce((t, i) => t + i.hl_calculado, 0),
+    itens: (s.pa_abastecimento_itens ?? []).length,
+  }));
+
+  /** Bate palete: os lotes do período, com o produto de cada um. */
+  const batePaleteBruto = (batePaleteBanco ?? []) as {
+    id: string;
+    colaborador_nome: string;
+    turno: string;
+    inicio: string;
+    fim: string;
+    pa_bate_palete_itens: { produto_id: string; hl_batido: number; hl_avariado: number }[] | null;
+  }[];
+
+  const lotesBatidos = batePaleteBruto.flatMap((s) =>
+    (s.pa_bate_palete_itens ?? []).map((i) => ({
+      produtoId: i.produto_id,
+      hlBatido: Number(i.hl_batido),
+      hlAvariado: Number(i.hl_avariado),
+    })),
+  );
+
+  const batePaleteHl = lotesBatidos.reduce((s, i) => s + i.hlBatido, 0);
+  const batePaleteAvariado = lotesBatidos.reduce((s, i) => s + i.hlAvariado, 0);
+  const batePalatePctAvaria = pctAvariaBatePalete(batePaleteHl, batePaleteAvariado);
+  const avariaDosProdutos = avariaPorProduto(lotesBatidos);
   // 5S não tem coluna de turno (é uma execução, não um lançamento por
   // turno) -- infere pelo horário real de início, com a mesma régua que
   // decide o turno "agora" (ver turnoAtual em lib/produtividade-armazem).
@@ -1017,6 +1079,59 @@ export default async function IndicadoresPage({
             meta={leituraPicking}
           />
         </BlocoAtividade>
+
+        {/* ---- BATE PALETE ----
+            Só aparece quando houve lote no período: um bloco de zeros
+            ensina a ignorá-lo. */}
+        {lotesBatidos.length > 0 && (
+          <BlocoAtividade titulo="📦 Bate Palete">
+            <CartaoHero
+              titulo="HL batidos"
+              valor={`${formatarNumeroBr(batePaleteHl, 1)} HL`}
+              legenda={`${lotesBatidos.length} lote(s)`}
+            />
+            <CartaoHero
+              titulo="Avaria"
+              valor={
+                batePalatePctAvaria === null
+                  ? "—"
+                  : `${formatarNumeroBr(batePalatePctAvaria, 1)}%`
+              }
+              legenda={`${formatarNumeroBr(batePaleteAvariado, 1)} HL perdidos`}
+            />
+            <CartaoHero
+              titulo="Aproveitado"
+              valor={`${formatarNumeroBr(batePaleteHl - batePaleteAvariado, 1)} HL`}
+              legenda="voltou inteiro ao estoque"
+            />
+            {/* O número que aponta a ORIGEM. Um SKU que chega com muita
+                avaria em todo lote tem problema de paletização ou de
+                transporte, e nada dentro do armazém resolve. */}
+            <div className="col-span-full">
+              <BarraRanking
+                titulo="Onde está a avaria"
+                subtitulo="HL avariado por produto, no período"
+                itens={avariaDosProdutos.slice(0, 8).map((l) => ({
+                  rotulo: produtos.find((p) => p.id === l.produtoId)?.descricao ?? "produto",
+                  valor: l.hlAvariado,
+                  detalhe: `${l.lotes} lote(s) · ${
+                    l.pctAvaria === null ? "—" : `${formatarNumeroBr(l.pctAvaria, 1)}% do lote`
+                  }`,
+                }))}
+                sufixo=" HL"
+                tom="vermelho"
+              />
+            </div>
+          </BlocoAtividade>
+        )}
+
+        {/* ---- ABASTECIMENTO: o painel que morava na tela de lançar ---- */}
+        {abastecimentoParaAnalise.length > 0 && (
+          <section>
+            <h2 className="mb-2 text-sm font-bold text-slate-900">🧃 Abastecimento — análise</h2>
+            <PainelDoAbastecimento sessoes={abastecimentoParaAnalise} />
+          </section>
+        )}
 
         {/* O bloco mede o que acontece ENTRE as pessoas -- o volume já
             está no bloco de cima. Só aparece quando houve solicitação no

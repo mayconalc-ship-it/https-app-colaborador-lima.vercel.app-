@@ -9,7 +9,7 @@ import { podeNoModulo } from "@/lib/require-admin";
 import { getRevendaId } from "@/lib/revendas";
 import { exigirContextoModulo } from "@/lib/produtividade-armazem-server";
 import { ehTurno } from "@/lib/produtividade-armazem";
-import { hlRecuperado } from "@/lib/bate-palete";
+import { calcularHl, ehUnidadeBatePalete } from "@/lib/bate-palete";
 
 const ROTA = "/produtividade-armazem/bate-palete";
 
@@ -74,21 +74,27 @@ export async function registrarPalete(formData: FormData) {
   if (!sessaoId) erro("Sessão inválida.");
   if (!produtoId) erro("Escolha o produto.");
 
-  const avariadas = Number(String(formData.get("caixas_avariadas") ?? "").replace(",", "."));
-  const repostas = Number(String(formData.get("caixas_repostas") ?? "").replace(",", "."));
+  const unidade = formData.get("unidade");
+  if (!ehUnidadeBatePalete(unidade)) erro("Escolha se a contagem é em caixa ou em unidade.");
 
-  for (const [nome, v] of [["avariadas", avariadas], ["repostas", repostas]] as const) {
-    if (!Number.isFinite(v) || v < 0 || !Number.isInteger(v)) {
-      erro(`Informe um número inteiro de caixas ${nome} (pode ser 0).`);
-    }
-    if (v > 10_000) erro("Quantidade fora do razoável -- confira o que digitou.");
+  const batida = Number(String(formData.get("quantidade") ?? "").replace(",", "."));
+  const avariada = Number(String(formData.get("quantidade_avariada") ?? "").replace(",", "."));
+
+  for (const [nome, v] of [["batida", batida], ["avariada", avariada]] as const) {
+    if (!Number.isFinite(v) || v < 0) erro(`Informe a quantidade ${nome} (número, pode ter vírgula).`);
+    if (v > 100_000) erro("Quantidade fora do razoável -- confira o que digitou.");
   }
 
-  // Palete sem avariada e sem reposta não foi batido: é um lançamento em
-  // branco que só faz a média de caixas/h cair. O banco também recusa
-  // (constraint), mas o erro dele não é uma frase que a operação entenda.
-  if (avariadas === 0 && repostas === 0) {
-    erro("Informe quantas caixas você tirou e/ou repôs -- um palete sem nenhuma das duas não foi batido.");
+  // Lote com quantidade zero não foi batido: é um lançamento em branco
+  // que só faz a taxa cair. O banco também recusa (constraint), mas o
+  // erro dele não é uma frase que a operação entenda.
+  if (batida <= 0) erro("Informe quanto foi batido -- um lote de zero não foi batido.");
+
+  // A avariada está DENTRO da batida. Sem esta trava daria para lançar 10
+  // batidas com 50 avariadas, e o percentual de avaria passaria de 100%
+  // sem ninguém entender de onde veio.
+  if (avariada > batida) {
+    erro("A quantidade avariada não pode ser maior que a batida -- ela faz parte do lote.");
   }
 
   const observacao = String(formData.get("observacao") ?? "").trim().slice(0, 200) || null;
@@ -110,7 +116,7 @@ export async function registrarPalete(formData: FormData) {
 
   const { data: produto } = await supabase
     .from("pa_produtos")
-    .select("id, descricao, fator_hecto, caixas_pallet")
+    .select("id, descricao, fator_hecto, unidades_por_caixa, caixas_pallet")
     .eq("id", produtoId)
     .eq("revenda_id", revendaId)
     .eq("ativo", true)
@@ -118,16 +124,22 @@ export async function registrarPalete(formData: FormData) {
 
   if (!produto) erro("Produto não encontrado.");
 
-  const hl = hlRecuperado(repostas, {
+  const fatores = {
     fatorHecto: produto.fator_hecto,
+    unidadesPorCaixa: produto.unidades_por_caixa,
     caixasPallet: produto.caixas_pallet,
-  });
+  };
+
+  const hlBatido = calcularHl(batida, unidade, fatores);
+  const hlAvariado = calcularHl(avariada, unidade, fatores);
 
   // Produto sem o fator é RECUSADO em vez de entrar valendo zero: um
   // item invisível no total é pior do que uma mensagem de erro.
-  if (hl === null) {
+  if (hlBatido === null || hlAvariado === null) {
     erro(
-      `${produto.descricao} não tem Fator Hecto no cadastro -- peça ao Admin para completar em Configuração.`,
+      unidade === "unidade"
+        ? `${produto.descricao} não tem "unidades por caixa" no cadastro -- conte em caixa ou peça ao Admin para completar.`
+        : `${produto.descricao} não tem Fator Hecto no cadastro -- peça ao Admin para completar em Configuração.`,
     );
   }
 
@@ -135,27 +147,29 @@ export async function registrarPalete(formData: FormData) {
     revenda_id: revendaId,
     bate_palete_id: sessaoId,
     produto_id: produto.id,
-    caixas_avariadas: avariadas,
-    caixas_repostas: repostas,
-    hl_recuperado: hl,
+    unidade,
+    quantidade: batida,
+    quantidade_avariada: avariada,
+    hl_batido: hlBatido,
+    hl_avariado: hlAvariado,
     observacao,
   });
 
-  if (error) erro(`Não foi possível registrar o palete: ${error.message}`);
+  if (error) erro(`Não foi possível registrar o lote: ${error.message}`);
 
   revalidatePath(ROTA);
   redirect(
     `${ROTA}?sucesso=${encodeURIComponent(
-      `${produto.descricao} — ${avariadas} cx tirada(s), ${repostas} reposta(s)`,
+      `${produto.descricao} — ${batida} batida(s), ${avariada} avariada(s)`,
     )}`,
   );
 }
 
-/** Tira um palete lançado errado, enquanto a sessão ainda está aberta. */
+/** Tira um lote lançado errado, enquanto a sessão ainda está aberta. */
 export async function removerPalete(formData: FormData) {
   const { perfil, revendaId } = await exigirContexto();
   const id = String(formData.get("id") ?? "");
-  if (!id) erro("Palete inválido.");
+  if (!id) erro("Lote inválido.");
 
   const supabase = await createClient();
 
@@ -174,17 +188,17 @@ export async function removerPalete(formData: FormData) {
     | undefined;
 
   if (!item || !sessao || sessao.colaborador_id !== perfil.id || sessao.fim !== null) {
-    erro("Só dá para remover palete de um bate palete seu que ainda está aberto.");
+    erro("Só dá para remover lote de um bate palete seu que ainda está aberto.");
   }
 
   await supabase.from("pa_bate_palete_itens").delete().eq("id", id);
 
   revalidatePath(ROTA);
-  redirect(`${ROTA}?sucesso=Palete+removido`);
+  redirect(`${ROTA}?sucesso=Lote+removido`);
 }
 
 /**
- * Fecha a sessão. Os totais (paletes, caixas, HL, taxas) NÃO são
+ * Fecha a sessão. Os totais (lotes, HL, % de avaria, taxas) NÃO são
  * gravados -- saem dos itens na leitura, porque um total gravado que
  * discorde dos itens é pior do que total nenhum. Ver resumirBatePalete.
  */
@@ -205,7 +219,7 @@ export async function finalizarBatePalete(formData: FormData) {
     .select("*", { count: "exact", head: true })
     .eq("bate_palete_id", id);
 
-  if (!count) erro("Registre pelo menos um palete antes de finalizar.");
+  if (!count) erro("Registre pelo menos um lote antes de finalizar.");
 
   const { error } = await supabase
     .from("pa_bate_palete")

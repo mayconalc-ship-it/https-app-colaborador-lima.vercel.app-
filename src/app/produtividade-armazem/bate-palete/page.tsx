@@ -21,9 +21,9 @@ import {
 import { formatarHl, formatarMinutos } from "@/lib/abastecimento";
 import {
   COOKIE_BATE_PALETE_PATH,
-  avariaPorProduto,
-  mediaPaletesPorDia,
-  pctAvariaDoPalete,
+  ROTULO_UNIDADE_BATE_PALETE,
+  UNIDADES_BATE_PALETE,
+  pctAvaria,
   resumirBatePalete,
 } from "@/lib/bate-palete";
 import {
@@ -38,8 +38,15 @@ import {
 
 export const dynamic = "force-dynamic";
 
-type Aba = "lancar" | "historico" | "analise";
-const ABAS: Aba[] = ["lancar", "historico", "analise"];
+/**
+ * Só LANÇAR e HISTÓRICO.
+ *
+ * A aba de análise existiu aqui por algumas horas e foi para a área de
+ * Gestão, a pedido do dono: dashboard mora em um lugar só. Esta tela é de
+ * quem executa; quem acompanha abre /gestao/armazem.
+ */
+type Aba = "lancar" | "historico";
+const ABAS: Aba[] = ["lancar", "historico"];
 
 const campo =
   "w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-base text-slate-900 focus:border-primary focus:outline-none";
@@ -59,15 +66,17 @@ type ItemLinha = {
   id: string;
   bate_palete_id: string;
   produto_id: string;
-  caixas_avariadas: number;
-  caixas_repostas: number;
-  hl_recuperado: number;
+  unidade: string;
+  quantidade: number;
+  quantidade_avariada: number;
+  hl_batido: number;
+  hl_avariado: number;
   observacao: string | null;
 };
 
 const COLUNAS_SESSAO = "id, colaborador_id, colaborador_nome, turno, inicio, fim, observacao";
 const COLUNAS_ITEM =
-  "id, bate_palete_id, produto_id, caixas_avariadas, caixas_repostas, hl_recuperado, observacao";
+  "id, bate_palete_id, produto_id, unidade, quantidade, quantidade_avariada, hl_batido, hl_avariado, observacao";
 
 type ProdutoLinha = {
   id: string;
@@ -75,7 +84,6 @@ type ProdutoLinha = {
   descricao: string;
   cluster_produto: string | null;
   tipo: string | null;
-  caixas_pallet: number | null;
 };
 
 export default async function BatePaletePage({
@@ -102,13 +110,12 @@ export default async function BatePaletePage({
   if (!revendaId) redirect(`/?erro=${encodeURIComponent("Você não está em nenhuma revenda.")}`);
 
   const supabase = await createClient();
-  const precisaPeriodo = aba === "historico" || aba === "analise";
 
   const [{ data: produtosBanco }, { data: abertaBanco }, { data: minhasBanco }, { data: periodoBanco }, podeExcluirQualquer] =
     await Promise.all([
       supabase
         .from("pa_produtos")
-        .select("id, codigo, descricao, cluster_produto, tipo, caixas_pallet")
+        .select("id, codigo, descricao, cluster_produto, tipo")
         .eq("revenda_id", revendaId)
         .eq("ativo", true)
         .not("fator_hecto", "is", null)
@@ -128,7 +135,7 @@ export default async function BatePaletePage({
         .not("fim", "is", null)
         .order("fim", { ascending: false })
         .limit(10),
-      precisaPeriodo
+      aba === "historico"
         ? (() => {
             let q = supabase
               .from("pa_bate_palete")
@@ -156,7 +163,7 @@ export default async function BatePaletePage({
 
   // O filtro Cluster/Tipo é lembrado do último uso, igual ao Repack -- e
   // quem lê o cookie PRIMEIRO é o servidor, senão a pessoa recomeça o
-  // filtro a cada palete que registra.
+  // filtro a cada lote que registra.
   const jar = await cookies();
   const clusterCookie = decodeURIComponent(jar.get(COOKIE_REEPACK_CLUSTER)?.value ?? "");
   const tipoCookie = decodeURIComponent(jar.get(COOKIE_REEPACK_TIPO)?.value ?? "");
@@ -181,9 +188,8 @@ export default async function BatePaletePage({
       s.inicio,
       s.fim,
       (itensPorSessao.get(s.id) ?? []).map((i) => ({
-        caixasAvariadas: i.caixas_avariadas,
-        caixasRepostas: i.caixas_repostas,
-        hlRecuperado: i.hl_recuperado,
+        hlBatido: i.hl_batido,
+        hlAvariado: i.hl_avariado,
       })),
     );
 
@@ -191,7 +197,7 @@ export default async function BatePaletePage({
     <div>
       <PageHeader
         title="📦 Bate Palete"
-        subtitle="Tire as caixas avariadas, complete com as boas e registre cada palete."
+        subtitle="Registre o que foi batido e quanto disso estava avariado."
         fecharHref="/produtividade-armazem"
       />
 
@@ -201,25 +207,22 @@ export default async function BatePaletePage({
       )}
 
       <nav className="mb-4 flex flex-wrap gap-2">
-        {([["lancar", "Lançar"], ["historico", "Histórico"], ["analise", "Análise"]] as [Aba, string][]).map(
-          ([a, texto]) => (
-            <a
-              key={a}
-              href={`?aba=${a}`}
-              aria-current={a === aba ? "page" : undefined}
-              className={`rounded-xl px-3 py-2 text-sm font-semibold ${
-                a === aba
-                  ? "bg-primary text-white ring-2 ring-primary/30 ring-offset-1"
-                  : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-              }`}
-            >
-              {texto}
-            </a>
-          ),
-        )}
+        {([["lancar", "Lançar"], ["historico", "Histórico"]] as [Aba, string][]).map(([a, texto]) => (
+          <a
+            key={a}
+            href={`?aba=${a}`}
+            aria-current={a === aba ? "page" : undefined}
+            className={`rounded-xl px-3 py-2 text-sm font-semibold ${
+              a === aba
+                ? "bg-primary text-white ring-2 ring-primary/30 ring-offset-1"
+                : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+            }`}
+          >
+            {texto}
+          </a>
+        ))}
       </nav>
 
-      {/* ---------------- LANÇAR ---------------- */}
       {aba === "lancar" && (
         <section className="space-y-4">
           {aberta ? (
@@ -241,8 +244,8 @@ export default async function BatePaletePage({
                 </summary>
                 <div className="space-y-2 border-t border-slate-100 p-3 text-xs">
                   <p className="text-slate-700">
-                    Palete que chegou avariado da fábrica: tirar as caixas quebradas, completar com
-                    caixas boas e devolver o palete inteiro para o estoque.
+                    Palete que chegou avariado da fábrica: desmontar, separar o que está avariado e
+                    remontar o palete para voltar ao estoque.
                   </p>
                   <p className="text-slate-700">
                     <strong className="text-green-700">▶️ Comece a contar</strong> ao puxar o primeiro
@@ -250,7 +253,7 @@ export default async function BatePaletePage({
                   </p>
                   <p className="text-slate-700">
                     <strong className="text-red-700">⏹️ Pare de contar</strong> quando o último palete
-                    estiver montado e você tiver registrado todos aqui.
+                    estiver montado e você tiver registrado tudo aqui.
                   </p>
                   {/* A fronteira com a Seleção e Triagem, dita na tela e não
                       só no código: são duas atividades vizinhas, e contar a
@@ -317,10 +320,9 @@ export default async function BatePaletePage({
         </section>
       )}
 
-      {/* ---------------- HISTÓRICO ---------------- */}
       {aba === "historico" && (
         <section>
-          <Filtro aba="historico" de={de} ate={ate} turno={turnoFiltro} />
+          <Filtro de={de} ate={ate} turno={turnoFiltro} />
           {doPeriodo.length === 0 ? (
             <p className="rounded-xl bg-slate-50 p-4 text-sm text-slate-500">
               Nenhum bate palete no período.
@@ -340,19 +342,10 @@ export default async function BatePaletePage({
               ))}
             </ul>
           )}
-        </section>
-      )}
-
-      {/* ---------------- ANÁLISE ---------------- */}
-      {aba === "analise" && (
-        <section className="space-y-4">
-          <Filtro aba="analise" de={de} ate={ate} turno={turnoFiltro} />
-          <Analise
-            sessoes={doPeriodo}
-            itensPorSessao={itensPorSessao}
-            produtoPorId={produtoPorId}
-            resumir={resumir}
-          />
+          <p className="mt-4 rounded-xl bg-slate-50 p-3 text-xs leading-relaxed text-slate-500">
+            📊 Os indicadores desta atividade — avaria por produto, evolução e ritmo — ficam no
+            painel de gestão, junto com os do resto do armazém.
+          </p>
         </section>
       )}
     </div>
@@ -361,10 +354,10 @@ export default async function BatePaletePage({
 
 /* ==================== COMPONENTES ==================== */
 
-function Filtro({ aba, de, ate, turno }: { aba: Aba; de: string; ate: string; turno: string }) {
+function Filtro({ de, ate, turno }: { de: string; ate: string; turno: string }) {
   return (
     <form method="get" className="mb-4 grid grid-cols-2 gap-2 rounded-2xl border border-slate-200 bg-white p-3 sm:flex sm:flex-wrap sm:items-end">
-      <input type="hidden" name="aba" value={aba} />
+      <input type="hidden" name="aba" value="historico" />
       <div className="min-w-0">
         <label className={rotulo} htmlFor="de">De</label>
         <input id="de" type="date" name="de" defaultValue={de} className={campo} />
@@ -418,9 +411,12 @@ function SessaoAberta({
       </div>
 
       <div className="grid grid-cols-4 gap-2 text-center">
-        <Numero titulo="Paletes" valor={String(resumo.paletes)} />
-        <Numero titulo="Tiradas" valor={String(resumo.caixasAvariadas)} />
-        <Numero titulo="Repostas" valor={String(resumo.caixasRepostas)} />
+        <Numero titulo="Lotes" valor={String(resumo.lotes)} />
+        <Numero titulo="HL batido" valor={formatarHl(resumo.hlBatido)} />
+        <Numero
+          titulo="Avaria"
+          valor={resumo.pctAvaria === null ? "—" : `${resumo.pctAvaria.toLocaleString("pt-BR")}%`}
+        />
         <Numero titulo="Tempo" valor={formatarMinutos(resumo.minutos)} />
       </div>
 
@@ -428,10 +424,8 @@ function SessaoAberta({
         <ul className="space-y-1.5">
           {itens.map((i) => {
             const p = produtoPorId.get(i.produto_id);
-            const pct = pctAvariaDoPalete(i.caixas_avariadas, {
-              fatorHecto: null,
-              caixasPallet: p?.caixas_pallet ?? null,
-            });
+            const pct = pctAvaria(i.quantidade, i.quantidade_avariada);
+            const un = ROTULO_UNIDADE_BATE_PALETE[i.unidade as "caixa" | "unidade"] ?? i.unidade;
             return (
               <li key={i.id} className="flex items-center justify-between gap-2 rounded-lg bg-white p-2">
                 <div className="min-w-0">
@@ -439,15 +433,19 @@ function SessaoAberta({
                     {p?.descricao ?? "produto removido"}
                   </p>
                   <p className="text-xs text-slate-500">
-                    −{i.caixas_avariadas} avariadas · +{i.caixas_repostas} boas
-                    {pct !== null && ` · ${pct.toLocaleString("pt-BR")}% do palete`}
+                    {i.quantidade.toLocaleString("pt-BR", { maximumFractionDigits: 2 })}{" "}
+                    {un.toLowerCase()}
+                    {i.quantidade > 1 ? "s" : ""} ·{" "}
+                    {i.quantidade_avariada.toLocaleString("pt-BR", { maximumFractionDigits: 2 })}{" "}
+                    avariada{i.quantidade_avariada === 1 ? "" : "s"}
+                    {pct !== null && ` · ${pct.toLocaleString("pt-BR")}% de avaria`}
                   </p>
                   {i.observacao && <p className="text-xs text-slate-400">📝 {i.observacao}</p>}
                 </div>
                 <BotaoExcluir
                   action={removerPalete}
                   campos={{ id: i.id }}
-                  confirmacao="Remover este palete do lançamento?"
+                  confirmacao="Remover este lote do lançamento?"
                   className="shrink-0 rounded-lg border border-red-200 px-2 py-1 text-xs font-semibold text-red-600 hover:bg-red-50"
                 >
                   Remover
@@ -458,10 +456,10 @@ function SessaoAberta({
         </ul>
       )}
 
-      {/* --- Registrar um palete --- */}
+      {/* --- Registrar um lote --- */}
       <form action={registrarPalete} className="space-y-3 rounded-xl bg-white p-3">
         <input type="hidden" name="bate_palete_id" value={sessao.id} />
-        <p className="text-xs font-semibold uppercase text-slate-500">Registrar um palete</p>
+        <p className="text-xs font-semibold uppercase text-slate-500">Registrar o que foi batido</p>
 
         <ComboboxProdutoReepack
           clusters={clusters}
@@ -472,32 +470,46 @@ function SessaoAberta({
           cookiePath={COOKIE_BATE_PALETE_PATH}
         />
 
-        {/* As duas metades da atividade, lado a lado: o que saiu e o que
-            entrou. Separadas porque contam histórias diferentes -- a soma
-            é o esforço, a diferença denuncia palete que voltou incompleto. */}
+        <div>
+          <span className={rotulo}>Contagem em</span>
+          <div className="grid grid-cols-2 gap-2">
+            {UNIDADES_BATE_PALETE.map((u) => (
+              <label
+                key={u}
+                className="flex cursor-pointer items-center justify-center rounded-xl border border-slate-300 py-2 text-sm font-semibold text-slate-700 has-[:checked]:border-primary has-[:checked]:bg-primary-soft has-[:checked]:text-primary-dark"
+              >
+                <input type="radio" name="unidade" value={u} defaultChecked={u === "caixa"} className="sr-only" />
+                {ROTULO_UNIDADE_BATE_PALETE[u]}
+              </label>
+            ))}
+          </div>
+        </div>
+
+        {/* As duas medidas do MESMO lote: quanto foi batido, e quanto disso
+            estava avariado. Lado a lado porque a segunda só faz sentido
+            dentro da primeira -- é ela que vira o percentual de avaria. */}
         <div className="grid grid-cols-2 gap-2">
           <div>
-            <label className={rotulo} htmlFor="caixas_avariadas">Caixas tiradas (avariadas)</label>
+            <label className={rotulo} htmlFor="quantidade">Quantidade batida</label>
             <input
-              id="caixas_avariadas"
-              name="caixas_avariadas"
+              id="quantidade"
+              name="quantidade"
               type="number"
-              inputMode="numeric"
-              step="1"
-              min="0"
-              defaultValue="0"
+              inputMode="decimal"
+              step="0.01"
+              min="0.01"
               required
               className={campo}
             />
           </div>
           <div>
-            <label className={rotulo} htmlFor="caixas_repostas">Caixas repostas (boas)</label>
+            <label className={rotulo} htmlFor="quantidade_avariada">Dessa, avariada</label>
             <input
-              id="caixas_repostas"
-              name="caixas_repostas"
+              id="quantidade_avariada"
+              name="quantidade_avariada"
               type="number"
-              inputMode="numeric"
-              step="1"
+              inputMode="decimal"
+              step="0.01"
               min="0"
               defaultValue="0"
               required
@@ -515,7 +527,7 @@ function SessaoAberta({
           textoEnviando="Registrando..."
           className="w-full rounded-xl border-2 border-primary bg-primary-soft px-4 py-3 text-sm font-bold text-primary-dark hover:bg-primary-soft/70"
         >
-          ➕ Registrar palete
+          ➕ Registrar lote
         </BotaoEnviar>
       </form>
 
@@ -575,8 +587,7 @@ function LinhaSessao({
       <div className="flex min-w-0 items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="text-sm font-bold text-slate-900">
-            {resumo.paletes} {resumo.paletes === 1 ? "palete" : "paletes"} ·{" "}
-            {formatarHl(resumo.hlRecuperado)} HL recuperados
+            {resumo.lotes} {resumo.lotes === 1 ? "lote" : "lotes"} · {formatarHl(resumo.hlBatido)} HL batidos
           </p>
           <p className="text-xs text-slate-500">
             {mostrarAutor && `${sessao.colaborador_nome} · `}
@@ -588,7 +599,7 @@ function LinhaSessao({
           <BotaoExcluir
             action={excluirBatePalete}
             campos={{ id: sessao.id }}
-            confirmacao="Excluir este bate palete e todos os paletes dele?"
+            confirmacao="Excluir este bate palete e todos os lotes dele?"
             className="shrink-0 rounded-lg border border-red-200 px-2 py-1 text-xs font-semibold text-red-600 hover:bg-red-50"
           >
             Excluir
@@ -597,26 +608,26 @@ function LinhaSessao({
       </div>
 
       <div className="mt-2 flex flex-wrap gap-1.5 text-xs">
-        <Etiqueta>−{resumo.caixasAvariadas} cx avariadas</Etiqueta>
-        <Etiqueta>+{resumo.caixasRepostas} cx boas</Etiqueta>
-        {resumo.caixasPorHora !== null && (
-          <Etiqueta destaque>{resumo.caixasPorHora.toLocaleString("pt-BR")} cx/h</Etiqueta>
+        {resumo.pctAvaria !== null && (
+          <Etiqueta destaque>{resumo.pctAvaria.toLocaleString("pt-BR")}% de avaria</Etiqueta>
         )}
-        {resumo.minutosPorPalete !== null && (
-          <Etiqueta>{formatarMinutos(resumo.minutosPorPalete)} por palete</Etiqueta>
-        )}
+        <Etiqueta>{formatarHl(resumo.hlAvariado)} HL avariados</Etiqueta>
+        <Etiqueta>{formatarHl(resumo.hlAproveitado)} HL bons</Etiqueta>
+        {resumo.hlPorHora !== null && <Etiqueta>{resumo.hlPorHora.toLocaleString("pt-BR")} HL/h</Etiqueta>}
       </div>
 
       {itens.length > 0 && (
         <details className="mt-2">
           <summary className="cursor-pointer text-xs text-slate-400">
-            Ver {itens.length} {itens.length === 1 ? "palete" : "paletes"}
+            Ver {itens.length} {itens.length === 1 ? "lote" : "lotes"}
           </summary>
           <ul className="mt-1.5 space-y-1">
             {itens.map((i) => (
               <li key={i.id} className="text-xs text-slate-600">
-                {produtoPorId.get(i.produto_id)?.descricao ?? "produto removido"} — −
-                {i.caixas_avariadas} / +{i.caixas_repostas} cx
+                {produtoPorId.get(i.produto_id)?.descricao ?? "produto removido"} —{" "}
+                {i.quantidade.toLocaleString("pt-BR", { maximumFractionDigits: 2 })}{" "}
+                {(ROTULO_UNIDADE_BATE_PALETE[i.unidade as "caixa" | "unidade"] ?? i.unidade).toLowerCase()},{" "}
+                {i.quantidade_avariada.toLocaleString("pt-BR", { maximumFractionDigits: 2 })} avariada
               </li>
             ))}
           </ul>
@@ -630,137 +641,10 @@ function Etiqueta({ children, destaque = false }: { children: React.ReactNode; d
   return (
     <span
       className={`rounded-lg px-2 py-0.5 ${
-        destaque ? "bg-primary-soft font-bold text-primary-dark" : "bg-slate-50 text-slate-500"
+        destaque ? "bg-red-50 font-bold text-red-700" : "bg-slate-50 text-slate-500"
       }`}
     >
       {children}
     </span>
-  );
-}
-
-/**
- * A análise da atividade.
- *
- * O número que interessa à gestão não é "quantos paletes" -- é QUAL
- * PRODUTO chega quebrado. Um SKU que aparece com 40 caixas avariadas em
- * todo palete tem problema de paletização ou de transporte, e nenhuma
- * melhoria no armazém resolve isso.
- */
-function Analise({
-  sessoes,
-  itensPorSessao,
-  produtoPorId,
-  resumir,
-}: {
-  sessoes: Sessao[];
-  itensPorSessao: Map<string, ItemLinha[]>;
-  produtoPorId: Map<string, ProdutoLinha>;
-  resumir: (s: Sessao) => ReturnType<typeof resumirBatePalete>;
-}) {
-  if (sessoes.length === 0) {
-    return <p className="rounded-xl bg-slate-50 p-4 text-sm text-slate-500">Nenhum bate palete no período.</p>;
-  }
-
-  const todos = sessoes.flatMap((s) =>
-    (itensPorSessao.get(s.id) ?? []).map((i) => ({
-      produtoId: i.produto_id,
-      caixasAvariadas: i.caixas_avariadas,
-      caixasRepostas: i.caixas_repostas,
-      hlRecuperado: i.hl_recuperado,
-    })),
-  );
-
-  const resumos = sessoes.map(resumir);
-  const paletes = resumos.reduce((s, r) => s + r.paletes, 0);
-  const avariadas = resumos.reduce((s, r) => s + r.caixasAvariadas, 0);
-  const repostas = resumos.reduce((s, r) => s + r.caixasRepostas, 0);
-  const hl = Math.round(resumos.reduce((s, r) => s + r.hlRecuperado, 0) * 10) / 10;
-  const minutos = resumos.reduce((s, r) => s + r.minutos, 0);
-  const caixasHora = minutos > 0 ? Math.round(((avariadas + repostas) / (minutos / 60)) * 10) / 10 : null;
-
-  const porDia = mediaPaletesPorDia(
-    sessoes.map((s, i) => ({
-      dia: new Date(s.inicio).toLocaleDateString("sv-SE", { timeZone: "America/Sao_Paulo" }),
-      paletes: resumos[i].paletes,
-    })),
-  );
-
-  const porProduto = avariaPorProduto(todos);
-  const maior = porProduto[0]?.caixasAvariadas ?? 1;
-
-  return (
-    <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-        <Cartao titulo="Paletes batidos" valor={String(paletes)} rodape={`${sessoes.length} sessões`} />
-        <Cartao titulo="HL recuperados" valor={formatarHl(hl)} rodape="voltou a ser vendável" />
-        <Cartao
-          titulo="Ritmo"
-          valor={caixasHora === null ? "—" : caixasHora.toLocaleString("pt-BR")}
-          rodape="caixas tratadas por hora"
-        />
-        <Cartao
-          titulo="Média por dia"
-          valor={porDia === null ? "—" : porDia.toLocaleString("pt-BR")}
-          rodape="paletes, só dias com movimento"
-        />
-      </div>
-
-      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-        <h2 className="text-sm font-bold text-slate-900">De onde vem a avaria</h2>
-        <p className="mb-3 mt-0.5 text-xs leading-relaxed text-slate-500">
-          A média por palete é o número que aponta a origem: um SKU que chega sempre com muitas
-          caixas quebradas tem problema de paletização ou de transporte — não de armazém.
-        </p>
-        <ol className="space-y-2">
-          {porProduto.map((l) => {
-            const p = produtoPorId.get(l.produtoId);
-            return (
-              <li key={l.produtoId} className="rounded-xl bg-slate-50 p-3 ring-1 ring-slate-200">
-                <div className="flex min-w-0 items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold leading-snug text-slate-900">
-                      {p?.descricao ?? "produto removido"}
-                    </p>
-                    <p className="text-xs text-slate-500">
-                      {p?.codigo ? `${p.codigo} · ` : ""}
-                      {l.paletes} {l.paletes === 1 ? "palete" : "paletes"} ·{" "}
-                      <strong className="text-slate-700">
-                        {l.avariaMediaPorPalete.toLocaleString("pt-BR")} cx avariadas por palete
-                      </strong>
-                    </p>
-                  </div>
-                  <span className="shrink-0 rounded-lg bg-red-50 px-2 py-1 text-sm font-bold text-red-700">
-                    {l.caixasAvariadas} cx
-                  </span>
-                </div>
-                <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-slate-200">
-                  <div
-                    className="h-full rounded-full bg-red-500"
-                    style={{ width: `${Math.max(2, (l.caixasAvariadas / maior) * 100)}%` }}
-                  />
-                </div>
-              </li>
-            );
-          })}
-        </ol>
-      </div>
-
-      <p className="rounded-xl bg-slate-50 p-3 text-xs leading-relaxed text-slate-500">
-        <strong>{repostas}</strong> caixas boas entraram no lugar de <strong>{avariadas}</strong>{" "}
-        avariadas.
-        {repostas < avariadas &&
-          " A diferença é palete que voltou para o estoque incompleto — vale conferir se foi falta de produto bom na hora."}
-      </p>
-    </div>
-  );
-}
-
-function Cartao({ titulo, valor, rodape }: { titulo: string; valor: string; rodape?: string }) {
-  return (
-    <div className="min-w-0 rounded-2xl border border-slate-200 bg-white p-3 text-center shadow-sm">
-      <p className="truncate text-[11px] uppercase text-slate-400">{titulo}</p>
-      <p className="text-xl font-bold tabular-nums text-slate-900">{valor}</p>
-      {rodape && <p className="truncate text-[11px] text-slate-400">{rodape}</p>}
-    </div>
   );
 }

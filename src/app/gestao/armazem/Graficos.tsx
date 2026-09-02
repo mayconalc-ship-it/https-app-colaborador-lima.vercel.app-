@@ -17,6 +17,10 @@ export type ItemBarra = {
 const TOM = {
   primary: { barra: "bg-primary", texto: "text-primary-dark" },
   gold: { barra: "bg-gold", texto: "text-primary-dark" },
+  // Vermelho para o que se quer ver CAIR -- a avaria do bate palete. Nos
+  // outros rankings a barra grande é boa; ali ela é o problema, e usar a
+  // mesma cor faria o pior produto parecer o campeão.
+  vermelho: { barra: "bg-red-500", texto: "text-red-700" },
 } as const;
 
 export function BarraRanking({

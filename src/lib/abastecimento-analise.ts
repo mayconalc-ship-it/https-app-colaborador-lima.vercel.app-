@@ -28,7 +28,6 @@ export type SessaoAnalise = {
   /** Veio de um pedido, ou foi lançamento avulso? */
   deSolicitacao: boolean;
   hl: number;
-  paletes: number;
   itens: number;
 };
 
@@ -130,7 +129,6 @@ export type LinhaDeGrupo = {
   chave: string;
   sessoes: number;
   hl: number;
-  paletes: number;
   duracaoMedia: number | null;
   hlPorHora: number | null;
 };
@@ -145,7 +143,6 @@ function agrupar(sessoes: SessaoAnalise[], chaveDe: (s: SessaoAnalise) => string
     chave,
     sessoes: lista.length,
     hl: Math.round(lista.reduce((x, s) => x + s.hl, 0) * 10) / 10,
-    paletes: Math.round(lista.reduce((x, s) => x + s.paletes, 0) * 100) / 100,
     duracaoMedia: media(lista.map((s) => minutos(s.inicio, s.fim))),
     hlPorHora: hlPorHora(lista),
   }));
@@ -177,7 +174,6 @@ export type LinhaDaPessoa = {
   colaboradorNome: string;
   sessoes: number;
   hl: number;
-  paletes: number;
   itens: number;
   hlPorHora: number | null;
   /** Quantas das sessões dela vieram de um pedido, e não de lançamento
@@ -196,7 +192,6 @@ export function porPessoa(sessoes: SessaoAnalise[]): LinhaDaPessoa[] {
       colaboradorNome: lista[0].colaboradorNome,
       sessoes: lista.length,
       hl: Math.round(lista.reduce((x, s) => x + s.hl, 0) * 10) / 10,
-      paletes: Math.round(lista.reduce((x, s) => x + s.paletes, 0) * 100) / 100,
       itens: lista.reduce((x, s) => x + s.itens, 0),
       hlPorHora: hlPorHora(lista),
       deSolicitacao: lista.filter((s) => s.deSolicitacao).length,
@@ -209,7 +204,6 @@ export function porPessoa(sessoes: SessaoAnalise[]): LinhaDaPessoa[] {
 export type ResumoDaAtividade = {
   sessoes: number;
   hl: number;
-  paletes: number;
   itens: number;
   horas: number;
   hlPorHora: number | null;
@@ -231,7 +225,6 @@ export function resumirAtividade(sessoes: SessaoAnalise[]): ResumoDaAtividade {
   return {
     sessoes: sessoes.length,
     hl,
-    paletes: Math.round(sessoes.reduce((x, s) => x + s.paletes, 0) * 100) / 100,
     itens: sessoes.reduce((x, s) => x + s.itens, 0),
     horas: Math.round((minutosTotais / 60) * 10) / 10,
     hlPorHora: hlPorHora(sessoes),

@@ -70,9 +70,9 @@ export const dynamic = "force-dynamic";
  * "Pedidos" é a lista única onde ele nasce, é buscado, é abastecido e
  * morre -- ver o comentário do CartaoDoPedido.
  */
-type Aba = "pedidos" | "historico" | "ranking";
+type Aba = "pedidos" | "historico";
 
-const ABAS_VALIDAS: Aba[] = ["pedidos", "historico", "ranking"];
+const ABAS_VALIDAS: Aba[] = ["pedidos", "historico"];
 
 const campo =
   "w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-base text-slate-900 focus:border-primary focus:outline-none";
@@ -244,7 +244,7 @@ export default async function AbastecimentoPage({
 
   const supabase = await createClient();
 
-  const precisaPeriodo = aba === "historico" || aba === "ranking";
+  const precisaPeriodo = aba === "historico";
 
   const [{ data: produtosBanco }, { data: abertaBanco }, { data: minhasBanco }, { data: periodoBanco }, podeExcluirQualquer] =
     await Promise.all([
@@ -399,10 +399,7 @@ export default async function AbastecimentoPage({
       fim: s.fim,
       deSolicitacao: Boolean(s.ressuprimento_id),
       hl: meus.reduce((x, i) => x + i.hl_calculado, 0),
-      paletes: meus.reduce(
-        (x, i) => x + paletesDoItem(i, produtoPorId.get(i.produto_id)?.caixas_pallet ?? null),
-        0,
-      ),
+
       itens: meus.length,
     };
   });
@@ -433,7 +430,6 @@ export default async function AbastecimentoPage({
             // qual era a dela, e faziam o pedido pular de aba sozinho.
             ["pedidos", "Pedidos", pedidosAbertos.length],
             ["historico", "Histórico", null],
-            ["ranking", "Ranking de SKU", null],
           ] as [Aba, string, number | null][]
         ).map(([a, texto, contagem]) => (
           <a
@@ -731,26 +727,9 @@ export default async function AbastecimentoPage({
         </section>
       )}
 
-      {/* ---------------- VISÃO 5: RANKING DE SKU ---------------- */}
-      {aba === "ranking" && (
-        <section className="space-y-4">
-          <FiltroPeriodo aba="ranking" de={de} ate={ate} turno={turnoFiltro} colab={colab} contadores={contadores} />
-
-          {/* O painel da atividade vem antes do ranking de SKU: a pergunta
-              "como estamos?" é mais frequente que "qual produto pesa
-              mais?", e antes só a segunda tinha resposta aqui. */}
-          <PainelDoAbastecimento sessoes={paraAnalise} />
-
-          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-            <h2 className="mb-3 text-sm font-bold text-slate-900">Ranking de SKU</h2>
-            <RankingSku
-              sessoes={doPeriodo}
-              itensPorSessao={itensPorSessao}
-              produtoPorId={produtoPorId}
-            />
-          </div>
-        </section>
-      )}
+      {/* O painel desta atividade saiu daqui em 03/09/2026, a pedido do
+          dono: dashboard mora em um lugar so, a area de Gestao. Esta tela
+          e de quem executa -- ver /gestao/armazem. */}
     </div>
   );
 }

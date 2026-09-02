@@ -156,7 +156,10 @@ export function PainelDoAbastecimento({ sessoes }: { sessoes: SessaoAnalise[] })
                   rotulo="HL/h"
                   valor={t.hlPorHora === null ? "—" : t.hlPorHora.toLocaleString("pt-BR")}
                 />
-                <Par rotulo="Paletes" valor={t.paletes.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} />
+                <Par
+                  rotulo="Duração média"
+                  valor={t.duracaoMedia === null ? "—" : formatarMinutos(t.duracaoMedia)}
+                />
               </dl>
             </div>
           ))}
