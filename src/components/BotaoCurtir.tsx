@@ -20,31 +20,51 @@ import { resumirNomes } from "@/lib/nomes";
 export function BotaoCurtir({
   comunicadoId,
   curtidoInicial,
+  totalInicial,
   outrosNomes,
 }: {
   comunicadoId: number;
   curtidoInicial: boolean;
+  /**
+   * O total de curtidas contado nas LINHAS do banco -- a verdade.
+   *
+   * Cheguei a derivar o contador da lista de nomes ("assim eles nunca
+   * discordam") e foi um tiro no pé: os nomes dependem de uma segunda
+   * consulta, e quando ela voltou vazia um post com 15 curtidas mostrou
+   * 1. A curtida é o fato; o nome é um enfeite que pode faltar.
+   */
+  totalInicial: number;
   /** Quem curtiu, MENOS eu. Já vem resumido ("Jorge Matos") do servidor. */
   outrosNomes: string[];
 }) {
   const [curtido, setCurtido] = useState(curtidoInicial);
+  const [total, setTotal] = useState(totalInicial);
   const [abertaLista, setAbertaLista] = useState(false);
   const [pendente, startTransition] = useTransition();
 
   // "Você" na frente, como em qualquer rede social: a primeira coisa que
   // a pessoa procura na lista é ela mesma.
   const nomes = curtido ? ["Você", ...outrosNomes] : outrosNomes;
-  const total = nomes.length;
+
+  // Quantas curtidas existem sem nome conhecido (cadastro apagado, por
+  // exemplo). A lista mostra isso em vez de fingir que a conta fecha --
+  // uma lista com 12 nomes sob um contador de 15 faz a pessoa achar que
+  // o app perdeu alguém.
+  const semNome = Math.max(0, total - nomes.length);
 
   function handleClick() {
     // Muda na hora e desfaz se o servidor recusar: no celular do motorista a
     // rede oscila, e esperar a resposta daria a impressao de travamento.
     const eraCurtido = curtido;
     setCurtido(!eraCurtido);
+    setTotal((n) => (eraCurtido ? Math.max(0, n - 1) : n + 1));
 
     startTransition(async () => {
       const r = await alternarCurtida(comunicadoId, eraCurtido);
-      if (!r.ok) setCurtido(eraCurtido);
+      if (!r.ok) {
+        setCurtido(eraCurtido);
+        setTotal((n) => (eraCurtido ? n + 1 : Math.max(0, n - 1)));
+      }
     });
   }
 
@@ -77,7 +97,9 @@ export function BotaoCurtir({
           onClick={() => setAbertaLista(true)}
           className="min-w-0 flex-1 truncate text-left text-xs text-slate-500 hover:text-primary hover:underline"
         >
-          {resumirNomes(nomes)} {total === 1 ? "curtiu" : "curtiram"}
+          {nomes.length > 0
+            ? `${resumirNomes(nomes)} ${total === 1 ? "curtiu" : "curtiram"}`
+            : `Ver quem curtiu (${total})`}
         </button>
       )}
 
@@ -122,6 +144,11 @@ export function BotaoCurtir({
                   </span>
                 </li>
               ))}
+              {semNome > 0 && (
+                <li className="py-2.5 text-sm text-slate-400">
+                  e mais {semNome} pessoa{semNome === 1 ? "" : "s"}
+                </li>
+              )}
             </ul>
           </div>
         </div>

@@ -5,6 +5,7 @@ import { BotaoCurtir } from "@/components/BotaoCurtir";
 import { FotoAmpliavel } from "@/components/FotoAmpliavel";
 import { BotaoAgenda } from "@/components/BotaoAgenda";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getPerfil } from "@/lib/sessao";
 import { requireAcessoModulo } from "@/lib/require-admin";
 import { areaDoColaborador } from "@/lib/quiz";
@@ -105,8 +106,17 @@ export default async function ComunicadosPage({
         .in("comunicado_id", ids)
     : { data: [] };
 
+  // O CONTADOR SAI DAS LINHAS, não da lista de nomes.
+  //
+  // Cheguei a fazer o contador derivar dos nomes ("assim eles nunca
+  // discordam") e foi um tiro no pé: a política do profiles é
+  // `auth.uid() = id`, os nomes dos outros voltavam vazios, e um post com
+  // 15 curtidas passou a mostrar 1. A curtida é o fato; o nome é um
+  // enfeite que pode faltar.
+  const totalPorPost = new Map<number, number>();
   const curtidosPorMim = new Set<number>();
   for (const c of curtidas ?? []) {
+    totalPorPost.set(c.comunicado_id, (totalPorPost.get(c.comunicado_id) ?? 0) + 1);
     if (usuarioId && c.colaborador_id === usuarioId) {
       curtidosPorMim.add(c.comunicado_id);
     }
@@ -115,10 +125,15 @@ export default async function ComunicadosPage({
   /**
    * QUEM curtiu, e não só quantos -- pedido do dono (03/09/2026).
    *
-   * Os nomes saem da MESMA consulta de curtidas que já rodava para o
-   * contador: só faltava trocar os ids por nomes, numa segunda consulta.
-   * Contar de um lado e listar de outro abriria a porta para o contador
-   * dizer 12 e a lista mostrar 11.
+   * A busca dos nomes usa o CLIENTE DE SERVIÇO, e a razão é a política do
+   * profiles: `auth.uid() = id`, cada um lê só o próprio cadastro. É uma
+   * trava boa e não vai sair -- a tabela guarda CPF, cargo e papel, e RLS
+   * é por LINHA, não por coluna: abrir o select para os colegas
+   * entregaria a linha inteira, não só o nome.
+   *
+   * Aqui a página é componente de servidor: pede apenas `id, nome`, e
+   * apenas de quem curtiu um post desta página. Nada além do nome chega
+   * ao navegador.
    *
    * A lista vai SEM MIM. O meu nome entra como "Você" no componente, a
    * partir do mesmo estado que pinta o coração -- senão, ao curtir, o
@@ -130,7 +145,7 @@ export default async function ComunicadosPage({
   ];
 
   const { data: quemCurtiu } = idsQueCurtiram.length
-    ? await supabase.from("profiles").select("id, nome").in("id", idsQueCurtiram)
+    ? await createAdminClient().from("profiles").select("id, nome").in("id", idsQueCurtiram)
     : { data: [] };
 
   const nomePorId = new Map((quemCurtiu ?? []).map((p) => [p.id, nomeCurto(p.nome)]));
@@ -313,6 +328,7 @@ export default async function ComunicadosPage({
                   <BotaoCurtir
                     comunicadoId={capa.id}
                     curtidoInicial={curtidosPorMim.has(capa.id)}
+                    totalInicial={totalPorPost.get(capa.id) ?? 0}
                     outrosNomes={nomesPorPost.get(capa.id) ?? []}
                   />
                   {dataParaMim(capa) && (
@@ -408,7 +424,8 @@ export default async function ComunicadosPage({
                           <BotaoCurtir
                             comunicadoId={c.id}
                             curtidoInicial={curtidosPorMim.has(c.id)}
-                            outrosNomes={nomesPorPost.get(c.id) ?? []}
+                            totalInicial={totalPorPost.get(c.id) ?? 0}
+                      outrosNomes={nomesPorPost.get(c.id) ?? []}
                           />
                           {dataParaMim(c) && (
                             <BotaoAgenda
