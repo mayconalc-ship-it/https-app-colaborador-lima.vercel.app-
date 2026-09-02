@@ -33,9 +33,19 @@
  * tempos sem subir a tela.
  */
 
-export const ROTA_RESSUPRIMENTO = "/produtividade-armazem/ressuprimento";
+/**
+ * Mora DENTRO do Abastecimento do Picking, não numa tela própria.
+ *
+ * A 085 tinha criado uma tela e um módulo separados. Estava errado, e o
+ * dono corrigiu em 02/09/2026: pedir, transportar e abastecer são etapas
+ * da MESMA atividade -- dois cards na vitrine obrigariam a operação a
+ * entender uma divisão que só existia no código.
+ */
+export const ROTA_RESSUPRIMENTO = "/produtividade-armazem/abastecimento";
 
 // -------------------- PRIORIDADE --------------------
+
+import type { TipoAbastecimento } from "./abastecimento";
 
 export const PRIORIDADES = ["normal", "urgente"] as const;
 export type Prioridade = (typeof PRIORIDADES)[number];
@@ -97,6 +107,16 @@ export type Ressuprimento = {
   solicitanteId: string;
   solicitanteNome: string;
   prioridade: Prioridade;
+  /**
+   * "completo" ou "pontual" -- os mesmos dois da sessão de abastecimento,
+   * e a sessão herda o da solicitação que a originou.
+   *
+   * Sem essa distinção a média de um contamina a do outro: uma varredura
+   * de manhã que leva 2 horas é normal; um chamado pontual de 2 horas é
+   * um problema. Somados, os dois viram um número que não descreve
+   * nenhum dos dois.
+   */
+  tipo: TipoAbastecimento;
   /** Quando o operador ACEITOU a solicitação. Até aqui, ela está na fila. */
   transporteInicio: string | null;
   operadorId: string | null;
@@ -367,6 +387,22 @@ export type ResumoRessuprimento = {
    *  em quem trabalha ou entre um trabalho e outro. */
   pctEspera: number | null;
 };
+
+/**
+ * O período separado por tipo, que é como ele precisa ser lido.
+ *
+ * Uma varredura da manhã que leva 2 horas é normal; um chamado pontual de
+ * 2 horas é um problema. Somar os dois num "ciclo médio" só produz um
+ * número que não descreve nenhum dos dois -- e é justamente o número que
+ * alguém usaria para cobrar a pessoa errada.
+ */
+export function resumirPorTipo(
+  lista: Ressuprimento[],
+): { tipo: TipoAbastecimento; resumo: ResumoRessuprimento }[] {
+  return (["completo", "pontual"] as TipoAbastecimento[])
+    .map((tipo) => ({ tipo, resumo: resumirPeriodo(lista.filter((r) => r.tipo === tipo)) }))
+    .filter((x) => x.resumo.total > 0);
+}
 
 export function resumirPeriodo(lista: Ressuprimento[]): ResumoRessuprimento {
   const tempos = lista.map(temposDoCiclo);

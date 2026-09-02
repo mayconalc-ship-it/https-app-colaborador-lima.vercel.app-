@@ -148,12 +148,23 @@ export function painelPorId(id: string) {
 
 /** Os redirects do next.config: endereço antigo -> endereço novo. */
 export function mudancasDeEndereco() {
-  return PAINEIS.filter((p) => p.mora && p.antigo).map((p) => ({
-    source: p.antigo!,
-    destination: p.href,
-    // 308: quem salvou o atalho antigo continua chegando, para sempre.
-    // Mover rota quebra atalho salvo, e no celular do time o atalho da
-    // tela inicial e o unico caminho que muita gente usa.
-    permanent: true,
-  }));
+  return [
+    ...PAINEIS.filter((p) => p.mora && p.antigo).map((p) => ({
+      source: p.antigo!,
+      destination: p.href,
+      // 308: quem salvou o atalho antigo continua chegando, para sempre.
+      // Mover rota quebra atalho salvo, e no celular do time o atalho da
+      // tela inicial e o unico caminho que muita gente usa.
+      permanent: true,
+    })),
+    {
+      // O ressuprimento teve tela propria por um dia (migration 085) e foi
+      // dobrado dentro do Abastecimento na 086 -- e a mesma coisa, disse o
+      // dono, e ele tem razao. Quem tiver aberto o link naquele dia
+      // continua chegando no lugar certo.
+      source: "/produtividade-armazem/ressuprimento",
+      destination: "/produtividade-armazem/abastecimento",
+      permanent: true,
+    },
+  ];
 }

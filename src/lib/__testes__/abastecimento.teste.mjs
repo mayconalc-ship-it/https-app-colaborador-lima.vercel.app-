@@ -1,5 +1,6 @@
 // Confere a conta de HL contra produtos REAIS do cadastro, antes de ligar
 // na tela. Rode: npx tsx src/lib/__testes__/abastecimento.teste.mjs
+import { tipoSugerido, avisoDoTipo, HORA_LIMITE_COMPLETO } from "../abastecimento.ts";
 import {
   calcularHl,
   calcularPaletes,
@@ -81,6 +82,31 @@ conferir(
   20,
 );
 conferir("sem sessao nenhuma", mediaHlPorDia([]), null);
+
+console.log("\n== COMPLETO ATE AS 10H, PONTUAL DEPOIS ==");
+function texto(nome, obtido, esperado) {
+  const ok = obtido === esperado;
+  if (!ok) falhas++;
+  console.log(`  ${ok ? "OK " : "FALHOU"}  ${nome}${ok ? "" : `: obtido ${JSON.stringify(obtido)}`}`);
+}
+// A hora e a da OPERACAO (UTC-3), nao a do servidor: a Vercel roda em UTC,
+// e la as 8h do armazem sao 11h -- sem o fuso explicito o padrao viria
+// "pontual" a manha inteira.
+const as = (h) => new Date(`2026-09-02T${String(h).padStart(2, "0")}:00:00-03:00`);
+texto("8h da operacao sugere completo", tipoSugerido(as(8)), "completo");
+texto("9h59 ainda e completo", tipoSugerido(new Date("2026-09-02T09:59:00-03:00")), "completo");
+// As 10h em ponto ja e depois do prazo: o completo tinha de estar fechado.
+texto("10h em ponto ja sugere pontual", tipoSugerido(as(10)), "pontual");
+texto("15h sugere pontual", tipoSugerido(as(15)), "pontual");
+texto("limite documentado", HORA_LIMITE_COMPLETO, 10);
+
+console.log("\n== O AVISO SO APARECE QUANDO DESTOA ==");
+texto("completo de manha nao avisa", avisoDoTipo("completo", as(8)), null);
+texto("pontual a tarde nao avisa", avisoDoTipo("pontual", as(15)), null);
+const tarde = avisoDoTipo("completo", as(15));
+texto("completo a tarde avisa", typeof tarde === "string" && tarde.includes("Pontual"), true);
+const cedo = avisoDoTipo("pontual", as(8));
+texto("pontual cedo avisa", typeof cedo === "string" && cedo.includes("Completo"), true);
 
 console.log(`\n${falhas === 0 ? "TODOS OS CASOS PASSARAM" : falhas + " FALHA(S)"}`);
 process.exit(falhas === 0 ? 0 : 1);

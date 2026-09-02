@@ -38,7 +38,6 @@ export type ModuloId =
   | "pa-recebimento"
   | "pa-cinco-s"
   | "pa-picking"
-  | "pa-ressuprimento"
   | "carretas-portaria"
   | "carretas-conferencia"
   | "carretas-descarga"
@@ -370,20 +369,12 @@ export const MODULOS: Modulo[] = [
     acoes: ["ver"],
     subGrupoDe: "produtividade-armazem",
   },
-  {
-    id: "pa-ressuprimento",
-    rotulo: "Solicitar Ressuprimento",
-    emoji: "🧾",
-    href: "/produtividade-armazem/ressuprimento",
-    grupo: "Operação",
-    // Esta concessão é a de PEDIR. Quem transporta entra pela concessão
-    // que já tem ("pa-empilhadeira") e quem abastece pela dela
-    // ("pa-picking") -- a mesma tela decide o que mostrar para cada um.
-    // Um módulo por papel obrigaria a conceder três coisas para um fluxo
-    // que a operação enxerga como uma só.
-    acoes: ["ver"],
-    subGrupoDe: "produtividade-armazem",
-  },
+  // NÃO existe um módulo "pa-ressuprimento". Existiu por um dia
+  // (migration 085) e foi desfeito na 086, a pedido do dono: pedir,
+  // transportar e abastecer são etapas da MESMA atividade. Quem pede e
+  // quem abastece usam "pa-picking"; quem transporta, "pa-empilhadeira".
+  // Uma concessão a mais para a primeira etapa obrigaria a liberar duas
+  // coisas para a mesma pessoa fazer um trabalho só.
   {
     id: "carretas-portaria",
     // Sem tela de admin propria: os catalogos (fabrica/transportadora/
@@ -563,7 +554,6 @@ export const MODULOS_OPCIONAIS: ModuloId[] = [
   "pa-recebimento",
   "pa-cinco-s",
   "pa-picking",
-  "pa-ressuprimento",
   "carretas-portaria",
   "carretas-conferencia",
   "carretas-descarga",

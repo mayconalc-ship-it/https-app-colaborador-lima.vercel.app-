@@ -4,11 +4,14 @@ import { useState } from "react";
 import { ComboboxProdutoReepack } from "@/components/produtividade-armazem/ComboboxProdutoReepack";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
 import { buscarProdutosAbastecimento } from "@/app/produtividade-armazem/abastecimento/actions";
-import { criarSolicitacao } from "@/app/produtividade-armazem/ressuprimento/actions";
+import { criarSolicitacao } from "@/app/produtividade-armazem/abastecimento/ressuprimento-actions";
 import {
   ROTULO_UNIDADE_ABASTECIMENTO,
+  TIPOS_ABASTECIMENTO,
+  TIPO_ABASTECIMENTO,
   UNIDADES_ABASTECIMENTO,
   COOKIE_ABASTECIMENTO_PATH,
+  type TipoAbastecimento,
   type UnidadeAbastecimento,
 } from "@/lib/abastecimento";
 import { ROTULO_PRIORIDADE, PRIORIDADES } from "@/lib/ressuprimento";
@@ -44,12 +47,27 @@ export function MontarSolicitacao({
   clusters,
   tipos,
   turnoSugerido,
+  tipoInicial,
+  avisoSeDestoar,
 }: {
   clusters: string[];
   tipos: string[];
   turnoSugerido: Turno;
+  /** O tipo que o HORÁRIO sugere -- calculado no servidor, no fuso da
+   *  operação (ver tipoSugerido em lib/abastecimento). */
+  tipoInicial: TipoAbastecimento;
+  /**
+   * A frase a mostrar quando a pessoa escolhe o OUTRO tipo.
+   *
+   * Vem pronta do servidor porque só ele sabe a hora da operação -- o
+   * relógio do celular de quem abre a tela não serve, cada um acerta
+   * como quer. Como são só dois tipos, "o outro" é sempre um só, e uma
+   * frase basta.
+   */
+  avisoSeDestoar: string | null;
 }) {
   const [itens, setItens] = useState<Escolhido[]>([]);
+  const [tipo, setTipo] = useState<TipoAbastecimento>(tipoInicial);
   const [unidade, setUnidade] = useState<UnidadeAbastecimento>("palete");
   const [quantidade, setQuantidade] = useState("1");
   // Remonta o combobox depois de cada inclusão: sem trocar a chave, o
@@ -175,6 +193,45 @@ export function MontarSolicitacao({
               </li>
             ))}
           </ul>
+
+          {/* O tipo vem ANTES do turno e da prioridade porque é a escolha
+              que muda o significado de tudo o que vem depois: uma
+              varredura da manhã e um chamado pontual não se comparam pelo
+              mesmo relógio. */}
+          <div>
+            <span className={rotulo}>Tipo</span>
+            <div className="grid grid-cols-2 gap-2">
+              {TIPOS_ABASTECIMENTO.map((t) => (
+                <label
+                  key={t}
+                  className={`flex cursor-pointer items-center justify-center gap-2 rounded-xl border px-3 py-2.5 text-sm font-semibold ${
+                    tipo === t
+                      ? "border-primary bg-primary-soft text-primary-dark"
+                      : "border-slate-200 text-slate-600 hover:bg-slate-50"
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="tipo"
+                    value={t}
+                    checked={tipo === t}
+                    onChange={() => setTipo(t)}
+                    className="sr-only"
+                  />
+                  <span className="text-lg leading-none">{TIPO_ABASTECIMENTO[t].emoji}</span>
+                  {TIPO_ABASTECIMENTO[t].curto}
+                </label>
+              ))}
+            </div>
+            <p className="mt-1.5 text-xs text-slate-500">{TIPO_ABASTECIMENTO[tipo].descricao}</p>
+            {/* O aviso é do horário de quando a tela abriu -- serve para
+                pegar a escolha distraída, não para impedir a deliberada.
+                Bloquear obrigaria a inventar exceção para o primeiro dia
+                atípico, e sempre existe um. */}
+            {avisoSeDestoar && tipo !== tipoInicial && (
+              <p className="mt-1.5 rounded-lg bg-amber-50 p-2 text-xs text-amber-800">⚠️ {avisoSeDestoar}</p>
+            )}
+          </div>
 
           <div className="grid grid-cols-2 gap-2">
             <div>

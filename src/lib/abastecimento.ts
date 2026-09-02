@@ -18,6 +18,16 @@ export const COOKIE_ABASTECIMENTO_PATH = "/produtividade-armazem/abastecimento";
 export const TIPOS_ABASTECIMENTO = ["completo", "pontual"] as const;
 export type TipoAbastecimento = (typeof TIPOS_ABASTECIMENTO)[number];
 
+/**
+ * A hora em que o abastecimento completo tem de estar fechado.
+ *
+ * Não é trava: é o combinado da operação, e serve para SUGERIR o tipo
+ * certo (antes das 10h, completo; depois, pontual) e para avisar quando a
+ * escolha destoa do horário. Bloquear obrigaria a inventar exceção para o
+ * primeiro dia atípico -- e sempre existe um.
+ */
+export const HORA_LIMITE_COMPLETO = 10;
+
 export const TIPO_ABASTECIMENTO: Record<
   TipoAbastecimento,
   { rotulo: string; curto: string; emoji: string; descricao: string }
@@ -26,15 +36,51 @@ export const TIPO_ABASTECIMENTO: Record<
     rotulo: "Abastecimento completo",
     curto: "Completo",
     emoji: "🔄",
-    descricao: "Varredura do picking: repor tudo o que está abaixo do nível, área por área.",
+    descricao:
+      "A varredura da manhã: repor tudo o que está abaixo do nível, área por área, até as 10h. É o abastecimento que prepara o dia.",
   },
   pontual: {
-    rotulo: "Ressuprimento pontual",
+    rotulo: "Reabastecimento pontual",
     curto: "Pontual",
     emoji: "⚡",
-    descricao: "Chamado de um SKU específico que zerou ou está para zerar durante a separação.",
+    descricao:
+      "O esporádico: um SKU que zerou ou está para zerar no meio da separação, depois que o completo já foi feito.",
   },
 };
+
+/**
+ * O tipo que o horário sugere.
+ *
+ * Sugerir, e não decidir, é o ponto: quem abre a tela às 8h quase sempre
+ * está no completo, e quem abre às 15h quase sempre não está. Deixar o
+ * padrão sempre em "completo" fazia a tarde inteira ser lançada com o
+ * tipo errado -- e um tipo errado não dá erro, só suja o indicador
+ * meses depois.
+ */
+export function tipoSugerido(agora = new Date()): TipoAbastecimento {
+  // Hora da OPERAÇÃO (UTC-3), não a do servidor: a Vercel roda em UTC, e
+  // lá as 8h do armazém são 11h -- o padrão viria "pontual" a manhã toda.
+  const hora = Number(
+    new Intl.DateTimeFormat("pt-BR", {
+      timeZone: "America/Sao_Paulo",
+      hour: "2-digit",
+      hour12: false,
+    }).format(agora),
+  );
+  return hora < HORA_LIMITE_COMPLETO ? "completo" : "pontual";
+}
+
+/** O aviso de quando a escolha destoa do horário. `null` quando combina. */
+export function avisoDoTipo(
+  tipo: TipoAbastecimento,
+  agora = new Date(),
+): string | null {
+  const sugerido = tipoSugerido(agora);
+  if (tipo === sugerido) return null;
+  return tipo === "completo"
+    ? `Já passou das ${HORA_LIMITE_COMPLETO}h. O completo é a varredura da manhã — se é uma reposição avulsa, marque Pontual.`
+    : `Ainda não deu ${HORA_LIMITE_COMPLETO}h. Se esta é a varredura da manhã, marque Completo.`;
+}
 
 export function ehTipoAbastecimento(v: unknown): v is TipoAbastecimento {
   return typeof v === "string" && (TIPOS_ABASTECIMENTO as readonly string[]).includes(v);

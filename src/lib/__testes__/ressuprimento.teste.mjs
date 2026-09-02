@@ -5,6 +5,7 @@
 import {
   estadoDe, estaAberta, transporteFim, temposDoCiclo, minutosParadaAgora,
   ordenarFila, indicadoresDoOperador, indicadoresDoSolicitante, resumirPeriodo,
+  resumirPorTipo,
 } from "../ressuprimento.ts";
 
 let falhas = 0;
@@ -32,6 +33,7 @@ function base(extra = {}) {
     solicitanteId: "s1",
     solicitanteNome: "CONFERENTE",
     prioridade: "normal",
+    tipo: "completo",
     transporteInicio: null,
     operadorId: null,
     operadorNome: null,
@@ -146,6 +148,24 @@ eq("concluidas", resumo.concluidas, 1);
 eq("canceladas", resumo.canceladas, 1);
 eq("abertas", resumo.abertas, 1);
 eq("ciclo medio so das fechadas", resumo.cicloMedio, 70);
+
+console.log("\n== COMPLETO E PONTUAL NAO SE MISTURAM ==");
+// Uma varredura da manha de 2h e normal; um chamado pontual de 2h e um
+// problema. Somados num "ciclo medio" so, o numero nao descreve nenhum
+// dos dois -- e e justamente o numero que alguem usaria para cobrar a
+// pessoa errada.
+const porTipo = resumirPorTipo([
+  completa,
+  base({ id: "p1", tipo: "pontual", transporteInicio: T("13:05"), operadorId: "o2",
+    itens: [item("z", T("13:10"))], abastecimentoInicio: T("13:12"), abastecimentoFim: T("13:20") }),
+]);
+eq("um resumo por tipo", porTipo.map((x) => x.tipo), ["completo", "pontual"]);
+eq("ciclo do completo", porTipo[0].resumo.cicloMedio, 70);
+eq("ciclo do pontual", porTipo[1].resumo.cicloMedio, 20);
+// Tipo sem nenhuma solicitacao no periodo nao vira um bloco de zeros: um
+// painel com metade das linhas zeradas ensina a ignora-lo.
+eq("tipo sem movimento nao aparece", resumirPorTipo([completa]).map((x) => x.tipo), ["completo"]);
+eq("periodo vazio nao gera bloco", resumirPorTipo([]), []);
 
 console.log("\n== SOLICITANTE ==");
 const doSolic = indicadoresDoSolicitante([completa, base({ id: "u", prioridade: "urgente" })]);

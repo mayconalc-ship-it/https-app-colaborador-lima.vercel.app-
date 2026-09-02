@@ -5,7 +5,7 @@ import { BotaoEnviar } from "@/components/BotaoEnviar";
 import { BotaoExcluir } from "@/components/BotaoExcluir";
 import { createClient } from "@/lib/supabase/server";
 import { getRevendaId } from "@/lib/revendas";
-import { podeNoModulo, requireAcessoModulo } from "@/lib/require-admin";
+import { podeNoModulo, requireAcessoModulo, temAcessoModulo } from "@/lib/require-admin";
 import { ComboboxProdutoReepack } from "@/components/produtividade-armazem/ComboboxProdutoReepack";
 import {
   COOKIE_REEPACK_CLUSTER,
@@ -32,9 +32,31 @@ import {
   mediaHlPorDia,
   rankingDeSku,
   resumirAbastecimento,
+  avisoDoTipo,
+  tipoSugerido,
   type TipoAbastecimento,
   type UnidadeAbastecimento,
 } from "@/lib/abastecimento";
+import {
+  estaAberta,
+  estadoDe,
+  ordenarFila,
+  temposDoCiclo,
+  transporteFim,
+  type Prioridade,
+  type Ressuprimento,
+} from "@/lib/ressuprimento";
+import { MontarSolicitacao } from "@/components/produtividade-armazem/MontarSolicitacao";
+import {
+  CabecalhoDaSolicitacao,
+  CartaoTransporte,
+  ItensDaSolicitacao,
+  TempoDoCiclo,
+} from "@/components/produtividade-armazem/PecasDoRessuprimento";
+import {
+  cancelarSolicitacao,
+  iniciarAbastecimentoDaSolicitacao,
+} from "./ressuprimento-actions";
 import {
   adicionarItem,
   buscarProdutosAbastecimento,
@@ -47,7 +69,17 @@ import {
 
 export const dynamic = "force-dynamic";
 
-type Aba = "lancar" | "historico" | "ranking";
+/**
+ * As abas da tela.
+ *
+ * "solicitar" e "fila" chegaram aqui em 02/09/2026: nasceram numa tela
+ * própria (migration 085) e o dono corrigiu -- pedir, transportar e
+ * abastecer são etapas da MESMA atividade, e dois cards na vitrine
+ * obrigariam a operação a entender uma divisão que só existia no código.
+ */
+type Aba = "lancar" | "solicitar" | "fila" | "historico" | "ranking";
+
+const ABAS_VALIDAS: Aba[] = ["lancar", "solicitar", "fila", "historico", "ranking"];
 
 const campo =
   "w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-base text-slate-900 focus:border-primary focus:outline-none";
@@ -80,6 +112,70 @@ type Item = {
 const COLUNAS_SESSAO = "id, colaborador_id, colaborador_nome, tipo, turno, inicio, fim, observacao, ressuprimento_id";
 const COLUNAS_ITEM = "id, abastecimento_id, produto_id, unidade, quantidade, hl_calculado";
 
+/** Quantos dias de solicitação a tela carrega. Curto de propósito: a fila
+ *  é do turno, não do mês -- o histórico longo vive na aba Histórico. */
+const DIAS_DE_SOLICITACAO = 3;
+
+type LinhaRessuprimento = {
+  id: string;
+  criado_em: string;
+  solicitante_id: string;
+  solicitante_nome: string;
+  prioridade: string;
+  tipo: string;
+  turno: string;
+  observacao: string | null;
+  operador_id: string | null;
+  operador_nome: string | null;
+  transporte_inicio: string | null;
+  cancelado_em: string | null;
+  motivo_cancelamento: string | null;
+  pa_ressuprimento_itens: {
+    id: string;
+    produto_id: string;
+    unidade: string;
+    quantidade: number;
+    hl_calculado: number;
+    entregue_em: string | null;
+  }[];
+  pa_abastecimentos: { inicio: string; fim: string | null; colaborador_nome: string }[];
+};
+
+/** Linha do banco -> o formato puro que lib/ressuprimento entende. Nenhum
+ *  estado vem do banco: tudo sai dos carimbos, na leitura. */
+function ressuprimentoDaLinha(
+  l: LinhaRessuprimento,
+): Ressuprimento & { observacao: string | null; motivo: string | null } {
+  // A sessão vem como array (o PostgREST não sabe que o índice único
+  // garante uma só), mas é sempre no máximo uma.
+  const sessao = l.pa_abastecimentos?.[0] ?? null;
+  return {
+    id: l.id,
+    criadoEm: l.criado_em,
+    solicitanteId: l.solicitante_id,
+    solicitanteNome: l.solicitante_nome,
+    prioridade: (l.prioridade === "urgente" ? "urgente" : "normal") as Prioridade,
+    tipo: ehTipoAbastecimento(l.tipo) ? l.tipo : "completo",
+    transporteInicio: l.transporte_inicio,
+    operadorId: l.operador_id,
+    operadorNome: l.operador_nome,
+    canceladoEm: l.cancelado_em,
+    itens: (l.pa_ressuprimento_itens ?? []).map((i) => ({
+      id: i.id,
+      produtoId: i.produto_id,
+      unidade: i.unidade,
+      quantidade: Number(i.quantidade),
+      hl: Number(i.hl_calculado),
+      entregueEm: i.entregue_em,
+    })),
+    abastecimentoInicio: sessao?.inicio ?? null,
+    abastecimentoFim: sessao?.fim ?? null,
+    abastecedorNome: sessao?.colaborador_nome ?? null,
+    observacao: l.observacao,
+    motivo: l.motivo_cancelamento,
+  };
+}
+
 /** Paletes equivalentes de um item já gravado. Recalcula a partir do
  *  cadastro atual porque o palete é só uma forma de LER a quantidade --
  *  o número que a operação lançou (e o HL dele) é que está congelado. */
@@ -106,12 +202,18 @@ export default async function AbastecimentoPage({
   const perfil = await requireAcessoModulo("pa-picking");
 
   const sp = await searchParams;
-  const aba: Aba = sp.aba === "historico" ? "historico" : sp.aba === "ranking" ? "ranking" : "lancar";
+  const aba: Aba = ABAS_VALIDAS.includes(sp.aba as Aba) ? (sp.aba as Aba) : "lancar";
   const de = sp.de ?? diasAtrasISO(30);
   const ate = sp.ate ?? hojeISO();
   const turnoFiltro = ehTurno(sp.turno) ? sp.turno : "";
   const colab = (sp.colab ?? "").trim();
-  const tipoEscolhido: TipoAbastecimento = ehTipoAbastecimento(sp.tipo) ? sp.tipo : "completo";
+  // Sem escolha na URL, o HORÁRIO decide: completo até as 10h, pontual
+  // depois. O padrão fixo em "completo" fazia a tarde inteira ser lançada
+  // com o tipo errado -- e tipo errado não dá erro, só suja o indicador
+  // meses depois.
+  const tipoEscolhido: TipoAbastecimento = ehTipoAbastecimento(sp.tipo)
+    ? sp.tipo
+    : tipoSugerido();
 
   const revendaId = await getRevendaId();
   if (!revendaId) redirect(`/?erro=${encodeURIComponent("Você não está em nenhuma revenda.")}`);
@@ -163,6 +265,47 @@ export default async function AbastecimentoPage({
         : Promise.resolve({ data: null }),
       podeNoModulo("produtividade-armazem", "excluir"),
     ]);
+
+  // Quem opera empilhadeira transporta o que foi pedido. É a concessão que
+  // essas pessoas já têm -- não nasceu módulo novo para isso.
+  const podeTransportar = await temAcessoModulo("pa-empilhadeira");
+
+  // As solicitações dos últimos dias: alimentam a fila da empilhadeira, a
+  // lista do que está esperando na área e o acompanhamento de quem pediu.
+  const desdeRessuprimento = new Date(Date.now() - DIAS_DE_SOLICITACAO * 86_400_000).toISOString();
+  const { data: ressuprimentosBanco } = await supabase
+    .from("pa_ressuprimentos")
+    .select(
+      "id, criado_em, solicitante_id, solicitante_nome, prioridade, tipo, turno, observacao, operador_id, operador_nome, transporte_inicio, cancelado_em, motivo_cancelamento, pa_ressuprimento_itens(id, produto_id, unidade, quantidade, hl_calculado, entregue_em), pa_abastecimentos(inicio, fim, colaborador_nome)",
+    )
+    .eq("revenda_id", revendaId)
+    .gte("criado_em", desdeRessuprimento)
+    .order("criado_em", { ascending: false });
+
+  const solicitacoes = ((ressuprimentosBanco ?? []) as unknown as LinhaRessuprimento[]).map(
+    ressuprimentoDaLinha,
+  );
+
+  const agora = new Date();
+  const filaDeTransporte = ordenarFila(
+    solicitacoes.filter((r) => estaAberta(r) && !transporteFim(r)),
+  );
+  const esperandoNaArea = solicitacoes.filter((r) => estadoDe(r) === "na_area");
+  const minhasSolicitacoes = solicitacoes.filter(
+    (r) => r.solicitanteId === perfil.id || r.operadorId === perfil.id,
+  );
+
+  // Completo até as 10h, pontual depois -- o combinado da operação. O
+  // horário SUGERE (e avisa quando a escolha destoa), nunca bloqueia:
+  // travar obrigaria a inventar exceção para o primeiro dia atípico.
+  const tipoDoHorario = tipoSugerido(agora);
+  const outroTipo: TipoAbastecimento = tipoDoHorario === "completo" ? "pontual" : "completo";
+  const avisoSeDestoar = avisoDoTipo(outroTipo, agora);
+
+  const nomeDoProduto = (id: string) => {
+    const p = produtoPorId.get(id);
+    return p ? `${p.codigo} — ${p.descricao}` : "produto";
+  };
 
   const produtos = produtosBanco ?? [];
   const produtoPorId = new Map(produtos.map((p) => [p.id, p]));
@@ -234,11 +377,17 @@ export default async function AbastecimentoPage({
       <nav className="mb-4 flex flex-wrap gap-2">
         {(
           [
-            ["lancar", "Lançar"],
-            ["historico", "Histórico"],
-            ["ranking", "Ranking de SKU"],
-          ] as [Aba, string][]
-        ).map(([a, texto]) => (
+            ["lancar", "Lançar", null],
+            ["solicitar", "Solicitar", null],
+            // A fila só existe para quem transporta. Mostrá-la a todo
+            // mundo ofereceria um caminho que termina em "sem permissão".
+            ...(podeTransportar
+              ? ([["fila", "Fila", filaDeTransporte.length]] as [Aba, string, number | null][])
+              : []),
+            ["historico", "Histórico", null],
+            ["ranking", "Ranking de SKU", null],
+          ] as [Aba, string, number | null][]
+        ).map(([a, texto, contagem]) => (
           <a
             key={a}
             href={`?aba=${a}`}
@@ -250,13 +399,139 @@ export default async function AbastecimentoPage({
             }`}
           >
             {texto}
+            {contagem ? <span className="ml-1 text-xs font-normal tabular-nums">({contagem})</span> : null}
           </a>
         ))}
       </nav>
 
+      {/* ---------------- SOLICITAR ---------------- */}
+      {aba === "solicitar" && (
+        <section className="space-y-6">
+          <MontarSolicitacao
+            clusters={clusters}
+            tipos={tipos}
+            turnoSugerido={turnoAtual(agora)}
+            tipoInicial={tipoDoHorario}
+            avisoSeDestoar={avisoSeDestoar}
+          />
+
+          {minhasSolicitacoes.length > 0 && (
+            <div>
+              <h2 className="mb-3 text-sm font-bold uppercase text-slate-500">
+                Minhas solicitações ({DIAS_DE_SOLICITACAO} dias)
+              </h2>
+              <div className="space-y-3">
+                {minhasSolicitacoes.map((r) => {
+                  const t = temposDoCiclo(r);
+                  return (
+                    <div key={r.id} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                      <CabecalhoDaSolicitacao r={r} agora={agora} />
+                      <ItensDaSolicitacao r={r} nomeDoProduto={nomeDoProduto} />
+
+                      {t.ciclo !== null && (
+                        <dl className="mt-3 grid grid-cols-2 gap-2 rounded-xl bg-slate-50 p-3 text-xs sm:grid-cols-5">
+                          <TempoDoCiclo rotulo="Espera empilh." minutos={t.esperaEmpilhadeira} />
+                          <TempoDoCiclo rotulo="Transporte" minutos={t.transporte} />
+                          <TempoDoCiclo rotulo="Espera ajudante" minutos={t.esperaAjudante} />
+                          <TempoDoCiclo rotulo="Abastecimento" minutos={t.abastecimento} />
+                          <TempoDoCiclo rotulo="Ciclo" minutos={t.ciclo} destaque />
+                        </dl>
+                      )}
+
+                      {r.canceladoEm ? (
+                        <p className="mt-2 text-xs text-slate-500">Motivo: {r.motivo}</p>
+                      ) : (
+                        estaAberta(r) &&
+                        !r.abastecimentoInicio && (
+                          <form action={cancelarSolicitacao} className="mt-3 flex gap-2">
+                            <input type="hidden" name="id" value={r.id} />
+                            <input
+                              name="motivo"
+                              required
+                              maxLength={200}
+                              placeholder="Motivo do cancelamento"
+                              className="min-w-0 flex-1 rounded-xl border border-slate-300 bg-white px-3 py-2 text-base text-slate-900 focus:border-primary focus:outline-none"
+                            />
+                            <BotaoEnviar className="shrink-0 rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-500 hover:bg-slate-50">
+                              Cancelar
+                            </BotaoEnviar>
+                          </form>
+                        )
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </section>
+      )}
+
+      {/* ---------------- FILA DA EMPILHADEIRA ---------------- */}
+      {aba === "fila" && podeTransportar && (
+        <section className="space-y-3">
+          {/* O que ESTE operador já aceitou vem primeiro: é o trabalho na
+              mão dele, e procurá-lo no meio da fila dos outros seria o
+              caminho mais longo para a tarefa mais urgente. */}
+          {filaDeTransporte
+            .filter((r) => r.operadorId === perfil.id)
+            .map((r) => (
+              <CartaoTransporte key={r.id} r={r} nomeDoProduto={nomeDoProduto} agora={agora} meu />
+            ))}
+
+          {filaDeTransporte.length === 0 ? (
+            <p className="rounded-xl bg-slate-50 p-4 text-sm text-slate-500">
+              Nenhuma solicitação esperando. Quando alguém pedir, aparece aqui.
+            </p>
+          ) : (
+            filaDeTransporte
+              .filter((r) => r.operadorId !== perfil.id)
+              .map((r) => (
+                <CartaoTransporte key={r.id} r={r} nomeDoProduto={nomeDoProduto} agora={agora} />
+              ))
+          )}
+        </section>
+      )}
+
       {/* ---------------- VISÃO 1, 2 e 3: LANÇAR ---------------- */}
       {aba === "lancar" && (
         <section className="space-y-6">
+          {/* O que a empilhadeira já deixou na área, esperando alguém
+              abastecer. Fica ANTES do formulário de iniciar do zero: se
+              tem material posto no chão esperando, é isso que a pessoa
+              deveria pegar primeiro. */}
+          {!aberta && esperandoNaArea.length > 0 && (
+            <div>
+              <h2 className="mb-3 text-sm font-bold uppercase text-slate-500">
+                📍 Esperando na área ({esperandoNaArea.length})
+              </h2>
+              <div className="space-y-3">
+                {esperandoNaArea.map((r) => (
+                  <div key={r.id} className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
+                    <CabecalhoDaSolicitacao r={r} agora={agora} />
+                    <ItensDaSolicitacao r={r} nomeDoProduto={nomeDoProduto} />
+                    <form action={iniciarAbastecimentoDaSolicitacao} className="mt-3 flex gap-2">
+                      <input type="hidden" name="id" value={r.id} />
+                      <select
+                        name="turno"
+                        defaultValue={turnoAtual(agora)}
+                        aria-label="Turno"
+                        className="w-auto rounded-xl border border-slate-300 bg-white px-3 py-2 text-base text-slate-900 focus:border-primary focus:outline-none"
+                      >
+                        {TURNOS.map((t) => (
+                          <option key={t} value={t}>{ROTULO_TURNO[t]}</option>
+                        ))}
+                      </select>
+                      <BotaoEnviar className="flex-1 rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-white hover:bg-primary-dark">
+                        🛒 Abastecer esta solicitação
+                      </BotaoEnviar>
+                    </form>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {aberta ? (
             <SessaoEmAndamento
               sessao={aberta}
@@ -517,8 +792,8 @@ function SessaoEmAndamento({
             apagaria tudo achando que era lançamento de outro. */}
         {sessao.ressuprimento_id && (
           <p className="mt-1 text-xs font-medium text-amber-900">
-            🧾 Veio de uma solicitação de ressuprimento. Os itens já estão lançados — tire ou
-            acrescente o que for diferente do que você abasteceu de verdade.
+            🧾 Veio de uma solicitação. Os itens já estão lançados — remova o que você não
+            chegou a abastecer e finalize.
           </p>
         )}
       </div>
@@ -561,6 +836,25 @@ function SessaoEmAndamento({
       )}
 
       {/* --- Acrescentar item --- */}
+      {/*
+        Sessão que veio de uma solicitação NÃO aceita produto novo.
+        Pedido do dono (02/09/2026): o que se abastece é o que foi pedido.
+        Deixar acrescentar transformaria o pedido num rascunho -- alguém
+        aproveitaria a sessão aberta para lançar mais um item que ninguém
+        pediu, e o tempo de ciclo passaria a medir dois trabalhos
+        diferentes como se fossem um. Precisa de outro produto? Nova
+        solicitação, do zero, e a empilhadeira busca.
+
+        Remover continua valendo: é o registro honesto de "este item não
+        foi abastecido", e sem ele a única saída seria lançar quantidade
+        que não aconteceu.
+      */}
+      {sessao.ressuprimento_id ? (
+        <p className="rounded-xl bg-white p-3 text-xs text-slate-500">
+          🧾 Este abastecimento atende a uma solicitação, então a lista é a que foi pedida. Se
+          faltou alguma coisa, abra uma nova solicitação — a empilhadeira busca.
+        </p>
+      ) : (
       <form action={adicionarItem} className="space-y-3 rounded-xl bg-white p-3">
         <input type="hidden" name="abastecimento_id" value={sessao.id} />
         <p className="text-xs font-semibold uppercase text-slate-500">Acrescentar produto</p>
@@ -605,6 +899,7 @@ function SessaoEmAndamento({
           + Adicionar item
         </BotaoEnviar>
       </form>
+      )}
 
       {/* --- Finalizar --- */}
       <form action={finalizarAbastecimento} className="space-y-3">

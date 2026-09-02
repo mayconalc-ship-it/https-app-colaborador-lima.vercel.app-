@@ -1,4 +1,4 @@
-﻿import { redirect } from "next/navigation";
+import { redirect } from "next/navigation";
 import { PageHeader } from "@/components/PageHeader";
 import { ExportarCsv } from "@/components/ExportarCsv";
 import { createClient } from "@/lib/supabase/server";
@@ -53,10 +53,15 @@ import {
   indicadoresDoOperador,
   indicadoresDoSolicitante,
   resumirPeriodo,
+  resumirPorTipo,
   type Prioridade,
   type Ressuprimento,
 } from "@/lib/ressuprimento";
-import { formatarMinutos as formatarMinutosCurto } from "@/lib/abastecimento";
+import {
+  TIPO_ABASTECIMENTO,
+  ehTipoAbastecimento,
+  formatarMinutos as formatarMinutosCurto,
+} from "@/lib/abastecimento";
 import { BarraRanking, BlocoAtividade, CartaoHero, TermometroDaBombona, type ItemBarra } from "./Graficos";
 
 export const dynamic = "force-dynamic";
@@ -250,7 +255,7 @@ export default async function IndicadoresPage({
     supabase
       .from("pa_ressuprimentos")
       .select(
-        "id, criado_em, solicitante_id, solicitante_nome, prioridade, operador_id, operador_nome, transporte_inicio, cancelado_em, pa_ressuprimento_itens(id, produto_id, unidade, quantidade, hl_calculado, entregue_em), pa_abastecimentos(inicio, fim, colaborador_nome)",
+        "id, criado_em, solicitante_id, solicitante_nome, prioridade, tipo, operador_id, operador_nome, transporte_inicio, cancelado_em, pa_ressuprimento_itens(id, produto_id, unidade, quantidade, hl_calculado, entregue_em), pa_abastecimentos(inicio, fim, colaborador_nome)",
       )
       .eq("revenda_id", revendaId)
       .gte("criado_em", de0)
@@ -268,6 +273,7 @@ export default async function IndicadoresPage({
       solicitante_id: string;
       solicitante_nome: string;
       prioridade: string;
+      tipo: string;
       operador_id: string | null;
       operador_nome: string | null;
       transporte_inicio: string | null;
@@ -290,6 +296,7 @@ export default async function IndicadoresPage({
       solicitanteId: l.solicitante_id,
       solicitanteNome: l.solicitante_nome,
       prioridade: (l.prioridade === "urgente" ? "urgente" : "normal") as Prioridade,
+      tipo: ehTipoAbastecimento(l.tipo) ? l.tipo : "completo",
       transporteInicio: l.transporte_inicio,
       operadorId: l.operador_id,
       operadorNome: l.operador_nome,
@@ -308,7 +315,12 @@ export default async function IndicadoresPage({
     };
   });
 
+  // Separado por tipo: uma varredura da manha de 2h e normal, um chamado
+  // pontual de 2h e um problema. Somados, o "ciclo medio" nao descreve
+  // nenhum dos dois -- e e justamente o numero que alguem usaria para
+  // cobrar a pessoa errada.
   const resumoRessuprimento = resumirPeriodo(ressuprimentos);
+  const ressuprimentoPorTipo = resumirPorTipo(ressuprimentos);
   const operadoresRessuprimento = indicadoresDoOperador(ressuprimentos);
   const solicitantesRessuprimento = indicadoresDoSolicitante(ressuprimentos);
 
@@ -1011,15 +1023,19 @@ export default async function IndicadoresPage({
             período: um bloco de zeros ensinaria a ignorá-lo. */}
         {resumoRessuprimento.total > 0 && (
           <BlocoAtividade titulo="🧾 Ressuprimento — tempos e movimentos">
-            <CartaoHero
-              titulo="Ciclo médio"
-              valor={
-                resumoRessuprimento.cicloMedio === null
-                  ? "—"
-                  : formatarMinutosCurto(resumoRessuprimento.cicloMedio)
-              }
-              legenda={`do pedido ao picking abastecido · ${resumoRessuprimento.concluidas} concluída(s)`}
-            />
+            {/* Um ciclo por TIPO, nunca a média dos dois juntos. Uma
+                varredura da manhã de 2h é normal; um chamado pontual de 2h
+                é um problema. Somados, o número não descreve nenhum dos
+                dois -- e é justamente o que alguém usaria para cobrar a
+                pessoa errada. */}
+            {ressuprimentoPorTipo.map(({ tipo, resumo }) => (
+              <CartaoHero
+                key={tipo}
+                titulo={`Ciclo — ${TIPO_ABASTECIMENTO[tipo].curto}`}
+                valor={resumo.cicloMedio === null ? "—" : formatarMinutosCurto(resumo.cicloMedio)}
+                legenda={`${TIPO_ABASTECIMENTO[tipo].emoji} ${resumo.concluidas} de ${resumo.total} concluída(s)`}
+              />
+            ))}
             {/* O número que muda decisão. Um ciclo de 40 minutos com 35 de
                 espera não se resolve treinando quem abastece. */}
             <CartaoHero

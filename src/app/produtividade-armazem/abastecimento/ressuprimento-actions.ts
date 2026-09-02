@@ -9,11 +9,10 @@ import { getRevendaId } from "@/lib/revendas";
 import { temAcessoModulo } from "@/lib/require-admin";
 import { exigirContextoModulo } from "@/lib/produtividade-armazem-server";
 import { ehTurno } from "@/lib/produtividade-armazem";
-import { calcularHl, ehUnidadeAbastecimento } from "@/lib/abastecimento";
+import { calcularHl, ehTipoAbastecimento, ehUnidadeAbastecimento } from "@/lib/abastecimento";
 import { ehPrioridade, ROTA_RESSUPRIMENTO } from "@/lib/ressuprimento";
 
 const ROTA = ROTA_RESSUPRIMENTO;
-const ROTA_ABASTECIMENTO = "/produtividade-armazem/abastecimento";
 
 function erro(mensagem: string, aba = ""): never {
   const q = new URLSearchParams({ erro: mensagem });
@@ -27,12 +26,18 @@ function pronto(mensagem: string, aba = ""): never {
   redirect(`${ROTA}?${q}`);
 }
 
-/** Quem PEDE. */
-const contextoSolicitante = () => exigirContextoModulo("pa-ressuprimento", ROTA);
+/**
+ * Quem PEDE e quem ABASTECE sao a MESMA concessao: "pa-picking".
+ *
+ * A 085 tinha criado um modulo separado para pedir. O dono corrigiu em
+ * 02/09/2026 -- pedir, transportar e abastecer sao etapas da mesma
+ * atividade, e exigir uma concessao a mais para a primeira etapa
+ * obrigaria a liberar duas coisas para a mesma pessoa fazer um trabalho
+ * so.
+ */
+const contextoPicking = () => exigirContextoModulo("pa-picking", ROTA);
 /** Quem TRANSPORTA -- a concessão que os operadores de empilhadeira já têm. */
 const contextoOperador = () => exigirContextoModulo("pa-empilhadeira", ROTA);
-/** Quem ABASTECE -- a concessão de sempre do picking. */
-const contextoAjudante = () => exigirContextoModulo("pa-picking", ROTA);
 
 /**
  * Cria a solicitação INTEIRA de uma vez: cabeçalho e itens no mesmo
@@ -50,12 +55,17 @@ const contextoAjudante = () => exigirContextoModulo("pa-picking", ROTA);
  * valia (mesmo desenho do item de abastecimento).
  */
 export async function criarSolicitacao(formData: FormData) {
-  const { perfil, revendaId } = await contextoSolicitante();
+  const { perfil, revendaId } = await contextoPicking();
 
   const turno = formData.get("turno");
   const prioridade = formData.get("prioridade");
+  const tipo = formData.get("tipo");
   if (!ehTurno(turno)) erro("Escolha o turno.");
   if (!ehPrioridade(prioridade)) erro("Escolha a prioridade.");
+  // Completo (a varredura da manhã, fechada às 10h) e pontual (a reposição
+  // esporádica) têm ritmos diferentes. Sem o tipo, a média de um contamina
+  // a do outro -- e o número que sai não descreve nenhum dos dois.
+  if (!ehTipoAbastecimento(tipo)) erro("Diga se é abastecimento completo ou reabastecimento pontual.");
 
   const observacao = String(formData.get("observacao") ?? "").trim().slice(0, 300) || null;
 
@@ -124,6 +134,7 @@ export async function criarSolicitacao(formData: FormData) {
       solicitante_nome: perfil.nome,
       turno,
       prioridade,
+      tipo,
       observacao,
     })
     .select("id")
@@ -275,7 +286,7 @@ export async function entregarTudo(formData: FormData) {
  * foi pedido, e é essa diferença que a gestão precisa enxergar.
  */
 export async function iniciarAbastecimentoDaSolicitacao(formData: FormData) {
-  const { perfil, revendaId } = await contextoAjudante();
+  const { perfil, revendaId } = await contextoPicking();
 
   const id = String(formData.get("id") ?? "");
   if (!id) erro("Solicitação inválida.", "abastecer");
@@ -287,7 +298,7 @@ export async function iniciarAbastecimentoDaSolicitacao(formData: FormData) {
 
   const { data: pedido } = await admin
     .from("pa_ressuprimentos")
-    .select("id, cancelado_em, pa_ressuprimento_itens(id, produto_id, unidade, quantidade, hl_calculado, entregue_em)")
+    .select("id, tipo, cancelado_em, pa_ressuprimento_itens(id, produto_id, unidade, quantidade, hl_calculado, entregue_em)")
     .eq("id", id)
     .eq("revenda_id", revendaId)
     .maybeSingle();
@@ -315,9 +326,10 @@ export async function iniciarAbastecimentoDaSolicitacao(formData: FormData) {
       revenda_id: revendaId,
       colaborador_id: perfil.id,
       colaborador_nome: perfil.nome,
-      // Uma solicitação é sempre um chamado de itens específicos -- é a
-      // definição de "pontual" no cadastro de tipos.
-      tipo: "pontual",
+      // HERDA o tipo da solicitação. Decidir aqui ("toda solicitação é
+      // pontual") jogaria a varredura da manhã inteira na conta do
+      // reabastecimento esporádico, e as duas médias virariam uma só.
+      tipo: ehTipoAbastecimento(pedido.tipo) ? pedido.tipo : "completo",
       turno,
       inicio: new Date().toISOString(),
       status: "em_andamento",
@@ -353,10 +365,9 @@ export async function iniciarAbastecimentoDaSolicitacao(formData: FormData) {
   }
 
   revalidatePath(ROTA);
-  revalidatePath(ROTA_ABASTECIMENTO);
   redirect(
-    `${ROTA_ABASTECIMENTO}?sucesso=${encodeURIComponent(
-      `Abastecimento iniciado com ${itens.length} item(ns) da solicitação. Ajuste o que for diferente e finalize.`,
+    `${ROTA}?sucesso=${encodeURIComponent(
+      `Abastecimento iniciado com ${itens.length} item(ns) da solicitação.`,
     )}`,
   );
 }
@@ -381,11 +392,11 @@ export async function cancelarSolicitacao(formData: FormData) {
   // redirect funciona lançando, então tentar o primeiro dentro de um
   // catch para cair no segundo engoliria o redirect e a pessoa ficaria
   // olhando para uma tela que não fez nada.
-  const [pedeRessuprimento, operaEmpilhadeira] = await Promise.all([
-    temAcessoModulo("pa-ressuprimento"),
+  const [abasteceP, operaEmpilhadeira] = await Promise.all([
+    temAcessoModulo("pa-picking"),
     temAcessoModulo("pa-empilhadeira"),
   ]);
-  if (!pedeRessuprimento && !operaEmpilhadeira) {
+  if (!abasteceP && !operaEmpilhadeira) {
     erro("Você não tem acesso ao Ressuprimento do Picking.");
   }
 

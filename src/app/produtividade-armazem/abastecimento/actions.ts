@@ -95,7 +95,7 @@ export async function adicionarItem(formData: FormData) {
   // id copiado da URL deixaria lançar item na sessão de outro.
   const { data: sessao } = await supabase
     .from("pa_abastecimentos")
-    .select("id")
+    .select("id, ressuprimento_id")
     .eq("id", abastecimentoId)
     .eq("revenda_id", revendaId)
     .eq("colaborador_id", perfil.id)
@@ -103,6 +103,20 @@ export async function adicionarItem(formData: FormData) {
     .maybeSingle();
 
   if (!sessao) erro("Este abastecimento já foi finalizado ou não é seu.");
+
+  // Sessão que atende a uma solicitação é fechada: o que se abastece é o
+  // que foi pedido. A tela já não mostra o formulário, mas esconder botão
+  // não é regra -- a regra mora aqui, senão um envio direto continuaria
+  // passando.
+  //
+  // Sem isso, alguém aproveitaria a sessão aberta para lançar mais um
+  // item que ninguém pediu, e o tempo de ciclo passaria a medir dois
+  // trabalhos diferentes como se fossem um.
+  if (sessao.ressuprimento_id) {
+    erro(
+      "Este abastecimento atende a uma solicitação e a lista é a que foi pedida. Para outro produto, abra uma nova solicitação.",
+    );
+  }
 
   const { data: produto } = await supabase
     .from("pa_produtos")
