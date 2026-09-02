@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { exigirRevenda } from "@/lib/revendas";
 import { PageHeader } from "@/components/PageHeader";
 import { PainelAoVivo } from "@/components/PainelAoVivo";
+import { ExportarCsv } from "@/components/ExportarCsv";
 import { formatarDuracao, nomeDaTela } from "@/lib/metricas";
 import { ROTULO_PAPEL, type Papel } from "@/lib/acessos";
 
@@ -38,7 +39,7 @@ export default async function AdminMetricasPage({
 }: {
   searchParams: Promise<Params>;
 }) {
-  await requireModulo("metricas", "ver");
+  await requireModulo("metricas", "ver", "/gestao");
 
   const p = await searchParams;
   const dias = PERIODOS.some((x) => String(x.dias) === p.dias)
@@ -53,7 +54,7 @@ export default async function AdminMetricasPage({
   const desdeIso = desde.toISOString();
 
   const admin = createAdminClient();
-  const revendaId = await exigirRevenda("/admin");
+  const revendaId = await exigirRevenda("/gestao");
 
   // O uso é medido pelas PESSOAS da revenda, não por uma coluna na tabela
   // de eventos: o registro é gravado pelo navegador, que não sabe (nem
@@ -244,8 +245,30 @@ export default async function AdminMetricasPage({
     if (final.filtro !== "todos") q.set("filtro", final.filtro!);
     if (final.ordem !== "tempo") q.set("ordem", final.ordem!);
     const s = q.toString();
-    return s ? `/admin/metricas?${s}` : "/admin/metricas";
+    return s ? `/gestao/uso-do-app?${s}` : "/gestao/uso-do-app";
   };
+
+  /**
+   * O que vai para a planilha: as MESMAS `linhas`, já filtradas e
+   * ordenadas acima. Não há segunda consulta -- o que a pessoa está vendo
+   * é o que ela baixa.
+   *
+   * Duas diferenças de propósito em relação à tela: os segundos vão
+   * crus, além de "2h 15min", porque planilha soma número e não texto; e
+   * a data do último acesso vai no formato ISO, que é o único que o
+   * Excel ordena certo sem precisar converter coluna.
+   */
+  const csvPessoas = linhas.map((l) => [
+    l.nome ?? "",
+    l.cargo ?? "",
+    ROTULO_PAPEL[(l.role ?? "colaborador") as Papel] ?? l.role,
+    l.acessos,
+    l.segundos,
+    formatarDuracao(l.segundos),
+    l.telas,
+    l.favorita ?? "",
+    l.ultimo ? l.ultimo.slice(0, 10) : "",
+  ]);
 
   return (
     <div>
@@ -354,6 +377,26 @@ export default async function AdminMetricasPage({
             >
               Buscar
             </button>
+            {/* Ao lado do filtro, e não no topo da tela, porque é DESTA
+                lista que ele exporta -- o número no botão é a contagem
+                que a busca acabou de produzir. */}
+            <ExportarCsv
+              nome="uso-do-app"
+              complemento={`${dias}-dias`}
+              cabecalho={[
+                "Nome",
+                "Cargo",
+                "Papel",
+                "Acessos",
+                "Segundos no app",
+                "Tempo no app",
+                "Telas abertas",
+                "Tela favorita",
+                "Último acesso",
+              ]}
+              linhas={csvPessoas}
+              rotulo=".csv"
+            />
           </form>
 
           <div className="rolagem-lateral -mx-4 overflow-x-auto px-4 pb-2">

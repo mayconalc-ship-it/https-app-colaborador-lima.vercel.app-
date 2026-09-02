@@ -79,7 +79,7 @@ export default async function ProdutividadeArmazemPage() {
           oferecer um caminho que vai ser negado. */}
       {podeVerIndicadores && (
         <a
-          href="/produtividade-armazem/indicadores"
+          href="/gestao/armazem"
           className="mt-6 inline-flex w-full items-center justify-center rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-white hover:bg-primary-dark"
         >
           📊 Ver indicadores e ranking

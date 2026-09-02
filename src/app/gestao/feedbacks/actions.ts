@@ -9,7 +9,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { criarNotificacao } from "@/lib/notificacoes-server";
 import { enviarPushDaRevenda } from "@/lib/push-server";
 
-const ROTA = "/admin/feedbacks";
+const ROTA = "/gestao/feedbacks";
 
 function erro(mensagem: string): never {
   redirect(`${ROTA}?aba=5-porques&erro=${encodeURIComponent(mensagem)}`);
@@ -26,7 +26,7 @@ function erroFeedback(mensagem: string): never {
  * que a liderança respondeu (quando essa tela existir para ele).
  */
 export async function salvarTratativa(formData: FormData) {
-  await requireModulo("feedbacks", "editar");
+  await requireModulo("feedbacks", "editar", "/gestao");
   const perfil = await getPerfil();
   const revendaId = await exigirRevenda(ROTA);
 
@@ -106,7 +106,7 @@ export async function salvarTratativa(formData: FormData) {
  * causa raiz, mas ainda assim precisa de resposta da liderança.
  */
 export async function salvarTratativaFeedback(formData: FormData) {
-  await requireModulo("feedbacks", "editar");
+  await requireModulo("feedbacks", "editar", "/gestao");
   const perfil = await getPerfil();
   const revendaId = await exigirRevenda(ROTA);
 

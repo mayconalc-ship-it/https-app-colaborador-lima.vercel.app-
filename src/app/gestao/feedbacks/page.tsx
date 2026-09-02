@@ -9,6 +9,7 @@ import {
   rotuloOcorrencia,
 } from "@/lib/feedback-ocorrencias";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
+import { ExportarCsv } from "@/components/ExportarCsv";
 import { CincoPorquesTab } from "./CincoPorquesTab";
 import { salvarTratativaFeedback } from "./actions";
 
@@ -28,7 +29,7 @@ export default async function AdminFeedbacksPage({
 }: {
   searchParams: Promise<{ dias?: string; aba?: string; erro?: string; sucesso?: string }>;
 }) {
-  await requireModulo("feedbacks", "ver");
+  await requireModulo("feedbacks", "ver", "/gestao");
   const { dias: diasParam, aba: abaParam, erro, sucesso } = await searchParams;
   const dias = PERIODOS.some((p) => String(p.dias) === diasParam)
     ? Number(diasParam)
@@ -39,7 +40,7 @@ export default async function AdminFeedbacksPage({
   desde.setDate(desde.getDate() - dias);
 
   const admin = createAdminClient();
-  const revendaId = await exigirRevenda("/admin");
+  const revendaId = await exigirRevenda("/gestao");
 
   const { data: feedbacks } = await admin
     .from("feedback_rota")
@@ -80,6 +81,32 @@ export default async function AdminFeedbacksPage({
     .filter((o) => o.total > 0)
     .sort((a, b) => b.total - a.total);
 
+  /**
+   * Uma linha por feedback, para cruzar no Excel com rota e com pessoa.
+   *
+   * As ocorrências viram uma célula só, separadas por " | " -- e não por
+   * vírgula ou ponto e vírgula, que são justamente os separadores da
+   * planilha. Uma coluna por ocorrência daria 20 colunas quase todas
+   * vazias; quem quiser contar usa CONT.SE nesta.
+   */
+  const csvFeedbacks = (feedbacks ?? []).map((f) => {
+    const p = nomePorId.get(f.colaborador_id);
+    return [
+      f.criado_em.slice(0, 10),
+      p?.nome ?? "",
+      p?.cargo ?? "",
+      f.rota ?? "",
+      f.nota,
+      rotuloNota(f.nota),
+      (f.ocorrencias ?? []).map((o: string) => rotuloOcorrencia(o)).join(" | "),
+      f.comentario ?? "",
+      f.tratativa_status ?? "",
+      f.resposta_lideranca ?? "",
+      f.resposta_lideranca_nome ?? "",
+      f.colaborador_aceitou,
+    ];
+  });
+
   return (
     <div>
       <PageHeader
@@ -102,7 +129,7 @@ export default async function AdminFeedbacksPage({
         {ABAS.map((a) => (
           <Link
             key={a.id}
-            href={`/admin/feedbacks?dias=${dias}&aba=${a.id}`}
+            href={`/gestao/feedbacks?dias=${dias}&aba=${a.id}`}
             className={`flex-1 rounded-xl border py-2 text-center text-sm font-semibold ${
               a.id === aba
                 ? "border-primary bg-primary-soft text-primary"
@@ -118,7 +145,7 @@ export default async function AdminFeedbacksPage({
         {PERIODOS.map((p) => (
           <Link
             key={p.dias}
-            href={`/admin/feedbacks?dias=${p.dias}&aba=${aba}`}
+            href={`/gestao/feedbacks?dias=${p.dias}&aba=${aba}`}
             className={`flex-1 rounded-xl border py-2 text-center text-sm font-semibold ${
               p.dias === dias
                 ? "border-primary bg-primary-soft text-primary"
@@ -134,6 +161,28 @@ export default async function AdminFeedbacksPage({
         <CincoPorquesTab revendaId={revendaId} desde={desde} />
       ) : (
         <>
+          <div className="mb-3 flex justify-end">
+            <ExportarCsv
+              nome="feedbacks-das-rotas"
+              complemento={`${dias}-dias`}
+              cabecalho={[
+                "Data",
+                "Colaborador",
+                "Cargo",
+                "Rota",
+                "Nota",
+                "Nota (texto)",
+                "Ocorrências",
+                "Comentário",
+                "Tratativa",
+                "Resposta da liderança",
+                "Quem respondeu",
+                "Colaborador aceitou",
+              ]}
+              linhas={csvFeedbacks}
+            />
+          </div>
+
           <div className="mb-4 grid grid-cols-3 gap-3">
             <div className="rounded-2xl border border-slate-200 bg-white p-4 text-center shadow-sm">
               <p className="text-2xl font-bold text-primary">{totalFeedbacks}</p>

@@ -1,6 +1,21 @@
 import type { NextConfig } from "next";
+import { mudancasDeEndereco } from "./src/lib/gestao";
 
 const nextConfig: NextConfig = {
+  /**
+   * As telas que se mudaram para a area de Gestao.
+   *
+   * 308, permanente: o time salva a tela na inicial do celular, e para
+   * muita gente esse atalho e o unico caminho que ela usa. Mover rota sem
+   * redirect quebraria esse atalho em silencio -- a pessoa toca e cai num
+   * 404, e a conclusao natural dela e que "o app parou de funcionar".
+   *
+   * A lista sai do proprio catalogo dos paineis, para nao existir a
+   * chance de um painel mudar de endereco e o redirect ficar para tras.
+   */
+  redirects() {
+    return Promise.resolve(mudancasDeEndereco());
+  },
   images: {
     qualities: [75, 100],
     // As fotos do jornal moram no bucket público do Supabase, e chegam do

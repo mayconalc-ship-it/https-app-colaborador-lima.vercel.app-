@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { PageHeader } from "@/components/PageHeader";
+import { ExportarCsv } from "@/components/ExportarCsv";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getRevendaId } from "@/lib/revendas";
 import { requireModulo } from "@/lib/require-admin";
@@ -39,7 +40,7 @@ export default async function AdminJustificativasPage({
 }: {
   searchParams: Promise<{ de?: string; ate?: string; indicador?: string; busca?: string }>;
 }) {
-  await requireModulo("justificativas", "ver");
+  await requireModulo("justificativas", "ver", "/gestao");
 
   const sp = await searchParams;
   const hoje = hojeISO();
@@ -204,6 +205,22 @@ export default async function AdminJustificativasPage({
   const porPessoa = contarPorPessoa(lista);
   const graves = lista.filter((j) => j.grave).length;
 
+  /**
+   * Uma linha por explicação, com o FATO junto -- é o contexto que faz a
+   * frase significar alguma coisa. "Estava chovendo" sozinho não diz se
+   * foi num dia de 0,4% ou de 12% de devolução.
+   */
+  const csvJustificativas = lista.map((j) => [
+    j.data,
+    ROTULO_INDICADOR[j.indicador],
+    j.colaboradorNome,
+    j.papel,
+    j.contexto,
+    j.grave,
+    j.texto,
+    j.criadoEm.slice(0, 10),
+  ]);
+
   return (
     <div className="space-y-4">
       <PageHeader
@@ -246,6 +263,24 @@ export default async function AdminJustificativasPage({
           Filtrar
         </button>
       </form>
+
+      <div className="flex justify-end">
+        <ExportarCsv
+          nome="justificativas"
+          complemento={`${de}_a_${ate}`}
+          cabecalho={[
+            "Data do fato",
+            "Indicador",
+            "Colaborador",
+            "Papel",
+            "Contexto",
+            "Caso grave",
+            "Explicação",
+            "Escrita em",
+          ]}
+          linhas={csvJustificativas}
+        />
+      </div>
 
       <div className="grid min-w-0 grid-cols-2 gap-3 sm:grid-cols-4">
         <Cartao titulo="Explicações" valor={String(lista.length)} legenda={`${diasNoIntervalo(de, ate)} dias`} />
@@ -331,7 +366,7 @@ export default async function AdminJustificativasPage({
         tratativa em vez de cobrança.
       </p>
 
-      <Link href="/admin" className="block text-center text-sm font-semibold text-primary hover:underline">
+      <Link href="/gestao" className="block text-center text-sm font-semibold text-primary hover:underline">
         ← Voltar ao painel
       </Link>
     </div>

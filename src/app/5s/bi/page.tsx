@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { PageHeader } from "@/components/PageHeader";
+import { ExportarCsv } from "@/components/ExportarCsv";
 import {
   getCompetencias,
   getContexto5S,
@@ -141,6 +142,34 @@ export default async function BI5SPage({
     .filter((a) => a.conformidade !== null)
     .sort((a, b) => (a.conformidade ?? 0) - (b.conformidade ?? 0))[0];
 
+  /**
+   * Duas planilhas, porque são duas perguntas diferentes: "qual área está
+   * pior" e "qual item reprova mais". Uma só, com as duas coisas
+   * empilhadas, não serviria para nenhuma das duas -- planilha se usa com
+   * tabela dinâmica, e tabela dinâmica precisa de uma linha por entidade.
+   *
+   * Ambas saem do recorte que está na tela: mês, área, auditor, dono e
+   * senso já filtraram `dados`.
+   */
+  const csvAreas = dados.por_area.map((a) => [
+    a.area,
+    a.conformidade,
+    a.auditorias,
+    a.itens,
+    a.nok,
+    a.nc_abertas,
+  ]);
+
+  const csvPerguntas = dados.perguntas.map((q) => [
+    q.codigo,
+    ROTULO_SENSO[q.senso],
+    q.texto,
+    q.ok,
+    q.nok,
+    q.na,
+    q.taxa_nok,
+  ]);
+
   return (
     <div>
       <PageHeader
@@ -150,6 +179,38 @@ export default async function BI5SPage({
         }
         fecharHref="/5s"
       />
+
+      <div className="mb-4 flex flex-wrap justify-end gap-2">
+        <ExportarCsv
+          nome="5s-por-area"
+          complemento={mes ?? "todo-o-periodo"}
+          cabecalho={[
+            "Área",
+            "Conformidade (%)",
+            "Auditorias",
+            "Itens avaliados",
+            "Itens NOK",
+            "Não conformidades abertas",
+          ]}
+          linhas={csvAreas}
+          rotulo="Áreas .csv"
+        />
+        <ExportarCsv
+          nome="5s-por-pergunta"
+          complemento={mes ?? "todo-o-periodo"}
+          cabecalho={[
+            "Código",
+            "Senso",
+            "Pergunta",
+            "OK",
+            "NOK",
+            "N/A",
+            "Taxa de NOK (%)",
+          ]}
+          linhas={csvPerguntas}
+          rotulo="Perguntas .csv"
+        />
+      </div>
 
       {/* ---- Filtros ---- */}
       <div className="rolagem-lateral -mx-4 mb-4 overflow-x-auto px-4 pb-2">

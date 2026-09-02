@@ -97,7 +97,7 @@ export async function salvarMetas(formData: FormData) {
   }
 
   revalidatePath(ROTA);
-  revalidatePath("/produtividade-armazem/indicadores");
+  revalidatePath("/gestao/armazem");
   revalidatePath("/devolucao");
   voltar(formData, "sucesso", `Metas de ${grupo.replace("-", " ")} salvas.`);
 }
@@ -146,6 +146,6 @@ export async function salvarMetasPorItem(formData: FormData) {
   }
 
   revalidatePath(ROTA);
-  revalidatePath("/produtividade-armazem/indicadores");
+  revalidatePath("/gestao/armazem");
   voltar(formData, "sucesso", `${alteracoes.length} meta(s) de ${config.rotulo} salva(s).`);
 }

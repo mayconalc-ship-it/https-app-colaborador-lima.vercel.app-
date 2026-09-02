@@ -35,6 +35,8 @@ export default async function AdminPage({
       // o href aponta para a tela do colaborador, e clicar aqui tirava o
       // gestor do Modo Liderança. A concessão segue na Gestão de Acessos.
       !m.semTelaAdmin &&
+      // Mudou de área: a tela mora em /gestao (ver lib/gestao.ts).
+      !m.emGestao &&
       modulosDaRevenda.has(m.id) &&
       podeFazer(perfil.role, concessoes, m.id, "ver"),
   );

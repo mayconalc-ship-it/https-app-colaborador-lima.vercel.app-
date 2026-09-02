@@ -21,6 +21,13 @@ const NOMES: { prefixo: string; nome: string; emoji: string }[] = [
   { prefixo: "/minha-conta", nome: "Minha Conta", emoji: "👤" },
   { prefixo: "/escolher-revenda", nome: "Troca de revenda", emoji: "🏢" },
   { prefixo: "/definir-senha", nome: "Trocar senha", emoji: "🔑" },
+  // Antes de "/admin", que é prefixo mais curto e engoliria estes três se
+  // viesse primeiro -- a busca é pela PRIMEIRA entrada que casa.
+  { prefixo: "/gestao/armazem", nome: "Produtividade do Armazém", emoji: "🏭" },
+  { prefixo: "/gestao/feedbacks", nome: "Feedbacks das Rotas", emoji: "📝" },
+  { prefixo: "/gestao/justificativas", nome: "Justificativas", emoji: "🗣️" },
+  { prefixo: "/gestao/uso-do-app", nome: "Uso do App", emoji: "📱" },
+  { prefixo: "/gestao", nome: "Painel de Gestão", emoji: "📊" },
   { prefixo: "/admin", nome: "Área de gestão", emoji: "⚙️" },
 ];
 

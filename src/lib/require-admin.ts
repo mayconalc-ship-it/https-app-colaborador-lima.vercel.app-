@@ -47,17 +47,17 @@ export async function requireOwner() {
  * Vale para a TELA e para a AÇÃO que grava. Proteger só a tela deixaria a
  * porta dos fundos aberta para quem souber o endereço.
  */
-export async function requireModulo(modulo: ModuloId, acao: Acao) {
+export async function requireModulo(modulo: ModuloId, acao: Acao, destino = "/admin") {
   const perfil = await getPerfil();
   if (!perfil) redirect("/login");
 
   if (!(await revendaTemModulo(modulo))) {
-    redirect(`/admin?erro=${encodeURIComponent(desligado(modulo))}`);
+    redirect(`${destino}?erro=${encodeURIComponent(desligado(modulo))}`);
   }
 
   const concessoes = await getConcessoes();
   if (!podeFazer(perfil.role, concessoes, modulo, acao)) {
-    redirect(`/admin?erro=${encodeURIComponent(negado(modulo, acao))}`);
+    redirect(`${destino}?erro=${encodeURIComponent(negado(modulo, acao))}`);
   }
 
   return perfil;

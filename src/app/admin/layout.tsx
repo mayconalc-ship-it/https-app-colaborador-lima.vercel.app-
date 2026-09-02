@@ -2,6 +2,7 @@
 import { VoltarAoPainel } from "@/components/VoltarAoPainel";
 import { AdminSidebar, type GrupoNav } from "@/components/admin/AdminSidebar";
 import { getConcessoes } from "@/lib/concessoes";
+import { paineisVisiveis } from "@/lib/gestao-server";
 import { getRevendaAtiva, getModulosDaRevenda } from "@/lib/revendas";
 import {
   EMOJI_GRUPO_ADMIN,
@@ -56,6 +57,10 @@ export default async function AdminLayout({
       // jogava o gestor para fora do Modo Liderança. A concessão continua
       // na Gestão de Acessos.
       !m.semTelaAdmin &&
+      // A tela mudou de área: Feedbacks, Justificativas e Uso do App
+      // passaram a morar em /gestao. Sair daqui é o ponto -- esta barra é
+      // do que se CONFIGURA, e nenhum dos três configura coisa alguma.
+      !m.emGestao &&
       modulosDaRevenda.has(m.id) &&
       podeFazer(perfil.role, concessoes, m.id, "ver"),
   );
@@ -75,6 +80,10 @@ export default async function AdminLayout({
     ? MODULOS_DO_DONO.map((m) => ({ id: m.href, href: m.href, rotulo: m.rotulo, emoji: m.emoji }))
     : null;
 
+  // A porta para a Gestão só aparece para quem tem algum painel lá. Um
+  // atalho que leva a uma área vazia é pior que atalho nenhum.
+  const paineis = await paineisVisiveis();
+
   return (
     <div>
       <AdminSidebar
@@ -85,6 +94,11 @@ export default async function AdminLayout({
           rotulo: dono ? "Painel Admin" : "Painel da Liderança",
           emoji: "⚙️",
         }}
+        atalho={
+          paineis.length > 0
+            ? { id: "gestao", href: "/gestao", rotulo: "Modo gestão", emoji: "📊" }
+            : null
+        }
       />
 
       <div className="md:pl-20">

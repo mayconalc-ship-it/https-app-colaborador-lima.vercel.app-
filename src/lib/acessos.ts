@@ -116,6 +116,15 @@ export type Modulo = {
    * e clicar nele jogava o gestor para fora do Admin.
    */
   semTelaAdmin?: boolean;
+  /**
+   * A tela deste módulo mora na área de GESTÃO (/gestao), não no Modo
+   * Liderança. Fica fora da barra do Admin -- a barra da Gestão a mostra,
+   * montada a partir de PAINEIS em lib/gestao.ts.
+   *
+   * A concessão continua sendo a mesma, com o mesmo nome, no mesmo lugar
+   * da Gestão de Acessos: mudou o endereço da tela, não a permissão.
+   */
+  emGestao?: boolean;
 };
 
 export const MODULOS: Modulo[] = [
@@ -201,8 +210,9 @@ export const MODULOS: Modulo[] = [
     id: "justificativas",
     rotulo: "Justificativas",
     emoji: "🗣️",
-    href: "/admin/justificativas",
+    href: "/gestao/justificativas",
     grupo: "Indicadores",
+    emGestao: true,
     // Só leitura, e de propósito: a explicação é do colaborador. A
     // liderança lê para tratar, não para editar -- um texto que pode ser
     // mexido por quem foi explicado deixa de ser a versão de quem
@@ -445,8 +455,9 @@ export const MODULOS: Modulo[] = [
     id: "feedbacks",
     rotulo: "Feedbacks das Rotas",
     emoji: "📝",
-    href: "/admin/feedbacks",
+    href: "/gestao/feedbacks",
     grupo: "Indicadores",
+    emGestao: true,
     // "editar" = responder a tratativa das análises de 5 Porquês. Quem só
     // tem "ver" acompanha a fila, mas não grava resposta para o motorista.
     acoes: ["ver", "editar"],
@@ -455,8 +466,9 @@ export const MODULOS: Modulo[] = [
     id: "metricas",
     rotulo: "Uso do App",
     emoji: "📊",
-    href: "/admin/metricas",
+    href: "/gestao/uso-do-app",
     grupo: "Indicadores",
+    emGestao: true,
     acoes: ["ver"],
   },
   {

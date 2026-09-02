@@ -1,5 +1,6 @@
 ﻿import { redirect } from "next/navigation";
 import { PageHeader } from "@/components/PageHeader";
+import { ExportarCsv } from "@/components/ExportarCsv";
 import { createClient } from "@/lib/supabase/server";
 import { getRevendaId } from "@/lib/revendas";
 import { requireAcessoArmazem } from "@/lib/produtividade-armazem-server";
@@ -776,6 +777,36 @@ export default async function IndicadoresPage({
     })),
   );
 
+  /**
+   * O ranking em planilha -- uma linha por pessoa, no mesmo recorte de
+   * data e turno que está na tela.
+   *
+   * Vão as PARCELAS junto da pontuação final, não só ela. A pontuação é
+   * uma média de porcentagens, e sozinha não deixa perguntar "caiu por
+   * causa do repack ou do despejo?" -- que é a única pergunta que leva a
+   * uma conversa útil com a pessoa.
+   *
+   * Vazio quando a pessoa não fez a atividade: um 0 ali seria lido como
+   * "fez e teve desempenho zero", e puxaria qualquer média da planilha
+   * para baixo.
+   */
+  const csvRanking = ranking.map((r, i) => [
+    i + 1,
+    r.colaboradorNome,
+    r.pontuacao,
+    r.reepacksPctMeta,
+    r.despejoPctMeta,
+    r.selecaoPctMedia,
+    r.pickingPctMedia,
+    r.cincoSPctMedia,
+    r.totalReepacks,
+    r.totalDespejoLitros,
+    r.totalSelecao,
+    r.hlPicking,
+    r.totalExecucoes5s,
+    r.totalAtividades,
+  ]);
+
   return (
     <div>
       <PageHeader
@@ -805,6 +836,30 @@ export default async function IndicadoresPage({
         <button type="submit" className="rounded-lg bg-slate-800 px-3 py-2 text-sm font-semibold text-white">
           Filtrar
         </button>
+        <div className="ml-auto">
+          <ExportarCsv
+            nome="ranking-armazem"
+            complemento={[de, "a", ate, turnoFiltro ?? ""].filter(Boolean).join("_")}
+            cabecalho={[
+              "Posição",
+              "Colaborador",
+              "Pontuação",
+              "% meta Repack",
+              "% meta Despejo",
+              "% média Seleção",
+              "% média Picking",
+              "% média 5S",
+              "Repacks (un)",
+              "Despejo (L)",
+              "Seleção (un)",
+              "Picking (HL)",
+              "Execuções 5S",
+              "Lançamentos",
+            ]}
+            linhas={csvRanking}
+            rotulo="Exportar ranking .csv"
+          />
+        </div>
       </form>
 
       <div className="space-y-5">

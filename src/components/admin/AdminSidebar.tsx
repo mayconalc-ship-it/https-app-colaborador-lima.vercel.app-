@@ -31,10 +31,19 @@ export function AdminSidebar({
   grupos,
   grupoDono,
   home,
+  atalho,
 }: {
   grupos: GrupoNav[];
   grupoDono: ItemNav[] | null;
   home: { href: string; rotulo: string; emoji: string };
+  /**
+   * A porta para a OUTRA área -- Gestão a partir do Modo Liderança, e
+   * vice-versa. Fica logo abaixo do painel, antes das gavetas, porque é
+   * uma troca de assunto, não mais um item de configuração: quem está
+   * cadastrando produto e quer ver o ranking não procura o ranking dentro
+   * de uma gaveta de cadastro.
+   */
+  atalho?: ItemNav | null;
 }) {
   const pathname = usePathname();
   const [abertoMobile, setAbertoMobile] = useState(false);
@@ -140,6 +149,20 @@ export function AdminSidebar({
               ✕
             </button>
           </div>
+
+          {atalho && (
+            <Link
+              href={atalho.href}
+              onClick={fechar}
+              title={atalho.rotulo}
+              className="mb-2 flex items-center gap-3 rounded-xl border border-slate-200 px-2 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-100"
+            >
+              <span className="flex h-6 w-6 shrink-0 items-center justify-center text-lg">
+                {atalho.emoji}
+              </span>
+              <span className={classeRotulo}>{atalho.rotulo}</span>
+            </Link>
+          )}
 
           {grupos.map((grupo) => {
             const aberta = abertos.has(grupo.titulo);

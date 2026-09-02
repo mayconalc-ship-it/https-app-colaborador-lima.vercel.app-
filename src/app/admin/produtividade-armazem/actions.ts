@@ -952,7 +952,7 @@ export async function editarEmbalagemRepack(formData: FormData) {
   if (error) erro("reepack-despejo", `Não foi possível salvar: ${error.message}`);
 
   revalidatePath(ROTA);
-  revalidatePath("/produtividade-armazem/indicadores");
+  revalidatePath("/gestao/armazem");
   sucesso("reepack-despejo", meta === null ? "Meta removida" : "Meta da embalagem atualizada");
 }
 

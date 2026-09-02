@@ -1,6 +1,7 @@
 ﻿import { redirect } from "next/navigation";
 import { PageHeader } from "@/components/PageHeader";
 import { FiltroNoLugar } from "@/components/FiltroNoLugar";
+import { ExportarCsv } from "@/components/ExportarCsv";
 import { createClient } from "@/lib/supabase/server";
 import { getRevendaId } from "@/lib/revendas";
 import { requireAcessoModulo } from "@/lib/require-admin";
@@ -228,6 +229,34 @@ export default async function DashboardGasPage({
   const naoCalculados = ciclos.filter((c) => !cicloContaParaMaquina(c));
   const semSessoes = ciclos.filter((c) => c.status === "sem_sessoes");
 
+  /**
+   * Um ciclo por linha -- a base para conferir o consumo no Excel.
+   *
+   * Vai o STATUS junto, e não só os ciclos válidos: um ciclo descartado do
+   * cálculo (horímetro que andou para trás, troca sem sessão) precisa
+   * aparecer na planilha, senão a conta do arquivo não fecha com a da
+   * tela e ninguém descobre por quê.
+   *
+   * As horas não identificadas também vão: são as horas que a máquina
+   * rodou sem ninguém apontado, e é justamente delas que sai a conversa
+   * sobre apontamento.
+   */
+  const csvCiclos = ciclos.map((c) => [
+    c.empilhadeiraNumero,
+    c.numero,
+    c.abertoEm.slice(0, 10),
+    c.fechadoEm.slice(0, 10),
+    c.horimetroInicial,
+    c.horimetroFinal,
+    c.horas,
+    c.horasAtribuidas,
+    c.horasNaoIdentificadas,
+    c.porOperador.map((o) => `${o.operadorNome}: ${o.horas.toFixed(1)}h`).join(" | "),
+    c.trocadoPor,
+    ROTULO_STATUS_CICLO[c.status],
+    cicloContaParaMaquina(c),
+  ]);
+
   return (
     <div>
       <PageHeader
@@ -271,6 +300,29 @@ export default async function DashboardGasPage({
         >
           Filtrar
         </button>
+        <div className="col-span-2 sm:col-span-1 sm:ml-auto">
+          <ExportarCsv
+            nome="ciclos-de-gas"
+            complemento={`${de}_a_${ate}`}
+            cabecalho={[
+              "Empilhadeira",
+              "Ciclo",
+              "Aberto em",
+              "Fechado em",
+              "Horímetro inicial",
+              "Horímetro final",
+              "Horas do ciclo",
+              "Horas atribuídas",
+              "Horas sem apontamento",
+              "Rateio por operador",
+              "Trocado por",
+              "Status",
+              "Entra no cálculo",
+            ]}
+            linhas={csvCiclos}
+            rotulo="Ciclos .csv"
+          />
+        </div>
       </form>
 
       {ciclos.length === 0 ? (
