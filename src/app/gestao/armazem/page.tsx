@@ -1108,7 +1108,7 @@ export default async function IndicadoresPage({
             Só aparece quando houve lote no período: um bloco de zeros
             ensina a ignorá-lo. */}
         {lotesBatidos.length > 0 && (
-          <BlocoAtividade titulo="📦 Bate Palete">
+          <BlocoAtividade titulo="🤲📦 Bate Palete">
             <CartaoHero
               titulo="HL batidos"
               valor={`${formatarNumeroBr(batePaleteHl, 1)} HL`}

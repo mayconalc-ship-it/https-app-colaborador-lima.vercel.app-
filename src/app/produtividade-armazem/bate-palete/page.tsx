@@ -196,7 +196,7 @@ export default async function BatePaletePage({
   return (
     <div>
       <PageHeader
-        title="📦 Bate Palete"
+        title="🤲📦 Bate Palete"
         subtitle="Registre o que foi batido e quanto disso estava avariado."
         fecharHref="/produtividade-armazem"
       />
