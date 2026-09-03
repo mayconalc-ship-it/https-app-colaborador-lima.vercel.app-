@@ -2,6 +2,7 @@
 import { PageHeader } from "@/components/PageHeader";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
 import { BotaoExcluir } from "@/components/BotaoExcluir";
+import { AplicarPerfil } from "@/components/admin/AplicarPerfil";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getRevendaId } from "@/lib/revendas";
 import { requireModulo, podeNoModulo } from "@/lib/require-admin";
@@ -88,6 +89,28 @@ export default async function PerfisDeAcessoPage({
   // próprio nome em vez de quebrar a tela.
   const nomeDoModulo = new Map<string, string>(MODULOS.map((m) => [m.id as string, m.rotulo]));
 
+  /**
+   * O material que a caixa de aplicar precisa para fazer a conta do que
+   * SAI antes de enviar (ver AplicarPerfil).
+   *
+   * Só entram as pessoas que já têm alguma concessão: quem não tem nada
+   * não perde nada, e mandar o mapa inteiro seria carregar 67 listas
+   * vazias para o navegador.
+   */
+  const jaTem: Record<string, string[]> = {};
+  for (const p of comPermissao) {
+    jaTem[p.id] = (concessoesDaPessoa.get(p.id) ?? []).map(
+      (c) => `${c.modulo}:${c.acao}`,
+    );
+  }
+
+  const rotulosDeConcessao: Record<string, string> = {};
+  for (const m of MODULOS) {
+    for (const a of m.acoes) {
+      rotulosDeConcessao[`${m.id}:${a}`] = `${m.rotulo} · ${ROTULO_ACAO[a]}`;
+    }
+  }
+
   return (
     <div className="space-y-4">
       <PageHeader
@@ -120,11 +143,15 @@ export default async function PerfisDeAcessoPage({
           : não é um segundo sistema de permissão, é um atalho para o mesmo.
         </p>
         <p className="mt-2">
-          Aplicar <strong>soma</strong> — nunca tira. Quem já administra outra
-          coisa continua administrando, e{" "}
-          <strong>tirar acesso é sempre em Acessos por Pessoa</strong>. Pela
-          mesma razão, excluir um perfil daqui não desfaz nada: quem já recebeu
-          continua com as permissões, e ajustar pessoa a pessoa continua
+          Ao aplicar você escolhe entre <strong>Somar</strong>, que acrescenta o
+          que falta e não tira nada, e <strong>Espelhar</strong>, que deixa a
+          pessoa igual ao perfil — inclusive tirando o que sobra. O Espelhar
+          mostra, nome por nome, o que vai sair antes de você confirmar. Ele
+          nunca mexe nas permissões da pessoa em outra revenda.
+        </p>
+        <p className="mt-2">
+          Excluir um perfil daqui não desfaz nada: quem já recebeu continua com
+          as permissões, e ajustar pessoa a pessoa em Acessos por Pessoa continua
           possível.
         </p>
       </div>
@@ -147,35 +174,145 @@ export default async function PerfisDeAcessoPage({
             ).length;
             const porModulo = agruparPorModulo(perms);
 
+            const quem = comPermissao.filter((pessoa) =>
+              temOPerfil(perms, concessoesDaPessoa.get(pessoa.id) ?? []),
+            );
+
             return (
-              <section key={p.id} className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-                <div className="border-b border-slate-100 p-4">
-                  <div className="flex flex-wrap items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <p className="text-sm font-bold text-slate-900">{p.nome}</p>
-                      {p.descricao && <p className="mt-0.5 text-xs text-slate-500">{p.descricao}</p>}
-                    </div>
-                    <div className="flex shrink-0 items-center gap-2">
-                      <span className="rounded-lg bg-slate-100 px-2 py-1 text-[11px] font-bold text-slate-600">
-                        {perms.length} permissão(ões)
+              /* CADA PERFIL FECHADO, pedido do dono (02/09/2026).
+                 Um perfil de 46 permissões abria como um muro de 20
+                 etiquetas soltas, e dois perfis já enchiam a tela antes
+                 de dar para comparar um com o outro. Fechado, a lista é
+                 o que ela deveria ser: os nomes dos cargos, com o
+                 tamanho de cada um do lado. O perfil aberto na URL
+                 (?perfil=) começa aberto -- quem chegou por ele veio ver
+                 ele. */
+              <details
+                key={p.id}
+                open={sp.perfil === p.id}
+                className="group overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"
+              >
+                <summary className="flex cursor-pointer list-none flex-wrap items-center justify-between gap-2 p-4 marker:content-none [&::-webkit-details-marker]:hidden">
+                  <div className="min-w-0">
+                    <p className="text-sm font-bold text-slate-900">
+                      <span className="mr-1 inline-block text-slate-400 transition-transform group-open:rotate-90">
+                        ▸
                       </span>
-                      <span className="rounded-lg bg-primary-soft px-2 py-1 text-[11px] font-bold text-primary-dark">
-                        {quantos} pessoa(s)
-                      </span>
-                    </div>
+                      {p.nome}
+                    </p>
+                    {p.descricao && (
+                      <p className="mt-0.5 pl-4 text-xs text-slate-500">{p.descricao}</p>
+                    )}
+                  </div>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <span className="rounded-lg bg-slate-100 px-2 py-1 text-[11px] font-bold text-slate-600">
+                      {perms.length} permissão(ões)
+                    </span>
+                    <span className="rounded-lg bg-primary-soft px-2 py-1 text-[11px] font-bold text-primary-dark">
+                      {quantos} pessoa(s)
+                    </span>
+                  </div>
+                </summary>
+
+                <div className="border-t border-slate-100 p-4">
+                  {/* As permissões pelas MESMAS gavetas da barra lateral.
+                      A ordem alfabética de módulo misturava publicar
+                      comunicado com cadastrar produto; por gaveta, dá
+                      para ver de relance que um perfil é "tudo de
+                      Comunicação e nada de Configuração". */}
+                  <div className="space-y-2">
+                    {GRUPOS_DO_ADMIN.map((grupo) => {
+                      const doGrupo = [...porModulo].filter(
+                        ([modulo]) =>
+                          MODULOS.find((m) => m.id === modulo)?.grupo === grupo,
+                      );
+                      if (doGrupo.length === 0) return null;
+                      return (
+                        <div key={grupo}>
+                          <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">
+                            {grupo}
+                          </p>
+                          <div className="mt-1 flex flex-wrap gap-1.5">
+                            {doGrupo.map(([modulo, acoes]) => (
+                              <span
+                                key={modulo}
+                                className="rounded-lg bg-slate-50 px-2 py-0.5 text-[11px] text-slate-600"
+                                title={acoes.join(", ")}
+                              >
+                                {nomeDoModulo.get(modulo) ?? modulo}
+                                <span className="ml-1 text-slate-400">{acoes.length}</span>
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
+                    {/* Módulo que saiu do catálogo (renomeado, removido)
+                        continua gravado no perfil e não pertence a
+                        gaveta nenhuma -- some da tela se não for
+                        listado aqui, e some justamente para quem
+                        precisa consertá-lo. */}
+                    {(() => {
+                      const orfaos = [...porModulo].filter(
+                        ([modulo]) => !MODULOS.some((m) => m.id === modulo),
+                      );
+                      if (orfaos.length === 0) return null;
+                      return (
+                        <div>
+                          <p className="text-[10px] font-bold uppercase tracking-wide text-amber-600">
+                            Fora do catálogo
+                          </p>
+                          <div className="mt-1 flex flex-wrap gap-1.5">
+                            {orfaos.map(([modulo, acoes]) => (
+                              <span
+                                key={modulo}
+                                className="rounded-lg bg-amber-50 px-2 py-0.5 text-[11px] text-amber-800"
+                                title={acoes.join(", ")}
+                              >
+                                {modulo}
+                                <span className="ml-1 text-amber-500">{acoes.length}</span>
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })()}
                   </div>
 
-                  <div className="mt-2 flex flex-wrap gap-1.5">
-                    {[...porModulo].map(([modulo, acoes]) => (
-                      <span
-                        key={modulo}
-                        className="rounded-lg bg-slate-50 px-2 py-0.5 text-[11px] text-slate-600"
-                        title={acoes.join(", ")}
-                      >
-                        {nomeDoModulo.get(modulo) ?? modulo}
-                        <span className="ml-1 text-slate-400">{acoes.length}</span>
-                      </span>
-                    ))}
+                  {/* QUEM TEM ESTE PERFIL, pedido do dono (02/09/2026).
+                      O cartão dizia "3 pessoa(s)" e parava aí -- descobrir
+                      quais obrigava a abrir Acessos por Pessoa e conferir
+                      um a um. Vale lembrar o que o número significa: são
+                      as pessoas que TÊM todas as permissões do perfil,
+                      apurado no banco, não uma marca de "recebeu o
+                      perfil". Quem chegou ao mesmo conjunto na mão
+                      aparece aqui igual -- e é o certo, porque acesso é o
+                      que a pessoa pode, não por onde passou. */}
+                  <div className="mt-4 border-t border-slate-100 pt-3">
+                    <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">
+                      Quem tem este perfil
+                    </p>
+                    {quem.length === 0 ? (
+                      <p className="mt-1 text-xs text-slate-500">
+                        Ninguém ainda — aplique a alguém abaixo.
+                      </p>
+                    ) : (
+                      <ul className="mt-1 flex flex-wrap gap-1.5">
+                        {quem.map((pessoa) => (
+                          <li
+                            key={pessoa.id}
+                            className="rounded-lg bg-primary-soft px-2 py-1 text-[11px] font-medium text-primary-dark"
+                          >
+                            {pessoa.nome}
+                            {pessoa.cargo && (
+                              <span className="ml-1 font-normal text-primary">
+                                {pessoa.cargo}
+                              </span>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
                   </div>
 
                   {podeEditar && (
@@ -199,31 +336,19 @@ export default async function PerfisDeAcessoPage({
                 </div>
 
                 {podeEditar && (
-                  <form action={aplicarPerfil} className="flex flex-wrap items-end gap-2 p-4">
-                    <input type="hidden" name="perfil_id" value={p.id} />
-                    <div className="min-w-0 flex-1">
-                      <label className={rotulo} htmlFor={`pessoa-${p.id}`}>
-                        Aplicar a
-                      </label>
-                      <select id={`pessoa-${p.id}`} name="colaborador_id" required className={campo}>
-                        <option value="">Escolha a pessoa</option>
-                        {pessoas.map((pessoa) => (
-                          <option key={pessoa.id} value={pessoa.id}>
-                            {pessoa.nome}
-                            {pessoa.cargo ? ` — ${pessoa.cargo}` : ""}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <BotaoEnviar
-                      compacto
-                      className="shrink-0 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary-dark"
-                    >
-                      Aplicar
-                    </BotaoEnviar>
-                  </form>
+                  <div className="border-t border-slate-100 bg-slate-50/60">
+                    <AplicarPerfil
+                      action={aplicarPerfil}
+                      perfilId={p.id}
+                      perfilNome={p.nome}
+                      pessoas={pessoas}
+                      doPerfil={perms.map((c) => `${c.modulo}:${c.acao}`)}
+                      jaTem={jaTem}
+                      rotulos={rotulosDeConcessao}
+                    />
+                  </div>
                 )}
-              </section>
+              </details>
             );
           })}
         </div>

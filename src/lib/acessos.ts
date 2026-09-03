@@ -623,8 +623,20 @@ export function ehAcaoValida(a: string): a is Acao {
 /**
  * Telas que NUNCA podem ser delegadas. Mexer em quem pode o quê é do Admin,
  * e só dele -- é o que impede uma liderança de aumentar o próprio poder.
+ *
+ * O `grupo` opcional move o item para uma gaveta normal da barra, EM VEZ
+ * do bloco dourado "Só do Admin". Ele muda onde a tela aparece, e nada
+ * mais: quem não é dono continua sem receber a lista inteira (ver
+ * admin/layout.tsx, onde `grupoDono` só existe para o dono). Serve para a
+ * tela que é exclusiva por precaução, mas que na cabeça de quem usa é uma
+ * configuração como as outras.
  */
-export const MODULOS_DO_DONO = [
+export const MODULOS_DO_DONO: {
+  href: string;
+  rotulo: string;
+  emoji: string;
+  grupo?: GrupoDoAdmin;
+}[] = [
   {
     href: "/admin/revendas",
     rotulo: "Revendas",
@@ -645,9 +657,14 @@ export const MODULOS_DO_DONO = [
     emoji: "📋",
   },
   {
+    // Em Configuração, e não no bloco dourado (pedido do dono,
+    // 02/09/2026): ligar e desligar aviso por módulo é ajuste de
+    // funcionamento, irmão de Metas e do Menu -- não é uma tela de poder
+    // como Acessos e Auditoria. Continua exclusiva do dono.
     href: "/admin/notificacoes",
     rotulo: "Notificações",
     emoji: "🔔",
+    grupo: "Configuração",
   },
   {
     href: "/admin/creditos-ia",

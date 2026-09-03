@@ -150,12 +150,27 @@ export async function criarPerfilDePessoa(formData: FormData) {
 }
 
 /**
- * Aplica um perfil a uma pessoa.
+ * Aplica um perfil a uma pessoa, de um de dois jeitos.
  *
- * SOMA, nunca remove. Quem já administra outra coisa continua
- * administrando -- uma tela que tira acesso sem alguém pedir é como se
- * perde a confiança de quem usa. Para remover, a tela de acessos continua
- * lá, e lá a remoção é explícita.
+ * SOMAR acrescenta e não tira nada. ESPELHAR deixa a pessoa igual ao
+ * perfil: acrescenta o que falta e retira o que sobra.
+ *
+ * Por muito tempo só existiu o somar, com um motivo bom: uma tela que
+ * tira acesso sem ninguém pedir queima a confiança de quem usa. Só que a
+ * pergunta do dono (02/09/2026) expôs o outro lado -- ele chamou a
+ * operação de "espelhar" antes mesmo de existir o modo, porque é isso que
+ * a palavra "perfil" promete. Aplicar "Analista de Rota" e a pessoa
+ * continuar com sobras de outro cargo não é aplicar um perfil, é somar
+ * duas listas.
+ *
+ * Os dois modos existem porque nenhum serve sempre: quem acumula funções
+ * (o supervisor que também administra o Jornal) precisa do somar, e é
+ * justamente essa pessoa que o espelhar prejudicaria em silêncio. Por
+ * isso o espelhar não é silencioso -- a tela lista, nome por nome, o que
+ * vai sair, e a confirmação é sobre essa lista.
+ *
+ * O que o espelhar NUNCA toca: as permissões das outras revendas (o
+ * `revenda_id` está nos dois lados da conta) e o papel de quem é owner.
  *
  * Papel: quem recebe um perfil vira "lideranca", porque sem isso as
  * concessões não fazem efeito nenhum -- `podeFazer` só as consulta para
@@ -169,16 +184,32 @@ export async function aplicarPerfil(formData: FormData) {
 
   const perfilId = String(formData.get("perfil_id") ?? "");
   const colaboradorId = String(formData.get("colaborador_id") ?? "");
+  // Espelhar é o modo que TIRA, então ele precisa ser pedido por escrito.
+  // Qualquer outra coisa que chegue aqui -- campo ausente, valor
+  // estranho, requisição montada à mão -- cai no somar, que não desfaz
+  // nada.
+  const espelhar = String(formData.get("modo") ?? "") === "espelhar";
   if (!perfilId || !colaboradorId) voltar("erro", "Escolha o perfil e a pessoa.");
 
-  const [{ data: doPerfil }, { data: alvo }] = await Promise.all([
+  const [{ data: doPerfil }, { data: alvo }, { data: jaTem }] = await Promise.all([
     admin.from("perfil_permissoes").select("modulo, acao").eq("perfil_id", perfilId),
     admin.from("profiles").select("id, nome, role").eq("id", colaboradorId).maybeSingle(),
+    admin
+      .from("lideranca_permissoes")
+      .select("modulo, acao")
+      .eq("colaborador_id", colaboradorId)
+      .eq("revenda_id", revendaId),
   ]);
 
   const concessoes = (doPerfil ?? []) as Concessao[];
   if (concessoes.length === 0) voltar("erro", "Este perfil não tem nenhuma permissão.");
   if (!alvo) voltar("erro", "Pessoa não encontrada.");
+
+  // O que a pessoa tem e o perfil não tem. Só isto sai, e só no espelhar.
+  const noPerfil = new Set(concessoes.map((c) => `${c.modulo}:${c.acao}`));
+  const sobrando = ((jaTem ?? []) as Concessao[]).filter(
+    (c) => !noPerfil.has(`${c.modulo}:${c.acao}`),
+  );
 
   // A `revenda_id` vai escrita e vai no onConflict. As duas coisas pela
   // mesma razao: a chave de lideranca_permissoes deixou de ser
@@ -203,6 +234,31 @@ export async function aplicarPerfil(formData: FormData) {
   );
   if (error) voltar("erro", `Não foi possível aplicar: ${error.message}`);
 
+  // A retirada vem DEPOIS de gravar o perfil, nunca antes. Se a ordem
+  // fosse a inversa e a gravação falhasse no meio, a pessoa ficaria com
+  // menos acesso do que tinha antes de alguém clicar em nada.
+  let retiradas = 0;
+  if (espelhar && sobrando.length > 0) {
+    const { error: erroTirar } = await admin
+      .from("lideranca_permissoes")
+      .delete()
+      .eq("colaborador_id", colaboradorId)
+      .eq("revenda_id", revendaId)
+      .or(
+        sobrando
+          .map((c) => `and(modulo.eq.${c.modulo},acao.eq.${c.acao})`)
+          .join(","),
+      );
+    if (erroTirar) {
+      voltar(
+        "erro",
+        `As permissões do perfil foram gravadas, mas não consegui retirar as que sobravam: ${erroTirar.message}`,
+        `&perfil=${perfilId}`,
+      );
+    }
+    retiradas = sobrando.length;
+  }
+
   // Sem o papel de liderança as concessões ficam inertes: podeFazer só as
   // consulta para esse papel. Owner nunca é rebaixado.
   if (alvo.role !== "owner" && alvo.role !== "admin" && alvo.role !== "lideranca") {
@@ -211,7 +267,16 @@ export async function aplicarPerfil(formData: FormData) {
 
   revalidatePath(ROTA);
   revalidatePath("/admin/acessos");
-  voltar("sucesso", `Perfil aplicado a ${alvo.nome}.`, `&perfil=${perfilId}`);
+  voltar(
+    "sucesso",
+    espelhar
+      ? `${alvo.nome} agora está igual ao perfil: ${concessoes.length} permissão(ões)` +
+          (retiradas > 0
+            ? `, e ${retiradas} que sobrava(m) foram retiradas.`
+            : " — não havia nada sobrando para retirar.")
+      : `Perfil somado a ${alvo.nome}: ${concessoes.length} permissão(ões). Nada foi retirado.`,
+    `&perfil=${perfilId}`,
+  );
 }
 
 export async function excluirPerfil(formData: FormData) {

@@ -65,19 +65,34 @@ export default async function AdminLayout({
       podeFazer(perfil.role, concessoes, m.id, "ver"),
   );
 
+  // Tela do dono que mora numa gaveta normal (hoje: Notificações, em
+  // Configuração). Continua sendo só do dono -- para quem não é, esta
+  // lista é vazia e o item não entra em gaveta nenhuma.
+  const doDonoEmGaveta = dono ? MODULOS_DO_DONO.filter((m) => m.grupo) : [];
+
   // A ordem vem de GRUPOS_DO_ADMIN, em lib/acessos.ts -- uma gaveta some
   // sozinha quando a pessoa não tem nada liberado dentro dela.
   const grupos: GrupoNav[] = GRUPOS_DO_ADMIN
     .map((titulo) => ({
       titulo: `${EMOJI_GRUPO_ADMIN[titulo]} ${titulo}`,
-      itens: liberados
-        .filter((m) => m.grupo === titulo)
-        .map((m) => ({ id: m.id, href: m.href, rotulo: m.rotulo, emoji: m.emoji })),
+      itens: [
+        ...liberados
+          .filter((m) => m.grupo === titulo)
+          .map((m) => ({ id: m.id, href: m.href, rotulo: m.rotulo, emoji: m.emoji })),
+        ...doDonoEmGaveta
+          .filter((m) => m.grupo === titulo)
+          .map((m) => ({ id: m.href, href: m.href, rotulo: m.rotulo, emoji: m.emoji })),
+      ],
     }))
     .filter((g) => g.itens.length > 0);
 
   const grupoDono = dono
-    ? MODULOS_DO_DONO.map((m) => ({ id: m.href, href: m.href, rotulo: m.rotulo, emoji: m.emoji }))
+    ? MODULOS_DO_DONO.filter((m) => !m.grupo).map((m) => ({
+        id: m.href,
+        href: m.href,
+        rotulo: m.rotulo,
+        emoji: m.emoji,
+      }))
     : null;
 
   // A porta para a Gestão só aparece para quem tem algum painel lá. Um

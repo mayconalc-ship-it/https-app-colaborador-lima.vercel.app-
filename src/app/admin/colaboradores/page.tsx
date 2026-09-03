@@ -407,8 +407,28 @@ export default async function AdminColaboradoresPage({
             Nenhum colaborador encontrado.
           </div>
         ) : (
-          <div className="divide-y divide-slate-100 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-            {colaboradores.map((c) => (
+          /* AGRUPADO POR ÁREA, sempre -- pedido do dono (02/09/2026).
+             Eram 67 nomes em ordem alfabética, uma coluna só: achar "os
+             do armazém" exigia ler a lista inteira e lembrar de cor quem
+             é de onde. A área é o recorte que a operação usa em todo o
+             resto do app (desafio, escala, indicadores), então é por ela
+             que a lista se organiza aqui também.
+
+             O cabeçalho de cada área traz a contagem, o que dá de graça a
+             conferência que antes só existia na tela do Desafio: quantos
+             estão em cada frente, e quantos estão sem área -- que é o
+             grupo que impede a pessoa de entrar em qualquer campeonato. */
+          <div className="space-y-3">
+            {agruparPorArea(colaboradores).map(([area, daArea]) => (
+              <section key={area}>
+                <h3 className="mb-1 flex items-baseline gap-2 px-1 text-xs font-bold uppercase tracking-wide text-slate-500">
+                  {area}
+                  <span className="font-medium normal-case tracking-normal text-slate-400">
+                    {daArea.length} pessoa{daArea.length > 1 ? "s" : ""}
+                  </span>
+                </h3>
+                <div className="divide-y divide-slate-100 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+                  {daArea.map((c) => (
               <ColaboradorItem
                 key={c.id}
                 colaborador={c}
@@ -439,6 +459,9 @@ export default async function AdminColaboradoresPage({
                 onConcederAG={concederAcessoAtivoGiro}
                 onRevogarAG={revogarAcessoAtivoGiro}
               />
+                  ))}
+                </div>
+              </section>
             ))}
           </div>
         )}
@@ -451,4 +474,34 @@ export default async function AdminColaboradoresPage({
       </p>
     </div>
   );
+}
+
+const SEM_AREA = "Sem área definida";
+
+/**
+ * A lista de pessoas, em blocos por área.
+ *
+ * A ordem dos blocos é alfabética, com UMA exceção: quem está sem área
+ * vai para o fim. Não é uma área de verdade, é uma pendência de cadastro
+ * -- e uma pendência no topo empurraria para baixo os dois grupos que
+ * alguém realmente veio procurar.
+ *
+ * Dentro de cada bloco a ordem de chegada é preservada, e ela já vem
+ * alfabética do banco (`order("nome")`).
+ */
+function agruparPorArea<T extends { area: string | null }>(
+  pessoas: T[],
+): [string, T[]][] {
+  const grupos = new Map<string, T[]>();
+  for (const p of pessoas) {
+    const chave = p.area?.trim() || SEM_AREA;
+    const lista = grupos.get(chave) ?? [];
+    lista.push(p);
+    grupos.set(chave, lista);
+  }
+  return [...grupos.entries()].sort(([a], [b]) => {
+    if (a === SEM_AREA) return 1;
+    if (b === SEM_AREA) return -1;
+    return a.localeCompare(b, "pt-BR");
+  });
 }
