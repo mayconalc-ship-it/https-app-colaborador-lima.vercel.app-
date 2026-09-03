@@ -336,13 +336,47 @@ export default async function AtivoDeGiroPage({
 
   const contagens = (minhas ?? []) as Contagem[];
   const contadores = contadoresDeLinhas(quemContou);
+  // O nome mostrado é o da conciliação de fato -- inclui o caso em que a
+  // tela escolheu sozinha porque só uma pessoa contou.
   const nomeFiltrado = contadores.find((c) => c.id === colab)?.nome;
   const contagensPeriodo = (doPeriodo ?? []) as Contagem[];
 
   // O dia inteiro vem do banco e o filtro acontece aqui: uma contagem de
   // pátio são dezenas de linhas, então filtrar no caminho de volta não
   // pagaria o preço de uma consulta a mais.
-  const contagensDia = ((doDia ?? []) as Contagem[]).filter(soDe);
+  /*
+    QUEM CONTOU NESTE DIA -- e quanto cada um contou.
+
+    Cada conferente conta o pátio INTEIRO, de forma independente: em
+    29/08 o Denes fechou 16.617 caixas e o Lucas 16.611, quase idênticos.
+    É dupla contagem cega, não divisão de área. Somar as duas dá 131% do
+    parque.
+
+    Por isso a conciliação precisa de UMA pessoa escolhida. Quando só uma
+    contou, escolher seria burocracia: a tela usa ela sozinha.
+  */
+  const todasDoDia = (doDia ?? []) as Contagem[];
+  const contadoresDoDia = (() => {
+    const mapa = new Map<string, { id: string; nome: string; caixas: number }>();
+    for (const c of todasDoDia) {
+      const atual = mapa.get(c.colaborador_id) ?? {
+        id: c.colaborador_id,
+        nome: c.colaborador_nome,
+        caixas: 0,
+      };
+      atual.caixas += totalEmCaixas(c, fatores[c.formato]);
+      mapa.set(c.colaborador_id, atual);
+    }
+    return [...mapa.values()].sort((a, b) => b.caixas - a.caixas);
+  })();
+
+  // Uma pessoa só contou? Ela é a contagem do dia, sem pedir escolha.
+  const colabDaConciliacao =
+    colab || (contadoresDoDia.length === 1 ? contadoresDoDia[0].id : "");
+
+  const contagensDia = colabDaConciliacao
+    ? todasDoDia.filter((c) => c.colaborador_id === colabDaConciliacao)
+    : todasDoDia.filter(soDe);
 
   const pendentesRecontagem = recontagensDeLinhas(recontagensBanco);
 
@@ -431,13 +465,23 @@ export default async function AtivoDeGiroPage({
   // A evolução dia a dia, para a aba Histórico -- pedido do dono: ver a
   // curva das faltas e sobras, não só a foto de hoje.
   //
-  // Só SEM filtro de pessoa: o parque é da revenda inteira, e conciliar
-  // o que UMA pessoa contou contra ele acusaria uma falta que está com o
-  // resto do time. É o mesmo motivo do aviso que já existe na aba
-  // Conciliação -- aqui a saída é não calcular, e a tela explica.
+  // SÓ COM pessoa escolhida -- e eu tinha feito o contrário aqui.
+  //
+  // A regra é a mesma da aba Conciliação: cada conferente conta o pátio
+  // inteiro, então somar os dois de um dia dá 131% do parque (medido em
+  // 29/08). Um histórico somando todo mundo mostraria uma "sobra"
+  // gigante nos dias em que duas pessoas contaram e um número normal nos
+  // dias de uma só -- uma serra que não descreve a operação, e sim
+  // quantas pessoas trabalharam naquele dia.
   const diasConciliados =
-    aba === "historico" && !colab
-      ? conciliarPorDia(contagensPeriodo, parque, fatores, transitoPorDia, comodato)
+    aba === "historico" && colab
+      ? conciliarPorDia(
+          contagensPeriodo.filter((c) => c.colaborador_id === colab),
+          parque,
+          fatores,
+          transitoPorDia,
+          comodato,
+        )
       : [];
   const totais = totaisPorFormato(contagensDia, fatores);
   const maiorTotal = Math.max(1, ...totais.map((t) => t.total));
@@ -531,15 +575,61 @@ export default async function AtivoDeGiroPage({
 
       {aba === "conciliacao" && (
         <section>
-          {/* Filtrar por pessoa muda o significado da coluna Diferença, e
-              isso precisa estar escrito: o parque é o saldo da revenda
-              inteira, então comparar com o que UMA pessoa contou acusa uma
-              falta que provavelmente está com o resto do time. */}
+          {/*
+            A CONCILIAÇÃO É DE UMA PESSOA, NÃO DA SOMA -- e eu tinha
+            escrito o contrário aqui.
+
+            O aviso antigo dizia que filtrar por pessoa fazia a diferença
+            "não fechar", porque o parque é da revenda inteira. Está
+            errado, e os dados provam: em 29/08 o Denes contou 16.617
+            caixas e o Lucas 16.611 -- cada um 65% do parque, quase
+            idênticos. Não é divisão de área, é DUPLA CONTAGEM CEGA do
+            mesmo pátio. Somar os dois deu 131% do parque.
+
+            Então o parque é para todos, sim, mas o contado tem de ser o
+            de UMA pessoa: é a contagem dela contra o saldo oficial.
+            Somar duas contagens do mesmo pátio conta tudo duas vezes.
+            Corrigido a pedido do dono (03/09/2026).
+          */}
+          {!colab && contadoresDoDia.length > 1 && (
+            <div className="mb-3 rounded-2xl border border-amber-300 bg-amber-50 p-4">
+              <p className="text-sm font-bold text-amber-900">
+                Escolha de quem é a contagem
+              </p>
+              <p className="mt-1 text-xs text-amber-800">
+                {contadoresDoDia.length} pessoas contaram em{" "}
+                {formatarData(dia)}, e cada uma contou o pátio inteiro. Somar
+                as duas contaria tudo duas vezes — a conciliação é de uma
+                contagem contra o parque.
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {contadoresDoDia.map((c) => (
+                  <a
+                    key={c.id}
+                    href={`/ativo-de-giro?aba=conciliacao&data=${dia}&colab=${encodeURIComponent(c.id)}`}
+                    className="rounded-xl border border-amber-300 bg-white px-3 py-2 text-sm font-semibold text-amber-900 hover:bg-amber-100"
+                  >
+                    {c.nome}
+                    <span className="ml-1 font-normal text-amber-700">
+                      {Math.round(c.caixas).toLocaleString("pt-BR")} cx
+                    </span>
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
+
           {nomeFiltrado && (
-            <p className="mb-3 rounded-xl bg-amber-50 p-3 text-sm text-amber-800">
-              Mostrando só o que <strong>{nomeFiltrado}</strong> contou. O
-              parque continua sendo o da revenda inteira, então a diferença
-              não fecha enquanto o filtro estiver ligado.
+            <p className="mb-3 rounded-xl bg-primary-soft p-3 text-sm text-primary-dark">
+              Conciliando a contagem de <strong>{nomeFiltrado}</strong> contra o
+              parque da revenda.
+              {contadoresDoDia.length > 1 && (
+                <>
+                  {" "}
+                  Outra pessoa também contou este dia — troque no filtro para
+                  ver a dela.
+                </>
+              )}
             </p>
           )}
 
@@ -1062,10 +1152,21 @@ export default async function AtivoDeGiroPage({
               série. Isso é honesto para uma janela de semanas (o parque
               muda de mês em mês) e é a razão de este bloco não voltar
               anos. */}
-          {diasConciliados.length > 0 && !nomeFiltrado && (
+          {/* Sem pessoa escolhida não há o que conciliar: somar duas
+              contagens do mesmo pátio conta tudo duas vezes. A tela pede
+              a escolha em vez de mostrar um número que engana. */}
+          {!colab && contagensPeriodo.length > 0 && (
+            <p className="mb-4 rounded-xl border border-amber-300 bg-amber-50 p-3 text-xs text-amber-800">
+              <strong>Escolha um colaborador acima</strong> para ver a
+              conciliação dia a dia. Cada conferente conta o pátio inteiro —
+              somar as contagens de duas pessoas contaria tudo duas vezes.
+            </p>
+          )}
+
+          {diasConciliados.length > 0 && (
             <section className="mb-5">
               <h2 className="mb-2 text-sm font-bold uppercase tracking-wide text-slate-500">
-                📉 Conciliação por dia
+                📉 Conciliação por dia — {nomeFiltrado}
               </h2>
               <div className="overflow-x-auto rounded-2xl border border-slate-200">
                 <table className="w-full text-sm">
@@ -1143,18 +1244,12 @@ export default async function AtivoDeGiroPage({
                 mudar, e não é lançado por dia. Mudá-lo hoje muda também o que
                 estes dias mostram.
               </p>
+              <p className="mt-1 text-xs text-slate-400">
+                Só a contagem de <strong>{nomeFiltrado}</strong> entra aqui.
+                Cada conferente conta o pátio inteiro, então somar duas
+                contagens do mesmo dia contaria tudo duas vezes.
+              </p>
             </section>
-          )}
-
-          {/* Com filtro por pessoa a conciliação por dia não faz sentido:
-              o parque é da revenda inteira, e comparar com o que UMA
-              pessoa contou acusaria uma falta que está com o resto do
-              time. É o mesmo aviso da aba Conciliação. */}
-          {diasConciliados.length === 0 && nomeFiltrado && contagensPeriodo.length > 0 && (
-            <p className="mb-4 rounded-xl bg-amber-50 p-3 text-xs text-amber-800">
-              A conciliação por dia não aparece com o filtro de pessoa ligado —
-              o parque é da revenda inteira. Tire o filtro para ver a evolução.
-            </p>
           )}
 
           <h2 className="mb-2 text-sm font-bold uppercase tracking-wide text-slate-500">

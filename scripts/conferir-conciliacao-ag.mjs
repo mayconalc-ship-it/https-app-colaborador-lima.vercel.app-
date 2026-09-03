@@ -135,36 +135,67 @@ for (const r of revendas) {
   const fatores = fatoresDeLinhas(fat);
   const parque = parqueDeLinhas(parq);
   const transito = juntarParcelas(transitoDeLinhas(transitoBanco), comodatoDeLinhas(com));
-  const linhas = conciliar(contagens, parque, fatores, transito);
-  const resumo = resumirConciliacao(linhas);
 
-  const n = (v) => String(v).padStart(8);
-  console.log(
-    "\nTIPO            FORMATO   CONTADO     ROTA  CARRETA   COMOD.   PARQUE    DIFER.      %  SIT.",
-  );
-  for (const l of linhas) {
-    const sit =
-      l.dentroDoAceitavel === null ? "s/parque" : l.dentroDoAceitavel ? "dentro" : "FORA";
+  /*
+    UMA CONCILIAÇÃO POR PESSOA -- somar todo mundo é errado.
+
+    Cada conferente conta o pátio INTEIRO, de forma independente. Em
+    29/08 o Denes fechou 16.617 caixas e o Lucas 16.611: dupla contagem
+    cega, não divisão de área. Somando, o script mostrava 131% do parque
+    e uma "sobra" que não existe.
+
+    A conciliação é a contagem de UMA pessoa contra o parque -- e quando
+    duas contaram, as duas conciliações lado a lado são o próprio
+    resultado: a divergência entre elas é o sinal de recontagem.
+  */
+  const porPessoa = new Map();
+  for (const c of contagens) {
+    porPessoa.set(c.colaborador_id, {
+      nome: c.colaborador_nome,
+      linhas: [...(porPessoa.get(c.colaborador_id)?.linhas ?? []), c],
+    });
+  }
+
+  if (porPessoa.size > 1) {
     console.log(
-      `${l.tipo.padEnd(15)} ${l.formato.padEnd(8)} ${n(l.contado)} ${n(l.rota)} ${n(l.carreta)} ` +
-        `${n(l.comodato)} ${n(l.parque)} ${n(l.diferenca)} ${String(l.pctDiferenca ?? "-").padStart(6)}  ${sit}`,
+      `\n⚠️  ${porPessoa.size} pessoas contaram este dia. Cada uma conta o pátio inteiro,\n` +
+        "    então cada contagem é conciliada SEPARADAMENTE (somar daria o dobro).",
     );
   }
 
-  console.log(
-    `\nFECHAMENTO: ${resumo.contado} contadas + ${resumo.rota} rota + ${resumo.carreta} carreta ` +
-      `+ ${resumo.comodato} comodato − ${resumo.parque} parque = ${resumo.diferenca}`,
-  );
-  console.log(
-    `  ${resumo.pctDiferenca ?? "—"}% do parque (aceitável até ${LIMITE_DIFERENCA_PCT}%) → ` +
-      `${resumo.dentroDoAceitavel ? "DENTRO" : "FORA"}  |  linhas fora do limite: ${resumo.linhasFora}`,
-  );
+  const n = (v) => String(v).padStart(8);
+  for (const { nome, linhas: doColaborador } of porPessoa.values()) {
+    const linhas = conciliar(doColaborador, parque, fatores, transito);
+    const resumo = resumirConciliacao(linhas);
 
-  // O total pode fechar e uma linha estar muito fora -- é o mesmo aviso
-  // que a tela dá, e é a razão de ele existir lá.
-  if (resumo.dentroDoAceitavel && resumo.linhasFora > 0) {
+    console.log(`\n── contagem de ${nome} ${"─".repeat(Math.max(0, 55 - nome.length))}`);
     console.log(
-      `  ⚠️  o total fecha, mas ${resumo.linhasFora} linha(s) passaram dos ${LIMITE_DIFERENCA_PCT}% — veja "FORA" acima.`,
+      "TIPO            FORMATO   CONTADO     ROTA  CARRETA   COMOD.   PARQUE    DIFER.      %  SIT.",
     );
+    for (const l of linhas) {
+      const sit =
+        l.dentroDoAceitavel === null ? "s/parque" : l.dentroDoAceitavel ? "dentro" : "FORA";
+      console.log(
+        `${l.tipo.padEnd(15)} ${l.formato.padEnd(8)} ${n(l.contado)} ${n(l.rota)} ${n(l.carreta)} ` +
+          `${n(l.comodato)} ${n(l.parque)} ${n(l.diferenca)} ${String(l.pctDiferenca ?? "-").padStart(6)}  ${sit}`,
+      );
+    }
+
+    console.log(
+      `FECHAMENTO: ${resumo.contado} contadas + ${resumo.rota} rota + ${resumo.carreta} carreta ` +
+        `+ ${resumo.comodato} comodato − ${resumo.parque} parque = ${resumo.diferenca}`,
+    );
+    console.log(
+      `  ${resumo.pctDiferenca ?? "—"}% do parque (aceitável até ${LIMITE_DIFERENCA_PCT}%) → ` +
+        `${resumo.dentroDoAceitavel ? "DENTRO" : "FORA"}  |  linhas fora do limite: ${resumo.linhasFora}`,
+    );
+
+    // O total pode fechar e uma linha estar muito fora -- é o mesmo aviso
+    // que a tela dá, e é a razão de ele existir lá.
+    if (resumo.dentroDoAceitavel && resumo.linhasFora > 0) {
+      console.log(
+        `  ⚠️  o total fecha, mas ${resumo.linhasFora} linha(s) passaram dos ${LIMITE_DIFERENCA_PCT}% — veja "FORA" acima.`,
+      );
+    }
   }
 }
