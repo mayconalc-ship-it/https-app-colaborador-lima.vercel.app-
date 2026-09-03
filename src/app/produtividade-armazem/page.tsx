@@ -23,7 +23,7 @@ const FUNCIONALIDADES: { chave: ModuloId; titulo: string; emoji: string; href: s
   // Trocado em 29/08/2026: o card aponta para o Abastecimento (produto e
   // HL) no lugar do antigo Reabastecimento por "posições". A rota velha
   // continua de pé, só de leitura, para o histórico não sumir.
-  { chave: "pa-picking", titulo: "Abastecimento do Picking", emoji: "🛒", href: "/produtividade-armazem/abastecimento" },
+  { chave: "pa-picking", titulo: "Abastecimento do Picking", emoji: "🏬", href: "/produtividade-armazem/abastecimento" },
   // Bate palete: remontar o palete que chegou avariado da fábrica. Vizinho
   // da Seleção e Triagem (dentro do Reepack) e diferente dela -- lá o
   // produto é a unidade limpa, aqui é o palete inteiro de volta ao estoque.

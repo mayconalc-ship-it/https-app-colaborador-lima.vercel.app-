@@ -83,15 +83,50 @@ export function VoceSabia({
         />
       )}
 
-      <div className="fixed bottom-4 right-4 z-40 flex flex-col items-end gap-2 print:hidden">
+      {/* NO ALTO, À DIREITA -- pedido do dono (03/09/2026).
+          Ela nasceu no canto de baixo, e ali ficava por cima dos cartões
+          do menu: quem ia tocar num módulo acertava a lâmpada. No alto,
+          logo abaixo do cabeçalho, ela não tem nada embaixo para
+          atrapalhar -- e o cabeçalho é sticky, então a altura de onde ela
+          começa é a dele, medida nos dois tamanhos (56px até 640px, 88px
+          dali pra cima), a mesma conta da barra do Admin. */}
+      <div className="fixed right-4 top-[68px] z-40 flex flex-col items-end gap-2 sm:top-[100px] print:hidden">
+        <button
+          type="button"
+          onClick={() => (aberto ? setAberto(false) : abrir())}
+          aria-expanded={aberto}
+          aria-label={
+            novo ? "Você sabia? Há uma dica nova" : "Você sabia? Ver a dica"
+          }
+          className={`relative flex h-12 w-12 items-center justify-center rounded-full border text-xl shadow-lg transition-colors ${
+            novo
+              ? "border-gold bg-gold text-primary-dark"
+              : "border-slate-200 bg-white text-slate-500"
+          }`}
+        >
+          💡
+          {novo && (
+            <span
+              aria-hidden="true"
+              className="lampada-pisca absolute -right-0.5 -top-0.5 h-3 w-3 rounded-full border-2 border-white bg-primary"
+            />
+          )}
+        </button>
+
         {aberto && (
           <div
             ref={caixa}
             role="dialog"
             aria-label="Você sabia?"
-            className="balao-abre relative w-[min(20rem,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl"
+            // SEM `overflow-hidden`: era ele que cortava a pontinha.
+            // A pontinha fica FORA da caixa, por definição -- é o pedaço
+            // que sai dela em direção à lâmpada -- e um recorte no pai
+            // some com ela sem deixar vestígio. Os cantos arredondados,
+            // que era o motivo do overflow, agora são dados a cada faixa
+            // (o cabeçalho arredonda em cima, o rodapé embaixo).
+            className="balao-abre relative w-[min(20rem,calc(100vw-2rem))] rounded-2xl border border-slate-200 bg-white shadow-xl"
           >
-            <div className="flex items-start gap-2 border-b border-slate-100 bg-gold-soft px-4 py-2.5">
+            <div className="flex items-start gap-2 rounded-t-2xl border-b border-slate-100 bg-gold-soft px-4 py-2.5">
               <span className="text-lg" aria-hidden="true">
                 💡
               </span>
@@ -135,7 +170,7 @@ export function VoceSabia({
               )}
             </div>
 
-            <div className="flex items-center justify-between gap-2 border-t border-slate-100 px-3 py-2">
+            <div className="flex items-center justify-between gap-2 rounded-b-2xl border-t border-slate-100 bg-white px-3 py-2">
               {/* Curtir não vale ponto e a tela não promete que valha: o
                   texto fala do conteúdo ("útil"), não da pessoa. */}
               <button
@@ -162,37 +197,17 @@ export function VoceSabia({
               </span>
             </div>
 
-            {/* A pontinha, encostada no canto de baixo à direita -- é ela
-                que liga o balão à lâmpada. Um quadrado girado, com as duas
-                bordas visíveis do lado certo. */}
+            {/* A pontinha, encostada no topo à direita -- é ela que liga
+                o balão à lâmpada, que agora fica ACIMA dele. Um quadrado
+                girado 45°, mostrando só as duas bordas que ficam viradas
+                para cima; a cor de fundo é a mesma do cabeçalho do balão,
+                senão a emenda apareceria como um degrau. */}
             <span
               aria-hidden="true"
-              className="absolute -bottom-1.5 right-6 h-3 w-3 rotate-45 border-b border-r border-slate-200 bg-white"
+              className="absolute -top-1.5 right-5 h-3 w-3 rotate-45 border-l border-t border-slate-200 bg-gold-soft"
             />
           </div>
         )}
-
-        <button
-          type="button"
-          onClick={() => (aberto ? setAberto(false) : abrir())}
-          aria-expanded={aberto}
-          aria-label={
-            novo ? "Você sabia? Há uma dica nova" : "Você sabia? Ver a dica"
-          }
-          className={`relative flex h-12 w-12 items-center justify-center rounded-full border text-xl shadow-lg transition-colors ${
-            novo
-              ? "border-gold bg-gold text-primary-dark"
-              : "border-slate-200 bg-white text-slate-500"
-          }`}
-        >
-          💡
-          {novo && (
-            <span
-              aria-hidden="true"
-              className="lampada-pisca absolute -right-0.5 -top-0.5 h-3 w-3 rounded-full border-2 border-white bg-primary"
-            />
-          )}
-        </button>
       </div>
     </>
   );

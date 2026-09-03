@@ -2,6 +2,8 @@
 import { BotaoEnviar } from "@/components/BotaoEnviar";
 import { BotaoExcluir } from "@/components/BotaoExcluir";
 import { PainelCadastro, ItemCadastro, BotaoIcone } from "@/components/admin/CadastroCard";
+import { FormularioComPessoa } from "@/components/admin/SeletorDePessoa";
+import { AvisoDaUrl } from "@/components/AvisoDaUrl";
 import { podeNoModulo, requireModulo } from "@/lib/require-admin";
 import { exigirRevenda } from "@/lib/revendas";
 import { createClient } from "@/lib/supabase/server";
@@ -28,6 +30,7 @@ import {
   alternarMotoristaAtivo,
   alternarProdutoAtivo,
   alternarTransportadoraAtivo,
+  buscarColaboradoresParaLembrete,
   corrigirHorimetroOperacao,
   corrigirHorimetroTrocaGas,
   editarAg,
@@ -310,14 +313,24 @@ export default async function AdminProdutividadeArmazemPage({
           .order("chegada_em", { ascending: false })
           .limit(30)
       : Promise.resolve({ data: [] as CarretaParaCorrigir[] }),
-    // Quem recebe o aviso de gás acabando. O nome vem junto para a lista
-    // não virar uma coluna de uuid.
+    // Quem recebe o aviso de gás acabando -- SÓ OS IDS aqui; os nomes vêm
+    // numa segunda consulta, logo abaixo.
+    //
+    // Era um join `profiles(nome, cargo)`, e ele nunca funcionou:
+    // pa_gas_notificados.colaborador_id aponta para auth.users, não para
+    // public.profiles, então o PostgREST responde "Could not find a
+    // relationship between 'pa_gas_notificados' and 'profiles'" e devolve
+    // NULL -- não uma lista vazia, não um erro na tela. O resultado era a
+    // seção inteira dizendo "Ninguém da liderança está sendo avisado
+    // ainda" com quatro pessoas gravadas no banco, e sem lixeira nenhuma
+    // para tirá-las. Relatado pelo dono em 03/09/2026; conferido no banco:
+    // as quatro linhas estavam lá desde o dia anterior.
     aba === "empilhadeiras"
       ? admin
           .from("pa_gas_notificados")
-          .select("colaborador_id, profiles(nome, cargo)")
+          .select("colaborador_id")
           .eq("revenda_id", revendaId)
-      : Promise.resolve({ data: [] as NotificadoGas[] }),
+      : Promise.resolve({ data: [] as { colaborador_id: string }[] }),
     aba === "empilhadeiras" && buscaLideranca.length >= 2
       ? (() => {
           let q = admin.from("profiles").select("id, nome, cargo").limit(10);
@@ -329,6 +342,37 @@ export default async function AdminProdutividadeArmazemPage({
         })()
       : Promise.resolve({ data: [] as { id: string; nome: string; cargo: string | null }[] }),
   ]);
+
+  /*
+    Os nomes de quem recebe o aviso de gás, buscados à parte.
+
+    Duas consultas em vez de um join porque o join não existe: a coluna
+    aponta para auth.users, e o PostgREST só atravessa relação declarada
+    entre tabelas do schema público. Buscar por `in` é barato -- são
+    quatro ids, não uma varredura -- e é o mesmo padrão que o resto do app
+    usa quando precisa do nome de alguém a partir de uma tabela de
+    vínculo.
+  */
+  const idsNotificados = ((notificadosGas ?? []) as { colaborador_id: string }[]).map(
+    (n) => n.colaborador_id,
+  );
+  const { data: perfisNotificados } = idsNotificados.length
+    ? await admin.from("profiles").select("id, nome, cargo").in("id", idsNotificados)
+    : { data: [] as { id: string; nome: string; cargo: string | null }[] };
+
+  const notificados = idsNotificados
+    .map((id) => {
+      const p = (perfisNotificados ?? []).find((x) => x.id === id);
+      return {
+        colaborador_id: id,
+        // Cadastro apagado deixa o vínculo para trás. Mostrar a linha
+        // assim mesmo é o que permite tirá-la daqui -- escondê-la faria
+        // um aviso continuar sendo enviado para um id que ninguém vê.
+        nome: p?.nome ?? "(cadastro removido)",
+        cargo: p?.cargo ?? null,
+      };
+    })
+    .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
 
   const totalMotivosFefo = motivosFefo?.length ?? 0;
 
@@ -386,6 +430,15 @@ export default async function AdminProdutividadeArmazemPage({
         title="Produtividade do Armazém — Configuração"
         subtitle="Produtos do Reepack/Despejo (por planilha), empilhadeiras, catálogos de recebimento e checklist 5S."
       />
+
+      {/* A confirmação vira aviso flutuante, no rodapé, perto do polegar.
+          Esta tela tem 1.700 linhas de formulário: quem cadastrava um
+          lembrete lá embaixo era devolvido para a mesma posição com a
+          mensagem a três mil pixels dali, e da cadeira dele nada tinha
+          acontecido -- o passo seguinte era clicar de novo (relatado pelo
+          dono em 03/09/2026). O <p> colorido no topo continua, para
+          quem estiver justamente aqui em cima. */}
+      <AvisoDaUrl />
 
       {sp.erro && (
         <p className="mb-4 rounded-xl bg-red-50 p-3 text-sm font-medium text-red-700">{sp.erro}</p>
@@ -777,77 +830,44 @@ export default async function AdminProdutividadeArmazemPage({
                 liderança recebe o mesmo aviso.
               </p>
 
-              <form method="get" className="mt-3 flex gap-2">
-                <input type="hidden" name="aba" value="empilhadeiras" />
-                <input
-                  name="buscaLideranca"
-                  defaultValue={buscaLideranca}
-                  placeholder="Buscar pessoa por nome ou CPF"
-                  className={`${campo} flex-1`}
-                />
-                <button
-                  type="submit"
-                  className="shrink-0 rounded-lg bg-slate-800 px-3 py-2 text-sm font-semibold text-white"
-                >
-                  Buscar
-                </button>
-              </form>
-
-              {buscaLideranca.length >= 2 && (
-                <div className="mt-3 space-y-2 rounded-xl bg-slate-50 p-2">
-                  {(liderancaEncontrada ?? []).length === 0 ? (
-                    <p className="p-2 text-xs text-slate-400">Ninguém encontrado.</p>
-                  ) : (
-                    (liderancaEncontrada ?? []).map((p) => (
-                      <form
-                        key={p.id}
-                        action={adicionarNotificadoGas}
-                        className="flex items-center gap-2 rounded-lg bg-white p-2 shadow-sm"
-                      >
-                        <input type="hidden" name="colaborador_id" value={p.id} />
-                        <span className="min-w-0 flex-1 truncate text-sm text-slate-700">
-                          {p.nome}
-                          {p.cargo && <span className="text-xs text-slate-400"> · {p.cargo}</span>}
-                        </span>
-                        <BotaoEnviar
-                          compacto
-                          className="shrink-0 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-white"
-                        >
-                          Incluir
-                        </BotaoEnviar>
-                      </form>
-                    ))
-                  )}
-                </div>
-              )}
+              {/* Digite e escolha, num campo só. Era um formulário GET:
+                  digitar, "Buscar", recarregar a página inteira, achar a
+                  lista que apareceu em algum lugar dela e clicar num
+                  segundo botão -- três passos e uma volta ao servidor
+                  para escolher alguém que o app já conhece (pedido do
+                  dono, 03/09/2026). */}
+              <FormularioComPessoa
+                action={adicionarNotificadoGas}
+                buscar={buscarColaboradoresParaLembrete}
+                campoId="colaborador_id"
+                placeholder="Digite o nome ou CPF de quem vai ser avisado"
+                rotuloBotao="Incluir"
+              />
             </div>
 
             <div className="divide-y divide-slate-100">
-              {((notificadosGas ?? []) as NotificadoGas[]).length === 0 ? (
+              {notificados.length === 0 ? (
                 <p className="p-6 text-center text-sm text-slate-400">
                   Ninguém da liderança está sendo avisado ainda.
                 </p>
               ) : (
-                ((notificadosGas ?? []) as NotificadoGas[]).map((n) => {
-                  const p = Array.isArray(n.profiles) ? n.profiles[0] : n.profiles;
-                  return (
-                    <ItemCadastro
-                      key={n.colaborador_id}
-                      titulo={p?.nome ?? "(sem nome)"}
-                      subtitulo={p?.cargo ?? undefined}
-                      acoes={
-                        <BotaoExcluir
-                          action={removerNotificadoGas}
-                          campos={{ colaborador_id: n.colaborador_id }}
-                          confirmacao={`Parar de avisar ${p?.nome ?? "esta pessoa"} sobre gás acabando?`}
-                          className="flex h-7 w-7 items-center justify-center rounded-lg text-sm hover:bg-red-50"
-                        >
-                          🗑️
-                        </BotaoExcluir>
-                      }
-                    />
-                  );
-                })
+                notificados.map((n) => (
+                  <ItemCadastro
+                    key={n.colaborador_id}
+                    titulo={n.nome}
+                    subtitulo={n.cargo ?? undefined}
+                    acoes={
+                      <BotaoExcluir
+                        action={removerNotificadoGas}
+                        campos={{ colaborador_id: n.colaborador_id }}
+                        confirmacao={`Parar de avisar ${n.nome} sobre gás acabando?`}
+                        className="flex h-7 w-7 items-center justify-center rounded-lg text-sm hover:bg-red-50"
+                      >
+                        🗑️
+                      </BotaoExcluir>
+                    }
+                  />
+                ))
               )}
             </div>
           </div>
@@ -860,49 +880,21 @@ export default async function AdminProdutividadeArmazemPage({
                 turno dele, se ele estiver com alguma empilhadeira aberta.
               </p>
 
-              <form method="get" className="mt-3 flex gap-2">
-                <input type="hidden" name="aba" value="empilhadeiras" />
-                <input
-                  name="buscaOperador"
-                  defaultValue={buscaOperador}
-                  placeholder="Buscar empilhadeirista por nome ou CPF"
-                  className={`${campo} flex-1`}
-                />
-                <button type="submit" className="shrink-0 rounded-lg bg-slate-800 px-3 py-2 text-sm font-semibold text-white">
-                  Buscar
-                </button>
-              </form>
-
-              {buscaOperador.length >= 2 && (
-                <div className="mt-3 space-y-2 rounded-xl bg-slate-50 p-2">
-                  {(operadoresEncontrados ?? []).length === 0 ? (
-                    <p className="p-2 text-xs text-slate-400">Ninguém encontrado.</p>
-                  ) : (
-                    (operadoresEncontrados ?? []).map((p) => (
-                      <form
-                        key={p.id}
-                        action={salvarLembreteEmpilhadeira}
-                        className="flex flex-wrap items-center gap-2 rounded-lg bg-white p-2 shadow-sm"
-                      >
-                        <input type="hidden" name="operador_id" value={p.id} />
-                        <input type="hidden" name="operador_nome" value={p.nome} />
-                        <span className="flex-1 text-sm text-slate-700">
-                          {p.nome}
-                          {p.cargo && <span className="text-xs text-slate-400"> · {p.cargo}</span>}
-                        </span>
-                        <select name="turno" required className={campo}>
-                          {TURNOS.map((t) => (
-                            <option key={t} value={t}>{ROTULO_TURNO[t]}</option>
-                          ))}
-                        </select>
-                        <BotaoEnviar compacto className="rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-white">
-                          Salvar
-                        </BotaoEnviar>
-                      </form>
-                    ))
-                  )}
-                </div>
-              )}
+              <FormularioComPessoa
+                action={salvarLembreteEmpilhadeira}
+                buscar={buscarColaboradoresParaLembrete}
+                campoId="operador_id"
+                campoNome="operador_nome"
+                placeholder="Digite o nome ou CPF do empilhadeirista"
+                rotuloBotao="Salvar"
+                extras={
+                  <select name="turno" required className={`${campo} w-auto shrink-0`}>
+                    {TURNOS.map((t) => (
+                      <option key={t} value={t}>{ROTULO_TURNO[t]}</option>
+                    ))}
+                  </select>
+                }
+              />
             </div>
             <div className="divide-y divide-slate-100">
               {(lembretes ?? []).length === 0 ? (
@@ -929,15 +921,26 @@ export default async function AdminProdutividadeArmazemPage({
             </div>
           </div>
 
-          <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-            <div className="border-b border-slate-100 p-4">
-              <h2 className="text-sm font-bold text-slate-900">⛽ Corrigir ou excluir troca de gás</h2>
+          {/* FECHADA, pedido do dono (03/09/2026): são 20 trocas com foto,
+              formulário de correção e lixeira cada uma -- o bloco mais
+              alto desta aba, e ele fica no caminho de tudo o que vem
+              depois. Corrigir horímetro é conserto, não rotina: quem
+              precisa, abre. */}
+          <details className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+            <summary className="cursor-pointer list-none border-b border-slate-100 p-4 marker:content-none [&::-webkit-details-marker]:hidden">
+              <h2 className="text-sm font-bold text-slate-900">
+                ⛽ Corrigir ou excluir troca de gás
+                <span className="ml-2 font-medium text-slate-400">
+                  {(trocasGas ?? []).length} registro
+                  {(trocasGas ?? []).length === 1 ? "" : "s"} · toque para abrir
+                </span>
+              </h2>
               <p className="mt-1 text-xs text-slate-500">
                 Um horímetro digitado sem o ponto (5485,0 virando 54850) distorce o ciclo inteiro no
                 dashboard de consumo. Se a troca foi lançada por engano — ou com a foto errada —
                 use o 🗑️: a foto sai junto. Últimas 20 trocas.
               </p>
-            </div>
+            </summary>
             <div className="divide-y divide-slate-100">
               {(trocasGas ?? []).length === 0 ? (
                 <p className="p-6 text-center text-sm text-slate-400">Nenhuma troca registrada.</p>
@@ -1000,7 +1003,7 @@ export default async function AdminProdutividadeArmazemPage({
                 })
               )}
             </div>
-          </div>
+          </details>
 
           <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
             <div className="border-b border-slate-100 p-4">

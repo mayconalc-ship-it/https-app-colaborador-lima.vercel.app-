@@ -283,7 +283,7 @@ export function CartaoDoPedido({
                   ))}
                 </select>
                 <BotaoEnviar className="flex-1 rounded-xl bg-primary px-4 py-3.5 text-sm font-bold text-white hover:bg-primary-dark">
-                  🛒 Levar para o picking
+                  🏬 Levar para o picking
                 </BotaoEnviar>
               </form>
             )
@@ -292,7 +292,7 @@ export function CartaoDoPedido({
           )
         ) : estado === "abastecendo" ? (
           <p className="text-xs font-medium text-green-800">
-            🛒 <strong>{r.abastecedorNome}</strong> está abastecendo o picking — cronômetro correndo.
+            🏬 <strong>{r.abastecedorNome}</strong> está abastecendo o picking — cronômetro correndo.
           </p>
         ) : null}
 

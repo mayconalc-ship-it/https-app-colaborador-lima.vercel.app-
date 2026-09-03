@@ -276,7 +276,13 @@ export const MODULOS: Modulo[] = [
     rotulo: "Remuneração Variável",
     emoji: "💰",
     href: "/admin/rv",
-    grupo: "Gestão de Dados",
+    // Em Configuração, junto de Fontes de Dados (pedido do dono,
+    // 03/09/2026). A tela de RV não alimenta indicador nenhum: ela aponta
+    // para a planilha de onde a RV é lida, uma por área -- que é
+    // exatamente o que Fontes de Dados faz, e onde a RV já aparecia
+    // listada. Ter as duas em gavetas diferentes fazia parecer que eram
+    // dois assuntos.
+    grupo: "Configuração",
     acoes: ["ver", "editar"],
   },
   {
@@ -371,7 +377,13 @@ export const MODULOS: Modulo[] = [
   {
     id: "pa-picking",
     rotulo: "Abastecimento do Picking",
-    emoji: "🛒",
+    // 🏬 são as prateleiras -- o picking É a estante de onde o separador
+    // tira o produto, e abastecer é enchê-la. O 🛒 anterior saiu a pedido
+    // do dono (03/09/2026): carrinho de compras é supermercado, não
+    // armazém, e no celular dele o desenho ainda parecia uma caixa de
+    // leite. 📦 estava fora de questão -- já é o Ativo de Giro, e o Bate
+    // Palete usa 🤲📦.
+    emoji: "🏬",
     // O id continua "pa-picking" de propósito: em 29/08/2026 a tela foi
     // trocada pelo Abastecimento (produto e HL no lugar de "posições",
     // campo que ficou vazio em 100% das sessões antigas). Manter o id

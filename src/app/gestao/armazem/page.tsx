@@ -1486,7 +1486,7 @@ export default async function IndicadoresPage({
                   <th className="p-3 text-right">🔍 Seleção</th>
                   <th className="p-3 text-right">📦 Reepack</th>
                   <th className="p-3 text-right">🫗 Despejo</th>
-                  <th className="p-3 text-right">🛒 Picking</th>
+                  <th className="p-3 text-right">🏬 Picking</th>
                   <th className="p-3 text-right">🧹 5S</th>
                   <th className="p-3 text-right">Total</th>
                   <th className="p-3 text-right" title={EXPLICACAO_PONTUACAO}>
@@ -1550,7 +1550,7 @@ export default async function IndicadoresPage({
                     <th className="p-3 text-right">🔍 Seleção</th>
                     <th className="p-3 text-right">📦 Reepack</th>
                     <th className="p-3 text-right">🫗 Despejo</th>
-                    <th className="p-3 text-right">🛒 Picking</th>
+                    <th className="p-3 text-right">🏬 Picking</th>
                     <th className="p-3 text-right">🧹 5S</th>
                     <th className="p-3 text-right">Atividades</th>
                     <th className="p-3 text-right" title={EXPLICACAO_PONTUACAO}>

@@ -93,7 +93,7 @@ export default async function PickingPage({
           href="/produtividade-armazem/abastecimento"
           className="mt-3 inline-flex w-full items-center justify-center rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-white hover:bg-primary-dark"
         >
-          🛒 Ir para o Abastecimento do Picking
+          🏬 Ir para o Abastecimento do Picking
         </Link>
       </div>
 
