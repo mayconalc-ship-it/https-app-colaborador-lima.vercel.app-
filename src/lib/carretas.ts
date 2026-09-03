@@ -32,6 +32,27 @@ export const ROTULO_STATUS: Record<StatusAtendimento, string> = {
   finalizado: "Finalizado",
 };
 
+/**
+ * Teto de itens numa conferência de carreta (pedido do dono,
+ * 03/09/2026).
+ *
+ * NÃO existia limite antes, e o dono chegou a perguntar se existia: um
+ * conferente perdeu o trabalho por volta do 11º item e o número virou
+ * suspeito. Não era -- a maior conferência já gravada tinha 17 itens, e o
+ * que derrubou o dele foi outra coisa (o campo de produto deixava enviar
+ * sem escolher da lista; ver ComboboxProduto).
+ *
+ * O teto entra assim mesmo, e como GUARDA em vez de armadilha: o botão de
+ * adicionar para no limite e diz por quê, em vez de deixar a pessoa
+ * preencher o próximo e descobrir no envio.
+ *
+ * Cinquenta, e não trinta (o dono subiu na hora): a maior carreta já
+ * conferida teve 17 itens, então 30 já sobrava -- e o custo de um teto
+ * folgado é zero, enquanto o de um teto apertado é uma conferência que
+ * precisa ser partida em duas no meio do pátio.
+ */
+export const MAX_ITENS_CONFERENCIA = 50;
+
 export const UNIDADES_ITEM = ["palete", "caixa"] as const;
 export type UnidadeItem = (typeof UNIDADES_ITEM)[number];
 

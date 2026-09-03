@@ -1,11 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
 import { BotaoAdicionarLinha } from "@/components/BotaoMais";
 import { ComboboxProduto } from "@/components/produtividade-armazem/ComboboxProduto";
 import { ComboboxNome } from "@/components/produtividade-armazem/ComboboxNome";
-import { ROTULO_UNIDADE_ITEM, UNIDADES_ITEM, diasAteValidade } from "@/lib/carretas";
+import {
+  MAX_ITENS_CONFERENCIA,
+  ROTULO_UNIDADE_ITEM,
+  UNIDADES_ITEM,
+  diasAteValidade,
+} from "@/lib/carretas";
 import { buscarEmpilhadores } from "@/app/admin/produtividade-armazem/actions";
 import { criarEmpilhadorRapido, finalizarConferencia } from "./actions";
 
@@ -49,6 +54,77 @@ function CampoValidade({ diasMinimosValidadeAlerta }: { diasMinimosValidadeAlert
   );
 }
 
+/**
+ * Recebido, avariado e unidade -- com a comparação feita no navegador.
+ *
+ * "A quantidade avariada não pode ser maior que a recebida" era erro só
+ * de servidor, e erro de servidor aqui é um redirect: a pessoa voltava
+ * para o formulário VAZIO e perdia os outros dez itens que já tinha
+ * digitado. Um dígito a mais no campo errado custava a conferência
+ * inteira.
+ *
+ * Com o `setCustomValidity`, o navegador barra o envio, rola até o campo
+ * e mostra a mensagem nele -- sem sair da tela. A trava do servidor
+ * continua lá: ela é a que vale, esta só evita o prejuízo.
+ */
+function CamposQuantidade() {
+  const [recebido, setRecebido] = useState("");
+  const [avariado, setAvariado] = useState("0");
+  const avariadoRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const campoAvariado = avariadoRef.current;
+    if (!campoAvariado) return;
+    const r = Number(recebido);
+    const a = Number(avariado);
+    const passou = Number.isFinite(r) && Number.isFinite(a) && a > r;
+    campoAvariado.setCustomValidity(
+      passou ? "O avariado faz parte do recebido — não pode ser maior." : "",
+    );
+  }, [recebido, avariado]);
+
+  return (
+    <div className="grid grid-cols-3 gap-3">
+      <div>
+        <label className={rotulo}>Recebido</label>
+        <input
+          name="quantidade"
+          type="number"
+          inputMode="decimal"
+          min={0}
+          step="0.01"
+          required
+          value={recebido}
+          onChange={(e) => setRecebido(e.target.value)}
+          className={campo}
+        />
+      </div>
+      <div>
+        <label className={rotulo}>Avariado</label>
+        <input
+          ref={avariadoRef}
+          name="quantidade_avariada"
+          type="number"
+          inputMode="decimal"
+          min={0}
+          step="0.01"
+          value={avariado}
+          onChange={(e) => setAvariado(e.target.value)}
+          className={campo}
+        />
+      </div>
+      <div>
+        <label className={rotulo}>Unidade</label>
+        <select name="unidade" required className={campo} defaultValue={UNIDADES_ITEM[0]}>
+          {UNIDADES_ITEM.map((u) => (
+            <option key={u} value={u}>{ROTULO_UNIDADE_ITEM[u]}</option>
+          ))}
+        </select>
+      </div>
+    </div>
+  );
+}
+
 export function FormFinalizarConferencia({
   atendimentoId,
   diasMinimosValidadeAlerta,
@@ -87,32 +163,7 @@ export function FormFinalizarConferencia({
               <ComboboxProduto />
             </div>
 
-            <div className="grid grid-cols-3 gap-3">
-              <div>
-                <label className={rotulo}>Recebido</label>
-                <input name="quantidade" type="number" inputMode="decimal" min={0} step="0.01" required className={campo} />
-              </div>
-              <div>
-                <label className={rotulo}>Avariado</label>
-                <input
-                  name="quantidade_avariada"
-                  type="number"
-                  inputMode="decimal"
-                  min={0}
-                  step="0.01"
-                  defaultValue={0}
-                  className={campo}
-                />
-              </div>
-              <div>
-                <label className={rotulo}>Unidade</label>
-                <select name="unidade" required className={campo} defaultValue={UNIDADES_ITEM[0]}>
-                  {UNIDADES_ITEM.map((u) => (
-                    <option key={u} value={u}>{ROTULO_UNIDADE_ITEM[u]}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
+            <CamposQuantidade />
 
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -138,17 +189,27 @@ export function FormFinalizarConferencia({
           </div>
         ))}
 
-        <BotaoAdicionarLinha
-          onClick={() =>
-            setItens((atual) => {
-              const chave = novaChave();
-              setEmpilhadores((e) => ({ ...e, [chave]: "" }));
-              return [...atual, chave];
-            })
-          }
-        >
-          Adicionar item
-        </BotaoAdicionarLinha>
+        {/* O teto para de ADICIONAR, e diz por quê -- não deixa preencher
+            o próximo para recusar no envio. Sobra com folga: a maior
+            conferência já gravada tem 17 itens. */}
+        {itens.length < MAX_ITENS_CONFERENCIA ? (
+          <BotaoAdicionarLinha
+            onClick={() =>
+              setItens((atual) => {
+                const chave = novaChave();
+                setEmpilhadores((e) => ({ ...e, [chave]: "" }));
+                return [...atual, chave];
+              })
+            }
+          >
+            Adicionar item ({itens.length}/{MAX_ITENS_CONFERENCIA})
+          </BotaoAdicionarLinha>
+        ) : (
+          <p className="rounded-xl bg-amber-50 p-3 text-center text-xs font-medium text-amber-800">
+            Máximo de {MAX_ITENS_CONFERENCIA} itens por conferência. Finalize
+            esta e, se a carreta tiver mais, abra outra conferência.
+          </p>
+        )}
       </div>
 
       <BotaoEnviar

@@ -34,6 +34,7 @@ export function ComboboxProduto({
   const [pending, startTransition] = useTransition();
   const relogio = useRef<ReturnType<typeof setTimeout> | null>(null);
   const caixaRef = useRef<HTMLDivElement>(null);
+  const visivelRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     function aoClicarFora(e: MouseEvent) {
@@ -42,6 +43,35 @@ export function ComboboxProduto({
     document.addEventListener("mousedown", aoClicarFora);
     return () => document.removeEventListener("mousedown", aoClicarFora);
   }, []);
+
+  /*
+    QUEM BARRA O ENVIO É O CAMPO VISÍVEL, não o escondido.
+
+    O `required` do <input type="hidden"> abaixo NÃO faz nada: a
+    especificação do HTML barra campo escondido da validação, e o
+    navegador simplesmente o ignora. Durante meses o formulário deixou
+    enviar sem produto escolhido.
+
+    O estrago aparecia longe da causa. A pessoa DIGITAVA o código e não
+    tocava na sugestão -- o campo fica com texto, parece preenchido --, o
+    envio passava, e só o servidor recusava. Como a recusa é um redirect,
+    ela voltava para um formulário VAZIO e perdia tudo o que tinha
+    digitado. Relatado em 03/09/2026 numa conferência de carreta com 11
+    itens; o conferente descreveu como "deu erro e voltou do zero".
+
+    Quanto mais itens, mais provável: basta esquecer um toque em onze.
+
+    Com o `setCustomValidity` no campo visível, o navegador barra o envio
+    ANTES de sair da tela, rola até o campo culpado e mostra a mensagem
+    nele. Nada se perde.
+  */
+  useEffect(() => {
+    const campoVisivel = visivelRef.current;
+    if (!campoVisivel) return;
+    campoVisivel.setCustomValidity(
+      selecionado ? "" : "Escolha o produto na lista que aparece ao digitar.",
+    );
+  }, [selecionado, termo]);
 
   function aoDigitar(valor: string) {
     setTermo(valor);
@@ -68,16 +98,30 @@ export function ComboboxProduto({
 
   return (
     <div ref={caixaRef} className="relative">
-      <input type="hidden" name={nomeCampo} value={selecionado?.id ?? ""} required />
+      {/* Sem `required`: em campo escondido ele é inerte (ver acima). O
+          que vale é o setCustomValidity no campo de baixo. */}
+      <input type="hidden" name={nomeCampo} value={selecionado?.id ?? ""} />
       <input
+        ref={visivelRef}
         type="text"
         value={termo}
         onChange={(e) => aoDigitar(e.target.value)}
         onFocus={() => setAberto(true)}
         placeholder={placeholder}
-        className={campo}
+        required
+        className={`${campo} ${
+          // Verde discreto quando a escolha está feita: é o sinal de que
+          // aquele item está pronto, e numa lista de 11 é ele que diz
+          // qual falta.
+          selecionado ? "border-emerald-400 bg-emerald-50/40" : ""
+        }`}
         autoComplete="off"
       />
+      {termo.trim().length > 0 && !selecionado && !aberto && (
+        <p className="mt-1 text-xs font-medium text-amber-700">
+          ⚠️ Toque no produto na lista — só digitar não vale.
+        </p>
+      )}
       {aberto && termo.trim().length >= 2 && (
         <div className="absolute z-10 mt-1 max-h-56 w-full overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-lg">
           {pending ? (

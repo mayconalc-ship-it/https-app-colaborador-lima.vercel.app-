@@ -7,7 +7,12 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { exigirContextoCarretas } from "@/lib/carretas-server";
 import { temAcessoModulo } from "@/lib/require-admin";
 import { getRevendaId } from "@/lib/revendas";
-import { ehUnidadeItem, quantidadeNaoNegativa, quantidadePositiva } from "@/lib/carretas";
+import {
+  MAX_ITENS_CONFERENCIA,
+  ehUnidadeItem,
+  quantidadeNaoNegativa,
+  quantidadePositiva,
+} from "@/lib/carretas";
 
 function rota(id: string) {
   return `/carretas-conferencia/${id}`;
@@ -229,8 +234,27 @@ export async function finalizarConferencia(formData: FormData) {
   const validades = formData.getAll("validade").map(String);
   const empilhadores = formData.getAll("empilhador").map(String);
 
-  if (produtoIds.length === 0 || produtoIds.some((id) => !id)) {
-    erro(atendimentoId, "Adicione ao menos um item com o produto escolhido.");
+  if (produtoIds.length === 0) {
+    erro(atendimentoId, "Adicione ao menos um item.");
+  }
+  // A mensagem diz QUAL item está sem produto. Antes era "adicione ao
+  // menos um item com o produto escolhido" para qualquer caso -- e numa
+  // conferência de onze itens isso mandava a pessoa procurar sozinha
+  // qual deles ela esqueceu de escolher da lista. Agora o navegador
+  // barra antes de chegar aqui (ver ComboboxProduto), mas a ação pode
+  // ser chamada sem passar pela tela.
+  const semProduto = produtoIds.findIndex((id) => !id);
+  if (semProduto >= 0) {
+    erro(
+      atendimentoId,
+      `O item ${semProduto + 1} está sem produto — é preciso TOCAR no produto na lista, não só digitar.`,
+    );
+  }
+  if (produtoIds.length > MAX_ITENS_CONFERENCIA) {
+    erro(
+      atendimentoId,
+      `Máximo de ${MAX_ITENS_CONFERENCIA} itens por conferência. Finalize esta e abra outra para o restante.`,
+    );
   }
 
   const itens = produtoIds.map((produtoId, i) => {

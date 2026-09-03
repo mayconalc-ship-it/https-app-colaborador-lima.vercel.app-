@@ -104,6 +104,7 @@ export function ComboboxProdutoReepack({
   const [pending, startTransition] = useTransition();
   const relogio = useRef<ReturnType<typeof setTimeout> | null>(null);
   const caixaRef = useRef<HTMLDivElement>(null);
+  const visivelRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     function aoClicarFora(e: MouseEvent) {
@@ -112,6 +113,19 @@ export function ComboboxProdutoReepack({
     document.addEventListener("mousedown", aoClicarFora);
     return () => document.removeEventListener("mousedown", aoClicarFora);
   }, []);
+
+  // Barra o envio sem produto escolhido, no navegador. `valorInicial`
+  // conta como escolha feita: é o caso de editar um lançamento que já
+  // tem produto.
+  useEffect(() => {
+    const campoVisivel = visivelRef.current;
+    if (!campoVisivel) return;
+    campoVisivel.setCustomValidity(
+      selecionado || valorInicial
+        ? ""
+        : "Escolha o produto na lista que aparece ao digitar.",
+    );
+  }, [selecionado, termo, valorInicial]);
 
   // O filtro já nasce certo (veio do cookie, acima) -- só falta buscar a
   // lista de produtos que ele aponta, uma vez, ao montar.
@@ -205,14 +219,22 @@ export function ComboboxProdutoReepack({
 
       <div ref={caixaRef} className="relative">
         <label className={rotulo} htmlFor="produto-busca">Produto</label>
-        <input type="hidden" name={nomeCampo} value={selecionado?.id ?? valorInicial ?? ""} required />
+        {/* Sem `required`: campo escondido é barrado da validação pela
+            especificação do HTML, e o navegador ignora o atributo. Quem
+            barra o envio é o `setCustomValidity` no campo visível abaixo
+            -- do contrário dá para enviar com o texto digitado e nenhum
+            produto escolhido, e só o servidor recusa (perdendo o que já
+            foi preenchido). Ver o comentário longo em ComboboxProduto. */}
+        <input type="hidden" name={nomeCampo} value={selecionado?.id ?? valorInicial ?? ""} />
         <input
+          ref={visivelRef}
           id="produto-busca"
           type="text"
           value={termo}
           onChange={(e) => aoDigitar(e.target.value)}
           onFocus={() => setAberto(true)}
           placeholder={temFiltro ? "Digite pra refinar, ou escolha da lista" : "Digite o código ou a descrição do produto"}
+          required
           className={campo}
           autoComplete="off"
         />
