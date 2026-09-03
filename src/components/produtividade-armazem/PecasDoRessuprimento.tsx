@@ -299,16 +299,23 @@ export function CartaoDoPedido({
         {/* Cancelar e excluir NÃO são a mesma coisa, e a gaveta diz isso.
             Cancelar é um fato da operação (pediu, desistiu, conta no
             indicador); excluir diz que o pedido nunca devia ter existido.
-            Só enquanto ninguém começou a abastecer. */}
+
+            EXCLUIR VALE EM QUALQUER ETAPA -- pedido do dono (03/09/2026).
+            A gaveta inteira sumia assim que o abastecimento começava, e
+            era justamente aí que ele precisava dela: o teste que ele
+            queria eliminar já tinha andado. Cancelar continua restrito ao
+            que ainda não começou, porque cancelar no meio do
+            abastecimento não descreve nada que aconteça na operação. */}
         {!r.canceladoEm &&
-          !r.abastecimentoInicio &&
           (r.solicitanteId === euId || meuTransporte || podeExcluir) && (
             <details className="mt-2">
               <summary className="cursor-pointer text-xs text-slate-400">
-                Cancelar ou excluir este pedido
+                {r.abastecimentoInicio
+                  ? "Excluir este pedido"
+                  : "Cancelar ou excluir este pedido"}
               </summary>
 
-              {(r.solicitanteId === euId || meuTransporte) && (
+              {!r.abastecimentoInicio && (r.solicitanteId === euId || meuTransporte) && (
                 <>
                   <p className="mt-2 text-xs text-slate-500">
                     <strong>Cancelar</strong> guarda o pedido com o motivo — foi um pedido de
@@ -335,11 +342,18 @@ export function CartaoDoPedido({
                   <p className="mb-1 text-xs text-slate-500">
                     <strong>Excluir</strong> apaga de vez, sem deixar rastro no indicador — é para
                     teste e engano.
+                    {r.abastecimentoInicio && (
+                      <> O abastecimento já lançado sai junto.</>
+                    )}
                   </p>
                   <BotaoExcluir
                     action={excluirSolicitacao}
                     campos={{ id: r.id }}
-                    confirmacao="Excluir este pedido e os itens dele? Não dá para desfazer."
+                    confirmacao={
+                      r.abastecimentoInicio
+                        ? "Excluir este pedido, os itens e o abastecimento dele? A atividade some inteira, e não dá para desfazer."
+                        : "Excluir este pedido e os itens dele? Não dá para desfazer."
+                    }
                     className="rounded-lg border border-red-200 bg-white px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50"
                   >
                     🗑️ Excluir o pedido

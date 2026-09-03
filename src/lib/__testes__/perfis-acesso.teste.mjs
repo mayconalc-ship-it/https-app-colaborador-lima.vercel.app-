@@ -3,7 +3,7 @@
 // teste guarda, acima de tudo, que aplicar um perfil nunca REMOVE nada.
 //   npx tsx src/lib/__testes__/perfis-acesso.teste.mjs
 import {
-  simularAplicacao, temOPerfil, agruparPorModulo,
+  simularAplicacao, agruparPorModulo,
   lerConcessoesDoFormulario, chaveDaConcessao,
 } from "../perfis-acesso.ts";
 
@@ -37,14 +37,12 @@ eq("pessoa sem nada nao tem sobras", simularAplicacao(perfil, []).foraDoPerfil, 
 eq("aplicar duas vezes nao entrega nada na segunda",
   simularAplicacao(perfil, perfil).entram, []);
 
-console.log("\n== QUEM 'E' O PERFIL ==");
-ok("tem tudo do perfil", temOPerfil(perfil, [...perfil, c("quiz", "ver")]));
-ok("falta uma concessao -> nao e", !temOPerfil(perfil, [c("rating", "ver")]));
-// Ter MAIS nao desqualifica: um supervisor que tambem publica o jornal
-// continua sendo supervisor. Exigir igualdade exata zeraria a contagem no
-// primeiro ajuste fino.
-ok("ter a mais continua sendo o perfil", temOPerfil(perfil, [...perfil, c("padroes", "editar")]));
-ok("perfil vazio nao vale para ninguem", !temOPerfil([], pessoa));
+// Aqui ficavam os casos de `temOPerfil`, que respondia "quem tem este
+// perfil?" por continencia -- e cujo caso "ter a mais continua sendo o
+// perfil" era exatamente o defeito: um administrador contem qualquer
+// perfil pequeno, entao ele era todos eles. Quem responde isso agora e a
+// tabela perfil_pessoas (migration 091), e nao ha o que testar aqui: e um
+// vinculo gravado, nao uma conta.
 
 console.log("\n== LER O FORMULARIO ==");
 // O modulo tem traco no id. Cortar pelo PRIMEIRO traco transformaria

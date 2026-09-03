@@ -43,19 +43,23 @@ export function simularAplicacao(
   };
 }
 
-/**
- * A pessoa "é" este perfil?
+/*
+ * AQUI MORAVA `temOPerfil`, que respondia "a pessoa é este perfil?" com
+ * "ela tem todas as concessões dele?".
  *
- * Verdadeiro quando ela tem TODAS as concessões dele. Ter mais não
- * desqualifica: um supervisor que também publica o jornal continua sendo
- * supervisor. Exigir igualdade exata faria a contagem de "quantas pessoas
- * usam este perfil" zerar no primeiro ajuste fino.
+ * A ideia era generosa -- ter a mais não desqualificaria ninguém, um
+ * supervisor que também publica o jornal continuaria sendo supervisor.
+ * Só que a generosidade valia para os dois lados: um ADMINISTRADOR
+ * contém qualquer perfil pequeno por definição, então ele "era" todos
+ * eles. O dono criou um perfil de conferente em 03/09/2026 e a lista
+ * nasceu com quatro pessoas que ele não tinha informado -- e sem como
+ * tirar nenhuma, porque não havia vínculo para apagar: era uma conta
+ * refeita a cada abertura da tela.
+ *
+ * Quem responde isso agora é a tabela `perfil_pessoas` (migration 091):
+ * perfil aplicado é um fato, com data e autor, não uma coincidência de
+ * permissões.
  */
-export function temOPerfil(doPerfil: Concessao[], jaTem: Concessao[]): boolean {
-  if (doPerfil.length === 0) return false;
-  const chavesPessoa = new Set(jaTem.map((c) => chaveDaConcessao(c.modulo, c.acao)));
-  return doPerfil.every((c) => chavesPessoa.has(chaveDaConcessao(c.modulo, c.acao)));
-}
 
 /** Agrupa as concessões por módulo, para a tela não virar uma lista de
  *  "modulo:acao" que ninguém lê. */

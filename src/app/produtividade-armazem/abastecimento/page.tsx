@@ -1123,7 +1123,15 @@ function LinhaSessao({
             <BotaoExcluir
               action={excluirAbastecimento}
               campos={{ id: sessao.id }}
-              confirmacao="Excluir este abastecimento e todos os itens dele?"
+              // A sessão que nasceu de uma solicitação leva o pedido
+              // junto, e a confirmação avisa ANTES. Apagar só a sessão
+              // devolvia o pedido para a fila um passo atrás -- o
+              // contrário do que "excluir" promete.
+              confirmacao={
+                sessao.ressuprimento_id
+                  ? "Excluir este abastecimento, os itens e o pedido que deu origem a ele? A atividade some inteira."
+                  : "Excluir este abastecimento e todos os itens dele?"
+              }
               className="rounded-lg border border-red-200 px-2 py-1 text-xs font-semibold text-red-600 hover:bg-red-50"
             >
               Excluir

@@ -145,8 +145,62 @@ export async function criarPerfilDePessoa(formData: FormData) {
     voltar("erro", `Não foi possível copiar as permissões: ${erroPerm.message}`);
   }
 
+  // Quem serviu de molde entra no perfil, e é o único que entra.
+  //
+  // Não é dedução: a pessoa foi escolhida por quem criou, e ela tem
+  // exatamente estas permissões -- foi delas que o perfil saiu. O que a
+  // tela NÃO faz mais é preencher a lista sozinha com todo mundo que por
+  // acaso tenha as mesmas concessões (ver migration 091).
+  await admin.from("perfil_pessoas").upsert(
+    {
+      perfil_id: data?.id,
+      colaborador_id: colaboradorId,
+      revenda_id: revendaId,
+      aplicado_por: perfil?.id ?? null,
+    },
+    { onConflict: "perfil_id,colaborador_id" },
+  );
+
   revalidatePath(ROTA);
   voltar("sucesso", `Perfil "${nome}" criado com ${concessoes.length} permissão(ões).`, `&perfil=${data?.id}`);
+}
+
+/**
+ * Tira a pessoa da lista do perfil -- e SÓ isso.
+ *
+ * As permissões dela ficam exatamente como estão, e a tela diz isso ao
+ * lado do botão. Foi a escolha do dono (03/09/2026) entre desvincular e
+ * "desvincular tirando o acesso junto", e é a escolha certa: quem é
+ * conferente E administra o Jornal perderia o Jornal se ele estivesse nos
+ * dois perfis, sem que ninguém tivesse pedido isso.
+ *
+ * Tirar acesso continua sendo em Acessos por Pessoa, onde a remoção é
+ * explícita e quem remove vê tudo o que a pessoa tem.
+ */
+export async function tirarDoPerfil(formData: FormData) {
+  await requireModulo("perfis-acesso", "editar");
+  const revendaId = await exigirRevenda(ROTA);
+  const admin = createAdminClient();
+
+  const perfilId = String(formData.get("perfil_id") ?? "");
+  const colaboradorId = String(formData.get("colaborador_id") ?? "");
+  if (!perfilId || !colaboradorId) voltar("erro", "Vínculo inválido.");
+
+  const { error } = await admin
+    .from("perfil_pessoas")
+    .delete()
+    .eq("perfil_id", perfilId)
+    .eq("colaborador_id", colaboradorId)
+    .eq("revenda_id", revendaId);
+
+  if (error) voltar("erro", `Não foi possível tirar do perfil: ${error.message}`);
+
+  revalidatePath(ROTA);
+  voltar(
+    "sucesso",
+    "Tirado do perfil. As permissões da pessoa continuam as mesmas — para removê-las, use Acessos por Pessoa.",
+    `&perfil=${perfilId}`,
+  );
 }
 
 /**
@@ -264,6 +318,20 @@ export async function aplicarPerfil(formData: FormData) {
   if (alvo.role !== "owner" && alvo.role !== "admin" && alvo.role !== "lideranca") {
     await admin.from("profiles").update({ role: "lideranca" }).eq("id", colaboradorId);
   }
+
+  // O vínculo é o que a tela mostra em "Quem tem este perfil". Fica
+  // gravado, com data e autor, em vez de ser deduzido de quem "tem todas
+  // as permissões" -- dedução que colocava todo administrador dentro de
+  // todo perfil pequeno (ver migration 091).
+  await admin.from("perfil_pessoas").upsert(
+    {
+      perfil_id: perfilId,
+      colaborador_id: colaboradorId,
+      revenda_id: revendaId,
+      aplicado_por: quemAplica?.id ?? null,
+    },
+    { onConflict: "perfil_id,colaborador_id" },
+  );
 
   revalidatePath(ROTA);
   revalidatePath("/admin/acessos");

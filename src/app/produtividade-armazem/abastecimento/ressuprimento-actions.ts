@@ -421,26 +421,48 @@ export async function excluirSolicitacao(formData: FormData) {
     erro("Você só pode excluir os pedidos que você mesmo fez.");
   }
 
-  // Já virou abastecimento: apagar aqui deixaria a sessão apontando para
-  // um pedido que "nunca existiu" -- ela sobreviveria como lançamento
-  // avulso, e o HL dela continuaria contando sem ninguém entender de onde
-  // veio. Apaga-se o abastecimento primeiro, no Histórico.
-  const { count } = await admin
+  /*
+    EXCLUIR ELIMINA A ATIVIDADE INTEIRA -- pedido do dono (03/09/2026):
+    "excluir não é voltar o processo, é eliminar a atividade".
+
+    Antes esta ação se RECUSAVA a agir quando o pedido já tinha virado
+    abastecimento, e mandava apagar o abastecimento primeiro, no
+    Histórico. O raciocínio era proteger a sessão de virar um lançamento
+    órfão -- mas o efeito prático era o contrário do esperado: apagar só
+    o abastecimento fazia o pedido VOLTAR para "na área, esperando
+    alguém levar ao picking", porque o estado é derivado dos carimbos de
+    tempo e o carimbo do abastecimento tinha sumido. Quem queria eliminar
+    um teste via o teste ressuscitar um passo atrás.
+
+    Pedido e abastecimento são duas metades da mesma atividade: o pedido
+    existe para virar abastecimento. Então saem juntos, numa ação só. O
+    abastecimento primeiro, para nunca sobrar uma sessão apontando para
+    um pedido que já não existe.
+  */
+  const { data: sessoes } = await admin
     .from("pa_abastecimentos")
-    .select("*", { count: "exact", head: true })
+    .select("id")
     .eq("ressuprimento_id", id);
 
-  if (count) {
-    erro(
-      "Este pedido já virou abastecimento. Exclua o abastecimento primeiro, no Histórico, e depois volte aqui.",
-    );
+  if (sessoes && sessoes.length > 0) {
+    const { error: erroSessao } = await admin
+      .from("pa_abastecimentos")
+      .delete()
+      .eq("ressuprimento_id", id);
+    if (erroSessao) {
+      erro(`Não foi possível excluir o abastecimento do pedido: ${erroSessao.message}`);
+    }
   }
 
   const { error } = await admin.from("pa_ressuprimentos").delete().eq("id", id);
   if (error) erro(`Não foi possível excluir: ${error.message}`);
 
   revalidatePath(ROTA);
-  pronto("Pedido excluído.");
+  pronto(
+    sessoes && sessoes.length > 0
+      ? "Pedido e o abastecimento dele excluídos."
+      : "Pedido excluído.",
+  );
 }
 
 /**

@@ -242,8 +242,22 @@ export async function cancelarAbastecimento(formData: FormData) {
   redirect(`${ROTA}?sucesso=Abastecimento+cancelado`);
 }
 
-/** Exclui uma sessão já finalizada. Quem lançou apaga a própria; a
- *  liderança com "excluir" apaga qualquer uma -- mesma regra do reepack. */
+/**
+ * Exclui uma sessão já finalizada. Quem lançou apaga a própria; a
+ * liderança com "excluir" apaga qualquer uma -- mesma regra do reepack.
+ *
+ * QUANDO A SESSÃO VEIO DE UM PEDIDO, O PEDIDO VAI JUNTO.
+ *
+ * Pedido do dono (03/09/2026): "excluir não é voltar o processo, é
+ * eliminar a atividade". Apagando só a sessão, o pedido continuava vivo e
+ * o estado dele -- que é derivado dos carimbos de tempo -- voltava para
+ * "na área, esperando alguém levar ao picking". A atividade excluída
+ * reaparecia na fila um passo atrás, como se alguém ainda tivesse
+ * trabalho a fazer nela.
+ *
+ * Os dois são as duas metades da mesma coisa: o pedido existe para virar
+ * abastecimento. A confirmação da tela diz isso antes.
+ */
 export async function excluirAbastecimento(formData: FormData) {
   const perfil = await getPerfil();
   if (!perfil) redirect("/login");
@@ -254,9 +268,18 @@ export async function excluirAbastecimento(formData: FormData) {
   const revendaId = await getRevendaId();
   if (!revendaId) erro("Você não está em nenhuma revenda.");
 
+  const admin = createAdminClient();
+
+  // Lido ANTES de apagar: depois não há mais de onde tirar o vínculo.
+  const { data: sessao } = await admin
+    .from("pa_abastecimentos")
+    .select("ressuprimento_id")
+    .eq("id", id)
+    .eq("revenda_id", revendaId)
+    .maybeSingle();
+
   const gestor = await podeNoModulo("produtividade-armazem", "excluir");
   if (gestor) {
-    const admin = createAdminClient();
     await admin.from("pa_abastecimentos").delete().eq("id", id).eq("revenda_id", revendaId);
   } else {
     const supabase = await createClient();
@@ -269,8 +292,25 @@ export async function excluirAbastecimento(formData: FormData) {
     if (error) erro("Você só pode excluir os próprios abastecimentos.");
   }
 
+  // O pedido de origem sai junto. Só depois da sessão: se a ordem fosse a
+  // inversa e a segunda escrita falhasse, sobraria a sessão apontando
+  // para um pedido que já não existe.
+  if (sessao?.ressuprimento_id) {
+    await admin
+      .from("pa_ressuprimentos")
+      .delete()
+      .eq("id", sessao.ressuprimento_id)
+      .eq("revenda_id", revendaId);
+  }
+
   revalidatePath(ROTA);
-  redirect(`${ROTA}?aba=historico&sucesso=Abastecimento+excluído`);
+  redirect(
+    `${ROTA}?aba=historico&sucesso=${encodeURIComponent(
+      sessao?.ressuprimento_id
+        ? "Abastecimento e o pedido dele excluídos"
+        : "Abastecimento excluído",
+    )}`,
+  );
 }
 
 /**

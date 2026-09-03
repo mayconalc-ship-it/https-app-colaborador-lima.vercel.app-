@@ -7,8 +7,14 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getRevendaId } from "@/lib/revendas";
 import { requireModulo, podeNoModulo } from "@/lib/require-admin";
 import { GRUPOS_DO_ADMIN, MODULOS, ROTULO_ACAO } from "@/lib/acessos";
-import { agruparPorModulo, temOPerfil, type Concessao } from "@/lib/perfis-acesso";
-import { aplicarPerfil, criarPerfilDePessoa, excluirPerfil, salvarPerfil } from "./actions";
+import { agruparPorModulo, type Concessao } from "@/lib/perfis-acesso";
+import {
+  aplicarPerfil,
+  criarPerfilDePessoa,
+  excluirPerfil,
+  salvarPerfil,
+  tirarDoPerfil,
+} from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -47,19 +53,32 @@ export default async function PerfisDeAcessoPage({
   const admin = createAdminClient();
   const podeEditar = await podeNoModulo("perfis-acesso", "editar");
 
-  const [{ data: perfisBanco }, { data: permsBanco }, { data: pessoasBanco }, { data: concessoesBanco }] =
-    await Promise.all([
-      admin.from("perfis_acesso").select("id, nome, descricao").eq("revenda_id", revendaId).order("nome"),
-      admin.from("perfil_permissoes").select("perfil_id, modulo, acao"),
-      admin.from("profiles").select("id, nome, cargo, role").order("nome"),
-      // Da revenda aberta, e só dela: é com estas concessões que a tela
-      // conta quantas pessoas já têm o perfil e monta a lista de quem
-      // pode virar molde. Sem o filtro, São Félix contava Barreiras.
-      admin
-        .from("lideranca_permissoes")
-        .select("colaborador_id, modulo, acao")
-        .eq("revenda_id", revendaId),
-    ]);
+  const [
+    { data: perfisBanco },
+    { data: permsBanco },
+    { data: pessoasBanco },
+    { data: concessoesBanco },
+    { data: vinculosBanco },
+  ] = await Promise.all([
+    admin.from("perfis_acesso").select("id, nome, descricao").eq("revenda_id", revendaId).order("nome"),
+    admin.from("perfil_permissoes").select("perfil_id, modulo, acao"),
+    admin.from("profiles").select("id, nome, cargo, role").order("nome"),
+    // Da revenda aberta, e só dela: é com estas concessões que a tela
+    // monta a lista de quem pode virar molde. Sem o filtro, São Félix
+    // contava Barreiras.
+    admin
+      .from("lideranca_permissoes")
+      .select("colaborador_id, modulo, acao")
+      .eq("revenda_id", revendaId),
+    // QUEM TEM CADA PERFIL, registrado -- não mais deduzido de quem
+    // "tem todas as permissões dele". A dedução colocava todo
+    // administrador dentro de todo perfil pequeno, porque um admin
+    // contém qualquer perfil por definição (ver migration 091).
+    admin
+      .from("perfil_pessoas")
+      .select("perfil_id, colaborador_id")
+      .eq("revenda_id", revendaId),
+  ]);
 
   const perfis = (perfisBanco ?? []) as Perfil[];
   const permsDoPerfil = new Map<string, Concessao[]>();
@@ -78,6 +97,13 @@ export default async function PerfisDeAcessoPage({
 
   const pessoas = (pessoasBanco ?? []) as { id: string; nome: string; cargo: string | null; role: string }[];
   const comPermissao = pessoas.filter((p) => (concessoesDaPessoa.get(p.id)?.length ?? 0) > 0);
+
+  const doPerfil = new Map<string, string[]>();
+  for (const v of (vinculosBanco ?? []) as { perfil_id: string; colaborador_id: string }[]) {
+    const lista = doPerfil.get(v.perfil_id) ?? [];
+    lista.push(v.colaborador_id);
+    doPerfil.set(v.perfil_id, lista);
+  }
 
   const emEdicao = sp.perfil ? perfis.find((p) => p.id === sp.perfil) ?? null : null;
   const criandoNovo = sp.novo === "1";
@@ -169,14 +195,11 @@ export default async function PerfisDeAcessoPage({
         <div className="space-y-3">
           {perfis.map((p) => {
             const perms = permsDoPerfil.get(p.id) ?? [];
-            const quantos = comPermissao.filter((pessoa) =>
-              temOPerfil(perms, concessoesDaPessoa.get(pessoa.id) ?? []),
-            ).length;
+            const idsDoPerfil = new Set(doPerfil.get(p.id) ?? []);
+            const quantos = idsDoPerfil.size;
             const porModulo = agruparPorModulo(perms);
 
-            const quem = comPermissao.filter((pessoa) =>
-              temOPerfil(perms, concessoesDaPessoa.get(pessoa.id) ?? []),
-            );
+            const quem = pessoas.filter((pessoa) => idsDoPerfil.has(pessoa.id));
 
             return (
               /* CADA PERFIL FECHADO, pedido do dono (02/09/2026).
@@ -279,15 +302,15 @@ export default async function PerfisDeAcessoPage({
                     })()}
                   </div>
 
-                  {/* QUEM TEM ESTE PERFIL, pedido do dono (02/09/2026).
-                      O cartão dizia "3 pessoa(s)" e parava aí -- descobrir
-                      quais obrigava a abrir Acessos por Pessoa e conferir
-                      um a um. Vale lembrar o que o número significa: são
-                      as pessoas que TÊM todas as permissões do perfil,
-                      apurado no banco, não uma marca de "recebeu o
-                      perfil". Quem chegou ao mesmo conjunto na mão
-                      aparece aqui igual -- e é o certo, porque acesso é o
-                      que a pessoa pode, não por onde passou. */}
+                  {/* QUEM TEM ESTE PERFIL -- os que ele foi APLICADO A.
+                      Não mais "quem tem todas as permissões dele": essa
+                      dedução colocava todo administrador dentro de todo
+                      perfil pequeno (um admin contém qualquer perfil por
+                      definição), e a lista nascia com gente que ninguém
+                      informou e que não havia como tirar, porque não
+                      existia vínculo para apagar -- era uma conta refeita
+                      a cada abertura da tela. Relatado pelo dono em
+                      03/09/2026, ao criar o perfil "Conferente". */}
                   <div className="mt-4 border-t border-slate-100 pt-3">
                     <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">
                       Quem tem este perfil
@@ -297,31 +320,60 @@ export default async function PerfisDeAcessoPage({
                         Ninguém ainda — aplique a alguém abaixo.
                       </p>
                     ) : (
-                      <ul className="mt-1 flex flex-wrap gap-1.5">
-                        {quem.map((pessoa) => (
-                          <li
-                            key={pessoa.id}
-                            className="rounded-lg bg-primary-soft px-2 py-1 text-[11px] font-medium text-primary-dark"
-                          >
-                            {pessoa.nome}
-                            {pessoa.cargo && (
-                              <span className="ml-1 font-normal text-primary">
-                                {pessoa.cargo}
+                      <>
+                        <ul className="mt-1 flex flex-wrap gap-1.5">
+                          {quem.map((pessoa) => (
+                            <li
+                              key={pessoa.id}
+                              className="flex items-center gap-1 rounded-lg bg-primary-soft py-1 pl-2 pr-1 text-[11px] font-medium text-primary-dark"
+                            >
+                              <span>
+                                {pessoa.nome}
+                                {pessoa.cargo && (
+                                  <span className="ml-1 font-normal text-primary">
+                                    {pessoa.cargo}
+                                  </span>
+                                )}
                               </span>
-                            )}
-                          </li>
-                        ))}
-                      </ul>
+                              {podeEditar && (
+                                <BotaoExcluir
+                                  action={tirarDoPerfil}
+                                  campos={{ perfil_id: p.id, colaborador_id: pessoa.id }}
+                                  confirmacao={`Tirar ${pessoa.nome} da lista do perfil "${p.nome}"? As permissões dela NÃO mudam — só o vínculo com o perfil some.`}
+                                  rotuloConfirmar="Tirar do perfil"
+                                  perigo={false}
+                                  textoEnviando="..."
+                                  title={`Tirar ${pessoa.nome} deste perfil (as permissões continuam)`}
+                                  className="rounded px-1 leading-none text-primary hover:bg-white/60"
+                                >
+                                  ✕
+                                </BotaoExcluir>
+                              )}
+                            </li>
+                          ))}
+                        </ul>
+                        <p className="mt-1.5 text-[11px] text-slate-400">
+                          Tirar daqui desfaz só o vínculo — as permissões da
+                          pessoa continuam. Para removê-las, use Acessos por
+                          Pessoa.
+                        </p>
+                      </>
                     )}
                   </div>
 
                   {podeEditar && (
                     <div className="mt-3 flex flex-wrap items-center gap-3">
                       <Link
-                        href={`/admin/perfis-de-acesso?perfil=${p.id}`}
+                        href={
+                          emEdicao?.id === p.id
+                            ? "/admin/perfis-de-acesso"
+                            : `/admin/perfis-de-acesso?perfil=${p.id}`
+                        }
                         className="text-xs font-semibold text-primary hover:underline"
                       >
-                        Editar permissões →
+                        {emEdicao?.id === p.id
+                          ? "↑ Fechar as permissões"
+                          : "Editar permissões →"}
                       </Link>
                       <BotaoExcluir
                         action={excluirPerfil}
@@ -331,6 +383,19 @@ export default async function PerfisDeAcessoPage({
                       >
                         Excluir
                       </BotaoExcluir>
+                    </div>
+                  )}
+
+                  {/* A GRADE ABRE AQUI DENTRO, na caixa do próprio perfil.
+                      Ela morava no fim da página, depois da lista inteira:
+                      editar o T3 abria as configurações dele lá embaixo,
+                      com os outros perfis no meio do caminho (relatado
+                      pelo dono em 03/09/2026). Duas coisas ligadas em
+                      lugares distantes, e nada dizendo que uma era da
+                      outra. */}
+                  {podeEditar && emEdicao?.id === p.id && (
+                    <div className="mt-3 border-t border-slate-100 pt-3">
+                      <GradeDePermissoes perfil={p} marcadas={marcadas} />
                     </div>
                   )}
                 </div>
@@ -396,8 +461,38 @@ export default async function PerfisDeAcessoPage({
         </Link>
       )}
 
-      {/* ---------- GRADE DE PERMISSÕES ---------- */}
-      {podeEditar && (emEdicao || criandoNovo) && (
+      {/* ---------- GRADE DE PERMISSÕES, SÓ PARA O PERFIL NOVO ----------
+          Editar um perfil EXISTENTE não desenha nada aqui embaixo: a
+          grade dele abre dentro da própria caixa dele, lá em cima (ver
+          GradeDePermissoes). Era este bloco que produzia o defeito que o
+          dono descreveu em 03/09/2026 -- clicar em "Editar permissões" do
+          T3 abria a grade no fim da página, depois da lista inteira, e
+          entre o perfil e as configurações dele ficavam os outros perfis.
+          A tela mostrava duas coisas ligadas em lugares distantes, e nada
+          dizia que uma era da outra. */}
+      {podeEditar && criandoNovo && (
+        <GradeDePermissoes marcadas={marcadas} />
+      )}
+    </div>
+  );
+}
+
+/**
+ * O formulário de permissões -- o mesmo para criar e para editar.
+ *
+ * Recebe `perfil` quando está editando, e aí o `id` escondido faz a ação
+ * atualizar em vez de criar. Sem ele, é um perfil novo.
+ */
+function GradeDePermissoes({
+  perfil,
+  marcadas,
+}: {
+  perfil?: Perfil;
+  marcadas: Set<string>;
+}) {
+  const emEdicao = perfil ?? null;
+
+  return (
         <form action={salvarPerfil} className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
           {emEdicao && <input type="hidden" name="id" value={emEdicao.id} />}
 
@@ -471,7 +566,5 @@ export default async function PerfisDeAcessoPage({
             </Link>
           </div>
         </form>
-      )}
-    </div>
   );
 }
