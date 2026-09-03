@@ -264,6 +264,51 @@ button:disabled,
   animation: lampada-pisca 2s ease-in-out infinite;
 }
 
+/* A LAMPADA ACESA -- halo dourado que respira em volta do botao.
+   O pontinho sozinho era pequeno demais para ser notado no pe de uma
+   tela cheia de cartoes (pedido do dono, 03/09/2026: "deixa-la mais
+   acesa"). O halo cresce e some, como luz, em vez de piscar como
+   alerta: e um convite, nao um chamado. */
+@keyframes lampada-acesa {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 0 rgb(255 199 44 / 0.55),
+      0 10px 15px -3px rgb(0 0 0 / 0.15);
+  }
+  70% {
+    box-shadow:
+      0 0 0 12px rgb(255 199 44 / 0),
+      0 10px 15px -3px rgb(0 0 0 / 0.15);
+  }
+}
+
+.lampada-acesa {
+  animation: lampada-acesa 2.4s ease-out infinite;
+}
+
+/* APAGAR: a transicao de acesa para lida.
+   Acontece depois que a pessoa fecha o balao -- ela ve a lampada perder
+   o brilho, e e isso que diz "esta foi lida, volta amanha". Sem esse
+   meio segundo o botao simplesmente ficava diferente na proxima vez que
+   alguem olhasse, e ninguem liga uma coisa a outra. */
+@keyframes lampada-apaga {
+  from {
+    box-shadow:
+      0 0 0 8px rgb(255 199 44 / 0.35),
+      0 10px 15px -3px rgb(0 0 0 / 0.15);
+    transform: scale(1.06);
+  }
+  to {
+    box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.15);
+    transform: scale(1);
+  }
+}
+
+.lampada-apaga {
+  animation: lampada-apaga 600ms ease-out;
+}
+
 /* Entrada dos avisos flutuantes (toasts). */
 @keyframes toast-entra {
   from {
@@ -315,8 +360,11 @@ button:disabled,
 
   /* O pontinho para de pulsar mas CONTINUA la: ele nao e enfeite, e o
      aviso de que existe card novo. Sem movimento ele ainda diz isso pela
-     cor. */
-  .lampada-pisca {
+     cor -- e o mesmo vale para a lampada acesa, que mantem o fundo
+     dourado sem o halo respirando. */
+  .lampada-pisca,
+  .lampada-acesa,
+  .lampada-apaga {
     animation: none;
   }
 

@@ -37,27 +37,51 @@ export function VoceSabia({
   const [aberto, setAberto] = useState(false);
   const [curtiu, setCurtiu] = useState(curtiuInicial);
   const [novo, setNovo] = useState(!jaVistaHoje);
+  /** Meio segundo de "apagando" logo depois de fechar o balão. */
+  const [apagando, setApagando] = useState(false);
   const caixa = useRef<HTMLDivElement>(null);
 
   // Esc fecha, como em todo overlay do app.
   useEffect(() => {
     if (!aberto) return;
     const aoTeclar = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setAberto(false);
+      if (e.key === "Escape") fechar();
     };
     window.addEventListener("keydown", aoTeclar);
     return () => window.removeEventListener("keydown", aoTeclar);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [aberto]);
 
   function abrir() {
     setAberto(true);
     if (novo) {
-      // O card do dia é gasto AQUI, na abertura. A tela não espera a
-      // resposta: o pontinho apaga na hora e a gravação segue por conta
-      // dela -- se falhar, o pior caso é o mesmo card aparecer amanhã, o
-      // que ninguém percebe como defeito.
-      setNovo(false);
+      // A leitura é gravada AQUI, na abertura. A tela não espera a
+      // resposta: se falhar, o pior caso é o mesmo card aparecer amanhã,
+      // o que ninguém percebe como defeito.
       void marcarVista(dica.questaoId).catch(() => {});
+    }
+  }
+
+  /**
+   * A LÂMPADA APAGA AO FECHAR, e não ao abrir -- pedido do dono
+   * (03/09/2026): "após ele clicar e ler a do dia, ela apaga sozinha".
+   *
+   * A diferença importa. Apagando na abertura, o brilho sumia atrás do
+   * balão, onde ninguém vê; a pessoa fechava e encontrava um botão
+   * diferente, sem ligar uma coisa à outra. Apagando na saída, ela VÊ a
+   * luz se apagar -- e é isso que diz "esta eu já li, volta amanhã".
+   *
+   * Os 600ms são a duração da animação: o estado só vira "lida" quando
+   * ela termina, senão o CSS trocaria no meio e o efeito engasgaria.
+   */
+  function fechar() {
+    setAberto(false);
+    if (novo) {
+      setApagando(true);
+      setTimeout(() => {
+        setApagando(false);
+        setNovo(false);
+      }, 600);
     }
   }
 
@@ -78,7 +102,7 @@ export function VoceSabia({
       {aberto && (
         <div
           role="presentation"
-          onClick={() => setAberto(false)}
+          onClick={fechar}
           className="fixed inset-0 z-40 bg-slate-900/10"
         />
       )}
@@ -105,7 +129,10 @@ export function VoceSabia({
         das ~67 pessoas teria de descobrir sozinha que dá para mover, e
         arrastar disputa com rolar o mesmo gesto no celular.
       */}
-      <div className="fixed bottom-4 right-4 z-40 flex flex-col items-end gap-2 print:hidden">
+      {/* `bottom-5` mais a área segura do iPhone: no aparelho com barra
+          de gestos, `bottom-4` puro deixava o botão em cima dela, e o
+          gesto de voltar pegava antes do toque. */}
+      <div className="fixed bottom-[calc(1.25rem+env(safe-area-inset-bottom))] right-4 z-40 flex flex-col items-end gap-2 print:hidden">
         {aberto && (
           <div
             ref={caixa}
@@ -131,7 +158,7 @@ export function VoceSabia({
               </div>
               <button
                 type="button"
-                onClick={() => setAberto(false)}
+                onClick={fechar}
                 aria-label="Fechar"
                 className="-mr-1 -mt-0.5 shrink-0 rounded-lg px-1.5 py-0.5 text-slate-500 hover:bg-black/5"
               >
@@ -209,25 +236,43 @@ export function VoceSabia({
 
         <button
           type="button"
-          onClick={() => (aberto ? setAberto(false) : abrir())}
+          onClick={() => (aberto ? fechar() : abrir())}
           aria-expanded={aberto}
           aria-label={
             novo ? "Você sabia? Há uma dica nova" : "Você sabia? Ver a dica"
           }
-          className={`relative flex h-12 w-12 items-center justify-center rounded-full border text-xl shadow-lg transition-colors ${
+          // ACESA de verdade quando há dica nova: 56px, dourado cheio e
+          // um halo que respira em volta. O pontinho sozinho era pequeno
+          // demais para ser notado no pé de uma tela cheia de cartões
+          // (pedido do dono, 03/09/2026). Lida, ela encolhe para 48px e
+          // volta ao branco discreto -- continua ali para reler, sem
+          // disputar atenção com o resto.
+          className={`relative flex items-center justify-center rounded-full border shadow-lg transition-all duration-300 ${
+            apagando ? "lampada-apaga" : novo ? "lampada-acesa" : ""
+          } ${
             novo
-              ? "border-gold bg-gold text-primary-dark"
-              : "border-slate-200 bg-white text-slate-500"
+              ? "h-14 w-14 border-gold bg-gold text-2xl text-primary-dark"
+              : "h-12 w-12 border-slate-200 bg-white text-xl text-slate-500"
           }`}
         >
           💡
           {novo && (
             <span
               aria-hidden="true"
-              className="lampada-pisca absolute -right-0.5 -top-0.5 h-3 w-3 rounded-full border-2 border-white bg-primary"
+              className="lampada-pisca absolute -right-0.5 -top-0.5 h-3.5 w-3.5 rounded-full border-2 border-white bg-primary"
             />
           )}
         </button>
+
+        {/* O rótulo aparece só enquanto a dica é nova, e some junto com o
+            brilho. Um botão redondo com uma lâmpada não diz o que faz --
+            o dono já perguntou o que era. Duas palavras resolvem, e sair
+            depois de lido devolve a tela ao que ela era. */}
+        {novo && !aberto && (
+          <span className="pointer-events-none absolute bottom-1 right-16 whitespace-nowrap rounded-full bg-gold px-2.5 py-1 text-[11px] font-bold text-primary-dark shadow-md">
+            Você sabia?
+          </span>
+        )}
       </div>
     </>
   );
