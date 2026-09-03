@@ -63,39 +63,46 @@ export async function FaixaParcerias() {
   const sobra = total - nomes.length;
 
   /*
-    O CARTÃO É AZUL, não verde.
+    O CARTÃO VOLTOU A SER BRANCO -- pedido do dono (03/09/2026): "ficou
+    muito chamativo e fora do layout do app".
 
-    A primeira versão era esmeralda -- uma cor que não existe em lugar
-    nenhum deste app. Ficava com cara de aviso de outro sistema colado na
-    tela. Aqui a paleta é o azul #0b4da2 e o dourado #ffc72c da marca, e o
-    cartão passa a usar os dois: fundo azul em degradê, o aperto de mão em
-    dourado.
+    Ele passou por esmeralda e por azul em degradê, e a segunda versão
+    pelo menos usava a paleta da marca. O erro não era a cor: era o PESO.
+    Numa tela inteira de cartões brancos com borda fina, uma peça escura
+    com sombra colorida não lê como "mais um item da lista", lê como um
+    banner colado por cima -- daqueles que a gente aprendeu a ignorar.
 
-    Escuro de propósito. É a única peça escura de uma tela de cartões
-    brancos -- é assim que ela é achada sem procurar, que era o pedido do
-    RH. E como não há outra peça escura, o destaque não disputa com nada.
+    Agora ele é irmão dos canais do rodapé, logo abaixo: mesma borda,
+    mesmo fundo, mesma sombra. O que o faz ser achado passa a ser o
+    conteúdo -- o aperto de mão em dourado, a contagem e os NOMES dos
+    parceiros -- e não o volume. Se ainda assim ele sumir na tela, o
+    caminho é subir o cartão de posição, não escurecer de novo.
   */
   return (
     <Link
       href={`/comunicados?editoria=${EDITORIA_PARCERIAS}`}
-      className="mt-7 block overflow-hidden rounded-2xl bg-gradient-to-br from-primary-dark to-primary p-4 shadow-lg shadow-primary/20 transition-transform active:scale-[0.99]"
+      className="mt-7 block rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition-colors hover:bg-slate-50"
     >
       <div className="flex min-w-0 items-center gap-3">
-        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gold text-2xl">
+        {/* O dourado da marca sobrou desta peça, e é o suficiente: um
+            círculo de 36px é sotaque, o cartão inteiro era grito. */}
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gold-soft text-lg">
           {editoria.emoji || "🤝"}
         </span>
         <span className="min-w-0 flex-1">
           <span className="flex items-center gap-2">
-            <span className="truncate font-bold text-white">Parcerias e descontos</span>
-            <span className="shrink-0 rounded-full bg-gold px-2 py-0.5 text-xs font-bold tabular-nums text-primary-dark">
+            <span className="truncate text-sm font-bold text-slate-900">
+              Parcerias e descontos
+            </span>
+            <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-bold tabular-nums text-slate-600">
               {total}
             </span>
           </span>
-          <span className="mt-0.5 block text-xs text-white/70">
+          <span className="mt-0.5 block text-xs text-slate-500">
             Vantagens para quem é do time
           </span>
         </span>
-        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white/15 text-sm text-white" aria-hidden="true">
+        <span className="shrink-0 text-slate-400" aria-hidden="true">
           ›
         </span>
       </div>
@@ -113,13 +120,13 @@ export async function FaixaParcerias() {
         {nomes.map((n) => (
           <span
             key={n}
-            className="rounded-full bg-white/15 px-2.5 py-1 text-xs font-medium text-white"
+            className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600"
           >
             {n}
           </span>
         ))}
         {sobra > 0 && (
-          <span className="rounded-full px-2.5 py-1 text-xs font-medium text-white/60">
+          <span className="rounded-full px-2.5 py-1 text-xs font-medium text-slate-400">
             +{sobra}
           </span>
         )}

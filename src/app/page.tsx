@@ -99,8 +99,9 @@ export default async function Home() {
           Acima, competiria com o trabalho -- e parceria é um benefício,
           não uma tarefa. Dentro de um dos blocos, viraria mais um cartão
           quadrado entre treze, que é exatamente onde ela já estava
-          escondida. Retangular e colorida, no fim, ela é a única coisa
-          diferente da tela: acha-se sem procurar.
+          escondida. Retangular e larga, no fim, ela tem forma própria sem
+          precisar de cor forte -- o cartão é branco como o resto da tela
+          (ver o comentário em FaixaParcerias).
 
           Só para quem tem o Jornal: a faixa leva a uma editoria dele, e
           oferecer um caminho que termina em "sem acesso" é pior do que
