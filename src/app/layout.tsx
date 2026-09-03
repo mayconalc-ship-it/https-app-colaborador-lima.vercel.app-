@@ -15,6 +15,7 @@ import { Notificacoes } from "@/components/Notificacoes";
 import { SeletorRevenda } from "@/components/SeletorRevenda";
 import { Provedores } from "@/components/Provedores";
 import { SincronizarPush } from "@/components/SincronizarPush";
+import { LampadaVoceSabia } from "@/components/LampadaVoceSabia";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -191,6 +192,19 @@ export default async function RootLayout({
               )}
               <PesquisaSatisfacao />
               <SincronizarPush />
+              {/* A lâmpada do "Você sabia?", no canto.
+                  Fica no layout porque a revisão não é uma tela que a
+                  pessoa vai procurar -- a graça é ela estar do lado
+                  enquanto a pessoa usa o app para outra coisa.
+                  `getDicaDoDia` devolve null na maioria das visitas (sem
+                  área de desafio, sem card novo, card do dia já lido e
+                  fechado), e aí não se desenha nada. */}
+              {revenda && (
+                <LampadaVoceSabia
+                  colaboradorId={perfil.id}
+                  revendaId={revenda.id}
+                />
+              )}
             </>
           )}
         </Provedores>

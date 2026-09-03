@@ -219,6 +219,49 @@ button:disabled,
   }
 }
 
+/* ---------------------------------------------------------------------
+   "Voce sabia?" -- a lampada do canto
+   ---------------------------------------------------------------------
+   O balao CRESCE DE DENTRO DA LAMPADA: a origem da transformacao fica no
+   canto de baixo a direita, que e exatamente onde o botao esta. Sem essa
+   origem, o balao apareceria crescendo do proprio centro e leria como
+   "abriu uma janela", nao como "a lampada falou".
+
+   O leve overshoot (1.02 no meio) e o que da o ar de balao de fala, e nao
+   de painel deslizando. */
+@keyframes balao-abre {
+  from {
+    opacity: 0;
+    transform: scale(0.8) translateY(0.5rem);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.02) translateY(0);
+  }
+  to {
+    transform: scale(1) translateY(0);
+  }
+}
+
+.balao-abre {
+  transform-origin: bottom right;
+  animation: balao-abre 220ms cubic-bezier(0.2, 0.9, 0.3, 1.2);
+}
+
+/* O pontinho de "tem card novo". Pulso lento e discreto: ele precisa ser
+   notado quando a pessoa passa o olho pela tela, nao competir com o que
+   ela veio fazer. */
+@keyframes lampada-pisca {
+  50% {
+    transform: scale(1.35);
+    opacity: 0.7;
+  }
+}
+
+.lampada-pisca {
+  animation: lampada-pisca 2s ease-in-out infinite;
+}
+
 /* Entrada dos avisos flutuantes (toasts). */
 @keyframes toast-entra {
   from {
@@ -261,7 +304,17 @@ button:disabled,
 
   .toast-entra,
   .shimmer::after,
-  .circulo-pulsa {
+  .circulo-pulsa,
+  /* O balao aparece inteiro, sem crescer. O que ele informa -- "aqui esta
+     a dica" -- e o conteudo, nao o movimento. */
+  .balao-abre {
+    animation: none;
+  }
+
+  /* O pontinho para de pulsar mas CONTINUA la: ele nao e enfeite, e o
+     aviso de que existe card novo. Sem movimento ele ainda diz isso pela
+     cor. */
+  .lampada-pisca {
     animation: none;
   }
 
