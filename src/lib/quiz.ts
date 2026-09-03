@@ -15,6 +15,16 @@ export const PONTOS_POR_QUESTAO = 10;
 /** Quantas perguntas uma rodada tem, quando ninguém disser o contrário. */
 export const PERGUNTAS_PADRAO = 10;
 
+/**
+ * Teto de perguntas por rodada (pedido do dono, 02/09/2026).
+ *
+ * O limite é de atenção, não de banco: o desafio é respondido em pé, no
+ * armazém, entre uma tarefa e outra. Passar disso vira prova, e prova
+ * ninguém termina. O campo aceitava 50, e o número só era conferido no
+ * navegador -- quem chamasse a ação por fora entrava com o que quisesse.
+ */
+export const MAX_PERGUNTAS = 13;
+
 /** G4 + 4 logo abaixo. O Admin muda em /admin/quiz. */
 export const POSICOES_PADRAO = 8;
 

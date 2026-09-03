@@ -713,7 +713,14 @@ export async function getBancoDisponivel(
       .eq("rodada_id", rodadaId),
     admin
       .from("quiz_questoes")
-      .select("id, pergunta, dificuldade, padrao_nome, vezes_usada")
+      // `area`, `pilar` e `atividade` vêm junto porque a lista é agrupada
+      // por padrão e cada linha diz a que operação a pergunta pertence:
+      // sem isso, "Trazer do banco" era um monte de frases soltas, e
+      // escolher entre elas dependia de reconhecer o texto (pedido do
+      // dono, 02/09/2026).
+      .select(
+        "id, pergunta, dificuldade, padrao_nome, vezes_usada, area, pilar, atividade",
+      )
       .eq("revenda_id", revendaId)
       .eq("area", area)
       .eq("status", "ativa")

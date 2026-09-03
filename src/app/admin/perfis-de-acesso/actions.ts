@@ -99,10 +99,14 @@ export async function criarPerfilDePessoa(formData: FormData) {
   if (!colaboradorId) voltar("erro", "Escolha a pessoa.");
   if (!nome) voltar("erro", "Dê um nome ao perfil.");
 
+  // Só o que a pessoa tem NESTA revenda. Um perfil pertence a uma
+  // revenda; copiar junto o que ela tem na outra montaria um "Analista de
+  // Rota" de São Félix com as permissões de Barreiras dentro.
   const { data: permissoes } = await admin
     .from("lideranca_permissoes")
     .select("modulo, acao")
-    .eq("colaborador_id", colaboradorId);
+    .eq("colaborador_id", colaboradorId)
+    .eq("revenda_id", revendaId);
 
   const concessoes = apenasValidas((permissoes ?? []) as Concessao[]);
   if (concessoes.length === 0) {
@@ -129,7 +133,17 @@ export async function criarPerfilDePessoa(formData: FormData) {
   const { error: erroPerm } = await admin
     .from("perfil_permissoes")
     .insert(concessoes.map((c) => ({ perfil_id: data?.id, modulo: c.modulo, acao: c.acao })));
-  if (erroPerm) voltar("erro", `Não foi possível copiar as permissões: ${erroPerm.message}`);
+
+  // Falhou a cópia: o perfil não pode ficar. Ele já está gravado neste
+  // ponto, e sem as permissões vira uma casca -- "Analista de Controle,
+  // 0 permissão(ões)" -- que ninguém sabe se é para usar, consertar ou
+  // apagar. Foi o que sobrou na tela em 02/09/2026, quando a trava de
+  // `acao` recusou a permissão "promover" (ver migration 089). Desfazer
+  // aqui é o que faz a tentativa não deixar rastro.
+  if (erroPerm) {
+    await admin.from("perfis_acesso").delete().eq("id", data?.id);
+    voltar("erro", `Não foi possível copiar as permissões: ${erroPerm.message}`);
+  }
 
   revalidatePath(ROTA);
   voltar("sucesso", `Perfil "${nome}" criado com ${concessoes.length} permissão(ões).`, `&perfil=${data?.id}`);
@@ -149,7 +163,7 @@ export async function criarPerfilDePessoa(formData: FormData) {
  */
 export async function aplicarPerfil(formData: FormData) {
   await requireModulo("perfis-acesso", "editar");
-  await exigirRevenda(ROTA);
+  const revendaId = await exigirRevenda(ROTA);
   const quemAplica = await getPerfil();
   const admin = createAdminClient();
 
@@ -166,14 +180,26 @@ export async function aplicarPerfil(formData: FormData) {
   if (concessoes.length === 0) voltar("erro", "Este perfil não tem nenhuma permissão.");
   if (!alvo) voltar("erro", "Pessoa não encontrada.");
 
+  // A `revenda_id` vai escrita e vai no onConflict. As duas coisas pela
+  // mesma razao: a chave de lideranca_permissoes deixou de ser
+  // (colaborador, modulo, acao) na migration 021 e passou a ser
+  // (colaborador, REVENDA, modulo, acao) -- justamente para a mesma
+  // pessoa poder ter acessos diferentes em Sao Felix e em Barreiras.
+  //
+  // Sem ela aqui aconteciam duas coisas: o Postgres recusava o upsert
+  // inteiro ("no unique or exclusion constraint matching the ON CONFLICT
+  // specification", 02/09/2026, ao espelhar o perfil de Analista de
+  // Rota), e a linha, se tivesse entrado, cairia na revenda do DEFAULT
+  // da coluna -- Sao Felix -- mesmo com Barreiras aberta na tela.
   const { error } = await admin.from("lideranca_permissoes").upsert(
     concessoes.map((c) => ({
       colaborador_id: colaboradorId,
+      revenda_id: revendaId,
       modulo: c.modulo,
       acao: c.acao,
       concedido_por: quemAplica?.id ?? null,
     })),
-    { onConflict: "colaborador_id,modulo,acao" },
+    { onConflict: "colaborador_id,revenda_id,modulo,acao" },
   );
   if (error) voltar("erro", `Não foi possível aplicar: ${error.message}`);
 

@@ -17,6 +17,25 @@
 export const CLASSE_MAIS =
   "flex aspect-square items-center justify-center rounded-lg bg-primary text-lg font-bold leading-none text-white";
 
+/**
+ * O mesmo quadradinho dentro de um `<details className="group">`: "+"
+ * fechado, "✕" aberto.
+ *
+ * Antes era o próprio "+" girando 45°, e girar o glifo girava o QUADRADO
+ * junto -- ele virava losango, e um losango azul no meio da tela não se
+ * lê como "fechar", se lê como erro de layout (pedido do dono,
+ * 02/09/2026: trocar o sinal, sem mexer no lado do quadrado). Aqui o
+ * quadrado fica parado e só o caractere troca.
+ */
+export function MaisOuFechar({ className = "h-7" }: { className?: string }) {
+  return (
+    <span className={`${CLASSE_MAIS} ${className}`} aria-hidden="true">
+      <span className="group-open:hidden">+</span>
+      <span className="hidden group-open:inline">✕</span>
+    </span>
+  );
+}
+
 export function BotaoAdicionarLinha({
   onClick,
   children,

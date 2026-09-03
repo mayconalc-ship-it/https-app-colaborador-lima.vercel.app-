@@ -13,7 +13,7 @@
  */
 
 import { BotaoEnviar } from "@/components/BotaoEnviar";
-import { CLASSE_MAIS } from "@/components/BotaoMais";
+import { MaisOuFechar } from "@/components/BotaoMais";
 
 export function PainelCadastro({
   titulo,
@@ -45,11 +45,9 @@ export function PainelCadastro({
             )}
           </div>
           {/* Mesmo "+" quadrado azul do resto do app (ver BotaoMais) --
-              gira 45° e vira um "×" quando o formulário está aberto. */}
+              vira "✕" quando o formulário está aberto. */}
           <span className="flex shrink-0 items-center gap-2 text-xs font-bold text-primary-dark">
-            <span className={`${CLASSE_MAIS} h-7 transition-transform group-open:rotate-45`} aria-hidden="true">
-              +
-            </span>
+            <MaisOuFechar />
             <span className="group-open:hidden">{novoRotulo}</span>
             <span className="hidden group-open:inline">Fechar</span>
           </span>

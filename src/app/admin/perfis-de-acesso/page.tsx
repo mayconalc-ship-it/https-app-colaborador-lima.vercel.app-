@@ -51,7 +51,13 @@ export default async function PerfisDeAcessoPage({
       admin.from("perfis_acesso").select("id, nome, descricao").eq("revenda_id", revendaId).order("nome"),
       admin.from("perfil_permissoes").select("perfil_id, modulo, acao"),
       admin.from("profiles").select("id, nome, cargo, role").order("nome"),
-      admin.from("lideranca_permissoes").select("colaborador_id, modulo, acao"),
+      // Da revenda aberta, e só dela: é com estas concessões que a tela
+      // conta quantas pessoas já têm o perfil e monta a lista de quem
+      // pode virar molde. Sem o filtro, São Félix contava Barreiras.
+      admin
+        .from("lideranca_permissoes")
+        .select("colaborador_id, modulo, acao")
+        .eq("revenda_id", revendaId),
     ]);
 
   const perfis = (perfisBanco ?? []) as Perfil[];

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { PageHeader } from "@/components/PageHeader";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
-import { CLASSE_MAIS } from "@/components/BotaoMais";
+import { MaisOuFechar } from "@/components/BotaoMais";
 import { decodificar } from "@/lib/texto-url";
 import { requireModulo, podeNoModulo } from "@/lib/require-admin";
 import { getRevendaId } from "@/lib/revendas";
@@ -15,6 +15,7 @@ import {
   listarRodadas,
 } from "@/lib/quiz-server";
 import {
+  MAX_PERGUNTAS,
   PERGUNTAS_PADRAO,
   ROTULO_STATUS,
   nomeDoMes,
@@ -145,9 +146,7 @@ export default async function AdminQuizPage({
       {podeCriar && (
         <details className="group mb-6 rounded-2xl border border-slate-200 bg-white shadow-sm">
           <summary className="flex cursor-pointer list-none items-center gap-2 p-4 font-semibold text-slate-800 marker:content-none [&::-webkit-details-marker]:hidden">
-            <span className={`${CLASSE_MAIS} h-7 transition-transform group-open:rotate-45`} aria-hidden="true">
-              +
-            </span>
+            <MaisOuFechar />
             <span className="group-open:hidden">Criar nova rodada</span>
             <span className="hidden group-open:inline">Fechar</span>
           </summary>
@@ -212,14 +211,20 @@ export default async function AdminQuizPage({
                 </select>
               </Campo>
               <Campo rotulo="Perguntas" className="w-28">
-                <input
+                <select
                   name="total_perguntas"
-                  type="number"
-                  min={1}
-                  max={50}
                   defaultValue={PERGUNTAS_PADRAO}
                   className={ENTRADA}
-                />
+                >
+                  {Array.from({ length: MAX_PERGUNTAS }, (_, i) => i + 1).map(
+                    (n) => (
+                      <option key={n} value={n}>
+                        {n}
+                        {n === PERGUNTAS_PADRAO ? " (padrão)" : ""}
+                      </option>
+                    ),
+                  )}
+                </select>
               </Campo>
             </div>
 

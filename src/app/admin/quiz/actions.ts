@@ -24,6 +24,7 @@ import {
 } from "@/lib/quiz-ia";
 import { registrarUsoIA } from "@/lib/ia-uso";
 import {
+  MAX_PERGUNTAS,
   PERGUNTAS_PADRAO,
   PONTOS_POR_QUESTAO,
   comPosicao,
@@ -118,6 +119,16 @@ export async function criarRodada(formData: FormData) {
   const fim = texto(formData, "fim");
   const totalPerguntas = numero(formData, "total_perguntas") || PERGUNTAS_PADRAO;
 
+  // O teto é conferido aqui, não só no <select>: quem chamar a ação por
+  // fora do formulário passaria por cima do limite do campo.
+  if (totalPerguntas < 1 || totalPerguntas > MAX_PERGUNTAS) {
+    redirect(
+      `${BASE}?erro=${encodeURIComponent(
+        `A rodada pode ter de 1 a ${MAX_PERGUNTAS} perguntas.`,
+      )}`,
+    );
+  }
+
   if (mes < 1 || mes > 12 || temporada < 2020 || temporada > 2100) {
     redirect(`${BASE}?erro=${encodeURIComponent("Mês ou ano inválido.")}`);
   }
@@ -187,6 +198,16 @@ export async function atualizarRodada(formData: FormData) {
     redirect(`${destino}?erro=${encodeURIComponent("O período está invertido.")}`);
   }
 
+  const totalPerguntas =
+    numero(formData, "total_perguntas") || rodada.totalPerguntas;
+  if (totalPerguntas < 1 || totalPerguntas > MAX_PERGUNTAS) {
+    redirect(
+      `${destino}?erro=${encodeURIComponent(
+        `A rodada pode ter de 1 a ${MAX_PERGUNTAS} perguntas.`,
+      )}`,
+    );
+  }
+
   const admin = createAdminClient();
   const { error } = await admin
     .from("quiz_rodadas")
@@ -196,7 +217,7 @@ export async function atualizarRodada(formData: FormData) {
       atividade: texto(formData, "atividade") || null,
       inicio,
       fim,
-      total_perguntas: numero(formData, "total_perguntas") || rodada.totalPerguntas,
+      total_perguntas: totalPerguntas,
     })
     .eq("id", rodada.id)
     .eq("revenda_id", revendaId);
@@ -527,104 +548,18 @@ export async function criarQuestao(formData: FormData) {
 }
 
 /**
- * Importa várias questões de uma vez, em JSON.
- *
- * É por aqui que entra o material preparado com ajuda de IA a partir do
- * padrão: o texto é gerado fora, conferido por quem entende da operação
- * e colado aqui. A conferência humana é proposital -- o app não inventa
- * procedimento, e não é ele quem decide o que é o certo na operação.
- *
- * Tudo ou nada: uma questão inválida no meio cancela a importação
- * inteira, para não deixar meia lista dentro e meia fora sem ninguém
- * saber qual foi.
- */
-export async function importarQuestoes(formData: FormData) {
-  await requireModulo("quiz", "criar");
-  const revendaId = await contexto();
-  const perfil = await getPerfil();
-
-  const rodadaId = numero(formData, "rodada_id");
-  const rodada = await rodadaDaRevenda(rodadaId, revendaId);
-  const destino = `${BASE}/${rodada.id}`;
-
-  const bruto = texto(formData, "json");
-  if (!bruto) redirect(`${destino}?erro=${encodeURIComponent("Cole o conteúdo antes de importar.")}`);
-
-  let lista: QuestaoEntrada[];
-  try {
-    const analisado = JSON.parse(bruto);
-    if (!Array.isArray(analisado)) throw new Error("não é uma lista");
-    lista = analisado.map((q: Record<string, unknown>) => ({
-      pergunta: String(q.pergunta ?? "").trim(),
-      tipo: String(q.tipo ?? "multipla").trim(),
-      dificuldade: String(q.dificuldade ?? "media").trim(),
-      explicacao: String(q.explicacao ?? "").trim(),
-      alternativas: Array.isArray(q.alternativas)
-        ? q.alternativas.map((a: unknown) => String(a))
-        : [],
-      correta: Number(q.correta ?? -1),
-    }));
-  } catch {
-    redirect(
-      `${destino}?erro=${encodeURIComponent(
-        "Não consegui ler o conteúdo. Ele precisa ser uma lista em JSON, como no exemplo da tela.",
-      )}`,
-    );
-    return;
-  }
-
-  if (lista.length === 0) {
-    redirect(`${destino}?erro=${encodeURIComponent("A lista veio vazia.")}`);
-  }
-
-  // Repetição dentro da própria lista colada — o banco só pega a que
-  // colide com o que já estava gravado.
-  const vistas = new Set<string>();
-  for (const q of lista) {
-    const problema = validar(q);
-    if (problema) redirect(`${destino}?erro=${encodeURIComponent(problema)}`);
-
-    const chave = q.pergunta.toLowerCase();
-    if (vistas.has(chave)) {
-      redirect(
-        `${destino}?erro=${encodeURIComponent(
-          `A pergunta "${q.pergunta.slice(0, 40)}..." aparece duas vezes na lista.`,
-        )}`,
-      );
-    }
-    vistas.add(chave);
-  }
-
-  let gravadas = 0;
-  try {
-    for (const q of lista) {
-      await gravar(q, rodada.id, revendaId, rodada.area, rodada, perfil?.id ?? null);
-      gravadas++;
-    }
-  } catch (e) {
-    redirect(
-      `${destino}?erro=${encodeURIComponent(
-        `${(e as Error).message} — ${gravadas} pergunta(s) já tinham entrado antes do erro.`,
-      )}`,
-    );
-  }
-
-  redirect(`${destino}?sucesso=${encodeURIComponent(`${gravadas} perguntas importadas.`)}`);
-}
-
-/**
  * Gera as perguntas a partir do arquivo do padrão da rodada.
  *
- * O que chega aqui passa pela MESMA porta da importação manual: o
- * `validar()` acima. Ter uma única porta é o ponto -- se a checagem de
- * "uma só resposta certa" morasse em dois lugares, um dos dois ficaria
- * para trás.
+ * Existia ao lado disto uma importação em JSON, para colar uma lista
+ * preparada fora do app. Saiu em 02/09/2026 a pedido do dono -- ninguém
+ * usava. Ela pedia que a liderança do armazém escrevesse JSON à mão, com
+ * "correta" contando a partir do zero; a geração pelo padrão faz o mesmo
+ * trabalho sem essa exigência. O `validar()` abaixo, que era a porta
+ * comum das duas, continua no lugar.
  *
- * Diferente da importação, aqui o gravar é peça por peça, e não tudo ou
- * nada. A lista colada foi curada por uma pessoa: se uma questão está
- * ruim, a lista inteira está sob suspeita. A lista gerada não foi curada
- * por ninguém ainda -- descartar nove boas por causa de uma repetida só
- * faria o Admin clicar de novo e pagar outra geração.
+ * O gravar é peça por peça, e não tudo ou nada: a lista gerada não foi
+ * curada por ninguém ainda -- descartar nove boas por causa de uma
+ * repetida só faria o Admin clicar de novo e pagar outra geração.
  */
 export async function gerarComIA(formData: FormData) {
   await requireModulo("quiz", "criar");
@@ -834,6 +769,20 @@ export async function editarQuestao(formData: FormData) {
   redirect(`${destino}?sucesso=${encodeURIComponent("Pergunta atualizada.")}`);
 }
 
+/**
+ * Liga e desliga a pergunta -- SEM sair do lugar.
+ *
+ * Esta é a única ação da tela que não termina em `redirect`, e é de
+ * propósito. Desativar é feito em série, descendo a lista: a pergunta 7,
+ * depois a 9, depois a 12. Cada `redirect` era uma navegação, e toda
+ * navegação joga a página de volta para o topo -- a cada clique a pessoa
+ * rolava de novo até onde estava (pedido do dono, 02/09/2026).
+ *
+ * Sem redirect, o `revalidatePath` redesenha a rota no lugar e a rolagem
+ * fica onde estava. O preço é não ter faixa verde de "pronto"; o retorno
+ * é a própria etiqueta "Desativada" aparecendo na linha que foi clicada,
+ * que é uma confirmação melhor por estar do lado do que mudou.
+ */
 export async function alternarStatusQuestao(formData: FormData) {
   await requireModulo("quiz", "editar");
   const revendaId = await contexto();
@@ -841,7 +790,6 @@ export async function alternarStatusQuestao(formData: FormData) {
   const rodadaId = numero(formData, "rodada_id");
   const questaoId = numero(formData, "questao_id");
   const ativa = texto(formData, "status") === "ativa";
-  const destino = `${BASE}/${rodadaId}`;
 
   const admin = createAdminClient();
   await admin
@@ -853,7 +801,7 @@ export async function alternarStatusQuestao(formData: FormData) {
     .eq("id", questaoId)
     .eq("revenda_id", revendaId);
 
-  redirect(`${destino}?sucesso=${encodeURIComponent("Pergunta atualizada.")}`);
+  revalidatePath(`${BASE}/${rodadaId}`);
 }
 
 /**

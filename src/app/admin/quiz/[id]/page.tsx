@@ -2,7 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PageHeader } from "@/components/PageHeader";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
-import { CLASSE_MAIS } from "@/components/BotaoMais";
+import { MaisOuFechar } from "@/components/BotaoMais";
+import { FormularioGerar } from "@/components/quiz/FormularioGerar";
 import { BotaoExcluir } from "@/components/BotaoExcluir";
 import { TabelaRodada } from "@/components/TabelaCampeonato";
 import { decodificar } from "@/lib/texto-url";
@@ -20,6 +21,7 @@ import {
 } from "@/lib/quiz-server";
 import {
   DIFICULDADES,
+  MAX_PERGUNTAS,
   PONTOS_POR_QUESTAO,
   ROTULO_STATUS,
   TIPOS_QUESTAO,
@@ -38,7 +40,6 @@ import {
   excluirQuestao,
   excluirRodada,
   gerarComIA,
-  importarQuestoes,
   publicarRodada,
   removerDaRodada,
   alternarStatusQuestao,
@@ -131,8 +132,8 @@ export default async function RodadaPage({
             <span className="font-semibold text-amber-700">
               {" "}
               — sobram {Math.abs(faltam)}: ajuste o campo &quot;Perguntas&quot;
-              em &quot;Editar dados da rodada&quot; para {questoes.length}
-              antes de publicar
+              em &quot;Editar dados da rodada&quot; para {questoes.length} antes
+              de publicar
             </span>
           )}
         </p>
@@ -314,14 +315,20 @@ export default async function RodadaPage({
                 <label className="mb-1 block text-xs font-medium text-slate-600">
                   Perguntas
                 </label>
-                <input
+                <select
                   name="total_perguntas"
-                  type="number"
-                  min={1}
-                  max={50}
                   defaultValue={rodada.totalPerguntas}
                   className={ENTRADA}
-                />
+                >
+                  {Array.from({ length: MAX_PERGUNTAS }, (_, i) => i + 1).map(
+                    (n) => (
+                      <option key={n} value={n}>
+                        {n}
+                        {n === questoes.length ? " (o que já tem)" : ""}
+                      </option>
+                    ),
+                  )}
+                </select>
               </div>
             </div>
 
@@ -454,6 +461,12 @@ export default async function RodadaPage({
 
                 {podeEditar && (
                   <div className="ml-auto flex flex-wrap gap-2">
+                    {/* Sem redirect na ação: a página não volta ao topo a
+                        cada clique, e desativar em série (a 7, a 9, a 12)
+                        deixa de exigir rolar tudo de novo. A cor diz o que
+                        o clique faz: âmbar tira de circulação, verde
+                        devolve -- o cinza de antes não distinguia um do
+                        outro (pedido do dono, 02/09/2026). */}
                     <form action={alternarStatusQuestao}>
                       <input type="hidden" name="rodada_id" value={rodada.id} />
                       <input type="hidden" name="questao_id" value={q.id} />
@@ -465,9 +478,13 @@ export default async function RodadaPage({
                             ? "Tira a pergunta de circulação em rodadas futuras, sem apagar. Ela continua no banco e pode ser reativada depois."
                             : "Volta a pergunta a ficar disponível para novas rodadas."
                         }
-                        className="rounded-lg border border-slate-200 px-3 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50"
+                        className={
+                          q.status === "ativa"
+                            ? "rounded-lg border border-amber-300 bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-800 hover:bg-amber-100"
+                            : "rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-800 hover:bg-emerald-100"
+                        }
                       >
-                        {q.status === "ativa" ? "Desativar" : "Ativar"}
+                        {q.status === "ativa" ? "🚫 Desativar" : "✅ Ativar"}
                       </BotaoEnviar>
                     </form>
 
@@ -626,38 +643,12 @@ export default async function RodadaPage({
                   Funciona com DOCX e PDF.
                 </p>
 
-                <form
+                <FormularioGerar
                   action={gerarComIA}
-                  className="mt-3 flex flex-wrap items-end gap-2"
-                >
-                  <input type="hidden" name="rodada_id" value={rodada.id} />
-                  <div className="w-32">
-                    <label
-                      htmlFor="qtd-ia"
-                      className="mb-1 block text-xs font-medium text-slate-600"
-                    >
-                      Quantas
-                    </label>
-                    <select
-                      id="qtd-ia"
-                      name="quantidade"
-                      defaultValue={Math.min(Math.max(faltam, 1), 10)}
-                      className={ENTRADA}
-                    >
-                      {[3, 5, 8, 10].map((n) => (
-                        <option key={n} value={n}>
-                          {n} perguntas
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <BotaoEnviar
-                    textoEnviando="Lendo o padrão e escrevendo..."
-                    className="rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white hover:bg-primary-dark"
-                  >
-                    Gerar
-                  </BotaoEnviar>
-                </form>
+                  rodadaId={rodada.id}
+                  cadastradas={questoes.length}
+                  configurado={rodada.totalPerguntas}
+                />
 
                 <p className="mt-2 text-xs text-slate-500">
                   Leva de 30 segundos a 2 minutos. Nada é publicado: as
@@ -670,9 +661,7 @@ export default async function RodadaPage({
 
           <details className="group mt-2 rounded-2xl border border-slate-200 bg-white shadow-sm">
             <summary className="flex cursor-pointer list-none items-center gap-2 p-4 font-semibold text-slate-800 marker:content-none [&::-webkit-details-marker]:hidden">
-              <span className={`${CLASSE_MAIS} h-7 transition-transform group-open:rotate-45`} aria-hidden="true">
-                +
-              </span>
+              <MaisOuFechar />
               <span className="group-open:hidden">Nova pergunta</span>
               <span className="hidden group-open:inline">Fechar</span>
             </summary>
@@ -778,98 +767,84 @@ export default async function RodadaPage({
             </form>
           </details>
 
-          <details className="mt-2 rounded-2xl border border-slate-200 bg-white shadow-sm">
-            <summary className="cursor-pointer p-4 font-semibold text-slate-800">
-              📥 Importar várias de uma vez
-            </summary>
-            <form
-              action={importarQuestoes}
-              className="space-y-3 border-t border-slate-100 p-4"
-            >
-              <input type="hidden" name="rodada_id" value={rodada.id} />
-
-              <p className="text-xs leading-relaxed text-slate-600">
-                Use quando as perguntas forem preparadas fora do app — inclusive
-                com ajuda de IA a partir do arquivo do padrão. O app não inventa
-                procedimento: quem confere se a resposta bate com o padrão é
-                você, antes de colar aqui.
-              </p>
-
-              <details className="rounded-lg bg-slate-50 p-3 text-xs text-slate-600">
-                <summary className="cursor-pointer font-semibold">
-                  Ver o formato esperado
-                </summary>
-                <pre className="mt-2 overflow-x-auto text-[11px] leading-relaxed">
-{`[
-  {
-    "pergunta": "O que conferir antes de iniciar o carregamento?",
-    "tipo": "multipla",
-    "dificuldade": "media",
-    "alternativas": [
-      "Conferir o mapa de carga e o lacre",
-      "Conferir apenas a placa",
-      "Nada, é do conferente",
-      "Só o horário"
-    ],
-    "correta": 0,
-    "explicacao": "O padrão exige a conferência do mapa e do lacre antes de começar."
-  }
-]`}
-                </pre>
-                <p className="mt-2">
-                  <span className="font-semibold">correta</span> é a posição na
-                  lista, começando em 0. Tipos aceitos: multipla, vf, situacao,
-                  procedimento.
-                </p>
-              </details>
-
-              <textarea
-                name="json"
-                rows={8}
-                required
-                className={`${ENTRADA} font-mono text-xs`}
-                placeholder="Cole aqui a lista em JSON"
-              />
-
-              <BotaoEnviar
-                textoEnviando="Importando..."
-                className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-white hover:bg-primary-dark"
-              >
-                Importar
-              </BotaoEnviar>
-            </form>
-          </details>
+          {/* Aqui ficava "Importar várias de uma vez", um campo para colar
+              a lista em JSON. Saiu em 02/09/2026 a pedido do dono:
+              ninguém usava. Ele pedia que a liderança escrevesse JSON à
+              mão, com "correta" contando a partir do zero -- e a geração
+              pelo padrão, logo acima, faz o mesmo trabalho sem isso. */}
 
           {banco.length > 0 && (
             <details className="mt-2 rounded-2xl border border-slate-200 bg-white shadow-sm">
               <summary className="cursor-pointer p-4 font-semibold text-slate-800">
                 📚 Trazer do banco ({banco.length} disponíveis)
               </summary>
-              <div className="divide-y divide-slate-100 border-t border-slate-100">
-                {banco.map((q) => (
-                  <div key={q.id} className="flex items-center gap-3 p-3">
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm text-slate-800">
-                        {q.pergunta}
-                      </p>
-                      <p className="text-xs text-slate-500">
-                        {rotuloDificuldade(q.dificuldade)}
-                        {q.padrao_nome ? ` · ${q.padrao_nome}` : ""}
-                        {q.vezes_usada > 0
-                          ? ` · usada ${q.vezes_usada}×`
-                          : " · nunca usada"}
-                      </p>
+
+              {/* AGRUPADO POR PADRÃO, pedido do dono (02/09/2026).
+                  Era uma lista corrida de frases: escolher entre elas
+                  dependia de reconhecer o texto de cada uma. O padrão é o
+                  que dá sentido à pergunta -- é dele que a resposta certa
+                  saiu, e é por ele que se decide se ela cabe nesta rodada.
+                  A área vai escrita em cada linha porque o banco é o mesmo
+                  do app inteiro; aqui ele já vem filtrado pela área da
+                  rodada, e ver isso escrito é o que garante. */}
+              <div className="border-t border-slate-100">
+                {agruparPorPadrao(banco).map(([padrao, doPadrao]) => (
+                  <div key={padrao}>
+                    <p className="bg-slate-50 px-4 py-2 text-xs font-bold uppercase tracking-wide text-slate-500">
+                      📄 {padrao}
+                      <span className="ml-2 font-medium normal-case tracking-normal text-slate-400">
+                        {doPadrao.length} pergunta
+                        {doPadrao.length > 1 ? "s" : ""}
+                      </span>
+                    </p>
+                    <div className="divide-y divide-slate-100">
+                      {doPadrao.map((q) => (
+                        <div key={q.id} className="flex items-center gap-3 p-3">
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm text-slate-800">
+                              {q.pergunta}
+                            </p>
+                            <p className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-slate-500">
+                              <span className="rounded-full bg-slate-100 px-2 py-0.5 font-medium text-slate-600">
+                                {AREAS.find((a) => a.id === q.area)?.rotulo ??
+                                  q.area}
+                              </span>
+                              {q.pilar && (
+                                <span className="rounded-full bg-primary-soft px-2 py-0.5 font-medium text-primary-dark">
+                                  {q.pilar}
+                                </span>
+                              )}
+                              {q.atividade && <span>· {q.atividade}</span>}
+                              <span>· {rotuloDificuldade(q.dificuldade)}</span>
+                              <span>
+                                ·{" "}
+                                {q.vezes_usada > 0
+                                  ? `usada ${q.vezes_usada}×`
+                                  : "nunca usada"}
+                              </span>
+                            </p>
+                          </div>
+                          <form action={adicionarDoBanco}>
+                            <input
+                              type="hidden"
+                              name="rodada_id"
+                              value={rodada.id}
+                            />
+                            <input
+                              type="hidden"
+                              name="questao_id"
+                              value={q.id}
+                            />
+                            <BotaoEnviar
+                              textoEnviando="..."
+                              className="shrink-0 rounded-lg bg-primary-soft px-3 py-1.5 text-xs font-semibold text-primary hover:bg-primary hover:text-white"
+                            >
+                              Trazer
+                            </BotaoEnviar>
+                          </form>
+                        </div>
+                      ))}
                     </div>
-                    <form action={adicionarDoBanco}>
-                      <input type="hidden" name="rodada_id" value={rodada.id} />
-                      <input type="hidden" name="questao_id" value={q.id} />
-                      <BotaoEnviar
-                        textoEnviando="..."
-                        className="shrink-0 rounded-lg bg-primary-soft px-3 py-1.5 text-xs font-semibold text-primary hover:bg-primary hover:text-white"
-                      >
-                        Trazer
-                      </BotaoEnviar>
-                    </form>
                   </div>
                 ))}
               </div>
@@ -884,6 +859,31 @@ export default async function RodadaPage({
       </p>
     </div>
   );
+}
+
+/**
+ * Junta as perguntas do banco pelo padrão de onde saíram.
+ *
+ * Quem não tem padrão vai para o fim, num grupo só: são as digitadas à
+ * mão antes de a geração existir, e elas não têm de empurrar para baixo
+ * os grupos que respondem "de qual documento é isto?".
+ */
+function agruparPorPadrao<T extends { padrao_nome: string | null }>(
+  lista: T[],
+): [string, T[]][] {
+  const SEM = "Sem padrão informado";
+  const grupos = new Map<string, T[]>();
+  for (const q of lista) {
+    const chave = q.padrao_nome?.trim() || SEM;
+    const atual = grupos.get(chave) ?? [];
+    atual.push(q);
+    grupos.set(chave, atual);
+  }
+  return [...grupos.entries()].sort(([a], [b]) => {
+    if (a === SEM) return 1;
+    if (b === SEM) return -1;
+    return a.localeCompare(b, "pt-BR");
+  });
 }
 
 function Indicador({ valor, rotulo }: { valor: string; rotulo: string }) {
