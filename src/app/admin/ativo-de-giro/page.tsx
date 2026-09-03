@@ -125,81 +125,82 @@ export default async function AdminAtivoDeGiroPage({
           <h2 className="mb-3 text-sm font-bold uppercase text-slate-500">
             Parque de AG (saldo oficial, em caixas)
           </h2>
-          <div className="space-y-2">
-            {TIPOS.flatMap((tipo) =>
-              FORMATOS.map((formato) => (
-                <form
-                  key={chave(tipo, formato)}
-                  action={salvarParque}
-                  className="flex items-center gap-2"
-                >
-                  <input type="hidden" name="tipo" value={tipo} />
-                  <input type="hidden" name="formato" value={formato} />
-                  <span className="flex-1 text-sm text-slate-700">
-                    {tipo} · {formato}
-                  </span>
-                  <input
-                    type="number"
-                    name="quantidade"
-                    min={0}
-                    defaultValue={parque[chave(tipo, formato)] ?? 0}
-                    className="w-28 rounded-lg border border-slate-300 px-2 py-1.5 text-base"
-                  />
-                  <BotaoEnviar
-                    compacto
-                    className="rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-white"
-                  >
-                    Salvar
-                  </BotaoEnviar>
-                </form>
-              )),
-            )}
-          </div>
+          {/* UM FORMULÁRIO, UM BOTÃO. Quem ajusta o parque ajusta o
+              parque, não uma linha dele -- oito "Salvar" faziam a tela
+              recarregar oito vezes e a pessoa perder onde estava a cada
+              uma. */}
+          <form action={salvarParque}>
+            <div className="space-y-2">
+              {TIPOS.flatMap((tipo) =>
+                FORMATOS.map((formato) => (
+                  <div key={chave(tipo, formato)} className="flex items-center gap-2">
+                    <input type="hidden" name="tipo" value={tipo} />
+                    <input type="hidden" name="formato" value={formato} />
+                    <span className="min-w-0 flex-1 truncate text-sm text-slate-700">
+                      {tipo} · {formato}
+                    </span>
+                    <input
+                      type="number"
+                      name="quantidade"
+                      min={0}
+                      defaultValue={parque[chave(tipo, formato)] ?? 0}
+                      aria-label={`Parque de ${tipo} ${formato} em caixas`}
+                      className="w-28 rounded-lg border border-slate-300 px-2 py-1.5 text-base"
+                    />
+                  </div>
+                )),
+              )}
+            </div>
+            <BotaoEnviar
+              textoEnviando="Salvando..."
+              className="mt-3 w-full rounded-xl bg-primary px-4 py-3 text-sm font-bold text-white hover:bg-primary-dark"
+            >
+              Salvar o parque
+            </BotaoEnviar>
+          </form>
         </div>
 
         <div className="rounded-2xl border border-slate-200 bg-white p-4">
           <h2 className="mb-3 text-sm font-bold uppercase text-slate-500">
             Fatores de conversão
           </h2>
-          <div className="space-y-2">
-            {FORMATOS.map((formato) => (
-              <form
-                key={formato}
-                action={salvarFator}
-                className="flex items-center gap-2"
-              >
-                <input type="hidden" name="formato" value={formato} />
-                <span className="flex-1 text-sm text-slate-700">
-                  {formato}
-                </span>
-                <input
-                  type="number"
-                  name="palete"
-                  min={1}
-                  defaultValue={fatores[formato].palete}
-                  aria-label={`Caixas por palete ${formato}`}
-                  className="w-20 rounded-lg border border-slate-300 px-2 py-1.5 text-base"
-                />
-                <input
-                  type="number"
-                  name="lastro"
-                  min={1}
-                  defaultValue={fatores[formato].lastro}
-                  aria-label={`Caixas por lastro ${formato}`}
-                  className="w-20 rounded-lg border border-slate-300 px-2 py-1.5 text-base"
-                />
-                <BotaoEnviar
-                  compacto
-                  className="rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-white"
-                >
-                  Salvar
-                </BotaoEnviar>
-              </form>
-            ))}
-          </div>
-          <p className="mt-2 text-xs text-slate-500">
-            Primeiro campo: caixas por palete. Segundo: caixas por lastro.
-          </p>
+          <form action={salvarFator}>
+            <div className="space-y-2">
+              {FORMATOS.map((formato) => (
+                <div key={formato} className="flex items-center gap-2">
+                  <input type="hidden" name="formato" value={formato} />
+                  <span className="min-w-0 flex-1 truncate text-sm text-slate-700">
+                    {formato}
+                  </span>
+                  <input
+                    type="number"
+                    name="palete"
+                    min={1}
+                    defaultValue={fatores[formato].palete}
+                    aria-label={`Caixas por palete ${formato}`}
+                    className="w-20 rounded-lg border border-slate-300 px-2 py-1.5 text-base"
+                  />
+                  <input
+                    type="number"
+                    name="lastro"
+                    min={1}
+                    defaultValue={fatores[formato].lastro}
+                    aria-label={`Caixas por lastro ${formato}`}
+                    className="w-20 rounded-lg border border-slate-300 px-2 py-1.5 text-base"
+                  />
+                </div>
+              ))}
+            </div>
+            <p className="mt-2 text-xs text-slate-500">
+              Primeiro campo: caixas por palete. Segundo: caixas por lastro.
+            </p>
+            <BotaoEnviar
+              textoEnviando="Salvando..."
+              className="mt-3 w-full rounded-xl bg-primary px-4 py-3 text-sm font-bold text-white hover:bg-primary-dark"
+            >
+              Salvar os fatores
+            </BotaoEnviar>
+          </form>
         </div>
 
         {/* ---- QUEM PODE LANÇAR O TRÂNSITO ----

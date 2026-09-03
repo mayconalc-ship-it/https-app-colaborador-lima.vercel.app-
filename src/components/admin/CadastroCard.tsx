@@ -32,34 +32,66 @@ export function PainelCadastro({
   temItens: boolean;
   children: React.ReactNode;
 }) {
+  /*
+    O PAINEL INTEIRO COMEÇA FECHADO -- pedido do dono (03/09/2026):
+    agrupar os campos da tela de Configuração do Armazém.
+
+    Antes só o formulário de "Novo" era dobrável; a LISTA ficava sempre
+    aberta. Numa aba com cinco catálogos de centenas de produtos, isso
+    dava uma tela de milhares de pixels onde a pessoa rolava procurando o
+    cartão certo -- e o cartão certo é o TÍTULO, que estava a três telas
+    de distância do anterior.
+
+    Fechado, a aba vira o que ela deveria ser: uma lista de catálogos com
+    o tamanho de cada um do lado. Abre-se o que se veio mexer.
+
+    São dois `<details>` aninhados, e é de propósito: o de fora abre o
+    catálogo, o de dentro abre o formulário de cadastrar. O de dentro
+    continua com a classe `group` sem nome, então o "+/✕" do
+    MaisOuFechar continua respondendo a ele, e não ao painel.
+  */
   return (
-    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-      <details className="group">
-        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 p-4 marker:content-none [&::-webkit-details-marker]:hidden">
-          <div className="flex items-center gap-2">
-            <h2 className="text-sm font-bold text-slate-900">{titulo}</h2>
-            {contagem !== undefined && (
-              <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-500">
-                {contagem}
-              </span>
-            )}
-          </div>
-          {/* Mesmo "+" quadrado azul do resto do app (ver BotaoMais) --
-              vira "✕" quando o formulário está aberto. */}
-          <span className="flex shrink-0 items-center gap-2 text-xs font-bold text-primary-dark">
-            <MaisOuFechar />
-            <span className="group-open:hidden">{novoRotulo}</span>
-            <span className="hidden group-open:inline">Fechar</span>
+    <details className="group/painel overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 p-4 marker:content-none [&::-webkit-details-marker]:hidden">
+        <div className="flex min-w-0 items-center gap-2">
+          <span
+            className="text-slate-400 transition-transform group-open/painel:rotate-90"
+            aria-hidden="true"
+          >
+            ▸
           </span>
-        </summary>
-        <div className="border-t border-slate-100 bg-slate-50/70 p-4">{formNovo}</div>
-      </details>
-      <div className="divide-y divide-slate-100 border-t border-slate-100">
-        {temItens ? children : (
-          <p className="p-6 text-center text-sm text-slate-400">{vazio ?? "Nada cadastrado ainda."}</p>
-        )}
+          <h2 className="truncate text-sm font-bold text-slate-900">{titulo}</h2>
+          {contagem !== undefined && (
+            <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-500">
+              {contagem}
+            </span>
+          )}
+        </div>
+        <span className="shrink-0 text-xs font-medium text-slate-400 group-open/painel:hidden">
+          abrir
+        </span>
+      </summary>
+
+      <div className="border-t border-slate-100">
+        <details className="group">
+          <summary className="flex cursor-pointer list-none items-center justify-end gap-3 p-3 marker:content-none [&::-webkit-details-marker]:hidden">
+            {/* Mesmo "+" quadrado azul do resto do app (ver BotaoMais) --
+                vira "✕" quando o formulário está aberto. */}
+            <span className="flex shrink-0 items-center gap-2 text-xs font-bold text-primary-dark">
+              <MaisOuFechar />
+              <span className="group-open:hidden">{novoRotulo}</span>
+              <span className="hidden group-open:inline">Fechar</span>
+            </span>
+          </summary>
+          <div className="border-t border-slate-100 bg-slate-50/70 p-4">{formNovo}</div>
+        </details>
+        <div className="divide-y divide-slate-100 border-t border-slate-100">
+          {temItens ? children : (
+            <p className="p-6 text-center text-sm text-slate-400">{vazio ?? "Nada cadastrado ainda."}</p>
+          )}
+        </div>
       </div>
-    </div>
+    </details>
   );
 }
 

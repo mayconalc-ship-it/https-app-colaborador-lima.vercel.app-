@@ -563,11 +563,19 @@ export async function podeLancarTransito(): Promise<boolean> {
 }
 
 /**
- * Lanca (ou corrige) o transito de um tipo+formato num dia.
+ * Lanca (ou corrige) o transito do dia INTEIRO -- todos os tipos e
+ * formatos de uma vez, com UM botao so.
  *
- * UMA LINHA POR DIA, entao relancar CORRIGE em vez de somar. E o mesmo
- * desenho do parque, e evita a duvida que aparece em toda tela de
- * lancamento repetido: "digitei duas vezes, dobrou?".
+ * Um "Salvar" por linha seria oito botoes numa tela onde a pessoa
+ * preenche as oito e quer sair: ela salva a primeira, a tela recarrega,
+ * ela perde onde estava, salva a segunda... Oito idas ao servidor para
+ * um trabalho unico. E ainda deixa o estado pela metade se ela desistir
+ * no meio -- metade do transito lancado e metade nao, com a conciliacao
+ * mostrando um numero que nao e nem o antigo nem o novo.
+ *
+ * UMA LINHA POR DIA no banco, entao relancar CORRIGE em vez de somar. E
+ * o mesmo desenho do parque, e evita a duvida que aparece em toda tela
+ * de lancamento repetido: "digitei duas vezes, dobrou?".
  *
  * A conferencia de permissao acontece AQUI, no servidor, e nao so na
  * tela: o formulario some para quem nao pode, mas a acao pode ser
@@ -584,32 +592,45 @@ export async function salvarTransito(formData: FormData) {
     erro("Voce nao tem liberacao para lancar o transito. Fale com quem cuida do Ativo de Giro.");
   }
 
-  const tipo = formData.get("tipo");
-  const formato = formData.get("formato");
-  if (!ehTipo(tipo) || !ehFormato(formato)) erro("Item invalido.");
-
   const data = String(formData.get("data") ?? "").trim();
   if (!/^\d{4}-\d{2}-\d{2}$/.test(data)) erro("Dia invalido.");
 
-  const quantidade = inteiro(formData.get("quantidade"), 1_000_000);
+  // Arrays paralelos: o tipo e o formato vao escondidos ao lado de cada
+  // campo, e o FormData preserva a ordem. Mesmo padrao dos itens do
+  // Recebimento.
+  const tipos = formData.getAll("tipo").map(String);
+  const formatos = formData.getAll("formato").map(String);
+  const quantidades = formData.getAll("quantidade");
 
-  const admin = createAdminClient();
-  const { error } = await admin.from("ag_transito").upsert(
-    {
+  if (tipos.length !== formatos.length || tipos.length !== quantidades.length) {
+    erro("Formulario incompleto -- recarregue a tela e tente de novo.");
+  }
+
+  const linhas = tipos.map((tipo, i) => {
+    const formato = formatos[i];
+    if (!ehTipo(tipo) || !ehFormato(formato)) erro("Item invalido no formulario.");
+    return {
       revenda_id: revendaId,
       data,
       tipo,
       formato,
-      quantidade,
+      quantidade: inteiro(quantidades[i], 1_000_000),
       atualizado_em: new Date().toISOString(),
       atualizado_por: perfil.id,
       atualizado_por_nome: perfil.nome,
-    },
-    { onConflict: "revenda_id,data,tipo,formato" },
-  );
+    };
+  });
+
+  if (linhas.length === 0) erro("Nada para salvar.");
+
+  const admin = createAdminClient();
+  // Um upsert com todas as linhas: ou o dia inteiro entra, ou nada entra.
+  const { error } = await admin
+    .from("ag_transito")
+    .upsert(linhas, { onConflict: "revenda_id,data,tipo,formato" });
 
   if (error) erro(`Nao foi possivel salvar o transito: ${error.message}`);
 
   revalidatePath(ROTA);
-  redirect(`${ROTA}?aba=conciliacao&data=${data}&sucesso=${encodeURIComponent("Transito atualizado")}`);
+  redirect(`${ROTA}?aba=conciliacao&data=${data}&sucesso=${encodeURIComponent("Transito do dia salvo")}`);
 }

@@ -13,65 +13,99 @@ function erro(mensagem: string): never {
   redirect(`${ROTA}?erro=${encodeURIComponent(mensagem)}`);
 }
 
-/** Saldo oficial do parque, por tipo + formato. Base da conciliacao. */
+/**
+ * Saldo oficial do parque -- as OITO linhas de uma vez, com um botão só.
+ *
+ * Era um formulário e um "Salvar" por linha. Quem ajusta o parque ajusta
+ * o parque, não uma linha dele: mexia numa, a tela recarregava, ele
+ * perdia onde estava e recomeçava. Oito idas ao servidor para um
+ * trabalho só -- e o parque ficava pela metade se ele parasse no meio,
+ * com a conciliação comparando contra um saldo que não é nem o antigo
+ * nem o novo. Corrigido junto com o trânsito em 03/09/2026, quando o
+ * dono apontou o mesmo defeito lá ("coisa primária que já falamos").
+ *
+ * Arrays paralelos: tipo e formato vão escondidos ao lado de cada campo,
+ * e o FormData preserva a ordem.
+ */
 export async function salvarParque(formData: FormData) {
   await requireModulo("ativo-giro", "editar");
-
-  const tipo = formData.get("tipo");
-  const formato = formData.get("formato");
-  if (!ehTipo(tipo) || !ehFormato(formato)) erro("Item inválido.");
-
-  const quantidade = inteiro(formData.get("quantidade"));
-
-  const admin = createAdminClient();
   const revendaId = await exigirRevenda(ROTA);
-  const { error } = await admin.from("ag_parque").upsert(
-    {
+
+  const tipos = formData.getAll("tipo").map(String);
+  const formatos = formData.getAll("formato").map(String);
+  const quantidades = formData.getAll("quantidade");
+
+  if (tipos.length !== formatos.length || tipos.length !== quantidades.length) {
+    erro("Formulário incompleto — recarregue a tela e tente de novo.");
+  }
+
+  const linhas = tipos.map((tipo, i) => {
+    const formato = formatos[i];
+    if (!ehTipo(tipo) || !ehFormato(formato)) erro("Item inválido no formulário.");
+    return {
       revenda_id: revendaId,
       tipo,
       formato,
-      quantidade,
+      quantidade: inteiro(quantidades[i]),
       atualizado_em: new Date().toISOString(),
-    },
-    { onConflict: "revenda_id,tipo,formato" },
-  );
+    };
+  });
+
+  if (linhas.length === 0) erro("Nada para salvar.");
+
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("ag_parque")
+    .upsert(linhas, { onConflict: "revenda_id,tipo,formato" });
 
   if (error) erro(`Não foi possível salvar o parque: ${error.message}`);
 
   revalidatePath(ROTA);
   revalidatePath("/ativo-de-giro");
-  redirect(`${ROTA}?aba=config&sucesso=Parque+atualizado`);
+  redirect(`${ROTA}?sucesso=Parque+salvo`);
 }
 
-/** Caixas por palete e por lastro de cada formato. */
+/** Caixas por palete e por lastro -- os quatro formatos de uma vez. */
 export async function salvarFator(formData: FormData) {
   await requireModulo("ativo-giro", "editar");
-
-  const formato = formData.get("formato");
-  if (!ehFormato(formato)) erro("Formato inválido.");
-
-  const palete = inteiro(formData.get("palete"), 10_000);
-  const lastro = inteiro(formData.get("lastro"), 10_000);
-  if (palete === 0 || lastro === 0) erro("Palete e lastro precisam ser maiores que zero.");
-
-  const admin = createAdminClient();
   const revendaId = await exigirRevenda(ROTA);
-  const { error } = await admin.from("ag_fatores").upsert(
-    {
+
+  const formatos = formData.getAll("formato").map(String);
+  const paletes = formData.getAll("palete");
+  const lastros = formData.getAll("lastro");
+
+  if (formatos.length !== paletes.length || formatos.length !== lastros.length) {
+    erro("Formulário incompleto — recarregue a tela e tente de novo.");
+  }
+
+  const linhas = formatos.map((formato, i) => {
+    if (!ehFormato(formato)) erro("Formato inválido no formulário.");
+    const palete = inteiro(paletes[i], 10_000);
+    const lastro = inteiro(lastros[i], 10_000);
+    // Zero aqui não é "vazio", é uma divisão por zero na conversão: um
+    // fator zerado faria toda contagem daquele formato valer nada.
+    if (palete === 0 || lastro === 0) {
+      erro(`Palete e lastro de ${formato} precisam ser maiores que zero.`);
+    }
+    return {
       revenda_id: revendaId,
       formato,
       palete,
       lastro,
       atualizado_em: new Date().toISOString(),
-    },
-    { onConflict: "revenda_id,formato" },
-  );
+    };
+  });
 
-  if (error) erro(`Não foi possível salvar o fator: ${error.message}`);
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("ag_fatores")
+    .upsert(linhas, { onConflict: "revenda_id,formato" });
+
+  if (error) erro(`Não foi possível salvar os fatores: ${error.message}`);
 
   revalidatePath(ROTA);
   revalidatePath("/ativo-de-giro");
-  redirect(`${ROTA}?aba=config&sucesso=Fator+atualizado`);
+  redirect(`${ROTA}?sucesso=Fatores+salvos`);
 }
 
 // -------------------- QUEM PODE LANCAR O TRANSITO --------------------

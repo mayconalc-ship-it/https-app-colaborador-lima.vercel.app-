@@ -727,14 +727,22 @@ export default async function AdminProdutividadeArmazemPage({
             ))}
           </PainelCadastro>
 
-          <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-            <div className="border-b border-slate-100 p-4">
-              <h2 className="text-sm font-bold text-slate-900">⛽ Valor do botijão P20</h2>
-              <p className="mt-1 text-xs text-slate-500">
+          {/* Fechado, como os cartões de catálogo: a aba vira uma lista
+              de assuntos, e abre-se o que se veio mexer (pedido do dono,
+              03/09/2026). */}
+          <details className="group overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+            <summary className="cursor-pointer list-none border-b border-slate-100 p-4 marker:content-none [&::-webkit-details-marker]:hidden">
+              <h2 className="text-sm font-bold text-slate-900">
+                <span className="mr-1 inline-block text-slate-400 transition-transform group-open:rotate-90">
+                  ▸
+                </span>
+                ⛽ Valor do botijão P20
+              </h2>
+              <p className="mt-1 pl-4 text-xs text-slate-500">
                 Vira custo por hora no dashboard de consumo de gás. Deixe em branco para não mostrar
                 valores — as horas e o consumo aparecem do mesmo jeito.
               </p>
-            </div>
+            </summary>
             <form action={salvarCustoP20} className="flex flex-wrap items-end gap-2 p-4">
               <div className="flex-1">
                 <label className="mb-1 block text-xs font-semibold uppercase text-slate-500" htmlFor="custo_p20">
@@ -756,18 +764,23 @@ export default async function AdminProdutividadeArmazemPage({
                 Salvar
               </BotaoEnviar>
             </form>
-          </div>
+          </details>
 
           {/* ---- Alerta de gás acabando ---- */}
-          <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-            <div className="border-b border-slate-100 p-4">
-              <h2 className="text-sm font-bold text-slate-900">🔥 Alerta de gás P20 acabando</h2>
-              <p className="mt-1 text-xs text-slate-500">
+          <details className="group overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+            <summary className="cursor-pointer list-none border-b border-slate-100 p-4 marker:content-none [&::-webkit-details-marker]:hidden">
+              <h2 className="text-sm font-bold text-slate-900">
+                <span className="mr-1 inline-block text-slate-400 transition-transform group-open:rotate-90">
+                  ▸
+                </span>
+                🔥 Alerta de gás P20 acabando
+              </h2>
+              <p className="mt-1 pl-4 text-xs text-slate-500">
                 Em toda troca o empilhador conta os botijões do depósito. Caindo ao mínimo, o app
                 abre um pedido e manda o aviso com o telefone do fornecedor — e o alerta fica na
                 tela até alguém confirmar que solicitou.
               </p>
-            </div>
+            </summary>
 
             <form action={salvarAlertaGas} className="space-y-3 p-4">
               <div className="grid gap-3 sm:grid-cols-2">
@@ -871,16 +884,26 @@ export default async function AdminProdutividadeArmazemPage({
                 ))
               )}
             </div>
-          </div>
+          </details>
 
-          <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-            <div className="border-b border-slate-100 p-4">
-              <h2 className="text-sm font-bold text-slate-900">🔔 Lembrete de fechamento</h2>
-              <p className="mt-1 text-xs text-slate-500">
+          <details className="group overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+            <summary className="cursor-pointer list-none border-b border-slate-100 p-4 marker:content-none [&::-webkit-details-marker]:hidden">
+              <h2 className="text-sm font-bold text-slate-900">
+                <span className="mr-1 inline-block text-slate-400 transition-transform group-open:rotate-90">
+                  ▸
+                </span>
+                🔔 Lembrete de fechamento
+              </h2>
+              <p className="mt-1 pl-4 text-xs text-slate-500">
                 Por pessoa, não por máquina: o aviso chega pro empilhadeirista no fim do
                 turno dele, se ele estiver com alguma empilhadeira aberta.
               </p>
+            </summary>
 
+            {/* O formulário fica FORA do <summary>: dentro dele, cada
+                toque no campo fecharia o painel em vez de digitar -- o
+                summary é o alvo que abre e fecha o <details>. */}
+            <div className="border-b border-slate-100 px-4 pb-4">
               <FormularioComPessoa
                 action={salvarLembreteEmpilhadeira}
                 buscar={buscarColaboradoresParaLembrete}
@@ -920,7 +943,7 @@ export default async function AdminProdutividadeArmazemPage({
                 ))
               )}
             </div>
-          </div>
+          </details>
 
           {/* FECHADA, pedido do dono (03/09/2026): são 20 trocas com foto,
               formulário de correção e lixeira cada uma -- o bloco mais
@@ -1006,16 +1029,25 @@ export default async function AdminProdutividadeArmazemPage({
             </div>
           </details>
 
-          <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-            <div className="border-b border-slate-100 p-4">
-              <h2 className="text-sm font-bold text-slate-900">🛠️ Corrigir ou excluir operação</h2>
-              <p className="mt-1 text-xs text-slate-500">
+          <details className="group overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+            <summary className="cursor-pointer list-none border-b border-slate-100 p-4 marker:content-none [&::-webkit-details-marker]:hidden">
+              <h2 className="text-sm font-bold text-slate-900">
+                <span className="mr-1 inline-block text-slate-400 transition-transform group-open:rotate-90">
+                  ▸
+                </span>
+                🛠️ Corrigir ou excluir operação
+              </h2>
+              <p className="mt-1 pl-4 text-xs text-slate-500">
                 Para quando o operador digitou o horímetro errado (ex: sem o ponto decimal).
                 Só corrige o número -- não reabre nem fecha a operação. Se a operação foi lançada
                 por engano, ou com a foto errada, use o 🗑️: as fotos saem junto.
               </p>
+            </summary>
 
-              <form method="get" className="mt-3 flex gap-2">
+            {/* Fora do <summary>: um campo dentro dele fecharia o painel a
+                cada toque, em vez de deixar digitar. */}
+            <div className="border-b border-slate-100 px-4 pb-4">
+              <form method="get" className="flex gap-2">
                 <input type="hidden" name="aba" value="empilhadeiras" />
                 <input
                   name="buscaHorimetro"
@@ -1122,7 +1154,7 @@ export default async function AdminProdutividadeArmazemPage({
                 })
               )}
             </div>
-          </div>
+          </details>
         </div>
       )}
 

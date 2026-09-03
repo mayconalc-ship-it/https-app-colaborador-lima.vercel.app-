@@ -667,38 +667,51 @@ export default async function AtivoDeGiroPage({
                 soma.
               </p>
 
-              <div className="mt-3 space-y-2">
-                {TIPOS.flatMap((tipo) =>
-                  FORMATOS.map((formato) => (
-                    <form
-                      key={`t-${chave(tipo, formato)}`}
-                      action={salvarTransito}
-                      className="flex items-center gap-2"
-                    >
-                      <input type="hidden" name="tipo" value={tipo} />
-                      <input type="hidden" name="formato" value={formato} />
-                      <input type="hidden" name="data" value={dia} />
-                      <span className="min-w-0 flex-1 truncate text-sm text-slate-700">
-                        {tipo} · {formato}
-                      </span>
-                      <input
-                        type="number"
-                        name="quantidade"
-                        min={0}
-                        defaultValue={transito[chave(tipo, formato)] ?? 0}
-                        aria-label={`Trânsito de ${tipo} ${formato} em caixas`}
-                        className="w-24 rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-base"
-                      />
-                      <BotaoEnviar
-                        compacto
-                        className="shrink-0 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-white"
+              {/* UM FORMULÁRIO, UM BOTÃO -- pedido do dono (03/09/2026),
+                  e é a segunda vez que ele diz.
+
+                  Um "Salvar" por linha seriam oito botões numa tela onde
+                  a pessoa preenche as oito e quer sair: salva a
+                  primeira, a tela recarrega, ela perde onde estava,
+                  salva a segunda. Oito idas ao servidor para um trabalho
+                  só -- e o dia fica pela metade se ela desistir no meio,
+                  com a conciliação mostrando um número que não é nem o
+                  antigo nem o novo. */}
+              <form action={salvarTransito} className="mt-3">
+                <input type="hidden" name="data" value={dia} />
+
+                <div className="space-y-2">
+                  {TIPOS.flatMap((tipo) =>
+                    FORMATOS.map((formato) => (
+                      <div
+                        key={`t-${chave(tipo, formato)}`}
+                        className="flex items-center gap-2"
                       >
-                        Salvar
-                      </BotaoEnviar>
-                    </form>
-                  )),
-                )}
-              </div>
+                        <input type="hidden" name="tipo" value={tipo} />
+                        <input type="hidden" name="formato" value={formato} />
+                        <span className="min-w-0 flex-1 truncate text-sm text-slate-700">
+                          {tipo} · {formato}
+                        </span>
+                        <input
+                          type="number"
+                          name="quantidade"
+                          min={0}
+                          defaultValue={transito[chave(tipo, formato)] ?? 0}
+                          aria-label={`Trânsito de ${tipo} ${formato} em caixas`}
+                          className="w-24 rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-base"
+                        />
+                      </div>
+                    )),
+                  )}
+                </div>
+
+                <BotaoEnviar
+                  textoEnviando="Salvando o dia..."
+                  className="mt-3 w-full rounded-xl bg-primary px-4 py-3 text-sm font-bold text-white hover:bg-primary-dark"
+                >
+                  Salvar o trânsito de {formatarData(dia)}
+                </BotaoEnviar>
+              </form>
             </section>
           )}
 
