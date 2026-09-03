@@ -271,11 +271,17 @@ export async function finalizarConferencia(formData: FormData) {
     }
     const unidade = unidades[i];
     if (!ehUnidadeItem(unidade)) erro(atendimentoId, "Escolha a unidade (palete/caixa) de cada item.");
-    const lote = (lotes[i] ?? "").trim();
-    const validade = (validades[i] ?? "").trim();
+    // Lote e validade são OPCIONAIS desde 03/09/2026 (migration 095):
+    // a operação não usa o lote, e há item que não vence -- destilado de
+    // marketplace. Exigir a data obrigava a INVENTAR uma, e data
+    // inventada entra no alerta de validade mínima: vira aviso de
+    // vencimento para produto que não vence.
+    //
+    // Vazio vira null, e não string vazia: "não informado" e "informado
+    // como nada" são coisas diferentes na hora de ler o histórico.
+    const lote = (lotes[i] ?? "").trim() || null;
+    const validade = (validades[i] ?? "").trim() || null;
     const empilhador = (empilhadores[i] ?? "").trim();
-    if (!lote) erro(atendimentoId, "Informe o lote de cada item.");
-    if (!validade) erro(atendimentoId, "Informe a validade de cada item.");
     if (!empilhador) erro(atendimentoId, "Informe o empilhador de cada item.");
     return { produtoId, quantidade, quantidadeAvariada, unidade, lote, validade, empilhador };
   });

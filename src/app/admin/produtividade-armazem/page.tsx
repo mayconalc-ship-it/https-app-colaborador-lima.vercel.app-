@@ -74,6 +74,7 @@ import {
   salvarMotivoFefo,
   salvarMotorista,
   salvarProduto,
+  salvarProdutoReepack,
   salvarTransportadora,
   corrigirAgendamentoCarreta,
 } from "./actions";
@@ -590,32 +591,148 @@ export default async function AdminProdutividadeArmazemPage({
           <PainelCadastro
           titulo="Produtos do Reepack"
           contagem={totalProdutosReepack}
+          novoRotulo="Cadastro de produto"
           temItens={totalProdutosReepack > 0}
-          vazio="Nenhum produto importado ainda -- importe a planilha de cadastro."
+          vazio="Nenhum produto cadastrado ainda -- importe a planilha ou cadastre um à mão."
           formNovo={
-            <div className="space-y-2">
-              <p className="text-xs text-slate-500">
-                Cluster, Fator Hecto, caixas/pallet, unidades/caixa, tipo, embalagem e meta de
-                reepack (cx/h) de todo produto vêm desta planilha -- sem cadastro um a um, sem
-                vincular embalagem na mão. Produto novo ou meta nova? Atualiza a planilha e
-                importa de novo: quem já existe (mesmo código Promax) é atualizado, nunca
-                duplicado. Despejo agora é por embalagem, veja o cartão acima.
-              </p>
-              <form action={importarPlanilhaProdutos} className="flex flex-wrap items-center gap-2">
-                <input
-                  type="file"
-                  name="arquivo"
-                  accept=".xlsx"
-                  required
-                  className="block flex-1 text-sm text-slate-600"
-                />
-                <BotaoEnviar
-                  textoEnviando="Importando..."
-                  className="shrink-0 rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-white"
-                >
-                  Importar planilha
-                </BotaoEnviar>
-              </form>
+            <div className="space-y-4">
+              {/* "Cadastro de produto", e não "importar planilha" (pedido
+                  do dono, 03/09/2026): a planilha é o CAMINHO, não o
+                  assunto. E agora há dois caminhos para o mesmo cadastro
+                  -- a planilha, que resolve o lote inteiro, e a mão, para
+                  o produto que aparece sozinho. */}
+              <div className="space-y-2">
+                <h3 className="text-xs font-bold uppercase tracking-wide text-slate-500">
+                  Pela planilha (o caminho normal)
+                </h3>
+                <p className="text-xs text-slate-500">
+                  Cluster, Fator Hecto, caixas/pallet, unidades/caixa, tipo, embalagem e meta de
+                  reepack (cx/h) de todo produto vêm desta planilha -- sem cadastro um a um, sem
+                  vincular embalagem na mão. Produto novo ou meta nova? Atualiza a planilha e
+                  importa de novo: quem já existe (mesmo código Promax) é atualizado, nunca
+                  duplicado. Despejo agora é por embalagem, veja o cartão acima.
+                </p>
+                <form action={importarPlanilhaProdutos} className="flex flex-wrap items-center gap-2">
+                  <input
+                    type="file"
+                    name="arquivo"
+                    accept=".xlsx"
+                    required
+                    className="block flex-1 text-sm text-slate-600"
+                  />
+                  <BotaoEnviar
+                    textoEnviando="Importando..."
+                    className="shrink-0 rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-white"
+                  >
+                    Importar planilha
+                  </BotaoEnviar>
+                </form>
+              </div>
+
+              {/* CADASTRO À MÃO -- pedido do dono, para o caso eventual.
+                  Os campos são os MESMOS da planilha, com as mesmas
+                  regras: código e descrição obrigatórios, Fator Hecto e
+                  embalagem exigidos porque sem os dois o produto não
+                  aparece no lançamento (ver produtoProntoParaReepack) --
+                  cadastrar um produto que não dá para lançar seria
+                  cadastrar um problema para descobrir depois. */}
+              <details className="rounded-xl border border-slate-200 bg-white p-3">
+                <summary className="cursor-pointer text-xs font-bold uppercase tracking-wide text-slate-500">
+                  ✍️ Ou cadastre um produto à mão
+                </summary>
+
+                <p className="mt-2 text-xs text-slate-500">
+                  Para o produto que apareceu sozinho e não vale reimportar a planilha
+                  inteira. Se o código já existir, o cadastro é <strong>atualizado</strong>,
+                  nunca duplicado — a mesma regra da importação.
+                </p>
+
+                <form action={salvarProdutoReepack} className="mt-3 space-y-3">
+                  <div className="grid gap-3 sm:grid-cols-3">
+                    <div>
+                      <label className={rotulo} htmlFor="np-codigo">Código Promax *</label>
+                      <input id="np-codigo" name="codigo" required maxLength={40} className={campo} />
+                    </div>
+                    <div className="sm:col-span-2">
+                      <label className={rotulo} htmlFor="np-descricao">Descrição *</label>
+                      <input id="np-descricao" name="descricao" required maxLength={200} className={campo} />
+                    </div>
+                  </div>
+
+                  <div className="grid gap-3 sm:grid-cols-3">
+                    <div>
+                      <label className={rotulo} htmlFor="np-fator">Fator Hecto (HL/caixa) *</label>
+                      <input
+                        id="np-fator"
+                        name="fator_hecto"
+                        type="number"
+                        inputMode="decimal"
+                        step="0.0001"
+                        min="0.0001"
+                        required
+                        placeholder="Ex.: 0,06"
+                        className={campo}
+                      />
+                    </div>
+                    <div>
+                      <label className={rotulo} htmlFor="np-uncx">Unidades por caixa</label>
+                      <input id="np-uncx" name="unidades_por_caixa" type="number" min={1} className={campo} />
+                    </div>
+                    <div>
+                      <label className={rotulo} htmlFor="np-cxpallet">Caixas por pallet</label>
+                      <input id="np-cxpallet" name="caixas_pallet" type="number" min={1} className={campo} />
+                    </div>
+                  </div>
+
+                  <div className="grid gap-3 sm:grid-cols-3">
+                    <div>
+                      <label className={rotulo} htmlFor="np-embalagem">Embalagem do Repack *</label>
+                      <select id="np-embalagem" name="embalagem_id" required className={campo} defaultValue="">
+                        <option value="" disabled>Escolha...</option>
+                        {embalagensRepackAtivas.map((e) => (
+                          <option key={e.id} value={e.id}>{e.nome}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className={rotulo} htmlFor="np-cluster">Cluster</label>
+                      <input id="np-cluster" name="cluster_produto" maxLength={80} className={campo} />
+                    </div>
+                    <div>
+                      <label className={rotulo} htmlFor="np-tipo">Tipo</label>
+                      <select id="np-tipo" name="tipo" className={campo} defaultValue="">
+                        <option value="">—</option>
+                        <option value="DESCARTAVEL">Descartável</option>
+                        <option value="RETORNAVEL">Retornável</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div>
+                      <label className={rotulo} htmlFor="np-meta-reepack">Meta de repack (cx/h)</label>
+                      <input id="np-meta-reepack" name="meta_reepack_hora" type="number" min={0} className={campo} />
+                    </div>
+                    <div>
+                      <label className={rotulo} htmlFor="np-meta-despejo">Meta de despejo (L/h)</label>
+                      <input id="np-meta-despejo" name="meta_despejo_hora" type="number" min={0} className={campo} />
+                    </div>
+                  </div>
+
+                  <p className="text-xs text-slate-400">
+                    * obrigatórios. Fator Hecto e embalagem são exigidos porque sem os dois o
+                    produto não aparece no lançamento do Repack.
+                  </p>
+
+                  <BotaoEnviar
+                    textoEnviando="Salvando..."
+                    className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-bold text-white hover:bg-primary-dark"
+                  >
+                    Salvar produto
+                  </BotaoEnviar>
+                </form>
+              </details>
+
               <form method="get" className="flex gap-2">
                 <input type="hidden" name="aba" value="reepack-despejo" />
                 <input

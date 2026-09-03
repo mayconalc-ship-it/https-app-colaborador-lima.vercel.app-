@@ -34,13 +34,12 @@ function CampoValidade({ diasMinimosValidadeAlerta }: { diasMinimosValidadeAlert
 
   return (
     <div>
-      <label className={rotulo}>Validade</label>
+      <label className={rotulo}>Validade (opcional)</label>
       <input
         name="validade"
         type="date"
         value={validade}
         onChange={(e) => setValidade(e.target.value)}
-        required
         className={campo}
       />
       {dias !== null && (
@@ -165,10 +164,15 @@ export function FormFinalizarConferencia({
 
             <CamposQuantidade />
 
+            {/* Lote e validade OPCIONAIS (pedido do dono, 03/09/2026):
+                a operação não usa o lote, e há item que não vence --
+                destilado de marketplace. Obrigar a data fazia o
+                conferente inventar uma, e data inventada vira alerta de
+                vencimento para produto que não vence. */}
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className={rotulo}>Lote</label>
-                <input name="lote" required className={campo} />
+                <label className={rotulo}>Lote (opcional)</label>
+                <input name="lote" className={campo} />
               </div>
               <CampoValidade diasMinimosValidadeAlerta={diasMinimosValidadeAlerta} />
             </div>

@@ -264,8 +264,11 @@ export default async function DetalheAtendimentoPage({ params }: { params: Promi
                   <td className="p-2">{produtoRelacionado(i.pa_produtos)}</td>
                   <td className="p-2 text-right">{i.quantidade} {ROTULO_UNIDADE_ITEM[i.unidade]}</td>
                   <td className="p-2 text-right">{i.quantidade_avariada ?? "—"}</td>
-                  <td className="p-2">{i.lote}</td>
-                  <td className="p-2">{i.validade}</td>
+                  {/* Vazio vira travessão: lote e validade são opcionais
+                      desde 03/09/2026, e uma célula em branco parece
+                      dado que sumiu. */}
+                  <td className="p-2 text-slate-500">{i.lote || "—"}</td>
+                  <td className="p-2 text-slate-500">{i.validade || "—"}</td>
                   <td className="p-2">{i.empilhador}</td>
                 </tr>
               ))}

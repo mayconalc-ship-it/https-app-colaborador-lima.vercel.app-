@@ -1364,6 +1364,92 @@ export async function importarPlanilhaProdutos(formData: FormData) {
   sucesso("reepack-despejo", `${linhasParaUpsert.length} produtos importados/atualizados${mensagemDespejo}`);
 }
 
+/**
+ * Cadastro de UM produto do Repack, à mão -- pedido do dono
+ * (03/09/2026), para o caso eventual em que aparece um produto novo e
+ * não vale reimportar a planilha inteira.
+ *
+ * Os campos e as regras são os MESMOS da importação, e isso é
+ * deliberado: dois caminhos para o mesmo cadastro não podem produzir
+ * produtos diferentes. Por isso o upsert é pela mesma chave
+ * (revenda_id, codigo) -- cadastrar um código que já existe ATUALIZA,
+ * exatamente como reimportar a planilha faz.
+ *
+ * Fator Hecto e embalagem são exigidos aqui, embora a planilha aceite
+ * produto sem eles. A diferença tem motivo: a planilha traz o cadastro
+ * inteiro de uma vez e a tela avisa quantos ficaram pendentes (o "⚠️ N
+ * produto(s) sem embalagem vinculada" no topo da lista). Cadastrando um
+ * a um, um produto pendente não é um lote a corrigir depois -- é um
+ * produto que a pessoa acabou de cadastrar e que não vai aparecer no
+ * lançamento, sem ela entender por quê.
+ */
+export async function salvarProdutoReepack(formData: FormData) {
+  await requireModulo("produtividade-armazem", "editar");
+  const revendaId = await exigirRevenda(ROTA);
+  const admin = createAdminClient();
+
+  const codigo = String(formData.get("codigo") ?? "").trim();
+  const descricao = String(formData.get("descricao") ?? "").trim();
+  if (!codigo) erro("reepack-despejo", "Informe o código Promax.");
+  if (!descricao) erro("reepack-despejo", "Informe a descrição do produto.");
+
+  // Vírgula vira ponto: o teclado do celular manda vírgula, e "0,06"
+  // viraria NaN em silêncio.
+  const numero = (campo: string): number | null => {
+    const bruto = String(formData.get(campo) ?? "").trim().replace(",", ".");
+    if (!bruto) return null;
+    const n = Number(bruto);
+    return Number.isFinite(n) ? n : null;
+  };
+
+  const fatorHecto = numero("fator_hecto");
+  if (fatorHecto === null || fatorHecto <= 0) {
+    erro("reepack-despejo", "Informe o Fator Hecto (HL por caixa) -- sem ele o produto não aparece no lançamento.");
+  }
+
+  const embalagemId = String(formData.get("embalagem_id") ?? "").trim();
+  if (!embalagemId) {
+    erro("reepack-despejo", "Escolha a embalagem do Repack -- sem ela o produto não aparece no lançamento.");
+  }
+
+  // A embalagem tem de ser DESTA revenda: um id copiado de outra unidade
+  // ligaria o produto a um catálogo que ninguém daqui enxerga.
+  const { data: embalagem } = await admin
+    .from("pa_embalagens")
+    .select("id")
+    .eq("id", embalagemId)
+    .eq("revenda_id", revendaId)
+    .maybeSingle();
+  if (!embalagem) erro("reepack-despejo", "Embalagem não encontrada nesta revenda.");
+
+  const tipoBruto = String(formData.get("tipo") ?? "").trim();
+  const tipo =
+    tipoBruto === "DESCARTAVEL" || tipoBruto === "RETORNAVEL" ? tipoBruto : null;
+
+  const { error } = await admin.from("pa_produtos").upsert(
+    {
+      revenda_id: revendaId,
+      codigo,
+      descricao,
+      cluster_produto: String(formData.get("cluster_produto") ?? "").trim() || null,
+      fator_hecto: fatorHecto,
+      caixas_pallet: numero("caixas_pallet"),
+      unidades_por_caixa: numero("unidades_por_caixa"),
+      tipo,
+      embalagem_id: embalagemId,
+      meta_reepack_hora: numero("meta_reepack_hora"),
+      meta_despejo_hora: numero("meta_despejo_hora"),
+      ativo: true,
+    },
+    { onConflict: "revenda_id,codigo" },
+  );
+
+  if (error) erro("reepack-despejo", `Não foi possível salvar o produto: ${error.message}`);
+
+  revalidatePath(ROTA);
+  sucesso("reepack-despejo", `${codigo} — ${descricao} salvo`);
+}
+
 export async function alternarProdutoAtivo(formData: FormData) {
   await requireModulo("produtividade-armazem", "editar");
   const revendaId = await exigirRevenda(ROTA);
