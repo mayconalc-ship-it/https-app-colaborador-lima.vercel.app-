@@ -11,6 +11,7 @@ import {
   COOKIE_REEPACK_CLUSTER,
   COOKIE_REEPACK_TIPO,
   ROTULO_TURNO,
+  ROTULO_TURNO_CURTO,
   TURNOS,
   diaLocalISO,
   diasAtrasISO,
@@ -658,7 +659,7 @@ export default async function AbastecimentoPage({
                           defaultChecked={t === turnoAtual()}
                           className="sr-only"
                         />
-                        {ROTULO_TURNO[t]}
+                        {ROTULO_TURNO_CURTO[t]}
                       </label>
                     ))}
                   </div>
@@ -842,7 +843,7 @@ function SessaoEmAndamento({
       <div>
         <p className={`text-sm font-bold ${tom.titulo}`}>
           🕐 {TIPO_ABASTECIMENTO[tipo].rotulo} em andamento —{" "}
-          {ROTULO_TURNO[sessao.turno as keyof typeof ROTULO_TURNO] ?? sessao.turno}
+          {ROTULO_TURNO_CURTO[sessao.turno as keyof typeof ROTULO_TURNO] ?? sessao.turno}
         </p>
         <p className={`text-xs ${tom.texto}`}>Iniciado às {formatarDataHora(sessao.inicio)}</p>
         {/* Os itens desta sessão já vieram preenchidos, e sem esta linha a
@@ -1077,7 +1078,7 @@ function LinhaSessao({
             <span className="mr-1">{TIPO_ABASTECIMENTO[tipo].emoji}</span>
             {formatarHl(resumo.hl)} HL ·{" "}
             {resumo.paletes.toLocaleString("pt-BR", { maximumFractionDigits: 2 })} pl ·{" "}
-            {ROTULO_TURNO[sessao.turno as keyof typeof ROTULO_TURNO] ?? sessao.turno}
+            {ROTULO_TURNO_CURTO[sessao.turno as keyof typeof ROTULO_TURNO] ?? sessao.turno}
           </p>
           <p className="text-[11px] font-semibold uppercase text-slate-400">
             {TIPO_ABASTECIMENTO[tipo].rotulo}

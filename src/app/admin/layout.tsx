@@ -117,7 +117,7 @@ export default async function AdminLayout({
       />
 
       <div className="md:pl-20">
-        <div className="mb-4 rounded-2xl border border-gold bg-gold-soft p-3 pl-14 md:pl-3">
+        <div className="mb-4 rounded-2xl border border-primary/25 bg-primary-soft p-3 pl-14 md:pl-3">
           <span className="text-xs font-bold uppercase tracking-wide text-primary-dark">
             {dono ? "⚙️ Modo administrador" : "⚙️ Modo liderança"}
           </span>

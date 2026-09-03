@@ -13,6 +13,7 @@ import {
   ETAPAS_REEPACK,
   ETAPA_REEPACK,
   ROTULO_TURNO,
+  ROTULO_TURNO_CURTO,
   TURNOS,
   ehEtapaReepack,
   type EtapaReepack,
@@ -238,7 +239,7 @@ export default async function ReepackPage({
                 <p className="text-sm font-bold text-amber-900">
                   🕐 {ETAPA_REEPACK[etapaDoAberto].rotulo} em andamento —{" "}
                   {produtoRotulo(aberto.produto_id, produtoPorId)} ·{" "}
-                  {ROTULO_TURNO[aberto.turno as keyof typeof ROTULO_TURNO] ?? aberto.turno}
+                  {ROTULO_TURNO_CURTO[aberto.turno as keyof typeof ROTULO_TURNO] ?? aberto.turno}
                 </p>
                 <p className="text-xs text-amber-800">Iniciado às {formatarDataHora(aberto.inicio)}</p>
                 {/* O gatilho de PARAR fica à vista enquanto o cronômetro
@@ -340,7 +341,7 @@ export default async function ReepackPage({
                           defaultChecked={t === turnoAtual()}
                           className="sr-only"
                         />
-                        {ROTULO_TURNO[t]}
+                        {ROTULO_TURNO_CURTO[t]}
                       </label>
                     ))}
                   </div>
@@ -499,7 +500,7 @@ function LinhaReepack({
           <p className="text-sm font-semibold text-slate-900">
             <span className="mr-1">{ETAPA_REEPACK[etapa].emoji}</span>
             {produtoRotulo} · {l.quantidade} {etapa === "repack" ? "cx" : "un"} ·{" "}
-            {ROTULO_TURNO[l.turno as keyof typeof ROTULO_TURNO] ?? l.turno}
+            {ROTULO_TURNO_CURTO[l.turno as keyof typeof ROTULO_TURNO] ?? l.turno}
           </p>
           <p className="text-[11px] font-semibold uppercase text-slate-400">{ETAPA_REEPACK[etapa].rotulo}</p>
           <p className="text-xs text-slate-500">

@@ -27,10 +27,27 @@ export const COOKIE_REEPACK_DIAS = 180;
 export const TURNOS = ["manha", "tarde", "noite"] as const;
 export type Turno = (typeof TURNOS)[number];
 
+/**
+ * O T1/T2/T3 vem junto porque é assim que a operação fala.
+ *
+ * O cadastro de quem trabalha diz "conferente T3", a escala diz T1 -- e a
+ * tela dizia só "Noite". Quem confere o apontamento tinha de traduzir de
+ * cabeça, e é numa tradução dessas que se marca o turno errado. O horário
+ * também está escrito: turno é a única coisa nesta tela que a pessoa
+ * escolhe sobre o passado ("lancei ontem à noite"), e aí a hora resolve a
+ * dúvida sem ela ter de perguntar.
+ */
 export const ROTULO_TURNO: Record<Turno, string> = {
-  manha: "Manhã",
-  tarde: "Tarde",
-  noite: "Noite",
+  manha: "Manhã (T1) · 05h–13h",
+  tarde: "Tarde (T2) · 13h–21h",
+  noite: "Noite (T3) · 21h–05h",
+};
+
+/** Só o nome, para onde a linha é estreita (etiqueta, lista, resumo). */
+export const ROTULO_TURNO_CURTO: Record<Turno, string> = {
+  manha: "Manhã (T1)",
+  tarde: "Tarde (T2)",
+  noite: "Noite (T3)",
 };
 
 export function ehTurno(v: unknown): v is Turno {

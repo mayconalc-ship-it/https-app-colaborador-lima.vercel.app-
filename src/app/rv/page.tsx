@@ -249,7 +249,7 @@ export default async function RVPage({
       )}
 
       {encontrados.length > 0 && (
-        <div className="mt-4 rounded-xl border border-gold bg-gold-soft p-4">
+        <div className="mt-4 rounded-xl border border-primary/25 bg-primary-soft p-4">
           <p className="text-sm font-semibold text-primary-dark">
             ⚠️ Valor sujeito a alteração
           </p>

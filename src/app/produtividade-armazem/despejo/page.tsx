@@ -7,6 +7,7 @@ import { getRevendaId } from "@/lib/revendas";
 import { podeNoModulo, requireAcessoModulo } from "@/lib/require-admin";
 import {
   ROTULO_TURNO,
+  ROTULO_TURNO_CURTO,
   TURNOS,
   diasAtrasISO,
   embalagemDespejoDeLinha,
@@ -164,7 +165,7 @@ export default async function DespejoPage({
                 <input type="hidden" name="id" value={aberto.id} />
                 <p className="text-sm font-bold text-amber-900">
                   🕐 Despejo em andamento — {embalagemRotulo(aberto.embalagem_despejo_id, embalagemPorId)} ·{" "}
-                  {ROTULO_TURNO[aberto.turno as keyof typeof ROTULO_TURNO] ?? aberto.turno}
+                  {ROTULO_TURNO_CURTO[aberto.turno as keyof typeof ROTULO_TURNO] ?? aberto.turno}
                 </p>
                 <p className="text-xs text-amber-800">Iniciado às {formatarDataHora(aberto.inicio)}</p>
 
@@ -239,7 +240,7 @@ export default async function DespejoPage({
                         defaultChecked={t === turnoAtual()}
                         className="sr-only"
                       />
-                      {ROTULO_TURNO[t]}
+                      {ROTULO_TURNO_CURTO[t]}
                     </label>
                   ))}
                 </div>
@@ -376,7 +377,7 @@ function LinhaDespejo({
         <div className="min-w-0">
           <p className="text-sm font-semibold text-slate-900">
             {embalagemRotulo} · {l.quantidade_pacotes ?? "?"} un ({l.litros} L) ·{" "}
-            {ROTULO_TURNO[l.turno as keyof typeof ROTULO_TURNO] ?? l.turno}
+            {ROTULO_TURNO_CURTO[l.turno as keyof typeof ROTULO_TURNO] ?? l.turno}
           </p>
           <p className="text-xs text-slate-500">
             {formatarDataHora(l.inicio)} – {formatarDataHora(l.fim)} · {formatarDuracao(l.inicio, l.fim)}

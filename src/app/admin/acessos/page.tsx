@@ -272,7 +272,7 @@ export default async function GestaoDeAcessosPage({
         </p>
       )}
 
-      <div className="mb-4 rounded-2xl border border-gold bg-gold-soft p-4">
+      <div className="mb-4 rounded-2xl border border-primary/25 bg-primary-soft p-4">
         <p className="text-sm font-semibold text-primary-dark">
           👑 Admin: {eu.nome}
         </p>

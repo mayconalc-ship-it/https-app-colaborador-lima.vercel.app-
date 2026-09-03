@@ -6,6 +6,7 @@ import { getRevendaId } from "@/lib/revendas";
 import { requireAcessoModulo } from "@/lib/require-admin";
 import {
   ROTULO_TURNO,
+  ROTULO_TURNO_CURTO,
   diasAtrasISO,
   formatarDataHora,
   hojeISO,
@@ -134,7 +135,7 @@ export default async function PickingPage({
                 return (
                   <li key={r.id} className="rounded-xl border border-slate-200 bg-white p-3">
                     <p className="text-sm font-semibold text-slate-900">
-                      {r.colaborador_nome} · {ROTULO_TURNO[r.turno as keyof typeof ROTULO_TURNO] ?? r.turno}
+                      {r.colaborador_nome} · {ROTULO_TURNO_CURTO[r.turno as keyof typeof ROTULO_TURNO] ?? r.turno}
                     </p>
                     <p className="text-xs text-slate-500">
                       {formatarDataHora(r.inicio)} – {r.fim ? formatarDataHora(r.fim) : "—"}

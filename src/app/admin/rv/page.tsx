@@ -188,7 +188,7 @@ export default async function AdminRVPage({
             sozinho que você a atualizou. Quem sabe a hora certa é você. */}
         <form
           action={avisarRVAtualizada}
-          className="rounded-2xl border border-gold bg-gold-soft p-4"
+          className="rounded-2xl border border-primary/25 bg-primary-soft p-4"
         >
           <p className="text-sm font-semibold text-primary-dark">
             🔔 Avisar que a RV foi atualizada

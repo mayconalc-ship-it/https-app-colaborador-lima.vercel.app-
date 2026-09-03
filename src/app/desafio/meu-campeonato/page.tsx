@@ -137,7 +137,7 @@ export default async function MeuCampeonatoPage() {
               return (
                 <div
                   key={codigo}
-                  className="rounded-2xl border border-gold bg-gold-soft p-3"
+                  className="rounded-2xl border border-primary/25 bg-primary-soft p-3"
                 >
                   <p className="text-2xl">{c.emoji}</p>
                   <p className="mt-1 text-sm font-bold text-primary-dark">
@@ -179,7 +179,7 @@ function Cartao({
     <div
       className={`rounded-2xl border p-3 text-center shadow-sm ${
         destaque
-          ? "border-gold bg-gold-soft"
+          ? "border-primary/40 bg-primary-soft"
           : "border-slate-200 bg-white"
       }`}
     >

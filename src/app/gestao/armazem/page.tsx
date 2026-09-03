@@ -7,6 +7,7 @@ import { requireAcessoArmazem } from "@/lib/produtividade-armazem-server";
 import { podeNoModulo } from "@/lib/require-admin";
 import {
   ROTULO_TURNO,
+  ROTULO_TURNO_CURTO,
   TURNOS,
   agruparPorEmbalagem,
   agruparPorProduto,
@@ -1476,7 +1477,7 @@ export default async function IndicadoresPage({
 
       <details className="mt-4 rounded-2xl border border-slate-200 bg-white">
         <summary className="cursor-pointer list-none p-4 text-sm font-semibold text-slate-700">
-          📅 Atividade por turno{turnoFiltro ? ` — ${ROTULO_TURNO[turnoFiltro]}` : ""}
+          📅 Atividade por turno{turnoFiltro ? ` — ${ROTULO_TURNO_CURTO[turnoFiltro]}` : ""}
         </summary>
         <div className="border-t border-slate-100 p-4">
           <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
@@ -1498,7 +1499,7 @@ export default async function IndicadoresPage({
               <tbody>
                 {porTurno.map((l) => (
                   <tr key={l.turno} className="border-t border-slate-100">
-                    <td className="p-3 font-semibold text-slate-800">{ROTULO_TURNO[l.turno]}</td>
+                    <td className="p-3 font-semibold text-slate-800">{ROTULO_TURNO_CURTO[l.turno]}</td>
                     <td className="p-3 text-right tabular-nums">{l.selecaoUn} un</td>
                     <td className="p-3 text-right tabular-nums">{l.reepackCx} cx</td>
                     <td className="p-3 text-right tabular-nums">{l.despejoLitros} L</td>
@@ -1533,7 +1534,7 @@ export default async function IndicadoresPage({
 
       <details className="mt-4 rounded-2xl border border-slate-200 bg-white">
         <summary className="cursor-pointer list-none p-4 text-sm font-semibold text-slate-700">
-          🏆 Ranking{turnoFiltro ? ` — ${ROTULO_TURNO[turnoFiltro]}` : ""}
+          🏆 Ranking{turnoFiltro ? ` — ${ROTULO_TURNO_CURTO[turnoFiltro]}` : ""}
         </summary>
         <div className="border-t border-slate-100 p-4">
           <div className="mb-3 flex items-baseline justify-end">

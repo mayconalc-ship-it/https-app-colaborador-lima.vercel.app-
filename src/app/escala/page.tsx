@@ -48,7 +48,7 @@ export default async function EscalaPage({
       </div>
 
       {escala?.observacao && (
-        <p className="mb-4 rounded-xl border border-gold bg-gold-soft p-3 text-sm font-medium text-primary-dark">
+        <p className="mb-4 rounded-xl border border-primary/25 bg-primary-soft p-3 text-sm font-medium text-primary-dark">
           {escala.observacao}
         </p>
       )}

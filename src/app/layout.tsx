@@ -149,6 +149,16 @@ export default async function RootLayout({
               {user && (
                 <nav className="ml-auto flex shrink-0 items-center gap-1 sm:gap-2">
                   <SeletorRevenda />
+                  {/* Ao lado do sino de propósito: os dois dizem "tem
+                      algo novo para você". Ela some sozinha quando não há
+                      dica (ver LampadaVoceSabia), então não ocupa espaço
+                      do cabeçalho na maioria das visitas. */}
+                  {revenda && (
+                    <LampadaVoceSabia
+                      colaboradorId={perfil!.id}
+                      revendaId={revenda.id}
+                    />
+                  )}
                   <Notificacoes />
                   <BotaoLideranca />
                   <Link
@@ -192,19 +202,6 @@ export default async function RootLayout({
               )}
               <PesquisaSatisfacao />
               <SincronizarPush />
-              {/* A lâmpada do "Você sabia?", no canto.
-                  Fica no layout porque a revisão não é uma tela que a
-                  pessoa vai procurar -- a graça é ela estar do lado
-                  enquanto a pessoa usa o app para outra coisa.
-                  `getDicaDoDia` devolve null na maioria das visitas (sem
-                  área de desafio, sem card novo, card do dia já lido e
-                  fechado), e aí não se desenha nada. */}
-              {revenda && (
-                <LampadaVoceSabia
-                  colaboradorId={perfil.id}
-                  revendaId={revenda.id}
-                />
-              )}
             </>
           )}
         </Provedores>

@@ -1,4 +1,4 @@
-import { ROTULO_TURNO } from "@/lib/produtividade-armazem";
+import { ROTULO_TURNO_CURTO } from "@/lib/produtividade-armazem";
 import { TIPO_ABASTECIMENTO, ehTipoAbastecimento, formatarHl, formatarMinutos } from "@/lib/abastecimento";
 import {
   porDia,
@@ -147,7 +147,7 @@ export function PainelDoAbastecimento({ sessoes }: { sessoes: SessaoAnalise[] })
           {turnos.map((t) => (
             <div key={t.chave} className="rounded-xl bg-slate-50 p-3 ring-1 ring-slate-200">
               <p className="text-sm font-bold text-slate-800">
-                {ROTULO_TURNO[t.chave as keyof typeof ROTULO_TURNO] ?? t.chave}
+                {ROTULO_TURNO_CURTO[t.chave as keyof typeof ROTULO_TURNO_CURTO] ?? t.chave}
               </p>
               <dl className="mt-2 grid grid-cols-2 gap-2 text-xs">
                 <Par rotulo="Sessões" valor={String(t.sessoes)} />

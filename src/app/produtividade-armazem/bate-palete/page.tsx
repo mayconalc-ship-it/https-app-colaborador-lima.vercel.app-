@@ -11,6 +11,7 @@ import {
   COOKIE_REEPACK_CLUSTER,
   COOKIE_REEPACK_TIPO,
   ROTULO_TURNO,
+  ROTULO_TURNO_CURTO,
   TURNOS,
   diasAtrasISO,
   ehTurno,
@@ -282,7 +283,7 @@ export default async function BatePaletePage({
                           defaultChecked={t === turnoAtual()}
                           className="sr-only"
                         />
-                        {ROTULO_TURNO[t]}
+                        {ROTULO_TURNO_CURTO[t]}
                       </label>
                     ))}
                   </div>
@@ -406,7 +407,7 @@ function SessaoAberta({
     <div className="space-y-4 rounded-2xl border border-amber-200 bg-amber-50 p-4">
       <div>
         <p className="text-sm font-bold text-amber-900">
-          🕐 Bate palete em andamento — {ROTULO_TURNO[sessao.turno as keyof typeof ROTULO_TURNO] ?? sessao.turno}
+          🕐 Bate palete em andamento — {ROTULO_TURNO_CURTO[sessao.turno as keyof typeof ROTULO_TURNO] ?? sessao.turno}
         </p>
         <p className="text-xs text-amber-800">Iniciado às {formatarDataHora(sessao.inicio)}</p>
       </div>
@@ -611,7 +612,7 @@ function LinhaSessao({
           <p className="text-xs text-slate-500">
             {mostrarAutor && `${sessao.colaborador_nome} · `}
             {formatarDataHora(sessao.inicio)} · {formatarMinutos(resumo.minutos)} ·{" "}
-            {ROTULO_TURNO[sessao.turno as keyof typeof ROTULO_TURNO] ?? sessao.turno}
+            {ROTULO_TURNO_CURTO[sessao.turno as keyof typeof ROTULO_TURNO] ?? sessao.turno}
           </p>
         </div>
         {podeExcluir && (

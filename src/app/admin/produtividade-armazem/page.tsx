@@ -1,4 +1,4 @@
-﻿import { PageHeader } from "@/components/PageHeader";
+import { PageHeader } from "@/components/PageHeader";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
 import { BotaoExcluir } from "@/components/BotaoExcluir";
 import { PainelCadastro, ItemCadastro, BotaoIcone } from "@/components/admin/CadastroCard";
@@ -11,6 +11,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import {
   ROTULO_SENSO,
   ROTULO_TURNO,
+  ROTULO_TURNO_CURTO,
   SENSOS,
   TURNOS,
   formatarDataHora,
@@ -904,7 +905,7 @@ export default async function AdminProdutividadeArmazemPage({
                   <ItemCadastro
                     key={l.id}
                     titulo={l.operador_nome}
-                    subtitulo={ROTULO_TURNO[l.turno as keyof typeof ROTULO_TURNO] ?? l.turno}
+                    subtitulo={ROTULO_TURNO_CURTO[l.turno as keyof typeof ROTULO_TURNO] ?? l.turno}
                     acoes={
                       <BotaoExcluir
                         action={excluirLembreteEmpilhadeira}

@@ -1,4 +1,4 @@
-﻿import { redirect } from "next/navigation";
+import { redirect } from "next/navigation";
 import { PageHeader } from "@/components/PageHeader";
 import { FiltroNoLugar } from "@/components/FiltroNoLugar";
 import { ExportarCsv } from "@/components/ExportarCsv";
@@ -7,6 +7,7 @@ import { getRevendaId } from "@/lib/revendas";
 import { requireAcessoModulo } from "@/lib/require-admin";
 import {
   ROTULO_TURNO,
+  ROTULO_TURNO_CURTO,
   diasAtrasISO,
   formatarDataHora,
   hojeISO,
@@ -51,10 +52,10 @@ function descreverTurnos(desdeISO: string, ateISO: string) {
   // Anda de hora em hora: barato (a janela é de horas, não de meses) e
   // pega a virada de turno sem precisar recriar as faixas aqui.
   for (let t = inicio.getTime(); t <= fim.getTime(); t += 3_600_000) {
-    encontrados.add(ROTULO_TURNO[turnoAtual(new Date(t))]);
+    encontrados.add(ROTULO_TURNO_CURTO[turnoAtual(new Date(t))]);
     if (encontrados.size === 3) break;
   }
-  encontrados.add(ROTULO_TURNO[turnoAtual(fim)]);
+  encontrados.add(ROTULO_TURNO_CURTO[turnoAtual(fim)]);
 
   const lista = [...encontrados];
   if (lista.length === 1) return `turno da ${lista[0].toLowerCase()}`;

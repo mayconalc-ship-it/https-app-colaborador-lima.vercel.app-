@@ -83,36 +83,52 @@ export function VoceSabia({
         />
       )}
 
-      {/* NO ALTO, À DIREITA -- pedido do dono (03/09/2026).
-          Ela nasceu no canto de baixo, e ali ficava por cima dos cartões
-          do menu: quem ia tocar num módulo acertava a lâmpada. No alto,
-          logo abaixo do cabeçalho, ela não tem nada embaixo para
-          atrapalhar -- e o cabeçalho é sticky, então a altura de onde ela
-          começa é a dele, medida nos dois tamanhos (56px até 640px, 88px
-          dali pra cima), a mesma conta da barra do Admin. */}
-      <div className="fixed right-4 top-[68px] z-40 flex flex-col items-end gap-2 sm:top-[100px] print:hidden">
-        <button
-          type="button"
-          onClick={() => (aberto ? setAberto(false) : abrir())}
-          aria-expanded={aberto}
-          aria-label={
-            novo ? "Você sabia? Há uma dica nova" : "Você sabia? Ver a dica"
-          }
-          className={`relative flex h-12 w-12 items-center justify-center rounded-full border text-xl shadow-lg transition-colors ${
-            novo
-              ? "border-gold bg-gold text-primary-dark"
-              : "border-slate-200 bg-white text-slate-500"
-          }`}
-        >
-          💡
-          {novo && (
-            <span
-              aria-hidden="true"
-              className="lampada-pisca absolute -right-0.5 -top-0.5 h-3 w-3 rounded-full border-2 border-white bg-primary"
-            />
-          )}
-        </button>
+      {/*
+        A LÂMPADA MORA NO CABEÇALHO, ao lado do sino.
 
+        Ela já esteve em dois cantos flutuantes, e os dois brigaram com
+        alguma coisa. Embaixo à direita cobria os cartões do menu: quem ia
+        tocar num módulo acertava a lâmpada. Em cima à direita sobrepunha
+        o ✕ de fechar da própria página -- os dois ficam em `right-4`, e
+        no celular o ✕ ocupa de 80 a 120px do topo contra 68 a 116px da
+        lâmpada. Colisão cheia, não de raspão (relatado em 03/09/2026).
+
+        O dono sugeriu deixar a pessoa ARRASTAR a lâmpada. Resolveria o
+        sintoma, mas ao preço errado: cada uma das ~67 pessoas teria de
+        descobrir sozinha que dá para mover e então mover, e enquanto não
+        movesse continuaria com o botão em cima do ✕. Fora que arrastar e
+        rolar disputam o mesmo gesto no celular -- o dedo que sobe a tela
+        acabaria levando a lâmpada junto.
+
+        O cabeçalho resolve por CONSTRUÇÃO, para todo mundo de uma vez: é
+        uma faixa que já existe para ícones, com espaço próprio, e nenhum
+        conteúdo passa por baixo dela. De quebra a lâmpada fica ao lado do
+        sino, e os dois dizem a mesma coisa -- "tem algo novo para você".
+        Um terceiro canto flutuante só encontraria o próximo botão.
+      */}
+      <button
+        type="button"
+        onClick={() => (aberto ? setAberto(false) : abrir())}
+        aria-expanded={aberto}
+        aria-label={
+          novo ? "Você sabia? Há uma dica nova" : "Você sabia? Ver a dica"
+        }
+        className={`relative shrink-0 rounded-lg px-2 py-1.5 text-base transition-colors ${
+          novo ? "bg-gold" : "bg-white/10 hover:bg-white/20"
+        }`}
+      >
+        💡
+        {novo && (
+          <span
+            aria-hidden="true"
+            className="lampada-pisca absolute right-0.5 top-0.5 h-2 w-2 rounded-full bg-primary"
+          />
+        )}
+      </button>
+
+      {/* O balão desce do cabeçalho: a altura dele é 56px até 640px e
+          88px daí para cima -- a mesma conta da barra do Admin. */}
+      <div className="fixed right-2 top-[60px] z-40 flex flex-col items-end sm:right-4 sm:top-[92px] print:hidden">
         {aberto && (
           <div
             ref={caixa}
