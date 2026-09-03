@@ -259,7 +259,7 @@ export default async function IndicadoresPage({
     // que trataria um lote de 2 HL igual a um de 200.
     supabase
       .from("pa_bate_palete")
-      .select("id, colaborador_nome, turno, inicio, fim, pa_bate_palete_itens(produto_id, hl_batido, hl_avariado)")
+      .select("id, colaborador_nome, turno, inicio, fim, pa_bate_palete_itens(produto_id, paletes, hl_batido, hl_avariado)")
       .eq("revenda_id", revendaId)
       .not("fim", "is", null)
       .gte("inicio", de0)
@@ -429,12 +429,13 @@ export default async function IndicadoresPage({
     turno: string;
     inicio: string;
     fim: string;
-    pa_bate_palete_itens: { produto_id: string; hl_batido: number; hl_avariado: number }[] | null;
+    pa_bate_palete_itens: { produto_id: string; paletes: number; hl_batido: number; hl_avariado: number }[] | null;
   }[];
 
   const lotesBatidos = batePaleteBruto.flatMap((s) =>
     (s.pa_bate_palete_itens ?? []).map((i) => ({
       produtoId: i.produto_id,
+      paletes: Number(i.paletes),
       hlBatido: Number(i.hl_batido),
       hlAvariado: Number(i.hl_avariado),
     })),

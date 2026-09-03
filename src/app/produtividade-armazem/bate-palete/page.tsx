@@ -66,8 +66,8 @@ type ItemLinha = {
   id: string;
   bate_palete_id: string;
   produto_id: string;
-  unidade: string;
-  quantidade: number;
+  unidade_avariada: string;
+  paletes: number;
   quantidade_avariada: number;
   hl_batido: number;
   hl_avariado: number;
@@ -76,7 +76,7 @@ type ItemLinha = {
 
 const COLUNAS_SESSAO = "id, colaborador_id, colaborador_nome, turno, inicio, fim, observacao";
 const COLUNAS_ITEM =
-  "id, bate_palete_id, produto_id, unidade, quantidade, quantidade_avariada, hl_batido, hl_avariado, observacao";
+  "id, bate_palete_id, produto_id, unidade_avariada, paletes, quantidade_avariada, hl_batido, hl_avariado, observacao";
 
 type ProdutoLinha = {
   id: string;
@@ -188,6 +188,7 @@ export default async function BatePaletePage({
       s.inicio,
       s.fim,
       (itensPorSessao.get(s.id) ?? []).map((i) => ({
+        paletes: i.paletes,
         hlBatido: i.hl_batido,
         hlAvariado: i.hl_avariado,
       })),
@@ -424,8 +425,13 @@ function SessaoAberta({
         <ul className="space-y-1.5">
           {itens.map((i) => {
             const p = produtoPorId.get(i.produto_id);
-            const pct = pctAvaria(i.quantidade, i.quantidade_avariada);
-            const un = ROTULO_UNIDADE_BATE_PALETE[i.unidade as "caixa" | "unidade"] ?? i.unidade;
+            // O percentual sai do HL, não das quantidades: elas estão em
+            // unidades diferentes (palete x caixa), e dividir uma pela
+            // outra daria um número sem significado.
+            const pct = pctAvaria(i.hl_batido, i.hl_avariado);
+            const un =
+              ROTULO_UNIDADE_BATE_PALETE[i.unidade_avariada as "caixa" | "unidade"] ??
+              i.unidade_avariada;
             return (
               <li key={i.id} className="flex items-center justify-between gap-2 rounded-lg bg-white p-2">
                 <div className="min-w-0">
@@ -433,11 +439,12 @@ function SessaoAberta({
                     {p?.descricao ?? "produto removido"}
                   </p>
                   <p className="text-xs text-slate-500">
-                    {i.quantidade.toLocaleString("pt-BR", { maximumFractionDigits: 2 })}{" "}
-                    {un.toLowerCase()}
-                    {i.quantidade > 1 ? "s" : ""} ·{" "}
+                    {i.paletes.toLocaleString("pt-BR", { maximumFractionDigits: 2 })}{" "}
+                    palete{i.paletes > 1 ? "s" : ""} ·{" "}
                     {i.quantidade_avariada.toLocaleString("pt-BR", { maximumFractionDigits: 2 })}{" "}
-                    avariada{i.quantidade_avariada === 1 ? "" : "s"}
+                    {un.toLowerCase()}
+                    {i.quantidade_avariada === 1 ? "" : "s"} avariada
+                    {i.quantidade_avariada === 1 ? "" : "s"}
                     {pct !== null && ` · ${pct.toLocaleString("pt-BR")}% de avaria`}
                   </p>
                   {i.observacao && <p className="text-xs text-slate-400">📝 {i.observacao}</p>}
@@ -470,40 +477,29 @@ function SessaoAberta({
           cookiePath={COOKIE_BATE_PALETE_PATH}
         />
 
+        {/* AS DUAS MEDIDAS DO MESMO LOTE, cada uma na unidade em que a
+            operação conta (pedido do dono, 03/09/2026): bate-se PALETE, e
+            a avaria que sai dele são caixas ou garrafas soltas. Antes as
+            duas dividiam a mesma unidade, o que obrigava a converter o
+            palete em caixas de cabeça para o sistema dividir de novo. */}
         <div>
-          <span className={rotulo}>Contagem em</span>
-          <div className="grid grid-cols-2 gap-2">
-            {UNIDADES_BATE_PALETE.map((u) => (
-              <label
-                key={u}
-                className="flex cursor-pointer items-center justify-center rounded-xl border border-slate-300 py-2 text-sm font-semibold text-slate-700 has-[:checked]:border-primary has-[:checked]:bg-primary-soft has-[:checked]:text-primary-dark"
-              >
-                <input type="radio" name="unidade" value={u} defaultChecked={u === "caixa"} className="sr-only" />
-                {ROTULO_UNIDADE_BATE_PALETE[u]}
-              </label>
-            ))}
-          </div>
+          <label className={rotulo} htmlFor="paletes">Paletes batidos</label>
+          <input
+            id="paletes"
+            name="paletes"
+            type="number"
+            inputMode="decimal"
+            step="0.5"
+            min="0.5"
+            required
+            placeholder="Ex.: 2 (meio palete = 0,5)"
+            className={campo}
+          />
         </div>
 
-        {/* As duas medidas do MESMO lote: quanto foi batido, e quanto disso
-            estava avariado. Lado a lado porque a segunda só faz sentido
-            dentro da primeira -- é ela que vira o percentual de avaria. */}
-        <div className="grid grid-cols-2 gap-2">
-          <div>
-            <label className={rotulo} htmlFor="quantidade">Quantidade batida</label>
-            <input
-              id="quantidade"
-              name="quantidade"
-              type="number"
-              inputMode="decimal"
-              step="0.01"
-              min="0.01"
-              required
-              className={campo}
-            />
-          </div>
-          <div>
-            <label className={rotulo} htmlFor="quantidade_avariada">Dessa, avariada</label>
+        <div className="rounded-xl bg-slate-50 p-3">
+          <p className={rotulo}>Dessa batida, quanto saiu avariado</p>
+          <div className="grid grid-cols-2 gap-2">
             <input
               id="quantidade_avariada"
               name="quantidade_avariada"
@@ -513,9 +509,27 @@ function SessaoAberta({
               min="0"
               defaultValue="0"
               required
+              aria-label="Quantidade avariada"
               className={campo}
             />
+            <select
+              name="unidade_avariada"
+              defaultValue="caixa"
+              aria-label="Unidade da avaria"
+              className={campo}
+            >
+              {UNIDADES_BATE_PALETE.map((u) => (
+                <option key={u} value={u}>
+                  {ROTULO_UNIDADE_BATE_PALETE[u]}
+                </option>
+              ))}
+            </select>
           </div>
+          <p className="mt-1.5 text-[11px] text-slate-500">
+            É daqui que sai o <strong>% de avaria por palete batido</strong>. As
+            duas viram HL antes de virar percentual, então contar em caixa ou em
+            unidade dá no mesmo número.
+          </p>
         </div>
 
         <div>
@@ -532,26 +546,17 @@ function SessaoAberta({
       </form>
 
       {/* --- Finalizar --- */}
+      {/* AQUI FICAVA a "Observação do turno". Saiu a pedido do dono
+          (03/09/2026): sobra uma só, a do LOTE, no formulário de cima.
+          Elas nasceram parecendo duplicadas -- duas caixas de texto
+          idênticas na mesma tela --, e a tentativa anterior foi separá-las
+          por rótulo e exemplo. Não resolveu, porque o problema não era o
+          rótulo: quem bate palete tem o que dizer sobre O PALETE ("veio
+          tombado"), e o que valeria para o turno inteiro ninguém parava
+          para escrever. A coluna continua no banco, com o que já foi
+          gravado. */}
       <form action={finalizarBatePalete} className="space-y-3">
         <input type="hidden" name="id" value={sessao.id} />
-        {/* A observação do LOTE fica no formulário de cima e explica um
-            palete específico ("veio tombado"). Esta é do turno inteiro,
-            para o que não cabe num lote ("faltou empilhadeira").
-
-            As duas tinham o mesmo rótulo e viravam duas caixas idênticas
-            na mesma tela -- o dono viu na hora. Rótulo e exemplo
-            diferentes resolvem sem tirar nenhuma das duas: elas guardam
-            coisas diferentes no banco. */}
-        <div>
-          <label className={rotulo} htmlFor="observacao">Observação do turno (opcional)</label>
-          <input
-            id="observacao"
-            name="observacao"
-            maxLength={300}
-            placeholder="Ex.: faltou empilhadeira parte do turno"
-            className={campo}
-          />
-        </div>
         <BotaoEnviar
           textoEnviando="Finalizando..."
           className="w-full rounded-xl bg-primary px-4 py-3.5 text-sm font-bold text-white hover:bg-primary-dark"
@@ -639,9 +644,14 @@ function LinhaSessao({
             {itens.map((i) => (
               <li key={i.id} className="text-xs text-slate-600">
                 {produtoPorId.get(i.produto_id)?.descricao ?? "produto removido"} —{" "}
-                {i.quantidade.toLocaleString("pt-BR", { maximumFractionDigits: 2 })}{" "}
-                {(ROTULO_UNIDADE_BATE_PALETE[i.unidade as "caixa" | "unidade"] ?? i.unidade).toLowerCase()},{" "}
-                {i.quantidade_avariada.toLocaleString("pt-BR", { maximumFractionDigits: 2 })} avariada
+                {i.paletes.toLocaleString("pt-BR", { maximumFractionDigits: 2 })} palete
+                {i.paletes > 1 ? "s" : ""},{" "}
+                {i.quantidade_avariada.toLocaleString("pt-BR", { maximumFractionDigits: 2 })}{" "}
+                {(
+                  ROTULO_UNIDADE_BATE_PALETE[i.unidade_avariada as "caixa" | "unidade"] ??
+                  i.unidade_avariada
+                ).toLowerCase()}{" "}
+                avariada
               </li>
             ))}
           </ul>

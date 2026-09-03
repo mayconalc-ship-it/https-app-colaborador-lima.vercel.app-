@@ -5,10 +5,23 @@
  * separar o que está avariado e remontar o palete. É isso que a operação
  * chama de "bater o palete".
  *
- * Registra-se O QUE FOI BATIDO (produto e quantidade) e, dentro disso,
- * QUANTO ESTAVA AVARIADO -- duas medidas do mesmo lote, não duas pilhas
- * separadas. É essa dupla que produz o número que interessa: o
- * PERCENTUAL DE AVARIA, que aponta problema na origem.
+ * Registra-se QUANTOS PALETES foram batidos de um produto e, dentro
+ * disso, QUANTO SAIU AVARIADO -- duas medidas do mesmo lote, não duas
+ * pilhas separadas. É essa dupla que produz o número que interessa: o
+ * PERCENTUAL DE AVARIA POR PALETE BATIDO, que aponta problema na origem.
+ *
+ * AS DUAS QUANTIDADES NÃO COMPARTILHAM UNIDADE, e isso é o modelo, não
+ * uma inconsistência (pedido do dono, 03/09/2026):
+ *
+ *   batido  -> em PALETE. É o que a atividade produz. O ajudante bate
+ *              paletes inteiros; contar em caixa o obrigava a
+ *              multiplicar de cabeça para o sistema dividir de novo.
+ *   avaria  -> em CAIXA ou UNIDADE. É o que sobra da avaria: algumas
+ *              caixas, às vezes garrafa solta. Ninguém avaria um palete
+ *              inteiro, então "avaria em palete" não existe na operação.
+ *
+ * O HL é o que torna as duas comparáveis, e é sobre ele que o percentual
+ * é calculado.
  *
  * NÃO é a Seleção e Triagem do Repack (POP-ARM-001, migration 065), e a
  * diferença precisa ficar dita para as duas não medirem o mesmo trabalho:
@@ -24,6 +37,7 @@
 
 export const COOKIE_BATE_PALETE_PATH = "/produtividade-armazem/bate-palete";
 
+/** As unidades em que a AVARIA é contada. O batido é sempre em palete. */
 export const UNIDADES_BATE_PALETE = ["caixa", "unidade"] as const;
 export type UnidadeBatePalete = (typeof UNIDADES_BATE_PALETE)[number];
 
@@ -52,18 +66,38 @@ export type FatoresDoProduto = {
 };
 
 /**
- * HL de uma quantidade, na unidade informada.
+ * HL dos PALETES batidos.
  *
- * `null` quando o cadastro não tem o fator necessário -- e aí o item é
- * RECUSADO na ação, em vez de entrar valendo zero e sumir do total sem
- * ninguém perceber (mesma regra do Abastecimento e do Reepack).
+ * palete -> caixas_por_palete × fator_hecto. Precisa dos dois fatores, e
+ * devolve `null` faltando qualquer um: o item é RECUSADO na ação, em vez
+ * de entrar valendo zero e sumir do total sem ninguém perceber (mesma
+ * regra do Abastecimento e do Reepack).
+ *
+ * Fração é válida -- meio palete acontece, e arredondar para 1 inventaria
+ * HL que ninguém bateu.
+ */
+export function hlDePaletes(
+  paletes: number,
+  produto: FatoresDoProduto,
+): number | null {
+  if (!(paletes > 0)) return null;
+  if (produto.fatorHecto === null) return null;
+  if (produto.caixasPallet === null || !(produto.caixasPallet > 0)) return null;
+  return Math.round(paletes * produto.caixasPallet * produto.fatorHecto * 1000) / 1000;
+}
+
+/**
+ * HL da quantidade AVARIADA, na unidade informada (caixa ou unidade).
+ *
+ * `null` quando o cadastro não tem o fator necessário -- mesma regra
+ * acima.
  *
  * Unidade passa por caixa de propósito: o fator do cadastro é por caixa,
  * então unidade = (quantidade ÷ unidades_por_caixa) × fator_hecto.
  * Guardar um "HL por unidade" separado seria um segundo número para
  * manter em dia.
  */
-export function calcularHl(
+export function hlDaAvaria(
   quantidade: number,
   unidade: UnidadeBatePalete,
   produto: FatoresDoProduto,
@@ -103,6 +137,9 @@ export type ResumoBatePalete = {
   minutos: number;
   /** Quantos lançamentos -- cada um é um lote batido. */
   lotes: number;
+  /** Soma dos paletes batidos -- o volume da atividade, na unidade em
+   *  que a operação fala dela. */
+  paletes: number;
   hlBatido: number;
   hlAvariado: number;
   /** O que sobrou bom: batido menos avariado. */
@@ -116,7 +153,7 @@ export type ResumoBatePalete = {
 export function resumirBatePalete(
   inicioISO: string,
   fimISO: string | null,
-  itens: { hlBatido: number; hlAvariado: number }[],
+  itens: { paletes: number; hlBatido: number; hlAvariado: number }[],
 ): ResumoBatePalete {
   const fim = fimISO ? new Date(fimISO).getTime() : Date.now();
   const minutos = Math.max((fim - new Date(inicioISO).getTime()) / 60_000, 0);
@@ -128,6 +165,7 @@ export function resumirBatePalete(
   return {
     minutos: Math.round(minutos * 10) / 10,
     lotes: itens.length,
+    paletes: Math.round(itens.reduce((s, i) => s + i.paletes, 0) * 100) / 100,
     hlBatido,
     hlAvariado,
     hlAproveitado: Math.round((hlBatido - hlAvariado) * 1000) / 1000,
@@ -142,6 +180,7 @@ export function resumirBatePalete(
 export type LinhaAvariaPorProduto = {
   produtoId: string;
   lotes: number;
+  paletes: number;
   hlBatido: number;
   hlAvariado: number;
   /** O percentual do PRODUTO no período -- somando os lotes antes de
@@ -151,13 +190,17 @@ export type LinhaAvariaPorProduto = {
 };
 
 export function avariaPorProduto(
-  itens: { produtoId: string; hlBatido: number; hlAvariado: number }[],
+  itens: { produtoId: string; paletes: number; hlBatido: number; hlAvariado: number }[],
 ): LinhaAvariaPorProduto[] {
-  const mapa = new Map<string, { lotes: number; batido: number; avariado: number }>();
+  const mapa = new Map<
+    string,
+    { lotes: number; paletes: number; batido: number; avariado: number }
+  >();
 
   for (const i of itens) {
-    const a = mapa.get(i.produtoId) ?? { lotes: 0, batido: 0, avariado: 0 };
+    const a = mapa.get(i.produtoId) ?? { lotes: 0, paletes: 0, batido: 0, avariado: 0 };
     a.lotes += 1;
+    a.paletes += i.paletes;
     a.batido += i.hlBatido;
     a.avariado += i.hlAvariado;
     mapa.set(i.produtoId, a);
@@ -167,6 +210,7 @@ export function avariaPorProduto(
     .map(([produtoId, v]) => ({
       produtoId,
       lotes: v.lotes,
+      paletes: Math.round(v.paletes * 100) / 100,
       hlBatido: Math.round(v.batido * 1000) / 1000,
       hlAvariado: Math.round(v.avariado * 1000) / 1000,
       pctAvaria: pctAvaria(v.batido, v.avariado),

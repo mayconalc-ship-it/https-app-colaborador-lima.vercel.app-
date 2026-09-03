@@ -24,7 +24,11 @@ export async function registrarRecebimento(formData: FormData) {
   const operadorNome = String(formData.get("operador_nome") ?? "").trim() || null;
 
   if (!fabricaId) erro("Escolha a fábrica de saída.");
-  if (!transportadoraId) erro("Escolha a transportadora.");
+  // A transportadora é OPCIONAL (pedido do dono, 03/09/2026). Exigi-la
+  // travava o recebimento no pátio quando o nome não estava no catálogo
+  // ou a carreta era de uma transportadora nova -- e o conferente não vai
+  // parar a descarga para cadastrar. A carreta e o motorista continuam
+  // obrigatórios: são eles que identificam a chegada.
   if (!placaCarreta) erro("Informe a placa da carreta.");
   if (!motoristas) erro("Informe o nome do(s) motorista(s).");
 
@@ -56,7 +60,7 @@ export async function registrarRecebimento(formData: FormData) {
     .insert({
       revenda_id: revendaId,
       fabrica_id: fabricaId,
-      transportadora_id: transportadoraId,
+      transportadora_id: transportadoraId || null,
       placa_cavalo: placaCavalo,
       placa_carreta: placaCarreta,
       motoristas,

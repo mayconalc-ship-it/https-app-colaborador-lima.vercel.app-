@@ -3,7 +3,7 @@
 // percentual do produto soma antes de dividir.
 //   npx tsx src/lib/__testes__/bate-palete.teste.mjs
 import {
-  calcularHl, pctAvaria, resumirBatePalete,
+  hlDePaletes, hlDaAvaria, pctAvaria, resumirBatePalete,
   avariaPorProduto, mediaHlPorDia, ehUnidadeBatePalete,
 } from "../bate-palete.ts";
 
@@ -19,18 +19,28 @@ const p = { fatorHecto: 0.06, unidadesPorCaixa: 12, caixasPallet: 150 };
 const semFator = { fatorHecto: null, unidadesPorCaixa: 12, caixasPallet: 150 };
 const semUnidades = { fatorHecto: 0.06, unidadesPorCaixa: null, caixasPallet: 150 };
 
-console.log("== HL EM CAIXA E EM UNIDADE ==");
-eq("30 caixas", calcularHl(30, "caixa", p), 1.8);
+console.log("== HL DOS PALETES BATIDOS ==");
+// 1 palete = 150 caixas x 0,06 HL = 9 HL.
+eq("1 palete", hlDePaletes(1, p), 9);
+eq("meio palete", hlDePaletes(0.5, p), 4.5);
+// Sem caixas_por_palete nao da para saber o que e um palete deste
+// produto -- e RECUSADO, em vez de entrar valendo zero.
+eq("sem caixas_pallet e null", hlDePaletes(1, { ...p, caixasPallet: null }), null);
+eq("sem fator_hecto e null", hlDePaletes(1, semFator), null);
+eq("zero palete e null -- nao foi batido", hlDePaletes(0, p), null);
+
+console.log("\n== HL DA AVARIA, EM CAIXA E EM UNIDADE ==");
+eq("30 caixas", hlDaAvaria(30, "caixa", p), 1.8);
 // Unidade passa por caixa: 24 garrafas = 2 caixas = 0,12 HL.
-eq("24 unidades = 2 caixas", calcularHl(24, "unidade", p), 0.12);
-eq("zero e zero, nao null", calcularHl(0, "caixa", p), 0);
+eq("24 unidades = 2 caixas", hlDaAvaria(24, "unidade", p), 0.12);
+eq("zero e zero, nao null", hlDaAvaria(0, "caixa", p), 0);
 // Sem o fator o item e RECUSADO na acao -- entrar valendo zero sumiria
 // do total em silencio.
-eq("sem fator_hecto e null", calcularHl(30, "caixa", semFator), null);
+eq("sem fator_hecto e null", hlDaAvaria(30, "caixa", semFator), null);
 // Contar em unidade sem saber quantas cabem na caixa e impossivel.
-eq("unidade sem unidades_por_caixa e null", calcularHl(24, "unidade", semUnidades), null);
-eq("caixa NAO precisa de unidades_por_caixa", calcularHl(30, "caixa", semUnidades), 1.8);
-eq("negativo e null", calcularHl(-1, "caixa", p), null);
+eq("unidade sem unidades_por_caixa e null", hlDaAvaria(24, "unidade", semUnidades), null);
+eq("caixa NAO precisa de unidades_por_caixa", hlDaAvaria(30, "caixa", semUnidades), 1.8);
+eq("negativo e null", hlDaAvaria(-1, "caixa", p), null);
 
 console.log("\n== PERCENTUAL DE AVARIA ==");
 eq("30 de 100", pctAvaria(100, 30), 30);
@@ -49,12 +59,13 @@ eq("lixo", ehUnidadeBatePalete(null), false);
 console.log("\n== RESUMO DA SESSAO ==");
 const T = (h) => `2026-09-03T${h}:00-03:00`;
 const r = resumirBatePalete(T("08:00"), T("10:00"), [
-  { hlBatido: 6, hlAvariado: 1.2 },
-  { hlBatido: 4, hlAvariado: 0.8 },
+  { paletes: 1, hlBatido: 6, hlAvariado: 1.2 },
+  { paletes: 0.5, hlBatido: 4, hlAvariado: 0.8 },
 ]);
 eq("lotes", r.lotes, 2);
 eq("minutos", r.minutos, 120);
 eq("HL batido", r.hlBatido, 10);
+eq("paletes somados", r.paletes, 1.5);
 eq("HL avariado", r.hlAvariado, 2);
 eq("HL aproveitado", r.hlAproveitado, 8);
 eq("percentual de avaria", r.pctAvaria, 20);
@@ -71,13 +82,14 @@ console.log("\n== AVARIA POR PRODUTO: soma antes de dividir ==");
 // Media de porcentagens daria (50 + 1) / 2 = 25,5% -- e trataria um lote
 // de 2 HL igual a um de 100. Somando primeiro, o numero e 2,96%.
 const porProduto = avariaPorProduto([
-  { produtoId: "a", hlBatido: 2, hlAvariado: 1 },
-  { produtoId: "a", hlBatido: 100, hlAvariado: 2 },
-  { produtoId: "b", hlBatido: 50, hlAvariado: 20 },
+  { produtoId: "a", paletes: 1, hlBatido: 2, hlAvariado: 1 },
+  { produtoId: "a", paletes: 2, hlBatido: 100, hlAvariado: 2 },
+  { produtoId: "b", paletes: 3, hlBatido: 50, hlAvariado: 20 },
 ]);
 const a = porProduto.find((x) => x.produtoId === "a");
 eq("percentual do produto soma antes de dividir", a.pctAvaria, 2.9);
 eq("lotes do produto", a.lotes, 2);
+eq("paletes do produto", a.paletes, 3);
 // Ordenado pelo VOLUME de avaria: um lote unico com 100% lideraria para
 // sempre se a ordem fosse por percentual.
 eq("ordem e pelo HL avariado", porProduto.map((x) => x.produtoId), ["b", "a"]);

@@ -9,7 +9,7 @@ import { podeNoModulo } from "@/lib/require-admin";
 import { getRevendaId } from "@/lib/revendas";
 import { exigirContextoModulo } from "@/lib/produtividade-armazem-server";
 import { ehTurno } from "@/lib/produtividade-armazem";
-import { calcularHl, ehUnidadeBatePalete } from "@/lib/bate-palete";
+import { hlDaAvaria, hlDePaletes, ehUnidadeBatePalete } from "@/lib/bate-palete";
 
 const ROTA = "/produtividade-armazem/bate-palete";
 
@@ -55,16 +55,18 @@ export async function iniciarBatePalete(formData: FormData) {
 }
 
 /**
- * Registra UM palete batido.
+ * Registra UM lote batido: quantos paletes, e quanto saiu avariado.
  *
- * As duas quantidades são gravadas separadas -- o que SAIU (avariado) e o
- * que ENTROU (bom) -- porque contam histórias diferentes: a soma é o
- * esforço, e a diferença denuncia palete que voltou incompleto para o
- * estoque.
+ * AS DUAS QUANTIDADES TÊM UNIDADES DIFERENTES, e é assim que a operação
+ * conta (pedido do dono, 03/09/2026): bate-se PALETE, e a avaria que sai
+ * dele são algumas CAIXAS ou garrafas soltas. Ninguém avaria um palete
+ * inteiro, e ninguém bate meia caixa.
  *
- * O HL recuperado é calculado AQUI, no servidor, a partir do cadastro, e
- * gravado: se o fator do produto mudar amanhã, o que já foi batido
- * continua valendo o que valia (mesmo desenho do litro do reepack).
+ * O HL é o que torna as duas comparáveis, e é dele que sai o percentual
+ * de avaria por palete batido. Ele é calculado AQUI, no servidor, a
+ * partir do cadastro, e GRAVADO: se o fator do produto mudar amanhã, o
+ * que já foi batido continua valendo o que valia (mesmo desenho do litro
+ * do reepack).
  */
 export async function registrarPalete(formData: FormData) {
   const { perfil, revendaId } = await exigirContexto();
@@ -74,28 +76,26 @@ export async function registrarPalete(formData: FormData) {
   if (!sessaoId) erro("Sessão inválida.");
   if (!produtoId) erro("Escolha o produto.");
 
-  const unidade = formData.get("unidade");
-  if (!ehUnidadeBatePalete(unidade)) erro("Escolha se a contagem é em caixa ou em unidade.");
+  const unidade = formData.get("unidade_avariada");
+  if (!ehUnidadeBatePalete(unidade)) erro("Escolha se a avaria é em caixa ou em unidade.");
 
-  const batida = Number(String(formData.get("quantidade") ?? "").replace(",", "."));
+  const paletes = Number(String(formData.get("paletes") ?? "").replace(",", "."));
   const avariada = Number(String(formData.get("quantidade_avariada") ?? "").replace(",", "."));
 
-  for (const [nome, v] of [["batida", batida], ["avariada", avariada]] as const) {
-    if (!Number.isFinite(v) || v < 0) erro(`Informe a quantidade ${nome} (número, pode ter vírgula).`);
-    if (v > 100_000) erro("Quantidade fora do razoável -- confira o que digitou.");
+  if (!Number.isFinite(paletes) || paletes <= 0) {
+    erro("Informe quantos paletes foram batidos (pode ter vírgula: meio palete é 0,5).");
   }
+  if (paletes > 500) erro("Quantidade de paletes fora do razoável -- confira o que digitou.");
 
-  // Lote com quantidade zero não foi batido: é um lançamento em branco
-  // que só faz a taxa cair. O banco também recusa (constraint), mas o
-  // erro dele não é uma frase que a operação entenda.
-  if (batida <= 0) erro("Informe quanto foi batido -- um lote de zero não foi batido.");
-
-  // A avariada está DENTRO da batida. Sem esta trava daria para lançar 10
-  // batidas com 50 avariadas, e o percentual de avaria passaria de 100%
-  // sem ninguém entender de onde veio.
-  if (avariada > batida) {
-    erro("A quantidade avariada não pode ser maior que a batida -- ela faz parte do lote.");
+  if (!Number.isFinite(avariada) || avariada < 0) {
+    erro("Informe a quantidade avariada (número, pode ter vírgula).");
   }
+  if (avariada > 100_000) erro("Quantidade avariada fora do razoável -- confira o que digitou.");
+
+  // A comparação "a avaria cabe no lote" NÃO é feita aqui em quantidade:
+  // 3 caixas avariadas num palete é normal, e comparar 3 com 1 recusaria
+  // o lançamento certo. Ela é feita mais abaixo, em HL, que é a unidade
+  // comum das duas medidas.
 
   const observacao = String(formData.get("observacao") ?? "").trim().slice(0, 200) || null;
 
@@ -130,16 +130,36 @@ export async function registrarPalete(formData: FormData) {
     caixasPallet: produto.caixas_pallet,
   };
 
-  const hlBatido = calcularHl(batida, unidade, fatores);
-  const hlAvariado = calcularHl(avariada, unidade, fatores);
+  const hlBatido = hlDePaletes(paletes, fatores);
+  const hlAvariado = hlDaAvaria(avariada, unidade, fatores);
 
   // Produto sem o fator é RECUSADO em vez de entrar valendo zero: um
-  // item invisível no total é pior do que uma mensagem de erro.
-  if (hlBatido === null || hlAvariado === null) {
+  // item invisível no total é pior do que uma mensagem de erro. Cada
+  // fator que falta gera a frase que diz qual é -- "faltou cadastro" sem
+  // dizer o quê manda a pessoa adivinhar.
+  if (hlBatido === null) {
+    erro(
+      produto.caixas_pallet === null || !(produto.caixas_pallet > 0)
+        ? `${produto.descricao} não tem "caixas por palete" no cadastro -- peça ao Admin para completar em Configuração.`
+        : `${produto.descricao} não tem Fator Hecto no cadastro -- peça ao Admin para completar em Configuração.`,
+    );
+  }
+  if (hlAvariado === null) {
     erro(
       unidade === "unidade"
-        ? `${produto.descricao} não tem "unidades por caixa" no cadastro -- conte em caixa ou peça ao Admin para completar.`
+        ? `${produto.descricao} não tem "unidades por caixa" no cadastro -- conte a avaria em caixa ou peça ao Admin para completar.`
         : `${produto.descricao} não tem Fator Hecto no cadastro -- peça ao Admin para completar em Configuração.`,
+    );
+  }
+
+  // Agora sim, em HL: a avaria faz parte do lote batido. Sem esta trava
+  // daria para lançar 1 palete com 500 caixas avariadas, e o percentual
+  // passaria de 100% sem ninguém entender de onde veio. O banco também
+  // recusa (constraint), mas o erro dele não é uma frase que a operação
+  // entenda.
+  if (hlAvariado > hlBatido) {
+    erro(
+      `A avaria informada (${hlAvariado} HL) é maior que o lote batido (${hlBatido} HL) -- ela faz parte do lote. Confira a quantidade ou a unidade.`,
     );
   }
 
@@ -147,8 +167,8 @@ export async function registrarPalete(formData: FormData) {
     revenda_id: revendaId,
     bate_palete_id: sessaoId,
     produto_id: produto.id,
-    unidade,
-    quantidade: batida,
+    paletes,
+    unidade_avariada: unidade,
     quantidade_avariada: avariada,
     hl_batido: hlBatido,
     hl_avariado: hlAvariado,
@@ -160,7 +180,7 @@ export async function registrarPalete(formData: FormData) {
   revalidatePath(ROTA);
   redirect(
     `${ROTA}?sucesso=${encodeURIComponent(
-      `${produto.descricao} — ${batida} batida(s), ${avariada} avariada(s)`,
+      `${produto.descricao} — ${paletes} palete(s), ${avariada} avariada(s)`,
     )}`,
   );
 }

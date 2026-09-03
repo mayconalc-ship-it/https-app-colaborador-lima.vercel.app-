@@ -50,11 +50,16 @@ export function FormRecebimento({
             />
           </div>
           <div>
-            <label className={rotulo} htmlFor="transportadora_id">Transportadora</label>
+            {/* Opcional: exigi-la travava o recebimento no pátio quando a
+                carreta era de uma transportadora que não estava no
+                catálogo, e o conferente não vai parar a descarga para
+                cadastrar (pedido do dono, 03/09/2026). */}
+            <label className={rotulo} htmlFor="transportadora_id">
+              Transportadora (opcional)
+            </label>
             <SelectComCadastroRapido
               id="transportadora_id"
               name="transportadora_id"
-              required
               opcoes={transportadoras.map((t) => ({ valor: t.id, rotulo: t.nome }))}
               criarRapido={podeEditarCatalogo ? criarTransportadoraRapida : undefined}
               campos={[{ nome: "nome", rotulo: "Nome da transportadora" }]}
