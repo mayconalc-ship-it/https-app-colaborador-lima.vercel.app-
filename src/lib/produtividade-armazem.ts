@@ -394,8 +394,15 @@ const DIA_SP = new Intl.DateTimeFormat("en-CA", {
   day: "2-digit",
 });
 
-export function hojeISO() {
-  return DIA_SP.format(new Date());
+/**
+ * O dia da operação em "AAAA-MM-DD".
+ *
+ * Aceita um instante para poder responder "que dia era ALI" -- é o que
+ * permite calcular amanhã (hoje + 24h) sem voltar a somar dias em UTC,
+ * que é justamente o erro que este helper existe para evitar.
+ */
+export function hojeISO(quando: Date = new Date()) {
+  return DIA_SP.format(quando);
 }
 
 /** O DIA de um timestamp, no fuso da operação -- não no do servidor.

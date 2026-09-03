@@ -15,6 +15,7 @@ import {
   formatarTaxa,
   rotuloCompetencia,
   type StatusAuditoria,
+  hojeISO,
 } from "@/lib/cinco-s";
 import {
   alternarAuditor,
@@ -196,7 +197,7 @@ async function AbaPlanejamento({
   );
 
   const feitas = lista.filter((a) => a.status === "finalizada").length;
-  const hoje = new Date().toISOString().slice(0, 10);
+  const hoje = hojeISO();
   const atrasadas = lista.filter(
     (a) => a.status !== "finalizada" && a.planejada_para < hoje,
   ).length;

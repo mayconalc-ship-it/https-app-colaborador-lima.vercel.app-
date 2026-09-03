@@ -11,6 +11,7 @@ import {
   type Prioridade,
   type Senso,
   type StatusNC,
+  hojeISO,
 } from "@/lib/cinco-s";
 
 export const dynamic = "force-dynamic";
@@ -331,7 +332,7 @@ async function exportarAcoes(
     for (const x of p ?? []) nomesConhecidos.set(x.id, x.nome as string);
   }
 
-  const hoje = new Date().toISOString().slice(0, 10);
+  const hoje = hojeISO();
 
   const linhas: string[][] = [
     [

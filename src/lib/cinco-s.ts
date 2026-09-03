@@ -1,4 +1,21 @@
 /**
+ * O dia da operação em "AAAA-MM-DD" -- UTC-3, não o fuso do servidor.
+ *
+ * A Vercel roda em UTC. `new Date().toISOString().slice(0, 10)`, que era
+ * o que estas telas usavam, vira o dia às 21h daqui: entre 21h e
+ * meia-noite o 5S mostrava como ATRASADA a ação que vence hoje, e o
+ * prazo "vence hoje" já aparecia como "venceu". Bem no fim do turno da
+ * noite, que é quando a lista de ações é conferida.
+ */
+export function hojeISO() {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Sao_Paulo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+}
+/**
  * Vocabulário e regras do Programa 5S.
  *
  * Fica sem "server-only" de propósito: a tela do auditor, que roda no
@@ -261,6 +278,7 @@ export function rotuloCompetencia(competencia: string): string {
   const [ano, mes] = competencia.split("-");
   const data = new Date(Number(ano), Number(mes) - 1, 1);
   const texto = data.toLocaleDateString("pt-BR", {
+    timeZone: "America/Sao_Paulo",
     month: "long",
     year: "numeric",
   });

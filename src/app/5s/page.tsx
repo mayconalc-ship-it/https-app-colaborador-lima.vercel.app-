@@ -13,6 +13,7 @@ import {
   formatarTaxa,
   COR_TEXTO_FAIXA,
   type StatusNC,
+  hojeISO,
 } from "@/lib/cinco-s";
 
 export const dynamic = "force-dynamic";
@@ -64,7 +65,7 @@ export default async function CincoSPage({
   }
 
   const admin = createAdminClient();
-  const hoje = new Date().toISOString().slice(0, 10);
+  const hoje = hojeISO();
 
   // As três consultas do bloco vão juntas e cada uma traz SÓ as colunas
   // que a tela desenha. Buscar a auditoria inteira para mostrar quatro
@@ -457,7 +458,7 @@ async function MinhasAreas({
       .in("status", ["aberta", "em_andamento"]),
   ]);
 
-  const hoje = new Date().toISOString().slice(0, 10);
+  const hoje = hojeISO();
 
   const porArea = new Map<
     string,

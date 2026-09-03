@@ -22,6 +22,7 @@ import {
   type Prioridade,
   type Senso,
   type StatusNC,
+  hojeISO,
 } from "@/lib/cinco-s";
 
 export const dynamic = "force-dynamic";
@@ -77,7 +78,7 @@ export default async function AcoesPage({
   const pagina = Math.max(1, Number(p.pagina) || 1);
 
   const admin = createAdminClient();
-  const hoje = new Date().toISOString().slice(0, 10);
+  const hoje = hojeISO();
 
   // O recorte de acesso entra ANTES de qualquer filtro de tela: quem não
   // é gestor só enxerga ação da própria área ou atribuída a si. Deixar

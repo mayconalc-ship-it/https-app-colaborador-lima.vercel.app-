@@ -7,7 +7,7 @@ import { getPessoasDaArea } from "@/lib/quiz-server";
 import { hojeIso } from "@/lib/pesquisa";
 import { areaDoColaborador, diasRestantes } from "@/lib/quiz";
 import type { AreaId } from "@/lib/areas";
-import { FIM_TURNO, type Turno } from "@/lib/produtividade-armazem";
+import { FIM_TURNO, hojeISO, type Turno } from "@/lib/produtividade-armazem";
 
 /** De quanto em quanto tempo o próprio app varre a fila. */
 const INTERVALO_MINUTOS = 5;
@@ -346,10 +346,20 @@ async function publicacoesAgendadas(admin: ReturnType<typeof createAdminClient>)
  * sozinha geraria 96 notificações.
  */
 async function lembretesDo5S(admin: ReturnType<typeof createAdminClient>) {
-  const hoje = new Date().toISOString().slice(0, 10);
-  const amanha = new Date();
-  amanha.setDate(amanha.getDate() + 1);
-  const dataAmanha = amanha.toISOString().slice(0, 10);
+  /*
+    O DIA É O DA OPERAÇÃO, não o do servidor.
+
+    Isto era `new Date().toISOString().slice(0, 10)` -- a data em UTC. A
+    Vercel roda em UTC, e a operação é UTC-3: das 21h à meia-noite daqui,
+    lá já é o dia seguinte. O efeito não era sutil: às 21h de segunda a
+    varredura achava que era terça, e disparava a VÉSPERA de quarta, o
+    aviso DO DIA de terça e marcava como ATRASADO o que vencia na terça --
+    tudo um dia adiantado, e sempre no fim do turno da noite. Pior: a
+    chave de idempotência inclui a data, então o aviso do dia certo já
+    não nascia mais no dia seguinte, porque a chave já existia.
+  */
+  const hoje = hojeISO();
+  const dataAmanha = hojeISO(new Date(Date.now() + 86_400_000));
 
   let enviados = 0;
 
@@ -497,7 +507,11 @@ async function jaAvisado(
  */
 async function lembretesDeEmpilhadeira(admin: ReturnType<typeof createAdminClient>) {
   const agora = new Date();
-  const hoje = agora.toISOString().slice(0, 10);
+  // Mesmo motivo do 5S: a chave de idempotência é por dia, e em UTC ela
+  // virava às 21h. O lembrete de fim do turno da NOITE cai exatamente
+  // nessa faixa -- ele gravava a chave do dia seguinte e, no dia
+  // seguinte, não disparava.
+  const hoje = hojeISO(agora);
   const minutosAgora = Number(
     new Intl.DateTimeFormat("en-GB", {
       timeZone: "America/Sao_Paulo",

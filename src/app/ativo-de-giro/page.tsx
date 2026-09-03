@@ -1,4 +1,4 @@
-﻿import { redirect } from "next/navigation";
+import { redirect } from "next/navigation";
 import { PageHeader } from "@/components/PageHeader";
 import { FiltroNoLugar } from "@/components/FiltroNoLugar";
 import { getPerfil } from "@/lib/sessao";
@@ -26,6 +26,7 @@ import {
 } from "@/lib/ativo-giro";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
 import { BotaoExcluir } from "@/components/BotaoExcluir";
+import { lerTudo } from "@/lib/ler-tudo";
 import { getUltimaCombinacao } from "./ultima-combinacao";
 import { Lancamento } from "./Lancamento";
 import {
@@ -184,8 +185,13 @@ export default async function AtivoDeGiroPage({
           .eq("data", dia)
           .order("id")
       : Promise.resolve({ data: null }),
+    // PAGINADO: o período pode ser de meses, e `ag_contagens` já passou
+    // de 1.800 linhas (medido em 03/09/2026). O PostgREST corta em 1.000
+    // sem avisar -- não dá erro, a lista só chega menor --, então o
+    // Histórico de um período largo já vinha incompleto, e os totais
+    // dele, errados. Ver lib/ler-tudo.ts.
     aba === "historico"
-      ? (() => {
+      ? lerTudo<Contagem>((inicio, fim) => {
           let consulta = supabase
             .from("ag_contagens")
             .select(colunas)
@@ -198,21 +204,30 @@ export default async function AtivoDeGiroPage({
           if (colab) consulta = consulta.eq("colaborador_id", colab);
           return consulta
             .order("data", { ascending: false })
-            .order("id", { ascending: false });
-        })()
+            .order("id", { ascending: false })
+            .range(inicio, fim);
+        }).then((data) => ({ data }))
       : Promise.resolve({ data: null }),
     // Quem alimenta o menu suspenso. Duas colunas só, e uma janela larga
     // de propósito: a lista precisa ser a MESMA nas três abas, senão trocar
     // de aba faria o colaborador escolhido sumir da lista. Ordenada da mais
     // nova para a mais velha para o nome mais recente de cada pessoa ganhar.
+    // PAGINADO pelo mesmo motivo do Histórico: 180 dias de contagens
+    // passam de 1.000 linhas com folga, e o corte silencioso do PostgREST
+    // fazia o menu perder justamente quem contou menos -- as pessoas que
+    // alguém procuraria no filtro.
     aba === "contagem"
       ? Promise.resolve({ data: null })
-      : supabase
-          .from("ag_contagens")
-          .select("colaborador_id, colaborador_nome")
-          .eq("revenda_id", revendaId)
-          .gte("data", diasAtrasISO(180))
-          .order("data", { ascending: false }),
+      : lerTudo<{ colaborador_id: string; colaborador_nome: string }>(
+          (inicio, fim) =>
+            supabase
+              .from("ag_contagens")
+              .select("colaborador_id, colaborador_nome")
+              .eq("revenda_id", revendaId)
+              .gte("data", diasAtrasISO(180))
+              .order("data", { ascending: false })
+              .range(inicio, fim),
+        ).then((data) => ({ data })),
     // Pedidos de recontagem em aberto: alimentam o banner do colaborador
     // (aba Contagem) e o painel do controle (aba Conciliação).
     aba === "contagem" || aba === "conciliacao"
