@@ -27,6 +27,21 @@ const campo =
  * Enviar SEM escolher é impossível de propósito: o botão só habilita
  * depois da escolha. Digitar um nome parecido e mandar seria gravar um
  * lembrete para ninguém.
+ *
+ * ⚠️ NENHUM ANCESTRAL PODE TER `overflow-hidden`.
+ *
+ * A lista cai por cima do que vem abaixo (`absolute`), e um recorte em
+ * qualquer pai a corta -- ela renderiza e fica invisível, sem erro, sem
+ * console, sem nada. Foi exatamente o que aconteceu no ADM do gás da
+ * empilhadeira em 03/09/2026: o dono digitava e "não aparecia os
+ * colaboradores cadastrados". A ação do servidor devolvia os 10 nomes
+ * certos; era o `overflow-hidden` do cartão que os escondia.
+ *
+ * Os cartões dobráveis usam `overflow-hidden` para arredondar os cantos
+ * do conteúdo interno. Quem for colocar este seletor dentro de um: tire
+ * o `overflow-hidden` do cartão e dê `rounded-*` nas faixas de dentro
+ * (é o que o VoceSabia faz, pelo mesmo motivo -- a pontinha do balão
+ * também vive fora da caixa).
  */
 export function SeletorDePessoa({
   buscar,

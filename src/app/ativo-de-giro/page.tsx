@@ -13,9 +13,11 @@ import {
   LIMITE_DIFERENCA_PCT,
   TIPOS,
   chave,
+  comodatoDeLinhas,
   conciliar,
   conciliarPorDia,
   contadoresDeLinhas,
+  juntarParcelas,
   diasAtrasISO,
   fatoresDeLinhas,
   formatarData,
@@ -40,6 +42,7 @@ import {
   dispensarRecontagem,
   excluirContagem,
   podeLancarTransito,
+  salvarComodato,
   salvarTransito,
   solicitarRecontagem,
 } from "./actions";
@@ -166,6 +169,7 @@ export default async function AtivoDeGiroPage({
     { data: quemContou },
     { data: transitoBanco },
     { data: transitoPeriodoBanco },
+    { data: comodatoBanco },
     podeTransito,
     { data: recontagensBanco },
     podeConfigurar,
@@ -248,7 +252,7 @@ export default async function AtivoDeGiroPage({
     aba === "painel" || aba === "conciliacao"
       ? supabase
           .from("ag_transito")
-          .select("tipo, formato, quantidade")
+          .select("tipo, formato, transito_rota, transito_carreta")
           .eq("revenda_id", revendaId)
           .eq("data", dia)
       : Promise.resolve({ data: null }),
@@ -256,10 +260,19 @@ export default async function AtivoDeGiroPage({
     aba === "historico"
       ? supabase
           .from("ag_transito")
-          .select("data, tipo, formato, quantidade")
+          .select("data, tipo, formato, transito_rota, transito_carreta")
           .eq("revenda_id", revendaId)
           .gte("data", de)
           .lte("data", ate)
+      : Promise.resolve({ data: null }),
+    // O COMODATO não tem data: é um saldo que vale até alguém mudar, e
+    // por isso serve para o dia aberto e para todos os dias do
+    // histórico (ver migration 094). Oito linhas no máximo.
+    aba === "painel" || aba === "conciliacao" || aba === "historico"
+      ? supabase
+          .from("ag_comodato")
+          .select("tipo, formato, quantidade, atualizado_em, atualizado_por_nome")
+          .eq("revenda_id", revendaId)
       : Promise.resolve({ data: null }),
     podeLancarTransito(),
     aba === "contagem" || aba === "conciliacao"
@@ -278,21 +291,46 @@ export default async function AtivoDeGiroPage({
 
   const fatores = fatoresDeLinhas(fatoresBanco);
   const parque = parqueDeLinhas(parqueBanco);
-  const transito = transitoDeLinhas(transitoBanco);
+  // Rota e carreta são DO DIA; o comodato vale até alguém mudar. As duas
+  // origens se juntam aqui, no formato que a conciliação consome.
+  const doDiaTransito = transitoDeLinhas(transitoBanco);
+  const comodato = comodatoDeLinhas(comodatoBanco);
+  const transito = juntarParcelas(doDiaTransito, comodato);
+
+  // Quem mexeu no comodato por último -- o número vale para todos os
+  // dias, então saber de quem ele é importa mais aqui do que no
+  // lançamento diário.
+  const comodatoQuem = (() => {
+    const linhas = (comodatoBanco ?? []) as {
+      atualizado_em: string;
+      atualizado_por_nome: string | null;
+    }[];
+    if (linhas.length === 0) return null;
+    const maisRecente = linhas.reduce((a, b) =>
+      a.atualizado_em > b.atualizado_em ? a : b,
+    );
+    const quem = maisRecente.atualizado_por_nome;
+    return quem
+      ? `${quem} em ${formatarData(maisRecente.atualizado_em.slice(0, 10))}`
+      : formatarData(maisRecente.atualizado_em.slice(0, 10));
+  })();
 
   // O trânsito do período, agrupado por dia -- é o que o histórico usa
-  // para conciliar cada dia com o número daquele dia, e não com o de
-  // hoje.
-  const transitoPorDia: Record<string, ReturnType<typeof transitoDeLinhas>> = {};
+  // para conciliar cada dia com o lançamento daquele dia.
+  const transitoPorDia: Record<string, Record<string, { rota: number; carreta: number }>> = {};
   for (const l of (transitoPeriodoBanco ?? []) as {
     data: string;
     tipo: string;
     formato: string;
-    quantidade: number;
+    transito_rota: number;
+    transito_carreta: number;
   }[]) {
     transitoPorDia[l.data] = {
       ...(transitoPorDia[l.data] ?? {}),
-      [chave(l.tipo, l.formato)]: l.quantidade,
+      [chave(l.tipo, l.formato)]: {
+        rota: l.transito_rota ?? 0,
+        carreta: l.transito_carreta ?? 0,
+      },
     };
   }
 
@@ -399,7 +437,7 @@ export default async function AtivoDeGiroPage({
   // Conciliação -- aqui a saída é não calcular, e a tela explica.
   const diasConciliados =
     aba === "historico" && !colab
-      ? conciliarPorDia(contagensPeriodo, parque, fatores, transitoPorDia)
+      ? conciliarPorDia(contagensPeriodo, parque, fatores, transitoPorDia, comodato)
       : [];
   const totais = totaisPorFormato(contagensDia, fatores);
   const maiorTotal = Math.max(1, ...totais.map((t) => t.total));
@@ -556,10 +594,20 @@ export default async function AtivoDeGiroPage({
                     caixas
                   </span>
                 </p>
+                {/* A conta escrita, parcela por parcela: é ela que
+                    responde "de onde saiu esse número". Cada parcela só
+                    aparece se tiver valor -- somar zeros na frase é
+                    ruído. */}
                 <p className="mt-1 text-xs text-slate-600">
                   {resumo.contado.toLocaleString("pt-BR")} contadas
-                  {resumo.transito > 0 && (
-                    <> + {resumo.transito.toLocaleString("pt-BR")} em trânsito</>
+                  {resumo.rota > 0 && (
+                    <> + {resumo.rota.toLocaleString("pt-BR")} rota</>
+                  )}
+                  {resumo.carreta > 0 && (
+                    <> + {resumo.carreta.toLocaleString("pt-BR")} carreta</>
+                  )}
+                  {resumo.comodato > 0 && (
+                    <> + {resumo.comodato.toLocaleString("pt-BR")} comodato</>
                   )}{" "}
                   − {resumo.parque.toLocaleString("pt-BR")} do parque. Aceitável
                   até {LIMITE_DIFERENCA_PCT}%.
@@ -583,8 +631,26 @@ export default async function AtivoDeGiroPage({
                       <th className="p-2">Tipo</th>
                       <th className="p-2">Formato</th>
                       <th className="p-2 text-right">Contado</th>
-                      <th className="p-2 text-right" title="Ativo que não está no pátio para ser contado. Lançado por quem tem liberação.">
-                        Trânsito
+                      {/* As três parcelas separadas: é o que diz ONDE
+                          está o ativo que não foi contado. Com um número
+                          só, sabia-se apenas que ele não estava aqui. */}
+                      <th
+                        className="p-2 text-right"
+                        title="Saiu com a entrega e volta no mesmo dia. Lançado por quem tem liberação."
+                      >
+                        Rota
+                      </th>
+                      <th
+                        className="p-2 text-right"
+                        title="Está entre unidades, com o transportador. Lançado por quem tem liberação."
+                      >
+                        Carreta
+                      </th>
+                      <th
+                        className="p-2 text-right"
+                        title="Emprestado ao cliente. Vale até alguém mudar -- não se lança todo dia."
+                      >
+                        Comodato
                       </th>
                       <th className="p-2 text-right">Parque</th>
                       <th className="p-2 text-right">Diferença</th>
@@ -600,11 +666,17 @@ export default async function AtivoDeGiroPage({
                         <td className="p-2">{l.formato}</td>
                         <td className="p-2 text-right tabular-nums">{l.contado}</td>
                         {/* Só leitura para quem conta -- é o que o dono
-                            pediu: o número aparece do lado do contado
+                            pediu: os números aparecem do lado do contado
                             para explicar a diferença, mas quem edita é
-                            quem tem liberação, no bloco abaixo. */}
+                            quem tem liberação, nos blocos abaixo. */}
                         <td className="p-2 text-right tabular-nums text-slate-500">
-                          {l.transito > 0 ? l.transito : "—"}
+                          {l.rota > 0 ? l.rota : "—"}
+                        </td>
+                        <td className="p-2 text-right tabular-nums text-slate-500">
+                          {l.carreta > 0 ? l.carreta : "—"}
+                        </td>
+                        <td className="p-2 text-right tabular-nums text-slate-500">
+                          {l.comodato > 0 ? l.comodato : "—"}
                         </td>
                         <td className="p-2 text-right tabular-nums">{l.parque}</td>
                         <td
@@ -652,19 +724,28 @@ export default async function AtivoDeGiroPage({
                 🚚 Trânsito de {formatarData(dia)}
               </h2>
               <p className="mt-1 text-xs text-slate-600">
-                O ativo que <strong>não está no pátio</strong> para ser contado
-                — o que está com o transportador, entre unidades. Ele soma no
-                contado antes de comparar com o parque, senão todo dia com
-                carreta na estrada acusa falta.
+                O ativo que <strong>não está no pátio</strong> para ser contado.
+                Ele soma no contado antes de comparar com o parque, senão todo
+                dia com entrega na rua e carreta na estrada acusa falta.
               </p>
-              <p className="mt-1 text-xs text-slate-500">
+              <ul className="mt-2 space-y-0.5 text-xs text-slate-600">
+                <li>
+                  <strong>Rota</strong> — saiu com a entrega e volta no mesmo
+                  dia.
+                </li>
+                <li>
+                  <strong>Carreta</strong> — está entre unidades, com o
+                  transportador.
+                </li>
+              </ul>
+              <p className="mt-2 text-xs text-slate-500">
                 Não confunda com os status <em>Trânsito Rota</em> e{" "}
                 <em>Trânsito Fábrica</em> da contagem: aqueles são contados no
                 pátio e já entram na coluna Contado.
               </p>
               <p className="mt-1 text-xs text-slate-500">
                 Lançar de novo <strong>corrige</strong> o número do dia, não
-                soma.
+                soma. O comodato fica no bloco abaixo — ele não é do dia.
               </p>
 
               {/* UM FORMULÁRIO, UM BOTÃO -- pedido do dono (03/09/2026),
@@ -680,11 +761,86 @@ export default async function AtivoDeGiroPage({
               <form action={salvarTransito} className="mt-3">
                 <input type="hidden" name="data" value={dia} />
 
+                <div className="mb-1 flex items-center gap-2 text-[10px] font-bold uppercase tracking-wide text-slate-500">
+                  <span className="min-w-0 flex-1">Item</span>
+                  <span className="w-24 text-center">Rota</span>
+                  <span className="w-24 text-center">Carreta</span>
+                </div>
+
+                <div className="space-y-2">
+                  {TIPOS.flatMap((tipo) =>
+                    FORMATOS.map((formato) => {
+                      const atual = doDiaTransito[chave(tipo, formato)];
+                      return (
+                        <div
+                          key={`t-${chave(tipo, formato)}`}
+                          className="flex items-center gap-2"
+                        >
+                          <input type="hidden" name="tipo" value={tipo} />
+                          <input type="hidden" name="formato" value={formato} />
+                          <span className="min-w-0 flex-1 truncate text-sm text-slate-700">
+                            {tipo} · {formato}
+                          </span>
+                          <input
+                            type="number"
+                            name="transito_rota"
+                            min={0}
+                            defaultValue={atual?.rota ?? 0}
+                            aria-label={`Trânsito rota de ${tipo} ${formato} em caixas`}
+                            className="w-24 rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-base"
+                          />
+                          <input
+                            type="number"
+                            name="transito_carreta"
+                            min={0}
+                            defaultValue={atual?.carreta ?? 0}
+                            aria-label={`Trânsito carreta de ${tipo} ${formato} em caixas`}
+                            className="w-24 rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-base"
+                          />
+                        </div>
+                      );
+                    }),
+                  )}
+                </div>
+
+                <BotaoEnviar
+                  textoEnviando="Salvando o dia..."
+                  className="mt-3 w-full rounded-xl bg-primary px-4 py-3 text-sm font-bold text-white hover:bg-primary-dark"
+                >
+                  Salvar o trânsito de {formatarData(dia)}
+                </BotaoEnviar>
+              </form>
+            </section>
+          )}
+
+          {/* ---- Comodato: NÃO é do dia ---- */}
+          {podeTransito && (
+            <section className="mt-4 rounded-2xl border border-slate-300 bg-white p-4">
+              <h2 className="text-sm font-bold uppercase tracking-wide text-slate-700">
+                🤝 Comodato
+              </h2>
+              <p className="mt-1 text-xs text-slate-600">
+                Ativo <strong>emprestado ao cliente</strong>. Diferente do
+                trânsito, ele não é lançado por dia: o número{" "}
+                <strong>vale até alguém mudar</strong>, e só se mexe quando há
+                necessidade.
+              </p>
+              <p className="mt-1 text-xs text-slate-500">
+                Por isso ele entra na conciliação de todos os dias, inclusive
+                nos anteriores — mudar aqui muda o que o histórico mostra.
+              </p>
+              {comodatoQuem && (
+                <p className="mt-1 text-xs text-slate-400">
+                  Última alteração: {comodatoQuem}.
+                </p>
+              )}
+
+              <form action={salvarComodato} className="mt-3">
                 <div className="space-y-2">
                   {TIPOS.flatMap((tipo) =>
                     FORMATOS.map((formato) => (
                       <div
-                        key={`t-${chave(tipo, formato)}`}
+                        key={`c-${chave(tipo, formato)}`}
                         className="flex items-center gap-2"
                       >
                         <input type="hidden" name="tipo" value={tipo} />
@@ -696,8 +852,8 @@ export default async function AtivoDeGiroPage({
                           type="number"
                           name="quantidade"
                           min={0}
-                          defaultValue={transito[chave(tipo, formato)] ?? 0}
-                          aria-label={`Trânsito de ${tipo} ${formato} em caixas`}
+                          defaultValue={comodato[chave(tipo, formato)] ?? 0}
+                          aria-label={`Comodato de ${tipo} ${formato} em caixas`}
                           className="w-24 rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-base"
                         />
                       </div>
@@ -706,10 +862,10 @@ export default async function AtivoDeGiroPage({
                 </div>
 
                 <BotaoEnviar
-                  textoEnviando="Salvando o dia..."
-                  className="mt-3 w-full rounded-xl bg-primary px-4 py-3 text-sm font-bold text-white hover:bg-primary-dark"
+                  textoEnviando="Salvando..."
+                  className="mt-3 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-bold text-slate-700 hover:bg-slate-50"
                 >
-                  Salvar o trânsito de {formatarData(dia)}
+                  Salvar o comodato
                 </BotaoEnviar>
               </form>
             </section>
@@ -917,7 +1073,9 @@ export default async function AtivoDeGiroPage({
                     <tr>
                       <th className="p-2">Dia</th>
                       <th className="p-2 text-right">Contado</th>
-                      <th className="p-2 text-right">Trânsito</th>
+                      <th className="p-2 text-right">Rota</th>
+                      <th className="p-2 text-right">Carreta</th>
+                      <th className="p-2 text-right">Comodato</th>
                       <th className="p-2 text-right">Parque</th>
                       <th className="p-2 text-right">Diferença</th>
                       <th className="p-2 text-right">%</th>
@@ -933,7 +1091,13 @@ export default async function AtivoDeGiroPage({
                           {d.contado.toLocaleString("pt-BR")}
                         </td>
                         <td className="p-2 text-right tabular-nums text-slate-500">
-                          {d.transito > 0 ? d.transito.toLocaleString("pt-BR") : "—"}
+                          {d.rota > 0 ? d.rota.toLocaleString("pt-BR") : "—"}
+                        </td>
+                        <td className="p-2 text-right tabular-nums text-slate-500">
+                          {d.carreta > 0 ? d.carreta.toLocaleString("pt-BR") : "—"}
+                        </td>
+                        <td className="p-2 text-right tabular-nums text-slate-500">
+                          {d.comodato > 0 ? d.comodato.toLocaleString("pt-BR") : "—"}
                         </td>
                         <td className="p-2 text-right tabular-nums text-slate-500">
                           {d.parque.toLocaleString("pt-BR")}
@@ -970,9 +1134,14 @@ export default async function AtivoDeGiroPage({
                 </table>
               </div>
               <p className="mt-2 text-xs text-slate-500">
-                Diferença = contado + trânsito − parque. Aceitável até{" "}
-                {LIMITE_DIFERENCA_PCT}% do parque; acima disso, vermelho. Dias
-                sem contagem não aparecem — não houve medição.
+                Diferença = contado + rota + carreta + comodato − parque.
+                Aceitável até {LIMITE_DIFERENCA_PCT}% do parque; acima disso,
+                vermelho. Dias sem contagem não aparecem — não houve medição.
+              </p>
+              <p className="mt-1 text-xs text-slate-400">
+                O comodato é o mesmo em todos os dias: ele vale até alguém
+                mudar, e não é lançado por dia. Mudá-lo hoje muda também o que
+                estes dias mostram.
               </p>
             </section>
           )}

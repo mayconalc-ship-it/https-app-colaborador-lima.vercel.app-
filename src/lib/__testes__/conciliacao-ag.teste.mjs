@@ -1,11 +1,15 @@
-// A conciliacao do Ativo de Giro: contado + transito - parque, e o
-// limite de 5% do parque. O que este teste guarda: o transito SOMA (sem
-// ele todo dia com carreta na estrada acusava falta), o percentual e
-// sobre o PARQUE, e dia sem contagem nao vira dia com problema.
+// A conciliacao do Ativo de Giro:
+//   contado + transito rota + transito carreta + comodato - parque
+// com limite de 5% do parque.
+//
+// O que este teste guarda: as tres parcelas SOMAM (sem elas, todo dia com
+// entrega na rua e carreta na estrada acusava falta), o comodato vale
+// para TODOS os dias (nao e lancado por dia), o percentual e sobre o
+// PARQUE, e dia sem contagem nao vira dia com problema.
 //   npx tsx src/lib/__testes__/conciliacao-ag.teste.mjs
 import {
   conciliar, resumirConciliacao, conciliarPorDia, transitoDeLinhas,
-  LIMITE_DIFERENCA_PCT,
+  comodatoDeLinhas, juntarParcelas, LIMITE_DIFERENCA_PCT,
 } from "../ativo-giro.ts";
 
 let falhas = 0;
@@ -30,7 +34,7 @@ const so = (linhas, formato) => linhas.find((l) => l.formato === formato);
 
 console.log("== O TRANSITO SOMA ==");
 // 900 contadas, 100 em transito, parque de 1000: fecha exato.
-const comTransito = conciliar([c("600ml", 9)], { "Kit AG|600ml": 1000 }, fatores, { "Kit AG|600ml": 100 });
+const comTransito = conciliar([c("600ml", 9)], { "Kit AG|600ml": 1000 }, fatores, { "Kit AG|600ml": { rota: 100, carreta: 0, comodato: 0 } });
 eq("contado + transito - parque", so(comTransito, "600ml").diferenca, 0);
 eq("dentro do aceitavel", so(comTransito, "600ml").dentroDoAceitavel, true);
 
@@ -68,14 +72,14 @@ eq("nada em lugar nenhum some da tela", conciliar([], {}, fatores).length, 0);
 // Mas so transito ja e motivo para a linha existir -- e um numero que
 // alguem lancou e precisa ver.
 eq("so transito ja mostra a linha",
-  conciliar([], {}, fatores, { "Kit AG|600ml": 50 }).length, 1);
+  conciliar([], {}, fatores, { "Kit AG|600ml": { rota: 50, carreta: 0, comodato: 0 } }).length, 1);
 
 console.log("\n== O RESUMO SOMA ANTES DE DIVIDIR ==");
 // Duas linhas: uma de 100 caixas com 50% de erro, outra de 10.000 com 1%.
 // Media de porcentagens daria 25,5%. Somando primeiro, e 1,49%.
 const resumo = resumirConciliacao([
-  { tipo: "Kit AG", formato: "600ml", contado: 50, transito: 0, parque: 100, diferenca: -50, pctDiferenca: 50, dentroDoAceitavel: false },
-  { tipo: "Kit AG", formato: "300ml", contado: 9900, transito: 0, parque: 10000, diferenca: -100, pctDiferenca: 1, dentroDoAceitavel: true },
+  { tipo: "Kit AG", formato: "600ml", contado: 50, rota: 0, carreta: 0, comodato: 0, transito: 0, parque: 100, diferenca: -50, pctDiferenca: 50, dentroDoAceitavel: false },
+  { tipo: "Kit AG", formato: "300ml", contado: 9900, rota: 0, carreta: 0, comodato: 0, transito: 0, parque: 10000, diferenca: -100, pctDiferenca: 1, dentroDoAceitavel: true },
 ]);
 eq("diferenca total", resumo.diferenca, -150);
 eq("percentual do total soma antes de dividir", resumo.pctDiferenca, 1.5);
@@ -89,7 +93,7 @@ const dias = conciliarPorDia(
   [c("600ml", 10, 0, 0, "2026-09-03"), c("600ml", 9, 0, 0, "2026-09-01")],
   { "Kit AG|600ml": 1000 },
   fatores,
-  { "2026-09-01": { "Kit AG|600ml": 100 } },
+  { "2026-09-01": { "Kit AG|600ml": { rota: 100, carreta: 0, comodato: 0 } } },
 );
 eq("so os dias contados entram", dias.map((d) => d.dia), ["2026-09-03", "2026-09-01"]);
 eq("dia 03 fecha exato", dias[0].diferenca, 0);
@@ -98,11 +102,75 @@ eq("dia 01 fecha com o transito dele", dias[1].diferenca, 0);
 // Domingo (02) nao existe na lista -- nao houve medicao, nao ha queda.
 eq("dia sem contagem nao vira linha", dias.some((d) => d.dia === "2026-09-02"), false);
 
-console.log("\n== LER O TRANSITO DO BANCO ==");
-eq("indexa por tipo|formato",
-  transitoDeLinhas([{ tipo: "Kit AG", formato: "600ml", quantidade: 42 }]),
-  { "Kit AG|600ml": 42 });
+console.log("\n== AS TRES PARCELAS SOMAM JUNTO ==");
+// contado + rota + carreta + comodato - parque. 700 + 100 + 150 + 50 = 1000.
+const tres = conciliar(
+  [c("600ml", 7)],
+  { "Kit AG|600ml": 1000 },
+  fatores,
+  { "Kit AG|600ml": { rota: 100, carreta: 150, comodato: 50 } },
+);
+eq("as tres entram na conta", so(tres, "600ml").diferenca, 0);
+// Cada uma fica visivel separada -- e o que diz ONDE esta o ativo.
+eq("rota separada", so(tres, "600ml").rota, 100);
+eq("carreta separada", so(tres, "600ml").carreta, 150);
+eq("comodato separado", so(tres, "600ml").comodato, 50);
+eq("e a soma guardada para a tela", so(tres, "600ml").transito, 300);
+
+// Faltando UMA das tres, a conta acusa exatamente o tamanho dela.
+const semComodato = conciliar(
+  [c("600ml", 7)],
+  { "Kit AG|600ml": 1000 },
+  fatores,
+  { "Kit AG|600ml": { rota: 100, carreta: 150, comodato: 0 } },
+);
+eq("sem o comodato, falta o comodato", so(semComodato, "600ml").diferenca, -50);
+
+console.log("\n== O RESUMO SOMA CADA PARCELA ==");
+const resumoTres = resumirConciliacao(tres);
+eq("rota do dia", resumoTres.rota, 100);
+eq("carreta do dia", resumoTres.carreta, 150);
+eq("comodato vigente", resumoTres.comodato, 50);
+eq("total fora do patio", resumoTres.transito, 300);
+
+console.log("\n== O COMODATO VALE PARA TODOS OS DIAS ==");
+// Ele nao e lancado por dia: um numero so, que entra em cada dia do
+// historico. Sem isso alguem redigitaria o mesmo valor toda manha -- e no
+// dia em que esquecesse, o comodato viraria zero e a conciliacao acusaria
+// uma falta que nao existe.
+const comComodato = conciliarPorDia(
+  [c("600ml", 9, 5, 0, "2026-09-03"), c("600ml", 9, 5, 0, "2026-09-01")],
+  { "Kit AG|600ml": 1000 },
+  fatores,
+  {}, // nenhum transito lancado em dia nenhum
+  { "Kit AG|600ml": 50 }, // comodato vigente
+);
+eq("os dois dias recebem o comodato", comComodato.map((d) => d.comodato), [50, 50]);
+// 950 contadas + 50 de comodato = 1000, fecha nos dois dias.
+eq("e os dois fecham", comComodato.map((d) => d.diferenca), [0, 0]);
+
+console.log("\n== LER DO BANCO ==");
+eq("transito indexa por tipo|formato",
+  transitoDeLinhas([{ tipo: "Kit AG", formato: "600ml", transito_rota: 42, transito_carreta: 8 }]),
+  { "Kit AG|600ml": { rota: 42, carreta: 8 } });
 eq("nulo nao quebra", transitoDeLinhas(null), {});
+eq("comodato indexa por tipo|formato",
+  comodatoDeLinhas([{ tipo: "Kit AG", formato: "600ml", quantidade: 70 }]),
+  { "Kit AG|600ml": 70 });
+
+console.log("\n== JUNTAR AS DUAS ORIGENS ==");
+// Rota e carreta vem do dia; o comodato vem de fora. A chave que existe
+// so num dos dois nao pode sumir.
+eq("junta o dia com o comodato",
+  juntarParcelas(
+    { "Kit AG|600ml": { rota: 10, carreta: 20 } },
+    { "Kit AG|600ml": 30, "Kit AG|300ml": 5 },
+  ),
+  {
+    "Kit AG|600ml": { rota: 10, carreta: 20, comodato: 30 },
+    // So comodato: a linha existe, com o dia zerado.
+    "Kit AG|300ml": { rota: 0, carreta: 0, comodato: 5 },
+  });
 
 console.log(`\n${falhas === 0 ? "TODOS OS CASOS PASSARAM" : falhas + " FALHA(S)"}`);
 process.exit(falhas === 0 ? 0 : 1);

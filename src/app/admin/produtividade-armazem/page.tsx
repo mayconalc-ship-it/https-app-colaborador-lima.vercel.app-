@@ -767,7 +767,7 @@ export default async function AdminProdutividadeArmazemPage({
           </details>
 
           {/* ---- Alerta de gás acabando ---- */}
-          <details className="group overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <details className="group rounded-2xl border border-slate-200 bg-white shadow-sm">
             <summary className="cursor-pointer list-none border-b border-slate-100 p-4 marker:content-none [&::-webkit-details-marker]:hidden">
               <h2 className="text-sm font-bold text-slate-900">
                 <span className="mr-1 inline-block text-slate-400 transition-transform group-open:rotate-90">
@@ -886,7 +886,7 @@ export default async function AdminProdutividadeArmazemPage({
             </div>
           </details>
 
-          <details className="group overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <details className="group rounded-2xl border border-slate-200 bg-white shadow-sm">
             <summary className="cursor-pointer list-none border-b border-slate-100 p-4 marker:content-none [&::-webkit-details-marker]:hidden">
               <h2 className="text-sm font-bold text-slate-900">
                 <span className="mr-1 inline-block text-slate-400 transition-transform group-open:rotate-90">

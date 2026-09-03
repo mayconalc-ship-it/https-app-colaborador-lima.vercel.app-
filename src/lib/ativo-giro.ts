@@ -228,14 +228,70 @@ export function parqueDeLinhas(
  */
 export const LIMITE_DIFERENCA_PCT = 5;
 
-/** O trânsito do dia, indexado por tipo|formato -- igual ao parque. */
-export type Transito = Record<string, number>;
+/**
+ * AS TRÊS PARCELAS QUE NÃO ESTÃO NO PÁTIO, por tipo|formato.
+ *
+ * Cada uma é um lugar diferente onde o ativo pode estar, e é por isso que
+ * são três colunas e não um número só (pedido do dono, 03/09/2026):
+ *
+ *   rota      saiu com a entrega e volta no mesmo dia
+ *   carreta   está entre unidades, com o transportador
+ *   comodato  está emprestado ao cliente, e fica lá
+ *
+ * As três somam ao contado antes de comparar com o parque. Separadas,
+ * quem olha a conciliação sabe ONDE está o ativo que falta no pátio --
+ * com um número só, sabia apenas que ele não estava aqui.
+ */
+export type ParcelaFora = { rota: number; carreta: number; comodato: number };
+export type Transito = Record<string, ParcelaFora>;
 
+export const PARCELA_ZERO: ParcelaFora = { rota: 0, carreta: 0, comodato: 0 };
+
+/** Rota e carreta vêm do lançamento DO DIA (ag_transito). */
 export function transitoDeLinhas(
+  linhas:
+    | { tipo: string; formato: string; transito_rota: number; transito_carreta: number }[]
+    | null,
+): Record<string, { rota: number; carreta: number }> {
+  const mapa: Record<string, { rota: number; carreta: number }> = {};
+  for (const l of linhas ?? []) {
+    mapa[chave(l.tipo, l.formato)] = {
+      rota: l.transito_rota ?? 0,
+      carreta: l.transito_carreta ?? 0,
+    };
+  }
+  return mapa;
+}
+
+/**
+ * O comodato NÃO vem do dia: ele é um saldo que vale até alguém mudar,
+ * igual ao parque (ver migration 094).
+ *
+ * Se fosse lançado dia a dia, alguém teria de redigitar o mesmo número
+ * toda manhã -- e no dia em que esquecesse, o comodato viraria zero e a
+ * conciliação acusaria uma falta que não existe.
+ */
+export function comodatoDeLinhas(
   linhas: { tipo: string; formato: string; quantidade: number }[] | null,
+): Record<string, number> {
+  const mapa: Record<string, number> = {};
+  for (const l of linhas ?? []) mapa[chave(l.tipo, l.formato)] = l.quantidade;
+  return mapa;
+}
+
+/** Junta as duas origens no formato que a conciliação consome. */
+export function juntarParcelas(
+  doDia: Record<string, { rota: number; carreta: number }>,
+  comodato: Record<string, number>,
 ): Transito {
   const mapa: Transito = {};
-  for (const l of linhas ?? []) mapa[chave(l.tipo, l.formato)] = l.quantidade;
+  for (const k of new Set([...Object.keys(doDia), ...Object.keys(comodato)])) {
+    mapa[k] = {
+      rota: doDia[k]?.rota ?? 0,
+      carreta: doDia[k]?.carreta ?? 0,
+      comodato: comodato[k] ?? 0,
+    };
+  }
   return mapa;
 }
 
@@ -243,11 +299,16 @@ export type LinhaConciliacao = {
   tipo: Tipo;
   formato: Formato;
   contado: number;
-  /** O que não está no pátio para ser contado -- lançado por quem é
-   *  liberado na configuração do módulo. */
+  /** As três parcelas fora do pátio, separadas -- é o que diz ONDE está
+   *  o ativo que não foi contado. */
+  rota: number;
+  carreta: number;
+  comodato: number;
+  /** A soma das três. Guardada para a tela não repetir a conta. */
   transito: number;
   parque: number;
-  /** contado + trânsito − parque. Negativo é falta, positivo é sobra. */
+  /** contado + rota + carreta + comodato − parque. Negativo é falta,
+   *  positivo é sobra. */
   diferenca: number;
   /** A diferença sobre o PARQUE, em módulo. `null` sem parque: dividir
    *  por zero não dá "0% de erro", dá pergunta sem resposta. */
@@ -262,16 +323,16 @@ export type LinhaConciliacao = {
  * (varias pessoas podem contar o mesmo item), acrescenta o trânsito e
  * compara com o parque.
  *
- * A CONTA É `contado + trânsito − parque`, pedido do dono. O trânsito
- * entra somando porque ele É ativo da revenda -- só não está aqui para
- * ser contado. Sem ele, todo dia com carreta na estrada acusava falta.
+ * A CONTA É `contado + rota + carreta + comodato − parque`, pedido do
+ * dono. As três parcelas entram somando porque são ativo DA REVENDA --
+ * só não estão aqui para ser contados. Sem elas, todo dia com entrega na
+ * rua e carreta na estrada acusava falta.
  *
  * Cuidado que a tela precisa dizer, e diz: `status` de contagem já tem
  * "Trânsito Rota" e "Trânsito Fábrica", e aquilo é coisa CONTADA no
- * pátio, que entra em `contado`. Esta parcela é a que ninguém consegue
- * contar -- o que está com o transportador, entre unidades. São coisas
- * diferentes com nome parecido, e é por isso que a coluna vem
- * explicada.
+ * pátio, que entra em `contado`. Estas parcelas são as que ninguém
+ * consegue contar. São coisas diferentes com nome parecido, e é por isso
+ * que as colunas vêm explicadas.
  */
 export function conciliar(
   contagens: Contagem[],
@@ -290,9 +351,10 @@ export function conciliar(
     for (const formato of FORMATOS) {
       const k = chave(tipo, formato);
       const contado = somas.get(k) ?? 0;
-      const emTransito = transito[k] ?? 0;
+      const fora = transito[k] ?? PARCELA_ZERO;
+      const emTransito = fora.rota + fora.carreta + fora.comodato;
       const saldo = parque[k] ?? 0;
-      // Linha sem nada nos três: não existe para esta revenda.
+      // Linha sem nada em parte nenhuma: não existe para esta revenda.
       if (contado === 0 && saldo === 0 && emTransito === 0) continue;
 
       const diferenca = contado + emTransito - saldo;
@@ -302,6 +364,9 @@ export function conciliar(
         tipo,
         formato,
         contado,
+        rota: fora.rota,
+        carreta: fora.carreta,
+        comodato: fora.comodato,
         transito: emTransito,
         parque: saldo,
         diferenca,
@@ -322,6 +387,9 @@ export function conciliar(
  */
 export type ResumoConciliacao = {
   contado: number;
+  rota: number;
+  carreta: number;
+  comodato: number;
   transito: number;
   parque: number;
   diferenca: number;
@@ -333,13 +401,19 @@ export type ResumoConciliacao = {
 
 export function resumirConciliacao(linhas: LinhaConciliacao[]): ResumoConciliacao {
   const contado = linhas.reduce((s, l) => s + l.contado, 0);
-  const transito = linhas.reduce((s, l) => s + l.transito, 0);
+  const rota = linhas.reduce((s, l) => s + l.rota, 0);
+  const carreta = linhas.reduce((s, l) => s + l.carreta, 0);
+  const comodato = linhas.reduce((s, l) => s + l.comodato, 0);
+  const transito = rota + carreta + comodato;
   const parque = linhas.reduce((s, l) => s + l.parque, 0);
   const diferenca = contado + transito - parque;
   const pct = parque > 0 ? Math.round((Math.abs(diferenca) / parque) * 1000) / 10 : null;
 
   return {
     contado,
+    rota,
+    carreta,
+    comodato,
     transito,
     parque,
     diferenca,
@@ -371,7 +445,11 @@ export function conciliarPorDia(
   contagens: Contagem[],
   parque: Parque,
   fatores: Fatores,
-  transitoPorDia: Record<string, Transito>,
+  /** Rota e carreta, por dia -- cada dia tem o seu lançamento. */
+  transitoPorDia: Record<string, Record<string, { rota: number; carreta: number }>>,
+  /** O comodato é um só, e vale para todos os dias: ele não muda todo
+   *  dia, e por isso não é lançado por dia (ver migration 094). */
+  comodato: Record<string, number> = {},
 ): DiaConciliado[] {
   const porDia = new Map<string, Contagem[]>();
   for (const c of contagens) {
@@ -383,7 +461,14 @@ export function conciliarPorDia(
   return [...porDia.entries()]
     .map(([dia, doDia]) => ({
       dia,
-      ...resumirConciliacao(conciliar(doDia, parque, fatores, transitoPorDia[dia] ?? {})),
+      ...resumirConciliacao(
+        conciliar(
+          doDia,
+          parque,
+          fatores,
+          juntarParcelas(transitoPorDia[dia] ?? {}, comodato),
+        ),
+      ),
     }))
     .sort((a, b) => b.dia.localeCompare(a.dia));
 }

@@ -600,9 +600,14 @@ export async function salvarTransito(formData: FormData) {
   // Recebimento.
   const tipos = formData.getAll("tipo").map(String);
   const formatos = formData.getAll("formato").map(String);
-  const quantidades = formData.getAll("quantidade");
+  const rotas = formData.getAll("transito_rota");
+  const carretas = formData.getAll("transito_carreta");
 
-  if (tipos.length !== formatos.length || tipos.length !== quantidades.length) {
+  if (
+    tipos.length !== formatos.length ||
+    tipos.length !== rotas.length ||
+    tipos.length !== carretas.length
+  ) {
     erro("Formulario incompleto -- recarregue a tela e tente de novo.");
   }
 
@@ -614,7 +619,8 @@ export async function salvarTransito(formData: FormData) {
       data,
       tipo,
       formato,
-      quantidade: inteiro(quantidades[i], 1_000_000),
+      transito_rota: inteiro(rotas[i], 1_000_000),
+      transito_carreta: inteiro(carretas[i], 1_000_000),
       atualizado_em: new Date().toISOString(),
       atualizado_por: perfil.id,
       atualizado_por_nome: perfil.nome,
@@ -633,4 +639,64 @@ export async function salvarTransito(formData: FormData) {
 
   revalidatePath(ROTA);
   redirect(`${ROTA}?aba=conciliacao&data=${data}&sucesso=${encodeURIComponent("Transito do dia salvo")}`);
+}
+
+/**
+ * Salva o COMODATO -- que nao e do dia, e vale ate alguem mudar.
+ *
+ * Nao leva data de proposito. Palavras do dono: "comodato pode manter o
+ * dos outros dias, e somente quando houver necessidade a controle
+ * modifica". Se ele fosse lancado por dia, alguem redigitaria o mesmo
+ * numero toda manha -- e no dia em que esquecesse, o comodato viraria
+ * zero e a conciliacao acusaria uma falta que nao existe.
+ *
+ * Mesmo desenho do parque, e com o mesmo preco: mudar o comodato hoje
+ * muda tambem o que a conciliacao dos dias anteriores mostra. Para a
+ * janela de semanas que a tela cobre isso e honesto -- e e por isso que
+ * o historico nao volta anos.
+ */
+export async function salvarComodato(formData: FormData) {
+  const perfil = await getPerfil();
+  if (!perfil) redirect("/login");
+
+  const revendaId = await getRevendaId();
+  if (!revendaId) erro("Voce nao esta em nenhuma revenda.");
+
+  if (!(await podeLancarTransito())) {
+    erro("Voce nao tem liberacao para mexer no comodato. Fale com quem cuida do Ativo de Giro.");
+  }
+
+  const tipos = formData.getAll("tipo").map(String);
+  const formatos = formData.getAll("formato").map(String);
+  const quantidades = formData.getAll("quantidade");
+
+  if (tipos.length !== formatos.length || tipos.length !== quantidades.length) {
+    erro("Formulario incompleto -- recarregue a tela e tente de novo.");
+  }
+
+  const linhas = tipos.map((tipo, i) => {
+    const formato = formatos[i];
+    if (!ehTipo(tipo) || !ehFormato(formato)) erro("Item invalido no formulario.");
+    return {
+      revenda_id: revendaId,
+      tipo,
+      formato,
+      quantidade: inteiro(quantidades[i], 1_000_000),
+      atualizado_em: new Date().toISOString(),
+      atualizado_por: perfil.id,
+      atualizado_por_nome: perfil.nome,
+    };
+  });
+
+  if (linhas.length === 0) erro("Nada para salvar.");
+
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("ag_comodato")
+    .upsert(linhas, { onConflict: "revenda_id,tipo,formato" });
+
+  if (error) erro(`Nao foi possivel salvar o comodato: ${error.message}`);
+
+  revalidatePath(ROTA);
+  redirect(`${ROTA}?aba=conciliacao&sucesso=${encodeURIComponent("Comodato atualizado")}`);
 }
