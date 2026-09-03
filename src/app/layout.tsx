@@ -15,7 +15,6 @@ import { Notificacoes } from "@/components/Notificacoes";
 import { SeletorRevenda } from "@/components/SeletorRevenda";
 import { Provedores } from "@/components/Provedores";
 import { SincronizarPush } from "@/components/SincronizarPush";
-import { LampadaVoceSabia } from "@/components/LampadaVoceSabia";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -149,16 +148,6 @@ export default async function RootLayout({
               {user && (
                 <nav className="ml-auto flex shrink-0 items-center gap-1 sm:gap-2">
                   <SeletorRevenda />
-                  {/* Ao lado do sino de propósito: os dois dizem "tem
-                      algo novo para você". Ela some sozinha quando não há
-                      dica (ver LampadaVoceSabia), então não ocupa espaço
-                      do cabeçalho na maioria das visitas. */}
-                  {revenda && (
-                    <LampadaVoceSabia
-                      colaboradorId={perfil!.id}
-                      revendaId={revenda.id}
-                    />
-                  )}
                   <Notificacoes />
                   <BotaoLideranca />
                   <Link

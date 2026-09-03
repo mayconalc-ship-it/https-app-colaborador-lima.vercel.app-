@@ -84,51 +84,28 @@ export function VoceSabia({
       )}
 
       {/*
-        A LÂMPADA MORA NO CABEÇALHO, ao lado do sino.
+        NO PÉ DA HOME, À DIREITA, E O BALÃO ABRE PARA CIMA.
 
-        Ela já esteve em dois cantos flutuantes, e os dois brigaram com
-        alguma coisa. Embaixo à direita cobria os cartões do menu: quem ia
-        tocar num módulo acertava a lâmpada. Em cima à direita sobrepunha
-        o ✕ de fechar da própria página -- os dois ficam em `right-4`, e
-        no celular o ✕ ocupa de 80 a 120px do topo contra 68 a 116px da
-        lâmpada. Colisão cheia, não de raspão (relatado em 03/09/2026).
+        Ela passou por três lugares até aqui, e o que decidiu foi limitar
+        ONDE ela existe, não empurrá-la mais um canto.
 
-        O dono sugeriu deixar a pessoa ARRASTAR a lâmpada. Resolveria o
-        sintoma, mas ao preço errado: cada uma das ~67 pessoas teria de
-        descobrir sozinha que dá para mover e então mover, e enquanto não
-        movesse continuaria com o botão em cima do ✕. Fora que arrastar e
-        rolar disputam o mesmo gesto no celular -- o dedo que sobe a tela
-        acabaria levando a lâmpada junto.
+        Embaixo, no app inteiro, ela cobria os cartões do menu. Em cima à
+        direita sobrepunha o ✕ de fechar das telas internas -- os dois em
+        `right-4`, e no celular o ✕ ocupa de 80 a 120px do topo contra 68
+        a 116px da lâmpada: colisão cheia, não de raspão. No cabeçalho
+        resolvia os dois, mas ficava discreta demais para o gosto do dono.
 
-        O cabeçalho resolve por CONSTRUÇÃO, para todo mundo de uma vez: é
-        uma faixa que já existe para ícones, com espaço próprio, e nenhum
-        conteúdo passa por baixo dela. De quebra a lâmpada fica ao lado do
-        sino, e os dois dizem a mesma coisa -- "tem algo novo para você".
-        Um terceiro canto flutuante só encontraria o próximo botão.
+        SÓ NA HOME (ver app/page.tsx), e é isso que fecha a conta: a home
+        é a única tela sem ✕, e é onde a pessoa está entre uma tarefa e
+        outra -- que é o momento de parar para ler uma dica. Nas telas de
+        trabalho a lâmpada não tinha o que fazer mesmo: ninguém interrompe
+        um apontamento de reepack para revisar pergunta de desafio.
+
+        O dono chegou a sugerir deixar arrastar. Não foi por aí: cada uma
+        das ~67 pessoas teria de descobrir sozinha que dá para mover, e
+        arrastar disputa com rolar o mesmo gesto no celular.
       */}
-      <button
-        type="button"
-        onClick={() => (aberto ? setAberto(false) : abrir())}
-        aria-expanded={aberto}
-        aria-label={
-          novo ? "Você sabia? Há uma dica nova" : "Você sabia? Ver a dica"
-        }
-        className={`relative shrink-0 rounded-lg px-2 py-1.5 text-base transition-colors ${
-          novo ? "bg-gold" : "bg-white/10 hover:bg-white/20"
-        }`}
-      >
-        💡
-        {novo && (
-          <span
-            aria-hidden="true"
-            className="lampada-pisca absolute right-0.5 top-0.5 h-2 w-2 rounded-full bg-primary"
-          />
-        )}
-      </button>
-
-      {/* O balão desce do cabeçalho: a altura dele é 56px até 640px e
-          88px daí para cima -- a mesma conta da barra do Admin. */}
-      <div className="fixed right-2 top-[60px] z-40 flex flex-col items-end sm:right-4 sm:top-[92px] print:hidden">
+      <div className="fixed bottom-4 right-4 z-40 flex flex-col items-end gap-2 print:hidden">
         {aberto && (
           <div
             ref={caixa}
@@ -213,17 +190,44 @@ export function VoceSabia({
               </span>
             </div>
 
-            {/* A pontinha, encostada no topo à direita -- é ela que liga
-                o balão à lâmpada, que agora fica ACIMA dele. Um quadrado
-                girado 45°, mostrando só as duas bordas que ficam viradas
-                para cima; a cor de fundo é a mesma do cabeçalho do balão,
-                senão a emenda apareceria como um degrau. */}
+            {/* A pontinha, encostada embaixo à direita -- é ela que liga
+                o balão à lâmpada, que fica ABAIXO dele. Um quadrado
+                girado 45°, mostrando só as duas bordas viradas para
+                baixo; o fundo é o mesmo do rodapé do balão, senão a
+                emenda apareceria como um degrau.
+
+                Ela vive FORA da caixa, por definição -- foi por isso que
+                o `overflow-hidden` do balão a fazia sumir sem deixar
+                vestígio. Os cantos arredondados, que era o motivo do
+                overflow, são dados faixa a faixa. */}
             <span
               aria-hidden="true"
-              className="absolute -top-1.5 right-5 h-3 w-3 rotate-45 border-l border-t border-slate-200 bg-gold-soft"
+              className="absolute -bottom-1.5 right-5 h-3 w-3 rotate-45 border-b border-r border-slate-200 bg-white"
             />
           </div>
         )}
+
+        <button
+          type="button"
+          onClick={() => (aberto ? setAberto(false) : abrir())}
+          aria-expanded={aberto}
+          aria-label={
+            novo ? "Você sabia? Há uma dica nova" : "Você sabia? Ver a dica"
+          }
+          className={`relative flex h-12 w-12 items-center justify-center rounded-full border text-xl shadow-lg transition-colors ${
+            novo
+              ? "border-gold bg-gold text-primary-dark"
+              : "border-slate-200 bg-white text-slate-500"
+          }`}
+        >
+          💡
+          {novo && (
+            <span
+              aria-hidden="true"
+              className="lampada-pisca absolute -right-0.5 -top-0.5 h-3 w-3 rounded-full border-2 border-white bg-primary"
+            />
+          )}
+        </button>
       </div>
     </>
   );

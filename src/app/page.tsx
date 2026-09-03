@@ -16,6 +16,7 @@ import { getModulosAcessiveis } from "@/lib/require-admin";
 import { MODULOS_OPCIONAIS } from "@/lib/acessos";
 import { RodapeCanais } from "@/components/RodapeCanais";
 import { FaixaParcerias } from "@/components/FaixaParcerias";
+import { LampadaVoceSabia } from "@/components/LampadaVoceSabia";
 
 export default async function Home() {
   const supabase = await createClient();
@@ -109,6 +110,17 @@ export default async function Home() {
       {modulosAcessiveis.has("comunicados") && <FaixaParcerias />}
 
       <RodapeCanais />
+
+      {/* A LÂMPADA DO "VOCÊ SABIA?" -- só aqui, e não no app inteiro.
+          A home é a única tela sem o ✕ de fechar (com quem a lâmpada
+          colidia no canto de cima) e é onde a pessoa está entre uma
+          tarefa e outra, que é o momento de parar para ler uma dica. Nas
+          telas de trabalho ela não tinha o que fazer: ninguém interrompe
+          um apontamento de reepack para revisar pergunta de desafio.
+          Some sozinha quando não há dica nova -- ver LampadaVoceSabia. */}
+      {perfil && revenda && (
+        <LampadaVoceSabia colaboradorId={perfil.id} revendaId={revenda.id} />
+      )}
     </div>
   );
 }
