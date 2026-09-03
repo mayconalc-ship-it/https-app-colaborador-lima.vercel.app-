@@ -10,7 +10,11 @@ import {
   COLUNAS_CONTAGEM,
   COLUNAS_RECONTAGEM,
   FORMATOS,
+  LIMITE_DIFERENCA_PCT,
+  TIPOS,
+  chave,
   conciliar,
+  conciliarPorDia,
   contadoresDeLinhas,
   diasAtrasISO,
   fatoresDeLinhas,
@@ -19,8 +23,10 @@ import {
   paletesEquivalentes,
   parqueDeLinhas,
   recontagensDeLinhas,
+  resumirConciliacao,
   totaisPorFormato,
   totalEmCaixas,
+  transitoDeLinhas,
   type Contador,
   type Contagem,
 } from "@/lib/ativo-giro";
@@ -33,6 +39,8 @@ import {
   cancelarRecontagem,
   dispensarRecontagem,
   excluirContagem,
+  podeLancarTransito,
+  salvarTransito,
   solicitarRecontagem,
 } from "./actions";
 import { ExportarContagens } from "./ExportarContagens";
@@ -156,6 +164,9 @@ export default async function AtivoDeGiroPage({
     { data: doDia },
     { data: doPeriodo },
     { data: quemContou },
+    { data: transitoBanco },
+    { data: transitoPeriodoBanco },
+    podeTransito,
     { data: recontagensBanco },
     podeConfigurar,
     podeExcluirQualquer,
@@ -230,6 +241,27 @@ export default async function AtivoDeGiroPage({
         ).then((data) => ({ data })),
     // Pedidos de recontagem em aberto: alimentam o banner do colaborador
     // (aba Contagem) e o painel do controle (aba Conciliação).
+    // O trânsito do dia aberto. Lido pelo cliente de sessão: a tabela
+    // libera leitura para qualquer autenticado de propósito (ver
+    // migration 093) -- quem conta precisa ver de onde saiu a diferença.
+    // Escrever é que exige liberação, e isso a ação confere.
+    aba === "painel" || aba === "conciliacao"
+      ? supabase
+          .from("ag_transito")
+          .select("tipo, formato, quantidade")
+          .eq("revenda_id", revendaId)
+          .eq("data", dia)
+      : Promise.resolve({ data: null }),
+    // O trânsito do PERÍODO, para o histórico de conciliações.
+    aba === "historico"
+      ? supabase
+          .from("ag_transito")
+          .select("data, tipo, formato, quantidade")
+          .eq("revenda_id", revendaId)
+          .gte("data", de)
+          .lte("data", ate)
+      : Promise.resolve({ data: null }),
+    podeLancarTransito(),
     aba === "contagem" || aba === "conciliacao"
       ? supabase
           .from("ag_recontagens")
@@ -246,6 +278,24 @@ export default async function AtivoDeGiroPage({
 
   const fatores = fatoresDeLinhas(fatoresBanco);
   const parque = parqueDeLinhas(parqueBanco);
+  const transito = transitoDeLinhas(transitoBanco);
+
+  // O trânsito do período, agrupado por dia -- é o que o histórico usa
+  // para conciliar cada dia com o número daquele dia, e não com o de
+  // hoje.
+  const transitoPorDia: Record<string, ReturnType<typeof transitoDeLinhas>> = {};
+  for (const l of (transitoPeriodoBanco ?? []) as {
+    data: string;
+    tipo: string;
+    formato: string;
+    quantidade: number;
+  }[]) {
+    transitoPorDia[l.data] = {
+      ...(transitoPorDia[l.data] ?? {}),
+      [chave(l.tipo, l.formato)]: l.quantidade,
+    };
+  }
+
   const contagens = (minhas ?? []) as Contagem[];
   const contadores = contadoresDeLinhas(quemContou);
   const nomeFiltrado = contadores.find((c) => c.id === colab)?.nome;
@@ -337,7 +387,20 @@ export default async function AtivoDeGiroPage({
     }
   }
 
-  const linhas = conciliar(contagensDia, parque, fatores);
+  const linhas = conciliar(contagensDia, parque, fatores, transito);
+  const resumo = resumirConciliacao(linhas);
+
+  // A evolução dia a dia, para a aba Histórico -- pedido do dono: ver a
+  // curva das faltas e sobras, não só a foto de hoje.
+  //
+  // Só SEM filtro de pessoa: o parque é da revenda inteira, e conciliar
+  // o que UMA pessoa contou contra ele acusaria uma falta que está com o
+  // resto do time. É o mesmo motivo do aviso que já existe na aba
+  // Conciliação -- aqui a saída é não calcular, e a tela explica.
+  const diasConciliados =
+    aba === "historico" && !colab
+      ? conciliarPorDia(contagensPeriodo, parque, fatores, transitoPorDia)
+      : [];
   const totais = totaisPorFormato(contagensDia, fatores);
   const maiorTotal = Math.max(1, ...totais.map((t) => t.total));
 
@@ -448,44 +511,195 @@ export default async function AtivoDeGiroPage({
               {nomeFiltrado ? ` de ${nomeFiltrado}` : ""}.
             </p>
           ) : (
-            <div className="overflow-x-auto rounded-2xl border border-slate-200">
-              <table className="w-full text-sm">
-                <thead className="bg-slate-50 text-left text-xs uppercase text-slate-500">
-                  <tr>
-                    <th className="p-2">Tipo</th>
-                    <th className="p-2">Formato</th>
-                    <th className="p-2 text-right">Contado</th>
-                    <th className="p-2 text-right">Parque</th>
-                    <th className="p-2 text-right">Diferença</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {linhas.map((l) => (
-                    <tr
-                      key={`${l.tipo}-${l.formato}`}
-                      className="border-t border-slate-100"
+            <>
+              {/* O FECHAMENTO DO DIA, antes da tabela.
+                  Quem abre esta tela quer saber uma coisa: fechou ou não
+                  fechou. A tabela responde item a item; este cartão
+                  responde de uma vez, e é o número que vai para a
+                  reunião. */}
+              <div
+                className={`mb-3 rounded-2xl border p-4 ${
+                  resumo.dentroDoAceitavel === null
+                    ? "border-slate-200 bg-white"
+                    : resumo.dentroDoAceitavel
+                      ? "border-green-300 bg-green-50"
+                      : "border-red-300 bg-red-50"
+                }`}
+              >
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                  <p className="text-xs font-bold uppercase tracking-wide text-slate-500">
+                    Diferença do dia
+                  </p>
+                  {resumo.pctDiferenca !== null && (
+                    <span
+                      className={`rounded-full px-2.5 py-1 text-xs font-bold ${
+                        resumo.dentroDoAceitavel
+                          ? "bg-green-600 text-white"
+                          : "bg-red-600 text-white"
+                      }`}
                     >
-                      <td className="p-2">{l.tipo}</td>
-                      <td className="p-2">{l.formato}</td>
-                      <td className="p-2 text-right">{l.contado}</td>
-                      <td className="p-2 text-right">{l.parque}</td>
-                      <td
-                        className={`p-2 text-right font-bold ${
-                          l.diferenca === 0
-                            ? "text-slate-500"
-                            : l.diferenca > 0
-                              ? "text-green-600"
-                              : "text-red-600"
-                        }`}
-                      >
-                        {l.diferenca > 0 ? "+" : ""}
-                        {l.diferenca}
-                      </td>
+                      {resumo.dentroDoAceitavel ? "✓ Dentro" : "⚠ Fora"} ·{" "}
+                      {resumo.pctDiferenca.toLocaleString("pt-BR")}% do parque
+                    </span>
+                  )}
+                </div>
+                <p
+                  className={`mt-1 text-3xl font-bold tabular-nums ${
+                    resumo.dentroDoAceitavel === false
+                      ? "text-red-700"
+                      : "text-slate-900"
+                  }`}
+                >
+                  {resumo.diferenca > 0 ? "+" : ""}
+                  {resumo.diferenca.toLocaleString("pt-BR")}
+                  <span className="ml-1 text-base font-medium text-slate-500">
+                    caixas
+                  </span>
+                </p>
+                <p className="mt-1 text-xs text-slate-600">
+                  {resumo.contado.toLocaleString("pt-BR")} contadas
+                  {resumo.transito > 0 && (
+                    <> + {resumo.transito.toLocaleString("pt-BR")} em trânsito</>
+                  )}{" "}
+                  − {resumo.parque.toLocaleString("pt-BR")} do parque. Aceitável
+                  até {LIMITE_DIFERENCA_PCT}%.
+                </p>
+                {resumo.linhasFora > 0 && resumo.dentroDoAceitavel && (
+                  // O total pode fechar e uma linha estar muito fora --
+                  // uma falta de 50 caixas some dentro de 18 mil. Sem
+                  // este aviso o cartão verde esconderia o problema.
+                  <p className="mt-2 rounded-lg bg-amber-100 p-2 text-xs font-medium text-amber-900">
+                    O total está dentro, mas {resumo.linhasFora}{" "}
+                    {resumo.linhasFora === 1 ? "linha passou" : "linhas passaram"}{" "}
+                    dos {LIMITE_DIFERENCA_PCT}% — veja em vermelho abaixo.
+                  </p>
+                )}
+              </div>
+
+              <div className="overflow-x-auto rounded-2xl border border-slate-200">
+                <table className="w-full text-sm">
+                  <thead className="bg-slate-50 text-left text-xs uppercase text-slate-500">
+                    <tr>
+                      <th className="p-2">Tipo</th>
+                      <th className="p-2">Formato</th>
+                      <th className="p-2 text-right">Contado</th>
+                      <th className="p-2 text-right" title="Ativo que não está no pátio para ser contado. Lançado por quem tem liberação.">
+                        Trânsito
+                      </th>
+                      <th className="p-2 text-right">Parque</th>
+                      <th className="p-2 text-right">Diferença</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    {linhas.map((l) => (
+                      <tr
+                        key={`${l.tipo}-${l.formato}`}
+                        className="border-t border-slate-100"
+                      >
+                        <td className="p-2">{l.tipo}</td>
+                        <td className="p-2">{l.formato}</td>
+                        <td className="p-2 text-right tabular-nums">{l.contado}</td>
+                        {/* Só leitura para quem conta -- é o que o dono
+                            pediu: o número aparece do lado do contado
+                            para explicar a diferença, mas quem edita é
+                            quem tem liberação, no bloco abaixo. */}
+                        <td className="p-2 text-right tabular-nums text-slate-500">
+                          {l.transito > 0 ? l.transito : "—"}
+                        </td>
+                        <td className="p-2 text-right tabular-nums">{l.parque}</td>
+                        <td
+                          className={`p-2 text-right font-bold tabular-nums ${
+                            l.diferenca === 0
+                              ? "text-slate-500"
+                              : l.dentroDoAceitavel
+                                ? "text-slate-700"
+                                : "text-red-600"
+                          }`}
+                        >
+                          {l.diferenca > 0 ? "+" : ""}
+                          {l.diferenca}
+                          {/* O percentual vem junto do número, e não numa
+                              coluna própria: é ele que diz se a
+                              diferença é grande, e 40 caixas significam
+                              coisas opostas num parque de 400 e num de
+                              18 mil. */}
+                          {l.pctDiferenca !== null && l.diferenca !== 0 && (
+                            <span className="ml-1 text-[11px] font-medium text-slate-400">
+                              {l.pctDiferenca.toLocaleString("pt-BR")}%
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* A cor sozinha não serve para quem não a enxerga -- a
+                  legenda diz a regra por escrito, e o ✓/⚠ do cartão
+                  acima repete o sinal em símbolo. */}
+              <p className="mt-2 text-xs text-slate-500">
+                Em vermelho, a linha cuja diferença passa de{" "}
+                {LIMITE_DIFERENCA_PCT}% do parque daquele item.
+              </p>
+            </>
+          )}
+
+          {/* ---- Lançar o trânsito (só quem tem liberação) ---- */}
+          {podeTransito && (
+            <section className="mt-6 rounded-2xl border border-primary/25 bg-primary-soft p-4">
+              <h2 className="text-sm font-bold uppercase tracking-wide text-primary-dark">
+                🚚 Trânsito de {formatarData(dia)}
+              </h2>
+              <p className="mt-1 text-xs text-slate-600">
+                O ativo que <strong>não está no pátio</strong> para ser contado
+                — o que está com o transportador, entre unidades. Ele soma no
+                contado antes de comparar com o parque, senão todo dia com
+                carreta na estrada acusa falta.
+              </p>
+              <p className="mt-1 text-xs text-slate-500">
+                Não confunda com os status <em>Trânsito Rota</em> e{" "}
+                <em>Trânsito Fábrica</em> da contagem: aqueles são contados no
+                pátio e já entram na coluna Contado.
+              </p>
+              <p className="mt-1 text-xs text-slate-500">
+                Lançar de novo <strong>corrige</strong> o número do dia, não
+                soma.
+              </p>
+
+              <div className="mt-3 space-y-2">
+                {TIPOS.flatMap((tipo) =>
+                  FORMATOS.map((formato) => (
+                    <form
+                      key={`t-${chave(tipo, formato)}`}
+                      action={salvarTransito}
+                      className="flex items-center gap-2"
+                    >
+                      <input type="hidden" name="tipo" value={tipo} />
+                      <input type="hidden" name="formato" value={formato} />
+                      <input type="hidden" name="data" value={dia} />
+                      <span className="min-w-0 flex-1 truncate text-sm text-slate-700">
+                        {tipo} · {formato}
+                      </span>
+                      <input
+                        type="number"
+                        name="quantidade"
+                        min={0}
+                        defaultValue={transito[chave(tipo, formato)] ?? 0}
+                        aria-label={`Trânsito de ${tipo} ${formato} em caixas`}
+                        className="w-24 rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-base"
+                      />
+                      <BotaoEnviar
+                        compacto
+                        className="shrink-0 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-white"
+                      >
+                        Salvar
+                      </BotaoEnviar>
+                    </form>
+                  )),
+                )}
+              </div>
+            </section>
           )}
 
           <ExportarContagens
@@ -663,6 +877,107 @@ export default async function AtivoDeGiroPage({
               Filtrar
             </button>
           </FiltroNoLugar>
+
+          {/* ---- A EVOLUÇÃO DAS DIFERENÇAS, dia a dia ----
+              Pedido do dono: "ver a evolução por dia das faltas ou
+              sobras". A foto de um dia não diz se a operação está
+              melhorando; a sequência diz.
+
+              Um dia sem contagem NÃO vira linha. Domingo e feriado não
+              são dias com problema, são dias sem medição -- e enfiá-los
+              aqui como diferença de 100% inventaria uma piora que não
+              houve.
+
+              O parque usado é o de HOJE, para todos os dias, porque é o
+              único que existe: `ag_parque` guarda o saldo atual, não uma
+              série. Isso é honesto para uma janela de semanas (o parque
+              muda de mês em mês) e é a razão de este bloco não voltar
+              anos. */}
+          {diasConciliados.length > 0 && !nomeFiltrado && (
+            <section className="mb-5">
+              <h2 className="mb-2 text-sm font-bold uppercase tracking-wide text-slate-500">
+                📉 Conciliação por dia
+              </h2>
+              <div className="overflow-x-auto rounded-2xl border border-slate-200">
+                <table className="w-full text-sm">
+                  <thead className="bg-slate-50 text-left text-xs uppercase text-slate-500">
+                    <tr>
+                      <th className="p-2">Dia</th>
+                      <th className="p-2 text-right">Contado</th>
+                      <th className="p-2 text-right">Trânsito</th>
+                      <th className="p-2 text-right">Parque</th>
+                      <th className="p-2 text-right">Diferença</th>
+                      <th className="p-2 text-right">%</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {diasConciliados.map((d) => (
+                      <tr key={d.dia} className="border-t border-slate-100">
+                        <td className="p-2 font-medium text-slate-700">
+                          {formatarData(d.dia)}
+                        </td>
+                        <td className="p-2 text-right tabular-nums">
+                          {d.contado.toLocaleString("pt-BR")}
+                        </td>
+                        <td className="p-2 text-right tabular-nums text-slate-500">
+                          {d.transito > 0 ? d.transito.toLocaleString("pt-BR") : "—"}
+                        </td>
+                        <td className="p-2 text-right tabular-nums text-slate-500">
+                          {d.parque.toLocaleString("pt-BR")}
+                        </td>
+                        <td
+                          className={`p-2 text-right font-bold tabular-nums ${
+                            d.dentroDoAceitavel === false
+                              ? "text-red-600"
+                              : "text-slate-700"
+                          }`}
+                        >
+                          {d.diferenca > 0 ? "+" : ""}
+                          {d.diferenca.toLocaleString("pt-BR")}
+                        </td>
+                        <td className="p-2 text-right">
+                          {d.pctDiferenca === null ? (
+                            <span className="text-slate-400">—</span>
+                          ) : (
+                            <span
+                              className={`rounded-full px-2 py-0.5 text-xs font-bold ${
+                                d.dentroDoAceitavel
+                                  ? "bg-green-100 text-green-800"
+                                  : "bg-red-100 text-red-700"
+                              }`}
+                            >
+                              {d.dentroDoAceitavel ? "✓" : "⚠"}{" "}
+                              {d.pctDiferenca.toLocaleString("pt-BR")}%
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <p className="mt-2 text-xs text-slate-500">
+                Diferença = contado + trânsito − parque. Aceitável até{" "}
+                {LIMITE_DIFERENCA_PCT}% do parque; acima disso, vermelho. Dias
+                sem contagem não aparecem — não houve medição.
+              </p>
+            </section>
+          )}
+
+          {/* Com filtro por pessoa a conciliação por dia não faz sentido:
+              o parque é da revenda inteira, e comparar com o que UMA
+              pessoa contou acusaria uma falta que está com o resto do
+              time. É o mesmo aviso da aba Conciliação. */}
+          {diasConciliados.length === 0 && nomeFiltrado && contagensPeriodo.length > 0 && (
+            <p className="mb-4 rounded-xl bg-amber-50 p-3 text-xs text-amber-800">
+              A conciliação por dia não aparece com o filtro de pessoa ligado —
+              o parque é da revenda inteira. Tire o filtro para ver a evolução.
+            </p>
+          )}
+
+          <h2 className="mb-2 text-sm font-bold uppercase tracking-wide text-slate-500">
+            Contagens do período
+          </h2>
 
           {contagensPeriodo.length === 0 ? (
             <p className="rounded-xl bg-slate-50 p-4 text-sm text-slate-500">

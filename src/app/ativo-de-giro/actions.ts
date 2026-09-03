@@ -534,3 +534,82 @@ export async function dispensarRecontagem(id: number): Promise<void> {
 
   revalidatePath(ROTA);
 }
+
+// -------------------- TRANSITO DO DIA --------------------
+/**
+ * Quem pode lancar o transito nesta revenda.
+ *
+ * Liberacao propria, gerida na configuracao do Ativo de Giro (ver
+ * migration 093). Quem administra o modulo tambem pode, sem precisar se
+ * liberar: seria uma volta inutil, e ele ja pode mexer no parque, que e
+ * o outro lado da mesma conta.
+ */
+export async function podeLancarTransito(): Promise<boolean> {
+  const perfil = await getPerfil();
+  const revendaId = await getRevendaId();
+  if (!perfil || !revendaId) return false;
+
+  if (await podeNoModulo("ativo-giro", "editar")) return true;
+
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("ag_transito_liberados")
+    .select("colaborador_id")
+    .eq("revenda_id", revendaId)
+    .eq("colaborador_id", perfil.id)
+    .maybeSingle();
+
+  return Boolean(data);
+}
+
+/**
+ * Lanca (ou corrige) o transito de um tipo+formato num dia.
+ *
+ * UMA LINHA POR DIA, entao relancar CORRIGE em vez de somar. E o mesmo
+ * desenho do parque, e evita a duvida que aparece em toda tela de
+ * lancamento repetido: "digitei duas vezes, dobrou?".
+ *
+ * A conferencia de permissao acontece AQUI, no servidor, e nao so na
+ * tela: o formulario some para quem nao pode, mas a acao pode ser
+ * chamada sem passar por ele.
+ */
+export async function salvarTransito(formData: FormData) {
+  const perfil = await getPerfil();
+  if (!perfil) redirect("/login");
+
+  const revendaId = await getRevendaId();
+  if (!revendaId) erro("Voce nao esta em nenhuma revenda.");
+
+  if (!(await podeLancarTransito())) {
+    erro("Voce nao tem liberacao para lancar o transito. Fale com quem cuida do Ativo de Giro.");
+  }
+
+  const tipo = formData.get("tipo");
+  const formato = formData.get("formato");
+  if (!ehTipo(tipo) || !ehFormato(formato)) erro("Item invalido.");
+
+  const data = String(formData.get("data") ?? "").trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(data)) erro("Dia invalido.");
+
+  const quantidade = inteiro(formData.get("quantidade"), 1_000_000);
+
+  const admin = createAdminClient();
+  const { error } = await admin.from("ag_transito").upsert(
+    {
+      revenda_id: revendaId,
+      data,
+      tipo,
+      formato,
+      quantidade,
+      atualizado_em: new Date().toISOString(),
+      atualizado_por: perfil.id,
+      atualizado_por_nome: perfil.nome,
+    },
+    { onConflict: "revenda_id,data,tipo,formato" },
+  );
+
+  if (error) erro(`Nao foi possivel salvar o transito: ${error.message}`);
+
+  revalidatePath(ROTA);
+  redirect(`${ROTA}?aba=conciliacao&data=${data}&sucesso=${encodeURIComponent("Transito atualizado")}`);
+}

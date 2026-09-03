@@ -217,22 +217,67 @@ export function parqueDeLinhas(
   return mapa;
 }
 
+/**
+ * Até quantos por cento do parque a diferença é aceitável.
+ *
+ * Definido pelo dono em 03/09/2026. Não é uma meta de desempenho: é o
+ * ruído normal de um parque que se move o dia inteiro -- carreta que
+ * chegou depois da contagem, palete que estava sendo carregado. Acima
+ * disso não é ruído, é falta ou sobra de verdade, e alguém precisa ir
+ * atrás.
+ */
+export const LIMITE_DIFERENCA_PCT = 5;
+
+/** O trânsito do dia, indexado por tipo|formato -- igual ao parque. */
+export type Transito = Record<string, number>;
+
+export function transitoDeLinhas(
+  linhas: { tipo: string; formato: string; quantidade: number }[] | null,
+): Transito {
+  const mapa: Transito = {};
+  for (const l of linhas ?? []) mapa[chave(l.tipo, l.formato)] = l.quantidade;
+  return mapa;
+}
+
 export type LinhaConciliacao = {
   tipo: Tipo;
   formato: Formato;
   contado: number;
+  /** O que não está no pátio para ser contado -- lançado por quem é
+   *  liberado na configuração do módulo. */
+  transito: number;
   parque: number;
+  /** contado + trânsito − parque. Negativo é falta, positivo é sobra. */
   diferenca: number;
+  /** A diferença sobre o PARQUE, em módulo. `null` sem parque: dividir
+   *  por zero não dá "0% de erro", dá pergunta sem resposta. */
+  pctDiferenca: number | null;
+  /** Verde ou vermelho na tela. Sem parque não afirma nada -- fica null,
+   *  e a tela mostra em cinza. */
+  dentroDoAceitavel: boolean | null;
 };
 
 /**
  * Conciliacao do dia: soma TODAS as contagens de cada tipo+formato
- * (varias pessoas podem contar o mesmo item) e compara com o parque.
+ * (varias pessoas podem contar o mesmo item), acrescenta o trânsito e
+ * compara com o parque.
+ *
+ * A CONTA É `contado + trânsito − parque`, pedido do dono. O trânsito
+ * entra somando porque ele É ativo da revenda -- só não está aqui para
+ * ser contado. Sem ele, todo dia com carreta na estrada acusava falta.
+ *
+ * Cuidado que a tela precisa dizer, e diz: `status` de contagem já tem
+ * "Trânsito Rota" e "Trânsito Fábrica", e aquilo é coisa CONTADA no
+ * pátio, que entra em `contado`. Esta parcela é a que ninguém consegue
+ * contar -- o que está com o transportador, entre unidades. São coisas
+ * diferentes com nome parecido, e é por isso que a coluna vem
+ * explicada.
  */
 export function conciliar(
   contagens: Contagem[],
   parque: Parque,
   fatores: Fatores,
+  transito: Transito = {},
 ): LinhaConciliacao[] {
   const somas = new Map<string, number>();
   for (const c of contagens) {
@@ -245,18 +290,102 @@ export function conciliar(
     for (const formato of FORMATOS) {
       const k = chave(tipo, formato);
       const contado = somas.get(k) ?? 0;
+      const emTransito = transito[k] ?? 0;
       const saldo = parque[k] ?? 0;
-      if (contado === 0 && saldo === 0) continue;
+      // Linha sem nada nos três: não existe para esta revenda.
+      if (contado === 0 && saldo === 0 && emTransito === 0) continue;
+
+      const diferenca = contado + emTransito - saldo;
+      const pct = saldo > 0 ? Math.round((Math.abs(diferenca) / saldo) * 1000) / 10 : null;
+
       linhas.push({
         tipo,
         formato,
         contado,
+        transito: emTransito,
         parque: saldo,
-        diferenca: contado - saldo,
+        diferenca,
+        pctDiferenca: pct,
+        dentroDoAceitavel: pct === null ? null : pct <= LIMITE_DIFERENCA_PCT,
       });
     }
   }
   return linhas;
+}
+
+/**
+ * O fechamento do dia, somando as linhas.
+ *
+ * O percentual do TOTAL soma antes de dividir -- média de porcentagens
+ * daria o mesmo peso a uma linha de 100 caixas e a uma de 18 mil. É o
+ * mesmo raciocínio do percentual por produto do bate palete.
+ */
+export type ResumoConciliacao = {
+  contado: number;
+  transito: number;
+  parque: number;
+  diferenca: number;
+  pctDiferenca: number | null;
+  dentroDoAceitavel: boolean | null;
+  /** Quantas linhas passaram do limite -- é o que a pessoa vai olhar. */
+  linhasFora: number;
+};
+
+export function resumirConciliacao(linhas: LinhaConciliacao[]): ResumoConciliacao {
+  const contado = linhas.reduce((s, l) => s + l.contado, 0);
+  const transito = linhas.reduce((s, l) => s + l.transito, 0);
+  const parque = linhas.reduce((s, l) => s + l.parque, 0);
+  const diferenca = contado + transito - parque;
+  const pct = parque > 0 ? Math.round((Math.abs(diferenca) / parque) * 1000) / 10 : null;
+
+  return {
+    contado,
+    transito,
+    parque,
+    diferenca,
+    pctDiferenca: pct,
+    dentroDoAceitavel: pct === null ? null : pct <= LIMITE_DIFERENCA_PCT,
+    linhasFora: linhas.filter((l) => l.dentroDoAceitavel === false).length,
+  };
+}
+
+/**
+ * A conciliação de CADA DIA do período -- a evolução das faltas e
+ * sobras, que é o que o dono pediu para acompanhar.
+ *
+ * Um dia sem contagem nenhuma NÃO vira uma linha de "falta de 100%".
+ * Domingo, feriado e dia em que ninguém contou não são dias com
+ * problema: são dias sem medição, e enfiá-los no gráfico como queda
+ * inventaria uma piora que não houve. Mesmo raciocínio do
+ * `mediaHlPorDia` do bate palete.
+ *
+ * O PARQUE usado é o de HOJE, para todos os dias -- é o único que
+ * existe: `ag_parque` guarda o saldo atual, não uma série histórica.
+ * Isso é honesto para a janela curta que a tela mostra (o parque muda de
+ * mês em mês, não de dia em dia), e é a razão de o histórico não voltar
+ * anos.
+ */
+export type DiaConciliado = ResumoConciliacao & { dia: string };
+
+export function conciliarPorDia(
+  contagens: Contagem[],
+  parque: Parque,
+  fatores: Fatores,
+  transitoPorDia: Record<string, Transito>,
+): DiaConciliado[] {
+  const porDia = new Map<string, Contagem[]>();
+  for (const c of contagens) {
+    porDia.set(c.data, [...(porDia.get(c.data) ?? []), c]);
+  }
+
+  // Um dia que só tem trânsito lançado (ninguém contou) também não entra:
+  // sem contagem não há conciliação, há um número solto.
+  return [...porDia.entries()]
+    .map(([dia, doDia]) => ({
+      dia,
+      ...resumirConciliacao(conciliar(doDia, parque, fatores, transitoPorDia[dia] ?? {})),
+    }))
+    .sort((a, b) => b.dia.localeCompare(a.dia));
 }
 
 /** Total por formato, somando os dois tipos -- alimenta o grafico. */

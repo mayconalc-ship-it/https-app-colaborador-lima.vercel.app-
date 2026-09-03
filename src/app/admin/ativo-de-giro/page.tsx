@@ -1,8 +1,11 @@
 import { PageHeader } from "@/components/PageHeader";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
+import { BotaoExcluir } from "@/components/BotaoExcluir";
+import { FormularioComPessoa } from "@/components/admin/SeletorDePessoa";
 import { requireModulo } from "@/lib/require-admin";
 import { exigirRevenda } from "@/lib/revendas";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import {
   FORMATOS,
   TIPOS,
@@ -10,8 +13,13 @@ import {
   fatoresDeLinhas,
   parqueDeLinhas,
 } from "@/lib/ativo-giro";
-import { salvarFator, salvarParque } from "./actions";
-import { ImportarHistorico } from "./ImportarHistorico";
+import {
+  buscarParaLiberarTransito,
+  liberarTransito,
+  salvarFator,
+  salvarParque,
+  tirarLiberacaoTransito,
+} from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -33,18 +41,51 @@ export default async function AdminAtivoDeGiroPage({
   const revendaId = await exigirRevenda("/admin");
 
   const supabase = await createClient();
-  const [{ data: fatoresBanco }, { data: parqueBanco }] = await Promise.all([
-    supabase
-      .from("ag_fatores")
-      .select("formato, palete, lastro")
-      .eq("revenda_id", revendaId),
-    supabase
-      .from("ag_parque")
-      .select("tipo, formato, quantidade")
-      .eq("revenda_id", revendaId),
-  ]);
+  const admin = createAdminClient();
+  const [{ data: fatoresBanco }, { data: parqueBanco }, { data: liberadosBanco }] =
+    await Promise.all([
+      supabase
+        .from("ag_fatores")
+        .select("formato, palete, lastro")
+        .eq("revenda_id", revendaId),
+      supabase
+        .from("ag_parque")
+        .select("tipo, formato, quantidade")
+        .eq("revenda_id", revendaId),
+      // Pela chave de administrador: `ag_transito_liberados` tem RLS
+      // ligada e política nenhuma, de propósito (migration 093). Quem lê
+      // pelo cliente comum descobriria quem pode mexer no número, e quem
+      // escreve nela se libera sozinho.
+      admin
+        .from("ag_transito_liberados")
+        .select("colaborador_id")
+        .eq("revenda_id", revendaId),
+    ]);
   const fatores = fatoresDeLinhas(fatoresBanco);
   const parque = parqueDeLinhas(parqueBanco);
+
+  // Os nomes vêm à parte, e não por join: `colaborador_id` aponta para
+  // auth.users, não para public.profiles, então o PostgREST não atravessa
+  // a relação -- ele responde "Could not find a relationship" e devolve
+  // NULL, que a tela leria como "ninguém liberado". Foi exatamente esse o
+  // defeito do alerta de gás, corrigido em 03/09/2026.
+  const idsLiberados = (liberadosBanco ?? []).map((l) => l.colaborador_id);
+  const { data: perfisLiberados } = idsLiberados.length
+    ? await admin.from("profiles").select("id, nome, cargo").in("id", idsLiberados)
+    : { data: [] as { id: string; nome: string; cargo: string | null }[] };
+
+  const liberados = idsLiberados
+    .map((id) => {
+      const p = (perfisLiberados ?? []).find((x) => x.id === id);
+      return {
+        colaborador_id: id,
+        // Cadastro apagado deixa o vínculo para trás. A linha aparece
+        // assim mesmo, para dar como tirá-la.
+        nome: p?.nome ?? "(cadastro removido)",
+        cargo: p?.cargo ?? null,
+      };
+    })
+    .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
 
   return (
     <div>
@@ -161,7 +202,76 @@ export default async function AdminAtivoDeGiroPage({
           </p>
         </div>
 
-        <ImportarHistorico />
+        {/* ---- QUEM PODE LANÇAR O TRÂNSITO ----
+            A liberação mora aqui, e não em Acessos por Pessoa (pedido do
+            dono, 03/09/2026). O motivo é de fluxo: quem cuida do parque
+            não é quem cuida do mapa de permissão do app, e obrigar a
+            passar por Acessos transformaria uma tarefa da controladoria
+            num chamado para o Admin -- a liberação ficaria esperando dias
+            por uma conta que dura minutos. */}
+        <div className="rounded-2xl border border-slate-200 bg-white p-4">
+          <h2 className="text-sm font-bold uppercase text-slate-500">
+            🚚 Quem pode lançar o trânsito
+          </h2>
+          <p className="mt-1 text-xs text-slate-500">
+            O trânsito é o ativo que não está no pátio para ser contado. Ele
+            entra na conciliação somando ao contado, antes de comparar com o
+            parque — sem ele, todo dia com carreta na estrada acusa falta.
+          </p>
+          <p className="mt-1 text-xs text-slate-500">
+            Quem administra o Ativo de Giro já pode lançar, sem estar nesta
+            lista. Quem está aqui só ganha isso: lançar o número do dia.
+          </p>
+
+          <FormularioComPessoa
+            action={liberarTransito}
+            buscar={buscarParaLiberarTransito}
+            campoId="colaborador_id"
+            placeholder="Digite o nome ou CPF de quem vai lançar"
+            rotuloBotao="Liberar"
+          />
+
+          <div className="mt-3 divide-y divide-slate-100 border-t border-slate-100">
+            {liberados.length === 0 ? (
+              <p className="py-4 text-center text-sm text-slate-400">
+                Ninguém liberado ainda — só quem administra o módulo lança.
+              </p>
+            ) : (
+              liberados.map((l) => (
+                <div
+                  key={l.colaborador_id}
+                  className="flex items-center justify-between gap-2 py-2"
+                >
+                  <span className="min-w-0 flex-1 truncate text-sm text-slate-700">
+                    {l.nome}
+                    {l.cargo && (
+                      <span className="text-xs text-slate-400"> · {l.cargo}</span>
+                    )}
+                  </span>
+                  <BotaoExcluir
+                    action={tirarLiberacaoTransito}
+                    campos={{ colaborador_id: l.colaborador_id }}
+                    confirmacao={`Tirar a liberação de ${l.nome} para lançar o trânsito? O que ela já lançou continua valendo.`}
+                    rotuloConfirmar="Tirar liberação"
+                    perigo={false}
+                    className="shrink-0 rounded-lg border border-slate-200 px-2 py-1 text-xs font-semibold text-slate-500 hover:bg-slate-50"
+                  >
+                    Tirar
+                  </BotaoExcluir>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
+        {/* Aqui ficava "Importar histórico do app antigo", que subia o
+            contagens-ag.json exportado do aplicativo anterior. Saiu a
+            pedido do dono (03/09/2026): a migração terminou, o app antigo
+            não existe mais, e um importador que ninguém usa é um botão a
+            mais entre a pessoa e o que ela veio fazer. A ação
+            `importarHistorico` continua em ativo-de-giro/actions.ts, sem
+            tela -- se um dia aparecer um arquivo perdido, é uma tela de
+            volta, não um trabalho novo. */}
       </section>
     </div>
   );
