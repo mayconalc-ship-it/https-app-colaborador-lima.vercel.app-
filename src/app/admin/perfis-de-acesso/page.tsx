@@ -92,7 +92,7 @@ export default async function PerfisDeAcessoPage({
     <div className="space-y-4">
       <PageHeader
         title="🎫 Perfis de Acesso"
-        subtitle="Conjuntos de permissão com nome, para não montar cada pessoa à mão."
+        subtitle="O molde de um cargo, com nome: monta-se uma vez e aplica-se a quantas pessoas precisar."
         fecharHref="/admin"
       />
 
@@ -101,14 +101,32 @@ export default async function PerfisDeAcessoPage({
         <p className="rounded-xl bg-green-50 p-3 text-sm font-medium text-green-700">✅ {sp.sucesso}</p>
       )}
 
+      {/* Por que existem duas telas de acesso -- respondido na própria
+          tela, porque de fora elas pareciam o mesmo módulo (pergunta do
+          dono, 02/09/2026). O contraste é objeto e sentido: pessoa x
+          molde, soma x soma-e-tira. */}
       <div className="rounded-2xl bg-slate-50 p-4 text-xs leading-relaxed text-slate-600">
-        Aplicar um perfil <strong>soma</strong> permissões — nunca tira. Quem já administra outra
-        coisa continua administrando, e para remover a tela de{" "}
-        <Link href="/admin/acessos" className="font-semibold text-primary hover:underline">
-          Usuários e Acessos
-        </Link>{" "}
-        continua sendo o lugar. Depois de aplicado, o perfil não prende ninguém: dá para ajustar
-        pessoa a pessoa como sempre.
+        <p>
+          <strong>Um perfil é um molde, não uma pessoa.</strong> Ele guarda um
+          conjunto de permissões com nome — &quot;Analista de Rota&quot; — para
+          não remontar tudo à mão a cada contratação. Aplicá-lo grava
+          exatamente as mesmas marcações que você faria em{" "}
+          <Link
+            href="/admin/acessos"
+            className="font-semibold text-primary hover:underline"
+          >
+            Acessos por Pessoa
+          </Link>
+          : não é um segundo sistema de permissão, é um atalho para o mesmo.
+        </p>
+        <p className="mt-2">
+          Aplicar <strong>soma</strong> — nunca tira. Quem já administra outra
+          coisa continua administrando, e{" "}
+          <strong>tirar acesso é sempre em Acessos por Pessoa</strong>. Pela
+          mesma razão, excluir um perfil daqui não desfaz nada: quem já recebeu
+          continua com as permissões, e ajustar pessoa a pessoa continua
+          possível.
+        </p>
       </div>
 
       {/* ---------- LISTA ---------- */}

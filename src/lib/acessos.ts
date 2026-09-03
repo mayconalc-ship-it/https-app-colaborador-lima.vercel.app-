@@ -120,7 +120,7 @@ export type Modulo = {
   subGrupoDe?: ModuloId;
   /**
    * Este módulo NÃO tem tela de Admin própria -- fica fora da barra
-   * lateral do Modo Liderança, mas continua na Gestão de Acessos para ser
+   * lateral do Modo Liderança, mas continua nos Acessos por Pessoa para ser
    * liberado pessoa a pessoa.
    *
    * Sem isto o item entrava na barra apontando para a tela do colaborador,
@@ -133,7 +133,7 @@ export type Modulo = {
    * montada a partir de PAINEIS em lib/gestao.ts.
    *
    * A concessão continua sendo a mesma, com o mesmo nome, no mesmo lugar
-   * da Gestão de Acessos: mudou o endereço da tela, não a permissão.
+   * dos Acessos por Pessoa: mudou o endereço da tela, não a permissão.
    */
   emGestao?: boolean;
 };
@@ -631,8 +631,12 @@ export const MODULOS_DO_DONO = [
     emoji: "🏢",
   },
   {
+    // "por Pessoa" é o que separa esta tela de Perfis de Acesso, em
+    // Pessoas -- lá se monta um molde, aqui se mexe em gente. O rótulo
+    // antigo ("Usuários e Acessos") ainda discordava do título da própria
+    // tela ("Gestão de Acessos"): duas telas parecidas e três nomes.
     href: "/admin/acessos",
-    rotulo: "Usuários e Acessos",
+    rotulo: "Acessos por Pessoa",
     emoji: "🔐",
   },
   {

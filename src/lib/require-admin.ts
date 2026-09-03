@@ -31,7 +31,7 @@ export async function requireGestor() {
 }
 
 /**
- * Exclusivo do dono. Usado nas telas críticas -- Gestão de Acessos e
+ * Exclusivo do dono. Usado nas telas críticas -- Acessos por Pessoa e
  * Auditoria -- e em toda ação que mexa em papel ou permissão.
  */
 export async function requireOwner() {

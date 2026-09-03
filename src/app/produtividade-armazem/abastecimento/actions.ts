@@ -24,7 +24,7 @@ function erro(mensagem: string): never {
 
 // Mesma concessão do módulo que ele substitui: quem já abastecia picking
 // continua entrando, sem ninguém ter que reconceder acesso pessoa a
-// pessoa na Gestão de Acessos.
+// pessoa nos Acessos por Pessoa.
 const exigirContexto = () => exigirContextoModulo("pa-picking", ROTA);
 
 /**

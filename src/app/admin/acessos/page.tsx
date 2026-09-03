@@ -61,7 +61,7 @@ export default async function GestaoDeAcessosPage({
   if (!escolhida) {
     return (
       <div>
-        <PageHeader title="🔐 Gestão de Acessos" />
+        <PageHeader title="🔐 Acessos por Pessoa" />
         <p className="rounded-2xl border border-slate-200 bg-white p-6 text-center text-sm text-slate-500 shadow-sm">
           Nenhuma revenda ativa. Cadastre uma em Revendas antes de liberar
           acessos.
@@ -215,10 +215,31 @@ export default async function GestaoDeAcessosPage({
 
   return (
     <div>
+      {/* O nome diz PESSOA de propósito.
+          Esta tela e a de Perfis de Acesso pareciam módulos duplicados
+          (pergunta do dono, 02/09/2026), e o nome antigo -- "Gestão de
+          Acessos" no título, "Usuários e Acessos" na barra lateral, dois
+          nomes para a mesma tela -- não ajudava a separar. A diferença é
+          o objeto: aqui se mexe numa PESSOA; lá se monta um MOLDE e se
+          aplica a alguém. As duas gravam nas mesmas linhas. */}
       <PageHeader
-        title="🔐 Usuários e Acessos"
-        subtitle="Quem entra no Modo Liderança e o que cada um pode fazer"
+        title="🔐 Acessos por Pessoa"
+        subtitle="Quem entra no Modo Liderança e o que cada um pode fazer. É aqui, e só aqui, que se TIRA acesso."
       />
+
+      <div className="mb-4 rounded-2xl bg-slate-50 p-4 text-xs leading-relaxed text-slate-600">
+        Uma pessoa por vez, marcando cada permissão. Para dar de uma vez o
+        pacote inteiro de um cargo — e repetir isso na próxima contratação —
+        use{" "}
+        <Link
+          href="/admin/perfis-de-acesso"
+          className="font-semibold text-primary hover:underline"
+        >
+          Perfis de Acesso
+        </Link>
+        : lá o conjunto ganha nome e se aplica em um clique. O que ele grava são
+        as mesmas marcações desta tela.
+      </div>
 
       {/* A revenda que está sendo configurada. Fica no topo porque muda o
           sentido de tudo o que vem abaixo. */}

@@ -1,4 +1,4 @@
-﻿import { requireGestor } from "@/lib/require-admin";
+import { requireGestor } from "@/lib/require-admin";
 import { VoltarAoPainel } from "@/components/VoltarAoPainel";
 import { AdminSidebar, type GrupoNav } from "@/components/admin/AdminSidebar";
 import { getConcessoes } from "@/lib/concessoes";
@@ -55,7 +55,7 @@ export default async function AdminLayout({
       // Módulo sem tela de Admin (ex.: Meus Indicadores) fica de fora: o
       // href dele aponta para a tela do colaborador, e o item na barra
       // jogava o gestor para fora do Modo Liderança. A concessão continua
-      // na Gestão de Acessos.
+      // nos Acessos por Pessoa.
       !m.semTelaAdmin &&
       // A tela mudou de área: Feedbacks, Justificativas e Uso do App
       // passaram a morar em /gestao. Sair daqui é o ponto -- esta barra é

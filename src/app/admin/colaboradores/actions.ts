@@ -232,7 +232,7 @@ export async function excluirColaborador(formData: FormData) {
  *
  * O que esta função NÃO faz, e é o que a mantém segura: ela não concede
  * permissão nenhuma. Quem for promovido aqui entra sem nenhum módulo
- * liberado -- só o Admin, em Gestão de Acessos, decide o que cada liderança
+ * liberado -- só o Admin, em Acessos por Pessoa, decide o que cada liderança
  * enxerga. Promover dá o crachá; não dá as chaves.
  */
 export async function promoverColaborador(formData: FormData) {
@@ -295,7 +295,7 @@ export async function promoverColaborador(formData: FormData) {
   voltar({
     sucesso:
       papel === "lideranca"
-        ? `${nome} agora é liderança. O Admin precisa liberar os módulos em Gestão de Acessos.`
+        ? `${nome} agora é liderança. O Admin precisa liberar os módulos em Acessos por Pessoa.`
         : `${nome} voltou a ser colaborador e perdeu as permissões.`,
     ...extra,
   });
@@ -307,7 +307,7 @@ export async function promoverColaborador(formData: FormData) {
  * É por aqui que passa a liderança que responde por mais de uma unidade:
  * marcar as duas revendas faz aparecer para ela o seletor no topo do app, e
  * a partir daí cada revenda tem o seu próprio conjunto de permissões, que o
- * Admin define em Gestão de Acessos.
+ * Admin define em Acessos por Pessoa.
  *
  * Devolve a mensagem de erro, ou null se deu certo -- em vez de redirecionar
  * sozinha: quem chama está no meio de salvar o cadastro inteiro e precisa

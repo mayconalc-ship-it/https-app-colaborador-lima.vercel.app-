@@ -33,7 +33,7 @@ export default async function AdminPage({
     (m) =>
       // Módulo sem tela de Admin (ex.: Meus Indicadores) não vira cartão:
       // o href aponta para a tela do colaborador, e clicar aqui tirava o
-      // gestor do Modo Liderança. A concessão segue na Gestão de Acessos.
+      // gestor do Modo Liderança. A concessão segue nos Acessos por Pessoa.
       !m.semTelaAdmin &&
       // Mudou de área: a tela mora em /gestao (ver lib/gestao.ts).
       !m.emGestao &&
