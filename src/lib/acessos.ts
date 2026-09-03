@@ -57,14 +57,22 @@ export type ModuloId =
  * As gavetas do Modo Liderança, na ordem em que aparecem.
  *
  * A ordem não é alfabética: é a do dia de quem administra. Comunicação e
- * Engajamento são o que se publica; Indicadores é o que se acompanha;
- * Operação é o que se configura para o chão de fábrica; Pessoas e
+ * Engajamento são o que se publica; Gestão de Dados é onde os
+ * indicadores são ALIMENTADOS (importar relatório, cadastrar valor,
+ * ajustar meta) -- ler indicador é na área de Gestão, /gestao; Pessoas e
  * Configuração são os menos frequentes e ficam no fim.
+ *
+ * "Operação" continua existindo como grupo porque os sub-módulos do
+ * armazém (pa-*, carretas-*, fefo) se penduram nela na tabela de acessos
+ * e em Perfis de Acesso -- mas ela não tem mais item PRÓPRIO na barra:
+ * Ativo de Giro, 5S e Produtividade do Armazém são telas de CADASTRO e
+ * foram para Configuração; a pré-rota é importação e foi para Gestão de
+ * Dados. A gaveta some sozinha quando fica sem item.
  */
 export const GRUPOS_DO_ADMIN = [
   "Comunicação",
   "Engajamento",
-  "Indicadores",
+  "Gestão de Dados",
   "Operação",
   "Pessoas",
   "Configuração",
@@ -76,7 +84,9 @@ export type GrupoDoAdmin = (typeof GRUPOS_DO_ADMIN)[number];
 export const EMOJI_GRUPO_ADMIN: Record<GrupoDoAdmin, string> = {
   "Comunicação": "📣",
   "Engajamento": "🎯",
-  "Indicadores": "📊",
+  // Arquivo, não gráfico: 📊 virou o ícone da ÁREA de Gestão (/gestao),
+  // que é onde se lê indicador. Aqui é onde ele é alimentado.
+  "Gestão de Dados": "🗄️",
   "Operação": "🏭",
   "Pessoas": "👥",
   "Configuração": "⚙️",
@@ -166,7 +176,7 @@ export const MODULOS: Modulo[] = [
     rotulo: "Rating de Entrega",
     emoji: "⭐",
     href: "/admin/rating",
-    grupo: "Indicadores",
+    grupo: "Gestão de Dados",
     // "criar" = importar os relatórios do Drive. O motorista e o ajudante
     // só veem as PRÓPRIAS avaliações, e para isso basta a concessão do
     // módulo (sem ação) -- quem não entrega não tem o que ver aqui.
@@ -180,7 +190,7 @@ export const MODULOS: Modulo[] = [
     // módulos de dentro (Rating, Refugo, Devolução), cada um com a sua.
     // Esta concessão só abre a vitrine.
     href: "/meus-indicadores",
-    grupo: "Indicadores",
+    grupo: "Gestão de Dados",
     acoes: ["ver"],
     semTelaAdmin: true,
   },
@@ -212,7 +222,7 @@ export const MODULOS: Modulo[] = [
     rotulo: "Justificativas",
     emoji: "🗣️",
     href: "/gestao/justificativas",
-    grupo: "Indicadores",
+    grupo: "Gestão de Dados",
     emGestao: true,
     // Só leitura, e de propósito: a explicação é do colaborador. A
     // liderança lê para tratar, não para editar -- um texto que pode ser
@@ -225,7 +235,7 @@ export const MODULOS: Modulo[] = [
     rotulo: "Devolução",
     emoji: "↩️",
     href: "/admin/devolucao",
-    grupo: "Indicadores",
+    grupo: "Gestão de Dados",
     // "criar" = importar; "editar" = a meta e a classificação dos motivos.
     acoes: ["ver", "criar", "editar"],
   },
@@ -234,7 +244,7 @@ export const MODULOS: Modulo[] = [
     rotulo: "Refugo de Vasilhame",
     emoji: "♻️",
     href: "/admin/refugo",
-    grupo: "Indicadores",
+    grupo: "Gestão de Dados",
     // "criar" = importar o relatório; "editar" = cadastrar o valor dos
     // materiais. O motorista, o ajudante e o conferente só veem o
     // próprio refugo, e para isso basta a concessão do módulo.
@@ -245,7 +255,10 @@ export const MODULOS: Modulo[] = [
     rotulo: "Minha Rota (pré-rota)",
     emoji: "🚚",
     href: "/admin/rotas",
-    grupo: "Operação",
+    // Importação de planilha, como Rating/Refugo/Devolução/RV -- e já
+    // aparece como fonte em Fontes de Dados. Ficava em "Operação" e era
+    // o único item de importação fora do grupo dos outros.
+    grupo: "Gestão de Dados",
     // "criar" = importar a planilha. O colaborador só consulta, e para
     // isso não precisa de permissão nenhuma.
     acoes: ["ver", "criar", "excluir"],
@@ -263,7 +276,7 @@ export const MODULOS: Modulo[] = [
     rotulo: "Remuneração Variável",
     emoji: "💰",
     href: "/admin/rv",
-    grupo: "Indicadores",
+    grupo: "Gestão de Dados",
     acoes: ["ver", "editar"],
   },
   {
@@ -271,7 +284,7 @@ export const MODULOS: Modulo[] = [
     rotulo: "Ativo de Giro",
     emoji: "📦",
     href: "/admin/ativo-de-giro",
-    grupo: "Operação",
+    grupo: "Configuração",
     acoes: ["ver", "criar", "editar", "excluir"],
   },
   {
@@ -290,7 +303,7 @@ export const MODULOS: Modulo[] = [
     rotulo: "Programa 5S",
     emoji: "🧹",
     href: "/admin/5s",
-    grupo: "Operação",
+    grupo: "Configuração",
     // "editar" é o que separa quem administra o programa de quem só
     // acompanha: com ele a pessoa cadastra área, planeja auditoria e
     // valida ação; sem ele, abre o BI e olha. É o perfil "Liderança /
@@ -307,7 +320,7 @@ export const MODULOS: Modulo[] = [
     rotulo: "Produtividade do Armazém",
     emoji: "🏭",
     href: "/admin/produtividade-armazem",
-    grupo: "Operação",
+    grupo: "Configuração",
     acoes: ["ver", "criar", "editar", "excluir"],
   },
   {
@@ -472,7 +485,7 @@ export const MODULOS: Modulo[] = [
     rotulo: "Feedbacks das Rotas",
     emoji: "📝",
     href: "/gestao/feedbacks",
-    grupo: "Indicadores",
+    grupo: "Gestão de Dados",
     emGestao: true,
     // "editar" = responder a tratativa das análises de 5 Porquês. Quem só
     // tem "ver" acompanha a fila, mas não grava resposta para o motorista.
@@ -483,7 +496,7 @@ export const MODULOS: Modulo[] = [
     rotulo: "Uso do App",
     emoji: "📊",
     href: "/gestao/uso-do-app",
-    grupo: "Indicadores",
+    grupo: "Gestão de Dados",
     emGestao: true,
     acoes: ["ver"],
   },

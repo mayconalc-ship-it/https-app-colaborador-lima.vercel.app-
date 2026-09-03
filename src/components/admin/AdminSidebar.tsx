@@ -155,7 +155,11 @@ export function AdminSidebar({
               href={atalho.href}
               onClick={fechar}
               title={atalho.rotulo}
-              className="mb-2 flex items-center gap-3 rounded-xl border border-slate-200 px-2 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-100"
+              // A borda some no trilho recolhido: a caixa tem 256px e o
+              // trilho 64px, então a borda direita ficava cortada e o
+              // atalho parecia um retângulo pela metade. Expandida, ela
+              // volta -- é ela que separa a troca de modo das gavetas.
+              className="mb-2 flex items-center gap-3 rounded-xl px-2 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-100 md:border-0 md:group-hover:border md:group-hover:border-slate-200"
             >
               <span className="flex h-6 w-6 shrink-0 items-center justify-center text-lg">
                 {atalho.emoji}
@@ -188,11 +192,24 @@ export function AdminSidebar({
                   </span>
                 </button>
 
-                {/* Aberta: sempre visível. Fechada: some no celular e na
-                    barra expandida, mas os ícones CONTINUAM na barra
-                    recolhida -- senão ela ficaria quase vazia e o atalho
-                    de um clique se perderia. */}
-                <div className={aberta ? "block" : "hidden md:block md:group-hover:hidden"}>
+                {/*
+                  Só a gaveta ABERTA aparece -- inclusive na barra
+                  recolhida.
+
+                  Antes as fechadas também mostravam os ícones no trilho
+                  ("senão ela ficaria quase vazia"). Aquilo funcionava com
+                  duas gavetas e quebrou quando o Admin chegou a 20 itens:
+                  medido em 03/09/2026, o conteúdo do trilho tinha 1311px
+                  numa tela de 712px de altura. A barra rolava, os últimos
+                  ícones sumiam por baixo e o "Só do Admin" ficava fora da
+                  vista -- foi isso que o dono chamou de desconfigurado.
+
+                  Agora o trilho mostra a gaveta em que a pessoa está: o
+                  atalho de um clique continua existindo, mas para os
+                  VIZINHOS da tela aberta, que é onde ele serve. As outras
+                  aparecem ao passar o mouse.
+                */}
+                <div className={aberta ? "block" : "hidden"}>
                   {grupo.itens.map((item) => (
                     <Link
                       key={item.id}
