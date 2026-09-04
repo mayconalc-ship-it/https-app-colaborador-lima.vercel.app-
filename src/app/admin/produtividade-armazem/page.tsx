@@ -23,6 +23,7 @@ import {
   type ProdutoReepack,
 } from "@/lib/produtividade-armazem";
 import { compararNomes, ruasDoDeposito } from "@/lib/fefo";
+import { BuscaProdutoCadastro } from "@/components/admin/BuscaProdutoCadastro";
 import { ROTULO_UNIDADE_AG, UNIDADES_AG } from "@/lib/carretas";
 import {
   alternarAgAtivo,
@@ -45,6 +46,7 @@ import {
   editarEmpilhador,
   editarFabrica,
   editarDepositoFefo,
+  editarProdutoReepack,
   editarItemChecklist5s,
   editarMotivoFefo,
   editarRuaFefo,
@@ -673,62 +675,70 @@ export default async function AdminProdutividadeArmazemPage({
           temItens={totalProdutosReepack > 0}
           vazio="Nenhum produto cadastrado ainda -- importe a planilha ou cadastre um à mão."
           /*
-            A IMPORTAÇÃO SAIU DE TRÁS DO "+" (pedido do dono, 04/09/2026:
-            "o local mais sugestivo para importar a base").
-
-            Ela estava a dois cliques: abrir "+ Cadastro de produto" e
-            então achá-la no topo de um formulário de cadastro individual.
-            O "+" quer dizer "mais um" -- e carregar 565 produtos de uma
-            planilha é o contrário disso. Agora ela aparece sozinha assim
-            que o painel abre, junto da busca: as duas ações que valem
-            para o CATÁLOGO INTEIRO ficam antes das que valem para um
-            produto só.
+            A FAIXA: as duas ações que valem para o CATÁLOGO INTEIRO --
+            importar a base e procurar um produto nela. Ficam separadas
+            do "+", que é para acrescentar UM produto (ver CadastroCard).
           */
           faixaTopo={
             <div className="space-y-3">
-              <div className="space-y-2">
-                <h3 className="text-xs font-bold uppercase tracking-wide text-primary-dark">
-                  📥 Importar a base (planilha .xlsx)
-                </h3>
-                <p className="text-xs text-slate-600">
-                  É o caminho normal, e resolve a base inteira de uma vez: cluster, Fator Hecto,
-                  caixas/pallet, caixas/lastro, unidades/caixa, tipo, embalagem e meta de repack
-                  (cx/h) vêm todos daqui. Produto novo ou meta nova? Atualiza a planilha e importa
-                  de novo — quem já existe (mesmo código Promax) é <strong>atualizado</strong>,
-                  nunca duplicado.
-                </p>
-                <form action={importarPlanilhaProdutos} className="flex flex-wrap items-center gap-2">
-                  <input
-                    type="file"
-                    name="arquivo"
-                    accept=".xlsx"
-                    required
-                    className="block flex-1 text-sm text-slate-600"
-                  />
-                  <BotaoEnviar
-                    textoEnviando="Importando..."
-                    className="shrink-0 rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-white"
-                  >
-                    Importar planilha
-                  </BotaoEnviar>
-                </form>
-              </div>
+              {/* A BUSCA vem antes da importação: procurar um produto
+                  acontece toda semana, importar a base acontece quando a
+                  planilha muda. */}
+              <BuscaProdutoCadastro termoAtual={buscaReepack} />
 
-              {/* A busca também vale para o catálogo inteiro -- e estava
-                  escondida atrás do "+", onde procurar um produto exigia
-                  abrir o formulário de criar outro. */}
-              <form method="get" className="flex gap-2 border-t border-primary/10 pt-3">
-                <input type="hidden" name="aba" value="reepack-despejo" />
-                <input
-                  name="buscaReepack"
-                  defaultValue={buscaReepack}
-                  placeholder="Buscar por código ou descrição"
-                  className={`${campo} flex-1`}
-                />
-                <button type="submit" className="shrink-0 rounded-lg bg-slate-800 px-3 py-2 text-sm font-semibold text-white">
-                  Buscar
-                </button>
-              </form>
+              <details className="group/imp border-t border-primary/10 pt-3">
+                <summary className="flex cursor-pointer list-none items-center gap-2 text-xs font-bold uppercase tracking-wide text-primary-dark marker:content-none [&::-webkit-details-marker]:hidden">
+                  <span
+                    className="transition-transform group-open/imp:rotate-90"
+                    aria-hidden="true"
+                  >
+                    ▸
+                  </span>
+                  📥 Importar a base (planilha .xlsx)
+                </summary>
+
+                <div className="mt-2 space-y-2">
+                  <p className="text-xs text-slate-600">
+                    Resolve a base inteira de uma vez: cluster, Fator Hecto, caixas/pallet,
+                    caixas/lastro, unidades/caixa, tipo, embalagem e meta de repack (cx/h) vêm todos
+                    daqui. Produto novo ou meta nova? Atualiza a planilha e importa de novo — quem
+                    já existe (mesmo código Promax) é <strong>atualizado</strong>, nunca duplicado.
+                  </p>
+                  <form action={importarPlanilhaProdutos} className="space-y-2">
+                    {/*
+                      O "Escolher arquivo / Nenhum arquivo escolhido" do
+                      navegador é cinza, minúsculo e em inglês em alguns
+                      aparelhos -- ninguém acha onde clicar (pedido do
+                      dono, 05/09/2026). As classes `file:` estilizam o
+                      BOTÃO interno do input, que é a única parte que dá
+                      para vestir sem JavaScript. O nome do arquivo
+                      escolhido continua sendo escrito pelo navegador, ao
+                      lado do botão.
+                    */}
+                    <label className="block cursor-pointer rounded-xl border-2 border-dashed border-primary/40 bg-white p-3 hover:border-primary">
+                      <span className="mb-2 block text-xs font-semibold text-slate-700">
+                        1. Escolha o arquivo da planilha
+                      </span>
+                      <input
+                        type="file"
+                        name="arquivo"
+                        accept=".xlsx"
+                        required
+                        className="block w-full cursor-pointer text-sm text-slate-600 file:mr-3 file:cursor-pointer file:rounded-lg file:border-0 file:bg-primary file:px-4 file:py-2.5 file:text-sm file:font-bold file:text-white hover:file:bg-primary-dark"
+                      />
+                      <span className="mt-2 block text-xs text-slate-400">
+                        Só .xlsx. A primeira aba do arquivo é a que vale.
+                      </span>
+                    </label>
+                    <BotaoEnviar
+                      textoEnviando="Importando..."
+                      className="w-full rounded-xl bg-primary px-3 py-3 text-sm font-bold text-white hover:bg-primary-dark"
+                    >
+                      2. Importar planilha
+                    </BotaoEnviar>
+                  </form>
+                </div>
+              </details>
             </div>
           }
           formNovo={
@@ -771,8 +781,11 @@ export default async function AdminProdutividadeArmazemPage({
                         name="fator_hecto"
                         type="number"
                         inputMode="decimal"
-                        step="0.0001"
-                        min="0.0001"
+                        /* step="any": produto com cinco casas existe
+                           (0,00588), e um step fixo recusaria o valor
+                           real. O servidor exige > 0. */
+                        step="any"
+                        min="0"
                         required
                         placeholder="Ex.: 0,06"
                         className={campo}
@@ -921,6 +934,124 @@ export default async function AdminProdutividadeArmazemPage({
                   >
                     {p.ativo ? "🚫" : "✅"}
                   </BotaoIcone>
+                }
+                /*
+                  EDITAR UM PRODUTO NA LISTA -- pedido do dono
+                  (05/09/2026). Até aqui, corrigir um número de um
+                  produto só era possível pela planilha: mudar a linha,
+                  salvar, reimportar 333. Para um lastro errado (e há dez
+                  deles), isso é caro demais para o que o conserto é.
+
+                  São os MESMOS campos do cadastro à mão, e é de
+                  propósito: dois caminhos para o mesmo produto não podem
+                  aceitar coisas diferentes.
+                */
+                formEditar={
+                  <form action={editarProdutoReepack} className="space-y-3">
+                    <input type="hidden" name="id" value={p.id} />
+
+                    <div className="grid gap-3 sm:grid-cols-3">
+                      <div>
+                        <label className={rotulo}>Código Promax *</label>
+                        <input name="codigo" defaultValue={p.codigo} required maxLength={40} className={campo} />
+                      </div>
+                      <div className="sm:col-span-2">
+                        <label className={rotulo}>Descrição *</label>
+                        <input name="descricao" defaultValue={p.descricao} required maxLength={200} className={campo} />
+                      </div>
+                    </div>
+
+                    <div className="grid gap-3 sm:grid-cols-4">
+                      <div>
+                        <label className={rotulo}>Fator Hecto *</label>
+                        {/* step="any", e não 0.0001: o Fator Hecto vem do
+                            SAP com a precisão que ele tem, e há produto
+                            com cinco casas (o 22007 é 0,00588). Com um
+                            step fixo, o navegador RECUSA o valor que já
+                            está gravado -- "os dois valores válidos mais
+                            próximos são 0,0058 e 0,0059" -- e trava a
+                            edição de um campo que ninguém queria mexer. */}
+                        <input
+                          name="fator_hecto"
+                          type="number"
+                          inputMode="decimal"
+                          step="any"
+                          min="0"
+                          required
+                          defaultValue={p.fatorHecto ?? ""}
+                          className={campo}
+                        />
+                      </div>
+                      <div>
+                        <label className={rotulo}>Un/caixa</label>
+                        <input name="unidades_por_caixa" type="number" min={1} defaultValue={p.unidadesPorCaixa ?? ""} className={campo} />
+                      </div>
+                      <div>
+                        <label className={rotulo}>Caixas/pallet</label>
+                        <input name="caixas_pallet" type="number" min={1} defaultValue={p.caixasPallet ?? ""} className={campo} />
+                      </div>
+                      <div>
+                        <label className={rotulo}>Caixas/lastro</label>
+                        <input
+                          name="caixas_por_lastro"
+                          type="number"
+                          min={1}
+                          defaultValue={p.caixasPorLastro ?? ""}
+                          className={`${campo} ${lastroFecha === false ? "border-red-400 bg-red-50" : ""}`}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid gap-3 sm:grid-cols-3">
+                      <div>
+                        <label className={rotulo}>Embalagem do Repack</label>
+                        <select name="embalagem_id" className={campo} defaultValue={p.embalagemId ?? ""}>
+                          <option value="">— sem embalagem —</option>
+                          {embalagensRepackAtivas.map((e) => (
+                            <option key={e.id} value={e.id}>{e.nome}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className={rotulo}>Cluster</label>
+                        <input name="cluster_produto" defaultValue={p.clusterProduto ?? ""} maxLength={80} className={campo} />
+                      </div>
+                      <div>
+                        <label className={rotulo}>Tipo</label>
+                        <select name="tipo" className={campo} defaultValue={p.tipo ?? ""}>
+                          <option value="">—</option>
+                          <option value="DESCARTAVEL">Descartável</option>
+                          <option value="RETORNAVEL">Retornável</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <div>
+                        <label className={rotulo}>Meta de repack (cx/h)</label>
+                        <input name="meta_reepack_hora" type="number" min={0} defaultValue={p.metaReepackHora ?? ""} className={campo} />
+                      </div>
+                      <div>
+                        <label className={rotulo}>Meta de despejo (L/h)</label>
+                        <input name="meta_despejo_hora" type="number" min={0} defaultValue={p.metaDespejoHora ?? ""} className={campo} />
+                      </div>
+                    </div>
+
+                    {/* O aviso é a parte que importa: a correção feita
+                        aqui vive até a próxima importação, que
+                        sobrescreve o produto pelo código. */}
+                    <p className="rounded-lg bg-amber-50 px-2.5 py-1.5 text-xs text-amber-800">
+                      A próxima importação da planilha <strong>sobrescreve</strong> este produto —
+                      corrija também lá, senão o número volta ao errado.
+                    </p>
+
+                    <BotaoEnviar
+                      textoEnviando="Salvando..."
+                      className="w-full rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-white hover:bg-primary-dark"
+                    >
+                      Salvar produto
+                    </BotaoEnviar>
+                  </form>
                 }
               />
             );

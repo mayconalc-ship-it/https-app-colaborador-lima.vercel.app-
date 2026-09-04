@@ -79,19 +79,16 @@ export function PainelCadastro({
 
       <div className="border-t border-slate-100">
         {/*
-          A FAIXA DE CIMA -- para a ação que carrega o catálogo INTEIRO.
+          O CADASTRO VEM PRIMEIRO, e a faixa depois dele -- pedido do
+          dono (05/09/2026).
 
-          O "+" quer dizer "mais um", e é por isso que importar uma
-          planilha de 565 produtos não podia morar atrás dele: quem vem
-          carregar a base não procura um botão de somar um item, e a
-          importação ficava a dois cliques de distância, dentro de um
-          formulário de cadastro individual. Aqui ela aparece sozinha
-          assim que o painel abre (pedido do dono, 04/09/2026).
+          A faixa nasceu em cima porque a importação estava escondida
+          atrás do "+", que quer dizer "mais um" e não "carregue 333".
+          Resolveu isso e criou o inverso: cadastrar UM produto passou a
+          ser a segunda coisa da tela, abaixo de um bloco de explicação
+          sobre planilha. Cadastrar é a ação mais frequente e a mais
+          simples; a importação é o evento raro. A ordem segue isso.
         */}
-        {faixaTopo && (
-          <div className="border-b border-slate-100 bg-primary-soft/40 p-4">{faixaTopo}</div>
-        )}
-
         <details className="group">
           <summary className="flex cursor-pointer list-none items-center justify-end gap-3 p-3 marker:content-none [&::-webkit-details-marker]:hidden">
             {/* Mesmo "+" quadrado azul do resto do app (ver BotaoMais) --
@@ -104,6 +101,14 @@ export function PainelCadastro({
           </summary>
           <div className="border-t border-slate-100 bg-slate-50/70 p-4">{formNovo}</div>
         </details>
+
+        {/* A FAIXA -- para a ação que carrega o catálogo INTEIRO, e para
+            a busca. As duas valem para a lista toda, e não para um item;
+            por isso continuam separadas do "+". */}
+        {faixaTopo && (
+          <div className="border-t border-slate-100 bg-primary-soft/40 p-4">{faixaTopo}</div>
+        )}
+
         <div className="divide-y divide-slate-100 border-t border-slate-100">
           {temItens ? children : (
             <p className="p-6 text-center text-sm text-slate-400">{vazio ?? "Nada cadastrado ainda."}</p>

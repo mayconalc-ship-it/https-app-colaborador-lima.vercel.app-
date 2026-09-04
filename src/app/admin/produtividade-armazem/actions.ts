@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import ExcelJS from "exceljs";
 import { requireModulo } from "@/lib/require-admin";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { exigirRevenda } from "@/lib/revendas";
+import { exigirRevenda, getRevendaId } from "@/lib/revendas";
 import { createClient } from "@/lib/supabase/server";
 import { ehSenso, ehTurno, litrosPorCaixa } from "@/lib/produtividade-armazem";
 import { datetimeLocalParaUTC } from "@/lib/comunicados";
@@ -1727,6 +1727,141 @@ export async function salvarProdutoReepack(formData: FormData) {
 
   revalidatePath(ROTA);
   sucesso("reepack-despejo", `${codigo} — ${descricao} salvo`);
+}
+
+/**
+ * EDITAR UM produto que já existe -- pedido do dono (05/09/2026): um
+ * botão de editar em cada produto da lista.
+ *
+ * Até aqui, corrigir um número de um produto só era possível pela
+ * planilha: mudar a linha, salvar, reimportar 333. Para um lastro
+ * errado (e há dez deles no cadastro), isso é caro demais para o que o
+ * conserto é.
+ *
+ * ATUALIZA PELO ID, e é a diferença que importa em relação ao
+ * salvarProdutoReepack, que faz upsert por (revenda_id, codigo).
+ * Editando pelo código, corrigir um código digitado errado criaria um
+ * produto NOVO e deixaria o antigo para trás -- em vez de renomear. Pelo
+ * id, o produto é o mesmo e o código é só mais um campo dele.
+ */
+export async function editarProdutoReepack(formData: FormData) {
+  await requireModulo("produtividade-armazem", "editar");
+  const revendaId = await exigirRevenda(ROTA);
+  const admin = createAdminClient();
+
+  const id = String(formData.get("id") ?? "");
+  if (!id) erro("reepack-despejo", "Produto inválido.");
+
+  const codigo = String(formData.get("codigo") ?? "").trim();
+  const descricao = String(formData.get("descricao") ?? "").trim();
+  if (!codigo) erro("reepack-despejo", "Informe o código Promax.");
+  if (!descricao) erro("reepack-despejo", "Informe a descrição do produto.");
+
+  const numero = (campo: string): number | null => {
+    const bruto = String(formData.get(campo) ?? "").trim().replace(",", ".");
+    if (!bruto) return null;
+    const n = Number(bruto);
+    return Number.isFinite(n) ? n : null;
+  };
+  const contagem = (campo: string): number | null => {
+    const n = numero(campo);
+    return n !== null && Number.isInteger(n) && n > 0 ? n : null;
+  };
+
+  const fatorHecto = numero("fator_hecto");
+  if (fatorHecto === null || fatorHecto <= 0) {
+    erro("reepack-despejo", "Informe o Fator Hecto (HL por caixa) -- sem ele o produto some do lançamento.");
+  }
+
+  // A embalagem pode ficar VAZIA na edição, diferente do cadastro novo.
+  // 79 produtos da planilha vêm sem ela; obrigá-la aqui impediria de
+  // corrigir o lastro de um deles sem antes decidir a embalagem, que é
+  // outro assunto.
+  const embalagemId = String(formData.get("embalagem_id") ?? "").trim() || null;
+  if (embalagemId) {
+    const { data: embalagem } = await admin
+      .from("pa_embalagens")
+      .select("id")
+      .eq("id", embalagemId)
+      .eq("revenda_id", revendaId)
+      .maybeSingle();
+    if (!embalagem) erro("reepack-despejo", "Embalagem não encontrada nesta revenda.");
+  }
+
+  const tipoBruto = String(formData.get("tipo") ?? "").trim();
+  const tipo = tipoBruto === "DESCARTAVEL" || tipoBruto === "RETORNAVEL" ? tipoBruto : null;
+
+  const { error } = await admin
+    .from("pa_produtos")
+    .update({
+      codigo,
+      descricao,
+      cluster_produto: String(formData.get("cluster_produto") ?? "").trim() || null,
+      fator_hecto: fatorHecto,
+      caixas_pallet: contagem("caixas_pallet"),
+      caixas_por_lastro: contagem("caixas_por_lastro"),
+      unidades_por_caixa: contagem("unidades_por_caixa"),
+      tipo,
+      embalagem_id: embalagemId,
+      meta_reepack_hora: numero("meta_reepack_hora"),
+      meta_despejo_hora: numero("meta_despejo_hora"),
+    })
+    .eq("id", id)
+    .eq("revenda_id", revendaId);
+
+  if (error) {
+    if (error.code === "23505") {
+      erro("reepack-despejo", `Já existe outro produto com o código ${codigo} nesta revenda.`);
+    }
+    erro("reepack-despejo", `Não foi possível salvar: ${error.message}`);
+  }
+
+  revalidatePath(ROTA);
+  // AVISA QUE A PLANILHA VAI DESFAZER. A correção feita aqui vive até a
+  // próxima importação, que sobrescreve o produto inteiro pelo código --
+  // sem este aviso, o número voltaria ao errado e ninguém ligaria uma
+  // coisa à outra.
+  sucesso(
+    "reepack-despejo",
+    `${codigo} — ${descricao} salvo. Corrija também na planilha: a próxima importação sobrescreve este produto.`,
+  );
+}
+
+/**
+ * Busca para a LISTA DO CADASTRO, com a lista suspensa aparecendo ao
+ * digitar (pedido do dono, 05/09/2026).
+ *
+ * É a base INTEIRA, e é a diferença que importa em relação a
+ * buscarProdutosReepack: aquela só enxerga produto pronto para
+ * reembalar, e no cadastro os que mais precisam ser achados são
+ * justamente os que não estão prontos -- os 79 sem embalagem e os que
+ * têm o lastro errado. Buscar só entre os prontos esconderia da tela de
+ * conserto exatamente o que se vem consertar.
+ *
+ * Inclui o desativado pelo mesmo motivo: reativar um produto exige
+ * encontrá-lo.
+ */
+export async function buscarProdutosDoCadastro(termo: string) {
+  await requireModulo("produtividade-armazem", "ver");
+  const revendaId = await getRevendaId();
+  if (!revendaId) return [];
+
+  const t = termo.trim();
+  if (t.length < 2) return [];
+
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from("pa_produtos")
+    .select("id, codigo, descricao, ativo")
+    .eq("revenda_id", revendaId)
+    .or(`codigo.ilike.%${t}%,descricao.ilike.%${t}%`)
+    .order("codigo")
+    .limit(30);
+
+  // Erro não vira lista vazia: uma lista vazia diria "não existe esse
+  // produto", que é uma resposta -- e errada.
+  if (error) throw new Error(`Não foi possível buscar: ${error.message}`);
+  return data ?? [];
 }
 
 export async function alternarProdutoAtivo(formData: FormData) {
