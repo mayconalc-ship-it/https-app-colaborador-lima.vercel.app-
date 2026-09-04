@@ -42,6 +42,7 @@ import {
   ROTULO_ESTADO,
   estaAberta,
   estadoDe,
+  minutosParadaAgora,
   ordenarFila,
   type Estado,
   type Prioridade,
@@ -55,6 +56,7 @@ import {
   adicionarItem,
   buscarProdutosAbastecimento,
   cancelarAbastecimento,
+  destravarSessao,
   excluirAbastecimento,
   finalizarAbastecimento,
   iniciarAbastecimento,
@@ -295,6 +297,26 @@ export default async function AbastecimentoPage({
   // essas pessoas já têm -- não nasceu módulo novo para isso.
   const podeTransportar = await temAcessoModulo("pa-empilhadeira");
 
+  /*
+    AS SESSÕES ABERTAS DE OUTRAS PESSOAS -- só para a liderança.
+
+    A sessão em andamento só aparece para quem a abriu, e é isso que
+    deixava a liderança sem saída: em 02/09/2026 o Jorge abriu um
+    abastecimento às 10:30 e não lançou nada, a sessão passou dois dias
+    aberta, e o índice único (migration 071) o impedia de abrir outra. O
+    dono relatou que "não conseguia fechar" -- não havia como, cancelar
+    era exclusivo do dono da sessão.
+  */
+  const { data: travadasBanco } = podeExcluirQualquer
+    ? await supabase
+        .from("pa_abastecimentos")
+        .select("id, colaborador_id, colaborador_nome, tipo, turno, inicio, ressuprimento_id")
+        .eq("revenda_id", revendaId)
+        .is("fim", null)
+        .neq("colaborador_id", perfil.id)
+        .order("inicio", { ascending: true })
+    : { data: null };
+
   // As solicitações dos últimos dias: alimentam a fila da empilhadeira, a
   // lista do que está esperando na área e o acompanhamento de quem pediu.
   const desdeRessuprimento = new Date(Date.now() - DIAS_DE_SOLICITACAO * 86_400_000).toISOString();
@@ -320,6 +342,67 @@ export default async function AbastecimentoPage({
   // Um relógio só para a tela inteira: cada `new Date()` a mais faria dois
   // cartões calcularem "parado há" a partir de instantes diferentes.
   const agora = new Date();
+
+  /*
+    Quantos itens cada sessão travada tem. Sem esse número, destravar é
+    uma aposta: uma sessão com 20 lançamentos é trabalho de verdade que
+    alguém esqueceu de fechar, e uma com zero é a que só atrapalha. O
+    aviso do botão muda por causa disso.
+  */
+  const idsTravadas = (travadasBanco ?? []).map((s) => s.id);
+  const { data: itensTravadas } = idsTravadas.length
+    ? await supabase
+        .from("pa_abastecimento_itens")
+        .select("abastecimento_id")
+        .in("abastecimento_id", idsTravadas)
+    : { data: null };
+
+  const sessoesTravadas = (travadasBanco ?? []).map((sessao) => ({
+    sessao,
+    minutos: Math.max(
+      0,
+      Math.round((agora.getTime() - new Date(sessao.inicio).getTime()) / 60_000),
+    ),
+    itens: (itensTravadas ?? []).filter((i) => i.abastecimento_id === sessao.id).length,
+  }));
+
+  /*
+    A LISTA DE COBRANÇA: o que passou do limite, e com quem está.
+
+    Uma hora é o corte. Não é meta de tempo de ciclo -- é o ponto a
+    partir do qual um pedido parado deixa de ser "está andando" e passa a
+    ser "alguém esqueceu". Um abastecimento pontual leva minutos; onze
+    pedidos aceitados às 3h40 e ainda em transporte às 15h não são lentos,
+    são esquecidos.
+
+    O responsável sai do ESTADO, não de um campo: cada etapa tem um dono
+    diferente, e é isso que a tela precisa dizer para a cobrança ter
+    endereço.
+  */
+  const LIMITE_PARADO_MIN = 60;
+
+  const travados = pedidosAbertos
+    .map((pedido) => {
+      const minutos = minutosParadaAgora(pedido, agora);
+      const estado = estadoDe(pedido);
+      const etapa = ETAPAS_DO_PEDIDO.find((e) => e.estado === estado)?.titulo ?? estado;
+
+      // De quem é a bola, por etapa. "Aberto" ainda não tem nome: o
+      // pedido está na fila e qualquer empilhadeira pega -- e é por isso
+      // que ele aparece como a função, não como uma pessoa.
+      const responsavel =
+        estado === "aberta"
+          ? "Empilhadeira (ninguém pegou)"
+          : estado === "em_transporte"
+            ? (pedido.operadorNome ?? "Empilhadeira")
+            : estado === "na_area"
+              ? "Quem abastece o picking"
+              : (pedido.abastecedorNome ?? "Quem abastece o picking");
+
+      return { pedido, minutos: minutos ?? 0, etapa, responsavel };
+    })
+    .filter((t) => t.minutos >= LIMITE_PARADO_MIN)
+    .sort((a, b) => b.minutos - a.minutos);
 
 
   // Completo até as 10h, pontual depois -- o combinado da operação. O
@@ -466,6 +549,115 @@ export default async function AbastecimentoPage({
           {/* O cronômetro correndo vem primeiro: é o único item da tela
               com tempo passando, e enterrá-lo abaixo da lista faria a
               pessoa esquecer de finalizar. */}
+          {/*
+            O QUE ESTÁ TRAVADO, e com quem -- pedido do dono (04/09/2026):
+            "para que seja cobrado das pessoas responsáveis a finalização
+            do processo".
+
+            A tela já mostrava os pedidos agrupados por etapa, mas as
+            gavetas nascem fechadas e o tempo parado ficava dentro de cada
+            cartão. Quem abria a tela via "12 pedidos" e nada sobre HÁ
+            QUANTO TEMPO nem DE QUEM É A BOLA -- e foi assim que onze
+            pedidos aceitados às 3h40 passaram o dia inteiro sem entrega,
+            sem ninguém notar.
+
+            Aqui vem só o que passou do limite, do mais parado para o
+            menos, com o nome de quem tem a bola. É uma lista de cobrança,
+            não um painel: se estiver vazia, ela some.
+          */}
+          {/* SESSÕES DE OUTRAS PESSOAS QUE FICARAM ABERTAS.
+              Só para a liderança, e só quando existem. É o botão que
+              faltava: sem ele, quem travou fica impedido de lançar até
+              alguém com acesso ao banco resolver. */}
+          {sessoesTravadas.length > 0 && (
+            <section className="rounded-2xl border border-amber-300 bg-amber-50 p-4">
+              <h2 className="text-sm font-bold text-amber-900">
+                🔓 Abastecimentos abertos de outras pessoas
+              </h2>
+              <p className="mt-1 text-xs text-amber-800">
+                Enquanto a sessão fica aberta, a pessoa não consegue iniciar outra.
+                Destravar <strong>apaga</strong> a sessão — use quando ela ficou aberta
+                por engano. Quem está trabalhando de verdade finaliza sozinho.
+              </p>
+              <ul className="mt-3 space-y-2">
+                {sessoesTravadas.map(({ sessao, minutos, itens }) => (
+                  <li
+                    key={sessao.id}
+                    className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-white p-3"
+                  >
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-slate-800">
+                        {sessao.colaborador_nome}
+                      </p>
+                      <p className="text-xs text-slate-500">
+                        {TIPO_ABASTECIMENTO[
+                          ehTipoAbastecimento(sessao.tipo) ? sessao.tipo : "completo"
+                        ].rotulo}{" "}
+                        · iniciou {formatarDataHora(sessao.inicio)} ·{" "}
+                        <span className={minutos >= 240 ? "font-bold text-red-700" : ""}>
+                          aberto há {formatarMinutos(minutos)}
+                        </span>
+                      </p>
+                      <p className="text-xs text-slate-500">
+                        {itens === 0
+                          ? "Nada lançado nesta sessão."
+                          : `${itens} item(ns) lançado(s) — eles serão apagados junto.`}
+                      </p>
+                    </div>
+                    <BotaoExcluir
+                      action={destravarSessao}
+                      campos={{ id: sessao.id }}
+                      confirmacao={
+                        itens === 0
+                          ? `Destravar o abastecimento de ${sessao.colaborador_nome}? Ele está aberto há ${formatarMinutos(minutos)} sem nada lançado, e some.`
+                          : `Destravar o abastecimento de ${sessao.colaborador_nome}? Os ${itens} item(ns) lançados serão APAGADOS junto. Se o trabalho aconteceu, peça a ele para finalizar.`
+                      }
+                      rotuloConfirmar="Destravar"
+                      textoEnviando="Destravando..."
+                      className="shrink-0 rounded-xl border border-amber-400 bg-white px-3 py-2 text-xs font-semibold text-amber-900 hover:bg-amber-100"
+                    >
+                      Destravar
+                    </BotaoExcluir>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+
+          {travados.length > 0 && (
+            <section className="rounded-2xl border border-red-300 bg-red-50 p-4">
+              <h2 className="text-sm font-bold text-red-900">
+                ⏰ Parados há mais de {formatarMinutos(LIMITE_PARADO_MIN)}
+                <span className="ml-2 font-normal text-red-700">
+                  {travados.length} {travados.length === 1 ? "pedido" : "pedidos"}
+                </span>
+              </h2>
+              <ul className="mt-2 space-y-1.5">
+                {travados.map(({ pedido, minutos, etapa, responsavel }) => (
+                  <li
+                    key={pedido.id}
+                    className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 rounded-lg bg-white p-2 text-xs"
+                  >
+                    <span className="font-semibold text-slate-800">
+                      {responsavel}
+                      <span className="ml-1.5 font-normal text-slate-500">{etapa}</span>
+                    </span>
+                    <span className="text-slate-500">
+                      pedido de {pedido.solicitanteNome} · {formatarDataHora(pedido.criadoEm)}
+                    </span>
+                    <span className="font-bold tabular-nums text-red-700">
+                      {formatarMinutos(minutos)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-2 text-xs text-red-800">
+                O pedido só sai daqui quando quem tem a bola conclui a etapa dele. Cada
+                cartão abaixo tem o botão da próxima ação.
+              </p>
+            </section>
+          )}
+
           {aberta && (
             <SessaoEmAndamento
               sessao={aberta}
@@ -476,6 +668,12 @@ export default async function AbastecimentoPage({
               tipos={tipos}
               clusterInicial={clusters.includes(clusterCookie) ? clusterCookie : ""}
               tipoInicial={tipos.includes(tipoCookie) ? tipoCookie : ""}
+              pedidoDaSessao={
+                aberta.ressuprimento_id
+                  ? (solicitacoes.find((s) => s.id === aberta.ressuprimento_id) ?? null)
+                  : null
+              }
+              agora={agora}
             />
           )}
 
@@ -811,6 +1009,8 @@ function SessaoEmAndamento({
   tipos,
   clusterInicial,
   tipoInicial,
+  pedidoDaSessao,
+  agora,
 }: {
   sessao: Sessao;
   itens: Item[];
@@ -820,8 +1020,15 @@ function SessaoEmAndamento({
   tipos: string[];
   clusterInicial: string;
   tipoInicial: string;
+  /** O pedido que originou a sessão -- é de onde saem "quem pediu" e
+   *  "quem trouxe". Nulo no lançamento avulso. */
+  pedidoDaSessao: Ressuprimento | null;
+  agora: Date;
 }) {
   const tipo: TipoAbastecimento = ehTipoAbastecimento(sessao.tipo) ? sessao.tipo : "completo";
+  const minutosAberta = Math.round(
+    (agora.getTime() - new Date(sessao.inicio).getTime()) / 60000,
+  );
 
   /*
     VERDE quando o abastecimento veio de um pedido, âmbar quando é avulso.
@@ -845,15 +1052,40 @@ function SessaoEmAndamento({
           🕐 {TIPO_ABASTECIMENTO[tipo].rotulo} em andamento —{" "}
           {ROTULO_TURNO_CURTO[sessao.turno as keyof typeof ROTULO_TURNO] ?? sessao.turno}
         </p>
-        <p className={`text-xs ${tom.texto}`}>Iniciado às {formatarDataHora(sessao.inicio)}</p>
-        {/* Os itens desta sessão já vieram preenchidos, e sem esta linha a
-            pessoa abriria a tela sem entender de onde saíram -- ou
-            apagaria tudo achando que era lançamento de outro. */}
+        <p className={`text-xs ${tom.texto}`}>
+          Iniciado às {formatarDataHora(sessao.inicio)}
+          {/* HÁ QUANTO TEMPO -- pedido do dono (04/09/2026). A hora de
+              início sozinha não diz que está parado: às 12:50 parece
+              recente até alguém somar de cabeça. "Aberto há 2h32" diz
+              na hora, e é o número que se cobra. */}
+          {minutosAberta !== null && minutosAberta >= 30 && (
+            <>
+              {" · "}
+              <span className={minutosAberta >= 120 ? "font-bold text-red-700" : "font-semibold"}>
+                aberto há {formatarMinutos(minutosAberta)}
+              </span>
+            </>
+          )}
+        </p>
+
+        {/* QUEM PEDIU, e quando -- a tela dizia só "veio de um pedido".
+            Sem o nome, quem abre não sabe de quem é o trabalho nem a
+            quem responder, e o dono relatou exatamente isso: "não fala
+            quem solicitou e onde está parado". */}
         {daSolicitacao && (
-          <p className={`mt-1 text-xs font-medium ${tom.titulo}`}>
-            🧾 Veio de um pedido. Os itens já estão lançados — remova o que você não chegou a
-            abastecer e finalize.
-          </p>
+          <div className={`mt-1 rounded-lg bg-white/70 p-2 text-xs ${tom.titulo}`}>
+            <p className="font-medium">
+              🧾 Pedido de{" "}
+              <strong>{pedidoDaSessao?.solicitanteNome ?? "—"}</strong>
+              {pedidoDaSessao && <> às {formatarDataHora(pedidoDaSessao.criadoEm)}</>}
+              {pedidoDaSessao?.operadorNome && (
+                <> · trazido por {pedidoDaSessao.operadorNome}</>
+              )}
+            </p>
+            <p className="mt-0.5 font-normal opacity-80">
+              Os itens já estão lançados — remova o que você não chegou a abastecer e finalize.
+            </p>
+          </div>
         )}
       </div>
 

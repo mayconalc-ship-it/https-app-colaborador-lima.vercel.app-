@@ -12,8 +12,8 @@ import { alternarCurtida, marcarVista } from "@/app/desafio/voce-sabia/actions";
  * lâmpada, e a pontinha aponta para ela. É o que faz o balão ser lido
  * como "a lâmpada está falando" em vez de "apareceu uma janela".
  *
- * O PONTINHO DOURADO só existe quando há card NOVO. Depois de aberto, a
- * lâmpada continua ali o resto do dia, apagada e discreta, para quem
+ * A BOLINHA AZUL só existe quando há card NOVO. Depois de lido, a
+ * lâmpada fica CINZA e continua ali o resto do dia, apagada, para quem
  * quiser reler -- some sozinha amanhã, quando o servidor tiver outro card
  * (ou nenhum). Quem decide isso é o voce-sabia-server.ts; aqui só se
  * desenha o que ele mandou.
@@ -241,25 +241,38 @@ export function VoceSabia({
           aria-label={
             novo ? "Você sabia? Há uma dica nova" : "Você sabia? Ver a dica"
           }
-          // ACESA de verdade quando há dica nova: 56px, dourado cheio e
-          // um halo que respira em volta. O pontinho sozinho era pequeno
-          // demais para ser notado no pé de uma tela cheia de cartões
-          // (pedido do dono, 03/09/2026). Lida, ela encolhe para 48px e
-          // volta ao branco discreto -- continua ali para reler, sem
-          // disputar atenção com o resto.
+          // ACESA de verdade quando há dica nova: 56px, dourado cheio, um
+          // halo que respira em volta e a BOLINHA AZUL do lado -- o mesmo
+          // sinal de "tem coisa nova aqui" que qualquer app usa, e o único
+          // que a pessoa reconhece sem ler nada.
+          //
+          // LIDA, ELA FICA CINZA (pedido do dono, 04/09/2026). Antes ela
+          // voltava ao branco, e branco não é "apagada": era só uma
+          // lâmpada menor, e a diferença entre "já li" e "ainda não li"
+          // dependia de lembrar do tamanho anterior. Cinza é estado, não
+          // comparação -- some a bolinha, some o dourado, e o próprio
+          // emoji perde a cor (`grayscale`), porque um 💡 amarelo dentro
+          // de um botão cinza continuaria parecendo aceso.
           className={`relative flex items-center justify-center rounded-full border shadow-lg transition-all duration-300 ${
             apagando ? "lampada-apaga" : novo ? "lampada-acesa" : ""
           } ${
             novo
               ? "h-14 w-14 border-gold bg-gold text-2xl text-primary-dark"
-              : "h-12 w-12 border-slate-200 bg-white text-xl text-slate-500"
+              : "h-12 w-12 border-slate-300 bg-slate-200 text-xl text-slate-500 shadow-sm"
           }`}
         >
-          💡
+          <span
+            aria-hidden="true"
+            className={
+              novo ? "" : "opacity-70 grayscale transition-all duration-300"
+            }
+          >
+            💡
+          </span>
           {novo && (
             <span
               aria-hidden="true"
-              className="lampada-pisca absolute -right-0.5 -top-0.5 h-3.5 w-3.5 rounded-full border-2 border-white bg-primary"
+              className="lampada-pisca absolute -right-0.5 -top-0.5 h-4 w-4 rounded-full border-2 border-white bg-primary"
             />
           )}
         </button>

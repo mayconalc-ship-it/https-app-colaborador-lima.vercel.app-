@@ -229,6 +229,75 @@ export async function finalizarAbastecimento(formData: FormData) {
   redirect(`${ROTA}?sucesso=Abastecimento+finalizado`);
 }
 
+/**
+ * A LIDERANÇA DESTRAVA UMA SESSÃO DE OUTRA PESSOA.
+ *
+ * Faltava, e a falta tinha consequência concreta: em 02/09/2026 o Jorge
+ * abriu um abastecimento às 10:30 e não lançou nada. A sessão ficou
+ * aberta por DOIS DIAS -- e o índice único (migration 071) impede uma
+ * segunda sessão aberta da mesma pessoa, então ele ficou impedido de
+ * lançar até alguém fechar. Só que "alguém" não existia: cancelar era
+ * exclusivo do dono da sessão, e ele não estava conseguindo.
+ *
+ * CANCELA em vez de finalizar, e o motivo é honesto: uma sessão que
+ * ficou aberta dois dias não tem tempo de ciclo que signifique alguma
+ * coisa. Finalizá-la gravaria 48 horas de "abastecimento" na média da
+ * pessoa e do turno. Cancelar apaga, e o que não aconteceu não vira
+ * estatística.
+ *
+ * Se houver itens lançados, eles vão junto (cascade da FK) -- e é por
+ * isso que a tela avisa quantos são antes de confirmar. Sessão com
+ * trabalho de verdade se FINALIZA, pela própria pessoa; esta ação é para
+ * a que travou.
+ */
+export async function destravarSessao(formData: FormData) {
+  await exigirContexto();
+  const podeExcluir = await podeNoModulo("produtividade-armazem", "excluir");
+  if (!podeExcluir) {
+    erro("Só a liderança pode destravar o abastecimento de outra pessoa.");
+  }
+
+  const revendaId = await getRevendaId();
+  if (!revendaId) erro("Você não está em nenhuma revenda.");
+
+  const id = String(formData.get("id") ?? "");
+  if (!id) erro("Sessão inválida.");
+
+  const admin = createAdminClient();
+
+  const { data: sessao } = await admin
+    .from("pa_abastecimentos")
+    .select("id, colaborador_nome, ressuprimento_id")
+    .eq("id", id)
+    .eq("revenda_id", revendaId)
+    .is("fim", null)
+    .maybeSingle();
+
+  if (!sessao) erro("Esta sessão já foi finalizada, ou não existe mais.");
+
+  const { error } = await admin
+    .from("pa_abastecimentos")
+    .delete()
+    .eq("id", id)
+    .eq("revenda_id", revendaId)
+    .is("fim", null);
+
+  if (error) erro(`Não foi possível destravar: ${error.message}`);
+
+  // O PEDIDO NÃO É APAGADO, e isso é diferente do excluir do Histórico.
+  // Ali o dono pediu que a atividade sumisse inteira; aqui o objetivo é
+  // outro -- liberar a pessoa. O pedido volta a aparecer na fila, no
+  // estado em que estava, para outra pessoa abastecer.
+  revalidatePath(ROTA);
+  redirect(
+    `${ROTA}?sucesso=${encodeURIComponent(
+      sessao.ressuprimento_id
+        ? `Abastecimento de ${sessao.colaborador_nome} destravado. O pedido voltou para a fila.`
+        : `Abastecimento de ${sessao.colaborador_nome} destravado.`,
+    )}`,
+  );
+}
+
 /** Desiste de uma sessão aberta por engano -- some sem virar estatística.
  *  Os itens vão junto pelo cascade da FK. */
 export async function cancelarAbastecimento(formData: FormData) {
