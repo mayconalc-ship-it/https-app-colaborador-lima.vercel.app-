@@ -430,7 +430,7 @@ export default async function AdminProdutividadeArmazemPage({
     <div>
       <PageHeader
         title="Produtividade do Armazém — Configuração"
-        subtitle="Produtos do Reepack/Despejo (por planilha), empilhadeiras, catálogos de recebimento e checklist 5S."
+        subtitle="Cadastro de produtos (por planilha ou à mão), empilhadeiras, catálogos de recebimento e checklist 5S."
       />
 
       {/* A confirmação vira aviso flutuante, no rodapé, perto do polegar.
@@ -588,29 +588,44 @@ export default async function AdminProdutividadeArmazemPage({
             ))}
           </PainelCadastro>
 
+          {/*
+            CADASTRO DE PRODUTOS -- o nome é esse, e só esse (pedido do
+            dono, 04/09/2026). "Produtos do Reepack" dizia onde o produto
+            é USADO, não o que o cartão é: o mesmo cadastro alimenta
+            Repack, Despejo, Abastecimento do Picking e FEFO, e quem vem
+            cadastrar um produto novo não procura pelo nome de um dos
+            módulos que o consomem.
+          */}
           <PainelCadastro
-          titulo="Produtos do Reepack"
+          titulo="Cadastro de produtos"
           contagem={totalProdutosReepack}
-          novoRotulo="Cadastro de produto"
+          novoRotulo="Cadastrar um produto"
           temItens={totalProdutosReepack > 0}
           vazio="Nenhum produto cadastrado ainda -- importe a planilha ou cadastre um à mão."
-          formNovo={
-            <div className="space-y-4">
-              {/* "Cadastro de produto", e não "importar planilha" (pedido
-                  do dono, 03/09/2026): a planilha é o CAMINHO, não o
-                  assunto. E agora há dois caminhos para o mesmo cadastro
-                  -- a planilha, que resolve o lote inteiro, e a mão, para
-                  o produto que aparece sozinho. */}
+          /*
+            A IMPORTAÇÃO SAIU DE TRÁS DO "+" (pedido do dono, 04/09/2026:
+            "o local mais sugestivo para importar a base").
+
+            Ela estava a dois cliques: abrir "+ Cadastro de produto" e
+            então achá-la no topo de um formulário de cadastro individual.
+            O "+" quer dizer "mais um" -- e carregar 565 produtos de uma
+            planilha é o contrário disso. Agora ela aparece sozinha assim
+            que o painel abre, junto da busca: as duas ações que valem
+            para o CATÁLOGO INTEIRO ficam antes das que valem para um
+            produto só.
+          */
+          faixaTopo={
+            <div className="space-y-3">
               <div className="space-y-2">
-                <h3 className="text-xs font-bold uppercase tracking-wide text-slate-500">
-                  Pela planilha (o caminho normal)
+                <h3 className="text-xs font-bold uppercase tracking-wide text-primary-dark">
+                  📥 Importar a base (planilha .xlsx)
                 </h3>
-                <p className="text-xs text-slate-500">
-                  Cluster, Fator Hecto, caixas/pallet, unidades/caixa, tipo, embalagem e meta de
-                  reepack (cx/h) de todo produto vêm desta planilha -- sem cadastro um a um, sem
-                  vincular embalagem na mão. Produto novo ou meta nova? Atualiza a planilha e
-                  importa de novo: quem já existe (mesmo código Promax) é atualizado, nunca
-                  duplicado. Despejo agora é por embalagem, veja o cartão acima.
+                <p className="text-xs text-slate-600">
+                  É o caminho normal, e resolve a base inteira de uma vez: cluster, Fator Hecto,
+                  caixas/pallet, caixas/lastro, unidades/caixa, tipo, embalagem e meta de repack
+                  (cx/h) vêm todos daqui. Produto novo ou meta nova? Atualiza a planilha e importa
+                  de novo — quem já existe (mesmo código Promax) é <strong>atualizado</strong>,
+                  nunca duplicado.
                 </p>
                 <form action={importarPlanilhaProdutos} className="flex flex-wrap items-center gap-2">
                   <input
@@ -629,19 +644,38 @@ export default async function AdminProdutividadeArmazemPage({
                 </form>
               </div>
 
+              {/* A busca também vale para o catálogo inteiro -- e estava
+                  escondida atrás do "+", onde procurar um produto exigia
+                  abrir o formulário de criar outro. */}
+              <form method="get" className="flex gap-2 border-t border-primary/10 pt-3">
+                <input type="hidden" name="aba" value="reepack-despejo" />
+                <input
+                  name="buscaReepack"
+                  defaultValue={buscaReepack}
+                  placeholder="Buscar por código ou descrição"
+                  className={`${campo} flex-1`}
+                />
+                <button type="submit" className="shrink-0 rounded-lg bg-slate-800 px-3 py-2 text-sm font-semibold text-white">
+                  Buscar
+                </button>
+              </form>
+            </div>
+          }
+          formNovo={
+            <div className="space-y-4">
               {/* CADASTRO À MÃO -- pedido do dono, para o caso eventual.
+                  Agora ele É o formulário do "+", sem mais um `details`
+                  por cima: com a planilha na faixa de cima, o "+" tem um
+                  assunto só, e ele é este.
+
                   Os campos são os MESMOS da planilha, com as mesmas
                   regras: código e descrição obrigatórios, Fator Hecto e
                   embalagem exigidos porque sem os dois o produto não
                   aparece no lançamento (ver produtoProntoParaReepack) --
                   cadastrar um produto que não dá para lançar seria
                   cadastrar um problema para descobrir depois. */}
-              <details className="rounded-xl border border-slate-200 bg-white p-3">
-                <summary className="cursor-pointer text-xs font-bold uppercase tracking-wide text-slate-500">
-                  ✍️ Ou cadastre um produto à mão
-                </summary>
-
-                <p className="mt-2 text-xs text-slate-500">
+              <div>
+                <p className="text-xs text-slate-500">
                   Para o produto que apareceu sozinho e não vale reimportar a planilha
                   inteira. Se o código já existir, o cadastro é <strong>atualizado</strong>,
                   nunca duplicado — a mesma regra da importação.
@@ -745,20 +779,7 @@ export default async function AdminProdutividadeArmazemPage({
                     Salvar produto
                   </BotaoEnviar>
                 </form>
-              </details>
-
-              <form method="get" className="flex gap-2">
-                <input type="hidden" name="aba" value="reepack-despejo" />
-                <input
-                  name="buscaReepack"
-                  defaultValue={buscaReepack}
-                  placeholder="Buscar por código ou descrição"
-                  className={`${campo} flex-1`}
-                />
-                <button type="submit" className="shrink-0 rounded-lg bg-slate-800 px-3 py-2 text-sm font-semibold text-white">
-                  Buscar
-                </button>
-              </form>
+              </div>
             </div>
           }
         >

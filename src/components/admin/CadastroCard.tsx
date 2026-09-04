@@ -22,6 +22,7 @@ export function PainelCadastro({
   formNovo,
   vazio,
   temItens,
+  faixaTopo,
   children,
 }: {
   titulo: string;
@@ -30,6 +31,10 @@ export function PainelCadastro({
   formNovo: React.ReactNode;
   vazio?: string;
   temItens: boolean;
+  /** Uma ação que NÃO cabe atrás do "+": ela aparece assim que o painel
+   *  abre, antes do formulário de cadastrar. Hoje só a importação de
+   *  planilha usa -- ver o comentário na faixa, abaixo. */
+  faixaTopo?: React.ReactNode;
   children: React.ReactNode;
 }) {
   /*
@@ -73,6 +78,20 @@ export function PainelCadastro({
       </summary>
 
       <div className="border-t border-slate-100">
+        {/*
+          A FAIXA DE CIMA -- para a ação que carrega o catálogo INTEIRO.
+
+          O "+" quer dizer "mais um", e é por isso que importar uma
+          planilha de 565 produtos não podia morar atrás dele: quem vem
+          carregar a base não procura um botão de somar um item, e a
+          importação ficava a dois cliques de distância, dentro de um
+          formulário de cadastro individual. Aqui ela aparece sozinha
+          assim que o painel abre (pedido do dono, 04/09/2026).
+        */}
+        {faixaTopo && (
+          <div className="border-b border-slate-100 bg-primary-soft/40 p-4">{faixaTopo}</div>
+        )}
+
         <details className="group">
           <summary className="flex cursor-pointer list-none items-center justify-end gap-3 p-3 marker:content-none [&::-webkit-details-marker]:hidden">
             {/* Mesmo "+" quadrado azul do resto do app (ver BotaoMais) --

@@ -288,7 +288,7 @@ export default async function ReepackPage({
           ) : produtos.length === 0 ? (
             <p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-800">
               Nenhum produto pronto para reepack ainda. Peça ao Admin para
-              cadastrar em Configuração &gt; Reepack/Despejo.
+              cadastrar em Configuração &gt; Produtos &gt; Cadastro de produtos.
             </p>
           ) : (
             <>
