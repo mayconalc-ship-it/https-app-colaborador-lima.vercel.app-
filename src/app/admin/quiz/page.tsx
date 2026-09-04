@@ -22,6 +22,7 @@ import {
   periodoCurto,
   pilarSugerido,
 } from "@/lib/quiz";
+import { SelecaoPilarPadrao } from "@/components/quiz/SelecaoPilarPadrao";
 import { criarRodada, salvarConfig } from "./actions";
 
 export default async function AdminQuizPage({
@@ -199,46 +200,32 @@ export default async function AdminQuizPage({
               />
             </Campo>
 
-            <div className="flex gap-2">
-              <Campo rotulo="Pilar" className="flex-1">
-                <select name="pilar" defaultValue="" className={ENTRADA}>
-                  <option value="">— sem pilar —</option>
-                  {pilares.map((p) => (
-                    <option key={p.id} value={p.nome}>
-                      {p.nome}
-                    </option>
-                  ))}
-                </select>
-              </Campo>
-              <Campo rotulo="Perguntas" className="w-28">
-                <select
-                  name="total_perguntas"
-                  defaultValue={PERGUNTAS_PADRAO}
-                  className={ENTRADA}
-                >
-                  {Array.from({ length: MAX_PERGUNTAS }, (_, i) => i + 1).map(
-                    (n) => (
-                      <option key={n} value={n}>
-                        {n}
-                        {n === PERGUNTAS_PADRAO ? " (padrão)" : ""}
-                      </option>
-                    ),
-                  )}
-                </select>
-              </Campo>
+            {/* O PILAR FILTRA O PADRÃO (pedido do dono, 05/09/2026).
+                Eram dois campos soltos, e escolher o pilar não mudava
+                nada -- nada impedia rodada de um pilar com padrão de
+                outro. Ver SelecaoPilarPadrao. */}
+            <div className="space-y-3">
+              <SelecaoPilarPadrao pilares={pilares} padroes={padroes ?? []} />
             </div>
 
             <Campo
-              rotulo="Padrão"
-              ajuda="De onde as perguntas vão sair. É o acervo de Padrões do próprio app."
+              rotulo="Perguntas"
+              ajuda="Quantas a rodada vai ter. É este número que a geração vai buscar depois."
+              className="w-40"
             >
-              <select name="padrao_id" defaultValue="" className={ENTRADA}>
-                <option value="">— nenhum —</option>
-                {(padroes ?? []).map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.pilar} · {p.nome}
-                  </option>
-                ))}
+              <select
+                name="total_perguntas"
+                defaultValue={PERGUNTAS_PADRAO}
+                className={ENTRADA}
+              >
+                {Array.from({ length: MAX_PERGUNTAS }, (_, i) => i + 1).map(
+                  (n) => (
+                    <option key={n} value={n}>
+                      {n}
+                      {n === PERGUNTAS_PADRAO ? " (padrão)" : ""}
+                    </option>
+                  ),
+                )}
               </select>
             </Campo>
 

@@ -10,6 +10,8 @@ import { decodificar } from "@/lib/texto-url";
 import { requireModulo, podeNoModulo } from "@/lib/require-admin";
 import { getRevendaId } from "@/lib/revendas";
 import { listarPilares } from "@/lib/pilares";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { SelecaoPilarPadrao } from "@/components/quiz/SelecaoPilarPadrao";
 import { AREAS } from "@/lib/areas";
 import {
   getBancoDisponivel,
@@ -79,7 +81,7 @@ export default async function RodadaPage({
     podeNoModulo("quiz", "excluir"),
   ]);
 
-  const [questoes, banco, indicadores, classificacao, elegiveis, pilares] =
+  const [questoes, banco, indicadores, classificacao, elegiveis, pilares, { data: padroesBanco }] =
     await Promise.all([
       getQuestoesDaRodada(rodada.id),
       getBancoDisponivel(revendaId, rodada.area, rodada.id),
@@ -87,7 +89,13 @@ export default async function RodadaPage({
       getClassificacaoRodada(rodada),
       getElegiveis(revendaId, rodada.area),
       listarPilares(true),
+      createAdminClient()
+        .from("padroes")
+        .select("id, nome, pilar")
+        .eq("revenda_id", revendaId)
+        .order("nome"),
     ]);
+  const padroes = (padroesBanco ?? []) as { id: number; nome: string; pilar: string | null }[];
 
   const rascunho = rodada.status === "rascunho";
   const faltam = rodada.totalPerguntas - questoes.length;
@@ -293,43 +301,40 @@ export default async function RodadaPage({
               <input name="nome" defaultValue={rodada.nome} className={ENTRADA} />
             </div>
 
-            <div className="flex gap-2">
-              <div className="flex-1">
-                <label className="mb-1 block text-xs font-medium text-slate-600">
-                  Pilar
-                </label>
-                <select
-                  name="pilar"
-                  defaultValue={rodada.pilar ?? ""}
-                  className={ENTRADA}
-                >
-                  <option value="">— sem pilar —</option>
-                  {pilares.map((p) => (
-                    <option key={p.id} value={p.nome}>
-                      {p.nome}
+            {/* O PADRÃO passa a ser editável AQUI (pedido do dono,
+                05/09/2026). Ele só existia na criação da rodada, e a
+                própria tela de geração mandava "defina em Editar dados
+                da rodada" -- para um campo que não estava lá. E o pilar
+                agora filtra a lista, ver SelecaoPilarPadrao. */}
+            <div className="space-y-3">
+              <SelecaoPilarPadrao
+                pilares={pilares}
+                padroes={padroes}
+                pilarInicial={rodada.pilar ?? ""}
+                padraoInicial={rodada.padraoId ? String(rodada.padraoId) : ""}
+                idPilar="rodada-pilar"
+                idPadrao="rodada-padrao"
+              />
+            </div>
+
+            <div className="w-40">
+              <label className="mb-1 block text-xs font-medium text-slate-600">
+                Perguntas
+              </label>
+              <select
+                name="total_perguntas"
+                defaultValue={rodada.totalPerguntas}
+                className={ENTRADA}
+              >
+                {Array.from({ length: MAX_PERGUNTAS }, (_, i) => i + 1).map(
+                  (n) => (
+                    <option key={n} value={n}>
+                      {n}
+                      {n === questoes.length ? " (o que já tem)" : ""}
                     </option>
-                  ))}
-                </select>
-              </div>
-              <div className="w-28">
-                <label className="mb-1 block text-xs font-medium text-slate-600">
-                  Perguntas
-                </label>
-                <select
-                  name="total_perguntas"
-                  defaultValue={rodada.totalPerguntas}
-                  className={ENTRADA}
-                >
-                  {Array.from({ length: MAX_PERGUNTAS }, (_, i) => i + 1).map(
-                    (n) => (
-                      <option key={n} value={n}>
-                        {n}
-                        {n === questoes.length ? " (o que já tem)" : ""}
-                      </option>
-                    ),
-                  )}
-                </select>
-              </div>
+                  ),
+                )}
+              </select>
             </div>
 
             <div>
@@ -779,74 +784,95 @@ export default async function RodadaPage({
                 📚 Trazer do banco ({banco.length} disponíveis)
               </summary>
 
-              {/* AGRUPADO POR PADRÃO, pedido do dono (02/09/2026).
-                  Era uma lista corrida de frases: escolher entre elas
-                  dependia de reconhecer o texto de cada uma. O padrão é o
-                  que dá sentido à pergunta -- é dele que a resposta certa
-                  saiu, e é por ele que se decide se ela cabe nesta rodada.
-                  A área vai escrita em cada linha porque o banco é o mesmo
-                  do app inteiro; aqui ele já vem filtrado pela área da
-                  rodada, e ver isso escrito é o que garante. */}
+              {/* DOIS NÍVEIS: PILAR por fora, PADRÃO por dentro (pedido
+                  do dono, 05/09/2026 — "deixe de forma mais evidente o
+                  que separa as perguntas de um pilar ou padrão para o
+                  outro").
+
+                  Só o padrão agrupava, em ordem alfabética: padrões de
+                  pilares diferentes ficavam intercalados, e a única
+                  pista do pilar era uma etiqueta repetida linha a linha,
+                  perdida no meio das outras. Agora o pilar é uma faixa
+                  azul que atravessa a lista, e o padrão uma faixa cinza
+                  recuada dentro dela — a hierarquia dá para ver sem ler.
+
+                  A etiqueta do pilar SAIU de cada linha: com o pilar
+                  escrito na faixa acima, repeti-la em toda pergunta só
+                  gastava a largura que a pergunta precisa no celular.
+                  A área continua, porque o banco é o mesmo do app
+                  inteiro e ver isso escrito é o que garante o filtro. */}
               <div className="border-t border-slate-100">
-                {agruparPorPadrao(banco).map(([padrao, doPadrao]) => (
-                  <div key={padrao}>
-                    <p className="bg-slate-50 px-4 py-2 text-xs font-bold uppercase tracking-wide text-slate-500">
-                      📄 {padrao}
-                      <span className="ml-2 font-medium normal-case tracking-normal text-slate-400">
-                        {doPadrao.length} pergunta
-                        {doPadrao.length > 1 ? "s" : ""}
-                      </span>
-                    </p>
-                    <div className="divide-y divide-slate-100">
-                      {doPadrao.map((q) => (
-                        <div key={q.id} className="flex items-center gap-3 p-3">
-                          <div className="min-w-0 flex-1">
-                            <p className="text-sm text-slate-800">
-                              {q.pergunta}
-                            </p>
-                            <p className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-slate-500">
-                              <span className="rounded-full bg-slate-100 px-2 py-0.5 font-medium text-slate-600">
-                                {AREAS.find((a) => a.id === q.area)?.rotulo ??
-                                  q.area}
-                              </span>
-                              {q.pilar && (
-                                <span className="rounded-full bg-primary-soft px-2 py-0.5 font-medium text-primary-dark">
-                                  {q.pilar}
-                                </span>
-                              )}
-                              {q.atividade && <span>· {q.atividade}</span>}
-                              <span>· {rotuloDificuldade(q.dificuldade)}</span>
-                              <span>
-                                ·{" "}
-                                {q.vezes_usada > 0
-                                  ? `usada ${q.vezes_usada}×`
-                                  : "nunca usada"}
-                              </span>
-                            </p>
+                {agruparPorPilarEPadrao(banco).map(([pilar, padroesDoPilar]) => {
+                  const totalDoPilar = padroesDoPilar.reduce(
+                    (t, [, qs]) => t + qs.length,
+                    0,
+                  );
+                  return (
+                    <div key={pilar} className="border-b-4 border-slate-100 last:border-b-0">
+                      <p className="sticky top-0 z-10 flex items-center justify-between gap-2 bg-primary px-4 py-2 text-sm font-bold text-white">
+                        <span className="min-w-0 truncate">🏛️ {pilar}</span>
+                        <span className="shrink-0 rounded-full bg-white/20 px-2 py-0.5 text-xs font-semibold">
+                          {totalDoPilar}
+                        </span>
+                      </p>
+
+                      {padroesDoPilar.map(([padrao, doPadrao]) => (
+                        <div key={padrao}>
+                          <p className="border-l-4 border-primary-soft bg-slate-50 px-4 py-2 text-xs font-bold uppercase tracking-wide text-slate-600">
+                            📄 {padrao}
+                            <span className="ml-2 font-medium normal-case tracking-normal text-slate-400">
+                              {doPadrao.length} pergunta
+                              {doPadrao.length > 1 ? "s" : ""}
+                            </span>
+                          </p>
+                          <div className="divide-y divide-slate-100 border-l-4 border-primary-soft">
+                            {doPadrao.map((q) => (
+                              <div key={q.id} className="flex items-center gap-3 p-3">
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-sm text-slate-800">
+                                    {q.pergunta}
+                                  </p>
+                                  <p className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-slate-500">
+                                    <span className="rounded-full bg-slate-100 px-2 py-0.5 font-medium text-slate-600">
+                                      {AREAS.find((a) => a.id === q.area)?.rotulo ??
+                                        q.area}
+                                    </span>
+                                    {q.atividade && <span>· {q.atividade}</span>}
+                                    <span>· {rotuloDificuldade(q.dificuldade)}</span>
+                                    <span>
+                                      ·{" "}
+                                      {q.vezes_usada > 0
+                                        ? `usada ${q.vezes_usada}×`
+                                        : "nunca usada"}
+                                    </span>
+                                  </p>
+                                </div>
+                                <form action={adicionarDoBanco}>
+                                  <input
+                                    type="hidden"
+                                    name="rodada_id"
+                                    value={rodada.id}
+                                  />
+                                  <input
+                                    type="hidden"
+                                    name="questao_id"
+                                    value={q.id}
+                                  />
+                                  <BotaoEnviar
+                                    textoEnviando="..."
+                                    className="shrink-0 rounded-lg bg-primary-soft px-3 py-1.5 text-xs font-semibold text-primary hover:bg-primary hover:text-white"
+                                  >
+                                    Trazer
+                                  </BotaoEnviar>
+                                </form>
+                              </div>
+                            ))}
                           </div>
-                          <form action={adicionarDoBanco}>
-                            <input
-                              type="hidden"
-                              name="rodada_id"
-                              value={rodada.id}
-                            />
-                            <input
-                              type="hidden"
-                              name="questao_id"
-                              value={q.id}
-                            />
-                            <BotaoEnviar
-                              textoEnviando="..."
-                              className="shrink-0 rounded-lg bg-primary-soft px-3 py-1.5 text-xs font-semibold text-primary hover:bg-primary hover:text-white"
-                            >
-                              Trazer
-                            </BotaoEnviar>
-                          </form>
                         </div>
                       ))}
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </details>
           )}
@@ -884,6 +910,39 @@ function agruparPorPadrao<T extends { padrao_nome: string | null }>(
     if (b === SEM) return -1;
     return a.localeCompare(b, "pt-BR");
   });
+}
+
+/**
+ * O banco em DOIS níveis: pilar por fora, padrão por dentro.
+ *
+ * Pedido do dono (05/09/2026): "deixe de forma mais evidente o que
+ * separa as perguntas de um pilar ou padrão para o outro". Só o padrão
+ * agrupava, e os grupos vinham em ordem alfabética -- padrões de pilares
+ * diferentes ficavam intercalados, e a única pista do pilar era uma
+ * etiqueta repetida linha a linha, no meio das outras etiquetas.
+ *
+ * O pilar é a divisão de cima porque é a pergunta que se faz primeiro
+ * ("é disto que esta rodada trata?"); o padrão responde a seguinte ("de
+ * qual documento saiu?"). Sem pilar vai para o fim, como o sem padrão.
+ */
+function agruparPorPilarEPadrao<
+  T extends { pilar: string | null; padrao_nome: string | null },
+>(lista: T[]): [string, [string, T[]][]][] {
+  const SEM = "Sem pilar informado";
+  const grupos = new Map<string, T[]>();
+  for (const q of lista) {
+    const chave = q.pilar?.trim() || SEM;
+    const atual = grupos.get(chave) ?? [];
+    atual.push(q);
+    grupos.set(chave, atual);
+  }
+  return [...grupos.entries()]
+    .sort(([a], [b]) => {
+      if (a === SEM) return 1;
+      if (b === SEM) return -1;
+      return a.localeCompare(b, "pt-BR");
+    })
+    .map(([pilar, doPilar]) => [pilar, agruparPorPadrao(doPilar)]);
 }
 
 function Indicador({ valor, rotulo }: { valor: string; rotulo: string }) {

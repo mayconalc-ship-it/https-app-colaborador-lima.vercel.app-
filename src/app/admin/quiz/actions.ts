@@ -209,11 +209,43 @@ export async function atualizarRodada(formData: FormData) {
   }
 
   const admin = createAdminClient();
+
+  /*
+    O PADRÃO passa a ser editável (pedido do dono, 05/09/2026). Ele só
+    existia na criação -- e a tela de geração mandava "defina em Editar
+    dados da rodada", para um campo que não estava lá. Rodada criada sem
+    padrão ficava sem saída a não ser recriar.
+
+    Guarda o NOME junto do id, como a criação já faz: se o documento
+    sair do acervo, a rodada continua dizendo de onde as perguntas
+    vieram.
+  */
+  const padraoId = numero(formData, "padrao_id");
+  let padraoNome: string | null = null;
+  if (padraoId) {
+    const { data } = await admin
+      .from("padroes")
+      .select("nome")
+      .eq("id", padraoId)
+      .eq("revenda_id", revendaId)
+      .maybeSingle();
+    if (!data) {
+      redirect(
+        `${destino}?erro=${encodeURIComponent(
+          "Esse padrão não está no acervo desta revenda.",
+        )}`,
+      );
+    }
+    padraoNome = data.nome;
+  }
+
   const { error } = await admin
     .from("quiz_rodadas")
     .update({
       nome: texto(formData, "nome") || rodada.nome,
       pilar: texto(formData, "pilar") || null,
+      padrao_id: padraoId || null,
+      padrao_nome: padraoNome,
       atividade: texto(formData, "atividade") || null,
       inicio,
       fim,
