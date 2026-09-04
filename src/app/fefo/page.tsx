@@ -11,6 +11,7 @@ import {
   ROTULO_UNIDADE_FEFO_CURTO,
   diasAberta,
   ehUnidadeFefo,
+  compararNomes,
   rotuloValidade,
   type DepositoFefo,
   type MotivoFefo,
@@ -158,7 +159,10 @@ export default async function FefoPage({
   ].sort();
 
   const motivos = (motivosBanco ?? []) as MotivoFefo[];
-  const depositos: DepositoFefo[] = depositosBanco ?? [];
+  // Pelo NOME, como no Admin: o campo "ordem" saiu da tela porque um
+  // número invisível decidindo a lista é o tipo de coisa que ninguém
+  // relaciona com o que está vendo (ver compararNomes).
+  const depositos: DepositoFefo[] = [...(depositosBanco ?? [])].sort(compararNomes);
   const ruas: RuaFefo[] = (ruasBanco ?? []).map((r) => ({
     id: r.id,
     depositoId: r.deposito_id,

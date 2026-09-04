@@ -20,6 +20,7 @@ import {
   produtoProntoParaReepack,
   type ProdutoReepack,
 } from "@/lib/produtividade-armazem";
+import { compararNomes, ruasDoDeposito } from "@/lib/fefo";
 import { ROTULO_UNIDADE_AG, UNIDADES_AG } from "@/lib/carretas";
 import {
   alternarAgAtivo,
@@ -415,6 +416,23 @@ export default async function AdminProdutividadeArmazemPage({
     .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
 
   const totalMotivosFefo = motivosFefo?.length ?? 0;
+
+  /*
+    A ORDEM DOS DOIS CATÁLOGOS DO FEFO, resolvida aqui e não no `order`
+    do banco: o Postgres ordena "10" antes de "2" porque o nome da rua é
+    texto, e quem procura a sua rua na lista passa por ela sem ver.
+
+    Ordena pelo NOME (ver compararNomes), não por um campo "ordem": o
+    campo existia, e a primeira coisa que aconteceu foi o depósito A
+    ficar com ordem 12 e aparecer depois do C.
+  */
+  const depositosOrdenados = [...(depositosFefo ?? [])].sort(compararNomes);
+  const ruasDaTela = (ruasFefo ?? []).map((r) => ({
+    id: r.id,
+    depositoId: r.deposito_id,
+    nome: r.nome,
+    ativo: r.ativo,
+  }));
 
   const totalEmbalagensDespejo = embalagensDespejo?.length ?? 0;
 
@@ -1901,18 +1919,24 @@ export default async function AdminProdutividadeArmazemPage({
         </PainelCadastro>
 
         {/*
-          DEPÓSITOS E RUAS -- pedido do dono (04/09/2026), no mesmo lugar
-          do cadastro de motivo. Os dois estavam travados no código:
-          depósito A, B ou C, rua de 1 a 10.
+          DEPÓSITOS E AS RUAS DE CADA UM -- um cartão só.
 
-          São dois cartões, e não um, porque são duas perguntas
-          diferentes: quantos depósitos o armazém tem, e como cada um é
-          dividido. A rua aparece PENDURADA no depósito -- a rua 1 do A e
-          a rua 1 do C são lugares diferentes, e a lista única de antes
-          tratava as duas como o mesmo número.
+          Nasceu como dois (um de depósitos, um de ruas), e o dono não
+          entendeu como usar: para cadastrar a rua 11 do depósito B era
+          preciso sair do cartão do B, entrar no de Ruas e reencontrar o
+          B num dropdown. O cadastro tinha DOIS lugares para um assunto
+          que é um só, e o dropdown existia só para desfazer a separação
+          que o próprio desenho tinha criado.
+
+          Agora a rua se cadastra DE DENTRO do depósito: abrir o depósito
+          mostra as ruas dele e o campo de acrescentar mais. Some o
+          dropdown -- o depósito já é o lugar onde a pessoa está.
+
+          A rua continua pertencendo ao depósito no banco (migration
+          097): a rua 1 do A e a rua 1 do C são lugares diferentes.
         */}
         <PainelCadastro
-          titulo="Depósitos"
+          titulo="Depósitos e ruas"
           contagem={depositosFefo?.length ?? 0}
           novoRotulo="Novo depósito"
           temItens={(depositosFefo?.length ?? 0) > 0}
@@ -1920,13 +1944,18 @@ export default async function AdminProdutividadeArmazemPage({
           formNovo={
             <div className="space-y-2">
               <p className="text-xs text-slate-500">
-                É o que a pessoa escolhe em &quot;Onde está&quot; ao informar uma quebra. O nome vai
-                gravado na ocorrência: renomear depois <strong>não</strong> reescreve as antigas, e
-                é assim que o histórico continua dizendo onde a quebra estava no dia.
+                É o que a pessoa escolhe em &quot;Onde está&quot; ao informar uma quebra. Depois de
+                criar, <strong>abra o depósito para cadastrar as ruas dele</strong> -- depósito sem
+                rua não aparece para quem lança.
               </p>
               <form action={salvarDepositoFefo} className="flex flex-wrap gap-2">
-                <input name="nome" placeholder="Nome (ex.: A, Câmara fria)" required maxLength={40} className={`${campo} flex-1`} />
-                <input name="ordem" type="number" placeholder="Ordem" className={`${campo} w-20`} />
+                <input
+                  name="nome"
+                  placeholder="Nome (ex.: A, Câmara fria)"
+                  required
+                  maxLength={40}
+                  className={`${campo} flex-1`}
+                />
                 <BotaoEnviar className="rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-white">
                   Adicionar
                 </BotaoEnviar>
@@ -1934,144 +1963,181 @@ export default async function AdminProdutividadeArmazemPage({
             </div>
           }
         >
-          {(depositosFefo ?? []).map((d) => {
-            const minhasRuas = (ruasFefo ?? []).filter((r) => r.deposito_id === d.id);
+          {depositosOrdenados.map((d) => {
+            const minhasRuas = ruasDoDeposito(ruasDaTela, d.id);
             const ativas = minhasRuas.filter((r) => r.ativo);
             return (
-              <ItemCadastro
-                key={d.id}
-                ativo={d.ativo}
-                titulo={`🏬 ${d.nome}`}
-                subtitulo={
-                  minhasRuas.length === 0
-                    ? "⚠️ sem ruas cadastradas — não aparece para quem lança"
-                    : `${ativas.length} rua(s) ativa(s): ${ativas.map((r) => r.nome).join(", ")}`
-                }
-                acoes={
-                  <>
-                    <BotaoIcone
-                      action={alternarDepositoFefoAtivo}
-                      campos={{ id: d.id, ativo: String(d.ativo), aba: "fefo" }}
-                      titulo={d.ativo ? "Desativar" : "Ativar"}
-                    >
-                      {d.ativo ? "🚫" : "✅"}
-                    </BotaoIcone>
-                    {podeExcluir && (
-                      <BotaoExcluir
-                        action={excluirDepositoFefo}
-                        campos={{ id: d.id }}
-                        confirmacao={`Excluir o depósito "${d.nome}"? As ${minhasRuas.length} rua(s) dele são apagadas junto. As ocorrências antigas continuam mostrando o nome.`}
-                        className="flex h-7 w-7 items-center justify-center rounded-lg text-sm hover:bg-red-50"
-                      >
-                        🗑️
-                      </BotaoExcluir>
-                    )}
-                  </>
-                }
-                formEditar={
-                  <form action={editarDepositoFefo} className="flex flex-wrap gap-2">
-                    <input type="hidden" name="id" value={d.id} />
-                    <input name="nome" defaultValue={d.nome} required maxLength={40} className={`${campo} flex-1`} />
-                    <input name="ordem" type="number" defaultValue={d.ordem} className={`${campo} w-20`} />
-                    <BotaoEnviar compacto className="shrink-0 rounded-lg bg-slate-800 px-3 py-1.5 text-xs font-semibold text-white">
-                      Salvar
-                    </BotaoEnviar>
-                  </form>
-                }
-              />
-            );
-          })}
-        </PainelCadastro>
-
-        <PainelCadastro
-          titulo="Ruas"
-          contagem={ruasFefo?.length ?? 0}
-          novoRotulo="Novas ruas"
-          temItens={(depositosFefo?.length ?? 0) > 0}
-          vazio="Cadastre um depósito primeiro -- toda rua pertence a um."
-          formNovo={
-            <div className="space-y-2">
-              <p className="text-xs text-slate-500">
-                Dá para cadastrar <strong>várias de uma vez</strong>: escreva{" "}
-                <code className="rounded bg-slate-200 px-1">1 a 10</code> para criar a faixa
-                inteira, ou separe por vírgula (<code className="rounded bg-slate-200 px-1">01, 02, A1</code>).
-                Repetir uma rua que já existe não dá erro — entra só o que falta.
-              </p>
-              <form action={salvarRuaFefo} className="flex flex-wrap gap-2">
-                <select name="deposito_id" required className={`${campo} w-40`} defaultValue="">
-                  <option value="" disabled>Depósito...</option>
-                  {(depositosFefo ?? []).map((d) => (
-                    <option key={d.id} value={d.id}>{d.nome}</option>
-                  ))}
-                </select>
-                <input name="nome" placeholder="1 a 10  ·  ou  01, 02, A1" required className={`${campo} flex-1`} />
-                <BotaoEnviar className="rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-white">
-                  Adicionar
-                </BotaoEnviar>
-              </form>
-            </div>
-          }
-        >
-          {/* Agrupadas POR DEPÓSITO: uma lista corrida de 30 ruas não
-              diria a qual armazém cada uma pertence, que é justamente a
-              informação que faltava antes. */}
-          {(depositosFefo ?? []).map((d) => {
-            const minhasRuas = (ruasFefo ?? []).filter((r) => r.deposito_id === d.id);
-            return (
-              <div key={d.id}>
-                <p className="bg-slate-50 px-3.5 py-2 text-xs font-bold uppercase tracking-wide text-slate-500">
-                  🏬 {d.nome}
-                  <span className="ml-2 font-semibold normal-case text-slate-400">
-                    {minhasRuas.length} rua(s)
+              /* Um `<details>` por depósito, com nome próprio no group
+                 para o "▸" girar só com ELE -- o painel de fora e o "+"
+                 de novo depósito já usam os seus. */
+              <details key={d.id} className="group/dep">
+                <summary className="flex cursor-pointer list-none items-center gap-2 p-3.5 marker:content-none [&::-webkit-details-marker]:hidden">
+                  <span
+                    className="text-slate-400 transition-transform group-open/dep:rotate-90"
+                    aria-hidden="true"
+                  >
+                    ▸
                   </span>
-                </p>
-                {minhasRuas.length === 0 ? (
-                  <p className="px-3.5 py-3 text-xs text-slate-400">
-                    Sem ruas. Este depósito não aparece para quem lança.
-                  </p>
-                ) : (
-                  <div className="divide-y divide-slate-100">
-                    {minhasRuas.map((r) => (
-                      <ItemCadastro
-                        key={r.id}
-                        ativo={r.ativo}
-                        titulo={`Rua ${r.nome}`}
-                        acoes={
-                          <>
-                            <BotaoIcone
-                              action={alternarRuaFefoAtiva}
-                              campos={{ id: r.id, ativo: String(r.ativo), aba: "fefo" }}
-                              titulo={r.ativo ? "Desativar" : "Ativar"}
-                            >
-                              {r.ativo ? "🚫" : "✅"}
-                            </BotaoIcone>
-                            {podeExcluir && (
-                              <BotaoExcluir
-                                action={excluirRuaFefo}
-                                campos={{ id: r.id }}
-                                confirmacao={`Excluir a rua "${r.nome}" do depósito ${d.nome}? As ocorrências antigas continuam mostrando ela.`}
-                                className="flex h-7 w-7 items-center justify-center rounded-lg text-sm hover:bg-red-50"
-                              >
-                                🗑️
-                              </BotaoExcluir>
-                            )}
-                          </>
-                        }
-                        formEditar={
-                          <form action={editarRuaFefo} className="flex flex-wrap gap-2">
-                            <input type="hidden" name="id" value={r.id} />
-                            <input name="nome" defaultValue={r.nome} required maxLength={40} className={`${campo} flex-1`} />
-                            <input name="ordem" type="number" defaultValue={r.ordem} className={`${campo} w-20`} />
-                            <BotaoEnviar compacto className="shrink-0 rounded-lg bg-slate-800 px-3 py-1.5 text-xs font-semibold text-white">
-                              Salvar
-                            </BotaoEnviar>
-                          </form>
-                        }
-                      />
-                    ))}
+                  <span className="min-w-0 flex-1">
+                    <span
+                      className={`block truncate text-sm font-semibold ${
+                        d.ativo ? "text-slate-900" : "text-slate-400 line-through"
+                      }`}
+                    >
+                      🏬 {d.nome}
+                    </span>
+                    <span className="mt-0.5 block truncate text-xs text-slate-500">
+                      {minhasRuas.length === 0
+                        ? "⚠️ sem ruas — não aparece para quem lança"
+                        : `Ruas: ${ativas.map((r) => r.nome).join(", ")}`}
+                    </span>
+                  </span>
+                  <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-500">
+                    {minhasRuas.length}
+                  </span>
+                </summary>
+
+                <div className="space-y-3 border-t border-slate-100 bg-slate-50/70 p-3">
+                  {/* O DEPÓSITO em si: renomear, ordem, ativar, excluir.
+                      Fica aqui dentro, e não na linha fechada, porque um
+                      botão dentro do `<summary>` compete com o toque que
+                      abre o painel -- no celular, um erra o outro. */}
+                  <div className="flex flex-wrap items-end gap-2">
+                    <form action={editarDepositoFefo} className="flex flex-1 flex-wrap items-end gap-2">
+                      <input type="hidden" name="id" value={d.id} />
+                      <label className="flex-1">
+                        <span className={rotulo}>Nome do depósito</span>
+                        <input
+                          name="nome"
+                          defaultValue={d.nome}
+                          required
+                          maxLength={40}
+                          className={campo}
+                        />
+                      </label>
+                      <BotaoEnviar
+                        compacto
+                        className="shrink-0 rounded-lg bg-slate-800 px-3 py-2 text-xs font-semibold text-white"
+                      >
+                        Salvar
+                      </BotaoEnviar>
+                    </form>
+                    <div className="flex shrink-0 items-center gap-1 pb-0.5">
+                      <BotaoIcone
+                        action={alternarDepositoFefoAtivo}
+                        campos={{ id: d.id, ativo: String(d.ativo), aba: "fefo" }}
+                        titulo={d.ativo ? "Desativar depósito" : "Ativar depósito"}
+                      >
+                        {d.ativo ? "🚫" : "✅"}
+                      </BotaoIcone>
+                      {podeExcluir && (
+                        <BotaoExcluir
+                          action={excluirDepositoFefo}
+                          campos={{ id: d.id }}
+                          confirmacao={`Excluir o depósito "${d.nome}"? As ${minhasRuas.length} rua(s) dele são apagadas junto. As ocorrências antigas continuam mostrando o nome.`}
+                          className="flex h-7 w-7 items-center justify-center rounded-lg text-sm hover:bg-red-50"
+                        >
+                          🗑️
+                        </BotaoExcluir>
+                      )}
+                    </div>
                   </div>
-                )}
-              </div>
+
+                  {/* AS RUAS DELE. Sem dropdown de depósito: o depósito é
+                      onde a pessoa já está. */}
+                  <div className="rounded-xl border border-slate-200 bg-white">
+                    <p className="border-b border-slate-100 px-3 py-2 text-xs font-bold uppercase tracking-wide text-slate-500">
+                      Ruas do depósito {d.nome}
+                    </p>
+
+                    {minhasRuas.length === 0 ? (
+                      <p className="px-3 py-3 text-xs text-slate-400">
+                        Nenhuma rua ainda. Cadastre abaixo -- enquanto não houver nenhuma, este
+                        depósito não aparece na tela de quem informa a quebra.
+                      </p>
+                    ) : (
+                      <div className="divide-y divide-slate-100">
+                        {minhasRuas.map((r) => (
+                          <ItemCadastro
+                            key={r.id}
+                            ativo={r.ativo}
+                            titulo={`Rua ${r.nome}`}
+                            acoes={
+                              <>
+                                <BotaoIcone
+                                  action={alternarRuaFefoAtiva}
+                                  campos={{ id: r.id, ativo: String(r.ativo), aba: "fefo" }}
+                                  titulo={r.ativo ? "Desativar" : "Ativar"}
+                                >
+                                  {r.ativo ? "🚫" : "✅"}
+                                </BotaoIcone>
+                                {podeExcluir && (
+                                  <BotaoExcluir
+                                    action={excluirRuaFefo}
+                                    campos={{ id: r.id }}
+                                    confirmacao={`Excluir a rua "${r.nome}" do depósito ${d.nome}? As ocorrências antigas continuam mostrando ela.`}
+                                    className="flex h-7 w-7 items-center justify-center rounded-lg text-sm hover:bg-red-50"
+                                  >
+                                    🗑️
+                                  </BotaoExcluir>
+                                )}
+                              </>
+                            }
+                            formEditar={
+                              <form action={editarRuaFefo} className="flex flex-wrap items-end gap-2">
+                                <input type="hidden" name="id" value={r.id} />
+                                <label className="flex-1">
+                                  <span className={rotulo}>Nome da rua</span>
+                                  <input
+                                    name="nome"
+                                    defaultValue={r.nome}
+                                    required
+                                    maxLength={40}
+                                    className={campo}
+                                  />
+                                </label>
+                                <BotaoEnviar
+                                  compacto
+                                  className="shrink-0 rounded-lg bg-slate-800 px-3 py-2 text-xs font-semibold text-white"
+                                >
+                                  Salvar
+                                </BotaoEnviar>
+                              </form>
+                            }
+                          />
+                        ))}
+                      </div>
+                    )}
+
+                    {/* ACRESCENTAR RUAS -- em leva. Rua a rua seriam dez
+                        idas ao servidor para montar um depósito, e
+                        depósito nasce inteiro. */}
+                    <form
+                      action={salvarRuaFefo}
+                      className="flex flex-wrap items-end gap-2 border-t border-slate-100 p-3"
+                    >
+                      <input type="hidden" name="deposito_id" value={d.id} />
+                      <label className="min-w-[10rem] flex-1">
+                        <span className={rotulo}>Acrescentar ruas</span>
+                        <input
+                          name="nome"
+                          placeholder="1 a 10  ·  ou  11, 12  ·  ou  A1"
+                          required
+                          className={campo}
+                        />
+                      </label>
+                      <BotaoEnviar className="shrink-0 rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-white">
+                        Adicionar
+                      </BotaoEnviar>
+                      <p className="w-full text-xs text-slate-400">
+                        <code className="rounded bg-slate-100 px-1">1 a 10</code> cria a faixa
+                        inteira · vírgula separa (<code className="rounded bg-slate-100 px-1">11, 12</code>)
+                        · repetir o que já existe acrescenta só o que falta.
+                      </p>
+                    </form>
+                  </div>
+                </div>
+              </details>
             );
           })}
         </PainelCadastro>

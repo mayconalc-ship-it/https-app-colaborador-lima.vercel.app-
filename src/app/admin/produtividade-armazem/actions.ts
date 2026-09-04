@@ -609,11 +609,13 @@ export async function salvarDepositoFefo(formData: FormData) {
 
   const nome = String(formData.get("nome") ?? "").trim();
   if (!nome) erro("fefo", "Informe o nome do depósito.");
-  const ordem = numeroOuNulo(formData.get("ordem")) ?? 0;
 
+  // Sem campo "ordem": a lista é ordenada pelo NOME (ver compararNomes).
+  // A coluna existe no banco e fica no default -- tirar uma coluna custa
+  // mais do que deixá-la parada, e ninguém a lê.
   const { error } = await admin
     .from("pa_fefo_depositos")
-    .insert({ revenda_id: revendaId, nome, ordem });
+    .insert({ revenda_id: revendaId, nome });
   if (error) {
     if (error.code === "23505") erro("fefo", "Já existe um depósito com esse nome.");
     erro("fefo", `Não foi possível salvar: ${error.message}`);
@@ -632,11 +634,10 @@ export async function editarDepositoFefo(formData: FormData) {
   const id = String(formData.get("id") ?? "");
   const nome = String(formData.get("nome") ?? "").trim();
   if (!nome) erro("fefo", "Informe o nome do depósito.");
-  const ordem = numeroOuNulo(formData.get("ordem")) ?? 0;
 
   const { error } = await admin
     .from("pa_fefo_depositos")
-    .update({ nome, ordem })
+    .update({ nome })
     .eq("id", id)
     .eq("revenda_id", revendaId);
   if (error) {
@@ -734,15 +735,10 @@ export async function salvarRuaFefo(formData: FormData) {
     expandidos.push(n.slice(0, 40));
   }
 
-  const ordemBase = numeroOuNulo(formData.get("ordem")) ?? 0;
-  const linhas = expandidos.map((nome, i) => ({
+  const linhas = expandidos.map((nome) => ({
     revenda_id: revendaId,
     deposito_id: depositoId,
     nome,
-    // A ordem numérica sai do próprio nome quando ele é um número --
-    // senão "10" viria antes de "2" na lista, que é o tipo de detalhe
-    // que faz quem lança procurar a rua duas vezes.
-    ordem: Number.isFinite(Number(nome)) ? Number(nome) : ordemBase + i,
   }));
 
   // ignoreDuplicates: recadastrar "1 a 10" num depósito que já tem a 1
@@ -770,11 +766,10 @@ export async function editarRuaFefo(formData: FormData) {
   const id = String(formData.get("id") ?? "");
   const nome = String(formData.get("nome") ?? "").trim();
   if (!nome) erro("fefo", "Informe o nome da rua.");
-  const ordem = numeroOuNulo(formData.get("ordem")) ?? (Number.isFinite(Number(nome)) ? Number(nome) : 0);
 
   const { error } = await admin
     .from("pa_fefo_ruas")
-    .update({ nome, ordem })
+    .update({ nome })
     .eq("id", id)
     .eq("revenda_id", revendaId);
   if (error) {

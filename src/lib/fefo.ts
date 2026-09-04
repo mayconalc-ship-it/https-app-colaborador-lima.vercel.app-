@@ -82,9 +82,34 @@ export type RuaFefo = {
   ativo?: boolean;
 };
 
-/** As ruas daquele depósito, na ordem cadastrada. */
-export function ruasDoDeposito(ruas: RuaFefo[], depositoId: string): RuaFefo[] {
-  return ruas.filter((r) => r.depositoId === depositoId);
+/**
+ * A ORDEM DOS DOIS CATÁLOGOS -- número primeiro, e por valor.
+ *
+ * Ordenar por texto puro põe a rua 10 entre a 1 e a 2, e quem procura a
+ * sua rua na lista passa por ela sem ver. Nome com letra ("A1", "Câmara
+ * fria") vai para o fim, em ordem alfabética: são as exceções do
+ * armazém, e elas não devem empurrar a numeração normal para baixo.
+ *
+ * NÃO EXISTE CAMPO "ORDEM" NA TELA, e é de propósito. Ele existia, e a
+ * primeira coisa que aconteceu foi o depósito A ficar com ordem 12 e
+ * aparecer depois do C -- um número invisível decidindo a lista, que
+ * ninguém relaciona com o que está vendo. O nome já diz onde a coisa
+ * entra.
+ */
+export function compararNomes(a: { nome: string }, b: { nome: string }): number {
+  const na = Number(a.nome);
+  const nb = Number(b.nome);
+  const aEhNumero = a.nome.trim() !== "" && Number.isFinite(na);
+  const bEhNumero = b.nome.trim() !== "" && Number.isFinite(nb);
+  if (aEhNumero && bEhNumero) return na - nb;
+  if (aEhNumero) return -1;
+  if (bEhNumero) return 1;
+  return a.nome.localeCompare(b.nome, "pt-BR", { numeric: true });
+}
+
+/** As ruas daquele depósito, já na ordem em que se procura por elas. */
+export function ruasDoDeposito<T extends RuaFefo>(ruas: T[], depositoId: string): T[] {
+  return ruas.filter((r) => r.depositoId === depositoId).sort(compararNomes);
 }
 
 /**
