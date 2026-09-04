@@ -54,19 +54,37 @@ export {
   type UnidadeProduto as UnidadeFefo,
 } from "@/lib/unidades-produto";
 
-export const DEPOSITOS_FEFO = ["A", "B", "C"] as const;
-export type DepositoFefo = (typeof DEPOSITOS_FEFO)[number];
+/**
+ * ONDE A QUEBRA ESTAVA -- depósito e rua, agora cadastrados (migration
+ * 097, pedido do dono em 04/09/2026).
+ *
+ * Eram duas listas fixas aqui no código: depósito A, B ou C; rua de 1 a
+ * 10. Armazém que ganha um depósito, ou uma rua 11, esperava deploy --
+ * o mesmo motivo pelo qual os motivos saíram do código na 067.
+ *
+ * A RUA PERTENCE AO DEPÓSITO, e isso é a correção de um erro antigo: a
+ * rua 1 do depósito A e a rua 1 do C são lugares diferentes, e a lista
+ * única de 1 a 10 tratava as duas como o mesmo número. Escolher o
+ * depósito filtra as ruas.
+ */
+export type DepositoFefo = {
+  id: string;
+  nome: string;
+  ordem?: number;
+  ativo?: boolean;
+};
 
-export function ehDepositoFefo(v: unknown): v is DepositoFefo {
-  return typeof v === "string" && (DEPOSITOS_FEFO as readonly string[]).includes(v);
-}
+export type RuaFefo = {
+  id: string;
+  depositoId: string;
+  nome: string;
+  ordem?: number;
+  ativo?: boolean;
+};
 
-/** As ruas vão de 1 a 10 em todos os depósitos. */
-export const RUAS_FEFO = Array.from({ length: 10 }, (_, i) => i + 1);
-
-export function ehRuaFefo(v: unknown): boolean {
-  const n = Number(v);
-  return Number.isInteger(n) && n >= 1 && n <= 10;
+/** As ruas daquele depósito, na ordem cadastrada. */
+export function ruasDoDeposito(ruas: RuaFefo[], depositoId: string): RuaFefo[] {
+  return ruas.filter((r) => r.depositoId === depositoId);
 }
 
 /**

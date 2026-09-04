@@ -586,6 +586,233 @@ export async function excluirMotivoFefo(formData: FormData) {
   sucesso("fefo", "Motivo excluído");
 }
 
+// -------------------- FEFO: DEPÓSITOS E RUAS --------------------
+/*
+  Depósito e rua saíram do código na migration 097 (pedido do dono,
+  04/09/2026). Duas diferenças em relação ao cadastro de motivos, e as
+  duas de propósito:
+
+  1. A RUA PERTENCE AO DEPÓSITO. A rua 1 do depósito A e a rua 1 do C
+     são lugares diferentes -- a lista única de 1 a 10 tratava as duas
+     como o mesmo número.
+
+  2. A OCORRÊNCIA GUARDA O NOME, não o id. Motivo classifica; depósito e
+     rua são endereço, e endereço de um fato passado não muda quando
+     alguém renomeia a rua hoje. Por isso EXCLUIR não bate em FK aqui:
+     nada aponta para estas linhas. Quem some da lista some das opções
+     novas, e o histórico segue legível.
+*/
+export async function salvarDepositoFefo(formData: FormData) {
+  await requireModulo("produtividade-armazem", "editar");
+  const revendaId = await exigirRevenda(ROTA);
+  const admin = createAdminClient();
+
+  const nome = String(formData.get("nome") ?? "").trim();
+  if (!nome) erro("fefo", "Informe o nome do depósito.");
+  const ordem = numeroOuNulo(formData.get("ordem")) ?? 0;
+
+  const { error } = await admin
+    .from("pa_fefo_depositos")
+    .insert({ revenda_id: revendaId, nome, ordem });
+  if (error) {
+    if (error.code === "23505") erro("fefo", "Já existe um depósito com esse nome.");
+    erro("fefo", `Não foi possível salvar: ${error.message}`);
+  }
+
+  revalidatePath(ROTA);
+  revalidatePath("/fefo");
+  sucesso("fefo", `Depósito ${nome} cadastrado -- cadastre as ruas dele abaixo`);
+}
+
+export async function editarDepositoFefo(formData: FormData) {
+  await requireModulo("produtividade-armazem", "editar");
+  const revendaId = await exigirRevenda(ROTA);
+  const admin = createAdminClient();
+
+  const id = String(formData.get("id") ?? "");
+  const nome = String(formData.get("nome") ?? "").trim();
+  if (!nome) erro("fefo", "Informe o nome do depósito.");
+  const ordem = numeroOuNulo(formData.get("ordem")) ?? 0;
+
+  const { error } = await admin
+    .from("pa_fefo_depositos")
+    .update({ nome, ordem })
+    .eq("id", id)
+    .eq("revenda_id", revendaId);
+  if (error) {
+    if (error.code === "23505") erro("fefo", "Já existe um depósito com esse nome.");
+    erro("fefo", `Não foi possível salvar: ${error.message}`);
+  }
+
+  revalidatePath(ROTA);
+  revalidatePath("/fefo");
+  // O nome novo NÃO reescreve as ocorrências antigas, e é bom que não:
+  // elas dizem onde a quebra estava no dia.
+  sucesso("fefo", "Depósito atualizado (as ocorrências antigas mantêm o nome que tinham)");
+}
+
+export async function alternarDepositoFefoAtivo(formData: FormData) {
+  await requireModulo("produtividade-armazem", "editar");
+  const revendaId = await exigirRevenda(ROTA);
+  const admin = createAdminClient();
+  const id = String(formData.get("id") ?? "");
+  const ativo = formData.get("ativo") === "true";
+  await admin
+    .from("pa_fefo_depositos")
+    .update({ ativo: !ativo })
+    .eq("id", id)
+    .eq("revenda_id", revendaId);
+  revalidatePath(ROTA);
+  revalidatePath("/fefo");
+  sucesso(
+    "fefo",
+    ativo ? "Depósito desativado -- e as ruas dele saem junto da lista" : "Depósito ativado",
+  );
+}
+
+export async function excluirDepositoFefo(formData: FormData) {
+  await requireModulo("produtividade-armazem", "excluir");
+  const revendaId = await exigirRevenda(ROTA);
+  const admin = createAdminClient();
+  const id = String(formData.get("id") ?? "");
+
+  // As ruas vão junto (FK on delete cascade): elas não existem fora do
+  // depósito, e deixá-las órfãs seria pior do que apagá-las.
+  const { error } = await admin
+    .from("pa_fefo_depositos")
+    .delete()
+    .eq("id", id)
+    .eq("revenda_id", revendaId);
+  if (error) erro("fefo", `Não foi possível excluir: ${error.message}`);
+
+  revalidatePath(ROTA);
+  revalidatePath("/fefo");
+  sucesso("fefo", "Depósito excluído (com as ruas dele)");
+}
+
+export async function salvarRuaFefo(formData: FormData) {
+  await requireModulo("produtividade-armazem", "editar");
+  const revendaId = await exigirRevenda(ROTA);
+  const admin = createAdminClient();
+
+  const depositoId = String(formData.get("deposito_id") ?? "");
+  if (!depositoId) erro("fefo", "Escolha o depósito da rua.");
+
+  // O depósito tem de ser DESTA revenda: um id copiado de outra unidade
+  // penduraria a rua num armazém que ninguém daqui enxerga.
+  const { data: deposito } = await admin
+    .from("pa_fefo_depositos")
+    .select("id, nome")
+    .eq("id", depositoId)
+    .eq("revenda_id", revendaId)
+    .maybeSingle();
+  if (!deposito) erro("fefo", "Depósito não encontrado nesta revenda.");
+
+  const nomes = String(formData.get("nome") ?? "")
+    .split(/[,;\n]/)
+    .map((n) => n.trim())
+    .filter(Boolean);
+  if (nomes.length === 0) erro("fefo", "Informe o nome da rua.");
+
+  /*
+    ACEITA VÁRIAS DE UMA VEZ ("1, 2, 3" ou "1 a 10"). Cadastrar rua a
+    rua seriam dez idas ao servidor para montar um depósito, e o
+    depósito nasce inteiro -- ninguém ganha uma rua por semana.
+  */
+  const expandidos: string[] = [];
+  for (const n of nomes) {
+    const faixa = n.match(/^(\d+)\s*(?:a|até|-)\s*(\d+)$/i);
+    if (faixa) {
+      const de = Number(faixa[1]);
+      const ate = Number(faixa[2]);
+      // Uma faixa grande demais é engano de digitação, não um armazém.
+      if (ate >= de && ate - de <= 200) {
+        for (let i = de; i <= ate; i++) expandidos.push(String(i));
+        continue;
+      }
+    }
+    expandidos.push(n.slice(0, 40));
+  }
+
+  const ordemBase = numeroOuNulo(formData.get("ordem")) ?? 0;
+  const linhas = expandidos.map((nome, i) => ({
+    revenda_id: revendaId,
+    deposito_id: depositoId,
+    nome,
+    // A ordem numérica sai do próprio nome quando ele é um número --
+    // senão "10" viria antes de "2" na lista, que é o tipo de detalhe
+    // que faz quem lança procurar a rua duas vezes.
+    ordem: Number.isFinite(Number(nome)) ? Number(nome) : ordemBase + i,
+  }));
+
+  // ignoreDuplicates: recadastrar "1 a 10" num depósito que já tem a 1
+  // acrescenta o que falta, em vez de recusar a leva inteira.
+  const { error } = await admin
+    .from("pa_fefo_ruas")
+    .upsert(linhas, { onConflict: "deposito_id,nome", ignoreDuplicates: true });
+  if (error) erro("fefo", `Não foi possível salvar: ${error.message}`);
+
+  revalidatePath(ROTA);
+  revalidatePath("/fefo");
+  sucesso(
+    "fefo",
+    linhas.length === 1
+      ? `Rua ${linhas[0].nome} cadastrada no depósito ${deposito.nome}`
+      : `${linhas.length} ruas cadastradas no depósito ${deposito.nome}`,
+  );
+}
+
+export async function editarRuaFefo(formData: FormData) {
+  await requireModulo("produtividade-armazem", "editar");
+  const revendaId = await exigirRevenda(ROTA);
+  const admin = createAdminClient();
+
+  const id = String(formData.get("id") ?? "");
+  const nome = String(formData.get("nome") ?? "").trim();
+  if (!nome) erro("fefo", "Informe o nome da rua.");
+  const ordem = numeroOuNulo(formData.get("ordem")) ?? (Number.isFinite(Number(nome)) ? Number(nome) : 0);
+
+  const { error } = await admin
+    .from("pa_fefo_ruas")
+    .update({ nome, ordem })
+    .eq("id", id)
+    .eq("revenda_id", revendaId);
+  if (error) {
+    if (error.code === "23505") erro("fefo", "Já existe uma rua com esse nome neste depósito.");
+    erro("fefo", `Não foi possível salvar: ${error.message}`);
+  }
+
+  revalidatePath(ROTA);
+  revalidatePath("/fefo");
+  sucesso("fefo", "Rua atualizada");
+}
+
+export async function alternarRuaFefoAtiva(formData: FormData) {
+  await requireModulo("produtividade-armazem", "editar");
+  const revendaId = await exigirRevenda(ROTA);
+  const admin = createAdminClient();
+  const id = String(formData.get("id") ?? "");
+  const ativo = formData.get("ativo") === "true";
+  await admin.from("pa_fefo_ruas").update({ ativo: !ativo }).eq("id", id).eq("revenda_id", revendaId);
+  revalidatePath(ROTA);
+  revalidatePath("/fefo");
+  sucesso("fefo", ativo ? "Rua desativada" : "Rua ativada");
+}
+
+export async function excluirRuaFefo(formData: FormData) {
+  await requireModulo("produtividade-armazem", "excluir");
+  const revendaId = await exigirRevenda(ROTA);
+  const admin = createAdminClient();
+  const id = String(formData.get("id") ?? "");
+
+  const { error } = await admin.from("pa_fefo_ruas").delete().eq("id", id).eq("revenda_id", revendaId);
+  if (error) erro("fefo", `Não foi possível excluir: ${error.message}`);
+
+  revalidatePath(ROTA);
+  revalidatePath("/fefo");
+  sucesso("fefo", "Rua excluída");
+}
+
 // -------------------- FÁBRICAS / TRANSPORTADORAS --------------------
 export async function salvarFabrica(formData: FormData) {
   await requireModulo("produtividade-armazem", "editar");

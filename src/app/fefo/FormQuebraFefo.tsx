@@ -4,13 +4,14 @@ import { useState } from "react";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
 import { ComboboxProdutoReepack } from "@/components/produtividade-armazem/ComboboxProdutoReepack";
 import {
-  DEPOSITOS_FEFO,
   DIAS_VALIDADE_CRITICA,
   ROTULO_UNIDADE_FEFO,
-  RUAS_FEFO,
   UNIDADES_FEFO,
   rotuloValidade,
+  ruasDoDeposito,
+  type DepositoFefo,
   type MotivoFefo,
+  type RuaFefo,
 } from "@/lib/fefo";
 import { buscarProdutosFefo, registrarQuebraFefo } from "./actions";
 
@@ -22,14 +23,30 @@ export function FormQuebraFefo({
   clusters,
   tipos,
   motivos,
+  depositos,
+  ruas,
 }: {
   clusters: string[];
   tipos: string[];
   motivos: MotivoFefo[];
+  depositos: DepositoFefo[];
+  ruas: RuaFefo[];
 }) {
   const [motivoId, setMotivoId] = useState(motivos[0]?.id ?? "");
   const [validade, setValidade] = useState("");
   const [menorValidade, setMenorValidade] = useState("");
+
+  /*
+    A RUA DEPENDE DO DEPÓSITO (migration 097). Antes eram duas listas
+    independentes -- depósito A, B ou C e rua 1 a 10 -- e dava para
+    gravar "depósito A, rua 9" num armazém que só vai até a 6.
+
+    O depósito escolhido zera a rua: manter a rua da escolha anterior
+    deixaria selecionado um lugar que não existe no depósito novo, e a
+    pessoa só descobriria pela recusa do servidor.
+  */
+  const [depositoId, setDepositoId] = useState("");
+  const ruasVisiveis = depositoId ? ruasDoDeposito(ruas, depositoId) : [];
 
   // O padrão manda segregar abaixo de 45 dias -- o aviso sai da data, sem
   // ninguém precisar julgar a criticidade na hora. Aparece no instante em
@@ -187,26 +204,59 @@ export function FormQuebraFefo({
           <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary-soft text-base">📍</span>
           Onde está
         </div>
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className={rotulo} htmlFor="deposito">Depósito</label>
-            <select id="deposito" name="deposito" required className={campo} defaultValue="">
-              <option value="" disabled>Escolha</option>
-              {DEPOSITOS_FEFO.map((d) => (
-                <option key={d} value={d}>Depósito {d}</option>
-              ))}
-            </select>
+        {depositos.length === 0 ? (
+          <p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-800">
+            Nenhum depósito cadastrado ainda. Peça ao Admin para cadastrar em Produtividade do
+            Armazém &gt; Configuração &gt; FEFO.
+          </p>
+        ) : (
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className={rotulo} htmlFor="deposito_id">Depósito</label>
+              <select
+                id="deposito_id"
+                name="deposito_id"
+                required
+                className={campo}
+                value={depositoId}
+                onChange={(e) => setDepositoId(e.target.value)}
+              >
+                <option value="" disabled>Escolha</option>
+                {depositos.map((d) => (
+                  <option key={d.id} value={d.id}>{d.nome}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className={rotulo} htmlFor="rua_id">Rua</label>
+              <select
+                id="rua_id"
+                name="rua_id"
+                required
+                className={campo}
+                // Trocar o depósito remonta a lista, e o React zera a
+                // escolha sozinho porque o valor antigo não existe mais
+                // entre as opções. Desabilitado antes da escolha: um
+                // select de ruas vazio faria a pessoa achar que travou.
+                disabled={!depositoId}
+                defaultValue=""
+                key={depositoId}
+              >
+                <option value="" disabled>
+                  {depositoId ? "Escolha" : "Escolha o depósito antes"}
+                </option>
+                {ruasVisiveis.map((r) => (
+                  <option key={r.id} value={r.id}>Rua {r.nome}</option>
+                ))}
+              </select>
+              {depositoId && ruasVisiveis.length === 0 && (
+                <p className="mt-1 text-xs text-amber-700">
+                  Este depósito está sem ruas cadastradas. Avise o Admin.
+                </p>
+              )}
+            </div>
           </div>
-          <div>
-            <label className={rotulo} htmlFor="rua">Rua</label>
-            <select id="rua" name="rua" required className={campo} defaultValue="">
-              <option value="" disabled>Escolha</option>
-              {RUAS_FEFO.map((r) => (
-                <option key={r} value={r}>Rua {r}</option>
-              ))}
-            </select>
-          </div>
-        </div>
+        )}
         <div>
           <label className={rotulo} htmlFor="ponto">Ponto exato (opcional)</label>
           <input

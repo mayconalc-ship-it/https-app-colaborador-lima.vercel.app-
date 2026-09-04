@@ -12,7 +12,9 @@ import {
   diasAberta,
   ehUnidadeFefo,
   rotuloValidade,
+  type DepositoFefo,
   type MotivoFefo,
+  type RuaFefo,
 } from "@/lib/fefo";
 import { FormQuebraFefo } from "./FormQuebraFefo";
 import { tratarQuebraFefo } from "./actions";
@@ -31,7 +33,8 @@ type Ocorrencia = {
   validade: string;
   menor_validade: string | null;
   deposito: string;
-  rua: number;
+  // TEXTO desde a 097: rua "01" e "A1" existem, e o nome fica gravado.
+  rua: string;
   ponto: string | null;
   rua_bloqueada: boolean;
   foto_url: string | null;
@@ -87,7 +90,14 @@ export default async function FefoPage({
   const colunas =
     "id, quantidade, unidade, validade, menor_validade, deposito, rua, ponto, rua_bloqueada, foto_url, observacao, colaborador_id, colaborador_nome, criado_em, status, acao, tratado_por_nome, tratado_em, pa_produtos(codigo, descricao), pa_fefo_motivos(nome, emoji)";
 
-  const [{ data: produtosBanco }, { data: minhasBanco }, { data: todasBanco }, { data: motivosBanco }] = await Promise.all([
+  const [
+    { data: produtosBanco },
+    { data: minhasBanco },
+    { data: todasBanco },
+    { data: motivosBanco },
+    { data: depositosBanco },
+    { data: ruasBanco },
+  ] = await Promise.all([
     podeInformar
       ? supabase
           .from("pa_produtos")
@@ -117,6 +127,27 @@ export default async function FefoPage({
       .eq("ativo", true)
       .order("ordem")
       .order("nome"),
+    // Onde a quebra está: os dois catálogos da migration 097. Só quem
+    // pode informar precisa deles -- quem só acompanha lê o nome já
+    // gravado na ocorrência.
+    podeInformar
+      ? supabase
+          .from("pa_fefo_depositos")
+          .select("id, nome")
+          .eq("revenda_id", revendaId)
+          .eq("ativo", true)
+          .order("ordem")
+          .order("nome")
+      : Promise.resolve({ data: [] as { id: string; nome: string }[] }),
+    podeInformar
+      ? supabase
+          .from("pa_fefo_ruas")
+          .select("id, deposito_id, nome")
+          .eq("revenda_id", revendaId)
+          .eq("ativo", true)
+          .order("ordem")
+          .order("nome")
+      : Promise.resolve({ data: [] as { id: string; deposito_id: string; nome: string }[] }),
   ]);
 
   const clusters = [
@@ -127,6 +158,12 @@ export default async function FefoPage({
   ].sort();
 
   const motivos = (motivosBanco ?? []) as MotivoFefo[];
+  const depositos: DepositoFefo[] = depositosBanco ?? [];
+  const ruas: RuaFefo[] = (ruasBanco ?? []).map((r) => ({
+    id: r.id,
+    depositoId: r.deposito_id,
+    nome: r.nome,
+  }));
   const minhas = (minhasBanco ?? []) as unknown as Ocorrencia[];
   const todas = (todasBanco ?? []) as unknown as Ocorrencia[];
   const abertas = todas.filter((o) => o.status === "aberta");
@@ -171,7 +208,13 @@ export default async function FefoPage({
 
       {aba === "informar" && podeInformar && (
         <section className="space-y-6">
-          <FormQuebraFefo clusters={clusters} tipos={tipos} motivos={motivos} />
+          <FormQuebraFefo
+            clusters={clusters}
+            tipos={tipos}
+            motivos={motivos}
+            depositos={depositos}
+            ruas={ruas}
+          />
 
           <div>
             <h2 className="mb-3 text-sm font-bold uppercase text-slate-500">O que eu informei</h2>

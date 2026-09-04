@@ -27,7 +27,9 @@ import {
   alternarEmpilhadorAtivo,
   alternarFabricaAtivo,
   alternarItemChecklist5sAtivo,
+  alternarDepositoFefoAtivo,
   alternarMotivoFefoAtivo,
+  alternarRuaFefoAtiva,
   alternarMotoristaAtivo,
   alternarProdutoAtivo,
   alternarTransportadoraAtivo,
@@ -39,12 +41,16 @@ import {
   editarEmpilhadeira,
   editarEmpilhador,
   editarFabrica,
+  editarDepositoFefo,
   editarItemChecklist5s,
   editarMotivoFefo,
+  editarRuaFefo,
   editarMotorista,
   editarProduto,
   editarTransportadora,
   excluirAg,
+  excluirDepositoFefo,
+  excluirRuaFefo,
   excluirEmpilhadeira,
   excluirEmpilhador,
   excluirFabrica,
@@ -58,6 +64,8 @@ import {
   importarProdutos,
   salvarAg,
   salvarConfigRecebimento,
+  salvarDepositoFefo,
+  salvarRuaFefo,
   salvarEmpilhadeira,
   salvarEmpilhador,
   salvarFabrica,
@@ -133,6 +141,16 @@ const campo =
   "w-full rounded-lg border border-slate-300 bg-white px-2.5 py-2 text-base text-slate-900 focus:border-primary focus:outline-none";
 const rotulo = "mb-1 block text-xs font-semibold uppercase text-slate-500";
 
+/** As linhas cruas dos dois catálogos novos do FEFO (migration 097). */
+type DepositoBanco = { id: string; nome: string; ordem: number; ativo: boolean };
+type RuaBanco = {
+  id: string;
+  deposito_id: string;
+  nome: string;
+  ordem: number;
+  ativo: boolean;
+};
+
 export default async function AdminProdutividadeArmazemPage({
   searchParams,
 }: {
@@ -178,6 +196,8 @@ export default async function AdminProdutividadeArmazemPage({
     { data: recebimentoConfig },
     { data: operacoesEncontradas },
     { data: motivosFefo },
+    { data: depositosFefo },
+    { data: ruasFefo },
     podeExcluir,
     { data: empilhadeiraConfig },
     { data: trocasGas },
@@ -287,6 +307,24 @@ export default async function AdminProdutividadeArmazemPage({
       .eq("revenda_id", revendaId)
       .order("ordem")
       .order("nome"),
+    // Depósitos e as ruas de cada um (migration 097). Só na aba FEFO: são
+    // duas consultas que não têm o que fazer nas outras quatro abas.
+    aba === "fefo"
+      ? supabase
+          .from("pa_fefo_depositos")
+          .select("id, nome, ordem, ativo")
+          .eq("revenda_id", revendaId)
+          .order("ordem")
+          .order("nome")
+      : Promise.resolve({ data: [] as DepositoBanco[] }),
+    aba === "fefo"
+      ? supabase
+          .from("pa_fefo_ruas")
+          .select("id, deposito_id, nome, ordem, ativo")
+          .eq("revenda_id", revendaId)
+          .order("ordem")
+          .order("nome")
+      : Promise.resolve({ data: [] as RuaBanco[] }),
     // Apagar motivo é a única ação atrás de "excluir" -- pedido do dono:
     // desativar qualquer um com "editar" pode; apagar, não.
     podeNoModulo("produtividade-armazem", "excluir"),
@@ -1793,6 +1831,7 @@ export default async function AdminProdutividadeArmazemPage({
       )}
 
       {aba === "fefo" && (
+        <div className="space-y-6">
         <PainelCadastro
           titulo="Motivos de quebra de FEFO"
           contagem={totalMotivosFefo}
@@ -1860,6 +1899,183 @@ export default async function AdminProdutividadeArmazemPage({
             />
           ))}
         </PainelCadastro>
+
+        {/*
+          DEPÓSITOS E RUAS -- pedido do dono (04/09/2026), no mesmo lugar
+          do cadastro de motivo. Os dois estavam travados no código:
+          depósito A, B ou C, rua de 1 a 10.
+
+          São dois cartões, e não um, porque são duas perguntas
+          diferentes: quantos depósitos o armazém tem, e como cada um é
+          dividido. A rua aparece PENDURADA no depósito -- a rua 1 do A e
+          a rua 1 do C são lugares diferentes, e a lista única de antes
+          tratava as duas como o mesmo número.
+        */}
+        <PainelCadastro
+          titulo="Depósitos"
+          contagem={depositosFefo?.length ?? 0}
+          novoRotulo="Novo depósito"
+          temItens={(depositosFefo?.length ?? 0) > 0}
+          vazio="Nenhum depósito cadastrado -- sem eles ninguém consegue informar onde a quebra está."
+          formNovo={
+            <div className="space-y-2">
+              <p className="text-xs text-slate-500">
+                É o que a pessoa escolhe em &quot;Onde está&quot; ao informar uma quebra. O nome vai
+                gravado na ocorrência: renomear depois <strong>não</strong> reescreve as antigas, e
+                é assim que o histórico continua dizendo onde a quebra estava no dia.
+              </p>
+              <form action={salvarDepositoFefo} className="flex flex-wrap gap-2">
+                <input name="nome" placeholder="Nome (ex.: A, Câmara fria)" required maxLength={40} className={`${campo} flex-1`} />
+                <input name="ordem" type="number" placeholder="Ordem" className={`${campo} w-20`} />
+                <BotaoEnviar className="rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-white">
+                  Adicionar
+                </BotaoEnviar>
+              </form>
+            </div>
+          }
+        >
+          {(depositosFefo ?? []).map((d) => {
+            const minhasRuas = (ruasFefo ?? []).filter((r) => r.deposito_id === d.id);
+            const ativas = minhasRuas.filter((r) => r.ativo);
+            return (
+              <ItemCadastro
+                key={d.id}
+                ativo={d.ativo}
+                titulo={`🏬 ${d.nome}`}
+                subtitulo={
+                  minhasRuas.length === 0
+                    ? "⚠️ sem ruas cadastradas — não aparece para quem lança"
+                    : `${ativas.length} rua(s) ativa(s): ${ativas.map((r) => r.nome).join(", ")}`
+                }
+                acoes={
+                  <>
+                    <BotaoIcone
+                      action={alternarDepositoFefoAtivo}
+                      campos={{ id: d.id, ativo: String(d.ativo), aba: "fefo" }}
+                      titulo={d.ativo ? "Desativar" : "Ativar"}
+                    >
+                      {d.ativo ? "🚫" : "✅"}
+                    </BotaoIcone>
+                    {podeExcluir && (
+                      <BotaoExcluir
+                        action={excluirDepositoFefo}
+                        campos={{ id: d.id }}
+                        confirmacao={`Excluir o depósito "${d.nome}"? As ${minhasRuas.length} rua(s) dele são apagadas junto. As ocorrências antigas continuam mostrando o nome.`}
+                        className="flex h-7 w-7 items-center justify-center rounded-lg text-sm hover:bg-red-50"
+                      >
+                        🗑️
+                      </BotaoExcluir>
+                    )}
+                  </>
+                }
+                formEditar={
+                  <form action={editarDepositoFefo} className="flex flex-wrap gap-2">
+                    <input type="hidden" name="id" value={d.id} />
+                    <input name="nome" defaultValue={d.nome} required maxLength={40} className={`${campo} flex-1`} />
+                    <input name="ordem" type="number" defaultValue={d.ordem} className={`${campo} w-20`} />
+                    <BotaoEnviar compacto className="shrink-0 rounded-lg bg-slate-800 px-3 py-1.5 text-xs font-semibold text-white">
+                      Salvar
+                    </BotaoEnviar>
+                  </form>
+                }
+              />
+            );
+          })}
+        </PainelCadastro>
+
+        <PainelCadastro
+          titulo="Ruas"
+          contagem={ruasFefo?.length ?? 0}
+          novoRotulo="Novas ruas"
+          temItens={(depositosFefo?.length ?? 0) > 0}
+          vazio="Cadastre um depósito primeiro -- toda rua pertence a um."
+          formNovo={
+            <div className="space-y-2">
+              <p className="text-xs text-slate-500">
+                Dá para cadastrar <strong>várias de uma vez</strong>: escreva{" "}
+                <code className="rounded bg-slate-200 px-1">1 a 10</code> para criar a faixa
+                inteira, ou separe por vírgula (<code className="rounded bg-slate-200 px-1">01, 02, A1</code>).
+                Repetir uma rua que já existe não dá erro — entra só o que falta.
+              </p>
+              <form action={salvarRuaFefo} className="flex flex-wrap gap-2">
+                <select name="deposito_id" required className={`${campo} w-40`} defaultValue="">
+                  <option value="" disabled>Depósito...</option>
+                  {(depositosFefo ?? []).map((d) => (
+                    <option key={d.id} value={d.id}>{d.nome}</option>
+                  ))}
+                </select>
+                <input name="nome" placeholder="1 a 10  ·  ou  01, 02, A1" required className={`${campo} flex-1`} />
+                <BotaoEnviar className="rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-white">
+                  Adicionar
+                </BotaoEnviar>
+              </form>
+            </div>
+          }
+        >
+          {/* Agrupadas POR DEPÓSITO: uma lista corrida de 30 ruas não
+              diria a qual armazém cada uma pertence, que é justamente a
+              informação que faltava antes. */}
+          {(depositosFefo ?? []).map((d) => {
+            const minhasRuas = (ruasFefo ?? []).filter((r) => r.deposito_id === d.id);
+            return (
+              <div key={d.id}>
+                <p className="bg-slate-50 px-3.5 py-2 text-xs font-bold uppercase tracking-wide text-slate-500">
+                  🏬 {d.nome}
+                  <span className="ml-2 font-semibold normal-case text-slate-400">
+                    {minhasRuas.length} rua(s)
+                  </span>
+                </p>
+                {minhasRuas.length === 0 ? (
+                  <p className="px-3.5 py-3 text-xs text-slate-400">
+                    Sem ruas. Este depósito não aparece para quem lança.
+                  </p>
+                ) : (
+                  <div className="divide-y divide-slate-100">
+                    {minhasRuas.map((r) => (
+                      <ItemCadastro
+                        key={r.id}
+                        ativo={r.ativo}
+                        titulo={`Rua ${r.nome}`}
+                        acoes={
+                          <>
+                            <BotaoIcone
+                              action={alternarRuaFefoAtiva}
+                              campos={{ id: r.id, ativo: String(r.ativo), aba: "fefo" }}
+                              titulo={r.ativo ? "Desativar" : "Ativar"}
+                            >
+                              {r.ativo ? "🚫" : "✅"}
+                            </BotaoIcone>
+                            {podeExcluir && (
+                              <BotaoExcluir
+                                action={excluirRuaFefo}
+                                campos={{ id: r.id }}
+                                confirmacao={`Excluir a rua "${r.nome}" do depósito ${d.nome}? As ocorrências antigas continuam mostrando ela.`}
+                                className="flex h-7 w-7 items-center justify-center rounded-lg text-sm hover:bg-red-50"
+                              >
+                                🗑️
+                              </BotaoExcluir>
+                            )}
+                          </>
+                        }
+                        formEditar={
+                          <form action={editarRuaFefo} className="flex flex-wrap gap-2">
+                            <input type="hidden" name="id" value={r.id} />
+                            <input name="nome" defaultValue={r.nome} required maxLength={40} className={`${campo} flex-1`} />
+                            <input name="ordem" type="number" defaultValue={r.ordem} className={`${campo} w-20`} />
+                            <BotaoEnviar compacto className="shrink-0 rounded-lg bg-slate-800 px-3 py-1.5 text-xs font-semibold text-white">
+                              Salvar
+                            </BotaoEnviar>
+                          </form>
+                        }
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </PainelCadastro>
+        </div>
       )}
 
       {aba === "cinco-s" && (

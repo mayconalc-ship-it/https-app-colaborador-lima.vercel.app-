@@ -13,8 +13,6 @@ import { criarNotificacao } from "@/lib/notificacoes-server";
 import { enviarPushDaRevenda } from "@/lib/push-server";
 import {
   ROTULO_UNIDADE_FEFO_CURTO,
-  ehDepositoFefo,
-  ehRuaFefo,
   ehUnidadeFefo,
   rotuloValidade,
 } from "@/lib/fefo";
@@ -68,8 +66,12 @@ export async function registrarQuebraFefo(formData: FormData) {
 
   const produtoId = String(formData.get("produto_id") ?? "");
   const motivoId = String(formData.get("motivo_id") ?? "");
-  const deposito = String(formData.get("deposito") ?? "").toUpperCase();
-  const ruaBruta = String(formData.get("rua") ?? "");
+  // Vêm os IDs do cadastro (migration 097), e o NOME é resolvido aqui --
+  // não aceito o nome que o formulário mandar. Assim o que fica gravado é
+  // sempre um lugar que existe no cadastro, e a validação não precisa de
+  // uma lista fixa no código.
+  const depositoId = String(formData.get("deposito_id") ?? "");
+  const ruaId = String(formData.get("rua_id") ?? "");
   const validade = String(formData.get("validade") ?? "").trim();
   const menorValidade = String(formData.get("menor_validade") ?? "").trim();
   const ponto = String(formData.get("ponto") ?? "").trim().slice(0, 120) || null;
@@ -78,8 +80,8 @@ export async function registrarQuebraFefo(formData: FormData) {
 
   if (!produtoId) erro("Escolha o produto.");
   if (!motivoId) erro("Escolha o motivo da quebra de FEFO.");
-  if (!ehDepositoFefo(deposito)) erro("Escolha o depósito (A, B ou C).");
-  if (!ehRuaFefo(ruaBruta)) erro("Escolha a rua (de 1 a 10).");
+  if (!depositoId) erro("Escolha o depósito.");
+  if (!ruaId) erro("Escolha a rua.");
   if (!validade) erro("Informe a validade do palete encontrado.");
 
   // Menor validade é OPCIONAL: quem acha a quebra no corredor nem sempre
@@ -117,6 +119,28 @@ export async function registrarQuebraFefo(formData: FormData) {
     .eq("ativo", true)
     .maybeSingle();
   if (!motivo) erro("Motivo inválido ou desativado. Escolha outro.");
+
+  // O mesmo cuidado para o lugar: depósito e rua da PRÓPRIA revenda,
+  // ativos, e a rua tem de ser DAQUELE depósito -- senão daria para
+  // gravar "depósito A, rua 7" com a rua 7 do C.
+  const { data: deposito } = await supabase
+    .from("pa_fefo_depositos")
+    .select("id, nome")
+    .eq("id", depositoId)
+    .eq("revenda_id", revendaId)
+    .eq("ativo", true)
+    .maybeSingle();
+  if (!deposito) erro("Depósito inválido ou desativado. Escolha outro.");
+
+  const { data: rua } = await supabase
+    .from("pa_fefo_ruas")
+    .select("id, nome")
+    .eq("id", ruaId)
+    .eq("deposito_id", deposito.id)
+    .eq("revenda_id", revendaId)
+    .eq("ativo", true)
+    .maybeSingle();
+  if (!rua) erro("Rua inválida para este depósito. Escolha outra.");
 
   /*
     O HL DA QUEBRA, calculado aqui e GRAVADO (pedido do dono,
@@ -166,8 +190,10 @@ export async function registrarQuebraFefo(formData: FormData) {
       hl_calculado: hlCalculado,
       validade,
       menor_validade: menorValidade || null,
-      deposito,
-      rua: Number(ruaBruta),
+      // O NOME, não o id: o endereço de um fato passado não muda quando
+      // alguém renomeia a rua hoje (ver migration 097).
+      deposito: deposito.nome,
+      rua: rua.nome,
       ponto,
       rua_bloqueada: ruaBloqueada,
       foto_url: fotoUrl,
@@ -193,7 +219,7 @@ export async function registrarQuebraFefo(formData: FormData) {
 
     const nomeProduto = produto ? `${produto.codigo} — ${produto.descricao}` : "produto";
     const prazo = rotuloValidade(validade);
-    const titulo = `🚨 Quebra de FEFO — Depósito ${deposito}, rua ${ruaBruta}`;
+    const titulo = `🚨 Quebra de FEFO — Depósito ${deposito.nome}, rua ${rua.nome}`;
     const mensagem = `${motivo.nome}. ${nomeProduto}, ${quantidade} ${ROTULO_UNIDADE_FEFO_CURTO[unidade]}. ${prazo.texto}. Informado por ${perfil.nome}.`;
 
     await criarNotificacao({
