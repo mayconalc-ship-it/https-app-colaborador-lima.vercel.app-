@@ -1112,6 +1112,29 @@ function celulaNumero(valor: ExcelJS.CellValue): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
+/**
+ * Uma CONTAGEM da planilha: caixas por pallet, caixas por lastro,
+ * unidades por caixa. Só vale inteiro positivo -- qualquer outra coisa
+ * vira nulo, que é o "não cadastrado".
+ *
+ * O ZERO É O CASO QUE IMPORTA, e foi ele que derrubou a importação em
+ * 04/09/2026: `pa_produtos_caixas_por_lastro_check` recusa zero de
+ * propósito, porque zero caixas num lastro seria uma divisão que não
+ * existe, e o banco fez o certo em barrar. Só que numa planilha
+ * exportada de sistema o 0 não quer dizer "zero": quer dizer célula que
+ * ninguém preencheu. Mandar o 0 adiante era transformar "não sei" em
+ * dado, e o banco recusava a planilha INTEIRA por causa de uma linha.
+ *
+ * A fração cai aqui pelo mesmo motivo: 1,5 caixa por lastro não existe,
+ * e num campo integer o erro que voltaria seria "invalid input syntax",
+ * que não diz a ninguém qual foi o produto.
+ */
+function celulaContagem(valor: ExcelJS.CellValue): number | null {
+  const n = celulaNumero(valor);
+  if (n === null || !Number.isInteger(n) || n <= 0) return null;
+  return n;
+}
+
 /** Normaliza cabeçalho de coluna pra comparar sem depender de acento,
  *  espaço a mais ou maiúscula/minúscula. */
 function normalizarCabecalho(texto: string): string {
@@ -1226,9 +1249,9 @@ export async function importarPlanilhaProdutos(formData: FormData) {
       descricao,
       cluster: colCluster ? celulaTexto(row.getCell(colCluster).value).trim() || null : null,
       fatorHecto: colFatorHecto ? celulaNumero(row.getCell(colFatorHecto).value) : null,
-      caixasPallet: colCaixasPallet ? celulaNumero(row.getCell(colCaixasPallet).value) : null,
-      caixasPorLastro: colCaixasLastro ? celulaNumero(row.getCell(colCaixasLastro).value) : null,
-      unidadesPorCaixa: colUnCx ? celulaNumero(row.getCell(colUnCx).value) : null,
+      caixasPallet: colCaixasPallet ? celulaContagem(row.getCell(colCaixasPallet).value) : null,
+      caixasPorLastro: colCaixasLastro ? celulaContagem(row.getCell(colCaixasLastro).value) : null,
+      unidadesPorCaixa: colUnCx ? celulaContagem(row.getCell(colUnCx).value) : null,
       tipo: tipoTexto === "DESCARTAVEL" || tipoTexto === "RETORNAVEL" ? tipoTexto : null,
       embalagemRepackNome: embalagemRepackNome || null,
       embalagemDespejoNome: embalagemDespejoNome || null,
@@ -1368,7 +1391,24 @@ export async function importarPlanilhaProdutos(formData: FormData) {
   revalidatePath(ROTA);
   const mensagemDespejo =
     despejoFaltantesPorChave.size > 0 ? ` e ${despejoFaltantesPorChave.size} embalagem(ns) de despejo criada(s)` : "";
-  sucesso("reepack-despejo", `${linhasParaUpsert.length} produtos importados/atualizados${mensagemDespejo}`);
+
+  // O LASTRO É DITO EM VOZ ALTA quando a coluna veio na planilha. Sem
+  // isso, a importação diria "565 produtos atualizados" e a pessoa
+  // acharia que o lastro entrou -- e só descobriria o contrário lá na
+  // frente, quando a opção "lastro" não aparecesse no lançamento.
+  const semLastro = colCaixasLastro
+    ? linhasParaUpsert.filter((l) => l.caixas_por_lastro === null).length
+    : 0;
+  const mensagemLastro = !colCaixasLastro
+    ? " (sem a coluna CAIXAS LASTRO: a unidade lastro nao sera oferecida)"
+    : semLastro > 0
+      ? ` — ${semLastro} sem caixas por lastro (celula vazia ou zero): esses nao oferecem a unidade "lastro"`
+      : "";
+
+  sucesso(
+    "reepack-despejo",
+    `${linhasParaUpsert.length} produtos importados/atualizados${mensagemDespejo}${mensagemLastro}`,
+  );
 }
 
 /**
@@ -1409,6 +1449,15 @@ export async function salvarProdutoReepack(formData: FormData) {
     return Number.isFinite(n) ? n : null;
   };
 
+  /** As contagens seguem a mesma regra da planilha (ver celulaContagem):
+   *  inteiro positivo ou nada. O `min` do HTML já barra o zero no
+   *  navegador, mas quem manda o form fora dele chegaria no banco e
+   *  levaria o erro de constraint na cara, sem saber qual campo era. */
+  const contagem = (campo: string): number | null => {
+    const n = numero(campo);
+    return n !== null && Number.isInteger(n) && n > 0 ? n : null;
+  };
+
   const fatorHecto = numero("fator_hecto");
   if (fatorHecto === null || fatorHecto <= 0) {
     erro("reepack-despejo", "Informe o Fator Hecto (HL por caixa) -- sem ele o produto não aparece no lançamento.");
@@ -1440,9 +1489,9 @@ export async function salvarProdutoReepack(formData: FormData) {
       descricao,
       cluster_produto: String(formData.get("cluster_produto") ?? "").trim() || null,
       fator_hecto: fatorHecto,
-      caixas_pallet: numero("caixas_pallet"),
-      caixas_por_lastro: numero("caixas_por_lastro"),
-      unidades_por_caixa: numero("unidades_por_caixa"),
+      caixas_pallet: contagem("caixas_pallet"),
+      caixas_por_lastro: contagem("caixas_por_lastro"),
+      unidades_por_caixa: contagem("unidades_por_caixa"),
       tipo,
       embalagem_id: embalagemId,
       meta_reepack_hora: numero("meta_reepack_hora"),
