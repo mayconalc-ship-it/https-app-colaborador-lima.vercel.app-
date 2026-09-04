@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { exigirContextoCarretas } from "@/lib/carretas-server";
-import { temAcessoModulo } from "@/lib/require-admin";
+import { podeNoModulo, temAcessoModulo } from "@/lib/require-admin";
 import { getRevendaId } from "@/lib/revendas";
 import {
   MAX_ITENS_CONFERENCIA,
@@ -416,6 +416,133 @@ export async function decidirRetorno(formData: FormData) {
   revalidatePath(rota(atendimentoId));
   revalidatePath("/carretas-conferencia");
   redirect(`${rota(atendimentoId)}?sucesso=Retorno+confirmado`);
+}
+
+/**
+ * A LIDERANÇA CORRIGE O AG DO RETORNO -- pedido do dono (05/09/2026):
+ * "aconteceu de um conferente enviar a informação e estava incompleto.
+ * Preciso editar para que possa aparecer para o empilhador a informação
+ * correta."
+ *
+ * Até aqui o retorno era decidido UMA vez e só: `decidirRetorno` grava
+ * com `.is("tem_carga", null)`, que trava o clique duplo e a corrida
+ * entre dois conferentes -- e, sem querer, travava também o conserto. Um
+ * item esquecido virava um empilhador carregando a carreta errada, sem
+ * saída dentro do app.
+ *
+ * TRÊS COISAS QUE ESTA AÇÃO NÃO FAZ, e cada uma tem motivo:
+ *
+ * 1. Não muda vazia <-> com AG. Isso não é corrigir uma quantidade, é
+ *    refazer a decisão: mudar para "vazia" apagaria a fase de carga com
+ *    o empilhador já trabalhando nela, e o contrário criaria uma fase
+ *    que a máquina de status não abriu. Quem precisa disso cancela o
+ *    atendimento.
+ * 2. Não mexe em atendimento FINALIZADO. Depois de finalizado a lista
+ *    virou histórico do que saiu no caminhão; reescrevê-la seria mudar
+ *    um fato passado, não corrigir uma instrução.
+ * 3. Não apaga o rastro. Toda correção carimba quem, quando, e soma no
+ *    contador -- duas correções no mesmo atendimento não são a mesma
+ *    coisa que uma.
+ */
+export async function editarRetornoAg(formData: FormData) {
+  // "excluir" é a ação de liderança do módulo, a mesma que destrava
+  // sessão de abastecimento: corrigir o trabalho declarado por outra
+  // pessoa não pode ficar com quem só tem acesso de execução.
+  const { perfil, revendaId } = await exigirContextoCarretas(
+    "carretas-conferencia",
+    "/carretas-conferencia",
+  );
+  const podeCorrigir = await podeNoModulo("produtividade-armazem", "excluir");
+  if (!podeCorrigir) {
+    erro(
+      String(formData.get("atendimento_id") ?? ""),
+      "Só a liderança pode corrigir o AG do retorno.",
+    );
+  }
+
+  const atendimentoId = String(formData.get("atendimento_id") ?? "");
+  if (!atendimentoId) erro(atendimentoId, "Atendimento inválido.");
+
+  const destinoRetorno = String(formData.get("destino_retorno") ?? "").trim();
+  if (!destinoRetorno) erro(atendimentoId, "Informe o destino da carreta.");
+
+  const agIds = formData.getAll("ag_id").map(String).filter(Boolean);
+  const quantidades = formData.getAll("ag_quantidade").map(String);
+  if (agIds.length === 0) erro(atendimentoId, "A carreta volta com AG: informe ao menos um item.");
+
+  const itensAg = agIds.map((agId, i) => {
+    let quantidade: number;
+    try {
+      quantidade = quantidadePositiva(quantidades[i]);
+    } catch {
+      erro(atendimentoId, "Quantidade inválida em um dos itens de AG.");
+    }
+    return { agId, quantidade };
+  });
+
+  const supabase = await createClient();
+
+  // Só atendimento que JÁ foi decidido como "com AG" e que ainda não
+  // acabou. As duas condições vão na consulta, e não num if depois de
+  // ler: entre ler e escrever, o empilhador pode ter finalizado.
+  const { data: atual, error: erroLeitura } = await supabase
+    .from("atendimentos_carretas")
+    .select("id, retorno_edicoes")
+    .eq("id", atendimentoId)
+    .eq("revenda_id", revendaId)
+    .eq("tem_carga", true)
+    .neq("status", "finalizado")
+    .maybeSingle();
+
+  if (erroLeitura) erro(atendimentoId, `Não foi possível ler o atendimento: ${erroLeitura.message}`);
+  if (!atual) {
+    erro(
+      atendimentoId,
+      "Só dá para corrigir um atendimento que volta com AG e ainda não foi finalizado.",
+    );
+  }
+
+  const agora = new Date().toISOString();
+
+  // A lista NOVA substitui a antiga inteira. Casar item a item exigiria
+  // um id estável por linha que a tela não tem, e "corrigir" aqui quase
+  // sempre é acrescentar o que faltou -- reescrever é o que a pessoa
+  // espera ao salvar o formulário que está vendo.
+  const { error: erroApagar } = await supabase
+    .from("atendimento_carretas_ag_itens")
+    .delete()
+    .eq("atendimento_id", atendimentoId)
+    .eq("revenda_id", revendaId);
+  if (erroApagar) erro(atendimentoId, `Não foi possível atualizar os itens: ${erroApagar.message}`);
+
+  const { error: erroInserir } = await supabase.from("atendimento_carretas_ag_itens").insert(
+    itensAg.map((i) => ({
+      revenda_id: revendaId,
+      atendimento_id: atendimentoId,
+      ag_id: i.agId,
+      quantidade: i.quantidade,
+    })),
+  );
+  if (erroInserir) erro(atendimentoId, `Não foi possível gravar os itens: ${erroInserir.message}`);
+
+  const { error: erroCarimbo } = await supabase
+    .from("atendimentos_carretas")
+    .update({
+      destino_retorno: destinoRetorno,
+      retorno_editado_em: agora,
+      retorno_editado_por_id: perfil.id,
+      // O NOME junto do id: se a pessoa sair da revenda, o histórico
+      // continua dizendo quem mandou carregar aquilo.
+      retorno_editado_por_nome: perfil.nome,
+      retorno_edicoes: (atual.retorno_edicoes ?? 0) + 1,
+    })
+    .eq("id", atendimentoId)
+    .eq("revenda_id", revendaId);
+  if (erroCarimbo) erro(atendimentoId, `Itens salvos, mas o registro da edição falhou: ${erroCarimbo.message}`);
+
+  revalidatePath(rota(atendimentoId));
+  revalidatePath("/carretas-conferencia");
+  redirect(`${rota(atendimentoId)}?sucesso=AG+do+retorno+corrigido`);
 }
 
 export async function concluirCarga(formData: FormData) {

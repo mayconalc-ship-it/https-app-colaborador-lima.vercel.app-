@@ -24,6 +24,7 @@ import {
 } from "@/lib/carretas";
 import { FormFinalizarConferencia } from "./FormFinalizarConferencia";
 import { FormDecidirRetorno } from "./FormDecidirRetorno";
+import { FormCorrigirRetornoAg } from "./FormCorrigirRetornoAg";
 import { concluirCarga, finalizarDescarga, iniciarConferencia, iniciarDescarga } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -70,6 +71,7 @@ type LinhaItem = {
 
 type LinhaAgItem = {
   id: string;
+  ag_id: string;
   quantidade: number;
   pa_ag_catalogo: { codigo: string; descricao: string; unidade: string } | { codigo: string; descricao: string; unidade: string }[] | null;
 };
@@ -114,6 +116,10 @@ export default async function DetalheAtendimentoPage({ params }: { params: Promi
   // servidor aceita exatamente as mesmas duas portas (ver
   // catalogos-rapidos.ts) -- esconder o botão não seria controle de acesso.
   const podeEditarCatalogo = podeConferir || (await podeNoModulo("produtividade-armazem", "editar"));
+  // Corrigir o que OUTRA pessoa declarou é ação de liderança -- a mesma
+  // "excluir" que destrava sessão de abastecimento. Quem só executa a
+  // etapa (conferente, empilhador) não reescreve o trabalho alheio.
+  const podeCorrigirAg = await podeNoModulo("produtividade-armazem", "excluir");
 
   const { id } = await params;
 
@@ -121,6 +127,26 @@ export default async function DetalheAtendimentoPage({ params }: { params: Promi
   if (!revendaId) redirect(`/?erro=${encodeURIComponent("Você não está em nenhuma revenda.")}`);
 
   const supabase = await createClient();
+
+  /*
+    AS COLUNAS DA CORREÇÃO (migration 098) VÊM EM SEPARADO, e é de
+    propósito: pedi-las junto do resto faria a tela inteira sumir
+    enquanto a migration não tivesse rodado. O PostgREST recusa a
+    consulta INTEIRA quando uma coluna não existe, e o atendimento viria
+    nulo -- que aqui vira notFound(). Uma tela operada no pátio não pode
+    dar 404 pela janela entre o deploy e o SQL.
+
+    Separada, a falha custa só a marca de "corrigido por": o erro é
+    engolido e os três campos ficam nulos, que é exatamente o estado de
+    quem nunca foi corrigido.
+  */
+  const correcao = await supabase
+    .from("atendimentos_carretas")
+    .select("retorno_editado_em, retorno_editado_por_nome, retorno_edicoes")
+    .eq("id", id)
+    .eq("revenda_id", revendaId)
+    .maybeSingle();
+
   const [{ data: atendimentoBanco }, { data: notasBanco }, { data: itensBanco }, { data: agItensBanco }, { data: agCatalogoBanco }, { data: configBanco }, { data: fabricasBanco }, { data: empilhadoresBanco }] =
     await Promise.all([
       supabase
@@ -138,7 +164,10 @@ export default async function DetalheAtendimentoPage({ params }: { params: Promi
         .eq("atendimento_id", id),
       supabase
         .from("atendimento_carretas_ag_itens")
-        .select("id, quantidade, pa_ag_catalogo(codigo, descricao, unidade)")
+        // `ag_id` vai junto porque o formulário de correção nasce
+        // preenchido com o que está lá -- e para preencher um select ele
+        // precisa do id, não do rótulo.
+        .select("id, ag_id, quantidade, pa_ag_catalogo(codigo, descricao, unidade)")
         .eq("atendimento_id", id),
       supabase
         .from("pa_ag_catalogo")
@@ -164,6 +193,14 @@ export default async function DetalheAtendimentoPage({ params }: { params: Promi
 
   const a = atendimentoBanco as unknown as LinhaAtendimento | null;
   if (!a) notFound();
+
+  // Nulo quando a 098 ainda não rodou -- e nulo é o mesmo que "nunca foi
+  // corrigido", então a tela não precisa saber a diferença.
+  const correcaoDoRetorno = (correcao.data ?? null) as {
+    retorno_editado_em: string | null;
+    retorno_editado_por_nome: string | null;
+    retorno_edicoes: number | null;
+  } | null;
 
   const notas = (notasBanco ?? []) as LinhaNota[];
   const itens = (itensBanco ?? []) as unknown as LinhaItem[];
@@ -212,6 +249,12 @@ export default async function DetalheAtendimentoPage({ params }: { params: Promi
   // conferência terminarem. `tem_carga` nulo = ainda não decidiu.
   const retornoDecidido = a.tem_carga !== null;
   const podeDecidirRetorno = podeConferir && !retornoDecidido && a.status !== "finalizado";
+  // Corrigir só faz sentido no que já foi decidido COMO "com AG" e ainda
+  // não saiu. As mesmas duas condições que a ação de servidor exige --
+  // esconder o botão não é controle de acesso, é não oferecer o que
+  // seria recusado.
+  const podeCorrigirRetorno =
+    podeCorrigirAg && a.tem_carga === true && a.status !== "finalizado";
   // O empilhador precisa ver o que vai carregar ENQUANTO descarrega, para
   // já separar o AG -- era isso que só aparecia depois, em "em_carga".
   const mostrarPlanoDeRetorno = retornoDecidido && a.status !== "finalizado";
@@ -419,6 +462,24 @@ export default async function DetalheAtendimentoPage({ params }: { params: Promi
                   })}
                 </ul>
               )}
+              {/*
+                A MARCA DE CORRIGIDO, junto da lista e não num rodapé:
+                é o empilhador que precisa ver, e ele lê a lista.
+
+                Sem isto, a lista mudaria debaixo dele em silêncio -- a
+                versão que ele leu há cinco minutos deixaria de valer sem
+                ele ter como saber. Ver migration 098.
+              */}
+              {correcaoDoRetorno?.retorno_editado_em && (
+                <p className="mt-2 rounded-lg bg-amber-100 px-2.5 py-1.5 text-xs font-semibold text-amber-900">
+                  ✏️ Lista corrigida por{" "}
+                  {correcaoDoRetorno.retorno_editado_por_nome ?? "alguém da liderança"} em{" "}
+                  {formatarDataHora(correcaoDoRetorno.retorno_editado_em)}
+                  {(correcaoDoRetorno.retorno_edicoes ?? 0) > 1 &&
+                    ` · ${correcaoDoRetorno.retorno_edicoes} correções`}
+                  . Esta é a lista que vale.
+                </p>
+              )}
               {a.status !== "em_carga" && (
                 <p className="mt-2 text-xs text-purple-700">
                   Pode ir separando. O carregamento libera quando a descarga terminar.
@@ -429,6 +490,23 @@ export default async function DetalheAtendimentoPage({ params }: { params: Promi
             <p className="rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-600 shadow-sm">
               ↩️ Esta carreta volta <strong>vazia</strong> — finaliza sozinha quando a descarga terminar.
             </p>
+          )}
+
+          {/* CORRIGIR -- só a liderança, e só enquanto a carreta ainda
+              não saiu. Depois de finalizada a lista virou histórico do
+              que foi no caminhão, e reescrever isso seria mudar um fato
+              passado (ver editarRetornoAg). */}
+          {podeCorrigirRetorno && (
+            <div className="mt-4">
+              <FormCorrigirRetornoAg
+                atendimentoId={a.id}
+                agCatalogo={agCatalogo}
+                fabricas={fabricas}
+                destinoAtual={a.destino_retorno}
+                itensAtuais={agItens.map((ai) => ({ agId: ai.ag_id, quantidade: ai.quantidade }))}
+                podeEditarCatalogo={podeEditarCatalogo}
+              />
+            </div>
           )}
         </div>
       )}
