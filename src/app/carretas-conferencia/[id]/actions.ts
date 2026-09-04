@@ -480,7 +480,23 @@ export async function editarRetornoAg(formData: FormData) {
     return { agId, quantidade };
   });
 
-  const supabase = await createClient();
+  /*
+    CLIENTE ADMIN, e não o do usuário -- foi isto que duplicou.
+
+    `atendimento_carretas_ag_itens` nasceu (migration 061) com
+    `grant select, insert to authenticated` e políticas só de SELECT e
+    INSERT: apagar nunca esteve no contrato da tabela, porque até aqui
+    ninguém apagava. Pelo cliente do usuário, o DELETE não removia nada
+    -- e o INSERT logo abaixo, esse sim permitido, ACRESCENTAVA. Salvar
+    a correção duas vezes deixou o atendimento com três cópias da mesma
+    lista, e o empilhador com uma tela impossível de ler.
+
+    Quem autoriza esta ação é o `podeNoModulo(... "excluir")` lá em cima,
+    verificado no servidor. É o mesmo desenho de toda correção de
+    liderança do app (ver destravarSessao, editarProdutoReepack): a
+    permissão mora no código, e o cliente admin executa.
+  */
+  const supabase = createAdminClient();
 
   // Só atendimento que JÁ foi decidido como "com AG" e que ainda não
   // acabou. As duas condições vão na consulta, e não num if depois de
@@ -504,16 +520,36 @@ export async function editarRetornoAg(formData: FormData) {
 
   const agora = new Date().toISOString();
 
+  // Quantos itens existem AGORA -- serve de referência para conferir que
+  // a remoção abaixo realmente aconteceu.
+  const contagemAntiga = await supabase
+    .from("atendimento_carretas_ag_itens")
+    .select("id", { count: "exact", head: true })
+    .eq("atendimento_id", atendimentoId)
+    .eq("revenda_id", revendaId);
+  const itensAntigos = contagemAntiga.count ?? 0;
+
   // A lista NOVA substitui a antiga inteira. Casar item a item exigiria
   // um id estável por linha que a tela não tem, e "corrigir" aqui quase
   // sempre é acrescentar o que faltou -- reescrever é o que a pessoa
   // espera ao salvar o formulário que está vendo.
-  const { error: erroApagar } = await supabase
+  // `.select()` no delete para SABER quantas linhas sairam. Sem isso, um
+  // delete que não apaga nada é indistinguível de um que apagou tudo --
+  // e foi exatamente essa cegueira que produziu as três cópias. Se a
+  // remoção falhar em silêncio de novo, o insert não acontece.
+  const { data: apagados, error: erroApagar } = await supabase
     .from("atendimento_carretas_ag_itens")
     .delete()
     .eq("atendimento_id", atendimentoId)
-    .eq("revenda_id", revendaId);
+    .eq("revenda_id", revendaId)
+    .select("id");
   if (erroApagar) erro(atendimentoId, `Não foi possível atualizar os itens: ${erroApagar.message}`);
+  if (itensAntigos > 0 && (apagados?.length ?? 0) === 0) {
+    erro(
+      atendimentoId,
+      "A lista antiga não foi removida, então nada foi gravado -- salvar assim duplicaria os itens. Avise o suporte.",
+    );
+  }
 
   const { error: erroInserir } = await supabase.from("atendimento_carretas_ag_itens").insert(
     itensAg.map((i) => ({

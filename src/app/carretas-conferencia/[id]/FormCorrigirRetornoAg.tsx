@@ -92,23 +92,30 @@ export function FormCorrigirRetornoAg({
     setItens((atual) => atual.map((i) => (i.chave === chave ? { ...i, quantidade: valor } : i)));
   }
 
+  /*
+    DISCRETO FECHADO (pedido do dono, 05/09/2026). Era um cartão âmbar
+    inteiro com título e subtítulo -- do tamanho dos blocos da operação
+    normal, e chamando mais atenção que eles.
+
+    Corrigir é a exceção: acontece quando o conferente errou, e não em
+    toda carreta. Fechado, é um link cinza de uma linha; aberto, aí sim
+    vira o cartão âmbar, porque quem chegou até ali está mexendo no que o
+    empilhador vai executar e precisa ver que é diferente do resto.
+  */
   return (
-    <details className="group/corr rounded-2xl border border-amber-300 bg-amber-50">
-      <summary className="flex cursor-pointer list-none items-center gap-2 p-4 marker:content-none [&::-webkit-details-marker]:hidden">
-        <span className="text-amber-700 transition-transform group-open/corr:rotate-90" aria-hidden="true">
+    <details className="group/corr rounded-xl open:border open:border-amber-300 open:bg-amber-50">
+      <summary className="flex cursor-pointer list-none items-center gap-1.5 px-1 py-2 text-xs font-semibold text-slate-400 marker:content-none hover:text-slate-600 group-open/corr:px-4 group-open/corr:pt-3 group-open/corr:text-amber-900 [&::-webkit-details-marker]:hidden">
+        <span className="transition-transform group-open/corr:rotate-90" aria-hidden="true">
           ▸
         </span>
-        <span className="min-w-0 flex-1">
-          <span className="block text-sm font-bold text-amber-900">
-            ✏️ Corrigir o AG do retorno
-          </span>
-          <span className="block text-xs text-amber-800">
-            Para quando o conferente informou incompleto. Fica registrado quem corrigiu.
-          </span>
-        </span>
+        ✏️ Corrigir o AG do retorno
       </summary>
 
-      <form action={editarRetornoAg} className="space-y-3 border-t border-amber-200 p-4">
+      <form action={editarRetornoAg} className="space-y-3 p-4 pt-3">
+        <p className="text-xs text-amber-800">
+          Para quando o conferente informou incompleto. A lista salva aqui{" "}
+          <strong>substitui</strong> a atual, e fica registrado quem corrigiu.
+        </p>
         <input type="hidden" name="atendimento_id" value={atendimentoId} />
 
         <div>
@@ -189,11 +196,6 @@ export function FormCorrigirRetornoAg({
             Adicionar item de AG
           </BotaoAdicionarLinha>
         </div>
-
-        <p className="rounded-lg bg-white px-2.5 py-1.5 text-xs text-amber-800">
-          A lista salva aqui <strong>substitui</strong> a atual, e é a que o empilhador vai ver.
-          Seu nome e a hora ficam registrados na tela do atendimento.
-        </p>
 
         <BotaoEnviar
           textoEnviando="Salvando..."
