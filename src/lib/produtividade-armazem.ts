@@ -245,6 +245,38 @@ export function produtoProntoParaReepack(p: ProdutoReepack): boolean {
   return p.fatorHecto !== null && p.embalagemId !== null;
 }
 
+/**
+ * O LASTRO FECHA O PALETE? Um lastro é uma camada, então o palete tem de
+ * caber num número inteiro delas.
+ *
+ * Vale a pena conferir porque este erro NÃO DÁ ERRO: o HL passa por
+ * caixas (lastro x caixas_por_lastro x fator_hecto), então um lastro
+ * errado produz um HL errado com cara de certo, e só apareceria semanas
+ * depois como uma diferença que ninguém consegue explicar.
+ *
+ * Foi o que a conferência de 04/09/2026 achou: cinco produtos HALLS com
+ * o mesmo palete de 1650 caixas e o lastro cadastrado como 14, 144, 420
+ * e 1000 -- quatro números para a mesma caixa, e 1650/14 daria 117
+ * camadas num palete.
+ *
+ * Nulo em qualquer um dos dois NÃO é incoerência: é cadastro
+ * incompleto, que a tela já trata em outro lugar (a unidade
+ * simplesmente não é oferecida).
+ */
+export function lastroFechaOPalete(p: ProdutoReepack): boolean | null {
+  if (p.caixasPorLastro === null || p.caixasPallet === null) return null;
+  if (p.caixasPorLastro <= 0 || p.caixasPallet <= 0) return null;
+  return p.caixasPallet % p.caixasPorLastro === 0;
+}
+
+/** Quantas camadas o palete tem, para a tela dizer o número que não
+ *  fecha em vez de só dizer que não fecha. */
+export function camadasDoPalete(p: ProdutoReepack): number | null {
+  if (p.caixasPorLastro === null || p.caixasPallet === null) return null;
+  if (p.caixasPorLastro <= 0) return null;
+  return Math.round((p.caixasPallet / p.caixasPorLastro) * 100) / 100;
+}
+
 /** Litros de UMA caixa: Fator Hecto (hectolitros/caixa) x 100. */
 export function litrosPorCaixa(fatorHecto: number): number {
   return Math.round(fatorHecto * 100 * 1000) / 1000;

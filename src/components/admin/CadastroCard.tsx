@@ -118,12 +118,17 @@ export function ItemCadastro({
   ativo = true,
   titulo,
   subtitulo,
+  aviso,
   acoes,
   formEditar,
 }: {
   ativo?: boolean;
   titulo: React.ReactNode;
   subtitulo?: React.ReactNode;
+  /** Um problema NESTE item, dito por extenso. Diferente do subtítulo:
+   *  o subtítulo é truncado numa linha (é a ficha do item), e um aviso
+   *  cortado no meio de uma conta não avisa nada. */
+  aviso?: React.ReactNode;
   acoes?: React.ReactNode;
   formEditar?: React.ReactNode;
 }) {
@@ -138,6 +143,11 @@ export function ItemCadastro({
         </div>
         {acoes && <div className="flex shrink-0 items-center gap-1">{acoes}</div>}
       </div>
+      {aviso && (
+        <p className="mt-2 rounded-lg border border-red-200 bg-red-50 px-2.5 py-1.5 text-xs leading-relaxed text-red-800">
+          {aviso}
+        </p>
+      )}
       {formEditar && (
         <details className="group mt-2.5">
           <summary className="inline-flex cursor-pointer list-none items-center gap-1 text-xs font-semibold text-primary marker:content-none [&::-webkit-details-marker]:hidden">

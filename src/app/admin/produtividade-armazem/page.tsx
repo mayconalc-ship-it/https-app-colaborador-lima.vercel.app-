@@ -16,6 +16,8 @@ import {
   TURNOS,
   formatarDataHora,
   litrosPorCaixa,
+  camadasDoPalete,
+  lastroFechaOPalete,
   produtoReepackDeLinha,
   produtoProntoParaReepack,
   type ProdutoReepack,
@@ -238,7 +240,7 @@ export default async function AdminProdutividadeArmazemPage({
       ? supabase
           .from("pa_produtos")
           .select(
-            "id, codigo, descricao, cluster_produto, unidades_por_caixa, caixas_pallet, fator_hecto, tipo, embalagem_id, meta_reepack_hora, meta_despejo_hora, ativo",
+            "id, codigo, descricao, cluster_produto, unidades_por_caixa, caixas_pallet, caixas_por_lastro, fator_hecto, tipo, embalagem_id, meta_reepack_hora, meta_despejo_hora, ativo",
           )
           .eq("revenda_id", revendaId)
           .not("fator_hecto", "is", null)
@@ -251,6 +253,7 @@ export default async function AdminProdutividadeArmazemPage({
             cluster_produto: string | null;
             unidades_por_caixa: number | null;
             caixas_pallet: number | null;
+            caixas_por_lastro: number | null;
             fator_hecto: number | null;
             tipo: string | null;
             embalagem_id: string | null;
@@ -468,18 +471,29 @@ export default async function AdminProdutividadeArmazemPage({
   }));
   const totalProdutosReepack = produtosReepack.length;
   const pendentesReepack = produtosReepack.filter((p) => !produtoProntoParaReepack(p)).length;
+  // Conta a base INTEIRA, não a lista filtrada: o aviso serve para dizer
+  // que existe o problema, e uma busca por "GATORADE" não deve fazer os
+  // outros nove sumirem da contagem.
+  const lastroErrado = produtosReepack.filter((p) => lastroFechaOPalete(p) === false).length;
   const produtosReepackFiltrados = buscaReepack
     ? produtosReepack.filter(
         (p) => p.codigo.toLowerCase().includes(buscaReepack) || p.descricao.toLowerCase().includes(buscaReepack),
       )
     : produtosReepack;
-  // Quem ainda não tem embalagem vinculada sobe pro topo -- é o que falta
-  // corrigir na planilha, e não deveria depender de rolar a lista inteira
-  // pra achar.
+  // O que precisa de conserto sobe pro topo -- é o que falta corrigir na
+  // planilha, e não deveria depender de rolar 565 produtos pra achar.
+  // Primeiro o cadastro incompleto (o produto nem aparece no
+  // lançamento), depois o lastro que não fecha (aparece, e mente).
   const produtosReepackOrdenados = [...produtosReepackFiltrados].sort((a, b) => {
     const prontoA = produtoProntoParaReepack(a) ? 1 : 0;
     const prontoB = produtoProntoParaReepack(b) ? 1 : 0;
-    return prontoA - prontoB || a.descricao.localeCompare(b.descricao, "pt-BR");
+    const lastroA = lastroFechaOPalete(a) === false ? 0 : 1;
+    const lastroB = lastroFechaOPalete(b) === false ? 0 : 1;
+    return (
+      prontoA - prontoB ||
+      lastroA - lastroB ||
+      a.descricao.localeCompare(b.descricao, "pt-BR")
+    );
   });
 
   return (
@@ -846,14 +860,27 @@ export default async function AdminProdutividadeArmazemPage({
               no topo da lista.
             </p>
           )}
+          {lastroErrado > 0 && (
+            <p className="bg-red-50 p-3 text-xs font-semibold text-red-800">
+              🧱 {lastroErrado} produto(s) com o lastro que não fecha o palete — as caixas por
+              pallet não são um número inteiro de lastros. Isso <strong>não dá erro</strong>: dá HL
+              errado com cara de certo, porque o cálculo passa por caixas. Estão marcados com 🧱 na
+              lista, com a conta ao lado.
+            </p>
+          )}
           {produtosReepackOrdenados.map((p) => {
             const pronto = produtoProntoParaReepack(p);
             const embalagemNome = p.embalagemId ? embalagemNomePorId.get(p.embalagemId) : null;
+            // Duas marcas diferentes porque são dois problemas
+            // diferentes: ⚠️ é cadastro incompleto (o produto nem
+            // aparece no lançamento), 🧱 é cadastro que passa e mente.
+            const lastroFecha = lastroFechaOPalete(p);
+            const camadas = camadasDoPalete(p);
             return (
               <ItemCadastro
                 key={p.id}
                 ativo={p.ativo}
-                titulo={`${pronto ? "" : "⚠️ "}${p.codigo} — ${p.descricao}`}
+                titulo={`${pronto ? "" : "⚠️ "}${lastroFecha === false ? "🧱 " : ""}${p.codigo} — ${p.descricao}`}
                 subtitulo={
                   p.fatorHecto !== null
                     ? [
@@ -869,6 +896,22 @@ export default async function AdminProdutividadeArmazemPage({
                         .filter(Boolean)
                         .join(" · ")
                     : "Sem Fator Hecto -- corrija na planilha e reimporte"
+                }
+                /* A conta aparece INTEIRA: "1650 ÷ 14 = 117,86 camadas"
+                   diz sozinha qual dos dois números está errado. "Lastro
+                   inconsistente" mandaria a pessoa refazer a divisão. */
+                aviso={
+                  lastroFecha === false && camadas !== null ? (
+                    <>
+                      🧱{" "}
+                      <strong>
+                        {p.caixasPallet} ÷ {p.caixasPorLastro} ={" "}
+                        {camadas.toLocaleString("pt-BR")} camadas
+                      </strong>{" "}
+                      — um lastro é uma camada do palete, então a conta tem que dar número inteiro.
+                      Confira a coluna CAIXAS LASTRO da planilha, ou corrija no cadastro à mão.
+                    </>
+                  ) : undefined
                 }
                 acoes={
                   <BotaoIcone
