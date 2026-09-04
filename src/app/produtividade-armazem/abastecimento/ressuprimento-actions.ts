@@ -9,7 +9,12 @@ import { getRevendaId } from "@/lib/revendas";
 import { podeNoModulo, temAcessoModulo } from "@/lib/require-admin";
 import { exigirContextoModulo } from "@/lib/produtividade-armazem-server";
 import { ehTurno } from "@/lib/produtividade-armazem";
-import { calcularHl, ehTipoAbastecimento, ehUnidadeAbastecimento } from "@/lib/abastecimento";
+import {
+  calcularHl,
+  ehTipoAbastecimento,
+  ehUnidadeAbastecimento,
+  faltaNoCadastro,
+} from "@/lib/abastecimento";
 import { ehPrioridade, ROTA_RESSUPRIMENTO } from "@/lib/ressuprimento";
 
 const ROTA = ROTA_RESSUPRIMENTO;
@@ -95,7 +100,7 @@ export async function criarSolicitacao(formData: FormData) {
 
   const { data: produtos } = await supabase
     .from("pa_produtos")
-    .select("id, descricao, fator_hecto, caixas_pallet")
+    .select("id, descricao, fator_hecto, caixas_pallet, caixas_por_lastro, unidades_por_caixa")
     .eq("revenda_id", revendaId)
     .eq("ativo", true)
     .in("id", produtoIds);
@@ -109,7 +114,7 @@ export async function criarSolicitacao(formData: FormData) {
     if (!produto) erro("Um dos produtos não foi encontrado. Monte o pedido de novo.");
 
     const unidade = unidades[i];
-    if (!ehUnidadeAbastecimento(unidade)) erro("Escolha se cada item é caixa ou palete.");
+    if (!ehUnidadeAbastecimento(unidade)) erro("Escolha a unidade de cada item.");
 
     const quantidade = Number(quantidades[i].replace(",", "."));
     if (!Number.isFinite(quantidade) || quantidade <= 0) {
@@ -117,18 +122,22 @@ export async function criarSolicitacao(formData: FormData) {
     }
     if (quantidade > 100_000) erro("Quantidade fora do razoável -- confira o que digitou.");
 
-    const hl = calcularHl(quantidade, unidade, {
+    const fatores = {
       fatorHecto: produto.fator_hecto,
       caixasPallet: produto.caixas_pallet,
-    });
+      caixasPorLastro: produto.caixas_por_lastro,
+      unidadesPorCaixa: produto.unidades_por_caixa,
+    };
+    const hl = calcularHl(quantidade, unidade, fatores);
 
     // Produto sem o fator é RECUSADO em vez de entrar valendo zero: um
-    // item invisível no total é pior do que uma mensagem de erro.
+    // item invisível no total é pior do que uma mensagem de erro. A
+    // mensagem diz QUAL campo falta -- "cadastro incompleto" mandaria a
+    // pessoa adivinhar entre quatro fatores.
     if (hl === null) {
+      const falta = faltaNoCadastro(unidade, fatores);
       erro(
-        unidade === "palete"
-          ? `${produto.descricao} não tem "caixas por palete" no cadastro -- peça em caixa ou fale com o Admin.`
-          : `${produto.descricao} não tem Fator Hecto no cadastro -- peça ao Admin para completar.`,
+        `${produto.descricao} não tem "${falta}" no cadastro — peça em outra unidade ou fale com o Admin.`,
       );
     }
 

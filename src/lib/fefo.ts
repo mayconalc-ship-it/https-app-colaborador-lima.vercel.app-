@@ -35,26 +35,24 @@ export const MOTIVOS_DO_PADRAO = [
  * Unidade da quantidade encontrada. Sem ela "12" é ambíguo -- 12 paletes
  * e 12 garrafas são problemas de tamanhos bem diferentes, e duas
  * ocorrências do mesmo produto não dariam para somar.
+ *
+ * A LISTA VEM DE lib/unidades-produto.ts, que é a mesma do Abastecimento
+ * (pedido do dono, 04/09/2026: as quatro unidades nos dois módulos, com
+ * o HL refletindo). O LASTRO entrou aqui: era a unidade que faltava, e é
+ * como o pátio conta meio palete.
+ *
+ * Duas listas em dois módulos é como elas divergem -- e divergir não
+ * daria erro, daria HL diferente para a mesma caixa em telas diferentes.
+ * Os nomes com "Fefo" continuam porque é assim que as telas deste módulo
+ * já falam.
  */
-export const UNIDADES_FEFO = ["palete", "caixa", "unidade"] as const;
-export type UnidadeFefo = (typeof UNIDADES_FEFO)[number];
-
-export const ROTULO_UNIDADE_FEFO: Record<UnidadeFefo, string> = {
-  palete: "Palete(s)",
-  caixa: "Caixa(s)",
-  unidade: "Unidade(s)",
-};
-
-/** Forma curta, para caber no cartão da lista. */
-export const ROTULO_UNIDADE_FEFO_CURTO: Record<UnidadeFefo, string> = {
-  palete: "plt",
-  caixa: "cx",
-  unidade: "un",
-};
-
-export function ehUnidadeFefo(v: unknown): v is UnidadeFefo {
-  return typeof v === "string" && (UNIDADES_FEFO as readonly string[]).includes(v);
-}
+export {
+  UNIDADES_PRODUTO as UNIDADES_FEFO,
+  ROTULO_UNIDADE_PRODUTO as ROTULO_UNIDADE_FEFO,
+  ROTULO_UNIDADE_PRODUTO_CURTO as ROTULO_UNIDADE_FEFO_CURTO,
+  ehUnidadeProduto as ehUnidadeFefo,
+  type UnidadeProduto as UnidadeFefo,
+} from "@/lib/unidades-produto";
 
 export const DEPOSITOS_FEFO = ["A", "B", "C"] as const;
 export type DepositoFefo = (typeof DEPOSITOS_FEFO)[number];

@@ -88,77 +88,36 @@ export function ehTipoAbastecimento(v: unknown): v is TipoAbastecimento {
 
 // -------------------- UNIDADE DO ITEM --------------------
 
-export const UNIDADES_ABASTECIMENTO = ["caixa", "palete"] as const;
-export type UnidadeAbastecimento = (typeof UNIDADES_ABASTECIMENTO)[number];
+/*
+  AS UNIDADES SAÍRAM DAQUI e viraram peça única.
 
-export const ROTULO_UNIDADE_ABASTECIMENTO: Record<UnidadeAbastecimento, string> = {
-  caixa: "Caixa",
-  palete: "Palete",
-};
+  Eram `["caixa", "palete"]`. Passaram a ser as quatro que o armazém usa
+  -- palete, lastro, caixa e unidade (pedido do dono, 04/09/2026) -- e a
+  lista mora em lib/unidades-produto.ts, junto da conversão, porque o
+  FEFO precisa exatamente das mesmas. Duas listas em dois módulos é como
+  elas divergem, e divergir aqui não daria erro: daria HL diferente para
+  a mesma caixa, em telas diferentes.
 
-export const ROTULO_UNIDADE_ABASTECIMENTO_CURTO: Record<UnidadeAbastecimento, string> = {
-  caixa: "cx",
-  palete: "pl",
-};
+  Os nomes antigos continuam exportados como apelido para não obrigar a
+  reescrever cada tela num commit só -- e porque "unidade de
+  abastecimento" é como as telas deste módulo já falam.
+*/
+export {
+  UNIDADES_PRODUTO as UNIDADES_ABASTECIMENTO,
+  ROTULO_UNIDADE_PRODUTO as ROTULO_UNIDADE_ABASTECIMENTO,
+  ROTULO_UNIDADE_PRODUTO_CURTO as ROTULO_UNIDADE_ABASTECIMENTO_CURTO,
+  ehUnidadeProduto as ehUnidadeAbastecimento,
+  calcularHl,
+  calcularPaletes,
+  faltaNoCadastro,
+  unidadesDisponiveis,
+  type UnidadeProduto as UnidadeAbastecimento,
+  type FatoresDoProduto,
+} from "@/lib/unidades-produto";
 
-export function ehUnidadeAbastecimento(v: unknown): v is UnidadeAbastecimento {
-  return typeof v === "string" && (UNIDADES_ABASTECIMENTO as readonly string[]).includes(v);
-}
-
-// -------------------- CONVERSÃO PARA HL --------------------
-
-/** O que o cadastro precisa ter para o produto poder ser abastecido. */
-export type FatoresDoProduto = {
-  /** HL por CAIXA. É o mesmo `pa_produtos.fator_hecto` que o Reepack usa
-   *  para o litro (lá: litros = quantidade x fator_hecto x 100). */
-  fatorHecto: number | null;
-  /** Caixas por palete -- só necessário quando a unidade informada é palete. */
-  caixasPallet: number | null;
-};
-
-/**
- * HL de um item. `null` quando o cadastro não tem o fator necessário --
- * e aí o item NÃO é aceito, em vez de entrar valendo zero e sumir do
- * total sem ninguém perceber.
- *
- * Palete passa por caixa de propósito: o fator do cadastro é por caixa,
- * então palete = quantidade x caixas_pallet x fator_hecto. Guardar um
- * "HL por palete" separado seria um segundo número para manter em dia.
- */
-export function calcularHl(
-  quantidade: number,
-  unidade: UnidadeAbastecimento,
-  produto: FatoresDoProduto,
-): number | null {
-  if (!(quantidade > 0)) return null;
-  if (produto.fatorHecto === null) return null;
-
-  const caixas =
-    unidade === "palete"
-      ? produto.caixasPallet !== null && produto.caixasPallet > 0
-        ? quantidade * produto.caixasPallet
-        : null
-      : quantidade;
-
-  if (caixas === null) return null;
-  return Math.round(caixas * produto.fatorHecto * 1000) / 1000;
-}
-
-/**
- * Paletes equivalentes de um item -- o "Qtd_Paletes" da sessão. Item em
- * palete conta o que foi informado; item em caixa vira fração de palete
- * (30 caixas de um palete de 120 = 0,25). Somar caixa e palete como se
- * fossem a mesma coisa daria um número sem significado.
- */
-export function calcularPaletes(
-  quantidade: number,
-  unidade: UnidadeAbastecimento,
-  produto: FatoresDoProduto,
-): number {
-  if (unidade === "palete") return quantidade;
-  if (produto.caixasPallet && produto.caixasPallet > 0) return quantidade / produto.caixasPallet;
-  return 0;
-}
+// `export ... from` reexporta sem trazer o nome para ESTE escopo -- e os
+// tipos abaixo usam UnidadeAbastecimento aqui dentro.
+import type { UnidadeProduto as UnidadeAbastecimento } from "@/lib/unidades-produto";
 
 // -------------------- RESUMO DA SESSÃO --------------------
 

@@ -188,6 +188,9 @@ export type ProdutoReepack = {
   clusterProduto: string | null;
   unidadesPorCaixa: number | null;
   caixasPallet: number | null;
+  /** Caixas por lastro (migration 096). Nulo = nao cadastrado, e a
+   *  unidade "lastro" nao e oferecida para este produto. */
+  caixasPorLastro: number | null;
   fatorHecto: number | null;
   tipo: string | null;
   embalagemId: string | null;
@@ -202,6 +205,7 @@ export function produtoReepackDeLinha(l: {
   cluster_produto?: string | null;
   unidades_por_caixa: number | null;
   caixas_pallet?: number | null;
+  caixas_por_lastro?: number | null;
   fator_hecto: number | null;
   tipo?: string | null;
   embalagem_id: string | null;
@@ -215,6 +219,7 @@ export function produtoReepackDeLinha(l: {
     clusterProduto: l.cluster_produto ?? null,
     unidadesPorCaixa: l.unidades_por_caixa,
     caixasPallet: l.caixas_pallet ?? null,
+    caixasPorLastro: l.caixas_por_lastro ?? null,
     fatorHecto: l.fator_hecto,
     tipo: l.tipo ?? null,
     embalagemId: l.embalagem_id,

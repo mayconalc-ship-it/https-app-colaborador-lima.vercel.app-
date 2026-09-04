@@ -1178,6 +1178,10 @@ export async function importarPlanilhaProdutos(formData: FormData) {
   const colFatorHecto = coluna("FATOR HECTO");
   const colCaixasPallet = coluna("CAIXAS PALLET");
   const colUnCx = coluna("UN/CX", "UN CX");
+  // Caixas por lastro -- a camada do palete (migration 096). A planilha
+  // pode nao ter a coluna ainda: sem ela o produto simplesmente nao
+  // oferece a unidade "lastro", em vez de receber um numero chutado.
+  const colCaixasLastro = coluna("CAIXAS LASTRO", "CAIXAS_LASTRO", "CX/LASTRO", "CX LASTRO", "LASTRO");
   const colTipo = coluna("TIPO");
   // EMBALAGEM_REPACK é o nome novo (planilha com a coluna de despejo
   // separada, 26/08/2026); "EMBALAGEM" sozinho é aceito como sinônimo
@@ -1197,6 +1201,7 @@ export async function importarPlanilhaProdutos(formData: FormData) {
     cluster: string | null;
     fatorHecto: number | null;
     caixasPallet: number | null;
+    caixasPorLastro: number | null;
     unidadesPorCaixa: number | null;
     tipo: "DESCARTAVEL" | "RETORNAVEL" | null;
     embalagemRepackNome: string | null;
@@ -1222,6 +1227,7 @@ export async function importarPlanilhaProdutos(formData: FormData) {
       cluster: colCluster ? celulaTexto(row.getCell(colCluster).value).trim() || null : null,
       fatorHecto: colFatorHecto ? celulaNumero(row.getCell(colFatorHecto).value) : null,
       caixasPallet: colCaixasPallet ? celulaNumero(row.getCell(colCaixasPallet).value) : null,
+      caixasPorLastro: colCaixasLastro ? celulaNumero(row.getCell(colCaixasLastro).value) : null,
       unidadesPorCaixa: colUnCx ? celulaNumero(row.getCell(colUnCx).value) : null,
       tipo: tipoTexto === "DESCARTAVEL" || tipoTexto === "RETORNAVEL" ? tipoTexto : null,
       embalagemRepackNome: embalagemRepackNome || null,
@@ -1346,6 +1352,7 @@ export async function importarPlanilhaProdutos(formData: FormData) {
     cluster_produto: l.cluster,
     fator_hecto: l.fatorHecto,
     caixas_pallet: l.caixasPallet,
+    caixas_por_lastro: l.caixasPorLastro,
     unidades_por_caixa: l.unidadesPorCaixa,
     tipo: l.tipo,
     embalagem_id: l.embalagemRepackNome ? (embalagemIdPorNome.get(l.embalagemRepackNome.toLowerCase()) ?? null) : null,
@@ -1434,6 +1441,7 @@ export async function salvarProdutoReepack(formData: FormData) {
       cluster_produto: String(formData.get("cluster_produto") ?? "").trim() || null,
       fator_hecto: fatorHecto,
       caixas_pallet: numero("caixas_pallet"),
+      caixas_por_lastro: numero("caixas_por_lastro"),
       unidades_por_caixa: numero("unidades_por_caixa"),
       tipo,
       embalagem_id: embalagemId,

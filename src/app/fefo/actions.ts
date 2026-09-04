@@ -8,6 +8,7 @@ import { temAcessoModulo, requireAcessoModulo } from "@/lib/require-admin";
 import { exigirRevenda, getRevendaId } from "@/lib/revendas";
 import { getPerfil } from "@/lib/sessao";
 import { subirFotoHorimetro } from "@/lib/produtividade-armazem-server";
+import { calcularHl as calcularHlProduto } from "@/lib/unidades-produto";
 import { criarNotificacao } from "@/lib/notificacoes-server";
 import { enviarPushDaRevenda } from "@/lib/push-server";
 import {
@@ -89,7 +90,7 @@ export async function registrarQuebraFefo(formData: FormData) {
   }
 
   const unidade = String(formData.get("unidade") ?? "");
-  if (!ehUnidadeFefo(unidade)) erro("Escolha a unidade (palete, caixa ou unidade).");
+  if (!ehUnidadeFefo(unidade)) erro("Escolha a unidade: palete, lastro, caixa ou unidade.");
 
   const quantidade = Number(formData.get("quantidade"));
   if (!Number.isInteger(quantidade) || quantidade <= 0) erro("Informe a quantidade encontrada.");
@@ -117,6 +118,43 @@ export async function registrarQuebraFefo(formData: FormData) {
     .maybeSingle();
   if (!motivo) erro("Motivo inválido ou desativado. Escolha outro.");
 
+  /*
+    O HL DA QUEBRA, calculado aqui e GRAVADO (pedido do dono,
+    04/09/2026: as unidades refletindo no cálculo de HL).
+
+    Antes o FEFO registrava quantidade e unidade e parava ali. Com quatro
+    unidades no mesmo campo, "12" de um produto e "12" de outro deixam de
+    ser comparáveis sem converter -- e somar quebras por produto, que é
+    o que o painel faz, exigiria converter na leitura, toda vez, com o
+    fator de hoje.
+
+    Gravado na hora pelo mesmo motivo do Abastecimento e do Reepack: se o
+    fator do produto mudar amanhã, a quebra de ontem continua valendo o
+    que valia.
+
+    DIFERENÇA IMPORTANTE em relação ao Abastecimento: aqui o HL nulo NÃO
+    recusa o lançamento. Uma quebra de FEFO é um problema achado no
+    pátio, e a pessoa está com o palete na frente -- barrar o registro
+    porque falta um fator no cadastro perderia a informação que importa
+    (que houve quebra) por causa de um número secundário. O HL fica nulo
+    e o Admin completa o cadastro depois.
+  */
+  const { data: produtoFatores } = await supabase
+    .from("pa_produtos")
+    .select("fator_hecto, caixas_pallet, caixas_por_lastro, unidades_por_caixa")
+    .eq("id", produtoId)
+    .eq("revenda_id", revendaId)
+    .maybeSingle();
+
+  const hlCalculado = produtoFatores
+    ? calcularHlProduto(quantidade, unidade, {
+        fatorHecto: produtoFatores.fator_hecto,
+        caixasPallet: produtoFatores.caixas_pallet,
+        caixasPorLastro: produtoFatores.caixas_por_lastro,
+        unidadesPorCaixa: produtoFatores.unidades_por_caixa,
+      })
+    : null;
+
   const { data: criada, error } = await supabase
     .from("pa_fefo_ocorrencias")
     .insert({
@@ -125,6 +163,7 @@ export async function registrarQuebraFefo(formData: FormData) {
       motivo_id: motivo.id,
       quantidade,
       unidade,
+      hl_calculado: hlCalculado,
       validade,
       menor_validade: menorValidade || null,
       deposito,

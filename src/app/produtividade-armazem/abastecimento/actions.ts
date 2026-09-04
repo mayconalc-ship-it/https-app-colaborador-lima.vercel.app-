@@ -14,6 +14,7 @@ import {
   calcularHl,
   ehTipoAbastecimento,
   ehUnidadeAbastecimento,
+  faltaNoCadastro,
 } from "@/lib/abastecimento";
 
 const ROTA = "/produtividade-armazem/abastecimento";
@@ -83,7 +84,7 @@ export async function adicionarItem(formData: FormData) {
 
   if (!abastecimentoId) erro("Sessão inválida.");
   if (!produtoId) erro("Escolha o produto.");
-  if (!ehUnidadeAbastecimento(unidade)) erro("Escolha se é caixa ou palete.");
+  if (!ehUnidadeAbastecimento(unidade)) erro("Escolha a unidade do item.");
 
   const quantidade = Number(String(formData.get("quantidade") ?? "").replace(",", "."));
   if (!Number.isFinite(quantidade) || quantidade <= 0) erro("Informe uma quantidade maior que zero.");
@@ -120,7 +121,7 @@ export async function adicionarItem(formData: FormData) {
 
   const { data: produto } = await supabase
     .from("pa_produtos")
-    .select("id, descricao, fator_hecto, caixas_pallet")
+    .select("id, descricao, fator_hecto, caixas_pallet, caixas_por_lastro, unidades_por_caixa")
     .eq("id", produtoId)
     .eq("revenda_id", revendaId)
     .eq("ativo", true)
@@ -128,14 +129,20 @@ export async function adicionarItem(formData: FormData) {
 
   if (!produto) erro("Produto não encontrado.");
 
-  const fatores = { fatorHecto: produto.fator_hecto, caixasPallet: produto.caixas_pallet };
+  const fatores = {
+    fatorHecto: produto.fator_hecto,
+    caixasPallet: produto.caixas_pallet,
+    caixasPorLastro: produto.caixas_por_lastro,
+    unidadesPorCaixa: produto.unidades_por_caixa,
+  };
   const hl = calcularHl(quantidade, unidade, fatores);
 
+  // A mensagem diz QUAL campo falta: com quatro unidades, "cadastro
+  // incompleto" mandaria a pessoa adivinhar entre quatro fatores.
   if (hl === null) {
+    const falta = faltaNoCadastro(unidade, fatores);
     erro(
-      unidade === "palete"
-        ? `${produto.descricao} não tem "caixas por palete" no cadastro -- lance em caixa ou peça ao Admin para completar.`
-        : `${produto.descricao} não tem Fator Hecto no cadastro -- peça ao Admin para completar em Configuração.`,
+      `${produto.descricao} não tem "${falta}" no cadastro — lance em outra unidade ou peça ao Admin para completar em Configuração.`,
     );
   }
 

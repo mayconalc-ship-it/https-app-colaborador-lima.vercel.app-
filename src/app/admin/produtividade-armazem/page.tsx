@@ -686,6 +686,20 @@ export default async function AdminProdutividadeArmazemPage({
 
                   <div className="grid gap-3 sm:grid-cols-3">
                     <div>
+                      <label className={rotulo} htmlFor="np-cxlastro">Caixas por lastro</label>
+                      <input id="np-cxlastro" name="caixas_por_lastro" type="number" min={1} className={campo} />
+                      {/* Sem este número a unidade "lastro" não é
+                          oferecida para o produto -- em vez de aparecer
+                          e dar HL errado. */}
+                      <p className="mt-1 text-xs text-slate-400">
+                        A camada do palete. Sem ele, quem lança não vê a opção
+                        &quot;lastro&quot; neste produto.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="grid gap-3 sm:grid-cols-3">
+                    <div>
                       <label className={rotulo} htmlFor="np-embalagem">Embalagem do Repack *</label>
                       <select id="np-embalagem" name="embalagem_id" required className={campo} defaultValue="">
                         <option value="" disabled>Escolha...</option>
@@ -771,6 +785,7 @@ export default async function AdminProdutividadeArmazemPage({
                         `${p.unidadesPorCaixa ?? "?"} un/caixa`,
                         `${litrosPorCaixa(p.fatorHecto)} L/caixa`,
                         p.caixasPallet !== null ? `${p.caixasPallet} cx/pallet` : null,
+                        p.caixasPorLastro !== null ? `${p.caixasPorLastro} cx/lastro` : null,
                         embalagemNome ?? "sem embalagem vinculada",
                         `meta reepack ${p.metaReepackHora ?? "—"} cx/h`,
                       ]
