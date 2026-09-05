@@ -77,63 +77,6 @@ export default async function Home() {
         </h1>
         <p className="text-slate-500">Escolha uma opção abaixo</p>
       </div>
-      {/*
-        AS ANÁLISES DA GESTÃO, NA PRÓPRIA HOME.
-
-        Pedido do dono (05/09/2026): "as pessoas que possuir acesso não
-        precisar ir em adm ou liderança". Antes, ler um painel custava
-        entrar no Modo Liderança e trocar de área -- três toques para
-        chegar num número que a pessoa consulta todo dia. Aqui é um.
-
-        NENHUMA PERMISSÃO NOVA. `paineisVisiveis` é a mesma função que
-        monta a barra da Gestão, com a mesma régua (`ver` no módulo do
-        painel). Quem não tinha acesso continua sem ver o bloco; quem
-        tinha, deixou de precisar do desvio. É endereço, não porta.
-
-        PRIMEIRO NA TELA, e separado por cor: quem tem análise liberada
-        abre o app por causa dela. Misturado com os cartões de operação,
-        seria mais um quadrado entre treze -- que é exatamente de onde
-        estas telas vieram.
-      */}
-      {paineis.length > 0 && (
-        <section className="mb-7 rounded-2xl border border-primary/25 bg-primary-soft/40 p-4">
-          <div className="mb-2.5 flex flex-wrap items-baseline justify-between gap-2">
-            <div>
-              <h2 className="text-sm font-bold uppercase tracking-wide text-primary-dark">
-                📊 Gestão
-              </h2>
-              <p className="text-xs text-slate-500">O que os números dizem</p>
-            </div>
-            <a
-              href="/gestao"
-              className="text-xs font-semibold text-primary hover:underline"
-            >
-              Abrir o painel completo →
-            </a>
-          </div>
-          {BLOCOS_DA_GESTAO.map((bloco) => {
-            const doBloco = paineis.filter((p) => p.bloco === bloco);
-            if (doBloco.length === 0) return null;
-            return (
-              <div key={bloco} className="mt-3 first:mt-0">
-                {/* O subtítulo do bloco só aparece quando há mais de um --
-                    com um bloco só ele repetiria o título acima. */}
-                {paineis.some((p) => p.bloco !== bloco) && (
-                  <p className="mb-1.5 px-1 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-                    {bloco}
-                  </p>
-                )}
-                <div className="grid gap-3 sm:grid-cols-2">
-                  {doBloco.map((p) => (
-                    <CartaoDePainel key={p.id} painel={p} sinal={sinais[p.id]} />
-                  ))}
-                </div>
-              </div>
-            );
-          })}
-        </section>
-      )}
-
       {/* Agrupado, não uma grade de 13. Cada bloco responde a uma pergunta
           diferente, e a ordem é a do dia: o que eu consulto sobre mim, o
           que eu executo, o que a empresa me diz, o que me engaja. */}
@@ -162,6 +105,63 @@ export default async function Home() {
           </section>
         ))}
       </div>
+
+      {/*
+        AS ANÁLISES DA GESTÃO, NA PRÓPRIA HOME.
+
+        Pedido do dono (05/09/2026): "as pessoas que possuir acesso não
+        precisar ir em adm ou liderança". Antes, ler um painel custava
+        entrar no Modo Liderança e trocar de área -- três toques para
+        chegar num número que a pessoa consulta todo dia. Aqui é um.
+
+        NENHUMA PERMISSÃO NOVA. `paineisVisiveis` é a mesma função que
+        monta a barra da Gestão, com a mesma régua (`ver` no módulo do
+        painel). Quem não tinha acesso continua sem ver o bloco; quem
+        tinha, deixou de precisar do desvio. É endereço, não porta.
+
+        DEPOIS DO ENGAJAMENTO, e não no topo -- posição escolhida pelo
+        dono (05/09/2026). Faz sentido: mesmo quem lidera abre o app para
+        trabalhar, e o que ele executa vem antes do que ele acompanha. No
+        topo, a Gestão empurrava a rotina de todo mundo para baixo da
+        dobra. O fundo colorido é que a distingue, não a altura -- e o
+        sinal vermelho do que está esperando encontra o olho de qualquer
+        posição da tela.
+      */}
+      {paineis.length > 0 && (
+        <section className="mt-7 rounded-2xl border border-primary/25 bg-primary-soft/40 p-4">
+          <div className="mb-2.5 flex flex-wrap items-baseline justify-between gap-2">
+            <div>
+              <h2 className="text-sm font-bold uppercase tracking-wide text-primary-dark">
+                📊 Gestão
+              </h2>
+              <p className="text-xs text-slate-500">O que os números dizem</p>
+            </div>
+            <a href="/gestao" className="text-xs font-semibold text-primary hover:underline">
+              Abrir o painel completo →
+            </a>
+          </div>
+          {BLOCOS_DA_GESTAO.map((bloco) => {
+            const doBloco = paineis.filter((p) => p.bloco === bloco);
+            if (doBloco.length === 0) return null;
+            return (
+              <div key={bloco} className="mt-3 first:mt-0">
+                {/* O subtítulo do bloco só aparece quando há mais de um --
+                    com um bloco só ele repetiria o título acima. */}
+                {paineis.some((p) => p.bloco !== bloco) && (
+                  <p className="mb-1.5 px-1 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                    {bloco}
+                  </p>
+                )}
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {doBloco.map((p) => (
+                    <CartaoDePainel key={p.id} painel={p} sinal={sinais[p.id]} />
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </section>
+      )}
 
       {/* Depois do menu e antes do rodapé, de propósito.
           Acima, competiria com o trabalho -- e parceria é um benefício,
