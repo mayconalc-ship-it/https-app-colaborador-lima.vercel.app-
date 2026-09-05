@@ -315,6 +315,33 @@ export default async function GestaoDeAcessosPage({
         subtitle="Quem entra no Modo Liderança e o que cada um pode fazer. É aqui, e só aqui, que se TIRA acesso."
       />
 
+      {/*
+        AS DUAS LIBERAÇÕES DESTA TELA, ditas antes de qualquer uma delas.
+
+        Elas parecem a mesma coisa e não são -- e foi exatamente aqui que o
+        dono se perdeu (05/09/2026): a tabela de cima libera o CARTÃO no
+        app do colaborador; a lista de baixo libera o que uma LIDERANÇA
+        pode fazer, e é lá que moram as análises da Gestão. Sem esta
+        legenda, quem procura "liberar um módulo" para na primeira tabela e
+        não encontra o que queria.
+      */}
+      <div className="mb-4 grid gap-2 sm:grid-cols-2">
+        <div className="rounded-2xl border border-slate-200 bg-white p-3">
+          <p className="text-sm font-bold text-slate-800">1️⃣ Módulos opcionais</p>
+          <p className="mt-0.5 text-xs leading-snug text-slate-500">
+            A tabela logo abaixo. Liga o <strong>cartão no app</strong> de cada pessoa — Reepack,
+            Jornal, Ativo de Giro. Vale para colaborador e liderança.
+          </p>
+        </div>
+        <div className="rounded-2xl border border-primary/30 bg-primary-soft/30 p-3">
+          <p className="text-sm font-bold text-primary-dark">2️⃣ Permissões de liderança</p>
+          <p className="mt-0.5 text-xs leading-snug text-slate-600">
+            No fim da página, em <strong>Lideranças em {escolhida.nome}</strong>. É onde se marca
+            ver/criar/editar/excluir — e onde ficam as <strong>📊 Análises da Gestão</strong>.
+          </p>
+        </div>
+      </div>
+
       <div className="mb-4 rounded-2xl bg-slate-50 p-4 text-xs leading-relaxed text-slate-600">
         Uma pessoa por vez, marcando cada permissão. Para dar de uma vez o
         pacote inteiro de um cargo — e repetir isso na próxima contratação —
@@ -634,9 +661,19 @@ export default async function GestaoDeAcessosPage({
       </details>
 
       {/* ---- Lideranças e suas permissões ---- */}
-      <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">
+      <h2 className="mb-1 text-sm font-semibold uppercase tracking-wide text-slate-500">
         Lideranças em {escolhida.nome} ({liderancas.length})
       </h2>
+      {/* A LINHA QUE DIZ QUE É AQUI.
+          O dono não achou onde liberar módulo (05/09/2026), e com razão:
+          a tabela de cima trata de módulo OPCIONAL (o cartão que a pessoa
+          vê no app) e as permissões de liderança ficam escondidas dentro
+          de uma sanfona por pessoa, sob um título que só diz um nome. Duas
+          coisas parecidas, uma delas invisível. */}
+      <p className="mb-2 text-xs text-slate-500">
+        Toque no nome para abrir e marcar o que cada um pode fazer — inclusive as{" "}
+        <strong>📊 Análises da Gestão</strong>.
+      </p>
 
       {liderancas.length === 0 ? (
         <div className="rounded-2xl border border-slate-200 bg-white p-6 text-center text-sm text-slate-500 shadow-sm">
@@ -651,9 +688,9 @@ export default async function GestaoDeAcessosPage({
                 key={p.id}
                 className="rounded-2xl border border-slate-200 bg-white shadow-sm"
               >
-                <summary className="cursor-pointer p-4">
+                <summary className="flex cursor-pointer flex-wrap items-center gap-x-2 gap-y-1 p-4">
                   <span className="font-semibold text-slate-800">{p.nome}</span>
-                  <span className="ml-2 text-xs text-slate-400">
+                  <span className="text-xs text-slate-400">
                     {minhas.size === 0
                       ? "sem nenhuma permissão"
                       : `${
@@ -661,6 +698,12 @@ export default async function GestaoDeAcessosPage({
                             Array.from(minhas).map((c) => c.split(":")[0]),
                           ).size
                         } módulo(s) liberado(s)`}
+                  </span>
+                  {/* O convite explícito. Sem ele, a linha parecia um item
+                      de lista, não um botão -- e as permissões ficavam
+                      invisíveis atrás de um clique que ninguém dava. */}
+                  <span className="ml-auto shrink-0 text-xs font-semibold text-primary">
+                    {minhas.size === 0 ? "Liberar acessos →" : "Ver e alterar →"}
                   </span>
                 </summary>
 
@@ -734,8 +777,15 @@ export default async function GestaoDeAcessosPage({
                       ).length;
 
                       return (
+                        // ABERTA POR PADRÃO, como todas as gavetas abaixo.
+                        // Fechá-la quando não havia nada liberado escondia
+                        // justamente o caso em que a pessoa está sendo
+                        // configurada pela primeira vez -- o formulário
+                        // abria parecendo vazio (relato do dono,
+                        // 05/09/2026). Agrupar é para organizar, não para
+                        // esconder: quem quiser fechar, fecha.
                         <details
-                          open={liberadas > 0}
+                          open
                           className="rounded-xl border border-primary/30 bg-primary-soft/20"
                         >
                           <summary className="flex cursor-pointer items-center justify-between gap-2 p-3">
@@ -823,9 +873,10 @@ export default async function GestaoDeAcessosPage({
                       return (
                         <details
                           key={grupo}
-                          // Gaveta com algo liberado já abre: é onde quem
-                          // está conferindo vai olhar primeiro.
-                          open={liberados > 0}
+                          // Todas abertas. Ver o comentário no bloco das
+                          // Análises: gaveta fechada escondeu as marcações
+                          // de quem não tinha nada liberado ainda.
+                          open
                           className="rounded-xl border border-slate-200"
                         >
                           <summary className="flex cursor-pointer items-center justify-between gap-2 p-3">
