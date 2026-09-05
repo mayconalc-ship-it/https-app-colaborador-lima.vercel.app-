@@ -549,117 +549,6 @@ export default async function AdminProdutividadeArmazemPage({
 
       {aba === "reepack-despejo" && (
         <div className="space-y-6">
-          <PainelCadastro
-            titulo="Embalagens — Repack"
-            contagem={embalagensRepackAtivas.length}
-            temItens={(embalagensRepack ?? []).length > 0}
-            vazio="Nenhuma embalagem ainda -- importe a planilha de produtos, ela cria as embalagens sozinha."
-            formNovo={
-              <p className="text-xs text-slate-500">
-                Catálogo do Repack, criado pela planilha de produtos (o Despejo tem o dele, logo
-                abaixo). Aqui você ajusta a <strong>meta de caixas por hora</strong> de cada tipo —
-                é a régua do acompanhamento por embalagem — e desativa a duplicata que a importação
-                deixou para trás quando o nome mudou na planilha. Desativar não apaga histórico.
-              </p>
-            }
-          >
-            {(embalagensRepack ?? []).map((e) => {
-              const produtos = produtosPorEmbalagem.get(e.id) ?? 0;
-              return (
-                <ItemCadastro
-                  key={e.id}
-                  ativo={e.ativo}
-                  titulo={e.nome}
-                  subtitulo={
-                    produtos === 0
-                      ? "⚠️ nenhum produto usa esta embalagem"
-                      : `${produtos} produto(s)${
-                          e.meta_reepacks_hora ? ` · meta ${e.meta_reepacks_hora} cx/h` : " · sem meta"
-                        }`
-                  }
-                  acoes={
-                    <BotaoIcone
-                      action={alternarEmbalagemRepackAtivo}
-                      campos={{ id: e.id, ativo: String(e.ativo) }}
-                      titulo={e.ativo ? "Desativar" : "Ativar"}
-                    >
-                      {e.ativo ? "🚫" : "✅"}
-                    </BotaoIcone>
-                  }
-                  formEditar={
-                    <form action={editarEmbalagemRepack} className="flex flex-wrap gap-2">
-                      <input type="hidden" name="id" value={e.id} />
-                      <input
-                        name="meta_reepacks_hora"
-                        type="number"
-                        step="0.1"
-                        min={0}
-                        defaultValue={e.meta_reepacks_hora ?? ""}
-                        placeholder="Meta cx/h"
-                        className={campo}
-                      />
-                      <BotaoEnviar compacto className="shrink-0 rounded-lg bg-slate-800 px-3 py-1.5 text-xs font-semibold text-white">
-                        Salvar
-                      </BotaoEnviar>
-                    </form>
-                  }
-                />
-              );
-            })}
-          </PainelCadastro>
-
-          <PainelCadastro
-            titulo="Embalagens — Despejo"
-            contagem={totalEmbalagensDespejo}
-            temItens={totalEmbalagensDespejo > 0}
-            vazio="Nenhuma embalagem ainda -- importe a planilha de produtos, ela cria as embalagens sozinha."
-            formNovo={
-              <p className="text-xs text-slate-500">
-                Despejo é lançado por embalagem, não por produto -- e tem catálogo PRÓPRIO,
-                diferente do Repack (mesma peça pode ter nome diferente nos dois:
-                &ldquo;Lata 350ml C/12&rdquo; no Repack, &ldquo;Lata 350ml&rdquo; no Despejo). O
-                litro por unidade já vem calculado da planilha de produtos (Fator Hecto ÷
-                Un/Cx); ajuste aqui só se precisar corrigir, e a meta de L/h de cada uma.
-              </p>
-            }
-          >
-            {(embalagensDespejo ?? []).map((e) => (
-              <ItemCadastro
-                key={e.id}
-                titulo={e.nome}
-                subtitulo={
-                  e.litros_por_unidade !== null
-                    ? `${e.litros_por_unidade} L/unidade${e.meta_litros_hora ? ` · meta ${e.meta_litros_hora} L/h` : ""}`
-                    : "⚠️ sem litro por unidade -- não aparece no lançamento de despejo"
-                }
-                formEditar={
-                  <form action={editarEmbalagemDespejo} className="flex flex-wrap gap-2">
-                    <input type="hidden" name="id" value={e.id} />
-                    <input
-                      name="litros_por_unidade"
-                      type="number"
-                      step="0.001"
-                      defaultValue={e.litros_por_unidade ?? ""}
-                      placeholder="Litros por unidade"
-                      className={campo}
-                    />
-                    <input
-                      name="meta_litros_hora"
-                      type="number"
-                      step="0.1"
-                      defaultValue={e.meta_litros_hora ?? ""}
-                      placeholder="Meta L/h"
-                      className={campo}
-                    />
-                    <BotaoEnviar compacto className="shrink-0 rounded-lg bg-slate-800 px-3 py-1.5 text-xs font-semibold text-white">
-                      Salvar
-                    </BotaoEnviar>
-                  </form>
-                }
-              />
-            ))}
-          </PainelCadastro>
-
           {/*
             CADASTRO DE PRODUTOS -- o nome é esse, e só esse (pedido do
             dono, 04/09/2026). "Produtos do Reepack" dizia onde o produto
@@ -704,6 +593,41 @@ export default async function AdminProdutividadeArmazemPage({
                     daqui. Produto novo ou meta nova? Atualiza a planilha e importa de novo — quem
                     já existe (mesmo código Promax) é <strong>atualizado</strong>, nunca duplicado.
                   </p>
+
+                  {/*
+                    BAIXAR ANTES DE IMPORTAR -- pedido do dono
+                    (05/09/2026), e ele achou o defeito junto: editar um
+                    produto na tela e depois importar uma planilha antiga
+                    devolve o campo ao que estava lá, inclusive vazio.
+
+                    É o desenho da importação: cada linha substitui o
+                    produto inteiro, e coluna em branco quer dizer campo
+                    vazio, não "não mexa". Trocar essa regra impediria de
+                    APAGAR um valor errado pela planilha.
+
+                    A saída é parar de manter uma planilha paralela que
+                    envelhece a cada correção feita na tela: baixa-se a
+                    verdade, edita-se, devolve-se. O que não foi tocado
+                    volta igual porque veio de lá.
+                  */}
+                  <a
+                    href="/api/produtividade-armazem/produtos/exportar"
+                    className="flex items-center gap-2 rounded-xl border border-primary bg-white px-3 py-2.5 text-sm font-semibold text-primary hover:bg-primary-soft"
+                  >
+                    <span className="text-base leading-none">⬇️</span>
+                    <span className="min-w-0">
+                      {/* `totalProdutos` (a base inteira), e não
+                          `totalProdutosReepack`, que só conta quem tem
+                          Fator Hecto: o arquivo sai com TODOS, e um
+                          número menor no botão faria a pessoa achar que
+                          alguém ficou de fora. */}
+                      Baixar a planilha padrão com os {totalProdutos ?? 0} produtos
+                      <span className="block text-xs font-normal text-slate-500">
+                        Comece por aqui: edite este arquivo e importe de volta. Assim nada que já
+                        está cadastrado se perde.
+                      </span>
+                    </span>
+                  </a>
                   <form action={importarPlanilhaProdutos} className="space-y-2">
                     {/*
                       O "Escolher arquivo / Nenhum arquivo escolhido" do
@@ -1056,6 +980,117 @@ export default async function AdminProdutividadeArmazemPage({
               />
             );
           })}
+          </PainelCadastro>
+
+          <PainelCadastro
+            titulo="Embalagens — Repack"
+            contagem={embalagensRepackAtivas.length}
+            temItens={(embalagensRepack ?? []).length > 0}
+            vazio="Nenhuma embalagem ainda -- importe a planilha de produtos, ela cria as embalagens sozinha."
+            formNovo={
+              <p className="text-xs text-slate-500">
+                Catálogo do Repack, criado pela planilha de produtos (o Despejo tem o dele, logo
+                abaixo). Aqui você ajusta a <strong>meta de caixas por hora</strong> de cada tipo —
+                é a régua do acompanhamento por embalagem — e desativa a duplicata que a importação
+                deixou para trás quando o nome mudou na planilha. Desativar não apaga histórico.
+              </p>
+            }
+          >
+            {(embalagensRepack ?? []).map((e) => {
+              const produtos = produtosPorEmbalagem.get(e.id) ?? 0;
+              return (
+                <ItemCadastro
+                  key={e.id}
+                  ativo={e.ativo}
+                  titulo={e.nome}
+                  subtitulo={
+                    produtos === 0
+                      ? "⚠️ nenhum produto usa esta embalagem"
+                      : `${produtos} produto(s)${
+                          e.meta_reepacks_hora ? ` · meta ${e.meta_reepacks_hora} cx/h` : " · sem meta"
+                        }`
+                  }
+                  acoes={
+                    <BotaoIcone
+                      action={alternarEmbalagemRepackAtivo}
+                      campos={{ id: e.id, ativo: String(e.ativo) }}
+                      titulo={e.ativo ? "Desativar" : "Ativar"}
+                    >
+                      {e.ativo ? "🚫" : "✅"}
+                    </BotaoIcone>
+                  }
+                  formEditar={
+                    <form action={editarEmbalagemRepack} className="flex flex-wrap gap-2">
+                      <input type="hidden" name="id" value={e.id} />
+                      <input
+                        name="meta_reepacks_hora"
+                        type="number"
+                        step="0.1"
+                        min={0}
+                        defaultValue={e.meta_reepacks_hora ?? ""}
+                        placeholder="Meta cx/h"
+                        className={campo}
+                      />
+                      <BotaoEnviar compacto className="shrink-0 rounded-lg bg-slate-800 px-3 py-1.5 text-xs font-semibold text-white">
+                        Salvar
+                      </BotaoEnviar>
+                    </form>
+                  }
+                />
+              );
+            })}
+          </PainelCadastro>
+
+          <PainelCadastro
+            titulo="Embalagens — Despejo"
+            contagem={totalEmbalagensDespejo}
+            temItens={totalEmbalagensDespejo > 0}
+            vazio="Nenhuma embalagem ainda -- importe a planilha de produtos, ela cria as embalagens sozinha."
+            formNovo={
+              <p className="text-xs text-slate-500">
+                Despejo é lançado por embalagem, não por produto -- e tem catálogo PRÓPRIO,
+                diferente do Repack (mesma peça pode ter nome diferente nos dois:
+                &ldquo;Lata 350ml C/12&rdquo; no Repack, &ldquo;Lata 350ml&rdquo; no Despejo). O
+                litro por unidade já vem calculado da planilha de produtos (Fator Hecto ÷
+                Un/Cx); ajuste aqui só se precisar corrigir, e a meta de L/h de cada uma.
+              </p>
+            }
+          >
+            {(embalagensDespejo ?? []).map((e) => (
+              <ItemCadastro
+                key={e.id}
+                titulo={e.nome}
+                subtitulo={
+                  e.litros_por_unidade !== null
+                    ? `${e.litros_por_unidade} L/unidade${e.meta_litros_hora ? ` · meta ${e.meta_litros_hora} L/h` : ""}`
+                    : "⚠️ sem litro por unidade -- não aparece no lançamento de despejo"
+                }
+                formEditar={
+                  <form action={editarEmbalagemDespejo} className="flex flex-wrap gap-2">
+                    <input type="hidden" name="id" value={e.id} />
+                    <input
+                      name="litros_por_unidade"
+                      type="number"
+                      step="0.001"
+                      defaultValue={e.litros_por_unidade ?? ""}
+                      placeholder="Litros por unidade"
+                      className={campo}
+                    />
+                    <input
+                      name="meta_litros_hora"
+                      type="number"
+                      step="0.1"
+                      defaultValue={e.meta_litros_hora ?? ""}
+                      placeholder="Meta L/h"
+                      className={campo}
+                    />
+                    <BotaoEnviar compacto className="shrink-0 rounded-lg bg-slate-800 px-3 py-1.5 text-xs font-semibold text-white">
+                      Salvar
+                    </BotaoEnviar>
+                  </form>
+                }
+              />
+            ))}
           </PainelCadastro>
         </div>
       )}
