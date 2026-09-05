@@ -1260,49 +1260,37 @@ export async function editarEmbalagemDespejo(formData: FormData) {
 }
 
 // -------------------- PRODUTOS --------------------
-export async function salvarProduto(formData: FormData) {
-  await requireModulo("produtividade-armazem", "editar");
-  const revendaId = await exigirRevenda(ROTA);
-  const admin = createAdminClient();
-  const codigo = String(formData.get("codigo") ?? "").trim();
-  const descricao = String(formData.get("descricao") ?? "").trim();
-  if (!codigo || !descricao) erro("recebimento", "Informe código e descrição do produto.");
-  const { error } = await admin.from("pa_produtos").insert({ revenda_id: revendaId, codigo, descricao });
-  if (error) erro("recebimento", `Não foi possível salvar: ${error.message}`);
-  revalidatePath(ROTA);
-  sucesso("recebimento", "Produto cadastrado");
-}
-
-export async function editarProduto(formData: FormData) {
-  await requireModulo("produtividade-armazem", "editar");
-  const revendaId = await exigirRevenda(ROTA);
-  const admin = createAdminClient();
-  const id = String(formData.get("id") ?? "");
-  const codigo = String(formData.get("codigo") ?? "").trim();
-  const descricao = String(formData.get("descricao") ?? "").trim();
-  if (!codigo || !descricao) erro("recebimento", "Informe código e descrição do produto.");
-  const { error } = await admin
-    .from("pa_produtos")
-    .update({ codigo, descricao })
-    .eq("id", id)
-    .eq("revenda_id", revendaId);
-  if (error) erro("recebimento", `Não foi possível salvar: ${error.message}`);
-  revalidatePath(ROTA);
-  sucesso("recebimento", "Produto atualizado");
-}
-
+// salvarProduto, editarProduto e importarProdutos viviam aqui e
+// saíram em 05/09/2026 junto com a tela que os chamava: o segundo
+// cadastro de produtos, na aba Recebimento. Eles escreviam na MESMA
+// pa_produtos com só código e descrição -- fabricando o produto
+// incompleto que a aba Produtos marca como "não aparece no lançamento".
+// Quem cadastra produto hoje passa pela planilha padrão ou pelo formulário
+// da aba Produtos, que pedem os campos que o lançamento precisa.
+/**
+ * Apaga o produto da base.
+ *
+ * Mora na aba PRODUTOS desde 05/09/2026 -- o segundo cadastro de
+ * produtos, que ficava no Recebimento, saiu (dois cadastros para a mesma
+ * tabela). Este botão veio junto: era a única coisa que só existia lá.
+ *
+ * Exige "excluir", e não "editar" como antes: apagar um produto é
+ * diferente de corrigir um campo dele, e a aba Produtos já separa as
+ * duas ações assim.
+ */
 export async function excluirProduto(formData: FormData) {
-  await requireModulo("produtividade-armazem", "editar");
+  await requireModulo("produtividade-armazem", "excluir");
   const revendaId = await exigirRevenda(ROTA);
   const admin = createAdminClient();
   const id = String(formData.get("id") ?? "");
   const { error } = await admin.from("pa_produtos").delete().eq("id", id).eq("revenda_id", revendaId);
   if (error) {
-    if (error.code === "23503") erroDeExclusao("recebimento", "este produto já foi recebido alguma vez");
-    erro("recebimento", `Não foi possível excluir: ${error.message}`);
+    if (error.code === "23503") {
+      erroDeExclusao("reepack-despejo", "este produto já foi recebido ou lançado alguma vez");
+    }
+    erro("reepack-despejo", `Não foi possível excluir: ${error.message}`);
   }
-  revalidatePath(ROTA);
-  sucesso("recebimento", "Produto excluído");
+  prontoSemSair();
 }
 
 /** Colar uma lista "codigo;descricao", uma por linha -- para não digitar

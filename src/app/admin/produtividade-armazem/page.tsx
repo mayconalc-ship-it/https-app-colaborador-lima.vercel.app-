@@ -52,7 +52,6 @@ import {
   editarMotivoFefo,
   editarRuaFefo,
   editarMotorista,
-  editarProduto,
   editarTransportadora,
   excluirAg,
   excluirDepositoFefo,
@@ -67,7 +66,6 @@ import {
   excluirProduto,
   excluirTransportadora,
   importarPlanilhaProdutos,
-  importarProdutos,
   salvarAg,
   salvarConfigRecebimento,
   salvarDepositoFefo,
@@ -87,7 +85,6 @@ import {
   salvarLembreteEmpilhadeira,
   salvarMotivoFefo,
   salvarMotorista,
-  salvarProduto,
   salvarProdutoReepack,
   salvarTransportadora,
   corrigirAgendamentoCarreta,
@@ -164,22 +161,16 @@ export default async function AdminProdutividadeArmazemPage({
     aba?: string;
     erro?: string;
     sucesso?: string;
-    buscaProduto?: string;
     buscaReepack?: string;
-    buscaOperador?: string;
     buscaHorimetro?: string;
-    buscaLideranca?: string;
   }>;
 }) {
   await requireModulo("produtividade-armazem", "editar");
   const revendaId = await exigirRevenda("/admin");
   const sp = await searchParams;
   const aba: Aba = (ABAS.find((a) => a.id === sp.aba)?.id ?? "reepack-despejo") as Aba;
-  const buscaProduto = (sp.buscaProduto ?? "").trim();
   const buscaReepack = (sp.buscaReepack ?? "").trim().toLowerCase();
-  const buscaOperador = (sp.buscaOperador ?? "").trim();
   const buscaHorimetro = (sp.buscaHorimetro ?? "").trim();
-  const buscaLideranca = (sp.buscaLideranca ?? "").trim();
 
   const supabase = await createClient();
   const admin = createAdminClient();
@@ -191,7 +182,6 @@ export default async function AdminProdutividadeArmazemPage({
     { data: lembretes },
     { data: fabricas },
     { data: transportadoras },
-    { data: produtos },
     { count: totalProdutos },
     { data: produtosReepackBanco },
     { data: itensChecklist },
@@ -243,15 +233,6 @@ export default async function AdminProdutividadeArmazemPage({
       .order("operador_nome"),
     supabase.from("pa_fabricas").select("id, nome, ativo").eq("revenda_id", revendaId).order("nome"),
     supabase.from("pa_transportadoras").select("id, nome, ativo").eq("revenda_id", revendaId).order("nome"),
-    aba === "recebimento" && buscaProduto.length >= 2
-      ? supabase
-          .from("pa_produtos")
-          .select("id, codigo, descricao, ativo")
-          .eq("revenda_id", revendaId)
-          .or(`codigo.ilike.%${buscaProduto}%,descricao.ilike.%${buscaProduto}%`)
-          .order("codigo")
-          .limit(100)
-      : Promise.resolve({ data: [] as { id: string; codigo: string; descricao: string; ativo: boolean }[] }),
     supabase.from("pa_produtos").select("id", { count: "exact", head: true }).eq("revenda_id", revendaId),
     aba === "reepack-despejo"
       ? supabase
@@ -850,13 +831,32 @@ export default async function AdminProdutividadeArmazemPage({
                   ) : undefined
                 }
                 acoes={
-                  <BotaoIcone
-                    action={alternarProdutoAtivo}
-                    campos={{ id: p.id, ativo: String(p.ativo), aba: "reepack-despejo" }}
-                    titulo={p.ativo ? "Desativar" : "Ativar"}
-                  >
-                    {p.ativo ? "🚫" : "✅"}
-                  </BotaoIcone>
+                  <>
+                    <BotaoIcone
+                      action={alternarProdutoAtivo}
+                      campos={{ id: p.id, ativo: String(p.ativo), aba: "reepack-despejo" }}
+                      titulo={p.ativo ? "Desativar" : "Ativar"}
+                    >
+                      {p.ativo ? "🚫" : "✅"}
+                    </BotaoIcone>
+                    {/* O excluir VEIO do painel de Produtos do
+                        Recebimento, que saiu em 05/09/2026 -- era a
+                        única coisa que só existia lá, e tirar a tela
+                        sem trazer o botão deixaria a base sem como
+                        apagar um cadastro errado. Só com "excluir": o
+                        banco recusa produto já usado (23503), e a
+                        mensagem explica isso. */}
+                    {podeExcluir && (
+                      <BotaoExcluir
+                        action={excluirProduto}
+                        campos={{ id: p.id }}
+                        confirmacao={`Excluir "${p.codigo} — ${p.descricao}" da base? Se ele já foi recebido ou lançado alguma vez, o banco recusa -- nesse caso, desative.`}
+                        className="flex h-7 w-7 items-center justify-center rounded-lg text-sm hover:bg-red-50"
+                      >
+                        🗑️
+                      </BotaoExcluir>
+                    )}
+                  </>
                 }
                 /*
                   EDITAR UM PRODUTO NA LISTA -- pedido do dono
@@ -1595,11 +1595,26 @@ export default async function AdminProdutividadeArmazemPage({
         <div className="space-y-6">
           {/* Correção do agendamento -- pedido do dono, 30/08/2026. Fica
               no topo porque é o que se procura quando algo saiu errado; o
-              resto da aba é cadastro, que se mexe uma vez e esquece. */}
-          <div className="rounded-2xl border border-slate-200 bg-white">
-            <div className="border-b border-slate-100 p-4">
-              <h2 className="text-sm font-bold text-slate-900">Corrigir agendamento da carreta</h2>
-              <p className="mt-1 text-xs text-slate-500">
+              resto da aba é cadastro, que se mexe uma vez e esquece.
+
+              AGRUPADO E FECHADO desde 05/09/2026, a pedido dele: são as
+              últimas carretas, cada uma com data, hora e botão -- aberto,
+              é o bloco mais alto da aba e empurra os catálogos para fora
+              da tela. Corrigir agendamento é conserto, não rotina: quem
+              precisa, abre. */}
+          <details className="group rounded-2xl border border-slate-200 bg-white">
+            <summary className="cursor-pointer list-none border-b border-slate-100 p-4 marker:content-none [&::-webkit-details-marker]:hidden">
+              <h2 className="text-sm font-bold text-slate-900">
+                <span className="mr-1 inline-block text-slate-400 transition-transform group-open:rotate-90">
+                  ▸
+                </span>
+                🕐 Corrigir agendamento da carreta
+                <span className="ml-2 font-medium text-slate-400">
+                  {(carretasRecentes ?? []).length} carreta
+                  {(carretasRecentes ?? []).length === 1 ? "" : "s"} · toque para abrir
+                </span>
+              </h2>
+              <p className="mt-1 pl-4 text-xs text-slate-500">
                 O agendamento decide <strong>de onde o TMA começa a contar</strong>. Marcado por engano, a
                 espera entre a chegada e o horário agendado desaparece da conta.
               </p>
@@ -1607,7 +1622,7 @@ export default async function AdminProdutividadeArmazemPage({
                 Só o agendamento se corrige aqui. Chegada, descarga, carga e conferência são apontamentos do que
                 aconteceu — editá-los seria dar a alguém a chave para melhorar o próprio TMA depois do fato.
               </p>
-            </div>
+            </summary>
             <div className="divide-y divide-slate-100">
               {(carretasRecentes ?? []).length === 0 ? (
                 <p className="p-6 text-center text-sm text-slate-400">Nenhum atendimento registrado ainda.</p>
@@ -1671,7 +1686,7 @@ export default async function AdminProdutividadeArmazemPage({
                 ))
               )}
             </div>
-          </div>
+          </details>
 
           <div className="grid gap-4 sm:grid-cols-2">
             <PainelCadastro
@@ -1976,99 +1991,25 @@ export default async function AdminProdutividadeArmazemPage({
             </div>
           </div>
 
-          <PainelCadastro
-            titulo="Produtos"
-            contagem={totalProdutos ?? 0}
-            temItens
-            formNovo={
-              <div className="space-y-3">
-                <form action={salvarProduto} className="flex flex-wrap gap-2">
-                  <input name="codigo" placeholder="Código" required className={campo} />
-                  <input name="descricao" placeholder="Descrição" required className={`${campo} flex-1`} />
-                  <BotaoEnviar className="rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-white">
-                    Adicionar
-                  </BotaoEnviar>
-                </form>
-                <details>
-                  <summary className="cursor-pointer text-xs font-semibold text-primary">
-                    Importar vários de uma vez
-                  </summary>
-                  <form action={importarProdutos} className="mt-2 space-y-2">
-                    <textarea
-                      name="lista"
-                      rows={5}
-                      placeholder={"código;descrição\ncódigo;descrição"}
-                      className="w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
-                    />
-                    <BotaoEnviar compacto className="rounded-lg bg-slate-800 px-3 py-1.5 text-xs font-semibold text-white">
-                      Importar lista
-                    </BotaoEnviar>
-                  </form>
-                </details>
-              </div>
-            }
-          >
-            <div className="p-4">
-              <form method="get" className="flex gap-2">
-                <input type="hidden" name="aba" value="recebimento" />
-                <input
-                  name="buscaProduto"
-                  defaultValue={buscaProduto}
-                  placeholder="Buscar por código ou descrição (a lista completa não cabe aqui)"
-                  className={`${campo} flex-1`}
-                />
-                <button type="submit" className="shrink-0 rounded-lg bg-slate-800 px-3 py-2 text-sm font-semibold text-white">
-                  Buscar
-                </button>
-              </form>
-            </div>
-            <div className="border-t border-slate-100">
-              {buscaProduto.length > 0 && buscaProduto.length < 2 ? (
-                <p className="p-6 text-center text-sm text-slate-400">Digite ao menos 2 letras.</p>
-              ) : buscaProduto.length === 0 ? (
-                <p className="p-6 text-center text-sm text-slate-400">
-                  {totalProdutos ?? 0} produtos na base -- busque para ver, editar ou excluir.
-                </p>
-              ) : (produtos ?? []).length === 0 ? (
-                <p className="p-6 text-center text-sm text-slate-400">Nenhum produto encontrado.</p>
-              ) : (
-                <div className="max-h-96 divide-y divide-slate-100 overflow-y-auto">
-                  {(produtos ?? []).map((p) => (
-                    <ItemCadastro
-                      key={p.id}
-                      ativo={p.ativo}
-                      titulo={`${p.codigo} — ${p.descricao}`}
-                      acoes={
-                        <>
-                          <BotaoIcone action={alternarProdutoAtivo} campos={{ id: p.id, ativo: String(p.ativo) }} titulo={p.ativo ? "Desativar" : "Ativar"}>
-                            {p.ativo ? "🚫" : "✅"}
-                          </BotaoIcone>
-                          <BotaoExcluir
-                            action={excluirProduto}
-                            campos={{ id: p.id }}
-                            confirmacao={`Excluir o produto "${p.codigo}"?`}
-                            className="flex h-7 w-7 items-center justify-center rounded-lg text-sm hover:bg-red-50"
-                          >
-                            🗑️
-                          </BotaoExcluir>
-                        </>
-                      }
-                      formEditar={
-                        <form action={editarProduto} className="flex flex-wrap gap-2">
-                          <input type="hidden" name="id" value={p.id} />
-                          <input name="codigo" defaultValue={p.codigo} className={`${campo} w-28`} />
-                          <input name="descricao" defaultValue={p.descricao} className={`${campo} flex-1`} />
-                          <BotaoEnviar compacto className="shrink-0 rounded-lg bg-slate-800 px-3 py-1.5 text-xs font-semibold text-white">
-                            Salvar
-                          </BotaoEnviar>
-                        </form>
-                      }
-                    />
-                  ))}
-                </div>
-              )}
-            </div>
-          </PainelCadastro>
+          {/*
+            AQUI FICAVA UM SEGUNDO CADASTRO DE PRODUTOS, tirado a
+            pedido do dono (05/09/2026): "esse campo de produto deveria
+            vir da mesma base de produto que e cadastrado no modulo
+            produtos, acho que deveria retirar deste local".
+
+            Vinha, e esse era o problema: as duas telas mexiam na MESMA
+            pa_produtos. Esta so pedia codigo e descricao -- ou seja,
+            fabricava exatamente o produto incompleto que a aba Produtos
+            marca com o aviso de "nao aparece no lancamento", porque
+            nasce sem Fator Hecto e sem embalagem. Tinha ainda o
+            "importar varios" de colar texto "codigo;descricao", que a
+            planilha padrao substituiu.
+
+            Dois cadastros para uma tabela nao e redundancia inofensiva:
+            e a garantia de que um dia alguem cadastra pelo lado errado.
+            O excluir veio junto, para a aba Produtos (a unica coisa que
+            so existia aqui).
+          */}
         </div>
       )}
 
