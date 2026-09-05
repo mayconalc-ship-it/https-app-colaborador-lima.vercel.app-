@@ -497,6 +497,61 @@ export function avaliarHorimetro(
   return { nivel: "ok", diferenca };
 }
 
+/**
+ * O QUE A OPERAÇÃO DIZ QUE RODOU -- início e fim comparados entre si.
+ *
+ * Nasceu do pedido do dono de ver início e fim numa linha só para
+ * auditar (05/09/2026). Pôr os dois números lado a lado já ajuda, mas a
+ * conta é o que a auditoria realmente faz olhando para eles -- e fazê-la
+ * aqui é o que transforma a linha de "dois campos" em conferência.
+ *
+ * Diferente de `avaliarHorimetro`, que compara o número informado com a
+ * ÚLTIMA LEITURA DA MÁQUINA (um salto entre operações). Aqui a conta é
+ * dentro da MESMA operação: quanto a empilhadeira rodou entre pegar e
+ * largar. São perguntas diferentes, e um erro de digitação aparece em
+ * uma sem aparecer na outra.
+ *
+ * O mesmo teto de 24h serve para as duas: nenhum turno passa disso, e
+ * ler acima de um dia é o sintoma clássico do ponto decimal esquecido.
+ */
+export type SuspeitaHorimetro = {
+  horas: number;
+  texto: string;
+  suspeito: boolean;
+  /** Só quando há suspeita: o que olhar. */
+  motivo?: string;
+};
+
+export function suspeitaNoHorimetro(
+  inicial: number | null,
+  final: number | null,
+): SuspeitaHorimetro | null {
+  // Operação em aberto não tem o que conferir ainda -- e mostrar "0 h"
+  // nela seria afirmar que a máquina não rodou, que é outra coisa.
+  if (inicial === null || final === null) return null;
+
+  const horas = arredondar(final - inicial, 1);
+
+  if (horas < 0) {
+    return {
+      horas,
+      texto: `${formatarNumeroBr(horas)} h`,
+      suspeito: true,
+      motivo: "O fim está MENOR que o início — o horímetro não anda para trás.",
+    };
+  }
+  if (horas > SALTO_SUSPEITO_HORAS) {
+    return {
+      horas,
+      texto: `${formatarNumeroBr(horas)} h`,
+      suspeito: true,
+      motivo:
+        "Mais de um dia numa operação só. Confira o ponto decimal: 5485,0 digitado como 54850 dá exatamente isso.",
+    };
+  }
+  return { horas, texto: `${formatarNumeroBr(horas)} h rodadas`, suspeito: false };
+}
+
 export const ORDENS_RANKING = ["eficiencia", "pior", "consumo", "horas"] as const;
 export type OrdemRanking = (typeof ORDENS_RANKING)[number];
 

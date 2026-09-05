@@ -102,6 +102,7 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 import { ESTOQUE_MINIMO_PADRAO } from "@/lib/gas-p20";
+import { suspeitaNoHorimetro } from "@/lib/empilhadeira-gas";
 import { FotoEvidencia } from "@/components/FotoEvidencia";
 
 type CarretaParaCorrigir = {
@@ -1506,7 +1507,28 @@ export default async function AdminProdutividadeArmazemPage({
                   const maquina = Array.isArray(o.pa_empilhadeiras) ? o.pa_empilhadeiras[0] : o.pa_empilhadeiras;
                   const encerrada = o.status === "encerrada";
                   const descricao = `${maquina?.numero ?? "—"} — ${o.operador_nome} — ${formatarDataHora(o.inicio)}`;
+                  // O que a operação diz que rodou. É a conta que a
+                  // auditoria faz de cabeça olhando os dois números --
+                  // fazê-la aqui é o que transforma a linha em conferência.
+                  const rodou = suspeitaNoHorimetro(o.horimetro_inicial, o.horimetro_final);
                   return (
+                    /*
+                      UMA LINHA POR OPERAÇÃO -- pedido do dono
+                      (05/09/2026): "deixaria o início e fim de cada
+                      operação da empilhadeira em uma única linha, fica
+                      melhor para auditar".
+
+                      Eram três andares (descrição, duas fotos, os
+                      campos), e auditar é comparar CADA foto com o
+                      número que ela deveria sustentar. Separados, o olho
+                      ia da foto de cima para o campo de baixo e voltava.
+                      Agora cada foto fica colada no seu campo: início à
+                      esquerda, fim à direita, e a conta entre eles.
+
+                      Empilha abaixo de lg: são dois pares foto+campo
+                      mais o total e dois botões -- no celular, tudo numa
+                      linha deixaria cada campo com 40px.
+                    */
                     <div key={o.id} className="space-y-2 p-3">
                       <div className="flex items-start justify-between gap-2">
                         <p className="min-w-0 flex-1 text-xs text-slate-500">
@@ -1526,59 +1548,99 @@ export default async function AdminProdutividadeArmazemPage({
                         )}
                       </div>
 
-                      {/* A foto é o que identifica a operação lançada
-                          errada -- horímetro e data sozinhos não dizem
-                          qual imagem foi anexada. */}
-                      <div className="flex flex-wrap gap-2">
-                        {o.foto_inicial_url && (
-                          <FotoEvidencia
-                            src={o.foto_inicial_url}
-                            alt={`Horímetro inicial — ${descricao}`}
-                            classeCaixa="h-24 w-24"
-                          />
-                        )}
-                        {o.foto_final_url && (
-                          <FotoEvidencia
-                            src={o.foto_final_url}
-                            alt={`Horímetro final — ${descricao}`}
-                            classeCaixa="h-24 w-24"
-                          />
-                        )}
-                      </div>
-
                       <form
                         action={corrigirHorimetroOperacao}
-                        className="flex flex-wrap items-end gap-2"
+                        className="flex flex-col gap-3 lg:flex-row lg:items-end"
                       >
                         <input type="hidden" name="id" value={o.id} />
-                        <div>
-                          <label className="mb-1 block text-xs font-semibold uppercase text-slate-500">Horímetro inicial</label>
-                          <input
-                            name="horimetro_inicial"
-                            type="number"
-                            inputMode="decimal"
-                            step="0.1"
-                            min={0}
-                            required
-                            defaultValue={o.horimetro_inicial}
-                            className={`${campo} w-32`}
-                          />
-                        </div>
-                        {encerrada && (
+
+                        {/* INÍCIO: a foto encostada no campo que ela
+                            comprova. A foto é o que identifica a
+                            operação lançada errada -- horímetro e data
+                            sozinhos não dizem qual imagem foi anexada. */}
+                        <div className="flex items-end gap-2">
+                          {o.foto_inicial_url ? (
+                            <FotoEvidencia
+                              src={o.foto_inicial_url}
+                              alt={`Horímetro inicial — ${descricao}`}
+                              classeCaixa="h-16 w-16 shrink-0"
+                            />
+                          ) : (
+                            <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-lg bg-slate-50 text-[10px] text-slate-300">
+                              sem foto
+                            </span>
+                          )}
                           <div>
-                            <label className="mb-1 block text-xs font-semibold uppercase text-slate-500">Horímetro final</label>
+                            <label className="mb-1 block text-xs font-semibold uppercase text-slate-500">
+                              Início
+                            </label>
                             <input
-                              name="horimetro_final"
+                              name="horimetro_inicial"
                               type="number"
                               inputMode="decimal"
                               step="0.1"
                               min={0}
-                              defaultValue={o.horimetro_final ?? ""}
-                              className={`${campo} w-32`}
+                              required
+                              defaultValue={o.horimetro_inicial}
+                              className={`${campo} w-28`}
                             />
                           </div>
+                        </div>
+
+                        {/* FIM: só existe em operação encerrada. */}
+                        {encerrada && (
+                          <div className="flex items-end gap-2">
+                            {o.foto_final_url ? (
+                              <FotoEvidencia
+                                src={o.foto_final_url}
+                                alt={`Horímetro final — ${descricao}`}
+                                classeCaixa="h-16 w-16 shrink-0"
+                              />
+                            ) : (
+                              <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-lg bg-slate-50 text-[10px] text-slate-300">
+                                sem foto
+                              </span>
+                            )}
+                            <div>
+                              <label className="mb-1 block text-xs font-semibold uppercase text-slate-500">
+                                Fim
+                              </label>
+                              <input
+                                name="horimetro_final"
+                                type="number"
+                                inputMode="decimal"
+                                step="0.1"
+                                min={0}
+                                defaultValue={o.horimetro_final ?? ""}
+                                className={`${campo} w-28`}
+                              />
+                            </div>
+                          </div>
                         )}
-                        <BotaoEnviar compacto className="shrink-0 rounded-lg bg-slate-800 px-3 py-1.5 text-xs font-semibold text-white">
+
+                        {/* A CONTA, entre os dois campos e o botão. É ela
+                            que denuncia o ponto decimal esquecido sem
+                            ninguém precisar subtrair de cabeça. */}
+                        {rodou && (
+                          <div className="lg:pb-2">
+                            <p
+                              className={`text-xs font-semibold ${
+                                rodou.suspeito ? "text-red-700" : "text-slate-600"
+                              }`}
+                            >
+                              {rodou.suspeito && "⚠️ "}
+                              {rodou.texto}
+                            </p>
+                            {rodou.motivo && (
+                              <p className="text-[11px] text-red-600">{rodou.motivo}</p>
+                            )}
+                          </div>
+                        )}
+
+                        <BotaoEnviar
+                          compacto
+                          className="shrink-0 rounded-lg bg-slate-800 px-3 py-2 text-xs font-semibold text-white lg:ml-auto"
+                        >
                           Salvar
                         </BotaoEnviar>
                       </form>
