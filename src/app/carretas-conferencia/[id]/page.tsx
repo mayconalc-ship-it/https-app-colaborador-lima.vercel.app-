@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { PageHeader } from "@/components/PageHeader";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
@@ -146,6 +147,29 @@ export default async function DetalheAtendimentoPage({ params }: { params: Promi
     .eq("id", id)
     .eq("revenda_id", revendaId)
     .maybeSingle();
+
+  // A BLITZ VEM EM SEPARADO PELO MESMO MOTIVO da correção acima: a
+  // migration 100 pode não ter rodado ainda no banco de uma revenda, e o
+  // PostgREST recusa a consulta INTEIRA quando uma coluna não existe --
+  // a carreta viraria 404 no pátio. Separada, a falha custa só o cartão.
+  const marca = await supabase
+    .from("atendimentos_carretas")
+    .select("blitz_exigida")
+    .eq("id", id)
+    .eq("revenda_id", revendaId)
+    .maybeSingle();
+  const blitzExigida = marca.data?.blitz_exigida === true;
+
+  const blitzDaCarreta = blitzExigida
+    ? await supabase
+        .from("pa_blitz")
+        .select("id, status, concluida_em")
+        .eq("atendimento_id", id)
+        .maybeSingle()
+    : { data: null };
+  const blitz = blitzDaCarreta.data as
+    | { id: string; status: "pendente" | "concluida" | "tratada"; concluida_em: string | null }
+    | null;
 
   const [{ data: atendimentoBanco }, { data: notasBanco }, { data: itensBanco }, { data: agItensBanco }, { data: agCatalogoBanco }, { data: configBanco }, { data: fabricasBanco }, { data: empilhadoresBanco }, { data: filtrosBanco }] =
     await Promise.all([
@@ -304,6 +328,62 @@ export default async function DetalheAtendimentoPage({ params }: { params: Promi
           </div>
         </div>
       </div>
+
+      {/*
+        A BLITZ VEM ANTES DE TUDO -- antes da descarga, antes da
+        conferência.
+
+        Depois que a carreta é descarregada não há mais o que inspecionar:
+        a asa delta já abriu, a carga já saiu, e a foto da grade quebrada
+        com a carreta vazia não prova nada. Por isso o cartão fica no topo
+        e em vermelho, e não como mais um bloco no meio da tela.
+
+        Não TRAVA a descarga de propósito: caminhão parado no pátio por
+        causa de uma tela é como o módulo vira o vilão da operação. Quem
+        cobra é o painel da liderança, que recebe a blitz não respondida.
+      */}
+      {blitzExigida && (
+        <div
+          className={`mb-4 rounded-2xl border-2 p-4 shadow-sm ${
+            blitz && blitz.status !== "pendente"
+              ? "border-green-200 bg-green-50"
+              : "border-red-300 bg-red-50"
+          }`}
+        >
+          {blitz && blitz.status !== "pendente" ? (
+            <p className="text-sm font-bold text-green-900">
+              ✅ Blitz concluída
+              {blitz.concluida_em ? ` às ${formatarHora(blitz.concluida_em)}` : ""} — a liderança
+              trata no painel.
+            </p>
+          ) : (
+            <>
+              <p className="text-sm font-bold text-red-900">
+                🚨 Esta carreta caiu na blitz de recebimento.
+              </p>
+              <p className="mt-1 text-xs leading-snug text-red-800">
+                O histórico de avaria desta carreta, deste motorista ou desta transportadora está
+                acima do limite. Inspecione <strong>antes de descarregar</strong> — depois não há
+                mais o que fotografar.
+              </p>
+            </>
+          )}
+          {podeConferir ? (
+            <Link
+              href={`/carretas-conferencia/${a.id}/blitz`}
+              className={`mt-3 block rounded-xl px-4 py-3 text-center text-sm font-bold text-white shadow-sm ${
+                blitz && blitz.status !== "pendente"
+                  ? "bg-slate-600 hover:bg-slate-700"
+                  : "bg-red-600 hover:bg-red-700"
+              }`}
+            >
+              {blitz && blitz.status !== "pendente" ? "Ver o checklist" : "🔍 Abrir o checklist da blitz"}
+            </Link>
+          ) : (
+            <p className="mt-2 text-xs text-red-800">O conferente responde o checklist da blitz.</p>
+          )}
+        </div>
+      )}
 
       {itens.length > 0 && (
         <div className="mb-4 overflow-x-auto rounded-2xl border border-slate-200 bg-white">

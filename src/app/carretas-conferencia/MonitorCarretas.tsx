@@ -24,6 +24,8 @@ export type CardAtendimento = {
   cargaAgendada: boolean;
   agendamentoEm: string | null;
   status: StatusAtendimento;
+  /** Marcada na portaria: o conferente inspeciona antes de descarregar. */
+  blitzExigida?: boolean;
 };
 
 const COR_SINALIZADOR: Record<CorSinalizador, string> = {
@@ -98,6 +100,7 @@ export function MonitorCarretas({
             carga_agendada: boolean;
             agendamento_em: string | null;
             status: StatusAtendimento;
+            blitz_exigida?: boolean;
           };
 
           if (linha.status === "finalizado") {
@@ -123,6 +126,10 @@ export function MonitorCarretas({
                       placaCarreta: linha.placa_carreta,
                       cargaAgendada: linha.carga_agendada,
                       agendamentoEm: linha.agendamento_em,
+                      // Sem a 100 rodada a coluna não vem no payload: aí
+                      // vale o que o cartão já tinha, e não um "false"
+                      // inventado que apagaria a marca da tela.
+                      blitzExigida: linha.blitz_exigida ?? a.blitzExigida,
                     }
                   : a,
               );
@@ -170,7 +177,15 @@ export function MonitorCarretas({
                     className={`block rounded-2xl border p-3 shadow-sm hover:shadow ${coluna.cor}`}
                   >
                     <div className="flex items-start justify-between gap-2">
-                      <p className="text-sm font-bold text-slate-900">Carreta {a.placaCarreta}</p>
+                      <p className="text-sm font-bold text-slate-900">
+                        {/* A MARCA DA BLITZ VEM ANTES DA PLACA, no cartão da
+                            fila: o conferente escolhe qual carreta pegar
+                            olhando esta lista, e a que precisa de inspeção
+                            tem que ser inspecionada ANTES de descarregar --
+                            depois não há mais o que fotografar. */}
+                        {a.blitzExigida && <span title="Caiu na blitz de recebimento">🚨 </span>}
+                        Carreta {a.placaCarreta}
+                      </p>
                       <span
                         className={`mt-1 h-2.5 w-2.5 shrink-0 animate-pulse rounded-full ${COR_SINALIZADOR[cor]}`}
                         title={TITULO_SINALIZADOR[cor]}

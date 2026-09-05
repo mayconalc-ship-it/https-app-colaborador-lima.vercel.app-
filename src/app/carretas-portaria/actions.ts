@@ -8,6 +8,7 @@ import { exigirContextoCarretas } from "@/lib/carretas-server";
 import { temAcessoModulo } from "@/lib/require-admin";
 import { getRevendaId } from "@/lib/revendas";
 import { datetimeLocalParaUTC } from "@/lib/comunicados";
+import { decidirBlitzDaChegada } from "@/lib/blitz-server";
 
 const ROTA = "/carretas-portaria";
 
@@ -145,6 +146,65 @@ export async function registrarAtendimento(formData: FormData) {
   );
   if (erroNotas) erro(`Chegada registrada, mas as notas fiscais falharam: ${erroNotas.message}`);
 
+  const blitz = await marcarBlitz(atendimento.id, revendaId, {
+    placaCarreta,
+    motorista: motoristaNome,
+    transportadoraId,
+  });
+
   revalidatePath(ROTA);
-  redirect(`${ROTA}?sucesso=Chegada+registrada.+A+carreta+entrou+no+monitor`);
+  redirect(
+    `${ROTA}?sucesso=${encodeURIComponent(
+      blitz
+        ? `Chegada registrada. 🚨 BLITZ: ${blitz} O conferente recebe o checklist na tela da carreta.`
+        : "Chegada registrada. A carreta entrou no monitor",
+    )}`,
+  );
+}
+
+/**
+ * A DECISÃO DA BLITZ, na chegada -- e ela nunca derruba a chegada.
+ *
+ * Tudo aqui está dentro de um try: a portaria registrando carreta é a
+ * porta da operação, e uma consulta de histórico que falhe não pode
+ * impedir o caminhão de entrar. Falhou, a carreta entra sem blitz -- que é
+ * o mesmo estado de antes de o módulo existir.
+ *
+ * O RESULTADO É CONGELADO NA COLUNA. Recalcular quando o conferente abre a
+ * tela deixaria a marca ir e vir conforme outras cargas entram na média,
+ * e o checklist sumiria da mão de quem já começou.
+ *
+ * Devolve o motivo quando cai, para a portaria saber na hora -- é ela que
+ * fala com o motorista.
+ */
+async function marcarBlitz(
+  atendimentoId: string,
+  revendaId: string,
+  chegada: { placaCarreta: string; motorista: string; transportadoraId: string },
+): Promise<string | null> {
+  try {
+    const admin = createAdminClient();
+    const { data: transportadora } = await admin
+      .from("pa_transportadoras")
+      .select("nome")
+      .eq("id", chegada.transportadoraId)
+      .maybeSingle();
+
+    const decisao = await decidirBlitzDaChegada(revendaId, {
+      placaCarreta: chegada.placaCarreta,
+      motorista: chegada.motorista,
+      transportadoraNome: transportadora?.nome ?? null,
+    });
+    if (!decisao.cai) return null;
+
+    const { error } = await admin
+      .from("atendimentos_carretas")
+      .update({ blitz_exigida: true })
+      .eq("id", atendimentoId);
+    if (error) return null;
+
+    return decisao.motivo;
+  } catch {
+    return null;
+  }
 }

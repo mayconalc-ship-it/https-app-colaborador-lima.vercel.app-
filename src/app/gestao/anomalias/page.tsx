@@ -9,6 +9,7 @@ import {
   type StatusRelato,
   type TopicoAcao,
 } from "@/lib/relato-anomalia";
+import { ROTULO_DIMENSAO, type Dimensao } from "@/lib/blitz";
 
 export const dynamic = "force-dynamic";
 
@@ -23,6 +24,19 @@ type LinhaRelato = {
   status: StatusRelato;
   aberto_em: string;
   responsavel_nome: string | null;
+};
+
+type LinhaBlitz = {
+  id: string;
+  atendimento_id: string;
+  status: "pendente" | "concluida" | "tratada";
+  gatilho_dimensao: Dimensao | null;
+  gatilho_nome: string | null;
+  transportadora_nome: string | null;
+  media_avaria_pct: number | null;
+  limite_pct: number | null;
+  concluida_em: string | null;
+  criado_em: string;
 };
 
 type LinhaAcao = {
@@ -65,7 +79,7 @@ export default async function PainelDeAnomaliasPage() {
   const revendaId = await exigirRevenda("/gestao");
   const admin = createAdminClient();
 
-  const [{ data: relatosBanco, error }, { data: acoesBanco }] = await Promise.all([
+  const [{ data: relatosBanco, error }, { data: acoesBanco }, blitzBanco] = await Promise.all([
     admin
       .from("pa_relatos_anomalia")
       .select(
@@ -78,6 +92,20 @@ export default async function PainelDeAnomaliasPage() {
       .select("id, relato_id, topico, o_que, quem, prazo, status")
       .eq("revenda_id", revendaId)
       .neq("status", "concluida"),
+    /*
+      AS BLITZ VÊM PELO MESMO CAMINHO das ações, mas com o erro ENGOLIDO:
+      uma revenda que ainda não rodou a migration 100 não tem as tabelas,
+      e o painel inteiro sumiria por causa de uma seção. Sem a 100, a
+      lista fica vazia -- que é o mesmo estado de quem nunca teve blitz.
+    */
+    admin
+      .from("pa_blitz")
+      .select(
+        "id, atendimento_id, status, gatilho_dimensao, gatilho_nome, transportadora_nome, media_avaria_pct, limite_pct, concluida_em, criado_em",
+      )
+      .eq("revenda_id", revendaId)
+      .neq("status", "tratada")
+      .order("criado_em", { ascending: false }),
   ]);
 
   if (error) {
@@ -93,6 +121,24 @@ export default async function PainelDeAnomaliasPage() {
 
   const relatos = (relatosBanco ?? []) as LinhaRelato[];
   const acoes = (acoesBanco ?? []) as LinhaAcao[];
+
+  const blitz = (blitzBanco.data ?? []) as LinhaBlitz[];
+  // A PLACA VEM DO ATENDIMENTO. Guardá-la na blitz também seria repetir um
+  // dado que já tem dono -- e a lista aqui é curta (o que está aberto).
+  const { data: carretasBanco } = blitz.length
+    ? await admin
+        .from("atendimentos_carretas")
+        .select("id, placa_carreta, numero_dt")
+        .in("id", blitz.map((b) => b.atendimento_id))
+    : { data: [] };
+  const carretas = new Map(
+    ((carretasBanco ?? []) as { id: string; placa_carreta: string; numero_dt: string }[]).map(
+      (c) => [c.id, c],
+    ),
+  );
+
+  const blitzPendentes = blitz.filter((b) => b.status === "pendente");
+  const blitzParaTratar = blitz.filter((b) => b.status === "concluida");
 
   const acoesPorRelato = new Map<string, LinhaAcao[]>();
   for (const a of acoes) {
@@ -117,17 +163,22 @@ export default async function PainelDeAnomaliasPage() {
         subtitle="Indicador fora da faixa vira relato — e o relato tem dono, prazo e verificação."
       />
 
-      <div className="mb-5 grid grid-cols-2 gap-2 sm:grid-cols-4">
+      <div className="mb-5 grid grid-cols-2 gap-2 sm:grid-cols-5">
         <Numero valor={pendentes.length} rotulo="sem ninguém" alerta={pendentes.length > 0} />
         <Numero valor={andando.length} rotulo="em tratativa" />
         <Numero valor={atrasadas.length} rotulo="ações atrasadas" alerta={atrasadas.length > 0} />
+        <Numero
+          valor={blitzParaTratar.length}
+          rotulo="blitz a tratar"
+          alerta={blitzParaTratar.length > 0}
+        />
         <Numero
           valor={relatos.filter((r) => r.status === "eficacia_verificada").length}
           rotulo="eficácia verificada"
         />
       </div>
 
-      {relatos.length === 0 && (
+      {relatos.length === 0 && blitz.length === 0 && (
         <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
           <p className="text-3xl">✅</p>
           <p className="mt-2 text-sm font-semibold text-slate-700">Nenhuma anomalia aberta.</p>
@@ -168,6 +219,88 @@ export default async function PainelDeAnomaliasPage() {
                       </span>
                       {relato && ` · ${relato.indicador_rotulo}`}
                     </p>
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      )}
+
+      {/*
+        A BLITZ VEM ANTES DOS RELATOS porque o prazo dela é o mais curto.
+
+        O relato de anomalia é sobre o processo e vive dias. A blitz é
+        sobre UMA carreta que acabou de sair: a foto da grade quebrada
+        vale hoje, e o transportador ainda lembra qual viagem foi. Uma
+        semana depois vira discussão sobre a memória de quem carregou.
+      */}
+      {blitzParaTratar.length > 0 && (
+        <section className="mb-5">
+          <h2 className="text-sm font-bold uppercase tracking-wide text-slate-500">
+            Blitz esperando tratativa
+            <span className="ml-2 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-500">
+              {blitzParaTratar.length}
+            </span>
+          </h2>
+          <p className="mb-2 text-xs text-slate-500">
+            O conferente inspecionou e fotografou. Falta enviar o relato ao transportador e
+            registrar o que foi tratado.
+          </p>
+          <div className="space-y-2">
+            {blitzParaTratar.map((b) => {
+              const carreta = carretas.get(b.atendimento_id);
+              return (
+                <Link
+                  key={b.id}
+                  href={`/gestao/blitz/${b.id}`}
+                  className="block rounded-2xl border border-red-200 bg-red-50/60 p-4 shadow-sm hover:border-primary"
+                >
+                  <p className="text-sm font-bold text-slate-900">
+                    🚛 {carreta?.placa_carreta ?? "Carreta"}
+                    {carreta?.numero_dt && (
+                      <span className="font-normal text-slate-500"> · DT {carreta.numero_dt}</span>
+                    )}
+                  </p>
+                  <p className="mt-0.5 text-xs text-slate-600">
+                    {b.gatilho_dimensao && b.gatilho_nome
+                      ? `${ROTULO_DIMENSAO[b.gatilho_dimensao]} ${b.gatilho_nome}`
+                      : (b.transportadora_nome ?? "—")}
+                    {b.media_avaria_pct !== null &&
+                      b.limite_pct !== null &&
+                      ` · ${b.media_avaria_pct}% de avaria (limite ${b.limite_pct}%)`}
+                  </p>
+                  <p className="mt-1 text-xs font-semibold text-red-700">
+                    Inspecionada
+                    {b.concluida_em ? ` há ${diasDesde(b.concluida_em)} dia(s)` : ""} — relato de
+                    ocorrência pronto para enviar.
+                  </p>
+                </Link>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      {/* A blitz NÃO RESPONDIDA também é pendência, e de outra pessoa: o
+          conferente. Aparece aqui para a liderança cobrar antes de a
+          carreta sumir -- depois de descarregada não há o que fotografar. */}
+      {blitzPendentes.length > 0 && (
+        <section className="mb-5 rounded-2xl border border-amber-300 bg-amber-50 p-4">
+          <h2 className="text-sm font-bold text-amber-900">
+            ⏳ {blitzPendentes.length} blitz com o checklist em aberto
+          </h2>
+          <ul className="mt-2 space-y-1 text-xs text-amber-900/90">
+            {blitzPendentes.map((b) => {
+              const carreta = carretas.get(b.atendimento_id);
+              return (
+                <li key={b.id}>
+                  <Link
+                    href={`/carretas-conferencia/${b.atendimento_id}/blitz`}
+                    className="hover:underline"
+                  >
+                    {carreta?.placa_carreta ?? "Carreta"} · {b.transportadora_nome ?? "—"} —
+                    aberta há {diasDesde(b.criado_em)} dia(s)
                   </Link>
                 </li>
               );

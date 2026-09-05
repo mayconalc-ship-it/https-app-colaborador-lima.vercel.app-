@@ -30,6 +30,7 @@ type LinhaAtiva = {
   carga_agendada: boolean;
   agendamento_em: string | null;
   status: CardAtendimento["status"];
+  blitz_exigida: boolean | null;
   pa_fabricas: { nome: string } | { nome: string }[] | null;
   pa_transportadoras: { nome: string } | { nome: string }[] | null;
 };
@@ -111,7 +112,7 @@ export default async function CarretasConferenciaPage({
   ] = await Promise.all([
     supabase
       .from("atendimentos_carretas")
-      .select("id, numero_dt, motorista_nome, placa_carreta, chegada_em, carga_agendada, agendamento_em, status, pa_fabricas(nome), pa_transportadoras(nome)")
+      .select("id, numero_dt, motorista_nome, placa_carreta, chegada_em, carga_agendada, agendamento_em, status, blitz_exigida, pa_fabricas(nome), pa_transportadoras(nome)")
       .eq("revenda_id", revendaId)
       .in("status", ["aguardando_conferente", "em_andamento", "aguardando_retorno", "em_carga"])
       .order("chegada_em", { ascending: true }),
@@ -163,6 +164,7 @@ export default async function CarretasConferenciaPage({
       cargaAgendada: a.carga_agendada,
       agendamentoEm: a.agendamento_em,
       status: a.status,
+      blitzExigida: a.blitz_exigida === true,
       fabricaNome: nomeRelacionado(a.pa_fabricas),
       transportadoraNome: nomeRelacionado(a.pa_transportadoras),
     }),

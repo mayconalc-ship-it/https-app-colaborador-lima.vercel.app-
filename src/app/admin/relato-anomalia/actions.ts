@@ -115,3 +115,72 @@ export async function salvarGatilhos(formData: FormData) {
     )}`,
   );
 }
+
+/**
+ * O CHECKLIST DA BLITZ -- a tela inteira num Salvar só, como a de cima.
+ *
+ * O TEXTO É DO TIME OPERACIONAL, e é por isso que esta tela existe.
+ * Pedido do dono (05/09/2026): "o check list eu faria com base realmente
+ * na causa (...) tipo, estiva, não sei o que significa, veja lá o time
+ * operacional". As treze perguntas semeadas na migration 100 são um ponto
+ * de partida escrito na língua da doca -- quem confere carreta todo dia
+ * corrige aqui, sem pedir deploy.
+ *
+ * DESATIVAR, E NÃO APAGAR: a resposta guarda o texto da pergunta, mas o
+ * histórico de qual item existia quando é o que explica por que uma blitz
+ * de março tem doze itens e a de hoje tem treze.
+ */
+export async function salvarChecklistDaBlitz(formData: FormData) {
+  await requireModulo("relato-anomalia", "editar");
+  const revendaId = await exigirRevenda("/admin");
+  const admin = createAdminClient();
+
+  const ids = formData.getAll("item_id").map(String);
+
+  for (const id of ids) {
+    const pergunta = String(formData.get(`pergunta__${id}`) ?? "").trim();
+    if (!pergunta) {
+      erro("Pergunta sem texto. Para tirar um item do checklist, desmarque o 'ativo'.");
+    }
+    const { error } = await admin
+      .from("pa_blitz_itens")
+      .update({
+        pergunta,
+        ajuda: String(formData.get(`ajuda__${id}`) ?? "").trim() || null,
+        grupo: String(formData.get(`grupo__${id}`) ?? "").trim() || null,
+        ordem: numeroOuNulo(formData.get(`ordem__${id}`)) ?? 0,
+        ativo: formData.get(`ativo__item__${id}`) === "on",
+      })
+      .eq("id", id)
+      .eq("revenda_id", revendaId);
+
+    if (error) {
+      if (error.code === "23505") erro(`Já existe uma pergunta com o texto "${pergunta}".`);
+      erro(`Não foi possível salvar: ${error.message}`);
+    }
+  }
+
+  // A pergunta nova vai no MESMO envio: quem está revisando o checklist
+  // costuma corrigir dois textos e acrescentar um item na mesma sentada.
+  const nova = String(formData.get("nova_pergunta") ?? "").trim();
+  if (nova) {
+    const { error } = await admin.from("pa_blitz_itens").insert({
+      revenda_id: revendaId,
+      pergunta: nova,
+      ajuda: String(formData.get("nova_ajuda") ?? "").trim() || null,
+      grupo: String(formData.get("novo_grupo") ?? "").trim() || null,
+      ordem: numeroOuNulo(formData.get("nova_ordem")) ?? 99,
+    });
+    if (error) {
+      if (error.code === "23505") erro(`Já existe uma pergunta com o texto "${nova}".`);
+      erro(`Não foi possível cadastrar a pergunta nova: ${error.message}`);
+    }
+  }
+
+  revalidatePath(ROTA);
+  redirect(
+    `${ROTA}?sucesso=${encodeURIComponent(
+      nova ? "Checklist salvo, com a pergunta nova." : "Checklist da blitz salvo.",
+    )}`,
+  );
+}
