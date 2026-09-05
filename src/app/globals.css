@@ -469,6 +469,88 @@ button:disabled,
     page-break-inside: avoid;
   }
 
+  /* ---- CABER EM UMA OU DUAS FOLHAS -------------------------------
+     Pedido do dono (05/09/2026). Medido antes: 2,36 paginas -- a
+     terceira levava so a assinatura, que e o pior lugar para uma
+     quebra.
+
+     O corte veio de tres lugares, nesta ordem de importancia:
+
+     1. AS INSTRUCOES NAO VAO PARA O PAPEL. "Ação sem dono e sem prazo
+        e intencao", "cada porque responde ao anterior" -- sao ajuda de
+        preenchimento, e no documento assinado viram ruido: quem le o
+        RA quer as respostas, nao o manual. Marcadas com `so-na-tela`.
+
+     2. A ESCALA CAI. 10,5px com entrelinha curta continua legivel em
+        A4 -- e a tela nao muda, porque no celular esse tamanho seria
+        pequeno demais.
+
+     3. A PADRONIZACAO VAI EM DUAS COLUNAS. Sao oito perguntas de uma
+        linha cada; empilhadas gastavam meia folha para dizer
+        Sim/Nao. */
+  .folha {
+    font-size: 10.5px;
+    line-height: 1.3;
+  }
+
+  .folha h1 {
+    font-size: 15px;
+  }
+  .folha h2 {
+    font-size: 11px;
+  }
+
+  .folha header,
+  .folha section {
+    padding: 7px 9px !important;
+    border-radius: 0 !important;
+  }
+
+  /* O espaco entre secoes: o `space-y-4` da tela (16px) vira 5px. */
+  .folha form > * + * {
+    margin-top: 5px !important;
+  }
+
+  .folha label,
+  .folha .rotulo {
+    margin-bottom: 0 !important;
+  }
+
+  input,
+  textarea,
+  select {
+    font-size: 10.5px !important;
+    padding: 0 !important;
+    line-height: 1.3 !important;
+  }
+
+  /* Textarea impressa nao pode reservar as linhas vazias do `rows`: um
+     campo de 2 linhas com uma frase gastava o dobro. `field-sizing`
+     encolhe ate o conteudo onde ha suporte; o min-height segura o
+     minimo legivel no resto. */
+  textarea {
+    field-sizing: content;
+    min-height: 1.4em !important;
+  }
+
+  .padronizacao {
+    column-count: 2;
+    column-gap: 14px;
+  }
+  .padronizacao > * {
+    break-inside: avoid;
+    padding-top: 1px !important;
+    padding-bottom: 1px !important;
+  }
+
+  /* Cada acao do plano vira um bloco compacto, sem o fundo cinza que na
+     impressao so gasta tinta. */
+  .acao-do-plano {
+    background: transparent !important;
+    padding: 4px 0 !important;
+    border-radius: 0 !important;
+  }
+
   /* Campo preenchido tem de sair LEGIVEL: a borda cinza clara da tela
      some no papel, e sem ela o texto flutua sem dizer onde era o campo. */
   input,

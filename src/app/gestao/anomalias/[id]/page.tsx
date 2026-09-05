@@ -188,6 +188,8 @@ export default async function RelatoDeAnomaliaPage({
               <h1 className="text-lg font-bold uppercase tracking-wide text-slate-900">
                 Relato de Anomalia
               </h1>
+              {/* Fica no papel: é o que identifica o documento —
+                  qual indicador, de que dia. */}
               <p className="text-xs text-slate-500">{titulo}</p>
             </div>
             <div className="text-right text-xs text-slate-600">
@@ -273,7 +275,7 @@ export default async function RelatoDeAnomaliaPage({
                   </label>
                 ))}
               </div>
-              <p className="mt-1 text-[11px] leading-tight text-slate-400">
+              <p className="so-na-tela mt-1 text-[11px] leading-tight text-slate-400">
                 Repetitiva muda o peso da causa: repetir é sinal de que a ação anterior não pegou.
               </p>
             </div>
@@ -319,7 +321,7 @@ export default async function RelatoDeAnomaliaPage({
           <h2 className="text-sm font-bold uppercase tracking-wide text-slate-700">
             Análise da causa
           </h2>
-          <p className="mb-2 text-xs text-slate-500">
+          <p className="so-na-tela mb-2 text-xs text-slate-500">
             Cada porquê responde ao anterior. O 5º é o que vira a ação de causa raiz — se ele ainda
             é um sintoma, a análise parou cedo.
           </p>
@@ -345,11 +347,14 @@ export default async function RelatoDeAnomaliaPage({
           <h2 className="text-sm font-bold uppercase tracking-wide text-slate-700">
             Padronização
           </h2>
-          <p className="mb-2 text-xs text-slate-500">
+          <p className="so-na-tela mb-2 text-xs text-slate-500">
             É a parte que o auditor lê primeiro: o desvio foi por falta de padrão, padrão errado, ou
             padrão não cumprido?
           </p>
-          <div className="divide-y divide-slate-100">
+          {/* `padronizacao` liga as duas colunas na impressão: são oito
+              perguntas de uma linha, e empilhadas gastavam meia folha
+              para dizer Sim/Não. */}
+          <div className="padronizacao divide-y divide-slate-100">
             {PERGUNTAS_PADRONIZACAO.map((p) => (
               <div key={p.id} className="flex items-center justify-between gap-3 py-2">
                 <span className="text-sm text-slate-700">{p.texto}</span>
@@ -381,7 +386,7 @@ export default async function RelatoDeAnomaliaPage({
           <h2 className="text-sm font-bold uppercase tracking-wide text-slate-700">
             Plano de ação
           </h2>
-          <p className="mb-2 text-xs text-slate-500">
+          <p className="so-na-tela mb-2 text-xs text-slate-500">
             Ação sem dono e sem prazo é intenção. É o achado mais comum de auditoria em plano de
             ação — e o mais fácil de evitar.
           </p>
@@ -503,7 +508,7 @@ export default async function RelatoDeAnomaliaPage({
           ) : (
             <form action={verificarEficacia} className="mt-2 space-y-2">
               <input type="hidden" name="id" value={r.id} />
-              <p className="text-xs text-slate-500">
+              <p className="so-na-tela text-xs text-slate-500">
                 O auditor não pergunta se você assinou — pergunta se funcionou. Escreva o que mostra
                 que a ação pegou: o indicador voltou para dentro do limite e ficou.
               </p>

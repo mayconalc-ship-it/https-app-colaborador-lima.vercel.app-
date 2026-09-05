@@ -66,7 +66,10 @@ export function PlanoDeAcao({
   return (
     <div className="space-y-3">
       {linhas.map((l, i) => (
-        <div key={l.chave} className="rounded-xl border border-slate-200 bg-slate-50/60 p-3">
+        <div
+          key={l.chave}
+          className="acao-do-plano rounded-xl border border-slate-200 bg-slate-50/60 p-3"
+        >
           <div className="mb-2 flex items-center justify-between gap-2">
             <span className="text-xs font-bold text-slate-500">Ação {i + 1}</span>
             {!somenteLeitura && linhas.length > 1 && (
@@ -96,7 +99,7 @@ export function PlanoDeAcao({
                   </option>
                 ))}
               </select>
-              <p className="mt-1 text-[11px] leading-tight text-slate-400">
+              <p className="so-na-tela mt-1 text-[11px] leading-tight text-slate-400">
                 {ROTULO_TOPICO[l.topico].ajuda}
               </p>
             </div>
