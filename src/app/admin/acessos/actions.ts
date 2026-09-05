@@ -9,7 +9,9 @@ import {
   moduloPorId,
   MODULOS,
   MODULOS_OPCIONAIS,
+  type ModuloId,
 } from "@/lib/acessos";
+import { MODULOS_COM_ANALISE, PAINEIS } from "@/lib/gestao";
 
 function voltar(
   chave: "erro" | "sucesso",
@@ -226,6 +228,172 @@ export async function liberarAcessosEmLote(formData: FormData) {
   }
 
   voltar("sucesso", `Acessos atualizados para ${mudancaPorPessoa.size} pessoa(s).`, revendaId);
+}
+
+/**
+ * A GRADE DAS ANÁLISES -- várias pessoas de uma vez, uma coluna por painel.
+ *
+ * Pedido do dono (05/09/2026): liberar as análises como se liberam os
+ * módulos opcionais, numa tabela de quadradinhos, em vez de abrir a ficha
+ * de cada pessoa. É o mesmo gesto, e ele já conhece esse gesto.
+ *
+ * GRAVA NAS MESMAS LINHAS DA FICHA -- `lideranca_permissoes`, ação "ver".
+ * Não existe chave nova, nem tabela nova, nem uma segunda porta para o
+ * mesmo cômodo: marcar aqui é idêntico a marcar "Visualizar" na ficha da
+ * pessoa, e as duas telas leem o mesmo estado. Uma permissão com dois
+ * lugares de origem seria uma que ninguém consegue auditar.
+ *
+ * SÓ MEXE NO "VER", e só de quem já é liderança. Analista continua sendo
+ * uma tela de gestão -- decisão do dono ao escolher entre as três opções
+ * (05/09/2026). E, dentro disso, o módulo que a pessoa administra (tem
+ * criar/editar/excluir) não é tocado nem oferecido: tirar o "ver" de quem
+ * pode editar deixaria uma permissão de mexer numa tela que não abre.
+ *
+ * `universo` carrega toda célula desenhada, marcada ou não -- é o que
+ * separa "não veio porque desmarcou" de "não veio porque nem apareceu".
+ * Mesmo desenho de liberarAcessosEmLote, pelo mesmo motivo.
+ */
+export async function liberarAnalisesEmLote(formData: FormData) {
+  const eu = await requireOwner();
+  const revendaId = (formData.get("revenda") as string) || "";
+  if (!revendaId) voltar("erro", "Revenda inválida.");
+
+  const universoPorPessoa = new Map<string, Set<string>>();
+  for (const par of formData.getAll("universo").map(String)) {
+    const [id, modulo] = par.split(":");
+    // Só módulo que de fato abre uma análise entra -- a grade não pode
+    // virar um atalho para conceder "ver" em qualquer módulo do app.
+    if (!id || !MODULOS_COM_ANALISE.includes(modulo as ModuloId)) continue;
+    if (!universoPorPessoa.has(id)) universoPorPessoa.set(id, new Set());
+    universoPorPessoa.get(id)!.add(modulo);
+  }
+  if (universoPorPessoa.size === 0) voltar("erro", "Nenhuma alteração para aplicar.", revendaId);
+
+  const marcados = new Set(formData.getAll("marcado").map(String));
+  const admin = createAdminClient();
+
+  const ids = [...universoPorPessoa.keys()];
+
+  const [{ data: perfis }, { data: vinculos }, { data: atuais }] = await Promise.all([
+    admin.from("profiles").select("id, nome, role").in("id", ids),
+    admin
+      .from("colaborador_revendas")
+      .select("colaborador_id")
+      .eq("revenda_id", revendaId)
+      .in("colaborador_id", ids),
+    admin
+      .from("lideranca_permissoes")
+      .select("colaborador_id, modulo, acao")
+      .eq("revenda_id", revendaId)
+      .in("colaborador_id", ids),
+  ]);
+
+  const perfilPorId = new Map((perfis ?? []).map((p) => [p.id, p]));
+  const daRevenda = new Set((vinculos ?? []).map((v) => v.colaborador_id));
+
+  // O que a pessoa já tem, por módulo: o conjunto de ações.
+  const acoesPorPessoaModulo = new Map<string, Set<string>>();
+  for (const a of atuais ?? []) {
+    const chave = `${a.colaborador_id}:${a.modulo}`;
+    if (!acoesPorPessoaModulo.has(chave)) acoesPorPessoaModulo.set(chave, new Set());
+    acoesPorPessoaModulo.get(chave)!.add(a.acao);
+  }
+
+  const paraInserir: {
+    colaborador_id: string;
+    revenda_id: string;
+    modulo: string;
+    acao: string;
+    concedido_por: string;
+  }[] = [];
+  const paraApagarPorPessoa = new Map<string, string[]>();
+  const mudancaPorPessoa = new Map<string, { liberados: string[]; revogados: string[] }>();
+
+  for (const [id, modulos] of universoPorPessoa) {
+    const perfil = perfilPorId.get(id);
+    // Colaborador e dono nem chegam aqui pela tela; a checagem existe
+    // porque a tela não é a segurança -- o formulário é do navegador de
+    // quem envia.
+    if (!perfil || perfil.role !== "lideranca") continue;
+    if (!daRevenda.has(id)) continue;
+
+    const liberados: string[] = [];
+    const revogados: string[] = [];
+
+    for (const modulo of modulos) {
+      const jaTem = acoesPorPessoaModulo.get(`${id}:${modulo}`) ?? new Set<string>();
+      // Quem administra o módulo (criar/editar/excluir) tem o "ver" por
+      // consequência. A grade não mexe nesses -- a tela os mostra
+      // travados, dizendo de onde vêm.
+      if ([...jaTem].some((a) => a !== "ver")) continue;
+
+      const quer = marcados.has(`${id}:${modulo}`);
+      const tem = jaTem.has("ver");
+      if (quer && !tem) {
+        paraInserir.push({
+          colaborador_id: id,
+          revenda_id: revendaId,
+          modulo,
+          acao: "ver",
+          concedido_por: eu.id,
+        });
+        liberados.push(modulo);
+      } else if (!quer && tem) {
+        if (!paraApagarPorPessoa.has(id)) paraApagarPorPessoa.set(id, []);
+        paraApagarPorPessoa.get(id)!.push(modulo);
+        revogados.push(modulo);
+      }
+    }
+    if (liberados.length > 0 || revogados.length > 0) {
+      mudancaPorPessoa.set(id, { liberados, revogados });
+    }
+  }
+
+  if (mudancaPorPessoa.size === 0) {
+    voltar("sucesso", "Nenhuma mudança em relação ao que já estava liberado.", revendaId);
+  }
+
+  for (const [colaboradorId, modulos] of paraApagarPorPessoa) {
+    const { error } = await admin
+      .from("lideranca_permissoes")
+      .delete()
+      .eq("colaborador_id", colaboradorId)
+      .eq("revenda_id", revendaId)
+      .eq("acao", "ver")
+      .in("modulo", modulos);
+    if (error) voltar("erro", `Não foi possível revogar: ${error.message}`, revendaId);
+  }
+
+  if (paraInserir.length > 0) {
+    const { error } = await admin.from("lideranca_permissoes").insert(paraInserir);
+    if (error) voltar("erro", `Não foi possível liberar: ${error.message}`, revendaId);
+  }
+
+  const { data: revenda } = await admin
+    .from("revendas")
+    .select("nome")
+    .eq("id", revendaId)
+    .maybeSingle();
+
+  const nomeDaAnalise = (modulo: string) =>
+    PAINEIS.find((p) => p.modulo === modulo)?.rotulo ?? moduloPorId(modulo)?.rotulo ?? modulo;
+
+  for (const [id, { liberados, revogados }] of mudancaPorPessoa) {
+    const partes: string[] = [];
+    if (liberados.length > 0) partes.push(`liberou ${liberados.map(nomeDaAnalise).join(", ")}`);
+    if (revogados.length > 0) partes.push(`revogou ${revogados.map(nomeDaAnalise).join(", ")}`);
+    await registrar({
+      atorId: eu.id,
+      atorNome: eu.nome,
+      acao: "Alterou análises da Gestão",
+      alvoId: id,
+      alvoNome: perfilPorId.get(id)?.nome ?? id,
+      detalhes: `${revenda?.nome ?? "Revenda"} — ${partes.join(" · ")}`,
+      revendaId,
+    });
+  }
+
+  voltar("sucesso", `Análises atualizadas para ${mudancaPorPessoa.size} liderança(s).`, revendaId);
 }
 
 /**

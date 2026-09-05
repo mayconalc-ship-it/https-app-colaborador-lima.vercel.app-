@@ -17,7 +17,12 @@ import {
   type Papel,
 } from "@/lib/acessos";
 import { PAINEIS, paineisDoModulo } from "@/lib/gestao";
-import { definirPapel, liberarAcessosEmLote, salvarPermissoes } from "./actions";
+import {
+  definirPapel,
+  liberarAcessosEmLote,
+  liberarAnalisesEmLote,
+  salvarPermissoes,
+} from "./actions";
 
 /**
  * As marcações de UM módulo, dentro do formulário de uma pessoa.
@@ -256,6 +261,11 @@ export default async function GestaoDeAcessosPage({
     ).values(),
   ].sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
 
+  // As análises que ESTA revenda tem -- as colunas da grade e a lista do
+  // bloco na ficha de cada pessoa saem daqui, para as duas nunca
+  // discordarem sobre o que existe.
+  const analisesDaRevenda = PAINEIS.filter((p) => modulos.some((m) => m.id === p.modulo));
+
   const termoTabela = filtro.trim().toLowerCase();
   const baseRoster = todas.filter((p) => p.role !== "owner" && daRevenda.has(p.id));
 
@@ -325,7 +335,7 @@ export default async function GestaoDeAcessosPage({
         legenda, quem procura "liberar um módulo" para na primeira tabela e
         não encontra o que queria.
       */}
-      <div className="mb-4 grid gap-2 sm:grid-cols-2">
+      <div className="mb-4 grid gap-2 sm:grid-cols-3">
         <div className="rounded-2xl border border-slate-200 bg-white p-3">
           <p className="text-sm font-bold text-slate-800">1️⃣ Módulos opcionais</p>
           <p className="mt-0.5 text-xs leading-snug text-slate-500">
@@ -334,10 +344,17 @@ export default async function GestaoDeAcessosPage({
           </p>
         </div>
         <div className="rounded-2xl border border-primary/30 bg-primary-soft/30 p-3">
-          <p className="text-sm font-bold text-primary-dark">2️⃣ Permissões de liderança</p>
+          <p className="text-sm font-bold text-primary-dark">2️⃣ Análises da Gestão</p>
           <p className="mt-0.5 text-xs leading-snug text-slate-600">
-            No fim da página, em <strong>Lideranças em {escolhida.nome}</strong>. É onde se marca
-            ver/criar/editar/excluir — e onde ficam as <strong>📊 Análises da Gestão</strong>.
+            A segunda tabela. Liga os <strong>relatórios na home</strong> da liderança — Anomalias,
+            Armazém, Uso do App. Mesmo gesto da primeira.
+          </p>
+        </div>
+        <div className="rounded-2xl border border-slate-200 bg-white p-3">
+          <p className="text-sm font-bold text-slate-800">3️⃣ Permissões de liderança</p>
+          <p className="mt-0.5 text-xs leading-snug text-slate-500">
+            No fim da página, em <strong>Lideranças em {escolhida.nome}</strong>. A ficha completa:
+            ver/criar/editar/excluir, módulo por módulo.
           </p>
         </div>
       </div>
@@ -599,6 +616,149 @@ export default async function GestaoDeAcessosPage({
         )}
       </section>
 
+      {/* ---- Grade das análises da Gestão ---- */}
+      {/*
+        A MESMA GRADE, PARA AS ANÁLISES.
+
+        Pedido do dono (05/09/2026): "não daria para migrar a análise de
+        gestão para liberar o acesso ao módulos opcionais?". Dá -- e é o
+        gesto que ele já conhece: uma coluna por análise, uma linha por
+        pessoa, um botão no fim.
+
+        MAS NÃO PELA TABELA DE OPCIONAIS. Três das análises usam módulos
+        que já estão lá e carregam outra coisa junto: marcar "Empilhadeira"
+        para dar o painel de gás daria também a permissão de TRANSPORTAR no
+        Abastecimento; "5S" e "Feedbacks" ligariam os cartões deles no app;
+        e "Produtividade do Armazém", que não é opcional, sumiria da tela
+        inicial de todo mundo que não tivesse a linha. Grade separada
+        resolve sem nenhum desses efeitos.
+
+        E ELA GRAVA NAS MESMAS LINHAS DA FICHA (`lideranca_permissoes`,
+        ação "ver"). Não é um segundo mecanismo: marcar aqui é idêntico a
+        marcar "Visualizar" lá embaixo, e as duas telas mostram o mesmo
+        estado. Uma permissão com duas origens seria uma que ninguém
+        consegue auditar.
+
+        SÓ LIDERANÇA, decisão do dono entre as três opções (05/09/2026).
+        Análise continua sendo tela de gestão -- foi assim que 12
+        colaboradores chegaram a ver o ranking de produtividade dos
+        colegas, e não é um caminho para reabrir.
+      */}
+      {analisesDaRevenda.length > 0 && (
+        <section className="mb-6">
+          <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">
+            📊 Análises da Gestão em {escolhida.nome}
+          </h2>
+          <p className="mb-3 text-xs text-slate-500">
+            Os relatórios que a pessoa passa a ver <strong>na própria home</strong>, sem entrar no
+            Modo Liderança. Só aparece quem já é liderança — para incluir alguém, use “Tornar alguém
+            liderança” logo abaixo.
+          </p>
+
+          {liderancas.length === 0 ? (
+            <div className="rounded-2xl border border-slate-200 bg-white p-6 text-center text-sm text-slate-500 shadow-sm">
+              Nenhuma liderança nesta revenda ainda.
+            </div>
+          ) : (
+            <div className="rounded-2xl border border-primary/30 bg-white shadow-sm">
+              <form action={liberarAnalisesEmLote}>
+                <input type="hidden" name="revenda" value={escolhida.id} />
+                <div className="max-h-[60vh] overflow-auto">
+                  <table className="w-full text-sm">
+                    <thead className="sticky top-0 z-20 bg-primary-soft/40 text-left text-xs uppercase text-slate-500">
+                      <tr>
+                        <th className="sticky left-0 z-20 min-w-[11rem] bg-primary-soft/40 p-3 align-bottom shadow-[2px_0_4px_-2px_rgba(0,0,0,0.08)]">
+                          Liderança
+                        </th>
+                        {analisesDaRevenda.map((p) => (
+                          <th
+                            key={p.id}
+                            className="w-20 bg-primary-soft/40 p-2 text-center align-bottom"
+                            title={p.pergunta}
+                          >
+                            <span className="block text-base leading-none">{p.emoji}</span>
+                            <span className="mt-1 block text-[9px] normal-case leading-tight text-slate-500">
+                              {p.rotulo}
+                            </span>
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {liderancas.map((pessoa) => {
+                        const minhas = porPessoa.get(pessoa.id) ?? new Set<string>();
+                        return (
+                          <tr key={pessoa.id} className="border-t border-slate-100">
+                            <td className="sticky left-0 z-10 min-w-[11rem] bg-white p-3 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.08)]">
+                              <p className="font-medium text-slate-800">{pessoa.nome}</p>
+                              <p className="text-xs text-slate-400">
+                                {pessoa.area ?? ""}
+                                {pessoa.cargo ? ` · ${pessoa.cargo}` : ""}
+                              </p>
+                            </td>
+                            {analisesDaRevenda.map((painel) => {
+                              const m = moduloPorId(painel.modulo)!;
+                              // QUEM ADMINISTRA O MÓDULO JÁ VÊ, e a célula
+                              // diz isso em vez de mentir que está
+                              // desmarcada. Desmarcar aqui deixaria a
+                              // pessoa podendo editar uma tela que não
+                              // abre -- então a célula é travada, e a
+                              // mudança se faz na ficha, lá embaixo.
+                              const administra = m.acoes.some(
+                                (a) => a !== "ver" && minhas.has(`${m.id}:${a}`),
+                              );
+                              return (
+                                <td key={painel.id} className="w-20 p-2 text-center">
+                                  {administra ? (
+                                    <span
+                                      className="text-base"
+                                      title={`Já vê porque administra ${m.rotulo}. Para mudar, use a ficha da pessoa.`}
+                                    >
+                                      🔒
+                                    </span>
+                                  ) : (
+                                    <>
+                                      <input
+                                        type="hidden"
+                                        name="universo"
+                                        value={`${pessoa.id}:${m.id}`}
+                                      />
+                                      <input
+                                        type="checkbox"
+                                        name="marcado"
+                                        value={`${pessoa.id}:${m.id}`}
+                                        defaultChecked={minhas.has(`${m.id}:ver`)}
+                                        aria-label={`${painel.rotulo} para ${pessoa.nome}`}
+                                        className="h-5 w-5 cursor-pointer rounded border-slate-300 text-primary"
+                                      />
+                                    </>
+                                  )}
+                                </td>
+                              );
+                            })}
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="flex flex-wrap items-center gap-3 border-t border-slate-100 p-3">
+                  <BotaoEnviar
+                    textoEnviando="Aplicando..."
+                    className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-white hover:bg-primary-dark sm:w-auto"
+                  >
+                    ✅ Liberar análises
+                  </BotaoEnviar>
+                  <p className="text-xs text-slate-400">
+                    🔒 = já vê porque administra o módulo. Muda na ficha da pessoa.
+                  </p>
+                </div>
+              </form>
+            </div>
+          )}
+        </section>
+      )}
+
       {/* ---- Promover alguém ---- */}
       <details className="mb-4 rounded-2xl border border-slate-200 bg-white shadow-sm">
         <summary className="cursor-pointer p-4 font-semibold text-primary">
@@ -761,9 +921,6 @@ export default async function GestaoDeAcessosPage({
                         se cadastra.
                     */}
                     {(() => {
-                      const analisesDaRevenda = PAINEIS.filter((p) =>
-                        modulos.some((m) => m.id === p.modulo),
-                      );
                       if (analisesDaRevenda.length === 0) return null;
 
                       const proprias = analisesDaRevenda.filter(
