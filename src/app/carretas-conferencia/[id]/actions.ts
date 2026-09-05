@@ -10,6 +10,7 @@ import { getRevendaId } from "@/lib/revendas";
 import {
   MAX_ITENS_CONFERENCIA,
   ehUnidadeItem,
+  produtoSemValidade,
   quantidadeNaoNegativa,
   quantidadePositiva,
 } from "@/lib/carretas";
@@ -271,11 +272,7 @@ export async function finalizarConferencia(formData: FormData) {
     }
     const unidade = unidades[i];
     if (!ehUnidadeItem(unidade)) erro(atendimentoId, "Escolha a unidade (palete/caixa) de cada item.");
-    // Lote e validade são OPCIONAIS desde 03/09/2026 (migration 095):
-    // a operação não usa o lote, e há item que não vence -- destilado de
-    // marketplace. Exigir a data obrigava a INVENTAR uma, e data
-    // inventada entra no alerta de validade mínima: vira aviso de
-    // vencimento para produto que não vence.
+    // O LOTE continua opcional (03/09/2026): a operação não o usa.
     //
     // Vazio vira null, e não string vazia: "não informado" e "informado
     // como nada" são coisas diferentes na hora de ler o histórico.
@@ -287,6 +284,43 @@ export async function finalizarConferencia(formData: FormData) {
   });
 
   const supabase = await createClient();
+
+  /*
+    A VALIDADE É OBRIGATÓRIA, MENOS NO MKT PLACE -- e a regra é conferida
+    AQUI, não só no navegador (pedido do dono, 05/09/2026).
+
+    A tela já exige o campo, mas ela decide pelo cluster que veio junto
+    da busca; esta ação pode ser chamada sem passar por tela nenhuma, e é
+    ela que grava. Uma regra que só existe no `required` do HTML não é
+    regra -- é sugestão.
+
+    Uma consulta só para os produtos desta conferência: o cluster não
+    vem no formulário de propósito. Se viesse, bastaria alterá-lo no
+    navegador para tornar a data opcional em qualquer item.
+  */
+  const { data: clustersDosItens, error: erroClusters } = await supabase
+    .from("pa_produtos")
+    .select("id, codigo, descricao, cluster_produto")
+    .eq("revenda_id", revendaId)
+    .in("id", itens.map((i) => i.produtoId));
+  if (erroClusters) {
+    erro(atendimentoId, `Não foi possível conferir os produtos: ${erroClusters.message}`);
+  }
+  const clusterPorId = new Map(
+    (clustersDosItens ?? []).map((p) => [p.id, p] as const),
+  );
+
+  const semData = itens.findIndex(
+    (i) => !i.validade && !produtoSemValidade(clusterPorId.get(i.produtoId)?.cluster_produto),
+  );
+  if (semData >= 0) {
+    const p = clusterPorId.get(itens[semData].produtoId);
+    erro(
+      atendimentoId,
+      `O item ${semData + 1} (${p ? `${p.codigo} — ${p.descricao}` : "produto"}) está sem validade. ` +
+        `Só produto de MKT Place pode ficar sem data.`,
+    );
+  }
 
   const { error: erroItens } = await supabase.from("atendimento_carretas_itens").insert(
     itens.map((i) => ({

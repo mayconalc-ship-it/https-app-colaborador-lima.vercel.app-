@@ -147,7 +147,7 @@ export default async function DetalheAtendimentoPage({ params }: { params: Promi
     .eq("revenda_id", revendaId)
     .maybeSingle();
 
-  const [{ data: atendimentoBanco }, { data: notasBanco }, { data: itensBanco }, { data: agItensBanco }, { data: agCatalogoBanco }, { data: configBanco }, { data: fabricasBanco }, { data: empilhadoresBanco }] =
+  const [{ data: atendimentoBanco }, { data: notasBanco }, { data: itensBanco }, { data: agItensBanco }, { data: agCatalogoBanco }, { data: configBanco }, { data: fabricasBanco }, { data: empilhadoresBanco }, { data: filtrosBanco }] =
     await Promise.all([
       supabase
         .from("atendimentos_carretas")
@@ -189,6 +189,14 @@ export default async function DetalheAtendimentoPage({ params }: { params: Promi
         .eq("revenda_id", revendaId)
         .eq("ativo", true)
         .order("nome"),
+      // Cluster e Tipo para o filtro do produto (o mesmo do Reepack).
+      // São só as duas colunas, da base inteira: a lista de valores
+      // DISTINTOS é curta, e é ela que vai para os dois selects.
+      supabase
+        .from("pa_produtos")
+        .select("cluster_produto, tipo")
+        .eq("revenda_id", revendaId)
+        .eq("ativo", true),
     ]);
 
   const a = atendimentoBanco as unknown as LinhaAtendimento | null;
@@ -209,6 +217,15 @@ export default async function DetalheAtendimentoPage({ params }: { params: Promi
   const diasMinimosValidadeAlerta = configBanco?.dias_minimos_validade_alerta ?? RECEBIMENTO_CONFIG_PADRAO.diasMinimosValidadeAlerta;
   const fabricas = (fabricasBanco ?? []) as { id: string; nome: string }[];
   const empilhadores = (empilhadoresBanco ?? []) as { id: string; nome: string }[];
+
+  // Os valores distintos, ordenados -- é o que os dois selects mostram.
+  const linhasFiltro = (filtrosBanco ?? []) as { cluster_produto: string | null; tipo: string | null }[];
+  const clusters = [
+    ...new Set(linhasFiltro.map((p) => p.cluster_produto).filter((c): c is string => Boolean(c))),
+  ].sort((x, y) => x.localeCompare(y, "pt-BR"));
+  const tipos = [
+    ...new Set(linhasFiltro.map((p) => p.tipo).filter((t): t is string => Boolean(t))),
+  ].sort();
   const notasProduto = notas.filter((n) => n.tipo === "produto");
   const notasRemessa = notas.filter((n) => n.tipo === "remessa");
 
@@ -408,6 +425,8 @@ export default async function DetalheAtendimentoPage({ params }: { params: Promi
                 atendimentoId={a.id}
                 diasMinimosValidadeAlerta={diasMinimosValidadeAlerta}
                 empilhadoresCadastrados={empilhadores}
+                clusters={clusters}
+                tipos={tipos}
               />
             ) : (
               <p className="rounded-2xl border border-slate-200 bg-white p-4 text-xs text-slate-500 shadow-sm">

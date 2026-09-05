@@ -3,15 +3,24 @@
 import { useEffect, useRef, useState } from "react";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
 import { BotaoAdicionarLinha } from "@/components/BotaoMais";
-import { ComboboxProduto } from "@/components/produtividade-armazem/ComboboxProduto";
+import { ComboboxProdutoReepack } from "@/components/produtividade-armazem/ComboboxProdutoReepack";
 import { ComboboxNome } from "@/components/produtividade-armazem/ComboboxNome";
 import {
   MAX_ITENS_CONFERENCIA,
   ROTULO_UNIDADE_ITEM,
   UNIDADES_ITEM,
   diasAteValidade,
+  produtoSemValidade,
 } from "@/lib/carretas";
-import { buscarEmpilhadores } from "@/app/admin/produtividade-armazem/actions";
+import {
+  buscarEmpilhadores,
+  buscarProdutosParaConferencia,
+} from "@/app/admin/produtividade-armazem/actions";
+
+/** O filtro de Cluster/Tipo é lembrado em cookie -- por TELA, para o
+ *  "Cerveja/Descartável" do Reepack não mandar aqui (ver
+ *  ComboboxProdutoReepack). */
+const COOKIE_CONFERENCIA_PATH = "/carretas-conferencia";
 import { criarEmpilhadorRapido, finalizarConferencia } from "./actions";
 
 const campo =
@@ -24,24 +33,53 @@ function novaChave() {
   return `item-${contador}`;
 }
 
-/** A contagem de dias pra vencer aparece sempre -- só a cor/ênfase muda
- *  conforme o mínimo configurado (não é mais "só mostra se estiver
- *  abaixo do limite"). */
-function CampoValidade({ diasMinimosValidadeAlerta }: { diasMinimosValidadeAlerta: number }) {
+/**
+ * A contagem de dias pra vencer aparece sempre -- só a cor/ênfase muda
+ * conforme o mínimo configurado.
+ *
+ * A DATA É OBRIGATÓRIA, MENOS NO MARKETPLACE (pedido do dono,
+ * 05/09/2026). Em 03/09 ela virou opcional para todo mundo por causa dos
+ * destilados que não vencem; era largo demais, e opcional para todos
+ * custava caro em silêncio: o item que vence entrava sem data, e sem
+ * data não existe alerta de validade mínima -- o produto perto de vencer
+ * passava pela conferência sem ninguém ver.
+ *
+ * `obrigatoria` chega de fora porque depende do produto escolhido no
+ * combobox ACIMA deste campo: enquanto ninguém escolheu, a data já entra
+ * exigida, que é o caso da maioria.
+ */
+function CampoValidade({
+  diasMinimosValidadeAlerta,
+  obrigatoria,
+  motivoDaExcecao,
+}: {
+  diasMinimosValidadeAlerta: number;
+  obrigatoria: boolean;
+  motivoDaExcecao: string | null;
+}) {
   const [validade, setValidade] = useState("");
   const dias = validade ? diasAteValidade(validade) : null;
   const abaixoDoMinimo = dias !== null && dias < diasMinimosValidadeAlerta;
 
   return (
     <div>
-      <label className={rotulo}>Validade (opcional)</label>
+      <label className={rotulo}>
+        Validade {obrigatoria ? "*" : "(opcional)"}
+      </label>
       <input
         name="validade"
         type="date"
+        required={obrigatoria}
         value={validade}
         onChange={(e) => setValidade(e.target.value)}
         className={campo}
       />
+      {/* Diz POR QUE ficou opcional. Um campo que muda de exigência
+          sozinho, sem explicar, parece defeito -- e na dúvida a pessoa
+          inventa uma data para "garantir". */}
+      {motivoDaExcecao && (
+        <p className="mt-1 text-xs text-slate-500">{motivoDaExcecao}</p>
+      )}
       {dias !== null && (
         <p className={`mt-1 text-xs ${abaixoDoMinimo ? "font-semibold text-amber-700" : "text-slate-500"}`}>
           {abaixoDoMinimo ? "⚠️ " : ""}
@@ -128,13 +166,22 @@ export function FormFinalizarConferencia({
   atendimentoId,
   diasMinimosValidadeAlerta,
   empilhadoresCadastrados = [],
+  clusters = [],
+  tipos = [],
 }: {
   atendimentoId: string;
   diasMinimosValidadeAlerta: number;
   empilhadoresCadastrados?: { id: string; nome: string }[];
+  clusters?: string[];
+  tipos?: string[];
 }) {
   const [itens, setItens] = useState<string[]>([novaChave()]);
   const [empilhadores, setEmpilhadores] = useState<Record<string, string>>({ [itens[0]]: "" });
+  /* O CLUSTER do produto escolhido em cada item -- é ele que decide se a
+     validade daquele item é obrigatória. Fica por CHAVE porque cada item
+     tem o seu: uma carreta pode trazer um destilado de marketplace e uma
+     cerveja na mesma conferência, e a regra vale item a item. */
+  const [produtos, setProdutos] = useState<Record<string, string | null>>({});
 
   return (
     <form action={finalizarConferencia} className="space-y-4">
@@ -157,24 +204,43 @@ export function FormFinalizarConferencia({
               )}
             </div>
 
+            {/* O MESMO FILTRO DO REEPACK (pedido do dono, 05/09/2026):
+                Cluster e Tipo estreitam a lista antes de digitar, e é o
+                que permite achar o produto sem acertar as letras do
+                nome. A busca aqui varre a base INTEIRA, não só o que
+                está pronto para reembalar -- a carreta traz qualquer
+                SKU. */}
             <div>
-              <label className={rotulo}>Produto</label>
-              <ComboboxProduto />
+              <ComboboxProdutoReepack
+                clusters={clusters}
+                tipos={tipos}
+                buscarProdutos={buscarProdutosParaConferencia}
+                cookiePath={COOKIE_CONFERENCIA_PATH}
+                aoEscolher={(p) =>
+                  setProdutos((atual) => ({ ...atual, [chave]: p?.cluster ?? null }))
+                }
+              />
             </div>
 
             <CamposQuantidade />
 
-            {/* Lote e validade OPCIONAIS (pedido do dono, 03/09/2026):
-                a operação não usa o lote, e há item que não vence --
-                destilado de marketplace. Obrigar a data fazia o
-                conferente inventar uma, e data inventada vira alerta de
-                vencimento para produto que não vence. */}
+            {/* O LOTE continua opcional (03/09/2026): a operação não o
+                usa. A VALIDADE voltou a ser obrigatória em 05/09, menos
+                no marketplace -- ver CampoValidade. */}
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className={rotulo}>Lote (opcional)</label>
                 <input name="lote" className={campo} />
               </div>
-              <CampoValidade diasMinimosValidadeAlerta={diasMinimosValidadeAlerta} />
+              <CampoValidade
+                diasMinimosValidadeAlerta={diasMinimosValidadeAlerta}
+                obrigatoria={!produtoSemValidade(produtos[chave])}
+                motivoDaExcecao={
+                  produtoSemValidade(produtos[chave])
+                    ? "Produto de MKT Place — pode ficar em branco (há item que não vence, como destilado)."
+                    : null
+                }
+              />
             </div>
 
             <div>

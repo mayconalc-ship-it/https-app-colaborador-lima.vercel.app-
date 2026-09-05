@@ -324,6 +324,43 @@ export function diasAteValidade(validadeISO: string, agora = new Date()): number
   return Math.round((validade - hoje) / msPorDia);
 }
 
+/**
+ * A VALIDADE VOLTA A SER OBRIGATÓRIA -- menos no marketplace.
+ *
+ * Em 03/09/2026 ela virou opcional para todo mundo, porque "tem itens
+ * como destilados que não têm validade". Era largo demais: o dono
+ * corrigiu em 05/09 -- a exceção é o MKT PLACE, não a base inteira.
+ *
+ * Opcional para todos custava caro de um jeito silencioso: o item que
+ * vence entrava sem data, e sem data não há alerta de validade mínima --
+ * o produto perto de vencer passava pela conferência sem ninguém ver.
+ * Obrigar todos custava o contrário: o conferente inventava uma data
+ * para o destilado, e data inventada vira alerta de vencimento para
+ * produto que não vence.
+ *
+ * A regra sai do CLUSTER do produto, que é o que a planilha já traz --
+ * ninguém precisa marcar nada a mais no cadastro.
+ */
+export const CLUSTER_SEM_VALIDADE = "MKT PLACE";
+
+/**
+ * Compara sem acento, sem caixa e sem espaço a mais, e aceita as
+ * variações que a planilha já usou ("MKT PLACE", "MKT Place",
+ * "MARKETPLACE"). Uma comparação literal quebraria no dia em que alguém
+ * digitasse "Mkt place" -- e quebraria para o lado ERRADO: voltaria a
+ * exigir a data de quem não tem.
+ */
+export function produtoSemValidade(cluster: string | null | undefined): boolean {
+  if (!cluster) return false;
+  const limpo = cluster
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toUpperCase()
+    .replace(/[\s_-]+/g, " ")
+    .trim();
+  return limpo === "MKT PLACE" || limpo === "MKTPLACE" || limpo === "MARKET PLACE" || limpo === "MARKETPLACE";
+}
+
 export type CorSinalizador = "verde" | "amarelo" | "vermelho";
 
 /**

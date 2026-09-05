@@ -1999,6 +1999,56 @@ export async function buscarProdutosReepack(
   return data ?? [];
 }
 
+/**
+ * A busca da CONFERÊNCIA DE CARRETA -- mesmo filtro em cascata do
+ * Reepack (pedido do dono, 05/09/2026: "utilize o mesmo padrão de filtro
+ * de produto do reepack"), sobre a base INTEIRA.
+ *
+ * A diferença para `buscarProdutosReepack` é o que ela NÃO filtra:
+ * aquela só devolve produto pronto para reembalar (com Fator Hecto e
+ * embalagem). Uma carreta traz qualquer SKU do estoque -- exigir o
+ * cadastro de reepack aqui esconderia da conferência metade do que
+ * chega no caminhão.
+ *
+ * Devolve o CLUSTER junto, e não é enfeite: é ele que decide se a
+ * validade é obrigatória naquele item (ver produtoSemValidade). Sem vir
+ * na mesma resposta, a tela teria de fazer uma segunda ida ao servidor
+ * depois de cada escolha, e a data ficaria oscilando entre obrigatória e
+ * opcional enquanto a resposta não chegasse.
+ */
+export async function buscarProdutosParaConferencia(
+  termo: string,
+  filtros?: { cluster?: string; tipo?: string },
+) {
+  const revendaId = await exigirRevenda("/carretas-conferencia");
+  const t = termo.trim();
+  const temFiltro = Boolean(filtros?.cluster || filtros?.tipo);
+  if (t.length < 2 && !temFiltro) return [];
+
+  const supabase = await createClient();
+  let consulta = supabase
+    .from("pa_produtos")
+    .select("id, codigo, descricao, cluster_produto")
+    .eq("revenda_id", revendaId)
+    .eq("ativo", true);
+
+  if (filtros?.cluster) consulta = consulta.eq("cluster_produto", filtros.cluster);
+  if (filtros?.tipo) consulta = consulta.eq("tipo", filtros.tipo);
+  if (t) consulta = consulta.or(`codigo.ilike.%${t}%,descricao.ilike.%${t}%`);
+
+  const { data, error } = await consulta.order("codigo").limit(50);
+  // Erro não vira lista vazia: "nenhum produto encontrado" é uma
+  // resposta, e seria a errada -- o conferente concluiria que o item não
+  // está cadastrado e chamaria alguém à toa.
+  if (error) throw new Error(`Não foi possível buscar: ${error.message}`);
+  return (data ?? []).map((p) => ({
+    id: p.id,
+    codigo: p.codigo,
+    descricao: p.descricao,
+    cluster: p.cluster_produto,
+  }));
+}
+
 // -------------------- CHECKLIST 5S --------------------
 export async function salvarItemChecklist5s(formData: FormData) {
   await requireModulo("produtividade-armazem", "editar");

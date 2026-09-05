@@ -8,7 +8,10 @@ const campo =
   "w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-base text-slate-900 focus:border-primary focus:outline-none";
 const rotulo = "mb-1 block text-xs font-semibold uppercase text-slate-500";
 
-type Produto = { id: string; codigo: string; descricao: string };
+/** `cluster` só vem de quem precisa dele -- hoje a conferência de
+ *  carreta, que decide por ele se a validade é obrigatória naquele item
+ *  (ver produtoSemValidade em lib/carretas.ts). */
+type Produto = { id: string; codigo: string; descricao: string; cluster?: string | null };
 
 const ROTULO_TIPO: Record<string, string> = {
   DESCARTAVEL: "Descartável",
@@ -71,6 +74,7 @@ export function ComboboxProdutoReepack({
   nomeCampo = "produto_id",
   buscarProdutos = buscarProdutosReepack,
   cookiePath = COOKIE_REEPACK_PATH,
+  aoEscolher,
 }: {
   clusters: string[];
   tipos: string[];
@@ -88,6 +92,10 @@ export function ComboboxProdutoReepack({
   /** O cookie do filtro é por tela: lembrar "Cerveja/Descartável" do
    *  Reepack não deve mandar na tela de FEFO. */
   cookiePath?: string;
+  /** Avisa o pai do produto escolhido (ou `null` quando a escolha é
+   *  desfeita ao digitar de novo). A conferência de carreta usa para
+   *  saber se aquele item exige validade. */
+  aoEscolher?: (p: Produto | null) => void;
 }) {
   const [cluster, setCluster] = useState(() => {
     const v = valorDoCookie(COOKIE_REEPACK_CLUSTER, clusterInicial);
@@ -154,6 +162,10 @@ export function ComboboxProdutoReepack({
 
   function aoDigitar(valor: string) {
     setTermo(valor);
+    // Digitar depois de escolher DESFAZ a escolha -- e o pai precisa
+    // saber, senão a validade continuaria opcional por causa de um
+    // produto que não está mais selecionado.
+    if (selecionado) aoEscolher?.(null);
     setSelecionado(null);
     setAberto(true);
     if (relogio.current) clearTimeout(relogio.current);
@@ -162,6 +174,7 @@ export function ComboboxProdutoReepack({
 
   function aoMudarCluster(valor: string) {
     setCluster(valor);
+    if (selecionado) aoEscolher?.(null);
     setSelecionado(null);
     setAberto(true);
     buscar(termo, valor, tipo);
@@ -170,6 +183,7 @@ export function ComboboxProdutoReepack({
 
   function aoMudarTipo(valor: string) {
     setTipo(valor);
+    if (selecionado) aoEscolher?.(null);
     setSelecionado(null);
     setAberto(true);
     buscar(termo, cluster, valor);
@@ -180,6 +194,7 @@ export function ComboboxProdutoReepack({
     setSelecionado(p);
     setTermo(`${p.codigo} — ${p.descricao}`);
     setAberto(false);
+    aoEscolher?.(p);
   }
 
   const temFiltro = Boolean(cluster || tipo);
