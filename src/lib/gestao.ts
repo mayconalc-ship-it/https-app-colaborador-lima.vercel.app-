@@ -162,6 +162,25 @@ export function painelPorId(id: string) {
   return PAINEIS.find((p) => p.id === id);
 }
 
+/**
+ * QUAL ANÁLISE CADA MÓDULO ABRE -- para a tela de acessos poder dizer isso.
+ *
+ * Nenhuma permissão nova: a análise SEMPRE esteve atrás do "Visualizar" do
+ * módulo dela. O que faltava era a tela de acessos DIZER isso. Numa lista
+ * de trinta módulos, quem libera "Uso do App" não tinha como saber que
+ * estava abrindo um painel na Gestão -- e quem queria abrir um painel não
+ * sabia qual módulo marcar.
+ *
+ * Um módulo pode abrir mais de uma análise (é o caso de nenhum hoje, mas o
+ * mapa é uma lista para não precisar ser reescrito quando for).
+ */
+export function paineisDoModulo(modulo: ModuloId): Painel[] {
+  return PAINEIS.filter((p) => p.modulo === modulo);
+}
+
+/** Os módulos que abrem alguma análise -- a legenda da tela de acessos. */
+export const MODULOS_COM_ANALISE: ModuloId[] = [...new Set(PAINEIS.map((p) => p.modulo))];
+
 /** Os redirects do next.config: endereço antigo -> endereço novo. */
 export function mudancasDeEndereco() {
   return [

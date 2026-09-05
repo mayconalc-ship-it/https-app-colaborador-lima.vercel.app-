@@ -6,14 +6,102 @@ import { PageHeader } from "@/components/PageHeader";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
 import {
   AJUDA_ACAO,
+  EMOJI_GRUPO_ADMIN,
+  GRUPOS_DO_ADMIN,
   MODULOS,
   MODULOS_OPCIONAIS,
   ROTULO_ACAO,
   ROTULO_PAPEL,
   moduloPorId,
+  type Modulo,
   type Papel,
 } from "@/lib/acessos";
+import { PAINEIS, paineisDoModulo } from "@/lib/gestao";
 import { definirPapel, liberarAcessosEmLote, salvarPermissoes } from "./actions";
+
+/**
+ * As marcações de UM módulo, dentro do formulário de uma pessoa.
+ *
+ * Existe fora do laço porque o mesmo bloco é desenhado em dois lugares: na
+ * gaveta do módulo e, quando a tela dele É uma análise, no bloco das
+ * Análises da Gestão. Duas cópias divergiriam na primeira mudança.
+ *
+ * `tituloAlternativo` deixa a análise se chamar pelo nome que a liderança
+ * conhece ("📝 Feedbacks das Rotas") em vez do nome do módulo, quando ela
+ * aparece no bloco das análises.
+ */
+function BlocoDoModulo({
+  m,
+  minhas,
+  tituloAlternativo,
+  ajuda,
+}: {
+  m: Modulo;
+  minhas: Set<string>;
+  tituloAlternativo?: string;
+  ajuda?: string;
+}) {
+  const analises = paineisDoModulo(m.id);
+
+  return (
+    <div>
+      <p className="mb-1 text-sm font-semibold text-slate-800">
+        {tituloAlternativo ?? `${m.emoji} ${m.rotulo}`}
+      </p>
+      {ajuda && <p className="mb-1.5 text-xs leading-snug text-slate-500">{ajuda}</p>}
+
+      {/*
+        A ANÁLISE QUE ESTE MÓDULO ABRE, dita por extenso.
+
+        A permissão sempre foi esta -- o "Visualizar" do módulo. O que
+        faltava era a tela DIZER: numa lista de trinta, quem marcava "Uso
+        do App" não sabia que estava abrindo um painel, e quem queria abrir
+        um painel não sabia qual módulo marcar.
+
+        Some quando o bloco já está DENTRO das Análises: ali o título já é
+        o nome da análise, e o aviso repetiria a mesma frase.
+      */}
+      {!tituloAlternativo &&
+        analises.map((a) => (
+          <p
+            key={a.id}
+            className="mb-1.5 rounded-lg bg-primary-soft/60 px-2 py-1 text-[11px] leading-snug text-primary-dark"
+          >
+            📊 <strong>Visualizar</strong> abre a análise <strong>{a.rotulo}</strong> na Gestão e na
+            home — {a.pergunta.toLowerCase()}
+          </p>
+        ))}
+
+      <div className="flex flex-wrap gap-3">
+        {m.acoes.map((acao) => (
+          <label key={acao} className="flex items-center gap-1.5 text-sm text-slate-600">
+            <input
+              type="checkbox"
+              name="permissao"
+              value={`${m.id}:${acao}`}
+              defaultChecked={minhas.has(`${m.id}:${acao}`)}
+              className="h-4 w-4 rounded border-slate-300 text-primary"
+            />
+            {ROTULO_ACAO[acao]}
+          </label>
+        ))}
+      </div>
+
+      {/* Só as ações que não se explicam sozinhas ganham nota — poluir
+          todas cansaria a leitura. */}
+      {m.acoes.map((acao) =>
+        AJUDA_ACAO[acao] ? (
+          <p
+            key={`ajuda-${acao}`}
+            className="mt-1.5 rounded-lg bg-gold-soft p-2 text-xs text-primary-dark"
+          >
+            <strong>{ROTULO_ACAO[acao]}:</strong> {AJUDA_ACAO[acao]}
+          </p>
+        ) : null,
+      )}
+    </div>
+  );
+}
 
 export default async function GestaoDeAcessosPage({
   searchParams,
@@ -583,44 +671,186 @@ export default async function GestaoDeAcessosPage({
                   <input type="hidden" name="id" value={p.id} />
                   <input type="hidden" name="revenda" value={escolhida.id} />
 
-                  <div className="space-y-4">
-                    {modulos.map((m) => (
-                      <div key={m.id}>
-                        <p className="mb-1.5 text-sm font-semibold text-slate-800">
-                          {m.emoji} {m.rotulo}
-                        </p>
-                        <div className="flex flex-wrap gap-3">
-                          {m.acoes.map((acao) => (
-                            <label
-                              key={acao}
-                              className="flex items-center gap-1.5 text-sm text-slate-600"
+                  {/*
+                    AGRUPADO POR GAVETA, e não uma lista corrida.
+
+                    Eram trinta módulos em fila única, na ordem em que
+                    foram escritos no código -- "Jornal", "Ranking",
+                    "Padrões", "Rating"... Quem liberava tinha de descer a
+                    lista inteira procurando pelo nome, e não havia como
+                    ver o que já estava marcado sem ler tudo. As gavetas
+                    são as MESMAS da barra do Modo Liderança (Comunicação,
+                    Engajamento, Gestão de Dados, Operação, Pessoas,
+                    Configuração): quem administra já anda por elas.
+
+                    O contador ao lado de cada gaveta é o que responde
+                    "esta pessoa tem o quê?" sem abrir nada.
+                  */}
+                  <div className="space-y-3">
+                    {/*
+                      AS ANÁLISES DA GESTÃO VÊM PRIMEIRO, E JUNTAS.
+
+                      Pedido do dono (05/09/2026): "deixe em gestão de
+                      acesso o módulo de gestão meio que agrupado com as
+                      visões dos relatórios para quem for liberar".
+
+                      Antes, as sete análises estavam espalhadas por três
+                      gavetas diferentes -- "Uso do App" em Gestão de
+                      Dados, o BI do 5S dentro do Programa 5S em
+                      Configuração, o painel de gás dentro da Empilhadeira
+                      em Operação. Quem queria "liberar os relatórios para
+                      o supervisor" tinha de saber de cor em que módulo
+                      cada um morava.
+
+                      DUAS NATUREZAS, e é isso que separa as duas listas
+                      abaixo:
+
+                      - a análise que É o módulo inteiro (Feedbacks,
+                        Justificativas, Uso do App) traz a marcação aqui,
+                        e sai da gaveta de origem -- ter o mesmo checkbox
+                        em dois lugares faria desmarcar num deles parecer
+                        que tirou o acesso, quando o outro ainda concede;
+
+                      - a análise que é UMA DAS TELAS de um módulo maior
+                        (Anomalias, Armazém, Gás, 5S) aparece só como
+                        aviso, dizendo onde está a marcação. O módulo
+                        continua inteiro na gaveta dele, porque lá também
+                        se cadastra.
+                    */}
+                    {(() => {
+                      const analisesDaRevenda = PAINEIS.filter((p) =>
+                        modulos.some((m) => m.id === p.modulo),
+                      );
+                      if (analisesDaRevenda.length === 0) return null;
+
+                      const proprias = analisesDaRevenda.filter(
+                        (p) => moduloPorId(p.modulo)?.emGestao,
+                      );
+                      const dentroDeOutro = analisesDaRevenda.filter(
+                        (p) => !moduloPorId(p.modulo)?.emGestao,
+                      );
+                      const liberadas = analisesDaRevenda.filter((p) =>
+                        minhas.has(`${p.modulo}:ver`),
+                      ).length;
+
+                      return (
+                        <details
+                          open={liberadas > 0}
+                          className="rounded-xl border border-primary/30 bg-primary-soft/20"
+                        >
+                          <summary className="flex cursor-pointer items-center justify-between gap-2 p-3">
+                            <span className="text-sm font-bold text-primary-dark">
+                              📊 Análises da Gestão
+                            </span>
+                            <span
+                              className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+                                liberadas > 0
+                                  ? "bg-primary text-white"
+                                  : "bg-slate-100 text-slate-400"
+                              }`}
                             >
-                              <input
-                                type="checkbox"
-                                name="permissao"
-                                value={`${m.id}:${acao}`}
-                                defaultChecked={minhas.has(`${m.id}:${acao}`)}
-                                className="h-4 w-4 rounded border-slate-300 text-primary"
-                              />
-                              {ROTULO_ACAO[acao]}
-                            </label>
-                          ))}
-                        </div>
-                        {/* Só as ações que não se explicam sozinhas ganham
-                            nota — poluir todas cansaria a leitura. */}
-                        {m.acoes.map((acao) =>
-                          AJUDA_ACAO[acao] ? (
-                            <p
-                              key={`ajuda-${acao}`}
-                              className="mt-1.5 rounded-lg bg-gold-soft p-2 text-xs text-primary-dark"
-                            >
-                              <strong>{ROTULO_ACAO[acao]}:</strong>{" "}
-                              {AJUDA_ACAO[acao]}
+                              {liberadas} de {analisesDaRevenda.length}
+                            </span>
+                          </summary>
+
+                          <div className="space-y-4 border-t border-primary/20 p-3">
+                            <p className="text-xs leading-relaxed text-slate-600">
+                              Os relatórios que a pessoa passa a ver <strong>na home</strong>, sem
+                              precisar entrar no Modo Liderança.
                             </p>
-                          ) : null,
-                        )}
-                      </div>
-                    ))}
+
+                            {proprias.map((p) => {
+                              const m = moduloPorId(p.modulo)!;
+                              return (
+                                <BlocoDoModulo
+                                  key={p.modulo}
+                                  m={m}
+                                  minhas={minhas}
+                                  tituloAlternativo={`${p.emoji} ${p.rotulo}`}
+                                  ajuda={p.pergunta}
+                                />
+                              );
+                            })}
+
+                            {dentroDeOutro.length > 0 && (
+                              <div className="rounded-lg bg-white/70 p-2.5">
+                                <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                                  Vêm junto com o módulo
+                                </p>
+                                <ul className="space-y-1">
+                                  {dentroDeOutro.map((p) => {
+                                    const m = moduloPorId(p.modulo)!;
+                                    const tem = minhas.has(`${p.modulo}:ver`);
+                                    return (
+                                      <li
+                                        key={p.id}
+                                        className="flex items-start gap-2 text-xs leading-snug text-slate-600"
+                                      >
+                                        <span className={tem ? "text-green-600" : "text-slate-300"}>
+                                          {tem ? "✅" : "⬜"}
+                                        </span>
+                                        <span>
+                                          <strong>
+                                            {p.emoji} {p.rotulo}
+                                          </strong>{" "}
+                                          — marque <strong>Visualizar</strong> em {m.emoji}{" "}
+                                          {m.rotulo}, na gaveta{" "}
+                                          <strong>
+                                            {EMOJI_GRUPO_ADMIN[m.grupo]} {m.grupo}
+                                          </strong>
+                                          .
+                                        </span>
+                                      </li>
+                                    );
+                                  })}
+                                </ul>
+                              </div>
+                            )}
+                          </div>
+                        </details>
+                      );
+                    })()}
+
+                    {GRUPOS_DO_ADMIN.map((grupo) => {
+                      // Módulo cuja tela É uma análise já foi marcado no
+                      // bloco acima. Repeti-lo aqui daria dois checkboxes
+                      // para a mesma permissão.
+                      const doGrupo = modulos.filter((m) => m.grupo === grupo && !m.emGestao);
+                      if (doGrupo.length === 0) return null;
+                      const liberados = doGrupo.filter((m) =>
+                        m.acoes.some((a) => minhas.has(`${m.id}:${a}`)),
+                      ).length;
+                      return (
+                        <details
+                          key={grupo}
+                          // Gaveta com algo liberado já abre: é onde quem
+                          // está conferindo vai olhar primeiro.
+                          open={liberados > 0}
+                          className="rounded-xl border border-slate-200"
+                        >
+                          <summary className="flex cursor-pointer items-center justify-between gap-2 p-3">
+                            <span className="text-sm font-bold text-slate-800">
+                              {EMOJI_GRUPO_ADMIN[grupo]} {grupo}
+                            </span>
+                            <span
+                              className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+                                liberados > 0
+                                  ? "bg-primary-soft text-primary-dark"
+                                  : "bg-slate-100 text-slate-400"
+                              }`}
+                            >
+                              {liberados} de {doGrupo.length}
+                            </span>
+                          </summary>
+
+                          <div className="space-y-4 border-t border-slate-100 p-3">
+                            {doGrupo.map((m) => (
+                              <BlocoDoModulo key={m.id} m={m} minhas={minhas} />
+                            ))}
+                          </div>
+                        </details>
+                      );
+                    })}
                   </div>
 
                   <p className="mt-4 rounded-lg bg-slate-50 p-3 text-xs text-slate-500">
