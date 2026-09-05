@@ -12,6 +12,7 @@ import { getRevendaId } from "@/lib/revendas";
 import { listarPilares } from "@/lib/pilares";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { SelecaoPilarPadrao } from "@/components/quiz/SelecaoPilarPadrao";
+import { BotaoStatusQuestao } from "@/components/quiz/BotaoStatusQuestao";
 import { AREAS } from "@/lib/areas";
 import {
   getBancoDisponivel,
@@ -81,13 +82,45 @@ export default async function RodadaPage({
     podeNoModulo("quiz", "excluir"),
   ]);
 
+  /*
+    SÓ O QUE ESTA TELA VAI DESENHAR.
+
+    As sete consultas rodavam sempre, e metade delas não aparece: os
+    indicadores, a classificação e os elegíveis só existem fora do
+    rascunho (`{!rascunho && ...}` logo abaixo), e o banco de perguntas
+    só dentro dele. Rodar tudo custava pouco numa visita -- mas esta
+    página é remontada INTEIRA a cada clique de desativar (a ação não
+    redireciona, de propósito), e aí o desperdício vira o tempo que a
+    pessoa passa olhando uma rodinha.
+  */
+  const emRascunho = rodada.status === "rascunho";
+  // O objeto vazio nunca é lido em rascunho (a seção inteira some), mas
+  // precisa ter a forma do de verdade para o TypeScript não perder o
+  // tipo do resto do Promise.all.
+  const indicadoresVazios: Awaited<ReturnType<typeof getIndicadores>> = {
+    iniciaram: 0,
+    concluiram: 0,
+    mediaPontos: 0,
+    mediaAcertos: 0,
+    taxaConclusao: 0,
+    maisErrada: null,
+    maisAcertada: null,
+    desempenho: [],
+  };
+
   const [questoes, banco, indicadores, classificacao, elegiveis, pilares, { data: padroesBanco }] =
     await Promise.all([
       getQuestoesDaRodada(rodada.id),
-      getBancoDisponivel(revendaId, rodada.area, rodada.id),
-      getIndicadores(rodada.id),
-      getClassificacaoRodada(rodada),
-      getElegiveis(revendaId, rodada.area),
+      emRascunho
+        ? getBancoDisponivel(revendaId, rodada.area, rodada.id)
+        : Promise.resolve([] as Awaited<ReturnType<typeof getBancoDisponivel>>),
+      emRascunho ? Promise.resolve(indicadoresVazios) : getIndicadores(rodada.id),
+      emRascunho
+        ? Promise.resolve([] as Awaited<ReturnType<typeof getClassificacaoRodada>>)
+        : getClassificacaoRodada(rodada),
+      emRascunho
+        ? Promise.resolve({ daArea: 0 } as Awaited<ReturnType<typeof getElegiveis>>)
+        : getElegiveis(revendaId, rodada.area),
       listarPilares(true),
       createAdminClient()
         .from("padroes")
@@ -453,11 +486,10 @@ export default async function RodadaPage({
                 >
                   {rotuloDificuldade(q.dificuldade)}
                 </span>
-                {q.status === "inativa" && (
-                  <span className="rounded-full bg-slate-200 px-2 py-0.5 font-medium text-slate-600">
-                    Desativada
-                  </span>
-                )}
+                {/* A etiqueta "Desativada" foi para dentro do
+                    BotaoStatusQuestao: ela precisa trocar no mesmo
+                    instante que o botão, e aqui ficaria um render
+                    atrás. */}
                 {q.vezesUsada > 0 && (
                   <span className="text-slate-500">
                     {q.acertos} acertos · {q.erros} erros
@@ -471,27 +503,19 @@ export default async function RodadaPage({
                         deixa de exigir rolar tudo de novo. A cor diz o que
                         o clique faz: âmbar tira de circulação, verde
                         devolve -- o cinza de antes não distinguia um do
-                        outro (pedido do dono, 02/09/2026). */}
-                    <form action={alternarStatusQuestao}>
-                      <input type="hidden" name="rodada_id" value={rodada.id} />
-                      <input type="hidden" name="questao_id" value={q.id} />
-                      <input type="hidden" name="status" value={q.status} />
-                      <BotaoEnviar
-                        textoEnviando="..."
-                        title={
-                          q.status === "ativa"
-                            ? "Tira a pergunta de circulação em rodadas futuras, sem apagar. Ela continua no banco e pode ser reativada depois."
-                            : "Volta a pergunta a ficar disponível para novas rodadas."
-                        }
-                        className={
-                          q.status === "ativa"
-                            ? "rounded-lg border border-amber-300 bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-800 hover:bg-amber-100"
-                            : "rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-800 hover:bg-emerald-100"
-                        }
-                      >
-                        {q.status === "ativa" ? "🚫 Desativar" : "✅ Ativar"}
-                      </BotaoEnviar>
-                    </form>
+                        outro (pedido do dono, 02/09/2026).
+
+                        A resposta é OTIMISTA desde 05/09/2026: sem
+                        redirect, a confirmação dependia do
+                        `revalidatePath` remontar a página inteira, e o
+                        botão ficava na rodinha enquanto isso. Ver
+                        BotaoStatusQuestao. */}
+                    <BotaoStatusQuestao
+                      acao={alternarStatusQuestao}
+                      rodadaId={rodada.id}
+                      questaoId={q.id}
+                      status={q.status}
+                    />
 
                     {rascunho && (
                       <BotaoExcluir

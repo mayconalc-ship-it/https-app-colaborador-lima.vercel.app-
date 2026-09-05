@@ -784,7 +784,12 @@ export async function getIndicadores(rodadaId: number) {
 
   const ordenadas = [...desempenho].sort((a, b) => a.percentual - b.percentual);
 
-  return {
+  // O RETORNO É ANOTADO porque rodada sem resposta nenhuma NÃO tem "mais
+  // errada". `ordenadas[0] ?? null` já devolve nulo e a tela já testa por
+  // ele -- mas o TypeScript inferia a propriedade como sempre presente
+  // (indexar um array não acusa vazio), e quem lesse a assinatura seria
+  // levado a acreditar nisso.
+  const indicadores: IndicadoresRodada = {
     iniciaram: lista.length,
     concluiram: concluidas.length,
     mediaPontos: media(concluidas.map((p) => p.pontos)),
@@ -796,7 +801,28 @@ export async function getIndicadores(rodadaId: number) {
     maisAcertada: ordenadas[ordenadas.length - 1] ?? null,
     desempenho: ordenadas,
   };
+  return indicadores;
 }
+
+/** Uma questão no recorte de desempenho da rodada. */
+export type QuestaoDestaque = {
+  id: number;
+  pergunta: string;
+  respondida: number;
+  acertos: number;
+  percentual: number;
+};
+
+export type IndicadoresRodada = {
+  iniciaram: number;
+  concluiram: number;
+  mediaPontos: number;
+  mediaAcertos: number;
+  taxaConclusao: number;
+  maisErrada: QuestaoDestaque | null;
+  maisAcertada: QuestaoDestaque | null;
+  desempenho: QuestaoDestaque[];
+};
 
 /**
  * Os perfis desta revenda, já com a área traduzida para DU/AL.
