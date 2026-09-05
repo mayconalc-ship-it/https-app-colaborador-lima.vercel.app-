@@ -20,6 +20,34 @@ function sucesso(aba: string, mensagem: string): never {
   redirect(`${ROTA}?aba=${aba}&sucesso=${encodeURIComponent(mensagem)}`);
 }
 
+/**
+ * PRONTO, SEM SAIR DO LUGAR.
+ *
+ * Pedido do dono (05/09/2026): "corrija o comportamento do botão salvar,
+ * está fechando a tela e subindo a tela após atualização, precisa manter
+ * onde está e até para não ficar rolando a tela o tempo todo".
+ *
+ * O `sucesso()` acima é um `redirect`, e todo redirect é uma NAVEGAÇÃO:
+ * a página volta ao topo e todos os `<details>` fecham, porque `open` é
+ * estado do DOM e o documento é remontado. Numa aba com nove cartões
+ * dobráveis, incluir um lembrete custava rolar a tela inteira e reabrir
+ * o painel para ver se deu certo -- foi por isso que ele achou que o
+ * cadastro "não estava aceitando": os 6 lembretes estavam lá, no painel
+ * que tinha acabado de fechar.
+ *
+ * Sem redirect, o `revalidatePath` redesenha a rota no lugar: o painel
+ * continua aberto, a rolagem fica onde estava, e a linha nova aparece na
+ * lista logo abaixo do formulário. A confirmação passa a ser a própria
+ * lista mudando -- que é melhor do que uma faixa verde no topo, três
+ * telas acima de onde a pessoa está olhando.
+ *
+ * O ERRO CONTINUA REDIRECIONANDO, de propósito: ali a faixa vermelha no
+ * topo é a única coisa que interrompe quem estava trabalhando.
+ */
+function prontoSemSair() {
+  revalidatePath(ROTA);
+}
+
 function numeroOuNulo(v: FormDataEntryValue | null): number | null {
   const s = String(v ?? "").trim();
   if (!s) return null;
@@ -138,7 +166,7 @@ export async function salvarLembreteEmpilhadeira(formData: FormData) {
   if (error) erro("empilhadeiras", `Não foi possível salvar o lembrete: ${error.message}`);
 
   revalidatePath(ROTA);
-  sucesso("empilhadeiras", "Lembrete cadastrado");
+  prontoSemSair();
 }
 
 export async function excluirLembreteEmpilhadeira(formData: FormData) {
@@ -148,7 +176,7 @@ export async function excluirLembreteEmpilhadeira(formData: FormData) {
   const id = String(formData.get("id") ?? "");
   await admin.from("pa_empilhadeira_lembretes").delete().eq("id", id).eq("revenda_id", revendaId);
   revalidatePath(ROTA);
-  sucesso("empilhadeiras", "Lembrete excluído");
+  prontoSemSair();
 }
 
 /**
@@ -240,9 +268,8 @@ export async function corrigirHorimetroOperacao(formData: FormData) {
     .eq("revenda_id", revendaId);
   if (error) erro("empilhadeiras", `Não foi possível corrigir: ${error.message}`);
 
-  revalidatePath(ROTA);
   revalidatePath("/produtividade-armazem/empilhadeira");
-  sucesso("empilhadeiras", "Horímetro corrigido");
+  prontoSemSair();
 }
 
 /**
@@ -275,7 +302,7 @@ export async function corrigirHorimetroTrocaGas(formData: FormData) {
 
   revalidatePath(ROTA);
   revalidatePath("/produtividade-armazem/empilhadeira/gas");
-  sucesso("empilhadeiras", "Horímetro da troca corrigido");
+  prontoSemSair();
 }
 
 
@@ -369,7 +396,7 @@ export async function excluirOperacaoEmpilhadeira(formData: FormData) {
   revalidatePath(ROTA);
   revalidatePath("/produtividade-armazem/empilhadeira");
   revalidatePath("/produtividade-armazem/empilhadeira/gas");
-  sucesso("empilhadeiras", "Operação excluída");
+  prontoSemSair();
 }
 
 /**
@@ -412,7 +439,7 @@ export async function excluirTrocaGas(formData: FormData) {
 
   revalidatePath(ROTA);
   revalidatePath("/produtividade-armazem/empilhadeira/gas");
-  sucesso("empilhadeiras", "Troca de gás excluída");
+  prontoSemSair();
 }
 
 // -------------------- ALERTA DE GÁS P20 --------------------
@@ -473,7 +500,7 @@ export async function adicionarNotificadoGas(formData: FormData) {
   if (error) erro("empilhadeiras", `Não foi possível incluir: ${error.message}`);
 
   revalidatePath(ROTA);
-  sucesso("empilhadeiras", "Pessoa incluída no aviso de gás");
+  prontoSemSair();
 }
 
 export async function removerNotificadoGas(formData: FormData) {
@@ -490,7 +517,7 @@ export async function removerNotificadoGas(formData: FormData) {
   if (error) erro("empilhadeiras", `Não foi possível remover: ${error.message}`);
 
   revalidatePath(ROTA);
-  sucesso("empilhadeiras", "Pessoa removida do aviso de gás");
+  prontoSemSair();
 }
 
 // -------------------- MOTIVOS DE QUEBRA DE FEFO --------------------
@@ -1825,6 +1852,51 @@ export async function editarProdutoReepack(formData: FormData) {
     "reepack-despejo",
     `${codigo} — ${descricao} salvo. Corrija também na planilha: a próxima importação sobrescreve este produto.`,
   );
+}
+
+/**
+ * Os nomes que APARECEM nas operações de empilhadeira, para a lista
+ * suspensa do "Corrigir ou excluir operação" (pedido do dono,
+ * 05/09/2026).
+ *
+ * Vem das OPERAÇÕES, e não do cadastro de pessoas -- essa é a diferença
+ * que importa. Sugerir alguém que nunca operou empilhadeira devolveria
+ * uma busca vazia, e quem digitou não teria como saber se errou o nome
+ * ou se a pessoa não tem operação nenhuma. Aqui, todo nome oferecido
+ * tem pelo menos um registro para corrigir.
+ */
+export async function buscarOperadoresComOperacao(termo: string) {
+  await requireModulo("produtividade-armazem", "ver");
+  const revendaId = await getRevendaId();
+  if (!revendaId) return [];
+
+  const t = termo.trim();
+  if (t.length < 2) return [];
+
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from("pa_empilhadeira_operacoes")
+    .select("operador_nome, inicio")
+    .eq("revenda_id", revendaId)
+    .ilike("operador_nome", `%${t}%`)
+    .order("inicio", { ascending: false })
+    .limit(200);
+
+  if (error) throw new Error(`Não foi possível buscar: ${error.message}`);
+
+  // Um nome por pessoa, com quantas operações ela tem no recorte -- o
+  // número é o que diz se vale abrir aquele nome. A tabela guarda o nome
+  // repetido em cada operação, então a lista crua traria a mesma pessoa
+  // dezenas de vezes.
+  const contagem = new Map<string, number>();
+  for (const o of data ?? []) {
+    const nome = (o.operador_nome ?? "").trim();
+    if (nome) contagem.set(nome, (contagem.get(nome) ?? 0) + 1);
+  }
+  return [...contagem.entries()]
+    .sort((a, b) => a[0].localeCompare(b[0], "pt-BR"))
+    .slice(0, 15)
+    .map(([nome, operacoes]) => ({ nome, operacoes }));
 }
 
 /**

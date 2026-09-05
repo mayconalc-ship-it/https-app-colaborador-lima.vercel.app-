@@ -24,6 +24,7 @@ import {
 } from "@/lib/produtividade-armazem";
 import { compararNomes, ruasDoDeposito } from "@/lib/fefo";
 import { BuscaProdutoCadastro } from "@/components/admin/BuscaProdutoCadastro";
+import { BuscaOperacaoEmpilhadeira } from "@/components/admin/BuscaOperacaoEmpilhadeira";
 import { ROTULO_UNIDADE_AG, UNIDADES_AG } from "@/lib/carretas";
 import {
   alternarAgAtivo,
@@ -194,7 +195,6 @@ export default async function AdminProdutividadeArmazemPage({
     { count: totalProdutos },
     { data: produtosReepackBanco },
     { data: itensChecklist },
-    { data: operadoresEncontrados },
     { data: motoristas },
     { data: empilhadores },
     { data: agCatalogo },
@@ -208,7 +208,6 @@ export default async function AdminProdutividadeArmazemPage({
     { data: trocasGas },
     { data: carretasRecentes },
     { data: notificadosGas },
-    { data: liderancaEncontrada },
   ] = await Promise.all([
     supabase
       .from("pa_embalagens")
@@ -221,7 +220,23 @@ export default async function AdminProdutividadeArmazemPage({
       .eq("revenda_id", revendaId)
       .order("nome"),
     supabase.from("pa_empilhadeiras").select("id, numero, ativo").eq("revenda_id", revendaId).order("numero"),
-    supabase
+    /*
+      CLIENTE ADMIN, e não o do usuário -- era isto que fazia o painel
+      dizer "Nenhum lembrete cadastrado" com sete lembretes gravados
+      (relato do dono, 05/09/2026: "não está aceitando incluir
+      colaboradores, ou pelo menos não aparece na lista").
+
+      `pa_empilhadeira_lembretes` NÃO TEM política de select, e isso é
+      deliberado (migration 049): "ninguem com a chave publica precisa
+      saber o horario de fechamento de outra pessoa" -- só o servidor,
+      que já confere requireModulo, e o cron leem. Pelo cliente do
+      usuário a RLS devolvia zero linhas, sem erro nenhum: a lista vinha
+      vazia e parecia que o cadastro não tinha funcionado.
+
+      Quem grava (salvarLembreteEmpilhadeira) já usava o admin -- por
+      isso salvava e sumia.
+    */
+    admin
       .from("pa_empilhadeira_lembretes")
       .select("id, operador_nome, turno, ativo")
       .eq("revenda_id", revendaId)
@@ -269,16 +284,6 @@ export default async function AdminProdutividadeArmazemPage({
       .select("id, senso, descricao, ativo")
       .eq("revenda_id", revendaId)
       .order("ordem"),
-    aba === "empilhadeiras" && buscaOperador.length >= 2
-      ? (() => {
-          let q = admin.from("profiles").select("id, nome, cargo").limit(10);
-          const digitos = buscaOperador.replace(/\D/g, "");
-          q = digitos
-            ? q.or(`nome.ilike.%${buscaOperador}%,cpf.ilike.%${digitos}%`)
-            : q.ilike("nome", `%${buscaOperador}%`);
-          return q;
-        })()
-      : Promise.resolve({ data: [] as { id: string; nome: string; cargo: string | null }[] }),
     supabase.from("pa_motoristas").select("id, nome, cpf, ativo").eq("revenda_id", revendaId).order("nome"),
     supabase.from("pa_empilhadores").select("id, nome, cpf, ativo").eq("revenda_id", revendaId).order("nome"),
     supabase.from("pa_ag_catalogo").select("id, codigo, descricao, unidade, ativo").eq("revenda_id", revendaId).order("codigo"),
@@ -377,17 +382,11 @@ export default async function AdminProdutividadeArmazemPage({
           .select("colaborador_id")
           .eq("revenda_id", revendaId)
       : Promise.resolve({ data: [] as { colaborador_id: string }[] }),
-    aba === "empilhadeiras" && buscaLideranca.length >= 2
-      ? (() => {
-          let q = admin.from("profiles").select("id, nome, cargo").limit(10);
-          const digitos = buscaLideranca.replace(/\D/g, "");
-          q = digitos
-            ? q.or(`nome.ilike.%${buscaLideranca}%,cpf.ilike.%${digitos}%`)
-            : q.ilike("nome", `%${buscaLideranca}%`);
-          return q;
-        })()
-      : Promise.resolve({ data: [] as { id: string; nome: string; cargo: string | null }[] }),
   ]);
+  /* Aqui rodavam mais DUAS consultas a `profiles`, por `buscaOperador` e
+     `buscaLideranca` -- restos dos formulários GET que o SeletorDePessoa
+     substituiu em 03/09/2026. Nenhum campo da tela escrevia esses dois
+     parâmetros havia dias: o resultado era buscado e jogado fora. */
 
   /*
     Os nomes de quem recebe o aviso de gás, buscados à parte.
@@ -1393,37 +1392,43 @@ export default async function AdminProdutividadeArmazemPage({
                     t.realizada_em as string,
                   )}`;
                   return (
-                    <div key={t.id as string} className="space-y-2 p-3">
-                      <div className="flex items-start justify-between gap-2">
-                        <p className="min-w-0 flex-1 text-xs text-slate-500">🏗️ {descricao}</p>
-                        {podeExcluir && (
-                          <BotaoExcluir
-                            action={excluirTrocaGas}
-                            campos={{ id: t.id as string }}
-                            confirmacao={`Excluir a troca de gás de ${descricao}? A foto também será apagada. Não dá para desfazer.`}
-                            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-sm hover:bg-red-50"
-                          >
-                            🗑️
-                          </BotaoExcluir>
-                        )}
-                      </div>
+                    /*
+                      LADO A LADO -- pedido do dono (05/09/2026). Eram
+                      quatro andares por troca (nome, foto, campo, botão)
+                      e vinte trocas na lista: rolar até a que interessa
+                      passava por oitenta blocos. Numa linha só, cada
+                      troca ocupa a altura da miniatura, e a lista inteira
+                      cabe em uma tela.
 
-                      {/* A foto vem junto: é por ela que se reconhece a
-                          troca lançada errada -- o horímetro e a data
-                          sozinhos não dizem qual imagem está no registro. */}
+                      Empilha de novo abaixo de `sm`: no celular, campo
+                      de número e miniatura lado a lado deixariam o
+                      horímetro com uns 60px de largura.
+                    */
+                    <div
+                      key={t.id as string}
+                      className="flex flex-col gap-2 p-3 sm:flex-row sm:items-center"
+                    >
+                      {/* A foto é por onde se reconhece a troca lançada
+                          errada -- o horímetro e a data sozinhos não
+                          dizem qual imagem está no registro. */}
                       {typeof t.foto_url === "string" && t.foto_url && (
                         <FotoEvidencia
                           src={t.foto_url}
                           alt={`Horímetro da troca — ${descricao}`}
-                          classeCaixa="h-24 w-24"
+                          classeCaixa="h-16 w-16 shrink-0"
                         />
                       )}
 
-                      <form action={corrigirHorimetroTrocaGas} className="flex flex-wrap items-end gap-2">
+                      <p className="min-w-0 flex-1 text-xs text-slate-500">🏗️ {descricao}</p>
+
+                      <form
+                        action={corrigirHorimetroTrocaGas}
+                        className="flex shrink-0 items-end gap-2"
+                      >
                         <input type="hidden" name="id" value={t.id as string} />
                         <div>
                           <label className="mb-1 block text-xs font-semibold uppercase text-slate-500">
-                            Horímetro da troca
+                            Horímetro
                           </label>
                           <input
                             name="horimetro"
@@ -1433,13 +1438,24 @@ export default async function AdminProdutividadeArmazemPage({
                             min={0}
                             required
                             defaultValue={String(t.horimetro)}
-                            className={`${campo} w-36`}
+                            className={`${campo} w-28`}
                           />
                         </div>
-                        <BotaoEnviar compacto className="shrink-0 rounded-lg bg-slate-800 px-3 py-1.5 text-xs font-semibold text-white">
+                        <BotaoEnviar compacto className="shrink-0 rounded-lg bg-slate-800 px-3 py-2 text-xs font-semibold text-white">
                           Salvar
                         </BotaoEnviar>
                       </form>
+
+                      {podeExcluir && (
+                        <BotaoExcluir
+                          action={excluirTrocaGas}
+                          campos={{ id: t.id as string }}
+                          confirmacao={`Excluir a troca de gás de ${descricao}? A foto também será apagada. Não dá para desfazer.`}
+                          className="flex h-8 w-8 shrink-0 items-center justify-center self-end rounded-lg text-sm hover:bg-red-50 sm:self-center"
+                        >
+                          🗑️
+                        </BotaoExcluir>
+                      )}
                     </div>
                   );
                 })
@@ -1447,8 +1463,13 @@ export default async function AdminProdutividadeArmazemPage({
             </div>
           </details>
 
-          <details className="group overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-            <summary className="cursor-pointer list-none border-b border-slate-100 p-4 marker:content-none [&::-webkit-details-marker]:hidden">
+          {/* SEM `overflow-hidden`: a lista suspensa da busca é
+              `absolute` e sai da caixa -- um recorte aqui a apagaria sem
+              erro nenhum, que é o defeito documentado em
+              SeletorDePessoa. Os cantos arredondados vêm do `rounded-t`
+              no cabeçalho e do `rounded-b` na última faixa. */}
+          <details className="group rounded-2xl border border-slate-200 bg-white shadow-sm">
+            <summary className="cursor-pointer list-none rounded-t-2xl border-b border-slate-100 p-4 marker:content-none [&::-webkit-details-marker]:hidden">
               <h2 className="text-sm font-bold text-slate-900">
                 <span className="mr-1 inline-block text-slate-400 transition-transform group-open:rotate-90">
                   ▸
@@ -1463,20 +1484,14 @@ export default async function AdminProdutividadeArmazemPage({
             </summary>
 
             {/* Fora do <summary>: um campo dentro dele fecharia o painel a
-                cada toque, em vez de deixar digitar. */}
+                cada toque, em vez de deixar digitar.
+
+                E fora do <form method="get">, desde 05/09/2026: apertar
+                Buscar era uma navegação completa, que fechava este mesmo
+                painel e jogava a página ao topo. Ver
+                BuscaOperacaoEmpilhadeira. */}
             <div className="border-b border-slate-100 px-4 pb-4">
-              <form method="get" className="flex gap-2">
-                <input type="hidden" name="aba" value="empilhadeiras" />
-                <input
-                  name="buscaHorimetro"
-                  defaultValue={buscaHorimetro}
-                  placeholder="Buscar operação pelo nome do operador"
-                  className={`${campo} flex-1`}
-                />
-                <button type="submit" className="shrink-0 rounded-lg bg-slate-800 px-3 py-2 text-sm font-semibold text-white">
-                  Buscar
-                </button>
-              </form>
+              <BuscaOperacaoEmpilhadeira termoAtual={buscaHorimetro} />
             </div>
 
             <div className="divide-y divide-slate-100">
