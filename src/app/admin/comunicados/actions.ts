@@ -180,9 +180,13 @@ export async function salvarComunicado(formData: FormData) {
     // em que foi escrita: a página do jornal ordena por `data`, e uma
     // notícia de 15/09 escrita em 20/08 entraria no jornal já enterrada
     // no fim da lista.
+    // Os dois lados passam pelo fuso do armazém. O agendado já passava;
+    // o de hoje ficou para trás e usava UTC -- publicar às 21h de terça
+    // datava a matéria de quarta, e ela nascia no topo do jornal com a
+    // data errada.
     data: agendado
       ? diaNoFuso(publicarEm!)
-      : data || new Date().toISOString().slice(0, 10),
+      : data || diaNoFuso(new Date().toISOString()),
     publicar_em: publicarEm,
     ...(publicacaoAvisadaEm !== undefined
       ? { publicacao_avisada_em: publicacaoAvisadaEm }

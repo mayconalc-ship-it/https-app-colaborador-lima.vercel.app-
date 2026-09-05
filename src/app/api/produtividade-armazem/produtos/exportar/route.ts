@@ -133,7 +133,15 @@ export async function GET() {
   aba.views = [{ state: "frozen", ySplit: 1 }];
 
   const buffer = await wb.xlsx.writeBuffer();
-  const hoje = new Date().toISOString().slice(0, 10);
+
+  // O DIA É O DO ARMAZÉM, não o do servidor. `toISOString()` devolve UTC,
+  // e a Vercel roda em UTC: baixar às 21h de terça daqui gerava um
+  // arquivo com a data de quarta. Quem tem dois downloads na pasta
+  // escolhe pelo nome, e um nome com o dia errado escolhe o arquivo
+  // errado. É o mesmo cuidado do nomeDoArquivo em lib/csv.ts.
+  const hoje = new Date().toLocaleDateString("sv-SE", {
+    timeZone: "America/Sao_Paulo",
+  });
 
   return new NextResponse(buffer as ArrayBuffer, {
     headers: {

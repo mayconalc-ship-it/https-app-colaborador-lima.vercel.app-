@@ -183,7 +183,12 @@ export function ComunicadoForm({
       : "",
   );
   const agendando = publicarEm !== "";
-  const hoje = new Date().toISOString().slice(0, 10);
+  // O dia é o DAQUI, não o de Greenwich: `toISOString()` converte para
+  // UTC mesmo rodando no navegador, e às 21h de terça já devolvia
+  // quarta -- a matéria nascia datada de amanhã.
+  const hoje = new Date().toLocaleDateString("sv-SE", {
+    timeZone: "America/Sao_Paulo",
+  });
 
   return (
     <form action={action} className="space-y-4">

@@ -129,7 +129,14 @@ async function trocarDono(areaId: string, novoDono: string | null) {
   if (atual) {
     await admin
       .from("cinco_s_area_donos")
-      .update({ ate: new Date().toISOString().slice(0, 10) })
+      // O dia em que o dono deixou a área é o daqui: `toISOString()` é
+      // UTC, e a Vercel roda em UTC -- trocar o dono às 21h fechava o
+      // mandato com a data de amanhã.
+      .update({
+        ate: new Date().toLocaleDateString("sv-SE", {
+          timeZone: "America/Sao_Paulo",
+        }),
+      })
       .eq("id", atual.id);
   }
 
