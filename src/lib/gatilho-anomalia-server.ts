@@ -65,6 +65,10 @@ type LinhaAtendimento = {
  * duas vezes por carregamento de tela, que é o tipo de desperdício que
  * só aparece quando a base cresce.
  */
+export async function seriesDoIndicador(revendaId: string): Promise<Record<string, Ponto[]>> {
+  return seriesDoRecebimento(revendaId);
+}
+
 async function seriesDoRecebimento(revendaId: string): Promise<Record<string, Ponto[]>> {
   const admin = createAdminClient();
   const desde = new Date(Date.now() - DIAS_DE_HISTORICO * 86_400_000).toISOString();

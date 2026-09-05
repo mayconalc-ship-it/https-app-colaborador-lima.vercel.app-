@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Vocabulário da central de notificações.
  *
  * Fica separado do servidor de propósito: a tela do colaborador importa
@@ -28,6 +28,7 @@ export type ModuloNotificavel =
   | "cinco-porques"
   | "5s"
   | "produtividade-armazem"
+  | "relato-anomalia"
   | "meus-indicadores";
 
 /**
@@ -51,6 +52,7 @@ export const MODULOS_NOTIFICAVEIS: ModuloNotificavel[] = [
   "cinco-porques",
   "5s",
   "produtividade-armazem",
+  "relato-anomalia",
   "meus-indicadores",
 ];
 
@@ -69,6 +71,7 @@ export const EMOJI_MODULO: Record<ModuloNotificavel, string> = {
   "cinco-porques": "🧠",
   "5s": "🧹",
   "produtividade-armazem": "🏭",
+  "relato-anomalia": "🚨",
   "meus-indicadores": "📊",
 };
 
@@ -87,6 +90,7 @@ export const ROTULO_MODULO: Record<ModuloNotificavel, string> = {
   "cinco-porques": "5 Porquês",
   "5s": "Programa 5S",
   "produtividade-armazem": "Produtividade do Armazém",
+  "relato-anomalia": "Relato de Anomalia",
   "meus-indicadores": "Meus Indicadores",
 };
 
@@ -134,6 +138,9 @@ export const ROTULO_BOTAO: Record<ModuloNotificavel, string> = {
   "cinco-porques": "Ver resposta",
   "5s": "Abrir o 5S",
   "produtividade-armazem": "Abrir empilhadeira",
+  // "Registrar o relato", e não "Ver": o aviso do gatilho não é
+  // informação -- é uma tarefa com dono, e o botão diz o que fazer.
+  "relato-anomalia": "Registrar o relato",
   "meus-indicadores": "Ver meus indicadores",
 };
 

@@ -26,6 +26,7 @@ import type { ModuloId } from "./acessos";
  */
 
 export type PainelId =
+  | "anomalias"
   | "armazem"
   | "gas"
   | "cinco-s"
@@ -71,6 +72,21 @@ export type Painel = {
 };
 
 export const PAINEIS: Painel[] = [
+  {
+    // PRIMEIRO DA LISTA, e de propósito: é o único painel que traz
+    // TAREFA, não leitura. Os outros respondem "como foi"; este diz "o
+    // que está te esperando". Um painel de pendência no meio da lista é
+    // um painel que se abre depois -- e pendência que se vê depois é a
+    // que vira crônica.
+    id: "anomalias",
+    rotulo: "Anomalias",
+    emoji: "🚨",
+    href: "/gestao/anomalias",
+    bloco: "Operação",
+    modulo: "relato-anomalia",
+    pergunta: "Que indicador saiu da faixa e qual relato está esperando você.",
+    mora: true,
+  },
   {
     id: "armazem",
     rotulo: "Produtividade do Armazém",

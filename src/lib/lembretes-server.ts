@@ -2,6 +2,7 @@ import "server-only";
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import { criarNotificacao } from "@/lib/notificacoes-server";
+import { varrerGatilhosDeAnomalia } from "@/lib/anomalia-varredura";
 import { enviarPushDaRevenda } from "@/lib/push-server";
 import { getPessoasDaArea } from "@/lib/quiz-server";
 import { hojeIso } from "@/lib/pesquisa";
@@ -40,6 +41,8 @@ export type Varredura = {
   /** Rodadas de desafio que estrearam hoje e tiveram o time avisado. */
   aberturas: number;
   empilhadeiras: number;
+  /** Relatos de anomalia abertos por gatilho disparado. */
+  anomalias: number;
   erro?: string;
 };
 
@@ -87,8 +90,13 @@ export async function varrerLembretes(): Promise<Varredura> {
   const cincoS = await lembretesDo5S(admin);
   const desafios = await lembretesDoDesafio(admin);
   const empilhadeiras = await lembretesDeEmpilhadeira(admin);
+  // O GATILHO DE ANOMALIA FICA POR ÚLTIMO: é a etapa mais cara (lê 90
+  // dias de atendimentos por revenda) e a menos urgente -- um desvio do
+  // dia esperar 15 minutos não muda nada, e um comunicado agendado
+  // esperando na frente dele, sim.
+  const anomalias = (await varrerGatilhosDeAnomalia()).abertos;
 
-  return { ...enviados, cincoS, desafios, publicadas, aberturas, empilhadeiras };
+  return { ...enviados, cincoS, desafios, publicadas, aberturas, empilhadeiras, anomalias };
 }
 
 /**
