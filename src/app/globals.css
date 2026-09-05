@@ -397,3 +397,104 @@ button:disabled,
 .rolagem-lateral::-webkit-scrollbar {
   display: none; /* Chrome, Safari */
 }
+
+/* ==================================================================
+   IMPRESSAO -- o Relato de Anomalia vira o documento em PDF
+   ==================================================================
+   Nao ha biblioteca de PDF no app, e nao precisa haver: o "Salvar como
+   PDF" do navegador imprime a MESMA pagina que a pessoa acabou de
+   preencher, no celular e no computador, sem dependencia nova e sem um
+   segundo layout para manter em dia com o primeiro.
+
+   A regra e uma so: some tudo que e aplicativo (barra, menu, botoes,
+   avisos) e fica so o documento. `.so-na-tela` marca o que e app;
+   `.so-no-papel` marca o que so existe impresso -- a linha de
+   assinatura, por exemplo, que na tela e um campo de texto. */
+@media print {
+  /* Fundo branco de verdade: cor de fundo economiza tinta e algumas
+     impressoras simplesmente ignoram, deixando faixa cinza clara. */
+  html,
+  body {
+    background: #fff !important;
+  }
+
+  /* SO A FOLHA VAI PARA O PAPEL.
+
+     Esconder item por item (barra, menu, faixa de modo, botao de voltar)
+     exigiria conhecer a marcacao do layout -- e quebraria calado no dia
+     em que alguem acrescentasse um elemento la. Aqui a regra e o
+     contrario: TUDO some, e so a `.folha` reaparece. O que for
+     acrescentado ao redor ja nasce fora da impressao.
+
+     `visibility` e nao `display` porque `display:none` no ancestral
+     levaria a folha junto; visibility esconde a pintura sem desmontar a
+     arvore, e o filho pode voltar a aparecer. */
+  body * {
+    visibility: hidden;
+  }
+
+  .folha,
+  .folha * {
+    visibility: visible;
+  }
+
+  .folha {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    max-width: none !important;
+    box-shadow: none !important;
+    border: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  /* Dentro da folha ainda ha coisa que e app: o botao de salvar, o
+     "Remover" de cada acao, o bloco de assinar. `display:none` vence a
+     visibilidade herdada. */
+  .so-na-tela,
+  [data-imprimir="nao"] {
+    display: none !important;
+  }
+
+  .so-no-papel {
+    display: block !important;
+  }
+
+  /* Um bloco do relato nao pode partir no meio da folha: os 5 porques
+     divididos entre duas paginas quebram a leitura da analise. */
+  .bloco-do-relato {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  /* Campo preenchido tem de sair LEGIVEL: a borda cinza clara da tela
+     some no papel, e sem ela o texto flutua sem dizer onde era o campo. */
+  input,
+  textarea,
+  select {
+    border: none !important;
+    border-bottom: 1px solid #94a3b8 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    -webkit-appearance: none;
+    appearance: none;
+    color: #0f172a !important;
+    padding-left: 0 !important;
+  }
+
+  textarea {
+    /* Textarea impressa corta o texto que passa da altura visivel. Sem
+       altura fixa, o navegador imprime o conteudo inteiro. */
+    height: auto !important;
+    min-height: 0 !important;
+    resize: none;
+    overflow: visible !important;
+  }
+
+  @page {
+    size: A4;
+    margin: 12mm;
+  }
+}
