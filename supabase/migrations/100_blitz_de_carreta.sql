@@ -10,10 +10,14 @@
 -- conformidade, apos finalizar esse check, va para esse painel de
 -- pendencias e a lideranca ira tratar".
 --
--- A BLITZ E DA TRANSPORTADORA, NAO DA CARRETA. Uma placa ruim e um caso;
--- uma transportadora que entrega avariado e um fornecedor a tratar -- e e
--- com ela que o relato de ocorrencia e aberto. Por isso o gatilho olha a
--- media da TRANSPORTADORA (ver lib/blitz.ts).
+-- A BLITZ OLHA TRES COISAS, NESTA ORDEM: A CARRETA, O MOTORISTA E A
+-- TRANSPORTADORA. Ajuste do dono (05/09/2026): "eu iria pela carreta, pois
+-- a grande maioria das avarias se da as mas condicoes da asa delta e grade.
+-- Mas faz sentido o cruzamento com motorista tambem, pois a depender da
+-- conducao ele pode nao ter cuidado com a carga."
+-- Basta uma das tres estourar o limite. O relato de ocorrencia continua
+-- sendo escrito para a TRANSPORTADORA -- e ela quem responde pela frota e
+-- pelo motorista (ver lib/blitz.ts).
 
 -- ------------------------------------------------------------------
 -- 1) O CHECKLIST -- as perguntas, cadastraveis
@@ -29,6 +33,11 @@ create table if not exists public.pa_blitz_itens (
   -- A frase que diz o que olhar. Sem ela, dois conferentes marcam NOK
   -- por criterios diferentes e o historico deixa de comparar.
   ajuda text,
+  -- O BLOCO a que a pergunta pertence ("Asa delta e grade", "Assoalho e
+  -- estrutura", "Carga", "Documento e seguranca"). Doze perguntas numa
+  -- lista corrida no celular, na doca, viram rolagem; agrupadas, o
+  -- conferente confere andando pela carreta na ordem em que ele anda.
+  grupo text,
   ordem smallint not null default 0,
   ativo boolean not null default true,
   criado_em timestamptz not null default now(),
@@ -47,9 +56,17 @@ create table if not exists public.pa_blitz (
   atendimento_id uuid not null references public.atendimentos_carretas(id) on delete cascade,
 
   -- POR QUE ESTA CARRETA CAIU NA BLITZ, congelado.
-  -- A media da transportadora muda a cada carreta nova; seis meses
-  -- depois, o relato de ocorrencia precisa dizer qual era o numero no
-  -- dia -- e e ele que sustenta a conversa com o transportador.
+  -- A media muda a cada carga nova; seis meses depois, o relato de
+  -- ocorrencia precisa dizer qual era o numero NO DIA -- e e ele que
+  -- sustenta a conversa com o transportador.
+  --
+  -- QUAL DAS TRES ESTOUROU, e com que nome: sem isto o relato diria
+  -- "avaria acima do limite" sem dizer se o problema e a placa, o
+  -- motorista ou a frota -- que sao tres acoes diferentes.
+  gatilho_dimensao text check (gatilho_dimensao in ('carreta', 'motorista', 'transportadora')),
+  gatilho_nome text,
+  -- A transportadora vai SEMPRE, mesmo quando quem estourou foi a placa:
+  -- e para ela que a ocorrencia e escrita.
   transportadora_nome text,
   media_avaria_pct numeric(6,2),
   limite_pct numeric(6,2),
@@ -128,29 +145,61 @@ comment on column public.atendimentos_carretas.blitz_exigida is
 -- 5) SEMENTE do checklist -- as condicoes que a operacao ja confere
 -- ------------------------------------------------------------------
 -- Nasce com perguntas de verdade para a primeira blitz nao cair numa
--- lista vazia. Cadastro novo entra pelo Admin.
-insert into public.pa_blitz_itens (revenda_id, pergunta, ajuda, ordem)
-select r.id, i.pergunta, i.ajuda, i.ordem
+-- lista vazia. Cadastro novo (e mudanca de texto) entra pelo Admin.
+--
+-- ESCRITO NA CAUSA, E NA LINGUA DA DOCA. Ajuste do dono (05/09/2026): "o
+-- check list eu faria com base realmente na causa (...) tipo, estiva, nao
+-- sei o que significa". Entao:
+--   - "Carga estivada corretamente" virou "Carga travada, sem palete
+--     tombado nem vao sobrando" -- diz o que olhar, nao o termo tecnico;
+--   - "Lona e amarracao" (uma pergunta so, generica demais) virou QUATRO:
+--     grade, asa delta, lona e cinta. Sao as maiores causas de avaria da
+--     operacao, e uma pergunta unica nao diz ao transportador o que
+--     consertar;
+--   - entraram os paletes, as pontas de ferro e o "sinal de que a carga
+--     andou" -- este ultimo e a pista de CONDUCAO, que e o cruzamento com
+--     o motorista.
+-- Este texto e um PONTO DE PARTIDA para o time operacional revisar na
+-- tela de cadastro; nao foi validado com eles.
+insert into public.pa_blitz_itens (revenda_id, grupo, pergunta, ajuda, ordem)
+select r.id, i.grupo, i.pergunta, i.ajuda, i.ordem
 from public.revendas r
 cross join (
   values
-    ('Lona e amarracao em bom estado?',
-     'Lona rasgada, catraca solta ou cinta gasta -- e o que deixa a carga bater no transporte.', 1),
-    ('Assoalho da carreta integro e limpo?',
-     'Tabua solta, prego exposto, residuo de carga anterior.', 2),
-    ('Carga estivada corretamente?',
-     'Palete tombado, carga fora do eixo, vao sem travamento.', 3),
-    ('Lacre integro e conferido com a nota?',
-     'Lacre rompido, ausente, ou numero diferente do documento.', 4),
-    ('Ausencia de infiltracao ou umidade?',
-     'Marca de agua no teto, papelao molhado, cheiro de mofo.', 5),
-    ('Veiculo sem odor ou contaminacao?',
-     'Produto de limpeza, combustivel, carga anterior de cheiro forte.', 6),
-    ('Temperatura adequada (quando aplicavel)?',
-     'So para carga que exige. Marque N/A quando nao se aplica.', 7),
-    ('Motorista com EPI e em condicoes de operar?',
-     'Calcado fechado, colete, e condicao de trabalhar com seguranca.', 8)
-) as i(pergunta, ajuda, ordem)
+    -- ---- Onde a avaria nasce ----
+    ('Asa delta e grade', 'Grades laterais completas e travadas?',
+     'Grade faltando, entortada, pino ou trava quebrada. E por ai que o palete anda e a carga bate.', 1),
+    ('Asa delta e grade', 'A asa delta abre e fecha travando por completo?',
+     'Roldana emperrada, trilho torto, asa que nao fecha de vez: a carga vai batendo na lateral o caminho inteiro.', 2),
+    ('Asa delta e grade', 'Lona sem rasgo e bem esticada?',
+     'Rasgo, furo, ou lona bamba que chicoteia e vai raspando na carga.', 3),
+    ('Asa delta e grade', 'Cintas e catracas suficientes e sem desgaste?',
+     'Cinta puida ou cortada, catraca que nao prende, carga com menos cinta do que precisa.', 4),
+
+    -- ---- O que a carga pisa e encosta ----
+    ('Assoalho e estrutura', 'Assoalho sem tabua solta, prego ou parafuso para fora?',
+     'Tabua bailando, prego levantado, buraco. Fura a embalagem de baixo e derruba o palete.', 5),
+    ('Assoalho e estrutura', 'Carroceria sem ponta de ferro ou aresta cortante?',
+     'Rebite solto, cantoneira torta, ferro exposto na lateral ou no teto.', 6),
+    ('Assoalho e estrutura', 'Piso limpo e seco, sem resto de carga anterior?',
+     'Caco de vidro, liquido derramado, papelao molhado, sujeira da viagem passada.', 7),
+    ('Assoalho e estrutura', 'Sem infiltracao, umidade ou cheiro forte?',
+     'Marca de agua no teto, mofo, cheiro de combustivel ou de produto de limpeza.', 8),
+
+    -- ---- Como a carga veio ----
+    ('Carga', 'Carga travada, sem palete tombado nem vao sobrando?',
+     'Palete torto, carga encostada na porta, espaco vazio que deixa o palete andar na curva.', 9),
+    ('Carga', 'Paletes em bom estado, sem tabua quebrada?',
+     'Palete rachado, tabua faltando, palete que nao aguenta o proximo empilhamento.', 10),
+    ('Carga', 'Carga sem sinal de que andou na viagem?',
+     'Filme rasgado, caixa amassada no canto, garrafa quebrada no piso. E a pista de freada brusca ou de carga mal travada.', 11),
+
+    -- ---- Documento e seguranca ----
+    ('Documento e seguranca', 'Lacre inteiro e igual ao da nota?',
+     'Lacre rompido, ausente, ou com numero diferente do documento.', 12),
+    ('Documento e seguranca', 'Motorista com EPI e em condicoes de operar?',
+     'Calcado fechado, colete, e condicao de trabalhar com seguranca.', 13)
+) as i(grupo, pergunta, ajuda, ordem)
 on conflict (revenda_id, pergunta) do nothing;
 
 -- ------------------------------------------------------------------
