@@ -49,6 +49,7 @@ export type ModuloId =
   | "devolucao"
   | "meus-indicadores"
   | "justificativas"
+  | "relato-anomalia"
   | "metas"
   | "fontes-dados"
   | "perfis-acesso";
@@ -206,6 +207,22 @@ export const MODULOS: Modulo[] = [
     // concessão viraria um atalho para configurar módulos que a pessoa
     // não administra.
     acoes: ["ver"],
+  },
+  {
+    id: "relato-anomalia",
+    rotulo: "Relato de Anomalia",
+    emoji: "🚨",
+    href: "/admin/relato-anomalia",
+    grupo: "Configuração",
+    // Módulo PRÓPRIO, e não um pedaço da Produtividade do Armazém: o
+    // gatilho vigia indicadores de todas as áreas (entrega, bancada,
+    // recebimento), e quem trata a anomalia é a liderança imediata
+    // daquela área -- não necessariamente quem administra o armazém.
+    //
+    // Sem "excluir": relato de anomalia não se apaga. Ele é a evidência
+    // de que o desvio foi tratado, e apagar um seria exatamente o que o
+    // auditor procura. O que existe é encerrar.
+    acoes: ["ver", "criar", "editar"],
   },
   {
     id: "metas",

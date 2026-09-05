@@ -192,10 +192,24 @@ grant all on
   public.pa_gatilhos_anomalia, public.pa_relatos_anomalia, public.pa_relato_acoes
   to service_role;
 
+-- ------------------------------------------------------------------
+-- 5) LIGA O MODULO NAS REVENDAS
+-- ------------------------------------------------------------------
+-- Sem esta linha a tela existe e ninguem entra: `revendaTemModulo` le
+-- `revenda_modulos`, e modulo sem registro e modulo desligado. Ligar
+-- aqui evita o "criei a tela e ela some" -- que aconteceu ao subir esta
+-- migration pela primeira vez.
+insert into public.revenda_modulos (revenda_id, modulo, ativo)
+select r.id, 'relato-anomalia', true
+from public.revendas r
+on conflict (revenda_id, modulo) do update set ativo = true;
+
 notify pgrst, 'reload schema';
 
--- Confira: as tres tabelas criadas, ainda vazias.
+-- Confira: as tres tabelas criadas, e o modulo ligado nas revendas.
 select
   (select count(*) from public.pa_gatilhos_anomalia) as gatilhos,
   (select count(*) from public.pa_relatos_anomalia) as relatos,
-  (select count(*) from public.pa_relato_acoes) as acoes;
+  (select count(*) from public.pa_relato_acoes) as acoes,
+  (select count(*) from public.revenda_modulos
+    where modulo = 'relato-anomalia' and ativo) as revendas_com_o_modulo;
