@@ -302,10 +302,14 @@ export const MODULOS: Modulo[] = [
     rotulo: "Particularidades do PDV",
     emoji: "📍",
     href: "/admin/pdv-particularidades",
-    // Em Gestão de Dados, junto de Rating e Devolução: é dali que as
-    // particularidades nascem (o cliente detrator sai do Rating), e é o
-    // mesmo assunto -- o que a operação sabe sobre cada cliente.
-    grupo: "Gestão de Dados",
+    // Em Configuração (pedido do dono, 06/09/2026). Eu o havia posto em
+    // Gestão de Dados por causa da origem -- o cliente detrator sai do
+    // Rating --, mas origem não é natureza: as gavetas separam pelo que a
+    // TELA FAZ, e esta cadastra. Gestão de Dados é onde indicador é
+    // ALIMENTADO (importar relatório, lançar valor); aqui não entra número
+    // nenhum, entra o que a operação sabe sobre cada cliente -- irmão de
+    // Ativo de Giro e dos catálogos do Armazém.
+    grupo: "Configuração",
     rotulosDeAcao: {
       ver: "Abrir o cadastro e o painel de prazos",
       criar: "Cadastrar particularidade de um cliente",
