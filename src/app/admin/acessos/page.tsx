@@ -13,6 +13,7 @@ import {
   ROTULO_ACAO,
   ROTULO_PAPEL,
   moduloPorId,
+  rotuloDaAcaoNoModulo,
   type Modulo,
   type Papel,
 } from "@/lib/acessos";
@@ -77,17 +78,37 @@ function BlocoDoModulo({
           </p>
         ))}
 
-      <div className="flex flex-wrap gap-3">
+      {/*
+        UMA AÇÃO POR LINHA, dizendo o que ela destrava.
+
+        Eram quatro palavras genéricas lado a lado -- Visualizar, Criar,
+        Editar, Excluir -- que significam coisas diferentes em cada módulo:
+        "criar" em Refugo é IMPORTAR O RELATÓRIO, "editar" é CADASTRAR O
+        VALOR DOS MATERIAIS. Quem concede escolhia no escuro, e no escuro
+        se libera demais por precaução. Em linha, cada frase cabe inteira.
+      */}
+      <div className="space-y-1.5">
         {m.acoes.map((acao) => (
-          <label key={acao} className="flex items-center gap-1.5 text-sm text-slate-600">
+          <label
+            key={acao}
+            className="flex items-start gap-2 text-sm leading-snug text-slate-600"
+          >
             <input
               type="checkbox"
               name="permissao"
               value={`${m.id}:${acao}`}
               defaultChecked={minhas.has(`${m.id}:${acao}`)}
-              className="h-4 w-4 rounded border-slate-300 text-primary"
+              className="mt-0.5 h-4 w-4 shrink-0 rounded border-slate-300 text-primary"
             />
-            {ROTULO_ACAO[acao]}
+            <span>
+              {rotuloDaAcaoNoModulo(m, acao)}
+              {/* O nome antigo continua visível, pequeno: é o que aparece
+                  no Log de Auditoria e nos Perfis, e some-lo faria as três
+                  telas falarem línguas diferentes. */}
+              <span className="ml-1.5 text-[10px] uppercase tracking-wide text-slate-400">
+                {ROTULO_ACAO[acao]}
+              </span>
+            </span>
           </label>
         ))}
       </div>

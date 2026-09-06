@@ -6,7 +6,7 @@ import { AplicarPerfil } from "@/components/admin/AplicarPerfil";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getRevendaId } from "@/lib/revendas";
 import { requireModulo, podeNoModulo } from "@/lib/require-admin";
-import { GRUPOS_DO_ADMIN, MODULOS, ROTULO_ACAO } from "@/lib/acessos";
+import { GRUPOS_DO_ADMIN, MODULOS, ROTULO_ACAO, rotuloDaAcaoNoModulo } from "@/lib/acessos";
 import { agruparPorModulo, type Concessao } from "@/lib/perfis-acesso";
 import {
   aplicarPerfil,
@@ -133,7 +133,7 @@ export default async function PerfisDeAcessoPage({
   const rotulosDeConcessao: Record<string, string> = {};
   for (const m of MODULOS) {
     for (const a of m.acoes) {
-      rotulosDeConcessao[`${m.id}:${a}`] = `${m.rotulo} · ${ROTULO_ACAO[a]}`;
+      rotulosDeConcessao[`${m.id}:${a}`] = `${m.rotulo} · ${rotuloDaAcaoNoModulo(m, a)}`;
     }
   }
 
@@ -533,16 +533,28 @@ function GradeDePermissoes({
                         <p className="text-sm font-semibold text-slate-800">
                           {m.emoji} {m.rotulo}
                         </p>
-                        <div className="mt-2 flex flex-wrap gap-x-4 gap-y-2">
+                        {/* A MESMA LÍNGUA DA TELA DE ACESSOS: cada ação diz
+                            o que destrava neste módulo, e não "Criar/
+                            Editar". Duas telas que gravam a mesma linha não
+                            podem chamá-la por nomes diferentes. */}
+                        <div className="mt-2 space-y-1.5">
                           {m.acoes.map((acao) => (
-                            <label key={acao} className="flex items-center gap-1.5 text-xs text-slate-600">
+                            <label
+                              key={acao}
+                              className="flex items-start gap-2 text-xs leading-snug text-slate-600"
+                            >
                               <input
                                 type="checkbox"
                                 name={`perm-${m.id}-${acao}`}
                                 defaultChecked={marcadas.has(`${m.id}:${acao}`)}
-                                className="h-4 w-4 rounded border-slate-300 text-primary"
+                                className="mt-0.5 h-4 w-4 shrink-0 rounded border-slate-300 text-primary"
                               />
-                              {ROTULO_ACAO[acao] ?? acao}
+                              <span>
+                                {rotuloDaAcaoNoModulo(m, acao)}
+                                <span className="ml-1.5 text-[10px] uppercase tracking-wide text-slate-400">
+                                  {ROTULO_ACAO[acao] ?? acao}
+                                </span>
+                              </span>
                             </label>
                           ))}
                         </div>

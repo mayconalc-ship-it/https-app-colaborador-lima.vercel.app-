@@ -137,11 +137,46 @@ export type Modulo = {
    * dos Acessos por Pessoa: mudou o endereço da tela, não a permissão.
    */
   emGestao?: boolean;
+  /**
+   * O QUE CADA AÇÃO DESTRAVA NESTE MÓDULO -- em vez de "Criar/Editar".
+   *
+   * Pedido do dono (05/09/2026): "eu que crio o app fico confuso em o que
+   * liberar às vezes". E a causa está aqui: as quatro palavras genéricas
+   * significam coisas diferentes em cada módulo, e uma delas significa
+   * três coisas ao mesmo tempo.
+   *
+   * "Criar" em Refugo é IMPORTAR O RELATÓRIO. "Editar" em Refugo é
+   * CADASTRAR O VALOR DOS MATERIAIS. São verbos que não se deduzem do
+   * rótulo, e quem concede fica escolhendo no escuro -- ou libera demais
+   * por precaução, que é o pior dos dois erros.
+   *
+   * "Ver" é o pior de todos: em módulo opcional ele libera o CARTÃO no app
+   * do colaborador; em módulo de liderança, abre a TELA DE ADMINISTRAÇÃO;
+   * e em sete deles abre também a ANÁLISE da Gestão. Mesma palavra, três
+   * resultados.
+   *
+   * Os rótulos abaixo saíram do código, não de suposição: foram lidos das
+   * chamadas de `requireModulo`/`podeNoModulo` de cada ação, função por
+   * função. Nada muda no banco -- a concessão gravada continua
+   * `modulo:acao`.
+   */
+  rotulosDeAcao?: Partial<Record<Acao, string>>;
 };
+
+/** O rótulo desta ação NESTE módulo, com o genérico como reserva. */
+export function rotuloDaAcaoNoModulo(m: Modulo, acao: Acao): string {
+  return m.rotulosDeAcao?.[acao] ?? ROTULO_ACAO[acao];
+}
 
 export const MODULOS: Modulo[] = [
   {
     id: "comunicados",
+    rotulosDeAcao: {
+      ver: "Abrir o Jornal no Modo Liderança (e no app)",
+      criar: "Publicar comunicado e criar editoria",
+      editar: "Editar comunicado e editoria já publicados",
+      excluir: "Apagar comunicado e editoria",
+    },
     rotulo: "Jornal / Comunicados",
     emoji: "📰",
     href: "/admin/comunicados",
@@ -150,6 +185,12 @@ export const MODULOS: Modulo[] = [
   },
   {
     id: "ranking",
+    rotulosDeAcao: {
+      ver: "Abrir o Ranking no Modo Liderança (e no app)",
+      criar: "Lançar o ranking da rodada",
+      editar: "Corrigir ranking já lançado",
+      excluir: "Apagar ranking",
+    },
     rotulo: "Ranking Super Matinal",
     emoji: "🏆",
     href: "/admin/ranking",
@@ -158,6 +199,12 @@ export const MODULOS: Modulo[] = [
   },
   {
     id: "padroes",
+    rotulosDeAcao: {
+      ver: "Abrir Padrões no Modo Liderança (e no app)",
+      criar: "Publicar padrão novo",
+      editar: "Editar padrão publicado",
+      excluir: "Apagar padrão",
+    },
     rotulo: "Padrões",
     emoji: "📋",
     href: "/admin/padroes",
@@ -166,6 +213,12 @@ export const MODULOS: Modulo[] = [
   },
   {
     id: "sonho",
+    rotulosDeAcao: {
+      ver: "Abrir o Sonho no Modo Liderança (e no app)",
+      criar: "Publicar o sonho da revenda",
+      editar: "Editar o sonho publicado",
+      excluir: "Apagar o sonho",
+    },
     rotulo: "Sonho da Revenda",
     emoji: "🎯",
     href: "/admin/sonho-da-revenda",
@@ -174,6 +227,10 @@ export const MODULOS: Modulo[] = [
   },
   {
     id: "rating",
+    rotulosDeAcao: {
+      ver: "Abrir o Rating no Modo Liderança (e no app)",
+      criar: "Importar o relatório de entregas do Drive",
+    },
     rotulo: "Rating de Entrega",
     emoji: "⭐",
     href: "/admin/rating",
@@ -185,6 +242,9 @@ export const MODULOS: Modulo[] = [
   },
   {
     id: "meus-indicadores",
+    rotulosDeAcao: {
+      ver: "Ver a vitrine Meus Indicadores no app",
+    },
     rotulo: "Meus Indicadores",
     emoji: "📊",
     // Não tem tela de Admin própria: o que se administra são os três
@@ -197,6 +257,9 @@ export const MODULOS: Modulo[] = [
   },
   {
     id: "fontes-dados",
+    rotulosDeAcao: {
+      ver: "Abrir a lista de Fontes de Dados",
+    },
     rotulo: "Fontes de Dados",
     emoji: "🔌",
     href: "/admin/fontes-de-dados",
@@ -210,6 +273,10 @@ export const MODULOS: Modulo[] = [
   },
   {
     id: "relato-anomalia",
+    rotulosDeAcao: {
+      ver: "📊 Abrir o painel de Anomalias e as blitz",
+      editar: "Configurar gatilhos, tratar relato e blitz",
+    },
     rotulo: "Relato de Anomalia",
     emoji: "🚨",
     href: "/admin/relato-anomalia",
@@ -222,10 +289,19 @@ export const MODULOS: Modulo[] = [
     // Sem "excluir": relato de anomalia não se apaga. Ele é a evidência
     // de que o desvio foi tratado, e apagar um seria exatamente o que o
     // auditor procura. O que existe é encerrar.
-    acoes: ["ver", "criar", "editar"],
+    //
+    // E sem "criar", desde 05/09/2026: quem abre relato é a VARREDURA, não
+    // uma pessoa -- e nenhuma ação do módulo checava essa concessão.
+    // Era uma caixa que não fazia nada, do tipo que faz quem concede
+    // desconfiar de todas as outras. Ninguém a tinha marcada.
+    acoes: ["ver", "editar"],
   },
   {
     id: "metas",
+    rotulosDeAcao: {
+      ver: "Abrir a tela de Metas",
+      editar: "Alterar o valor das metas",
+    },
     rotulo: "Metas",
     emoji: "🎯",
     href: "/admin/metas",
@@ -236,6 +312,9 @@ export const MODULOS: Modulo[] = [
   },
   {
     id: "justificativas",
+    rotulosDeAcao: {
+      ver: "📊 Ler as justificativas de meta não batida",
+    },
     rotulo: "Justificativas",
     emoji: "🗣️",
     href: "/gestao/justificativas",
@@ -249,6 +328,11 @@ export const MODULOS: Modulo[] = [
   },
   {
     id: "devolucao",
+    rotulosDeAcao: {
+      ver: "Abrir Devolução no Modo Liderança (e no app)",
+      criar: "Importar o relatório de devolução",
+      editar: "Ajustar a meta e classificar os motivos",
+    },
     rotulo: "Devolução",
     emoji: "↩️",
     href: "/admin/devolucao",
@@ -258,6 +342,11 @@ export const MODULOS: Modulo[] = [
   },
   {
     id: "refugo",
+    rotulosDeAcao: {
+      ver: "Abrir Refugo no Modo Liderança (e no app)",
+      criar: "Importar o relatório de refugo",
+      editar: "Cadastrar o valor dos materiais",
+    },
     rotulo: "Refugo de Vasilhame",
     emoji: "♻️",
     href: "/admin/refugo",
@@ -269,6 +358,11 @@ export const MODULOS: Modulo[] = [
   },
   {
     id: "rotas",
+    rotulosDeAcao: {
+      ver: "Abrir a pré-rota no Modo Liderança (e no app)",
+      criar: "Importar a planilha da pré-rota",
+      excluir: "Apagar a pré-rota importada",
+    },
     rotulo: "Minha Rota (pré-rota)",
     emoji: "🚚",
     href: "/admin/rotas",
@@ -282,6 +376,10 @@ export const MODULOS: Modulo[] = [
   },
   {
     id: "escala",
+    rotulosDeAcao: {
+      ver: "Abrir a Escala no Modo Liderança (e no app)",
+      editar: "Publicar e trocar o arquivo da escala",
+    },
     rotulo: "Escala de Trabalho",
     emoji: "🗓️",
     href: "/admin/escala",
@@ -290,6 +388,10 @@ export const MODULOS: Modulo[] = [
   },
   {
     id: "rv",
+    rotulosDeAcao: {
+      ver: "Abrir a RV no Modo Liderança (e no app)",
+      editar: "Apontar a planilha de RV de cada área",
+    },
     rotulo: "Remuneração Variável",
     emoji: "💰",
     href: "/admin/rv",
@@ -304,6 +406,12 @@ export const MODULOS: Modulo[] = [
   },
   {
     id: "ativo-giro",
+    rotulosDeAcao: {
+      ver: "Ver o Ativo de Giro no app",
+      criar: "Importar o histórico de contagens",
+      editar: "Cadastrar parque e fator, liberar trânsito, pedir recontagem",
+      excluir: "Apagar contagem lançada",
+    },
     rotulo: "Ativo de Giro",
     emoji: "📦",
     href: "/admin/ativo-de-giro",
@@ -312,6 +420,12 @@ export const MODULOS: Modulo[] = [
   },
   {
     id: "quiz",
+    rotulosDeAcao: {
+      ver: "Abrir o Desafio no Modo Liderança (e no app)",
+      criar: "Criar rodada e pergunta (inclusive com IA)",
+      editar: "Publicar, encerrar e mexer nas perguntas da rodada",
+      excluir: "Apagar rodada e pergunta",
+    },
     // 🏆 já é o Ranking Super Matinal. Aqui o ícone é o do conteúdo --
     // conhecimento -- para as duas telas não virarem a mesma coisa no
     // painel. Para o colaborador o cartão continua sendo o troféu.
@@ -323,6 +437,12 @@ export const MODULOS: Modulo[] = [
   },
   {
     id: "5s",
+    rotulosDeAcao: {
+      ver: "📊 Abrir o BI do 5S e o módulo no app",
+      criar: "Planejar auditoria — do dia, do mês e do ano",
+      editar: "Cadastrar área, auditor e pergunta; atribuir ação",
+      excluir: "Apagar área",
+    },
     rotulo: "Programa 5S",
     emoji: "🧹",
     href: "/admin/5s",
@@ -341,6 +461,17 @@ export const MODULOS: Modulo[] = [
     // liberado por pessoa (ver MODULOS_OPCIONAIS) -- foi trocado pelos
     // sub-módulos abaixo, um por funcionalidade.
     rotulo: "Produtividade do Armazém",
+    rotulosDeAcao: {
+      // A CONCESSÃO MAIS AMBÍGUA DO APP, e a tela agora diz isso: o mesmo
+      // "ver" abre a análise da Gestão E a tela de cadastro no Modo
+      // Liderança. Separar os dois muda permissão de verdade -- fica para
+      // uma decisão à parte; enquanto isso, ao menos ninguém concede sem
+      // saber.
+      ver: "📊 Abrir a análise do Armazém e a tela de cadastros",
+      criar: "Criar registro nos cadastros do armazém",
+      editar: "Cadastrar produto, fábrica, transportadora, empilhadeira, rua",
+      excluir: "Corrigir e apagar lançamento de outra pessoa",
+    },
     emoji: "🏭",
     href: "/admin/produtividade-armazem",
     grupo: "Configuração",
@@ -348,6 +479,7 @@ export const MODULOS: Modulo[] = [
   },
   {
     id: "pa-reepack",
+    rotulosDeAcao: { ver: "Apontar Reepack no app" },
     rotulo: "Reepack",
     emoji: "📦",
     href: "/produtividade-armazem/reepack",
@@ -357,6 +489,7 @@ export const MODULOS: Modulo[] = [
   },
   {
     id: "pa-despejo",
+    rotulosDeAcao: { ver: "Apontar Despejo no app" },
     rotulo: "Despejo",
     emoji: "🫗",
     href: "/produtividade-armazem/despejo",
@@ -366,6 +499,11 @@ export const MODULOS: Modulo[] = [
   },
   {
     id: "pa-empilhadeira",
+    rotulosDeAcao: {
+      // Três coisas de uma vez, e a terceira quase ninguém sabe: é este
+      // "ver" que autoriza TRANSPORTAR no Abastecimento do Picking.
+      ver: "📊 Operar empilhadeira, transportar no Picking e ver o painel de gás",
+    },
     rotulo: "Empilhadeira",
     emoji: "🏗️",
     href: "/produtividade-armazem/empilhadeira",
@@ -375,6 +513,7 @@ export const MODULOS: Modulo[] = [
   },
   {
     id: "pa-recebimento",
+    rotulosDeAcao: { ver: "Apontar Recebimento de Paletes no app" },
     rotulo: "Recebimento de Paletes",
     emoji: "🚛",
     href: "/produtividade-armazem/recebimento",
@@ -384,6 +523,7 @@ export const MODULOS: Modulo[] = [
   },
   {
     id: "pa-cinco-s",
+    rotulosDeAcao: { ver: "Apontar o 5S do Armazém no app" },
     rotulo: "5S do Armazém",
     emoji: "🧹",
     href: "/produtividade-armazem/cinco-s",
@@ -393,6 +533,7 @@ export const MODULOS: Modulo[] = [
   },
   {
     id: "pa-picking",
+    rotulosDeAcao: { ver: "Apontar o Abastecimento do Picking no app" },
     rotulo: "Abastecimento do Picking",
     // 🏬 são as prateleiras -- o picking É a estante de onde o separador
     // tira o produto, e abastecer é enchê-la. O 🛒 anterior saiu a pedido
@@ -414,6 +555,7 @@ export const MODULOS: Modulo[] = [
   },
   {
     id: "pa-bate-palete",
+    rotulosDeAcao: { ver: "Apontar Bate Palete no app" },
     rotulo: "Bate Palete",
     emoji: "🤲📦",
     href: "/produtividade-armazem/bate-palete",
@@ -429,6 +571,10 @@ export const MODULOS: Modulo[] = [
   // coisas para a mesma pessoa fazer um trabalho só.
   {
     id: "carretas-portaria",
+    rotulosDeAcao: {
+      ver: "Abrir a Portaria no app",
+      criar: "Registrar a chegada da carreta",
+    },
     // Sem tela de admin propria: os catalogos (fabrica/transportadora/
     // produto) ja sao geridos em /admin/produtividade-armazem.
     rotulo: "Recebimento de Carreta",
@@ -440,6 +586,10 @@ export const MODULOS: Modulo[] = [
   },
   {
     id: "carretas-conferencia",
+    rotulosDeAcao: {
+      ver: "Abrir o Monitor de Recebimento",
+      editar: "Conferir carga, responder a blitz e decidir o retorno",
+    },
     rotulo: "Monitor de Recebimento (Conferente)",
     emoji: "🖥️",
     href: "/carretas-conferencia",
@@ -455,6 +605,10 @@ export const MODULOS: Modulo[] = [
   },
   {
     id: "carretas-descarga",
+    rotulosDeAcao: {
+      ver: "Abrir o Monitor de Recebimento",
+      editar: "Iniciar e finalizar a descarga, concluir a carga",
+    },
     rotulo: "Monitor de Recebimento (Empilhador)",
     emoji: "🏗️",
     href: "/carretas-conferencia",
@@ -467,6 +621,10 @@ export const MODULOS: Modulo[] = [
   },
   {
     id: "fefo",
+    rotulosDeAcao: {
+      ver: "Abrir a Quebra de FEFO no app",
+      criar: "Informar uma quebra encontrada",
+    },
     rotulo: "Quebra de FEFO (informar)",
     emoji: "🚨",
     href: "/fefo",
@@ -479,6 +637,10 @@ export const MODULOS: Modulo[] = [
   },
   {
     id: "fefo-controle",
+    rotulosDeAcao: {
+      ver: "Ver as quebras de FEFO de todo mundo",
+      editar: "Responder qual ação foi tomada e encerrar",
+    },
     rotulo: "Quebra de FEFO (controle)",
     emoji: "🧭",
     href: "/fefo",
@@ -490,6 +652,11 @@ export const MODULOS: Modulo[] = [
   },
   {
     id: "perfis-acesso",
+    rotulosDeAcao: {
+      ver: "Abrir os Perfis de Acesso",
+      editar: "Criar perfil e aplicá-lo a alguém",
+      excluir: "Apagar o perfil (não tira acesso de ninguém)",
+    },
     rotulo: "Perfis de Acesso",
     emoji: "🎫",
     href: "/admin/perfis-de-acesso",
@@ -501,6 +668,13 @@ export const MODULOS: Modulo[] = [
   },
   {
     id: "colaboradores",
+    rotulosDeAcao: {
+      ver: "Abrir a lista de colaboradores",
+      criar: "Cadastrar colaborador",
+      editar: "Editar cadastro e vincular à revenda",
+      excluir: "Apagar colaborador",
+      promover: "Tornar alguém liderança",
+    },
     rotulo: "Colaboradores",
     emoji: "👥",
     href: "/admin/colaboradores",
@@ -511,6 +685,10 @@ export const MODULOS: Modulo[] = [
   },
   {
     id: "feedbacks",
+    rotulosDeAcao: {
+      ver: "📊 Ler os feedbacks das rotas (e usar o app)",
+      editar: "Responder a tratativa dos 5 Porquês",
+    },
     rotulo: "Feedbacks das Rotas",
     emoji: "📝",
     href: "/gestao/feedbacks",
@@ -522,6 +700,9 @@ export const MODULOS: Modulo[] = [
   },
   {
     id: "metricas",
+    rotulosDeAcao: {
+      ver: "📊 Ver quem entra no app, e em quais telas",
+    },
     rotulo: "Uso do App",
     emoji: "📊",
     href: "/gestao/uso-do-app",
@@ -531,6 +712,10 @@ export const MODULOS: Modulo[] = [
   },
   {
     id: "pesquisa",
+    rotulosDeAcao: {
+      ver: "Abrir a Pesquisa de Satisfação",
+      editar: "Ligar/desligar a pesquisa e abrir novo ciclo",
+    },
     rotulo: "Pesquisa de Satisfação",
     emoji: "⭐",
     href: "/admin/pesquisa",
@@ -539,6 +724,10 @@ export const MODULOS: Modulo[] = [
   },
   {
     id: "menu",
+    rotulosDeAcao: {
+      ver: "Abrir a Ordem do Menu",
+      editar: "Mover, renomear e esconder cartão da tela inicial",
+    },
     rotulo: "Ordem do Menu",
     emoji: "🔀",
     href: "/admin/menu",
