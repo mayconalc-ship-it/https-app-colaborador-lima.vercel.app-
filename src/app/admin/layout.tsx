@@ -2,7 +2,6 @@ import { requireGestor } from "@/lib/require-admin";
 import { VoltarAoPainel } from "@/components/VoltarAoPainel";
 import { AdminSidebar, type GrupoNav } from "@/components/admin/AdminSidebar";
 import { getConcessoes } from "@/lib/concessoes";
-import { paineisVisiveis } from "@/lib/gestao-server";
 import { getRevendaAtiva, getModulosDaRevenda } from "@/lib/revendas";
 import {
   EMOJI_GRUPO_ADMIN,
@@ -95,10 +94,6 @@ export default async function AdminLayout({
       }))
     : null;
 
-  // A porta para a Gestão só aparece para quem tem algum painel lá. Um
-  // atalho que leva a uma área vazia é pior que atalho nenhum.
-  const paineis = await paineisVisiveis();
-
   return (
     <div>
       <AdminSidebar
@@ -109,11 +104,22 @@ export default async function AdminLayout({
           rotulo: dono ? "Painel Admin" : "Painel da Liderança",
           emoji: "⚙️",
         }}
-        atalho={
-          paineis.length > 0
-            ? { id: "gestao", href: "/gestao", rotulo: "Modo gestão", emoji: "📊" }
-            : null
-        }
+        /*
+          SEM ATALHO PARA A GESTÃO (06/09/2026, pedido do dono: "o modo
+          gestão deveria sair do menu lateral no modo liderança, já que ele
+          fica liberado na home").
+
+          Ele existia porque as análises só se alcançavam por aqui. Desde
+          que o bloco 📊 Gestão passou a viver na home, a barra tinha um
+          item para uma área que a pessoa já tinha um caminho mais curto
+          para abrir -- e um segundo caminho para o mesmo lugar é o tipo de
+          coisa que faz a barra crescer sem ajudar ninguém.
+
+          O caminho de volta CONTINUA existindo do outro lado: a barra da
+          Gestão mantém o atalho para o Modo Liderança, porque de lá não há
+          equivalente na home.
+        */
+        atalho={null}
       />
 
       <div className="md:pl-20">
