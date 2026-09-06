@@ -45,13 +45,26 @@ function BlocoDoModulo({
   minhas,
   tituloAlternativo,
   ajuda,
+  omitirVer = false,
 }: {
   m: Modulo;
   minhas: Set<string>;
   tituloAlternativo?: string;
   ajuda?: string;
+  /**
+   * O "Visualizar" deste módulo é marcado no bloco das Análises, e não
+   * aqui. Nasceu do relato do dono (06/09/2026): a linha "vem junto com o
+   * módulo" dizia onde estava a marcação e não dava botão nenhum.
+   *
+   * A saída NÃO foi duplicar o checkbox: o mesmo `permissao` em dois
+   * lugares do MESMO formulário faria desmarcar num deles parecer que
+   * tirou o acesso, quando o outro ainda concede. Cada permissão tem um
+   * controle só; o que muda é ONDE ele mora.
+   */
+  omitirVer?: boolean;
 }) {
   const analises = paineisDoModulo(m.id);
+  const acoes = omitirVer ? m.acoes.filter((a) => a !== "ver") : m.acoes;
 
   return (
     <div>
@@ -77,8 +90,18 @@ function BlocoDoModulo({
             key={a.id}
             className="mb-1.5 rounded-lg bg-primary-soft/60 px-2 py-1 text-[11px] leading-snug text-primary-dark"
           >
-            📊 <strong>Visualizar</strong> abre a análise <strong>{a.rotulo}</strong> na Gestão e na
-            home — {a.pergunta.toLowerCase()}
+            📊 {omitirVer ? "A análise" : <strong>Visualizar</strong>}{" "}
+            {omitirVer ? (
+              <>
+                <strong>{a.rotulo}</strong> é liberada no bloco{" "}
+                <strong>📊 Análises da Gestão</strong>, no topo.
+              </>
+            ) : (
+              <>
+                abre a análise <strong>{a.rotulo}</strong> na Gestão e na home —{" "}
+                {a.pergunta.toLowerCase()}
+              </>
+            )}
           </p>
         ))}
 
@@ -92,7 +115,7 @@ function BlocoDoModulo({
         se libera demais por precaução. Em linha, cada frase cabe inteira.
       */}
       <div className="space-y-1.5">
-        {m.acoes.map((acao) => (
+        {acoes.map((acao) => (
           <label
             key={acao}
             className="flex items-start gap-2 text-sm leading-snug text-slate-600"
@@ -1278,38 +1301,84 @@ export default async function GestaoDeAcessosPage({
                               );
                             })}
 
+                            {/*
+                              AS ANÁLISES QUE MORAM DENTRO DE UM MÓDULO
+                              MAIOR -- agora com o botão aqui.
+
+                              Relato do dono (06/09/2026): "não entendi por
+                              que diz que já vem no módulo, porém não tem
+                              botão para ativar e desativar o acesso". Ele
+                              está certo: a lista informava e não deixava
+                              fazer nada.
+
+                              O checkbox é o MESMO `modulo:ver` de sempre --
+                              e é o ÚNICO: a gaveta do módulo passou a
+                              mostrar só criar/editar/excluir (ver
+                              `omitirVer`). Dois controles para a mesma
+                              permissão no mesmo formulário fariam
+                              desmarcar num deles parecer que tirou o
+                              acesso, quando o outro ainda concede.
+
+                              QUANDO A PESSOA JÁ ADMINISTRA O MÓDULO, o
+                              checkbox aparece travado: quem pode editar vê
+                              por consequência (o servidor liga o
+                              Visualizar sozinho), e uma caixa que se
+                              desmarca e volta sozinha é pior do que uma
+                              caixa travada que explica por quê.
+                            */}
                             {dentroDeOutro.length > 0 && (
                               <div className="rounded-lg bg-white/70 p-2.5">
-                                <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                                  Vêm junto com o módulo
+                                <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                                  Análises dentro de outro módulo
                                 </p>
-                                <ul className="space-y-1">
+                                <div className="space-y-2.5">
                                   {dentroDeOutro.map((p) => {
                                     const m = moduloPorId(p.modulo)!;
-                                    const tem = minhas.has(`${p.modulo}:ver`);
+                                    const administra = m.acoes.some(
+                                      (a) => a !== "ver" && minhas.has(`${m.id}:${a}`),
+                                    );
                                     return (
-                                      <li
-                                        key={p.id}
-                                        className="flex items-start gap-2 text-xs leading-snug text-slate-600"
-                                      >
-                                        <span className={tem ? "text-green-600" : "text-slate-300"}>
-                                          {tem ? "✅" : "⬜"}
-                                        </span>
-                                        <span>
-                                          <strong>
-                                            {p.emoji} {p.rotulo}
-                                          </strong>{" "}
-                                          — marque <strong>Visualizar</strong> em {m.emoji}{" "}
-                                          {m.rotulo}, na gaveta{" "}
-                                          <strong>
-                                            {EMOJI_GRUPO_ADMIN[m.grupo]} {m.grupo}
-                                          </strong>
-                                          .
-                                        </span>
-                                      </li>
+                                      <div key={p.id}>
+                                        <label className="flex items-start gap-2 text-sm leading-snug text-slate-700">
+                                          <input
+                                            type="checkbox"
+                                            name="permissao"
+                                            value={`${m.id}:ver`}
+                                            defaultChecked={minhas.has(`${m.id}:ver`)}
+                                            disabled={administra}
+                                            className="mt-0.5 h-4 w-4 shrink-0 rounded border-slate-300 text-primary disabled:opacity-60"
+                                          />
+                                          <span>
+                                            <strong>
+                                              {p.emoji} {p.rotulo}
+                                            </strong>
+                                            <span className="ml-1.5 text-[10px] uppercase tracking-wide text-slate-400">
+                                              {m.rotulo}
+                                            </span>
+                                            <span className="block text-xs text-slate-500">
+                                              {p.pergunta}
+                                            </span>
+                                          </span>
+                                        </label>
+                                        {administra && (
+                                          <p className="ml-6 mt-0.5 text-[11px] leading-snug text-slate-500">
+                                            🔒 Já vê porque administra {m.emoji} {m.rotulo}. Para
+                                            tirar, desmarque as ações dele na gaveta{" "}
+                                            <strong>
+                                              {EMOJI_GRUPO_ADMIN[m.grupo]} {m.grupo}
+                                            </strong>
+                                            .
+                                          </p>
+                                        )}
+                                      </div>
                                     );
                                   })}
-                                </ul>
+                                </div>
+                                <p className="mt-2 text-[11px] leading-snug text-slate-500">
+                                  Marcar aqui abre <strong>só a análise</strong>. As outras ações de
+                                  cada módulo (cadastrar, importar, apagar) ficam na gaveta dele,
+                                  abaixo.
+                                </p>
                               </div>
                             )}
                           </div>
@@ -1321,7 +1390,20 @@ export default async function GestaoDeAcessosPage({
                       // Módulo cuja tela É uma análise já foi marcado no
                       // bloco acima. Repeti-lo aqui daria dois checkboxes
                       // para a mesma permissão.
-                      const doGrupo = modulos.filter((m) => m.grupo === grupo && !m.emGestao);
+                      //
+                      // E o mesmo vale para o módulo cuja ÚNICA ação é
+                      // "ver" e que abre análise (a Empilhadeira): sem o
+                      // Visualizar, o bloco dele ficaria sem caixa
+                      // nenhuma -- um título solto no meio da gaveta.
+                      const doGrupo = modulos.filter(
+                        (m) =>
+                          m.grupo === grupo &&
+                          !m.emGestao &&
+                          !(
+                            analisesDaRevenda.some((p) => p.modulo === m.id) &&
+                            m.acoes.every((a) => a === "ver")
+                          ),
+                      );
                       if (doGrupo.length === 0) return null;
                       const liberados = doGrupo.filter((m) =>
                         m.acoes.some((a) => minhas.has(`${m.id}:${a}`)),
@@ -1352,7 +1434,15 @@ export default async function GestaoDeAcessosPage({
 
                           <div className="space-y-4 border-t border-slate-100 p-3">
                             {doGrupo.map((m) => (
-                              <BlocoDoModulo key={m.id} m={m} minhas={minhas} />
+                              <BlocoDoModulo
+                                key={m.id}
+                                m={m}
+                                minhas={minhas}
+                                // O "Visualizar" de quem abre análise é
+                                // marcado no bloco 📊 lá em cima -- um
+                                // controle só por permissão.
+                                omitirVer={analisesDaRevenda.some((p) => p.modulo === m.id)}
+                              />
                             ))}
                           </div>
                         </details>
