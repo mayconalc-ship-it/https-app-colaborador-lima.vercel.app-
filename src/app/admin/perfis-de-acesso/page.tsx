@@ -1,5 +1,6 @@
 ﻿import Link from "next/link";
 import { PageHeader } from "@/components/PageHeader";
+import { AbasDeAcesso } from "@/components/admin/AbasDeAcesso";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
 import { BotaoExcluir } from "@/components/BotaoExcluir";
 import { AplicarPerfil } from "@/components/admin/AplicarPerfil";
@@ -144,6 +145,12 @@ export default async function PerfisDeAcessoPage({
         subtitle="O molde de um cargo, com nome: monta-se uma vez e aplica-se a quantas pessoas precisar."
         fecharHref="/admin"
       />
+
+      {/* A MESMA BARRA DA TELA DE ACESSOS (06/09/2026). As duas rotas
+          continuam duas -- as portas de entrada são diferentes, ver o
+          comentário em AbasDeAcesso --, mas se comportam como uma tela:
+          o mesmo lugar para cada coisa, sempre. */}
+      <AbasDeAcesso atual="perfil" revendaId={revendaId} />
 
       {sp.erro && <p className="rounded-xl bg-red-50 p-3 text-sm font-medium text-red-700">{sp.erro}</p>}
       {sp.sucesso && (

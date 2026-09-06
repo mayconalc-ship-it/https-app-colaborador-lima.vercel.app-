@@ -18,12 +18,16 @@ function voltar(
   chave: "erro" | "sucesso",
   mensagem: string,
   revenda?: string,
+  aba?: "modulos",
 ): never {
   const params = new URLSearchParams({ [chave]: mensagem });
   // Volta para a mesma revenda que estava sendo configurada. Sem isso, a
   // tela pularia para outra unidade depois de salvar e a próxima alteração
   // sairia no lugar errado.
   if (revenda) params.set("revenda", revenda);
+  // E para a mesma ABA (06/09/2026): quem liberou numa grade quer conferir
+  // a grade, não ser jogado na lista de fichas.
+  if (aba) params.set("aba", aba);
   redirect(`/admin/acessos?${params.toString()}`);
 }
 
@@ -148,7 +152,9 @@ export async function liberarAcessosEmLote(formData: FormData) {
     if (!universoPorPessoa.has(id)) universoPorPessoa.set(id, new Set());
     universoPorPessoa.get(id)!.add(modulo);
   }
-  if (universoPorPessoa.size === 0) voltar("erro", "Nenhuma alteração para aplicar.", revendaId);
+  if (universoPorPessoa.size === 0) {
+    voltar("erro", "Nenhuma alteração para aplicar.", revendaId, "modulos");
+  }
 
   const marcados = new Set(formData.getAll("marcado").map(String));
   const admin = createAdminClient();
@@ -189,7 +195,7 @@ export async function liberarAcessosEmLote(formData: FormData) {
   }
 
   if (mudancaPorPessoa.size === 0) {
-    voltar("sucesso", "Nenhuma mudança em relação ao que já estava liberado.", revendaId);
+    voltar("sucesso", "Nenhuma mudança em relação ao que já estava liberado.", revendaId, "modulos");
   }
 
   for (const [colaboradorId, modulos] of paraApagarPorPessoa) {
@@ -199,14 +205,14 @@ export async function liberarAcessosEmLote(formData: FormData) {
       .eq("colaborador_id", colaboradorId)
       .eq("revenda_id", revendaId)
       .in("modulo", modulos);
-    if (error) voltar("erro", `Não foi possível revogar: ${error.message}`, revendaId);
+    if (error) voltar("erro", `Não foi possível revogar: ${error.message}`, revendaId, "modulos");
   }
 
   if (paraInserir.length > 0) {
     const { error } = await admin
       .from("colaborador_modulos_extra")
       .upsert(paraInserir, { onConflict: "colaborador_id,revenda_id,modulo" });
-    if (error) voltar("erro", `Não foi possível liberar: ${error.message}`, revendaId);
+    if (error) voltar("erro", `Não foi possível liberar: ${error.message}`, revendaId, "modulos");
   }
 
   const { data: revenda } = await admin.from("revendas").select("nome").eq("id", revendaId).maybeSingle();
@@ -228,7 +234,12 @@ export async function liberarAcessosEmLote(formData: FormData) {
     });
   }
 
-  voltar("sucesso", `Acessos atualizados para ${mudancaPorPessoa.size} pessoa(s).`, revendaId);
+  voltar(
+    "sucesso",
+    `Acessos atualizados para ${mudancaPorPessoa.size} pessoa(s).`,
+    revendaId,
+    "modulos",
+  );
 }
 
 /**
@@ -358,7 +369,9 @@ export async function liberarAnalisesEmLote(formData: FormData) {
     if (!universoPorPessoa.has(id)) universoPorPessoa.set(id, new Set());
     universoPorPessoa.get(id)!.add(modulo);
   }
-  if (universoPorPessoa.size === 0) voltar("erro", "Nenhuma alteração para aplicar.", revendaId);
+  if (universoPorPessoa.size === 0) {
+    voltar("erro", "Nenhuma alteração para aplicar.", revendaId, "modulos");
+  }
 
   const marcados = new Set(formData.getAll("marcado").map(String));
   const admin = createAdminClient();
@@ -441,7 +454,7 @@ export async function liberarAnalisesEmLote(formData: FormData) {
   }
 
   if (mudancaPorPessoa.size === 0) {
-    voltar("sucesso", "Nenhuma mudança em relação ao que já estava liberado.", revendaId);
+    voltar("sucesso", "Nenhuma mudança em relação ao que já estava liberado.", revendaId, "modulos");
   }
 
   for (const [colaboradorId, modulos] of paraApagarPorPessoa) {
@@ -452,12 +465,12 @@ export async function liberarAnalisesEmLote(formData: FormData) {
       .eq("revenda_id", revendaId)
       .eq("acao", "ver")
       .in("modulo", modulos);
-    if (error) voltar("erro", `Não foi possível revogar: ${error.message}`, revendaId);
+    if (error) voltar("erro", `Não foi possível revogar: ${error.message}`, revendaId, "modulos");
   }
 
   if (paraInserir.length > 0) {
     const { error } = await admin.from("lideranca_permissoes").insert(paraInserir);
-    if (error) voltar("erro", `Não foi possível liberar: ${error.message}`, revendaId);
+    if (error) voltar("erro", `Não foi possível liberar: ${error.message}`, revendaId, "modulos");
   }
 
   const { data: revenda } = await admin
@@ -484,7 +497,12 @@ export async function liberarAnalisesEmLote(formData: FormData) {
     });
   }
 
-  voltar("sucesso", `Análises atualizadas para ${mudancaPorPessoa.size} liderança(s).`, revendaId);
+  voltar(
+    "sucesso",
+    `Análises atualizadas para ${mudancaPorPessoa.size} liderança(s).`,
+    revendaId,
+    "modulos",
+  );
 }
 
 /**

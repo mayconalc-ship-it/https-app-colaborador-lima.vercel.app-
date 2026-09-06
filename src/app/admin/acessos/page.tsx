@@ -4,6 +4,7 @@ import { requireOwner } from "@/lib/require-admin";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { PageHeader } from "@/components/PageHeader";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
+import { AbasDeAcesso, type AbaDeAcesso } from "@/components/admin/AbasDeAcesso";
 import {
   AJUDA_ACAO,
   EMOJI_GRUPO_ADMIN,
@@ -358,6 +359,7 @@ export default async function GestaoDeAcessosPage({
     papel?: string;
     revendaExtra?: string;
     revenda?: string;
+    aba?: string;
   }>;
 }) {
   const eu = await requireOwner();
@@ -371,7 +373,13 @@ export default async function GestaoDeAcessosPage({
     papel: papelFiltro = "",
     revendaExtra: revendaExtraFiltro = "",
     revenda: revendaParam,
+    aba,
   } = await searchParams;
+
+  // A ficha da pessoa é o padrão: é a pergunta mais frequente e a única
+  // que responde por alguém em particular. As grades são de manutenção em
+  // lote, e quem vai fazer isso sabe que vai.
+  const abaAtual: AbaDeAcesso = aba === "modulos" ? "modulos" : "pessoa";
 
   const admin = createAdminClient();
 
@@ -592,53 +600,10 @@ export default async function GestaoDeAcessosPage({
         subtitle="Quem entra no Modo Liderança e o que cada um pode fazer. É aqui, e só aqui, que se TIRA acesso."
       />
 
-      {/*
-        AS DUAS LIBERAÇÕES DESTA TELA, ditas antes de qualquer uma delas.
-
-        Elas parecem a mesma coisa e não são -- e foi exatamente aqui que o
-        dono se perdeu (05/09/2026): a tabela de cima libera o CARTÃO no
-        app do colaborador; a lista de baixo libera o que uma LIDERANÇA
-        pode fazer, e é lá que moram as análises da Gestão. Sem esta
-        legenda, quem procura "liberar um módulo" para na primeira tabela e
-        não encontra o que queria.
-      */}
-      <div className="mb-4 grid gap-2 sm:grid-cols-3">
-        <div className="rounded-2xl border border-slate-200 bg-white p-3">
-          <p className="text-sm font-bold text-slate-800">1️⃣ Módulos opcionais</p>
-          <p className="mt-0.5 text-xs leading-snug text-slate-500">
-            A tabela logo abaixo. Liga o <strong>cartão no app</strong> de cada pessoa — Reepack,
-            Jornal, Ativo de Giro. Vale para colaborador e liderança.
-          </p>
-        </div>
-        <div className="rounded-2xl border border-primary/30 bg-primary-soft/30 p-3">
-          <p className="text-sm font-bold text-primary-dark">2️⃣ Análises da Gestão</p>
-          <p className="mt-0.5 text-xs leading-snug text-slate-600">
-            A segunda tabela. Liga os <strong>relatórios na home</strong> da liderança — Anomalias,
-            Armazém, Uso do App. Mesmo gesto da primeira.
-          </p>
-        </div>
-        <div className="rounded-2xl border border-slate-200 bg-white p-3">
-          <p className="text-sm font-bold text-slate-800">3️⃣ Permissões de liderança</p>
-          <p className="mt-0.5 text-xs leading-snug text-slate-500">
-            No fim da página, em <strong>Lideranças em {escolhida.nome}</strong>. A ficha completa:
-            ver/criar/editar/excluir, módulo por módulo.
-          </p>
-        </div>
-      </div>
-
-      <div className="mb-4 rounded-2xl bg-slate-50 p-4 text-xs leading-relaxed text-slate-600">
-        Uma pessoa por vez, marcando cada permissão. Para dar de uma vez o
-        pacote inteiro de um cargo — e repetir isso na próxima contratação —
-        use{" "}
-        <Link
-          href="/admin/perfis-de-acesso"
-          className="font-semibold text-primary hover:underline"
-        >
-          Perfis de Acesso
-        </Link>
-        : lá o conjunto ganha nome e se aplica em um clique. O que ele grava são
-        as mesmas marcações desta tela.
-      </div>
+      {/* As três liberações viraram ABAS (06/09/2026). Eram três cartões
+          explicando onde cada coisa ficava -- e o dono continuou sem achar
+          o que procurava. Explicação some quando a estrutura resolve. */}
+      <AbasDeAcesso atual={abaAtual} revendaId={escolhida.id} />
 
       {/* A revenda que está sendo configurada. Fica no topo porque muda o
           sentido de tudo o que vem abaixo. */}
@@ -647,7 +612,8 @@ export default async function GestaoDeAcessosPage({
           {(revendas ?? []).map((r) => (
             <Link
               key={r.id}
-              href={`/admin/acessos?revenda=${r.id}`}
+              // A aba vai junto: trocar de unidade não é trocar de assunto.
+              href={`/admin/acessos?aba=${abaAtual === "modulos" ? "modulos" : "pessoa"}&revenda=${r.id}`}
               className={
                 r.id === escolhida.id
                   ? "rounded-xl bg-primary px-3 py-2 text-sm font-semibold text-white"
@@ -684,6 +650,7 @@ export default async function GestaoDeAcessosPage({
       </div>
 
       {/* ---- Tabela de acesso por módulo opcional ---- */}
+      {abaAtual === "modulos" && (
       <section className="mb-6">
         <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">
           Acesso a módulos opcionais em {escolhida.nome}
@@ -706,6 +673,8 @@ export default async function GestaoDeAcessosPage({
               className="flex flex-wrap gap-2 border-b border-slate-100 p-3"
             >
               <input type="hidden" name="revenda" value={escolhida.id} />
+              {/* Sem isto, filtrar jogava de volta na aba das fichas. */}
+              <input type="hidden" name="aba" value="modulos" />
               <input
                 name="filtro"
                 defaultValue={filtro}
@@ -761,7 +730,7 @@ export default async function GestaoDeAcessosPage({
               </button>
               {(termoTabela || areaFiltro || funcaoFiltro || papelFiltro || revendaExtraFiltro) && (
                 <Link
-                  href={`/admin/acessos?revenda=${escolhida.id}`}
+                  href={`/admin/acessos?aba=modulos&revenda=${escolhida.id}`}
                   className="flex items-center rounded-xl px-3 text-sm font-medium text-slate-500 hover:text-primary"
                 >
                   Limpar
@@ -892,6 +861,7 @@ export default async function GestaoDeAcessosPage({
           </div>
         )}
       </section>
+      )}
 
       {/* ---- Grade das análises da Gestão ---- */}
       {/*
@@ -921,7 +891,7 @@ export default async function GestaoDeAcessosPage({
         colaboradores chegaram a ver o ranking de produtividade dos
         colegas, e não é um caminho para reabrir.
       */}
-      {analisesDaRevenda.length > 0 && (
+      {abaAtual === "modulos" && analisesDaRevenda.length > 0 && (
         <section className="mb-6">
           <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">
             📊 Análises da Gestão em {escolhida.nome}
@@ -1045,6 +1015,7 @@ export default async function GestaoDeAcessosPage({
       )}
 
       {/* ---- Promover alguém ---- */}
+      {abaAtual === "pessoa" && (
       <details className="mb-4 rounded-2xl border border-slate-200 bg-white shadow-sm">
         <summary className="cursor-pointer p-4 font-semibold text-primary">
           + Tornar alguém liderança
@@ -1104,8 +1075,11 @@ export default async function GestaoDeAcessosPage({
           )}
         </div>
       </details>
+      )}
 
       {/* ---- Lideranças e suas permissões ---- */}
+      {abaAtual === "pessoa" && (
+      <>
       <h2 className="mb-1 text-sm font-semibold uppercase tracking-wide text-slate-500">
         Lideranças em {escolhida.nome} ({liderancas.length})
       </h2>
@@ -1434,6 +1408,8 @@ export default async function GestaoDeAcessosPage({
             );
           })}
         </div>
+      )}
+      </>
       )}
 
       <p className="mt-6 text-xs text-slate-400">
