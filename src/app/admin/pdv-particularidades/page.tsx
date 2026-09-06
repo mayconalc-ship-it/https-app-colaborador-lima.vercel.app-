@@ -164,9 +164,17 @@ export default async function ParticularidadesDoPdvPage({
           */}
           {pendencias.length > 0 && (
             <section className="mb-5">
-              <h2 className="mb-2 text-sm font-bold uppercase tracking-wide text-slate-500">
+              <h2 className="text-sm font-bold uppercase tracking-wide text-slate-500">
                 ⏳ Com prazo correndo
               </h2>
+              {/* DE QUEM É ESTE PAINEL, dito na tela. O bloqueio é assunto
+                  comercial -- entre a revenda e o cliente --, e quem
+                  entrega não é quem negocia. Correção do dono
+                  (06/09/2026). */}
+              <p className="mb-2 text-xs text-slate-500">
+                Acompanhamento da liderança. O <strong>PDV bloqueado</strong> não aparece para o
+                motorista: ele não negocia com o cliente, e o comentário na porta viraria ruído.
+              </p>
               <div className="space-y-2">
                 {pendencias.map(({ particularidade: p, categoria, dias, vencida }) => (
                   <div
@@ -300,8 +308,12 @@ export default async function ParticularidadesDoPdvPage({
           <div className="rounded-2xl bg-slate-50 p-3 text-xs leading-relaxed text-slate-600">
             A <strong>severidade</strong> decide a cor e o ícone na tela de quem está na rota — alerta
             que grita sempre vira alerta que ninguém ouve. <strong>Exige prazo</strong> obriga a data
-            de liberação (é o que faz o painel contar os dias). <strong>Vai para a rota</strong>{" "}
-            desmarcado deixa a categoria só para quem acompanha.
+            de liberação (é o que faz o painel contar os dias).
+            <br />
+            <strong>Vai para a rota</strong> é a chave mais importante desta tela: desmarcada, a
+            categoria some do celular do motorista e fica só para quem acompanha. É assim que{" "}
+            <strong>PDV bloqueado</strong> está — bloqueio é assunto comercial, e quem entrega não
+            negocia com o cliente.
           </div>
 
           {categorias.map((c) => (
@@ -519,6 +531,14 @@ function LinhaParticularidade({
             {p.bairro && ` / ${p.bairro}`}
             {p.origem === "rating" && " · sugerida pelo Rating"}
           </p>
+          {/* QUEM VÊ ISTO, na própria linha. Sem a marca, um cadastro de
+              bloqueio parece igual a um aviso de horário -- e a diferença
+              é justamente quem lê. */}
+          {categoria && !categoria.alertaNaRota && (
+            <p className="mt-1 inline-block rounded bg-slate-200 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-600">
+              🔒 só a liderança vê
+            </p>
+          )}
         </div>
         <span
           className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold ${
