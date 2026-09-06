@@ -4,10 +4,14 @@ import { getPerfil } from "@/lib/sessao";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getRevendaId } from "@/lib/revendas";
 import { normalizarMapa, type CidadeEntregas } from "@/lib/rotas";
+import { avisosDoMapa, type AvisoNaRota, type AvisosDoMapa } from "@/lib/pdv-particularidades-server";
 
 export type RotaEncontrada = {
   data: string;
   mapa: string;
+  /** O que o motorista precisa saber sobre os clientes desta rota. */
+  avisos: AvisoNaRota[];
+  precisaoDosAvisos: "cliente" | "regiao";
   veiculo: string | null;
   placa: string | null;
   motorista: string;
@@ -92,11 +96,33 @@ export async function consultarRota(
     if (pessoa?.nome) motorista = pessoa.nome;
   }
 
+  /*
+    OS AVISOS DOS CLIENTES, junto da rota.
+
+    Pedido do dono (06/09/2026): "quando o colaborador fosse inserir o
+    mapa na pré-rota, daria um alerta com o triângulo de atenção
+    informando sobre a particularidade desse pdv".
+
+    DENTRO DE UM try, e vazio quando falha: a pré-rota é o que o motorista
+    abre antes de sair, e uma consulta de aviso que quebre não pode tirar
+    dele o mapa, o veículo e as entregas. Sem aviso a tela volta a ser o
+    que era ontem; sem rota, ele não sai.
+  */
+  const cidades = (rota.cidades ?? []) as CidadeEntregas[];
+  let avisos: AvisosDoMapa = { avisos: [], precisao: "regiao" };
+  try {
+    avisos = await avisosDoMapa(revendaId, rota.mapa, rota.data, cidades);
+  } catch {
+    avisos = { avisos: [], precisao: "regiao" };
+  }
+
   return {
     ok: true,
     rota: {
       data: rota.data,
       mapa: rota.mapa_original || rota.mapa,
+      avisos: avisos.avisos,
+      precisaoDosAvisos: avisos.precisao,
       veiculo: rota.veiculo,
       placa: rota.placa,
       motorista,

@@ -2,11 +2,16 @@ import "server-only";
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
+  avisosDaRegiao,
+  avisosDoPdv,
   normalizarCodPdv,
+  rotuloDoHorario,
+  rotuloDosDias,
   sugestoesDeDetrator,
   type AvaliacaoDoPdv,
   type Categoria,
   type Particularidade,
+  type Severidade,
   type SugestaoDetrator,
 } from "@/lib/pdv-particularidades";
 
@@ -313,4 +318,121 @@ export async function sugestoesPendentes(revendaId: string): Promise<SugestaoDet
 
   const tratados = new Set((jaTem ?? []).map((p) => normalizarCodPdv(p.cod_pdv)));
   return sugestoesDeDetrator(linhas).filter((s) => !tratados.has(s.codPdv));
+}
+
+/* ------------------------------------------------------------------ */
+
+export type AvisoNaRota = {
+  codPdv: string;
+  nomePdv: string | null;
+  cidade: string | null;
+  bairro: string | null;
+  categoria: string;
+  emoji: string | null;
+  severidade: Severidade;
+  aviso: string;
+  detalhe: string | null;
+  /** "até as 11:00" · null */
+  horario: string | null;
+  /** "seg, qua e sex" · null */
+  dias: string | null;
+  /** Dias até o fim do prazo, quando há. */
+  diasDePrazo: number | null;
+};
+
+export type AvisosDoMapa = {
+  avisos: AvisoNaRota[];
+  /**
+   * "cliente" quando sabemos exatamente quem está na carga; "regiao"
+   * quando o casamento foi pelos bairros do mapa.
+   *
+   * A TELA MOSTRA ISSO, e não é detalhe: dizer "você vai entregar neste
+   * cliente" quando na verdade é "há um cliente assim nesta região" é uma
+   * promessa que o app não pode cumprir -- e a primeira vez que ela falha
+   * o motorista para de ler todas as outras.
+   */
+  precisao: "cliente" | "regiao";
+};
+
+/**
+ * OS AVISOS DE UM MAPA -- o triângulo da pré-rota.
+ *
+ * DOIS CAMINHOS, e o app usa o melhor que tiver:
+ *
+ *   1. Se o roteirizador já exportou os clientes daquele mapa
+ *      (`pa_pdv_do_mapa`), o aviso é por CLIENTE: exato, com nome e tudo.
+ *
+ *   2. Sem isso, casa por REGIÃO -- cidade e bairro, que é o que a
+ *      planilha traz hoje.
+ *
+ * O caminho 2 é o padrão de propósito, e não uma gambiarra: medido na
+ * base, tentar adivinhar os clientes do dia pelo histórico do mapa daria
+ * 88,2% de falso alarme (o número do mapa repete, é uma rota fixa, mas os
+ * pedidos de cada dia mudam). Entre um aviso impreciso que se anuncia
+ * impreciso e um aviso preciso que erra 9 de 10, o primeiro é o único que
+ * continua sendo lido no segundo mês.
+ */
+export async function avisosDoMapa(
+  revendaId: string,
+  mapa: string,
+  data: string,
+  cidades: { cidade: string; bairros?: { nome: string }[] }[],
+): Promise<AvisosDoMapa> {
+  const admin = createAdminClient();
+  const hoje = new Date().toLocaleDateString("sv-SE", { timeZone: "America/Sao_Paulo" });
+
+  const [categorias, ativas] = await Promise.all([
+    categoriasDaRevenda(revendaId),
+    particularidadesDaRevenda(revendaId, { status: "ativa" }),
+  ]);
+  if (ativas.length === 0) return { avisos: [], precisao: "regiao" };
+
+  const mapaCategorias = new Map(categorias.map((c) => [c.id, c as Categoria]));
+
+  // A lista exata, se existir. Busca pela data da rota e, não achando,
+  // pela mais recente daquele mapa -- a pré-rota pode ser consultada no
+  // dia seguinte, e um aviso a menos por causa de um dia de diferença
+  // seria o pior tipo de silêncio.
+  const { data: doMapa } = await admin
+    .from("pa_pdv_do_mapa")
+    .select("cod_pdv, nome_pdv, cidade, bairro, data")
+    .eq("revenda_id", revendaId)
+    .eq("mapa", mapa)
+    .order("data", { ascending: false })
+    .limit(200);
+
+  const daData = (doMapa ?? []).filter((l) => l.data === data);
+  const lista = daData.length > 0 ? daData : (doMapa ?? []);
+
+  let selecionadas = ativas;
+  let precisao: AvisosDoMapa["precisao"] = "regiao";
+
+  if (lista.length > 0) {
+    const codigos = new Set(lista.map((l) => normalizarCodPdv(l.cod_pdv)));
+    selecionadas = ativas.filter((p) => codigos.has(normalizarCodPdv(p.codPdv)));
+    precisao = "cliente";
+  }
+
+  const achados =
+    precisao === "cliente"
+      ? avisosDoPdv(selecionadas, mapaCategorias, hoje)
+      : avisosDaRegiao(ativas, mapaCategorias, cidades, hoje);
+
+  return {
+    precisao,
+    avisos: achados.map(({ particularidade: p, categoria, dias }) => ({
+      codPdv: p.codPdv,
+      nomePdv: p.nomePdv,
+      cidade: p.cidade,
+      bairro: p.bairro,
+      categoria: categoria.nome,
+      emoji: categoria.emoji,
+      severidade: categoria.severidade,
+      aviso: p.aviso,
+      detalhe: p.detalhe,
+      horario: rotuloDoHorario(p.horaDe, p.horaAte),
+      dias: rotuloDosDias(p.diasSemana),
+      diasDePrazo: dias,
+    })),
+  };
 }

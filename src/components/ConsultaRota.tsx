@@ -13,6 +13,7 @@ import {
 } from "@/lib/rotas";
 import { consultarRota, type RotaEncontrada } from "@/app/minha-rota/actions";
 import { gerarImagemPreRota } from "@/lib/imagem-rota";
+import { AvisosDaRota } from "@/components/AvisosDaRota";
 
 /** Um número da faixa de indicadores. */
 function Indicador({
@@ -282,6 +283,11 @@ export function ConsultaRota({ metas }: { metas: Metas }) {
             Trocar
           </span>
         </button>
+
+        {/* ANTES DA PRÉ-ROTA, de propósito. O cartão abaixo é consulta --
+            km, caixas, ocupação. Isto é instrução, e instrução que aparece
+            depois do que se veio ver é instrução que se lê na volta. */}
+        <AvisosDaRota avisos={rota.avisos} precisao={rota.precisaoDosAvisos} />
 
         <div className="overflow-hidden rounded-2xl border-2 border-primary bg-white shadow-lg">
           <div className="flex items-center justify-between gap-2 bg-primary px-4 py-2">
