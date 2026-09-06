@@ -77,6 +77,38 @@ export function normalizarCodPdv(valor: string | null | undefined): string {
   return digitos.replace(/^0+/, "") || "0";
 }
 
+/**
+ * ISTO É UM CÓDIGO DE PDV?
+ *
+ * Correção do dono (06/09/2026): "ao adicionar nova particularidade, se eu
+ * digitar um nome errado, como você linkaria esse PDV ao relatório da
+ * pré-rota? Não seria melhor restringir somente no código, e a descrição
+ * em campo separado?".
+ *
+ * Ele está certo, e o efeito era pior do que parece. O campo era um só --
+ * código OU nome --, e o que a pessoa digitasse virava o código. Digitar
+ * "BAR LINHA DIRETA" sem escolher da lista gravava "BARLINHADIRETA" como
+ * código: a particularidade fica bonita no cadastro, aparece na lista, e
+ * NUNCA casa com o cliente. O alerta por região até dispara (ele casa por
+ * cidade e bairro), mas com a identidade errada -- e o alerta por cliente,
+ * que é o destino do módulo, nunca dispararia. Falha silenciosa, a pior
+ * espécie.
+ *
+ * MEDIDO ANTES DE RESTRINGIR: os 1.216 PDVs distintos do Rating são
+ * 100% numéricos, de 1 a 5 dígitos, nenhum com zero à esquerda. Exigir
+ * dígitos não deixa nenhum cliente real de fora.
+ *
+ * OLHA O QUE FOI DIGITADO, NÃO O NORMALIZADO -- e essa distinção custou um
+ * teste vermelho para aparecer. `normalizarCodPdv("BAR 24 HORAS")` devolve
+ * "24", que é um código perfeitamente válido: a validação passaria e a
+ * particularidade iria parar no cliente 24, que não tem nada com isso.
+ * Errar de cliente é pior do que recusar o cadastro -- o primeiro é
+ * silencioso, o segundo a pessoa vê e corrige.
+ */
+export function ehCodigoValido(valor: string | null | undefined): boolean {
+  return /^\d{1,10}$/.test((valor ?? "").trim());
+}
+
 /** Cidade e bairro comparáveis: sem acento, sem caixa, sem espaço dobrado. */
 export function chaveDeRegiao(valor: string | null | undefined): string {
   return (valor ?? "")

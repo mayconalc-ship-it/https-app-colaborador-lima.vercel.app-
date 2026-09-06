@@ -70,11 +70,15 @@ export function FormParticularidadePdv({
   const [categoriaId, setCategoriaId] = useState(categorias[0]?.id ?? "");
   const [termo, setTermo] = useState("");
   const [codPdv, setCodPdv] = useState("");
+  const [nomePdv, setNomePdv] = useState("");
+  const [cidade, setCidade] = useState("");
   const [escolhido, setEscolhido] = useState<Achado | null>(null);
   const [resultados, setResultados] = useState<Achado[]>([]);
   const [aberto, setAberto] = useState(false);
+  const [conferindo, setConferindo] = useState(false);
   const [pendente, iniciar] = useTransition();
   const relogio = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const relogioCodigo = useRef<ReturnType<typeof setTimeout> | null>(null);
   const caixa = useRef<HTMLDivElement>(null);
 
   const categoria = categorias.find((c) => c.id === categoriaId) ?? null;
@@ -87,11 +91,11 @@ export function FormParticularidadePdv({
     return () => document.removeEventListener("mousedown", fora);
   }, []);
 
+  // A BUSCA NÃO ESCREVE NO CÓDIGO. Ela só oferece a lista; quem escreve é
+  // a escolha (ou a pessoa, no campo do código). Foi exatamente isso que
+  // deixava um nome digitado virar código.
   function digitar(valor: string) {
     setTermo(valor);
-    setEscolhido(null);
-    // O que a pessoa digitou É o código, até ela escolher outro na lista.
-    setCodPdv(valor.trim());
     setAberto(true);
     if (relogio.current) clearTimeout(relogio.current);
     relogio.current = setTimeout(() => {
@@ -112,16 +116,64 @@ export function FormParticularidadePdv({
   function escolher(p: Achado) {
     setEscolhido(p);
     setCodPdv(p.codPdv);
+    setNomePdv(p.nomePdv ?? "");
+    setCidade(p.cidade ?? "");
     setTermo(p.nomePdv ? `${p.codPdv} — ${p.nomePdv}` : p.codPdv);
     setAberto(false);
   }
 
+  /**
+   * O CÓDIGO ACEITA SÓ DÍGITO -- medido: os 1.216 PDVs do Rating são
+   * todos numéricos. Filtrar na digitação é melhor do que recusar no
+   * envio: a pessoa vê na hora que a letra não entra.
+   *
+   * E cada código digitado é CONFERIDO contra a base, para dizer de quem
+   * ele é. Trocar 507 por 570 é o erro mais fácil de cometer aqui, e o
+   * mais difícil de notar depois -- a particularidade fica no cliente
+   * errado, calada.
+   */
+  function digitarCodigo(valor: string) {
+    const so = valor.replace(/\D/g, "").slice(0, 10);
+    setCodPdv(so);
+    setEscolhido(null);
+    if (relogioCodigo.current) clearTimeout(relogioCodigo.current);
+    if (!so) {
+      setConferindo(false);
+      return;
+    }
+    setConferindo(true);
+    relogioCodigo.current = setTimeout(async () => {
+      try {
+        const achados = await procurarPdv(so);
+        const exato = achados.find((a) => a.codPdv === so) ?? null;
+        setEscolhido(exato);
+        // Só preenche o que ainda está vazio: quem corrigiu o nome à mão
+        // não pode ver a correção sumir por causa de uma consulta.
+        if (exato) {
+          setNomePdv((atual) => atual || (exato.nomePdv ?? ""));
+          setCidade((atual) => atual || (exato.cidade ?? ""));
+        }
+      } catch {
+        setEscolhido(null);
+      } finally {
+        setConferindo(false);
+      }
+    }, 500);
+  }
+
   return (
     <form action={salvarParticularidade} className="space-y-3">
-      {/* ---- O cliente ---- */}
+      {/* ---- Procurar o cliente ---- */}
+      {/*
+        A BUSCA NÃO É MAIS O CAMPO DO CÓDIGO -- correção do dono
+        (06/09/2026). Antes, o que se digitasse aqui virava o código: quem
+        escrevesse o nome e não escolhesse da lista gravava um código que
+        nunca casaria com cliente nenhum. Agora ela só PREENCHE os campos
+        abaixo, e eles são a verdade do cadastro.
+      */}
       <div ref={caixa} className="relative">
         <label className={rotulo} htmlFor="busca-pdv">
-          Cliente (código ou nome) *
+          🔎 Procurar o cliente (código ou nome)
         </label>
         <input
           id="busca-pdv"
@@ -138,9 +190,6 @@ export function FormParticularidadePdv({
           autoComplete="off"
           className={campo}
         />
-        <input type="hidden" name="cod_pdv" value={codPdv} />
-        <input type="hidden" name="nome_pdv" value={escolhido?.nomePdv ?? ""} />
-        <input type="hidden" name="cidade" value={escolhido?.cidade ?? ""} />
 
         {aberto && termo.trim().length >= 2 && (
           <div className="absolute z-20 mt-1 max-h-64 w-full overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-lg">
@@ -148,8 +197,8 @@ export function FormParticularidadePdv({
               <p className="p-3 text-sm text-slate-400">Buscando...</p>
             ) : resultados.length === 0 ? (
               <p className="p-3 text-sm text-slate-500">
-                Nenhum cliente com esse código ou nome nas avaliações.{" "}
-                <strong>Dá para cadastrar assim mesmo</strong> — o que você digitou vira o código.
+                Nenhum cliente com esse código ou nome nas avaliações. Se for cliente novo, preencha
+                o <strong>código</strong> abaixo à mão.
               </p>
             ) : (
               resultados.map((p) => (
@@ -173,22 +222,74 @@ export function FormParticularidadePdv({
             )}
           </div>
         )}
+      </div>
 
-        {escolhido && (
-          <p className="mt-1.5 rounded-lg bg-slate-50 px-2.5 py-1.5 text-xs text-slate-600">
-            <strong>{escolhido.nomePdv ?? escolhido.codPdv}</strong>
+      {/* ---- O que fica gravado: código e nome, separados ---- */}
+      <div className="grid gap-2 sm:grid-cols-[9rem_1fr]">
+        <div>
+          <label className={rotulo} htmlFor="cod_pdv">
+            Código do cliente *
+          </label>
+          <input
+            id="cod_pdv"
+            name="cod_pdv"
+            value={codPdv}
+            onChange={(e) => digitarCodigo(e.target.value)}
+            inputMode="numeric"
+            required
+            placeholder="507"
+            autoComplete="off"
+            className={`${campo} tabular-nums`}
+          />
+        </div>
+        <div>
+          <label className={rotulo} htmlFor="nome_pdv">
+            Nome do cliente
+          </label>
+          <input
+            id="nome_pdv"
+            name="nome_pdv"
+            value={nomePdv}
+            onChange={(e) => setNomePdv(e.target.value)}
+            placeholder="Preenchido pela busca — dá para corrigir"
+            autoComplete="off"
+            className={campo}
+          />
+        </div>
+        <input type="hidden" name="cidade" value={cidade} />
+      </div>
+
+      {/*
+        O QUE O APP SABE SOBRE ESSE CÓDIGO, dito na hora.
+
+        Confirmação em verde quando o código existe nas avaliações; aviso
+        em âmbar quando não existe. O aviso NÃO impede o cadastro: cliente
+        novo, ou que nunca foi avaliado, é justamente quando a
+        particularidade mais importa. Mas ele aparece, porque digitar 570
+        no lugar de 507 é o erro mais fácil de cometer e o mais difícil de
+        notar depois.
+      */}
+      {codPdv.length > 0 &&
+        (conferindo ? (
+          <p className="rounded-lg bg-slate-50 px-2.5 py-1.5 text-xs text-slate-500">
+            Conferindo o código…
+          </p>
+        ) : escolhido && escolhido.codPdv === codPdv ? (
+          <p className="rounded-lg bg-green-50 px-2.5 py-1.5 text-xs text-green-900">
+            ✅ <strong>{escolhido.nomePdv ?? escolhido.codPdv}</strong>
             {escolhido.cidade && ` · ${escolhido.cidade}`} · {escolhido.avaliacoes} entrega(s)
             avaliada(s)
             {escolhido.media !== null && ` · média ${escolhido.media}`}
             {escolhido.detratoras > 0 && (
-              <span className="font-semibold text-red-700">
-                {" "}
-                · {escolhido.detratoras} detratora(s)
-              </span>
+              <span className="font-semibold text-red-700"> · {escolhido.detratoras} detratora(s)</span>
             )}
           </p>
-        )}
-      </div>
+        ) : (
+          <p className="rounded-lg bg-amber-50 px-2.5 py-1.5 text-xs leading-snug text-amber-900">
+            ⚠️ O código <strong>{codPdv}</strong> não aparece nas avaliações. Confira se não é outro
+            número — se for cliente novo, pode seguir.
+          </p>
+        ))}
 
       {/* ---- A categoria ---- */}
       <div>

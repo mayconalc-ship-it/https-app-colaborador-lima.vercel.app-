@@ -4,7 +4,7 @@
 // abaixo guarda um caso em que o aviso NAO deve aparecer.
 //   npx tsx src/lib/__testes__/pdv-particularidades.teste.mjs
 import {
-  normalizarCodPdv, chaveDeRegiao, diasAte, valeHoje, venceuEmAberto,
+  normalizarCodPdv, ehCodigoValido, chaveDeRegiao, diasAte, valeHoje, venceuEmAberto,
   valeNoDia, diaDaSemanaDe, rotuloDosDias, rotuloDoHorario, rotuloDoPrazo,
   avisosDoPdv, avisosDaRegiao, pendenciasComPrazo, sugestoesDeDetrator,
 } from "../pdv-particularidades.ts";
@@ -33,6 +33,17 @@ eq("aceita codigo com letra", normalizarCodPdv("AB-12"), "12");
 eq("codigo so de letras sobrevive", normalizarCodPdv("abc"), "ABC");
 eq("vazio e vazio", normalizarCodPdv(null), "");
 eq("zero nao vira vazio", normalizarCodPdv("000"), "0");
+
+console.log("\nCODIGO VALIDO -- a trava que impede o PDV orfao");
+eq("codigo normal", ehCodigoValido("507"), true);
+eq("com zeros a esquerda", ehCodigoValido("000507"), true);
+eq("um digito so", ehCodigoValido("7"), true);
+// O caso que originou a trava: o nome digitado no campo do codigo.
+eq("NOME NAO E CODIGO", ehCodigoValido("BAR LINHA DIRETA"), false);
+eq("nome com numero tambem nao", ehCodigoValido("BAR 24 HORAS"), false);
+eq("vazio nao e codigo", ehCodigoValido(""), false);
+eq("so espaco nao e codigo", ehCodigoValido("   "), false);
+eq("codigo absurdo de longo nao passa", ehCodigoValido("12345678901234"), false);
 
 console.log("\nREGIAO");
 eq("acento nao separa a cidade", chaveDeRegiao("São Félix"), chaveDeRegiao("SAO FELIX"));

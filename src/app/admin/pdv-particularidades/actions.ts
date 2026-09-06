@@ -6,7 +6,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { requireModulo } from "@/lib/require-admin";
 import { exigirRevenda } from "@/lib/revendas";
 import { getPerfil } from "@/lib/sessao";
-import { normalizarCodPdv } from "@/lib/pdv-particularidades";
+import { ehCodigoValido, normalizarCodPdv } from "@/lib/pdv-particularidades";
 import { buscarPdv, type PdvEncontrado } from "@/lib/pdv-particularidades-server";
 
 const ROTA = "/admin/pdv-particularidades";
@@ -53,11 +53,22 @@ export async function salvarParticularidade(formData: FormData) {
 
   const id = texto(formData, "id");
   const categoriaId = texto(formData, "categoria_id");
-  const codPdv = normalizarCodPdv(texto(formData, "cod_pdv"));
+  const codigoDigitado = texto(formData, "cod_pdv");
+  const codPdv = normalizarCodPdv(codigoDigitado);
   const aviso = texto(formData, "aviso");
 
   if (!categoriaId) voltar("erro", "Escolha a categoria.");
-  if (!codPdv) voltar("erro", "Informe o código do cliente.");
+  if (!codigoDigitado) voltar("erro", "Informe o código do cliente.");
+  // A MESMA TRAVA DA TELA, de novo aqui. A tela filtra a digitação, mas
+  // tela é sugestão: o formulário é do navegador de quem envia. E o custo
+  // de deixar passar é alto e silencioso -- a particularidade fica num
+  // cliente que não existe, e nunca casa com o relatório da pré-rota.
+  if (!ehCodigoValido(codigoDigitado)) {
+    voltar(
+      "erro",
+      `"${codigoDigitado}" não é um código de cliente — o código é só de números. O nome vai no campo ao lado.`,
+    );
+  }
   if (!aviso) voltar("erro", "Escreva o aviso — é a frase que o motorista vai ler.");
 
   const { data: categoria } = await admin
