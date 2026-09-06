@@ -3,7 +3,11 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
 import { procurarPdv, salvarParticularidade } from "@/app/admin/pdv-particularidades/actions";
-import { ROTULO_SEVERIDADE, type Severidade } from "@/lib/pdv-particularidades";
+import {
+  MAXIMO_DE_JANELAS,
+  ROTULO_SEVERIDADE,
+  type Severidade,
+} from "@/lib/pdv-particularidades";
 
 type Categoria = {
   id: string;
@@ -76,6 +80,7 @@ export function FormParticularidadePdv({
   const [resultados, setResultados] = useState<Achado[]>([]);
   const [aberto, setAberto] = useState(false);
   const [conferindo, setConferindo] = useState(false);
+  const [quantasJanelas, setQuantasJanelas] = useState(1);
   const [pendente, iniciar] = useTransition();
   const relogio = useRef<ReturnType<typeof setTimeout> | null>(null);
   const relogioCodigo = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -341,21 +346,60 @@ export function FormParticularidadePdv({
       {/* ---- Horário, só quando a categoria pede ---- */}
       {categoria?.exigeHorario && (
         <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-          <div className="grid gap-2 sm:grid-cols-2">
-            <div>
-              <label className={rotulo} htmlFor="hora_de">
-                A partir das
-              </label>
-              <input id="hora_de" name="hora_de" type="time" className={campo} />
-            </div>
-            <div>
-              <label className={rotulo} htmlFor="hora_ate">
-                Até as
-              </label>
-              <input id="hora_ate" name="hora_ate" type="time" className={campo} />
-            </div>
+          {/*
+            ATÉ QUATRO JANELAS -- pedido do dono (06/09/2026): "tem PDV que
+            recebe das 08 às 11 e das 15 às 16h".
+
+            Com uma janela só, quem cadastrava tinha duas saídas ruins:
+            escrever "das 08 às 16" (que manda o motorista chegar às 12h e
+            voltar) ou jogar o segundo horário no texto do aviso, onde
+            nenhuma regra enxerga.
+
+            A SEGUNDA NASCE VAZIA E SÓ APARECE QUANDO PEDIDA: a maioria dos
+            clientes tem uma faixa só, e quatro pares de campos abertos de
+            saída fariam a tela parecer mais trabalho do que é.
+          */}
+          <p className={rotulo}>Horário em que o cliente recebe</p>
+          <div className="space-y-2">
+            {Array.from({ length: quantasJanelas }).map((_, i) => (
+              <div key={i} className="flex items-end gap-2">
+                <div className="min-w-0 flex-1">
+                  <label className="mb-1 block text-[10px] uppercase text-slate-400">
+                    {i === 0 ? "A partir das" : "e das"}
+                  </label>
+                  <input name="janela_de" type="time" className={campo} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <label className="mb-1 block text-[10px] uppercase text-slate-400">Até as</label>
+                  <input name="janela_ate" type="time" className={campo} />
+                </div>
+                {i === quantasJanelas - 1 && i > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setQuantasJanelas((n) => n - 1)}
+                    className="shrink-0 pb-2 text-xs font-semibold text-slate-400 hover:text-red-600"
+                  >
+                    remover
+                  </button>
+                )}
+              </div>
+            ))}
           </div>
-          <div className="mt-2">
+          {quantasJanelas < MAXIMO_DE_JANELAS && (
+            <button
+              type="button"
+              onClick={() => setQuantasJanelas((n) => n + 1)}
+              className="mt-2 text-xs font-semibold text-primary hover:underline"
+            >
+              + outro horário no dia
+            </button>
+          )}
+          <p className="mt-1.5 text-[11px] leading-snug text-slate-500">
+            Para o cliente que fecha no almoço, use duas faixas. Deixar só o “até” também vale — vira
+            “até as 11h”.
+          </p>
+
+          <div className="mt-3">
             <p className={rotulo}>Dias da semana (vazio = todo dia)</p>
             <div className="flex flex-wrap gap-2">
               {DIAS.map((d) => (

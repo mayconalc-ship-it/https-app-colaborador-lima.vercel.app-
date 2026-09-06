@@ -509,7 +509,7 @@ function LinhaParticularidade({
   podeExcluir: boolean;
 }) {
   const resolvida = p.status !== "ativa";
-  const horario = rotuloDoHorario(p.horaDe, p.horaAte);
+  const horario = rotuloDoHorario(p.janelas);
   const dias = rotuloDosDias(p.diasSemana);
   const severidade: Severidade = categoria?.severidade ?? "atencao";
 

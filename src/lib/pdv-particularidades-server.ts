@@ -5,11 +5,13 @@ import {
   avisosDaRegiao,
   avisosDoPdv,
   normalizarCodPdv,
+  normalizarJanelas,
   rotuloDoHorario,
   rotuloDosDias,
   sugestoesDeDetrator,
   type AvaliacaoDoPdv,
   type Categoria,
+  type Janela,
   type Particularidade,
   type Severidade,
   type SugestaoDetrator,
@@ -148,8 +150,7 @@ type LinhaParticularidade = {
   bairro: string | null;
   aviso: string;
   detalhe: string | null;
-  hora_de: string | null;
-  hora_ate: string | null;
+  janelas: Janela[] | null;
   dias_semana: number[] | null;
   de: string | null;
   ate: string | null;
@@ -199,8 +200,7 @@ const paraParticularidade = (l: LinhaParticularidade): ParticularidadeCompleta =
   bairro: l.bairro,
   aviso: l.aviso,
   detalhe: l.detalhe,
-  horaDe: l.hora_de,
-  horaAte: l.hora_ate,
+  janelas: normalizarJanelas(l.janelas),
   diasSemana: l.dias_semana,
   de: l.de,
   ate: l.ate,
@@ -242,7 +242,7 @@ export async function particularidadesDaRevenda(
   let consulta = admin
     .from("pa_pdv_particularidades")
     .select(
-      "id, categoria_id, cod_pdv, nome_pdv, cidade, bairro, aviso, detalhe, hora_de, hora_ate, dias_semana, de, ate, status, origem, criado_por_nome, criado_em, resolvido_em, resolvido_por_nome, resolucao",
+      "id, categoria_id, cod_pdv, nome_pdv, cidade, bairro, aviso, detalhe, janelas, dias_semana, de, ate, status, origem, criado_por_nome, criado_em, resolvido_em, resolvido_por_nome, resolucao",
     )
     .eq("revenda_id", revendaId)
     .order("criado_em", { ascending: false });
@@ -263,7 +263,7 @@ export async function particularidadesDoPdv(
   const { data, error } = await admin
     .from("pa_pdv_particularidades")
     .select(
-      "id, categoria_id, cod_pdv, nome_pdv, cidade, bairro, aviso, detalhe, hora_de, hora_ate, dias_semana, de, ate, status, origem, criado_por_nome, criado_em, resolvido_em, resolvido_por_nome, resolucao",
+      "id, categoria_id, cod_pdv, nome_pdv, cidade, bairro, aviso, detalhe, janelas, dias_semana, de, ate, status, origem, criado_por_nome, criado_em, resolvido_em, resolvido_por_nome, resolucao",
     )
     .eq("revenda_id", revendaId)
     .eq("cod_pdv", normalizarCodPdv(codPdv))
@@ -430,7 +430,7 @@ export async function avisosDoMapa(
       severidade: categoria.severidade,
       aviso: p.aviso,
       detalhe: p.detalhe,
-      horario: rotuloDoHorario(p.horaDe, p.horaAte),
+      horario: rotuloDoHorario(p.janelas),
       dias: rotuloDosDias(p.diasSemana),
       diasDePrazo: dias,
     })),

@@ -42,6 +42,20 @@ export type Categoria = {
   alertaNaRota: boolean;
 };
 
+/**
+ * UMA JANELA DE RECEBIMENTO.
+ *
+ * Os dois lados são opcionais, e cada combinação quer dizer uma coisa
+ * diferente na porta do cliente: com os dois, é uma faixa; só com `ate`, é
+ * "até as 11h"; só com `de`, "a partir das 14h". Janela sem nenhum dos
+ * dois não existe -- é o campo que a pessoa abriu e não preencheu.
+ */
+export type Janela = { de?: string | null; ate?: string | null };
+
+/** O limite é da TELA, não do banco: é o que cabe na cabeça de quem lê na
+ *  porta do cliente. Pedido do dono (06/09/2026). */
+export const MAXIMO_DE_JANELAS = 4;
+
 export type Particularidade = {
   id: string;
   categoriaId: string;
@@ -51,8 +65,8 @@ export type Particularidade = {
   bairro: string | null;
   aviso: string;
   detalhe: string | null;
-  horaDe: string | null;
-  horaAte: string | null;
+  /** Até 4 faixas de horário no dia — o PDV que fecha para o almoço. */
+  janelas: Janela[];
   diasSemana: number[] | null;
   de: string | null;
   ate: string | null;
@@ -184,16 +198,61 @@ export function rotuloDosDias(dias: number[] | null | undefined): string | null 
   return `${nomes.slice(0, -1).join(", ")} e ${nomes[nomes.length - 1]}`;
 }
 
-/** "até as 11:00" · "das 08:00 às 11:00" · null quando não há horário. */
-export function rotuloDoHorario(
-  horaDe: string | null | undefined,
-  horaAte: string | null | undefined,
-): string | null {
-  const hm = (h: string) => h.slice(0, 5);
-  if (horaDe && horaAte) return `das ${hm(horaDe)} às ${hm(horaAte)}`;
-  if (horaAte) return `até as ${hm(horaAte)}`;
-  if (horaDe) return `a partir das ${hm(horaDe)}`;
+const hm = (h: string) => h.slice(0, 5);
+
+/** Uma janela por extenso. Null quando ela está vazia. */
+export function rotuloDaJanela(j: Janela): string | null {
+  if (j.de && j.ate) return `das ${hm(j.de)} às ${hm(j.ate)}`;
+  if (j.ate) return `até as ${hm(j.ate)}`;
+  if (j.de) return `a partir das ${hm(j.de)}`;
   return null;
+}
+
+/**
+ * LIMPA E ORDENA as janelas: fora as vazias, fora as repetidas, e em
+ * ordem de horário.
+ *
+ * A ORDEM NÃO É ENFEITE. "das 15h às 16h e das 08h às 11h" faz quem lê na
+ * porta do cliente reler para achar a janela da manhã -- e ela é a que
+ * importa, porque é a primeira que passa.
+ */
+export function normalizarJanelas(
+  janelas: Janela[] | null | undefined,
+  maximo = MAXIMO_DE_JANELAS,
+): Janela[] {
+  const limpas: Janela[] = [];
+  for (const j of janelas ?? []) {
+    const de = j.de?.trim() ? hm(j.de.trim()) : null;
+    const ate = j.ate?.trim() ? hm(j.ate.trim()) : null;
+    if (!de && !ate) continue;
+    // A mesma janela duas vezes é erro de digitação, não intenção.
+    if (limpas.some((x) => (x.de ?? "") === (de ?? "") && (x.ate ?? "") === (ate ?? ""))) continue;
+    limpas.push({ de, ate });
+  }
+  return limpas
+    .sort((a, b) => (a.de ?? a.ate ?? "").localeCompare(b.de ?? b.ate ?? ""))
+    .slice(0, maximo);
+}
+
+/**
+ * O horário inteiro, numa frase: "das 08:00 às 11:00 e das 15:00 às 16:00".
+ *
+ * Uma frase só, e não uma lista de linhas: o motorista lê isto dentro de
+ * um cartão, entre uma entrega e outra.
+ */
+export function rotuloDoHorario(janelas: Janela[] | null | undefined): string | null {
+  const partes = normalizarJanelas(janelas)
+    .map(rotuloDaJanela)
+    .filter((t): t is string => Boolean(t));
+  if (partes.length === 0) return null;
+  if (partes.length === 1) return partes[0];
+  return `${partes.slice(0, -1).join(", ")} e ${partes[partes.length - 1]}`;
+}
+
+/** A janela fecha antes de abrir? É o erro que passa despercebido no
+ *  cadastro e vira um horário impossível na rota. */
+export function janelaInvertida(j: Janela): boolean {
+  return Boolean(j.de && j.ate && hm(j.ate) <= hm(j.de));
 }
 
 export type AvisoDeRota = {

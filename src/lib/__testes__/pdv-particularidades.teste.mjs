@@ -6,6 +6,7 @@
 import {
   normalizarCodPdv, ehCodigoValido, chaveDeRegiao, diasAte, valeHoje, venceuEmAberto,
   valeNoDia, diaDaSemanaDe, rotuloDosDias, rotuloDoHorario, rotuloDoPrazo,
+  normalizarJanelas, janelaInvertida,
   avisosDoPdv, avisosDaRegiao, pendenciasComPrazo, sugestoesDeDetrator,
 } from "../pdv-particularidades.ts";
 
@@ -22,7 +23,7 @@ const cat = (id, extra = {}) => ({
 });
 const part = (id, extra = {}) => ({
   id, categoriaId: "c1", codPdv: "507", nomePdv: "BAR", cidade: "CORIBE", bairro: "CENTRO",
-  aviso: "aviso", detalhe: null, horaDe: null, horaAte: null, diasSemana: null,
+  aviso: "aviso", detalhe: null, janelas: [], diasSemana: null,
   de: null, ate: null, status: "ativa", ...extra,
 });
 
@@ -85,11 +86,34 @@ eq("rotulo de dias", rotuloDosDias([2, 4, 6]), "seg, qua e sex");
 eq("um dia so", rotuloDosDias([3]), "ter");
 eq("a semana inteira nao vira rotulo", rotuloDosDias([1, 2, 3, 4, 5, 6, 7]), null);
 
-console.log("\nHORARIO");
-eq("so o fim", rotuloDoHorario(null, "11:00:00"), "até as 11:00");
-eq("faixa", rotuloDoHorario("08:00:00", "11:00:00"), "das 08:00 às 11:00");
-eq("so o inicio", rotuloDoHorario("14:00:00", null), "a partir das 14:00");
-eq("sem horario", rotuloDoHorario(null, null), null);
+console.log("\nHORARIO -- ate quatro janelas no dia");
+eq("so o fim", rotuloDoHorario([{ ate: "11:00:00" }]), "até as 11:00");
+eq("faixa", rotuloDoHorario([{ de: "08:00:00", ate: "11:00:00" }]), "das 08:00 às 11:00");
+eq("so o inicio", rotuloDoHorario([{ de: "14:00:00" }]), "a partir das 14:00");
+eq("sem horario", rotuloDoHorario([]), null);
+eq("nulo nao quebra", rotuloDoHorario(null), null);
+// O caso do pedido: o cliente que fecha no almoco.
+eq("duas janelas",
+  rotuloDoHorario([{ de: "08:00", ate: "11:00" }, { de: "15:00", ate: "16:00" }]),
+  "das 08:00 às 11:00 e das 15:00 às 16:00");
+eq("tres janelas usam virgula e 'e'",
+  rotuloDoHorario([{ de: "08:00", ate: "09:00" }, { de: "11:00", ate: "12:00" }, { de: "15:00", ate: "16:00" }]),
+  "das 08:00 às 09:00, das 11:00 às 12:00 e das 15:00 às 16:00");
+eq("fora de ordem sai em ordem",
+  rotuloDoHorario([{ de: "15:00", ate: "16:00" }, { de: "08:00", ate: "11:00" }]),
+  "das 08:00 às 11:00 e das 15:00 às 16:00");
+
+console.log("\nJANELAS -- limpeza");
+eq("vazia sai", normalizarJanelas([{ de: "", ate: "" }, { de: "08:00", ate: "11:00" }]).length, 1);
+eq("repetida sai", normalizarJanelas([{ de: "08:00", ate: "11:00" }, { de: "08:00", ate: "11:00" }]).length, 1);
+eq("corta em 4", normalizarJanelas([
+  { de: "01:00" }, { de: "02:00" }, { de: "03:00" }, { de: "04:00" }, { de: "05:00" },
+]).length, 4);
+eq("segundos somem", normalizarJanelas([{ de: "08:00:00", ate: "11:00:00" }])[0], { de: "08:00", ate: "11:00" });
+eq("janela invertida e pega", janelaInvertida({ de: "16:00", ate: "15:00" }), true);
+eq("fim igual ao inicio tambem", janelaInvertida({ de: "15:00", ate: "15:00" }), true);
+eq("janela normal passa", janelaInvertida({ de: "08:00", ate: "11:00" }), false);
+eq("so um lado nao inverte", janelaInvertida({ ate: "11:00" }), false);
 
 console.log("\nAVISOS DO PDV");
 const categorias = new Map([

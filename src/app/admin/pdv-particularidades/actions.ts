@@ -6,7 +6,12 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { requireModulo } from "@/lib/require-admin";
 import { exigirRevenda } from "@/lib/revendas";
 import { getPerfil } from "@/lib/sessao";
-import { ehCodigoValido, normalizarCodPdv } from "@/lib/pdv-particularidades";
+import {
+  ehCodigoValido,
+  janelaInvertida,
+  normalizarCodPdv,
+  normalizarJanelas,
+} from "@/lib/pdv-particularidades";
 import { buscarPdv, type PdvEncontrado } from "@/lib/pdv-particularidades-server";
 
 const ROTA = "/admin/pdv-particularidades";
@@ -81,8 +86,24 @@ export async function salvarParticularidade(formData: FormData) {
 
   const de = texto(formData, "de") || null;
   const ate = texto(formData, "ate") || null;
-  const horaDe = texto(formData, "hora_de") || null;
-  const horaAte = texto(formData, "hora_ate") || null;
+
+  // AS JANELAS VÊM COMO LISTAS PARALELAS -- `janela_de[i]` casa com
+  // `janela_ate[i]` --, que é como o HTML manda campos repetidos. A
+  // limpeza (vazias fora, repetidas fora, em ordem) é a mesma função que
+  // a leitura usa, para o que se grava e o que se lê nunca divergirem.
+  const janelasDe = formData.getAll("janela_de").map(String);
+  const janelasAte = formData.getAll("janela_ate").map(String);
+  const janelas = normalizarJanelas(
+    janelasDe.map((d, i) => ({ de: d, ate: janelasAte[i] ?? null })),
+  );
+
+  const invertida = janelas.find(janelaInvertida);
+  if (invertida) {
+    voltar(
+      "erro",
+      `O horário ${invertida.de} às ${invertida.ate} fecha antes de abrir. Confira a faixa.`,
+    );
+  }
 
   if (categoria.exige_prazo && !ate) {
     voltar(
@@ -90,7 +111,7 @@ export async function salvarParticularidade(formData: FormData) {
       `"${categoria.nome}" exige a data de liberação — sem ela o cadastro vira um bloqueio eterno que ninguém revisa.`,
     );
   }
-  if (categoria.exige_horario && !horaDe && !horaAte) {
+  if (categoria.exige_horario && janelas.length === 0) {
     voltar("erro", `"${categoria.nome}" exige ao menos um horário.`);
   }
   if (de && ate && ate < de) voltar("erro", "A data final é anterior à inicial.");
@@ -109,8 +130,7 @@ export async function salvarParticularidade(formData: FormData) {
     bairro: texto(formData, "bairro") || null,
     aviso,
     detalhe: texto(formData, "detalhe") || null,
-    hora_de: horaDe,
-    hora_ate: horaAte,
+    janelas,
     dias_semana: dias.length > 0 && dias.length < 7 ? dias : null,
     de,
     ate,
