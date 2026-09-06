@@ -1,4 +1,4 @@
-import type { ModuloId } from "@/lib/acessos";
+import { MODULOS_OPCIONAIS, type ModuloId } from "@/lib/acessos";
 
 /**
  * De qual módulo cada cartão do menu depende.
@@ -107,6 +107,37 @@ export const DESTAQUES_DO_MENU = new Set(["rv", "produtividade-armazem"]);
  * logo depois. No topo ele funciona como cabeçalho do bloco, que é o
  * papel que os números de uso dizem que ele tem.
  */
+/**
+ * OS CARTÕES QUE UMA PESSOA VÊ NA HOME -- a regra, num lugar só.
+ *
+ * Estava escrita dentro da home. Passou a morar aqui em 06/09/2026 porque
+ * a prévia de acesso ("ver como esta pessoa vê", em Acessos por Pessoa)
+ * precisa responder EXATAMENTE a mesma coisa. Uma prévia que reimplementa
+ * a regra é uma prévia que mente na primeira mudança -- e mente
+ * justamente onde se confia nela para decidir uma permissão.
+ *
+ * Duas perguntas, nesta ordem:
+ *   1. a revenda usa o módulo? Vale até para o dono -- não adianta o
+ *      cartão estar visível se a tela dele não existe ali;
+ *   2. é módulo opcional? Então só entra quem tem a liberação individual.
+ *      Módulo fora dessa lista (o 5S, que tem controle próprio) passa.
+ */
+export function cartoesVisiveis<T extends { chave: string; visivel: boolean }>(
+  itens: T[],
+  modulosDaRevenda: Set<string>,
+  modulosAcessiveis: Set<string>,
+): T[] {
+  return itens.filter((item) => {
+    if (!item.visivel) return false;
+    const modulo = MODULO_DO_ITEM[item.chave];
+    if (modulo && !modulosDaRevenda.has(modulo)) return false;
+    if (modulo && (MODULOS_OPCIONAIS as readonly string[]).includes(modulo)) {
+      return modulosAcessiveis.has(modulo);
+    }
+    return true;
+  });
+}
+
 export function agruparItens<T extends { chave: string }>(itens: T[]) {
   const usadas = new Set<string>();
   const blocos = BLOCOS_DO_MENU.map((b) => {

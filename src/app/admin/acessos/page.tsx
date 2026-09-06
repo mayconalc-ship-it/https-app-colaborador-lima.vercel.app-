@@ -587,8 +587,18 @@ export default async function GestaoDeAcessosPage({
                         return (
                           <tr key={p.id} className="border-t border-slate-100">
                             <td className="sticky left-0 z-10 min-w-[11rem] bg-white p-3 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.08)]">
+                              {/* O NOME LEVA À PRÉVIA. É aqui que estão os
+                                  colaboradores -- eles não aparecem na
+                                  lista de lideranças, e são a maioria de
+                                  quem se libera. */}
                               <p className="font-medium text-slate-800">
-                                {p.nome}
+                                <Link
+                                  href={`/admin/acessos/${p.id}?revenda=${escolhida.id}`}
+                                  className="hover:text-primary hover:underline"
+                                  title={`Ver como ${p.nome} vê o app`}
+                                >
+                                  {p.nome}
+                                </Link>
                                 {outras.length > 0 && (
                                   <span
                                     className="ml-1.5 rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-500"
@@ -711,7 +721,15 @@ export default async function GestaoDeAcessosPage({
                         return (
                           <tr key={pessoa.id} className="border-t border-slate-100">
                             <td className="sticky left-0 z-10 min-w-[11rem] bg-white p-3 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.08)]">
-                              <p className="font-medium text-slate-800">{pessoa.nome}</p>
+                              <p className="font-medium text-slate-800">
+                                <Link
+                                  href={`/admin/acessos/${pessoa.id}?revenda=${escolhida.id}`}
+                                  className="hover:text-primary hover:underline"
+                                  title={`Ver como ${pessoa.nome} vê o app`}
+                                >
+                                  {pessoa.nome}
+                                </Link>
+                              </p>
                               <p className="text-xs text-slate-400">
                                 {pessoa.area ?? ""}
                                 {pessoa.cargo ? ` · ${pessoa.cargo}` : ""}
@@ -1088,13 +1106,23 @@ export default async function GestaoDeAcessosPage({
                     sem poder abri-la.
                   </p>
 
-                  <div className="mt-4 flex flex-wrap gap-2">
+                  <div className="mt-4 flex flex-wrap items-stretch gap-2">
                     <BotaoEnviar
                       textoEnviando="Salvando..."
                       className="flex-1 rounded-xl bg-primary py-3 text-sm font-semibold text-white hover:bg-primary-dark"
                     >
                       Salvar permissões em {escolhida.nome}
                     </BotaoEnviar>
+                    {/* A CONFERÊNCIA DEPOIS DE SALVAR, ao lado do botão que
+                        salva. É a pergunta que se faz em seguida -- "ficou
+                        como eu queria?" -- e até hoje só tinha uma resposta:
+                        entrar na conta de alguém. */}
+                    <Link
+                      href={`/admin/acessos/${p.id}?revenda=${escolhida.id}`}
+                      className="flex items-center justify-center rounded-xl border border-slate-300 px-4 py-3 text-sm font-semibold text-slate-700 hover:border-primary hover:text-primary"
+                    >
+                      👁️ Ver como {p.nome?.split(" ")[0]} vê
+                    </Link>
                   </div>
                 </form>
 

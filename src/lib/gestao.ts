@@ -181,6 +181,24 @@ export function paineisDoModulo(modulo: ModuloId): Painel[] {
 /** Os módulos que abrem alguma análise -- a legenda da tela de acessos. */
 export const MODULOS_COM_ANALISE: ModuloId[] = [...new Set(PAINEIS.map((p) => p.modulo))];
 
+/**
+ * AS ANÁLISES QUE UMA PESSOA VÊ -- a regra, num lugar só.
+ *
+ * Estava dentro de `paineisVisiveis`, que só sabe olhar para QUEM ESTÁ
+ * LOGADO. A prévia de acesso ("ver como esta pessoa vê") precisa
+ * responder o mesmo sobre OUTRA pessoa, e uma prévia que reimplementa a
+ * regra mente na primeira mudança.
+ *
+ * Duas perguntas, as mesmas do Modo Liderança: a revenda usa o módulo? e
+ * esta pessoa pode abri-lo? A primeira vale até para o dono.
+ */
+export function paineisPara(
+  modulosDaRevenda: Set<string>,
+  podeVer: (modulo: ModuloId) => boolean,
+): Painel[] {
+  return PAINEIS.filter((p) => modulosDaRevenda.has(p.modulo) && podeVer(p.modulo));
+}
+
 /** Os redirects do next.config: endereço antigo -> endereço novo. */
 export function mudancasDeEndereco() {
   return [

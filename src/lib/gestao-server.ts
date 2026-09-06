@@ -4,7 +4,7 @@ import { getPerfil } from "@/lib/sessao";
 import { getConcessoes } from "@/lib/concessoes";
 import { getRevendaId, getModulosDaRevenda } from "@/lib/revendas";
 import { podeFazer } from "@/lib/acessos";
-import { PAINEIS, type Painel } from "@/lib/gestao";
+import { paineisPara, type Painel } from "@/lib/gestao";
 
 /**
  * Os painéis que ESTA pessoa pode abrir, nesta revenda.
@@ -31,8 +31,8 @@ export const paineisVisiveis = cache(async (): Promise<Painel[]> => {
     getModulosDaRevenda(revendaId),
   ]);
 
-  return PAINEIS.filter(
-    (p) => modulosDaRevenda.has(p.modulo) && podeFazer(perfil.role, concessoes, p.modulo, "ver"),
+  return paineisPara(modulosDaRevenda, (modulo) =>
+    podeFazer(perfil.role, concessoes, modulo, "ver"),
   );
 });
 

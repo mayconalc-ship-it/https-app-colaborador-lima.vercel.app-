@@ -2,7 +2,7 @@ import { MenuCard } from "@/components/MenuCard";
 import { createClient } from "@/lib/supabase/server";
 import { getPerfil } from "@/lib/sessao";
 import { getRevendaAtiva, getModulosDaRevenda } from "@/lib/revendas";
-import { DESTAQUES_DO_MENU, MENU_PADRAO, MODULO_DO_ITEM, agruparItens } from "@/lib/menu";
+import { DESTAQUES_DO_MENU, MENU_PADRAO, agruparItens, cartoesVisiveis } from "@/lib/menu";
 
 /**
  * A frase abaixo do título nos cartões grandes. Só nos destaques: num
@@ -13,7 +13,6 @@ const LEGENDA_DO_DESTAQUE: Record<string, string> = {
   "produtividade-armazem": "Reepack, despejo, empilhadeira e recebimento",
 };
 import { getModulosAcessiveis } from "@/lib/require-admin";
-import { MODULOS_OPCIONAIS } from "@/lib/acessos";
 import { CartaoDePainel } from "@/components/gestao/CartaoDePainel";
 import { BLOCOS_DA_GESTAO } from "@/lib/gestao";
 import { paineisVisiveis, sinaisDosPaineis } from "@/lib/gestao-server";
@@ -52,22 +51,11 @@ export default async function Home() {
 
   const primeiroNome = perfil?.nome?.split(" ")[0] ?? "";
   const todos = itensBanco && itensBanco.length > 0 ? itensBanco : MENU_PADRAO;
-  const itens = todos.filter((item) => {
-    if (!item.visivel) return false;
-
-    // A revenda usa este módulo? Vem antes de tudo: não adianta o cartão
-    // estar visível e ordenado se a tela dele não existe aqui.
-    const modulo = MODULO_DO_ITEM[item.chave];
-    if (modulo && !modulosDaRevenda.has(modulo)) return false;
-
-    // Módulo opcional (a lista em lib/acessos.ts): só entra quem tem
-    // concessão -- ver getModulosAcessiveis. Módulo fora dessa lista
-    // (ex.: 5S, que tem controle próprio) passa direto.
-    if (modulo && (MODULOS_OPCIONAIS as string[]).includes(modulo)) {
-      return modulosAcessiveis.has(modulo);
-    }
-    return true;
-  });
+  // A regra mora em lib/menu.ts desde 06/09/2026: a prévia de acesso, em
+  // Acessos por Pessoa, responde à mesma pergunta e precisa da MESMA
+  // resposta -- uma prévia que reimplementa a regra mente na primeira
+  // mudança.
+  const itens = cartoesVisiveis(todos, modulosDaRevenda, modulosAcessiveis);
 
   return (
     <div>
