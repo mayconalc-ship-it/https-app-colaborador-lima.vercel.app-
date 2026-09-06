@@ -14,11 +14,14 @@ import {
   ROTULO_PAPEL,
   moduloPorId,
   rotuloDaAcaoNoModulo,
+  type Acao,
   type Modulo,
   type Papel,
 } from "@/lib/acessos";
 import { PAINEIS, paineisDoModulo } from "@/lib/gestao";
+import { simularAplicacao, type Concessao } from "@/lib/perfis-acesso";
 import {
+  aplicarPerfilNaFicha,
   definirPapel,
   liberarAcessosEmLote,
   liberarAnalisesEmLote,
@@ -129,6 +132,219 @@ function BlocoDoModulo({
   );
 }
 
+/**
+ * O MOLDE DESTA PESSOA -- e o quanto ela saiu dele.
+ *
+ * Ponto 2 do diagnóstico (06/09/2026). A tela pergunta "quem tem o módulo
+ * X?"; quem administra pensa "o que o conferente precisa?". Perfis de
+ * Acesso responde a segunda pergunta e estava subusado -- quatro perfis,
+ * nove pessoas, e as duas lideranças mais carregadas montadas à mão com
+ * 49 concessões cada. Parte da causa era o caminho: aplicar um perfil
+ * exigia sair daqui.
+ *
+ * E FALTAVA A OUTRA METADE: não havia como saber quem estava FORA do
+ * molde. Um perfil que ninguém confere vira decoração -- e a insegurança
+ * de "será que liberei demais?" mora exatamente aí.
+ *
+ * O que sai daqui é leitura, mais dois botões:
+ *   - SOMAR, para vestir o molde sem tirar nada de ninguém;
+ *   - VOLTAR AO MOLDE (espelhar), que TIRA -- e por isso lista antes,
+ *     nome por nome, o que vai sair. Confirmação sobre uma lista, não
+ *     sobre uma palavra.
+ */
+function PerfilDaPessoa({
+  pessoaId,
+  pessoaNome,
+  revendaId,
+  meus,
+  perfis,
+  concessoesDoPerfil,
+  minhas,
+}: {
+  pessoaId: string;
+  pessoaNome: string;
+  revendaId: string;
+  meus: { id: string; nome: string }[];
+  perfis: { id: string; nome: string }[];
+  concessoesDoPerfil: Map<string, Concessao[]>;
+  minhas: Set<string>;
+}) {
+  const jaTem: Concessao[] = [...minhas].map((c) => {
+    const corte = c.lastIndexOf(":");
+    return { modulo: c.slice(0, corte), acao: c.slice(corte + 1) };
+  });
+
+  const rotuloDaConcessao = (c: Concessao) => {
+    const m = moduloPorId(c.modulo);
+    return m
+      ? `${m.rotulo} · ${rotuloDaAcaoNoModulo(m, c.acao as Acao)}`
+      : `${c.modulo}:${c.acao}`;
+  };
+
+  // SEM PERFIL: a tela oferece um, em vez de só constatar a falta.
+  if (meus.length === 0) {
+    return (
+      <div className="mb-4 rounded-xl border border-slate-200 bg-slate-50 p-3">
+        <p className="text-sm font-semibold text-slate-800">🎫 Sem perfil</p>
+        <p className="mt-0.5 text-xs leading-snug text-slate-500">
+          As permissões abaixo foram montadas uma a uma. Um perfil dá nome ao conjunto e repete o
+          mesmo na próxima contratação.
+        </p>
+        {perfis.length === 0 ? (
+          <p className="mt-2 text-xs text-slate-500">
+            Nenhum perfil criado nesta revenda ainda —{" "}
+            <Link href="/admin/perfis-de-acesso" className="font-semibold text-primary hover:underline">
+              criar o primeiro
+            </Link>
+            . Dá para criá-lo a partir das permissões de alguém que já esteja certo.
+          </p>
+        ) : (
+          <form action={aplicarPerfilNaFicha} className="mt-2 flex flex-wrap items-center gap-2">
+            <input type="hidden" name="revenda" value={revendaId} />
+            <input type="hidden" name="colaborador_id" value={pessoaId} />
+            {/* SOMAR por padrão. O espelhar tira, e não se oferece uma
+                remoção a quem ainda não escolheu o molde. */}
+            <select
+              name="perfil_id"
+              defaultValue=""
+              required
+              className="min-w-[10rem] rounded-lg border border-slate-300 bg-white p-2 text-sm"
+            >
+              <option value="" disabled>
+                Escolha um perfil…
+              </option>
+              {perfis.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.nome}
+                </option>
+              ))}
+            </select>
+            <BotaoEnviar
+              textoEnviando="Aplicando..."
+              className="rounded-lg border border-primary px-3 py-2 text-xs font-semibold text-primary hover:bg-primary-soft"
+            >
+              Somar este perfil
+            </BotaoEnviar>
+            <span className="text-[11px] text-slate-400">Acrescenta; não tira nada.</span>
+          </form>
+        )}
+      </div>
+    );
+  }
+
+  // COM MAIS DE UM PERFIL: não há molde único para comparar, e inventar um
+  // seria pior do que não comparar.
+  if (meus.length > 1) {
+    return (
+      <div className="mb-4 rounded-xl border border-slate-200 bg-slate-50 p-3">
+        <p className="text-sm font-semibold text-slate-800">
+          🎫 {meus.map((p) => p.nome).join(" + ")}
+        </p>
+        <p className="mt-0.5 text-xs leading-snug text-slate-500">
+          Com mais de um perfil não existe um molde único para comparar — quem acumula funções é
+          conferido a mão mesmo. Para separar, tire um dos perfis em{" "}
+          <Link href="/admin/perfis-de-acesso" className="font-semibold text-primary hover:underline">
+            Perfis de Acesso
+          </Link>
+          .
+        </p>
+      </div>
+    );
+  }
+
+  const perfil = meus[0];
+  const { entram, foraDoPerfil } = simularAplicacao(
+    concessoesDoPerfil.get(perfil.id) ?? [],
+    jaTem,
+  );
+  const igual = entram.length === 0 && foraDoPerfil.length === 0;
+
+  return (
+    <div
+      className={`mb-4 rounded-xl border p-3 ${
+        igual ? "border-green-200 bg-green-50/60" : "border-amber-300 bg-amber-50"
+      }`}
+    >
+      <p className="text-sm font-semibold text-slate-800">
+        🎫 {perfil.nome}
+        <span
+          className={`ml-2 rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+            igual ? "bg-green-600 text-white" : "bg-amber-600 text-white"
+          }`}
+        >
+          {igual ? "igual ao molde" : `${entram.length + foraDoPerfil.length} fora do molde`}
+        </span>
+      </p>
+
+      {igual ? (
+        <p className="mt-0.5 text-xs text-slate-500">
+          As permissões desta pessoa são exatamente as do perfil.
+        </p>
+      ) : (
+        <>
+          <div className="mt-2 space-y-2 text-xs leading-snug">
+            {foraDoPerfil.length > 0 && (
+              <div>
+                <p className="font-semibold text-amber-900">
+                  Tem a mais que o perfil ({foraDoPerfil.length}):
+                </p>
+                <ul className="mt-0.5 space-y-0.5 text-slate-700">
+                  {foraDoPerfil.map((c) => (
+                    <li key={`${c.modulo}:${c.acao}`}>+ {rotuloDaConcessao(c)}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {entram.length > 0 && (
+              <div>
+                <p className="font-semibold text-amber-900">
+                  Está no perfil e falta aqui ({entram.length}):
+                </p>
+                <ul className="mt-0.5 space-y-0.5 text-slate-700">
+                  {entram.map((c) => (
+                    <li key={`${c.modulo}:${c.acao}`}>− {rotuloDaConcessao(c)}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+
+          <div className="mt-3 flex flex-wrap gap-2">
+            {/* VOLTAR AO MOLDE é o espelhar: acrescenta o que falta e
+                RETIRA o que sobra. A lista acima é a confirmação -- quem
+                aperta já leu, nome por nome, o que sai. */}
+            <form action={aplicarPerfilNaFicha}>
+              <input type="hidden" name="revenda" value={revendaId} />
+              <input type="hidden" name="colaborador_id" value={pessoaId} />
+              <input type="hidden" name="perfil_id" value={perfil.id} />
+              <input type="hidden" name="modo" value="espelhar" />
+              <BotaoEnviar
+                textoEnviando="Aplicando..."
+                className="rounded-lg bg-amber-600 px-3 py-2 text-xs font-semibold text-white hover:bg-amber-700"
+              >
+                Deixar {pessoaNome.split(" ")[0]} igual ao perfil
+              </BotaoEnviar>
+            </form>
+            {entram.length > 0 && (
+              <form action={aplicarPerfilNaFicha}>
+                <input type="hidden" name="revenda" value={revendaId} />
+                <input type="hidden" name="colaborador_id" value={pessoaId} />
+                <input type="hidden" name="perfil_id" value={perfil.id} />
+                <BotaoEnviar
+                  textoEnviando="Aplicando..."
+                  className="rounded-lg border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700 hover:border-primary hover:text-primary"
+                >
+                  Só somar o que falta
+                </BotaoEnviar>
+              </form>
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 export default async function GestaoDeAcessosPage({
   searchParams,
 }: {
@@ -191,6 +407,9 @@ export default async function GestaoDeAcessosPage({
     { data: modulosAtivos },
     { data: extras },
     { data: vinculosOutras },
+    { data: perfisBanco },
+    { data: perfilPermissoes },
+    { data: perfilPessoas },
   ] = await Promise.all([
     admin
       .from("profiles")
@@ -220,6 +439,14 @@ export default async function GestaoDeAcessosPage({
       .from("colaborador_revendas")
       .select("colaborador_id, revendas!inner(id, nome)")
       .neq("revenda_id", escolhida.id),
+    // O MOLDE e quem o veste -- é o que faltava para esta tela poder
+    // dizer "está fora do molde". Ver o bloco PerfilDaPessoa abaixo.
+    admin.from("perfis_acesso").select("id, nome").eq("revenda_id", escolhida.id).order("nome"),
+    admin.from("perfil_permissoes").select("perfil_id, modulo, acao"),
+    admin
+      .from("perfil_pessoas")
+      .select("perfil_id, colaborador_id")
+      .eq("revenda_id", escolhida.id),
   ]);
 
   const porPessoa = new Map<string, Set<string>>();
@@ -286,6 +513,25 @@ export default async function GestaoDeAcessosPage({
   // bloco na ficha de cada pessoa saem daqui, para as duas nunca
   // discordarem sobre o que existe.
   const analisesDaRevenda = PAINEIS.filter((p) => modulos.some((m) => m.id === p.modulo));
+
+  // O molde de cada pessoa: qual perfil ela veste e o que ele contém.
+  const perfis = (perfisBanco ?? []) as { id: string; nome: string }[];
+  const concessoesDoPerfil = new Map<string, Concessao[]>();
+  for (const p of perfilPermissoes ?? []) {
+    const lista = concessoesDoPerfil.get(p.perfil_id) ?? [];
+    lista.push({ modulo: p.modulo, acao: p.acao });
+    concessoesDoPerfil.set(p.perfil_id, lista);
+  }
+  // Uma LISTA, e não um perfil só: `perfil_pessoas` permite mais de um
+  // (o supervisor que também é analista). A comparação com o molde só faz
+  // sentido quando há exatamente um -- com dois, qual deles seria o
+  // molde? A tela diz isso em vez de escolher sozinha.
+  const perfisDaPessoa = new Map<string, { id: string; nome: string }[]>();
+  for (const v of perfilPessoas ?? []) {
+    const perfil = perfis.find((p) => p.id === v.perfil_id);
+    if (!perfil) continue;
+    perfisDaPessoa.set(v.colaborador_id, [...(perfisDaPessoa.get(v.colaborador_id) ?? []), perfil]);
+  }
 
   const termoTabela = filtro.trim().toLowerCase();
   const baseRoster = todas.filter((p) => p.role !== "owner" && daRevenda.has(p.id));
@@ -882,6 +1128,18 @@ export default async function GestaoDeAcessosPage({
         <div className="space-y-3">
           {liderancas.map((p) => {
             const minhas = porPessoa.get(p.id) ?? new Set<string>();
+            const meusPerfis = perfisDaPessoa.get(p.id) ?? [];
+            // O resumo diz o molde e o desvio, para a resposta caber na
+            // linha fechada -- é o que permite varrer a lista sem abrir
+            // ninguém, que era impossível antes.
+            const molde =
+              meusPerfis.length === 1
+                ? simularAplicacao(concessoesDoPerfil.get(meusPerfis[0].id) ?? [], [...minhas].map((c) => {
+                    const corte = c.lastIndexOf(":");
+                    return { modulo: c.slice(0, corte), acao: c.slice(corte + 1) };
+                  }))
+                : null;
+            const foraDoMolde = molde ? molde.entram.length + molde.foraDoPerfil.length : 0;
             return (
               <details
                 key={p.id}
@@ -898,6 +1156,20 @@ export default async function GestaoDeAcessosPage({
                           ).size
                         } módulo(s) liberado(s)`}
                   </span>
+                  {meusPerfis.length > 0 ? (
+                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-600">
+                      🎫 {meusPerfis.map((x) => x.nome).join(" + ")}
+                    </span>
+                  ) : (
+                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-400">
+                      sem perfil
+                    </span>
+                  )}
+                  {foraDoMolde > 0 && (
+                    <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-800">
+                      {foraDoMolde} fora do molde
+                    </span>
+                  )}
                   {/* O convite explícito. Sem ele, a linha parecia um item
                       de lista, não um botão -- e as permissões ficavam
                       invisíveis atrás de um clique que ninguém dava. */}
@@ -906,10 +1178,24 @@ export default async function GestaoDeAcessosPage({
                   </span>
                 </summary>
 
-                <form
-                  action={salvarPermissoes}
-                  className="border-t border-slate-100 p-4"
-                >
+                {/* O MOLDE VEM ANTES DAS CAIXAS, e fora do formulário --
+                    HTML não aceita formulário dentro de formulário, e este
+                    bloco tem os próprios botões. A ordem é a da decisão:
+                    primeiro "qual é o cargo dela?", só depois "e as
+                    exceções?". */}
+                <div className="border-t border-slate-100 px-4 pt-4">
+                  <PerfilDaPessoa
+                    pessoaId={p.id}
+                    pessoaNome={p.nome ?? ""}
+                    revendaId={escolhida.id}
+                    meus={meusPerfis}
+                    perfis={perfis}
+                    concessoesDoPerfil={concessoesDoPerfil}
+                    minhas={minhas}
+                  />
+                </div>
+
+                <form action={salvarPermissoes} className="px-4 pb-4">
                   <input type="hidden" name="id" value={p.id} />
                   <input type="hidden" name="revenda" value={escolhida.id} />
 

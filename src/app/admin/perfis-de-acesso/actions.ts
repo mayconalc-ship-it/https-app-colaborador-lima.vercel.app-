@@ -8,6 +8,7 @@ import { requireModulo } from "@/lib/require-admin";
 import { getPerfil } from "@/lib/sessao";
 import { MODULOS } from "@/lib/acessos";
 import { lerConcessoesDoFormulario, type Concessao } from "@/lib/perfis-acesso";
+import { aplicarPerfilA } from "@/lib/perfis-acesso-server";
 
 const ROTA = "/admin/perfis-de-acesso";
 
@@ -234,7 +235,6 @@ export async function aplicarPerfil(formData: FormData) {
   await requireModulo("perfis-acesso", "editar");
   const revendaId = await exigirRevenda(ROTA);
   const quemAplica = await getPerfil();
-  const admin = createAdminClient();
 
   const perfilId = String(formData.get("perfil_id") ?? "");
   const colaboradorId = String(formData.get("colaborador_id") ?? "");
@@ -245,104 +245,28 @@ export async function aplicarPerfil(formData: FormData) {
   const espelhar = String(formData.get("modo") ?? "") === "espelhar";
   if (!perfilId || !colaboradorId) voltar("erro", "Escolha o perfil e a pessoa.");
 
-  const [{ data: doPerfil }, { data: alvo }, { data: jaTem }] = await Promise.all([
-    admin.from("perfil_permissoes").select("modulo, acao").eq("perfil_id", perfilId),
-    admin.from("profiles").select("id, nome, role").eq("id", colaboradorId).maybeSingle(),
-    admin
-      .from("lideranca_permissoes")
-      .select("modulo, acao")
-      .eq("colaborador_id", colaboradorId)
-      .eq("revenda_id", revendaId),
-  ]);
-
-  const concessoes = (doPerfil ?? []) as Concessao[];
-  if (concessoes.length === 0) voltar("erro", "Este perfil não tem nenhuma permissão.");
-  if (!alvo) voltar("erro", "Pessoa não encontrada.");
-
-  // O que a pessoa tem e o perfil não tem. Só isto sai, e só no espelhar.
-  const noPerfil = new Set(concessoes.map((c) => `${c.modulo}:${c.acao}`));
-  const sobrando = ((jaTem ?? []) as Concessao[]).filter(
-    (c) => !noPerfil.has(`${c.modulo}:${c.acao}`),
-  );
-
-  // A `revenda_id` vai escrita e vai no onConflict. As duas coisas pela
-  // mesma razao: a chave de lideranca_permissoes deixou de ser
-  // (colaborador, modulo, acao) na migration 021 e passou a ser
-  // (colaborador, REVENDA, modulo, acao) -- justamente para a mesma
-  // pessoa poder ter acessos diferentes em Sao Felix e em Barreiras.
-  //
-  // Sem ela aqui aconteciam duas coisas: o Postgres recusava o upsert
-  // inteiro ("no unique or exclusion constraint matching the ON CONFLICT
-  // specification", 02/09/2026, ao espelhar o perfil de Analista de
-  // Rota), e a linha, se tivesse entrado, cairia na revenda do DEFAULT
-  // da coluna -- Sao Felix -- mesmo com Barreiras aberta na tela.
-  const { error } = await admin.from("lideranca_permissoes").upsert(
-    concessoes.map((c) => ({
-      colaborador_id: colaboradorId,
-      revenda_id: revendaId,
-      modulo: c.modulo,
-      acao: c.acao,
-      concedido_por: quemAplica?.id ?? null,
-    })),
-    { onConflict: "colaborador_id,revenda_id,modulo,acao" },
-  );
-  if (error) voltar("erro", `Não foi possível aplicar: ${error.message}`);
-
-  // A retirada vem DEPOIS de gravar o perfil, nunca antes. Se a ordem
-  // fosse a inversa e a gravação falhasse no meio, a pessoa ficaria com
-  // menos acesso do que tinha antes de alguém clicar em nada.
-  let retiradas = 0;
-  if (espelhar && sobrando.length > 0) {
-    const { error: erroTirar } = await admin
-      .from("lideranca_permissoes")
-      .delete()
-      .eq("colaborador_id", colaboradorId)
-      .eq("revenda_id", revendaId)
-      .or(
-        sobrando
-          .map((c) => `and(modulo.eq.${c.modulo},acao.eq.${c.acao})`)
-          .join(","),
-      );
-    if (erroTirar) {
-      voltar(
-        "erro",
-        `As permissões do perfil foram gravadas, mas não consegui retirar as que sobravam: ${erroTirar.message}`,
-        `&perfil=${perfilId}`,
-      );
-    }
-    retiradas = sobrando.length;
-  }
-
-  // Sem o papel de liderança as concessões ficam inertes: podeFazer só as
-  // consulta para esse papel. Owner nunca é rebaixado.
-  if (alvo.role !== "owner" && alvo.role !== "admin" && alvo.role !== "lideranca") {
-    await admin.from("profiles").update({ role: "lideranca" }).eq("id", colaboradorId);
-  }
-
-  // O vínculo é o que a tela mostra em "Quem tem este perfil". Fica
-  // gravado, com data e autor, em vez de ser deduzido de quem "tem todas
-  // as permissões" -- dedução que colocava todo administrador dentro de
-  // todo perfil pequeno (ver migration 091).
-  await admin.from("perfil_pessoas").upsert(
-    {
-      perfil_id: perfilId,
-      colaborador_id: colaboradorId,
-      revenda_id: revendaId,
-      aplicado_por: quemAplica?.id ?? null,
-    },
-    { onConflict: "perfil_id,colaborador_id" },
-  );
+  // A OPERAÇÃO MORA EM lib/perfis-acesso-server.ts desde 06/09/2026,
+  // quando a tela de Acessos por Pessoa passou a oferecer o "voltar ao
+  // molde": a parte que REMOVE permissão não pode existir em duas cópias.
+  const r = await aplicarPerfilA({
+    perfilId,
+    colaboradorId,
+    revendaId,
+    espelhar,
+    quemAplicaId: quemAplica?.id ?? null,
+  });
+  if (!r.ok) voltar("erro", r.erro, `&perfil=${perfilId}`);
 
   revalidatePath(ROTA);
   revalidatePath("/admin/acessos");
   voltar(
     "sucesso",
     espelhar
-      ? `${alvo.nome} agora está igual ao perfil: ${concessoes.length} permissão(ões)` +
-          (retiradas > 0
-            ? `, e ${retiradas} que sobrava(m) foram retiradas.`
+      ? `${r.nome} agora está igual ao perfil: ${r.concessoes} permissão(ões)` +
+          (r.retiradas > 0
+            ? `, e ${r.retiradas} que sobrava(m) foram retiradas.`
             : " — não havia nada sobrando para retirar.")
-      : `Perfil somado a ${alvo.nome}: ${concessoes.length} permissão(ões). Nada foi retirado.`,
+      : `Perfil somado a ${r.nome}: ${r.concessoes} permissão(ões). Nada foi retirado.`,
     `&perfil=${perfilId}`,
   );
 }

@@ -12,6 +12,7 @@ import {
   type ModuloId,
 } from "@/lib/acessos";
 import { MODULOS_COM_ANALISE, PAINEIS } from "@/lib/gestao";
+import { aplicarPerfilA } from "@/lib/perfis-acesso-server";
 
 function voltar(
   chave: "erro" | "sucesso",
@@ -228,6 +229,96 @@ export async function liberarAcessosEmLote(formData: FormData) {
   }
 
   voltar("sucesso", `Acessos atualizados para ${mudancaPorPessoa.size} pessoa(s).`, revendaId);
+}
+
+/**
+ * O PERFIL, APLICADO DE DENTRO DA FICHA DA PESSOA.
+ *
+ * Ponto 2 do diagnóstico (06/09/2026): a tela pergunta "quem tem o módulo
+ * X?" e quem administra pensa "o que o conferente precisa?". Perfis de
+ * Acesso já respondia a segunda -- e estava subusado: quatro perfis, nove
+ * pessoas aplicadas, e as duas lideranças mais carregadas montadas à mão,
+ * com 49 concessões cada.
+ *
+ * Parte da causa era o caminho: para usar um perfil era preciso SAIR
+ * daqui, ir para a outra tela, achar a pessoa e aplicar. Agora o perfil se
+ * aplica na ficha, que é onde a pergunta nasce.
+ *
+ * A OPERAÇÃO É A MESMA, literalmente: `aplicarPerfilA`, a função que a
+ * tela de Perfis usa. O que muda é para onde se volta e de onde vem a
+ * revenda -- aqui, a que está aberta na tela; lá, a da sessão.
+ *
+ * O ESPELHAR TIRA PERMISSÃO, então tem de ser pedido por escrito. Campo
+ * ausente, valor estranho ou requisição montada à mão caem no somar, que
+ * não desfaz nada.
+ */
+export async function aplicarPerfilNaFicha(formData: FormData) {
+  const eu = await requireOwner();
+  const revendaId = (formData.get("revenda") as string) || "";
+  const perfilId = (formData.get("perfil_id") as string) || "";
+  const colaboradorId = (formData.get("colaborador_id") as string) || "";
+  const espelhar = String(formData.get("modo") ?? "") === "espelhar";
+
+  if (!revendaId) voltar("erro", "Revenda inválida.");
+  if (!perfilId || !colaboradorId) voltar("erro", "Escolha o perfil e a pessoa.", revendaId);
+  if (colaboradorId === eu.id) {
+    voltar("erro", "Você não pode alterar as suas próprias permissões.", revendaId);
+  }
+
+  const admin = createAdminClient();
+  // Permissão só existe dentro de vínculo -- a mesma conferência de
+  // salvarPermissoes. Sem ela daria para aplicar um perfil de Barreiras a
+  // quem não é de Barreiras.
+  const { data: vinculo } = await admin
+    .from("colaborador_revendas")
+    .select("revenda_id")
+    .eq("colaborador_id", colaboradorId)
+    .eq("revenda_id", revendaId)
+    .maybeSingle();
+  if (!vinculo) {
+    voltar("erro", "A pessoa não está vinculada a esta revenda.", revendaId);
+  }
+
+  const r = await aplicarPerfilA({
+    perfilId,
+    colaboradorId,
+    revendaId,
+    espelhar,
+    quemAplicaId: eu.id,
+  });
+  if (!r.ok) voltar("erro", r.erro, revendaId);
+
+  const { data: perfil } = await admin
+    .from("perfis_acesso")
+    .select("nome")
+    .eq("id", perfilId)
+    .maybeSingle();
+  const { data: revenda } = await admin
+    .from("revendas")
+    .select("nome")
+    .eq("id", revendaId)
+    .maybeSingle();
+
+  await registrar({
+    atorId: eu.id,
+    atorNome: eu.nome,
+    acao: espelhar ? "Espelhou perfil" : "Somou perfil",
+    alvoId: colaboradorId,
+    alvoNome: r.nome,
+    detalhes: `${revenda?.nome ?? "Revenda"} — perfil ${perfil?.nome ?? perfilId}: ${r.concessoes} permissão(ões)${r.retiradas > 0 ? `, ${r.retiradas} retirada(s)` : ""}`,
+    revendaId,
+  });
+
+  voltar(
+    "sucesso",
+    espelhar
+      ? `${r.nome} ficou igual ao perfil ${perfil?.nome ?? ""}: ${r.concessoes} permissão(ões)` +
+          (r.retiradas > 0
+            ? `, e ${r.retiradas} fora do molde foram retiradas.`
+            : " — não havia nada fora do molde.")
+      : `Perfil ${perfil?.nome ?? ""} somado a ${r.nome}: ${r.concessoes} permissão(ões). Nada foi retirado.`,
+    revendaId,
+  );
 }
 
 /**
