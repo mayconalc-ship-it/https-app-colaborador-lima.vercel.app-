@@ -50,6 +50,7 @@ export type ModuloId =
   | "meus-indicadores"
   | "justificativas"
   | "relato-anomalia"
+  | "pdv-particularidades"
   | "metas"
   | "fontes-dados"
   | "perfis-acesso";
@@ -295,6 +296,26 @@ export const MODULOS: Modulo[] = [
     // Era uma caixa que não fazia nada, do tipo que faz quem concede
     // desconfiar de todas as outras. Ninguém a tinha marcada.
     acoes: ["ver", "editar"],
+  },
+  {
+    id: "pdv-particularidades",
+    rotulo: "Particularidades do PDV",
+    emoji: "📍",
+    href: "/admin/pdv-particularidades",
+    // Em Gestão de Dados, junto de Rating e Devolução: é dali que as
+    // particularidades nascem (o cliente detrator sai do Rating), e é o
+    // mesmo assunto -- o que a operação sabe sobre cada cliente.
+    grupo: "Gestão de Dados",
+    rotulosDeAcao: {
+      ver: "Abrir o cadastro e o painel de prazos",
+      criar: "Cadastrar particularidade de um cliente",
+      editar: "Editar, resolver e cadastrar categorias",
+      // Apagar existe para o erro de digitação, e só. O caminho normal é
+      // RESOLVER: a particularidade vira histórico, que é o que responde
+      // "esse cliente já ficou bloqueado antes?" na próxima vez.
+      excluir: "Apagar particularidade lançada por engano",
+    },
+    acoes: ["ver", "criar", "editar", "excluir"],
   },
   {
     id: "metas",
