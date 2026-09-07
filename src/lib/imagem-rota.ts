@@ -42,6 +42,44 @@ function corDaFaixa(cor: string) {
   return "#cbd5e1";
 }
 
+/** A cor da tarja do aviso -- a mesma escala da tela. */
+const COR_SEVERIDADE: Record<string, string> = {
+  critico: COR.vermelho,
+  atencao: COR.ambar,
+  info: COR.primaria,
+};
+
+/** Quantos avisos cabem na imagem antes de virar rolagem de WhatsApp. */
+const MAXIMO_DE_AVISOS = 6;
+
+/**
+ * Quebra o texto na largura disponível, medindo no próprio canvas.
+ *
+ * Feito à mão porque canvas não quebra linha: sem isto, um aviso de duas
+ * frases sai cortado no meio da palavra -- e o pedaço que some é sempre o
+ * fim, que é onde está o que fazer.
+ */
+function quebrar(
+  ctx: CanvasRenderingContext2D,
+  texto: string,
+  largura: number,
+  fonte: string,
+): string[] {
+  ctx.font = fonte;
+  const linhas: string[] = [];
+  let atual = "";
+  for (const palavra of texto.split(/\s+/)) {
+    const tentativa = atual ? `${atual} ${palavra}` : palavra;
+    if (ctx.measureText(tentativa).width <= largura || !atual) atual = tentativa;
+    else {
+      linhas.push(atual);
+      atual = palavra;
+    }
+  }
+  if (atual) linhas.push(atual);
+  return linhas;
+}
+
 function arredondado(
   ctx: CanvasRenderingContext2D,
   x: number,
@@ -67,10 +105,66 @@ export async function gerarImagemPreRota(
   const MARGEM = 40;
   const LARGURA_UTIL = LARGURA - MARGEM * 2;
 
+  const canvas = document.createElement("canvas");
+  const escala = 2; // nitidez em tela retina, sem pesar o layout
+  const contexto = canvas.getContext("2d");
+  if (!contexto) return null;
+  // Const separada: TypeScript não propaga o "if (!ctx) return" para dentro
+  // das funções aninhadas mais abaixo (barra()), então fixamos o tipo aqui.
+  const ctx: CanvasRenderingContext2D = contexto;
+
+  /*
+    OS AVISOS DOS CLIENTES ENTRAM NA IMAGEM (07/09/2026, pedido do dono).
+
+    A imagem é o que roda no WhatsApp do motorista -- é ela que ele abre
+    antes de sair, não a tela. Um aviso que só existe no app é um aviso que
+    chega a quem já estava olhando o app.
+
+    Vêm prontos de `avisosDoMapa`, que já tirou o que não é do motorista
+    (o PDV bloqueado é assunto comercial) e o que não vale hoje. Aqui é só
+    desenho -- nenhuma regra nova, para a imagem não poder discordar da
+    tela.
+
+    MEDIDOS ANTES DE DESENHAR: a altura da imagem depende de quantas linhas
+    cada aviso ocupa, e canvas não quebra texto sozinho. Por isso o
+    contexto nasce antes do tamanho.
+  */
+  const larguraDoTexto = LARGURA_UTIL - 28;
+  const avisos = rota.avisos.slice(0, MAXIMO_DE_AVISOS).map((a) => {
+    const titulo = [a.emoji, a.nomePdv ?? `Cliente ${a.codPdv}`].filter(Boolean).join(" ");
+    const rodape = [a.horario && `⏰ ${a.horario}`, a.dias && `📅 ${a.dias}`]
+      .filter(Boolean)
+      .join("   ");
+    const linhas = quebrar(
+      ctx,
+      a.aviso,
+      larguraDoTexto,
+      "15px system-ui, -apple-system, sans-serif",
+    );
+    return {
+      titulo,
+      cidade: [a.cidade, a.bairro].filter(Boolean).join(" · "),
+      cor: COR_SEVERIDADE[a.severidade] ?? COR.primaria,
+      linhas,
+      rodape,
+      altura: 12 + 20 + linhas.length * 20 + (rodape ? 20 : 0) + 12,
+    };
+  });
+  const sobraram = rota.avisos.length - avisos.length;
+  const alturaDosAvisos =
+    avisos.length === 0
+      ? 0
+      : 46 + // título do bloco
+        avisos.reduce((s, a) => s + a.altura + 8, 0) +
+        (sobraram > 0 ? 24 : 0) +
+        (rota.precisaoDosAvisos === "regiao" ? 26 : 0) +
+        10;
+
   // Altura calculada em duas passadas: primeiro medimos, depois desenhamos.
   const linhasRegiao = rota.cidades.length;
   const ALTURA =
     120 + // cabeçalho
+    alturaDosAvisos +
     90 + // veículo/motorista
     120 + // indicadores
     (metas.caixas ? 56 : 0) +
@@ -80,15 +174,8 @@ export async function gerarImagemPreRota(
     60 + // total
     70; // rodapé
 
-  const canvas = document.createElement("canvas");
-  const escala = 2; // nitidez em tela retina, sem pesar o layout
   canvas.width = LARGURA * escala;
   canvas.height = ALTURA * escala;
-  const contexto = canvas.getContext("2d");
-  if (!contexto) return null;
-  // Const separada: TypeScript não propaga o "if (!ctx) return" para dentro
-  // das funções aninhadas mais abaixo (barra()), então fixamos o tipo aqui.
-  const ctx: CanvasRenderingContext2D = contexto;
   ctx.scale(escala, escala);
 
   // Fundo
@@ -122,6 +209,89 @@ export async function gerarImagemPreRota(
   ctx.fillText(`🗺️ Mapa ${rota.mapa}`, LARGURA - MARGEM, 92);
   ctx.textAlign = "left";
   y = 120;
+
+  /* ---- Avisos dos clientes ----
+     LOGO ABAIXO DO CABEÇALHO, e não no fim: a prévia do WhatsApp corta a
+     imagem no topo, e é a prévia que a pessoa vê sem abrir. Um aviso no
+     rodapé de uma imagem de 1.100px é um aviso que depende de alguém
+     rolar. */
+  if (avisos.length > 0) {
+    const topo = y;
+    ctx.fillStyle = "#fffbeb";
+    ctx.fillRect(0, topo, LARGURA, alturaDosAvisos);
+
+    ctx.fillStyle = "#92400e";
+    ctx.font = "700 13px system-ui, -apple-system, sans-serif";
+    ctx.fillText(
+      `⚠️ ATENÇÃO NESTES CLIENTES (${rota.avisos.length})`,
+      MARGEM,
+      y + 28,
+    );
+    y += 46;
+
+    for (const a of avisos) {
+      arredondado(ctx, MARGEM, y, LARGURA_UTIL, a.altura, 8);
+      ctx.fillStyle = "#ffffff";
+      ctx.fill();
+
+      // A tarja da severidade: numa lista de quatro, é ela que diz qual
+      // ler primeiro sem obrigar a ler todas.
+      ctx.fillStyle = a.cor;
+      ctx.fillRect(MARGEM, y + 6, 4, a.altura - 12);
+
+      let linha = y + 12;
+      ctx.fillStyle = COR.texto;
+      ctx.font = "bold 16px system-ui, -apple-system, sans-serif";
+      ctx.fillText(a.titulo, MARGEM + 14, linha + 10);
+      if (a.cidade) {
+        ctx.textAlign = "right";
+        ctx.fillStyle = COR.textoFraco;
+        ctx.font = "12px system-ui, -apple-system, sans-serif";
+        ctx.fillText(a.cidade, LARGURA - MARGEM - 14, linha + 10);
+        ctx.textAlign = "left";
+      }
+      linha += 20;
+
+      ctx.fillStyle = COR.texto;
+      ctx.font = "15px system-ui, -apple-system, sans-serif";
+      for (const texto of a.linhas) {
+        ctx.fillText(texto, MARGEM + 14, linha + 10);
+        linha += 20;
+      }
+
+      if (a.rodape) {
+        ctx.fillStyle = COR.primaria;
+        ctx.font = "600 13px system-ui, -apple-system, sans-serif";
+        ctx.fillText(a.rodape, MARGEM + 14, linha + 10);
+      }
+
+      y += a.altura + 8;
+    }
+
+    if (sobraram > 0) {
+      ctx.fillStyle = "#92400e";
+      ctx.font = "600 13px system-ui, -apple-system, sans-serif";
+      ctx.fillText(`+ ${sobraram} aviso(s) — veja no app`, MARGEM, y + 12);
+      y += 24;
+    }
+
+    // A HONESTIDADE DO AVISO POR REGIÃO. Sem esta linha a imagem promete
+    // "este cliente" quando o que se sabe é "há um cliente assim nesta
+    // região" -- e a primeira vez que a promessa falha o motorista para de
+    // ler todas as outras.
+    if (rota.precisaoDosAvisos === "regiao") {
+      ctx.fillStyle = COR.textoFraco;
+      ctx.font = "12px system-ui, -apple-system, sans-serif";
+      ctx.fillText(
+        "Avisos por região: confirme se é este o cliente antes de agir.",
+        MARGEM,
+        y + 12,
+      );
+      y += 26;
+    }
+
+    y = topo + alturaDosAvisos;
+  }
 
   // ---- Veículo / Motorista ----
   ctx.fillStyle = COR.textoFraco;
