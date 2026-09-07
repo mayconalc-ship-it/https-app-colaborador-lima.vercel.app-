@@ -204,10 +204,47 @@ export async function atualizarRotas(formData: FormData) {
       continue;
     }
 
+    /*
+      OS CLIENTES DE CADA MAPA, DA MESMA PLANILHA.
+
+      A coluna "Clientes" traz os códigos separados por barra, com zeros à
+      esquerda: `0003163/0000588/0000461/...`. Estava ali desde sempre --
+      eu é que não tinha visto, e cheguei a construir um importador para um
+      segundo arquivo antes de o dono apontar (07/09/2026).
+
+      É isto que faz o alerta da pré-rota deixar de ser por REGIÃO e passar
+      a ser POR CLIENTE, sem base nova e sem importação nova: `avisosDoMapa`
+      já procura esta tabela primeiro.
+
+      Falha aqui NÃO derruba a importação da rota: o mapa, o veículo e as
+      entregas são o que o motorista abre antes de sair; o alerta é a
+      camada de cima, e sem ele a tela volta ao aviso por região.
+    */
+    const doMapa = rotas.flatMap((r) =>
+      r.clientes.map((cod) => ({
+        revenda_id: revendaId,
+        data: r.data,
+        mapa: r.mapa,
+        cod_pdv: cod,
+        importado_em: new Date().toISOString(),
+      })),
+    );
+    let clientesGravados = 0;
+    if (doMapa.length > 0) {
+      const { error: erroPdv } = await admin
+        .from("pa_pdv_do_mapa")
+        .upsert(doMapa, { onConflict: "revenda_id,data,mapa,cod_pdv" });
+      if (!erroPdv) {
+        clientesGravados = doMapa.length;
+        totalClientes += doMapa.length;
+      }
+    }
+
     totalRotas += rotas.length;
     const mes = mesDoNome(arquivo.nome);
     relatorio.push(
-      `${arquivo.nome}${mes ? ` (${mes})` : ""}: ${rotas.length} rota(s)`,
+      `${arquivo.nome}${mes ? ` (${mes})` : ""}: ${rotas.length} rota(s)` +
+        (clientesGravados > 0 ? `, ${clientesGravados} cliente(s)` : ""),
     );
   }
 

@@ -5,7 +5,7 @@
 // a particularidade no cliente errado. Por isso quase todo teste guarda um
 // caso em que a leitura NAO deve acontecer.
 //   npx tsx src/lib/__testes__/clientes-por-mapa.teste.mjs
-import { lerPlanilhaDeClientesPorMapa } from "../rotas.ts";
+import { lerPlanilhaDeClientesPorMapa, lerPlanilhaDeRotas, separarClientes } from "../rotas.ts";
 
 let falhas = 0;
 function eq(nome, obtido, esperado) {
@@ -13,6 +13,35 @@ function eq(nome, obtido, esperado) {
   if (!bom) falhas++;
   console.log(`  ${bom ? "OK " : "FALHOU"}  ${nome}${bom ? "" : `: obtido ${JSON.stringify(obtido)}, esperado ${JSON.stringify(esperado)}`}`);
 }
+
+console.log("\nA COLUNA \"Clientes\" DA PROPRIA PRE-ROTA -- a fonte de verdade");
+// O formato real, conferido no arquivo do Drive (07/09/2026):
+// "0003163/0000588/0000461/0000550/..."
+eq("separa por barra e tira os zeros",
+  separarClientes("0003163/0000588/0000461"), ["3163", "588", "461"]);
+eq("o mesmo cliente duas vezes conta uma", separarClientes("0000507/0000507"), ["507"]);
+eq("espaco em volta nao atrapalha", separarClientes(" 0000507 / 0002178 "), ["507", "2178"]);
+eq("campo vazio nao inventa cliente", separarClientes(""), []);
+eq("so barras nao inventam cliente", separarClientes("///"), []);
+eq("aceita ponto e virgula tambem", separarClientes("0000507;0002178"), ["507", "2178"]);
+eq("codigo zero sobrevive", separarClientes("0000000/0000507"), ["507"]);
+
+// A planilha inteira, como ela e -- so as colunas que importam aqui.
+const preRotaReal = [
+  "Data Entrega;Nro do Mapa;Entregas;Cidades +Entregas;Clientes",
+  "01/08/2026;014768;28;SERRA DOURADA (20);0003163/0000588/0000461",
+].join("\n");
+const lida = lerPlanilhaDeRotas(preRotaReal);
+eq("a rota e lida", lida.rotas.length, 1);
+eq("e os clientes vem junto", lida.rotas[0].clientes, ["3163", "588", "461"]);
+eq("mapa sem zeros", lida.rotas[0].mapa, "14768");
+// Planilha antiga, sem a coluna: nao pode quebrar a importacao.
+const semColuna = [
+  "Data Entrega;Nro do Mapa;Entregas",
+  "01/08/2026;014768;28",
+].join("\n");
+eq("planilha sem a coluna Clientes continua importando", lerPlanilhaDeRotas(semColuna).rotas.length, 1);
+eq("e a lista fica vazia", lerPlanilhaDeRotas(semColuna).rotas[0].clientes, []);
 
 console.log("\nO FORMATO ESPERADO");
 const basico = [

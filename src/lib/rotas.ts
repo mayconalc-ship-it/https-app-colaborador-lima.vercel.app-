@@ -19,6 +19,18 @@ export type Rota = {
   data: string; // AAAA-MM-DD
   mapa: string; // sem zeros à esquerda
   mapaOriginal: string;
+  /**
+   * OS CÓDIGOS DOS CLIENTES DAQUELE MAPA -- sem zeros à esquerda.
+   *
+   * Estava na planilha o tempo todo, na coluna "Clientes", e eu não tinha
+   * visto: `0003163/0000588/0000461/...`. Cheguei a construir um
+   * importador para um segundo arquivo antes de o dono apontar
+   * (07/09/2026) que o dado já vinha aqui.
+   *
+   * É este campo que faz o alerta da pré-rota deixar de ser por REGIÃO e
+   * passar a ser POR CLIENTE -- sem base nova, sem importação nova.
+   */
+  clientes: string[];
   veiculo: string | null;
   placa: string | null;
   motoristaCodigo: string | null;
@@ -325,7 +337,28 @@ const COLUNA = {
   classificacao: "Classificação",
   cidades: "Cidades +Entregas",
   regiao: "Região +Entregas",
+  clientes: "Clientes",
 };
+
+/**
+ * "0003163/0000588/0000461" vira ["3163", "588", "461"].
+ *
+ * OS ZEROS SAEM AQUI, e é o que faz o casamento funcionar: a planilha
+ * escreve o código com sete dígitos, e quem cadastra a particularidade
+ * digita "3163". Comparar texto cru falharia sempre -- é a mesma razão de
+ * `normalizarMapa` existir, e o mesmo tratamento.
+ *
+ * Código repetido some: o mesmo cliente pode ter duas entregas no mapa, e
+ * duas entregas não são dois clientes.
+ */
+export function separarClientes(bruto: string): string[] {
+  const vistos = new Set<string>();
+  for (const parte of (bruto ?? "").split(/[/;,]/)) {
+    const so = parte.trim().replace(/\D/g, "").replace(/^0+/, "");
+    if (so) vistos.add(so);
+  }
+  return [...vistos];
+}
 
 export type ResultadoLeitura = {
   rotas: Rota[];
@@ -365,6 +398,7 @@ export function lerPlanilhaDeRotas(texto: string): ResultadoLeitura {
       data,
       mapa,
       mapaOriginal,
+      clientes: separarClientes(pegar(campos, COLUNA.clientes)),
       veiculo: pegar(campos, COLUNA.veiculo) || null,
       placa: pegar(campos, COLUNA.placa) || null,
       motoristaCodigo: pegar(campos, COLUNA.motorista) || null,
