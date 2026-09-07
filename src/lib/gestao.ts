@@ -27,6 +27,7 @@ import type { ModuloId } from "./acessos";
 
 export type PainelId =
   | "anomalias"
+  | "pdv"
   | "armazem"
   | "gas"
   | "cinco-s"
@@ -85,6 +86,26 @@ export const PAINEIS: Painel[] = [
     bloco: "Operação",
     modulo: "relato-anomalia",
     pergunta: "Que indicador saiu da faixa e qual relato está esperando você.",
+    mora: true,
+  },
+  {
+    /*
+      SEGUNDO DA LISTA, e também por ser tarefa: o bloqueio tem prazo
+      correndo, e quem monitora rota precisa ver antes de a carga sair.
+
+      Pedido do dono (07/09/2026): "coloque as particularidades de PDV na
+      home somente com as informações de leitura, para acompanhar sem
+      precisar ir em ADM (...) para que o monitoramento de rota saiba e
+      possa atuar na preventiva. E apenas as configurações precisa estar
+      na liderança".
+    */
+    id: "pdv",
+    rotulo: "Particularidades do PDV",
+    emoji: "📍",
+    href: "/gestao/pdv",
+    bloco: "Operação",
+    modulo: "pdv-particularidades",
+    pergunta: "Que cliente está bloqueado, e o que cada rota precisa saber antes de sair.",
     mora: true,
   },
   {

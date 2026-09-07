@@ -162,6 +162,20 @@ export type Modulo = {
    * `modulo:acao`.
    */
   rotulosDeAcao?: Partial<Record<Acao, string>>;
+  /**
+   * A TELA DE ADMIN DESTE MÓDULO EXIGE "EDITAR", não "ver".
+   *
+   * Existe porque em alguns módulos as duas coisas se separaram: o "ver"
+   * abre a ANÁLISE (leitura, na Gestão e na home) e o "editar" abre o
+   * CADASTRO (no Modo Liderança). Foi o pedido do dono para as
+   * Particularidades do PDV, 07/09/2026: "apenas as configurações precisa
+   * estar na liderança".
+   *
+   * Sem esta marca a barra lateral ofereceria a tela de cadastro a quem só
+   * pode ler -- e o clique terminaria num "sem permissão", que é a pior
+   * forma de dizer não: depois de o caminho ter sido oferecido.
+   */
+  exigeEditarNoAdmin?: boolean;
 };
 
 /** O rótulo desta ação NESTE módulo, com o genérico como reserva. */
@@ -311,15 +325,18 @@ export const MODULOS: Modulo[] = [
     // Ativo de Giro e dos catálogos do Armazém.
     grupo: "Configuração",
     rotulosDeAcao: {
-      ver: "Abrir o cadastro e o painel de prazos",
+      // AS DUAS CHAVES SÃO DIFERENTES desde 07/09/2026: quem monitora rota
+      // lê o dia inteiro e não mexe no cadastro que a operação consulta.
+      ver: "📊 Ver a análise: bloqueios e particularidades por cidade",
       criar: "Cadastrar particularidade de um cliente",
-      editar: "Editar, resolver e cadastrar categorias",
+      editar: "Abrir o cadastro no Modo Liderança: editar, resolver e criar categorias",
       // Apagar existe para o erro de digitação, e só. O caminho normal é
       // RESOLVER: a particularidade vira histórico, que é o que responde
       // "esse cliente já ficou bloqueado antes?" na próxima vez.
       excluir: "Apagar particularidade lançada por engano",
     },
     acoes: ["ver", "criar", "editar", "excluir"],
+    exigeEditarNoAdmin: true,
   },
   {
     id: "metas",

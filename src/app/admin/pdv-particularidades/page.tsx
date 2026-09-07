@@ -75,7 +75,17 @@ export default async function ParticularidadesDoPdvPage({
 }: {
   searchParams: Promise<{ erro?: string; sucesso?: string; aba?: string; busca?: string }>;
 }) {
-  await requireModulo("pdv-particularidades", "ver");
+  /*
+    O CADASTRO EXIGE "EDITAR", NÃO "VER" -- separação pedida pelo dono
+    (07/09/2026): "apenas as configurações precisa estar na liderança".
+
+    Antes, o mesmo "Visualizar" abria a análise E esta tela de cadastro.
+    Quem monitora rota precisa LER as particularidades o dia inteiro, e não
+    tem por que poder mexer no cadastro que a operação inteira consulta.
+    Agora são duas chaves: `ver` abre a análise em 📊 Gestão › Particularidades
+    do PDV; `editar` abre isto aqui.
+  */
+  await requireModulo("pdv-particularidades", "editar");
   const revendaId = await exigirRevenda("/admin");
   const { erro, sucesso, aba: abaParam, busca = "" } = await searchParams;
 

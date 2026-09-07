@@ -78,7 +78,10 @@ export default async function AdminLayout({
       */
       m.id !== "perfis-acesso" &&
       modulosDaRevenda.has(m.id) &&
-      podeFazer(perfil.role, concessoes, m.id, "ver"),
+      // Módulo cuja tela de cadastro exige "editar" (as Particularidades do
+      // PDV, hoje) só entra na barra para quem pode editar. Oferecer o
+      // caminho e recusar no clique é a pior forma de dizer não.
+      podeFazer(perfil.role, concessoes, m.id, m.exigeEditarNoAdmin ? "editar" : "ver"),
   );
 
   // Tela do dono que mora numa gaveta normal (hoje: Notificações, em
