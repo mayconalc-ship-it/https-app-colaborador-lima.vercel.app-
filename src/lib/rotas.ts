@@ -150,6 +150,163 @@ function separarLinha(linha: string) {
   return campos.map((c) => c.trim());
 }
 
+/* ================================================================== */
+/* OS CLIENTES DE CADA MAPA                                           */
+/* ================================================================== */
+
+/**
+ * A LISTA DE CLIENTES POR MAPA -- o que faltava para o alerta ser exato.
+ *
+ * Pedido do dono (07/09/2026): "quero que o sistema faça a verificação se
+ * naquele mapa informado possui aquele PDV cadastrado como particularidade
+ * e dê a informação. A ideia é que o motorista saiba, antes de ir pra
+ * rota, quais são as particularidades da rota".
+ *
+ * A PLANILHA DA PRÉ-ROTA NÃO SERVE PARA ISSO, e vale dizer por quê: ela
+ * traz UMA LINHA POR MAPA, com as cidades somadas ("CORIBE (20) / TABOCAS
+ * (6)"). Não há cliente nenhum ali. E adivinhar pelo histórico do Rating
+ * foi medido e descartado -- 88,2% de falso alarme, porque o número do
+ * mapa repete mas os pedidos de cada dia mudam.
+ *
+ * Então o app passa a aceitar um SEGUNDO arquivo, com uma linha por
+ * cliente. Ele entra na MESMA pasta do Drive da pré-rota e é reconhecido
+ * pelo cabeçalho -- sem tela nova, sem botão novo, sem hábito novo: quem
+ * já solta a pré-rota lá solta este junto.
+ *
+ * O CABEÇALHO É RECONHECIDO COM FOLGA (ver `acharColuna`): cada
+ * roteirizador chama a coluna de um jeito -- "Cod Cliente", "Código do
+ * PDV", "Cliente". Exigir um nome exato faria o dono editar a planilha
+ * toda semana, e planilha editada à mão é planilha que uma hora sai
+ * errada.
+ */
+export type ClienteDoMapa = {
+  data: string;
+  mapa: string;
+  codPdv: string;
+  nomePdv: string | null;
+  cidade: string | null;
+  bairro: string | null;
+  sequencia: number | null;
+};
+
+/** Compara cabeçalho sem acento, sem caixa e sem pontuação. */
+function chaveDeColuna(nome: string) {
+  return nome
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .replace(/[^a-zA-Z0-9]/g, "")
+    .toUpperCase();
+}
+
+/** Acha a primeira coluna cujo nome bate com um dos apelidos. */
+function acharColuna(cabecalho: string[], apelidos: string[]): number {
+  const chaves = cabecalho.map(chaveDeColuna);
+  for (const apelido of apelidos) {
+    const alvo = chaveDeColuna(apelido);
+    const i = chaves.indexOf(alvo);
+    if (i >= 0) return i;
+  }
+  return -1;
+}
+
+const APELIDOS = {
+  mapa: ["Nro do Mapa", "Mapa", "Numero do Mapa", "N do Mapa", "Nr Mapa", "Cod Mapa"],
+  data: ["Data Entrega", "Data", "Data da Entrega", "Dt Entrega"],
+  codigo: [
+    "Cod Cliente",
+    "Codigo Cliente",
+    "Codigo do Cliente",
+    "Cod PDV",
+    "Codigo PDV",
+    "Codigo do PDV",
+    "PDV",
+    "Cod Cli",
+    "Cliente Codigo",
+  ],
+  nome: [
+    "Nome Cliente",
+    "Nome do Cliente",
+    "Razao Social",
+    "Nome Fantasia",
+    "Nome PDV",
+    "Nome do PDV",
+    "Nome",
+  ],
+  cidade: ["Cidade", "Municipio", "Cidade Cliente"],
+  bairro: ["Bairro", "Regiao", "Bairro Cliente"],
+  sequencia: ["Sequencia", "Seq", "Ordem", "Ordem de Entrega", "Sequencia de Entrega"],
+};
+
+/**
+ * Lê a planilha de clientes por mapa. Devolve lista vazia quando o arquivo
+ * não é deste tipo -- é assim que a importação distingue um do outro sem
+ * depender do nome do arquivo.
+ */
+export function lerPlanilhaDeClientesPorMapa(texto: string): ClienteDoMapa[] {
+  const linhas = texto.split(/\r?\n/).filter((l) => l.trim());
+  if (linhas.length < 2) return [];
+
+  const cabecalho = separarLinha(linhas[0]);
+  const iMapa = acharColuna(cabecalho, APELIDOS.mapa);
+  const iData = acharColuna(cabecalho, APELIDOS.data);
+  let iCodigo = acharColuna(cabecalho, APELIDOS.codigo);
+  let iNome = acharColuna(cabecalho, APELIDOS.nome);
+
+  /*
+    "CLIENTE" SOZINHO PODE SER AS DUAS COISAS, e é comum: há export que
+    chama de "Cliente" o código e há quem chame o nome. Quando é a única
+    candidata, o conteúdo decide -- se a primeira linha preenchida é só
+    dígito, é código; senão, é nome. Chutar pelo cabeçalho colocaria o
+    nome do cliente no campo do código, que é o erro que este módulo
+    inteiro existe para não cometer.
+  */
+  if (iCodigo < 0 || iNome < 0) {
+    const iCliente = acharColuna(cabecalho, ["Cliente"]);
+    if (iCliente >= 0) {
+      const amostra = linhas
+        .slice(1, 20)
+        .map((l) => separarLinha(l)[iCliente])
+        .find((v) => v && v.trim());
+      const pareceCodigo = Boolean(amostra && /^\d+$/.test(amostra.trim()));
+      if (pareceCodigo && iCodigo < 0) iCodigo = iCliente;
+      if (!pareceCodigo && iNome < 0) iNome = iCliente;
+    }
+  }
+
+  // Sem mapa ou sem código não dá para casar nada -- e é o par que define
+  // este arquivo.
+  if (iMapa < 0 || iCodigo < 0) return [];
+
+  const iCidade = acharColuna(cabecalho, APELIDOS.cidade);
+  const iBairro = acharColuna(cabecalho, APELIDOS.bairro);
+  const iSeq = acharColuna(cabecalho, APELIDOS.sequencia);
+
+  const saida: ClienteDoMapa[] = [];
+  for (const linha of linhas.slice(1)) {
+    const campos = separarLinha(linha);
+    const mapa = normalizarMapa(campos[iMapa] ?? "");
+    const codPdv = (campos[iCodigo] ?? "").trim().replace(/\D/g, "").replace(/^0+/, "");
+    if (!mapa || !codPdv) continue;
+
+    // Sem data, a linha vale para a última importação daquele mapa. É
+    // melhor do que descartar: o alerta usa a data quando ela existe e
+    // cai na lista mais recente quando não existe.
+    const data = iData >= 0 ? dataParaIso(campos[iData] ?? "") : null;
+    const seq = iSeq >= 0 ? Number((campos[iSeq] ?? "").replace(/\D/g, "")) : NaN;
+
+    saida.push({
+      data: data ?? "",
+      mapa,
+      codPdv,
+      nomePdv: iNome >= 0 ? (campos[iNome] ?? "").trim() || null : null,
+      cidade: iCidade >= 0 ? (campos[iCidade] ?? "").trim() || null : null,
+      bairro: iBairro >= 0 ? (campos[iBairro] ?? "").trim() || null : null,
+      sequencia: Number.isFinite(seq) && seq > 0 ? seq : null,
+    });
+  }
+  return saida;
+}
+
 /** Nomes exatos das colunas na planilha do roteirizador. */
 const COLUNA = {
   data: "Data Entrega",

@@ -1,4 +1,4 @@
-﻿"use server";
+"use server";
 
 import { redirect } from "next/navigation";
 import { requireModulo } from "@/lib/require-admin";
@@ -11,7 +11,7 @@ import {
   listarArquivosDaPasta,
   mesDoNome,
 } from "@/lib/drive-pasta";
-import { lerPlanilhaDeRotas } from "@/lib/rotas";
+import { lerPlanilhaDeClientesPorMapa, lerPlanilhaDeRotas } from "@/lib/rotas";
 
 const ROTA = "/admin/rotas";
 
@@ -104,6 +104,9 @@ export async function atualizarRotas(formData: FormData) {
 
   const relatorio: string[] = [];
   let totalRotas = 0;
+  let totalClientes = 0;
+  const hojeSP = () =>
+    new Date().toLocaleDateString("sv-SE", { timeZone: "America/Sao_Paulo" });
 
   for (const arquivo of arquivos) {
     const texto = await baixarTextoDoDrive(arquivo.id);
@@ -114,6 +117,51 @@ export async function atualizarRotas(formData: FormData) {
 
     const { rotas, faltando } = lerPlanilhaDeRotas(texto);
     if (rotas.length === 0) {
+      /*
+        NÃO É PRÉ-ROTA? TALVEZ SEJA A LISTA DE CLIENTES POR MAPA.
+
+        Pedido do dono (07/09/2026): o motorista precisa saber, antes de
+        sair, quais clientes da rota têm particularidade. A planilha da
+        pré-rota não serve -- ela traz uma linha por MAPA, com as cidades
+        somadas. Este segundo arquivo traz uma linha por CLIENTE.
+
+        Entra na MESMA pasta do Drive e é reconhecido pelo cabeçalho, não
+        pelo nome: sem tela nova e sem botão novo. Quem já solta a
+        pré-rota lá solta este junto, e o alerta da pré-rota deixa de ser
+        por região e passa a ser por cliente sozinho.
+      */
+      const clientes = lerPlanilhaDeClientesPorMapa(texto);
+      if (clientes.length > 0) {
+        const linhasDeCliente = clientes.map((c) => ({
+          revenda_id: revendaId,
+          // Sem data no arquivo, entra com a de hoje: o alerta procura a
+          // lista daquele dia e, não achando, usa a mais recente do mapa.
+          data: c.data || hojeSP(),
+          mapa: c.mapa,
+          cod_pdv: c.codPdv,
+          nome_pdv: c.nomePdv,
+          cidade: c.cidade,
+          bairro: c.bairro,
+          sequencia: c.sequencia,
+          importado_em: new Date().toISOString(),
+        }));
+
+        const { error: erroClientes } = await admin
+          .from("pa_pdv_do_mapa")
+          .upsert(linhasDeCliente, { onConflict: "revenda_id,data,mapa,cod_pdv" });
+
+        if (erroClientes) {
+          relatorio.push(`${arquivo.nome}: erro ao gravar os clientes do mapa`);
+        } else {
+          totalClientes += clientes.length;
+          const mapas = new Set(clientes.map((c) => c.mapa)).size;
+          relatorio.push(
+            `${arquivo.nome}: ${clientes.length} cliente(s) em ${mapas} mapa(s)`,
+          );
+        }
+        continue;
+      }
+
       relatorio.push(
         `${arquivo.nome}: nenhuma rota reconhecida${
           faltando.length ? ` (faltou ${faltando.slice(0, 3).join(", ")})` : ""
@@ -171,7 +219,9 @@ export async function atualizarRotas(formData: FormData) {
     })
     .eq("revenda_id", revendaId);
 
-  if (totalRotas === 0) {
+  // Um arquivo só de clientes é uma importação válida: não há rota nova,
+  // mas o alerta da pré-rota passa a ser por cliente.
+  if (totalRotas === 0 && totalClientes === 0) {
     voltarAqui("erro", `Nenhuma rota importada. ${relatorio.join(" · ")}`);
   }
 
@@ -187,7 +237,7 @@ export async function atualizarRotas(formData: FormData) {
 
   voltarAqui(
     "sucesso",
-    `${totalRotas} rota(s) atualizada(s) de ${arquivos.length} arquivo(s). ${relatorio.join(" · ")}`,
+    `${totalRotas} rota(s)${totalClientes > 0 ? ` e ${totalClientes} cliente(s) de mapa` : ""} de ${arquivos.length} arquivo(s). ${relatorio.join(" · ")}`,
   );
 }
 
