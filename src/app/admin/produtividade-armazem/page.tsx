@@ -1416,19 +1416,31 @@ export default async function AdminProdutividadeArmazemPage({
                         <FotoEvidencia
                           src={t.foto_url}
                           alt={`Horímetro da troca — ${descricao}`}
-                          classeCaixa="h-16 w-16 shrink-0"
+                          classeCaixa="h-14 w-14 shrink-0"
                         />
                       )}
 
                       <p className="min-w-0 flex-1 text-xs text-slate-500">🏗️ {descricao}</p>
 
-                      <form
-                        action={corrigirHorimetroTrocaGas}
-                        className="flex shrink-0 items-end gap-2"
-                      >
-                        <input type="hidden" name="id" value={t.id as string} />
-                        <div>
-                          <label className="mb-1 block text-xs font-semibold uppercase text-slate-500">
+                      {/*
+                        OS CONTROLES NUMA LINHA SÓ, E TAMBÉM NO CELULAR --
+                        pedido do dono (07/09/2026): a troca de gás não
+                        ficava lado a lado como a correção de operação.
+
+                        No computador já ficava; no celular quebrava em
+                        andares, porque o rótulo "Horímetro" ficava ACIMA
+                        do campo e cada troca virava três alturas. O rótulo
+                        passou para o lado (é uma palavra só, e o campo
+                        numérico ao lado dela se explica), e a linha inteira
+                        cabe -- inclusive com o 🗑️ no fim.
+                      */}
+                      <div className="flex shrink-0 items-center gap-2">
+                        <form
+                          action={corrigirHorimetroTrocaGas}
+                          className="flex shrink-0 items-center gap-1.5"
+                        >
+                          <input type="hidden" name="id" value={t.id as string} />
+                          <label className="shrink-0 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
                             Horímetro
                           </label>
                           <input
@@ -1439,24 +1451,24 @@ export default async function AdminProdutividadeArmazemPage({
                             min={0}
                             required
                             defaultValue={String(t.horimetro)}
-                            className={`${campo} w-28`}
+                            className={`${campo} w-24 shrink-0`}
                           />
-                        </div>
-                        <BotaoEnviar compacto className="shrink-0 rounded-lg bg-slate-800 px-3 py-2 text-xs font-semibold text-white">
-                          Salvar
-                        </BotaoEnviar>
-                      </form>
+                          <BotaoEnviar compacto className="shrink-0 rounded-lg bg-slate-800 px-3 py-2 text-xs font-semibold text-white">
+                            Salvar
+                          </BotaoEnviar>
+                        </form>
 
-                      {podeExcluir && (
-                        <BotaoExcluir
-                          action={excluirTrocaGas}
-                          campos={{ id: t.id as string }}
-                          confirmacao={`Excluir a troca de gás de ${descricao}? A foto também será apagada. Não dá para desfazer.`}
-                          className="flex h-8 w-8 shrink-0 items-center justify-center self-end rounded-lg text-sm hover:bg-red-50 sm:self-center"
-                        >
-                          🗑️
-                        </BotaoExcluir>
-                      )}
+                        {podeExcluir && (
+                          <BotaoExcluir
+                            action={excluirTrocaGas}
+                            campos={{ id: t.id as string }}
+                            confirmacao={`Excluir a troca de gás de ${descricao}? A foto também será apagada. Não dá para desfazer.`}
+                            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-sm hover:bg-red-50"
+                          >
+                            🗑️
+                          </BotaoExcluir>
+                        )}
+                      </div>
                     </div>
                   );
                 })

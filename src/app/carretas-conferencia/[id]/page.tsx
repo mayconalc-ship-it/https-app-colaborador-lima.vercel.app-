@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { PageHeader } from "@/components/PageHeader";
-import { BotaoEnviar } from "@/components/BotaoEnviar";
 import { createClient } from "@/lib/supabase/server";
 import { getRevendaId } from "@/lib/revendas";
 import { podeNoModulo, temAcessoModulo } from "@/lib/require-admin";
@@ -23,6 +22,7 @@ import {
   type UnidadeAg,
   type UnidadeItem,
 } from "@/lib/carretas";
+import { BotaoDeEtapa } from "@/components/carretas/BotaoDeEtapa";
 import { FormFinalizarConferencia } from "./FormFinalizarConferencia";
 import { FormDecidirRetorno } from "./FormDecidirRetorno";
 import { FormCorrigirRetornoAg } from "./FormCorrigirRetornoAg";
@@ -424,15 +424,17 @@ export default async function DetalheAtendimentoPage({ params }: { params: Promi
               <p className="mb-2 text-sm font-bold text-slate-800">📦 Descarga</p>
               {!a.inicio_descarga_em ? (
                 podeDescarregar ? (
-                  <form action={iniciarDescarga}>
-                    <input type="hidden" name="atendimento_id" value={a.id} />
-                    <BotaoEnviar
-                      textoEnviando="Iniciando..."
-                      className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-white shadow-sm hover:bg-primary-dark"
-                    >
-                      ▶️ Iniciar descarga
-                    </BotaoEnviar>
-                  </form>
+                  <BotaoDeEtapa
+                    action={iniciarDescarga}
+                    campos={{ atendimento_id: a.id }}
+                    tom="comecar"
+                    titulo="Iniciar a descarga agora?"
+                    detalhe={`Grava o horário de início da carreta ${a.placa_carreta}. É esse horário que entra no TMA, e só a liderança consegue corrigir depois.`}
+                    confirmar="Sim, iniciar"
+                    textoEnviando="Iniciando..."
+                  >
+                    ▶️ Iniciar descarga
+                  </BotaoDeEtapa>
                 ) : (
                   <p className="text-xs text-slate-500">Aguardando o empilhador iniciar a descarga.</p>
                 )
@@ -440,15 +442,17 @@ export default async function DetalheAtendimentoPage({ params }: { params: Promi
                 <>
                   <p className="mb-2 text-xs text-amber-700">🕐 Iniciada às {formatarHora(a.inicio_descarga_em)}</p>
                   {podeDescarregar ? (
-                    <form action={finalizarDescarga}>
-                      <input type="hidden" name="atendimento_id" value={a.id} />
-                      <BotaoEnviar
-                        textoEnviando="Finalizando..."
-                        className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-white shadow-sm hover:bg-primary-dark"
-                      >
-                        ✅ Finalizar descarga
-                      </BotaoEnviar>
-                    </form>
+                    <BotaoDeEtapa
+                      action={finalizarDescarga}
+                      campos={{ atendimento_id: a.id }}
+                      tom="encerrar"
+                      titulo="Finalizar a descarga?"
+                      detalhe="Fecha o tempo de descarga e libera a carreta para seguir. Depois disso a carga já saiu — o que precisar de foto tem que ser feito antes."
+                      confirmar="Sim, finalizar"
+                      textoEnviando="Finalizando..."
+                    >
+                      ✅ Finalizar descarga
+                    </BotaoDeEtapa>
                   ) : (
                     <p className="text-xs text-slate-500">Aguardando o empilhador finalizar a descarga.</p>
                   )}
@@ -480,15 +484,17 @@ export default async function DetalheAtendimentoPage({ params }: { params: Promi
             <p className="mb-2 text-sm font-bold text-slate-800">🔍 Conferência</p>
             {!a.inicio_conferencia_em ? (
               podeConferir ? (
-                <form action={iniciarConferencia}>
-                  <input type="hidden" name="atendimento_id" value={a.id} />
-                  <BotaoEnviar
-                    textoEnviando="Iniciando..."
-                    className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-white shadow-sm hover:bg-primary-dark"
-                  >
-                    🔍 Conferir carga
-                  </BotaoEnviar>
-                </form>
+                <BotaoDeEtapa
+                  action={iniciarConferencia}
+                  campos={{ atendimento_id: a.id }}
+                  tom="comecar"
+                  titulo="Começar a conferência?"
+                  detalhe="Marca você como conferente desta carreta e começa a contar o tempo de conferência."
+                  confirmar="Sim, conferir"
+                  textoEnviando="Iniciando..."
+                >
+                  🔍 Conferir carga
+                </BotaoDeEtapa>
               ) : (
                 <p className="text-xs text-slate-500">Aguardando o conferente iniciar a conferência.</p>
               )
@@ -613,15 +619,19 @@ export default async function DetalheAtendimentoPage({ params }: { params: Promi
       {a.status === "em_carga" && (
         <div className="mt-4 space-y-4">
           {podeDescarregar ? (
-            <form action={concluirCarga} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-              <input type="hidden" name="atendimento_id" value={a.id} />
-              <BotaoEnviar
+            <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+              <BotaoDeEtapa
+                action={concluirCarga}
+                campos={{ atendimento_id: a.id }}
+                tom="encerrar"
+                titulo="Concluir a carga e encerrar a carreta?"
+                detalhe={`Fecha o atendimento da ${a.placa_carreta}. Depois disso ela sai do monitor, e só a liderança consegue reabrir.`}
+                confirmar="Sim, encerrar"
                 textoEnviando="Concluindo..."
-                className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-white shadow-sm hover:bg-primary-dark"
               >
                 ✅ Concluir carga e finalizar
-              </BotaoEnviar>
-            </form>
+              </BotaoDeEtapa>
+            </div>
           ) : (
             <p className="rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-500 shadow-sm">
               Aguardando o empilhador concluir o carregamento.

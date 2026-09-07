@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
+import { useConfirmarEnvio } from "@/components/Confirmacao";
 import { BotaoAdicionarLinha } from "@/components/BotaoMais";
 import { ComboboxProdutoReepack } from "@/components/produtividade-armazem/ComboboxProdutoReepack";
 import { ComboboxNome } from "@/components/produtividade-armazem/ComboboxNome";
@@ -24,8 +25,8 @@ const COOKIE_CONFERENCIA_PATH = "/carretas-conferencia";
 import { criarEmpilhadorRapido, finalizarConferencia } from "./actions";
 
 const campo =
-  "w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-base text-slate-900 focus:border-primary focus:outline-none";
-const rotulo = "mb-1 block text-xs font-semibold uppercase text-slate-500";
+  "w-full rounded-lg border border-slate-300 bg-white px-2.5 py-2 text-base text-slate-900 focus:border-primary focus:outline-none";
+const rotulo = "mb-0.5 block text-[11px] font-semibold uppercase tracking-wide text-slate-500";
 
 let contador = 0;
 function novaChave() {
@@ -121,7 +122,7 @@ function CamposQuantidade() {
   }, [recebido, avariado]);
 
   return (
-    <div className="grid grid-cols-3 gap-3">
+    <div className="grid grid-cols-3 gap-2">
       <div>
         <label className={rotulo}>Recebido</label>
         <input
@@ -183,8 +184,30 @@ export function FormFinalizarConferencia({
      cerveja na mesma conferência, e a regra vale item a item. */
   const [produtos, setProdutos] = useState<Record<string, string | null>>({});
 
+  /*
+    A CONFIRMAÇÃO ANTES DE FECHAR A CONFERÊNCIA -- pedido do dono
+    (07/09/2026): "após conferir a carga, deixe uma mensagem de confirmação
+    se tem certeza que deseja realizar aquela operação, e a partir daí não
+    precisa de mais botão para finalizar a conferência".
+
+    E ela DIZ QUANTOS ITENS VÃO. É a última chance de perceber que ficou um
+    item de fora ou que sobrou uma linha vazia -- depois de finalizada, a
+    conferência é o número que vai para o indicador de avaria, e corrigir
+    exige a liderança.
+  */
+  const aoEnviar = useConfirmarEnvio();
+
   return (
-    <form action={finalizarConferencia} className="space-y-4">
+    <form
+      action={finalizarConferencia}
+      className="space-y-4"
+      onSubmit={aoEnviar({
+        titulo: "Finalizar a conferência?",
+        detalhe: `Vão ser gravados ${itens.length} ${itens.length === 1 ? "item" : "itens"}. A conferência fecha aqui e alimenta o indicador de avaria — para mudar depois, só com a liderança.`,
+        confirmar: "Sim, finalizar",
+        perigo: false,
+      })}
+    >
       <input type="hidden" name="atendimento_id" value={atendimentoId} />
 
       <div className="space-y-3">
@@ -227,7 +250,7 @@ export function FormFinalizarConferencia({
             {/* O LOTE continua opcional (03/09/2026): a operação não o
                 usa. A VALIDADE voltou a ser obrigatória em 05/09, menos
                 no marketplace -- ver CampoValidade. */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-2">
               <div>
                 <label className={rotulo}>Lote (opcional)</label>
                 <input name="lote" className={campo} />
@@ -282,9 +305,11 @@ export function FormFinalizarConferencia({
         )}
       </div>
 
+      {/* Verde e grande, como as outras etapas que ENCERRAM algo -- é a
+          mesma linguagem de cor do resto do módulo. */}
       <BotaoEnviar
         textoEnviando="Finalizando..."
-        className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-white shadow-sm hover:bg-primary-dark"
+        className="w-full rounded-xl bg-green-600 px-4 py-3.5 text-base font-bold text-white shadow-sm hover:bg-green-700 active:bg-green-800"
       >
         ✅ Finalizar conferência
       </BotaoEnviar>
