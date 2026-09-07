@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { BotaoAdicionarLinha } from "@/components/BotaoMais";
+import { ComboboxDePessoa, type PessoaAchada } from "@/components/anomalia/CamposDoRelato";
 import {
   ROTULO_STATUS_ACAO,
   ROTULO_TOPICO,
@@ -43,9 +44,11 @@ const novaChave = () => `acao-${(contador += 1)}`;
  */
 export function PlanoDeAcao({
   iniciais,
+  buscarPessoas,
   somenteLeitura = false,
 }: {
   iniciais: LinhaDoPlano[];
+  buscarPessoas: (termo: string) => Promise<PessoaAchada[]>;
   somenteLeitura?: boolean;
 }) {
   const [linhas, setLinhas] = useState(() =>
@@ -133,13 +136,19 @@ export function PlanoDeAcao({
           <div className="mt-2 grid gap-2 sm:grid-cols-3">
             <div>
               <label className={rotulo}>Quem? *</label>
-              <input
-                name="acao_quem"
-                value={l.quem}
-                onChange={(e) => mudar(l.chave, "quem", e.target.value)}
-                readOnly={somenteLeitura}
-                className={campo}
-                placeholder="Uma pessoa — área não assina."
+              {/* Combobox de colaborador (pedido do dono, 07/09/2026). O
+                  que fica gravado continua sendo o NOME -- o plano é um
+                  documento, e um documento que aponta para um id vira
+                  ilegível quando a pessoa sai. A busca serve para ACERTAR
+                  o nome: "Neuilton" escrito de três jeitos são três donos
+                  diferentes na hora de cobrar. */}
+              <ComboboxDePessoa
+                id={`quem-${l.chave}`}
+                nome="acao_quem"
+                valorInicial={l.quem}
+                buscar={buscarPessoas}
+                placeholder="Uma pessoa — área não assina"
+                somenteLeitura={somenteLeitura}
               />
             </div>
             <div>

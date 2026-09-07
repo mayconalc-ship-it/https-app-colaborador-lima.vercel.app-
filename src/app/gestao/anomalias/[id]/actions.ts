@@ -16,9 +16,54 @@ import {
   type StatusAcao,
   type TopicoAcao,
 } from "@/lib/relato-anomalia";
+import { guardarNoCatalogo } from "@/lib/relato-catalogos-server";
 
 const PAINEL = "/gestao/anomalias";
 const rota = (id: string) => `${PAINEL}/${id}`;
+
+/**
+ * A BUSCA DE COLABORADORES do relato -- participantes, responsável, gestor
+ * e o dono de cada ação.
+ *
+ * Só quem está VINCULADO à revenda aberta: um relato de São Félix não tem
+ * por que oferecer o time de Barreiras, e oferecer produz o erro mais
+ * silencioso possível -- o nome certo da pessoa errada.
+ *
+ * Devolve objeto normal (nunca redireciona): é chamada do componente
+ * cliente, não de um `<form action>`.
+ */
+export async function buscarPessoasDoRelato(
+  termo: string,
+): Promise<{ id: string; nome: string; cargo: string | null }[]> {
+  await requireModulo("relato-anomalia", "ver", PAINEL);
+  const revendaId = await exigirRevenda(PAINEL);
+
+  const t = termo.trim();
+  if (t.length < 2) return [];
+
+  try {
+    const admin = createAdminClient();
+    const { data: vinculos } = await admin
+      .from("colaborador_revendas")
+      .select("colaborador_id")
+      .eq("revenda_id", revendaId);
+    const ids = (vinculos ?? []).map((v) => v.colaborador_id);
+    if (ids.length === 0) return [];
+
+    const { data } = await admin
+      .from("profiles")
+      .select("id, nome, cargo")
+      .in("id", ids)
+      .ilike("nome", `%${t}%`)
+      .order("nome")
+      .limit(10);
+    return (data ?? []) as { id: string; nome: string; cargo: string | null }[];
+  } catch {
+    // Sem busca o campo continua aceitando texto: é uma ajuda para
+    // acertar o nome, não uma trava.
+    return [];
+  }
+}
 
 function erro(id: string, mensagem: string): never {
   redirect(`${rota(id)}?erro=${encodeURIComponent(mensagem)}`);
@@ -84,18 +129,40 @@ export async function salvarRelato(formData: FormData) {
     String(formData.get(`porque__${i}`) ?? "").trim(),
   );
 
-  const participantes = String(formData.get("participantes") ?? "")
-    .split(/[,;\n]/)
+  /*
+    OS PARTICIPANTES VÊM COMO CAMPOS REPETIDOS, um por pessoa (07/09/2026).
+
+    Eram um texto só, repartido por vírgula -- e vírgula é exatamente onde
+    "Silva, Neuilton" vira duas pessoas. O combobox manda um campo por
+    participante; o `split` fica como reserva para relato antigo, gravado
+    quando o campo ainda era texto.
+  */
+  const daLista = formData.getAll("participantes").map(String);
+  const participantes = (
+    daLista.length > 1 ? daLista : (daLista[0] ?? "").split(/[,;\n]/)
+  )
     .map((p) => p.trim())
     .filter(Boolean);
+
+  const area = String(formData.get("area") ?? "").trim() || null;
+  const sala = String(formData.get("sala") ?? "").trim() || null;
+  const icIv = String(formData.get("ic_iv") ?? "").trim() || null;
+
+  // O que foi digitado entra no catálogo para o próximo relato. Silencioso
+  // de propósito -- ver guardarNoCatalogo.
+  await guardarNoCatalogo(revendaId, [
+    { tipo: "area", nome: area },
+    { tipo: "sala", nome: sala },
+    { tipo: "ic_iv", nome: icIv },
+  ]);
 
   const { error } = await admin
     .from("pa_relatos_anomalia")
     .update({
-      area: String(formData.get("area") ?? "").trim() || null,
-      sala: String(formData.get("sala") ?? "").trim() || null,
+      area,
+      sala,
       natureza: natureza === "unica" || natureza === "repetitiva" ? natureza : null,
-      ic_iv: String(formData.get("ic_iv") ?? "").trim() || null,
+      ic_iv: icIv,
       sintoma: String(formData.get("sintoma") ?? "").trim() || null,
       participantes,
       porques,
@@ -219,15 +286,33 @@ export async function assinarRelato(formData: FormData) {
     erro(id, `Ainda falta: ${faltas.join(" · ")}`);
   }
 
+  /*
+    A ASSINATURA PASSA A TER DONO -- pergunta do dono (07/09/2026): "a
+    assinatura do gestor, ela é auditável? ou só replica o nome dele?".
+
+    Era só pela metade. O horário e o id de quem estava logado já eram
+    gravados, mas o id ia para `criado_por` -- a MESMA coluna que diz quem
+    abriu o relato. Duas informações diferentes na mesma coluna não
+    respondem nenhuma das duas, e quem abriu virava quem assinou.
+
+    Agora `assinado_por` guarda o id e `assinado_por_nome` guarda o nome do
+    CADASTRO de quem estava logado. `assinatura_gestor` continua sendo o
+    nome que sai no papel -- e a tela mostra os dois quando divergem, que é
+    a única forma de o auditor ver que alguém assinou pelo gestor.
+
+    `criado_por` não é mais tocado aqui: ele volta a significar só o que o
+    nome dele diz.
+  */
   const agora = new Date();
   const { error } = await admin
     .from("pa_relatos_anomalia")
     .update({
       assinatura_gestor: assinatura,
+      assinado_por: perfil?.id ?? null,
+      assinado_por_nome: perfil?.nome ?? null,
       assinado_em: agora.toISOString(),
       finalizado_em: agora.toLocaleDateString("sv-SE", { timeZone: "America/Sao_Paulo" }),
       status: "concluido",
-      criado_por: perfil?.id ?? null,
       atualizado_em: agora.toISOString(),
     })
     .eq("id", id)

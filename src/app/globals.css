@@ -579,4 +579,31 @@ button:disabled,
     size: A4;
     margin: 12mm;
   }
+
+  /*
+    O NÚMERO DO RELATO EM TODA FOLHA -- pedido do dono (07/09/2026): "dê
+    número do relato para que, caso tenha quebra de página, saiba de qual
+    relato ela se refere".
+
+    Vira RODAPÉ FIXO em vez de margem da @page: `@bottom-left` tem suporte
+    irregular -- o Chrome do Android, que é onde a liderança imprime do
+    celular, simplesmente o ignora. `position: fixed` dentro de @media
+    print é repetido em cada folha por todos os navegadores que importam
+    aqui, e é o que garante que a pilha em cima da mesa não vire um monte
+    de folhas anônimas.
+
+    Fica escondido na tela: lá o número já está no cabeçalho, e um rodapé
+    fixo atrapalharia a rolagem.
+  */
+  .rodape-do-relato {
+    display: block !important;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    font-size: 8pt;
+    color: #64748b;
+    border-top: 1px solid #cbd5e1;
+    padding-top: 2px;
+  }
 }

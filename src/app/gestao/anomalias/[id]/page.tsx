@@ -2,6 +2,17 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
 import { BotaoImprimir } from "@/components/anomalia/BotaoImprimir";
+import {
+  CampoDeLista,
+  ComboboxDePessoa,
+  ParticipantesDoRelato,
+} from "@/components/anomalia/CamposDoRelato";
+import { CATALOGO_DE_METAS } from "@/lib/metas";
+import { SIGMAS_PADRAO } from "@/lib/gatilho-anomalia";
+import {
+  catalogosDoRelato,
+  indicadoresComGatilho,
+} from "@/lib/relato-catalogos-server";
 import { PlanoDeAcao, type LinhaDoPlano } from "@/components/anomalia/PlanoDeAcao";
 import { decodificar } from "@/lib/texto-url";
 import { requireModulo } from "@/lib/require-admin";
@@ -20,7 +31,19 @@ import {
   type StatusRelato,
   type TopicoAcao,
 } from "@/lib/relato-anomalia";
-import { assinarRelato, salvarRelato, verificarEficacia } from "./actions";
+import {
+  assinarRelato,
+  buscarPessoasDoRelato,
+  salvarRelato,
+  verificarEficacia,
+} from "./actions";
+
+/** A regra em português -- "pico" e "deriva" são do motor, não do papel. */
+const ROTULO_DA_REGRA: Record<string, string> = {
+  pico: "pico (passou do limite)",
+  deriva: "deriva (piora lenta, 2 de 3 medições além de 1 desvio)",
+  manual: "limite definido pela operação",
+};
 
 export const dynamic = "force-dynamic";
 
@@ -38,6 +61,7 @@ const horaDe = (iso: string) =>
 
 type Relato = {
   id: string;
+  indicador: string;
   indicador_rotulo: string;
   dia_do_disparo: string;
   valor: number;
@@ -58,6 +82,7 @@ type Relato = {
   responsavel_nome: string | null;
   gestor_nome: string | null;
   assinatura_gestor: string | null;
+  assinado_por_nome: string | null;
   assinado_em: string | null;
   finalizado_em: string | null;
   eficacia_verificada_em: string | null;
@@ -133,6 +158,31 @@ export default async function RelatoDeAnomaliaPage({
   const padronizacao = r.padronizacao ?? {};
 
   /*
+    A UNIDADE DO INDICADOR vem do catálogo de metas -- é lá que ela já
+    mora. Indicador fora do catálogo (nenhum hoje) cai no número puro, que
+    é o que o documento mostrava para todos até agora.
+  */
+  const def = CATALOGO_DE_METAS.find((m) => m.chave === r.indicador);
+  const comUnidade = (n: number | null | undefined) => {
+    if (n === null || n === undefined) return "—";
+    const numero = n.toLocaleString("pt-BR", {
+      minimumFractionDigits: def?.casas ?? 0,
+      maximumFractionDigits: def?.casas ?? 2,
+    });
+    return def?.sufixo ? `${numero} ${def.sufixo}` : numero;
+  };
+
+  // Os oito primeiros caracteres do id: únicos na prática, e cabem na
+  // linha do cabeçalho e no rodapé de cada folha impressa.
+  const numeroDoRelato = r.id.slice(0, 8).toUpperCase();
+
+  // Quais indicadores têm gatilho ligado — a lista do IC/IV mostra isso ao
+  // lado de cada um, que é o que liga o relato a um disparo de verdade.
+  const comGatilho = await indicadoresComGatilho(revendaId);
+  const catalogos = await catalogosDoRelato(revendaId, comGatilho);
+  const sigmasDoGatilho = SIGMAS_PADRAO;
+
+  /*
     O QUE FALTA -- SEM CONTAR A ASSINATURA.
 
     A assinatura é o que este bloco COLETA, então incluí-la na conta
@@ -154,6 +204,12 @@ export default async function RelatoDeAnomaliaPage({
 
   return (
     <div className="folha mx-auto max-w-4xl">
+      {/* O RODAPÉ QUE SE REPETE EM CADA FOLHA IMPRESSA. Escondido na tela
+          (`hidden`), ligado só pelo @media print -- ver globals.css. */}
+      <div className="rodape-do-relato hidden">
+        RA {numeroDoRelato} · {titulo} · {r.responsavel_nome ?? "sem responsável"}
+      </div>
+
       {/* A BARRA DO APP -- some na impressão. */}
       <div className="so-na-tela mb-4 flex flex-wrap items-center justify-between gap-2">
         <Link href="/gestao/anomalias" className="text-sm text-primary hover:underline">
@@ -191,36 +247,67 @@ export default async function RelatoDeAnomaliaPage({
               {/* Fica no papel: é o que identifica o documento —
                   qual indicador, de que dia. */}
               <p className="text-xs text-slate-500">{titulo}</p>
+              {/* O NÚMERO DO RELATO, e ele fica no papel de propósito
+                  (pedido do dono, 07/09/2026): com o documento em duas
+                  folhas, a segunda solta em cima da mesa não dizia de qual
+                  relato era. Os oito primeiros caracteres do id bastam --
+                  são únicos na prática e cabem numa linha. */}
+              <p className="mt-0.5 font-mono text-[11px] uppercase tracking-wider text-slate-400">
+                RA {numeroDoRelato}
+              </p>
             </div>
+            {/*
+              DATA E HORA DA OCORRÊNCIA -- as duas do MESMO momento.
+
+              Relato do dono (07/09/2026): "a hora ao imprimir o relato está
+              dando 01:05h sendo que imprimi às 20:11". Não era fuso: o
+              campo mostrava a hora em que a VARREDURA abriu o relato
+              (01:05), ao lado de uma data que era a do DISPARO. Dois
+              momentos diferentes em campos vizinhos é pior do que um errado
+              -- quem lê soma os dois e conclui a hora do fato.
+
+              Agora os dois falam do disparo, e a abertura do relato aparece
+              embaixo, dita com todas as letras.
+            */}
             <div className="text-right text-xs text-slate-600">
               <p>
-                <strong>Data:</strong> {brasileira(r.dia_do_disparo)}
+                <strong>Data da anomalia:</strong> {brasileira(r.dia_do_disparo)}
               </p>
               <p>
-                <strong>Hora:</strong> {horaDe(r.aberto_em)}
+                <strong>Detectada em:</strong> {brasileira(r.aberto_em.slice(0, 10))} às{" "}
+                {horaDe(r.aberto_em)}
+              </p>
+              <p className="mt-0.5 text-[11px] text-slate-400">
+                Detecção automática pelo gatilho do indicador
               </p>
             </div>
           </div>
 
           <div className="mt-3 grid gap-2 sm:grid-cols-2">
             <div>
-              <label className={rotulo}>Área</label>
-              <input
-                name="area"
-                defaultValue={r.area ?? ""}
-                readOnly={assinado}
-                placeholder="Ex.: Distribuição"
-                className={campo}
+              <label className={rotulo} htmlFor="area">
+                Área
+              </label>
+              <CampoDeLista
+                id="area"
+                nome="area"
+                valorInicial={r.area ?? ""}
+                itens={catalogos.areas}
+                placeholder="Ex.: Logística"
+                somenteLeitura={assinado}
               />
             </div>
             <div>
-              <label className={rotulo}>Sala</label>
-              <input
-                name="sala"
-                defaultValue={r.sala ?? ""}
-                readOnly={assinado}
+              <label className={rotulo} htmlFor="sala">
+                Sala
+              </label>
+              <CampoDeLista
+                id="sala"
+                nome="sala"
+                valorInicial={r.sala ?? ""}
+                itens={catalogos.salas}
                 placeholder="Ex.: Armazém Turno 1"
-                className={campo}
+                somenteLeitura={assinado}
               />
             </div>
           </div>
@@ -237,18 +324,44 @@ export default async function RelatoDeAnomaliaPage({
             impresso junto: é ele que responde ao auditor por que este
             relato existe. A média muda amanhã; este quadro não.
           */}
+          {/*
+            O NÚMERO COM A UNIDADE -- pedido do dono (07/09/2026): "dentro
+            dos textos, inclua os tipos, se é %, horas, minutos".
+
+            "TMA: 41 — limite 38" não diz se são minutos ou horas, e quem
+            lê o papel meses depois não tem como saber. A unidade vem do
+            catálogo de indicadores (lib/metas.ts), que é onde ela já
+            estava — o documento só não a mostrava.
+          */}
           <div className="mt-2 rounded-xl border border-red-200 bg-red-50 p-3">
             <p className="text-sm font-bold text-red-900">
-              {r.indicador_rotulo}: {r.valor.toLocaleString("pt-BR")} — limite{" "}
-              {r.limite.toLocaleString("pt-BR")}
+              {r.indicador_rotulo}: {comUnidade(r.valor)} — limite {comUnidade(r.limite)}
             </p>
             <p className="mt-1 text-xs text-red-800">{r.explicacao}</p>
             {r.media !== null && (
               <p className="mt-1 text-[11px] text-red-700">
-                Base no dia do disparo: média {r.media.toLocaleString("pt-BR")} · desvio{" "}
-                {r.desvio?.toLocaleString("pt-BR")} · regra {r.regra}
+                Base no dia do disparo: média {comUnidade(r.media)} · desvio padrão{" "}
+                {comUnidade(r.desvio)} · regra {ROTULO_DA_REGRA[r.regra] ?? r.regra}
               </p>
             )}
+            {/*
+              O QUE É O GATILHO, dito no documento -- pedido do dono
+              (07/09/2026): "precisa deixar evidente o que é gatilho e que
+              indicadores que ativam o gatilho vira relato".
+
+              O auditor lê este papel sem ter visto a tela de configuração.
+              Sem esta frase, o número do limite parece arbitrário; com
+              ela, o documento se explica sozinho -- que é o que separa um
+              RA de um formulário preenchido.
+            */}
+            <p className="mt-2 border-t border-red-200 pt-2 text-[11px] leading-snug text-red-800">
+              <strong>O que é o gatilho:</strong> o limite acima do qual este indicador deixa de
+              ser variação normal e vira anomalia. Ele é calculado sobre a própria série do
+              indicador — <strong>média + {sigmasDoGatilho} desvios padrão</strong> — ou definido
+              pela operação quando existe um patamar acordado. Todo indicador com gatilho ligado é
+              vigiado diariamente, e <strong>o disparo abre este relato automaticamente</strong>:
+              é o que garante que o desvio seja tratado, e não apenas percebido.
+            </p>
           </div>
 
           <div className="mt-3 grid gap-2 sm:grid-cols-2">
@@ -280,13 +393,21 @@ export default async function RelatoDeAnomaliaPage({
               </p>
             </div>
             <div>
-              <label className={rotulo}>IC / IV</label>
-              <input
-                name="ic_iv"
-                defaultValue={r.ic_iv ?? ""}
-                readOnly={assinado}
-                placeholder="O indicador de controle ou de verificação"
-                className={campo}
+              <label className={rotulo} htmlFor="ic_iv">
+                IC / IV
+              </label>
+              {/* A lista traz os indicadores do app, marcando quais têm
+                  gatilho ligado -- pedido do dono (07/09/2026): "já pode
+                  utilizar os mesmos que já possui e que já tem gatilho
+                  mapeado". Escolher um deles é o que amarra o relato ao
+                  indicador que o abriu, em vez de um texto solto. */}
+              <CampoDeLista
+                id="ic_iv"
+                nome="ic_iv"
+                valorInicial={r.ic_iv ?? ""}
+                itens={catalogos.icIv}
+                placeholder="Indicador de controle ou de verificação"
+                somenteLeitura={assinado}
               />
             </div>
           </div>
@@ -305,14 +426,17 @@ export default async function RelatoDeAnomaliaPage({
 
           <div className="mt-2">
             <label className={rotulo}>Participantes</label>
-            <textarea
-              name="participantes"
-              defaultValue={(r.participantes ?? []).join(", ")}
-              readOnly={assinado}
-              rows={2}
-              placeholder="Separe por vírgula. Quem participou da análise assina junto pelo resultado."
-              className={campo}
+            {/* Cada participante é uma marca, não um pedaço de texto: a
+                vírgula era onde "Silva, Neuilton" virava duas pessoas. */}
+            <ParticipantesDoRelato
+              nome="participantes"
+              iniciais={r.participantes ?? []}
+              buscar={buscarPessoasDoRelato}
+              somenteLeitura={assinado}
             />
+            <p className="so-na-tela mt-1 text-[11px] leading-snug text-slate-400">
+              Quem participou da análise assina junto pelo resultado.
+            </p>
           </div>
         </section>
 
@@ -390,28 +514,40 @@ export default async function RelatoDeAnomaliaPage({
             Ação sem dono e sem prazo é intenção. É o achado mais comum de auditoria em plano de
             ação — e o mais fácil de evitar.
           </p>
-          <PlanoDeAcao iniciais={acoes} somenteLeitura={assinado} />
+          <PlanoDeAcao
+            iniciais={acoes}
+            buscarPessoas={buscarPessoasDoRelato}
+            somenteLeitura={assinado}
+          />
         </section>
 
         {/* ---------------- ASSINATURA ---------------- */}
         <section className="bloco-do-relato rounded-2xl border border-slate-300 bg-white p-4">
           <div className="grid gap-2 sm:grid-cols-2">
             <div>
-              <label className={rotulo}>Nome do responsável</label>
-              <input
-                name="responsavel_nome"
-                defaultValue={r.responsavel_nome ?? ""}
-                readOnly={assinado}
-                className={campo}
+              <label className={rotulo} htmlFor="responsavel_nome">
+                Nome do responsável
+              </label>
+              <ComboboxDePessoa
+                id="responsavel_nome"
+                nome="responsavel_nome"
+                valorInicial={r.responsavel_nome ?? ""}
+                buscar={buscarPessoasDoRelato}
+                placeholder="Quem responde pela análise"
+                somenteLeitura={assinado}
               />
             </div>
             <div>
-              <label className={rotulo}>Nome do gestor</label>
-              <input
-                name="gestor_nome"
-                defaultValue={r.gestor_nome ?? ""}
-                readOnly={assinado}
-                className={campo}
+              <label className={rotulo} htmlFor="gestor_nome">
+                Nome do gestor
+              </label>
+              <ComboboxDePessoa
+                id="gestor_nome"
+                nome="gestor_nome"
+                valorInicial={r.gestor_nome ?? ""}
+                buscar={buscarPessoasDoRelato}
+                placeholder="Gestor da área"
+                somenteLeitura={assinado}
               />
             </div>
           </div>
@@ -433,6 +569,34 @@ export default async function RelatoDeAnomaliaPage({
               </p>
             </div>
           </div>
+
+          {/*
+            O REGISTRO AUDITÁVEL DA ASSINATURA -- e ele vai para o PAPEL.
+
+            Pergunta do dono (07/09/2026): "a assinatura do gestor é
+            auditável, ou só replica o nome dele?". Até ontem, só pela
+            metade: o horário e o usuário eram gravados, mas não apareciam
+            em lugar nenhum -- e o nome sobre a linha era texto digitado.
+
+            Agora o documento diz QUEM ESTAVA LOGADO ao assinar e QUANDO. É
+            isso que transforma um nome escrito num registro: o auditor vê
+            que a assinatura tem origem, e vê na hora se alguém assinou
+            pelo gestor.
+          */}
+          {assinado && (
+            <p className="mt-3 border-t border-slate-200 pt-2 text-[11px] leading-snug text-slate-500">
+              Assinado no app por{" "}
+              <strong>{r.assinado_por_nome ?? "usuário não identificado"}</strong>
+              {r.assinado_em &&
+                ` em ${brasileira(r.assinado_em.slice(0, 10))} às ${horaDe(r.assinado_em)}`}
+              {r.assinado_por_nome &&
+                r.assinatura_gestor &&
+                r.assinado_por_nome.trim().toLowerCase() !==
+                  r.assinatura_gestor.trim().toLowerCase() && (
+                  <> — a assinatura foi lançada em nome de outra pessoa.</>
+                )}
+            </p>
+          )}
         </section>
 
         {!assinado && (
