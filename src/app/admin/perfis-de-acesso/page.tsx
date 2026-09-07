@@ -402,7 +402,11 @@ export default async function PerfisDeAcessoPage({
                       outra. */}
                   {podeEditar && emEdicao?.id === p.id && (
                     <div className="mt-3 border-t border-slate-100 pt-3">
-                      <GradeDePermissoes perfil={p} marcadas={marcadas} />
+                      <GradeDePermissoes
+                        perfil={p}
+                        marcadas={marcadas}
+                        pessoasNoPerfil={doPerfil.get(p.id)?.length ?? 0}
+                      />
                     </div>
                   )}
                 </div>
@@ -493,9 +497,11 @@ export default async function PerfisDeAcessoPage({
 function GradeDePermissoes({
   perfil,
   marcadas,
+  pessoasNoPerfil = 0,
 }: {
   perfil?: Perfil;
   marcadas: Set<string>;
+  pessoasNoPerfil?: number;
 }) {
   const emEdicao = perfil ?? null;
 
@@ -572,6 +578,20 @@ function GradeDePermissoes({
               );
             })}
           </div>
+
+          {/* O ALCANCE DO SALVAR, ANTES DE SALVAR. Quem mexe no molde
+              precisa saber que o clique alcança gente -- e quantos. Dizer
+              isso só na mensagem de sucesso é avisar depois do fato. */}
+          {emEdicao && pessoasNoPerfil > 0 && (
+            <p className="rounded-xl bg-amber-50 px-3 py-2 text-xs leading-snug text-amber-900">
+              ⚡ Salvar libera o que você marcar para as{" "}
+              <strong>
+                {pessoasNoPerfil} pessoa{pessoasNoPerfil > 1 ? "s" : ""}
+              </strong>{" "}
+              deste perfil. Desmarcar <strong>não</strong> retira: para deixar alguém igual ao
+              molde, use aplicar no modo espelhar.
+            </p>
+          )}
 
           <div className="flex flex-wrap gap-2">
             <BotaoEnviar className="rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-white hover:bg-primary-dark">

@@ -1,7 +1,110 @@
 import "server-only";
 
 import { createAdminClient } from "@/lib/supabase/admin";
-import type { Concessao } from "@/lib/perfis-acesso";
+import { chaveDaConcessao, type Concessao } from "@/lib/perfis-acesso";
+
+/**
+ * PROPAGAR O PERFIL -- salvar o molde libera o acesso para quem já o tem.
+ *
+ * Pedido do dono (07/09/2026): "ao acrescentar algo lá, após salvar ele
+ * libera o acesso com base nesse perfil que alterei para as pessoas que já
+ * estão nesse perfil". Antes o molde e as pessoas eram duas coisas
+ * separadas: acrescentar uma permissão ao "Analista de Rota" não alcançava
+ * nenhum analista, e quem salvava saía da tela achando que tinha
+ * alcançado. Um perfil que não descreve quem o tem não é um perfil.
+ *
+ * SÓ ACRESCENTA, nunca retira -- e essa é a parte deliberada. Quem acumula
+ * função (o analista que também administra o Jornal) perderia o Jornal
+ * toda vez que alguém mexesse no molde, sem ter pedido nada. Desmarcar uma
+ * permissão continua sendo assunto do espelhar, que lista nome por nome o
+ * que vai sair antes de tirar.
+ *
+ * Por isso a contagem de `sobras` volta daqui: quem desmarcou algo precisa
+ * ouvir que as pessoas continuam com aquilo, em vez de supor que salvar
+ * resolveu.
+ *
+ * Alcança só ESTA revenda: o mesmo `revenda_id` está no vínculo e na
+ * permissão, e um perfil pertence a uma revenda.
+ */
+export async function propagarPerfil(dados: {
+  perfilId: string;
+  revendaId: string;
+  concessoes: Concessao[];
+  quemAplicaId: string | null;
+}): Promise<{ pessoas: number; acrescentadas: number; comSobra: number }> {
+  const { perfilId, revendaId, concessoes, quemAplicaId } = dados;
+  const admin = createAdminClient();
+  const vazio = { pessoas: 0, acrescentadas: 0, comSobra: 0 };
+
+  const { data: vinculos } = await admin
+    .from("perfil_pessoas")
+    .select("colaborador_id")
+    .eq("perfil_id", perfilId)
+    .eq("revenda_id", revendaId);
+
+  const ids = [...new Set((vinculos ?? []).map((v) => v.colaborador_id as string))];
+  if (ids.length === 0 || concessoes.length === 0) return vazio;
+
+  // Uma consulta para todo mundo, não uma por pessoa: a lista de um perfil
+  // grande passa fácil de vinte, e vinte idas ao banco dentro de um submit
+  // é o tipo de lentidão que faz a pessoa clicar em salvar de novo.
+  const { data: jaTem } = await admin
+    .from("lideranca_permissoes")
+    .select("colaborador_id, modulo, acao")
+    .in("colaborador_id", ids)
+    .eq("revenda_id", revendaId);
+
+  const doPerfil = new Set(concessoes.map((c) => chaveDaConcessao(c.modulo, c.acao)));
+  const porPessoa = new Map<string, Set<string>>(ids.map((id) => [id, new Set<string>()]));
+  for (const p of jaTem ?? []) {
+    porPessoa.get(p.colaborador_id as string)?.add(chaveDaConcessao(p.modulo, p.acao));
+  }
+
+  const novas: Concessao[] = [];
+  const linhas = ids.flatMap((id) => {
+    const tem = porPessoa.get(id) ?? new Set<string>();
+    const faltando = concessoes.filter((c) => !tem.has(chaveDaConcessao(c.modulo, c.acao)));
+    novas.push(...faltando);
+    return faltando.map((c) => ({
+      colaborador_id: id,
+      revenda_id: revendaId,
+      modulo: c.modulo,
+      acao: c.acao,
+      concedido_por: quemAplicaId,
+    }));
+  });
+
+  const comSobra = ids.filter((id) =>
+    [...(porPessoa.get(id) ?? [])].some((chave) => !doPerfil.has(chave)),
+  ).length;
+
+  if (linhas.length > 0) {
+    const { error } = await admin
+      .from("lideranca_permissoes")
+      .upsert(linhas, { onConflict: "colaborador_id,revenda_id,modulo,acao" });
+    // Sem exceção: o molde JÁ está salvo neste ponto. Estourar aqui
+    // desfaria a tela inteira por causa da parte que dá para refazer
+    // clicando em aplicar o perfil.
+    if (error) return { pessoas: ids.length, acrescentadas: 0, comSobra };
+  }
+
+  // Sem o papel de liderança a concessão fica inerte -- `podeFazer` só a
+  // consulta para esse papel. Quem é owner ou admin não é rebaixado.
+  //
+  // A escolha de quem promover é feita AQUI, e não num `.not("role","in",...)`
+  // no banco: no PostgREST um `role` nulo não satisfaz um `not in`, e a
+  // pessoa sem papel gravado -- justamente a que mais precisa -- ficaria de
+  // fora em silêncio, com as permissões novas inertes.
+  const { data: perfisAlvo } = await admin.from("profiles").select("id, role").in("id", ids);
+  const promover = (perfisAlvo ?? [])
+    .filter((p) => !["owner", "admin", "lideranca"].includes(p.role as string))
+    .map((p) => p.id as string);
+  if (promover.length > 0) {
+    await admin.from("profiles").update({ role: "lideranca" }).in("id", promover);
+  }
+
+  return { pessoas: ids.length, acrescentadas: novas.length, comSobra };
+}
 
 /**
  * APLICAR UM PERFIL A UMA PESSOA -- a operação, num lugar só.

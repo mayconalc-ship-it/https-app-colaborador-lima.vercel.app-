@@ -8,7 +8,7 @@ import { requireModulo } from "@/lib/require-admin";
 import { getPerfil } from "@/lib/sessao";
 import { MODULOS } from "@/lib/acessos";
 import { lerConcessoesDoFormulario, type Concessao } from "@/lib/perfis-acesso";
-import { aplicarPerfilA } from "@/lib/perfis-acesso-server";
+import { aplicarPerfilA, propagarPerfil } from "@/lib/perfis-acesso-server";
 
 const ROTA = "/admin/perfis-de-acesso";
 
@@ -30,6 +30,18 @@ function apenasValidas(concessoes: Concessao[]): Concessao[] {
  * Grava por substituição: o que está na tela passa a ser o perfil. Um
  * perfil é uma definição, não um histórico -- somar sem tirar deixaria
  * impossível remover uma permissão que entrou por engano.
+ *
+ * E SALVAR ALCANÇA QUEM JÁ TEM O PERFIL (07/09/2026, pedido do dono).
+ * Antes o molde e as pessoas viviam separados: acrescentar uma permissão
+ * ao "Analista de Rota" não alcançava analista nenhum, e quem salvava saía
+ * da tela achando que tinha alcançado. Era preciso reaplicar o perfil a
+ * cada um, um por um, sabendo de cor quem já o tinha.
+ *
+ * A propagação só ACRESCENTA. Quem acumula função perderia o resto toda
+ * vez que alguém mexesse no molde -- por isso desmarcar continua sendo
+ * assunto do espelhar, que mostra o que sai antes de tirar. Quando sobra
+ * algo fora do molde, a mensagem de sucesso diz isso em vez de deixar
+ * quem salvou supor que já resolveu.
  */
 export async function salvarPerfil(formData: FormData) {
   await requireModulo("perfis-acesso", "editar");
@@ -78,8 +90,32 @@ export async function salvarPerfil(formData: FormData) {
     .insert(concessoes.map((c) => ({ perfil_id: perfilId, modulo: c.modulo, acao: c.acao })));
   if (erroPerm) voltar("erro", `Não foi possível salvar as permissões: ${erroPerm.message}`);
 
+  const alcance = await propagarPerfil({
+    perfilId: perfilId as string,
+    revendaId,
+    concessoes,
+    quemAplicaId: perfil?.id ?? null,
+  });
+
+  let recado = `Perfil "${nome}" salvo com ${concessoes.length} permissão(ões).`;
+  if (alcance.pessoas === 0) {
+    recado += " Ninguém está neste perfil ainda — aplique-o a alguém para o molde valer.";
+  } else if (alcance.acrescentadas > 0) {
+    recado +=
+      ` ${alcance.acrescentadas} liberação(ões) nova(s) para ${alcance.pessoas} pessoa(s)` +
+      " deste perfil.";
+  } else {
+    recado += ` As ${alcance.pessoas} pessoa(s) deste perfil já tinham tudo.`;
+  }
+  if (alcance.comSobra > 0) {
+    recado +=
+      ` Atenção: ${alcance.comSobra} pessoa(s) têm acessos fora do molde — salvar não retira nada.` +
+      " Para deixar igual ao perfil, use aplicar no modo espelhar.";
+  }
+
   revalidatePath(ROTA);
-  voltar("sucesso", `Perfil "${nome}" salvo com ${concessoes.length} permissão(ões).`, `&perfil=${perfilId}`);
+  revalidatePath("/admin/acessos");
+  voltar("sucesso", recado, `&perfil=${perfilId}`);
 }
 
 /**
