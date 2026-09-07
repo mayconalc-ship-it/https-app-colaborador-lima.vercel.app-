@@ -72,6 +72,7 @@ type Gaveta =
   | "sem-ninguem"
   | "tratativa"
   | "atrasadas"
+  | "no-prazo"
   | "concluidas"
   | "blitz"
   | "encerrados";
@@ -186,6 +187,25 @@ export default async function PainelDeAnomaliasPage({
   const atrasadas = emAberto
     .filter((a) => a.prazo && a.prazo < hoje)
     .sort((x, y) => (x.prazo ?? "").localeCompare(y.prazo ?? ""));
+  /*
+    AS AÇÕES NO PRAZO GANHARAM CARTÃO (07/09/2026).
+
+    Era o outro lado do buraco das concluídas, e o dono caiu nele pelo
+    caminho inverso: "mudei o status de uma ação de concluída para pendente
+    e ele sumiu, não sei pra onde ele foi". Ela saía de "concluídas" e não
+    entrava em "atrasadas" -- porque o prazo era futuro --, então não
+    aparecia em cartão nenhum. Existia só dentro do documento do relato.
+
+    Com este cartão toda ação está em exatamente um lugar: no prazo,
+    atrasada ou concluída. Um painel onde algo pode não estar em lugar
+    nenhum ensina a não confiar na conta de nenhum cartão.
+
+    Sem prazo vai para o FIM, e não para fora: ação sem data é a que mais
+    precisa aparecer, porque é a que ninguém vai cobrar.
+  */
+  const noPrazo = emAberto
+    .filter((a) => !a.prazo || a.prazo >= hoje)
+    .sort((x, y) => (x.prazo ?? "9999-99-99").localeCompare(y.prazo ?? "9999-99-99"));
   // A ação concluída, da mais recente para a mais antiga pelo prazo -- é a
   // ordem em que se conta o que foi feito.
   const concluidas = acoes
@@ -201,10 +221,16 @@ export default async function PainelDeAnomaliasPage({
   const blitzParaTratar = blitz.filter((b) => b.status === "concluida");
 
   const gaveta = (
-    ["sem-ninguem", "tratativa", "atrasadas", "concluidas", "blitz", "encerrados"] as const
-  ).find(
-    (g) => g === ver,
-  );
+    [
+      "sem-ninguem",
+      "tratativa",
+      "atrasadas",
+      "no-prazo",
+      "concluidas",
+      "blitz",
+      "encerrados",
+    ] as const
+  ).find((g) => g === ver);
   const linkDa = (g: Gaveta) => (gaveta === g ? "/gestao/anomalias" : `/gestao/anomalias?ver=${g}`);
   const voltarPara = gaveta ? `/gestao/anomalias?ver=${gaveta}` : "/gestao/anomalias";
 
@@ -234,7 +260,7 @@ export default async function PainelDeAnomaliasPage({
         abaixo -- e tocar de novo fecha. A escolha vai na URL para o
         voltar do celular funcionar.
       */}
-      <div className="mb-5 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+      <div className="mb-5 grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7">
         <Cartao
           href={linkDa("sem-ninguem")}
           aberto={gaveta === "sem-ninguem"}
@@ -254,6 +280,14 @@ export default async function PainelDeAnomaliasPage({
           valor={atrasadas.length}
           rotulo="ações atrasadas"
           alerta={atrasadas.length > 0}
+        />
+        {/* NO PRAZO: o cartão que fecha o buraco. Sem ele, uma ação
+            reaberta com prazo futuro não estava em cartão nenhum. */}
+        <Cartao
+          href={linkDa("no-prazo")}
+          aberto={gaveta === "no-prazo"}
+          valor={noPrazo.length}
+          rotulo="ações no prazo"
         />
         {/* AS CONCLUÍDAS TÊM CARTÃO PRÓPRIO (07/09/2026): sem ele, marcar
             uma ação como concluída a fazia sumir da tela sem aparecer em
@@ -378,6 +412,99 @@ export default async function PainelDeAnomaliasPage({
                         <div>
                           <label className="mb-0.5 block text-[10px] font-semibold uppercase tracking-wide text-slate-500">
                             Novo prazo
+                          </label>
+                          <input
+                            type="date"
+                            name="prazo"
+                            defaultValue={a.prazo ?? ""}
+                            className="rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm"
+                          />
+                        </div>
+                        <div>
+                          <label className="mb-0.5 block text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                            Status
+                          </label>
+                          <select
+                            name="status"
+                            defaultValue={a.status}
+                            className="rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm"
+                          >
+                            {STATUS_ACAO.map((s) => (
+                              <option key={s} value={s}>
+                                {ROTULO_STATUS_ACAO[s]}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <BotaoEnviar
+                          textoEnviando="Salvando..."
+                          className="rounded-lg bg-slate-800 px-3 py-1.5 text-xs font-semibold text-white"
+                        >
+                          Salvar
+                        </BotaoEnviar>
+                      </form>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </section>
+      )}
+
+      {gaveta === "no-prazo" && (
+        <section>
+          <h2 className="text-sm font-bold uppercase tracking-wide text-slate-500">
+            Ações no prazo
+          </h2>
+          <p className="mb-2 text-xs text-slate-500">
+            O que está combinado e ainda não venceu. Mude a data ou o status aqui mesmo.
+          </p>
+          {noPrazo.length === 0 ? (
+            <Vazio texto="Nenhuma ação em aberto. Tudo o que existe já foi concluído ou venceu." />
+          ) : (
+            <div className="space-y-2">
+              {noPrazo.map((a) => {
+                const relato = relatos.find((r) => r.id === a.relato_id);
+                return (
+                  <div
+                    key={a.id}
+                    className={`rounded-2xl border p-3 ${
+                      a.prazo ? "border-slate-200 bg-white" : "border-amber-300 bg-amber-50"
+                    }`}
+                  >
+                    <Link href={`/gestao/anomalias/${a.relato_id}`} className="block">
+                      <p className="text-sm font-semibold text-slate-800">{a.o_que}</p>
+                      <p className="mt-0.5 text-xs text-slate-500">
+                        {ROTULO_TOPICO[a.topico].titulo} · {a.quem}
+                        {relato && ` · ${relato.indicador_rotulo}`}
+                      </p>
+                    </Link>
+                    {/* Sem prazo é o caso que some da cobrança: ninguém
+                        atrasa uma data que não existe. Por isso ele fica
+                        marcado, e não escondido. */}
+                    <p
+                      className={`mt-1 text-xs font-semibold ${
+                        a.prazo ? "text-slate-600" : "text-amber-800"
+                      }`}
+                    >
+                      {a.prazo
+                        ? a.prazo === hoje
+                          ? "Vence hoje"
+                          : `Vence em ${brasileira(a.prazo)}`
+                        : "⚠️ Sem prazo — ninguém vai cobrar uma data que não existe"}
+                    </p>
+
+                    {podeEditar && (
+                      <form
+                        action={atualizarAcaoDoPainel}
+                        className="mt-2 flex flex-wrap items-end gap-2 border-t border-slate-200 pt-2"
+                      >
+                        <input type="hidden" name="acao_id" value={a.id} />
+                        <input type="hidden" name="voltar" value={voltarPara} />
+                        <div>
+                          <label className="mb-0.5 block text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                            Prazo
                           </label>
                           <input
                             type="date"

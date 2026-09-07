@@ -47,12 +47,33 @@ export async function atualizarAcaoDoPainel(formData: FormData) {
     .eq("id", id)
     .eq("revenda_id", revendaId);
 
-  if (error) {
-    redirect(`${voltarPara}&erro=${encodeURIComponent(`Não foi possível salvar: ${error.message}`)}`);
-  }
+  // O separador depende da URL de volta, que às vezes já tem `?ver=` e às
+  // vezes é o painel pelado. Com "&" fixo, o painel sem gaveta recebia
+  // "/gestao/anomalias&erro=..." e o erro simplesmente não aparecia.
+  const com = (url: string, chave: string, texto: string) =>
+    `${url}${url.includes("?") ? "&" : "?"}${chave}=${encodeURIComponent(texto)}`;
+
+  if (error) redirect(com(voltarPara, "erro", `Não foi possível salvar: ${error.message}`));
+
+  /*
+    DIZER PARA ONDE A AÇÃO FOI.
+
+    Ela troca de cartão ao mudar de status ou de prazo, e sair da lista sem
+    aviso é exatamente o "sumiu, não sei pra onde foi" que o dono relatou
+    duas vezes -- uma ao concluir, outra ao reabrir. A pessoa continua na
+    lista que estava cobrando (é o que ela quer), mas agora a tela conta o
+    que aconteceu com o item que saiu dali.
+  */
+  const hoje = new Date().toLocaleDateString("sv-SE", { timeZone: "America/Sao_Paulo" });
+  const destino =
+    status === "concluida"
+      ? "✅ ações concluídas"
+      : prazo && prazo < hoje
+        ? "⏰ ações atrasadas"
+        : "ações no prazo";
 
   // Sem redirect para outra tela: a pessoa está cobrando uma lista, e
   // quer continuar na lista. `revalidatePath` redesenha em pé.
   revalidatePath(PAINEL);
-  redirect(voltarPara);
+  redirect(com(voltarPara, "sucesso", `Ação salva. Ela está no cartão "${destino}".`));
 }
