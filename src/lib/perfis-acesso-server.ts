@@ -13,28 +13,94 @@ import { chaveDaConcessao, type Concessao } from "@/lib/perfis-acesso";
  * nenhum analista, e quem salvava saía da tela achando que tinha
  * alcançado. Um perfil que não descreve quem o tem não é um perfil.
  *
- * SÓ ACRESCENTA, nunca retira -- e essa é a parte deliberada. Quem acumula
- * função (o analista que também administra o Jornal) perderia o Jornal
- * toda vez que alguém mexesse no molde, sem ter pedido nada. Desmarcar uma
- * permissão continua sendo assunto do espelhar, que lista nome por nome o
- * que vai sair antes de tirar.
+ * ACRESCENTA E RETIRA -- salvar espelha (07/09/2026, segunda decisão do
+ * dono: "ao retirar algo do perfil e salvar ele retire também das
+ * pessoas"). Enquanto só acrescentava, desmarcar era um gesto sem efeito:
+ * o molde dizia uma coisa e as pessoas continuavam com outra, e a lista de
+ * quem podia o quê só crescia. Perfil que não sabe tirar não é definição,
+ * é acumulação.
  *
- * Por isso a contagem de `sobras` volta daqui: quem desmarcou algo precisa
- * ouvir que as pessoas continuam com aquilo, em vez de supor que salvar
- * resolveu.
+ * OS OUTROS PERFIS DA PESSOA SÃO INTOCÁVEIS. Uma pessoa pode estar em
+ * mais de um perfil, e a retirada só alcança o que não está em NENHUM
+ * deles. Sem essa proteção, quem é Analista de Rota e também administra o
+ * Jornal perderia o Jornal no primeiro salvar do Analista -- e salvar um
+ * molde derrubaria em silêncio o que outro molde concede. Com ela, "entrar
+ * em dois perfis" vira a resposta honesta para quem acumula função.
+ *
+ * O que SAI, então, é só a concessão solta: aquela que alguém marcou à mão
+ * em Acessos por Pessoa e que nenhum perfil sustenta. A grade avisa
+ * nominalmente, antes do clique, quem perde o quê.
+ *
+ * Ninguém é rebaixado de papel na retirada: alguém pode ficar com zero
+ * permissão e continuar `lideranca`, e é o certo -- o papel é do cargo, e
+ * quem tirou não pediu para trancar a pessoa fora do Modo Liderança.
  *
  * Alcança só ESTA revenda: o mesmo `revenda_id` está no vínculo e na
  * permissão, e um perfil pertence a uma revenda.
  */
+/**
+ * O que os OUTROS perfis de cada pessoa concedem, nesta revenda.
+ *
+ * É o escudo da retirada: perfil que salva não derruba o que outro perfil
+ * sustenta. Sem isso, dois perfis na mesma pessoa se anulariam a cada
+ * salvar, e quem acumula função ficaria oscilando entre um cargo e outro.
+ */
+export async function concessoesDosOutrosPerfis(
+  colaboradorIds: string[],
+  revendaId: string,
+  perfilIgnorado: string,
+): Promise<Map<string, Set<string>>> {
+  const admin = createAdminClient();
+  const saida = new Map<string, Set<string>>();
+  if (colaboradorIds.length === 0) return saida;
+
+  const { data: vinculos } = await admin
+    .from("perfil_pessoas")
+    .select("perfil_id, colaborador_id")
+    .in("colaborador_id", colaboradorIds)
+    .eq("revenda_id", revendaId)
+    .neq("perfil_id", perfilIgnorado);
+
+  const outros = [...new Set((vinculos ?? []).map((v) => v.perfil_id as string))];
+  if (outros.length === 0) return saida;
+
+  const { data: perms } = await admin
+    .from("perfil_permissoes")
+    .select("perfil_id, modulo, acao")
+    .in("perfil_id", outros);
+
+  const doPerfil = new Map<string, string[]>();
+  for (const p of perms ?? []) {
+    const chave = chaveDaConcessao(p.modulo as string, p.acao as string);
+    doPerfil.set(p.perfil_id as string, [...(doPerfil.get(p.perfil_id as string) ?? []), chave]);
+  }
+
+  for (const v of vinculos ?? []) {
+    const id = v.colaborador_id as string;
+    const atual = saida.get(id) ?? new Set<string>();
+    for (const chave of doPerfil.get(v.perfil_id as string) ?? []) atual.add(chave);
+    saida.set(id, atual);
+  }
+  return saida;
+}
+
+export type AlcanceDoPerfil = {
+  pessoas: number;
+  acrescentadas: number;
+  retiradas: number;
+  /** Quem perdeu algo, para a mensagem dizer nome em vez de só número. */
+  perderam: string[];
+};
+
 export async function propagarPerfil(dados: {
   perfilId: string;
   revendaId: string;
   concessoes: Concessao[];
   quemAplicaId: string | null;
-}): Promise<{ pessoas: number; acrescentadas: number; comSobra: number }> {
+}): Promise<AlcanceDoPerfil> {
   const { perfilId, revendaId, concessoes, quemAplicaId } = dados;
   const admin = createAdminClient();
-  const vazio = { pessoas: 0, acrescentadas: 0, comSobra: 0 };
+  const vazio: AlcanceDoPerfil = { pessoas: 0, acrescentadas: 0, retiradas: 0, perderam: [] };
 
   const { data: vinculos } = await admin
     .from("perfil_pessoas")
@@ -74,9 +140,22 @@ export async function propagarPerfil(dados: {
     }));
   });
 
-  const comSobra = ids.filter((id) =>
-    [...(porPessoa.get(id) ?? [])].some((chave) => !doPerfil.has(chave)),
-  ).length;
+  // O ESCUDO DOS OUTROS PERFIS. Antes de tirar qualquer coisa, monta-se
+  // para cada pessoa o que os DEMAIS perfis dela concedem -- isso não sai,
+  // por mais que não esteja neste molde.
+  const protegido = await concessoesDosOutrosPerfis(ids, revendaId, perfilId);
+
+  // O QUE SAI: o que a pessoa tem nesta revenda, este molde não tem mais e
+  // nenhum outro perfil dela sustenta -- ou seja, a concessão solta.
+  const sobrando = new Map<string, string[]>();
+  for (const id of ids) {
+    const escudo = protegido.get(id) ?? new Set<string>();
+    const fora = [...(porPessoa.get(id) ?? [])].filter(
+      (chave) => !doPerfil.has(chave) && !escudo.has(chave),
+    );
+    if (fora.length > 0) sobrando.set(id, fora);
+  }
+  const retiradas = [...sobrando.values()].reduce((soma, l) => soma + l.length, 0);
 
   if (linhas.length > 0) {
     const { error } = await admin
@@ -85,7 +164,28 @@ export async function propagarPerfil(dados: {
     // Sem exceção: o molde JÁ está salvo neste ponto. Estourar aqui
     // desfaria a tela inteira por causa da parte que dá para refazer
     // clicando em aplicar o perfil.
-    if (error) return { pessoas: ids.length, acrescentadas: 0, comSobra };
+    if (error) return { ...vazio, pessoas: ids.length };
+  }
+
+  // A RETIRADA VEM DEPOIS de gravar o que entra, nunca antes. Na ordem
+  // inversa, uma falha no meio deixaria a pessoa com MENOS acesso do que
+  // tinha antes de alguém clicar em salvar.
+  const nomes: string[] = [];
+  for (const [id, fora] of sobrando) {
+    const { error } = await admin
+      .from("lideranca_permissoes")
+      .delete()
+      .eq("colaborador_id", id)
+      .eq("revenda_id", revendaId)
+      .or(
+        fora
+          .map((chave) => {
+            const corte = chave.lastIndexOf(":");
+            return `and(modulo.eq.${chave.slice(0, corte)},acao.eq.${chave.slice(corte + 1)})`;
+          })
+          .join(","),
+      );
+    if (!error) nomes.push(id);
   }
 
   // Sem o papel de liderança a concessão fica inerte -- `podeFazer` só a
@@ -95,7 +195,7 @@ export async function propagarPerfil(dados: {
   // no banco: no PostgREST um `role` nulo não satisfaz um `not in`, e a
   // pessoa sem papel gravado -- justamente a que mais precisa -- ficaria de
   // fora em silêncio, com as permissões novas inertes.
-  const { data: perfisAlvo } = await admin.from("profiles").select("id, role").in("id", ids);
+  const { data: perfisAlvo } = await admin.from("profiles").select("id, nome, role").in("id", ids);
   const promover = (perfisAlvo ?? [])
     .filter((p) => !["owner", "admin", "lideranca"].includes(p.role as string))
     .map((p) => p.id as string);
@@ -103,7 +203,13 @@ export async function propagarPerfil(dados: {
     await admin.from("profiles").update({ role: "lideranca" }).in("id", promover);
   }
 
-  return { pessoas: ids.length, acrescentadas: novas.length, comSobra };
+  const nomeDe = new Map((perfisAlvo ?? []).map((p) => [p.id as string, (p.nome as string) ?? ""]));
+  return {
+    pessoas: ids.length,
+    acrescentadas: novas.length,
+    retiradas,
+    perderam: nomes.map((id) => nomeDe.get(id) || "sem nome"),
+  };
 }
 
 /**

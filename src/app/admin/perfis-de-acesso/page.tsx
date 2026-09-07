@@ -106,6 +106,26 @@ export default async function PerfisDeAcessoPage({
     doPerfil.set(v.perfil_id, lista);
   }
 
+  // O caminho inverso do vínculo, para responder "o que os OUTROS perfis
+  // desta pessoa sustentam?" -- a mesma conta que a propagação faz antes
+  // de retirar qualquer coisa (ver concessoesDosOutrosPerfis). O aviso da
+  // grade tem que enxergar o mesmo escudo, senão anuncia perdas que não
+  // vão acontecer.
+  const perfisDaPessoa = new Map<string, string[]>();
+  for (const v of (vinculosBanco ?? []) as { perfil_id: string; colaborador_id: string }[]) {
+    const lista = perfisDaPessoa.get(v.colaborador_id) ?? [];
+    lista.push(v.perfil_id);
+    perfisDaPessoa.set(v.colaborador_id, lista);
+  }
+  const protegidoPor = (colaboradorId: string, perfilIgnorado: string) => {
+    const escudo = new Set<string>();
+    for (const outro of perfisDaPessoa.get(colaboradorId) ?? []) {
+      if (outro === perfilIgnorado) continue;
+      for (const c of permsDoPerfil.get(outro) ?? []) escudo.add(`${c.modulo}:${c.acao}`);
+    }
+    return escudo;
+  };
+
   const emEdicao = sp.perfil ? perfis.find((p) => p.id === sp.perfil) ?? null : null;
   const criandoNovo = sp.novo === "1";
   const permsEmEdicao = emEdicao ? permsDoPerfil.get(emEdicao.id) ?? [] : [];
@@ -405,7 +425,19 @@ export default async function PerfisDeAcessoPage({
                       <GradeDePermissoes
                         perfil={p}
                         marcadas={marcadas}
-                        pessoasNoPerfil={doPerfil.get(p.id)?.length ?? 0}
+                        noPerfil={(doPerfil.get(p.id) ?? []).map((id) => {
+                          const escudo = protegidoPor(id, p.id);
+                          return {
+                            nome: pessoas.find((x) => x.id === id)?.nome ?? "sem nome",
+                            // O que essa pessoa perderia num salvar de
+                            // AGORA, sem mexer em nada: o que ela tem, o
+                            // molde salvo não tem e nenhum outro perfil
+                            // dela sustenta.
+                            perderia: (jaTem[id] ?? [])
+                              .filter((c) => !marcadas.has(c) && !escudo.has(c))
+                              .map((c) => rotulosDeConcessao[c] ?? c),
+                          };
+                        })}
                       />
                     </div>
                   )}
@@ -497,13 +529,15 @@ export default async function PerfisDeAcessoPage({
 function GradeDePermissoes({
   perfil,
   marcadas,
-  pessoasNoPerfil = 0,
+  noPerfil = [],
 }: {
   perfil?: Perfil;
   marcadas: Set<string>;
-  pessoasNoPerfil?: number;
+  /** Quem está neste perfil e o que cada um perderia num salvar de agora. */
+  noPerfil?: { nome: string; perderia: string[] }[];
 }) {
   const emEdicao = perfil ?? null;
+  const perdendo = noPerfil.filter((p) => p.perderia.length > 0);
 
   return (
         <form action={salvarPerfil} className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -580,17 +614,40 @@ function GradeDePermissoes({
           </div>
 
           {/* O ALCANCE DO SALVAR, ANTES DE SALVAR. Quem mexe no molde
-              precisa saber que o clique alcança gente -- e quantos. Dizer
-              isso só na mensagem de sucesso é avisar depois do fato. */}
-          {emEdicao && pessoasNoPerfil > 0 && (
-            <p className="rounded-xl bg-amber-50 px-3 py-2 text-xs leading-snug text-amber-900">
-              ⚡ Salvar libera o que você marcar para as{" "}
-              <strong>
-                {pessoasNoPerfil} pessoa{pessoasNoPerfil > 1 ? "s" : ""}
-              </strong>{" "}
-              deste perfil. Desmarcar <strong>não</strong> retira: para deixar alguém igual ao
-              molde, use aplicar no modo espelhar.
-            </p>
+              precisa saber que o clique alcança gente -- e quem. Dizer isso
+              só na mensagem de sucesso é avisar depois do fato, e desde
+              que salvar também RETIRA, o depois do fato é tarde. */}
+          {emEdicao && noPerfil.length > 0 && (
+            <div className="space-y-1.5 rounded-xl bg-amber-50 px-3 py-2 text-xs leading-snug text-amber-900">
+              <p>
+                ⚡ Salvar deixa as{" "}
+                <strong>
+                  {noPerfil.length} pessoa{noPerfil.length > 1 ? "s" : ""}
+                </strong>{" "}
+                deste perfil <strong>iguais ao molde</strong>: o que você marcar entra, e o que
+                estiver desmarcado sai.
+              </p>
+              {perdendo.length > 0 && (
+                <details className="rounded-lg bg-white/70 px-2 py-1.5">
+                  <summary className="cursor-pointer font-semibold">
+                    ⚠️ {perdendo.length} pessoa{perdendo.length > 1 ? "s" : ""} tem acesso fora
+                    deste molde — ver o que sairia
+                  </summary>
+                  <ul className="mt-1 space-y-1 pl-1">
+                    {perdendo.map((p) => (
+                      <li key={p.nome}>
+                        <strong>{p.nome}</strong> perde: {p.perderia.slice(0, 6).join("; ")}
+                        {p.perderia.length > 6 && ` e mais ${p.perderia.length - 6}`}
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="mt-1.5">
+                    Quem acumula função deve estar em <strong>dois perfis</strong> — o que sobra
+                    num está no outro, e nada some.
+                  </p>
+                </details>
+              )}
+            </div>
           )}
 
           <div className="flex flex-wrap gap-2">

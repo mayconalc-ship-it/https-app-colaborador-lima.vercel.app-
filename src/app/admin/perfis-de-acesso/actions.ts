@@ -37,11 +37,14 @@ function apenasValidas(concessoes: Concessao[]): Concessao[] {
  * da tela achando que tinha alcançado. Era preciso reaplicar o perfil a
  * cada um, um por um, sabendo de cor quem já o tinha.
  *
- * A propagação só ACRESCENTA. Quem acumula função perderia o resto toda
- * vez que alguém mexesse no molde -- por isso desmarcar continua sendo
- * assunto do espelhar, que mostra o que sai antes de tirar. Quando sobra
- * algo fora do molde, a mensagem de sucesso diz isso em vez de deixar
- * quem salvou supor que já resolveu.
+ * A propagação ESPELHA: entra o que foi marcado, sai o que foi desmarcado.
+ * Enquanto ela só acrescentava, desmarcar era um gesto sem efeito -- o
+ * molde dizia uma coisa e as pessoas continuavam com outra.
+ *
+ * O que a retirada NUNCA alcança é o que os OUTROS perfis da pessoa
+ * concedem: salvar um molde não pode derrubar em silêncio o que outro
+ * molde sustenta. Sai só a concessão solta, marcada à mão em Acessos por
+ * Pessoa, e a grade lista nominalmente quem perde o quê antes do clique.
  */
 export async function salvarPerfil(formData: FormData) {
   await requireModulo("perfis-acesso", "editar");
@@ -100,17 +103,21 @@ export async function salvarPerfil(formData: FormData) {
   let recado = `Perfil "${nome}" salvo com ${concessoes.length} permissão(ões).`;
   if (alcance.pessoas === 0) {
     recado += " Ninguém está neste perfil ainda — aplique-o a alguém para o molde valer.";
-  } else if (alcance.acrescentadas > 0) {
-    recado +=
-      ` ${alcance.acrescentadas} liberação(ões) nova(s) para ${alcance.pessoas} pessoa(s)` +
-      " deste perfil.";
+  } else if (alcance.acrescentadas === 0 && alcance.retiradas === 0) {
+    recado += ` As ${alcance.pessoas} pessoa(s) deste perfil já estavam iguais ao molde.`;
   } else {
-    recado += ` As ${alcance.pessoas} pessoa(s) deste perfil já tinham tudo.`;
-  }
-  if (alcance.comSobra > 0) {
-    recado +=
-      ` Atenção: ${alcance.comSobra} pessoa(s) têm acessos fora do molde — salvar não retira nada.` +
-      " Para deixar igual ao perfil, use aplicar no modo espelhar.";
+    recado += ` ${alcance.pessoas} pessoa(s) deste perfil agora estão iguais ao molde:`;
+    if (alcance.acrescentadas > 0) recado += ` entraram ${alcance.acrescentadas} permissão(ões)`;
+    if (alcance.acrescentadas > 0 && alcance.retiradas > 0) recado += " e";
+    if (alcance.retiradas > 0) {
+      // Nome, e não só número: quem perdeu acesso é a informação que faz
+      // alguém desfazer a tempo. Três cabem na mensagem; o resto vira
+      // contagem, e a lista inteira está na tela.
+      recado +=
+        ` saíram ${alcance.retiradas} de ${alcance.perderam.slice(0, 3).join(", ")}` +
+        (alcance.perderam.length > 3 ? ` e mais ${alcance.perderam.length - 3}` : "");
+    }
+    recado += ".";
   }
 
   revalidatePath(ROTA);
