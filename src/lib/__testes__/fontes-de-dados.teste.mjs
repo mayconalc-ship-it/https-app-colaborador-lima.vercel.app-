@@ -32,7 +32,7 @@ ok("todo tipo tem rotulo", FONTES.every((f) => !!ROTULO_TIPO[f.tipo]));
 console.log("\n== LINK E TABELA ANDAM JUNTOS ==");
 ok("fonte com link aponta a tabela", fontesComLink().every((f) => !!f.tabela));
 ok("fonte por upload NAO aponta tabela", fontesPorUpload().every((f) => !f.tabela));
-eq("quantas guardam link", fontesComLink().length, 5);
+eq("quantas guardam link", fontesComLink().length, 6);
 eq("quantas sao por upload", fontesPorUpload().length, 2);
 eq("as duas listas somam o catalogo", fontesComLink().length + fontesPorUpload().length, FONTES.length);
 

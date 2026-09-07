@@ -106,6 +106,18 @@ export const FONTES: Fonte[] = [
       "Uma planilha por área, publicada no Google Sheets como CSV. É a MESMA fonte que alimenta o resumo do mês em Meus Indicadores -- de propósito, para o app e o contracheque nunca discordarem.",
   },
   {
+    chave: "clientes",
+    rotulo: "Base de Clientes",
+    alimenta: "O telefone do PDV (que abre a conversa certa no WhatsApp) e a busca de clientes no cadastro de particularidades",
+    tipo: "pasta-drive",
+    tabela: "pa_pdv_config",
+    telaDoModulo: "/admin/pdv-particularidades?aba=base",
+    modulo: "pdv-particularidades",
+    aoAtualizar: "Lê a planilha inteira e guarda seis colunas. Uma base de milhares de clientes leva alguns minutos.",
+    ajuda:
+      "Aceita o link do ARQUIVO ou da pasta. As colunas são achadas pelo nome (Código Cliente, Razão Social, Celular, Município...), então mudar o layout da exportação não quebra o import. Se a planilha passar de uns 15 MB, exporte em CSV: o XLSX descompacta para várias vezes o próprio tamanho no servidor.",
+  },
+  {
     chave: "produtos",
     rotulo: "Produtos do Armazém",
     alimenta: "Catálogo de produtos, embalagens e fatores de conversão do Reepack e do Despejo",

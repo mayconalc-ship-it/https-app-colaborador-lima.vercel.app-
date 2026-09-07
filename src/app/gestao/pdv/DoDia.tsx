@@ -1,7 +1,9 @@
 import Link from "next/link";
+import { BotaoEnviar } from "@/components/BotaoEnviar";
 import { MensagemProPdv } from "@/components/pdv/MensagemProPdv";
 import { rotuloDoPrazo } from "@/lib/pdv-particularidades";
 import type { ClienteDoDia, DiaDasParticularidades } from "@/lib/pdv-particularidades-server";
+import { desmarcarAvisado, marcarAvisado } from "./actions";
 
 const brasileira = (iso: string) => iso.split("-").reverse().join("/");
 
@@ -35,14 +37,21 @@ export function DoDia({
   const bloqueios = dia.rotas.flatMap((r) =>
     r.clientes.filter((c) => !c.alertaNaRota).map((c) => ({ mapa: r.mapa, cliente: c })),
   );
-  const comMensagem = clientes.filter((c) => c.mensagem).length;
+  const avisados = clientes.filter((c) => c.avisado).length;
 
   return (
     <div>
       <div className="mb-4 grid grid-cols-3 gap-2">
         <Numero valor={dia.rotas.length} de={dia.totalDeRotas} rotulo="rotas com aviso" />
         <Numero valor={clientes.length} rotulo="clientes a tratar" />
-        <Numero valor={comMensagem} rotulo="com mensagem pronta" />
+        {/* O QUE FALTA, e não o que já foi: é a pergunta de quem abre esta
+            tela às sete da manhã. "3 de 8 avisados" some no meio da lista;
+            "faltam 5" é a conta que ela quer. */}
+        <Numero
+          valor={clientes.length - avisados}
+          de={clientes.length}
+          rotulo="faltam avisar"
+        />
       </div>
 
       {/* ---- SEM VÍNCULO NENHUM: dizer o porquê, e o que fazer ---- */}
@@ -120,8 +129,11 @@ export function DoDia({
 
             <ul className="divide-y divide-slate-100">
               {rota.clientes.map((c) => (
-                <li key={`${rota.mapa}-${c.codPdv}-${c.categoria}`} className="p-3">
-                  <Cliente cliente={c} />
+                <li
+                  key={`${rota.mapa}-${c.id}`}
+                  className={`p-3 ${c.avisado ? "bg-emerald-50/40" : ""}`}
+                >
+                  <Cliente cliente={c} data={dia.data} />
                 </li>
               ))}
             </ul>
@@ -144,7 +156,13 @@ export function DoDia({
   );
 }
 
-function Cliente({ cliente: c }: { cliente: ClienteDoDia }) {
+function Cliente({ cliente: c, data }: { cliente: ClienteDoDia; data: string }) {
+  const hora = new Date(c.avisado?.em ?? 0).toLocaleTimeString("pt-BR", {
+    timeZone: "America/Sao_Paulo",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+
   return (
     <>
       <div className="flex flex-wrap items-start justify-between gap-2">
@@ -180,10 +198,63 @@ function Cliente({ cliente: c }: { cliente: ClienteDoDia }) {
       )}
 
       {/* A mensagem só aparece quando a categoria tem modelo -- oferecer um
-          botão que abre o WhatsApp em branco seria pior que não oferecer. */}
-      {c.mensagem && (
-        <MensagemProPdv texto={c.mensagem} nome={c.nomePdv ?? `o cliente ${c.codPdv}`} />
+          botão que abre o WhatsApp em branco seria pior que não oferecer.
+          E some depois de avisado: a tela passa a mostrar o que falta. */}
+      {c.mensagem && !c.avisado && (
+        <MensagemProPdv
+          texto={c.mensagem}
+          nome={c.nomePdv ?? `o cliente ${c.codPdv}`}
+          telefone={c.telefone}
+        />
       )}
+
+      {/*
+        O REGISTRO DA PREVENTIVA.
+
+        Serve para não ligar duas vezes -- numa manhã com quinze rotas e
+        duas pessoas acompanhando, o mesmo cliente recebe a mesma ligação
+        -- e para a preventiva deixar rastro: "a gente avisou" é memória de
+        quem estava lá, e memória não responde na reunião quando a entrega
+        voltou mesmo assim.
+
+        O desmarcar fica ao lado, e não escondido: registro que não se
+        desfaz é registro em que ninguém confia, e aí a pessoa para de
+        marcar para não errar.
+      */}
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        {c.avisado ? (
+          <>
+            <span className="rounded-lg bg-emerald-100 px-2 py-1 text-[11px] font-semibold text-emerald-900">
+              ✅ Avisado às {hora}
+              {c.avisado.porNome ? ` por ${c.avisado.porNome.split(" ")[0]}` : ""}
+            </span>
+            <form action={desmarcarAvisado}>
+              <input type="hidden" name="particularidade_id" value={c.id} />
+              <input type="hidden" name="data" value={data} />
+              <BotaoEnviar
+                compacto
+                textoEnviando="..."
+                className="rounded-lg px-2 py-1 text-[11px] font-medium text-slate-500 underline hover:text-slate-700"
+              >
+                desfazer
+              </BotaoEnviar>
+            </form>
+          </>
+        ) : (
+          <form action={marcarAvisado}>
+            <input type="hidden" name="particularidade_id" value={c.id} />
+            <input type="hidden" name="data" value={data} />
+            <input type="hidden" name="cod_pdv" value={c.codPdv} />
+            <BotaoEnviar
+              compacto
+              textoEnviando="Marcando..."
+              className="rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-[11px] font-semibold text-slate-700 active:bg-slate-100"
+            >
+              ✓ Já avisei este cliente
+            </BotaoEnviar>
+          </form>
+        )}
+      </div>
     </>
   );
 }

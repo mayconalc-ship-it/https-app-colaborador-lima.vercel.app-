@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { linkDoWhatsApp } from "@/lib/clientes-base";
 
 /**
  * A MENSAGEM PRONTA, com os dois caminhos que o monitoramento usa.
@@ -27,7 +28,26 @@ import { useState } from "react";
  * pronta que sai sem ser lida é como mandar "Bom dia!" às 16h para um
  * cliente que já recebeu. Quem envia é responsável pelo que envia.
  */
-export function MensagemProPdv({ texto, nome }: { texto: string; nome: string }) {
+/** "5577999998888" -> "(77) 99999-8888". Só para a pessoa reconhecer o
+ *  número antes de abrir a conversa -- número errado na base é coisa que
+ *  acontece, e a hora de perceber é antes de mandar. */
+function formatarTelefone(digitos: string): string {
+  const n = digitos.replace(/\D/g, "").replace(/^55/, "");
+  if (n.length === 11) return `(${n.slice(0, 2)}) ${n.slice(2, 7)}-${n.slice(7)}`;
+  if (n.length === 10) return `(${n.slice(0, 2)}) ${n.slice(2, 6)}-${n.slice(6)}`;
+  return digitos;
+}
+
+export function MensagemProPdv({
+  texto,
+  nome,
+  telefone = null,
+}: {
+  texto: string;
+  nome: string;
+  /** Da base de clientes. Com ele, o WhatsApp abre a conversa certa. */
+  telefone?: string | null;
+}) {
   const [copiado, setCopiado] = useState(false);
   const [aberto, setAberto] = useState(false);
 
@@ -49,8 +69,11 @@ export function MensagemProPdv({ texto, nome }: { texto: string; nome: string })
     // A cópia vem antes da janela nova: depois de o navegador trocar de
     // foco, a permissão de clipboard cai em vários aparelhos e a cópia
     // falha calada -- justamente no caso em que ela é a única saída.
+    //
+    // COM TELEFONE ela vira rede de segurança, não a saída: o link já leva
+    // o número, o WhatsApp abre a conversa certa e o texto sobrevive.
     await copiar();
-    window.open(`https://wa.me/?text=${encodeURIComponent(texto)}`, "_blank", "noopener");
+    window.open(linkDoWhatsApp(telefone, texto), "_blank", "noopener");
   }
 
   return (
@@ -77,7 +100,7 @@ export function MensagemProPdv({ texto, nome }: { texto: string; nome: string })
           onClick={enviar}
           className="flex-1 rounded-lg bg-emerald-600 px-3 py-2 text-center text-xs font-bold text-white active:bg-emerald-700"
         >
-          Copiar e abrir o WhatsApp
+          {telefone ? "Abrir a conversa no WhatsApp" : "Copiar e abrir o WhatsApp"}
         </button>
         <button
           type="button"
@@ -92,9 +115,11 @@ export function MensagemProPdv({ texto, nome }: { texto: string; nome: string })
           Web o texto se perde porque o link não tem destinatário, e quem
           não sabe disso acha que a mensagem sumiu. */}
       <p className="mt-1.5 text-[11px] leading-snug text-emerald-900/70">
-        {copiado
-          ? "✅ Na área de transferência — se o WhatsApp abrir em branco, é só colar."
-          : "Copia o texto antes de abrir: no WhatsApp Web ele costuma abrir em branco, aí é só procurar o PDV e colar."}
+        {telefone
+          ? `Abre direto na conversa de ${formatarTelefone(telefone)}, com o texto escrito. A cópia vai junto, por garantia.`
+          : copiado
+            ? "✅ Na área de transferência — se o WhatsApp abrir em branco, é só colar."
+            : "Sem telefone na base deste cliente: copia o texto antes de abrir, aí é só procurar o PDV e colar."}
       </p>
     </div>
   );

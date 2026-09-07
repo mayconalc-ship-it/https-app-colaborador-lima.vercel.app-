@@ -1,6 +1,7 @@
 import "server-only";
 
 import { createAdminClient } from "@/lib/supabase/admin";
+import { clientesPorCodigo } from "@/lib/clientes-base-server";
 import {
   PESO_SEVERIDADE,
   avisosDaRegiao,
@@ -54,10 +55,19 @@ export type PdvEncontrado = {
 /**
  * A BUSCA DO PDV, por código ou por nome.
  *
- * Lê o Rating porque é a base mais completa de clientes que o app tem. O
- * termo é testado nos dois campos: quem sabe o código digita o código,
- * quem lembra do nome digita o nome -- e na doca ninguém decora 1.216
- * códigos.
+ * DUAS BASES, e a ordem entre elas é o ponto:
+ *
+ *   1. A BASE DE CLIENTES do Drive (`pa_pdv_clientes`), quando importada.
+ *      É a lista completa e atualizada do sistema da revenda -- o dono
+ *      pediu justamente isso: "seria melhor linkar ela à busca dos PDVs,
+ *      pois ela estará completa e atualizada sempre que necessário".
+ *
+ *   2. O RATING, sempre. Ele traz o que a base não tem: a nota e quantas
+ *      vezes o cliente avaliou como detrator.
+ *
+ * O RATING SÓ CONHECE QUEM JÁ FOI AVALIADO, e era essa a limitação: o
+ * cliente novo, ou o que nunca respondeu pesquisa, não aparecia na busca e
+ * a pessoa tinha que digitar o código de cabeça. Com a base, ele aparece.
  *
  * VEM COM A NOTA JUNTO, e isso não é enfeite: quem vai cadastrar "cliente
  * detrator" precisa ver se é caso disso, e quem vai cadastrar um horário
@@ -70,6 +80,16 @@ export async function buscarPdv(revendaId: string, termo: string): Promise<PdvEn
 
   const admin = createAdminClient();
   const codigo = normalizarCodPdv(t);
+
+  // A base de clientes, quando existe. Erro engolido: quem não rodou a
+  // migration 107 (ou não importou) continua com a busca do Rating, que é
+  // como era antes -- e não com uma tela quebrada.
+  const { data: daBase } = await admin
+    .from("pa_pdv_clientes")
+    .select("cod_pdv, nome, cidade")
+    .eq("revenda_id", revendaId)
+    .or(`cod_pdv.eq.${codigo},nome.ilike.%${t}%`)
+    .limit(60);
 
   // Duas consultas em vez de um `or` gigante: o `ilike` no nome e o
   // casamento por código são perguntas diferentes, e juntá-las numa só
@@ -111,6 +131,26 @@ export async function buscarPdv(revendaId: string, termo: string): Promise<PdvEn
     atual.notas.push(l.nota);
     if (l.classificacao === "detrator") atual.det += 1;
     porPdv.set(cod, atual);
+  }
+
+  // A base entra DEPOIS e sem apagar o que o Rating trouxe: quem já foi
+  // avaliado mantém a nota. O que ela acrescenta é o cliente que o Rating
+  // não conhece -- e, para quem ele conhece, o nome mais atual dos dois.
+  for (const c of daBase ?? []) {
+    const cod = normalizarCodPdv(c.cod_pdv as string);
+    if (!cod) continue;
+    const atual = porPdv.get(cod);
+    if (atual) {
+      atual.nome = (c.nome as string) ?? atual.nome;
+      atual.cidade = (c.cidade as string) ?? atual.cidade;
+    } else {
+      porPdv.set(cod, {
+        nome: (c.nome as string) ?? null,
+        cidade: (c.cidade as string) ?? null,
+        notas: [],
+        det: 0,
+      });
+    }
   }
 
   return [...porPdv.entries()]
@@ -449,6 +489,8 @@ export async function avisosDoMapa(
  * ------------------------------------------------------------------ */
 
 export type ClienteDoDia = {
+  /** O id da particularidade -- é por ela que o "já avisei" é marcado. */
+  id: string;
   codPdv: string;
   nomePdv: string | null;
   cidade: string | null;
@@ -463,6 +505,10 @@ export type ClienteDoDia = {
   diasDePrazo: number | null;
   /** Já pronta para enviar; vazia quando a categoria não tem modelo. */
   mensagem: string;
+  /** Da base de clientes do Drive. Null = o botão abre o seletor de contato. */
+  telefone: string | null;
+  /** Quem já falou com este cliente sobre isto, para esta entrega. */
+  avisado: { porNome: string | null; em: string } | null;
 };
 
 export type RotaDoDia = {
@@ -516,8 +562,14 @@ export async function particularidadesDoDia(
 ): Promise<DiaDasParticularidades> {
   const admin = createAdminClient();
 
-  const [{ data: rotas }, { data: vinculos }, categorias, ativas, { data: todasAsDatas }] =
-    await Promise.all([
+  const [
+    { data: rotas },
+    { data: vinculos },
+    categorias,
+    ativas,
+    { data: todasAsDatas },
+    { data: avisados },
+  ] = await Promise.all([
       admin
         .from("rotas")
         .select("mapa, veiculo, placa, entregas, cidades")
@@ -536,6 +588,14 @@ export async function particularidadesDoDia(
         .eq("revenda_id", revendaId)
         .order("data", { ascending: false })
         .limit(3000),
+      // O que já foi avisado PARA ESTA DATA. Erro engolido de propósito:
+      // quem não rodou a migration 107 não tem a tabela, e o dia inteiro
+      // sumiria por causa de uma marca de acompanhamento.
+      admin
+        .from("pa_pdv_avisos_enviados")
+        .select("particularidade_id, avisado_por_nome, avisado_em")
+        .eq("revenda_id", revendaId)
+        .eq("data", data),
     ]);
 
   const datasDisponiveis = [...new Set((todasAsDatas ?? []).map((d) => d.data as string))].slice(
@@ -553,6 +613,14 @@ export async function particularidadesDoDia(
   for (const p of valendo) {
     const chave = normalizarCodPdv(p.codPdv);
     porCodigo.set(chave, [...(porCodigo.get(chave) ?? []), p]);
+  }
+
+  const jaAvisado = new Map<string, { porNome: string | null; em: string }>();
+  for (const a of avisados ?? []) {
+    jaAvisado.set(a.particularidade_id as string, {
+      porNome: (a.avisado_por_nome as string) ?? null,
+      em: a.avisado_em as string,
+    });
   }
 
   const clientesPorMapa = new Map<string, Set<string>>();
@@ -576,6 +644,9 @@ export async function particularidadesDoDia(
         if (!categoria) continue;
         const horario = rotuloDoHorario(p.janelas);
         clientes.push({
+          id: p.id,
+          telefone: null, // preenchido abaixo, numa consulta só para o dia
+          avisado: jaAvisado.get(p.id) ?? null,
           codPdv: p.codPdv,
           nomePdv: p.nomePdv,
           cidade: p.cidade,
@@ -621,6 +692,24 @@ export async function particularidadesDoDia(
     if (graveA !== graveB) return graveB - graveA;
     return b.clientes.length - a.clientes.length;
   });
+
+  /*
+    O TELEFONE, numa consulta só para o dia inteiro.
+
+    Vem da base do Drive (pa_pdv_clientes), e é ele que faz o link do
+    WhatsApp abrir a CONVERSA CERTA -- sem número, o `wa.me` cai no seletor
+    de contato e perde o texto no caminho, que foi o que o dono viu.
+
+    Depois da montagem, e não durante: são poucos clientes por dia, e uma
+    consulta por cliente dentro do laço seria uma ida ao banco por linha.
+  */
+  const codigos = daData.flatMap((r) => r.clientes.map((c) => normalizarCodPdv(c.codPdv)));
+  const daBase = await clientesPorCodigo(revendaId, codigos);
+  for (const rota of daData) {
+    for (const c of rota.clientes) {
+      c.telefone = daBase.get(normalizarCodPdv(c.codPdv))?.telefone ?? null;
+    }
+  }
 
   return {
     data,

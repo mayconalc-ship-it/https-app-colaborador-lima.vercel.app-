@@ -13,6 +13,7 @@ import {
   normalizarJanelas,
 } from "@/lib/pdv-particularidades";
 import { buscarPdv, type PdvEncontrado } from "@/lib/pdv-particularidades-server";
+import { importarBaseDeClientes } from "@/lib/clientes-base-server";
 
 const ROTA = "/admin/pdv-particularidades";
 
@@ -21,6 +22,50 @@ function voltar(chave: "erro" | "sucesso", mensagem: string, extra = ""): never 
 }
 
 const texto = (formData: FormData, campo: string) => String(formData.get(campo) ?? "").trim();
+
+/**
+ * IMPORTAR A BASE DE CLIENTES do Drive.
+ *
+ * Pedido do dono (07/09/2026): "colocaria no Google Drive e incluiria o
+ * link no app para fazer a conexão", para o telefone do PDV alimentar o
+ * botão do WhatsApp.
+ *
+ * O link é salvo JUNTO com a importação, num gesto só. Salvar e importar
+ * separados dariam dois botões para uma decisão só -- e a metade das vezes
+ * alguém salvaria o link sem importar, deixando a tela dizendo "nunca
+ * importada" com o link certo na frente.
+ *
+ * A mensagem conta o que ENTROU e o que FALTOU. "Importado com sucesso"
+ * numa base sem a coluna de telefone é a pior resposta possível: tudo
+ * parece certo, e o botão do WhatsApp continua abrindo o seletor de
+ * contato para todo mundo.
+ */
+export async function importarClientes(formData: FormData) {
+  await requireModulo("pdv-particularidades", "editar");
+  const revendaId = await exigirRevenda(ROTA);
+
+  const link = texto(formData, "clientes_link");
+  if (!link) voltar("erro", "Cole o link da planilha no Drive.", "&aba=base");
+
+  const r = await importarBaseDeClientes(revendaId, link);
+  if (!r.ok) {
+    voltar("erro", `Não deu para importar: ${r.erro ?? "motivo desconhecido"}`, "&aba=base");
+  }
+
+  const semTelefone = r.gravados - r.comTelefone;
+  const recado =
+    `${r.gravados} cliente(s) na base, ${r.comTelefone} com telefone` +
+    (semTelefone > 0 ? ` e ${semTelefone} sem` : "") +
+    (r.semCodigo > 0 ? `. ${r.semCodigo} linha(s) ignorada(s) por não terem código` : "") +
+    `. Colunas achadas: ${r.colunasAchadas.join(", ") || "nenhuma"}.` +
+    (r.comTelefone === 0
+      ? " ⚠️ Nenhum telefone entrou — confira se a planilha tem uma coluna Celular ou Telefone."
+      : "");
+
+  revalidatePath(ROTA);
+  revalidatePath("/gestao/pdv");
+  voltar("sucesso", recado, "&aba=base");
+}
 
 /** A busca do combobox. Devolve objeto normal -- é chamada do cliente,
  *  não de um `<form action>`. */
