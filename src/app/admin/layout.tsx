@@ -60,6 +60,23 @@ export default async function AdminLayout({
       // passaram a morar em /gestao. Sair daqui é o ponto -- esta barra é
       // do que se CONFIGURA, e nenhum dos três configura coisa alguma.
       !m.emGestao &&
+      /*
+        PERFIS DE ACESSO SAI DA BARRA (07/09/2026, pedido do dono: "retire
+        da barra lateral dentro de pessoas o perfis de acesso, pois já
+        existe esse módulo dentro de Acessos por Pessoa").
+
+        Ele está certo: desde que as duas telas ganharam a barra de abas
+        compartilhada, Perfis é a primeira aba de Acessos por Pessoa. Ter
+        também um item na gaveta dá dois caminhos para o mesmo lugar, e
+        foi essa duplicação que fez as duas telas parecerem módulos
+        repetidos.
+
+        A ROTA CONTINUA VIVA, e a concessão também: quem tiver
+        `perfis-acesso` liberado abre pela aba. Hoje ninguém tem --
+        conferido na base --, então na prática só o dono chega lá, e ele
+        chega pelas abas.
+      */
+      m.id !== "perfis-acesso" &&
       modulosDaRevenda.has(m.id) &&
       podeFazer(perfil.role, concessoes, m.id, "ver"),
   );

@@ -134,6 +134,53 @@ export function chaveDeRegiao(valor: string | null | undefined): string {
 }
 
 /**
+ * ONDE O RELATÓRIO CORTA A CIDADE.
+ *
+ * O LOG.CO grava a cidade em no máximo 20 caracteres. Não é estimativa:
+ * na base de hoje, as únicas cidades com exatamente 20 são as duas que
+ * foram cortadas -- "Santa maria da vitor" (de SANTA MARIA DA VITORIA) e
+ * "Tabocas do brejo vel" (de TABOCAS DO BREJO VELHO). Nenhuma cidade real
+ * atendida tem 20 caracteres exatos.
+ */
+const CORTE_DO_RELATORIO = 20;
+
+/**
+ * DUAS REGIÕES SÃO A MESMA?
+ *
+ * Igual, ou uma é o COMEÇO da outra -- e esse segundo caso não é
+ * frouxidão, é a correção de um defeito real da base.
+ *
+ * O relatório do LOG.CO corta a cidade em 20 caracteres. Na base de hoje
+ * isso atinge duas das maiores: "Santa maria da vitor" (por SANTA MARIA
+ * DA VITORIA) e "Tabocas do brejo vel" (por TABOCAS DO BREJO VELHO). O
+ * roteirizador, que alimenta a pré-rota, escreve o nome inteiro. Comparar
+ * texto exato faz o cliente dessas duas cidades NUNCA aparecer no alerta
+ * -- e sem erro nenhum na tela, que é o pior jeito de falhar. Foi assim
+ * que o dono cadastrou um PDV de Santa Maria da Vitória e não viu o aviso
+ * (07/09/2026).
+ *
+ * Poderia consertar a importação do Rating, mas isso só valeria para o que
+ * entrasse dali em diante: as 157 avaliações já gravadas continuariam
+ * cortadas.
+ *
+ * A TRAVA É O TAMANHO EXATO, e ela existe por causa de um caso real desta
+ * operação: "Sao felix" e "Sao felix do coribe" são cidades DIFERENTES, e
+ * as duas aparecem nas rotas. Um prefixo qualquer faria o cliente de uma
+ * alertar na rota da outra -- exatamente o falso alarme que este módulo
+ * não pode ter. Por isso só vale como começo o texto que tem os 20
+ * caracteres do corte: é a assinatura do defeito, não uma semelhança.
+ */
+export function mesmaRegiao(a: string | null | undefined, b: string | null | undefined): boolean {
+  const x = chaveDeRegiao(a);
+  const y = chaveDeRegiao(b);
+  if (!x || !y) return false;
+  if (x === y) return true;
+  const menor = x.length <= y.length ? x : y;
+  const maior = x.length <= y.length ? y : x;
+  return menor.length === CORTE_DO_RELATORIO && maior.startsWith(menor);
+}
+
+/**
  * QUANTOS DIAS FALTAM até a data de liberação.
  *
  * Negativo quer dizer que o prazo passou -- e isso não é detalhe: um PDV
@@ -319,21 +366,21 @@ export function avisosDaRegiao(
   regioes: { cidade: string; bairros?: { nome: string }[] }[],
   hoje: string,
 ): AvisoDeRota[] {
-  const cidades = new Set(regioes.map((r) => chaveDeRegiao(r.cidade)).filter(Boolean));
-  const bairros = new Set(
-    regioes.flatMap((r) => (r.bairros ?? []).map((b) => chaveDeRegiao(b.nome))).filter(Boolean),
-  );
+  const cidades = regioes.map((r) => r.cidade).filter(Boolean);
+  const bairros = regioes.flatMap((r) => (r.bairros ?? []).map((b) => b.nome)).filter(Boolean);
 
   return avisosDoPdv(
     particularidades.filter((p) => {
-      const cidade = chaveDeRegiao(p.cidade);
-      const bairro = chaveDeRegiao(p.bairro);
       // Sem cidade cadastrada não dá para dizer que é desta rota, e
       // mostrar mesmo assim encheria todo mapa com o cadastro inteiro.
-      if (!cidade) return false;
-      if (!cidades.has(cidade)) return false;
+      // (A tela de cadastro avisa quem ficar sem cidade -- do contrário
+      // a particularidade some sem ninguém saber por quê.)
+      if (!chaveDeRegiao(p.cidade)) return false;
+      if (!cidades.some((c) => mesmaRegiao(c, p.cidade))) return false;
       // Com bairro dos dois lados, exige o bairro; sem, a cidade basta.
-      if (bairro && bairros.size > 0) return bairros.has(bairro);
+      if (chaveDeRegiao(p.bairro) && bairros.length > 0) {
+        return bairros.some((b) => mesmaRegiao(b, p.bairro));
+      }
       return true;
     }),
     categorias,

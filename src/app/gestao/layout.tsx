@@ -33,17 +33,17 @@ export default async function GestaoLayout({ children }: { children: React.React
 
   return (
     <div>
-      <AdminSidebar
-        grupos={grupos}
-        grupoDono={null}
-        home={{ href: "/gestao", rotulo: "Painel de Gestão", emoji: "📊" }}
-        atalho={{
-          id: "admin",
-          href: "/admin",
-          rotulo: dono ? "Modo administrador" : "Modo liderança",
-          emoji: "⚙️",
-        }}
-      />
+      {/*
+        SEM O "PAINEL DE GESTÃO" E SEM O ATALHO PARA A CONFIGURAÇÃO
+        (07/09/2026, pedido do dono: "ao acessar o gestão na home, retire o
+        painel de gestão e configuração da barra lateral").
+
+        Os dois nasceram quando a Gestão só se alcançava pelo Modo
+        Liderança. Desde que o bloco 📊 vive na home, quem entra aqui veio
+        de um cartão -- e volta pela home, que é um toque. A barra fica com
+        o que é dela: as análises.
+      */}
+      <AdminSidebar grupos={grupos} grupoDono={null} home={null} atalho={null} />
 
       <div className="md:pl-20">
         <div className="mb-4 rounded-2xl border border-primary bg-primary-soft p-3 pl-14 md:pl-3">

@@ -68,7 +68,13 @@ function diasDesde(iso: string): number {
 
 const brasileira = (iso: string) => iso.split("-").reverse().join("/");
 
-type Gaveta = "sem-ninguem" | "tratativa" | "atrasadas" | "blitz" | "encerrados";
+type Gaveta =
+  | "sem-ninguem"
+  | "tratativa"
+  | "atrasadas"
+  | "concluidas"
+  | "blitz"
+  | "encerrados";
 
 /**
  * O PAINEL DE PENDÊNCIAS -- cartões primeiro, detalhe só quando pedido.
@@ -110,11 +116,19 @@ export default async function PainelDeAnomaliasPage({
       )
       .eq("revenda_id", revendaId)
       .order("dia_do_disparo", { ascending: false }),
+    /*
+      AS AÇÕES VÊM TODAS, inclusive as concluídas (07/09/2026).
+
+      Antes a consulta filtrava `status <> concluida`, e o efeito era o que
+      o dono descreveu: concluir uma ação a fazia SUMIR do painel sem
+      aparecer em lugar nenhum. Trabalho entregue que some não é
+      organização, é a sensação de ter perdido o registro -- e é
+      justamente o que se quer mostrar na reunião.
+    */
     admin
       .from("pa_relato_acoes")
       .select("id, relato_id, topico, o_que, quem, prazo, status")
-      .eq("revenda_id", revendaId)
-      .neq("status", "concluida"),
+      .eq("revenda_id", revendaId),
     /*
       AS BLITZ VÊM PELO MESMO CAMINHO das ações, mas com o erro ENGOLIDO:
       uma revenda que ainda não rodou a migration 100 não tem as tabelas,
@@ -168,9 +182,15 @@ export default async function PainelDeAnomaliasPage({
   }
 
   const hoje = new Date().toLocaleDateString("sv-SE", { timeZone: "America/Sao_Paulo" });
-  const atrasadas = acoes
+  const emAberto = acoes.filter((a) => a.status !== "concluida");
+  const atrasadas = emAberto
     .filter((a) => a.prazo && a.prazo < hoje)
     .sort((x, y) => (x.prazo ?? "").localeCompare(y.prazo ?? ""));
+  // A ação concluída, da mais recente para a mais antiga pelo prazo -- é a
+  // ordem em que se conta o que foi feito.
+  const concluidas = acoes
+    .filter((a) => a.status === "concluida")
+    .sort((x, y) => (y.prazo ?? "").localeCompare(x.prazo ?? ""));
 
   const pendentes = relatos.filter((r) => r.status === "aberto");
   const andando = relatos.filter((r) => r.status === "em_analise" || r.status === "plano_definido");
@@ -180,7 +200,9 @@ export default async function PainelDeAnomaliasPage({
   const blitzPendentes = blitz.filter((b) => b.status === "pendente");
   const blitzParaTratar = blitz.filter((b) => b.status === "concluida");
 
-  const gaveta = (["sem-ninguem", "tratativa", "atrasadas", "blitz", "encerrados"] as const).find(
+  const gaveta = (
+    ["sem-ninguem", "tratativa", "atrasadas", "concluidas", "blitz", "encerrados"] as const
+  ).find(
     (g) => g === ver,
   );
   const linkDa = (g: Gaveta) => (gaveta === g ? "/gestao/anomalias" : `/gestao/anomalias?ver=${g}`);
@@ -204,7 +226,7 @@ export default async function PainelDeAnomaliasPage({
         abaixo -- e tocar de novo fecha. A escolha vai na URL para o
         voltar do celular funcionar.
       */}
-      <div className="mb-5 grid grid-cols-2 gap-2 sm:grid-cols-5">
+      <div className="mb-5 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
         <Cartao
           href={linkDa("sem-ninguem")}
           aberto={gaveta === "sem-ninguem"}
@@ -224,6 +246,16 @@ export default async function PainelDeAnomaliasPage({
           valor={atrasadas.length}
           rotulo="ações atrasadas"
           alerta={atrasadas.length > 0}
+        />
+        {/* AS CONCLUÍDAS TÊM CARTÃO PRÓPRIO (07/09/2026): sem ele, marcar
+            uma ação como concluída a fazia sumir da tela sem aparecer em
+            lugar nenhum -- e o que foi entregue é justamente o que se
+            mostra na reunião. */}
+        <Cartao
+          href={linkDa("concluidas")}
+          aberto={gaveta === "concluidas"}
+          valor={concluidas.length}
+          rotulo="ações concluídas"
         />
         <Cartao
           href={linkDa("blitz")}
@@ -378,6 +410,72 @@ export default async function PainelDeAnomaliasPage({
         </section>
       )}
 
+      {gaveta === "concluidas" && (
+        <section>
+          <h2 className="text-sm font-bold uppercase tracking-wide text-slate-500">
+            Ações concluídas
+          </h2>
+          <p className="mb-2 text-xs text-slate-500">
+            O que o plano já entregou. Marcou por engano? Volte o status aqui mesmo.
+          </p>
+          {concluidas.length === 0 ? (
+            <Vazio texto="Nenhuma ação concluída ainda." />
+          ) : (
+            <div className="space-y-2">
+              {concluidas.map((a) => {
+                const relato = relatos.find((r) => r.id === a.relato_id);
+                return (
+                  <div
+                    key={a.id}
+                    className="rounded-2xl border border-green-200 bg-green-50/60 p-3"
+                  >
+                    <Link href={`/gestao/anomalias/${a.relato_id}`} className="block">
+                      <p className="text-sm font-semibold text-slate-800">✅ {a.o_que}</p>
+                      <p className="mt-0.5 text-xs text-slate-500">
+                        {ROTULO_TOPICO[a.topico].titulo} · {a.quem}
+                        {a.prazo && ` · prazo era ${brasileira(a.prazo)}`}
+                        {relato && ` · ${relato.indicador_rotulo}`}
+                      </p>
+                    </Link>
+
+                    {/* Reabrir daqui: concluir por engano é o erro mais
+                        fácil desta tela, e o conserto tem que ser tão
+                        curto quanto o erro. */}
+                    {podeEditar && (
+                      <form
+                        action={atualizarAcaoDoPainel}
+                        className="mt-2 flex flex-wrap items-end gap-2 border-t border-green-200 pt-2"
+                      >
+                        <input type="hidden" name="acao_id" value={a.id} />
+                        <input type="hidden" name="voltar" value={voltarPara} />
+                        <input type="hidden" name="prazo" value={a.prazo ?? ""} />
+                        <select
+                          name="status"
+                          defaultValue={a.status}
+                          className="rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm"
+                        >
+                          {STATUS_ACAO.map((s) => (
+                            <option key={s} value={s}>
+                              {ROTULO_STATUS_ACAO[s]}
+                            </option>
+                          ))}
+                        </select>
+                        <BotaoEnviar
+                          textoEnviando="Salvando..."
+                          className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700"
+                        >
+                          Mudar status
+                        </BotaoEnviar>
+                      </form>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </section>
+      )}
+
       {gaveta === "blitz" && (
         <section>
           <h2 className="text-sm font-bold uppercase tracking-wide text-slate-500">
@@ -476,7 +574,7 @@ function Lista({
         <div className="space-y-2">
           {relatos.map((r) => {
             const dias = diasDesde(r.aberto_em);
-            const abertas = acoesPorRelato.get(r.id) ?? [];
+            const abertas = (acoesPorRelato.get(r.id) ?? []).filter((a) => a.status !== "concluida");
             return (
               <Link
                 key={r.id}

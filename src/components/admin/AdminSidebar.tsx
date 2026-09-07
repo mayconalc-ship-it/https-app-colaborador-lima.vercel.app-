@@ -35,7 +35,13 @@ export function AdminSidebar({
 }: {
   grupos: GrupoNav[];
   grupoDono: ItemNav[] | null;
-  home: { href: string; rotulo: string; emoji: string };
+  /**
+   * O item do painel da area, no topo. 
+ull quando a area nao tem um
+   * painel proprio para onde voltar -- e o caso da Gestao desde
+   * 07/09/2026: ela e alcancada pelo bloco da home, e a volta e a home.
+   */
+  home: { href: string; rotulo: string; emoji: string } | null;
   /**
    * A porta para a OUTRA área -- Gestão a partir do Modo Liderança, e
    * vice-versa. Fica logo abaixo do painel, antes das gavetas, porque é
@@ -125,21 +131,27 @@ export function AdminSidebar({
       >
         <div className="flex w-64 shrink-0 flex-col gap-1 p-3">
           <div className="mb-2 flex items-center justify-between">
-            <Link
-              href={home.href}
-              onClick={fechar}
-              title={home.rotulo}
-              className={`flex min-w-0 flex-1 items-center gap-3 rounded-xl px-2 py-2 text-sm font-bold ${
-                pathname === home.href
-                  ? "bg-primary-soft text-primary-dark"
-                  : "text-slate-800 hover:bg-slate-100"
-              }`}
-            >
-              <span className="flex h-6 w-6 shrink-0 items-center justify-center text-lg">
-                {home.emoji}
-              </span>
-              <span className={classeRotulo}>{home.rotulo}</span>
-            </Link>
+            {home ? (
+              <Link
+                href={home.href}
+                onClick={fechar}
+                title={home.rotulo}
+                className={`flex min-w-0 flex-1 items-center gap-3 rounded-xl px-2 py-2 text-sm font-bold ${
+                  pathname === home.href
+                    ? "bg-primary-soft text-primary-dark"
+                    : "text-slate-800 hover:bg-slate-100"
+                }`}
+              >
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center text-lg">
+                  {home.emoji}
+                </span>
+                <span className={classeRotulo}>{home.rotulo}</span>
+              </Link>
+            ) : (
+              // Sem painel próprio, o espaço fica vazio -- mas o ✕ do
+              // celular precisa continuar encostado à direita.
+              <span className="flex-1" />
+            )}
             <button
               type="button"
               onClick={fechar}

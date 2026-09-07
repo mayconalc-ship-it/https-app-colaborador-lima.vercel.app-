@@ -140,7 +140,23 @@ export function FormParticularidadePdv({
   function digitarCodigo(valor: string) {
     const so = valor.replace(/\D/g, "").slice(0, 10);
     setCodPdv(so);
+    /*
+      TROCAR O CÓDIGO LIMPA O NOME E A CIDADE -- e isso é a correção de um
+      erro que aconteceu de verdade (07/09/2026).
+
+      O dono buscou um cliente pelo nome, escolheu da lista (que preencheu
+      código, nome e cidade) e depois corrigiu o CÓDIGO à mão. O nome e a
+      cidade do cliente anterior ficaram: gravou-se "DISTRIB DOIS IRMAOS,
+      Santa Maria" no código 2178, que é outro cliente. Uma particularidade
+      no cliente errado, com identidade de um terceiro -- e nada na tela
+      dizia isso.
+
+      Limpar é o certo: quem trocou o código está falando de outro cliente.
+      O que vier da conferência abaixo repreenche em seguida.
+    */
     setEscolhido(null);
+    setNomePdv("");
+    setCidade("");
     if (relogioCodigo.current) clearTimeout(relogioCodigo.current);
     if (!so) {
       setConferindo(false);
@@ -152,11 +168,9 @@ export function FormParticularidadePdv({
         const achados = await procurarPdv(so);
         const exato = achados.find((a) => a.codPdv === so) ?? null;
         setEscolhido(exato);
-        // Só preenche o que ainda está vazio: quem corrigiu o nome à mão
-        // não pode ver a correção sumir por causa de uma consulta.
         if (exato) {
-          setNomePdv((atual) => atual || (exato.nomePdv ?? ""));
-          setCidade((atual) => atual || (exato.cidade ?? ""));
+          setNomePdv(exato.nomePdv ?? "");
+          setCidade(exato.cidade ?? "");
         }
       } catch {
         setEscolhido(null);
@@ -261,7 +275,45 @@ export function FormParticularidadePdv({
             className={campo}
           />
         </div>
-        <input type="hidden" name="cidade" value={cidade} />
+      </div>
+
+      {/*
+        A CIDADE DEIXOU DE SER CAMPO ESCONDIDO -- e essa é a segunda
+        correção do caso de 07/09/2026.
+
+        Ela era preenchida só pela busca e ficava invisível. Cliente que o
+        Rating não conhece (o código 2178 é um: zero avaliações) ficava sem
+        cidade, e SEM CIDADE O AVISO NUNCA APARECE na pré-rota, porque o
+        casamento é por região. A particularidade existia, aparecia bonita
+        no cadastro, e era invisível para quem entrega -- a falha mais
+        silenciosa possível.
+
+        Agora ela é um campo de verdade, e a tela diz o que acontece se
+        ficar em branco.
+      */}
+      <div>
+        <label className={rotulo} htmlFor="cidade">
+          Cidade do cliente
+        </label>
+        <input
+          id="cidade"
+          name="cidade"
+          value={cidade}
+          onChange={(e) => setCidade(e.target.value)}
+          placeholder="Ex.: Santa Maria da Vitória"
+          autoComplete="off"
+          className={campo}
+        />
+        {cidade.trim() ? (
+          <p className="mt-1 text-xs text-slate-500">
+            O aviso vai aparecer nos mapas que atendem <strong>{cidade.trim()}</strong>.
+          </p>
+        ) : (
+          <p className="mt-1 rounded-lg bg-amber-50 px-2.5 py-1.5 text-xs leading-snug text-amber-900">
+            ⚠️ <strong>Sem cidade, este aviso não aparece na pré-rota.</strong> O cruzamento com o
+            mapa é pela região — o cadastro fica salvo, mas só quem acompanha vai vê-lo.
+          </p>
+        )}
       </div>
 
       {/*

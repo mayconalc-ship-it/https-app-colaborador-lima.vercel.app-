@@ -4,7 +4,7 @@
 // abaixo guarda um caso em que o aviso NAO deve aparecer.
 //   npx tsx src/lib/__testes__/pdv-particularidades.teste.mjs
 import {
-  normalizarCodPdv, ehCodigoValido, chaveDeRegiao, diasAte, valeHoje, venceuEmAberto,
+  normalizarCodPdv, ehCodigoValido, chaveDeRegiao, mesmaRegiao, diasAte, valeHoje, venceuEmAberto,
   valeNoDia, diaDaSemanaDe, rotuloDosDias, rotuloDoHorario, rotuloDoPrazo,
   normalizarJanelas, janelaInvertida,
   avisosDoPdv, avisosDaRegiao, pendenciasComPrazo, sugestoesDeDetrator,
@@ -49,6 +49,25 @@ eq("codigo absurdo de longo nao passa", ehCodigoValido("12345678901234"), false)
 console.log("\nREGIAO");
 eq("acento nao separa a cidade", chaveDeRegiao("São Félix"), chaveDeRegiao("SAO FELIX"));
 eq("espaco dobrado nao separa", chaveDeRegiao("NOVA  COLONIA"), "NOVA COLONIA");
+
+console.log("\nCIDADE CORTADA EM 20 -- o defeito do relatorio do LOG.CO");
+// O caso real que o dono encontrou: o Rating grava "Santa maria da vitor"
+// (20 chars) e o roteirizador escreve o nome inteiro.
+eq("cidade cortada casa com a inteira", mesmaRegiao("Santa maria da vitor", "SANTA MARIA DA VITORIA"), true);
+eq("e ao contrario tambem", mesmaRegiao("SANTA MARIA DA VITORIA", "Santa maria da vitor"), true);
+eq("o outro caso da base", mesmaRegiao("Tabocas do brejo vel", "TABOCAS DO BREJO VELHO"), true);
+eq("igual continua igual", mesmaRegiao("COCOS", "Cocos"), true);
+// A TRAVA: so casa por comeco o texto com o tamanho EXATO do corte (20).
+// Sem isso, o caso real abaixo faria o cliente de uma cidade alertar na
+// rota da outra -- "Sao felix" e "Sao felix do coribe" sao DIFERENTES, e
+// as duas aparecem nas rotas desta operacao.
+eq("SAO FELIX nao e SAO FELIX DO CORIBE", mesmaRegiao("Sao felix", "SAO FELIX DO CORIBE"), false);
+eq("SANTANA nao e SANTA MARIA", mesmaRegiao("Santana", "SANTA MARIA DA VITORIA"), false);
+eq("prefixo curto nao casa", mesmaRegiao("COCOS", "COCOS DE CIMA"), false);
+eq("19 caracteres nao e corte", mesmaRegiao("SAO FELIX DO CORIBE", "SAO FELIX DO CORIBES"), false);
+eq("cidade diferente nao casa", mesmaRegiao("CORRENTINA", "CORIBE"), false);
+eq("vazio nunca casa", mesmaRegiao("", "COCOS"), false);
+eq("nulo nunca casa", mesmaRegiao(null, "COCOS"), false);
 
 console.log("\nPRAZO");
 eq("faltam 3 dias", diasAte("2026-09-09", "2026-09-06"), 3);
