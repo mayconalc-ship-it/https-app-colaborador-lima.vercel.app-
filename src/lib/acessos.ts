@@ -514,19 +514,31 @@ export const MODULOS: Modulo[] = [
     // sub-módulos abaixo, um por funcionalidade.
     rotulo: "Produtividade do Armazém",
     rotulosDeAcao: {
-      // A CONCESSÃO MAIS AMBÍGUA DO APP, e a tela agora diz isso: o mesmo
-      // "ver" abre a análise da Gestão E a tela de cadastro no Modo
-      // Liderança. Separar os dois muda permissão de verdade -- fica para
-      // uma decisão à parte; enquanto isso, ao menos ninguém concede sem
-      // saber.
-      ver: "📊 Abrir a análise do Armazém e a tela de cadastros",
+      /*
+        AS DUAS COISAS SEPARADAS (07/09/2026, pedido do dono: "separar o
+        'ver' de Produtividade do Armazém: hoje a mesma marcação abre a
+        análise e a tela de cadastros. Separar muda permissão de verdade").
+
+        Era a concessão mais ambígua do app. O rótulo já avisava que "ver"
+        abria as duas coisas, mas avisar não é separar: quem só acompanha o
+        indicador levava junto o cadastro de produto, fábrica e
+        empilhadeira que a operação inteira usa.
+
+        Na prática a tela de cadastro JÁ exigia "editar" -- toda ação dela
+        pede editar ou excluir. O que faltava era a barra lateral saber
+        disso: ela oferecia o item para quem tinha só "ver", e o clique
+        batia numa recusa. `exigeEditarNoAdmin` conserta esse último
+        pedaço, e o rótulo passa a dizer a verdade.
+      */
+      ver: "📊 Abrir a análise do Armazém (só leitura)",
       criar: "Criar registro nos cadastros do armazém",
-      editar: "Cadastrar produto, fábrica, transportadora, empilhadeira, rua",
+      editar: "Abrir os cadastros no Modo Liderança: produto, fábrica, transportadora, empilhadeira, rua",
       excluir: "Corrigir e apagar lançamento de outra pessoa",
     },
     emoji: "🏭",
     href: "/admin/produtividade-armazem",
     grupo: "Configuração",
+    exigeEditarNoAdmin: true,
     acoes: ["ver", "criar", "editar", "excluir"],
   },
   {

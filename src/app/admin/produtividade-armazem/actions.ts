@@ -1854,7 +1854,11 @@ export async function editarProdutoReepack(formData: FormData) {
  * tem pelo menos um registro para corrigir.
  */
 export async function buscarOperadoresComOperacao(termo: string) {
-  await requireModulo("produtividade-armazem", "ver");
+  // "editar", como a tela que a chama (07/09/2026). Ela só existe dentro
+  // do cadastro, que exige editar -- deixá-la em "ver" era uma porta mais
+  // larga que a sala: quem só acompanha o indicador podia listar os nomes
+  // de quem operou empilhadeira chamando a ação direto.
+  await requireModulo("produtividade-armazem", "editar");
   const revendaId = await getRevendaId();
   if (!revendaId) return [];
 
@@ -1902,7 +1906,9 @@ export async function buscarOperadoresComOperacao(termo: string) {
  * encontrá-lo.
  */
 export async function buscarProdutosDoCadastro(termo: string) {
-  await requireModulo("produtividade-armazem", "ver");
+  // "editar" pelo mesmo motivo de buscarOperadoresComOperacao: a busca é
+  // do cadastro, e o cadastro exige editar.
+  await requireModulo("produtividade-armazem", "editar");
   const revendaId = await getRevendaId();
   if (!revendaId) return [];
 
