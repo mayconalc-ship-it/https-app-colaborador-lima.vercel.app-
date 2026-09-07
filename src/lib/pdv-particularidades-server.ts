@@ -2,13 +2,18 @@ import "server-only";
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
+  PESO_SEVERIDADE,
   avisosDaRegiao,
   avisosDoPdv,
+  diasAte,
+  montarMensagem,
   normalizarCodPdv,
   normalizarJanelas,
   rotuloDoHorario,
   rotuloDosDias,
   sugestoesDeDetrator,
+  valeHoje,
+  valeNoDia,
   type AvaliacaoDoPdv,
   type Categoria,
   type Janela,
@@ -137,6 +142,7 @@ type LinhaCategoria = {
   exige_prazo: boolean;
   exige_horario: boolean;
   alerta_na_rota: boolean;
+  mensagem_modelo: string | null;
   ordem: number;
   ativo: boolean;
 };
@@ -187,6 +193,7 @@ const paraCategoria = (l: LinhaCategoria): CategoriaCompleta => ({
   exigePrazo: l.exige_prazo,
   exigeHorario: l.exige_horario,
   alertaNaRota: l.alerta_na_rota,
+  mensagemModelo: l.mensagem_modelo,
   ordem: l.ordem,
   ativo: l.ativo,
 });
@@ -221,7 +228,7 @@ export async function categoriasDaRevenda(
   let consulta = admin
     .from("pa_pdv_categorias")
     .select(
-      "id, nome, emoji, ajuda, severidade, exige_prazo, exige_horario, alerta_na_rota, ordem, ativo",
+      "id, nome, emoji, ajuda, severidade, exige_prazo, exige_horario, alerta_na_rota, mensagem_modelo, ordem, ativo",
     )
     .eq("revenda_id", revendaId)
     .order("ordem");
@@ -434,5 +441,192 @@ export async function avisosDoMapa(
       dias: rotuloDosDias(p.diasSemana),
       diasDePrazo: dias,
     })),
+  };
+}
+
+/* ------------------------------------------------------------------ *
+ * O DIA -- as particularidades cruzadas com as entregas da data.
+ * ------------------------------------------------------------------ */
+
+export type ClienteDoDia = {
+  codPdv: string;
+  nomePdv: string | null;
+  cidade: string | null;
+  bairro: string | null;
+  categoria: string;
+  emoji: string | null;
+  severidade: Severidade;
+  alertaNaRota: boolean;
+  aviso: string;
+  detalhe: string | null;
+  horario: string | null;
+  diasDePrazo: number | null;
+  /** Já pronta para enviar; vazia quando a categoria não tem modelo. */
+  mensagem: string;
+};
+
+export type RotaDoDia = {
+  mapa: string;
+  veiculo: string | null;
+  placa: string | null;
+  entregas: number | null;
+  cidades: string[];
+  clientes: ClienteDoDia[];
+};
+
+export type DiaDasParticularidades = {
+  data: string;
+  rotas: RotaDoDia[];
+  /** Rotas da data, incluindo as que não têm nada a tratar. */
+  totalDeRotas: number;
+  /** Rotas cujos clientes o app conhece (o vínculo veio da planilha). */
+  rotasComVinculo: number;
+  datasDisponiveis: string[];
+};
+
+const soData = (iso: string) => iso.slice(8, 10) + "/" + iso.slice(5, 7);
+
+/**
+ * O DIA INTEIRO -- rotas da data, e o que cada uma tem para tratar antes
+ * de sair.
+ *
+ * Pedido do dono (07/09/2026): "quero cruzar as particularidades com a
+ * data de entrega do dia (...) a ideia é que o monitoramento tenha as
+ * informações das particularidades dentro desse local, de maneira rápida e
+ * fácil".
+ *
+ * O CRUZAMENTO É PELO CÓDIGO, não pela região: `pa_pdv_do_mapa` diz quais
+ * clientes cada mapa atende naquela data -- a coluna "Clientes" da própria
+ * planilha da pré-rota, separada por "/". Aqui não existe o caminho por
+ * cidade que a `avisosDoMapa` tem de fallback, e é de propósito: quem
+ * monitora vai LIGAR para o cliente, e ligar para o cliente errado é pior
+ * do que não ligar.
+ *
+ * O BLOQUEIO ENTRA AQUI, mesmo não indo para o motorista. Um cliente
+ * bloqueado dentro da rota do dia é carga que volta -- é a informação mais
+ * cara desta tela, e quem a resolve é justamente quem lê aqui.
+ *
+ * A ORDEM DAS ROTAS é a da urgência: a que tem o caso mais grave primeiro,
+ * depois a que tem mais casos. Numa manhã com quinze rotas, a ordem é o
+ * que decide o que vai ser tratado antes do meio-dia.
+ */
+export async function particularidadesDoDia(
+  revendaId: string,
+  data: string,
+): Promise<DiaDasParticularidades> {
+  const admin = createAdminClient();
+
+  const [{ data: rotas }, { data: vinculos }, categorias, ativas, { data: todasAsDatas }] =
+    await Promise.all([
+      admin
+        .from("rotas")
+        .select("mapa, veiculo, placa, entregas, cidades")
+        .eq("revenda_id", revendaId)
+        .eq("data", data),
+      admin
+        .from("pa_pdv_do_mapa")
+        .select("mapa, cod_pdv")
+        .eq("revenda_id", revendaId)
+        .eq("data", data),
+      categoriasDaRevenda(revendaId),
+      particularidadesDaRevenda(revendaId, { status: "ativa" }),
+      admin
+        .from("rotas")
+        .select("data")
+        .eq("revenda_id", revendaId)
+        .order("data", { ascending: false })
+        .limit(3000),
+    ]);
+
+  const datasDisponiveis = [...new Set((todasAsDatas ?? []).map((d) => d.data as string))].slice(
+    0,
+    60,
+  );
+
+  const mapaCategorias = new Map(categorias.map((c) => [c.id, c]));
+
+  // Só o que vale NA DATA da entrega -- e a data é a da rota, não a de
+  // hoje. Abrir a tela de amanhã e ver o bloqueio que termina hoje seria
+  // exatamente o alarme falso que faz o resto parar de ser lido.
+  const valendo = ativas.filter((p) => valeHoje(p, data) && valeNoDia(p, data));
+  const porCodigo = new Map<string, typeof valendo>();
+  for (const p of valendo) {
+    const chave = normalizarCodPdv(p.codPdv);
+    porCodigo.set(chave, [...(porCodigo.get(chave) ?? []), p]);
+  }
+
+  const clientesPorMapa = new Map<string, Set<string>>();
+  for (const v of vinculos ?? []) {
+    const mapa = v.mapa as string;
+    const atual = clientesPorMapa.get(mapa) ?? new Set<string>();
+    atual.add(normalizarCodPdv(v.cod_pdv as string));
+    clientesPorMapa.set(mapa, atual);
+  }
+
+  const daData: RotaDoDia[] = [];
+  for (const r of rotas ?? []) {
+    const mapa = r.mapa as string;
+    const codigos = clientesPorMapa.get(mapa);
+    const cidades = ((r.cidades ?? []) as { cidade: string }[]).map((c) => c.cidade);
+
+    const clientes: ClienteDoDia[] = [];
+    for (const codigo of codigos ?? []) {
+      for (const p of porCodigo.get(codigo) ?? []) {
+        const categoria = mapaCategorias.get(p.categoriaId);
+        if (!categoria) continue;
+        const horario = rotuloDoHorario(p.janelas);
+        clientes.push({
+          codPdv: p.codPdv,
+          nomePdv: p.nomePdv,
+          cidade: p.cidade,
+          bairro: p.bairro,
+          categoria: categoria.nome,
+          emoji: categoria.emoji,
+          severidade: categoria.severidade,
+          alertaNaRota: categoria.alertaNaRota,
+          aviso: p.aviso,
+          detalhe: p.detalhe,
+          horario,
+          diasDePrazo: diasAte(p.ate, data),
+          mensagem: montarMensagem(categoria.mensagemModelo, {
+            cliente: p.nomePdv ?? `o cliente ${p.codPdv}`,
+            codigo: p.codPdv,
+            cidade: p.cidade,
+            janela: horario,
+            aviso: p.aviso,
+            data: soData(data),
+            mapa,
+          }),
+        });
+      }
+    }
+
+    if (clientes.length === 0) continue;
+    clientes.sort(
+      (a, b) => PESO_SEVERIDADE[b.severidade] - PESO_SEVERIDADE[a.severidade],
+    );
+    daData.push({
+      mapa,
+      veiculo: (r.veiculo as string) ?? null,
+      placa: (r.placa as string) ?? null,
+      entregas: (r.entregas as number) ?? null,
+      cidades,
+      clientes,
+    });
+  }
+
+  daData.sort((a, b) => {
+    const graveA = PESO_SEVERIDADE[a.clientes[0].severidade];
+    const graveB = PESO_SEVERIDADE[b.clientes[0].severidade];
+    if (graveA !== graveB) return graveB - graveA;
+    return b.clientes.length - a.clientes.length;
+  });
+
+  return {
+    data,
+    rotas: daData,
+    totalDeRotas: (rotas ?? []).length,
+    rotasComVinculo: clientesPorMapa.size,
+    datasDisponiveis,
   };
 }

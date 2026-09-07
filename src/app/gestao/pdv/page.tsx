@@ -13,9 +13,11 @@ import {
 import {
   categoriasDaRevenda,
   particularidadesDaRevenda,
+  particularidadesDoDia,
   type CategoriaCompleta,
   type ParticularidadeCompleta,
 } from "@/lib/pdv-particularidades-server";
+import { DoDia } from "./DoDia";
 
 export const dynamic = "force-dynamic";
 
@@ -45,12 +47,40 @@ const brasileira = (iso: string) => iso.split("-").reverse().join("/");
 export default async function PainelDePdvPage({
   searchParams,
 }: {
-  searchParams: Promise<{ busca?: string }>;
+  searchParams: Promise<{ busca?: string; aba?: string; data?: string }>;
 }) {
   await requireModulo("pdv-particularidades", "ver", "/gestao");
   const revendaId = await exigirRevenda("/gestao");
-  const { busca = "" } = await searchParams;
+  const { busca = "", aba, data } = await searchParams;
   const podeEditar = await podeNoModulo("pdv-particularidades", "editar");
+
+  const hoje = new Date().toLocaleDateString("sv-SE", { timeZone: "America/Sao_Paulo" });
+
+  /*
+    O DIA É A ABA DE ABERTURA, e não a lista completa.
+
+    Quem abre esta tela está no meio da manhã, com as rotas do dia
+    carregando. A pergunta dela nunca é "quais clientes têm alguma
+    particularidade?" -- é "o que eu preciso resolver ANTES de a carga
+    sair?". A lista completa continua a um toque, para o resto.
+  */
+  const emDia = aba !== "todos";
+  const dataEscolhida = data || hoje;
+  if (emDia) {
+    const dia = await particularidadesDoDia(revendaId, dataEscolhida);
+    return (
+      <div>
+        <Cabecalho />
+        <Abas atual="dia" data={dataEscolhida} />
+        <SeletorDeData
+          escolhida={dataEscolhida}
+          hoje={hoje}
+          disponiveis={dia.datasDisponiveis}
+        />
+        <DoDia dia={dia} podeEditar={podeEditar} />
+      </div>
+    );
+  }
 
   const [categorias, ativas] = await Promise.all([
     categoriasDaRevenda(revendaId, { incluirInativas: true }),
@@ -58,7 +88,6 @@ export default async function PainelDePdvPage({
   ]);
 
   const mapaCategorias = new Map(categorias.map((c) => [c.id, c]));
-  const hoje = new Date().toLocaleDateString("sv-SE", { timeZone: "America/Sao_Paulo" });
 
   const comPrazo = pendenciasComPrazo(ativas, mapaCategorias, hoje);
   const vencidos = comPrazo.filter((p) => p.vencida);
@@ -91,10 +120,8 @@ export default async function PainelDePdvPage({
 
   return (
     <div>
-      <PageHeader
-        title="📍 Particularidades do PDV"
-        subtitle="O que cada cliente tem de diferente — para agir antes de a carga sair."
-      />
+      <Cabecalho />
+      <Abas atual="todos" data={dataEscolhida} />
 
       <div className="mb-5 grid grid-cols-3 gap-2">
         <Numero valor={clientes} rotulo="clientes com aviso" />
@@ -150,6 +177,9 @@ export default async function PainelDePdvPage({
             Por cidade ({filtradas.length})
           </h2>
           <form method="get" className="flex gap-2">
+            {/* A aba viaja no formulário, senão buscar joga a pessoa de
+                volta para a aba do dia. */}
+            <input type="hidden" name="aba" value="todos" />
             <input
               name="busca"
               defaultValue={busca}
@@ -164,7 +194,7 @@ export default async function PainelDePdvPage({
             </button>
             {termo && (
               <Link
-                href="/gestao/pdv"
+                href="/gestao/pdv?aba=todos"
                 className="flex items-center px-2 text-sm text-slate-500 hover:text-primary"
               >
                 Limpar
@@ -225,6 +255,106 @@ export default async function PainelDePdvPage({
         </p>
       )}
     </div>
+  );
+}
+
+function Cabecalho() {
+  return (
+    <PageHeader
+      title="📍 Particularidades do PDV"
+      subtitle="O que cada cliente tem de diferente — para agir antes de a carga sair."
+    />
+  );
+}
+
+/**
+ * As duas perguntas da tela, separadas: "o que resolver hoje?" e "o que
+ * existe cadastrado?". A data viaja entre as abas para quem volta não
+ * perder o dia que estava olhando.
+ */
+function Abas({ atual, data }: { atual: "dia" | "todos"; data: string }) {
+  const estilo = (minha: string) =>
+    `flex-1 rounded-xl px-3 py-2 text-center text-sm font-semibold ${
+      atual === minha
+        ? "bg-primary text-white shadow-sm"
+        : "bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50"
+    }`;
+  return (
+    <div className="mb-4 flex gap-2">
+      <Link href={`/gestao/pdv?data=${data}`} className={estilo("dia")}>
+        📅 O dia
+      </Link>
+      <Link href={`/gestao/pdv?aba=todos&data=${data}`} className={estilo("todos")}>
+        📋 Todos os cadastros
+      </Link>
+    </div>
+  );
+}
+
+/**
+ * A DATA DA ENTREGA -- a chave da tela inteira.
+ *
+ * Uma lista das datas que a pré-rota tem, e não um calendário livre:
+ * escolher um dia sem rota importada devolve uma tela vazia que parece
+ * defeito. Hoje e amanhã ficam como atalho porque são 95% dos usos, e o
+ * "amanhã" é onde a preventiva de verdade acontece -- avisar o cliente na
+ * véspera vale mais do que avisar com o caminhão na rua.
+ */
+function SeletorDeData({
+  escolhida,
+  hoje,
+  disponiveis,
+}: {
+  escolhida: string;
+  hoje: string;
+  disponiveis: string[];
+}) {
+  const amanha = new Date(`${hoje}T12:00:00`);
+  amanha.setDate(amanha.getDate() + 1);
+  const iso = amanha.toISOString().slice(0, 10);
+  const atalhos = [
+    { rotulo: "Hoje", valor: hoje },
+    { rotulo: "Amanhã", valor: iso },
+  ];
+
+  return (
+    <form method="get" className="mb-4 flex flex-wrap items-center gap-2">
+      <div className="flex gap-1.5">
+        {atalhos.map((a) => (
+          <Link
+            key={a.valor}
+            href={`/gestao/pdv?data=${a.valor}`}
+            className={`rounded-lg px-2.5 py-1.5 text-xs font-semibold ${
+              escolhida === a.valor
+                ? "bg-slate-800 text-white"
+                : "bg-white text-slate-600 ring-1 ring-slate-200"
+            }`}
+          >
+            {a.rotulo}
+          </Link>
+        ))}
+      </div>
+      <select
+        name="data"
+        defaultValue={escolhida}
+        className="min-w-[9rem] flex-1 rounded-lg border border-slate-200 px-2.5 py-1.5 text-sm"
+      >
+        {!disponiveis.includes(escolhida) && (
+          <option value={escolhida}>{brasileira(escolhida)} — sem rota importada</option>
+        )}
+        {disponiveis.map((d) => (
+          <option key={d} value={d}>
+            {brasileira(d)}
+          </option>
+        ))}
+      </select>
+      <button
+        type="submit"
+        className="rounded-lg bg-slate-800 px-3 py-1.5 text-sm font-semibold text-white"
+      >
+        Ver
+      </button>
+    </form>
   );
 }
 

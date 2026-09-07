@@ -268,6 +268,7 @@ export async function salvarCategorias(formData: FormData) {
         severidade: ["info", "atencao", "critico"].includes(severidade) ? severidade : "atencao",
         exige_prazo: formData.get(`exige_prazo__${id}`) === "on",
         exige_horario: formData.get(`exige_horario__${id}`) === "on",
+        mensagem_modelo: String(formData.get(`mensagem__${id}`) ?? "").trim() || null,
         alerta_na_rota: formData.get(`alerta_na_rota__${id}`) === "on",
         ativo: formData.get(`ativo__${id}`) === "on",
       })

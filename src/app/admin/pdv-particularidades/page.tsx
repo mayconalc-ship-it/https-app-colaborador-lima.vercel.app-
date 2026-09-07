@@ -358,6 +358,31 @@ export default async function ParticularidadesDoPdvPage({
                 <label className={rotulo}>O que entra nesta categoria</label>
                 <input name={`ajuda__${c.id}`} defaultValue={c.ajuda ?? ""} maxLength={240} className={campo} />
               </div>
+              {/* A MENSAGEM PRONTA MORA NA CATEGORIA, e não na tela de quem
+                  envia. Escrita uma vez, todo mundo manda a mesma coisa --
+                  e trocar o tom é editar aqui, não pedir um deploy. */}
+              <div className="mt-2">
+                <label className={rotulo}>Mensagem pronta para o cliente</label>
+                <textarea
+                  name={`mensagem__${c.id}`}
+                  defaultValue={c.mensagemModelo ?? ""}
+                  rows={3}
+                  maxLength={600}
+                  placeholder="Vazio = a tela do monitoramento não oferece o botão de enviar."
+                  className={campo}
+                />
+                <p className="mt-1 text-[11px] leading-snug text-slate-500">
+                  Trocados na hora do envio:{" "}
+                  <code className="rounded bg-slate-100 px-1">{"{cliente}"}</code>{" "}
+                  <code className="rounded bg-slate-100 px-1">{"{codigo}"}</code>{" "}
+                  <code className="rounded bg-slate-100 px-1">{"{cidade}"}</code>{" "}
+                  <code className="rounded bg-slate-100 px-1">{"{janela}"}</code>{" "}
+                  <code className="rounded bg-slate-100 px-1">{"{aviso}"}</code>{" "}
+                  <code className="rounded bg-slate-100 px-1">{"{data}"}</code>{" "}
+                  <code className="rounded bg-slate-100 px-1">{"{mapa}"}</code>. Quem lê é o dono do
+                  bar — nada de jargão interno.
+                </p>
+              </div>
               <div className="mt-2 flex flex-wrap gap-3 text-sm text-slate-600">
                 <Caixa nome={`exige_prazo__${c.id}`} marcado={c.exigePrazo} texto="Exige prazo" />
                 <Caixa nome={`exige_horario__${c.id}`} marcado={c.exigeHorario} texto="Exige horário" />

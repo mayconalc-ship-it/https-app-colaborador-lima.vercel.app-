@@ -40,7 +40,52 @@ export type Categoria = {
   exigePrazo: boolean;
   exigeHorario: boolean;
   alertaNaRota: boolean;
+  /** A mensagem pronta para o monitoramento encaminhar ao PDV. */
+  mensagemModelo?: string | null;
 };
+
+/** Os campos que a mensagem pronta aceita entre chaves. */
+export const CAMPOS_DA_MENSAGEM = [
+  "cliente",
+  "codigo",
+  "cidade",
+  "janela",
+  "aviso",
+  "data",
+  "mapa",
+] as const;
+export type CampoDaMensagem = (typeof CAMPOS_DA_MENSAGEM)[number];
+
+/**
+ * A MENSAGEM PRONTA, com os campos preenchidos.
+ *
+ * Pedido do dono (07/09/2026): mensagens pré-prontas para o monitoramento
+ * encaminhar ao PDV -- avisar o detrator de que o pedido está indo, avisar
+ * o cliente de janela que a entrega respeita o horário.
+ *
+ * CAMPO SEM VALOR SOME COM O ESPAÇO QUE SOBRARIA, e não vira "()" ou dois
+ * espaços no meio da frase. A mensagem é lida pelo dono do bar, não pelo
+ * app: uma frase com buraco denuncia texto automático e é justamente o que
+ * faz o cliente parar de responder.
+ *
+ * Também some a pontuação órfã -- "no horário ()." vira "no horário." --
+ * porque o modelo natural é escrever o campo entre parênteses.
+ */
+export function montarMensagem(
+  modelo: string | null | undefined,
+  dados: Partial<Record<CampoDaMensagem, string | null | undefined>>,
+): string {
+  if (!modelo?.trim()) return "";
+  const texto = modelo.replace(/\{(\w+)\}/g, (_, campo: string) => {
+    const valor = dados[campo as CampoDaMensagem];
+    return (valor ?? "").trim();
+  });
+  return texto
+    .replace(/\(\s*\)/g, "")
+    .replace(/[ \t]{2,}/g, " ")
+    .replace(/\s+([.,;:!?])/g, "$1")
+    .trim();
+}
 
 /**
  * UMA JANELA DE RECEBIMENTO.

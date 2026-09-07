@@ -8,6 +8,7 @@ import {
   valeNoDia, diaDaSemanaDe, rotuloDosDias, rotuloDoHorario, rotuloDoPrazo,
   normalizarJanelas, janelaInvertida,
   avisosDoPdv, avisosDaRegiao, pendenciasComPrazo, sugestoesDeDetrator,
+  montarMensagem,
 } from "../pdv-particularidades.ts";
 
 let falhas = 0;
@@ -205,6 +206,21 @@ eq("acha o motivo que se repete", sug[0].motivoMaisComum, "Produtos errados");
 eq("a frase ja vem pronta", sug[0].aviso, "Já avaliou 2x como detrator. O que mais se repete: produtos errados.");
 eq("com minimo 1, o segundo entra", sugestoesDeDetrator(aval, 1).map((s) => s.codPdv), ["507", "91"]);
 eq("base sem detrator nao sugere nada", sugestoesDeDetrator([aval[4]]), []);
+
+// A MENSAGEM QUE O CLIENTE LE. O risco aqui e social, nao tecnico: uma
+// frase com buraco ("no horario ().") denuncia texto automatico, e o dono
+// do bar para de responder.
+console.log("\nMENSAGEM PRONTA");
+eq("troca os campos", montarMensagem("Oi {cliente}, entrega dia {data}.", { cliente: "BAR DO JAIR", data: "08/09" }),
+  "Oi BAR DO JAIR, entrega dia 08/09.");
+eq("campo vazio nao deixa buraco", montarMensagem("Entrega de {cliente} {janela} hoje.", { cliente: "BAR", janela: null }),
+  "Entrega de BAR hoje.");
+eq("parenteses orfao some", montarMensagem("No horario ({janela}).", { janela: "" }), "No horario.");
+eq("campo desconhecido nao vaza a chave", montarMensagem("Oi {fulano}!", {}), "Oi!");
+eq("sem modelo, sem mensagem", montarMensagem(null, { cliente: "BAR" }), "");
+eq("modelo so com espaco nao vira mensagem", montarMensagem("   ", {}), "");
+eq("mantem a quebra de linha do modelo", montarMensagem("Oi {cliente}\nTudo bem?", { cliente: "BAR" }),
+  "Oi BAR\nTudo bem?");
 
 console.log(`\n${falhas === 0 ? "TUDO OK" : `${falhas} FALHA(S)`}`);
 process.exit(falhas === 0 ? 0 : 1);
