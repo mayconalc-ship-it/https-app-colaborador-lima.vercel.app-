@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useTransition } from "react";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
 import { FotoEvidencia } from "@/components/FotoEvidencia";
 import { responderItem } from "./actions";
@@ -36,31 +36,41 @@ const ROTULO = { ok: "OK", nok: "NOK", na: "N/A" } as const;
  * botão pinta na hora do toque, antes da volta do servidor. Na doca essa
  * volta demora, e um botão que não responde é um botão que a pessoa
  * aperta de novo.
+ *
+ * E OS BOTÕES NÃO SE DESABILITAM ENQUANTO GRAVAM (07/09/2026). Desabilitar
+ * era prudência mal colocada: a resposta já está pintada e a gravação é um
+ * upsert por item, então travar a mão do conferente só servia para ele
+ * esperar a rede da doca antes de responder o item seguinte -- treze
+ * vezes. Quem manda no estado é o checklist inteiro, acima daqui.
  */
 export function ItemDaBlitz({
   item,
   gravada,
+  escolha,
+  aoEscolher,
   atendimentoId,
   blitzId,
   somenteLeitura = false,
 }: {
   item: ItemChecklist;
   gravada: RespostaGravada | null;
+  /** O que a pessoa acabou de tocar, ainda a caminho do servidor. */
+  escolha: "ok" | "nok" | "na" | null;
+  aoEscolher: (valor: "ok" | "nok" | "na") => void;
   atendimentoId: string;
   blitzId: string;
   somenteLeitura?: boolean;
 }) {
+  const [, transicionar] = useTransition();
+
   // A escolha da tela ganha da gravada enquanto o servidor não volta --
   // e é ela que decide se o painel da foto está aberto.
-  const [escolha, setEscolha] = useState<"ok" | "nok" | "na" | null>(null);
-  const [enviando, transicionar] = useTransition();
-
   const atual = escolha ?? gravada?.resposta ?? null;
-  const respondida = gravada !== null;
+  const respondida = gravada !== null || escolha !== null;
   const jaTemFoto = Boolean(gravada?.foto_url);
 
   function responder(valor: "ok" | "na") {
-    setEscolha(valor);
+    aoEscolher(valor);
     const dados = new FormData();
     dados.set("atendimento_id", atendimentoId);
     dados.set("blitz_id", blitzId);
@@ -99,12 +109,15 @@ export function ItemDaBlitz({
             <button
               key={v}
               type="button"
-              disabled={somenteLeitura || enviando}
+              disabled={somenteLeitura}
               // O NOK só ABRE o painel da evidência; quem grava é o
               // "Salvar NOK" depois da foto.
-              onClick={() => (v === "nok" ? setEscolha("nok") : responder(v))}
+              onClick={() => (v === "nok" ? aoEscolher("nok") : responder(v))}
               aria-pressed={ativo}
-              className={`rounded-xl py-3 text-sm font-bold ring-1 transition-colors disabled:opacity-60 ${cores}`}
+              // Sem transição de cor: 150ms de esmaecimento entre o toque e
+              // a cor cheia é exatamente a "flutuação" que o dono viu. O
+              // `active:` dá o retorno do toque na hora, sem esperar nada.
+              className={`rounded-xl py-3 text-sm font-bold ring-1 active:scale-95 disabled:opacity-60 ${cores}`}
             >
               {ROTULO[v]}
             </button>
@@ -162,10 +175,10 @@ export function ItemDaBlitz({
       {gravada?.resposta === "nok" && atual === "nok" && (
         <p className="mt-2 text-xs font-semibold text-red-700">🚨 NOK registrado com evidência.</p>
       )}
-      {respondida && atual !== "nok" && (
-        <p className="mt-2 text-xs font-semibold text-green-700">
-          ✅ Respondido: {ROTULO[gravada.resposta]}
-        </p>
+      {/* Lê o `atual`, e não a linha do banco: o "respondido" tem que
+          aparecer no mesmo toque em que a cor aparece. */}
+      {respondida && atual !== null && atual !== "nok" && (
+        <p className="mt-2 text-xs font-semibold text-green-700">✅ Respondido: {ROTULO[atual]}</p>
       )}
     </li>
   );

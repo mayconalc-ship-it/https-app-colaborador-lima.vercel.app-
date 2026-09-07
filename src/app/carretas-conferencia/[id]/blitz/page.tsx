@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { PageHeader } from "@/components/PageHeader";
-import { BotaoEnviar } from "@/components/BotaoEnviar";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getRevendaId } from "@/lib/revendas";
 import { requireAcessoModulo } from "@/lib/require-admin";
@@ -9,8 +8,8 @@ import { decodificar } from "@/lib/texto-url";
 import { formatarDataHora } from "@/lib/produtividade-armazem";
 import { garantirBlitzDoAtendimento } from "@/lib/blitz-server";
 import { ROTULO_DIMENSAO, type Dimensao } from "@/lib/blitz";
-import { concluirBlitz } from "./actions";
-import { ItemDaBlitz, type ItemChecklist, type RespostaGravada } from "./ItemDaBlitz";
+import { ChecklistDaBlitz, type GrupoDoChecklist } from "./ChecklistDaBlitz";
+import type { ItemChecklist, RespostaGravada } from "./ItemDaBlitz";
 
 export const dynamic = "force-dynamic";
 
@@ -104,21 +103,17 @@ export default async function BlitzDaCarretaPage({
   if (!blitz) notFound();
 
   const itens = (itensBanco ?? []) as (ItemChecklist & { ordem: number })[];
-  const respostas = new Map(
-    ((respostasBanco ?? []) as ({ item_id: string } & RespostaGravada)[]).map((r) => [
-      r.item_id,
-      { resposta: r.resposta, observacao: r.observacao, foto_url: r.foto_url },
-    ]),
-  );
+  const respostas: Record<string, RespostaGravada> = {};
+  for (const r of (respostasBanco ?? []) as ({ item_id: string } & RespostaGravada)[]) {
+    respostas[r.item_id] = { resposta: r.resposta, observacao: r.observacao, foto_url: r.foto_url };
+  }
 
-  const respondidos = itens.filter((i) => respostas.has(i.id)).length;
-  const nok = [...respostas.values()].filter((r) => r.resposta === "nok").length;
-  const falta = itens.length - respondidos;
+  const nok = Object.values(respostas).filter((r) => r.resposta === "nok").length;
   const fechada = blitz.status !== "pendente";
 
   // A ordem dos blocos é a do cadastro (coluna `ordem`), e não alfabética:
   // é a volta que se dá na carreta.
-  const grupos: { nome: string; itens: typeof itens }[] = [];
+  const grupos: GrupoDoChecklist[] = [];
   for (const item of itens) {
     const nome = item.grupo?.trim() || "Checklist";
     const atual = grupos.find((g) => g.nome === nome);
@@ -179,18 +174,7 @@ export default async function BlitzDaCarretaPage({
           </Link>
           .
         </p>
-      ) : (
-        /* O CONTADOR FICA GRUDADO NO TOPO. Na doca a pessoa rola muito, e
-           "faltam 4" é a única informação que ela procura o tempo todo. */
-        <div className="sticky top-2 z-10 mb-4 flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white/95 p-3 text-sm shadow-sm backdrop-blur">
-          <span className="font-semibold text-slate-700">
-            {respondidos} de {itens.length} respondidos
-          </span>
-          <span className={nok > 0 ? "font-bold text-red-700" : "text-slate-500"}>
-            {nok} NOK
-          </span>
-        </div>
-      )}
+      ) : null}
 
       {itens.length === 0 && (
         <p className="rounded-2xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
@@ -199,46 +183,16 @@ export default async function BlitzDaCarretaPage({
         </p>
       )}
 
-      <div className="space-y-5">
-        {grupos.map((g) => (
-          <section key={g.nome}>
-            <h2 className="mb-2 text-sm font-bold uppercase tracking-wide text-slate-500">
-              {g.nome}
-            </h2>
-            <ul className="space-y-2">
-              {g.itens.map((item) => (
-                <ItemDaBlitz
-                  key={item.id}
-                  item={item}
-                  gravada={respostas.get(item.id) ?? null}
-                  atendimentoId={id}
-                  blitzId={blitz.id}
-                  somenteLeitura={fechada}
-                />
-              ))}
-            </ul>
-          </section>
-        ))}
-      </div>
-
-      {!fechada && itens.length > 0 && (
-        <form action={concluirBlitz} className="sticky bottom-4 z-10 mt-5">
-          <input type="hidden" name="atendimento_id" value={id} />
-          <input type="hidden" name="blitz_id" value={blitz.id} />
-          {/* O botão só liga com o checklist inteiro respondido, e diz o que
-              falta. A ação de servidor recusa igual -- botão escondido não é
-              regra, é cortesia. */}
-          <BotaoEnviar
-            textoEnviando="Concluindo..."
-            disabled={falta > 0}
-            className="w-full rounded-xl bg-primary px-4 py-3.5 text-sm font-bold text-white shadow-lg hover:bg-primary-dark"
-          >
-            {falta > 0
-              ? `Falta${falta === 1 ? "" : "m"} ${falta} item(ns) para concluir`
-              : `Concluir blitz${nok > 0 ? ` — ${nok} NOK` : " — tudo OK"}`}
-          </BotaoEnviar>
-        </form>
-      )}
+      {/* O contador, os itens e o botão de concluir vão juntos para o
+          cliente: as três coisas leem a mesma resposta, e é isso que faz o
+          toque valer sem esperar a volta do servidor. */}
+      <ChecklistDaBlitz
+        grupos={grupos}
+        gravadas={respostas}
+        atendimentoId={id}
+        blitzId={blitz.id}
+        fechada={fechada}
+      />
     </div>
   );
 }
