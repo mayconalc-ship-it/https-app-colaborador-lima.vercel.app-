@@ -100,12 +100,12 @@ type Gaveta =
 export default async function PainelDeAnomaliasPage({
   searchParams,
 }: {
-  searchParams: Promise<{ ver?: string; erro?: string }>;
+  searchParams: Promise<{ ver?: string; erro?: string; sucesso?: string }>;
 }) {
   await requireModulo("relato-anomalia", "ver", "/gestao");
   const revendaId = await exigirRevenda("/gestao");
   const podeEditar = await podeNoModulo("relato-anomalia", "editar");
-  const { ver, erro } = await searchParams;
+  const { ver, erro, sucesso } = await searchParams;
   const admin = createAdminClient();
 
   const [{ data: relatosBanco, error }, { data: acoesBanco }, blitzBanco] = await Promise.all([
@@ -219,6 +219,14 @@ export default async function PainelDeAnomaliasPage({
 
       {erro && (
         <p className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">{decodificar(erro)}</p>
+      )}
+      {/* O aviso vem para cá porque a tela de onde a pessoa veio -- o
+          relato -- deixou de existir. Sem ele, excluir parece não ter
+          feito nada. */}
+      {sucesso && (
+        <p className="mb-4 rounded-lg bg-green-50 p-3 text-sm font-medium text-green-700">
+          ✅ {decodificar(sucesso)}
+        </p>
       )}
 
       {/*

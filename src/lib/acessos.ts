@@ -291,6 +291,7 @@ export const MODULOS: Modulo[] = [
     rotulosDeAcao: {
       ver: "📊 Abrir o painel de Anomalias e as blitz",
       editar: "Configurar gatilhos, tratar relato e blitz",
+      excluir: "⚠️ Apagar um relato de vez (some do histórico)",
     },
     rotulo: "Relato de Anomalia",
     emoji: "🚨",
@@ -301,15 +302,24 @@ export const MODULOS: Modulo[] = [
     // recebimento), e quem trata a anomalia é a liderança imediata
     // daquela área -- não necessariamente quem administra o armazém.
     //
-    // Sem "excluir": relato de anomalia não se apaga. Ele é a evidência
-    // de que o desvio foi tratado, e apagar um seria exatamente o que o
-    // auditor procura. O que existe é encerrar.
+    // "excluir" existe desde 07/09/2026, a pedido do dono, e é uma
+    // concessão à parte de propósito. Aqui ficava escrito que relato não
+    // se apaga -- e continua sendo verdade para o relato REAL: ele é a
+    // evidência de que o desvio foi tratado, e um relato que some é o que
+    // o auditor procura. O que a operação produz de fato, e o que motivou
+    // o pedido, é o relato de TESTE: DT 12345, gatilho que disparou numa
+    // importação errada, blitz aberta duas vezes. Sem um botão, isso vira
+    // pedido de faxina no banco -- e faxina no banco não tem confirmação,
+    // não tem registro e não distingue teste de evidência.
+    //
+    // Por isso é uma quarta chave, e não um pedaço de "editar": quem trata
+    // relato o dia inteiro não precisa poder apagá-lo.
     //
     // E sem "criar", desde 05/09/2026: quem abre relato é a VARREDURA, não
     // uma pessoa -- e nenhuma ação do módulo checava essa concessão.
     // Era uma caixa que não fazia nada, do tipo que faz quem concede
     // desconfiar de todas as outras. Ninguém a tinha marcada.
-    acoes: ["ver", "editar"],
+    acoes: ["ver", "editar", "excluir"],
   },
   {
     id: "pdv-particularidades",

@@ -363,3 +363,51 @@ export async function verificarEficacia(formData: FormData) {
   revalidatePath(PAINEL);
   redirect(`${rota(id)}?sucesso=${encodeURIComponent("Eficácia verificada. Ciclo fechado.")}`);
 }
+
+/**
+ * APAGAR UM RELATO -- de vez, e por isso atrás da própria chave.
+ *
+ * Pedido do dono (07/09/2026): "quero que deixe um botão para excluir o
+ * relato de anomalia e isso deve ser liberado dentro do módulo Acesso por
+ * Pessoa".
+ *
+ * O QUE ISTO APAGA de verdade: o relato de TESTE. DT 12345, gatilho que
+ * disparou por uma importação errada, blitz aberta duas vezes na mesma
+ * carreta. Sem botão, isso vira pedido de faxina no banco -- e faxina no
+ * banco não tem confirmação, não tem registro e não distingue teste de
+ * evidência. Foi assim que a blitz que ele tinha acabado de preencher se
+ * perdeu junto com quatro atendimentos de teste, em 06/09/2026.
+ *
+ * O QUE ISTO NÃO É: o jeito de fechar um relato verdadeiro. Relato que
+ * aconteceu se ENCERRA -- ele é a prova de que o desvio foi tratado, e um
+ * que some é o que o auditor procura. Por isso a permissão é a quarta
+ * chave do módulo, separada de "editar": quem trata relato o dia inteiro
+ * não precisa poder apagá-lo.
+ *
+ * As ações do plano vão junto (`on delete cascade`), que é o certo -- ação
+ * órfã de um relato apagado apareceria no painel para sempre, sem nenhum
+ * lugar para onde clicar.
+ */
+export async function excluirRelato(formData: FormData) {
+  await requireModulo("relato-anomalia", "excluir", PAINEL);
+  const revendaId = await exigirRevenda(PAINEL);
+  const admin = createAdminClient();
+
+  const id = String(formData.get("id") ?? "");
+  if (!id) erro(id, "Relato inválido.");
+
+  const { error } = await admin
+    .from("pa_relatos_anomalia")
+    .delete()
+    .eq("id", id)
+    .eq("revenda_id", revendaId);
+  if (error) erro(id, `Não foi possível excluir: ${error.message}`);
+
+  revalidatePath(PAINEL);
+  // Volta para o painel: a tela que a pessoa estava vendo não existe mais.
+  redirect(
+    `${PAINEL}?sucesso=${encodeURIComponent(
+      `Relato ${id.slice(0, 8).toUpperCase()} excluído. Não dá para desfazer.`,
+    )}`,
+  );
+}

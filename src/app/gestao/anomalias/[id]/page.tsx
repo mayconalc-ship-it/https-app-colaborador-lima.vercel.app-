@@ -31,9 +31,12 @@ import {
   type StatusRelato,
   type TopicoAcao,
 } from "@/lib/relato-anomalia";
+import { BotaoExcluir } from "@/components/BotaoExcluir";
+import { podeNoModulo } from "@/lib/require-admin";
 import {
   assinarRelato,
   buscarPessoasDoRelato,
+  excluirRelato,
   salvarRelato,
   verificarEficacia,
 } from "./actions";
@@ -114,6 +117,7 @@ export default async function RelatoDeAnomaliaPage({
 }) {
   await requireModulo("relato-anomalia", "ver", "/gestao");
   const revendaId = await exigirRevenda("/gestao");
+  const podeExcluir = await podeNoModulo("relato-anomalia", "excluir");
   const { id } = await params;
   const { erro, sucesso } = await searchParams;
 
@@ -691,6 +695,30 @@ export default async function RelatoDeAnomaliaPage({
               </BotaoEnviar>
             </form>
           )}
+        </section>
+      )}
+
+      {/* EXCLUIR FICA NO FIM, longe de tudo e sem cor de destaque.
+          Não é um passo do relato -- é a saída para o que nunca deveria
+          ter virado relato: a DT de teste, o gatilho que disparou por uma
+          importação errada. Relato de verdade se ENCERRA; este botão só
+          aparece para quem tem a chave "excluir", que é a quarta do
+          módulo justamente para não vir junto com "tratar". */}
+      {podeExcluir && (
+        <section className="so-na-tela mt-6 border-t border-slate-200 pt-4">
+          <p className="mb-2 text-xs leading-snug text-slate-500">
+            Este relato é um teste ou foi aberto por engano? Excluir apaga o documento e o plano de
+            ação junto, <strong>sem desfazer</strong>. Um relato que aconteceu de verdade se
+            encerra — ele é a prova de que o desvio foi tratado.
+          </p>
+          <BotaoExcluir
+            action={excluirRelato}
+            campos={{ id: r.id }}
+            confirmacao={`Excluir o relato RA ${numeroDoRelato} e o plano de ação dele? Isso não pode ser desfeito.`}
+            rotuloConfirmar="Excluir de vez"
+          >
+            🗑️ Excluir o relato RA {numeroDoRelato}
+          </BotaoExcluir>
         </section>
       )}
     </div>
