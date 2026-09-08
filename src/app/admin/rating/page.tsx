@@ -1,11 +1,11 @@
-﻿import { PageHeader } from "@/components/PageHeader";
-import { FonteConfigurada } from "@/components/admin/FonteConfigurada";
+import { PageHeader } from "@/components/PageHeader";
+import { AtalhoParaAFonte } from "@/components/admin/AtalhoParaAFonte";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
 import { requireModulo } from "@/lib/require-admin";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getRevendaId } from "@/lib/revendas";
 import { diasAtrasISO, formatarDataHora } from "@/lib/produtividade-armazem";
-import { importarRating } from "./actions";
+
 
 export const dynamic = "force-dynamic";
 
@@ -90,35 +90,15 @@ export default async function AdminRatingPage({
         </div>
       </details>
 
-      {/* A configuração da pasta saiu daqui: ela agora mora em
-          Admin > Fontes de Dados, junto com as outras seis. Esta tela
-          continua sendo onde se IMPORTA -- importar reescreve os dados do
-          período, e a mensagem que explica o resultado mora junto do
-          histórico daqui. */}
-      <FonteConfigurada
-        rotulo="Rating de Entrega"
-        link={config?.pasta_link ?? null}
-        ultima={config?.ultima_sincronizacao ?? null}
-      />
+      {/* A PASTA E O BOTÃO DE IMPORTAR SAÍRAM DAQUI (08/09/2026, pedido do
+          dono: "deixar em um único lugar tudo que faz referência a importar
+          a base, ou que ligue a um link, ou que precise informar a
+          atualização").
 
-      {/* ---------- Importar ---------- */}
-      <form action={importarRating} className="mb-5 space-y-3 rounded-2xl border border-slate-200 bg-white p-4">
-        <label className="flex items-start gap-2 text-sm text-slate-700">
-          <input type="checkbox" name="tudo" className="mt-0.5" />
-          <span>
-            Importar <strong>todos os meses</strong>
-            <span className="block text-[11px] text-slate-400">
-              Sem marcar, traz só o mês corrente — é o que muda no dia a dia. Marque na primeira carga.
-            </span>
-          </span>
-        </label>
-        <BotaoEnviar
-          textoEnviando="Importando... (pode levar um minuto)"
-          className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-white hover:bg-primary-dark"
-        >
-          ⭐ Importar avaliações
-        </BotaoEnviar>
-      </form>
+          Os dois moram em 🔌 Fontes de Dados, com as opções junto. Esta
+          tela fica com o que só ela sabe: o que ENTROU na última carga e
+          quem está rodando sem perfil no app. */}
+      <AtalhoParaAFonte chave="rating" />
 
       {/* ---------- Situação ---------- */}
       <div className="mb-5 grid grid-cols-2 gap-2 sm:grid-cols-4">

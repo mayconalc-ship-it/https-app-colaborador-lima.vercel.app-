@@ -14,7 +14,7 @@ import {
   type Fonte,
 } from "@/lib/fontes-de-dados";
 import { salvarFonte } from "./actions";
-import { salvarConfigRV } from "@/app/admin/rv/actions";
+import { avisarRVAtualizada, salvarConfigRV } from "@/app/admin/rv/actions";
 import { RolarAteAFonte } from "@/components/admin/RolarAteAFonte";
 import { importarRating } from "@/app/admin/rating/actions";
 import { importarRefugo } from "@/app/admin/refugo/actions";
@@ -350,8 +350,28 @@ function CartaoDaFonte({
             mesma action do módulo, passando para onde voltar. O resultado
             aparece aqui, onde o clique aconteceu. */}
         {atualizar && podeEditar && !fonte.salvaNoImport && (
-          <form action={atualizar} className="mt-3">
+          <form action={atualizar} className="mt-3 space-y-2">
             <input type="hidden" name="voltar_para" value={voltarPara} />
+            {/* As opções vieram junto com o botão (08/09/2026). Mover o
+                botão sem elas seria trocar um caminho completo por um pela
+                metade: sem o "todos os meses" não há primeira carga, e sem
+                o "avisar o time" a pré-rota entra sem ninguém saber. */}
+            {(fonte.opcoes ?? []).map((o) => (
+              <label key={o.nome} className="flex items-start gap-2 text-sm text-slate-700">
+                <input
+                  type="checkbox"
+                  name={o.nome}
+                  defaultChecked={o.marcado}
+                  className="mt-0.5 h-4 w-4 shrink-0 rounded border-slate-300 text-primary"
+                />
+                <span>
+                  {o.rotulo}
+                  {o.ajuda && (
+                    <span className="block text-[11px] leading-snug text-slate-400">{o.ajuda}</span>
+                  )}
+                </span>
+              </label>
+            ))}
             <BotaoEnviar
               textoEnviando="Atualizando..."
               className="w-full rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-white hover:bg-primary-dark sm:w-auto"
@@ -359,7 +379,7 @@ function CartaoDaFonte({
               ↻ Atualizar agora
             </BotaoEnviar>
             {fonte.aoAtualizar && (
-              <p className="mt-1 text-[11px] text-slate-400">{fonte.aoAtualizar}</p>
+              <p className="text-[11px] text-slate-400">{fonte.aoAtualizar}</p>
             )}
           </form>
         )}
@@ -470,11 +490,45 @@ function CartaoDaFonte({
               </ul>
             )}
             <p className="mt-3 text-[11px] text-slate-400">{fonte.ajuda}</p>
+
+            {/*
+              AVISAR QUE A RV FOI ATUALIZADA mora aqui (08/09/2026, pedido
+              do dono: "tudo que faz referência a importar a base, ou que
+              ligue a um link, ou que precise informar a atualização").
+
+              É o caso mais claro dos três: a RV é lida AO VIVO da planilha,
+              então não existe importação -- o app não tem como saber que
+              alguém editou o arquivo. O aviso é a atualização, e quem sabe
+              a hora certa é quem acabou de fechar a competência, olhando
+              para este cartão.
+            */}
+            {podeEditar && (
+              <form
+                action={avisarRVAtualizada}
+                className="mt-3 rounded-xl border border-primary/25 bg-primary-soft p-3"
+              >
+                <input type="hidden" name="voltar_para" value={voltarPara} />
+                <p className="text-xs font-semibold text-primary-dark">
+                  🔔 Avisar que a RV foi atualizada
+                </p>
+                <p className="mt-1 text-[11px] leading-snug text-primary-dark/80">
+                  Vai só para quem tem CPF na planilha — quem não recebe RV não é incomodado. A
+                  planilha é lida na hora para montar a lista, então demora alguns segundos.
+                </p>
+                <BotaoEnviar
+                  textoEnviando="Conferindo a planilha..."
+                  className="mt-2 w-full rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary-dark sm:w-auto"
+                >
+                  Avisar quem tem RV
+                </BotaoEnviar>
+              </form>
+            )}
+
             <Link
               href={fonte.telaDoModulo}
               className="mt-2 inline-flex text-xs font-semibold text-primary hover:underline"
             >
-              Conferir um CPF e avisar quem tem RV →
+              Conferir um CPF na planilha →
             </Link>
           </>
         ) : podeEditar && fonte.salvaNoImport && atualizar ? (

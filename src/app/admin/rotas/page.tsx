@@ -1,14 +1,13 @@
-﻿import { decodificar } from "@/lib/texto-url";
+import { decodificar } from "@/lib/texto-url";
 import { requireModulo, podeNoModulo } from "@/lib/require-admin";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { exigirRevenda } from "@/lib/revendas";
 import { PageHeader } from "@/components/PageHeader";
-import { FonteConfigurada } from "@/components/admin/FonteConfigurada";
+import { AtalhoParaAFonte } from "@/components/admin/AtalhoParaAFonte";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
 import { formatarDataBr } from "@/lib/rotas";
 import {
   apagarRotasDoDia,
-  atualizarRotas,
   salvarMetasDeRota,
 } from "./actions";
 
@@ -66,63 +65,26 @@ export default async function AdminRotasPage({
         </p>
       )}
 
-      {/* ---- Botão principal ---- */}
-      {podeImportar && config?.pasta_link && (
-        <form
-          action={atualizarRotas}
-          className="mb-4 rounded-2xl border-2 border-primary bg-white p-4 shadow-sm"
-        >
-          <p className="text-sm font-semibold text-slate-800">
-            Atualizar as rotas
+      {/* A PASTA E O BOTÃO DE ATUALIZAR SAÍRAM DAQUI, com o "avisar o
+          time" junto (08/09/2026). Esta tela fica com as METAS -- que são
+          regra do indicador, não fonte -- e com o histórico do que entrou. */}
+      {podeImportar && <AtalhoParaAFonte chave="rotas" />}
+
+      {podeImportar && config?.ultima_sincronizacao && (
+        <div className="mb-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+          <p className="text-xs font-semibold uppercase text-slate-400">Última atualização</p>
+          <p className="text-sm font-semibold text-slate-700">
+            {new Date(config.ultima_sincronizacao).toLocaleString("pt-BR", {
+              day: "2-digit",
+              month: "2-digit",
+              hour: "2-digit",
+              minute: "2-digit",
+            })}
           </p>
-          <p className="mt-1 text-xs text-slate-500">
-            Lê todos os arquivos da pasta e atualiza o app. Pode clicar
-            quantas vezes quiser — reimportar não duplica nada.
-          </p>
-
-          <label className="mt-3 flex items-start gap-2.5">
-            <input
-              type="checkbox"
-              name="avisar"
-              defaultChecked
-              className="mt-0.5 h-4 w-4 shrink-0 rounded border-slate-300 text-primary"
-            />
-            <span className="text-sm text-slate-700">
-              Avisar o time que a pré-rota está disponível
-            </span>
-          </label>
-
-          <BotaoEnviar
-            textoEnviando="🔄 Atualizando..."
-            className="mt-3 w-full rounded-xl bg-primary py-4 font-semibold text-white hover:bg-primary-dark"
-          >
-            🔄 Atualizar rotas agora
-          </BotaoEnviar>
-
-          {config.ultima_sincronizacao && (
-            <p className="mt-3 border-t border-slate-100 pt-3 text-xs text-slate-400">
-              Última atualização:{" "}
-              {new Date(config.ultima_sincronizacao).toLocaleString("pt-BR", {
-                day: "2-digit",
-                month: "2-digit",
-                hour: "2-digit",
-                minute: "2-digit",
-              })}
-              {config.ultimo_resultado ? ` · ${config.ultimo_resultado}` : ""}
-            </p>
+          {config.ultimo_resultado && (
+            <p className="mt-1 text-xs leading-relaxed text-slate-500">{config.ultimo_resultado}</p>
           )}
-        </form>
-      )}
-
-      {/* Configuração da pasta saiu daqui, para Admin > Fontes de Dados.
-          Esta tela continua sendo onde se importa e onde se vê o
-          histórico do que entrou. */}
-      {podeImportar && (
-        <FonteConfigurada
-          rotulo="Minha Rota"
-          link={config?.pasta_link ?? null}
-          ultima={config?.ultima_sincronizacao ?? null}
-        />
+        </div>
       )}
 
       {/* ---- Metas ---- */}

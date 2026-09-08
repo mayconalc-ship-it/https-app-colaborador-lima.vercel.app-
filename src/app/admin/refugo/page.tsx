@@ -1,12 +1,12 @@
-﻿import { PageHeader } from "@/components/PageHeader";
-import { FonteConfigurada } from "@/components/admin/FonteConfigurada";
+import { PageHeader } from "@/components/PageHeader";
+import { AtalhoParaAFonte } from "@/components/admin/AtalhoParaAFonte";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
 import { requireModulo } from "@/lib/require-admin";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getRevendaId } from "@/lib/revendas";
 import { formatarDataHora } from "@/lib/produtividade-armazem";
 import { formatarReais } from "@/lib/refugo";
-import { importarRefugo, salvarValorDoItem } from "./actions";
+import { salvarValorDoItem } from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -76,25 +76,7 @@ export default async function AdminRefugoPage({
       {/* Configuração da pasta saiu daqui, para Admin > Fontes de Dados.
           Sem link não é erro no Refugo: significa usar a mesma pasta do
           Rating, que é o normal quando os relatórios chegam juntos. */}
-      <FonteConfigurada
-        rotulo="Refugo"
-        link={cfg?.pasta_link ?? null}
-        ultima={cfg?.ultima_sincronizacao ?? null}
-        observacaoQuandoVazio={
-          ratingCfg?.pasta_link
-            ? "Sem pasta própria — usando a mesma pasta do Rating, que é o normal."
-            : "Sem pasta própria e sem pasta do Rating. A importação não tem de onde ler."
-        }
-      />
-
-      <form action={importarRefugo} className="mb-5">
-        <BotaoEnviar
-          textoEnviando="Importando..."
-          className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-white hover:bg-primary-dark"
-        >
-          ♻️ Importar aferições
-        </BotaoEnviar>
-      </form>
+      <AtalhoParaAFonte chave="refugo" />
 
       <div className="mb-5 grid grid-cols-2 gap-2">
         <Cartao titulo="Aferições" valor={(afericoes ?? 0).toLocaleString("pt-BR")} />

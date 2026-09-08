@@ -1,5 +1,5 @@
-﻿import { PageHeader } from "@/components/PageHeader";
-import { FonteConfigurada } from "@/components/admin/FonteConfigurada";
+import { PageHeader } from "@/components/PageHeader";
+import { AtalhoParaAFonte } from "@/components/admin/AtalhoParaAFonte";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
 import { requireModulo } from "@/lib/require-admin";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -11,7 +11,7 @@ import {
   ROTULO_RESPONSABILIDADE,
   type Responsabilidade,
 } from "@/lib/devolucao";
-import { classificarMotivos, importarDevolucao, salvarConfigDeDevolucao } from "./actions";
+import { classificarMotivos, salvarConfigDeDevolucao } from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -39,14 +39,14 @@ export default async function AdminDevolucaoPage({
   const revendaId = await getRevendaId();
   const admin = createAdminClient();
 
-  const [{ data: cfg }, { data: motivosBanco }, { count: notas }, { count: dias }, { count: justificativas }, { data: ratingCfg }, { data: usados }] =
+  const [{ data: cfg }, { data: motivosBanco }, { count: notas }, { count: dias }, { count: justificativas }, { data: usados }] =
     await Promise.all([
       admin.from("devolucao_config").select("pasta_link, meta_pct, ultima_sincronizacao, ultimo_resultado").eq("revenda_id", revendaId).maybeSingle(),
       admin.from("devolucao_motivos").select("codigo, descricao, responsabilidade, conta_no_indicador").eq("revenda_id", revendaId).order("codigo"),
       admin.from("devolucao_notas").select("*", { count: "exact", head: true }).eq("revenda_id", revendaId),
       admin.from("devolucao_dia").select("*", { count: "exact", head: true }).eq("revenda_id", revendaId),
       admin.from("devolucao_justificativas").select("*", { count: "exact", head: true }).eq("revenda_id", revendaId),
-      admin.from("rating_config").select("pasta_link").eq("revenda_id", revendaId).maybeSingle(),
+
       admin.from("devolucao_notas").select("motivo_codigo").eq("revenda_id", revendaId).limit(1000),
     ]);
 
@@ -123,36 +123,9 @@ export default async function AdminDevolucaoPage({
         </BotaoEnviar>
       </form>
 
-      {/* A pasta saiu do formulário acima e foi para Fontes de Dados; a
-          meta continua aqui, porque é regra do indicador, não fonte. */}
-      <FonteConfigurada
-        rotulo="Devolução"
-        link={cfg?.pasta_link ?? null}
-        ultima={cfg?.ultima_sincronizacao ?? null}
-        observacaoQuandoVazio={
-          ratingCfg?.pasta_link
-            ? "Sem pasta própria — usando a mesma pasta do Rating."
-            : "Sem pasta própria e sem pasta do Rating. A importação não tem de onde ler."
-        }
-      />
-
-      <form action={importarDevolucao} className="mb-5 space-y-3 rounded-2xl border border-slate-200 bg-white p-4">
-        <label className="flex items-start gap-2 text-sm text-slate-700">
-          <input type="checkbox" name="tudo" className="mt-0.5" />
-          <span>
-            Importar <strong>todos os meses</strong>
-            <span className="block text-[11px] text-slate-400">
-              Cada arquivo mensal tem ~7 mil linhas e 9 MB. Sem marcar, traz só o mês corrente.
-            </span>
-          </span>
-        </label>
-        <BotaoEnviar
-          textoEnviando="Importando... (pode levar alguns minutos)"
-          className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-white hover:bg-primary-dark"
-        >
-          ↩️ Importar devoluções
-        </BotaoEnviar>
-      </form>
+      {/* A pasta e o botão de importar saíram para Fontes de Dados; a META
+          continua aqui, porque é regra do indicador, não fonte. */}
+      <AtalhoParaAFonte chave="devolucao" />
 
       <div className="mb-5 grid grid-cols-3 gap-2">
         <Cartao titulo="Devoluções" valor={(notas ?? 0).toLocaleString("pt-BR")} />

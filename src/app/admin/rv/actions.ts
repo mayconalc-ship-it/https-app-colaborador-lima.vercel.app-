@@ -26,8 +26,8 @@ import {
 /** Quanto tempo depois de avisar alguém o mesmo aviso volta a valer. */
 const JANELA_REAVISO_MIN = 60;
 
-function voltar(chave: "sucesso" | "erro", texto: string): never {
-  redirect(`/admin/rv?${chave}=${encodeURIComponent(texto)}`);
+function voltar(chave: "sucesso" | "erro", texto: string, destino = "/admin/rv"): never {
+  redirect(voltarCom(destino, chave, texto));
 }
 
 /**
@@ -51,23 +51,28 @@ function voltar(chave: "sucesso" | "erro", texto: string): never {
  * caminho antigo -- avisar todo mundo na dúvida -- é justamente o que
  * estamos tirando; avisar errado em silêncio seria voltar para trás.
  */
-export async function avisarRVAtualizada() {
+export async function avisarRVAtualizada(formData?: FormData) {
+  // De onde saiu o clique: a tela da RV ou a gaveta em Fontes de Dados.
+  // Mesmo desenho dos imports -- só o destino do resultado muda.
+  const destino = String(formData?.get("voltar_para") ?? "") || "/admin/rv";
+  const voltarAqui: (c: "sucesso" | "erro", t: string) => never = (c, t) => voltar(c, t, destino);
+
   const eu = await requireModulo("rv", "editar");
   const revendaId = await exigirRevenda("/admin/rv");
 
   const { ids, configurado, falhas } = await colaboradoresComRV(revendaId);
 
   if (!configurado) {
-    voltar("erro", "Conecte a planilha de RV antes de avisar o time.");
+    voltarAqui("erro", "Conecte a planilha de RV antes de avisar o time.");
   }
   if (falhas.length > 0 && ids.length === 0) {
-    voltar(
+    voltarAqui(
       "erro",
       `Não consegui ler ${falhas.map((f) => f.rotulo).join(" e ")} (${falhas[0].motivo}). Ninguém foi avisado.`,
     );
   }
   if (ids.length === 0) {
-    voltar(
+    voltarAqui(
       "erro",
       "Nenhum colaborador cadastrado tem CPF nessa planilha. Ninguém foi avisado.",
     );
@@ -95,7 +100,7 @@ export async function avisarRVAtualizada() {
   const alvo = ids.filter((id) => !repetidos.has(id));
 
   if (alvo.length === 0) {
-    voltar(
+    voltarAqui(
       "sucesso",
       `Todos os ${ids.length} colaboradores com RV já foram avisados na última hora.`,
     );
@@ -132,7 +137,7 @@ export async function avisarRVAtualizada() {
       ? ` (${falhas.map((f) => f.rotulo).join(" e ")} não abriu — pode faltar gente)`
       : "";
 
-  voltar(
+  voltarAqui(
     "sucesso",
     `${alvo.length} colaborador(es) com RV avisado(s)${aviso}.`,
   );

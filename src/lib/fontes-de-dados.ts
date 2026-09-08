@@ -1,4 +1,4 @@
-﻿/**
+/**
  * DE ONDE VÊM OS DADOS DO APP
  *
  * A configuração da fonte morava dentro da tela de cada módulo: o link do
@@ -45,6 +45,17 @@ export type Fonte = {
    */
   acaoParaEditar?: "criar" | "editar";
   /**
+   * As opções que o import aceita, para o botão viver longe da tela do
+   * módulo sem perder o que ele sabia fazer.
+   *
+   * Era o pedaço que faltava para juntar tudo num lugar só (08/09/2026): o
+   * botão de "atualizar" já estava aqui, mas o "importar todos os meses"
+   * do Rating e da Devolução e o "avisar o time" das Rotas existiam apenas
+   * na tela de cada módulo. Mover o botão sem elas seria trocar um caminho
+   * completo por um pela metade.
+   */
+  opcoes?: { nome: string; rotulo: string; ajuda?: string; marcado?: boolean }[];
+  /**
    * O link é salvo pela PRÓPRIA importação, num gesto só.
    *
    * O caminho normal desta tela tem dois botões (salvar o link, depois
@@ -74,6 +85,13 @@ export const FONTES: Fonte[] = [
     telaDoModulo: "/admin/rating",
     modulo: "rating",
     aoAtualizar: "Lê os quatro relatórios da pasta. Leva cerca de um minuto.",
+    opcoes: [
+      {
+        nome: "tudo",
+        rotulo: "Importar todos os meses",
+        ajuda: "Sem marcar, traz só o mês corrente — é o que muda no dia a dia. Marque na primeira carga.",
+      },
+    ],
     ajuda:
       "Aponte para a pasta MÃE no Drive. O app varre as subpastas sozinho e reconhece os relatórios 01.20.01.47, 01.20.01.48, 03.11.29 e o LOG.CO pelo nome do arquivo.",
   },
@@ -98,6 +116,13 @@ export const FONTES: Fonte[] = [
     telaDoModulo: "/admin/devolucao",
     modulo: "devolucao",
     aoAtualizar: "Traz só o mês corrente. Cada arquivo tem ~7 mil linhas — pode levar alguns minutos.",
+    opcoes: [
+      {
+        nome: "tudo",
+        rotulo: "Importar todos os meses",
+        ajuda: "Cada arquivo mensal tem ~7 mil linhas e 9 MB. Sem marcar, traz só o mês corrente.",
+      },
+    ],
     ajuda:
       "Precisa do 03.02.37 (as notas) e do 01.20.01.06 (a tabela de motivos). Sem o segundo, os motivos aparecem como código.",
   },
@@ -109,7 +134,14 @@ export const FONTES: Fonte[] = [
     tabela: "rotas_config",
     telaDoModulo: "/admin/rotas",
     modulo: "rotas",
-    aoAtualizar: "Lê o CSV mais recente da pasta.",
+    aoAtualizar: "Lê o CSV mais recente da pasta. Reimportar não duplica nada.",
+    opcoes: [
+      {
+        nome: "avisar",
+        rotulo: "Avisar o time que a pré-rota está disponível",
+        marcado: true,
+      },
+    ],
     ajuda: "Aponte para a pasta onde o CSV da pré-rota é depositado todo dia.",
   },
   {
