@@ -145,8 +145,21 @@ export async function salvarConfigRV(formData: FormData) {
   const colunaCpf = ((formData.get("coluna_cpf") as string) || "").trim();
   const colunaValor = ((formData.get("coluna_valor") as string) || "").trim();
 
+  /*
+    DE ONDE VEIO O CLIQUE (08/09/2026, pedido do dono: "consegue mover a
+    remuneração também?").
+
+    Os links da RV passaram a ser editáveis em 🔌 Fontes de Dados, junto
+    com as outras seis fontes. A action é a MESMA -- só o destino do
+    redirecionamento muda, igual ao que Rating, Rotas e a base de clientes
+    já faziam. Duplicar o upsert daria dois lugares gravando `rv_config`, e
+    o dia em que um deles esquecesse o `updateTag` a planilha antiga ficaria
+    servida por cinco minutos sem ninguém entender por quê.
+  */
+  const destino = ((formData.get("voltar_para") as string) || "/admin/rv").trim();
+
   if (area !== "DU" && area !== "AL") {
-    redirect("/admin/rv?erro=Área+inválida");
+    redirect(`${destino}?erro=${encodeURIComponent("Área inválida")}`);
   }
 
   const admin = createAdminClient();
@@ -168,7 +181,7 @@ export async function salvarConfigRV(formData: FormData) {
   );
 
   if (error) {
-    redirect(`/admin/rv?erro=${encodeURIComponent(error.message)}`);
+    redirect(`${destino}?erro=${encodeURIComponent(error.message)}`);
   }
 
   // A planilha baixada fica em cache por 5 minutos (ver rv-server). Trocar
@@ -181,7 +194,12 @@ export async function salvarConfigRV(formData: FormData) {
   // mexer na configuracao.
   updateTag(ETIQUETA_PLANILHA);
   revalidatePath("/rv");
-  redirect("/admin/rv?sucesso=Link+salvo");
+  revalidatePath("/admin/fontes-de-dados");
+  redirect(
+    `${destino}?sucesso=${encodeURIComponent(
+      `Link de ${AREAS.find((a) => a.id === area)?.rotulo ?? area} salvo.`,
+    )}`,
+  );
 }
 
 export async function testarConexaoRV(formData: FormData) {

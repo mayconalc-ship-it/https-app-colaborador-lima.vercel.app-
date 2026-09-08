@@ -120,6 +120,9 @@ export const FONTES: Fonte[] = [
     tabela: "rv_config",
     telaDoModulo: "/admin/rv",
     modulo: "rv",
+    // O módulo RV não tem "criar": a chave que aponta a planilha é
+    // "editar". Sem isto, o campo do link nunca apareceria para ninguém.
+    acaoParaEditar: "editar",
     ajuda:
       "Uma planilha por área, publicada no Google Sheets como CSV. É a MESMA fonte que alimenta o resumo do mês em Meus Indicadores -- de propósito, para o app e o contracheque nunca discordarem.",
   },

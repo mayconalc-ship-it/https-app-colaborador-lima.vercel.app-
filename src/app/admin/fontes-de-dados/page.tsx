@@ -14,6 +14,7 @@ import {
   type Fonte,
 } from "@/lib/fontes-de-dados";
 import { salvarFonte } from "./actions";
+import { salvarConfigRV } from "@/app/admin/rv/actions";
 import { importarRating } from "@/app/admin/rating/actions";
 import { importarRefugo } from "@/app/admin/refugo/actions";
 import { importarDevolucao } from "@/app/admin/devolucao/actions";
@@ -49,6 +50,15 @@ type Estado = {
   pasta_link: string | null;
   ultima_sincronizacao: string | null;
   ultimo_resultado: string | null;
+};
+
+/** A RV tem uma planilha POR ÁREA -- não cabe num campo só, como as outras. */
+type LinhaRV = {
+  area: string;
+  rotulo: string;
+  csv_url: string | null;
+  coluna_cpf: string | null;
+  coluna_valor: string | null;
 };
 
 /**
@@ -88,14 +98,14 @@ export default async function FontesDeDadosPage({
   // Uma leitura por tabela, em paralelo. São 5 tabelas pequenas de uma
   // linha; não vale a pena inventar uma view para isto.
   const estados = new Map<string, Estado | null>();
-  const rvLinhas: { area: string; rotulo: string; csv_url: string | null }[] = [];
+  const rvLinhas: LinhaRV[] = [];
 
   await Promise.all(
     comLink.map(async (f) => {
       if (f.chave === "rv") {
         const { data } = await admin
           .from("rv_config")
-          .select("area, rotulo, csv_url, atualizado_em")
+          .select("area, rotulo, csv_url, coluna_cpf, coluna_valor, atualizado_em")
           .eq("revenda_id", revendaId)
           .order("area");
         rvLinhas.push(...((data ?? []) as typeof rvLinhas));
@@ -227,7 +237,7 @@ function CartaoDaFonte({
   fonte: Fonte;
   estado: Estado | null;
   podeEditar: boolean;
-  rvLinhas?: { area: string; rotulo: string; csv_url: string | null }[];
+  rvLinhas?: LinhaRV[];
   atualizar?: (f: FormData) => Promise<void>;
 }) {
   const configurada = !!estado?.pasta_link;
@@ -298,19 +308,92 @@ function CartaoDaFonte({
       </div>
 
       <div className="p-4">
-        {/* A RV tem VÁRIAS planilhas, uma por área -- não cabe num campo
-            só. Aqui ela é listada e a edição continua na tela dela. */}
+        {/*
+          A RV TEM UMA PLANILHA POR ÁREA -- não cabe num campo só, como as
+          outras fontes. Até 08/09/2026 ela era só LISTADA aqui, com um
+          link mandando editar em outra tela; o dono pediu para mover
+          ("consegue mover a remuneração também?"), e ele está certo pelo
+          mesmo motivo do botão de atualizar: a tela acabou de dizer "sem
+          link" e mandava a pessoa navegar para outro lugar para resolver o
+          que ela acabou de ler.
+
+          Agora cada área tem seu campo aqui. A action é a MESMA da tela do
+          módulo, com `voltar_para` -- nada de upsert duplicado.
+
+          O que FICA na tela da RV: conferir um CPF e avisar quem tem RV.
+          Nenhum dos dois é fonte de dado; são operação de fechamento de
+          competência.
+        */}
         {rvLinhas ? (
           <>
-            <ul className="space-y-1.5">
-              {rvLinhas.length === 0 ? (
-                <li className="text-sm text-slate-400">Nenhuma planilha cadastrada.</li>
-              ) : (
-                rvLinhas.map((r) => (
+            {rvLinhas.length === 0 ? (
+              <p className="text-sm text-slate-400">Nenhuma área de RV cadastrada.</p>
+            ) : podeEditar ? (
+              <div className="space-y-3">
+                {rvLinhas.map((r) => (
+                  <form action={salvarConfigRV} key={r.area} className="space-y-2">
+                    <input type="hidden" name="area" value={r.area} />
+                    <input type="hidden" name="voltar_para" value="/admin/fontes-de-dados" />
+                    <div className="flex items-baseline justify-between gap-2">
+                      <label
+                        className="text-[11px] font-semibold uppercase text-slate-500"
+                        htmlFor={`rv-${r.area}`}
+                      >
+                        {r.rotulo} <span className="text-slate-400">({r.area})</span>
+                      </label>
+                      <span
+                        className={`shrink-0 text-[11px] font-semibold ${
+                          r.csv_url ? "text-green-700" : "text-red-700"
+                        }`}
+                      >
+                        {r.csv_url ? "conectada" : "sem link"}
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <input
+                        id={`rv-${r.area}`}
+                        name="csv_url"
+                        defaultValue={r.csv_url ?? ""}
+                        placeholder="Link do arquivo no Drive ou do CSV publicado"
+                        className={`${campo} min-w-0 flex-1`}
+                      />
+                      <BotaoEnviar
+                        compacto
+                        className="shrink-0 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary-dark"
+                      >
+                        Salvar
+                      </BotaoEnviar>
+                    </div>
+                    {/* As colunas ficam recolhidas: o app acha CPF e valor
+                        sozinho pelo cabeçalho, e mostrar dois campos vazios
+                        em cada área sugeria que eram obrigatórios. */}
+                    <details className="text-[11px] text-slate-500">
+                      <summary className="cursor-pointer">
+                        Forçar as colunas de CPF e valor (o app detecta sozinho)
+                      </summary>
+                      <div className="mt-1.5 flex gap-2">
+                        <input
+                          name="coluna_cpf"
+                          defaultValue={r.coluna_cpf ?? ""}
+                          placeholder="Coluna do CPF"
+                          className={`${campo} min-w-0 flex-1`}
+                        />
+                        <input
+                          name="coluna_valor"
+                          defaultValue={r.coluna_valor ?? ""}
+                          placeholder="Coluna do valor"
+                          className={`${campo} min-w-0 flex-1`}
+                        />
+                      </div>
+                    </details>
+                  </form>
+                ))}
+              </div>
+            ) : (
+              <ul className="space-y-1.5">
+                {rvLinhas.map((r) => (
                   <li key={r.area} className="flex items-center justify-between gap-2 text-sm">
-                    <span className="min-w-0 truncate text-slate-700">
-                      {r.rotulo} <span className="text-slate-400">({r.area})</span>
-                    </span>
+                    <span className="min-w-0 truncate text-slate-700">{r.rotulo}</span>
                     <span
                       className={`shrink-0 text-[11px] font-semibold ${
                         r.csv_url ? "text-green-700" : "text-red-700"
@@ -319,14 +402,15 @@ function CartaoDaFonte({
                       {r.csv_url ? "conectada" : "sem link"}
                     </span>
                   </li>
-                ))
-              )}
-            </ul>
+                ))}
+              </ul>
+            )}
+            <p className="mt-3 text-[11px] text-slate-400">{fonte.ajuda}</p>
             <Link
               href={fonte.telaDoModulo}
-              className="mt-3 inline-flex text-xs font-semibold text-primary hover:underline"
+              className="mt-2 inline-flex text-xs font-semibold text-primary hover:underline"
             >
-              Editar as planilhas da RV →
+              Conferir um CPF e avisar quem tem RV →
             </Link>
           </>
         ) : podeEditar && fonte.salvaNoImport && atualizar ? (
