@@ -231,7 +231,7 @@ export async function registrarContagem(
   if (recontagem_id !== null) {
     try {
       const admin = createAdminClient();
-      await admin
+      const { data: pedido } = await admin
         .from("ag_recontagens")
         .update({
           atendida_em: new Date().toISOString(),
@@ -240,7 +240,44 @@ export async function registrarContagem(
         })
         .eq("id", recontagem_id)
         .eq("revenda_id", revendaId)
-        .is("atendida_em", null);
+        .is("atendida_em", null)
+        .select("tipo, formato, status")
+        .maybeSingle();
+
+      /*
+        A RECONTAGEM SOBREPÕE O QUE JÁ HAVIA SIDO CONTADO.
+
+        Defeito relatado pelo dono (08/09/2026): "o item que foi recontado
+        está somando a contagem antiga, deixando o número de contado bem
+        acima do que de fato era pra ser. A recontagem, como o nome já diz,
+        é pra sobrepor e não somar".
+
+        As linhas antigas do MESMO DIA e da MESMA combinação saem do total
+        aqui, na hora -- e não são apagadas: a primeira contagem é a
+        evidência, e a diferença entre as duas é o que diz se o problema
+        era contagem ou movimento de estoque.
+
+        `tipo` e `status` nulos no pedido significam "qualquer" (ver a
+        migration 024), e por isso só entram no filtro quando existem: um
+        pedido de "600ml, qualquer tipo" sobrepõe os dois tipos.
+
+        O `pedido` vem do próprio update: se ele não voltar, o pedido já
+        estava atendido e não há nada a sobrepor -- outra pessoa chegou
+        antes.
+      */
+      if (pedido) {
+        let alvo = admin
+          .from("ag_contagens")
+          .update({ substituida_em: new Date().toISOString(), substituida_por: gravada.id })
+          .eq("revenda_id", revendaId)
+          .eq("data", gravada.data)
+          .eq("formato", pedido.formato)
+          .neq("id", gravada.id)
+          .is("substituida_em", null);
+        if (pedido.tipo) alvo = alvo.eq("tipo", pedido.tipo);
+        if (pedido.status) alvo = alvo.eq("status", pedido.status);
+        await alvo;
+      }
       revalidatePath(ROTA);
     } catch {
       // idem: avisar é secundário, salvar é o que importa.

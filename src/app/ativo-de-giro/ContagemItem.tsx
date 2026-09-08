@@ -63,13 +63,32 @@ export function ContagemItem({
                 🔁 recontagem
               </span>
             )}
+            {/* SUBSTITUÍDA: a linha continua aqui porque é a evidência do
+                que se contou da primeira vez -- e a diferença entre as duas
+                é o que diz se o problema era contagem ou movimento de
+                estoque. Sem esta marca, ela pareceria estar somando e o
+                total da conciliação não fecharia com a lista. */}
+            {contagem.substituida_em && (
+              <span className="ml-2 rounded-full bg-slate-200 px-2 py-0.5 text-xs font-semibold text-slate-600">
+                ↩︎ substituída pela recontagem
+              </span>
+            )}
           </p>
           <p className="text-xs text-slate-500">
             {formatarData(contagem.data)} — Pal {contagem.palete} / Las{" "}
             {contagem.lastro} / Cx {contagem.caixa}
           </p>
         </div>
-        <span className="shrink-0 rounded-lg bg-slate-100 px-2 py-1 text-xs font-bold text-slate-700">
+        {/* O total riscado quando a linha foi substituída: o número
+            continua legível (é o que se contou), mas riscado diz numa
+            olhada que ele não está na soma. */}
+        <span
+          className={`shrink-0 rounded-lg px-2 py-1 text-xs font-bold ${
+            contagem.substituida_em
+              ? "bg-slate-100 text-slate-400 line-through"
+              : "bg-slate-100 text-slate-700"
+          }`}
+        >
           {totalEmCaixas(contagem, fatores[contagem.formato])} cx
         </span>
       </div>

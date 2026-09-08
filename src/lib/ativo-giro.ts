@@ -119,6 +119,15 @@ export type Contagem = {
   caixa: number;
   /** Pedido de recontagem que esta linha atende, se for o caso. */
   recontagem_id: number | null;
+  /**
+   * Quando uma RECONTAGEM sobrepôs esta linha.
+   *
+   * Preenchida, a linha continua no histórico e sai do total -- ver
+   * `vivas` logo abaixo.
+   */
+  substituida_em?: string | null;
+  /** A contagem que substituiu esta. */
+  substituida_por?: number | null;
 };
 
 /**
@@ -132,7 +141,30 @@ export type LinhaContagem = Omit<
 
 /** As colunas de `ag_contagens` que as telas leem. */
 export const COLUNAS_CONTAGEM =
-  "id, data, colaborador_id, colaborador_nome, tipo, formato, status, palete, lastro, caixa, recontagem_id";
+  "id, data, colaborador_id, colaborador_nome, tipo, formato, status, palete, lastro, caixa, recontagem_id, substituida_em, substituida_por";
+
+/**
+ * AS CONTAGENS QUE SOMAM -- as que uma recontagem não sobrepôs.
+ *
+ * Defeito relatado pelo dono (08/09/2026): "quando é solicitada uma
+ * recontagem, o item recontado está somando a contagem antiga, deixando o
+ * número de contado bem acima do que de fato era pra ser. A recontagem,
+ * como o nome já diz, é pra sobrepor e não somar".
+ *
+ * O FILTRO MORA AQUI, e não em cada consulta ao banco, de propósito. São
+ * cinco lugares que leem `ag_contagens`; esquecer o `is null` em um deles
+ * daria um total errado numa tela só, sem erro nenhum -- exatamente a
+ * falha silenciosa que este conserto veio corrigir. Toda soma passa por
+ * `conciliar`/`conciliarPorDia`, e as duas passam por aqui.
+ *
+ * O HISTÓRICO CONTINUA VENDO TUDO. A linha antiga é a evidência do que se
+ * contou da primeira vez, e a diferença entre as duas é o que diz se o
+ * problema era contagem ou movimento de estoque. Some do total, não do
+ * registro.
+ */
+export function vivas(contagens: Contagem[]): Contagem[] {
+  return contagens.filter((c) => !c.substituida_em);
+}
 
 /** Quem já lançou contagem -- alimenta o filtro por colaborador. */
 export type Contador = { id: string; nome: string };
@@ -341,7 +373,9 @@ export function conciliar(
   transito: Transito = {},
 ): LinhaConciliacao[] {
   const somas = new Map<string, number>();
-  for (const c of contagens) {
+  // `vivas`: contagem sobreposta por recontagem não soma. Ver o comentário
+  // de `vivas` -- é o conserto de 08/09/2026.
+  for (const c of vivas(contagens)) {
     const k = chave(c.tipo, c.formato);
     somas.set(k, (somas.get(k) ?? 0) + totalEmCaixas(c, fatores[c.formato]));
   }
@@ -452,7 +486,10 @@ export function conciliarPorDia(
   comodato: Record<string, number> = {},
 ): DiaConciliado[] {
   const porDia = new Map<string, Contagem[]>();
-  for (const c of contagens) {
+  // Já filtrado aqui, e não só dentro de `conciliar`: um dia em que a
+  // única contagem foi sobreposta deixa de ser um dia conciliado com tudo
+  // zerado -- ele simplesmente não teve contagem que valha.
+  for (const c of vivas(contagens)) {
     porDia.set(c.data, [...(porDia.get(c.data) ?? []), c]);
   }
 
@@ -473,11 +510,14 @@ export function conciliarPorDia(
     .sort((a, b) => b.dia.localeCompare(a.dia));
 }
 
-/** Total por formato, somando os dois tipos -- alimenta o grafico. */
+/** Total por formato, somando os dois tipos -- alimenta o grafico.
+ *  Também só as vivas: o gráfico e a conciliação têm de contar o mesmo,
+ *  senão a tela discorda de si mesma na mesma rolagem. */
 export function totaisPorFormato(contagens: Contagem[], fatores: Fatores) {
+  const somam = vivas(contagens);
   return FORMATOS.map((formato) => ({
     formato,
-    total: contagens
+    total: somam
       .filter((c) => c.formato === formato)
       .reduce((soma, c) => soma + totalEmCaixas(c, fatores[formato]), 0),
   }));

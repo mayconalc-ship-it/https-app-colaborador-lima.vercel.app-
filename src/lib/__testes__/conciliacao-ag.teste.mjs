@@ -10,6 +10,7 @@
 import {
   conciliar, resumirConciliacao, conciliarPorDia, transitoDeLinhas,
   comodatoDeLinhas, juntarParcelas, LIMITE_DIFERENCA_PCT,
+  vivas, totaisPorFormato,
 } from "../ativo-giro.ts";
 
 let falhas = 0;
@@ -171,6 +172,34 @@ eq("junta o dia com o comodato",
     // So comodato: a linha existe, com o dia zerado.
     "Kit AG|300ml": { rota: 0, carreta: 0, comodato: 5 },
   });
+
+// A RECONTAGEM SOBREPOE, NAO SOMA. Defeito relatado pelo dono em
+// 08/09/2026: recontar 40 caixas que ja tinham sido contadas como 60
+// resultava em 100 -- um numero que nunca existiu no patio, e justamente
+// na tela que existe para achar diferenca.
+console.log("\n== A RECONTAGEM SOBREPOE ==");
+const antiga = { ...c("600ml", 6), id: 1, substituida_em: "2026-09-03T10:00:00Z", substituida_por: 2 };
+const nova = { ...c("600ml", 4), id: 2 };
+
+eq("a sobreposta nao entra no total", so(conciliar([antiga, nova], { "Kit AG|600ml": 400 }, fatores), "600ml").contado, 400);
+eq("sem o conserto seriam 1000", 600 + 400, 1000);
+eq("a diferenca fecha", so(conciliar([antiga, nova], { "Kit AG|600ml": 400 }, fatores), "600ml").diferenca, 0);
+
+// O historico continua vendo as duas -- e a diferenca entre elas que diz
+// se o problema era contagem ou movimento de estoque.
+eq("vivas devolve so a nova", vivas([antiga, nova]).map((x) => x.id), [2]);
+eq("a lista original continua com as duas", [antiga, nova].length, 2);
+
+// O grafico e a conciliacao tem que contar o mesmo, senao a tela discorda
+// de si mesma na mesma rolagem.
+eq("o grafico ignora a sobreposta",
+  totaisPorFormato([antiga, nova], fatores).find((t) => t.formato === "600ml").total, 400);
+
+// Dia cuja UNICA contagem foi sobreposta nao vira dia conciliado com tudo
+// zerado: ele nao teve contagem que valha.
+eq("dia so com contagem sobreposta some",
+  conciliarPorDia([{ ...c("600ml", 6, 0, 0, "2026-09-01"), id: 9, substituida_em: "x" }], { "Kit AG|600ml": 600 }, fatores, {}).length,
+  0);
 
 console.log(`\n${falhas === 0 ? "TODOS OS CASOS PASSARAM" : falhas + " FALHA(S)"}`);
 process.exit(falhas === 0 ? 0 : 1);
