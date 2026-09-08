@@ -43,6 +43,8 @@ export type ResultadoDoImport = {
   comTelefone: number;
   semCodigo: number;
   colunasAchadas: string[];
+  /** A frase que fica gravada na fonte e vai para a tela. */
+  resumo?: string;
   erro?: string;
 };
 
@@ -295,13 +297,14 @@ export async function importarBaseDeClientes(
   }
 
   const comTelefone = lista.filter((c) => c.telefone).length;
+  const resultado = resumoDoImport({ gravados, comTelefone, semCodigo, colunas: Object.keys(colunas) });
 
   await admin.from("pa_pdv_config").upsert(
     {
       revenda_id: revendaId,
-      clientes_link: link,
-      clientes_importado_em: agora,
-      clientes_total: gravados,
+      pasta_link: link,
+      ultima_sincronizacao: agora,
+      ultimo_resultado: resultado,
       atualizado_em: agora,
     },
     { onConflict: "revenda_id" },
@@ -314,8 +317,40 @@ export async function importarBaseDeClientes(
     comTelefone,
     semCodigo,
     colunasAchadas: Object.keys(colunas),
+    resumo: resultado,
     erro: gravados < lista.length ? `${lista.length - gravados} cliente(s) não entraram.` : undefined,
   };
+}
+
+/**
+ * A FRASE QUE FICA GRAVADA e aparece no cartão da fonte.
+ *
+ * Uma só, montada num lugar só: a tela de Fontes mostra o
+ * `ultimo_resultado` do banco e a tela do módulo mostra a mensagem do
+ * redirect. Se fossem dois textos, um dia diriam coisas diferentes sobre a
+ * mesma importação.
+ *
+ * "Importado com sucesso" numa base sem a coluna de telefone é a pior
+ * resposta possível: tudo parece certo e o botão do WhatsApp continua
+ * abrindo o seletor de contato para todo mundo. Por isso o zero tem aviso
+ * próprio.
+ */
+export function resumoDoImport(d: {
+  gravados: number;
+  comTelefone: number;
+  semCodigo: number;
+  colunas: string[];
+}): string {
+  const semTelefone = d.gravados - d.comTelefone;
+  return (
+    `${d.gravados} cliente(s) na base, ${d.comTelefone} com telefone` +
+    (semTelefone > 0 ? ` e ${semTelefone} sem` : "") +
+    (d.semCodigo > 0 ? `. ${d.semCodigo} linha(s) ignorada(s) por não terem código` : "") +
+    `. Colunas achadas: ${d.colunas.join(", ") || "nenhuma"}.` +
+    (d.comTelefone === 0
+      ? " ⚠️ Nenhum telefone entrou — confira se a planilha tem uma coluna Celular ou Telefone."
+      : "")
+  );
 }
 
 /** O telefone (e o nome) de um punhado de clientes, pelo código. */
@@ -344,24 +379,4 @@ export async function clientesPorCodigo(
     }
   }
   return saida;
-}
-
-export type ConfigDoPdv = {
-  clientesLink: string | null;
-  importadoEm: string | null;
-  total: number | null;
-};
-
-export async function configDoPdv(revendaId: string): Promise<ConfigDoPdv> {
-  const admin = createAdminClient();
-  const { data } = await admin
-    .from("pa_pdv_config")
-    .select("clientes_link, clientes_importado_em, clientes_total")
-    .eq("revenda_id", revendaId)
-    .maybeSingle();
-  return {
-    clientesLink: (data?.clientes_link as string) ?? null,
-    importadoEm: (data?.clientes_importado_em as string) ?? null,
-    total: (data?.clientes_total as number) ?? null,
-  };
 }

@@ -21,8 +21,6 @@ import {
   type CategoriaCompleta,
   type ParticularidadeCompleta,
 } from "@/lib/pdv-particularidades-server";
-import { configDoPdv } from "@/lib/clientes-base-server";
-import { tempoDesde } from "@/lib/fontes-de-dados";
 import {
   dispensarSugestao,
   excluirParticularidade,
@@ -39,7 +37,7 @@ const campo =
   "w-full rounded-lg border border-slate-300 bg-white px-2.5 py-2 text-sm text-slate-900 focus:border-primary focus:outline-none";
 const rotulo = "mb-1 block text-[11px] font-semibold uppercase text-slate-500";
 
-type Aba = "cadastro" | "categorias" | "sugestoes" | "base";
+type Aba = "cadastro" | "categorias" | "sugestoes";
 
 const ABAS: { id: Aba; rotulo: string; emoji: string; ajuda: string }[] = [
   {
@@ -60,13 +58,21 @@ const ABAS: { id: Aba; rotulo: string; emoji: string; ajuda: string }[] = [
     emoji: "⭐",
     ajuda: "Clientes que já avaliaram como detratores mais de uma vez.",
   },
-  {
-    id: "base",
-    rotulo: "Base de clientes",
-    emoji: "📇",
-    ajuda: "O telefone do PDV, vindo da sua planilha no Drive — é ele que abre a conversa certa no WhatsApp.",
-  },
 ];
+
+/*
+  A BASE DE CLIENTES SAIU DAQUI (08/09/2026, pedido do dono: "transfira o
+  módulo de base de clientes para a fonte de dados").
+
+  Ela nasceu como uma quarta aba desta tela e o lugar estava errado: base
+  de clientes é uma FONTE, igual ao Rating e à pré-rota -- link do Drive,
+  botão de atualizar, data da última entrada. Escondida numa aba do
+  cadastro, ela fazia a tela de Fontes de Dados mentir por omissão,
+  dizendo "cinco fontes" quando eram seis.
+
+  A action `importarClientes` continua morando neste módulo, porque a
+  regra de leitura é daqui. Quem a chama agora é 🔌 Fontes de Dados.
+*/
 
 /**
  * PARTICULARIDADES DO PDV -- o cadastro.
@@ -98,22 +104,16 @@ export default async function ParticularidadesDoPdvPage({
   const revendaId = await exigirRevenda("/admin");
   const { erro, sucesso, aba: abaParam, busca = "" } = await searchParams;
 
-  const aba: Aba = (["categorias", "sugestoes", "base"] as const).includes(
-    abaParam as "categorias",
-  )
-    ? (abaParam as Aba)
-    : "cadastro";
+  const aba: Aba =
+    abaParam === "categorias" ? "categorias" : abaParam === "sugestoes" ? "sugestoes" : "cadastro";
 
   const podeEditar = await podeNoModulo("pdv-particularidades", "editar");
   const podeExcluir = await podeNoModulo("pdv-particularidades", "excluir");
 
-  const [categorias, particularidades, sugestoes, config] = await Promise.all([
+  const [categorias, particularidades, sugestoes] = await Promise.all([
     categoriasDaRevenda(revendaId, { incluirInativas: true }),
     particularidadesDaRevenda(revendaId),
     aba === "sugestoes" ? sugestoesPendentes(revendaId) : Promise.resolve([]),
-    aba === "base"
-      ? configDoPdv(revendaId)
-      : Promise.resolve({ clientesLink: null, importadoEm: null, total: null }),
   ]);
 
   const mapaCategorias = new Map(categorias.map((c) => [c.id, c]));
@@ -455,82 +455,6 @@ export default async function ParticularidadesDoPdvPage({
         </form>
       )}
 
-      {aba === "base" && (
-        <section className="space-y-3">
-          {/*
-            A BASE DE CLIENTES, ligada por link -- do jeito que o dono
-            propôs: "colocaria no Google Drive e incluiria o link no app
-            para fazer a conexão".
-
-            O DRIVE CONTINUA DONO DO DADO. Aqui é cópia, refeita a cada
-            importação: atualizar é trocar o arquivo lá e apertar o botão.
-            O app guarda só as colunas que usa -- copiar a planilha inteira
-            criaria uma segunda verdade sobre o cliente, que envelhece
-            sozinha e ninguém sabe qual das duas vale.
-          */}
-          <div className="rounded-2xl bg-slate-50 p-3 text-xs leading-relaxed text-slate-600">
-            O app lê a planilha e guarda <strong>só seis colunas</strong>: código, nome, telefone,
-            cidade, bairro e endereço. O resto fica no Drive, que continua sendo o dono do dado —
-            atualizar é trocar o arquivo lá e apertar o botão aqui.
-            <br />
-            <strong>As colunas são achadas pelo nome</strong>, não pela posição: “Código Cliente”,
-            “Razão Social”, “Celular”, “Telefone”, “Município”… Se a exportação mudar de layout, o
-            import continua funcionando — e diz quantos telefones encontrou.
-            <br />
-            <strong>CSV é mais leve que XLSX.</strong> Os dois funcionam; se a planilha passar de
-            uns 15 MB, exporte em CSV — o XLSX descompacta para várias vezes o próprio tamanho
-            dentro do servidor.
-          </div>
-
-          <form
-            action={importarClientes}
-            className="space-y-2 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
-          >
-            <label className={rotulo} htmlFor="clientes_link">
-              Link da planilha (ou da pasta) no Drive
-            </label>
-            <input
-              id="clientes_link"
-              name="clientes_link"
-              defaultValue={config.clientesLink ?? ""}
-              required
-              placeholder="https://drive.google.com/file/d/..."
-              className={campo}
-            />
-            <p className="text-[11px] leading-snug text-slate-500">
-              Prefira o link do <strong>próprio arquivo</strong> (abra a planilha no Drive →
-              Compartilhar → Copiar link). Link de pasta também funciona, mas depende de o app
-              conseguir ler a listagem do Drive, que é a parte que mais falha.
-              <br />
-              Compartilhe como <strong>“Qualquer pessoa com o link”</strong> — o app baixa sem
-              credencial, então um arquivo restrito volta como “não consegui baixar”.
-            </p>
-
-            <div className="flex flex-wrap items-center gap-3 pt-1">
-              <BotaoEnviar
-                textoEnviando="Importando... isso leva um tempo"
-                className="rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-white hover:bg-primary-dark"
-              >
-                Salvar link e importar
-              </BotaoEnviar>
-              <span className="text-xs text-slate-500">
-                {config.importadoEm
-                  ? `${config.total ?? 0} cliente(s) na base · atualizada ${tempoDesde(config.importadoEm)}`
-                  : "Nunca importada."}
-              </span>
-            </div>
-          </form>
-
-          <p className="text-xs leading-snug text-slate-500">
-            Para que serve: com o telefone, o botão do WhatsApp na tela{" "}
-            <Link href="/gestao/pdv" className="font-semibold text-primary hover:underline">
-              📅 O dia
-            </Link>{" "}
-            abre a <strong>conversa certa</strong> já com a mensagem escrita. Sem ele, abre o
-            seletor de contato e o texto se perde no caminho.
-          </p>
-        </section>
-      )}
 
       {aba === "sugestoes" && (
         <section>

@@ -18,6 +18,7 @@ import { importarRating } from "@/app/admin/rating/actions";
 import { importarRefugo } from "@/app/admin/refugo/actions";
 import { importarDevolucao } from "@/app/admin/devolucao/actions";
 import { atualizarRotas } from "@/app/admin/rotas/actions";
+import { importarClientes } from "@/app/admin/pdv-particularidades/actions";
 
 /**
  * O botão "Atualizar agora" chama a MESMA action do módulo, passando
@@ -32,6 +33,11 @@ const IMPORTAR: Record<string, ((f: FormData) => Promise<void>) | undefined> = {
   refugo: importarRefugo,
   devolucao: importarDevolucao,
   rotas: atualizarRotas,
+  // A base de clientes entrou aqui em 08/09/2026, a pedido do dono. Ela
+  // nasceu como aba do cadastro de particularidades, e o lugar estava
+  // errado: é uma fonte igual às outras -- link do Drive, botão de
+  // atualizar, data da última entrada.
+  clientes: importarClientes,
 };
 
 export const dynamic = "force-dynamic";
@@ -116,7 +122,11 @@ export default async function FontesDeDadosPage({
   const permissoes = new Map<string, boolean>();
   await Promise.all(
     FONTES.map(async (f) =>
-      permissoes.set(f.chave, await podeNoModulo(f.modulo as never, "criar")),
+      // "criar" para quase todas -- é a permissão de importar. A base de
+      // clientes pede "editar": nela, "criar" é cadastrar a particularidade
+      // de um cliente, coisa de quem monitora rota, e essa pessoa não tem
+      // por que poder trocar a base inteira.
+      permissoes.set(f.chave, await podeNoModulo(f.modulo as never, f.acaoParaEditar ?? "criar")),
     ),
   );
 
@@ -265,7 +275,7 @@ function CartaoDaFonte({
             A lógica de importação NÃO é duplicada: o formulário chama a
             mesma action do módulo, passando para onde voltar. O resultado
             aparece aqui, onde o clique aconteceu. */}
-        {atualizar && podeEditar && (
+        {atualizar && podeEditar && !fonte.salvaNoImport && (
           <form action={atualizar} className="mt-3">
             <input type="hidden" name="voltar_para" value="/admin/fontes-de-dados" />
             <BotaoEnviar
@@ -319,6 +329,42 @@ function CartaoDaFonte({
               Editar as planilhas da RV →
             </Link>
           </>
+        ) : podeEditar && fonte.salvaNoImport && atualizar ? (
+          /* UM CAMPO E UM BOTÃO SÓ: colar o link já importa.
+             Separar "salvar" de "atualizar" daria dois botões para uma
+             decisão só, e metade das vezes alguém salvaria o link sem
+             importar -- deixando o cartão dizendo "sem fonte" com o link
+             certo na frente. */
+          <form action={atualizar} className="space-y-2">
+            <input type="hidden" name="voltar_para" value="/admin/fontes-de-dados" />
+            <label
+              className="block text-[11px] font-semibold uppercase text-slate-500"
+              htmlFor={`link-${fonte.chave}`}
+            >
+              Link no Drive
+            </label>
+            <div className="flex flex-wrap gap-2">
+              <input
+                id={`link-${fonte.chave}`}
+                name="link"
+                defaultValue={estado?.pasta_link ?? ""}
+                required
+                placeholder="https://drive.google.com/file/d/..."
+                className={`${campo} min-w-0 flex-1`}
+              />
+              <BotaoEnviar
+                compacto
+                textoEnviando="Importando..."
+                className="shrink-0 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary-dark"
+              >
+                Salvar e importar
+              </BotaoEnviar>
+            </div>
+            {fonte.aoAtualizar && (
+              <p className="text-[11px] text-slate-400">{fonte.aoAtualizar}</p>
+            )}
+            <p className="text-[11px] text-slate-400">{fonte.ajuda}</p>
+          </form>
         ) : podeEditar ? (
           <form action={salvarFonte} className="space-y-2">
             <input type="hidden" name="chave" value={fonte.chave} />

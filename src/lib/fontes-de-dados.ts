@@ -37,6 +37,24 @@ export type Fonte = {
   /** Texto de ajuda específico: cada fonte tem uma pegadinha diferente. */
   ajuda: string;
   /**
+   * A ação do módulo que autoriza configurar esta fonte. Quase todas usam
+   * "criar", que é a permissão de importar. A base de clientes usa
+   * "editar": nela, "criar" é cadastrar a particularidade de um cliente --
+   * coisa que quem monitora rota faz, e não tem por que dar a essa pessoa o
+   * poder de trocar a base inteira.
+   */
+  acaoParaEditar?: "criar" | "editar";
+  /**
+   * O link é salvo pela PRÓPRIA importação, num gesto só.
+   *
+   * O caminho normal desta tela tem dois botões (salvar o link, depois
+   * atualizar) e uma tabela com `pasta_id`. A base de clientes não tem
+   * `pasta_id` -- ela aceita link de arquivo e de planilha do Google, que
+   * não são pasta nenhuma -- e separar salvar de importar deixaria metade
+   * das vezes um link certo com a tela dizendo "nunca importada".
+   */
+  salvaNoImport?: boolean;
+  /**
    * O que o botão de atualizar faz, em uma frase.
    *
    * Cada import tem um custo diferente -- o da devolução lê ~7 mil linhas
@@ -111,11 +129,13 @@ export const FONTES: Fonte[] = [
     alimenta: "O telefone do PDV (que abre a conversa certa no WhatsApp) e a busca de clientes no cadastro de particularidades",
     tipo: "pasta-drive",
     tabela: "pa_pdv_config",
-    telaDoModulo: "/admin/pdv-particularidades?aba=base",
+    telaDoModulo: "/admin/pdv-particularidades",
     modulo: "pdv-particularidades",
+    acaoParaEditar: "editar",
+    salvaNoImport: true,
     aoAtualizar: "Lê a planilha inteira e guarda seis colunas. Uma base de milhares de clientes leva alguns minutos.",
     ajuda:
-      "Aceita o link do ARQUIVO ou da pasta. As colunas são achadas pelo nome (Código Cliente, Razão Social, Celular, Município...), então mudar o layout da exportação não quebra o import. Se a planilha passar de uns 15 MB, exporte em CSV: o XLSX descompacta para várias vezes o próprio tamanho no servidor.",
+      "Prefira o link do PRÓPRIO ARQUIVO (abra a planilha no Drive → Compartilhar → Copiar link); pasta também funciona, mas depende de o app ler a listagem do Drive, que é a parte que mais falha. Vale para .csv, .xlsx e planilha do Google. As colunas são achadas pelo nome (Código Cliente, Razão Social, Celular, Município...), então mudar o layout da exportação não quebra o import. Acima de uns 15 MB, exporte em CSV: o XLSX descompacta para várias vezes o próprio tamanho no servidor.",
   },
   {
     chave: "produtos",

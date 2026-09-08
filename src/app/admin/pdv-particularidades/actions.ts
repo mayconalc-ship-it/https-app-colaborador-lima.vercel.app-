@@ -30,41 +30,38 @@ const texto = (formData: FormData, campo: string) => String(formData.get(campo) 
  * link no app para fazer a conexão", para o telefone do PDV alimentar o
  * botão do WhatsApp.
  *
+ * MORA AQUI, MAS A TELA É A DE FONTES DE DADOS (08/09/2026, pedido do
+ * dono: "transfira o módulo de base de clientes para a fonte de dados").
+ * Mesma solução das outras cinco fontes: a lógica de importação fica na
+ * action do módulo, e a tela de Fontes chama ESTA action passando
+ * `voltar_para`. Nada é duplicado -- só o destino do redirecionamento
+ * muda, e é por isso que as duas telas nunca discordam.
+ *
  * O link é salvo JUNTO com a importação, num gesto só. Salvar e importar
  * separados dariam dois botões para uma decisão só -- e a metade das vezes
  * alguém salvaria o link sem importar, deixando a tela dizendo "nunca
  * importada" com o link certo na frente.
- *
- * A mensagem conta o que ENTROU e o que FALTOU. "Importado com sucesso"
- * numa base sem a coluna de telefone é a pior resposta possível: tudo
- * parece certo, e o botão do WhatsApp continua abrindo o seletor de
- * contato para todo mundo.
  */
 export async function importarClientes(formData: FormData) {
   await requireModulo("pdv-particularidades", "editar");
   const revendaId = await exigirRevenda(ROTA);
 
-  const link = texto(formData, "clientes_link");
-  if (!link) voltar("erro", "Cole o link da planilha no Drive.", "&aba=base");
+  const destino = texto(formData, "voltar_para") || ROTA;
+  const erroEm = (mensagem: string): never =>
+    redirect(`${destino}?erro=${encodeURIComponent(mensagem)}`);
+
+  // Da tela de Fontes o campo se chama `link` (é o nome que todas as
+  // fontes usam); da tela do módulo, `clientes_link`.
+  const link = texto(formData, "link") || texto(formData, "clientes_link");
+  if (!link) erroEm("Cole o link da planilha no Drive.");
 
   const r = await importarBaseDeClientes(revendaId, link);
-  if (!r.ok) {
-    voltar("erro", `Não deu para importar: ${r.erro ?? "motivo desconhecido"}`, "&aba=base");
-  }
-
-  const semTelefone = r.gravados - r.comTelefone;
-  const recado =
-    `${r.gravados} cliente(s) na base, ${r.comTelefone} com telefone` +
-    (semTelefone > 0 ? ` e ${semTelefone} sem` : "") +
-    (r.semCodigo > 0 ? `. ${r.semCodigo} linha(s) ignorada(s) por não terem código` : "") +
-    `. Colunas achadas: ${r.colunasAchadas.join(", ") || "nenhuma"}.` +
-    (r.comTelefone === 0
-      ? " ⚠️ Nenhum telefone entrou — confira se a planilha tem uma coluna Celular ou Telefone."
-      : "");
+  if (!r.ok) erroEm(`Não deu para importar: ${r.erro ?? "motivo desconhecido"}`);
 
   revalidatePath(ROTA);
+  revalidatePath("/admin/fontes-de-dados");
   revalidatePath("/gestao/pdv");
-  voltar("sucesso", recado, "&aba=base");
+  redirect(`${destino}?sucesso=${encodeURIComponent(r.resumo ?? "Base importada.")}`);
 }
 
 /** A busca do combobox. Devolve objeto normal -- é chamada do cliente,
