@@ -33,6 +33,7 @@ import {
 } from "@/lib/relato-anomalia";
 import { BotaoExcluir } from "@/components/BotaoExcluir";
 import { podeNoModulo } from "@/lib/require-admin";
+import { carretasDoDia, temSerie } from "@/lib/gatilho-anomalia-server";
 import {
   assinarRelato,
   buscarPessoasDoRelato,
@@ -160,6 +161,17 @@ export default async function RelatoDeAnomaliaPage({
   const assinado = Boolean(r.assinado_em);
   const porques = r.porques ?? [];
   const padronizacao = r.padronizacao ?? {};
+
+  /*
+    AS CARRETAS DO DIA, só para os indicadores que saem do RECEBIMENTO.
+
+    `temSerie` é a mesma lista que o gatilho usa (avaria e TMA hoje) -- e é
+    a lista certa aqui: são os indicadores cujo número é a média das
+    carretas do dia, então são os únicos em que a carreta identifica o
+    disparo. Num relato de Refugo ou de Devolução, a mesma lista de
+    carretas seria ruído com cara de evidência.
+  */
+  const carretas = temSerie(r.indicador) ? await carretasDoDia(revendaId, r.dia_do_disparo) : [];
 
   /*
     A UNIDADE DO INDICADOR vem do catálogo de metas -- é lá que ela já
@@ -367,6 +379,65 @@ export default async function RelatoDeAnomaliaPage({
               é o que garante que o desvio seja tratado, e não apenas percebido.
             </p>
           </div>
+
+          {/*
+            AS CARRETAS DO DIA (08/09/2026, pedido do dono: "quando houver um
+            relato de anomalia de blitz, por exemplo, precisa colocar os dados
+            da carreta no relato para identificar").
+
+            O relato dizia "Avaria fora do limite em 07/09, 8,4% contra 5%" e
+            parava aí. Quem trata precisava abrir outra tela para descobrir
+            QUAL carreta -- e o papel assinado não identificava o que tinha
+            sido tratado. Um relato que não diz sobre o que é não serve de
+            evidência para ninguém.
+
+            IMPRIME JUNTO, sem `so-na-tela`: é justamente no papel que a
+            identificação faz falta.
+
+            A PIOR PRIMEIRO, porque o ponto do gatilho é a média do dia: numa
+            lista de doze, a que puxou a média é a que se trata.
+          */}
+          {carretas.length > 0 && (
+            <div className="mt-3 rounded-xl border border-slate-300 bg-white p-3">
+              <p className="text-xs font-bold uppercase tracking-wide text-slate-700">
+                🚛 Carretas recebidas em {brasileira(r.dia_do_disparo)} ({carretas.length})
+              </p>
+              <p className="so-na-tela mt-0.5 text-[11px] leading-snug text-slate-500">
+                O indicador do dia é a média destas carretas — a de maior avaria vem primeiro.
+              </p>
+              <ul className="mt-2 divide-y divide-slate-100">
+                {carretas.map((c) => (
+                  <li key={c.id} className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 py-1.5">
+                    <span className="font-mono text-sm font-bold text-slate-900">
+                      {c.placaCarreta ?? "sem placa"}
+                    </span>
+                    <span className="text-xs text-slate-600">DT {c.numeroDt ?? "—"}</span>
+                    <span className="min-w-0 flex-1 truncate text-xs text-slate-500">
+                      {c.transportadora ?? "sem transportadora"}
+                      {c.motorista ? ` · ${c.motorista}` : ""}
+                    </span>
+                    {c.avariaPct !== null && (
+                      <span
+                        className={`shrink-0 text-xs font-bold tabular-nums ${
+                          c.avariaPct > r.limite ? "text-red-700" : "text-slate-600"
+                        }`}
+                      >
+                        {c.avariaPct.toLocaleString("pt-BR", { maximumFractionDigits: 2 })}% avaria
+                      </span>
+                    )}
+                    {c.blitzId && (
+                      <Link
+                        href={`/gestao/blitz/${c.blitzId}`}
+                        className="so-na-tela shrink-0 text-xs font-semibold text-primary hover:underline"
+                      >
+                        ver a blitz →
+                      </Link>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
 
           <div className="mt-3 grid gap-2 sm:grid-cols-2">
             <div>
