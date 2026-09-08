@@ -17,8 +17,10 @@ import {
 import {
   aceitarSolicitacao,
   cancelarSolicitacao,
+  editarItemDaSolicitacao,
   entregarItem,
   entregarTudo,
+  excluirItemDaSolicitacao,
   excluirSolicitacao,
   iniciarAbastecimentoDaSolicitacao,
 } from "@/app/produtividade-armazem/abastecimento/ressuprimento-actions";
@@ -77,6 +79,22 @@ export function CartaoDoPedido({
   const meuTransporte = r.operadorId === euId;
   const pendentes = r.itens.filter((i) => !i.entregueEm);
   const entregues = r.itens.length - pendentes.length;
+
+  /*
+    QUEM CORRIGE OS ITENS: quem pediu, quem está transportando, ou a
+    liderança. As duas primeiras porque são as duas que descobrem o erro --
+    quem pediu errou o número, e quem transporta é quem chega no bloco e vê
+    que o produto não existe ou que saiu quantidade diferente.
+
+    Só até virar abastecimento: dali em diante os itens já foram copiados
+    para a sessão, e mexer aqui faria as duas telas contarem histórias
+    diferentes sobre o mesmo palete. A ação de servidor recusa igual --
+    esconder o botão é cortesia, não é a regra.
+  */
+  const podeMexerNosItens =
+    !r.canceladoEm &&
+    !r.abastecimentoInicio &&
+    (podeExcluir || r.solicitanteId === euId || meuTransporte);
 
   // A cor do cartão acompanha a etapa. Verde quando alguém já está
   // abastecendo -- pedido do dono: o trabalho mudou de mãos, e a tela
@@ -154,7 +172,11 @@ export function CartaoDoPedido({
           return (
             <li
               key={i.id}
-              className={`flex min-w-0 items-center gap-3 rounded-xl p-2.5 ring-1 ${
+              // `relative` para o painel de correção abrir ancorado NESTE
+              // item. Sem ele, o `absolute` sobe até o primeiro ancestral
+              // posicionado -- que é a página -- e o painel do terceiro
+              // item aparece em cima do primeiro.
+              className={`relative flex min-w-0 items-center gap-3 rounded-xl p-2.5 ring-1 ${
                 entregue ? "bg-green-50 ring-green-200" : "bg-white ring-slate-200"
               }`}
             >
@@ -181,6 +203,75 @@ export function CartaoDoPedido({
                 </p>
                 <p className="text-[11px] tabular-nums text-slate-400">{formatarHl(i.hl)} HL</p>
               </div>
+
+              {/*
+                CORRIGIR E TIRAR O ITEM (08/09/2026, pedido do dono).
+
+                Recolhido atrás do ✏️, e não dois botões soltos na linha:
+                o item é lido dezenas de vezes por dia -- pelo empilhador
+                no bloco, pelo ajudante conferindo -- e corrigido de vez em
+                quando. O que se lê fica visível; o que se faz raramente
+                fica a um toque.
+              */}
+              {podeMexerNosItens && (
+                <details className="shrink-0">
+                  <summary className="cursor-pointer list-none rounded-lg px-2 py-1.5 text-slate-400 ring-1 ring-slate-200 hover:bg-slate-50 marker:content-none [&::-webkit-details-marker]:hidden">
+                    ✏️
+                  </summary>
+                  <div className="absolute right-2 top-full z-10 mt-1 w-60 max-w-[calc(100vw-3rem)] space-y-2 rounded-xl border border-slate-200 bg-white p-3 shadow-lg">
+                    <form action={editarItemDaSolicitacao} className="space-y-2">
+                      <input type="hidden" name="id" value={r.id} />
+                      <input type="hidden" name="item_id" value={i.id} />
+                      <p className="text-[11px] font-semibold uppercase text-slate-500">
+                        Corrigir a quantidade
+                      </p>
+                      <div className="flex gap-1.5">
+                        <input
+                          name="quantidade"
+                          inputMode="decimal"
+                          defaultValue={i.quantidade}
+                          required
+                          className="min-w-0 flex-1 rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
+                        />
+                        <select
+                          name="unidade"
+                          defaultValue={i.unidade}
+                          className="shrink-0 rounded-lg border border-slate-300 px-1.5 py-1.5 text-sm"
+                        >
+                          <option value="caixa">caixa</option>
+                          <option value="palete">palete</option>
+                        </select>
+                      </div>
+                      <BotaoEnviar
+                        compacto
+                        className="w-full rounded-lg bg-primary px-3 py-1.5 text-xs font-bold text-white hover:bg-primary-dark"
+                      >
+                        Salvar
+                      </BotaoEnviar>
+                    </form>
+
+                    {/* Item entregue não sai: é movimento que aconteceu. A
+                        correção dele é a quantidade, acima. */}
+                    {entregue ? (
+                      <p className="border-t border-slate-100 pt-2 text-[11px] leading-snug text-slate-400">
+                        Já entregue na área — para acertar o que chegou, corrija a quantidade.
+                      </p>
+                    ) : (
+                      <div className="border-t border-slate-100 pt-2">
+                        <BotaoExcluir
+                          action={excluirItemDaSolicitacao}
+                          campos={{ id: r.id, item_id: i.id }}
+                          confirmacao={`Tirar ${p?.descricao ?? "este item"} do pedido?`}
+                          rotuloConfirmar="Tirar do pedido"
+                          className="w-full rounded-lg border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-50"
+                        >
+                          🗑️ Não tem no estoque — tirar
+                        </BotaoExcluir>
+                      </div>
+                    )}
+                  </div>
+                </details>
+              )}
             </li>
           );
         })}

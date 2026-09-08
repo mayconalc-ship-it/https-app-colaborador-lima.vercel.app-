@@ -389,6 +389,202 @@ export async function iniciarAbastecimentoDaSolicitacao(formData: FormData) {
   );
 }
 
+/* ------------------------------------------------------------------ *
+ * OS ITENS DO PEDIDO, depois de enviado
+ * ------------------------------------------------------------------ */
+
+/**
+ * QUEM PODE MEXER NOS ITENS DE UM PEDIDO JÁ ENVIADO.
+ *
+ * Pedido do dono (08/09/2026): "no abastecimento de picking, deixe a opção
+ * de editar e/ou excluir os itens solicitados pelo ajudante. Pode acontecer
+ * de às vezes não ter o item solicitado e ele mesmo excluir, e em outros
+ * casos a quantidade que ele solicita não bate com o que é enviado".
+ *
+ * São duas pessoas, e por motivos diferentes:
+ *
+ *   QUEM PEDIU corrige o próprio pedido -- errou a quantidade, pediu o que
+ *   não precisava.
+ *
+ *   QUEM TRANSPORTA corrige o que a realidade do bloco impôs: o produto não
+ *   existe no estoque, ou saiu quantidade diferente da pedida. É ele quem
+ *   descobre isso, com o palete na frente, e obrigá-lo a chamar quem pediu
+ *   para consertar um número transformaria uma correção de dez segundos numa
+ *   viagem perdida.
+ *
+ * E a liderança com "produtividade-armazem:excluir", a mesma régua do
+ * pedido inteiro.
+ *
+ * DEPOIS QUE VIROU ABASTECIMENTO, NÃO. Os itens são COPIADOS para a sessão
+ * de abastecimento quando ela começa; mexer no pedido daí em diante faria
+ * as duas telas contarem histórias diferentes sobre o mesmo palete. A
+ * própria tela de abastecimento já permite tirar e acrescentar item antes
+ * de finalizar -- é lá que a diferença entre o pedido e o abastecido tem
+ * que aparecer.
+ */
+async function pedidoQuePossoMexer(id: string) {
+  const perfil = await getPerfil();
+  if (!perfil) redirect("/login");
+
+  const revendaId = await getRevendaId();
+  if (!revendaId) erro("Você não está em nenhuma revenda.");
+  if (!id) erro("Pedido inválido.");
+
+  const admin = createAdminClient();
+  const { data: pedido } = await admin
+    .from("pa_ressuprimentos")
+    .select(
+      "id, solicitante_id, operador_id, cancelado_em, pa_ressuprimento_itens(id), pa_abastecimentos(id)",
+    )
+    .eq("id", id)
+    .eq("revenda_id", revendaId)
+    .maybeSingle();
+
+  if (!pedido) erro("Pedido não encontrado.");
+  if (pedido.cancelado_em) erro("Este pedido foi cancelado — não dá para mexer nos itens.");
+  if (((pedido.pa_abastecimentos ?? []) as unknown[]).length > 0) {
+    erro(
+      "Este pedido já virou abastecimento. Tire ou acrescente item na tela do abastecimento, que é onde a diferença entre o pedido e o abastecido aparece.",
+    );
+  }
+
+  const gestor = await podeNoModulo("produtividade-armazem", "excluir");
+  const meu = pedido.solicitante_id === perfil.id;
+  const euTransporto = pedido.operador_id === perfil.id;
+  if (!gestor && !meu && !euTransporto) {
+    erro("Só quem pediu, quem está transportando ou a liderança pode mexer nos itens.");
+  }
+
+  return {
+    perfil,
+    revendaId,
+    admin,
+    quantosItens: ((pedido.pa_ressuprimento_itens ?? []) as unknown[]).length,
+  };
+}
+
+/** O item, com os fatores do produto para recalcular o HL. */
+async function itemDoPedido(
+  admin: ReturnType<typeof createAdminClient>,
+  revendaId: string,
+  itemId: string,
+) {
+  const { data } = await admin
+    .from("pa_ressuprimento_itens")
+    .select(
+      "id, ressuprimento_id, produto_id, unidade, quantidade, entregue_em, pa_produtos!inner(descricao, fator_hecto, caixas_pallet, caixas_por_lastro, unidades_por_caixa)",
+    )
+    .eq("id", itemId)
+    .eq("revenda_id", revendaId)
+    .maybeSingle();
+
+  if (!data) erro("Item não encontrado.");
+  const produto = data.pa_produtos as unknown as {
+    descricao: string;
+    fator_hecto: number | null;
+    caixas_pallet: number | null;
+    caixas_por_lastro: number | null;
+    unidades_por_caixa: number | null;
+  };
+  return { item: data, produto };
+}
+
+/**
+ * CORRIGE A QUANTIDADE (e a unidade) de um item já pedido.
+ *
+ * O HL É RECALCULADO AQUI, no servidor, e regravado. Ele não é enfeite: é
+ * o que soma no indicador do armazém. Mudar a quantidade e deixar o HL
+ * antigo seria a pior combinação -- a tela diria 6 caixas e o relatório
+ * continuaria contando 10.
+ */
+export async function editarItemDaSolicitacao(formData: FormData) {
+  const pedidoId = String(formData.get("id") ?? "");
+  const { revendaId, admin } = await pedidoQuePossoMexer(pedidoId);
+
+  const itemId = String(formData.get("item_id") ?? "");
+  if (!itemId) erro("Item inválido.");
+
+  const { item, produto } = await itemDoPedido(admin, revendaId, itemId);
+  if (item.ressuprimento_id !== pedidoId) erro("Este item não é deste pedido.");
+
+  const unidade = String(formData.get("unidade") ?? item.unidade);
+  if (!ehUnidadeAbastecimento(unidade)) erro("Escolha a unidade.");
+
+  const quantidade = Number(String(formData.get("quantidade") ?? "").replace(",", "."));
+  if (!Number.isFinite(quantidade) || quantidade <= 0) {
+    erro(`Informe uma quantidade maior que zero para ${produto.descricao}.`);
+  }
+  if (quantidade > 100_000) erro("Quantidade fora do razoável -- confira o que digitou.");
+
+  const fatores = {
+    fatorHecto: produto.fator_hecto,
+    caixasPallet: produto.caixas_pallet,
+    caixasPorLastro: produto.caixas_por_lastro,
+    unidadesPorCaixa: produto.unidades_por_caixa,
+  };
+  const hl = calcularHl(quantidade, unidade, fatores);
+  if (hl === null) {
+    const falta = faltaNoCadastro(unidade, fatores);
+    erro(`${produto.descricao} não tem "${falta}" no cadastro — peça em outra unidade.`);
+  }
+
+  const { error } = await admin
+    .from("pa_ressuprimento_itens")
+    .update({ unidade, quantidade, hl_calculado: hl })
+    .eq("id", itemId)
+    .eq("revenda_id", revendaId);
+
+  if (error) erro(`Não foi possível corrigir o item: ${error.message}`);
+
+  revalidatePath(ROTA);
+  pronto(`${produto.descricao}: agora ${quantidade} ${unidade}(s).`);
+}
+
+/**
+ * TIRA UM ITEM do pedido -- o caso do produto que não existe no bloco.
+ *
+ * DOIS LIMITES, e cada um evita um estrago diferente:
+ *
+ *   ITEM JÁ ENTREGUE NÃO SAI. A entrega é um movimento que aconteceu, com
+ *   hora e dono; apagá-la some com HL que alguém carregou de verdade. Se a
+ *   quantidade entregue foi outra, o caminho é CORRIGIR, não apagar.
+ *
+ *   O ÚLTIMO ITEM NÃO SAI. Um pedido sem item nenhum é o cabeçalho órfão
+ *   que a criação já se recusa a gerar: a empilhadeira não consegue
+ *   atender e ninguém consegue cancelar, porque não dá para saber o que
+ *   era. Quem quer zerar o pedido cancela ou exclui o pedido.
+ */
+export async function excluirItemDaSolicitacao(formData: FormData) {
+  const pedidoId = String(formData.get("id") ?? "");
+  const { revendaId, admin, quantosItens } = await pedidoQuePossoMexer(pedidoId);
+
+  const itemId = String(formData.get("item_id") ?? "");
+  if (!itemId) erro("Item inválido.");
+
+  const { item, produto } = await itemDoPedido(admin, revendaId, itemId);
+  if (item.ressuprimento_id !== pedidoId) erro("Este item não é deste pedido.");
+
+  if (item.entregue_em) {
+    erro(
+      `${produto.descricao} já foi entregue na área. Para acertar o que chegou, corrija a quantidade em vez de apagar.`,
+    );
+  }
+  if (quantosItens <= 1) {
+    erro("Este é o único item do pedido. Para zerar, cancele ou exclua o pedido inteiro.");
+  }
+
+  const { error } = await admin
+    .from("pa_ressuprimento_itens")
+    .delete()
+    .eq("id", itemId)
+    .eq("revenda_id", revendaId);
+
+  if (error) erro(`Não foi possível tirar o item: ${error.message}`);
+
+  revalidatePath(ROTA);
+  pronto(`${produto.descricao} saiu do pedido.`);
+}
+
 /**
  * Apaga o pedido de vez -- o teste, o engano, o dedo torto.
  *
