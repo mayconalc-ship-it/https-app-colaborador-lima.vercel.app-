@@ -8,8 +8,6 @@ import {
   FONTES,
   ROTULO_TIPO,
   estaVelha,
-  fontesComLink,
-  fontesPorUpload,
   tempoDesde,
   type Fonte,
 } from "@/lib/fontes-de-dados";
@@ -110,7 +108,9 @@ export default async function FontesDeDadosPage({
   }
 
   const admin = createAdminClient();
-  const comLink = fontesComLink();
+  // Toda fonte tem link desde 08/09/2026 -- as duas por upload saíram da
+  // lista, a pedido do dono.
+  const comLink = FONTES;
 
   // Uma leitura por tabela, em paralelo. São 5 tabelas pequenas de uma
   // linha; não vale a pena inventar uma view para isto.
@@ -221,22 +221,12 @@ export default async function FontesDeDadosPage({
             sucesso={aberta === f.chave ? sp.sucesso : undefined}
           />
         ))}
-
-        {fontesPorUpload().map((f) => (
-          <CartaoDaFonte
-            key={f.chave}
-            fonte={f}
-            estado={null}
-            podeEditar={false}
-            aberta={aberta === f.chave}
-          />
-        ))}
       </div>
 
       <p className="rounded-xl bg-slate-50 p-3 text-xs text-slate-500">
         💡 <strong>Atualizar</strong> lê a fonte e traz o que há de novo para o app — é o que faz o
-        número aparecer para o colaborador. A tela de cada módulo continua com o botão dela e com o
-        histórico completo das importações anteriores.
+        número aparecer para o colaborador. A tela de cada módulo continua com o histórico das
+        importações anteriores.
       </p>
     </div>
   );
@@ -264,9 +254,8 @@ function CartaoDaFonte({
   erro?: string;
   sucesso?: string;
 }) {
-  const porUpload = fonte.tipo === "upload";
-  const configurada = porUpload ? true : !!estado?.pasta_link;
-  const velha = !porUpload && configurada && estaVelha(estado?.ultima_sincronizacao);
+  const configurada = !!estado?.pasta_link;
+  const velha = configurada && estaVelha(estado?.ultima_sincronizacao);
   const voltarPara = enderecoDa(fonte.chave);
 
   return (
@@ -298,21 +287,19 @@ function CartaoDaFonte({
         <span className="min-w-0 flex-1">
           <span className="block truncate text-sm font-bold text-slate-900">{fonte.rotulo}</span>
           <span className="block text-[11px] text-slate-500">
-            {porUpload ? "por envio de arquivo" : tempoDesde(estado?.ultima_sincronizacao)}
+            {tempoDesde(estado?.ultima_sincronizacao)}
           </span>
         </span>
         <span
           className={`shrink-0 rounded-lg px-2 py-1 text-[11px] font-bold ${
-            porUpload
-              ? "bg-slate-100 text-slate-600"
-              : !configurada
-                ? "bg-red-50 text-red-700"
-                : velha
-                  ? "bg-amber-50 text-amber-800"
-                  : "bg-green-50 text-green-700"
+            !configurada
+              ? "bg-red-50 text-red-700"
+              : velha
+                ? "bg-amber-50 text-amber-800"
+                : "bg-green-50 text-green-700"
           }`}
         >
-          {porUpload ? "manual" : !configurada ? "sem fonte" : velha ? "sem atualizar" : "em dia"}
+          {!configurada ? "sem fonte" : velha ? "sem atualizar" : "em dia"}
         </span>
       </summary>
 
@@ -339,7 +326,6 @@ function CartaoDaFonte({
           </Link>
         </div>
 
-        {porUpload && <p className="mt-2 text-[11px] text-slate-400">{fonte.ajuda}</p>}
 
         {/* O BOTÃO DE ATUALIZAR mora aqui, e não só na tela do módulo.
             A página acabou de dizer "sem atualizar há 4 dias"; mandar a

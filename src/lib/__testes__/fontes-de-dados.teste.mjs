@@ -4,7 +4,7 @@
 // organizada, que e pior que a bagunca de antes.
 //   npx tsx src/lib/__testes__/fontes-de-dados.teste.mjs
 import {
-  FONTES, ROTULO_TIPO, fontesComLink, fontesPorUpload, fonteDe,
+  FONTES, ROTULO_TIPO, fonteDe,
   tempoDesde, estaVelha, DIAS_ATE_ENVELHECER,
 } from "../fontes-de-dados.ts";
 
@@ -27,14 +27,26 @@ ok("toda fonte aponta para a tela do modulo", FONTES.every((f) => f.telaDoModulo
 ok("toda fonte diz de qual modulo herda a permissao", FONTES.every((f) => !!f.modulo));
 ok("todo tipo tem rotulo", FONTES.every((f) => !!ROTULO_TIPO[f.tipo]));
 
-// Quem guarda link PRECISA dizer em qual tabela; quem nao guarda nao pode
-// dizer -- senao a tela tentaria gravar num lugar que nao existe.
-console.log("\n== LINK E TABELA ANDAM JUNTOS ==");
-ok("fonte com link aponta a tabela", fontesComLink().every((f) => !!f.tabela));
-ok("fonte por upload NAO aponta tabela", fontesPorUpload().every((f) => !f.tabela));
-eq("quantas guardam link", fontesComLink().length, 6);
-eq("quantas sao por upload", fontesPorUpload().length, 2);
-eq("as duas listas somam o catalogo", fontesComLink().length + fontesPorUpload().length, FONTES.length);
+// TODA fonte guarda link desde 08/09/2026: as duas por upload (Produtos e
+// Desafio) sairam do catalogo. Sem tabela, a tela tentaria gravar num
+// lugar que nao existe -- e uma gaveta que nao aponta nem atualiza so
+// ensina que algumas gavetas nao fazem nada.
+console.log("\n== TODA FONTE TEM LINK E TABELA ==");
+ok("toda fonte aponta a tabela", FONTES.every((f) => !!f.tabela));
+eq("quantas fontes", FONTES.length, 6);
+ok("nenhuma e por envio de arquivo", FONTES.every((f) => f.tipo !== "upload"));
+// A acao que libera cada fonte tem que EXISTIR no modulo dela -- "criar"
+// no RV nunca apareceria para ninguem (ver 08/09/2026).
+ok(
+  "acaoParaEditar so aceita criar ou editar",
+  FONTES.every((f) => !f.acaoParaEditar || ["criar", "editar"].includes(f.acaoParaEditar)),
+);
+// Opcao de import sem nome nao chega ao servidor: o campo vai no FormData
+// por ele.
+ok(
+  "toda opcao de import tem nome e rotulo",
+  FONTES.every((f) => (f.opcoes ?? []).every((o) => !!o.nome && !!o.rotulo)),
+);
 
 console.log("\n== BUSCA ==");
 eq("acha pela chave", fonteDe("rating").rotulo, "Rating de Entrega");

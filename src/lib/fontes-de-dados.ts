@@ -17,9 +17,7 @@ export type TipoDaFonte =
   /** Pasta pública do Drive, varrida pelo app. */
   | "pasta-drive"
   /** Planilha publicada como CSV, lida por URL. */
-  | "csv-publicado"
-  /** Arquivo enviado à mão na tela do módulo. Não há link a guardar. */
-  | "upload";
+  | "csv-publicado";
 
 export type Fonte = {
   chave: string;
@@ -172,42 +170,31 @@ export const FONTES: Fonte[] = [
     ajuda:
       "Prefira o link do PRÓPRIO ARQUIVO (abra a planilha no Drive → Compartilhar → Copiar link); pasta também funciona, mas depende de o app ler a listagem do Drive, que é a parte que mais falha. Vale para .csv, .xlsx e planilha do Google. As colunas são achadas pelo nome (Código Cliente, Razão Social, Celular, Município...), então mudar o layout da exportação não quebra o import. Acima de uns 15 MB, exporte em CSV: o XLSX descompacta para várias vezes o próprio tamanho no servidor.",
   },
-  {
-    chave: "produtos",
-    rotulo: "Produtos do Armazém",
-    alimenta: "Catálogo de produtos, embalagens e fatores de conversão do Reepack e do Despejo",
-    tipo: "upload",
-    telaDoModulo: "/admin/produtividade-armazem",
-    modulo: "produtividade-armazem",
-    ajuda:
-      "Enviada à mão, pela tela do módulo. Não há link a guardar: você exporta a planilha padrão e sobe o arquivo quando houver cadastro novo.",
-  },
-  {
-    chave: "quiz",
-    rotulo: "Questões do Desafio",
-    alimenta: "O banco de perguntas do Desafio do Mês",
-    tipo: "upload",
-    telaDoModulo: "/admin/quiz",
-    modulo: "quiz",
-    ajuda: "Enviada à mão, pela tela do módulo.",
-  },
 ];
+
+/*
+  PRODUTOS DO ARMAZÉM E QUESTÕES DO DESAFIO SAÍRAM DAQUI (08/09/2026,
+  pedido do dono: "Desafio do Mês e produtos pode retirar de lá").
+
+  Elas eram fontes do tipo "upload": entravam na lista só para a resposta
+  "de onde vêm os dados deste app?" ficar completa. O argumento parecia
+  bom e não era -- esta tela é onde se APONTA e se ATUALIZA, e nenhuma das
+  duas tem link para apontar ou botão para apertar. Uma linha que só diz
+  "vá para outra tela" ocupa o lugar de uma fonte de verdade e ensina que
+  algumas gavetas não fazem nada.
+
+  O arquivo delas vem do computador da pessoa e sobe na tela do módulo,
+  junto do catálogo que ele altera -- que é onde continua.
+
+  Com as duas fora, todas as fontes têm link, e `fontesComLink`/
+  `fontesPorUpload` deixaram de separar coisa nenhuma: quem quer a lista
+  usa FONTES.
+*/
 
 export const ROTULO_TIPO: Record<TipoDaFonte, string> = {
   "pasta-drive": "Pasta do Drive",
   "csv-publicado": "CSV publicado",
-  upload: "Envio de arquivo",
 };
-
-/** As que guardam link e podem ser editadas aqui. */
-export function fontesComLink(): Fonte[] {
-  return FONTES.filter((f) => f.tipo !== "upload");
-}
-
-/** As que só existem pela tela do módulo. */
-export function fontesPorUpload(): Fonte[] {
-  return FONTES.filter((f) => f.tipo === "upload");
-}
 
 export function fonteDe(chave: string): Fonte | undefined {
   return FONTES.find((f) => f.chave === chave);
