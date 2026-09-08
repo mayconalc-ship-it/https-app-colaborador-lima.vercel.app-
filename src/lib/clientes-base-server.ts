@@ -3,9 +3,10 @@ import "server-only";
 import { Readable } from "node:stream";
 import ExcelJS from "exceljs";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { baixarBytesDoDrive, baixarTextoDoDrive, idDaPasta, listarArquivosDaPasta } from "@/lib/drive-pasta";
+import { baixarBytesDoDrive, baixarTextoDoDrive, listarArquivosDaPasta } from "@/lib/drive-pasta";
 import {
   acharColunas,
+  idDoLinkDoDrive,
   lerLinhaDeCliente,
   type ClienteDaBase,
 } from "@/lib/clientes-base";
@@ -46,23 +47,36 @@ export type ResultadoDoImport = {
 };
 
 /**
- * Aceita link de ARQUIVO ou de PASTA.
+ * Aceita link de ARQUIVO, de PLANILHA DO GOOGLE ou de PASTA.
  *
- * O dono disse que colocaria a planilha no Drive e colaria o link; qual
- * dos dois ele vai colar não dá para saber, e errar aqui devolve "não
- * consegui baixar" para um link que está perfeito. Pasta: pega o arquivo
- * mais recente que pareça a base.
+ * TRÊS FORMAS PORQUE SÃO TRÊS LINKS DIFERENTES, e quem cola não tem por
+ * que saber disso. O arquivo enviado ao Drive sai como `/file/d/ID`; a
+ * planilha aberta no Google Sheets sai como
+ * `docs.google.com/spreadsheets/d/ID` -- endereço de download totalmente
+ * diferente --; e a pasta, como `/folders/ID`. Recusar dois deles devolve
+ * "não consegui baixar" para um link que está perfeito.
  */
-export function idDoArquivo(link: string): { arquivo?: string; pasta?: string } {
-  const limpo = (link ?? "").trim();
-  const doArquivo = limpo.match(/\/file\/d\/([a-zA-Z0-9_-]{15,})/);
-  if (doArquivo) return { arquivo: doArquivo[1] };
-  const porParametro = limpo.match(/[?&]id=([a-zA-Z0-9_-]{15,})/);
-  if (porParametro) return { arquivo: porParametro[1] };
-  const pasta = idDaPasta(limpo);
-  if (pasta && /\/folders\//.test(limpo)) return { pasta };
-  if (pasta) return { arquivo: pasta };
-  return {};
+export const idDoArquivo = idDoLinkDoDrive;
+
+/** A planilha do Google, exportada como CSV. É o único caminho que
+ *  funciona para ela: o download de arquivo devolve a página do editor. */
+async function baixarPlanilhaGoogle(id: string): Promise<string | null> {
+  for (const url of [
+    `https://docs.google.com/spreadsheets/d/${id}/export?format=csv`,
+    `https://docs.google.com/spreadsheets/d/${id}/gviz/tq?tqx=out:csv`,
+  ]) {
+    try {
+      const r = await fetch(url, { cache: "no-store", redirect: "follow" });
+      if (!r.ok) continue;
+      const texto = await r.text();
+      // Página de login em vez do CSV: o arquivo não está público.
+      if (texto.trimStart().startsWith("<")) continue;
+      return texto;
+    } catch {
+      // tenta o próximo endereço
+    }
+  }
+  return null;
 }
 
 const celula = (v: unknown): string => {
@@ -102,21 +116,37 @@ export async function importarBaseDeClientes(
     colunasAchadas: [],
   };
 
-  const { arquivo, pasta } = idDoArquivo(link);
+  const { arquivo, planilhaGoogle, pasta } = idDoArquivo(link);
   let arquivoId = arquivo ?? null;
-  let ehCsv = false;
 
-  if (!arquivoId && pasta) {
+  if (!arquivoId && !planilhaGoogle && pasta) {
     const { arquivos, erro } = await listarArquivosDaPasta(pasta);
-    if (erro) return { ...vazio, erro: `não consegui ler a pasta: ${erro}` };
-    // O primeiro que o Drive lista, preferindo xlsx/csv -- a pasta da base
-    // costuma ter um arquivo só.
+    /*
+      A LEITURA DE PASTA É O CAMINHO FRÁGIL, e o erro precisa dizer isso.
+
+      Ela não usa API: abre a página da pasta como um navegador abriria e
+      procura os arquivos dentro do HTML do Google -- formato que não é
+      documentado e muda sem aviso. Quando falha, a mensagem antiga mandava
+      conferir o compartilhamento, e a pessoa ficava conferindo uma pasta
+      que já estava pública.
+
+      O link do ARQUIVO não passa por esse HTML. É o caminho curto, e agora
+      é o que a mensagem manda usar.
+    */
+    if (erro) {
+      return {
+        ...vazio,
+        erro:
+          `não consegui ler a pasta (${erro}). ` +
+          "Cole o link do PRÓPRIO ARQUIVO em vez do da pasta: abra a planilha no Drive, " +
+          "Compartilhar › Copiar link.",
+      };
+    }
     const escolhido = arquivos[0];
     if (!escolhido) return { ...vazio, erro: "a pasta está vazia" };
     arquivoId = escolhido.id;
-    ehCsv = /\.csv$/i.test(escolhido.nome);
   }
-  if (!arquivoId) {
+  if (!arquivoId && !planilhaGoogle) {
     return { ...vazio, erro: "não reconheci o link. Cole o link do arquivo ou da pasta no Drive." };
   }
 
@@ -138,21 +168,62 @@ export async function importarBaseDeClientes(
     clientes.set(c.codPdv, c);
   };
 
+  /*
+    O FORMATO É DECIDIDO PELO CONTEÚDO, não pelo nome do arquivo.
+
+    O nome só existe quando o link é de pasta -- e mesmo lá ele mente: o
+    Drive guarda ".csv" em arquivo que virou planilha do Google e vice-
+    versa. Decidir pelo nome fazia um .csv apontado por link de arquivo cair
+    no leitor de xlsx e morrer com "não consegui ler a planilha", que não
+    diz nada a quem colou um CSV perfeito.
+
+    `baixarBytesDoDrive` já faz a checagem certa: só devolve quando os dois
+    primeiros bytes são "PK", a assinatura do zip que todo xlsx é. Não sendo
+    zip, é texto -- e aí é CSV.
+  */
+  let texto: string | null = null;
+  let bytes: Buffer | null = null;
+
+  if (planilhaGoogle) {
+    texto = await baixarPlanilhaGoogle(planilhaGoogle);
+    if (!texto) {
+      return {
+        ...vazio,
+        erro:
+          "não consegui baixar a planilha do Google. Em Compartilhar, deixe como " +
+          "'Qualquer pessoa com o link'.",
+      };
+    }
+  } else {
+    bytes = await baixarBytesDoDrive(arquivoId!);
+    if (!bytes) {
+      texto = await baixarTextoDoDrive(arquivoId!);
+      if (!texto) {
+        return {
+          ...vazio,
+          erro:
+            "não consegui baixar o arquivo. Em Compartilhar, deixe como " +
+            "'Qualquer pessoa com o link'.",
+        };
+      }
+    }
+  }
+
   try {
-    if (ehCsv) {
-      const texto = await baixarTextoDoDrive(arquivoId);
-      if (!texto) return { ...vazio, erro: "não consegui baixar (o arquivo está compartilhado?)" };
+    if (texto !== null) {
       const { cabecalho, linhas } = lerCsv(texto);
       colunas = acharColunas(cabecalho);
       if (colunas.codPdv === undefined) {
-        return { ...vazio, erro: "não achei a coluna do código do cliente no cabeçalho." };
+        return {
+          ...vazio,
+          erro: `não achei a coluna do código do cliente. O cabeçalho lido foi: ${cabecalho
+            .slice(0, 12)
+            .join(" | ")}`,
+        };
       }
       for (const l of linhas) guardar(l);
     } else {
-      const bytes = await baixarBytesDoDrive(arquivoId);
-      if (!bytes) return { ...vazio, erro: "não consegui baixar (o arquivo está compartilhado?)" };
-
-      const leitor = new ExcelJS.stream.xlsx.WorkbookReader(Readable.from(bytes), {
+      const leitor = new ExcelJS.stream.xlsx.WorkbookReader(Readable.from(bytes!), {
         // Sem estilos e sem strings compartilhadas em memória: são eles que
         // pesam num arquivo grande, e nenhum dos dois muda o valor lido.
         worksheets: "emit",
@@ -169,7 +240,17 @@ export async function importarBaseDeClientes(
             primeira = false;
             colunas = acharColunas(valores as string[]);
             if (colunas.codPdv === undefined) {
-              return { ...vazio, erro: "não achei a coluna do código do cliente no cabeçalho." };
+              // O cabeçalho lido vai na mensagem: "não achei a coluna" sem
+              // dizer o que achou obriga a adivinhar se o problema é o nome
+              // da coluna, a aba errada ou uma linha em branco no topo.
+              return {
+                ...vazio,
+                erro: `não achei a coluna do código do cliente. O cabeçalho lido foi: ${(
+                  valores as string[]
+                )
+                  .slice(0, 12)
+                  .join(" | ")}`,
+              };
             }
             continue;
           }

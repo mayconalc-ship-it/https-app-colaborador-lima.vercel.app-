@@ -498,6 +498,10 @@ export default async function ParticularidadesDoPdvPage({
               className={campo}
             />
             <p className="text-[11px] leading-snug text-slate-500">
+              Prefira o link do <strong>próprio arquivo</strong> (abra a planilha no Drive →
+              Compartilhar → Copiar link). Link de pasta também funciona, mas depende de o app
+              conseguir ler a listagem do Drive, que é a parte que mais falha.
+              <br />
               Compartilhe como <strong>“Qualquer pessoa com o link”</strong> — o app baixa sem
               credencial, então um arquivo restrito volta como “não consegui baixar”.
             </p>

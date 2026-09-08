@@ -164,6 +164,50 @@ export function lerLinhaDeCliente(
 }
 
 /**
+ * QUE TIPO DE LINK DO DRIVE É ESTE?
+ *
+ * Três formas, porque são três endereços diferentes -- e quem cola não tem
+ * por que saber disso:
+ *
+ *   `/file/d/ID`                          arquivo enviado ao Drive
+ *   `docs.google.com/spreadsheets/d/ID`   planilha do Google (baixa por
+ *                                         outra rota; a de arquivo devolve
+ *                                         a página do editor)
+ *   `/folders/ID`                         pasta
+ *
+ * Mora aqui, e não no arquivo de servidor, porque é só texto: link colado
+ * errado é o defeito mais comum de todo import do app, e um teste custa
+ * menos que descobrir pelo relato de quem tentou.
+ */
+export function idDoLinkDoDrive(link: string): {
+  arquivo?: string;
+  planilhaGoogle?: string;
+  pasta?: string;
+} {
+  const limpo = (link ?? "").trim();
+  if (!limpo) return {};
+
+  // A planilha do Google vem primeiro: o id dela também casaria com os
+  // padrões abaixo, e baixá-la pela rota de arquivo devolve HTML.
+  const doSheets = limpo.match(/docs\.google\.com\/spreadsheets\/d\/([a-zA-Z0-9_-]{15,})/);
+  if (doSheets) return { planilhaGoogle: doSheets[1] };
+
+  const daPasta = limpo.match(/\/folders\/([a-zA-Z0-9_-]{15,})/);
+  if (daPasta) return { pasta: daPasta[1] };
+
+  const doArquivo = limpo.match(/\/file\/d\/([a-zA-Z0-9_-]{15,})/);
+  if (doArquivo) return { arquivo: doArquivo[1] };
+
+  const porParametro = limpo.match(/[?&]id=([a-zA-Z0-9_-]{15,})/);
+  if (porParametro) return { arquivo: porParametro[1] };
+
+  // Id cru colado sozinho -- acontece com quem já conhece o Drive.
+  if (/^[a-zA-Z0-9_-]{15,}$/.test(limpo)) return { arquivo: limpo };
+
+  return {};
+}
+
+/**
  * O link do WhatsApp para um cliente.
  *
  * COM o número quando ele existe -- e aí o WhatsApp abre a conversa certa

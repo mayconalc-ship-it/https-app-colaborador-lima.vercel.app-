@@ -5,7 +5,7 @@
 //   npx tsx src/lib/__testes__/clientes-base.teste.mjs
 import {
   chaveDoCabecalho, acharColunas, normalizarTelefone, codigoDaBase,
-  lerLinhaDeCliente, linkDoWhatsApp,
+  lerLinhaDeCliente, linkDoWhatsApp, idDoLinkDoDrive,
 } from "../clientes-base.ts";
 
 let falhas = 0;
@@ -70,6 +70,24 @@ console.log("\nLINK DO WHATSAPP");
 eq("com numero abre a conversa certa", linkDoWhatsApp("5577999998888", "Oi"), "https://wa.me/5577999998888?text=Oi");
 eq("sem numero cai no seletor de contato", linkDoWhatsApp(null, "Oi"), "https://wa.me/?text=Oi");
 eq("escapa o texto", linkDoWhatsApp("5577999998888", "dia 08/09 & ok"), "https://wa.me/5577999998888?text=dia%2008%2F09%20%26%20ok");
+
+// O LINK COLADO ERRADO e o defeito mais comum de todo import do app. Cada
+// forma abaixo baixa por um endereco diferente, e confundir duas devolve
+// "nao consegui baixar" para um link que esta perfeito.
+console.log("\nLINK DO DRIVE");
+eq("arquivo enviado ao Drive", idDoLinkDoDrive("https://drive.google.com/file/d/1AbC_def-GHI23456789/view?usp=sharing"),
+  { arquivo: "1AbC_def-GHI23456789" });
+eq("planilha do Google nao e arquivo", idDoLinkDoDrive("https://docs.google.com/spreadsheets/d/1AbC_def-GHI23456789/edit#gid=0"),
+  { planilhaGoogle: "1AbC_def-GHI23456789" });
+eq("pasta", idDoLinkDoDrive("https://drive.google.com/drive/folders/1AbC_def-GHI23456789"),
+  { pasta: "1AbC_def-GHI23456789" });
+eq("link antigo com ?id=", idDoLinkDoDrive("https://drive.google.com/open?id=1AbC_def-GHI23456789"),
+  { arquivo: "1AbC_def-GHI23456789" });
+eq("id cru", idDoLinkDoDrive("1AbC_def-GHI23456789"), { arquivo: "1AbC_def-GHI23456789" });
+eq("espaco em volta nao atrapalha", idDoLinkDoDrive("  https://drive.google.com/file/d/1AbC_def-GHI23456789/view  "),
+  { arquivo: "1AbC_def-GHI23456789" });
+eq("vazio nao vira nada", idDoLinkDoDrive(""), {});
+eq("texto que nao e link", idDoLinkDoDrive("a base de clientes"), {});
 
 console.log(`\n${falhas === 0 ? "TUDO OK" : `${falhas} FALHA(S)`}`);
 process.exit(falhas === 0 ? 0 : 1);
