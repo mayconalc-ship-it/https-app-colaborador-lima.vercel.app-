@@ -5,7 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { exigirRevenda } from "@/lib/revendas";
 import { PageHeader } from "@/components/PageHeader";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
-import { avisarRVAtualizada, testarConexaoRV } from "./actions";
+import { testarConexaoRV } from "./actions";
 
 export default async function AdminRVPage({
   searchParams,
@@ -67,14 +67,14 @@ export default async function AdminRVPage({
             {conectadas} de {(configs ?? []).length} planilha(s) conectada(s)
           </p>
           <p className="mt-0.5 text-xs text-slate-500">
-            Os links das planilhas passaram a ser configurados em Fontes de Dados.
+            Apontar as planilhas e avisar o time que a RV foi atualizada ficam em Fontes de Dados.
           </p>
         </div>
         <Link
-          href="/admin/fontes-de-dados"
+          href="/admin/fontes-de-dados?aberta=rv#fonte-rv"
           className="shrink-0 rounded-xl border border-primary/30 bg-primary-soft px-3 py-2 text-xs font-semibold text-primary-dark hover:bg-primary/10"
         >
-          🔌 Apontar as planilhas →
+          🔌 Apontar as planilhas e avisar →
         </Link>
       </div>
 
@@ -136,30 +136,11 @@ export default async function AdminRVPage({
           </div>
         ))}
 
-        {/* A RV é lida ao vivo da planilha, então o app não tem como saber
-            sozinho que você a atualizou. Quem sabe a hora certa é você. */}
-        <form
-          action={avisarRVAtualizada}
-          className="rounded-2xl border border-primary/25 bg-primary-soft p-4"
-        >
-          <p className="text-sm font-semibold text-primary-dark">
-            🔔 Avisar que a RV foi atualizada
-          </p>
-          <p className="mt-1 text-xs text-primary-dark">
-            O aviso vai só para quem tem CPF na planilha — quem não recebe RV
-            não é incomodado. Use depois de fechar a competência.
-          </p>
-          <BotaoEnviar
-            textoEnviando="Conferindo a planilha..."
-            className="mt-3 w-full rounded-xl bg-primary py-3 text-sm font-semibold text-white hover:bg-primary-dark"
-          >
-            Avisar quem tem RV
-          </BotaoEnviar>
-          <p className="mt-2 text-xs text-primary-dark/70">
-            A planilha é lida na hora para montar a lista, então este botão
-            demora alguns segundos.
-          </p>
-        </form>
+        {/* O "avisar que a RV foi atualizada" saiu daqui (08/09/2026): ele
+            É a atualização desta fonte -- a RV é lida ao vivo da planilha,
+            então não existe importação e o aviso faz o papel dela. Mora na
+            gaveta da RV em Fontes de Dados, com o link. Ficou nos dois
+            lugares por engano meu na primeira passada. */}
       </div>
     </div>
   );
