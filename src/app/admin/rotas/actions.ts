@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { voltarCom } from "@/lib/url-de-volta";
 import { requireModulo } from "@/lib/require-admin";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { exigirRevenda } from "@/lib/revendas";
@@ -16,7 +17,7 @@ import { lerPlanilhaDeClientesPorMapa, lerPlanilhaDeRotas } from "@/lib/rotas";
 const ROTA = "/admin/rotas";
 
 function voltar(chave: "erro" | "sucesso", mensagem: string, destino = ROTA): never {
-  redirect(`${destino}?${chave}=${encodeURIComponent(mensagem)}`);
+  redirect(voltarCom(destino, chave, mensagem));
 }
 
 

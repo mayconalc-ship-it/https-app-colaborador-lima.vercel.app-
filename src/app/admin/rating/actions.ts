@@ -1,6 +1,7 @@
-﻿"use server";
+"use server";
 
 import { redirect } from "next/navigation";
+import { voltarCom } from "@/lib/url-de-volta";
 import { avisarIndicadorAtualizado } from "@/lib/aviso-indicadores-server";
 import { requireModulo } from "@/lib/require-admin";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -18,7 +19,7 @@ import { gravarEmLotes, lerPlanilhaLogCo, lerTudoEmPaginas } from "@/lib/rating-
 const ROTA = "/admin/rating";
 
 function voltar(chave: "erro" | "sucesso", mensagem: string, destino = ROTA): never {
-  redirect(`${destino}?${chave}=${encodeURIComponent(mensagem)}`);
+  redirect(voltarCom(destino, chave, mensagem));
 }
 
 /** Nome da subpasta -> o que ela contém. */

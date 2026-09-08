@@ -1,4 +1,4 @@
-﻿import Link from "next/link";
+import Link from "next/link";
 import { PageHeader } from "@/components/PageHeader";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -15,6 +15,7 @@ import {
 } from "@/lib/fontes-de-dados";
 import { salvarFonte } from "./actions";
 import { salvarConfigRV } from "@/app/admin/rv/actions";
+import { RolarAteAFonte } from "@/components/admin/RolarAteAFonte";
 import { importarRating } from "@/app/admin/rating/actions";
 import { importarRefugo } from "@/app/admin/refugo/actions";
 import { importarDevolucao } from "@/app/admin/devolucao/actions";
@@ -82,10 +83,26 @@ type LinhaRV = {
 export default async function FontesDeDadosPage({
   searchParams,
 }: {
-  searchParams: Promise<{ erro?: string; sucesso?: string }>;
+  searchParams: Promise<{ erro?: string; sucesso?: string; aberta?: string }>;
 }) {
   await requireGestor();
   const sp = await searchParams;
+  /*
+    QUAL GAVETA ESTÁ ABERTA, e ela vem da URL (08/09/2026, pedido do dono:
+    "deixe todas as fontes agrupadas e, caso haja interação em salvar, não
+    mova a tela pra cima").
+
+    As duas coisas são o mesmo problema. Oito fontes abertas de uma vez
+    davam uma página que só se lê rolando -- e, depois de salvar, o
+    redirect trazia a pessoa de volta ao TOPO, longe do campo em que ela
+    tinha acabado de mexer, sem sinal nenhum de que algo mudou.
+
+    Na URL, e não em estado de componente: a ação de servidor termina em
+    redirect, e qualquer estado de tela morre nele. `?aberta=rv` diz o que
+    abrir e a âncora `#fonte-rv` diz onde parar a rolagem -- as duas
+    sobrevivem ao redirect porque são o endereço.
+  */
+  const aberta = sp.aberta ?? null;
 
   const revendaId = await getRevendaId();
   if (!revendaId) {
@@ -153,10 +170,13 @@ export default async function FontesDeDadosPage({
         subtitle="De onde vem cada número do app, e quando entrou pela última vez."
       />
 
-      {sp.erro && (
+      {/* O recado só fica no topo quando NÃO há gaveta aberta. Com uma
+          aberta, ele é desenhado dentro dela -- perto do botão que a pessoa
+          apertou, que é onde ela está olhando. */}
+      {!aberta && sp.erro && (
         <p className="rounded-xl bg-red-50 p-3 text-sm font-medium text-red-700">{sp.erro}</p>
       )}
-      {sp.sucesso && (
+      {!aberta && sp.sucesso && (
         <p className="rounded-xl bg-green-50 p-3 text-sm font-medium text-green-700">
           ✅ {sp.sucesso}
         </p>
@@ -179,7 +199,15 @@ export default async function FontesDeDadosPage({
         </div>
       </div>
 
-      <div className="space-y-3">
+      {/*
+        UMA LISTA SÓ, e todas fechadas. As "enviadas por arquivo" moravam
+        num bloco separado no fim -- e a resposta para "de onde vêm os
+        dados deste app?" ficava partida em dois lugares, com a segunda
+        metade escondida atrás de um clique que ninguém dava.
+      */}
+      {aberta && <RolarAteAFonte chave={aberta} />}
+
+      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
         {comLink.map((f) => (
           <CartaoDaFonte
             key={f.chave}
@@ -188,35 +216,22 @@ export default async function FontesDeDadosPage({
             podeEditar={permissoes.get(f.chave) ?? false}
             rvLinhas={f.chave === "rv" ? rvLinhas : undefined}
             atualizar={IMPORTAR[f.chave]}
+            aberta={aberta === f.chave}
+            erro={aberta === f.chave ? sp.erro : undefined}
+            sucesso={aberta === f.chave ? sp.sucesso : undefined}
+          />
+        ))}
+
+        {fontesPorUpload().map((f) => (
+          <CartaoDaFonte
+            key={f.chave}
+            fonte={f}
+            estado={null}
+            podeEditar={false}
+            aberta={aberta === f.chave}
           />
         ))}
       </div>
-
-      {/* As que não guardam link. Ficam aqui para a resposta "de onde vêm
-          os dados?" ser COMPLETA -- omiti-las faria a tela parecer que só
-          existem cinco fontes. */}
-      <details className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
-        <summary className="cursor-pointer list-none p-4 text-sm font-semibold text-slate-700">
-          📎 Enviadas por arquivo ({fontesPorUpload().length})
-        </summary>
-        <div className="divide-y divide-slate-100 border-t border-slate-100">
-          {fontesPorUpload().map((f) => (
-            <div key={f.chave} className="p-4">
-              <div className="flex flex-wrap items-baseline justify-between gap-2">
-                <p className="text-sm font-bold text-slate-900">{f.rotulo}</p>
-                <Link
-                  href={f.telaDoModulo}
-                  className="shrink-0 text-xs font-semibold text-primary hover:underline"
-                >
-                  Abrir a tela →
-                </Link>
-              </div>
-              <p className="mt-0.5 text-xs text-slate-500">{f.alimenta}</p>
-              <p className="mt-1.5 text-[11px] text-slate-400">{f.ajuda}</p>
-            </div>
-          ))}
-        </div>
-      </details>
 
       <p className="rounded-xl bg-slate-50 p-3 text-xs text-slate-500">
         💡 <strong>Atualizar</strong> lê a fonte e traz o que há de novo para o app — é o que faz o
@@ -227,55 +242,104 @@ export default async function FontesDeDadosPage({
   );
 }
 
+/** O endereço que abre esta fonte e para a rolagem nela. */
+const enderecoDa = (chave: string) => `/admin/fontes-de-dados?aberta=${chave}#fonte-${chave}`;
+
 function CartaoDaFonte({
   fonte,
   estado,
   podeEditar,
   rvLinhas,
   atualizar,
+  aberta,
+  erro,
+  sucesso,
 }: {
   fonte: Fonte;
   estado: Estado | null;
   podeEditar: boolean;
   rvLinhas?: LinhaRV[];
   atualizar?: (f: FormData) => Promise<void>;
+  aberta: boolean;
+  erro?: string;
+  sucesso?: string;
 }) {
-  const configurada = !!estado?.pasta_link;
-  const velha = configurada && estaVelha(estado?.ultima_sincronizacao);
+  const porUpload = fonte.tipo === "upload";
+  const configurada = porUpload ? true : !!estado?.pasta_link;
+  const velha = !porUpload && configurada && estaVelha(estado?.ultima_sincronizacao);
+  const voltarPara = enderecoDa(fonte.chave);
 
   return (
-    <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-      <div className="border-b border-slate-100 p-4">
-        <div className="flex flex-wrap items-start justify-between gap-2">
-          <div className="min-w-0">
-            <p className="text-sm font-bold text-slate-900">{fonte.rotulo}</p>
-            <p className="mt-0.5 text-xs text-slate-500">{fonte.alimenta}</p>
-          </div>
-          <span
-            className={`shrink-0 rounded-lg px-2 py-1 text-[11px] font-bold ${
-              !configurada
+    /*
+      UMA GAVETA POR FONTE, fechada por padrão.
+
+      O `open` vem do servidor, e não do clique: depois de salvar, a ação
+      termina em redirect e qualquer estado de tela morre nele. Sem isto, a
+      pessoa apertava Salvar e a gaveta se fechava sozinha, no topo da
+      página, sem dizer se tinha dado certo.
+
+      `id` no <details> para a âncora `#fonte-<chave>` ter onde parar.
+    */
+    <details
+      id={`fonte-${fonte.chave}`}
+      open={aberta}
+      // `scroll-mt-16` para a barra do topo não cobrir o cartão quando a
+      // rolagem para nele.
+      className="group scroll-mt-16 border-b border-slate-100 last:border-b-0 open:bg-slate-50/40"
+    >
+      {/* Uma linha só, e ela cabe no celular: seta, nome com a data
+          embaixo, e o selo à direita. Nome, data e selo lado a lado
+          quebravam "Rating de Entrega" em três linhas num aparelho
+          estreito. */}
+      <summary className="flex cursor-pointer list-none items-center gap-3 p-4 hover:bg-slate-50">
+        <span className="shrink-0 text-xs text-slate-400 transition-transform group-open:rotate-90">
+          ▶
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-sm font-bold text-slate-900">{fonte.rotulo}</span>
+          <span className="block text-[11px] text-slate-500">
+            {porUpload ? "por envio de arquivo" : tempoDesde(estado?.ultima_sincronizacao)}
+          </span>
+        </span>
+        <span
+          className={`shrink-0 rounded-lg px-2 py-1 text-[11px] font-bold ${
+            porUpload
+              ? "bg-slate-100 text-slate-600"
+              : !configurada
                 ? "bg-red-50 text-red-700"
                 : velha
                   ? "bg-amber-50 text-amber-800"
                   : "bg-green-50 text-green-700"
-            }`}
-          >
-            {!configurada ? "sem fonte" : velha ? "sem atualizar" : "em dia"}
-          </span>
-        </div>
+          }`}
+        >
+          {porUpload ? "manual" : !configurada ? "sem fonte" : velha ? "sem atualizar" : "em dia"}
+        </span>
+      </summary>
+
+      <div className="border-t border-slate-100 p-4">
+        <p className="text-xs text-slate-500">{fonte.alimenta}</p>
+
+        {/* O RECADO FICA AQUI DENTRO, ao lado do botão que foi apertado --
+            no topo da página ele estaria fora da tela depois da âncora. */}
+        {erro && (
+          <p className="mt-2 rounded-xl bg-red-50 p-3 text-sm font-medium text-red-700">{erro}</p>
+        )}
+        {sucesso && (
+          <p className="mt-2 rounded-xl bg-green-50 p-3 text-sm font-medium text-green-700">
+            ✅ {sucesso}
+          </p>
+        )}
 
         <div className="mt-2 flex flex-wrap items-baseline gap-x-4 gap-y-1 text-[11px] text-slate-500">
           <span className="rounded bg-slate-100 px-1.5 py-0.5 font-semibold">
             {ROTULO_TIPO[fonte.tipo]}
           </span>
-          <span>
-            Última entrada:{" "}
-            <strong className="text-slate-700">{tempoDesde(estado?.ultima_sincronizacao)}</strong>
-          </span>
           <Link href={fonte.telaDoModulo} className="font-semibold text-primary hover:underline">
             Abrir a tela do módulo →
           </Link>
         </div>
+
+        {porUpload && <p className="mt-2 text-[11px] text-slate-400">{fonte.ajuda}</p>}
 
         {/* O BOTÃO DE ATUALIZAR mora aqui, e não só na tela do módulo.
             A página acabou de dizer "sem atualizar há 4 dias"; mandar a
@@ -287,7 +351,7 @@ function CartaoDaFonte({
             aparece aqui, onde o clique aconteceu. */}
         {atualizar && podeEditar && !fonte.salvaNoImport && (
           <form action={atualizar} className="mt-3">
-            <input type="hidden" name="voltar_para" value="/admin/fontes-de-dados" />
+            <input type="hidden" name="voltar_para" value={voltarPara} />
             <BotaoEnviar
               textoEnviando="Atualizando..."
               className="w-full rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-white hover:bg-primary-dark sm:w-auto"
@@ -333,7 +397,7 @@ function CartaoDaFonte({
                 {rvLinhas.map((r) => (
                   <form action={salvarConfigRV} key={r.area} className="space-y-2">
                     <input type="hidden" name="area" value={r.area} />
-                    <input type="hidden" name="voltar_para" value="/admin/fontes-de-dados" />
+                    <input type="hidden" name="voltar_para" value={voltarPara} />
                     <div className="flex items-baseline justify-between gap-2">
                       <label
                         className="text-[11px] font-semibold uppercase text-slate-500"
@@ -420,7 +484,7 @@ function CartaoDaFonte({
              importar -- deixando o cartão dizendo "sem fonte" com o link
              certo na frente. */
           <form action={atualizar} className="space-y-2">
-            <input type="hidden" name="voltar_para" value="/admin/fontes-de-dados" />
+            <input type="hidden" name="voltar_para" value={voltarPara} />
             <label
               className="block text-[11px] font-semibold uppercase text-slate-500"
               htmlFor={`link-${fonte.chave}`}
@@ -452,6 +516,7 @@ function CartaoDaFonte({
         ) : podeEditar ? (
           <form action={salvarFonte} className="space-y-2">
             <input type="hidden" name="chave" value={fonte.chave} />
+            <input type="hidden" name="voltar_para" value={voltarPara} />
             <label
               className="block text-[11px] font-semibold uppercase text-slate-500"
               htmlFor={`link-${fonte.chave}`}
@@ -482,6 +547,6 @@ function CartaoDaFonte({
           </p>
         )}
       </div>
-    </section>
+    </details>
   );
 }

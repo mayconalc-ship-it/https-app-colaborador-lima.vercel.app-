@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { voltarCom } from "@/lib/url-de-volta";
 import { revalidatePath, updateTag } from "next/cache";
 import { requireModulo } from "@/lib/require-admin";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -159,7 +160,7 @@ export async function salvarConfigRV(formData: FormData) {
   const destino = ((formData.get("voltar_para") as string) || "/admin/rv").trim();
 
   if (area !== "DU" && area !== "AL") {
-    redirect(`${destino}?erro=${encodeURIComponent("Área inválida")}`);
+    redirect(voltarCom(destino, "erro", "Área inválida"));
   }
 
   const admin = createAdminClient();
@@ -181,7 +182,7 @@ export async function salvarConfigRV(formData: FormData) {
   );
 
   if (error) {
-    redirect(`${destino}?erro=${encodeURIComponent(error.message)}`);
+    redirect(voltarCom(destino, "erro", error.message));
   }
 
   // A planilha baixada fica em cache por 5 minutos (ver rv-server). Trocar
@@ -196,9 +197,7 @@ export async function salvarConfigRV(formData: FormData) {
   revalidatePath("/rv");
   revalidatePath("/admin/fontes-de-dados");
   redirect(
-    `${destino}?sucesso=${encodeURIComponent(
-      `Link de ${AREAS.find((a) => a.id === area)?.rotulo ?? area} salvo.`,
-    )}`,
+    voltarCom(destino, "sucesso", `Link de ${AREAS.find((a) => a.id === area)?.rotulo ?? area} salvo.`),
   );
 }
 

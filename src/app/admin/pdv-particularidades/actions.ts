@@ -14,6 +14,7 @@ import {
 } from "@/lib/pdv-particularidades";
 import { buscarPdv, type PdvEncontrado } from "@/lib/pdv-particularidades-server";
 import { importarBaseDeClientes } from "@/lib/clientes-base-server";
+import { voltarCom } from "@/lib/url-de-volta";
 
 const ROTA = "/admin/pdv-particularidades";
 
@@ -47,8 +48,7 @@ export async function importarClientes(formData: FormData) {
   const revendaId = await exigirRevenda(ROTA);
 
   const destino = texto(formData, "voltar_para") || ROTA;
-  const erroEm = (mensagem: string): never =>
-    redirect(`${destino}?erro=${encodeURIComponent(mensagem)}`);
+  const erroEm = (mensagem: string): never => redirect(voltarCom(destino, "erro", mensagem));
 
   // Da tela de Fontes o campo se chama `link` (é o nome que todas as
   // fontes usam); da tela do módulo, `clientes_link`.
@@ -61,7 +61,7 @@ export async function importarClientes(formData: FormData) {
   revalidatePath(ROTA);
   revalidatePath("/admin/fontes-de-dados");
   revalidatePath("/gestao/pdv");
-  redirect(`${destino}?sucesso=${encodeURIComponent(r.resumo ?? "Base importada.")}`);
+  redirect(voltarCom(destino, "sucesso", r.resumo ?? "Base importada."));
 }
 
 /** A busca do combobox. Devolve objeto normal -- é chamada do cliente,

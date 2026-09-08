@@ -1,6 +1,7 @@
-﻿"use server";
+"use server";
 
 import { redirect } from "next/navigation";
+import { voltarCom } from "@/lib/url-de-volta";
 import { avisarIndicadorAtualizado } from "@/lib/aviso-indicadores-server";
 import { requireModulo } from "@/lib/require-admin";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -22,7 +23,7 @@ const PASTA_MOTIVOS = "01.20.01.06";
 const PASTA_NOTAS = "03.02.37";
 
 function voltar(chave: "erro" | "sucesso", mensagem: string, destino = ROTA): never {
-  redirect(`${destino}?${chave}=${encodeURIComponent(mensagem)}`);
+  redirect(voltarCom(destino, chave, mensagem));
 }
 
 export async function salvarConfigDeDevolucao(formData: FormData) {

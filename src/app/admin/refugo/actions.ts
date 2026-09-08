@@ -1,6 +1,7 @@
-﻿"use server";
+"use server";
 
 import { redirect } from "next/navigation";
+import { voltarCom } from "@/lib/url-de-volta";
 import { avisarIndicadorAtualizado } from "@/lib/aviso-indicadores-server";
 import { requireModulo } from "@/lib/require-admin";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -13,7 +14,7 @@ const ROTA = "/admin/refugo";
 const PASTA_REFUGO = "Refugo";
 
 function voltar(chave: "erro" | "sucesso", mensagem: string, destino = ROTA): never {
-  redirect(`${destino}?${chave}=${encodeURIComponent(mensagem)}`);
+  redirect(voltarCom(destino, chave, mensagem));
 }
 
 /** Compara nome de gente ignorando acento, caixa e espaço repetido. */
