@@ -190,6 +190,23 @@ eq("a diferenca fecha", so(conciliar([antiga, nova], { "Kit AG|600ml": 400 }, fa
 eq("vivas devolve so a nova", vivas([antiga, nova]).map((x) => x.id), [2]);
 eq("a lista original continua com as duas", [antiga, nova].length, 2);
 
+// A RECONTAGEM VEM EM VARIAS LINHAS -- o patio e contado pilha por pilha.
+// Em 04/09 o mesmo "Kit AG · 600ml · Cheio" tinha 17 linhas de tres
+// pessoas e a recontagem entrou como outras treze. Todas as linhas da
+// recontagem somam; so as de ANTES saem.
+const doPedido = [
+  { ...c("300ml", 2), id: 11, recontagem_id: 5 },
+  { ...c("300ml", 3), id: 12, recontagem_id: 5 },
+  { ...c("300ml", 5), id: 13, recontagem_id: 5 },
+];
+const antesDoPedido = [
+  { ...c("300ml", 9), id: 8, substituida_em: "x", substituida_por: 11 },
+  { ...c("300ml", 4), id: 9, substituida_em: "x", substituida_por: 11 },
+];
+eq("as tres linhas da recontagem somam",
+  so(conciliar([...antesDoPedido, ...doPedido], { "Kit AG|300ml": 1000 }, fatores), "300ml").contado,
+  1000);
+
 // O grafico e a conciliacao tem que contar o mesmo, senao a tela discorda
 // de si mesma na mesma rolagem.
 eq("o grafico ignora a sobreposta",

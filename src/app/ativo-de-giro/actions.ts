@@ -241,7 +241,7 @@ export async function registrarContagem(
         .eq("id", recontagem_id)
         .eq("revenda_id", revendaId)
         .is("atendida_em", null)
-        .select("tipo, formato, status")
+        .select("id")
         .maybeSingle();
 
       /*
@@ -252,31 +252,43 @@ export async function registrarContagem(
         acima do que de fato era pra ser. A recontagem, como o nome já diz,
         é pra sobrepor e não somar".
 
-        As linhas antigas do MESMO DIA e da MESMA combinação saem do total
-        aqui, na hora -- e não são apagadas: a primeira contagem é a
-        evidência, e a diferença entre as duas é o que diz se o problema
-        era contagem ou movimento de estoque.
+        QUEM DIZ O QUE FOI RECONTADO É ESTA CONTAGEM, não o pedido. Desde a
+        migration 028 o pedido é uma frase que alguém escreveu ("conferir o
+        600ml") -- `tipo`, `formato` e `status` saíram de lá justamente
+        porque três seletores complicavam mais do que ajudavam. Quem tem os
+        três exatos é a linha que acabou de ser gravada, e é ela que define
+        o que sai da soma: mesmo dia, mesma combinação.
 
-        `tipo` e `status` nulos no pedido significam "qualquer" (ver a
-        migration 024), e por isso só entram no filtro quando existem: um
-        pedido de "600ml, qualquer tipo" sobrepõe os dois tipos.
+        A RECONTAGEM VEM EM VÁRIAS LINHAS, e é isso que a regra precisa
+        respeitar. O pátio é contado pilha por pilha: em 04/09 o mesmo
+        "Kit AG · 600ml · Cheio" tinha 17 linhas de três pessoas, e a
+        recontagem entrou como outras treze. Sem a exclusão abaixo, a
+        segunda linha da recontagem sobreporia a primeira, a terceira
+        sobreporia as duas, e no fim sobraria UMA -- a última. O total
+        despencaria, com o mesmo tipo de erro que este conserto veio tirar,
+        só que para o outro lado.
 
-        O `pedido` vem do próprio update: se ele não voltar, o pedido já
-        estava atendido e não há nada a sobrepor -- outra pessoa chegou
-        antes.
+        Por isso o que sai é o que estava lá ANTES do pedido: as linhas
+        deste mesmo pedido ficam todas.
+
+        As antigas NÃO são apagadas: a primeira contagem é a evidência, e a
+        diferença entre as duas é o que diz se o problema era contagem ou
+        movimento de estoque.
+
+        Só corre se o `pedido` voltar: sem ele, o pedido já estava atendido
+        -- outra pessoa chegou antes -- e não há nada a sobrepor.
       */
       if (pedido) {
-        let alvo = admin
+        await admin
           .from("ag_contagens")
           .update({ substituida_em: new Date().toISOString(), substituida_por: gravada.id })
           .eq("revenda_id", revendaId)
           .eq("data", gravada.data)
-          .eq("formato", pedido.formato)
-          .neq("id", gravada.id)
+          .eq("tipo", gravada.tipo)
+          .eq("formato", gravada.formato)
+          .eq("status", gravada.status)
+          .or(`recontagem_id.is.null,recontagem_id.neq.${recontagem_id}`)
           .is("substituida_em", null);
-        if (pedido.tipo) alvo = alvo.eq("tipo", pedido.tipo);
-        if (pedido.status) alvo = alvo.eq("status", pedido.status);
-        await alvo;
       }
       revalidatePath(ROTA);
     } catch {

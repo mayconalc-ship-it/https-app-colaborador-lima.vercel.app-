@@ -19,6 +19,17 @@
 -- primeira vez, e a diferenca entre as duas e a informacao mais util do
 -- modulo: e ela que diz se o problema era contagem ou movimento de
 -- estoque. Some do TOTAL, fica no HISTORICO.
+--
+-- CORRECAO DA PRIMEIRA VERSAO DESTE ARQUIVO (08/09/2026): ela casava as
+-- linhas por `r.formato`, `r.tipo` e `r.status` do PEDIDO -- colunas que
+-- a migration 028 tinha removido, quando o pedido virou texto livre. O
+-- erro aparecia na hora ("column r.formato does not exist"), entao nada
+-- chegou a rodar. Todos os comandos aqui sao idempotentes; rode de novo.
+--
+-- QUEM DIZ O QUE FOI RECONTADO E A CONTAGEM NOVA, nao o pedido. E melhor
+-- assim: o pedido e uma frase que alguem escreveu ("conferir o 600ml"),
+-- e a contagem que o atendeu tem tipo, formato e status exatos. E ela
+-- que define o que sai da soma.
 
 alter table public.ag_contagens
   add column if not exists substituida_em timestamptz,
@@ -40,25 +51,32 @@ notify pgrst, 'reload schema';
 -- ------------------------------------------------------------------
 -- O ESTRAGO QUE JA ESTA NO BANCO
 -- ------------------------------------------------------------------
--- As recontagens ja atendidas antes desta migration deixaram a linha
--- antiga somando. O update abaixo marca como substituida toda contagem
--- que: e do mesmo dia e da mesma combinacao que uma recontagem atendida,
--- e ANTERIOR a linha que atendeu o pedido, e ainda nao foi marcada.
+-- As recontagens ja atendidas antes desta migration deixaram as linhas
+-- antigas somando. O update marca como substituida toda contagem que e da
+-- mesma revenda, do mesmo dia e da MESMA combinacao (tipo, formato,
+-- status) de uma contagem que atendeu um pedido de recontagem.
 --
--- `tipo`/`status` nulos no pedido significam "qualquer" (ver 024), e o
--- `is not distinct from` respeita isso sem escrever dois casos.
+-- A RECONTAGEM VEM EM VARIAS LINHAS: o patio e contado pilha por pilha.
+-- Em 04/09 o mesmo "Kit AG · 600ml · Cheio" tinha 17 linhas de tres
+-- pessoas, e a recontagem entrou como outras treze. Por isso a exclusao
+-- `antiga.recontagem_id is distinct from nova.recontagem_id`: sem ela uma
+-- linha da recontagem sobreporia a outra e sobraria uma so -- o total
+-- despencaria, com o mesmo erro que esta migration veio tirar, so que
+-- para o outro lado.
+--
+-- Reexecutar nao duplica nada: `substituida_em is null` no fim.
 
 update public.ag_contagens antiga
    set substituida_em = now(),
        substituida_por = nova.id
-  from public.ag_recontagens r
-  join public.ag_contagens nova on nova.id = r.atendida_contagem_id
- where r.atendida_em is not null
-   and antiga.revenda_id = r.revenda_id
+  from public.ag_contagens nova
+ where nova.recontagem_id is not null
+   and antiga.revenda_id = nova.revenda_id
    and antiga.data = nova.data
-   and antiga.formato = r.formato
-   and (r.tipo is null or antiga.tipo = r.tipo)
-   and (r.status is null or antiga.status = r.status)
+   and antiga.tipo = nova.tipo
+   and antiga.formato = nova.formato
+   and antiga.status = nova.status
+   and antiga.recontagem_id is distinct from nova.recontagem_id
    and antiga.id < nova.id
    and antiga.substituida_em is null;
 
