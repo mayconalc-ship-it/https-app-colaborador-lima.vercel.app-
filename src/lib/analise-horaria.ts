@@ -68,26 +68,42 @@ export function contagemPorHora(instantes: (string | null | undefined)[]): numbe
  * `limiteHoras` corta intervalos absurdos (a operação que ninguém
  * fechou e ficou aberta cinco dias). Sem ele, um único registro
  * esquecido achataria o perfil inteiro em 24 barras iguais.
+ *
+ * `peso` troca O QUE se distribui. Sem ele, distribui o tempo de relógio
+ * do intervalo. Com ele, distribui o número dado -- espalhado na mesma
+ * proporção. É o que separa "a empilhadeira ficou ATRIBUÍDA a alguém das
+ * 6h às 15h" (9h de relógio) de "a empilhadeira RODOU 3h nesse período"
+ * (3h de horímetro), que é o que a pergunta "quando a máquina é usada"
+ * quer saber. A distribuição uniforme é uma suposição declarada: não há
+ * carimbo de quando o motor ligou e desligou dentro da operação.
  */
 export function horasPorHora(
-  intervalos: { inicio: string; fim: string | null }[],
+  intervalos: { inicio: string; fim: string | null; peso?: number | null }[],
   limiteHoras = 24,
 ): number[] {
   const horas = vinteQuatroZeros();
   const PASSO_MS = 15 * 60 * 1000;
 
-  for (const { inicio, fim } of intervalos) {
+  for (const { inicio, fim, peso } of intervalos) {
     if (!fim) continue;
     const t0 = new Date(inicio).getTime();
     const t1 = new Date(fim).getTime();
     if (!Number.isFinite(t0) || !Number.isFinite(t1) || t1 <= t0) continue;
+    // Peso informado e zerado/negativo: a operação não rendeu nada, e
+    // desenhar o tempo de relógio no lugar inventaria uso que não houve.
+    if (peso !== undefined && peso !== null && peso <= 0) continue;
 
     const fimEfetivo = Math.min(t1, t0 + limiteHoras * 3_600_000);
+    const horasDeRelogio = (fimEfetivo - t0) / 3_600_000;
+    // Quanto do `peso` cabe em cada hora de relógio percorrida.
+    const escala =
+      peso === undefined || peso === null || horasDeRelogio <= 0 ? 1 : peso / horasDeRelogio;
+
     let t = t0;
     while (t < fimEfetivo) {
       // Até a próxima marca do relógio, ou até o fim -- o que vier antes.
       const proximo = Math.min(fimEfetivo, Math.ceil((t + 1) / PASSO_MS) * PASSO_MS);
-      horas[horaLocal(new Date(t))] += (proximo - t) / 3_600_000;
+      horas[horaLocal(new Date(t))] += ((proximo - t) / 3_600_000) * escala;
       t = proximo;
     }
   }

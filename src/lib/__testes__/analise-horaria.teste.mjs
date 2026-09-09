@@ -73,6 +73,30 @@ eq("sem fim nao entra", horasPorHora([{ inicio: "2026-09-09T08:00:00-03:00", fim
 eq("fim antes do inicio nao entra",
   horasPorHora([{ inicio: "2026-09-09T08:00:00-03:00", fim: "2026-09-09T07:00:00-03:00" }])[8], 0);
 
+console.log("\n== PESO: DISTRIBUI O HORIMETRO, NAO O RELOGIO ==");
+
+// A operacao ficou aberta 4h (06h-10h) mas o motor rodou 2h. O perfil
+// tem de somar 2, nao 4 -- senao o grafico responde "quando a maquina
+// esteve atribuida a alguem" fingindo responder "quando ela foi usada".
+const comPeso = horasPorHora([
+  { inicio: "2026-09-09T06:00:00-03:00", fim: "2026-09-09T10:00:00-03:00", peso: 2 },
+]);
+perto("o total e o horimetro", comPeso.reduce((s, v) => s + v, 0), 2, 0.02);
+perto("meia hora de motor em cada hora aberta", comPeso[6], 0.5);
+perto("e o mesmo nas outras tres", comPeso[9], 0.5);
+eq("nada fora do intervalo", comPeso[11], 0);
+
+// Sem peso continua sendo o tempo de relogio -- o comportamento antigo.
+const semPeso = horasPorHora([
+  { inicio: "2026-09-09T06:00:00-03:00", fim: "2026-09-09T10:00:00-03:00" },
+]);
+perto("sem peso, o total e o relogio", semPeso.reduce((s, v) => s + v, 0), 4, 0.02);
+
+// Horimetro parado: a operacao existiu, mas a maquina nao rodou. Contar
+// as horas de relogio no lugar inventaria uso.
+eq("peso zero nao desenha nada",
+  horasPorHora([{ inicio: "2026-09-09T06:00:00-03:00", fim: "2026-09-09T10:00:00-03:00", peso: 0 }])[6], 0);
+
 console.log("\n== MEDIA POR HORA: SEM AMOSTRA E NULL, NAO ZERO ==");
 
 // Zero as 3h seria lido como "as 3h a carreta sai na hora". O que houve

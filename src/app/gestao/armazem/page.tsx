@@ -74,10 +74,12 @@ import {
   CartaoHero,
   Histograma,
   TermometroDaBombona,
+  TopoEFundo,
   type ItemBarra,
 } from "./Graficos";
-import { FiltroDoTopico, SecaoDoTopico, type Pessoa } from "./FiltroDoTopico";
+import { FiltroDoTopico, FiltroSolto, SecaoDoTopico, type Pessoa } from "./FiltroDoTopico";
 import { desfazerEsvaziamento, esvaziarBombona } from "./actions";
+import { BotaoDesfazerEsvaziamento, BotaoEsvaziarBombona } from "./BotaoEsvaziarBombona";
 
 export const dynamic = "force-dynamic";
 
@@ -177,8 +179,13 @@ export default async function IndicadoresPage({
 
   const turnoBancada = turnoDe(TOPICOS.bancada);
   const pessoaBancada = pessoaDe(TOPICOS.bancada);
+  /** Filtros do gráfico de repack por produto -- ficam colados nele. */
+  const familiaBancada = escolhaDe(TOPICOS.bancada, "cl");
+  const tipoBancada = escolhaDe(TOPICOS.bancada, "tp");
   const turnoDespejo = turnoDe(TOPICOS.despejo);
   const pessoaDespejo = pessoaDe(TOPICOS.despejo);
+  /** Filtro do gráfico de despejo por embalagem -- fica colado nele. */
+  const embalagemDespejo = escolhaDe(TOPICOS.despejo, "emb");
   const turnoAbastecimento = turnoDe(TOPICOS.abastecimento);
   const pessoaAbastecimento = pessoaDe(TOPICOS.abastecimento);
   const papelAbastecimento = escolhaDe(TOPICOS.abastecimento, "p");
@@ -233,7 +240,12 @@ export default async function IndicadoresPage({
   ] = await Promise.all([
     supabase
       .from("pa_produtos")
-      .select("id, descricao, meta_reepack_hora")
+      // cluster_produto ("001 - CERVEJA") e tipo (DESCARTAVEL/RETORNAVEL)
+      // vêm da planilha de cadastro (migration 060) e estavam parados no
+      // banco. São o que permite olhar o repack por FAMÍLIA: garrafa
+      // retornável e lata descartável não embalam no mesmo ritmo, e
+      // misturá-las numa média só apaga a diferença.
+      .select("id, descricao, meta_reepack_hora, cluster_produto, tipo")
       .eq("revenda_id", revendaId),
     supabase
       .from("pa_embalagens_despejo")
@@ -550,6 +562,30 @@ export default async function IndicadoresPage({
     descricao: p.descricao,
     metaReepackHora: p.meta_reepack_hora,
   }));
+
+  /**
+   * Família e tipo de cada produto -- fora do `ProdutoMeta` porque o
+   * tipo da lib não os tem, e mudar o contrato dela por causa de um
+   * filtro de tela não se paga.
+   *
+   * O cluster vem como "001 - CERVEJA"; o código na frente é do SAP e
+   * não diz nada para quem lê. Fica só a palavra.
+   */
+  const familiaDoProduto = new Map<string, string>();
+  const tipoDoProduto = new Map<string, string>();
+  for (const p of (produtosBanco ?? []) as {
+    id: string;
+    cluster_produto: string | null;
+    tipo: string | null;
+  }[]) {
+    const familia = (p.cluster_produto ?? "").replace(/^\s*\d+\s*-\s*/, "").trim();
+    if (familia) familiaDoProduto.set(p.id, familia);
+    if (p.tipo) tipoDoProduto.set(p.id, p.tipo);
+  }
+  const familiasDisponiveis = [...new Set(familiaDoProduto.values())].sort((a, b) =>
+    a.localeCompare(b, "pt-BR"),
+  );
+  const temTipoCadastrado = tipoDoProduto.size > 0;
   const embalagens: EmbalagemDespejo[] = (embalagensBanco ?? []).map((e) => ({
     id: e.id,
     nome: e.nome,
@@ -793,16 +829,57 @@ export default async function IndicadoresPage({
   const despejoHorasTotal = despejos.reduce((s, d) => s + horasEntre(d.inicio, d.fim), 0);
   const despejoTaxaMediaHora = taxaPorHora(despejoLitrosTotal, despejoHorasTotal);
 
+  /**
+   * Repack por produto -- só dos produtos que passam no filtro de
+   * família/tipo do gráfico.
+   *
+   * O recorte fica aqui e não no filtro do bloco de propósito: os
+   * cartões de tempo de bancada continuam mostrando o dia inteiro (a
+   * bancada não para para trocar de família), e só a comparação entre
+   * produtos é recortada -- que é o único lugar onde a família muda a
+   * leitura.
+   */
+  const produtoNoRecorte = (produtoId: string) =>
+    (!familiaBancada || familiaDoProduto.get(produtoId) === familiaBancada) &&
+    (!tipoBancada || tipoDoProduto.get(produtoId) === tipoBancada);
+
   const reepackPorProduto = agruparPorProduto(
-    reepacks.map((r) => ({ produtoId: r.produto_id ?? "", quantidade: r.quantidade, inicio: r.inicio, fim: r.fim })),
+    reepacks
+      .filter((r) => produtoNoRecorte(r.produto_id ?? ""))
+      .map((r) => ({ produtoId: r.produto_id ?? "", quantidade: r.quantidade, inicio: r.inicio, fim: r.fim })),
     produtos,
     (p) => p.metaReepackHora,
-  );
+  )
+    // Da MAIOR produtividade para a menor. A lib não garante ordem, e
+    // sem isto a lista saía na ordem em que os produtos apareceram no
+    // período -- que não é ordem nenhuma.
+    .sort((a, b) => b.taxa - a.taxa);
+
+  const barrasReepackProduto: ItemBarra[] = reepackPorProduto.map((l) => ({
+    rotulo: l.produtoDescricao,
+    valor: l.taxa,
+    detalhe: `${l.produtoDescricao}: ${l.quantidade} cx em ${l.horas}h${
+      l.pctMeta !== null ? ` — ${l.pctMeta}% da meta` : ""
+    }${familiaDoProduto.get(l.produtoId) ? ` · ${familiaDoProduto.get(l.produtoId)}` : ""}${
+      tipoDoProduto.get(l.produtoId) ? ` · ${tipoDoProduto.get(l.produtoId)}` : ""
+    }`,
+  }));
+
   const despejoPorEmbalagem = agruparPorEmbalagem(
-    despejos.map((d) => ({ embalagemId: d.embalagem_despejo_id ?? "", quantidade: d.litros, inicio: d.inicio, fim: d.fim })),
+    despejos
+      .filter((d) => !embalagemDespejo || d.embalagem_despejo_id === embalagemDespejo)
+      .map((d) => ({ embalagemId: d.embalagem_despejo_id ?? "", quantidade: d.litros, inicio: d.inicio, fim: d.fim })),
     embalagens,
     (e) => e.metaLitrosHora,
-  );
+  ).sort((a, b) => b.taxa - a.taxa);
+
+  const barrasDespejoEmbalagem: ItemBarra[] = despejoPorEmbalagem.map((l) => ({
+    rotulo: l.embalagemNome,
+    valor: l.taxa,
+    detalhe: `${l.embalagemNome}: ${l.quantidade} L em ${l.horas}h${
+      l.pctMeta !== null ? ` — ${l.pctMeta}% da meta` : ""
+    }`,
+  }));
 
   // ---- Reepack e despejo por colaborador ----
   const reepackPorColaborador = new Map<string, { nome: string; quantidade: number; horas: number }>();
@@ -881,7 +958,10 @@ export default async function IndicadoresPage({
         Math.round(horas * 10) / 10
       }h · ${doTurno.length} lançamento(s) · ${formatarNumeroBr(taxaPorHora(litros, horas), 1)} L/h`,
     };
-  });
+    // Do maior para o menor, como todas as outras listas da tela. Na
+    // ordem cronológica (T1, T2, T3) a barra mais alta podia estar no
+    // meio, e "qual turno despeja mais" exigia comparar de olho.
+  }).sort((a, b) => b.valor - a.valor);
 
   // ---- Atividade por turno ----
   // Uma linha por turno, uma coluna por atividade -- a métrica de cada
@@ -1457,9 +1537,26 @@ export default async function IndicadoresPage({
    * disputada das 6h às 9h é o mesmo total diário de duas operações
    * completamente diferentes. Sem isto, "faltou empilhadeira" e "sobrou
    * empilhadeira" eram a mesma média.
+   *
+   * O que se distribui é a HORA DE HORÍMETRO, não o tempo de relógio da
+   * operação. A primeira versão distribuía o relógio, e o gráfico
+   * respondia "quando a máquina esteve atribuída a alguém" fingindo
+   * responder "quando ela foi usada": quem abre às 6h e fecha às 15h
+   * pintava nove horas de uso tendo rodado três. O total do gráfico
+   * agora fecha com o cartão "Horas ativas".
+   *
+   * A contrapartida está declarada na legenda do gráfico: como não há
+   * carimbo de quando o motor ligou e desligou dentro da operação, as
+   * horas de horímetro são espalhadas por igual ao longo dela.
    */
   const usoEmpilhadeiraPorHora = horasPorHora(
-    operacoesRaw.map((o) => ({ inicio: o.inicio, fim: o.fim })),
+    operacoesRaw
+      .filter((o) => o.horimetro_final !== null)
+      .map((o) => ({
+        inicio: o.inicio,
+        fim: o.fim,
+        peso: horasAtivasDeOperacao(operacaoEmpilhadeiraDeLinha(o)),
+      })),
   );
 
   /**
@@ -1754,15 +1851,59 @@ export default async function IndicadoresPage({
               itens={barrasRepackEmbalagem}
               sufixo="cx/h"
             />
-            <BarraRanking
-              titulo="Reepack por produto"
-              subtitulo="Taxa média no período"
-              itens={reepackPorProduto.map((l) => ({
-                rotulo: l.produtoDescricao,
-                valor: l.taxa,
-                detalhe: `${l.produtoDescricao}: ${l.quantidade} cx em ${l.horas}h${l.pctMeta !== null ? ` — ${l.pctMeta}% da meta` : ""}`,
-              }))}
+          </div>
+
+          {/* ---- REPACK POR PRODUTO ----
+              Com o filtro colado nele: família e tipo mudam só esta
+              comparação, não os cartões de tempo de bancada acima -- a
+              bancada não para para trocar de família. */}
+          <div className="space-y-3 rounded-2xl bg-slate-50 p-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h3 className="text-sm font-bold text-slate-900">📦 Repack por produto</h3>
+              <FiltroSolto
+                selects={[
+                  {
+                    chave: `${TOPICOS.bancada}_cl`,
+                    rotulo: "Família",
+                    valor: familiaBancada,
+                    opcoes: [
+                      { valor: "", nome: "Todas" },
+                      ...familiasDisponiveis.map((f) => ({ valor: f, nome: f })),
+                    ],
+                  },
+                  ...(temTipoCadastrado
+                    ? [
+                        {
+                          chave: `${TOPICOS.bancada}_tp`,
+                          rotulo: "Tipo",
+                          valor: tipoBancada,
+                          opcoes: [
+                            { valor: "", nome: "Todos" },
+                            { valor: "DESCARTAVEL", nome: "Descartável" },
+                            { valor: "RETORNAVEL", nome: "Retornável" },
+                          ],
+                        },
+                      ]
+                    : []),
+                ]}
+              />
+            </div>
+
+            <TopoEFundo
+              titulo="Onde o repack rende e onde trava"
+              subtitulo="Caixas por hora — os três produtos mais rápidos e os três mais lentos do recorte"
+              itens={barrasReepackProduto}
               sufixo="cx/h"
+              rotuloTopo="Mais rápidos"
+              rotuloFundo="Mais lentos"
+            />
+
+            <BarraRanking
+              titulo="Todos os produtos"
+              subtitulo="Taxa média no período, da maior para a menor"
+              itens={barrasReepackProduto}
+              sufixo="cx/h"
+              vazio="Nenhum repack no recorte escolhido."
             />
           </div>
 
@@ -1838,19 +1979,18 @@ export default async function IndicadoresPage({
                 <div className="flex flex-wrap items-center gap-3">
                   <form action={esvaziarBombona}>
                     <input type="hidden" name="litros_no_momento" value={litrosNaBombona} />
-                    <button
-                      type="submit"
-                      className="rounded-lg bg-primary px-3 py-1.5 text-xs font-bold text-white hover:opacity-90"
-                    >
-                      🪣 Esvaziei a bombona
-                    </button>
+                    <BotaoEsvaziarBombona litros={litrosNaBombona} />
                   </form>
                   {ultimoEsvaziamento && (
                     <form action={desfazerEsvaziamento}>
                       <input type="hidden" name="id" value={ultimoEsvaziamento.id} />
-                      <button type="submit" className="text-xs font-medium text-slate-500 underline">
-                        desfazer o último
-                      </button>
+                      <BotaoDesfazerEsvaziamento
+                        quando={new Date(ultimoEsvaziamento.esvaziada_em).toLocaleString("pt-BR", {
+                          timeZone: "America/Sao_Paulo",
+                          dateStyle: "short",
+                          timeStyle: "short",
+                        })}
+                      />
                     </form>
                   )}
                   <span className="text-[11px] text-slate-400">
@@ -1884,20 +2024,58 @@ export default async function IndicadoresPage({
             />
             <BarraRanking
               titulo="Despejo por colaborador"
-              subtitulo="Total de litros no recorte"
+              subtitulo="Total de litros no recorte, do maior para o menor"
               itens={barrasDespejoColaborador}
               sufixo="L"
             />
+          </div>
+
+          <TopoEFundo
+            titulo="Quem mais e quem menos despeja"
+            subtitulo="Litros no recorte — os três primeiros e os três últimos"
+            itens={barrasDespejoColaborador}
+            sufixo="L"
+            rotuloTopo="Mais litros"
+            rotuloFundo="Menos litros"
+          />
+
+          {/* ---- DESPEJO POR EMBALAGEM ----
+              Filtro colado no gráfico: escolher uma embalagem aqui muda
+              esta comparação, não os cartões do bloco. */}
+          <div className="space-y-3 rounded-2xl bg-slate-50 p-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h3 className="text-sm font-bold text-slate-900">🫗 Despejo por embalagem</h3>
+              <FiltroSolto
+                selects={[
+                  {
+                    chave: `${TOPICOS.despejo}_emb`,
+                    rotulo: "Embalagem",
+                    valor: embalagemDespejo,
+                    opcoes: [
+                      { valor: "", nome: "Todas" },
+                      ...embalagens.map((e) => ({ valor: e.id, nome: e.nome })),
+                    ],
+                  },
+                ]}
+              />
+            </div>
+
+            <TopoEFundo
+              titulo="Onde o despejo rende e onde trava"
+              subtitulo="Litros por hora — as três embalagens mais rápidas e as três mais lentas"
+              itens={barrasDespejoEmbalagem}
+              sufixo="L/h"
+              rotuloTopo="Mais rápidas"
+              rotuloFundo="Mais lentas"
+            />
+
             <BarraRanking
-              titulo="Despejo por embalagem"
-              subtitulo="Litros/hora, já convertidos"
-              itens={despejoPorEmbalagem.map((l) => ({
-                rotulo: l.embalagemNome,
-                valor: l.taxa,
-                detalhe: `${l.embalagemNome}: ${l.quantidade} L em ${l.horas}h${l.pctMeta !== null ? ` — ${l.pctMeta}% da meta` : ""}`,
-              }))}
+              titulo="Todas as embalagens"
+              subtitulo="Litros/hora, já convertidos, da maior para a menor"
+              itens={barrasDespejoEmbalagem}
               sufixo="L/h"
               tom="gold"
+              vazio="Nenhum despejo no recorte escolhido."
             />
           </div>
         </SecaoDoTopico>
@@ -2190,9 +2368,11 @@ export default async function IndicadoresPage({
 
           <Histograma
             titulo="Quando a empilhadeira é usada"
-            subtitulo="Horas de operação aberta em cada hora do dia — é o que diz para qual pico escalar máquina e gente"
+            subtitulo={`Horas de HORÍMETRO (motor rodando) em cada hora do dia — soma ${formatarNumeroBr(usoEmpilhadeiraPorHora.reduce((s, v) => s + v, 0), 1)}h, o mesmo do cartão "Horas ativas". Como o app não registra quando o motor liga e desliga dentro da operação, as horas são espalhadas por igual ao longo dela.`}
             valores={usoEmpilhadeiraPorHora}
             sufixo="h"
+            legendaPico="hora de maior uso"
+            legendaComum="demais horas"
           />
 
           <div className="grid gap-4 sm:grid-cols-2">
@@ -2351,17 +2531,21 @@ export default async function IndicadoresPage({
           <div className="grid gap-4 sm:grid-cols-2">
             <Histograma
               titulo="Quando as carretas chegam"
-              subtitulo="Chegadas apontadas pela portaria, por hora do dia"
+              subtitulo="Chegadas apontadas pela portaria, por hora do dia. O número em cima da barra é quantas carretas chegaram naquela hora."
               valores={chegadasPorHora}
               sufixo="carreta(s)"
               casas={0}
+              legendaPico="hora de maior chegada"
+              legendaComum="demais horas"
             />
             <Histograma
               titulo="TMA por hora de chegada"
-              subtitulo="Média do TMA das carretas que chegaram naquela hora — o pico de chegada e o pico de TMA costumam ser o mesmo"
+              subtitulo="Média do TMA das carretas que chegaram naquela hora — o pico de chegada e o pico de TMA costumam ser o mesmo, e é isso que prova que o problema é fila e não velocidade"
               valores={tmaPorHoraDeChegada}
               sufixo="min"
               casas={0}
+              legendaPico="pior TMA do dia"
+              legendaComum="demais horas"
             />
           </div>
 

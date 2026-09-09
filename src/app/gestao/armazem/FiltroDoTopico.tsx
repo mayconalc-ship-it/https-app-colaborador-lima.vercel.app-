@@ -142,6 +142,52 @@ export function FiltroDoTopico({
   );
 }
 
+/**
+ * Um filtro pequeno, ao lado do gráfico a que ele pertence.
+ *
+ * O filtro do topo do bloco vale para o bloco inteiro. Este é para o
+ * recorte que só faz sentido em UM gráfico -- "repack só de retornável",
+ * "despejo só de uma embalagem" --, e por isso mora colado nele: um
+ * seletor de embalagem lá em cima, longe da barra que ele muda, faz a
+ * pessoa filtrar e não entender qual número se mexeu.
+ */
+export function FiltroSolto({
+  selects,
+}: {
+  selects: { chave: string; rotulo: string; valor: string; opcoes: { valor: string; nome: string }[] }[];
+}) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
+  const aplicar = (chave: string, valor: string) => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set(chave, valor);
+    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+  };
+
+  return (
+    <div className="flex flex-wrap items-center justify-end gap-2">
+      {selects.map((s) => (
+        <label key={s.chave} className={ROTULO}>
+          {s.rotulo}
+          <select
+            value={s.valor}
+            onChange={(e) => aplicar(s.chave, e.target.value)}
+            className={`${CAMPO} max-w-[11rem]`}
+          >
+            {s.opcoes.map((o) => (
+              <option key={o.valor} value={o.valor}>
+                {o.nome}
+              </option>
+            ))}
+          </select>
+        </label>
+      ))}
+    </div>
+  );
+}
+
 /* ------------------------------------------------------------------
    O aberto/fechado da sanfona, guardado no navegador de quem lê.
 
