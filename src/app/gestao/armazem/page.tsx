@@ -69,6 +69,7 @@ import {
   formatarMinutos as formatarMinutosCurto,
 } from "@/lib/abastecimento";
 import { BarraRanking, BlocoAtividade, CartaoHero, TermometroDaBombona, type ItemBarra } from "./Graficos";
+import { FiltroDoTopico, SecaoDoTopico, type Pessoa } from "./FiltroDoTopico";
 
 export const dynamic = "force-dynamic";
 
@@ -82,10 +83,24 @@ const rotulo = "mb-1 block text-xs font-semibold uppercase text-slate-500";
 const EXPLICACAO_PONTUACAO =
   "Pontuação = média das atividades PONDERADA PELAS HORAS de cada uma: uma atividade pesa o quanto ocupou do dia. Reepack = % da meta por produto; Despejo = % da meta por embalagem; Seleção (un/h) e Picking (HL/h) = % da média do grupo no mesmo recorte, pela TAXA e não pelo total. Quem não fez uma atividade não entra na média dela. Abaixo de 1h apontada no período não há nota — amostra curta não vira ritmo. O 5S aparece na linha mas não entra na nota: as execuções não têm tempo medido, e sem tempo não há como pesá-las.";
 
+/**
+ * Os tópicos da tela. O slug é o prefixo dos parâmetros na URL
+ * (`banc_t`, `banc_c`) -- ver FiltroDoTopico.
+ */
+const TOPICOS = {
+  bancada: "banc",
+  despejo: "desp",
+  abastecimento: "abast",
+  batePalete: "bp",
+  empilhadeira: "emp",
+  recebimento: "receb",
+  ranking: "rank",
+} as const;
+
 export default async function IndicadoresPage({
   searchParams,
 }: {
-  searchParams: Promise<{ de?: string; ate?: string; turno?: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   await requireAcessoArmazem("/produtividade-armazem");
 
@@ -109,11 +124,55 @@ export default async function IndicadoresPage({
   }
 
   const sp = await searchParams;
-  const de = sp.de ?? diasAtrasISO(7);
-  const ate = sp.ate ?? hojeISO();
-  const turnoFiltro = (TURNOS as readonly string[]).includes(sp.turno ?? "")
-    ? (sp.turno as Turno)
-    : null;
+  const texto = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) ?? "";
+  const de = texto(sp.de) || diasAtrasISO(7);
+  const ate = texto(sp.ate) || hojeISO();
+
+  // O filtro do topo é o PADRÃO de todos os tópicos; cada bloco pode
+  // sobrescrever o seu (`<slug>_t` / `<slug>_c`). Assim o recorte geral
+  // continua sendo um clique só, e comparar "manhã aqui, tarde ali" não
+  // exige mexer em sete filtros.
+  const comoTurno = (v: string) => ((TURNOS as readonly string[]).includes(v) ? (v as Turno) : null);
+  const turnoGeral = comoTurno(texto(sp.turno));
+  const pessoaGeral = texto(sp.colab);
+  const turnoDe = (slug: string) => {
+    const proprio = texto(sp[`${slug}_t`]);
+    return proprio ? comoTurno(proprio) : turnoGeral;
+  };
+  const pessoaDe = (slug: string) => {
+    const proprio = texto(sp[`${slug}_c`]);
+    return proprio || pessoaGeral;
+  };
+
+  /** Os parâmetros atuais, para o filtro de um tópico não apagar os outros. */
+  const paramsAtuais: [string, string][] = Object.entries(sp)
+    .map(([k, v]) => [k, texto(v)] as [string, string])
+    .filter(([, v]) => v !== "");
+
+  const turnoBancada = turnoDe(TOPICOS.bancada);
+  const pessoaBancada = pessoaDe(TOPICOS.bancada);
+  const turnoDespejo = turnoDe(TOPICOS.despejo);
+  const pessoaDespejo = pessoaDe(TOPICOS.despejo);
+  const turnoAbastecimento = turnoDe(TOPICOS.abastecimento);
+  const pessoaAbastecimento = pessoaDe(TOPICOS.abastecimento);
+  const turnoBatePalete = turnoDe(TOPICOS.batePalete);
+  const pessoaBatePalete = pessoaDe(TOPICOS.batePalete);
+  const turnoEmpilhadeira = turnoDe(TOPICOS.empilhadeira);
+  const pessoaEmpilhadeira = pessoaDe(TOPICOS.empilhadeira);
+  const turnoRecebimento = turnoDe(TOPICOS.recebimento);
+  const pessoaRecebimento = pessoaDe(TOPICOS.recebimento);
+  const turnoRanking = turnoDe(TOPICOS.ranking);
+  const pessoaRanking = pessoaDe(TOPICOS.ranking);
+
+  /** Monta a lista de gente de um bloco a partir do próprio dado do
+   *  período -- sem consulta extra, e sem oferecer quem não apareceu. */
+  const listaDePessoas = (linhas: { valor: string; nome: string }[]): Pessoa[] => {
+    const mapa = new Map<string, string>();
+    for (const l of linhas) if (l.valor) mapa.set(l.valor, l.nome);
+    return [...mapa.entries()]
+      .map(([valor, nome]) => ({ valor, nome }))
+      .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
+  };
 
   const revendaId = await getRevendaId();
   if (!revendaId) redirect(`/?erro=${encodeURIComponent("Você não está em nenhuma revenda.")}`);
@@ -216,7 +275,11 @@ export default async function IndicadoresPage({
       // Os carimbos de tempo entram aqui para o TMA e as fases saírem na
       // mesma ida ao banco -- o cálculo mora em lib/carretas.ts.
       .select(
-        "id, pa_transportadoras(nome), atendimento_carretas_itens(quantidade, quantidade_avariada), chegada_em, agendamento_em, carga_agendada, inicio_atendimento_em, inicio_descarga_em, fim_descarga_em, inicio_conferencia_em, fim_conferencia_em, tem_carga, inicio_carga_em, fim_carga_em, finalizacao_em",
+        // conferente_* e portaria_* entram para a carreta poder ser
+        // recortada por PESSOA: o TMA de quem atendeu é a pergunta que se
+        // faz de verdade, e sem essas colunas o filtro do bloco não teria
+        // como existir.
+        "id, pa_transportadoras(nome), atendimento_carretas_itens(quantidade, quantidade_avariada), chegada_em, agendamento_em, carga_agendada, inicio_atendimento_em, inicio_descarga_em, fim_descarga_em, inicio_conferencia_em, fim_conferencia_em, tem_carga, inicio_carga_em, fim_carga_em, finalizacao_em, conferente_colaborador_id, conferente_nome, portaria_colaborador_id, portaria_nome",
       )
       .eq("revenda_id", revendaId)
       .eq("status", "finalizado")
@@ -260,7 +323,7 @@ export default async function IndicadoresPage({
     // que trataria um lote de 2 HL igual a um de 200.
     supabase
       .from("pa_bate_palete")
-      .select("id, colaborador_nome, turno, inicio, fim, pa_bate_palete_itens(produto_id, paletes, hl_batido, hl_avariado)")
+      .select("id, colaborador_id, colaborador_nome, turno, inicio, fim, pa_bate_palete_itens(produto_id, paletes, hl_batido, hl_avariado)")
       .eq("revenda_id", revendaId)
       .not("fim", "is", null)
       .gte("inicio", de0)
@@ -332,14 +395,29 @@ export default async function IndicadoresPage({
     };
   });
 
+  // O ressuprimento não tem coluna de turno -- ele é um pedido, não um
+  // apontamento de turno. O turno sai da HORA DO PEDIDO, com a mesma
+  // régua do resto da tela (ver turnoAtual): é o turno que ficou
+  // esperando, que é o que o indicador mede.
+  //
+  // Por pessoa, vale quem PARTICIPOU: quem pediu ou quem transportou.
+  // Recortar só pelo solicitante esconderia o operador da conversa, e é
+  // dele metade do tempo medido aqui.
+  const ressuprimentosDoRecorte = ressuprimentos.filter((r) => {
+    if (turnoAbastecimento && turnoAtual(new Date(r.criadoEm)) !== turnoAbastecimento) return false;
+    if (pessoaAbastecimento && r.solicitanteId !== pessoaAbastecimento && r.operadorId !== pessoaAbastecimento)
+      return false;
+    return true;
+  });
+
   // Separado por tipo: uma varredura da manha de 2h e normal, um chamado
   // pontual de 2h e um problema. Somados, o "ciclo medio" nao descreve
   // nenhum dos dois -- e e justamente o numero que alguem usaria para
   // cobrar a pessoa errada.
-  const resumoRessuprimento = resumirPeriodo(ressuprimentos);
-  const ressuprimentoPorTipo = resumirPorTipo(ressuprimentos);
-  const operadoresRessuprimento = indicadoresDoOperador(ressuprimentos);
-  const solicitantesRessuprimento = indicadoresDoSolicitante(ressuprimentos);
+  const resumoRessuprimento = resumirPeriodo(ressuprimentosDoRecorte);
+  const ressuprimentoPorTipo = resumirPorTipo(ressuprimentosDoRecorte);
+  const operadoresRessuprimento = indicadoresDoOperador(ressuprimentosDoRecorte);
+  const solicitantesRessuprimento = indicadoresDoSolicitante(ressuprimentosDoRecorte);
 
   const produtos: ProdutoMeta[] = (produtosBanco ?? []).map((p) => ({
     id: p.id,
@@ -410,28 +488,41 @@ export default async function IndicadoresPage({
    * lugar só. A tela de lançamento ficou com Lançar e Histórico -- o que
    * a pessoa FAZ; o que se ACOMPANHA é aqui.
    */
-  const abastecimentoParaAnalise: SessaoAnalise[] = pickingsBrutos.map((s) => ({
-    id: s.id,
-    colaboradorId: s.colaborador_id,
-    colaboradorNome: s.colaborador_nome,
-    tipo: s.tipo,
-    turno: s.turno,
-    inicio: s.inicio,
-    fim: s.fim,
-    deSolicitacao: Boolean(s.ressuprimento_id),
-    hl: (s.pa_abastecimento_itens ?? []).reduce((t, i) => t + i.hl_calculado, 0),
-    itens: (s.pa_abastecimento_itens ?? []).length,
-  }));
+  const abastecimentoParaAnalise: SessaoAnalise[] = pickingsBrutos
+    .filter(
+      (s) =>
+        (!turnoAbastecimento || s.turno === turnoAbastecimento) &&
+        (!pessoaAbastecimento || s.colaborador_id === pessoaAbastecimento),
+    )
+    .map((s) => ({
+      id: s.id,
+      colaboradorId: s.colaborador_id,
+      colaboradorNome: s.colaborador_nome,
+      tipo: s.tipo,
+      turno: s.turno,
+      inicio: s.inicio,
+      fim: s.fim,
+      deSolicitacao: Boolean(s.ressuprimento_id),
+      hl: (s.pa_abastecimento_itens ?? []).reduce((t, i) => t + i.hl_calculado, 0),
+      itens: (s.pa_abastecimento_itens ?? []).length,
+    }));
 
   /** Bate palete: os lotes do período, com o produto de cada um. */
-  const batePaleteBruto = (batePaleteBanco ?? []) as {
+  const batePaleteTodos = (batePaleteBanco ?? []) as {
     id: string;
+    colaborador_id: string;
     colaborador_nome: string;
     turno: string;
     inicio: string;
     fim: string;
     pa_bate_palete_itens: { produto_id: string; paletes: number; hl_batido: number; hl_avariado: number }[] | null;
   }[];
+
+  const batePaleteBruto = batePaleteTodos.filter(
+    (s) =>
+      (!turnoBatePalete || s.turno === turnoBatePalete) &&
+      (!pessoaBatePalete || s.colaborador_id === pessoaBatePalete),
+  );
 
   const lotesBatidos = batePaleteBruto.flatMap((s) =>
     (s.pa_bate_palete_itens ?? []).map((i) => ({
@@ -455,11 +546,47 @@ export default async function IndicadoresPage({
     turno: turnoAtual(new Date(e.inicio as string)) as string,
   }));
 
-  const selecoes = turnoFiltro ? selecoesTodas.filter((s) => s.turno === turnoFiltro) : selecoesTodas;
-  const reepacks = turnoFiltro ? reepacksTodos.filter((r) => r.turno === turnoFiltro) : reepacksTodos;
-  const despejos = turnoFiltro ? despejosTodos.filter((d) => d.turno === turnoFiltro) : despejosTodos;
-  const pickings = turnoFiltro ? pickingsTodos.filter((p) => p.turno === turnoFiltro) : pickingsTodos;
-  const execucoes5s = turnoFiltro ? execucoes5sTodos.filter((e) => e.turno === turnoFiltro) : execucoes5sTodos;
+  /**
+   * O recorte de CADA tópico.
+   *
+   * Até 09/09/2026 havia um recorte só, do filtro do topo, e vários
+   * blocos simplesmente o ignoravam. Agora o filtro é por tópico e a
+   * regra é a mesma em todos: turno (quando o dado tem turno) e pessoa.
+   */
+  const recorte = <T extends { turno: string; colaborador_id: string }>(
+    linhas: T[],
+    turno: Turno | null,
+    pessoa: string,
+  ) => linhas.filter((l) => (!turno || l.turno === turno) && (!pessoa || l.colaborador_id === pessoa));
+
+  // Bancada = Seleção + Repack: as duas etapas do mesmo ciclo, um filtro só.
+  const selecoes = recorte(selecoesTodas, turnoBancada, pessoaBancada);
+  const reepacks = recorte(reepacksTodos, turnoBancada, pessoaBancada);
+  const despejos = recorte(despejosTodos, turnoDespejo, pessoaDespejo);
+  const pickings = recorte(pickingsTodos, turnoAbastecimento, pessoaAbastecimento);
+
+  // O ranking e a tabela por turno têm recorte próprio: quem compara
+  // pessoas não quer o filtro da bancada mandando no ranking inteiro.
+  const selecoesRank = recorte(selecoesTodas, turnoRanking, pessoaRanking);
+  const reepacksRank = recorte(reepacksTodos, turnoRanking, pessoaRanking);
+  const despejosRank = recorte(despejosTodos, turnoRanking, pessoaRanking);
+  const pickingsRank = recorte(pickingsTodos, turnoRanking, pessoaRanking);
+  const execucoes5sRank = execucoes5sTodos.filter(
+    (e) =>
+      (!turnoRanking || e.turno === turnoRanking) &&
+      (!pessoaRanking || e.colaborador_id === pessoaRanking),
+  );
+
+  // A tabela "Atividade por turno" quebra por turno na própria linha --
+  // então ela só honra o filtro de PESSOA; aplicar turno nela deixaria
+  // duas linhas zeradas e uma cheia, que não compara nada.
+  const porPessoaRank = <T extends { colaborador_id: string }>(linhas: T[]) =>
+    pessoaRanking ? linhas.filter((l) => l.colaborador_id === pessoaRanking) : linhas;
+  const selecoesTabela = porPessoaRank(selecoesTodas);
+  const reepacksTabela = porPessoaRank(reepacksTodos);
+  const despejosTabela = porPessoaRank(despejosTodos);
+  const pickingsTabela = porPessoaRank(pickingsTodos);
+  const execucoes5sTabela = porPessoaRank(execucoes5sTodos);
 
   // ---- Reepack: agregados gerais (sem quebrar por produto) ----
   const reepackQuantidadeTotal = reepacks.reduce((s, r) => s + r.quantidade, 0);
@@ -594,21 +721,21 @@ export default async function IndicadoresPage({
   // média de TODO o período, todos os turnos juntos -- é contra isso que
   // cada turno é comparado, não meta cadastrada (picking/5S não têm).
   const mediaHlPickingPeriodo = mediaHlPicking(
-    pickingsTodos.map((p) => ({ quantidade: p.hl, inicio: p.inicio, fim: p.fim })),
+    pickingsTabela.map((p) => ({ quantidade: p.hl, inicio: p.inicio, fim: p.fim })),
   );
   const mediaExecucoes5sPeriodo = mediaExecucoes5sPorPessoa(
-    execucoes5sTodos.map((e) => ({ colaboradorId: e.colaborador_id })),
+    execucoes5sTabela.map((e) => ({ colaboradorId: e.colaborador_id })),
   );
   // Seleção compara TAXA (un/h), não total: um turno mais longo não é
   // melhor por ter triado mais, e sim quem triou mais rápido.
-  const mediaTaxaSelecaoPeriodo = mediaTaxaPorPessoa(selecoesTodas);
+  const mediaTaxaSelecaoPeriodo = mediaTaxaPorPessoa(selecoesTabela);
 
   const porTurno = TURNOS.map((t) => {
-    const reepacksT = reepacksTodos.filter((r) => r.turno === t);
-    const selecoesT = selecoesTodas.filter((s) => s.turno === t);
-    const despejosT = despejosTodos.filter((d) => d.turno === t);
-    const pickingsT = pickingsTodos.filter((p) => p.turno === t);
-    const execucoes5sT = execucoes5sTodos.filter((e) => e.turno === t);
+    const reepacksT = reepacksTabela.filter((r) => r.turno === t);
+    const selecoesT = selecoesTabela.filter((s) => s.turno === t);
+    const despejosT = despejosTabela.filter((d) => d.turno === t);
+    const pickingsT = pickingsTabela.filter((p) => p.turno === t);
+    const execucoes5sT = execucoes5sTabela.filter((e) => e.turno === t);
 
     // Mesma fórmula da pontuação individual (ver calcularPontuacao),
     // só que aplicada em cima do total do turno -- trata o turno como
@@ -676,19 +803,19 @@ export default async function IndicadoresPage({
   // do total dão ~100% por construção (o período comparado com ele
   // mesmo) -- é esperado, não é bug.
   const reepackAgrupadoGeral = agruparPorProduto(
-    reepacksTodos.map((r) => ({ produtoId: r.produto_id ?? "", quantidade: r.quantidade, inicio: r.inicio, fim: r.fim })),
+    reepacksTabela.map((r) => ({ produtoId: r.produto_id ?? "", quantidade: r.quantidade, inicio: r.inicio, fim: r.fim })),
     produtos,
     (p) => p.metaReepackHora,
   );
   const despejoAgrupadoGeral = agruparPorEmbalagem(
-    despejosTodos.map((d) => ({ embalagemId: d.embalagem_despejo_id ?? "", quantidade: d.litros, inicio: d.inicio, fim: d.fim })),
+    despejosTabela.map((d) => ({ embalagemId: d.embalagem_despejo_id ?? "", quantidade: d.litros, inicio: d.inicio, fim: d.fim })),
     embalagens,
     (e) => e.metaLitrosHora,
   );
-  const horasReepackGeral = reepacksTodos.reduce((s, r) => s + horasEntre(r.inicio, r.fim), 0);
-  const horasDespejoGeral = despejosTodos.reduce((s, d) => s + horasEntre(d.inicio, d.fim), 0);
-  const horasPickingGeral = pickingsTodos.reduce((s, p) => s + horasEntre(p.inicio, p.fim), 0);
-  const horasSelecaoGeral = selecoesTodas.reduce((s, x) => s + horasEntre(x.inicio, x.fim), 0);
+  const horasReepackGeral = reepacksTabela.reduce((s, r) => s + horasEntre(r.inicio, r.fim), 0);
+  const horasDespejoGeral = despejosTabela.reduce((s, d) => s + horasEntre(d.inicio, d.fim), 0);
+  const horasPickingGeral = pickingsTabela.reduce((s, p) => s + horasEntre(p.inicio, p.fim), 0);
+  const horasSelecaoGeral = selecoesTabela.reduce((s, x) => s + horasEntre(x.inicio, x.fim), 0);
   const pontuacaoGeral = calcularPontuacao([
     {
       pct: mediaPonderadaPorHoras(reepackAgrupadoGeral.map((r) => ({ pct: r.pctMeta, horas: r.horas }))),
@@ -719,9 +846,17 @@ export default async function IndicadoresPage({
   // tempo decorrido entre início e fim -- e só existem depois que a
   // operação fecha (o horímetro final só é lido no fechamento). Uma
   // operação ainda aberta simplesmente não entra nesses somatórios.
-  const operacoesRaw = (operacoesBanco ?? []) as unknown as (Parameters<typeof operacaoEmpilhadeiraDeLinha>[0] & {
+  const operacoesTodas = (operacoesBanco ?? []) as unknown as (Parameters<typeof operacaoEmpilhadeiraDeLinha>[0] & {
     pa_empilhadeiras: { numero: string } | { numero: string }[] | null;
   })[];
+  // A operação de empilhadeira não tem coluna de turno -- ela é aberta e
+  // fechada por horímetro, não apontada por turno. O turno sai da HORA
+  // EM QUE A OPERAÇÃO COMEÇOU, mesma régua do 5S e do ressuprimento.
+  const operacoesRaw = operacoesTodas.filter(
+    (o) =>
+      (!turnoEmpilhadeira || turnoAtual(new Date(o.inicio)) === turnoEmpilhadeira) &&
+      (!pessoaEmpilhadeira || o.operador_id === pessoaEmpilhadeira),
+  );
   const operacoes = operacoesRaw.map((o) => operacaoEmpilhadeiraDeLinha(o));
   const operacoesEncerradas = operacoes.filter((op) => op.horimetroFinal !== null);
 
@@ -752,7 +887,34 @@ export default async function IndicadoresPage({
     pa_transportadoras: { nome: string } | { nome: string }[] | null;
     atendimento_carretas_itens: ItemCarreta[] | null;
   };
-  const carretas = (recebimentosBanco ?? []) as unknown as CarretaAvaria[];
+  /**
+   * O recorte do recebimento.
+   *
+   * Este é o bloco que motivou a mudança de 09/09/2026: o TMA sempre
+   * mostrava o geral, mesmo com um turno escolhido no topo. A carreta
+   * não tem coluna de turno, então ele é DERIVADO do momento em que a
+   * operação assumiu a carreta (`inicio_atendimento_em`); sem atendimento
+   * ainda, vale a chegada na portaria. É o turno que trabalhou a carreta,
+   * que é do que o TMA fala.
+   *
+   * Por pessoa vale quem PARTICIPOU -- o conferente ou a portaria --,
+   * pelo mesmo motivo do ressuprimento: as duas pontas fazem o tempo.
+   */
+  const recebimentosDoRecorte = ((recebimentosBanco ?? []) as Record<string, unknown>[]).filter((a) => {
+    if (turnoRecebimento) {
+      const referencia = (a.inicio_atendimento_em as string) ?? (a.chegada_em as string);
+      if (!referencia || turnoAtual(new Date(referencia)) !== turnoRecebimento) return false;
+    }
+    if (
+      pessoaRecebimento &&
+      a.conferente_colaborador_id !== pessoaRecebimento &&
+      a.portaria_colaborador_id !== pessoaRecebimento
+    )
+      return false;
+    return true;
+  });
+
+  const carretas = recebimentosDoRecorte as unknown as CarretaAvaria[];
 
   // Só conta como "avaliada" a carreta que teve itens lançados: sem
   // conferência não há avaria medida, e incluí-la puxaria o percentual
@@ -792,7 +954,7 @@ export default async function IndicadoresPage({
   // tipo é camelCase: um `as AtendimentoCarreta` em cima da linha crua
   // compila liso e entrega tudo undefined, e o TMA viraria null em
   // silêncio para todas as carretas.
-  const atendimentos: AtendimentoCarreta[] = ((recebimentosBanco ?? []) as Record<string, unknown>[]).map(
+  const atendimentos: AtendimentoCarreta[] = recebimentosDoRecorte.map(
     (a) =>
       ({
         chegadaEm: a.chegada_em as string,
@@ -862,8 +1024,16 @@ export default async function IndicadoresPage({
   // ---- Gás da empilhadeira ----
   // Reaproveita o mesmo motor do dashboard de consumo: um ciclo vai de
   // uma troca de P20 até a seguinte, rateado pelas horas de quem usou.
+  //
+  // Estes números NÃO seguem o filtro do bloco, e isso está escrito no
+  // cartão. Um ciclo de botijão atravessa turnos e operadores: recortar
+  // as sessões antes de montá-lo tiraria horas do meio do ciclo e faria
+  // "quanto rende um P20" render mais do que rende de verdade. Melhor um
+  // número honesto sem recorte do que um recortado e errado.
+  const operacoesTodasLidas = operacoesTodas.map((o) => operacaoEmpilhadeiraDeLinha(o));
+  const operacoesTodasEncerradas = operacoesTodasLidas.filter((op) => op.horimetroFinal !== null);
   const numeroDaMaquina = new Map<string, string>();
-  for (const op of operacoes) {
+  for (const op of operacoesTodasLidas) {
     if (op.empilhadeiraNumero) numeroDaMaquina.set(op.empilhadeiraId, op.empilhadeiraNumero);
   }
   const trocasGas: TrocaGas[] = ((trocasGasBanco ?? []) as Record<string, unknown>[]).map((t) => ({
@@ -874,7 +1044,7 @@ export default async function IndicadoresPage({
     horimetro: Number(t.horimetro),
     realizadaEm: t.realizada_em as string,
   }));
-  const sessoesParaGas: SessaoUso[] = operacoesEncerradas.map((op) => ({
+  const sessoesParaGas: SessaoUso[] = operacoesTodasEncerradas.map((op) => ({
     id: op.id,
     empilhadeiraId: op.empilhadeiraId,
     operadorId: op.operadorId,
@@ -917,8 +1087,11 @@ export default async function IndicadoresPage({
     .sort((a, b) => b.valor - a.valor);
 
   // ---- Ranking ----
+  // Recorte próprio (`rank_t` / `rank_c`): o ranking é a comparação entre
+  // pessoas, e não faz sentido ele obedecer ao filtro que alguém pôs no
+  // bloco da bancada para investigar outra coisa.
   const ranking = construirRanking(
-    reepacks.map((r) => ({
+    reepacksRank.map((r) => ({
       colaboradorId: r.colaborador_id,
       colaboradorNome: r.colaborador_nome,
       produtoId: r.produto_id ?? "",
@@ -926,7 +1099,7 @@ export default async function IndicadoresPage({
       inicio: r.inicio,
       fim: r.fim,
     })),
-    despejos.map((d) => ({
+    despejosRank.map((d) => ({
       colaboradorId: d.colaborador_id,
       colaboradorNome: d.colaborador_nome,
       embalagemId: d.embalagem_despejo_id ?? "",
@@ -934,17 +1107,17 @@ export default async function IndicadoresPage({
       inicio: d.inicio,
       fim: d.fim,
     })),
-    pickings.map((p) => ({
+    pickingsRank.map((p) => ({
       colaboradorId: p.colaborador_id,
       colaboradorNome: p.colaborador_nome,
       quantidade: p.hl,
       inicio: p.inicio,
       fim: p.fim,
     })),
-    execucoes5s.map((e) => ({ colaboradorId: e.colaborador_id, colaboradorNome: e.colaborador_nome })),
+    execucoes5sRank.map((e) => ({ colaboradorId: e.colaborador_id, colaboradorNome: e.colaborador_nome })),
     produtos,
     embalagens,
-    selecoes.map((s) => ({
+    selecoesRank.map((s) => ({
       colaboradorId: s.colaborador_id,
       colaboradorNome: s.colaborador_nome,
       quantidade: s.quantidade,
@@ -983,6 +1156,60 @@ export default async function IndicadoresPage({
     r.totalAtividades,
   ]);
 
+  // ---- As listas de gente de cada filtro ----
+  // Montadas do próprio dado do período: quem não apareceu não vira
+  // opção, e escolher alguém nunca devolve uma tela vazia sem motivo.
+  const comoPessoa = (l: { colaborador_id: string; colaborador_nome: string }) => ({
+    valor: l.colaborador_id,
+    nome: l.colaborador_nome,
+  });
+  const pessoasBancada = listaDePessoas([...selecoesTodas, ...reepacksTodos].map(comoPessoa));
+  const pessoasDespejo = listaDePessoas(despejosTodos.map(comoPessoa));
+  const pessoasAbastecimento = listaDePessoas([
+    ...pickingsTodos.map(comoPessoa),
+    ...ressuprimentos.map((r) => ({ valor: r.solicitanteId, nome: r.solicitanteNome })),
+    ...ressuprimentos
+      .filter((r) => r.operadorId && r.operadorNome)
+      .map((r) => ({ valor: r.operadorId as string, nome: r.operadorNome as string })),
+  ]);
+  const pessoasBatePalete = listaDePessoas(batePaleteTodos.map(comoPessoa));
+  const pessoasEmpilhadeira = listaDePessoas(
+    operacoesTodas.map((o) => ({ valor: o.operador_id, nome: o.operador_nome })),
+  );
+  const pessoasRecebimento = listaDePessoas(
+    ((recebimentosBanco ?? []) as Record<string, unknown>[]).flatMap((a) =>
+      [
+        { valor: (a.conferente_colaborador_id as string) ?? "", nome: (a.conferente_nome as string) ?? "" },
+        { valor: (a.portaria_colaborador_id as string) ?? "", nome: (a.portaria_nome as string) ?? "" },
+      ].filter((p) => p.valor && p.nome),
+    ),
+  );
+  /** O recorte em vigor por extenso -- vai escrito em cima de cada bloco. */
+  const descreverRecorte = (turno: Turno | null, pessoa: string, pessoas: Pessoa[]) => {
+    const nome = pessoas.find((p) => p.valor === pessoa)?.nome;
+    // Escolhida no filtro do topo, a pessoa pode não ter nada NESTE
+    // bloco. Dizer "todos os colaboradores" ali seria mentira: o bloco
+    // está vazio porque está recortado, não porque ninguém trabalhou.
+    const quem = pessoa
+      ? (nome ?? "uma pessoa sem lançamento neste bloco")
+      : "todos os colaboradores";
+    return [turno ? ROTULO_TURNO_CURTO[turno] : "todos os turnos", quem].join(" · ");
+  };
+
+  const pessoasRanking = listaDePessoas(
+    [...selecoesTodas, ...reepacksTodos, ...despejosTodos, ...pickingsTodos, ...execucoes5sTodos].map(comoPessoa),
+  );
+  /** Todo mundo que apareceu em qualquer bloco -- é a lista do filtro do topo. */
+  const pessoasGeral = listaDePessoas(
+    [
+      ...pessoasRanking,
+      ...pessoasAbastecimento,
+      ...pessoasBatePalete,
+      ...pessoasEmpilhadeira,
+      ...pessoasRecebimento,
+    ].map((p) => ({ valor: p.valor, nome: p.nome })),
+  );
+
   return (
     <div>
       <PageHeader
@@ -991,54 +1218,71 @@ export default async function IndicadoresPage({
         fecharHref="/produtividade-armazem"
       />
 
-      <form method="get" className="mb-6 flex flex-wrap items-end gap-2">
-        <div>
-          <label className={rotulo} htmlFor="de">De</label>
-          <input id="de" type="date" name="de" defaultValue={de} className={campo} />
+      {/* ---- FILTRO GERAL ----
+          Período vale para a tela inteira (é o que a consulta ao banco
+          usa). Turno e colaborador aqui são o PADRÃO de todos os blocos:
+          aplicar limpa os recortes individuais, senão o filtro do topo
+          pareceria não funcionar em quem tinha recorte próprio. */}
+      <form method="get" className="mb-6 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="flex flex-wrap items-end gap-2">
+          <div>
+            <label className={rotulo} htmlFor="de">De</label>
+            <input id="de" type="date" name="de" defaultValue={de} className={campo} />
+          </div>
+          <div>
+            <label className={rotulo} htmlFor="ate">Até</label>
+            <input id="ate" type="date" name="ate" defaultValue={ate} className={campo} />
+          </div>
+          <div>
+            <label className={rotulo} htmlFor="turno">Turno</label>
+            <select id="turno" name="turno" defaultValue={turnoGeral ?? ""} className={campo}>
+              <option value="">Todos</option>
+              {TURNOS.map((t) => (
+                <option key={t} value={t}>{ROTULO_TURNO[t]}</option>
+              ))}
+            </select>
+          </div>
+          <div className="min-w-0">
+            <label className={rotulo} htmlFor="colab">Colaborador</label>
+            <select id="colab" name="colab" defaultValue={pessoaGeral} className={`${campo} max-w-[16rem]`}>
+              <option value="">Todos</option>
+              {pessoasGeral.map((p) => (
+                <option key={p.valor} value={p.valor}>{p.nome}</option>
+              ))}
+            </select>
+          </div>
+          <button type="submit" className="rounded-lg bg-slate-800 px-3 py-2 text-sm font-semibold text-white">
+            Filtrar tudo
+          </button>
         </div>
-        <div>
-          <label className={rotulo} htmlFor="ate">Até</label>
-          <input id="ate" type="date" name="ate" defaultValue={ate} className={campo} />
-        </div>
-        <div>
-          <label className={rotulo} htmlFor="turno">Turno</label>
-          <select id="turno" name="turno" defaultValue={turnoFiltro ?? ""} className={campo}>
-            <option value="">Todos</option>
-            {TURNOS.map((t) => (
-              <option key={t} value={t}>{ROTULO_TURNO[t]}</option>
-            ))}
-          </select>
-        </div>
-        <button type="submit" className="rounded-lg bg-slate-800 px-3 py-2 text-sm font-semibold text-white">
-          Filtrar
-        </button>
-        <div className="ml-auto">
-          <ExportarCsv
-            nome="ranking-armazem"
-            complemento={[de, "a", ate, turnoFiltro ?? ""].filter(Boolean).join("_")}
-            cabecalho={[
-              "Posição",
-              "Colaborador",
-              "Pontuação",
-              "% meta Repack",
-              "% meta Despejo",
-              "% média Seleção",
-              "% média Picking",
-              "% média 5S",
-              "Repacks (un)",
-              "Despejo (L)",
-              "Seleção (un)",
-              "Picking (HL)",
-              "Execuções 5S",
-              "Lançamentos",
-            ]}
-            linhas={csvRanking}
-            rotulo="Exportar ranking .csv"
-          />
-        </div>
+        <p className="mt-2 text-xs text-slate-500">
+          Período vale para a tela inteira. Turno e colaborador aqui são o padrão de todos os
+          blocos — cada bloco abaixo pode ter o seu, e aplicar este filtro devolve todos a este
+          recorte.
+        </p>
       </form>
 
-      <div className="space-y-5">
+      {/* ---- OS TÓPICOS ----
+          Um cartão por assunto, cada um com filtro, cartões e
+          comparativos próprios. Antes eram blocos soltos na vertical e
+          cinco gavetas no rodapé que misturavam assuntos: o comparativo
+          da empilhadeira dividia gaveta com o do despejo, e a explicação
+          do recebimento ficava a duas telas dos números dele. */}
+      <div className="space-y-6">
+        <SecaoDoTopico
+          titulo="🧰 Bancada — Seleção, Triagem e Repack"
+          subtitulo="As duas etapas do mesmo ciclo, do palete avariado ao produto reembalado."
+          recorte={descreverRecorte(turnoBancada, pessoaBancada, pessoasBancada)}
+          filtro={
+            <FiltroDoTopico
+              slug={TOPICOS.bancada}
+              turno={turnoBancada}
+              pessoa={pessoaBancada}
+              pessoas={pessoasBancada}
+              params={paramsAtuais}
+            />
+          }
+        >
         {/* Vem primeiro: é a visão do ciclo inteiro. Os blocos abaixo
             abrem cada etapa. */}
         <BlocoAtividade titulo="🧰 Tempo de bancada (Seleção + Repack)">
@@ -1084,72 +1328,138 @@ export default async function IndicadoresPage({
           />
         </BlocoAtividade>
 
-        <BlocoAtividade titulo="🫗 Despejo">
-          <TermometroDaBombona litros={despejoLitrosTotal} capacidade={capacidadeBombona} />
-          <CartaoHero
-            titulo="Taxa média"
-            valor={`${despejoTaxaMediaHora.toFixed(1)} L/h`}
-            legenda="litros ÷ horas do período"
-            meta={leituraDespejo}
-          />
-          <CartaoHero titulo="Lançamentos" valor={String(despejos.length)} />
-        </BlocoAtividade>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <BarraRanking
+              titulo="Tempo de bancada por colaborador"
+              subtitulo="Triagem + reembalagem somadas"
+              itens={barrasBancadaColaborador}
+              sufixo="h"
+              tom="gold"
+            />
+            <BarraRanking
+              titulo="Reepack por colaborador"
+              subtitulo="Total de caixas no período"
+              itens={barrasReepackColaborador}
+              sufixo="cx"
+            />
+            <BarraRanking
+              titulo="Repack por embalagem"
+              subtitulo="Caixas por hora, por tipo de embalagem"
+              itens={barrasRepackEmbalagem}
+              sufixo="cx/h"
+            />
+            <BarraRanking
+              titulo="Reepack por produto"
+              subtitulo="Taxa média no período"
+              itens={reepackPorProduto.map((l) => ({
+                rotulo: l.produtoDescricao,
+                valor: l.taxa,
+                detalhe: `${l.produtoDescricao}: ${l.quantidade} cx em ${l.horas}h${l.pctMeta !== null ? ` — ${l.pctMeta}% da meta` : ""}`,
+              }))}
+              sufixo="cx/h"
+            />
+          </div>
 
-        <BlocoAtividade titulo="🧃 Abastecimento do Picking">
-          <CartaoHero titulo="Sessões" valor={String(pickings.length)} legenda="encerradas no período" />
-          <CartaoHero titulo="HL abastecidos" valor={`${formatarNumeroBr(pickingHlTotal, 1)} HL`} />
-          <CartaoHero
-            titulo="Taxa média"
-            valor={pickingHlHora === null ? "—" : `${formatarNumeroBr(pickingHlHora, 2)} HL/h`}
-            legenda="HL ÷ horas de sessão"
-            meta={leituraPicking}
-          />
-        </BlocoAtividade>
+          <details className="rounded-xl bg-slate-50 p-3 text-xs text-slate-500">
+            <summary className="cursor-pointer font-semibold text-slate-600">
+              ℹ️ Como o tempo de bancada é medido
+            </summary>
+            <ul className="mt-2 space-y-1.5">
+              <li>
+                <strong>Tempo total</strong> — soma das horas de Seleção e de Repack no período. São as
+                duas etapas que acontecem na bancada (POP-ARM-001, seções 7.2 a 7.6): o produto sai do
+                palete avariado, é triado e volta embalado.
+              </li>
+              <li>
+                <strong>Média por dia</strong> — dividida pelos dias que <em>tiveram</em> lançamento, não
+                pelos dias do período. Contar domingo e dia parado faria a bancada parecer ociosa quando
+                ela apenas não operou.
+              </li>
+              <li>
+                <strong>Onde o tempo foi</strong> — quanto do total ficou em cada etapa. É o número que
+                motivou separá-las: um lote muito avariado consome o tempo na triagem, e antes isso
+                aparecia como &ldquo;repack lento&rdquo;. Se a triagem passar a puxar a maior fatia, o
+                gargalo está na qualidade do que chega, não na velocidade de quem embala.
+              </li>
+              <li>
+                Cada lançamento conta do início ao fim do cronômetro. Duas pessoas trabalhando ao mesmo
+                tempo somam as duas horas — é carga de trabalho, não tempo de relógio na parede.
+              </li>
+            </ul>
+          </details>
+        </SecaoDoTopico>
 
-        {/* ---- BATE PALETE ----
-            Só aparece quando houve lote no período: um bloco de zeros
-            ensina a ignorá-lo. */}
-        {lotesBatidos.length > 0 && (
-          <BlocoAtividade titulo="🤲📦 Bate Palete">
-            <CartaoHero
-              titulo="HL batidos"
-              valor={`${formatarNumeroBr(batePaleteHl, 1)} HL`}
-              legenda={`${lotesBatidos.length} lote(s)`}
+        <SecaoDoTopico
+          titulo="🫗 Despejo"
+          subtitulo="Litros descartados e o ritmo de quem despeja."
+          recorte={descreverRecorte(turnoDespejo, pessoaDespejo, pessoasDespejo)}
+          filtro={
+            <FiltroDoTopico
+              slug={TOPICOS.despejo}
+              turno={turnoDespejo}
+              pessoa={pessoaDespejo}
+              pessoas={pessoasDespejo}
+              params={paramsAtuais}
             />
+          }
+        >
+          <BlocoAtividade titulo="🫗 Despejo">
+            <TermometroDaBombona litros={despejoLitrosTotal} capacidade={capacidadeBombona} />
             <CartaoHero
-              titulo="Avaria"
-              valor={
-                batePalatePctAvaria === null
-                  ? "—"
-                  : `${formatarNumeroBr(batePalatePctAvaria, 1)}%`
-              }
-              legenda={`${formatarNumeroBr(batePaleteAvariado, 1)} HL perdidos`}
+              titulo="Taxa média"
+              valor={`${despejoTaxaMediaHora.toFixed(1)} L/h`}
+              legenda="litros ÷ horas do período"
+              meta={leituraDespejo}
             />
-            <CartaoHero
-              titulo="Aproveitado"
-              valor={`${formatarNumeroBr(batePaleteHl - batePaleteAvariado, 1)} HL`}
-              legenda="voltou inteiro ao estoque"
-            />
-            {/* O número que aponta a ORIGEM. Um SKU que chega com muita
-                avaria em todo lote tem problema de paletização ou de
-                transporte, e nada dentro do armazém resolve. */}
-            <div className="col-span-full">
-              <BarraRanking
-                titulo="Onde está a avaria"
-                subtitulo="HL avariado por produto, no período"
-                itens={avariaDosProdutos.slice(0, 8).map((l) => ({
-                  rotulo: produtos.find((p) => p.id === l.produtoId)?.descricao ?? "produto",
-                  valor: l.hlAvariado,
-                  detalhe: `${l.lotes} lote(s) · ${
-                    l.pctAvaria === null ? "—" : `${formatarNumeroBr(l.pctAvaria, 1)}% do lote`
-                  }`,
-                }))}
-                sufixo=" HL"
-                tom="vermelho"
-              />
-            </div>
+            <CartaoHero titulo="Lançamentos" valor={String(despejos.length)} />
           </BlocoAtividade>
-        )}
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <BarraRanking
+              titulo="Despejo por colaborador"
+              subtitulo="Total de litros no período"
+              itens={barrasDespejoColaborador}
+              sufixo="L"
+            />
+            <BarraRanking
+              titulo="Despejo por embalagem"
+              subtitulo="Litros/hora, já convertidos"
+              itens={despejoPorEmbalagem.map((l) => ({
+                rotulo: l.embalagemNome,
+                valor: l.taxa,
+                detalhe: `${l.embalagemNome}: ${l.quantidade} L em ${l.horas}h${l.pctMeta !== null ? ` — ${l.pctMeta}% da meta` : ""}`,
+              }))}
+              sufixo="L/h"
+              tom="gold"
+            />
+          </div>
+        </SecaoDoTopico>
+
+        <SecaoDoTopico
+          titulo="🧃 Abastecimento e Ressuprimento"
+          subtitulo="O volume abastecido e o tempo que se perde entre pedir, transportar e abastecer."
+          recorte={descreverRecorte(turnoAbastecimento, pessoaAbastecimento, pessoasAbastecimento)}
+          filtro={
+            <FiltroDoTopico
+              slug={TOPICOS.abastecimento}
+              turno={turnoAbastecimento}
+              pessoa={pessoaAbastecimento}
+              pessoas={pessoasAbastecimento}
+              params={paramsAtuais}
+              nota="no ressuprimento, a pessoa vale como solicitante ou operador"
+            />
+          }
+        >
+          <BlocoAtividade titulo="🧃 Abastecimento do Picking">
+            <CartaoHero titulo="Sessões" valor={String(pickings.length)} legenda="encerradas no período" />
+            <CartaoHero titulo="HL abastecidos" valor={`${formatarNumeroBr(pickingHlTotal, 1)} HL`} />
+            <CartaoHero
+              titulo="Taxa média"
+              valor={pickingHlHora === null ? "—" : `${formatarNumeroBr(pickingHlHora, 2)} HL/h`}
+              legenda="HL ÷ horas de sessão"
+              meta={leituraPicking}
+            />
+          </BlocoAtividade>
 
         {/* ---- ABASTECIMENTO: o painel que morava na tela de lançar ---- */}
         {abastecimentoParaAnalise.length > 0 && (
@@ -1258,7 +1568,83 @@ export default async function IndicadoresPage({
             </div>
           </BlocoAtividade>
         )}
+        </SecaoDoTopico>
 
+        {/* ---- BATE PALETE ----
+            A seção só existe quando houve lote no período: um cartão de
+            zeros com filtro e tudo ensina a ignorá-lo. */}
+        {batePaleteTodos.length > 0 && (
+          <SecaoDoTopico
+            titulo="🤲📦 Bate Palete"
+            subtitulo="Quanto do palete batido voltou inteiro ao estoque."
+            recorte={descreverRecorte(turnoBatePalete, pessoaBatePalete, pessoasBatePalete)}
+            filtro={
+              <FiltroDoTopico
+                slug={TOPICOS.batePalete}
+                turno={turnoBatePalete}
+                pessoa={pessoaBatePalete}
+                pessoas={pessoasBatePalete}
+                params={paramsAtuais}
+              />
+            }
+          >
+            <BlocoAtividade titulo="🤲📦 Bate Palete">
+              <CartaoHero
+                titulo="HL batidos"
+                valor={`${formatarNumeroBr(batePaleteHl, 1)} HL`}
+                legenda={`${lotesBatidos.length} lote(s)`}
+              />
+              <CartaoHero
+                titulo="Avaria"
+                valor={
+                  batePalatePctAvaria === null
+                    ? "—"
+                    : `${formatarNumeroBr(batePalatePctAvaria, 1)}%`
+                }
+                legenda={`${formatarNumeroBr(batePaleteAvariado, 1)} HL perdidos`}
+              />
+              <CartaoHero
+                titulo="Aproveitado"
+                valor={`${formatarNumeroBr(batePaleteHl - batePaleteAvariado, 1)} HL`}
+                legenda="voltou inteiro ao estoque"
+              />
+            </BlocoAtividade>
+
+            {/* O número que aponta a ORIGEM. Um SKU que chega com muita
+                avaria em todo lote tem problema de paletização ou de
+                transporte, e nada dentro do armazém resolve. */}
+            <BarraRanking
+              titulo="Onde está a avaria"
+              subtitulo="HL avariado por produto, no período"
+              itens={avariaDosProdutos.slice(0, 8).map((l) => ({
+                rotulo: produtos.find((p) => p.id === l.produtoId)?.descricao ?? "produto",
+                valor: l.hlAvariado,
+                detalhe: `${l.lotes} lote(s) · ${
+                  l.pctAvaria === null ? "—" : `${formatarNumeroBr(l.pctAvaria, 1)}% do lote`
+                }`,
+              }))}
+              sufixo=" HL"
+              tom="vermelho"
+            />
+          </SecaoDoTopico>
+        )}
+
+        <SecaoDoTopico
+          titulo="🏗️ Empilhadeira"
+          subtitulo="Horas de motor pelo horímetro e o consumo de gás."
+          recorte={descreverRecorte(turnoEmpilhadeira, pessoaEmpilhadeira, pessoasEmpilhadeira)}
+          filtro={
+            <FiltroDoTopico
+              slug={TOPICOS.empilhadeira}
+              turno={turnoEmpilhadeira}
+              pessoa={pessoaEmpilhadeira}
+              pessoas={pessoasEmpilhadeira}
+              params={paramsAtuais}
+              rotuloPessoa="Operador"
+              nota="turno pela hora de abertura da operação"
+            />
+          }
+        >
         <BlocoAtividade titulo="🏗️ Empilhadeira">
           <CartaoHero titulo="Horas ativas" valor={`${horasEmpilhadeiraTotal}h`} legenda="horímetro, operações encerradas" />
           {/* Mostra as ENCERRADAS, que é o denominador da duração média.
@@ -1277,27 +1663,76 @@ export default async function IndicadoresPage({
           />
           <CartaoHero titulo="Duração média" valor={formatarHoras(mediaHorasPorOperacao)} legenda="por operação, horímetro" />
 
-          {/* Gás: o ciclo do P20, mesmo motor do dashboard de consumo. */}
+          {/* Gás: o ciclo do P20, mesmo motor do dashboard de consumo.
+              Estes três NÃO seguem o filtro do bloco -- está escrito na
+              legenda. Um ciclo de botijão atravessa turnos e operadores:
+              recortar as sessões antes de montá-lo tiraria horas do meio
+              do ciclo e faria o P20 render mais do que rende. */}
           <CartaoHero
             titulo="P20 consumidos"
             valor={String(p20NoPeriodo)}
-            legenda="ciclos fechados no período"
+            legenda="ciclos fechados no período · todo o armazém"
           />
           <CartaoHero
             titulo="Média horas/P20"
             valor={mediaHorasPorP20 === null ? "—" : `${formatarNumeroBr(mediaHorasPorP20)}h`}
-            legenda="quanto rende um botijão"
+            legenda="quanto rende um botijão · todo o armazém"
             meta={leituraHorasP20}
           />
           {custoDoGas !== null && (
             <CartaoHero
               titulo="Custo do gás"
               valor={`R$ ${custoDoGas.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-              legenda={`P20 a R$ ${formatarNumeroBr(custoP20 ?? 0, 2)}`}
+              legenda={`P20 a R$ ${formatarNumeroBr(custoP20 ?? 0, 2)} · todo o armazém`}
             />
           )}
         </BlocoAtividade>
 
+          <div className="grid gap-4 sm:grid-cols-2">
+            <BarraRanking titulo="Horas por máquina" itens={barrasHorasMaquina} sufixo="h" />
+            <BarraRanking titulo="Horas por operador" itens={barrasHorasOperador} sufixo="h" />
+          </div>
+
+          <details className="rounded-xl bg-slate-50 p-3 text-xs text-slate-500">
+            <summary className="cursor-pointer font-semibold text-slate-600">
+              ℹ️ Como a empilhadeira é medida
+            </summary>
+            <ul className="mt-2 space-y-1.5">
+              <li>
+                <strong>Horas ativas</strong> — vêm do <em>horímetro</em> (motor rodando), não do tempo
+                entre abrir e fechar a operação. Só existem depois do fechamento, que é quando o
+                horímetro final é lido: operação em aberto não entra em nenhum somatório aqui.
+              </li>
+              <li>
+                <strong>P20</strong> — um ciclo vai de uma troca de gás até a seguinte, e entra no
+                período em que <em>fechou</em>, que é quando o botijão acabou. A primeira troca de cada
+                máquina não vira ciclo: sem um ponto anterior não há intervalo para medir.
+              </li>
+              <li>
+                Os três cartões de gás mostram <strong>todo o armazém</strong>, mesmo com turno ou
+                operador escolhido acima. Um ciclo de botijão atravessa turnos e operadores — recortar
+                as sessões antes de montá-lo tiraria horas do meio do ciclo e faria o botijão parecer
+                render mais do que rende.
+              </li>
+            </ul>
+          </details>
+        </SecaoDoTopico>
+
+        <SecaoDoTopico
+          titulo="🚛 Recebimento de Carretas"
+          subtitulo="TMA, as fases do atendimento e a avaria que chega de fora."
+          recorte={descreverRecorte(turnoRecebimento, pessoaRecebimento, pessoasRecebimento)}
+          filtro={
+            <FiltroDoTopico
+              slug={TOPICOS.recebimento}
+              turno={turnoRecebimento}
+              pessoa={pessoaRecebimento}
+              pessoas={pessoasRecebimento}
+              params={paramsAtuais}
+              nota="turno pelo início do atendimento; pessoa vale como conferente ou portaria"
+            />
+          }
+        >
         <BlocoAtividade titulo="🚛 Recebimento">
           <CartaoHero
             titulo="Carretas finalizadas"
@@ -1356,130 +1791,110 @@ export default async function IndicadoresPage({
           />
         </BlocoAtividade>
 
-      </div>
-
-      <details className="mt-3 rounded-xl bg-slate-50 p-3 text-xs text-slate-500">
-        <summary className="cursor-pointer font-semibold text-slate-600">
-          ℹ️ Como o recebimento e a empilhadeira são medidos
-        </summary>
-        <ul className="mt-2 space-y-1.5">
-          <li>
-            <strong>TMA</strong> — quanto a carreta ocupou a operação. Começa no horário{" "}
-            <em>agendado</em> quando havia agendamento, senão na chegada apontada pela portaria.
-            Termina no fim da descarga; se a carreta voltou carregada de AG, termina no fim do{" "}
-            <strong>carregamento</strong> — até lá ela continua no pátio. O vão entre descarga e
-            carga conta.
-          </li>
-          <li>
-            <strong>A conferência nunca entra no TMA</strong> — a carreta não espera por ela. Já
-            houve conferência terminando duas horas depois de a carreta sair; contá-la infla o
-            indicador com tempo que não é da carreta.
-          </li>
-          <li>
-            <strong>Cor dos cartões</strong> — verde quando a meta está batida, vermelho quando
-            não, com a diferença embaixo. Só os cartões que <em>têm</em> régua ganham cor: as fases
-            do atendimento não têm meta cadastrada, e pintá-las seria inventar uma. A meta de TMA
-            se cadastra em Admin → Produtividade do Armazém → Recebimento.
-          </li>
-          <li>
-            <strong>% de paletes com avaria</strong> — a conferência conta em{" "}
-            <strong>paletes</strong>, e um palete com uma garrafa quebrada conta como palete
-            avariado inteiro. Por isso o número fica na casa das dezenas: ele diz quantos paletes
-            foram <em>tocados</em> por avaria, não quanto do volume veio avariado. Só entram
-            carretas com conferência lançada — sem conferência não há avaria medida, e incluí-las
-            puxaria o percentual para baixo fingindo que nada veio avariado. Este cartão ainda não
-            tem meta cadastrada.
-          </li>
-          <li>
-            <strong>P20</strong> — um ciclo vai de uma troca de gás até a seguinte, e entra no
-            período em que <em>fechou</em>, que é quando o botijão acabou. A primeira troca de cada
-            máquina não vira ciclo: sem um ponto anterior não há intervalo para medir.
-          </li>
-        </ul>
-      </details>
-
-      <details className="mt-3 rounded-xl bg-slate-50 p-3 text-xs text-slate-500">
-        <summary className="cursor-pointer font-semibold text-slate-600">
-          ℹ️ Como o tempo de bancada é medido
-        </summary>
-        <ul className="mt-2 space-y-1.5">
-          <li>
-            <strong>Tempo total</strong> — soma das horas de Seleção e de Repack no período. São as
-            duas etapas que acontecem na bancada (POP-ARM-001, seções 7.2 a 7.6): o produto sai do
-            palete avariado, é triado e volta embalado.
-          </li>
-          <li>
-            <strong>Média por dia</strong> — dividida pelos dias que <em>tiveram</em> lançamento, não
-            pelos dias do período. Contar domingo e dia parado faria a bancada parecer ociosa quando
-            ela apenas não operou.
-          </li>
-          <li>
-            <strong>Onde o tempo foi</strong> — quanto do total ficou em cada etapa. É o número que
-            motivou separá-las: um lote muito avariado consome o tempo na triagem, e antes isso
-            aparecia como &ldquo;repack lento&rdquo;. Se a triagem passar a puxar a maior fatia, o
-            gargalo está na qualidade do que chega, não na velocidade de quem embala.
-          </li>
-          <li>
-            Cada lançamento conta do início ao fim do cronômetro. Duas pessoas trabalhando ao mesmo
-            tempo somam as duas horas — é carga de trabalho, não tempo de relógio na parede.
-          </li>
-        </ul>
-      </details>
-
-      <details className="mt-6 rounded-2xl border border-slate-200 bg-white">
-        <summary className="cursor-pointer list-none p-4 text-sm font-semibold text-slate-700">
-          📊 Comparativos por colaborador e máquina
-        </summary>
-        <div className="grid gap-4 border-t border-slate-100 p-4 sm:grid-cols-2">
-          <BarraRanking
-            titulo="Tempo de bancada por colaborador"
-            subtitulo="Triagem + reembalagem somadas"
-            itens={barrasBancadaColaborador}
-            sufixo="h"
-            tom="gold"
-          />
-          <BarraRanking
-            titulo="Reepack por colaborador"
-            subtitulo="Total de caixas no período"
-            itens={barrasReepackColaborador}
-            sufixo="cx"
-          />
-          <BarraRanking
-            titulo="Repack por embalagem"
-            subtitulo="Caixas por hora, por tipo de embalagem"
-            itens={barrasRepackEmbalagem}
-            sufixo="cx/h"
-          />
-          <BarraRanking
-            titulo="Despejo por colaborador"
-            subtitulo="Total de litros no período"
-            itens={barrasDespejoColaborador}
-            sufixo="L"
-          />
+          {/* A avaria por transportadora mora aqui, e não numa gaveta de
+              "comparativos" no rodapé: ela é a leitura do MESMO número do
+              cartão de avaria, aberta por quem trouxe a carga. */}
           <BarraRanking
             titulo="% de avaria por transportadora"
-            subtitulo="Avariado sobre recebido"
+            subtitulo="Avariado sobre recebido, no recorte deste bloco"
             itens={barrasAvariaTransportadora}
             sufixo="%"
           />
-          <BarraRanking
-            titulo="Empilhadeira: horas por máquina"
-            itens={barrasHorasMaquina}
-            sufixo="h"
-          />
-          <BarraRanking
-            titulo="Empilhadeira: horas por operador"
-            itens={barrasHorasOperador}
-            sufixo="h"
-          />
-        </div>
-      </details>
 
-      <details className="mt-4 rounded-2xl border border-slate-200 bg-white">
+          <details className="rounded-xl bg-slate-50 p-3 text-xs text-slate-500">
+            <summary className="cursor-pointer font-semibold text-slate-600">
+              ℹ️ Como o recebimento é medido
+            </summary>
+            <ul className="mt-2 space-y-1.5">
+              <li>
+                <strong>O turno da carreta é derivado</strong> — a carreta não tem coluna de turno.
+                Vale o turno em que a operação <em>assumiu</em> a carreta; se ela ainda não foi
+                assumida, o da chegada na portaria. É o turno que trabalhou a carreta, que é do que o
+                TMA fala.
+              </li>
+              <li>
+                <strong>TMA</strong> — quanto a carreta ocupou a operação. Começa no horário{" "}
+                <em>agendado</em> quando havia agendamento, senão na chegada apontada pela portaria.
+                Termina no fim da descarga; se a carreta voltou carregada de AG, termina no fim do{" "}
+                <strong>carregamento</strong> — até lá ela continua no pátio. O vão entre descarga e
+                carga conta.
+              </li>
+              <li>
+                <strong>A conferência nunca entra no TMA</strong> — a carreta não espera por ela. Já
+                houve conferência terminando duas horas depois de a carreta sair; contá-la infla o
+                indicador com tempo que não é da carreta.
+              </li>
+              <li>
+                <strong>Cor dos cartões</strong> — verde quando a meta está batida, vermelho quando
+                não, com a diferença embaixo. Só os cartões que <em>têm</em> régua ganham cor: as fases
+                do atendimento não têm meta cadastrada, e pintá-las seria inventar uma. A meta de TMA
+                se cadastra em Admin → Produtividade do Armazém → Recebimento.
+              </li>
+              <li>
+                <strong>% de paletes com avaria</strong> — a conferência conta em{" "}
+                <strong>paletes</strong>, e um palete com uma garrafa quebrada conta como palete
+                avariado inteiro. Por isso o número fica na casa das dezenas: ele diz quantos paletes
+                foram <em>tocados</em> por avaria, não quanto do volume veio avariado. Só entram
+                carretas com conferência lançada — sem conferência não há avaria medida, e incluí-las
+                puxaria o percentual para baixo fingindo que nada veio avariado. Este cartão ainda não
+                tem meta cadastrada.
+              </li>
+            </ul>
+          </details>
+        </SecaoDoTopico>
+
+        {/* ---- RANKING ----
+            Por último e com recorte próprio: é a comparação ENTRE
+            pessoas, e não faz sentido ela obedecer ao filtro que alguém
+            pôs num bloco acima para investigar outra coisa. */}
+        <SecaoDoTopico
+          titulo="🏆 Ranking e atividade por turno"
+          subtitulo="A comparação entre pessoas e entre turnos, com a pontuação ponderada pelas horas."
+          recorte={descreverRecorte(turnoRanking, pessoaRanking, pessoasRanking)}
+          filtro={
+            <FiltroDoTopico
+              slug={TOPICOS.ranking}
+              turno={turnoRanking}
+              pessoa={pessoaRanking}
+              pessoas={pessoasRanking}
+              params={paramsAtuais}
+            />
+          }
+        >
+          <div className="flex justify-end">
+            <ExportarCsv
+              nome="ranking-armazem"
+              complemento={[de, "a", ate, turnoRanking ?? ""].filter(Boolean).join("_")}
+              cabecalho={[
+                "Posição",
+                "Colaborador",
+                "Pontuação",
+                "% meta Repack",
+                "% meta Despejo",
+                "% média Seleção",
+                "% média Picking",
+                "% média 5S",
+                "Repacks (un)",
+                "Despejo (L)",
+                "Seleção (un)",
+                "Picking (HL)",
+                "Execuções 5S",
+                "Lançamentos",
+              ]}
+              linhas={csvRanking}
+              rotulo="Exportar ranking .csv"
+            />
+          </div>
+
+      <details className="rounded-2xl border border-slate-200 bg-white" open>
         <summary className="cursor-pointer list-none p-4 text-sm font-semibold text-slate-700">
-          📅 Atividade por turno{turnoFiltro ? ` — ${ROTULO_TURNO_CURTO[turnoFiltro]}` : ""}
+          📅 Atividade por turno
         </summary>
         <div className="border-t border-slate-100 p-4">
+          {/* A tabela quebra por turno na própria linha, então ela só
+              honra o filtro de PESSOA deste bloco -- aplicar o turno aqui
+              deixaria duas linhas zeradas e uma cheia, que não compara
+              nada. */}
           <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
             <table className="w-full min-w-[640px] text-sm">
               <thead className="bg-slate-50 text-left text-xs uppercase text-slate-500">
@@ -1532,9 +1947,9 @@ export default async function IndicadoresPage({
         </div>
       </details>
 
-      <details className="mt-4 rounded-2xl border border-slate-200 bg-white">
+      <details className="rounded-2xl border border-slate-200 bg-white" open>
         <summary className="cursor-pointer list-none p-4 text-sm font-semibold text-slate-700">
-          🏆 Ranking{turnoFiltro ? ` — ${ROTULO_TURNO_CURTO[turnoFiltro]}` : ""}
+          🏆 Ranking{turnoRanking ? ` — ${ROTULO_TURNO_CURTO[turnoRanking]}` : ""}
         </summary>
         <div className="border-t border-slate-100 p-4">
           <div className="mb-3 flex items-baseline justify-end">
@@ -1656,35 +2071,8 @@ export default async function IndicadoresPage({
           <p className="mt-2 text-xs text-slate-400">ℹ️ {EXPLICACAO_PONTUACAO}</p>
         </div>
       </details>
-
-      <details className="mt-4 rounded-2xl border border-slate-200 bg-white">
-        <summary className="cursor-pointer list-none p-4 text-sm font-semibold text-slate-700">
-          📦 Reepack e despejo por produto/embalagem
-        </summary>
-        <div className="grid gap-4 border-t border-slate-100 p-4 sm:grid-cols-2">
-          <BarraRanking
-            titulo="Reepack por produto"
-            subtitulo="Taxa média no período"
-            itens={reepackPorProduto.map((l) => ({
-              rotulo: l.produtoDescricao,
-              valor: l.taxa,
-              detalhe: `${l.produtoDescricao}: ${l.quantidade} cx em ${l.horas}h${l.pctMeta !== null ? ` — ${l.pctMeta}% da meta` : ""}`,
-            }))}
-            sufixo="cx/h"
-          />
-          <BarraRanking
-            titulo="Despejo por embalagem"
-            subtitulo="Litros/hora, já convertidos"
-            itens={despejoPorEmbalagem.map((l) => ({
-              rotulo: l.embalagemNome,
-              valor: l.taxa,
-              detalhe: `${l.embalagemNome}: ${l.quantidade} L em ${l.horas}h${l.pctMeta !== null ? ` — ${l.pctMeta}% da meta` : ""}`,
-            }))}
-            sufixo="L/h"
-            tom="gold"
-          />
-        </div>
-      </details>
+        </SecaoDoTopico>
+      </div>
     </div>
   );
 }
