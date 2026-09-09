@@ -21,8 +21,6 @@ import {
   hojeISO,
   horasAtivasDeOperacao,
   horasEntre,
-  mediaExecucoes5sPorPessoa,
-  mediaPct,
   mediaHlPicking,
   mediaTaxaPorPessoa,
   operacaoEmpilhadeiraDeLinha,
@@ -48,9 +46,11 @@ import {
   cicloContaParaMaquina,
   formatarNumeroBr,
   montarCiclos,
+  resumirPorOperador,
   type SessaoUso,
   type TrocaGas,
 } from "@/lib/empilhadeira-gas";
+import { contagemPorHora, horasPorHora, mediaPorHora } from "@/lib/analise-horaria";
 import { CATALOGO_DE_METAS, avaliarMeta, media } from "@/lib/metas";
 import { PainelDoAbastecimento } from "@/components/produtividade-armazem/PainelDoAbastecimento";
 import type { SessaoAnalise } from "@/lib/abastecimento-analise";
@@ -68,8 +68,16 @@ import {
   ehTipoAbastecimento,
   formatarMinutos as formatarMinutosCurto,
 } from "@/lib/abastecimento";
-import { BarraRanking, BlocoAtividade, CartaoHero, TermometroDaBombona, type ItemBarra } from "./Graficos";
+import {
+  BarraRanking,
+  BlocoAtividade,
+  CartaoHero,
+  Histograma,
+  TermometroDaBombona,
+  type ItemBarra,
+} from "./Graficos";
 import { FiltroDoTopico, SecaoDoTopico, type Pessoa } from "./FiltroDoTopico";
+import { desfazerEsvaziamento, esvaziarBombona } from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -135,19 +143,37 @@ export default async function IndicadoresPage({
   const comoTurno = (v: string) => ((TURNOS as readonly string[]).includes(v) ? (v as Turno) : null);
   const turnoGeral = comoTurno(texto(sp.turno));
   const pessoaGeral = texto(sp.colab);
+  /**
+   * AUSENTE herda o filtro do topo; PRESENTE manda, mesmo vazio.
+   *
+   * A diferença não é preciosismo: era o bug do "Todos que não voltava".
+   * Antes `""` e "não escolhi" eram a mesma coisa, então com T3 no topo
+   * o Todos de um bloco caía de volta em T3 e quem lia ficava preso nele.
+   */
   const turnoDe = (slug: string) => {
-    const proprio = texto(sp[`${slug}_t`]);
-    return proprio ? comoTurno(proprio) : turnoGeral;
+    const chave = `${slug}_t`;
+    return chave in sp ? comoTurno(texto(sp[chave])) : turnoGeral;
   };
   const pessoaDe = (slug: string) => {
-    const proprio = texto(sp[`${slug}_c`]);
-    return proprio || pessoaGeral;
+    const chave = `${slug}_c`;
+    return chave in sp ? texto(sp[chave]) : pessoaGeral;
   };
+  /** Uma escolha extra do bloco (tipo, papel...), sem herança do topo. */
+  const escolhaDe = (slug: string, chave: string) => texto(sp[`${slug}_${chave}`]);
 
-  /** Os parâmetros atuais, para o filtro de um tópico não apagar os outros. */
-  const paramsAtuais: [string, string][] = Object.entries(sp)
-    .map(([k, v]) => [k, texto(v)] as [string, string])
-    .filter(([, v]) => v !== "");
+  /** Papéis do ressuprimento -- os três responsáveis por partes
+   *  diferentes do mesmo ciclo. Ver `ehDoPapel`. */
+  const PAPEIS_ABASTECIMENTO = [
+    { valor: "", nome: "Qualquer papel" },
+    { valor: "solicitante", nome: "Solicitante" },
+    { valor: "empilhador", nome: "Empilhador (transporte)" },
+    { valor: "ajudante", nome: "Ajudante (abastece)" },
+  ];
+  const TIPOS_ABASTECIMENTO_FILTRO = [
+    { valor: "", nome: "Completo e pontual" },
+    { valor: "completo", nome: "🔄 Completo" },
+    { valor: "pontual", nome: "⚡ Pontual" },
+  ];
 
   const turnoBancada = turnoDe(TOPICOS.bancada);
   const pessoaBancada = pessoaDe(TOPICOS.bancada);
@@ -155,6 +181,8 @@ export default async function IndicadoresPage({
   const pessoaDespejo = pessoaDe(TOPICOS.despejo);
   const turnoAbastecimento = turnoDe(TOPICOS.abastecimento);
   const pessoaAbastecimento = pessoaDe(TOPICOS.abastecimento);
+  const papelAbastecimento = escolhaDe(TOPICOS.abastecimento, "p");
+  const tipoAbastecimento = escolhaDe(TOPICOS.abastecimento, "tipo");
   const turnoBatePalete = turnoDe(TOPICOS.batePalete);
   const pessoaBatePalete = pessoaDe(TOPICOS.batePalete);
   const turnoEmpilhadeira = turnoDe(TOPICOS.empilhadeira);
@@ -201,6 +229,7 @@ export default async function IndicadoresPage({
     { data: embalagensRepackBanco },
     { data: batePaleteBanco },
     { data: ressuprimentosBanco },
+    { data: ultimoEsvaziamentoBanco, error: erroEsvaziamento },
   ] = await Promise.all([
     supabase
       .from("pa_produtos")
@@ -279,7 +308,7 @@ export default async function IndicadoresPage({
         // recortada por PESSOA: o TMA de quem atendeu é a pergunta que se
         // faz de verdade, e sem essas colunas o filtro do bloco não teria
         // como existir.
-        "id, pa_transportadoras(nome), atendimento_carretas_itens(quantidade, quantidade_avariada), chegada_em, agendamento_em, carga_agendada, inicio_atendimento_em, inicio_descarga_em, fim_descarga_em, inicio_conferencia_em, fim_conferencia_em, tem_carga, inicio_carga_em, fim_carga_em, finalizacao_em, conferente_colaborador_id, conferente_nome, portaria_colaborador_id, portaria_nome",
+        "id, motorista_nome, pa_transportadoras(nome), atendimento_carretas_itens(quantidade, quantidade_avariada), chegada_em, agendamento_em, carga_agendada, inicio_atendimento_em, inicio_descarga_em, fim_descarga_em, inicio_conferencia_em, fim_conferencia_em, tem_carga, inicio_carga_em, fim_carga_em, finalizacao_em, conferente_colaborador_id, conferente_nome, portaria_colaborador_id, portaria_nome",
       )
       .eq("revenda_id", revendaId)
       .eq("status", "finalizado")
@@ -335,12 +364,59 @@ export default async function IndicadoresPage({
     supabase
       .from("pa_ressuprimentos")
       .select(
-        "id, criado_em, solicitante_id, solicitante_nome, prioridade, tipo, operador_id, operador_nome, transporte_inicio, cancelado_em, pa_ressuprimento_itens(id, produto_id, unidade, quantidade, hl_calculado, entregue_em), pa_abastecimentos(inicio, fim, colaborador_nome)",
+        // colaborador_id do abastecimento entra para o filtro de AJUDANTE
+        // existir: sem ele só dava para recortar por quem pediu ou por
+        // quem transportou, e o ajudante é o terceiro do trio.
+        "id, criado_em, solicitante_id, solicitante_nome, prioridade, tipo, operador_id, operador_nome, transporte_inicio, cancelado_em, pa_ressuprimento_itens(id, produto_id, unidade, quantidade, hl_calculado, entregue_em), pa_abastecimentos(inicio, fim, colaborador_id, colaborador_nome)",
       )
       .eq("revenda_id", revendaId)
       .gte("criado_em", de0)
       .lte("criado_em", ate23),
+    // O último esvaziamento da bombona (migration 110). SEM recorte de
+    // data de propósito: a bombona é um recipiente físico, e o que
+    // interessa é o último esvaziamento que existe -- pode ser de antes
+    // do período que está na tela.
+    supabase
+      .from("pa_despejo_esvaziamentos")
+      .select("id, esvaziada_em, colaborador_nome")
+      .eq("revenda_id", revendaId)
+      .order("esvaziada_em", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
   ]);
+
+  /**
+   * O nível da bombona AGORA -- litros lançados depois do último
+   * esvaziamento, sem recorte de data, turno ou pessoa.
+   *
+   * É uma consulta em série (precisa da data do esvaziamento para saber
+   * de onde somar), e é a única da tela. Devolve só a coluna `litros`, e
+   * de um intervalo que costuma ser de dias -- o custo é desprezível
+   * perto de manter um saldo guardado em dia com lançamento apagado,
+   * editado ou retroativo.
+   */
+  /**
+   * A migration 110 pode ainda não ter rodado (o deploy da Vercel é
+   * automático no push; a migração é manual). Sem a tabela, o certo é
+   * dizer que o número não existe -- somar o histórico inteiro mostraria
+   * uma bombona com dez mil litros, e alguém acreditaria.
+   */
+  const bombonaDisponivel = !erroEsvaziamento;
+  const ultimoEsvaziamento = ultimoEsvaziamentoBanco as
+    | { id: string; esvaziada_em: string; colaborador_nome: string }
+    | null;
+  const consultaBombona = supabase
+    .from("pa_despejo_lancamentos")
+    .select("litros")
+    .eq("revenda_id", revendaId)
+    .not("fim", "is", null);
+  const { data: litrosNaBombonaBanco } = await (ultimoEsvaziamento
+    ? consultaBombona.gte("inicio", ultimoEsvaziamento.esvaziada_em)
+    : consultaBombona);
+  const litrosNaBombona =
+    Math.round(
+      ((litrosNaBombonaBanco ?? []) as { litros: number }[]).reduce((s, l) => s + Number(l.litros), 0) * 10,
+    ) / 10;
 
   /**
    * O ressuprimento no formato puro de lib/ressuprimento -- nenhum status
@@ -366,7 +442,12 @@ export default async function IndicadoresPage({
         hl_calculado: number;
         entregue_em: string | null;
       }[];
-      pa_abastecimentos: { inicio: string; fim: string | null; colaborador_nome: string }[];
+      pa_abastecimentos: {
+        inicio: string;
+        fim: string | null;
+        colaborador_id: string;
+        colaborador_nome: string;
+      }[];
     }[]
   ).map((l) => {
     const sessao = l.pa_abastecimentos?.[0] ?? null;
@@ -395,20 +476,65 @@ export default async function IndicadoresPage({
     };
   });
 
-  // O ressuprimento não tem coluna de turno -- ele é um pedido, não um
-  // apontamento de turno. O turno sai da HORA DO PEDIDO, com a mesma
-  // régua do resto da tela (ver turnoAtual): é o turno que ficou
-  // esperando, que é o que o indicador mede.
-  //
-  // Por pessoa, vale quem PARTICIPOU: quem pediu ou quem transportou.
-  // Recortar só pelo solicitante esconderia o operador da conversa, e é
-  // dele metade do tempo medido aqui.
+  /**
+   * Quem foi o AJUDANTE de cada ressuprimento.
+   *
+   * Vive fora do objeto `Ressuprimento` porque o tipo de
+   * lib/ressuprimento não tem esse campo -- ele guarda o nome, não o id.
+   * O id é o que o filtro precisa, então fica aqui num mapa à parte em
+   * vez de mudar o contrato da biblioteca por causa de uma tela.
+   */
+  const ajudanteDoRessuprimento = new Map<string, string>(
+    ((ressuprimentosBanco ?? []) as unknown as {
+      id: string;
+      pa_abastecimentos: { colaborador_id: string }[];
+    }[])
+      .filter((l) => l.pa_abastecimentos?.[0]?.colaborador_id)
+      .map((l) => [l.id, l.pa_abastecimentos[0].colaborador_id]),
+  );
+
+  /**
+   * O ressuprimento não tem coluna de turno -- ele é um pedido, não um
+   * apontamento de turno. O turno sai da HORA DO PEDIDO, com a mesma
+   * régua do resto da tela (ver turnoAtual): é o turno que ficou
+   * esperando, que é o que o indicador mede.
+   *
+   * O PAPEL é o filtro que faltava. Uma pessoa aparece aqui de três
+   * jeitos -- pediu, transportou (empilhador) ou abasteceu (ajudante) --
+   * e os três tempos do ciclo são de responsáveis diferentes. Sem
+   * escolher o papel, "espera pela empilhadeira" de uma pessoa misturava
+   * o que ela esperou como solicitante com o que ela fez esperar como
+   * operador, que são cobranças opostas.
+   */
+  const ehDoPapel = (r: Ressuprimento) => {
+    if (!pessoaAbastecimento) return true;
+    const ajudante = ajudanteDoRessuprimento.get(r.id) ?? null;
+    switch (papelAbastecimento) {
+      case "empilhador":
+        return r.operadorId === pessoaAbastecimento;
+      case "ajudante":
+        return ajudante === pessoaAbastecimento;
+      case "solicitante":
+        return r.solicitanteId === pessoaAbastecimento;
+      default:
+        // Qualquer papel: participou de algum jeito.
+        return (
+          r.solicitanteId === pessoaAbastecimento ||
+          r.operadorId === pessoaAbastecimento ||
+          ajudante === pessoaAbastecimento
+        );
+    }
+  };
+
   const ressuprimentosDoRecorte = ressuprimentos.filter((r) => {
     if (turnoAbastecimento && turnoAtual(new Date(r.criadoEm)) !== turnoAbastecimento) return false;
-    if (pessoaAbastecimento && r.solicitanteId !== pessoaAbastecimento && r.operadorId !== pessoaAbastecimento)
-      return false;
-    return true;
+    if (tipoAbastecimento && r.tipo !== tipoAbastecimento) return false;
+    return ehDoPapel(r);
   });
+
+  /** Os ressuprimentos que casaram com o recorte -- usado para levar o
+   *  mesmo filtro às SESSÕES de abastecimento, que só sabem do ajudante. */
+  const idsRessuprimentoDoRecorte = new Set(ressuprimentosDoRecorte.map((r) => r.id));
 
   // Separado por tipo: uma varredura da manha de 2h e normal, um chamado
   // pontual de 2h e um problema. Somados, o "ciclo medio" nao descreve
@@ -473,13 +599,41 @@ export default async function IndicadoresPage({
   }[];
 
   const pickingsTodos = pickingsBrutos.map((s) => ({
+    id: s.id,
     colaborador_id: s.colaborador_id,
     colaborador_nome: s.colaborador_nome,
     turno: s.turno,
+    // `tipo` e `ressuprimento_id` vêm junto para o bloco poder recortar
+    // por completo/pontual e por papel: a sessão só conhece o AJUDANTE,
+    // e quem transportou está do outro lado do ressuprimento.
+    tipo: s.tipo,
+    ressuprimentoId: s.ressuprimento_id,
     inicio: s.inicio,
     fim: s.fim,
     hl: Math.round((s.pa_abastecimento_itens ?? []).reduce((t, i) => t + i.hl_calculado, 0) * 1000) / 1000,
   }));
+
+  /**
+   * A sessão de abastecimento no recorte do bloco.
+   *
+   * A sessão só conhece o AJUDANTE (é quem a abre). Quando o papel
+   * escolhido é o empilhador ou o solicitante, a pessoa está do outro
+   * lado do ressuprimento -- então a sessão entra pelo VÍNCULO com o
+   * pedido, não pelo próprio `colaborador_id`. Sessão avulsa (sem
+   * ressuprimento) não tem esse vínculo e fica de fora nesses dois
+   * papéis, o que é correto: ninguém transportou nem pediu nada nela.
+   */
+  const sessaoNoRecorte = (s: (typeof pickingsTodos)[number]) => {
+    if (turnoAbastecimento && s.turno !== turnoAbastecimento) return false;
+    if (tipoAbastecimento && s.tipo !== tipoAbastecimento) return false;
+    if (!pessoaAbastecimento) return true;
+    const doPedido = Boolean(s.ressuprimentoId && idsRessuprimentoDoRecorte.has(s.ressuprimentoId));
+    if (papelAbastecimento === "ajudante") return s.colaborador_id === pessoaAbastecimento;
+    if (papelAbastecimento === "empilhador" || papelAbastecimento === "solicitante") return doPedido;
+    return s.colaborador_id === pessoaAbastecimento || doPedido;
+  };
+  const pickings = pickingsTodos.filter(sessaoNoRecorte);
+  const idsSessoesDoRecorte = new Set(pickings.map((s) => s.id));
 
   /**
    * O painel do Abastecimento, que morava na tela de quem executa.
@@ -489,11 +643,7 @@ export default async function IndicadoresPage({
    * a pessoa FAZ; o que se ACOMPANHA é aqui.
    */
   const abastecimentoParaAnalise: SessaoAnalise[] = pickingsBrutos
-    .filter(
-      (s) =>
-        (!turnoAbastecimento || s.turno === turnoAbastecimento) &&
-        (!pessoaAbastecimento || s.colaborador_id === pessoaAbastecimento),
-    )
+    .filter((s) => idsSessoesDoRecorte.has(s.id))
     .map((s) => ({
       id: s.id,
       colaboradorId: s.colaborador_id,
@@ -563,7 +713,6 @@ export default async function IndicadoresPage({
   const selecoes = recorte(selecoesTodas, turnoBancada, pessoaBancada);
   const reepacks = recorte(reepacksTodos, turnoBancada, pessoaBancada);
   const despejos = recorte(despejosTodos, turnoDespejo, pessoaDespejo);
-  const pickings = recorte(pickingsTodos, turnoAbastecimento, pessoaAbastecimento);
 
   // O ranking e a tabela por turno têm recorte próprio: quem compara
   // pessoas não quer o filtro da bancada mandando no ranking inteiro.
@@ -708,9 +857,31 @@ export default async function IndicadoresPage({
     despejoPorColaborador.set(d.colaborador_id, atual);
   }
   const barrasDespejoColaborador: ItemBarra[] = [...despejoPorColaborador.entries()]
-    .map(([, v]) => ({ rotulo: v.nome, valor: Math.round(v.litros * 10) / 10 }))
+    .map(([, v]) => ({
+      rotulo: v.nome,
+      valor: Math.round(v.litros * 10) / 10,
+      detalhe: `${v.nome}: ${formatarNumeroBr(v.litros, 1)} L no recorte`,
+    }))
     .sort((a, b) => b.valor - a.valor)
     .slice(0, 10);
+
+  // Litros por TURNO. A barra quebra por turno na própria linha, então
+  // ela honra só o recorte de pessoa -- filtrar por turno aqui deixaria
+  // duas barras zeradas e uma cheia, que não compara nada.
+  const despejoPorTurno = TURNOS.map((t) => {
+    const doTurno = despejosTodos.filter(
+      (d) => d.turno === t && (!pessoaDespejo || d.colaborador_id === pessoaDespejo),
+    );
+    const litros = Math.round(doTurno.reduce((s, d) => s + d.litros, 0) * 10) / 10;
+    const horas = doTurno.reduce((s, d) => s + horasEntre(d.inicio, d.fim), 0);
+    return {
+      rotulo: ROTULO_TURNO_CURTO[t],
+      valor: litros,
+      detalhe: `${ROTULO_TURNO_CURTO[t]}: ${formatarNumeroBr(litros, 1)} L em ${
+        Math.round(horas * 10) / 10
+      }h · ${doTurno.length} lançamento(s) · ${formatarNumeroBr(taxaPorHora(litros, horas), 1)} L/h`,
+    };
+  });
 
   // ---- Atividade por turno ----
   // Uma linha por turno, uma coluna por atividade -- a métrica de cada
@@ -722,9 +893,6 @@ export default async function IndicadoresPage({
   // cada turno é comparado, não meta cadastrada (picking/5S não têm).
   const mediaHlPickingPeriodo = mediaHlPicking(
     pickingsTabela.map((p) => ({ quantidade: p.hl, inicio: p.inicio, fim: p.fim })),
-  );
-  const mediaExecucoes5sPeriodo = mediaExecucoes5sPorPessoa(
-    execucoes5sTabela.map((e) => ({ colaboradorId: e.colaborador_id })),
   );
   // Seleção compara TAXA (un/h), não total: um turno mais longo não é
   // melhor por ter triado mais, e sim quem triou mais rápido.
@@ -755,14 +923,10 @@ export default async function IndicadoresPage({
       mediaHlPicking(pickingsT.map((p) => ({ quantidade: p.hl, inicio: p.inicio, fim: p.fim }))),
       mediaHlPickingPeriodo,
     );
-    // mediaExecucoes5sPorPessoa de novo aqui (não .length direto): o
-    // turno reúne várias pessoas, então a régua tem que ser "execuções
-    // por pessoa no turno", do contrário um turno com mais gente sempre
-    // ganharia de um turno enxuto só por ter mais gente, não por render mais.
-    const cincoSPctT = pctRelativoAoGrupo(
-      mediaExecucoes5sPorPessoa(execucoes5sT.map((e) => ({ colaboradorId: e.colaborador_id }))),
-      mediaExecucoes5sPeriodo,
-    );
+    // O 5S NÃO tem parcela na nota do turno -- ele não tem tempo medido,
+    // e sem tempo não há como pesá-lo junto das outras (ver
+    // EXPLICACAO_PONTUACAO). Aqui existia um `cincoSPctT` calculado e
+    // jogado fora, que dava a impressão de que o 5S pontuava.
     const selecaoPctT = pctRelativoAoGrupo(mediaTaxaPorPessoa(selecoesT), mediaTaxaSelecaoPeriodo);
     // Ponderado pelas horas do turno, igual à nota individual: um turno
     // que gastou 6h em despejo e 10 min em picking não pode ter as duas
@@ -971,6 +1135,159 @@ export default async function IndicadoresPage({
         finalizacaoEm: (a.finalizacao_em as string) ?? null,
       }) as AtendimentoCarreta,
   );
+  /**
+   * A carreta com TUDO junto: os tempos calculados e quem/o quê estava
+   * envolvido.
+   *
+   * `atendimentos` (acima) é o formato puro de lib/carretas e não sabe
+   * de gente nem de transportadora -- e é exatamente por gente e por
+   * transportadora que a operação quer olhar o TMA. Um TMA médio de 95
+   * min não diz nada; "95 min, e a transportadora X faz 160" diz onde
+   * mexer.
+   */
+  const carretasDetalhadas = recebimentosDoRecorte.map((a, i) => {
+    const t = a.pa_transportadoras as { nome: string } | { nome: string }[] | null;
+    const itens = ((a.atendimento_carretas_itens ?? []) as ItemCarreta[]) ?? [];
+    const referencia = (a.inicio_atendimento_em as string) ?? (a.chegada_em as string);
+    return {
+      chegadaEm: a.chegada_em as string,
+      conferente: (a.conferente_nome as string) || "— sem conferente",
+      portaria: (a.portaria_nome as string) || "— sem portaria",
+      motorista: (a.motorista_nome as string) || "— sem motorista",
+      transportadora: (Array.isArray(t) ? t[0] : t)?.nome ?? "—",
+      turno: referencia ? turnoAtual(new Date(referencia)) : null,
+      tma: calcularTmaMinutos(atendimentos[i]),
+      espera: calcularEsperaPortariaMinutos(atendimentos[i]),
+      recebido: itens.reduce((s, x) => s + x.quantidade, 0),
+      avariado: itens.reduce((s, x) => s + (x.quantidade_avariada ?? 0), 0),
+      temItens: itens.length > 0,
+    };
+  });
+
+  /**
+   * Média de um número por chave, ignorando quem não tem o número.
+   *
+   * Contar como zero quem não teve TMA medido faria a pessoa (ou a
+   * transportadora) parecer a mais rápida da casa por não ter dado.
+   */
+  const mediaPorChave = <T,>(
+    linhas: T[],
+    chave: (l: T) => string,
+    valor: (l: T) => number | null,
+  ) => {
+    const acc = new Map<string, { soma: number; n: number }>();
+    for (const l of linhas) {
+      const v = valor(l);
+      if (v === null || !Number.isFinite(v)) continue;
+      const k = chave(l);
+      const a = acc.get(k) ?? { soma: 0, n: 0 };
+      a.soma += v;
+      a.n += 1;
+      acc.set(k, a);
+    }
+    return [...acc.entries()].map(([k, a]) => ({
+      chave: k,
+      media: Math.round(a.soma / a.n),
+      n: a.n,
+    }));
+  };
+
+  const barraDeTma = (
+    linhas: { chave: string; media: number; n: number }[],
+    unidade = "carreta(s)",
+  ): ItemBarra[] =>
+    linhas
+      .map((l) => ({
+        rotulo: l.chave,
+        valor: l.media,
+        detalhe: `${l.chave}: ${formatarMinutos(l.media)} em média · ${l.n} ${unidade}`,
+      }))
+      // Do mais LENTO para o mais rápido: a lista existe para achar onde
+      // o tempo está sendo perdido, e isso mora no topo.
+      .sort((a, b) => b.valor - a.valor);
+
+  const tmaPorConferente = barraDeTma(
+    mediaPorChave(carretasDetalhadas, (c) => c.conferente, (c) => c.tma),
+  );
+  const tmaPorPortaria = barraDeTma(
+    mediaPorChave(carretasDetalhadas, (c) => c.portaria, (c) => c.tma),
+  );
+  const tmaPorTransportadora = barraDeTma(
+    mediaPorChave(carretasDetalhadas, (c) => c.transportadora, (c) => c.tma),
+  );
+  const tmaPorMotorista = barraDeTma(
+    mediaPorChave(carretasDetalhadas, (c) => c.motorista, (c) => c.tma),
+  ).slice(0, 12);
+  // O turno vira barra e não segue o filtro de turno do bloco -- ele é a
+  // própria barra. Segue o de pessoa, como as outras quebras da tela.
+  const tmaPorTurno: ItemBarra[] = TURNOS.map((t) => {
+    const doTurno = carretasDetalhadas.filter((c) => c.turno === t);
+    const m = media(doTurno.map((c) => c.tma));
+    return {
+      rotulo: ROTULO_TURNO_CURTO[t],
+      valor: m === null ? 0 : Math.round(m),
+      detalhe:
+        m === null
+          ? `${ROTULO_TURNO_CURTO[t]}: nenhuma carreta com TMA medido`
+          : `${ROTULO_TURNO_CURTO[t]}: ${formatarMinutos(Math.round(m))} em média · ${doTurno.length} carreta(s)`,
+    };
+  });
+
+  /** Chegadas por hora do dia: a fila é feita aqui, não na descarga. */
+  const chegadasPorHora = contagemPorHora(carretasDetalhadas.map((c) => c.chegadaEm));
+  /** E o TMA de cada hora de chegada -- onde a fila vira tempo perdido. */
+  const tmaPorHoraDeChegada = mediaPorHora(
+    carretasDetalhadas.map((c) => ({ instante: c.chegadaEm, valor: c.tma })),
+  );
+
+  /**
+   * Avaria por motorista, do pior para o melhor.
+   *
+   * Mesma régua do percentual geral: soma de avariado sobre soma de
+   * recebido, nunca a média dos percentuais -- que trataria uma carreta
+   * de 2 paletes igual a uma de 200.
+   */
+  const avariaPorChave = (chave: (c: (typeof carretasDetalhadas)[number]) => string) => {
+    const acc = new Map<string, { recebido: number; avariado: number; carretas: number }>();
+    for (const c of carretasDetalhadas) {
+      if (!c.temItens) continue;
+      const k = chave(c);
+      const a = acc.get(k) ?? { recebido: 0, avariado: 0, carretas: 0 };
+      a.recebido += c.recebido;
+      a.avariado += c.avariado;
+      a.carretas += 1;
+      acc.set(k, a);
+    }
+    return [...acc.entries()]
+      .filter(([, v]) => v.recebido > 0)
+      .map(([nome, v]) => ({
+        rotulo: nome,
+        valor: Math.round((v.avariado / v.recebido) * 1000) / 10,
+        detalhe: `${nome}: ${v.avariado} de ${v.recebido} paletes · ${v.carretas} carreta(s) conferida(s)`,
+      }))
+      .sort((a, b) => b.valor - a.valor);
+  };
+  const avariaPorMotorista = avariaPorChave((c) => c.motorista).slice(0, 12);
+
+  /**
+   * A cauda do TMA, não só a média.
+   *
+   * A média é o número que se cobra; o P90 é o que a transportadora
+   * sente. Vinte carretas em 60 min e duas em 300 dão uma média de 82
+   * que ninguém reconhece -- e são as duas de 300 que geram a
+   * reclamação e a multa de estadia.
+   */
+  const tmasOrdenados = carretasDetalhadas
+    .map((c) => c.tma)
+    .filter((t): t is number => t !== null)
+    .sort((a, b) => a - b);
+  const percentil = (p: number) =>
+    tmasOrdenados.length === 0
+      ? null
+      : tmasOrdenados[Math.min(tmasOrdenados.length - 1, Math.floor((p / 100) * tmasOrdenados.length))];
+  const tmaMediana = percentil(50);
+  const tmaP90 = percentil(90);
+
   const tmaMedio = media(atendimentos.map(calcularTmaMinutos));
   const esperaMedia = media(atendimentos.map(calcularEsperaPortariaMinutos));
   const descargaMedia = media(atendimentos.map(calcularTempoDescargaMinutos));
@@ -983,6 +1300,17 @@ export default async function IndicadoresPage({
   );
   const leituraTma =
     tmaMedio === null ? null : avaliarMeta(tmaMedio, metaTma, "menor_melhor", { sufixo: "min" });
+
+  /**
+   * Quantas carretas bateram a meta, e não só se a MÉDIA bateu.
+   *
+   * São perguntas diferentes: dá para a média bater com metade das
+   * carretas estourando, desde que a outra metade seja muito rápida. O
+   * percentual é o que a operação sente; a média é o que o relatório diz.
+   */
+  const dentroDaMeta = tmasOrdenados.filter((t) => t <= metaTma).length;
+  const pctDentroDaMeta =
+    tmasOrdenados.length === 0 ? null : Math.round((dentroDaMeta / tmasOrdenados.length) * 100);
 
   // ---- Metas cadastradas ----
   // `null` em qualquer ponto (meta não cadastrada OU realizado sem
@@ -1073,7 +1401,80 @@ export default async function IndicadoresPage({
   const p20NoPeriodo = ciclosDoPeriodo.length;
   const horasDosCiclos = ciclosDoPeriodo.reduce((s, c) => s + c.horas, 0);
   const mediaHorasPorP20 = p20NoPeriodo > 0 ? horasDosCiclos / p20NoPeriodo : null;
+  /**
+   * Consumo por OPERADOR -- horas por P20 de cada um.
+   *
+   * O motor já existia (o dashboard de gás usa o mesmo `resumirPorOperador`);
+   * o que faltava era ele aparecer aqui, ao lado das horas. "João rodou
+   * 40h" não diz nada sozinho: 40h com 2 botijões e 40h com 5 são duas
+   * operações diferentes, e a segunda é dinheiro saindo.
+   *
+   * Só ciclos com sessão entram (ver cicloContaParaOperador) -- consumo
+   * sem ninguém apontado não vira cobrança de ninguém.
+   */
   const custoP20 = empilhadeiraConfig?.custo_p20 ?? null;
+  const consumoPorOperadorTodos = resumirPorOperador(ciclosDoPeriodo);
+  const consumoPorOperador = pessoaEmpilhadeira
+    ? consumoPorOperadorTodos.filter((o) => o.operadorId === pessoaEmpilhadeira)
+    : consumoPorOperadorTodos;
+
+  // A referência para dizer se alguém está gastando acima da conta é a
+  // média da CASA no mesmo período, não um número escrito aqui.
+  const horasPorP20DaCasa = mediaHorasPorP20;
+  const barrasConsumoOperador: ItemBarra[] = consumoPorOperador
+    .filter((o) => o.horasPorP20 !== null)
+    .map((o) => ({
+      rotulo: o.operadorNome,
+      valor: o.horasPorP20 as number,
+      detalhe: `${o.operadorNome}: ${formatarNumeroBr(o.horasPorP20 ?? 0)}h por P20 · ${
+        formatarNumeroBr(o.horas, 1)
+      }h em ${formatarNumeroBr(o.p20Equivalente, 2)} botijões${
+        horasPorP20DaCasa
+          ? ` · casa: ${formatarNumeroBr(horasPorP20DaCasa)}h/P20`
+          : ""
+      }`,
+    }))
+    .sort((a, b) => b.valor - a.valor);
+
+  /** Quanto cada operador queimou de gás, em R$ -- quando há custo cadastrado. */
+  const barrasCustoOperador: ItemBarra[] =
+    custoP20 === null
+      ? []
+      : consumoPorOperador
+          .map((o) => ({
+            rotulo: o.operadorNome,
+            valor: Math.round(o.p20Equivalente * custoP20 * 100) / 100,
+            detalhe: `${o.operadorNome}: ${formatarNumeroBr(o.p20Equivalente, 2)} botijões · ${
+              o.pctDoConsumo
+            }% do consumo do período`,
+          }))
+          .sort((a, b) => b.valor - a.valor);
+
+  /**
+   * O perfil de uso por hora do dia.
+   *
+   * É a análise que muda escala: a empilhadeira parada das 13h às 15h e
+   * disputada das 6h às 9h é o mesmo total diário de duas operações
+   * completamente diferentes. Sem isto, "faltou empilhadeira" e "sobrou
+   * empilhadeira" eram a mesma média.
+   */
+  const usoEmpilhadeiraPorHora = horasPorHora(
+    operacoesRaw.map((o) => ({ inicio: o.inicio, fim: o.fim })),
+  );
+
+  /**
+   * Operação fechada por OUTRA pessoa.
+   *
+   * Não é produtividade, é qualidade do apontamento: quando o líder
+   * fecha a operação no dia seguinte, o horímetro final é o que ele
+   * achou na máquina, e todo o consumo do intervalo vai para quem abriu.
+   * O número existe para dizer o quanto dos indicadores acima merece
+   * confiança.
+   */
+  const encerradasPorTerceiro = operacoesRaw.filter(
+    (o) => o.horimetro_final !== null && o.encerrado_por_nome && o.encerrado_por_nome !== o.operador_nome,
+  ).length;
+
   const custoDoGas = custoP20 !== null ? custoP20 * p20NoPeriodo : null;
   const leituraHorasP20 = leitura("empilhadeira_horas_p20", mediaHorasPorP20);
 
@@ -1154,6 +1555,10 @@ export default async function IndicadoresPage({
     r.hlPicking,
     r.totalExecucoes5s,
     r.totalAtividades,
+    // As horas apontadas faltavam na planilha, e são o desempate do
+    // ranking e a coluna que está na tela. Sem elas ninguém reproduz a
+    // ordem da lista fora do app.
+    r.horasApontadas,
   ]);
 
   // ---- As listas de gente de cada filtro ----
@@ -1270,8 +1675,10 @@ export default async function IndicadoresPage({
           do recebimento ficava a duas telas dos números dele. */}
       <div className="space-y-6">
         <SecaoDoTopico
+          slug={TOPICOS.bancada}
           titulo="🧰 Bancada — Seleção, Triagem e Repack"
           subtitulo="As duas etapas do mesmo ciclo, do palete avariado ao produto reembalado."
+          resumo={`${formatarHoras(bancadaHoras)} de bancada`}
           recorte={descreverRecorte(turnoBancada, pessoaBancada, pessoasBancada)}
           filtro={
             <FiltroDoTopico
@@ -1279,7 +1686,6 @@ export default async function IndicadoresPage({
               turno={turnoBancada}
               pessoa={pessoaBancada}
               pessoas={pessoasBancada}
-              params={paramsAtuais}
             />
           }
         >
@@ -1390,8 +1796,10 @@ export default async function IndicadoresPage({
         </SecaoDoTopico>
 
         <SecaoDoTopico
+          slug={TOPICOS.despejo}
           titulo="🫗 Despejo"
           subtitulo="Litros descartados e o ritmo de quem despeja."
+          resumo={`${formatarNumeroBr(despejoLitrosTotal, 1)} L`}
           recorte={descreverRecorte(turnoDespejo, pessoaDespejo, pessoasDespejo)}
           filtro={
             <FiltroDoTopico
@@ -1399,12 +1807,65 @@ export default async function IndicadoresPage({
               turno={turnoDespejo}
               pessoa={pessoaDespejo}
               pessoas={pessoasDespejo}
-              params={paramsAtuais}
             />
           }
         >
           <BlocoAtividade titulo="🫗 Despejo">
-            <TermometroDaBombona litros={despejoLitrosTotal} capacidade={capacidadeBombona} />
+            {/* A bombona vem primeiro e não segue filtro nenhum: é o
+                número que decide QUANDO descartar, e ele é um só para o
+                armazém inteiro. Ver TermometroDaBombona. */}
+            {!bombonaDisponivel && (
+              <div className="col-span-full rounded-2xl border border-amber-200 bg-amber-50 p-4 text-xs text-amber-800">
+                🪣 O nível da bombona ainda não está disponível: falta rodar a migração{" "}
+                <code>110_bombona_do_despejo.sql</code> no Supabase. Enquanto isso, os litros abaixo
+                são os do período filtrado, não os que estão dentro da bombona.
+              </div>
+            )}
+            {bombonaDisponivel && (
+            <TermometroDaBombona
+              litros={litrosNaBombona}
+              capacidade={capacidadeBombona}
+              desde={
+                ultimoEsvaziamento
+                  ? `${new Date(ultimoEsvaziamento.esvaziada_em).toLocaleString("pt-BR", {
+                      timeZone: "America/Sao_Paulo",
+                      dateStyle: "short",
+                      timeStyle: "short",
+                    })} (${ultimoEsvaziamento.colaborador_nome})`
+                  : "o primeiro lançamento — nenhum esvaziamento registrado ainda"
+              }
+              rodape={
+                <div className="flex flex-wrap items-center gap-3">
+                  <form action={esvaziarBombona}>
+                    <input type="hidden" name="litros_no_momento" value={litrosNaBombona} />
+                    <button
+                      type="submit"
+                      className="rounded-lg bg-primary px-3 py-1.5 text-xs font-bold text-white hover:opacity-90"
+                    >
+                      🪣 Esvaziei a bombona
+                    </button>
+                  </form>
+                  {ultimoEsvaziamento && (
+                    <form action={desfazerEsvaziamento}>
+                      <input type="hidden" name="id" value={ultimoEsvaziamento.id} />
+                      <button type="submit" className="text-xs font-medium text-slate-500 underline">
+                        desfazer o último
+                      </button>
+                    </form>
+                  )}
+                  <span className="text-[11px] text-slate-400">
+                    Zera só a contagem da bombona. Os lançamentos, o ranking e os litros por turno
+                    continuam intactos.
+                  </span>
+                </div>
+              }
+            />
+            )}
+            <CartaoHero
+              titulo="Litros no recorte"
+              valor={`${formatarNumeroBr(despejoLitrosTotal, 1)} L`}
+              legenda="despejados no período/turno/pessoa filtrados"
+            />
             <CartaoHero
               titulo="Taxa média"
               valor={`${despejoTaxaMediaHora.toFixed(1)} L/h`}
@@ -1416,8 +1877,14 @@ export default async function IndicadoresPage({
 
           <div className="grid gap-4 sm:grid-cols-2">
             <BarraRanking
+              titulo="Litros por turno"
+              subtitulo="Segue o filtro de pessoa; o turno é a própria barra"
+              itens={despejoPorTurno}
+              sufixo="L"
+            />
+            <BarraRanking
               titulo="Despejo por colaborador"
-              subtitulo="Total de litros no período"
+              subtitulo="Total de litros no recorte"
               itens={barrasDespejoColaborador}
               sufixo="L"
             />
@@ -1436,17 +1903,40 @@ export default async function IndicadoresPage({
         </SecaoDoTopico>
 
         <SecaoDoTopico
+          slug={TOPICOS.abastecimento}
           titulo="🧃 Abastecimento e Ressuprimento"
           subtitulo="O volume abastecido e o tempo que se perde entre pedir, transportar e abastecer."
-          recorte={descreverRecorte(turnoAbastecimento, pessoaAbastecimento, pessoasAbastecimento)}
+          resumo={`${formatarNumeroBr(pickingHlTotal, 1)} HL`}
+          recorte={[
+            descreverRecorte(turnoAbastecimento, pessoaAbastecimento, pessoasAbastecimento),
+            papelAbastecimento
+              ? (PAPEIS_ABASTECIMENTO.find((p) => p.valor === papelAbastecimento)?.nome ?? "")
+              : "qualquer papel",
+            tipoAbastecimento
+              ? (TIPOS_ABASTECIMENTO_FILTRO.find((t) => t.valor === tipoAbastecimento)?.nome ?? "")
+              : "completo e pontual",
+          ].join(" · ")}
           filtro={
             <FiltroDoTopico
               slug={TOPICOS.abastecimento}
               turno={turnoAbastecimento}
               pessoa={pessoaAbastecimento}
               pessoas={pessoasAbastecimento}
-              params={paramsAtuais}
-              nota="no ressuprimento, a pessoa vale como solicitante ou operador"
+              rotuloPessoa="Pessoa"
+              extras={[
+                {
+                  chave: "p",
+                  rotulo: "Papel",
+                  valor: papelAbastecimento,
+                  opcoes: PAPEIS_ABASTECIMENTO,
+                },
+                {
+                  chave: "tipo",
+                  rotulo: "Tipo",
+                  valor: tipoAbastecimento,
+                  opcoes: TIPOS_ABASTECIMENTO_FILTRO,
+                },
+              ]}
             />
           }
         >
@@ -1575,8 +2065,10 @@ export default async function IndicadoresPage({
             zeros com filtro e tudo ensina a ignorá-lo. */}
         {batePaleteTodos.length > 0 && (
           <SecaoDoTopico
+            slug={TOPICOS.batePalete}
             titulo="🤲📦 Bate Palete"
             subtitulo="Quanto do palete batido voltou inteiro ao estoque."
+            resumo={`${formatarNumeroBr(batePaleteHl, 1)} HL`}
             recorte={descreverRecorte(turnoBatePalete, pessoaBatePalete, pessoasBatePalete)}
             filtro={
               <FiltroDoTopico
@@ -1584,8 +2076,7 @@ export default async function IndicadoresPage({
                 turno={turnoBatePalete}
                 pessoa={pessoaBatePalete}
                 pessoas={pessoasBatePalete}
-                params={paramsAtuais}
-              />
+                />
             }
           >
             <BlocoAtividade titulo="🤲📦 Bate Palete">
@@ -1630,8 +2121,10 @@ export default async function IndicadoresPage({
         )}
 
         <SecaoDoTopico
+          slug={TOPICOS.empilhadeira}
           titulo="🏗️ Empilhadeira"
           subtitulo="Horas de motor pelo horímetro e o consumo de gás."
+          resumo={`${horasEmpilhadeiraTotal}h de motor`}
           recorte={descreverRecorte(turnoEmpilhadeira, pessoaEmpilhadeira, pessoasEmpilhadeira)}
           filtro={
             <FiltroDoTopico
@@ -1639,7 +2132,6 @@ export default async function IndicadoresPage({
               turno={turnoEmpilhadeira}
               pessoa={pessoaEmpilhadeira}
               pessoas={pessoasEmpilhadeira}
-              params={paramsAtuais}
               rotuloPessoa="Operador"
               nota="turno pela hora de abertura da operação"
             />
@@ -1688,9 +2180,49 @@ export default async function IndicadoresPage({
           )}
         </BlocoAtividade>
 
+          {encerradasPorTerceiro > 0 && (
+            <p className="rounded-xl bg-amber-50 p-3 text-xs text-amber-800">
+              ⚠️ {encerradasPorTerceiro} operação(ões) foram encerradas por outra pessoa. O horímetro
+              final nesses casos é o que alguém encontrou na máquina depois — todo o consumo do
+              intervalo vai para quem abriu. Leia os números por operador abaixo com isso em mente.
+            </p>
+          )}
+
+          <Histograma
+            titulo="Quando a empilhadeira é usada"
+            subtitulo="Horas de operação aberta em cada hora do dia — é o que diz para qual pico escalar máquina e gente"
+            valores={usoEmpilhadeiraPorHora}
+            sufixo="h"
+          />
+
           <div className="grid gap-4 sm:grid-cols-2">
             <BarraRanking titulo="Horas por máquina" itens={barrasHorasMaquina} sufixo="h" />
             <BarraRanking titulo="Horas por operador" itens={barrasHorasOperador} sufixo="h" />
+            {/* Consumo: o número que "horas por operador" esconde. 40h
+                com 2 botijões e 40h com 5 são operações diferentes, e a
+                segunda é dinheiro saindo. Barra grande aqui é ruim --
+                daí o tom vermelho. */}
+            <BarraRanking
+              titulo="Consumo por operador"
+              subtitulo={
+                horasPorP20DaCasa
+                  ? `Horas por P20 — quanto MAIOR, melhor. A casa faz ${formatarNumeroBr(horasPorP20DaCasa)}h por botijão`
+                  : "Horas por P20 — quanto maior, melhor"
+              }
+              itens={barrasConsumoOperador}
+              sufixo="h/P20"
+              tom="gold"
+              vazio="Nenhum ciclo de gás com sessão apontada no período."
+            />
+            {barrasCustoOperador.length > 0 && (
+              <BarraRanking
+                titulo="Gás queimado por operador"
+                subtitulo="Botijões equivalentes × custo cadastrado"
+                itens={barrasCustoOperador}
+                sufixo="R$"
+                tom="vermelho"
+              />
+            )}
           </div>
 
           <details className="rounded-xl bg-slate-50 p-3 text-xs text-slate-500">
@@ -1719,8 +2251,10 @@ export default async function IndicadoresPage({
         </SecaoDoTopico>
 
         <SecaoDoTopico
+          slug={TOPICOS.recebimento}
           titulo="🚛 Recebimento de Carretas"
           subtitulo="TMA, as fases do atendimento e a avaria que chega de fora."
+          resumo={tmaMedio === null ? "sem TMA" : `TMA ${formatarMinutos(Math.round(tmaMedio))}`}
           recorte={descreverRecorte(turnoRecebimento, pessoaRecebimento, pessoasRecebimento)}
           filtro={
             <FiltroDoTopico
@@ -1728,7 +2262,6 @@ export default async function IndicadoresPage({
               turno={turnoRecebimento}
               pessoa={pessoaRecebimento}
               pessoas={pessoasRecebimento}
-              params={paramsAtuais}
               nota="turno pelo início do atendimento; pessoa vale como conferente ou portaria"
             />
           }
@@ -1789,17 +2322,105 @@ export default async function IndicadoresPage({
             valor={patioMedio === null ? "—" : formatarMinutos(Math.round(patioMedio))}
             legenda="chegada até a finalização"
           />
+
+          {/* A cauda, não só a média. São as duas carretas de 5h que
+              geram a reclamação e a estadia -- e elas somem numa média
+              feita com vinte carretas rápidas. */}
+          <CartaoHero
+            titulo="TMA mediano"
+            valor={tmaMediana === null ? "—" : formatarMinutos(tmaMediana)}
+            legenda="metade das carretas sai antes disso"
+          />
+          <CartaoHero
+            titulo="TMA no pior 10%"
+            valor={tmaP90 === null ? "—" : formatarMinutos(tmaP90)}
+            legenda="P90 — é o que a transportadora reclama"
+          />
+          <CartaoHero
+            titulo="Dentro da meta"
+            valor={pctDentroDaMeta === null ? "—" : `${pctDentroDaMeta}%`}
+            legenda={`${dentroDaMeta} de ${tmasOrdenados.length} carretas ≤ ${metaTma} min`}
+          />
         </BlocoAtividade>
 
-          {/* A avaria por transportadora mora aqui, e não numa gaveta de
-              "comparativos" no rodapé: ela é a leitura do MESMO número do
-              cartão de avaria, aberta por quem trouxe a carga. */}
-          <BarraRanking
-            titulo="% de avaria por transportadora"
-            subtitulo="Avariado sobre recebido, no recorte deste bloco"
-            itens={barrasAvariaTransportadora}
-            sufixo="%"
-          />
+          {/* ---- QUANDO ----
+              A fila do recebimento se forma na PORTARIA, não na
+              descarga. Sem o perfil por hora, um TMA alto virava
+              conversa sobre a velocidade do conferente quando o que
+              houve foi cinco carretas chegando juntas às 7h. */}
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Histograma
+              titulo="Quando as carretas chegam"
+              subtitulo="Chegadas apontadas pela portaria, por hora do dia"
+              valores={chegadasPorHora}
+              sufixo="carreta(s)"
+              casas={0}
+            />
+            <Histograma
+              titulo="TMA por hora de chegada"
+              subtitulo="Média do TMA das carretas que chegaram naquela hora — o pico de chegada e o pico de TMA costumam ser o mesmo"
+              valores={tmaPorHoraDeChegada}
+              sufixo="min"
+              casas={0}
+            />
+          </div>
+
+          {/* ---- QUEM ---- */}
+          <div className="grid gap-4 sm:grid-cols-2">
+            <BarraRanking
+              titulo="TMA por turno"
+              subtitulo="O turno é a barra; segue o filtro de pessoa"
+              itens={tmaPorTurno}
+              sufixo="min"
+              tom="gold"
+            />
+            <BarraRanking
+              titulo="TMA por conferente"
+              subtitulo="Do mais lento para o mais rápido — é onde o tempo se perde"
+              itens={tmaPorConferente}
+              sufixo="min"
+              tom="gold"
+            />
+            <BarraRanking
+              titulo="TMA por operador da portaria"
+              subtitulo="Quem apontou a chegada da carreta"
+              itens={tmaPorPortaria}
+              sufixo="min"
+              tom="gold"
+            />
+            <BarraRanking
+              titulo="TMA por transportadora"
+              subtitulo="Carreta que chega mal paletizada ou sem documento atrasa a operação inteira"
+              itens={tmaPorTransportadora}
+              sufixo="min"
+              tom="gold"
+            />
+          </div>
+
+          {/* ---- AVARIA ---- */}
+          <div className="grid gap-4 sm:grid-cols-2">
+            <BarraRanking
+              titulo="% de avaria por transportadora"
+              subtitulo="Do maior para o menor — avariado sobre recebido, no recorte deste bloco"
+              itens={barrasAvariaTransportadora}
+              sufixo="%"
+              tom="vermelho"
+            />
+            <BarraRanking
+              titulo="% de avaria por motorista"
+              subtitulo="A mesma carga, o mesmo trajeto, motoristas diferentes — é aqui que aparece direção ou amarração"
+              itens={avariaPorMotorista}
+              sufixo="%"
+              tom="vermelho"
+            />
+            <BarraRanking
+              titulo="TMA por motorista"
+              subtitulo="Quem demora no pátio (documento, lona, espera do ajudante)"
+              itens={tmaPorMotorista}
+              sufixo="min"
+              tom="gold"
+            />
+          </div>
 
           <details className="rounded-xl bg-slate-50 p-3 text-xs text-slate-500">
             <summary className="cursor-pointer font-semibold text-slate-600">
@@ -1848,8 +2469,10 @@ export default async function IndicadoresPage({
             pessoas, e não faz sentido ela obedecer ao filtro que alguém
             pôs num bloco acima para investigar outra coisa. */}
         <SecaoDoTopico
+          slug={TOPICOS.ranking}
           titulo="🏆 Ranking e atividade por turno"
           subtitulo="A comparação entre pessoas e entre turnos, com a pontuação ponderada pelas horas."
+          resumo={`${ranking.length} pessoa(s)`}
           recorte={descreverRecorte(turnoRanking, pessoaRanking, pessoasRanking)}
           filtro={
             <FiltroDoTopico
@@ -1857,7 +2480,6 @@ export default async function IndicadoresPage({
               turno={turnoRanking}
               pessoa={pessoaRanking}
               pessoas={pessoasRanking}
-              params={paramsAtuais}
             />
           }
         >
@@ -1880,6 +2502,7 @@ export default async function IndicadoresPage({
                 "Picking (HL)",
                 "Execuções 5S",
                 "Lançamentos",
+                "Horas apontadas",
               ]}
               linhas={csvRanking}
               rotulo="Exportar ranking .csv"
@@ -1905,7 +2528,10 @@ export default async function IndicadoresPage({
                   <th className="p-3 text-right">🫗 Despejo</th>
                   <th className="p-3 text-right">🏬 Picking</th>
                   <th className="p-3 text-right">🧹 5S</th>
-                  <th className="p-3 text-right">Total</th>
+                  {/* "Total" de quê? São contagens de LANÇAMENTOS somadas
+                      -- caixas, litros e HL não somam entre si. O rótulo
+                      genérico fazia parecer um total de produção. */}
+                  <th className="p-3 text-right">Lançamentos</th>
                   <th className="p-3 text-right" title={EXPLICACAO_PONTUACAO}>
                     Pontuação ℹ️
                   </th>
@@ -1943,6 +2569,27 @@ export default async function IndicadoresPage({
               </tfoot>
             </table>
           </div>
+          {/* A armadilha de leitura desta tabela.
+              A pontuação da linha Total não é comparável com as linhas de
+              turno: as parcelas de Picking e Seleção do Total comparam o
+              período com ele mesmo, e pctRelativoAoGrupo(x, x) é 100 por
+              definição. O Total pode ficar ACIMA do melhor turno sem que
+              nada esteja errado -- e sem este aviso a conclusão natural é
+              que a conta está quebrada. */}
+          <p className="mt-2 rounded-xl bg-slate-50 p-3 text-xs text-slate-500">
+            ⚠️ <strong>A pontuação do Total não se compara com a das linhas.</strong> Picking e
+            Seleção não têm meta cadastrada, então valem &ldquo;% da média do grupo&rdquo;. Na linha
+            Total o grupo é o próprio período, e comparar o período com ele mesmo dá 100% sempre. Use
+            o Total para os volumes; para desempenho, compare os turnos entre si.
+            {pessoaRanking && (
+              <>
+                {" "}
+                Com um colaborador escolhido no filtro, a régua vira <em>ele contra ele mesmo</em> —
+                as porcentagens de Picking, Seleção e 5S perdem o sentido. Para comparar uma pessoa
+                com o grupo, deixe o filtro em Todos e procure o nome dela no ranking.
+              </>
+            )}
+          </p>
           <p className="mt-2 text-xs text-slate-400">ℹ️ {EXPLICACAO_PONTUACAO}</p>
         </div>
       </details>
@@ -1953,7 +2600,10 @@ export default async function IndicadoresPage({
         </summary>
         <div className="border-t border-slate-100 p-4">
           <div className="mb-3 flex items-baseline justify-end">
-            <p className="text-xs text-slate-400">Empate: desempata quem fez mais lançamentos</p>
+            {/* O desempate virou tempo apontado quando a lib mudou (para
+                não premiar quem fatia o trabalho em muitos lançamentos
+                curtos); esta linha continuou dizendo "lançamentos". */}
+            <p className="text-xs text-slate-400">Empate: desempata quem tem mais tempo apontado</p>
           </div>
           {ranking.length === 0 ? (
             <p className="rounded-xl bg-slate-50 p-4 text-sm text-slate-500">Nada no período.</p>
@@ -1969,7 +2619,11 @@ export default async function IndicadoresPage({
                     <th className="p-3 text-right">🫗 Despejo</th>
                     <th className="p-3 text-right">🏬 Picking</th>
                     <th className="p-3 text-right">🧹 5S</th>
-                    <th className="p-3 text-right">Atividades</th>
+                    {/* Dizia "Atividades" e mostrava HORAS -- a célula
+                        sempre renderizou formatarHoras(horasApontadas).
+                        Quem lia "8" entendia oito lançamentos, e eram
+                        oito horas. */}
+                    <th className="p-3 text-right">Tempo apontado</th>
                     <th className="p-3 text-right" title={EXPLICACAO_PONTUACAO}>
                       Pontuação ℹ️
                     </th>
