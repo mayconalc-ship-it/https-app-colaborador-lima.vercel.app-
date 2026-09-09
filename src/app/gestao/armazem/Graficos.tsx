@@ -12,6 +12,15 @@ export type ItemBarra = {
   rotulo: string;
   valor: number;
   detalhe?: string;
+  /**
+   * O TAMANHO DA AMOSTRA, ao lado do rótulo.
+   *
+   * "Transportadora X: 180 min" é uma frase diferente conforme sejam 40
+   * carretas ou 1. Antes esse número só existia no `title`, que exige
+   * passar o mouse -- e no celular não existe mouse. Uma média de uma
+   * amostra é ruído que a barra desenha do mesmo tamanho de um padrão.
+   */
+  nota?: string;
 };
 
 const TOM = {
@@ -63,7 +72,12 @@ export function BarraRanking({
                   fora da tela -- a página inteira passava a rolar de lado
                   no celular ao expandir a seção. */}
               <div className="mb-1 flex items-baseline justify-between gap-2 text-xs">
-                <span className="min-w-0 truncate font-medium text-slate-700">{item.rotulo}</span>
+                <span className="min-w-0 truncate font-medium text-slate-700">
+                  {item.rotulo}
+                  {item.nota && (
+                    <span className="ml-1.5 font-normal text-slate-400 tabular-nums">{item.nota}</span>
+                  )}
+                </span>
                 <span className={`shrink-0 font-bold ${cor.texto}`}>
                   {fmt(item.valor)} {sufixo}
                 </span>
@@ -285,6 +299,7 @@ export function TopoEFundo({
       <span className="min-w-0 truncate text-xs text-slate-700">
         <span className="mr-1 text-slate-400 tabular-nums">{i + 1}.</span>
         {item.rotulo}
+        {item.nota && <span className="ml-1.5 text-slate-400 tabular-nums">{item.nota}</span>}
       </span>
       <span className={`shrink-0 text-xs font-bold tabular-nums ${bom ? "text-green-700" : "text-red-700"}`}>
         {fmt(item.valor)} {sufixo}

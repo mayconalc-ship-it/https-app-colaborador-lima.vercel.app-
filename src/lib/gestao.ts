@@ -33,6 +33,7 @@ export type PainelId =
   | "cinco-s"
   | "feedbacks"
   | "justificativas"
+  | "desafio"
   | "uso-do-app";
 
 export type BlocoDaGestao = "Operação" | "Pessoas";
@@ -160,6 +161,25 @@ export const PAINEIS: Painel[] = [
     pergunta: "Por que a meta não foi batida, na palavra de quem não bateu.",
     mora: true,
     antigo: "/admin/justificativas",
+  },
+  {
+    /*
+      O Desafio já tinha classificação e medalhas -- o lado JOGO, que é o
+      que faz as pessoas responderem. Faltava o lado GESTÃO: uma rodada
+      com 62% de acerto não é um placar, é o aviso de que 38% do time não
+      sabe o procedimento que foi perguntado.
+
+      Fica em "Pessoas" e não em "Operação" porque o que ele mede é
+      conhecimento de quem opera, não produção.
+    */
+    id: "desafio",
+    rotulo: "Desafio do Mês",
+    emoji: "🏆",
+    href: "/gestao/desafio",
+    bloco: "Pessoas",
+    modulo: "quiz",
+    pergunta: "Quem respondeu, o que o time errou e qual padrão isso manda treinar.",
+    mora: true,
   },
   {
     id: "uso-do-app",

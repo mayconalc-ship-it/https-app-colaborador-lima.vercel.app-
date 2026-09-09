@@ -194,6 +194,9 @@ export default async function IndicadoresPage({
   const pessoaBatePalete = pessoaDe(TOPICOS.batePalete);
   const turnoEmpilhadeira = turnoDe(TOPICOS.empilhadeira);
   const pessoaEmpilhadeira = pessoaDe(TOPICOS.empilhadeira);
+  /** Qual máquina. Duas empilhadeiras não consomem igual, e a média das
+   *  duas não descreve nenhuma delas. */
+  const maquinaEmpilhadeira = escolhaDe(TOPICOS.empilhadeira, "maq");
   const turnoRecebimento = turnoDe(TOPICOS.recebimento);
   const pessoaRecebimento = pessoaDe(TOPICOS.recebimento);
   const turnoRanking = turnoDe(TOPICOS.ranking);
@@ -1099,8 +1102,23 @@ export default async function IndicadoresPage({
   const operacoesRaw = operacoesTodas.filter(
     (o) =>
       (!turnoEmpilhadeira || turnoAtual(new Date(o.inicio)) === turnoEmpilhadeira) &&
-      (!pessoaEmpilhadeira || o.operador_id === pessoaEmpilhadeira),
+      (!pessoaEmpilhadeira || o.operador_id === pessoaEmpilhadeira) &&
+      (!maquinaEmpilhadeira || o.empilhadeira_id === maquinaEmpilhadeira),
   );
+
+  /** As máquinas que apareceram no período -- a lista do filtro. */
+  const maquinasDisponiveis = [
+    ...new Map(
+      operacoesTodas.map((o) => [
+        o.empilhadeira_id,
+        (Array.isArray(o.pa_empilhadeiras) ? o.pa_empilhadeiras[0] : o.pa_empilhadeiras)?.numero ?? "—",
+      ]),
+    ).entries(),
+  ]
+    .map(([valor, nome]) => ({ valor, nome: `Empilhadeira ${nome}` }))
+    .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR", { numeric: true }));
+  const nomeDaMaquinaFiltrada =
+    maquinasDisponiveis.find((m) => m.valor === maquinaEmpilhadeira)?.nome ?? null;
   const operacoes = operacoesRaw.map((o) => operacaoEmpilhadeiraDeLinha(o));
   const operacoesEncerradas = operacoes.filter((op) => op.horimetroFinal !== null);
 
@@ -1178,17 +1196,11 @@ export default async function IndicadoresPage({
     })),
   );
 
-  const avariaPorTransportadora = new Map<string, { recebido: number; avariado: number }>();
-  for (const c of carretasComItens) {
-    const t = Array.isArray(c.pa_transportadoras) ? c.pa_transportadoras[0] : c.pa_transportadoras;
-    const nome = t?.nome ?? "—";
-    const atual = avariaPorTransportadora.get(nome) ?? { recebido: 0, avariado: 0 };
-    for (const i of c.atendimento_carretas_itens ?? []) {
-      atual.recebido += i.quantidade;
-      atual.avariado += i.quantidade_avariada ?? 0;
-    }
-    avariaPorTransportadora.set(nome, atual);
-  }
+  // A avaria por transportadora saiu daqui: virou `avariaPorChave`, mais
+  // abaixo, que faz a mesma conta e serve também ao recorte por
+  // motorista -- e traz o número de carretas junto, que é o que diz se a
+  // média é padrão ou é uma carreta só.
+
   // ---- Tempos do recebimento ----
   // O cálculo mora em lib/carretas.ts. Aqui só a média de cada fase, e
   // cada uma ignora as carretas em que aquela fase não foi apontada --
@@ -1280,6 +1292,10 @@ export default async function IndicadoresPage({
       .map((l) => ({
         rotulo: l.chave,
         valor: l.media,
+        // O tamanho da amostra fica VISÍVEL, não escondido no title: uma
+        // média de 180 min feita com uma carreta é ruído, e a barra a
+        // desenha do mesmo tamanho de um padrão de quarenta.
+        nota: `(${l.n})`,
         detalhe: `${l.chave}: ${formatarMinutos(l.media)} em média · ${l.n} ${unidade}`,
       }))
       // Do mais LENTO para o mais rápido: a lista existe para achar onde
@@ -1343,6 +1359,7 @@ export default async function IndicadoresPage({
       .map(([nome, v]) => ({
         rotulo: nome,
         valor: Math.round((v.avariado / v.recebido) * 1000) / 10,
+        nota: `(${v.carretas})`,
         detalhe: `${nome}: ${v.avariado} de ${v.recebido} paletes · ${v.carretas} carreta(s) conferida(s)`,
       }))
       .sort((a, b) => b.valor - a.valor);
@@ -1575,14 +1592,9 @@ export default async function IndicadoresPage({
   const custoDoGas = custoP20 !== null ? custoP20 * p20NoPeriodo : null;
   const leituraHorasP20 = leitura("empilhadeira_horas_p20", mediaHorasPorP20);
 
-  const barrasAvariaTransportadora: ItemBarra[] = [...avariaPorTransportadora.entries()]
-    .filter(([, v]) => v.recebido > 0)
-    .map(([nome, v]) => ({
-      rotulo: nome,
-      valor: Math.round((v.avariado / v.recebido) * 1000) / 10,
-      detalhe: `${nome}: ${v.avariado} de ${v.recebido} un avariadas`,
-    }))
-    .sort((a, b) => b.valor - a.valor);
+  // Reaproveita a mesma conta do avariaPorChave (soma sobre soma, nunca
+  // média de percentuais) e traz o número de carretas junto do nome.
+  const barrasAvariaTransportadora: ItemBarra[] = avariaPorChave((c) => c.transportadora);
 
   // ---- Ranking ----
   // Recorte próprio (`rank_t` / `rank_c`): o ranking é a comparação entre
@@ -2303,7 +2315,10 @@ export default async function IndicadoresPage({
           titulo="🏗️ Empilhadeira"
           subtitulo="Horas de motor pelo horímetro e o consumo de gás."
           resumo={`${horasEmpilhadeiraTotal}h de motor`}
-          recorte={descreverRecorte(turnoEmpilhadeira, pessoaEmpilhadeira, pessoasEmpilhadeira)}
+          recorte={[
+            descreverRecorte(turnoEmpilhadeira, pessoaEmpilhadeira, pessoasEmpilhadeira),
+            nomeDaMaquinaFiltrada ?? "todas as máquinas",
+          ].join(" · ")}
           filtro={
             <FiltroDoTopico
               slug={TOPICOS.empilhadeira}
@@ -2311,6 +2326,14 @@ export default async function IndicadoresPage({
               pessoa={pessoaEmpilhadeira}
               pessoas={pessoasEmpilhadeira}
               rotuloPessoa="Operador"
+              extras={[
+                {
+                  chave: "maq",
+                  rotulo: "Máquina",
+                  valor: maquinaEmpilhadeira,
+                  opcoes: [{ valor: "", nome: "Todas" }, ...maquinasDisponiveis],
+                },
+              ]}
               nota="turno pela hora de abertura da operação"
             />
           }
