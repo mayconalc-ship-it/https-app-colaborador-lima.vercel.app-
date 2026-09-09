@@ -58,6 +58,14 @@ function quebrar(texto: string, tamanhoFonte: number, larguraMax: number, maxLin
 
 export type PessoaDoPodio = { nome: string; pontos: number; acertos: number };
 
+export type PerguntaCritica = {
+  pergunta: string;
+  pct: number;
+  resposta: string;
+  explicacao: string;
+  origem: string;
+};
+
 export function CartazDoDesafio({
   titulo,
   area,
@@ -68,8 +76,8 @@ export function CartazDoDesafio({
   taxaAcerto,
   totalPerguntas,
   podio,
-  piorPergunta,
-  faltantes,
+  perguntaCritica,
+  rodadaNoAr,
 }: {
   titulo: string;
   area: string;
@@ -80,8 +88,10 @@ export function CartazDoDesafio({
   taxaAcerto: number | null;
   totalPerguntas: number;
   podio: PessoaDoPodio[];
-  piorPergunta: { pergunta: string; pct: number } | null;
-  faltantes: string[];
+  /** A pergunta mais errada COM a resposta certa -- o que o cartaz ensina. */
+  perguntaCritica: PerguntaCritica | null;
+  /** Rodada ainda aberta: mandar o cartaz entrega o gabarito. */
+  rodadaNoAr: boolean;
 }) {
   const svgRef = useRef<SVGSVGElement>(null);
   const [baixando, setBaixando] = useState(false);
@@ -91,12 +101,14 @@ export function CartazDoDesafio({
     pct === null ? "#94a3b8" : pct >= 80 ? "#22c55e" : pct >= 60 ? "#f59e0b" : "#ef4444";
 
   const medalhas = ["🥇", "🥈", "🥉"];
-  // Oito nomes é o que cabe sem apertar. O resto vira "+N", e a lista
-  // completa continua na tela -- o cartaz é o aviso, não o relatório.
-  const nomesVisiveis = faltantes.slice(0, 8);
-  const sobraram = faltantes.length - nomesVisiveis.length;
 
-  const linhasDaPergunta = piorPergunta ? quebrar(piorPergunta.pergunta, 30, 900, 3) : [];
+  // Duas linhas para a pergunta e três para a resposta: a resposta é o
+  // que o cartaz existe para ensinar, então é ela que ganha o espaço.
+  const linhasDaPergunta = perguntaCritica ? quebrar(perguntaCritica.pergunta, 30, 900, 2) : [];
+  const linhasDaResposta = perguntaCritica ? quebrar(perguntaCritica.resposta, 28, 860, 3) : [];
+  const linhaDaExplicacao = perguntaCritica?.explicacao
+    ? quebrar(perguntaCritica.explicacao, 22, 860, 1)[0]
+    : null;
 
   async function baixar() {
     const svg = svgRef.current;
@@ -162,6 +174,19 @@ export function CartazDoDesafio({
       </div>
 
       {erro && <p className="mb-2 rounded-lg bg-red-50 p-2 text-xs text-red-700">{erro}</p>}
+
+      {/* O CARTAZ TRAZ O GABARITO.
+          Enquanto a rodada está no ar, mandá-lo no grupo entrega a
+          resposta a quem ainda não jogou e a classificação do mês deixa
+          de valer. O aviso fica aqui e não no cartaz -- quem decide
+          publicar é quem lê esta tela. */}
+      {rodadaNoAr && perguntaCritica && (
+        <p className="mb-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+          ⚠️ <strong>Esta rodada ainda está no ar.</strong> O cartaz mostra a resposta certa — mandar
+          agora entrega o gabarito a quem não respondeu, e a classificação do mês deixa de valer.
+          Encerre a rodada antes de publicar, ou mande só depois do prazo.
+        </p>
+      )}
 
       {/* O SVG é o que vira PNG -- o que se vê aqui é exatamente o que
           sai no arquivo, então não há surpresa depois de baixar. */}
@@ -251,38 +276,48 @@ export function CartazDoDesafio({
             </g>
           ))}
 
-          {/* O que treinar */}
-          {piorPergunta && (
+          {/* ---- O QUE O CARTAZ ENSINA ----
+              Aqui ficava a lista de quem não entregou. Trocada pela
+              resposta certa: o cartaz vai para o grupo, e um cartaz que
+              ensina o procedimento chega a todo mundo -- inclusive a
+              quem acertou por sorte. A cobrança nominal continua na
+              tela, que é onde ela é feita de líder para pessoa. */}
+          {perguntaCritica && (
             <>
-              <text x="70" y="940" fill="#f87171" fontSize="30" fontWeight="700" letterSpacing="4">
-                A PERGUNTA QUE MAIS ERRAMOS · {piorPergunta.pct}% DE ACERTO
+              <text x="70" y="935" fill="#f87171" fontSize="28" fontWeight="700" letterSpacing="4">
+                A PERGUNTA QUE MAIS ERRAMOS · {perguntaCritica.pct}% DE ACERTO
               </text>
               {linhasDaPergunta.map((linha, i) => (
-                <text key={i} x="70" y={990 + i * 40} fill="#e2e8f0" fontSize="30">
+                <text key={i} x="70" y={985 + i * 40} fill="#e2e8f0" fontSize="30">
                   {linha}
                 </text>
               ))}
+
+              <rect x="70" y="1075" width="940" height="215" rx="24" fill="#064e3b" opacity="0.85" />
+              <text x="100" y="1125" fill="#6ee7b7" fontSize="28" fontWeight="700" letterSpacing="3">
+                ✅ A RESPOSTA CERTA
+              </text>
+              {linhasDaResposta.map((linha, i) => (
+                <text key={i} x="100" y={1172 + i * 36} fill="#ffffff" fontSize="28" fontWeight="600">
+                  {linha}
+                </text>
+              ))}
+              {/* 30px ABAIXO DA ÚLTIMA LINHA da resposta, não a partir do
+                  topo do bloco: com três linhas, a conta pelo topo punha
+                  a explicação fora do retângulo e por cima do rodapé --
+                  e SVG não recorta nem avisa, só desenha por cima. */}
+              {linhaDaExplicacao && (
+                <text
+                  x="100"
+                  y={1172 + (linhasDaResposta.length - 1) * 36 + 30}
+                  fill="#a7f3d0"
+                  fontSize="22"
+                >
+                  {linhaDaExplicacao}
+                </text>
+              )}
             </>
           )}
-
-          {/* Cobrança */}
-          <rect x="70" y="1110" width="940" height="170" rx="24" fill="#7f1d1d" opacity="0.55" />
-          <text x="100" y="1160" fill="#fecaca" fontSize="28" fontWeight="700">
-            {faltantes.length === 0
-              ? "TODO MUNDO ENTREGOU 👏"
-              : `AINDA FALTAM ${faltantes.length}:`}
-          </text>
-          {nomesVisiveis.length > 0 &&
-            quebrar(
-              nomesVisiveis.join(" · ") + (sobraram > 0 ? ` · +${sobraram}` : ""),
-              26,
-              880,
-              3,
-            ).map((linha, i) => (
-              <text key={i} x="100" y={1200 + i * 34} fill="#ffffff" fontSize="26">
-                {linha}
-              </text>
-            ))}
 
           <text x="70" y={A - 40} fill="#64748b" fontSize="22">
             App do Colaborador · Lima Logística

@@ -171,6 +171,52 @@ export default async function GestaoDesafioPage({
   const abaixoDoAlerta = piores.filter((q) => (q.pctAcerto ?? 100) < ALERTA_DE_ACERTO);
   const chutes = desempenho.filter((q) => q.cheiroDeChute);
 
+  /**
+   * A RESPOSTA da pergunta crítica -- a que vai no cartaz.
+   *
+   * O cartaz mostrava quem faltava entregar. Trocado a pedido do dono
+   * (09/09/2026) pela resposta certa: um cartaz que ensina o
+   * procedimento chega a todo mundo do grupo, inclusive a quem acertou
+   * por sorte; um cartaz que lista nomes só constrange quem já está
+   * atrasado. A lista de quem falta continua na TELA, que é onde a
+   * cobrança é feita -- de líder para pessoa, não no grupo.
+   *
+   * O gabarito vem pelo cliente admin porque `quiz_alternativas` tem RLS
+   * sem política nenhuma: quem tem a chave pública não pode ler
+   * `correta`, senão teria a prova inteira antes de responder.
+   */
+  const questaoCritica = piores[0] ?? null;
+  const { data: gabaritoBanco } = questaoCritica
+    ? await admin
+        .from("quiz_alternativas")
+        .select("texto")
+        .eq("questao_id", questaoCritica.id)
+        .eq("correta", true)
+        .maybeSingle()
+    : { data: null };
+  const { data: explicacaoBanco } = questaoCritica
+    ? await admin.from("quiz_questoes").select("explicacao").eq("id", questaoCritica.id).maybeSingle()
+    : { data: null };
+
+  const respostaCritica = questaoCritica
+    ? {
+        pergunta: questaoCritica.pergunta,
+        pct: questaoCritica.pctAcerto ?? 0,
+        resposta: (gabaritoBanco?.texto as string) ?? "",
+        explicacao: ((explicacaoBanco?.explicacao as string) ?? "").trim(),
+        origem: questaoCritica.origem,
+      }
+    : null;
+
+  /**
+   * A rodada ainda está NO AR.
+   *
+   * Mandar o cartaz agora entrega o gabarito a quem não respondeu, e a
+   * classificação do mês deixa de valer. O aviso fica na tela, não no
+   * cartaz -- quem decide é quem publica.
+   */
+  const rodadaNoAr = rodadaEscolhida.status === "publicada";
+
   const porPadrao = acertoPorGrupo(desempenho, (q) => q.origem);
   const porDificuldade = acertoPorGrupo(desempenho, (q) => q.dificuldade);
 
@@ -272,12 +318,8 @@ export default async function GestaoDesafioPage({
           pontos: p.pontos,
           acertos: p.acertos,
         }))}
-        piorPergunta={
-          piores[0] && piores[0].pctAcerto !== null
-            ? { pergunta: piores[0].pergunta, pct: piores[0].pctAcerto }
-            : null
-        }
-        faltantes={faltantes}
+        perguntaCritica={respostaCritica}
+        rodadaNoAr={rodadaNoAr}
       />
 
       {/* ---- O QUE TREINAR ---- */}
