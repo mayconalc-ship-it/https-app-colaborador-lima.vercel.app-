@@ -1,0 +1,91 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.12.0/schema.json",
+  "name": "9cdc8023e5520c0c8e01",
+  "position": {
+    "x": 16,
+    "y": 672,
+    "z": 18000,
+    "height": 30,
+    "width": 1248,
+    "tabOrder": 18000
+  },
+  "visual": {
+    "visualType": "textbox",
+    "objects": {
+      "general": [
+        {
+          "properties": {
+            "paragraphs": [
+              {
+                "textRuns": [
+                  {
+                    "value": "ESTA PÁGINA MOSTRA O GABARITO. Ela é para a liderança e para a reunião de treinamento — se o relatório for distribuído ao time inteiro, remova a tabela de resposta certa (ou a tabela dim_quiz_gabarito do modelo), ou o campeonato do mês acaba no primeiro compartilhamento. Abaixo de 60% de acerto a pergunta deixa de ser placar e vira pauta: metade do time não sabe o procedimento. Aplique no painel Filtros um corte de ≥ 5 respostas nos dois visuais de pergunta e no de padrão (o corte vem declarado mas nasce desligado — ver o cabeçalho de gerar-pbip.js): sem ele, uma pergunta respondida uma única vez por quem errou lidera a lista com 0% e o painel perde credibilidade na primeira reunião. \"% de chute\" é errar respondendo em menos de 4 segundos: errar depois de pensar é falta de conhecimento e se treina, errar em quatro segundos é pressa — e cobrar conteúdo de quem só clicou rápido treina a coisa errada. Se o chute se concentrar numa faixa do dia, o problema é o momento em que o desafio está sendo respondido, não o conteúdo.",
+                    "textStyle": {
+                      "fontSize": "8pt",
+                      "color": "#64748B"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "visualContainerObjects": {
+      "title": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "false"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "border": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "false"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "background": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "false"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "dropShadow": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "false"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "drillFilterOtherVisuals": true
+  }
+}

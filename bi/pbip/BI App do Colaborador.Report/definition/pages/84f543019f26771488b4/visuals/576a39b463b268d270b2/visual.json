@@ -27,8 +27,7 @@
                 }
               },
               "queryRef": "dim_colaborador.area_rotulo",
-              "nativeQueryRef": "area_rotulo",
-              "active": true
+              "nativeQueryRef": "area_rotulo"
             }
           ]
         }
@@ -76,6 +75,11 @@
         }
       ]
     },
+    "syncGroup": {
+      "groupName": "dim_colaborador.area_rotulo",
+      "fieldChanges": true,
+      "filterChanges": true
+    },
     "visualContainerObjects": {
       "title": [
         {
@@ -103,11 +107,6 @@
           }
         }
       ]
-    },
-    "syncGroup": {
-      "groupName": "dim_colaborador.area_rotulo",
-      "fieldChanges": true,
-      "filterChanges": true
     },
     "drillFilterOtherVisuals": true
   }

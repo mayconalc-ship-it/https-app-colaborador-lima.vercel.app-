@@ -5,6 +5,11 @@
   "displayOption": "FitToPage",
   "height": 720,
   "width": 1280,
+  "visibility": "HiddenInViewMode",
+  "pageBinding": {
+    "name": "e19975d80a01b754d363",
+    "type": "Drillthrough"
+  },
   "filterConfig": {
     "filters": [
       {
@@ -24,11 +29,5 @@
         "isLockedInViewMode": true
       }
     ]
-  },
-  "pageBinding": {
-    "name": "e19975d80a01b754d363",
-    "type": "Drillthrough",
-    "parameters": []
-  },
-  "visibility": "HiddenInViewMode"
+  }
 }

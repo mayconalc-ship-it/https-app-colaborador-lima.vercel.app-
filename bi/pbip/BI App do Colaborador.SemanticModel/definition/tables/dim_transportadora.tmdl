@@ -1,0 +1,40 @@
+/// Transportadoras que entregam na revenda.
+table dim_transportadora
+	lineageTag: 4d42bbe4-c207-4280-a9cd-7bf3826ca213
+
+	column transportadora_id
+		dataType: string
+		isHidden
+		lineageTag: 3f6b9ef3-557d-4c30-9563-ef6b5f1d1add
+		summarizeBy: none
+		sourceColumn: transportadora_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column revenda_id
+		dataType: string
+		isHidden
+		lineageTag: 67167d6b-6d98-451b-b8b0-bf9bb6872251
+		summarizeBy: none
+		sourceColumn: revenda_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column transportadora
+		dataType: string
+		lineageTag: eeb9532b-2685-4e9b-9114-35181e57f663
+		summarizeBy: none
+		sourceColumn: transportadora
+
+		annotation SummarizationSetBy = Automatic
+
+	partition dim_transportadora = m
+		mode: import
+		source =
+				let
+				    Origem = PostgreSQL.Database(Servidor, Banco),
+				    Dados = Origem{[Schema="bi",Item="dim_transportadora"]}[Data]
+				in
+				    Dados
+
+	annotation PBI_ResultType = Table

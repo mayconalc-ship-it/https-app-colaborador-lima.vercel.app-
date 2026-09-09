@@ -1,0 +1,203 @@
+/// Horas ativas vem do HORIMETRO, nunca do relogio. Operacao aberta entra com horas nulas.
+table fato_empilhadeira_operacao
+	lineageTag: 950bde4c-e59e-4c77-aa71-99e75bbcd875
+
+	column operacao_id
+		dataType: string
+		isHidden
+		lineageTag: 57252d81-98af-47e0-a5a2-07f3d6aeb02f
+		summarizeBy: none
+		sourceColumn: operacao_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column revenda_id
+		dataType: string
+		isHidden
+		lineageTag: 8917a5a6-f7f9-4462-b445-02fcad2f8434
+		summarizeBy: none
+		sourceColumn: revenda_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column colaborador_id
+		dataType: string
+		isHidden
+		lineageTag: dd1b9a92-5e7c-4596-a10c-e011c470cb02
+		summarizeBy: none
+		sourceColumn: colaborador_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column colaborador
+		dataType: string
+		lineageTag: 8d336015-46c0-4867-baa7-4f52fa435368
+		summarizeBy: none
+		sourceColumn: colaborador
+
+		annotation SummarizationSetBy = Automatic
+
+	column empilhadeira_id
+		dataType: string
+		isHidden
+		lineageTag: 5c5b3fb0-832b-4a25-8df0-68581bbb38fc
+		summarizeBy: none
+		sourceColumn: empilhadeira_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column empilhadeira
+		dataType: string
+		lineageTag: 9e121f9d-d10f-4134-9c57-35ebb2773a9c
+		summarizeBy: none
+		sourceColumn: empilhadeira
+
+		annotation SummarizationSetBy = Automatic
+
+	column status
+		dataType: string
+		lineageTag: b1ede50b-ca8b-4c6a-8854-2831dd577900
+		summarizeBy: none
+		sourceColumn: status
+
+		annotation SummarizationSetBy = Automatic
+
+	column encerrada
+		dataType: boolean
+		lineageTag: 3b46025a-4f7d-4e96-b7f0-deb8ca926849
+		summarizeBy: none
+		sourceColumn: encerrada
+
+		annotation SummarizationSetBy = Automatic
+
+	column horimetro_inicial
+		dataType: decimal
+		lineageTag: a14584f8-c26a-4c43-a6c6-2c44f204e331
+		summarizeBy: none
+		sourceColumn: horimetro_inicial
+
+		annotation SummarizationSetBy = Automatic
+
+	column horimetro_final
+		dataType: decimal
+		lineageTag: 64271450-7955-4dad-a96a-da8ca26684f1
+		summarizeBy: none
+		sourceColumn: horimetro_final
+
+		annotation SummarizationSetBy = Automatic
+
+	column horas_ativas
+		dataType: decimal
+		lineageTag: 7ff1282d-c494-469e-aaa1-df6725ced951
+		summarizeBy: none
+		sourceColumn: horas_ativas
+
+		annotation SummarizationSetBy = Automatic
+
+	column horas_de_relogio
+		dataType: decimal
+		lineageTag: 4d490249-c752-4fb1-b9d7-cd85730621e3
+		summarizeBy: none
+		sourceColumn: horas_de_relogio
+
+		annotation SummarizationSetBy = Automatic
+
+	column aproveitamento
+		dataType: decimal
+		lineageTag: 43abc8d2-9734-42e4-af86-8f4b40890a0f
+		summarizeBy: none
+		sourceColumn: aproveitamento
+
+		annotation SummarizationSetBy = Automatic
+
+	column encerrado_por_nome
+		dataType: string
+		lineageTag: a69e6240-4d39-4f9f-bc8b-85e482e2c9ee
+		summarizeBy: none
+		sourceColumn: encerrado_por_nome
+
+		annotation SummarizationSetBy = Automatic
+
+	column encerrada_por_terceiro
+		dataType: boolean
+		lineageTag: b291ce41-6bf8-4d09-930d-3841e1d4db13
+		summarizeBy: none
+		sourceColumn: encerrada_por_terceiro
+
+		annotation SummarizationSetBy = Automatic
+
+	column inicio
+		dataType: dateTime
+		formatString: dd/MM/yyyy
+		lineageTag: e56e3acc-8ad1-466f-b9ad-ed8c94163ba6
+		summarizeBy: none
+		sourceColumn: inicio
+
+		annotation SummarizationSetBy = Automatic
+
+	column fim
+		dataType: dateTime
+		formatString: dd/MM/yyyy
+		lineageTag: cbd2a63a-1a77-4266-8ecd-9882ce1939fa
+		summarizeBy: none
+		sourceColumn: fim
+
+		annotation SummarizationSetBy = Automatic
+
+	column data
+		dataType: dateTime
+		formatString: dd/MM/yyyy
+		lineageTag: f748998b-7374-4edf-af3e-80a27ea7ebea
+		summarizeBy: none
+		sourceColumn: data
+
+		annotation SummarizationSetBy = Automatic
+
+	column hora
+		dataType: int64
+		lineageTag: c1157913-0ef9-4e69-a427-8d52f6644e12
+		summarizeBy: none
+		sourceColumn: hora
+
+		annotation SummarizationSetBy = Automatic
+
+	column turno
+		dataType: string
+		lineageTag: 5b75b8fd-c658-49e9-8967-a3f45752339a
+		summarizeBy: none
+		sourceColumn: turno
+
+		annotation SummarizationSetBy = Automatic
+
+	column turno_rotulo
+		dataType: string
+		lineageTag: f08e6e4a-533d-4825-aae4-7c481601d8d9
+		summarizeBy: none
+		sourceColumn: turno_rotulo
+
+		annotation SummarizationSetBy = Automatic
+
+	column chave
+		dataType: string
+		isHidden
+		lineageTag: 412f31ea-af01-448b-9a25-85b89764349b
+		summarizeBy: none
+		sourceColumn: chave
+
+		annotation SummarizationSetBy = Automatic
+
+	partition fato_empilhadeira_operacao = m
+		mode: import
+		source =
+				let
+				    Origem = PostgreSQL.Database(Servidor, Banco),
+				    Dados = Origem{[Schema="bi",Item="fato_empilhadeira_operacao"]}[Data],
+				    ComChave = Table.AddColumn(Dados, "chave", each
+				        (if [revenda_id] = null then "" else Text.From([revenda_id]))
+				        & "|" &
+				        (if [colaborador_id] = null then "" else Text.From([colaborador_id])),
+				        type text)
+				in
+				    ComChave
+
+	annotation PBI_ResultType = Table

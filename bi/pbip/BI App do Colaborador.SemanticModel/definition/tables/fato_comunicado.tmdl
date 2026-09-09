@@ -3,11 +3,10 @@ table fato_comunicado
 	lineageTag: a9083826-6fb4-4a1d-852d-85178013da3f
 
 	column comunicado_id
-		dataType: int64
+		dataType: string
 		isHidden
-		formatString: 0
 		lineageTag: e0925c75-e03d-48f6-ac8d-3ef839c70061
-		summarizeBy: sum
+		summarizeBy: none
 		sourceColumn: comunicado_id
 
 		annotation SummarizationSetBy = Automatic
@@ -103,8 +102,6 @@ table fato_comunicado
 
 		annotation SummarizationSetBy = Automatic
 
-		annotation UnderlyingDateTimeDataType = Date
-
 	column criado_em
 		dataType: dateTime
 		formatString: dd/MM/yyyy
@@ -181,24 +178,20 @@ table fato_comunicado
 		annotation SummarizationSetBy = Automatic
 
 	column taxa_curtida
-		dataType: double
+		dataType: decimal
 		lineageTag: 46f8a2b7-c9ef-48a3-8d37-f43fbdf157f0
-		summarizeBy: sum
+		summarizeBy: none
 		sourceColumn: taxa_curtida
 
 		annotation SummarizationSetBy = Automatic
 
-		annotation PBI_FormatHint = {"isGeneralNumber":true}
-
 	column taxa_clique
-		dataType: double
+		dataType: decimal
 		lineageTag: 610e4a53-eea4-4739-a69f-4e517752dde6
-		summarizeBy: sum
+		summarizeBy: none
 		sourceColumn: taxa_clique
 
 		annotation SummarizationSetBy = Automatic
-
-		annotation PBI_FormatHint = {"isGeneralNumber":true}
 
 	partition fato_comunicado = m
 		mode: import
@@ -210,4 +203,3 @@ table fato_comunicado
 				    Dados
 
 	annotation PBI_ResultType = Table
-

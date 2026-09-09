@@ -3,11 +3,10 @@ table fato_comunicado_agenda
 	lineageTag: 6d47998d-14a1-4ce2-b9f7-c2aa9f85b2c7
 
 	column comunicado_id
-		dataType: int64
+		dataType: string
 		isHidden
-		formatString: 0
 		lineageTag: a0fa6f22-0462-4106-81bc-3a3da13d3ab1
-		summarizeBy: sum
+		summarizeBy: none
 		sourceColumn: comunicado_id
 
 		annotation SummarizationSetBy = Automatic
@@ -71,8 +70,6 @@ table fato_comunicado_agenda
 
 		annotation SummarizationSetBy = Automatic
 
-		annotation UnderlyingDateTimeDataType = Date
-
 	column situacao
 		dataType: string
 		lineageTag: 38726732-665f-4960-9212-47b663706afb
@@ -115,4 +112,3 @@ table fato_comunicado_agenda
 				    Dados
 
 	annotation PBI_ResultType = Table
-

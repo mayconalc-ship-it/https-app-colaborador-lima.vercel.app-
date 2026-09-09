@@ -27,8 +27,7 @@
                 }
               },
               "queryRef": "dim_calendario.ano_mes",
-              "nativeQueryRef": "ano_mes",
-              "active": true
+              "nativeQueryRef": "ano_mes"
             }
           ]
         }
@@ -76,6 +75,11 @@
         }
       ]
     },
+    "syncGroup": {
+      "groupName": "dim_calendario.ano_mes",
+      "fieldChanges": true,
+      "filterChanges": true
+    },
     "visualContainerObjects": {
       "title": [
         {
@@ -103,11 +107,6 @@
           }
         }
       ]
-    },
-    "syncGroup": {
-      "groupName": "dim_calendario.ano_mes",
-      "fieldChanges": true,
-      "filterChanges": true
     },
     "drillFilterOtherVisuals": true
   }

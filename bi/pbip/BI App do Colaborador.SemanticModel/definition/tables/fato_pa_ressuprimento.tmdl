@@ -1,0 +1,242 @@
+/// Um pedido. colaborador_id = SOLICITANTE; empilhador e ajudante sao atributos com filtro proprio.
+table fato_pa_ressuprimento
+	lineageTag: cc407df8-224b-4b4f-ab64-ea80305eafee
+
+	column ressuprimento_id
+		dataType: string
+		isHidden
+		lineageTag: 9569f84f-e16d-4136-a8e3-ebfa47b38375
+		summarizeBy: none
+		sourceColumn: ressuprimento_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column revenda_id
+		dataType: string
+		isHidden
+		lineageTag: 03a966c6-52ae-42c3-bc45-53c65be8ffe5
+		summarizeBy: none
+		sourceColumn: revenda_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column colaborador_id
+		dataType: string
+		isHidden
+		lineageTag: 3a94330a-c7da-4f65-a9d2-1aa0a16e213f
+		summarizeBy: none
+		sourceColumn: colaborador_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column colaborador
+		dataType: string
+		lineageTag: cc932945-96ce-4b6f-b8be-6143ec2683f9
+		summarizeBy: none
+		sourceColumn: colaborador
+
+		annotation SummarizationSetBy = Automatic
+
+	column solicitante
+		dataType: string
+		lineageTag: 22ae0815-23d1-45c1-b164-a3711dc8f739
+		summarizeBy: none
+		sourceColumn: solicitante
+
+		annotation SummarizationSetBy = Automatic
+
+	column operador_id
+		dataType: string
+		isHidden
+		lineageTag: 0e0634b6-516d-4710-bb54-6152fad5f69e
+		summarizeBy: none
+		sourceColumn: operador_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column empilhador
+		dataType: string
+		lineageTag: 735208ea-9249-4a2c-a815-0d6d4ed9ba4b
+		summarizeBy: none
+		sourceColumn: empilhador
+
+		annotation SummarizationSetBy = Automatic
+
+	column ajudante
+		dataType: string
+		lineageTag: 70d25621-a234-420e-8b5c-41c1f42bf0ed
+		summarizeBy: none
+		sourceColumn: ajudante
+
+		annotation SummarizationSetBy = Automatic
+
+	column prioridade
+		dataType: string
+		lineageTag: 3e6c417f-49ba-4d8e-8a4c-fa643050305e
+		summarizeBy: none
+		sourceColumn: prioridade
+
+		annotation SummarizationSetBy = Automatic
+
+	column prioridade_rotulo
+		dataType: string
+		lineageTag: c055d8f5-30df-43a7-bc14-a05f2d7b8274
+		summarizeBy: none
+		sourceColumn: prioridade_rotulo
+
+		annotation SummarizationSetBy = Automatic
+
+	column tipo
+		dataType: string
+		lineageTag: d67651dd-51dc-44c3-8c23-eb93f234092f
+		summarizeBy: none
+		sourceColumn: tipo
+
+		annotation SummarizationSetBy = Automatic
+
+	column tipo_rotulo
+		dataType: string
+		lineageTag: 93745125-6ead-40d5-83f1-ad20e6edf96c
+		summarizeBy: none
+		sourceColumn: tipo_rotulo
+
+		annotation SummarizationSetBy = Automatic
+
+	column cancelado
+		dataType: boolean
+		lineageTag: 124b763f-a5ce-4632-a012-d57c763edbe3
+		summarizeBy: none
+		sourceColumn: cancelado
+
+		annotation SummarizationSetBy = Automatic
+
+	column concluido
+		dataType: boolean
+		lineageTag: eb297ec2-9298-4be1-8c98-8bb2596fa6d5
+		summarizeBy: none
+		sourceColumn: concluido
+
+		annotation SummarizationSetBy = Automatic
+
+	column hl
+		dataType: decimal
+		lineageTag: 752304f0-63a4-4446-9e91-b4a2a439d244
+		summarizeBy: none
+		sourceColumn: hl
+
+		annotation SummarizationSetBy = Automatic
+
+	column itens
+		dataType: int64
+		lineageTag: 12618825-a2f5-4b96-85d1-4153413daf92
+		summarizeBy: none
+		sourceColumn: itens
+
+		annotation SummarizationSetBy = Automatic
+
+	column espera_empilhadeira_min
+		dataType: int64
+		lineageTag: 71850715-4faa-4d87-8274-2edf4bfb4ea8
+		summarizeBy: none
+		sourceColumn: espera_empilhadeira_min
+
+		annotation SummarizationSetBy = Automatic
+
+	column transporte_min
+		dataType: int64
+		lineageTag: fbfd31b1-b740-47ee-893e-e6d0cf96879d
+		summarizeBy: none
+		sourceColumn: transporte_min
+
+		annotation SummarizationSetBy = Automatic
+
+	column espera_ajudante_min
+		dataType: int64
+		lineageTag: cf7f4a5c-9996-4432-8086-24b2c8cc9a60
+		summarizeBy: none
+		sourceColumn: espera_ajudante_min
+
+		annotation SummarizationSetBy = Automatic
+
+	column abastecimento_min
+		dataType: int64
+		lineageTag: dfed7651-eaab-439b-9c8a-e727cd7b94ac
+		summarizeBy: none
+		sourceColumn: abastecimento_min
+
+		annotation SummarizationSetBy = Automatic
+
+	column ciclo_min
+		dataType: int64
+		lineageTag: 24ba6534-542a-4d6e-943a-4812017af388
+		summarizeBy: none
+		sourceColumn: ciclo_min
+
+		annotation SummarizationSetBy = Automatic
+
+	column criado_em
+		dataType: dateTime
+		formatString: dd/MM/yyyy
+		lineageTag: 887b6a44-8563-4cbc-88ff-6d44be447095
+		summarizeBy: none
+		sourceColumn: criado_em
+
+		annotation SummarizationSetBy = Automatic
+
+	column data
+		dataType: dateTime
+		formatString: dd/MM/yyyy
+		lineageTag: 9be954d4-4d9f-4a61-89e9-975dffdfcd22
+		summarizeBy: none
+		sourceColumn: data
+
+		annotation SummarizationSetBy = Automatic
+
+	column hora
+		dataType: int64
+		lineageTag: 1a53e5e7-e3a5-470f-bfd5-bcdeac66052b
+		summarizeBy: none
+		sourceColumn: hora
+
+		annotation SummarizationSetBy = Automatic
+
+	column turno
+		dataType: string
+		lineageTag: 20772aa0-18bb-4895-aee8-959a746c0e8e
+		summarizeBy: none
+		sourceColumn: turno
+
+		annotation SummarizationSetBy = Automatic
+
+	column turno_rotulo
+		dataType: string
+		lineageTag: fbf25490-7aed-47eb-9f43-f1fe23383559
+		summarizeBy: none
+		sourceColumn: turno_rotulo
+
+		annotation SummarizationSetBy = Automatic
+
+	column chave
+		dataType: string
+		isHidden
+		lineageTag: e41f06d6-7d6b-48f9-86ee-2cfd1915f490
+		summarizeBy: none
+		sourceColumn: chave
+
+		annotation SummarizationSetBy = Automatic
+
+	partition fato_pa_ressuprimento = m
+		mode: import
+		source =
+				let
+				    Origem = PostgreSQL.Database(Servidor, Banco),
+				    Dados = Origem{[Schema="bi",Item="fato_pa_ressuprimento"]}[Data],
+				    ComChave = Table.AddColumn(Dados, "chave", each
+				        (if [revenda_id] = null then "" else Text.From([revenda_id]))
+				        & "|" &
+				        (if [colaborador_id] = null then "" else Text.From([colaborador_id])),
+				        type text)
+				in
+				    ComChave
+
+	annotation PBI_ResultType = Table

@@ -1,5 +1,39 @@
 # BI do App do Colaborador
 
+> **Rodada de 09/09/2026 — a Produtividade do Armazém entra no BI.**
+> A área inteira estava de fora: bancada, despejo, abastecimento,
+> ressuprimento, bate palete, recebimento de carretas e empilhadeira não
+> tinham uma única view. Quem cobrava produtividade de armazém cobrava
+> por print da tela do app. Agora são **4 páginas novas** (🏭 Armazém,
+> 🚛 Recebimento de Carretas, 🏗️ Empilhadeira e 🎯 Desafio — o que
+> treinar), **17 views novas**, **63 medidas novas** e **33
+> relacionamentos novos** — o projeto foi de 12 para 16 páginas, de 37
+> para 54 tabelas, de 36 para 53 views e de 124 para 187 medidas.
+>
+> Três coisas que mudam a leitura e valem antes de abrir:
+>
+> 1. **`bi.dim_hora` é dimensão de verdade**, ligada a todos os fatos do
+>    armazém. É ela que faz o histograma virar filtro: clicar nas 7h no
+>    gráfico de chegada de carreta recorta o TMA, a avaria e a
+>    empilhadeira na mesma tela. Sem ela, cada gráfico filtraria só a si
+>    mesmo.
+> 2. **A bombona do despejo ignora os filtros de propósito.** É um
+>    recipiente físico; filtrada por turno, o T1 veria a bombona pela
+>    metade e o T2 vazia, sendo a mesma bombona. A medida usa
+>    `REMOVEFILTERS` em calendário, colaborador e hora — mas **não** em
+>    revenda.
+> 3. **A página 🎯 Desafio mostra o gabarito.** É para a reunião de
+>    treinamento. Se o relatório for distribuído ao time inteiro, remova
+>    `dim_quiz_gabarito` do modelo — ou o campeonato do mês acaba no
+>    primeiro compartilhamento.
+>
+> **O banco precisa ser atualizado:** rode
+> `15-armazem-e-desafio-no-bi.sql` e **em seguida `02-acesso-powerbi.sql`**
+> (sem ele o `powerbi_readonly` não enxerga as views novas e as páginas
+> nascem vazias, sem nenhum erro de conexão que explique por quê).
+> O mesmo bloco já está dobrado dentro do `01` — quem recria o esquema do
+> zero não precisa do 15.
+
 > **Rodada de 23/08/2026.** O projeto passou de 8 para 10 páginas de gestão
 > (entraram a **Capa**, com um cartão-link para cada página, e o
 > **Cronograma da Comunicação**, a visão de calendário que já existia em
@@ -26,23 +60,25 @@ que transformam as tabelas do app em fatos e dimensões prontos) e a
 ## Ordem de execução
 
 **Comece por [`08-abrir-o-pbip.md`](08-abrir-o-pbip.md).** O projeto em
-`bi/pbip/` já traz o modelo, as 124 medidas, os 54 relacionamentos, o tema
-e as 12 páginas montadas — abre no Power BI Desktop e salva como `.pbix`,
+`bi/pbip/` já traz o modelo, as 187 medidas, os 87 relacionamentos, o tema
+e as 16 páginas montadas — abre no Power BI Desktop e salva como `.pbix`,
 sem arrastar visual nenhum. O roteiro manual de montagem
 (`06-montar-pbix.md`) ficou como referência de quem quer entender as
 escolhas, não como caminho obrigatório.
 
 | # | Arquivo | O que faz |
 |---|---|---|
-| 1 | `01-camada-semantica.sql` | Cria o esquema `bi` com 35 views. **Não altera nada do app.** |
+| 1 | `01-camada-semantica.sql` | Cria o esquema `bi` com 53 views. **Não altera nada do app.** |
 | 2 | `02-acesso-powerbi.sql` | Cria o usuário `powerbi_readonly` e libera só o esquema `bi`. |
 | 3 | `08-abrir-o-pbip.md` | **Abrir o projeto pronto e salvar como `.pbix`.** É por aqui. |
 | 4 | `04-gateway-e-atualizacao.md` | Gateway no PC do escritório e agendamento da atualização. |
 | 5 | `09-atualizacao-23-08-2026.sql` | **Recorte do 01 com o que mudou em 23/08/2026.** Uma colagem em vez de dez. |
 | 6 | `10-conferir-acentos.sql` | **Confere se algum rótulo entrou quebrado no banco.** Três selects, não altera nada. |
+| 7 | `15-armazem-e-desafio-no-bi.sql` | **Produtividade do Armazém, carretas, empilhadeira e o gabarito do Desafio.** Recorte de colagem do 09/09/2026. |
+| — | `dobrar-15-no-01.mjs` | Copia o 15 para dentro do 01 (fonte da verdade). Rode depois de mexer no 15. |
 | — | `pbip/gerar-pbip.js` | Regera o projeto a partir de `modelo.js` + `paginas.js` + `07-medidas.dax`. |
-| — | `pbip/validar.js` | Confere os campos das 12 páginas contra o modelo antes de abrir. |
-| — | `07-medidas.dax` | As 124 medidas. **Fonte da verdade** — o gerador lê daqui. |
+| — | `pbip/validar.js` | Confere os campos das 16 páginas contra o modelo antes de abrir. |
+| — | `07-medidas.dax` | As 187 medidas. **Fonte da verdade** — o gerador lê daqui. |
 | — | `medidas-dax.md` | As mesmas medidas explicadas uma a uma, com o porquê de cada corte. |
 | — | `layout-relatorio.md` | Layout das 8 páginas de gestão originais, visual a visual. |
 | — | `06-montar-pbix.md` | Montagem manual, caso queira refazer à mão. |

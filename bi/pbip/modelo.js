@@ -379,10 +379,15 @@ const tabelas = [
     descricao: 'Use para taxa de erro POR PERIODO -- os contadores da questao sao vitalicios.',
     colunas:
       'resposta_id:s revenda_id:s rodada_id:s rodada:s mes_ref:t colaborador_id:s ' +
-      'colaborador:s area:s questao_id:s pergunta:s dificuldade:s pilar:s padrao:s ' +
-      'correta:b errou:b tempo_segundos:n respondida_em:t data:t ' + CHAVE,
+      'colaborador:s area:s questao_id:s pergunta:s dificuldade:s dificuldade_rotulo:s ' +
+      'pilar:s padrao:s atividade:s origem:s explicacao:s ' +
+      'correta:b errou:b tempo_segundos:n chute:b respondida_em:t data:t hora:i ' + CHAVE,
     chaveComposta: true,
     data: 'data',
+    // A hora entra aqui tambem: "as pessoas respondem o desafio no fim
+    // do turno, correndo?" e a pergunta que explica metade da taxa de
+    // chute -- e ela so se responde cruzando com dim_hora.
+    hora: true,
   },
   {
     nome: 'fato_quiz_rodada_participacao',
@@ -522,6 +527,232 @@ const tabelas = [
     chaveComposta: true,
     data: 'data',
   },
+
+  // ================================================================
+  // PRODUTIVIDADE DO ARMAZEM  (15-armazem-e-desafio-no-bi.sql)
+  // ================================================================
+  // A area inteira estava fora do BI ate setembro/2026 -- justamente a
+  // que ganhou tela de indicadores nova. Todo fato daqui carrega
+  // colaborador_id (chave composta), para os filtros globais de
+  // Colaborador e de Area alcancarem as paginas novas, e `hora`, para
+  // ligar em dim_hora: e essa ligacao que faz o histograma virar filtro
+  // cruzado em vez de grafico solto.
+  {
+    // A HORA DO DIA COMO DIMENSAO, e nao como coluna solta em cada fato.
+    //
+    // E o que permite clicar nas 7h no grafico de chegada de carreta e
+    // ver o TMA, a avaria e a empilhadeira daquela hora na mesma tela.
+    // Com a hora presa dentro de cada fato, cada grafico filtraria so a
+    // si mesmo e "o que acontece no pico da manha?" nao teria resposta.
+    nome: 'dim_hora',
+    view: 'dim_hora',
+    descricao: 'Hora do dia 0-23 com turno. Liga em todo fato do armazem pela coluna hora.',
+    colunas: 'hora:i hora_rotulo:s turno:s turno_rotulo:s faixa_do_dia:s',
+    // Sem isto "00h" viria depois de "10h": ordem alfabetica poria o
+    // pico no lugar errado do eixo.
+    ordenarPor: { hora_rotulo: 'hora' },
+    // Sem revenda e sem data de proposito: hora do dia e igual em toda
+    // revenda e em todo dia. Uma ligacao a mais aqui so criaria caminho
+    // ambiguo ate os fatos.
+  },
+  {
+    nome: 'dim_pa_produto',
+    view: 'dim_pa_produto',
+    descricao: 'Produto do armazem com familia (cluster do SAP) e tipo retornavel/descartavel.',
+    colunas:
+      'produto_id:s revenda_id:s codigo:s produto:s familia:s tipo:s tipo_rotulo:s ' +
+      'embalagem:s fator_hecto:n unidades_por_caixa:i caixas_pallet:i caixas_por_lastro:i ' +
+      'meta_reepack_hora:n meta_despejo_hora:n ativo:b criado_em:t',
+    revendaDireta: true,
+  },
+  {
+    nome: 'dim_pa_embalagem_despejo',
+    view: 'dim_pa_embalagem_despejo',
+    descricao: 'Catalogo de embalagens do despejo -- diferente do catalogo do repack.',
+    colunas:
+      'embalagem_despejo_id:s revenda_id:s embalagem_despejo:s litros_por_unidade:n ' +
+      'meta_litros_hora:n ativo:b criado_em:t',
+    revendaDireta: true,
+  },
+  {
+    nome: 'dim_empilhadeira',
+    view: 'dim_empilhadeira',
+    descricao: 'As maquinas. Duas empilhadeiras nao consomem igual -- a media das duas nao descreve nenhuma.',
+    colunas: 'empilhadeira_id:s revenda_id:s empilhadeira:s numero:s',
+    revendaDireta: true,
+  },
+  {
+    nome: 'dim_transportadora',
+    view: 'dim_transportadora',
+    descricao: 'Transportadoras que entregam na revenda.',
+    colunas: 'transportadora_id:s revenda_id:s transportadora:s',
+    revendaDireta: true,
+  },
+  {
+    nome: 'fato_pa_bancada',
+    view: 'fato_pa_bancada',
+    descricao:
+      'Selecao + Repack por lancamento. caixas e unidades_triadas sao excludentes -- nao some as duas.',
+    colunas:
+      'lancamento_id:s revenda_id:s colaborador_id:s colaborador:s etapa:s etapa_rotulo:s ' +
+      'produto_id:s produto:s familia:s tipo_rotulo:s embalagem_id:s embalagem:s ' +
+      'turno:s turno_rotulo:s caixas:n unidades_triadas:n quantidade:n horas:n ' +
+      'taxa_hora:n meta_hora:n inicio:t fim:t data:t hora:i ' + CHAVE,
+    chaveComposta: true,
+    data: 'data',
+    hora: true,
+  },
+  {
+    nome: 'fato_pa_despejo',
+    view: 'fato_pa_despejo',
+    descricao: 'Despejo por lancamento. Para o NIVEL da bombona use fato_pa_bombona.',
+    colunas:
+      'lancamento_id:s revenda_id:s colaborador_id:s colaborador:s embalagem_despejo_id:s ' +
+      'embalagem_despejo:s meta_litros_hora:n turno:s turno_rotulo:s litros:n ' +
+      'quantidade_pacotes:i horas:n litros_hora:n inicio:t fim:t data:t hora:i ' + CHAVE,
+    chaveComposta: true,
+    data: 'data',
+    hora: true,
+  },
+  {
+    // O UNICO FATO DO MODELO QUE NAO SE FILTRA POR PERIODO.
+    //
+    // Uma linha por revenda, com o nivel de AGORA. Nao liga no
+    // calendario de proposito: a bombona e um recipiente fisico, e
+    // "quanto tinha nela em agosto" nao e uma pergunta que exista.
+    // Ligada na data, o medidor esvaziaria ao mudar o filtro de periodo
+    // e ninguem entenderia por que.
+    nome: 'fato_pa_bombona',
+    view: 'fato_pa_bombona',
+    descricao: 'Nivel ATUAL da bombona, uma linha por revenda. Nao filtre por periodo/turno/pessoa.',
+    colunas:
+      'revenda_id:s esvaziamento_id:s esvaziada_em:t data_esvaziamento:t esvaziada_por:s ' +
+      'litros_no_momento:n litros_agora:n capacidade:n pct_cheia:n litros_livres:n ' +
+      'transbordou:b dias_desde_esvaziamento:i',
+    revendaDireta: true,
+  },
+  {
+    nome: 'fato_pa_esvaziamento',
+    view: 'fato_pa_esvaziamento',
+    descricao:
+      'Historico de descartes. Responde se a bombona vai cheia ou pela metade -- viagem desperdicada.',
+    colunas:
+      'esvaziamento_id:s revenda_id:s colaborador_id:s colaborador:s litros_no_momento:n ' +
+      'capacidade:n pct_no_descarte:n observacao:s esvaziada_em:t data:t hora:i ' +
+      'turno:s turno_rotulo:s ' + CHAVE,
+    chaveComposta: true,
+    data: 'data',
+    hora: true,
+  },
+  {
+    nome: 'fato_pa_abastecimento',
+    view: 'fato_pa_abastecimento',
+    descricao: 'Sessoes de abastecimento do picking, com HL e tipo completo/pontual.',
+    colunas:
+      'abastecimento_id:s revenda_id:s colaborador_id:s colaborador:s tipo:s tipo_rotulo:s ' +
+      'turno:s turno_rotulo:s ressuprimento_id:s de_solicitacao:b hl:n itens:i horas:n ' +
+      'hl_hora:n inicio:t fim:t data:t hora:i ' + CHAVE,
+    chaveComposta: true,
+    data: 'data',
+    hora: true,
+  },
+  {
+    nome: 'fato_pa_ressuprimento',
+    view: 'fato_pa_ressuprimento',
+    descricao:
+      'Um pedido. colaborador_id = SOLICITANTE; empilhador e ajudante sao atributos com filtro proprio.',
+    colunas:
+      'ressuprimento_id:s revenda_id:s colaborador_id:s colaborador:s solicitante:s ' +
+      'operador_id:s empilhador:s ajudante:s prioridade:s prioridade_rotulo:s tipo:s ' +
+      'tipo_rotulo:s cancelado:b concluido:b hl:n itens:i espera_empilhadeira_min:i ' +
+      'transporte_min:i espera_ajudante_min:i abastecimento_min:i ciclo_min:i ' +
+      'criado_em:t data:t hora:i turno:s turno_rotulo:s ' + CHAVE,
+    chaveComposta: true,
+    data: 'data',
+    hora: true,
+  },
+  {
+    nome: 'fato_pa_bate_palete',
+    view: 'fato_pa_bate_palete',
+    descricao: 'Grao item. O % de avaria sai da soma sobre a soma -- nunca da media de percentuais.',
+    colunas:
+      'item_id:s bate_palete_id:s revenda_id:s colaborador_id:s colaborador:s turno:s ' +
+      'turno_rotulo:s produto_id:s produto:s paletes:n hl_batido:n hl_avariado:n ' +
+      'hl_aproveitado:n horas:n inicio:t fim:t data:t hora:i ' + CHAVE,
+    chaveComposta: true,
+    data: 'data',
+    hora: true,
+  },
+  {
+    nome: 'fato_carreta',
+    view: 'fato_carreta',
+    descricao:
+      'Uma carreta finalizada. colaborador_id = CONFERENTE; portaria, motorista e transportadora sao atributos.',
+    colunas:
+      'carreta_id:s revenda_id:s colaborador_id:s colaborador:s conferente:s ' +
+      'portaria_colaborador_id:s portaria:s motorista:s transportadora_id:s ' +
+      'transportadora:s fabrica:s numero_dt:s placa_cavalo:s status:s carga_agendada:b ' +
+      'tinha_agendamento:b voltou_carregada:b tma_min:i espera_portaria_min:i ' +
+      'descarga_min:i conferencia_min:i carga_min:i patio_min:i atraso_chegada_min:i ' +
+      'paletes_recebidos:n paletes_avariados:n teve_conferencia:b tma_alvo_min:i ' +
+      'dentro_da_meta:b chegada_em:t ' +
+      'agendamento_em:t inicio_atendimento_em:t finalizacao_em:t data:t hora:i ' +
+      'turno:s turno_rotulo:s ' + CHAVE,
+    chaveComposta: true,
+    data: 'data',
+    // A hora aqui e a da CHEGADA, nao a da finalizacao: a fila do
+    // recebimento se forma na portaria, e e o perfil de chegada que
+    // responde "preciso de mais um conferente as 7h?".
+    hora: true,
+  },
+  {
+    // Pendurado na carreta, nos dois sentidos: e o que faz clicar num
+    // produto avariado recortar o TMA e a transportadora da carreta que
+    // o trouxe. Sem data e sem revenda propria -- herda tudo do pai.
+    nome: 'fato_carreta_item',
+    view: 'fato_carreta_item',
+    descricao: 'Avaria por PRODUTO -- aponta a origem: paletizacao ou transporte, nao o armazem.',
+    colunas:
+      'item_id:s carreta_id:s revenda_id:s colaborador_id:s colaborador:s transportadora:s ' +
+      'fabrica:s motorista:s produto_id:s produto:s familia:s paletes_recebidos:n ' +
+      'paletes_avariados:n data:t hora:i turno:s',
+    paiFato: { tabela: 'fato_carreta', coluna: 'carreta_id' },
+  },
+  {
+    nome: 'fato_empilhadeira_operacao',
+    view: 'fato_empilhadeira_operacao',
+    descricao:
+      'Horas ativas vem do HORIMETRO, nunca do relogio. Operacao aberta entra com horas nulas.',
+    colunas:
+      'operacao_id:s revenda_id:s colaborador_id:s colaborador:s empilhadeira_id:s ' +
+      'empilhadeira:s status:s encerrada:b horimetro_inicial:n horimetro_final:n ' +
+      'horas_ativas:n horas_de_relogio:n aproveitamento:n encerrado_por_nome:s ' +
+      'encerrada_por_terceiro:b inicio:t fim:t data:t hora:i turno:s turno_rotulo:s ' + CHAVE,
+    chaveComposta: true,
+    data: 'data',
+    hora: true,
+  },
+  {
+    nome: 'fato_empilhadeira_gas',
+    view: 'fato_empilhadeira_gas',
+    descricao:
+      'Trocas de P20. O CICLO nao vem para o BI: ele atravessa turnos e qualquer filtro o quebraria pelo meio.',
+    colunas:
+      'troca_id:s revenda_id:s colaborador_id:s colaborador:s empilhadeira_id:s ' +
+      'empilhadeira:s horimetro:n custo_p20:n realizada_em:t data:t hora:i turno:s ' +
+      'turno_rotulo:s ' + CHAVE,
+    chaveComposta: true,
+    data: 'data',
+    hora: true,
+  },
+  {
+    nome: 'dim_quiz_gabarito',
+    view: 'dim_quiz_gabarito',
+    descricao:
+      'A resposta certa de cada pergunta. SO PARA LIDERANCA -- tire do modelo se o BI for distribuido ao time.',
+    colunas: 'questao_id:s revenda_id:s pergunta:s resposta_certa:s explicacao:s',
+    revendaDireta: true,
+  },
 ];
 
 // Colunas que so servem de chave tecnica e poluem a lista de campos.
@@ -533,6 +764,14 @@ const ocultas = new Set([
   'atendida_contagem_id', 'feedback_rota_id',
   'area_5s_id', 'pergunta_5s_id', 'auditoria_5s_id', 'resposta_5s_id',
   'acao_5s_id', 'auditor_id', 'dono_id', 'responsavel_id',
+  // Armazem, carretas e empilhadeira. Ids tecnicos que so servem de
+  // chave -- na lista de campos eles competem com o nome legivel ao
+  // lado ("produto_id" logo acima de "produto") e quem monta um visual
+  // arrasta o errado uma vez a cada duas.
+  'lancamento_id', 'abastecimento_id', 'ressuprimento_id', 'bate_palete_id',
+  'carreta_id', 'item_id', 'operacao_id', 'troca_id', 'esvaziamento_id',
+  'produto_id', 'embalagem_id', 'embalagem_despejo_id', 'empilhadeira_id',
+  'transportadora_id', 'portaria_colaborador_id', 'operador_id',
 ]);
 
 module.exports = { tabelas, ocultas };

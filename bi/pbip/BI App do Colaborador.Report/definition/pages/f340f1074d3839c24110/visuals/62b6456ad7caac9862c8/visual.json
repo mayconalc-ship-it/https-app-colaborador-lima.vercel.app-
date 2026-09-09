@@ -1,0 +1,91 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.12.0/schema.json",
+  "name": "62b6456ad7caac9862c8",
+  "position": {
+    "x": 16,
+    "y": 672,
+    "z": 19000,
+    "height": 30,
+    "width": 1248,
+    "tabOrder": 19000
+  },
+  "visual": {
+    "visualType": "textbox",
+    "objects": {
+      "general": [
+        {
+          "properties": {
+            "paragraphs": [
+              {
+                "textRuns": [
+                  {
+                    "value": "O cartão da bombona NÃO segue os filtros — é um recipiente físico, e o mesmo para os três turnos: filtrado, o T1 veria a bombona pela metade e o T2 vazia, sendo a mesma bombona. Em \"Repack por família\", aplique no painel Filtros um corte de ≥ 1 hora apontada (o corte vem declarado mas nasce desligado — ver o cabeçalho de gerar-pbip.js): um lançamento de dois minutos produz uma taxa absurda que se pareceria com desempenho. Caixas (repack) e unidades triadas (seleção) NÃO se somam: são unidades diferentes do mesmo ciclo, e por isso vivem em colunas separadas. \"% do ciclo esperando\" é o número que muda decisão no ressuprimento: um ciclo de 40 minutos com 35 de espera não se resolve treinando quem abastece.",
+                    "textStyle": {
+                      "fontSize": "8pt",
+                      "color": "#64748B"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "visualContainerObjects": {
+      "title": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "false"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "border": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "false"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "background": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "false"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "dropShadow": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "false"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "drillFilterOtherVisuals": true
+  }
+}

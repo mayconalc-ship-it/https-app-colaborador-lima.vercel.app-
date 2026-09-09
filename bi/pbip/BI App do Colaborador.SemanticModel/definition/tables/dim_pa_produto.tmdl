@@ -1,0 +1,145 @@
+/// Produto do armazem com familia (cluster do SAP) e tipo retornavel/descartavel.
+table dim_pa_produto
+	lineageTag: 577f9671-3e52-4db7-b5bc-21f67d33bfbd
+
+	column produto_id
+		dataType: string
+		isHidden
+		lineageTag: 86190938-4da7-4409-b0b0-be8f5dbfe88f
+		summarizeBy: none
+		sourceColumn: produto_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column revenda_id
+		dataType: string
+		isHidden
+		lineageTag: 98abc7ea-f495-467c-989c-164dc2be5a8e
+		summarizeBy: none
+		sourceColumn: revenda_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column codigo
+		dataType: string
+		lineageTag: 7658080a-e79c-4b86-90d6-882ac0aadb90
+		summarizeBy: none
+		sourceColumn: codigo
+
+		annotation SummarizationSetBy = Automatic
+
+	column produto
+		dataType: string
+		lineageTag: ec33e25c-1dd2-4530-a2e1-e850e6e49557
+		summarizeBy: none
+		sourceColumn: produto
+
+		annotation SummarizationSetBy = Automatic
+
+	column familia
+		dataType: string
+		lineageTag: 123dd63b-56c0-43eb-8a4c-d227e8a2bcff
+		summarizeBy: none
+		sourceColumn: familia
+
+		annotation SummarizationSetBy = Automatic
+
+	column tipo
+		dataType: string
+		lineageTag: bc260826-6f62-4305-932f-2481ef9d0efa
+		summarizeBy: none
+		sourceColumn: tipo
+
+		annotation SummarizationSetBy = Automatic
+
+	column tipo_rotulo
+		dataType: string
+		lineageTag: 273aae71-3531-4a00-8551-a8c973901c53
+		summarizeBy: none
+		sourceColumn: tipo_rotulo
+
+		annotation SummarizationSetBy = Automatic
+
+	column embalagem
+		dataType: string
+		lineageTag: 25b4f34a-fe00-4f17-bd64-94a81938b136
+		summarizeBy: none
+		sourceColumn: embalagem
+
+		annotation SummarizationSetBy = Automatic
+
+	column fator_hecto
+		dataType: decimal
+		lineageTag: 5528fa03-8c7d-4d5b-a7b5-aea68eebf867
+		summarizeBy: none
+		sourceColumn: fator_hecto
+
+		annotation SummarizationSetBy = Automatic
+
+	column unidades_por_caixa
+		dataType: int64
+		lineageTag: 16cac606-2040-4b25-ba55-87877fbc7632
+		summarizeBy: none
+		sourceColumn: unidades_por_caixa
+
+		annotation SummarizationSetBy = Automatic
+
+	column caixas_pallet
+		dataType: int64
+		lineageTag: ddba908e-326d-4700-9304-4cc7f97c34f7
+		summarizeBy: none
+		sourceColumn: caixas_pallet
+
+		annotation SummarizationSetBy = Automatic
+
+	column caixas_por_lastro
+		dataType: int64
+		lineageTag: cfc78c30-e159-407a-81bc-d0bb3d873584
+		summarizeBy: none
+		sourceColumn: caixas_por_lastro
+
+		annotation SummarizationSetBy = Automatic
+
+	column meta_reepack_hora
+		dataType: decimal
+		lineageTag: b21883ce-8ab2-43f5-8f8a-36619b3a2289
+		summarizeBy: none
+		sourceColumn: meta_reepack_hora
+
+		annotation SummarizationSetBy = Automatic
+
+	column meta_despejo_hora
+		dataType: decimal
+		lineageTag: b89e5801-a529-4a91-a2b1-5cf3c2416c6a
+		summarizeBy: none
+		sourceColumn: meta_despejo_hora
+
+		annotation SummarizationSetBy = Automatic
+
+	column ativo
+		dataType: boolean
+		lineageTag: 0c49be70-9c2e-48d1-8417-a34fda3b6770
+		summarizeBy: none
+		sourceColumn: ativo
+
+		annotation SummarizationSetBy = Automatic
+
+	column criado_em
+		dataType: dateTime
+		formatString: dd/MM/yyyy
+		lineageTag: b0ed6da0-620c-4ab3-8fc4-f6d8e861a275
+		summarizeBy: none
+		sourceColumn: criado_em
+
+		annotation SummarizationSetBy = Automatic
+
+	partition dim_pa_produto = m
+		mode: import
+		source =
+				let
+				    Origem = PostgreSQL.Database(Servidor, Banco),
+				    Dados = Origem{[Schema="bi",Item="dim_pa_produto"]}[Data]
+				in
+				    Dados
+
+	annotation PBI_ResultType = Table

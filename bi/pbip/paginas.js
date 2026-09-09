@@ -971,6 +971,114 @@ const paginas = [
 
   // ================================================================
   {
+    /*
+      O DESAFIO PELO LADO DO TREINAMENTO.
+
+      A pagina "Quiz" ao lado responde quem jogou e quem ganhou -- o lado
+      JOGO, que e o que faz as pessoas responderem. Esta responde outra
+      pergunta: uma rodada com 62% de acerto nao e um placar, e o aviso
+      de que 38% do time nao sabe o procedimento que foi perguntado.
+
+      Duas paginas e nao uma porque as leituras tem publicos diferentes:
+      a classificacao vai para o grupo, esta vai para a reuniao de
+      treinamento -- e misturar as duas faz a segunda desaparecer atras
+      da primeira.
+    */
+    nome: '🎯 Desafio — o que treinar',
+    filtros: [
+      ...filtros,
+      // A hora do dia entra aqui por um motivo especifico: taxa de chute
+      // alta concentrada no fim do turno diz que o problema e o MOMENTO
+      // em que o desafio esta sendo respondido, nao o conteudo.
+      { campo: 'dim_hora.faixa_do_dia', titulo: '🕐 Faixa do dia' },
+    ],
+    kpis: [
+      ['🎯 Taxa de acerto', '@Taxa de acerto'],
+      ['💬 Respostas', '@Respostas'],
+      ['⚠️ Perguntas em alerta', '@Perguntas em alerta'],
+      ['⚡ % de chute', '@% de chute'],
+      ['📄 Padrão mais crítico', '@Padrão mais crítico'],
+    ],
+    visuais: [
+      {
+        // O ACERTO POR PADRAO DE ORIGEM -- o visual que da endereco a
+        // pauta. "62% de acerto" e uma nota; "62% no POP-ARM-001" e uma
+        // acao com responsavel.
+        t: 'clusteredBarChart', x: 16, y: Y.meio, w: 430, h: H.meio,
+        titulo: '📄 Acerto por padrão de origem',
+        roles: {
+          Category: ['fato_quiz_resposta.origem'],
+          Y: ['@Taxa de acerto'],
+        },
+        // Do PIOR para o melhor: a lista existe para achar o que treinar.
+        ordem: { campo: '@Taxa de acerto', dir: 'Ascending' },
+        corteMinimo: { campo: 'fato_quiz_resposta.resposta_id', minimo: 5 },
+      },
+      {
+        // A dificuldade CADASTRADA contra a realidade. Uma pergunta
+        // "facil" com acerto baixo e enunciado ruim ou padrao nao
+        // treinado -- nao e a equipe, e tratar como se fosse ensina a
+        // equipe a desconfiar do desafio.
+        t: 'clusteredColumnChart', x: 458, y: Y.meio, w: 430, h: H.meio,
+        titulo: '📊 Acerto por dificuldade cadastrada',
+        roles: {
+          Category: ['fato_quiz_resposta.dificuldade_rotulo'],
+          Y: ['@Taxa de acerto', '@% de chute'],
+        },
+      },
+      {
+        t: 'columnChart', x: 900, y: Y.meio, w: 364, h: H.meio,
+        titulo: '⚡ Chute por hora do dia',
+        roles: {
+          Category: ['dim_hora.hora_rotulo'],
+          Y: ['@% de chute'],
+        },
+      },
+      {
+        // A PAUTA DA REUNIAO, com a resposta certa ao lado.
+        //
+        // A resposta vem de dim_quiz_gabarito, e isso e deliberado: sem
+        // ela, a reuniao de treinamento tem a pergunta que o time errou
+        // e nao tem o que ensinar -- alguem teria de abrir o app para
+        // procurar cada uma.
+        //
+        // ATENCAO: esta tabela mostra o gabarito. Ver a nota do rodape.
+        t: 'tableEx', x: 16, y: Y.base, w: 1248, h: H.base,
+        titulo: '📋 Perguntas mais erradas — com a resposta certa e o padrão de origem',
+        roles: {
+          Values: [
+            'fato_quiz_resposta.pergunta',
+            'fato_quiz_resposta.origem',
+            'fato_quiz_resposta.dificuldade_rotulo',
+            '@Respostas',
+            '@Taxa de acerto',
+            '@% de chute',
+            'dim_quiz_gabarito.resposta_certa',
+            'dim_quiz_gabarito.explicacao',
+          ],
+        },
+        ordem: { campo: '@Taxa de acerto', dir: 'Ascending' },
+        corteMinimo: { campo: 'fato_quiz_resposta.resposta_id', minimo: 5 },
+      },
+    ],
+    nota:
+      'ESTA PÁGINA MOSTRA O GABARITO. Ela é para a liderança e para a reunião de treinamento — '
+      + 'se o relatório for distribuído ao time inteiro, remova a tabela de resposta certa (ou a '
+      + 'tabela dim_quiz_gabarito do modelo), ou o campeonato do mês acaba no primeiro '
+      + 'compartilhamento. '
+      + 'Abaixo de 60% de acerto a pergunta deixa de ser placar e vira pauta: metade do time não '
+      + 'sabe o procedimento. Aplique no painel Filtros um corte de ≥ 5 respostas nos dois visuais '
+      + 'de pergunta e no de padrão (o corte vem declarado mas nasce desligado — ver o cabeçalho de '
+      + 'gerar-pbip.js): sem ele, uma pergunta respondida uma única vez por quem errou lidera a '
+      + 'lista com 0% e o painel perde credibilidade na primeira reunião. '
+      + '"% de chute" é errar respondendo em menos de 4 segundos: errar depois de pensar é falta '
+      + 'de conhecimento e se treina, errar em quatro segundos é pressa — e cobrar conteúdo de '
+      + 'quem só clicou rápido treina a coisa errada. Se o chute se concentrar numa faixa do dia, '
+      + 'o problema é o momento em que o desafio está sendo respondido, não o conteúdo.',
+  },
+
+  // ================================================================
+  {
     nome: '🏆 Super Matinal e Sonho',
     kpis: [
       ['🏆 Quadros publicados', '@Quadros publicados'],
@@ -1148,6 +1256,341 @@ const paginas = [
       + 'ação abertos numa auditoria) que ainda não foram concluídas nem validadas — é a fila de trabalho '
       + 'do 5S, e "Ações atrasadas" é o pedaço dela que já passou do prazo. '
       + 'Alguns meses de 2026 entraram por estimativa (campo "origem") porque o registro original se perdeu.',
+  },
+
+  // ================================================================
+  {
+    /*
+      PRODUTIVIDADE DO ARMAZEM.
+
+      A area inteira estava fora do BI ate setembro/2026 -- justamente a
+      que tem indicador diario, meta cadastrada e ranking na tela do app.
+      Quem cobrava produtividade de armazem cobrava por print da tela.
+
+      O filtro de TURNO entra na barra desta pagina (e das duas
+      seguintes) e sincroniza entre elas pelo campo: escolher T3 aqui
+      mantem T3 no recebimento e na empilhadeira. E o recorte que a
+      operacao usa para tudo -- escala, meta, cobranca -- e ter de
+      reaplica-lo em cada aba era o caminho mais curto para alguem ler o
+      numero do turno errado.
+    */
+    nome: '🏭 Armazém',
+    filtros: [
+      ...filtros,
+      // Pelo TURNO do lancamento, nao pela hora: o lancamento carrega o
+      // turno apontado pela pessoa, e e ele que a escala usa.
+      { campo: 'dim_hora.turno_rotulo', titulo: '🕐 Turno' },
+    ],
+    kpis: [
+      ['🧰 Horas de bancada', '@Horas de bancada'],
+      ['📦 Repack cx/h', '@Repack cx/h'],
+      ['🫗 Litros/h no despejo', '@Litros por hora'],
+      ['🧃 HL abastecidos', '@HL abastecidos'],
+      // O nivel da bombona ignora TODOS os filtros de proposito -- e um
+      // recipiente fisico. O rotulo diz isso, porque um cartao que nao
+      // reage ao filtro sem avisar parece quebrado.
+      ['🪣 Na bombona agora (sem filtro)', '@Na bombona (L)'],
+    ],
+    visuais: [
+      {
+        // Coluna EMPILHADA por etapa: a altura total e a carga da
+        // bancada e a divisao interna e o numero que motivou separar as
+        // duas (se a triagem puxa a maior fatia, o gargalo esta na
+        // qualidade do que chega, nao na velocidade de quem embala).
+        t: 'stackedColumnChart', x: 16, y: Y.meio, w: 430, h: H.meio,
+        titulo: '🧰 Horas de bancada por dia — triagem × reembalagem',
+        roles: {
+          Category: ['dim_calendario.dia_rotulo'],
+          Y: ['@Horas de bancada'],
+          Series: ['fato_pa_bancada.etapa_rotulo'],
+        },
+      },
+      {
+        t: 'clusteredBarChart', x: 458, y: Y.meio, w: 430, h: H.meio,
+        titulo: '📦 Repack por família — caixas por hora',
+        roles: {
+          Category: ['fato_pa_bancada.familia'],
+          Y: ['@Repack cx/h'],
+        },
+        ordem: { campo: '@Repack cx/h', dir: 'Descending' },
+        // Sem corte minimo, um produto com um lancamento de dois minutos
+        // aparece com taxa absurda no topo -- e a familia inteira dele
+        // vai junto.
+        corteMinimo: { campo: 'fato_pa_bancada.horas', minimo: 1 },
+      },
+      {
+        // A HORA DO DIA como grafico, cruzando com dim_hora: clicar numa
+        // barra aqui recorta a pagina inteira -- e as outras duas, pelo
+        // filtro sincronizado.
+        t: 'columnChart', x: 900, y: Y.meio, w: 364, h: H.meio,
+        titulo: '🕐 Quando a bancada trabalha',
+        roles: {
+          Category: ['dim_hora.hora_rotulo'],
+          Y: ['@Horas de bancada'],
+        },
+      },
+      {
+        t: 'tableEx', x: 16, y: Y.base, w: 620, h: H.base,
+        titulo: '👥 Produtividade por colaborador',
+        roles: {
+          Values: [
+            'fato_pa_bancada.colaborador',
+            '@Horas de bancada',
+            '@Caixas repackadas',
+            '@Repack cx/h',
+            '@Unidades triadas',
+            '@Seleção un/h',
+            '@% do tempo na triagem',
+          ],
+        },
+        ordem: { campo: '@Horas de bancada', dir: 'Descending' },
+      },
+      {
+        t: 'tableEx', x: 648, y: Y.base, w: 616, h: H.base,
+        titulo: '🫗🧃 Despejo, abastecimento e ressuprimento',
+        roles: {
+          Values: [
+            'dim_hora.turno_rotulo',
+            '@Litros despejados',
+            '@Litros por hora',
+            '@HL abastecidos',
+            '@HL por hora',
+            '@Ciclo médio (min)',
+            '@% do ciclo esperando',
+          ],
+        },
+      },
+    ],
+    nota:
+      'O cartão da bombona NÃO segue os filtros — é um recipiente físico, e o mesmo para os três '
+      + 'turnos: filtrado, o T1 veria a bombona pela metade e o T2 vazia, sendo a mesma bombona. '
+      + 'Em "Repack por família", aplique no painel Filtros um corte de ≥ 1 hora apontada (o corte '
+      + 'vem declarado mas nasce desligado — ver o cabeçalho de gerar-pbip.js): um lançamento de '
+      + 'dois minutos produz uma taxa absurda que se pareceria com desempenho. Caixas (repack) e unidades '
+      + 'triadas (seleção) NÃO se somam: são unidades diferentes do mesmo ciclo, e por isso vivem '
+      + 'em colunas separadas. "% do ciclo esperando" é o número que muda decisão no ressuprimento: '
+      + 'um ciclo de 40 minutos com 35 de espera não se resolve treinando quem abastece.',
+  },
+
+  // ================================================================
+  {
+    /*
+      RECEBIMENTO DE CARRETAS.
+
+      A pagina responde tres perguntas que a operacao faz em ordem:
+      quanto tempo a carreta ocupou (TMA), ONDE esse tempo foi (as fases)
+      e DE QUEM e o tempo (conferente, portaria, transportadora,
+      motorista).
+
+      O histograma de chegada esta aqui e nao no fim porque ele muda a
+      conversa: um TMA alto com cinco carretas chegando juntas as 7h e
+      problema de FILA, e fila nao se resolve cobrando velocidade de
+      conferente.
+    */
+    nome: '🚛 Recebimento de Carretas',
+    filtros: [
+      ...filtros,
+      { campo: 'dim_hora.turno_rotulo', titulo: '🕐 Turno' },
+      // A transportadora vira segmentacao propria: e a entidade externa
+      // da pagina, e a conversa com ela e diferente da conversa interna.
+      { campo: 'fato_carreta.transportadora', titulo: '🚚 Transportadora' },
+    ],
+    kpis: [
+      ['🚛 Carretas finalizadas', '@Carretas finalizadas'],
+      ['⏱️ TMA médio', '@TMA médio (min)'],
+      // O P90 ao lado da media, e nao escondido numa tabela: sao as duas
+      // carretas de cinco horas que geram a reclamacao e a estadia, e
+      // elas somem dentro de uma media feita com vinte carretas rapidas.
+      ['📈 TMA no pior 10%', '@TMA P90 (min)'],
+      ['🎯 Dentro da meta', '@% dentro da meta de TMA'],
+      ['💥 % de avaria', '@% de avaria'],
+    ],
+    visuais: [
+      {
+        t: 'columnChart', x: 16, y: Y.meio, w: 430, h: H.meio,
+        titulo: '🕐 Quando as carretas chegam',
+        roles: {
+          Category: ['dim_hora.hora_rotulo'],
+          Y: ['@Carretas finalizadas'],
+        },
+      },
+      {
+        // A MESMA hora no eixo, agora com o TMA: o pico de chegada e o
+        // pico de TMA costumam ser o mesmo, e ver os dois lado a lado e
+        // o que prova que o problema e fila e nao velocidade.
+        t: 'lineChart', x: 458, y: Y.meio, w: 430, h: H.meio,
+        titulo: '⏱️ TMA médio por hora de chegada',
+        roles: {
+          Category: ['dim_hora.hora_rotulo'],
+          Y: ['@TMA médio (min)', '@Meta de TMA (min)'],
+        },
+      },
+      {
+        t: 'clusteredBarChart', x: 900, y: Y.meio, w: 364, h: H.meio,
+        titulo: '💥 % de avaria por transportadora',
+        roles: {
+          Category: ['fato_carreta.transportadora'],
+          Y: ['@% de avaria'],
+        },
+        ordem: { campo: '@% de avaria', dir: 'Descending' },
+        // Duas carretas conferidas nao formam padrao. Sem o corte, a
+        // transportadora que entregou uma unica carreta com um palete
+        // batido lidera a lista com 100%.
+        corteMinimo: { campo: 'fato_carreta.carreta_id', minimo: 3 },
+      },
+      {
+        t: 'tableEx', x: 16, y: Y.base, w: 620, h: H.base,
+        titulo: '👤 TMA por conferente e portaria',
+        roles: {
+          Values: [
+            'fato_carreta.conferente',
+            '@Carretas finalizadas',
+            '@TMA médio (min)',
+            '@Espera na portaria (min)',
+            '@Descarga (min)',
+            '@% dentro da meta de TMA',
+          ],
+        },
+        // Do mais LENTO para o mais rapido: a lista existe para achar
+        // onde o tempo esta sendo perdido, e isso mora no topo.
+        ordem: { campo: '@TMA médio (min)', dir: 'Descending' },
+      },
+      {
+        t: 'tableEx', x: 648, y: Y.base, w: 616, h: H.base,
+        titulo: '🚚 Transportadora e motorista — tempo e avaria',
+        roles: {
+          Values: [
+            'fato_carreta.transportadora',
+            'fato_carreta.motorista',
+            '@Carretas finalizadas',
+            '@TMA médio (min)',
+            // O atraso da CHEGADA separa "a carreta atrasou" de "a
+            // operacao demorou", que se confundem dentro do TMA. O dado
+            // estava no banco desde a migracao 057 e nunca tinha sido
+            // comparado.
+            '@Atraso do transportador (min)',
+            '@% carretas atrasadas',
+            '@% de avaria',
+          ],
+        },
+        ordem: { campo: '@TMA médio (min)', dir: 'Descending' },
+      },
+    ],
+    nota:
+      'O TMA começa no horário AGENDADO quando havia agendamento, senão na chegada apontada pela '
+      + 'portaria; termina no fim da descarga, ou no fim do carregamento se a carreta voltou '
+      + 'carregada de AG. A CONFERÊNCIA nunca entra: a carreta não espera por ela. '
+      + '"% de avaria" conta PALETES — um palete com uma garrafa quebrada conta inteiro, por isso '
+      + 'o número fica na casa das dezenas; ele diz quantos paletes foram tocados por avaria, não '
+      + 'quanto do volume veio avariado, e só carretas com conferência lançada entram na conta. '
+      + 'Em "% de avaria por transportadora", aplique no painel Filtros um corte de ≥ 3 carretas (o '
+      + 'corte vem declarado mas nasce desligado — ver o cabeçalho de gerar-pbip.js): sem ele, a '
+      + 'transportadora que entregou uma única carreta com um palete batido lidera a lista com 100%. '
+      + 'Nas listas por transportadora e motorista, confira o número de carretas antes de concluir: '
+      + 'uma média feita com uma carreta é ruído, e a barra a desenha do mesmo tamanho de um padrão '
+      + 'de quarenta. O turno da carreta é DERIVADO do início do atendimento (ou da chegada) — a '
+      + 'tabela não tem coluna de turno.',
+  },
+
+  // ================================================================
+  {
+    /*
+      EMPILHADEIRA.
+
+      Duas leituras que se confundem e nao deviam: HORAS DE MOTOR
+      (horimetro) e horas de operacao aberta. Quem abre as 6h e fecha as
+      15h pode ter rodado tres horas, e a pagina inteira e construida em
+      cima do horimetro por isso.
+
+      O "% aproveitamento do apontamento" existe para nao deixar a
+      diferenca virar conclusao errada: abaixo de uns 30% quase nunca e
+      maquina ociosa, e operacao aberta e esquecida.
+    */
+    nome: '🏗️ Empilhadeira',
+    filtros: [
+      ...filtros,
+      { campo: 'dim_hora.turno_rotulo', titulo: '🕐 Turno' },
+      // Maquina como segmentacao propria: duas empilhadeiras nao
+      // consomem igual, e a media das duas nao descreve nenhuma delas.
+      { campo: 'dim_empilhadeira.empilhadeira', titulo: '🏗️ Máquina' },
+    ],
+    kpis: [
+      ['⏱️ Horas de horímetro', '@Horas de horímetro'],
+      ['✅ Operações encerradas', '@Operações encerradas'],
+      ['📐 Aproveitamento', '@% aproveitamento do apontamento'],
+      ['⛽ Trocas de P20', '@Trocas de P20'],
+      ['💰 Custo do gás', '@Custo do gás (R$)'],
+    ],
+    visuais: [
+      {
+        t: 'columnChart', x: 16, y: Y.meio, w: 430, h: H.meio,
+        titulo: '🕐 Quando a empilhadeira roda — horas de motor por hora do dia',
+        roles: {
+          Category: ['dim_hora.hora_rotulo'],
+          Y: ['@Horas de horímetro'],
+        },
+      },
+      {
+        t: 'clusteredBarChart', x: 458, y: Y.meio, w: 430, h: H.meio,
+        titulo: '🏗️ Horas por máquina',
+        roles: {
+          Category: ['dim_empilhadeira.empilhadeira'],
+          Y: ['@Horas de horímetro'],
+        },
+        ordem: { campo: '@Horas de horímetro', dir: 'Descending' },
+      },
+      {
+        t: 'clusteredBarChart', x: 900, y: Y.meio, w: 364, h: H.meio,
+        titulo: '👤 Horas por operador',
+        roles: {
+          Category: ['fato_empilhadeira_operacao.colaborador'],
+          Y: ['@Horas de horímetro'],
+        },
+        ordem: { campo: '@Horas de horímetro', dir: 'Descending' },
+      },
+      {
+        t: 'tableEx', x: 16, y: Y.base, w: 620, h: H.base,
+        titulo: '👥 Operador — horas, duração e qualidade do apontamento',
+        roles: {
+          Values: [
+            'fato_empilhadeira_operacao.colaborador',
+            '@Operações encerradas',
+            '@Horas de horímetro',
+            '@Duração média (h)',
+            '@% aproveitamento do apontamento',
+            // Nao e produtividade, e confianca no numero da linha: quando
+            // o lider fecha no dia seguinte, o horimetro final e o que ele
+            // achou na maquina e o consumo todo vai para quem abriu.
+            '@Encerradas por terceiro',
+          ],
+        },
+        ordem: { campo: '@Horas de horímetro', dir: 'Descending' },
+      },
+      {
+        t: 'tableEx', x: 648, y: Y.base, w: 616, h: H.base,
+        titulo: '⛽ Trocas de gás',
+        roles: {
+          Values: [
+            'fato_empilhadeira_gas.data',
+            'fato_empilhadeira_gas.empilhadeira',
+            'fato_empilhadeira_gas.colaborador',
+            'fato_empilhadeira_gas.horimetro#soma',
+            '@Custo do gás (R$)',
+          ],
+        },
+        ordem: { campo: 'fato_empilhadeira_gas.data', dir: 'Descending' },
+      },
+    ],
+    nota:
+      'Todas as horas desta página vêm do HORÍMETRO (motor rodando), nunca do tempo entre abrir e '
+      + 'fechar a operação — quem abre às 6h e fecha às 15h pode ter rodado três horas. '
+      + '"Aproveitamento" é a razão entre as duas: abaixo de uns 30% quase nunca é máquina ociosa, '
+      + 'é operação aberta e esquecida, e a decisão muda de "cortar máquina" para "fechar '
+      + 'apontamento". "Encerradas por terceiro" mede confiança, não desempenho: nesses casos o '
+      + 'horímetro final é o que alguém encontrou na máquina depois. '
+      + 'O CICLO do botijão (horas por P20, rateio por operador) NÃO está aqui de propósito — ele '
+      + 'atravessa turnos e operadores, e qualquer segmentação desta página o quebraria pelo meio, '
+      + 'fazendo o botijão render mais do que rende. Essa análise fica na tela de gás do app.',
   },
 
   // ================================================================

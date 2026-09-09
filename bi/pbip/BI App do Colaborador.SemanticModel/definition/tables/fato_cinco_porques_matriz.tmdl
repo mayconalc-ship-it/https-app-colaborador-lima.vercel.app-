@@ -84,8 +84,6 @@ table fato_cinco_porques_matriz
 
 		annotation SummarizationSetBy = Automatic
 
-		annotation UnderlyingDateTimeDataType = Date
-
 	column ultima_vez
 		dataType: dateTime
 		formatString: dd/MM/yyyy
@@ -94,8 +92,6 @@ table fato_cinco_porques_matriz
 		sourceColumn: ultima_vez
 
 		annotation SummarizationSetBy = Automatic
-
-		annotation UnderlyingDateTimeDataType = Date
 
 	column tratativa
 		dataType: string
@@ -123,4 +119,3 @@ table fato_cinco_porques_matriz
 				    Dados
 
 	annotation PBI_ResultType = Table
-

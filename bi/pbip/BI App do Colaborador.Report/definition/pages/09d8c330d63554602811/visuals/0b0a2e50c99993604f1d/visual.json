@@ -1,0 +1,158 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.12.0/schema.json",
+  "name": "0b0a2e50c99993604f1d",
+  "position": {
+    "x": 648,
+    "y": 500,
+    "z": 19000,
+    "height": 166,
+    "width": 616,
+    "tabOrder": 19000
+  },
+  "visual": {
+    "visualType": "tableEx",
+    "query": {
+      "queryState": {
+        "Values": {
+          "projections": [
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "fato_empilhadeira_gas"
+                    }
+                  },
+                  "Property": "data"
+                }
+              },
+              "queryRef": "fato_empilhadeira_gas.data",
+              "nativeQueryRef": "data"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "fato_empilhadeira_gas"
+                    }
+                  },
+                  "Property": "empilhadeira"
+                }
+              },
+              "queryRef": "fato_empilhadeira_gas.empilhadeira",
+              "nativeQueryRef": "empilhadeira"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "fato_empilhadeira_gas"
+                    }
+                  },
+                  "Property": "colaborador"
+                }
+              },
+              "queryRef": "fato_empilhadeira_gas.colaborador",
+              "nativeQueryRef": "colaborador"
+            },
+            {
+              "field": {
+                "Aggregation": {
+                  "Expression": {
+                    "Column": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "fato_empilhadeira_gas"
+                        }
+                      },
+                      "Property": "horimetro"
+                    }
+                  },
+                  "Function": 0
+                }
+              },
+              "queryRef": "Sum(fato_empilhadeira_gas.horimetro)",
+              "nativeQueryRef": "horimetro"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "_Medidas"
+                    }
+                  },
+                  "Property": "Custo do gás (R$)"
+                }
+              },
+              "queryRef": "_Medidas.Custo do gás (R$)",
+              "nativeQueryRef": "Custo do gás (R$)"
+            }
+          ]
+        }
+      },
+      "sortDefinition": {
+        "sort": [
+          {
+            "field": {
+              "Column": {
+                "Expression": {
+                  "SourceRef": {
+                    "Entity": "fato_empilhadeira_gas"
+                  }
+                },
+                "Property": "data"
+              }
+            },
+            "direction": "Descending"
+          }
+        ]
+      }
+    },
+    "visualContainerObjects": {
+      "title": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            },
+            "text": {
+              "expr": {
+                "Literal": {
+                  "Value": "'⛽ Trocas de gás'"
+                }
+              }
+            },
+            "fontSize": {
+              "expr": {
+                "Literal": {
+                  "Value": "11D"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "visualHeader": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "drillFilterOtherVisuals": true
+  }
+}

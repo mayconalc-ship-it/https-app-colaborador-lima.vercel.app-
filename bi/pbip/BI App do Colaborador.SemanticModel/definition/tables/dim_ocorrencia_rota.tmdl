@@ -37,4 +37,3 @@ table dim_ocorrencia_rota
 				    Dados
 
 	annotation PBI_ResultType = Table
-

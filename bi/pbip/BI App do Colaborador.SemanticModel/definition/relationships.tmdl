@@ -116,6 +116,10 @@ relationship 79f196b8-1f73-408d-bfdb-2f9ab0d59095
 	fromColumn: fato_quiz_resposta.data
 	toColumn: dim_calendario.data
 
+relationship 3d37357b-e65d-4994-86a9-0d7952403bab
+	fromColumn: fato_quiz_resposta.hora
+	toColumn: dim_hora.hora
+
 relationship c91a2c1b-9bda-4c82-a6be-0cac41491aab
 	fromColumn: fato_quiz_resposta.chave
 	toColumn: dim_colaborador.chave
@@ -204,7 +208,143 @@ relationship 05368813-ac2f-47b6-9fae-9f34e9dbf7e5
 	fromColumn: fato_atividade.chave
 	toColumn: dim_colaborador.chave
 
+relationship 9ec58a9d-77ee-4b6b-8ae7-838f93e74c1e
+	fromColumn: dim_pa_produto.revenda_id
+	toColumn: dim_revenda.revenda_id
+
+relationship 1482dc6f-86cf-42bf-98aa-2b327654b729
+	fromColumn: dim_pa_embalagem_despejo.revenda_id
+	toColumn: dim_revenda.revenda_id
+
+relationship 686edb3d-a3f6-4e92-8b20-98b887375041
+	fromColumn: dim_empilhadeira.revenda_id
+	toColumn: dim_revenda.revenda_id
+
+relationship 0328614a-0eb4-4511-a14f-92f114f815b7
+	fromColumn: dim_transportadora.revenda_id
+	toColumn: dim_revenda.revenda_id
+
+relationship f154f34d-78b6-4b73-8630-8d5bf76c2dc1
+	fromColumn: fato_pa_bancada.data
+	toColumn: dim_calendario.data
+
+relationship 38457b7a-5f6b-44d1-974e-aa678198915c
+	fromColumn: fato_pa_bancada.hora
+	toColumn: dim_hora.hora
+
+relationship fd27634a-4671-4423-8826-41be2b720731
+	fromColumn: fato_pa_bancada.chave
+	toColumn: dim_colaborador.chave
+
+relationship 22957229-3f2a-4e9c-ae62-e3d70029cf46
+	fromColumn: fato_pa_despejo.data
+	toColumn: dim_calendario.data
+
+relationship 93beab19-dff3-4233-bf03-0f7a4d35c4d1
+	fromColumn: fato_pa_despejo.hora
+	toColumn: dim_hora.hora
+
+relationship 4c4d101e-b1cd-407f-bbdd-0603e7a70a21
+	fromColumn: fato_pa_despejo.chave
+	toColumn: dim_colaborador.chave
+
+relationship 933ee2c1-d2d8-4cb3-b50d-0551e5bca407
+	fromColumn: fato_pa_bombona.revenda_id
+	toColumn: dim_revenda.revenda_id
+
+relationship b92c7dbf-e3b8-4610-a225-ab7c556db7d7
+	fromColumn: fato_pa_esvaziamento.data
+	toColumn: dim_calendario.data
+
+relationship 9e7ba7f1-fabd-4e7a-8309-9aaf451f6f94
+	fromColumn: fato_pa_esvaziamento.hora
+	toColumn: dim_hora.hora
+
+relationship 404b7f18-a80a-4ab5-9466-fca78dd5616d
+	fromColumn: fato_pa_esvaziamento.chave
+	toColumn: dim_colaborador.chave
+
+relationship bdc82d8a-2ee5-4740-8f6c-58d7b4e66801
+	fromColumn: fato_pa_abastecimento.data
+	toColumn: dim_calendario.data
+
+relationship 6b82fd1c-04a7-40bf-b442-8085c3c45bdb
+	fromColumn: fato_pa_abastecimento.hora
+	toColumn: dim_hora.hora
+
+relationship 69d9f6fb-896d-43a0-9ce7-cf8a63f8c201
+	fromColumn: fato_pa_abastecimento.chave
+	toColumn: dim_colaborador.chave
+
+relationship 7f1c1bf6-323c-44fe-9179-d1ac2308c69e
+	fromColumn: fato_pa_ressuprimento.data
+	toColumn: dim_calendario.data
+
+relationship 8a8428bc-6680-4232-87a6-d169e98d5f49
+	fromColumn: fato_pa_ressuprimento.hora
+	toColumn: dim_hora.hora
+
+relationship 4792f43f-28bf-464d-bf46-68740a633b64
+	fromColumn: fato_pa_ressuprimento.chave
+	toColumn: dim_colaborador.chave
+
+relationship 080fe6dd-f358-46cc-8a3d-caa6a41aa510
+	fromColumn: fato_pa_bate_palete.data
+	toColumn: dim_calendario.data
+
+relationship a44052c6-1f9d-40de-96a3-c9c8d52c2f87
+	fromColumn: fato_pa_bate_palete.hora
+	toColumn: dim_hora.hora
+
+relationship 588eed4d-4aa6-4c62-8fac-439d8920e5c8
+	fromColumn: fato_pa_bate_palete.chave
+	toColumn: dim_colaborador.chave
+
+relationship 27db56c4-4a63-4cf5-b5ab-3a1e6366158b
+	fromColumn: fato_carreta.data
+	toColumn: dim_calendario.data
+
+relationship 8dbf6294-2030-436f-9ada-7e463dfe222a
+	fromColumn: fato_carreta.hora
+	toColumn: dim_hora.hora
+
+relationship 6a3f4adf-e5c4-4390-92e0-32d58c2bb044
+	fromColumn: fato_carreta.chave
+	toColumn: dim_colaborador.chave
+
+relationship 484e2527-0e03-408a-9165-90c2dacdb229
+	crossFilteringBehavior: bothDirections
+	fromColumn: fato_carreta_item.carreta_id
+	toColumn: fato_carreta.carreta_id
+
+relationship 33a5a08f-ec08-4e3d-9489-019d488dc14f
+	fromColumn: fato_empilhadeira_operacao.data
+	toColumn: dim_calendario.data
+
+relationship 5ca19d54-6732-463d-a997-ffe8687ef74c
+	fromColumn: fato_empilhadeira_operacao.hora
+	toColumn: dim_hora.hora
+
+relationship 46b45cee-7b46-4d6b-9db4-5342d121add7
+	fromColumn: fato_empilhadeira_operacao.chave
+	toColumn: dim_colaborador.chave
+
+relationship c75989b5-5197-4326-9453-d2f12accc53e
+	fromColumn: fato_empilhadeira_gas.data
+	toColumn: dim_calendario.data
+
+relationship 0157a06e-7600-4c4d-867e-c3610fac62d5
+	fromColumn: fato_empilhadeira_gas.hora
+	toColumn: dim_hora.hora
+
+relationship 06b5f149-9750-4027-ac12-bf98583acc0c
+	fromColumn: fato_empilhadeira_gas.chave
+	toColumn: dim_colaborador.chave
+
+relationship e3869c87-91da-4af1-a7d7-22c6fb546814
+	fromColumn: dim_quiz_gabarito.revenda_id
+	toColumn: dim_revenda.revenda_id
+
 relationship 76015a7d-8cbc-486a-9890-b550ff3ffaa8
 	fromColumn: dim_colaborador.revenda_id
 	toColumn: dim_revenda.revenda_id
-

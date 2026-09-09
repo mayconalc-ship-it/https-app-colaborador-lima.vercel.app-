@@ -50,6 +50,19 @@
           }
         }
       ],
+      "labels": [
+        {
+          "properties": {
+            "fontSize": {
+              "expr": {
+                "Literal": {
+                  "Value": "15D"
+                }
+              }
+            }
+          }
+        }
+      ],
       "accentBar": [
         {
           "properties": {

@@ -20,8 +20,6 @@ table fato_ag_conciliacao
 
 		annotation SummarizationSetBy = Automatic
 
-		annotation UnderlyingDateTimeDataType = Date
-
 	column tipo
 		dataType: string
 		lineageTag: e5791b9d-69ae-44b9-88c6-4c979b466dbf
@@ -95,14 +93,12 @@ table fato_ag_conciliacao
 		annotation SummarizationSetBy = Automatic
 
 	column diferenca_pct
-		dataType: double
+		dataType: decimal
 		lineageTag: 760f2355-8d47-467d-a77b-2270c97a3f15
-		summarizeBy: sum
+		summarizeBy: none
 		sourceColumn: diferenca_pct
 
 		annotation SummarizationSetBy = Automatic
-
-		annotation PBI_FormatHint = {"isGeneralNumber":true}
 
 	column resultado
 		dataType: string
@@ -139,4 +135,3 @@ table fato_ag_conciliacao
 				    Dados
 
 	annotation PBI_ResultType = Table
-

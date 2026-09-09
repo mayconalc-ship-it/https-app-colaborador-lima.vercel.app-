@@ -1117,5 +1117,431 @@ MEASURE '_Medidas'[% Auditorias medidas] =
         [Auditorias realizadas]
     )
 
+// ==================================================================
+// PRODUTIVIDADE DO ARMAZÉM
+// ==================================================================
+// Regra que vale para o bloco inteiro: TAXA É DIVISÃO DE SOMAS, nunca
+// média de taxas. Uma "média de caixas por hora" calculada sobre a
+// coluna taxa_hora daria o mesmo peso a um lançamento de 2 minutos e a
+// um de 6 horas — e é justamente o lançamento curto que tem a taxa
+// absurda. Por isso toda taxa aqui é DIVIDE( SUM(qtd), SUM(horas) ).
+
+// ------------------------------------------------------------------
+// BANCADA — SELEÇÃO E REPACK
+// ------------------------------------------------------------------
+
+MEASURE '_Medidas'[Horas de bancada] =
+    SUM ( fato_pa_bancada[horas] )
+
+MEASURE '_Medidas'[Caixas repackadas] =
+    SUM ( fato_pa_bancada[caixas] )
+
+MEASURE '_Medidas'[Unidades triadas] =
+    SUM ( fato_pa_bancada[unidades_triadas] )
+
+// Só as horas da etapa de repack no denominador. Somar as horas de
+// triagem derrubaria a taxa de quem embala e faria parecer queda de
+// ritmo o que foi só um lote muito avariado.
+MEASURE '_Medidas'[Repack cx/h] =
+    DIVIDE (
+        [Caixas repackadas],
+        CALCULATE ( SUM ( fato_pa_bancada[horas] ), fato_pa_bancada[etapa] = "repack" )
+    )
+
+MEASURE '_Medidas'[Seleção un/h] =
+    DIVIDE (
+        [Unidades triadas],
+        CALCULATE ( SUM ( fato_pa_bancada[horas] ), fato_pa_bancada[etapa] = "selecao" )
+    )
+
+// O número que motivou separar as duas etapas: se a triagem passar a
+// puxar a maior fatia, o gargalo está na qualidade do que CHEGA, não na
+// velocidade de quem embala.
+MEASURE '_Medidas'[% do tempo na triagem] =
+    DIVIDE (
+        CALCULATE ( SUM ( fato_pa_bancada[horas] ), fato_pa_bancada[etapa] = "selecao" ),
+        [Horas de bancada]
+    )
+
+// Por dia TRABALHADO, não por dia do período. Contar domingo e dia sem
+// lançamento faria a bancada parecer ociosa quando ela só não operou.
+MEASURE '_Medidas'[Bancada h/dia] =
+    DIVIDE ( [Horas de bancada], DISTINCTCOUNT ( fato_pa_bancada[data] ) )
+
+// ------------------------------------------------------------------
+// DESPEJO E A BOMBONA
+// ------------------------------------------------------------------
+
+MEASURE '_Medidas'[Litros despejados] =
+    SUM ( fato_pa_despejo[litros] )
+
+MEASURE '_Medidas'[Litros por hora] =
+    DIVIDE ( [Litros despejados], SUM ( fato_pa_despejo[horas] ) )
+
+/*
+    A BOMBONA IGNORA OS FILTROS, e isso é o desenho, não um descuido.
+
+    Ela é um recipiente físico: não tem turno, não tem dono e não existe
+    "quanto tinha nela em agosto". Filtrada por turno, o T1 veria a
+    bombona pela metade e o T2 vazia — sendo a MESMA bombona.
+
+    REMOVEFILTERS só no calendário, no colaborador e na hora. A REVENDA
+    continua valendo: cada revenda tem a sua bombona, e somar as duas
+    daria um nível que não existe em lugar nenhum.
+*/
+MEASURE '_Medidas'[Na bombona (L)] =
+    CALCULATE (
+        SUM ( fato_pa_bombona[litros_agora] ),
+        REMOVEFILTERS ( dim_calendario ),
+        REMOVEFILTERS ( dim_colaborador ),
+        REMOVEFILTERS ( dim_hora )
+    )
+
+MEASURE '_Medidas'[% da bombona] =
+    VAR Nivel = [Na bombona (L)]
+    VAR Cap =
+        CALCULATE (
+            SUM ( fato_pa_bombona[capacidade] ),
+            REMOVEFILTERS ( dim_calendario ),
+            REMOVEFILTERS ( dim_colaborador ),
+            REMOVEFILTERS ( dim_hora )
+        )
+    RETURN
+        DIVIDE ( Nivel, Cap )
+
+// Bombona parada cheia é risco ambiental; esvaziada pela metade é
+// viagem desperdiçada. Os dois lados são decisão, e nenhum dos dois
+// aparece em "litros despejados no mês".
+MEASURE '_Medidas'[Dias sem esvaziar] =
+    CALCULATE (
+        MAX ( fato_pa_bombona[dias_desde_esvaziamento] ),
+        REMOVEFILTERS ( dim_calendario ),
+        REMOVEFILTERS ( dim_colaborador ),
+        REMOVEFILTERS ( dim_hora )
+    )
+
+// Com quanto a bombona costuma ir para o descarte. Muito abaixo de 100%
+// é viagem sobrando na rota do resíduo.
+MEASURE '_Medidas'[% médio no descarte] =
+    AVERAGE ( fato_pa_esvaziamento[pct_no_descarte] )
+
+MEASURE '_Medidas'[Descartes] =
+    COUNTROWS ( fato_pa_esvaziamento )
+
+// ------------------------------------------------------------------
+// ABASTECIMENTO E RESSUPRIMENTO
+// ------------------------------------------------------------------
+
+MEASURE '_Medidas'[HL abastecidos] =
+    SUM ( fato_pa_abastecimento[hl] )
+
+MEASURE '_Medidas'[HL por hora] =
+    DIVIDE ( [HL abastecidos], SUM ( fato_pa_abastecimento[horas] ) )
+
+MEASURE '_Medidas'[Sessões de abastecimento] =
+    COUNTROWS ( fato_pa_abastecimento )
+
+MEASURE '_Medidas'[Ressuprimentos] =
+    COUNTROWS ( fato_pa_ressuprimento )
+
+// AVERAGE ignora o nulo, então só os pedidos CONCLUÍDOS entram: um
+// pedido em aberto tem ciclo nulo, e tratá-lo como zero faria a
+// operação parecer instantânea.
+MEASURE '_Medidas'[Ciclo médio (min)] =
+    AVERAGE ( fato_pa_ressuprimento[ciclo_min] )
+
+MEASURE '_Medidas'[Espera pela empilhadeira (min)] =
+    AVERAGE ( fato_pa_ressuprimento[espera_empilhadeira_min] )
+
+MEASURE '_Medidas'[Transporte (min)] =
+    AVERAGE ( fato_pa_ressuprimento[transporte_min] )
+
+MEASURE '_Medidas'[Espera pelo ajudante (min)] =
+    AVERAGE ( fato_pa_ressuprimento[espera_ajudante_min] )
+
+// O número que muda decisão: um ciclo de 40 minutos com 35 de espera
+// não se resolve treinando quem abastece.
+MEASURE '_Medidas'[% do ciclo esperando] =
+    DIVIDE (
+        SUM ( fato_pa_ressuprimento[espera_empilhadeira_min] )
+            + SUM ( fato_pa_ressuprimento[espera_ajudante_min] ),
+        SUM ( fato_pa_ressuprimento[ciclo_min] )
+    )
+
+// Se "urgente" for a maioria, o campo perdeu o significado — e a fila
+// voltou a ser ordem de chegada com outro nome.
+MEASURE '_Medidas'[% urgentes] =
+    DIVIDE (
+        CALCULATE (
+            COUNTROWS ( fato_pa_ressuprimento ),
+            fato_pa_ressuprimento[prioridade] = "urgente"
+        ),
+        [Ressuprimentos]
+    )
+
+MEASURE '_Medidas'[% cancelados] =
+    DIVIDE (
+        CALCULATE (
+            COUNTROWS ( fato_pa_ressuprimento ),
+            fato_pa_ressuprimento[cancelado] = TRUE ()
+        ),
+        [Ressuprimentos]
+    )
+
+// ------------------------------------------------------------------
+// BATE PALETE
+// ------------------------------------------------------------------
+
+MEASURE '_Medidas'[HL batidos] =
+    SUM ( fato_pa_bate_palete[hl_batido] )
+
+MEASURE '_Medidas'[HL avariados] =
+    SUM ( fato_pa_bate_palete[hl_avariado] )
+
+// Soma sobre soma. A média dos percentuais trataria um lote de 2 HL
+// igual a um de 200 — e o lote pequeno é sempre o de percentual extremo.
+MEASURE '_Medidas'[% avaria no bate palete] =
+    DIVIDE ( [HL avariados], [HL batidos] )
+
+// ==================================================================
+// RECEBIMENTO DE CARRETAS
+// ==================================================================
+
+MEASURE '_Medidas'[Carretas finalizadas] =
+    COUNTROWS ( fato_carreta )
+
+MEASURE '_Medidas'[TMA médio (min)] =
+    AVERAGE ( fato_carreta[tma_min] )
+
+/*
+    A CAUDA, e não só a média.
+
+    A média é o número que se cobra; o P90 é o que a transportadora
+    sente. Vinte carretas em 60 min e duas em 300 dão uma média de 82
+    que ninguém reconhece — e são as duas de 300 que geram a reclamação
+    e a multa de estadia.
+
+    PERCENTILEX.INC e não .EXC: com poucas carretas no recorte, a versão
+    exclusiva devolve erro em vez de número, e cartão em branco no meio
+    de uma reunião não se explica.
+*/
+MEASURE '_Medidas'[TMA mediano (min)] =
+    PERCENTILEX.INC ( fato_carreta, fato_carreta[tma_min], 0.5 )
+
+MEASURE '_Medidas'[TMA P90 (min)] =
+    PERCENTILEX.INC ( fato_carreta, fato_carreta[tma_min], 0.9 )
+
+// Dá para a MÉDIA bater com metade das carretas estourando, desde que a
+// outra metade seja muito rápida. O percentual é o que a operação
+// sente; a média é o que o relatório diz.
+MEASURE '_Medidas'[% dentro da meta de TMA] =
+    DIVIDE (
+        CALCULATE ( COUNTROWS ( fato_carreta ), fato_carreta[dentro_da_meta] = TRUE () ),
+        CALCULATE ( COUNTROWS ( fato_carreta ), NOT ISBLANK ( fato_carreta[tma_min] ) )
+    )
+
+// A régua é a cadastrada em Admin > Recebimento e viaja na linha do
+// fato. Quando ela mudar, o BI acompanha sozinho.
+MEASURE '_Medidas'[Meta de TMA (min)] =
+    AVERAGE ( fato_carreta[tma_alvo_min] )
+
+MEASURE '_Medidas'[Espera na portaria (min)] =
+    AVERAGE ( fato_carreta[espera_portaria_min] )
+
+MEASURE '_Medidas'[Descarga (min)] =
+    AVERAGE ( fato_carreta[descarga_min] )
+
+// NÃO entra no TMA: a carreta não espera pela conferência. Já houve
+// conferência terminando duas horas depois de a carreta sair.
+MEASURE '_Medidas'[Conferência (min)] =
+    AVERAGE ( fato_carreta[conferencia_min] )
+
+MEASURE '_Medidas'[Pátio (min)] =
+    AVERAGE ( fato_carreta[patio_min] )
+
+/*
+    O ATRASO DO TRANSPORTADOR — o dado que estava no banco desde a
+    migração 057 e nunca tinha sido comparado.
+
+    Separa "a carreta atrasou" de "a operação demorou", que hoje se
+    confundem dentro do TMA. É a conversa que se tem com a
+    transportadora, e não com o conferente.
+
+    Só carretas COM agendamento entram no denominador: sem horário
+    combinado não existe atraso, e contá-las diluiria o número de quem
+    realmente atrasa.
+*/
+MEASURE '_Medidas'[Atraso do transportador (min)] =
+    AVERAGE ( fato_carreta[atraso_chegada_min] )
+
+MEASURE '_Medidas'[% carretas atrasadas] =
+    DIVIDE (
+        CALCULATE ( COUNTROWS ( fato_carreta ), fato_carreta[atraso_chegada_min] > 0 ),
+        CALCULATE ( COUNTROWS ( fato_carreta ), fato_carreta[tinha_agendamento] = TRUE () )
+    )
+
+MEASURE '_Medidas'[Paletes recebidos] =
+    SUM ( fato_carreta[paletes_recebidos] )
+
+MEASURE '_Medidas'[Paletes avariados] =
+    SUM ( fato_carreta[paletes_avariados] )
+
+/*
+    A conferência conta em PALETES, e um palete com uma garrafa quebrada
+    conta inteiro. Por isso o número fica na casa das dezenas de %: ele
+    diz quantos paletes foram TOCADOS por avaria, não quanto do volume
+    veio avariado.
+
+    Só carretas com conferência lançada entram — sem conferência não há
+    avaria medida, e incluí-las puxaria o percentual para baixo fingindo
+    que nada veio avariado.
+*/
+MEASURE '_Medidas'[% de avaria] =
+    DIVIDE (
+        CALCULATE ( [Paletes avariados], fato_carreta[teve_conferencia] = TRUE () ),
+        CALCULATE ( [Paletes recebidos], fato_carreta[teve_conferencia] = TRUE () )
+    )
+
+MEASURE '_Medidas'[Carretas conferidas] =
+    CALCULATE ( COUNTROWS ( fato_carreta ), fato_carreta[teve_conferencia] = TRUE () )
+
+// A avaria aberta por PRODUTO. Vem do grão item, que é o que aponta a
+// origem: um SKU que chega avariado em todo lote tem problema de
+// paletização ou de transporte, e nada dentro do armazém resolve.
+MEASURE '_Medidas'[% de avaria por produto] =
+    DIVIDE (
+        SUM ( fato_carreta_item[paletes_avariados] ),
+        SUM ( fato_carreta_item[paletes_recebidos] )
+    )
+
+// ==================================================================
+// EMPILHADEIRA
+// ==================================================================
+
+// Do HORÍMETRO (motor rodando), nunca do relógio. Quem abre às 6h e
+// fecha às 15h pode ter rodado três horas — e a diferença entre os dois
+// números é a diferença entre "a máquina foi usada" e "a máquina estava
+// com alguém".
+MEASURE '_Medidas'[Horas de horímetro] =
+    SUM ( fato_empilhadeira_operacao[horas_ativas] )
+
+MEASURE '_Medidas'[Operações encerradas] =
+    CALCULATE (
+        COUNTROWS ( fato_empilhadeira_operacao ),
+        fato_empilhadeira_operacao[encerrada] = TRUE ()
+    )
+
+MEASURE '_Medidas'[Operações em aberto] =
+    CALCULATE (
+        COUNTROWS ( fato_empilhadeira_operacao ),
+        fato_empilhadeira_operacao[encerrada] = FALSE ()
+    )
+
+// Encerradas no denominador, e não todas: quem conferir dividindo as
+// horas por este número tem de chegar na média mostrada ao lado. Um
+// indicador que não fecha na conferência do usuário perde a confiança
+// dele de uma vez só.
+MEASURE '_Medidas'[Duração média (h)] =
+    DIVIDE ( [Horas de horímetro], [Operações encerradas] )
+
+/*
+    Quanto da operação a máquina ficou LIGADA.
+
+    Abaixo de uns 30% quase nunca é máquina ociosa: é operação aberta e
+    esquecida. A leitura muda de "sobra empilhadeira" para "falta fechar
+    apontamento", que são decisões opostas — uma corta máquina do
+    contrato, a outra treina o operador.
+*/
+MEASURE '_Medidas'[% aproveitamento do apontamento] =
+    DIVIDE (
+        [Horas de horímetro],
+        CALCULATE (
+            SUM ( fato_empilhadeira_operacao[horas_de_relogio] ),
+            fato_empilhadeira_operacao[encerrada] = TRUE ()
+        )
+    )
+
+// Não é produtividade, é qualidade do apontamento: quando o líder fecha
+// no dia seguinte, o horímetro final é o que ele achou na máquina e
+// todo o consumo do intervalo vai para quem abriu. É o número que diz
+// quanta confiança os indicadores por operador merecem.
+MEASURE '_Medidas'[Encerradas por terceiro] =
+    CALCULATE (
+        COUNTROWS ( fato_empilhadeira_operacao ),
+        fato_empilhadeira_operacao[encerrada_por_terceiro] = TRUE ()
+    )
+
+MEASURE '_Medidas'[Trocas de P20] =
+    COUNTROWS ( fato_empilhadeira_gas )
+
+// Custo do gás pelas TROCAS do período — não pelo ciclo (esse atravessa
+// turnos e não vem para o BI, ver a view). É quanto botijão foi posto na
+// máquina no recorte, que é o que sai do caixa.
+MEASURE '_Medidas'[Custo do gás (R$)] =
+    SUMX ( fato_empilhadeira_gas, fato_empilhadeira_gas[custo_p20] )
+
+// ==================================================================
+// DESAFIO DO MÊS — o que a análise nova passou a olhar
+// ==================================================================
+
+MEASURE '_Medidas'[Respostas] =
+    COUNTROWS ( fato_quiz_resposta )
+
+MEASURE '_Medidas'[Taxa de acerto] =
+    DIVIDE (
+        CALCULATE ( COUNTROWS ( fato_quiz_resposta ), fato_quiz_resposta[correta] = TRUE () ),
+        [Respostas]
+    )
+
+/*
+    CHUTE: errou E respondeu em menos de quatro segundos.
+
+    Errar depois de pensar é falta de conhecimento e se treina; errar em
+    quatro segundos é pressa. Cobrar conteúdo de quem só clicou rápido
+    treina a coisa errada — e uma taxa de chute alta diz que o problema
+    é o MOMENTO em que o desafio está sendo respondido, não o conteúdo.
+    Cruze com dim_hora: costuma ser fim de turno.
+*/
+MEASURE '_Medidas'[Chutes] =
+    CALCULATE ( COUNTROWS ( fato_quiz_resposta ), fato_quiz_resposta[chute] = TRUE () )
+
+MEASURE '_Medidas'[% de chute] =
+    DIVIDE ( [Chutes], [Respostas] )
+
+// Abaixo de 60% a pergunta deixa de ser placar e vira pauta: metade do
+// time não sabe o procedimento. O corte espelha ALERTA_DE_ACERTO em
+// src/lib/desafio-analise.ts.
+//
+// Mínimo de 5 respostas junto: sem ele, uma pergunta respondida uma
+// única vez por quem errou entra como "pergunta crítica" e o número
+// perde credibilidade na primeira reunião.
+MEASURE '_Medidas'[Perguntas em alerta] =
+    VAR PorPergunta =
+        ADDCOLUMNS (
+            SUMMARIZE ( fato_quiz_resposta, fato_quiz_resposta[questao_id] ),
+            "@Acerto", [Taxa de acerto],
+            "@Qtd", [Respostas]
+        )
+    RETURN
+        COUNTROWS ( FILTER ( PorPergunta, [@Acerto] < 0.6 && [@Qtd] >= 5 ) )
+
+// O padrão de origem com pior acerto no recorte. É a pauta de
+// treinamento com endereço: "62% de acerto" é uma nota; "62% no
+// POP-ARM-001" é uma ação com responsável.
+MEASURE '_Medidas'[Padrão mais crítico] =
+    VAR PorPadrao =
+        ADDCOLUMNS (
+            SUMMARIZE ( fato_quiz_resposta, fato_quiz_resposta[origem] ),
+            "@Acerto", [Taxa de acerto],
+            "@Qtd", [Respostas]
+        )
+    VAR Elegiveis = FILTER ( PorPadrao, [@Qtd] >= 5 )
+    VAR Pior = MINX ( Elegiveis, [@Acerto] )
+    RETURN
+        CONCATENATEX (
+            FILTER ( Elegiveis, [@Acerto] = Pior ),
+            fato_quiz_resposta[origem], ", "
+        )
+
 EVALUATE
     { "Medidas aplicadas. Pode apagar esta consulta." }

@@ -26,6 +26,7 @@
   ],
   "settings": {
     "useStylableVisualContainerHeader": true,
+    "hideVisualContainerHeader": false,
     "defaultDrillFilterOtherVisuals": true,
     "useEnhancedTooltips": true,
     "useDefaultAggregateDisplayName": true

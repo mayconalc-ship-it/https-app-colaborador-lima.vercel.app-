@@ -3,11 +3,10 @@ table fato_ag_contagem
 	lineageTag: 448d046d-f556-4339-b3e9-408163955305
 
 	column contagem_id
-		dataType: int64
+		dataType: string
 		isHidden
-		formatString: 0
 		lineageTag: 5fe110e2-47ac-484d-88cf-8414bc112f60
-		summarizeBy: sum
+		summarizeBy: none
 		sourceColumn: contagem_id
 
 		annotation SummarizationSetBy = Automatic
@@ -29,8 +28,6 @@ table fato_ag_contagem
 		sourceColumn: data
 
 		annotation SummarizationSetBy = Automatic
-
-		annotation UnderlyingDateTimeDataType = Date
 
 	column colaborador_id
 		dataType: string
@@ -114,14 +111,12 @@ table fato_ag_contagem
 		annotation SummarizationSetBy = Automatic
 
 	column paletes_equivalentes
-		dataType: double
+		dataType: decimal
 		lineageTag: c1c97cd7-00dc-4139-a268-063c212b2ed5
-		summarizeBy: sum
+		summarizeBy: none
 		sourceColumn: paletes_equivalentes
 
 		annotation SummarizationSetBy = Automatic
-
-		annotation PBI_FormatHint = {"isGeneralNumber":true}
 
 	column fator_palete
 		dataType: int64
@@ -148,11 +143,10 @@ table fato_ag_contagem
 		annotation SummarizationSetBy = Automatic
 
 	column recontagem_id
-		dataType: int64
+		dataType: string
 		isHidden
-		formatString: 0
 		lineageTag: 6f0c8c36-57b0-462d-b050-3191f19d376a
-		summarizeBy: sum
+		summarizeBy: none
 		sourceColumn: recontagem_id
 
 		annotation SummarizationSetBy = Automatic
@@ -182,8 +176,6 @@ table fato_ag_contagem
 		sourceColumn: data_lancamento
 
 		annotation SummarizationSetBy = Automatic
-
-		annotation UnderlyingDateTimeDataType = Date
 
 	column atraso_dias
 		dataType: int64
@@ -225,4 +217,3 @@ table fato_ag_contagem
 				    ComChave
 
 	annotation PBI_ResultType = Table
-

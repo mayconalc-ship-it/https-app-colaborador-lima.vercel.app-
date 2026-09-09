@@ -1,19 +1,17 @@
 /// Tabela de datas em pt-BR.
 table dim_calendario
-	lineageTag: 576cde16-93dd-4e39-ba82-c4745a7e5830
 	dataCategory: Time
+	lineageTag: 576cde16-93dd-4e39-ba82-c4745a7e5830
 
 	column data
-		dataType: dateTime
 		isKey
+		dataType: dateTime
 		formatString: dd/MM/yyyy
 		lineageTag: f2769c41-bf18-4bd5-981d-5369e2465821
 		summarizeBy: none
 		sourceColumn: data
 
 		annotation SummarizationSetBy = Automatic
-
-		annotation UnderlyingDateTimeDataType = Date
 
 	column ano
 		dataType: int64
@@ -33,19 +31,19 @@ table dim_calendario
 
 	column mes_abrev
 		dataType: string
+		sortByColumn: mes
 		lineageTag: fd85e4db-dc15-49a4-a564-5dae5bba0def
 		summarizeBy: none
 		sourceColumn: mes_abrev
-		sortByColumn: mes
 
 		annotation SummarizationSetBy = Automatic
 
 	column mes_nome
 		dataType: string
+		sortByColumn: mes
 		lineageTag: 0df541af-f9b3-41cf-81a8-bc2f9e1bcabb
 		summarizeBy: none
 		sourceColumn: mes_nome
-		sortByColumn: mes
 
 		annotation SummarizationSetBy = Automatic
 
@@ -98,8 +96,6 @@ table dim_calendario
 
 		annotation SummarizationSetBy = Automatic
 
-		annotation UnderlyingDateTimeDataType = Date
-
 	column inicio_mes
 		dataType: dateTime
 		formatString: dd/MM/yyyy
@@ -108,8 +104,6 @@ table dim_calendario
 		sourceColumn: inicio_mes
 
 		annotation SummarizationSetBy = Automatic
-
-		annotation UnderlyingDateTimeDataType = Date
 
 	column dia_semana
 		dataType: int64
@@ -121,10 +115,10 @@ table dim_calendario
 
 	column dia_semana_nome
 		dataType: string
+		sortByColumn: dia_semana
 		lineageTag: e54811d8-e1a6-4c44-adbc-24b9d840412a
 		summarizeBy: none
 		sourceColumn: dia_semana_nome
-		sortByColumn: dia_semana
 
 		annotation SummarizationSetBy = Automatic
 
@@ -154,10 +148,10 @@ table dim_calendario
 
 	column dia_rotulo
 		dataType: string
+		sortByColumn: dia
 		lineageTag: 2f86e4d7-f61a-43c8-a4ff-ab8d048601de
 		summarizeBy: none
 		sourceColumn: dia_rotulo
-		sortByColumn: dia
 
 		annotation SummarizationSetBy = Automatic
 
@@ -171,10 +165,10 @@ table dim_calendario
 
 	column dia_semana_abrev
 		dataType: string
+		sortByColumn: dia_semana_dom
 		lineageTag: c849315f-b3e2-4643-8e40-192bf62ae8a5
 		summarizeBy: none
 		sourceColumn: dia_semana_abrev
-		sortByColumn: dia_semana_dom
 
 		annotation SummarizationSetBy = Automatic
 
@@ -187,8 +181,6 @@ table dim_calendario
 
 		annotation SummarizationSetBy = Automatic
 
-		annotation UnderlyingDateTimeDataType = Date
-
 	partition dim_calendario = m
 		mode: import
 		source =
@@ -199,4 +191,3 @@ table dim_calendario
 				    Dados
 
 	annotation PBI_ResultType = Table
-

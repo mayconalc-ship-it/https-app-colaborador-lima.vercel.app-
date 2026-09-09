@@ -3,11 +3,10 @@ table fato_quiz_resposta
 	lineageTag: 64789653-55ac-489c-9122-dfc8b3e9b074
 
 	column resposta_id
-		dataType: int64
+		dataType: string
 		isHidden
-		formatString: 0
 		lineageTag: 0af03bf6-ac1a-4e44-b9cd-f2113b04265c
-		summarizeBy: sum
+		summarizeBy: none
 		sourceColumn: resposta_id
 
 		annotation SummarizationSetBy = Automatic
@@ -22,11 +21,10 @@ table fato_quiz_resposta
 		annotation SummarizationSetBy = Automatic
 
 	column rodada_id
-		dataType: int64
+		dataType: string
 		isHidden
-		formatString: 0
 		lineageTag: 4ee897f9-e369-420e-b46e-b6ced47f57fb
-		summarizeBy: sum
+		summarizeBy: none
 		sourceColumn: rodada_id
 
 		annotation SummarizationSetBy = Automatic
@@ -47,8 +45,6 @@ table fato_quiz_resposta
 		sourceColumn: mes_ref
 
 		annotation SummarizationSetBy = Automatic
-
-		annotation UnderlyingDateTimeDataType = Date
 
 	column colaborador_id
 		dataType: string
@@ -76,11 +72,10 @@ table fato_quiz_resposta
 		annotation SummarizationSetBy = Automatic
 
 	column questao_id
-		dataType: int64
+		dataType: string
 		isHidden
-		formatString: 0
 		lineageTag: 70adab00-ea51-4f32-8ea1-19f3b4c814e3
-		summarizeBy: sum
+		summarizeBy: none
 		sourceColumn: questao_id
 
 		annotation SummarizationSetBy = Automatic
@@ -101,6 +96,14 @@ table fato_quiz_resposta
 
 		annotation SummarizationSetBy = Automatic
 
+	column dificuldade_rotulo
+		dataType: string
+		lineageTag: 0d6d5e60-00e7-45a9-b388-c83dc9918410
+		summarizeBy: none
+		sourceColumn: dificuldade_rotulo
+
+		annotation SummarizationSetBy = Automatic
+
 	column pilar
 		dataType: string
 		lineageTag: 77627064-e430-4545-a57f-60de9889137c
@@ -114,6 +117,30 @@ table fato_quiz_resposta
 		lineageTag: 47f15a3e-73fd-4c38-bb28-b96da4c5f904
 		summarizeBy: none
 		sourceColumn: padrao
+
+		annotation SummarizationSetBy = Automatic
+
+	column atividade
+		dataType: string
+		lineageTag: 075da65f-4e38-407c-b658-580f095697da
+		summarizeBy: none
+		sourceColumn: atividade
+
+		annotation SummarizationSetBy = Automatic
+
+	column origem
+		dataType: string
+		lineageTag: 40b113c8-22e3-4869-870b-a22f022f9003
+		summarizeBy: none
+		sourceColumn: origem
+
+		annotation SummarizationSetBy = Automatic
+
+	column explicacao
+		dataType: string
+		lineageTag: 9c1686ee-e3de-4a2c-883b-48d1cf531853
+		summarizeBy: none
+		sourceColumn: explicacao
 
 		annotation SummarizationSetBy = Automatic
 
@@ -134,14 +161,20 @@ table fato_quiz_resposta
 		annotation SummarizationSetBy = Automatic
 
 	column tempo_segundos
-		dataType: double
+		dataType: decimal
 		lineageTag: 784dd06f-1dff-42d5-b7d2-1a99dc39296b
-		summarizeBy: sum
+		summarizeBy: none
 		sourceColumn: tempo_segundos
 
 		annotation SummarizationSetBy = Automatic
 
-		annotation PBI_FormatHint = {"isGeneralNumber":true}
+	column chute
+		dataType: boolean
+		lineageTag: a46af2de-4ea7-44f9-93fc-2c98df796614
+		summarizeBy: none
+		sourceColumn: chute
+
+		annotation SummarizationSetBy = Automatic
 
 	column respondida_em
 		dataType: dateTime
@@ -161,7 +194,13 @@ table fato_quiz_resposta
 
 		annotation SummarizationSetBy = Automatic
 
-		annotation UnderlyingDateTimeDataType = Date
+	column hora
+		dataType: int64
+		lineageTag: cbea8a2e-549e-4ea5-a360-2804ee84a5d8
+		summarizeBy: none
+		sourceColumn: hora
+
+		annotation SummarizationSetBy = Automatic
 
 	column chave
 		dataType: string
@@ -187,4 +226,3 @@ table fato_quiz_resposta
 				    ComChave
 
 	annotation PBI_ResultType = Table
-

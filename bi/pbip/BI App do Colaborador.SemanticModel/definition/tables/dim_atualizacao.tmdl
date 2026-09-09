@@ -33,4 +33,3 @@ table dim_atualizacao
 				    Tabela
 
 	annotation PBI_ResultType = Table
-

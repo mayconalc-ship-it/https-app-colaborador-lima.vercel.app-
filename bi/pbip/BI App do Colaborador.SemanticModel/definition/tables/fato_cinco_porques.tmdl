@@ -3,11 +3,10 @@ table fato_cinco_porques
 	lineageTag: 75d855bf-d6a7-47f1-a01c-7c0cca0bfb3d
 
 	column analise_id
-		dataType: int64
+		dataType: string
 		isHidden
-		formatString: 0
 		lineageTag: cdacf703-d1b2-4023-a486-5c4a4be47005
-		summarizeBy: sum
+		summarizeBy: none
 		sourceColumn: analise_id
 
 		annotation SummarizationSetBy = Automatic
@@ -39,11 +38,10 @@ table fato_cinco_porques
 		annotation SummarizationSetBy = Automatic
 
 	column feedback_rota_id
-		dataType: int64
+		dataType: string
 		isHidden
-		formatString: 0
 		lineageTag: 01ae346a-c4ba-41dc-92dd-2d932a51e260
-		summarizeBy: sum
+		summarizeBy: none
 		sourceColumn: feedback_rota_id
 
 		annotation SummarizationSetBy = Automatic
@@ -205,14 +203,12 @@ table fato_cinco_porques
 		annotation SummarizationSetBy = Automatic
 
 	column tempo_segundos
-		dataType: double
+		dataType: decimal
 		lineageTag: 7ec55bff-6f69-464c-8663-7f1715e0ff51
-		summarizeBy: sum
+		summarizeBy: none
 		sourceColumn: tempo_segundos
 
 		annotation SummarizationSetBy = Automatic
-
-		annotation PBI_FormatHint = {"isGeneralNumber":true}
 
 	column iniciada_em
 		dataType: dateTime
@@ -241,8 +237,6 @@ table fato_cinco_porques
 
 		annotation SummarizationSetBy = Automatic
 
-		annotation UnderlyingDateTimeDataType = Date
-
 	column porques_respondidos
 		dataType: int64
 		lineageTag: e02afde7-aebe-4c89-9d92-1d644ba272b8
@@ -252,24 +246,20 @@ table fato_cinco_porques
 		annotation SummarizationSetBy = Automatic
 
 	column horas_ate_resposta
-		dataType: double
+		dataType: decimal
 		lineageTag: 2feec9b1-08e2-4dbc-aa8d-ef60d9327a83
-		summarizeBy: sum
+		summarizeBy: none
 		sourceColumn: horas_ate_resposta
 
 		annotation SummarizationSetBy = Automatic
 
-		annotation PBI_FormatHint = {"isGeneralNumber":true}
-
 	column horas_aguardando
-		dataType: double
+		dataType: decimal
 		lineageTag: cd68aad7-ebe3-4de8-8ab2-a964424c05f8
-		summarizeBy: sum
+		summarizeBy: none
 		sourceColumn: horas_aguardando
 
 		annotation SummarizationSetBy = Automatic
-
-		annotation PBI_FormatHint = {"isGeneralNumber":true}
 
 	column chave
 		dataType: string
@@ -295,4 +285,3 @@ table fato_cinco_porques
 				    ComChave
 
 	annotation PBI_ResultType = Table
-

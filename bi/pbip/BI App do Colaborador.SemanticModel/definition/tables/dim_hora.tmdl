@@ -1,0 +1,55 @@
+/// Hora do dia 0-23 com turno. Liga em todo fato do armazem pela coluna hora.
+table dim_hora
+	lineageTag: 39061bc2-ec9b-40f8-90ec-b43f8f964820
+
+	column hora
+		dataType: int64
+		lineageTag: a6e15c23-8692-4942-86be-d65342b1b885
+		summarizeBy: none
+		sourceColumn: hora
+
+		annotation SummarizationSetBy = Automatic
+
+	column hora_rotulo
+		dataType: string
+		sortByColumn: hora
+		lineageTag: bf11a2dd-7822-44f8-88d2-e913c0b25ad0
+		summarizeBy: none
+		sourceColumn: hora_rotulo
+
+		annotation SummarizationSetBy = Automatic
+
+	column turno
+		dataType: string
+		lineageTag: c029005d-0f70-46fb-98bd-71c5fa13f102
+		summarizeBy: none
+		sourceColumn: turno
+
+		annotation SummarizationSetBy = Automatic
+
+	column turno_rotulo
+		dataType: string
+		lineageTag: 3c62da0f-c659-4ee3-b741-55f87fe5aecd
+		summarizeBy: none
+		sourceColumn: turno_rotulo
+
+		annotation SummarizationSetBy = Automatic
+
+	column faixa_do_dia
+		dataType: string
+		lineageTag: 25903a0f-42fe-45d6-b0b7-7845c292de28
+		summarizeBy: none
+		sourceColumn: faixa_do_dia
+
+		annotation SummarizationSetBy = Automatic
+
+	partition dim_hora = m
+		mode: import
+		source =
+				let
+				    Origem = PostgreSQL.Database(Servidor, Banco),
+				    Dados = Origem{[Schema="bi",Item="dim_hora"]}[Data]
+				in
+				    Dados
+
+	annotation PBI_ResultType = Table

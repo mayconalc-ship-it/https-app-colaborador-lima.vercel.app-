@@ -1,0 +1,91 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.12.0/schema.json",
+  "name": "0d2d89810d6c72405ae9",
+  "position": {
+    "x": 16,
+    "y": 672,
+    "z": 20000,
+    "height": 30,
+    "width": 1248,
+    "tabOrder": 20000
+  },
+  "visual": {
+    "visualType": "textbox",
+    "objects": {
+      "general": [
+        {
+          "properties": {
+            "paragraphs": [
+              {
+                "textRuns": [
+                  {
+                    "value": "O TMA começa no horário AGENDADO quando havia agendamento, senão na chegada apontada pela portaria; termina no fim da descarga, ou no fim do carregamento se a carreta voltou carregada de AG. A CONFERÊNCIA nunca entra: a carreta não espera por ela. \"% de avaria\" conta PALETES — um palete com uma garrafa quebrada conta inteiro, por isso o número fica na casa das dezenas; ele diz quantos paletes foram tocados por avaria, não quanto do volume veio avariado, e só carretas com conferência lançada entram na conta. Em \"% de avaria por transportadora\", aplique no painel Filtros um corte de ≥ 3 carretas (o corte vem declarado mas nasce desligado — ver o cabeçalho de gerar-pbip.js): sem ele, a transportadora que entregou uma única carreta com um palete batido lidera a lista com 100%. Nas listas por transportadora e motorista, confira o número de carretas antes de concluir: uma média feita com uma carreta é ruído, e a barra a desenha do mesmo tamanho de um padrão de quarenta. O turno da carreta é DERIVADO do início do atendimento (ou da chegada) — a tabela não tem coluna de turno.",
+                    "textStyle": {
+                      "fontSize": "8pt",
+                      "color": "#64748B"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "visualContainerObjects": {
+      "title": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "false"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "border": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "false"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "background": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "false"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "dropShadow": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "false"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "drillFilterOtherVisuals": true
+  }
+}

@@ -1,0 +1,334 @@
+/// Uma carreta finalizada. colaborador_id = CONFERENTE; portaria, motorista e transportadora sao atributos.
+table fato_carreta
+	lineageTag: 58cd2f47-8b9f-4743-8be8-105362d2f738
+
+	column carreta_id
+		dataType: string
+		isHidden
+		lineageTag: ce512c49-7f08-4d09-8098-50febe1c5103
+		summarizeBy: none
+		sourceColumn: carreta_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column revenda_id
+		dataType: string
+		isHidden
+		lineageTag: 523beb50-c96d-45fb-ab9c-e9fa64208e53
+		summarizeBy: none
+		sourceColumn: revenda_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column colaborador_id
+		dataType: string
+		isHidden
+		lineageTag: 8d421f24-5a8d-486d-9328-29123c66acd4
+		summarizeBy: none
+		sourceColumn: colaborador_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column colaborador
+		dataType: string
+		lineageTag: 41208deb-64bf-4860-9d6d-70f23d553469
+		summarizeBy: none
+		sourceColumn: colaborador
+
+		annotation SummarizationSetBy = Automatic
+
+	column conferente
+		dataType: string
+		lineageTag: 847575c3-bc0c-473e-89c6-26dadbadbf04
+		summarizeBy: none
+		sourceColumn: conferente
+
+		annotation SummarizationSetBy = Automatic
+
+	column portaria_colaborador_id
+		dataType: string
+		isHidden
+		lineageTag: a8aa78b6-c57b-418f-bc48-e07ed94bbf23
+		summarizeBy: none
+		sourceColumn: portaria_colaborador_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column portaria
+		dataType: string
+		lineageTag: 888491a2-c770-40fb-b645-12921d0d986f
+		summarizeBy: none
+		sourceColumn: portaria
+
+		annotation SummarizationSetBy = Automatic
+
+	column motorista
+		dataType: string
+		lineageTag: 4f6d5a03-693c-44e9-9ca6-68e607a29c2e
+		summarizeBy: none
+		sourceColumn: motorista
+
+		annotation SummarizationSetBy = Automatic
+
+	column transportadora_id
+		dataType: string
+		isHidden
+		lineageTag: 57927d27-f8f4-4497-bc11-006ece2ff4ca
+		summarizeBy: none
+		sourceColumn: transportadora_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column transportadora
+		dataType: string
+		lineageTag: 93f8d1a9-d87b-46e2-b30d-298013d6255d
+		summarizeBy: none
+		sourceColumn: transportadora
+
+		annotation SummarizationSetBy = Automatic
+
+	column fabrica
+		dataType: string
+		lineageTag: 8147bc5d-eef0-440f-8517-b9a50084493b
+		summarizeBy: none
+		sourceColumn: fabrica
+
+		annotation SummarizationSetBy = Automatic
+
+	column numero_dt
+		dataType: string
+		lineageTag: 4be9f9c7-e3df-44e1-8947-deeaf4c5d7bf
+		summarizeBy: none
+		sourceColumn: numero_dt
+
+		annotation SummarizationSetBy = Automatic
+
+	column placa_cavalo
+		dataType: string
+		lineageTag: 4e9062a4-b831-4af8-b5c2-9b7082a03c05
+		summarizeBy: none
+		sourceColumn: placa_cavalo
+
+		annotation SummarizationSetBy = Automatic
+
+	column status
+		dataType: string
+		lineageTag: 6e5b5ceb-34ff-4326-a29a-c840bd073585
+		summarizeBy: none
+		sourceColumn: status
+
+		annotation SummarizationSetBy = Automatic
+
+	column carga_agendada
+		dataType: boolean
+		lineageTag: e5c51c81-c6d0-4dee-8b3f-7e2ac9288cf5
+		summarizeBy: none
+		sourceColumn: carga_agendada
+
+		annotation SummarizationSetBy = Automatic
+
+	column tinha_agendamento
+		dataType: boolean
+		lineageTag: 6f99df8b-a981-4b41-b9bc-a271653bf6b3
+		summarizeBy: none
+		sourceColumn: tinha_agendamento
+
+		annotation SummarizationSetBy = Automatic
+
+	column voltou_carregada
+		dataType: boolean
+		lineageTag: 3f6521f0-018b-45fb-b3bf-6f4771230914
+		summarizeBy: none
+		sourceColumn: voltou_carregada
+
+		annotation SummarizationSetBy = Automatic
+
+	column tma_min
+		dataType: int64
+		lineageTag: 284e5b58-a03e-4c76-bd4d-fd132e74c220
+		summarizeBy: none
+		sourceColumn: tma_min
+
+		annotation SummarizationSetBy = Automatic
+
+	column espera_portaria_min
+		dataType: int64
+		lineageTag: d8ffa9a9-e186-44b3-a425-058a25e4ee83
+		summarizeBy: none
+		sourceColumn: espera_portaria_min
+
+		annotation SummarizationSetBy = Automatic
+
+	column descarga_min
+		dataType: int64
+		lineageTag: 2e42369f-c65b-4a42-bc46-9b06e538c1a8
+		summarizeBy: none
+		sourceColumn: descarga_min
+
+		annotation SummarizationSetBy = Automatic
+
+	column conferencia_min
+		dataType: int64
+		lineageTag: 75f8bb11-7edc-4e3f-8525-874022e1831c
+		summarizeBy: none
+		sourceColumn: conferencia_min
+
+		annotation SummarizationSetBy = Automatic
+
+	column carga_min
+		dataType: int64
+		lineageTag: fd4c5c21-3aa2-409e-914e-d7462216537c
+		summarizeBy: none
+		sourceColumn: carga_min
+
+		annotation SummarizationSetBy = Automatic
+
+	column patio_min
+		dataType: int64
+		lineageTag: 31254199-47e6-4bec-8d1b-4b01e548f478
+		summarizeBy: none
+		sourceColumn: patio_min
+
+		annotation SummarizationSetBy = Automatic
+
+	column atraso_chegada_min
+		dataType: int64
+		lineageTag: ca96a8eb-becd-4a13-ab61-ef935f1ff5ee
+		summarizeBy: none
+		sourceColumn: atraso_chegada_min
+
+		annotation SummarizationSetBy = Automatic
+
+	column paletes_recebidos
+		dataType: decimal
+		lineageTag: 3e0a77de-485b-4bb8-be9f-b9a20698725e
+		summarizeBy: none
+		sourceColumn: paletes_recebidos
+
+		annotation SummarizationSetBy = Automatic
+
+	column paletes_avariados
+		dataType: decimal
+		lineageTag: bbed77a3-a473-4b29-8e1f-c79475ac6258
+		summarizeBy: none
+		sourceColumn: paletes_avariados
+
+		annotation SummarizationSetBy = Automatic
+
+	column teve_conferencia
+		dataType: boolean
+		lineageTag: 7f89dd49-43d0-4869-85c2-626a38f06a83
+		summarizeBy: none
+		sourceColumn: teve_conferencia
+
+		annotation SummarizationSetBy = Automatic
+
+	column tma_alvo_min
+		dataType: int64
+		lineageTag: 36915e9e-52cc-44f5-a798-52b01ebd4346
+		summarizeBy: none
+		sourceColumn: tma_alvo_min
+
+		annotation SummarizationSetBy = Automatic
+
+	column dentro_da_meta
+		dataType: boolean
+		lineageTag: 86740052-c7ae-4968-b649-896fa5cc6f7a
+		summarizeBy: none
+		sourceColumn: dentro_da_meta
+
+		annotation SummarizationSetBy = Automatic
+
+	column chegada_em
+		dataType: dateTime
+		formatString: dd/MM/yyyy
+		lineageTag: 99ee5c72-4023-45f0-9b85-91cbcd0aa0bb
+		summarizeBy: none
+		sourceColumn: chegada_em
+
+		annotation SummarizationSetBy = Automatic
+
+	column agendamento_em
+		dataType: dateTime
+		formatString: dd/MM/yyyy
+		lineageTag: b44e3ac0-ce03-461f-b03c-937bf65b8398
+		summarizeBy: none
+		sourceColumn: agendamento_em
+
+		annotation SummarizationSetBy = Automatic
+
+	column inicio_atendimento_em
+		dataType: dateTime
+		formatString: dd/MM/yyyy
+		lineageTag: 1695e5bf-557b-43d3-bb0a-dd3fe7031911
+		summarizeBy: none
+		sourceColumn: inicio_atendimento_em
+
+		annotation SummarizationSetBy = Automatic
+
+	column finalizacao_em
+		dataType: dateTime
+		formatString: dd/MM/yyyy
+		lineageTag: eca14dd7-5d9b-46f0-afcd-b3d7b0343516
+		summarizeBy: none
+		sourceColumn: finalizacao_em
+
+		annotation SummarizationSetBy = Automatic
+
+	column data
+		dataType: dateTime
+		formatString: dd/MM/yyyy
+		lineageTag: 6efda220-a193-4273-b0d1-f79fa1f7b1c0
+		summarizeBy: none
+		sourceColumn: data
+
+		annotation SummarizationSetBy = Automatic
+
+	column hora
+		dataType: int64
+		lineageTag: 518fa10d-6521-478f-ab17-62a7fd597daa
+		summarizeBy: none
+		sourceColumn: hora
+
+		annotation SummarizationSetBy = Automatic
+
+	column turno
+		dataType: string
+		lineageTag: 309d7f32-e3de-41db-aec4-7348d8206858
+		summarizeBy: none
+		sourceColumn: turno
+
+		annotation SummarizationSetBy = Automatic
+
+	column turno_rotulo
+		dataType: string
+		lineageTag: ef240834-52c2-45b7-a7c9-1bc0f2643325
+		summarizeBy: none
+		sourceColumn: turno_rotulo
+
+		annotation SummarizationSetBy = Automatic
+
+	column chave
+		dataType: string
+		isHidden
+		lineageTag: 319dc9c2-3cac-4284-9abe-ed0f81931523
+		summarizeBy: none
+		sourceColumn: chave
+
+		annotation SummarizationSetBy = Automatic
+
+	partition fato_carreta = m
+		mode: import
+		source =
+				let
+				    Origem = PostgreSQL.Database(Servidor, Banco),
+				    Dados = Origem{[Schema="bi",Item="fato_carreta"]}[Data],
+				    ComChave = Table.AddColumn(Dados, "chave", each
+				        (if [revenda_id] = null then "" else Text.From([revenda_id]))
+				        & "|" &
+				        (if [colaborador_id] = null then "" else Text.From([colaborador_id])),
+				        type text)
+				in
+				    ComChave
+
+	annotation PBI_ResultType = Table

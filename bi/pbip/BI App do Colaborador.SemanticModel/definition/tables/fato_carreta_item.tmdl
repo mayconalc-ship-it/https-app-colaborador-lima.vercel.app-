@@ -1,0 +1,148 @@
+/// Avaria por PRODUTO -- aponta a origem: paletizacao ou transporte, nao o armazem.
+table fato_carreta_item
+	lineageTag: 26199d06-2a68-4a62-82c5-906e8f39f2c1
+
+	column item_id
+		dataType: string
+		isHidden
+		lineageTag: 5173887f-536c-4ec4-b766-5f01092181fc
+		summarizeBy: none
+		sourceColumn: item_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column carreta_id
+		dataType: string
+		isHidden
+		lineageTag: b8e1eef5-739b-4ace-9305-f71320182072
+		summarizeBy: none
+		sourceColumn: carreta_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column revenda_id
+		dataType: string
+		isHidden
+		lineageTag: 8af99b90-680f-4fcd-8657-98e872791078
+		summarizeBy: none
+		sourceColumn: revenda_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column colaborador_id
+		dataType: string
+		isHidden
+		lineageTag: df651ad1-4201-463b-ab07-b1bc495a91fb
+		summarizeBy: none
+		sourceColumn: colaborador_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column colaborador
+		dataType: string
+		lineageTag: e028b62a-f864-4938-a900-78d5eb6bea4e
+		summarizeBy: none
+		sourceColumn: colaborador
+
+		annotation SummarizationSetBy = Automatic
+
+	column transportadora
+		dataType: string
+		lineageTag: 211a90a3-2d5c-4ec5-a503-2a92556f4a70
+		summarizeBy: none
+		sourceColumn: transportadora
+
+		annotation SummarizationSetBy = Automatic
+
+	column fabrica
+		dataType: string
+		lineageTag: 0fe22699-8675-49d6-a95c-87ed94581f1a
+		summarizeBy: none
+		sourceColumn: fabrica
+
+		annotation SummarizationSetBy = Automatic
+
+	column motorista
+		dataType: string
+		lineageTag: 642a4a32-5df4-4eee-b6c7-d9422da06f6d
+		summarizeBy: none
+		sourceColumn: motorista
+
+		annotation SummarizationSetBy = Automatic
+
+	column produto_id
+		dataType: string
+		isHidden
+		lineageTag: 09bdcf55-e2fa-42bc-9780-d6f643c743dc
+		summarizeBy: none
+		sourceColumn: produto_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column produto
+		dataType: string
+		lineageTag: 8fd0cefc-879d-4f16-ab42-99632912c7ca
+		summarizeBy: none
+		sourceColumn: produto
+
+		annotation SummarizationSetBy = Automatic
+
+	column familia
+		dataType: string
+		lineageTag: 159c06fd-fa24-439c-8242-e8656067f247
+		summarizeBy: none
+		sourceColumn: familia
+
+		annotation SummarizationSetBy = Automatic
+
+	column paletes_recebidos
+		dataType: decimal
+		lineageTag: 5075eef4-a9ab-4378-9093-d7e34498b4b0
+		summarizeBy: none
+		sourceColumn: paletes_recebidos
+
+		annotation SummarizationSetBy = Automatic
+
+	column paletes_avariados
+		dataType: decimal
+		lineageTag: 4a333e2f-088f-4720-a94b-aaa96c844e29
+		summarizeBy: none
+		sourceColumn: paletes_avariados
+
+		annotation SummarizationSetBy = Automatic
+
+	column data
+		dataType: dateTime
+		formatString: dd/MM/yyyy
+		lineageTag: fa3a0b0f-af84-4520-9671-92ee565cac86
+		summarizeBy: none
+		sourceColumn: data
+
+		annotation SummarizationSetBy = Automatic
+
+	column hora
+		dataType: int64
+		lineageTag: 53d200c8-efa5-4208-814b-b60d6bf26e50
+		summarizeBy: none
+		sourceColumn: hora
+
+		annotation SummarizationSetBy = Automatic
+
+	column turno
+		dataType: string
+		lineageTag: bc57e2c5-bfae-479e-9024-cde8b710b9c0
+		summarizeBy: none
+		sourceColumn: turno
+
+		annotation SummarizationSetBy = Automatic
+
+	partition fato_carreta_item = m
+		mode: import
+		source =
+				let
+				    Origem = PostgreSQL.Database(Servidor, Banco),
+				    Dados = Origem{[Schema="bi",Item="fato_carreta_item"]}[Data]
+				in
+				    Dados
+
+	annotation PBI_ResultType = Table

@@ -62,4 +62,3 @@ table dim_revenda
 				    Dados
 
 	annotation PBI_ResultType = Table
-

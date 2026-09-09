@@ -1,0 +1,180 @@
+/// Grao item. O % de avaria sai da soma sobre a soma -- nunca da media de percentuais.
+table fato_pa_bate_palete
+	lineageTag: 857023cb-b026-4634-b69f-a6a8b89f89aa
+
+	column item_id
+		dataType: string
+		isHidden
+		lineageTag: 35e77ddb-4689-44ef-8b3f-5aeabc6cede9
+		summarizeBy: none
+		sourceColumn: item_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column bate_palete_id
+		dataType: string
+		isHidden
+		lineageTag: 463a330e-8316-498f-8423-124bc12f8e34
+		summarizeBy: none
+		sourceColumn: bate_palete_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column revenda_id
+		dataType: string
+		isHidden
+		lineageTag: 5377addf-0103-4d7e-a980-1bae4891d30f
+		summarizeBy: none
+		sourceColumn: revenda_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column colaborador_id
+		dataType: string
+		isHidden
+		lineageTag: 733c61f7-6330-4195-961c-1310a9645ce4
+		summarizeBy: none
+		sourceColumn: colaborador_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column colaborador
+		dataType: string
+		lineageTag: 84b048ab-20d5-43f6-8cd2-fec3c8de977c
+		summarizeBy: none
+		sourceColumn: colaborador
+
+		annotation SummarizationSetBy = Automatic
+
+	column turno
+		dataType: string
+		lineageTag: 62074deb-a4aa-4f21-a4d4-8928d06883c7
+		summarizeBy: none
+		sourceColumn: turno
+
+		annotation SummarizationSetBy = Automatic
+
+	column turno_rotulo
+		dataType: string
+		lineageTag: ea21da76-9ee2-40b4-94ff-25be4340e1fa
+		summarizeBy: none
+		sourceColumn: turno_rotulo
+
+		annotation SummarizationSetBy = Automatic
+
+	column produto_id
+		dataType: string
+		isHidden
+		lineageTag: 566587ff-bf59-49f9-99af-3c7d380bbe47
+		summarizeBy: none
+		sourceColumn: produto_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column produto
+		dataType: string
+		lineageTag: 10200d9d-a02b-4a58-8f08-7bfc49b748c0
+		summarizeBy: none
+		sourceColumn: produto
+
+		annotation SummarizationSetBy = Automatic
+
+	column paletes
+		dataType: decimal
+		lineageTag: b8fa7ed5-f621-406d-a6d0-261b216cd069
+		summarizeBy: none
+		sourceColumn: paletes
+
+		annotation SummarizationSetBy = Automatic
+
+	column hl_batido
+		dataType: decimal
+		lineageTag: 617e1a9a-a33e-46ed-90da-29f50d0e6e31
+		summarizeBy: none
+		sourceColumn: hl_batido
+
+		annotation SummarizationSetBy = Automatic
+
+	column hl_avariado
+		dataType: decimal
+		lineageTag: 011ad556-b90a-4a6c-8c52-0ab9645b5840
+		summarizeBy: none
+		sourceColumn: hl_avariado
+
+		annotation SummarizationSetBy = Automatic
+
+	column hl_aproveitado
+		dataType: decimal
+		lineageTag: e6369861-24b4-4fb2-8973-afe14bbf135b
+		summarizeBy: none
+		sourceColumn: hl_aproveitado
+
+		annotation SummarizationSetBy = Automatic
+
+	column horas
+		dataType: decimal
+		lineageTag: 2b7ffd90-4311-40fa-8bf8-c1e82834c6e8
+		summarizeBy: none
+		sourceColumn: horas
+
+		annotation SummarizationSetBy = Automatic
+
+	column inicio
+		dataType: dateTime
+		formatString: dd/MM/yyyy
+		lineageTag: 8dff89f2-9746-499b-8ce9-413153af45f1
+		summarizeBy: none
+		sourceColumn: inicio
+
+		annotation SummarizationSetBy = Automatic
+
+	column fim
+		dataType: dateTime
+		formatString: dd/MM/yyyy
+		lineageTag: 24de5042-7ded-42bb-b2b0-7b6e81a047f5
+		summarizeBy: none
+		sourceColumn: fim
+
+		annotation SummarizationSetBy = Automatic
+
+	column data
+		dataType: dateTime
+		formatString: dd/MM/yyyy
+		lineageTag: 4493ee61-bd12-4ef3-829a-283223452fea
+		summarizeBy: none
+		sourceColumn: data
+
+		annotation SummarizationSetBy = Automatic
+
+	column hora
+		dataType: int64
+		lineageTag: e0879310-1285-4354-af1c-dc3fb770db46
+		summarizeBy: none
+		sourceColumn: hora
+
+		annotation SummarizationSetBy = Automatic
+
+	column chave
+		dataType: string
+		isHidden
+		lineageTag: fd1fa905-c65d-43a9-b127-56205e63f8fe
+		summarizeBy: none
+		sourceColumn: chave
+
+		annotation SummarizationSetBy = Automatic
+
+	partition fato_pa_bate_palete = m
+		mode: import
+		source =
+				let
+				    Origem = PostgreSQL.Database(Servidor, Banco),
+				    Dados = Origem{[Schema="bi",Item="fato_pa_bate_palete"]}[Data],
+				    ComChave = Table.AddColumn(Dados, "chave", each
+				        (if [revenda_id] = null then "" else Text.From([revenda_id]))
+				        & "|" &
+				        (if [colaborador_id] = null then "" else Text.From([colaborador_id])),
+				        type text)
+				in
+				    ComChave
+
+	annotation PBI_ResultType = Table

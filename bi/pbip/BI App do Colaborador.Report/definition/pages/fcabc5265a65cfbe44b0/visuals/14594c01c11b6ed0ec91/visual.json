@@ -27,8 +27,7 @@
                 }
               },
               "queryRef": "fato_comunicado_agenda.categoria",
-              "nativeQueryRef": "categoria",
-              "active": true
+              "nativeQueryRef": "categoria"
             }
           ]
         }
@@ -76,6 +75,11 @@
         }
       ]
     },
+    "syncGroup": {
+      "groupName": "fato_comunicado_agenda.categoria",
+      "fieldChanges": true,
+      "filterChanges": true
+    },
     "visualContainerObjects": {
       "title": [
         {
@@ -103,11 +107,6 @@
           }
         }
       ]
-    },
-    "syncGroup": {
-      "groupName": "fato_comunicado_agenda.categoria",
-      "fieldChanges": true,
-      "filterChanges": true
     },
     "drillFilterOtherVisuals": true
   }

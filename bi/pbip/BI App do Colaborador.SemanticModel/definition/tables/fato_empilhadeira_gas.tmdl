@@ -1,0 +1,138 @@
+/// Trocas de P20. O CICLO nao vem para o BI: ele atravessa turnos e qualquer filtro o quebraria pelo meio.
+table fato_empilhadeira_gas
+	lineageTag: 269d59ab-25d4-4d59-81b2-76b2c53f024e
+
+	column troca_id
+		dataType: string
+		isHidden
+		lineageTag: 52919890-195a-404a-bfa2-0236383541d7
+		summarizeBy: none
+		sourceColumn: troca_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column revenda_id
+		dataType: string
+		isHidden
+		lineageTag: 40d22958-af33-485f-8d15-b00142854335
+		summarizeBy: none
+		sourceColumn: revenda_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column colaborador_id
+		dataType: string
+		isHidden
+		lineageTag: 6f83aac8-4142-4e53-956f-750815cf6d46
+		summarizeBy: none
+		sourceColumn: colaborador_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column colaborador
+		dataType: string
+		lineageTag: 4dd99703-2d8e-4e7e-ac06-a6e6f6a24500
+		summarizeBy: none
+		sourceColumn: colaborador
+
+		annotation SummarizationSetBy = Automatic
+
+	column empilhadeira_id
+		dataType: string
+		isHidden
+		lineageTag: 8f2ce062-8f38-42df-a49c-d4fbc43c7062
+		summarizeBy: none
+		sourceColumn: empilhadeira_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column empilhadeira
+		dataType: string
+		lineageTag: a93eaf79-101e-4758-9bc1-f820aec5551b
+		summarizeBy: none
+		sourceColumn: empilhadeira
+
+		annotation SummarizationSetBy = Automatic
+
+	column horimetro
+		dataType: decimal
+		lineageTag: 24801eaf-b5ff-4945-b112-5a9a1e744802
+		summarizeBy: none
+		sourceColumn: horimetro
+
+		annotation SummarizationSetBy = Automatic
+
+	column custo_p20
+		dataType: decimal
+		lineageTag: e21438f2-3409-4139-859d-9331a9cee929
+		summarizeBy: none
+		sourceColumn: custo_p20
+
+		annotation SummarizationSetBy = Automatic
+
+	column realizada_em
+		dataType: dateTime
+		formatString: dd/MM/yyyy
+		lineageTag: 272b7a0f-689e-4e20-97ef-e1d8bb8adfef
+		summarizeBy: none
+		sourceColumn: realizada_em
+
+		annotation SummarizationSetBy = Automatic
+
+	column data
+		dataType: dateTime
+		formatString: dd/MM/yyyy
+		lineageTag: c732d576-b1e1-47b6-a889-f2e659e3ecba
+		summarizeBy: none
+		sourceColumn: data
+
+		annotation SummarizationSetBy = Automatic
+
+	column hora
+		dataType: int64
+		lineageTag: 81146047-51c7-4947-b711-5773b060ddb7
+		summarizeBy: none
+		sourceColumn: hora
+
+		annotation SummarizationSetBy = Automatic
+
+	column turno
+		dataType: string
+		lineageTag: d7af97fb-b87a-447b-8a6f-590a8fd4339b
+		summarizeBy: none
+		sourceColumn: turno
+
+		annotation SummarizationSetBy = Automatic
+
+	column turno_rotulo
+		dataType: string
+		lineageTag: 72c6a474-02d7-45a3-b8fe-ac976b86b6ae
+		summarizeBy: none
+		sourceColumn: turno_rotulo
+
+		annotation SummarizationSetBy = Automatic
+
+	column chave
+		dataType: string
+		isHidden
+		lineageTag: 8f11583a-be53-43f2-84ac-4b23da91e8b6
+		summarizeBy: none
+		sourceColumn: chave
+
+		annotation SummarizationSetBy = Automatic
+
+	partition fato_empilhadeira_gas = m
+		mode: import
+		source =
+				let
+				    Origem = PostgreSQL.Database(Servidor, Banco),
+				    Dados = Origem{[Schema="bi",Item="fato_empilhadeira_gas"]}[Data],
+				    ComChave = Table.AddColumn(Dados, "chave", each
+				        (if [revenda_id] = null then "" else Text.From([revenda_id]))
+				        & "|" &
+				        (if [colaborador_id] = null then "" else Text.From([colaborador_id])),
+				        type text)
+				in
+				    ComChave
+
+	annotation PBI_ResultType = Table

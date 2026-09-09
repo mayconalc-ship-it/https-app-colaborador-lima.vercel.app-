@@ -1,0 +1,114 @@
+/// Nivel ATUAL da bombona, uma linha por revenda. Nao filtre por periodo/turno/pessoa.
+table fato_pa_bombona
+	lineageTag: 368225a7-5c0a-4d82-832e-38074b6021e2
+
+	column revenda_id
+		dataType: string
+		isHidden
+		lineageTag: 962f8af1-3a7a-495b-86ea-8d8a0b876687
+		summarizeBy: none
+		sourceColumn: revenda_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column esvaziamento_id
+		dataType: string
+		isHidden
+		lineageTag: 9140ee3a-e889-411c-9216-27f40b6d7d08
+		summarizeBy: none
+		sourceColumn: esvaziamento_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column esvaziada_em
+		dataType: dateTime
+		formatString: dd/MM/yyyy
+		lineageTag: 8c124505-bbb4-4124-9f38-ffb8567ebac3
+		summarizeBy: none
+		sourceColumn: esvaziada_em
+
+		annotation SummarizationSetBy = Automatic
+
+	column data_esvaziamento
+		dataType: dateTime
+		formatString: dd/MM/yyyy
+		lineageTag: b01f27b8-cf95-46f6-9b36-6e78c6457ab1
+		summarizeBy: none
+		sourceColumn: data_esvaziamento
+
+		annotation SummarizationSetBy = Automatic
+
+	column esvaziada_por
+		dataType: string
+		lineageTag: 37e7f6a7-544c-4d46-aab3-b79d3746d83c
+		summarizeBy: none
+		sourceColumn: esvaziada_por
+
+		annotation SummarizationSetBy = Automatic
+
+	column litros_no_momento
+		dataType: decimal
+		lineageTag: 7f079f53-fda6-4fce-835e-98613d99d4fb
+		summarizeBy: none
+		sourceColumn: litros_no_momento
+
+		annotation SummarizationSetBy = Automatic
+
+	column litros_agora
+		dataType: decimal
+		lineageTag: 3513a70e-4cd2-4895-afff-ac389926ffa7
+		summarizeBy: none
+		sourceColumn: litros_agora
+
+		annotation SummarizationSetBy = Automatic
+
+	column capacidade
+		dataType: decimal
+		lineageTag: 3b426594-9621-4608-83f4-e63b59c53029
+		summarizeBy: none
+		sourceColumn: capacidade
+
+		annotation SummarizationSetBy = Automatic
+
+	column pct_cheia
+		dataType: decimal
+		lineageTag: f25c9532-008a-4996-819f-7c09e0445c71
+		summarizeBy: none
+		sourceColumn: pct_cheia
+
+		annotation SummarizationSetBy = Automatic
+
+	column litros_livres
+		dataType: decimal
+		lineageTag: e4cd443f-08a8-49d8-aa90-efd5879a74e5
+		summarizeBy: none
+		sourceColumn: litros_livres
+
+		annotation SummarizationSetBy = Automatic
+
+	column transbordou
+		dataType: boolean
+		lineageTag: db89a9e7-8456-4c85-b8c4-4f7d1adcd640
+		summarizeBy: none
+		sourceColumn: transbordou
+
+		annotation SummarizationSetBy = Automatic
+
+	column dias_desde_esvaziamento
+		dataType: int64
+		lineageTag: d18208dd-311a-4893-99eb-687f6761e378
+		summarizeBy: none
+		sourceColumn: dias_desde_esvaziamento
+
+		annotation SummarizationSetBy = Automatic
+
+	partition fato_pa_bombona = m
+		mode: import
+		source =
+				let
+				    Origem = PostgreSQL.Database(Servidor, Banco),
+				    Dados = Origem{[Schema="bi",Item="fato_pa_bombona"]}[Data]
+				in
+				    Dados
+
+	annotation PBI_ResultType = Table

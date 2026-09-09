@@ -1,0 +1,167 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.12.0/schema.json",
+  "name": "30bbefc5703b9bcb0e19",
+  "position": {
+    "x": 16,
+    "y": 500,
+    "z": 18000,
+    "height": 166,
+    "width": 620,
+    "tabOrder": 18000
+  },
+  "visual": {
+    "visualType": "tableEx",
+    "query": {
+      "queryState": {
+        "Values": {
+          "projections": [
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "fato_empilhadeira_operacao"
+                    }
+                  },
+                  "Property": "colaborador"
+                }
+              },
+              "queryRef": "fato_empilhadeira_operacao.colaborador",
+              "nativeQueryRef": "colaborador"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "_Medidas"
+                    }
+                  },
+                  "Property": "Operações encerradas"
+                }
+              },
+              "queryRef": "_Medidas.Operações encerradas",
+              "nativeQueryRef": "Operações encerradas"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "_Medidas"
+                    }
+                  },
+                  "Property": "Horas de horímetro"
+                }
+              },
+              "queryRef": "_Medidas.Horas de horímetro",
+              "nativeQueryRef": "Horas de horímetro"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "_Medidas"
+                    }
+                  },
+                  "Property": "Duração média (h)"
+                }
+              },
+              "queryRef": "_Medidas.Duração média (h)",
+              "nativeQueryRef": "Duração média (h)"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "_Medidas"
+                    }
+                  },
+                  "Property": "% aproveitamento do apontamento"
+                }
+              },
+              "queryRef": "_Medidas.% aproveitamento do apontamento",
+              "nativeQueryRef": "% aproveitamento do apontamento"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "_Medidas"
+                    }
+                  },
+                  "Property": "Encerradas por terceiro"
+                }
+              },
+              "queryRef": "_Medidas.Encerradas por terceiro",
+              "nativeQueryRef": "Encerradas por terceiro"
+            }
+          ]
+        }
+      },
+      "sortDefinition": {
+        "sort": [
+          {
+            "field": {
+              "Measure": {
+                "Expression": {
+                  "SourceRef": {
+                    "Entity": "_Medidas"
+                  }
+                },
+                "Property": "Horas de horímetro"
+              }
+            },
+            "direction": "Descending"
+          }
+        ]
+      }
+    },
+    "visualContainerObjects": {
+      "title": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            },
+            "text": {
+              "expr": {
+                "Literal": {
+                  "Value": "'👥 Operador — horas, duração e qualidade do apontamento'"
+                }
+              }
+            },
+            "fontSize": {
+              "expr": {
+                "Literal": {
+                  "Value": "11D"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "visualHeader": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "drillFilterOtherVisuals": true
+  }
+}

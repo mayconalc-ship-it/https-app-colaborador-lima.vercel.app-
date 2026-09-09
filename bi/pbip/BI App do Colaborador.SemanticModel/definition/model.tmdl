@@ -3,18 +3,17 @@ model Model
 	defaultPowerBIDataSourceVersion: powerBI_V3
 	discourageImplicitMeasures
 	sourceQueryCulture: pt-BR
-	maxParallelismPerRefresh: 1
 	dataAccessOptions
 		legacyRedirects
 		returnErrorValuesAsNull
 
-annotation PBI_QueryOrder = ["Servidor","Banco","_Medidas","dim_atualizacao","dim_revenda","dim_colaborador","dim_calendario","dim_ocorrencia_rota","dim_menu_app","dim_quiz_rodada","dim_quiz_questao","dim_sonho_revenda","fato_ag_contagem","fato_ag_dia_colaborador","fato_ag_conciliacao","fato_ag_recontagem","fato_feedback_rota","fato_feedback_ocorrencia","fato_feedback_cidade","fato_cinco_porques","fato_cinco_porques_resposta","fato_cinco_porques_matriz","fato_comunicado","fato_comunicado_curtida","fato_comunicado_agenda","fato_quiz_participacao","fato_quiz_resposta","fato_quiz_rodada_participacao","fato_ranking_matinal","fato_ranking_matinal_cobertura","dim_5s_area","dim_5s_pergunta","fato_5s_auditoria","fato_5s_senso","fato_5s_resposta","fato_5s_acao","fato_evento_acesso","fato_uso_sessao","fato_atividade"]
+	annotation PBI_QueryOrder = ["Servidor","Banco","_Medidas","dim_atualizacao","dim_revenda","dim_colaborador","dim_calendario","dim_ocorrencia_rota","dim_menu_app","dim_quiz_rodada","dim_quiz_questao","dim_sonho_revenda","fato_ag_contagem","fato_ag_dia_colaborador","fato_ag_conciliacao","fato_ag_recontagem","fato_feedback_rota","fato_feedback_ocorrencia","fato_feedback_cidade","fato_cinco_porques","fato_cinco_porques_resposta","fato_cinco_porques_matriz","fato_comunicado","fato_comunicado_curtida","fato_comunicado_agenda","fato_quiz_participacao","fato_quiz_resposta","fato_quiz_rodada_participacao","fato_ranking_matinal","fato_ranking_matinal_cobertura","dim_5s_area","dim_5s_pergunta","fato_5s_auditoria","fato_5s_senso","fato_5s_resposta","fato_5s_acao","fato_evento_acesso","fato_uso_sessao","fato_atividade","dim_hora","dim_pa_produto","dim_pa_embalagem_despejo","dim_empilhadeira","dim_transportadora","fato_pa_bancada","fato_pa_despejo","fato_pa_bombona","fato_pa_esvaziamento","fato_pa_abastecimento","fato_pa_ressuprimento","fato_pa_bate_palete","fato_carreta","fato_carreta_item","fato_empilhadeira_operacao","fato_empilhadeira_gas","dim_quiz_gabarito"]
 
-annotation __PBI_TimeIntelligenceEnabled = 0
+	annotation __PBI_TimeIntelligenceEnabled = 0
 
-annotation PBI_ProTooling = ["DevMode"]
-
-ref table _Medidas
+ref expression Servidor
+ref expression Banco
+ref table '_Medidas'
 ref table dim_atualizacao
 ref table dim_revenda
 ref table dim_colaborador
@@ -51,4 +50,20 @@ ref table fato_5s_acao
 ref table fato_evento_acesso
 ref table fato_uso_sessao
 ref table fato_atividade
-
+ref table dim_hora
+ref table dim_pa_produto
+ref table dim_pa_embalagem_despejo
+ref table dim_empilhadeira
+ref table dim_transportadora
+ref table fato_pa_bancada
+ref table fato_pa_despejo
+ref table fato_pa_bombona
+ref table fato_pa_esvaziamento
+ref table fato_pa_abastecimento
+ref table fato_pa_ressuprimento
+ref table fato_pa_bate_palete
+ref table fato_carreta
+ref table fato_carreta_item
+ref table fato_empilhadeira_operacao
+ref table fato_empilhadeira_gas
+ref table dim_quiz_gabarito

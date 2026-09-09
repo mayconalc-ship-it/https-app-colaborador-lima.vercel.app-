@@ -3,9 +3,8 @@ table fato_feedback_cidade
 	lineageTag: 055f7a28-5bdb-4f93-b24e-7fc19138bf7d
 
 	column feedback_id
-		dataType: int64
+		dataType: string
 		isHidden
-		formatString: 0
 		lineageTag: 1f3396d0-5b66-4971-b04c-2c0961a0a9a1
 		summarizeBy: none
 		sourceColumn: feedback_id
@@ -38,8 +37,6 @@ table fato_feedback_cidade
 		sourceColumn: data
 
 		annotation SummarizationSetBy = Automatic
-
-		annotation UnderlyingDateTimeDataType = Date
 
 	column rota
 		dataType: string
@@ -98,8 +95,6 @@ table fato_feedback_cidade
 
 		annotation SummarizationSetBy = Automatic
 
-		annotation UnderlyingDateTimeDataType = Date
-
 	partition fato_feedback_cidade = m
 		mode: import
 		source =
@@ -110,4 +105,3 @@ table fato_feedback_cidade
 				    Dados
 
 	annotation PBI_ResultType = Table
-

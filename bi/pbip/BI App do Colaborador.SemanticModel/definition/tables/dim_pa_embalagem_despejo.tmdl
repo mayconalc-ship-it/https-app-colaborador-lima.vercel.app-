@@ -1,0 +1,73 @@
+/// Catalogo de embalagens do despejo -- diferente do catalogo do repack.
+table dim_pa_embalagem_despejo
+	lineageTag: 949217a0-ad21-4912-921b-d32c10c42f8f
+
+	column embalagem_despejo_id
+		dataType: string
+		isHidden
+		lineageTag: bf8ac777-6fff-4cec-8373-dc44c7bcaf21
+		summarizeBy: none
+		sourceColumn: embalagem_despejo_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column revenda_id
+		dataType: string
+		isHidden
+		lineageTag: 7f57d546-fff4-4925-84f5-0ac968eb87a1
+		summarizeBy: none
+		sourceColumn: revenda_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column embalagem_despejo
+		dataType: string
+		lineageTag: 6d07cfc2-5fdb-4cf8-8e41-712eb85267e2
+		summarizeBy: none
+		sourceColumn: embalagem_despejo
+
+		annotation SummarizationSetBy = Automatic
+
+	column litros_por_unidade
+		dataType: decimal
+		lineageTag: d7905ded-3887-4436-b98d-94a2940dd9be
+		summarizeBy: none
+		sourceColumn: litros_por_unidade
+
+		annotation SummarizationSetBy = Automatic
+
+	column meta_litros_hora
+		dataType: decimal
+		lineageTag: 5c5e012e-b27f-4938-bff8-8123bc3854de
+		summarizeBy: none
+		sourceColumn: meta_litros_hora
+
+		annotation SummarizationSetBy = Automatic
+
+	column ativo
+		dataType: boolean
+		lineageTag: e3d6a77d-d2c5-4688-8a3f-1cc5017b589f
+		summarizeBy: none
+		sourceColumn: ativo
+
+		annotation SummarizationSetBy = Automatic
+
+	column criado_em
+		dataType: dateTime
+		formatString: dd/MM/yyyy
+		lineageTag: 638f9e39-51dd-45cf-a8cb-edf49637d3b9
+		summarizeBy: none
+		sourceColumn: criado_em
+
+		annotation SummarizationSetBy = Automatic
+
+	partition dim_pa_embalagem_despejo = m
+		mode: import
+		source =
+				let
+				    Origem = PostgreSQL.Database(Servidor, Banco),
+				    Dados = Origem{[Schema="bi",Item="dim_pa_embalagem_despejo"]}[Data]
+				in
+				    Dados
+
+	annotation PBI_ResultType = Table

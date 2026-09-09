@@ -400,6 +400,19 @@ function relacionamentos() {
       continue;
     }
     if (t.data) add(t.nome, t.data, 'dim_calendario', 'data');
+    /*
+      A HORA DO DIA.
+
+      Sem esta ligacao, o histograma de chegada de carreta seria um
+      grafico que so fala consigo mesmo: clicar nas 7h nao recortaria o
+      TMA, nem a avaria, nem a empilhadeira daquela hora. Com ela, "o
+      que acontece no pico da manha?" passa a ser uma pergunta que o
+      relatorio responde num clique.
+
+      Nao gera ambiguidade: dim_hora nao tem caminho ate revenda nem ate
+      o calendario, entao ha uma unica rota dela para cada fato.
+    */
+    if (t.hora) add(t.nome, 'hora', 'dim_hora', 'hora');
     // dim_colaborador carrega a chave composta por ser o lado UM dela.
     // Sem esta guarda ela se relacionaria consigo mesma.
     if (t.nome === 'dim_colaborador') continue;

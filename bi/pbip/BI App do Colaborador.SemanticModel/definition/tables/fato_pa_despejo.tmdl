@@ -1,0 +1,171 @@
+/// Despejo por lancamento. Para o NIVEL da bombona use fato_pa_bombona.
+table fato_pa_despejo
+	lineageTag: f37998c3-ec77-4286-b907-99ac756f87ef
+
+	column lancamento_id
+		dataType: string
+		isHidden
+		lineageTag: e484670b-eb69-457c-9e6e-138008ebccec
+		summarizeBy: none
+		sourceColumn: lancamento_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column revenda_id
+		dataType: string
+		isHidden
+		lineageTag: 53ccf0ff-5dfb-469e-adbd-4c3e53d6083a
+		summarizeBy: none
+		sourceColumn: revenda_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column colaborador_id
+		dataType: string
+		isHidden
+		lineageTag: 20ea142b-f47a-4f16-afc4-45ef0d13ae51
+		summarizeBy: none
+		sourceColumn: colaborador_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column colaborador
+		dataType: string
+		lineageTag: a8d885b0-def9-4da4-9643-926f15175559
+		summarizeBy: none
+		sourceColumn: colaborador
+
+		annotation SummarizationSetBy = Automatic
+
+	column embalagem_despejo_id
+		dataType: string
+		isHidden
+		lineageTag: 8bd0ddc8-0f39-4ca0-b703-35372fb94b95
+		summarizeBy: none
+		sourceColumn: embalagem_despejo_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column embalagem_despejo
+		dataType: string
+		lineageTag: 49a3cdc7-6434-43b1-b85d-607cd76bc7dc
+		summarizeBy: none
+		sourceColumn: embalagem_despejo
+
+		annotation SummarizationSetBy = Automatic
+
+	column meta_litros_hora
+		dataType: decimal
+		lineageTag: a2dc7700-677f-4ea4-9ee7-12e61b2dbf98
+		summarizeBy: none
+		sourceColumn: meta_litros_hora
+
+		annotation SummarizationSetBy = Automatic
+
+	column turno
+		dataType: string
+		lineageTag: 6a43c7af-0111-49f1-9de1-048f93d97654
+		summarizeBy: none
+		sourceColumn: turno
+
+		annotation SummarizationSetBy = Automatic
+
+	column turno_rotulo
+		dataType: string
+		lineageTag: eaa6a8f6-7d74-403c-a2fc-e57630d0330a
+		summarizeBy: none
+		sourceColumn: turno_rotulo
+
+		annotation SummarizationSetBy = Automatic
+
+	column litros
+		dataType: decimal
+		lineageTag: e123ba8d-c984-41f7-8b19-bda73df7ef74
+		summarizeBy: none
+		sourceColumn: litros
+
+		annotation SummarizationSetBy = Automatic
+
+	column quantidade_pacotes
+		dataType: int64
+		lineageTag: e5c62864-81b3-49e6-a4b3-3df85c99fa09
+		summarizeBy: none
+		sourceColumn: quantidade_pacotes
+
+		annotation SummarizationSetBy = Automatic
+
+	column horas
+		dataType: decimal
+		lineageTag: 70cafb68-c153-4850-9e09-c650ff9d035f
+		summarizeBy: none
+		sourceColumn: horas
+
+		annotation SummarizationSetBy = Automatic
+
+	column litros_hora
+		dataType: decimal
+		lineageTag: 05d9d92f-fa1b-4b43-bfe7-de62caafe2bf
+		summarizeBy: none
+		sourceColumn: litros_hora
+
+		annotation SummarizationSetBy = Automatic
+
+	column inicio
+		dataType: dateTime
+		formatString: dd/MM/yyyy
+		lineageTag: 0b641791-5896-43f0-a5e3-bd922a568a02
+		summarizeBy: none
+		sourceColumn: inicio
+
+		annotation SummarizationSetBy = Automatic
+
+	column fim
+		dataType: dateTime
+		formatString: dd/MM/yyyy
+		lineageTag: 43035837-bc8d-4249-814c-ab1132d22d42
+		summarizeBy: none
+		sourceColumn: fim
+
+		annotation SummarizationSetBy = Automatic
+
+	column data
+		dataType: dateTime
+		formatString: dd/MM/yyyy
+		lineageTag: c82f7f97-4337-4981-a7d1-85a6ab26f4df
+		summarizeBy: none
+		sourceColumn: data
+
+		annotation SummarizationSetBy = Automatic
+
+	column hora
+		dataType: int64
+		lineageTag: 97d23102-5ded-4118-9eee-f1748f582bb0
+		summarizeBy: none
+		sourceColumn: hora
+
+		annotation SummarizationSetBy = Automatic
+
+	column chave
+		dataType: string
+		isHidden
+		lineageTag: 67c62b8f-649a-40b2-9ace-4923768ee7e7
+		summarizeBy: none
+		sourceColumn: chave
+
+		annotation SummarizationSetBy = Automatic
+
+	partition fato_pa_despejo = m
+		mode: import
+		source =
+				let
+				    Origem = PostgreSQL.Database(Servidor, Banco),
+				    Dados = Origem{[Schema="bi",Item="fato_pa_despejo"]}[Data],
+				    ComChave = Table.AddColumn(Dados, "chave", each
+				        (if [revenda_id] = null then "" else Text.From([revenda_id]))
+				        & "|" &
+				        (if [colaborador_id] = null then "" else Text.From([colaborador_id])),
+				        type text)
+				in
+				    ComChave
+
+	annotation PBI_ResultType = Table

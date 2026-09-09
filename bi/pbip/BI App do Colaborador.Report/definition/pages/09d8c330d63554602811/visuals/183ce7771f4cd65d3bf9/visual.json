@@ -1,0 +1,91 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.12.0/schema.json",
+  "name": "183ce7771f4cd65d3bf9",
+  "position": {
+    "x": 16,
+    "y": 672,
+    "z": 20000,
+    "height": 30,
+    "width": 1248,
+    "tabOrder": 20000
+  },
+  "visual": {
+    "visualType": "textbox",
+    "objects": {
+      "general": [
+        {
+          "properties": {
+            "paragraphs": [
+              {
+                "textRuns": [
+                  {
+                    "value": "Todas as horas desta página vêm do HORÍMETRO (motor rodando), nunca do tempo entre abrir e fechar a operação — quem abre às 6h e fecha às 15h pode ter rodado três horas. \"Aproveitamento\" é a razão entre as duas: abaixo de uns 30% quase nunca é máquina ociosa, é operação aberta e esquecida, e a decisão muda de \"cortar máquina\" para \"fechar apontamento\". \"Encerradas por terceiro\" mede confiança, não desempenho: nesses casos o horímetro final é o que alguém encontrou na máquina depois. O CICLO do botijão (horas por P20, rateio por operador) NÃO está aqui de propósito — ele atravessa turnos e operadores, e qualquer segmentação desta página o quebraria pelo meio, fazendo o botijão render mais do que rende. Essa análise fica na tela de gás do app.",
+                    "textStyle": {
+                      "fontSize": "8pt",
+                      "color": "#64748B"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "visualContainerObjects": {
+      "title": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "false"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "border": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "false"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "background": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "false"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "dropShadow": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "false"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "drillFilterOtherVisuals": true
+  }
+}

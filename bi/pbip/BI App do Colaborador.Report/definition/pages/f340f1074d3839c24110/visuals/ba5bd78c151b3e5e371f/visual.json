@@ -1,0 +1,164 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.12.0/schema.json",
+  "name": "ba5bd78c151b3e5e371f",
+  "position": {
+    "x": 648,
+    "y": 500,
+    "z": 18000,
+    "height": 166,
+    "width": 616,
+    "tabOrder": 18000
+  },
+  "visual": {
+    "visualType": "tableEx",
+    "query": {
+      "queryState": {
+        "Values": {
+          "projections": [
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "dim_hora"
+                    }
+                  },
+                  "Property": "turno_rotulo"
+                }
+              },
+              "queryRef": "dim_hora.turno_rotulo",
+              "nativeQueryRef": "turno_rotulo"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "_Medidas"
+                    }
+                  },
+                  "Property": "Litros despejados"
+                }
+              },
+              "queryRef": "_Medidas.Litros despejados",
+              "nativeQueryRef": "Litros despejados"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "_Medidas"
+                    }
+                  },
+                  "Property": "Litros por hora"
+                }
+              },
+              "queryRef": "_Medidas.Litros por hora",
+              "nativeQueryRef": "Litros por hora"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "_Medidas"
+                    }
+                  },
+                  "Property": "HL abastecidos"
+                }
+              },
+              "queryRef": "_Medidas.HL abastecidos",
+              "nativeQueryRef": "HL abastecidos"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "_Medidas"
+                    }
+                  },
+                  "Property": "HL por hora"
+                }
+              },
+              "queryRef": "_Medidas.HL por hora",
+              "nativeQueryRef": "HL por hora"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "_Medidas"
+                    }
+                  },
+                  "Property": "Ciclo médio (min)"
+                }
+              },
+              "queryRef": "_Medidas.Ciclo médio (min)",
+              "nativeQueryRef": "Ciclo médio (min)"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "_Medidas"
+                    }
+                  },
+                  "Property": "% do ciclo esperando"
+                }
+              },
+              "queryRef": "_Medidas.% do ciclo esperando",
+              "nativeQueryRef": "% do ciclo esperando"
+            }
+          ]
+        }
+      }
+    },
+    "visualContainerObjects": {
+      "title": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            },
+            "text": {
+              "expr": {
+                "Literal": {
+                  "Value": "'🫗🧃 Despejo, abastecimento e ressuprimento'"
+                }
+              }
+            },
+            "fontSize": {
+              "expr": {
+                "Literal": {
+                  "Value": "11D"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "visualHeader": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "drillFilterOtherVisuals": true
+  }
+}

@@ -1,0 +1,179 @@
+/// Sessoes de abastecimento do picking, com HL e tipo completo/pontual.
+table fato_pa_abastecimento
+	lineageTag: afa7362c-078e-4448-8fab-b2642d2f25d9
+
+	column abastecimento_id
+		dataType: string
+		isHidden
+		lineageTag: 137791ad-8741-4bfd-a581-ca11dea5f353
+		summarizeBy: none
+		sourceColumn: abastecimento_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column revenda_id
+		dataType: string
+		isHidden
+		lineageTag: cdc2e9a5-7b43-45dc-8bb7-a1daae372695
+		summarizeBy: none
+		sourceColumn: revenda_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column colaborador_id
+		dataType: string
+		isHidden
+		lineageTag: dabe2464-512d-4a49-90a4-3764c62155c0
+		summarizeBy: none
+		sourceColumn: colaborador_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column colaborador
+		dataType: string
+		lineageTag: f37cce24-7e41-4b5e-a08c-1538730e569a
+		summarizeBy: none
+		sourceColumn: colaborador
+
+		annotation SummarizationSetBy = Automatic
+
+	column tipo
+		dataType: string
+		lineageTag: f76a1d39-e2d8-467c-85fa-8b57dbf8552f
+		summarizeBy: none
+		sourceColumn: tipo
+
+		annotation SummarizationSetBy = Automatic
+
+	column tipo_rotulo
+		dataType: string
+		lineageTag: 25a279fc-e18a-4009-9e27-4ea0ea645a99
+		summarizeBy: none
+		sourceColumn: tipo_rotulo
+
+		annotation SummarizationSetBy = Automatic
+
+	column turno
+		dataType: string
+		lineageTag: 91bc37be-0513-48e1-ab0e-663acd7081ac
+		summarizeBy: none
+		sourceColumn: turno
+
+		annotation SummarizationSetBy = Automatic
+
+	column turno_rotulo
+		dataType: string
+		lineageTag: 4b4383eb-b7a9-48ff-9064-1388e8f37d72
+		summarizeBy: none
+		sourceColumn: turno_rotulo
+
+		annotation SummarizationSetBy = Automatic
+
+	column ressuprimento_id
+		dataType: string
+		isHidden
+		lineageTag: d84d388b-4df7-4053-bc69-2570420d43b3
+		summarizeBy: none
+		sourceColumn: ressuprimento_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column de_solicitacao
+		dataType: boolean
+		lineageTag: 651cf657-005a-46f5-ba1c-94768462be0a
+		summarizeBy: none
+		sourceColumn: de_solicitacao
+
+		annotation SummarizationSetBy = Automatic
+
+	column hl
+		dataType: decimal
+		lineageTag: 5fd0abe3-6775-479a-b8cb-6708317dfba6
+		summarizeBy: none
+		sourceColumn: hl
+
+		annotation SummarizationSetBy = Automatic
+
+	column itens
+		dataType: int64
+		lineageTag: cffbf02b-e391-42de-a443-d38e807fc739
+		summarizeBy: none
+		sourceColumn: itens
+
+		annotation SummarizationSetBy = Automatic
+
+	column horas
+		dataType: decimal
+		lineageTag: e2c2a399-9454-4f5f-9473-95e501455b53
+		summarizeBy: none
+		sourceColumn: horas
+
+		annotation SummarizationSetBy = Automatic
+
+	column hl_hora
+		dataType: decimal
+		lineageTag: 2b3d05f3-3f86-409b-919f-76dcbbf47eb8
+		summarizeBy: none
+		sourceColumn: hl_hora
+
+		annotation SummarizationSetBy = Automatic
+
+	column inicio
+		dataType: dateTime
+		formatString: dd/MM/yyyy
+		lineageTag: 77445a33-4223-4059-81bd-e3e154032c6c
+		summarizeBy: none
+		sourceColumn: inicio
+
+		annotation SummarizationSetBy = Automatic
+
+	column fim
+		dataType: dateTime
+		formatString: dd/MM/yyyy
+		lineageTag: 85a15b9f-5eed-4135-8759-faeb3f25d833
+		summarizeBy: none
+		sourceColumn: fim
+
+		annotation SummarizationSetBy = Automatic
+
+	column data
+		dataType: dateTime
+		formatString: dd/MM/yyyy
+		lineageTag: 4c445141-4b43-491a-b975-5de4eafe44f5
+		summarizeBy: none
+		sourceColumn: data
+
+		annotation SummarizationSetBy = Automatic
+
+	column hora
+		dataType: int64
+		lineageTag: 4e6d0cbb-0fa5-4b32-9624-e14d7f952ab1
+		summarizeBy: none
+		sourceColumn: hora
+
+		annotation SummarizationSetBy = Automatic
+
+	column chave
+		dataType: string
+		isHidden
+		lineageTag: 3b91cf9b-009b-40cd-b3ce-f418b52ae022
+		summarizeBy: none
+		sourceColumn: chave
+
+		annotation SummarizationSetBy = Automatic
+
+	partition fato_pa_abastecimento = m
+		mode: import
+		source =
+				let
+				    Origem = PostgreSQL.Database(Servidor, Banco),
+				    Dados = Origem{[Schema="bi",Item="fato_pa_abastecimento"]}[Data],
+				    ComChave = Table.AddColumn(Dados, "chave", each
+				        (if [revenda_id] = null then "" else Text.From([revenda_id]))
+				        & "|" &
+				        (if [colaborador_id] = null then "" else Text.From([colaborador_id])),
+				        type text)
+				in
+				    ComChave
+
+	annotation PBI_ResultType = Table

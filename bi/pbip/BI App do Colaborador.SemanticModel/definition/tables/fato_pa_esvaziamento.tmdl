@@ -1,0 +1,137 @@
+/// Historico de descartes. Responde se a bombona vai cheia ou pela metade -- viagem desperdicada.
+table fato_pa_esvaziamento
+	lineageTag: 10038c83-d627-42f9-ad26-50b6218a7dce
+
+	column esvaziamento_id
+		dataType: string
+		isHidden
+		lineageTag: 2ee61baa-6084-4b2f-81c5-fa4d30b3476d
+		summarizeBy: none
+		sourceColumn: esvaziamento_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column revenda_id
+		dataType: string
+		isHidden
+		lineageTag: f4485f1a-79ff-45fc-a512-2f36dfa2f215
+		summarizeBy: none
+		sourceColumn: revenda_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column colaborador_id
+		dataType: string
+		isHidden
+		lineageTag: 4e65df91-fcfe-4d52-aa82-9ebde0b10d95
+		summarizeBy: none
+		sourceColumn: colaborador_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column colaborador
+		dataType: string
+		lineageTag: ec90a13e-81f6-4ef5-b468-c06baf95102b
+		summarizeBy: none
+		sourceColumn: colaborador
+
+		annotation SummarizationSetBy = Automatic
+
+	column litros_no_momento
+		dataType: decimal
+		lineageTag: e36d05f3-3d5b-40e2-baf9-7d0d4460f642
+		summarizeBy: none
+		sourceColumn: litros_no_momento
+
+		annotation SummarizationSetBy = Automatic
+
+	column capacidade
+		dataType: decimal
+		lineageTag: c3428562-b4fe-429f-82ff-53965b7984ab
+		summarizeBy: none
+		sourceColumn: capacidade
+
+		annotation SummarizationSetBy = Automatic
+
+	column pct_no_descarte
+		dataType: decimal
+		lineageTag: 1dd8b080-1707-499b-a5f5-4aa13bdb4c67
+		summarizeBy: none
+		sourceColumn: pct_no_descarte
+
+		annotation SummarizationSetBy = Automatic
+
+	column observacao
+		dataType: string
+		lineageTag: e7809563-f6ac-4344-8ba0-7ef8f4a61211
+		summarizeBy: none
+		sourceColumn: observacao
+
+		annotation SummarizationSetBy = Automatic
+
+	column esvaziada_em
+		dataType: dateTime
+		formatString: dd/MM/yyyy
+		lineageTag: 30c30461-95da-4420-893e-1b9cef219c45
+		summarizeBy: none
+		sourceColumn: esvaziada_em
+
+		annotation SummarizationSetBy = Automatic
+
+	column data
+		dataType: dateTime
+		formatString: dd/MM/yyyy
+		lineageTag: 3e71b8fe-0c69-4099-876f-f9a55a12ee8a
+		summarizeBy: none
+		sourceColumn: data
+
+		annotation SummarizationSetBy = Automatic
+
+	column hora
+		dataType: int64
+		lineageTag: 17a378ba-9494-4ec0-bc6e-c86ec5a09844
+		summarizeBy: none
+		sourceColumn: hora
+
+		annotation SummarizationSetBy = Automatic
+
+	column turno
+		dataType: string
+		lineageTag: b1ce0fb5-4c6c-4a16-aada-3a64bb22ef61
+		summarizeBy: none
+		sourceColumn: turno
+
+		annotation SummarizationSetBy = Automatic
+
+	column turno_rotulo
+		dataType: string
+		lineageTag: 4ab7d61e-d260-4cd4-85c9-5c8bdabb3bea
+		summarizeBy: none
+		sourceColumn: turno_rotulo
+
+		annotation SummarizationSetBy = Automatic
+
+	column chave
+		dataType: string
+		isHidden
+		lineageTag: 371a7952-3d19-4007-babd-1333a6051a63
+		summarizeBy: none
+		sourceColumn: chave
+
+		annotation SummarizationSetBy = Automatic
+
+	partition fato_pa_esvaziamento = m
+		mode: import
+		source =
+				let
+				    Origem = PostgreSQL.Database(Servidor, Banco),
+				    Dados = Origem{[Schema="bi",Item="fato_pa_esvaziamento"]}[Data],
+				    ComChave = Table.AddColumn(Dados, "chave", each
+				        (if [revenda_id] = null then "" else Text.From([revenda_id]))
+				        & "|" &
+				        (if [colaborador_id] = null then "" else Text.From([colaborador_id])),
+				        type text)
+				in
+				    ComChave
+
+	annotation PBI_ResultType = Table

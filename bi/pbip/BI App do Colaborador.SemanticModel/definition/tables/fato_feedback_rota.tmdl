@@ -3,9 +3,8 @@ table fato_feedback_rota
 	lineageTag: c8fc4eb2-264d-441e-b562-c08a2dc579bb
 
 	column feedback_id
-		dataType: int64
+		dataType: string
 		isHidden
-		formatString: 0
 		lineageTag: c425d146-af0c-4c14-94e5-4a974bcfc565
 		summarizeBy: none
 		sourceColumn: feedback_id
@@ -80,22 +79,20 @@ table fato_feedback_rota
 
 	column nota_rotulo
 		dataType: string
+		sortByColumn: nota
 		lineageTag: b3ef8261-e594-4350-b3f2-9260430bd5a1
 		summarizeBy: none
 		sourceColumn: nota_rotulo
-		sortByColumn: nota
 
 		annotation SummarizationSetBy = Automatic
 
 	column nota_percentual
-		dataType: double
+		dataType: decimal
 		lineageTag: 431af0bc-339f-4507-957a-9394fc445f53
-		summarizeBy: sum
+		summarizeBy: none
 		sourceColumn: nota_percentual
 
 		annotation SummarizationSetBy = Automatic
-
-		annotation PBI_FormatHint = {"isGeneralNumber":true}
 
 	column nota_ruim
 		dataType: boolean
@@ -171,8 +168,6 @@ table fato_feedback_rota
 
 		annotation SummarizationSetBy = Automatic
 
-		annotation UnderlyingDateTimeDataType = Date
-
 	column hora
 		dataType: int64
 		lineageTag: 07609e8e-4d2e-488f-9a9b-41e98aaf441d
@@ -230,6 +225,79 @@ table fato_feedback_rota
 
 		annotation SummarizationSetBy = Automatic
 
+	column reg_tratativa_status
+		dataType: string
+		lineageTag: 0cb82645-0cc5-45b8-80a5-9c8785b02134
+		summarizeBy: none
+		sourceColumn: reg_tratativa_status
+
+		annotation SummarizationSetBy = Automatic
+
+	column reg_tratada
+		dataType: boolean
+		lineageTag: 201e57cc-3bfa-4e00-b98a-465864b68aea
+		summarizeBy: none
+		sourceColumn: reg_tratada
+
+		annotation SummarizationSetBy = Automatic
+
+	column reg_devolutiva
+		dataType: string
+		lineageTag: b203ca12-350c-416c-8bc5-2db24f77fa55
+		summarizeBy: none
+		sourceColumn: reg_devolutiva
+
+		annotation SummarizationSetBy = Automatic
+
+	column reg_respondida_lideranca
+		dataType: boolean
+		lineageTag: f7ceb0d0-5d4b-4b14-949d-fb7ddd2d52cd
+		summarizeBy: none
+		sourceColumn: reg_respondida_lideranca
+
+		annotation SummarizationSetBy = Automatic
+
+	column reg_devolutiva_em
+		dataType: dateTime
+		formatString: dd/MM/yyyy
+		lineageTag: 37b4b679-b625-4874-bbbc-7fed90248d7d
+		summarizeBy: none
+		sourceColumn: reg_devolutiva_em
+
+		annotation SummarizationSetBy = Automatic
+
+	column reg_aceitou
+		dataType: boolean
+		lineageTag: 564b86d9-4dfd-4e9f-b4ae-8728ac52c07e
+		summarizeBy: none
+		sourceColumn: reg_aceitou
+
+		annotation SummarizationSetBy = Automatic
+
+	column reg_aceite_rotulo
+		dataType: string
+		lineageTag: 26cd8b70-ff30-40d6-b163-b9744cafba71
+		summarizeBy: none
+		sourceColumn: reg_aceite_rotulo
+
+		annotation SummarizationSetBy = Automatic
+
+	column reg_conta_tmr
+		dataType: boolean
+		lineageTag: bf271e1e-54fa-4a3c-be7b-8e9151bfc5e3
+		summarizeBy: none
+		sourceColumn: reg_conta_tmr
+
+		annotation SummarizationSetBy = Automatic
+
+	column reg_horas_ate_resposta
+		dataType: decimal
+		lineageTag: a4214d54-afd9-4092-9924-205e6d0caea6
+		summarizeBy: none
+		sourceColumn: reg_horas_ate_resposta
+
+		annotation SummarizationSetBy = Automatic
+
 	column chave
 		dataType: string
 		isHidden
@@ -254,4 +322,3 @@ table fato_feedback_rota
 				    ComChave
 
 	annotation PBI_ResultType = Table
-

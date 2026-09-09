@@ -50,6 +50,19 @@
           }
         }
       ],
+      "labels": [
+        {
+          "properties": {
+            "fontSize": {
+              "expr": {
+                "Literal": {
+                  "Value": "15D"
+                }
+              }
+            }
+          }
+        }
+      ],
       "accentBar": [
         {
           "properties": {
@@ -169,7 +182,7 @@
             "text": {
               "expr": {
                 "Literal": {
-                  "Value": "'Tempo médio entre o motorista concluir a análise e a liderança responder. Sai em HORAS até 24 h e em DIAS acima disso — 96,4 h não se lê como \"quatro dias\" sem parar para dividir. É o indicador de saúde do módulo: análise concluída que ninguém responde ensina o time a não preencher a próxima, e passando de ~48 h o 5 Porquês morre por desuso antes de morrer por decisão. Só entram análises que JÁ receberam resposta; as que ainda esperam estão no cartão \"Aguardando tratativa\".'"
+                  "Value": "'Tempo médio para a liderança responder um relato do motorista — soma o 5 Porquês (motorista concluiu a análise) com a tratativa direta do feedback \"Regular\", que não tem análise de causa raiz por trás. Sai em HORAS até 24 h e em DIAS acima disso — 96,4 h não se lê como \"quatro dias\" sem parar para dividir. É o indicador de saúde da resposta da liderança: caso concluído que ninguém responde ensina o time a não preencher o próximo, e passando de ~48 h o módulo morre por desuso antes de morrer por decisão. Só entram casos que JÁ receberam resposta, e feedback \"Regular\" que já existia antes da tratativa virar obrigatória fica de fora da média (foi reaberto em massa pela migration 056, e contar o tempo desde o envio original inflaria a métrica por um atraso que é do lançamento da funcionalidade, não da liderança).'"
                 }
               }
             }

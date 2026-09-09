@@ -1,0 +1,228 @@
+/// Selecao + Repack por lancamento. caixas e unidades_triadas sao excludentes -- nao some as duas.
+table fato_pa_bancada
+	lineageTag: cbb5cfa9-272b-4462-a591-39d1ff469d46
+
+	column lancamento_id
+		dataType: string
+		isHidden
+		lineageTag: 0c449325-99a4-4e5d-9678-6c5a0bfd12e8
+		summarizeBy: none
+		sourceColumn: lancamento_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column revenda_id
+		dataType: string
+		isHidden
+		lineageTag: f03e163c-9ae8-4323-9538-26b29a0602b6
+		summarizeBy: none
+		sourceColumn: revenda_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column colaborador_id
+		dataType: string
+		isHidden
+		lineageTag: f7263f7d-8b9d-4d75-9ed8-ae8c7ab2e955
+		summarizeBy: none
+		sourceColumn: colaborador_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column colaborador
+		dataType: string
+		lineageTag: 58718780-8e7c-4c1c-8a05-3a5b2ddb0654
+		summarizeBy: none
+		sourceColumn: colaborador
+
+		annotation SummarizationSetBy = Automatic
+
+	column etapa
+		dataType: string
+		lineageTag: ade4127d-9f57-4747-8cd8-780a1b526485
+		summarizeBy: none
+		sourceColumn: etapa
+
+		annotation SummarizationSetBy = Automatic
+
+	column etapa_rotulo
+		dataType: string
+		lineageTag: 4f04cde2-8d54-4aef-b24a-53b23cb5c37c
+		summarizeBy: none
+		sourceColumn: etapa_rotulo
+
+		annotation SummarizationSetBy = Automatic
+
+	column produto_id
+		dataType: string
+		isHidden
+		lineageTag: 8e73334f-e70d-4c8b-b945-274cf80e5752
+		summarizeBy: none
+		sourceColumn: produto_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column produto
+		dataType: string
+		lineageTag: 3ecab153-da00-426e-94d2-eabdabe1784e
+		summarizeBy: none
+		sourceColumn: produto
+
+		annotation SummarizationSetBy = Automatic
+
+	column familia
+		dataType: string
+		lineageTag: bcd44b35-0020-4141-ba06-2bb4917be71f
+		summarizeBy: none
+		sourceColumn: familia
+
+		annotation SummarizationSetBy = Automatic
+
+	column tipo_rotulo
+		dataType: string
+		lineageTag: 89f2e30b-e924-49ff-9aef-78530c568af6
+		summarizeBy: none
+		sourceColumn: tipo_rotulo
+
+		annotation SummarizationSetBy = Automatic
+
+	column embalagem_id
+		dataType: string
+		isHidden
+		lineageTag: 68ad7950-eff5-4127-9cc1-52b6561edb6e
+		summarizeBy: none
+		sourceColumn: embalagem_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column embalagem
+		dataType: string
+		lineageTag: 19adda5c-6f4f-49fb-9038-51eac4fdade7
+		summarizeBy: none
+		sourceColumn: embalagem
+
+		annotation SummarizationSetBy = Automatic
+
+	column turno
+		dataType: string
+		lineageTag: d357d9de-b051-46f5-872f-0f58766a18ed
+		summarizeBy: none
+		sourceColumn: turno
+
+		annotation SummarizationSetBy = Automatic
+
+	column turno_rotulo
+		dataType: string
+		lineageTag: 7839f436-6c50-4c40-b51b-276f5269b72f
+		summarizeBy: none
+		sourceColumn: turno_rotulo
+
+		annotation SummarizationSetBy = Automatic
+
+	column caixas
+		dataType: decimal
+		lineageTag: 52258625-ecff-457c-be87-d91cd44cc525
+		summarizeBy: none
+		sourceColumn: caixas
+
+		annotation SummarizationSetBy = Automatic
+
+	column unidades_triadas
+		dataType: decimal
+		lineageTag: fbf6c37f-7de9-4b33-b3e4-e9695abcda56
+		summarizeBy: none
+		sourceColumn: unidades_triadas
+
+		annotation SummarizationSetBy = Automatic
+
+	column quantidade
+		dataType: decimal
+		lineageTag: af39a6c0-0807-4836-8593-31e01d70b68f
+		summarizeBy: none
+		sourceColumn: quantidade
+
+		annotation SummarizationSetBy = Automatic
+
+	column horas
+		dataType: decimal
+		lineageTag: 85d6b63e-3ad5-4d2c-95e4-7e400e26df6f
+		summarizeBy: none
+		sourceColumn: horas
+
+		annotation SummarizationSetBy = Automatic
+
+	column taxa_hora
+		dataType: decimal
+		lineageTag: 62a2c879-6636-4f9f-ae3f-aceef85b62bd
+		summarizeBy: none
+		sourceColumn: taxa_hora
+
+		annotation SummarizationSetBy = Automatic
+
+	column meta_hora
+		dataType: decimal
+		lineageTag: d9205863-f1be-48d4-bbfa-28d6442c79c7
+		summarizeBy: none
+		sourceColumn: meta_hora
+
+		annotation SummarizationSetBy = Automatic
+
+	column inicio
+		dataType: dateTime
+		formatString: dd/MM/yyyy
+		lineageTag: d14dc6f4-fa31-4a96-a07f-06de62bec5b6
+		summarizeBy: none
+		sourceColumn: inicio
+
+		annotation SummarizationSetBy = Automatic
+
+	column fim
+		dataType: dateTime
+		formatString: dd/MM/yyyy
+		lineageTag: faecf252-6337-4e84-acb7-23f7adb78680
+		summarizeBy: none
+		sourceColumn: fim
+
+		annotation SummarizationSetBy = Automatic
+
+	column data
+		dataType: dateTime
+		formatString: dd/MM/yyyy
+		lineageTag: c55bf734-aaea-4cef-ab8b-e13ed1e30a66
+		summarizeBy: none
+		sourceColumn: data
+
+		annotation SummarizationSetBy = Automatic
+
+	column hora
+		dataType: int64
+		lineageTag: e29a6279-44ea-4111-a9cb-5ce465d4c259
+		summarizeBy: none
+		sourceColumn: hora
+
+		annotation SummarizationSetBy = Automatic
+
+	column chave
+		dataType: string
+		isHidden
+		lineageTag: 9eb860ee-e330-4346-ad8d-c2b3ffa288df
+		summarizeBy: none
+		sourceColumn: chave
+
+		annotation SummarizationSetBy = Automatic
+
+	partition fato_pa_bancada = m
+		mode: import
+		source =
+				let
+				    Origem = PostgreSQL.Database(Servidor, Banco),
+				    Dados = Origem{[Schema="bi",Item="fato_pa_bancada"]}[Data],
+				    ComChave = Table.AddColumn(Dados, "chave", each
+				        (if [revenda_id] = null then "" else Text.From([revenda_id]))
+				        & "|" &
+				        (if [colaborador_id] = null then "" else Text.From([colaborador_id])),
+				        type text)
+				in
+				    ComChave
+
+	annotation PBI_ResultType = Table
