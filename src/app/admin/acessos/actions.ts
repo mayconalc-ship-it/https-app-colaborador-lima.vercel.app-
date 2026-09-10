@@ -296,6 +296,10 @@ export async function aplicarPerfilNaFicha(formData: FormData) {
     revendaId,
     espelhar,
     quemAplicaId: eu.id,
+    // A mesma regra da tela de Perfis (10/09/2026): perfil de liderança só
+    // promove um colaborador com esta caixa marcada. Sem ela, recusa antes
+    // de gravar -- e o recado diz por quê.
+    tornarLideranca: formData.get("tornar_lideranca") === "on",
   });
   if (!r.ok) voltar("erro", r.erro, revendaId);
 
@@ -310,24 +314,37 @@ export async function aplicarPerfilNaFicha(formData: FormData) {
     .eq("id", revendaId)
     .maybeSingle();
 
+  const unidade = r.tipo === "colaborador" ? "módulo(s) do app" : "permissão(ões)";
+  const papel =
+    r.tipo === "colaborador"
+      ? " O papel não mudou: continua colaborador."
+      : r.promovido
+        ? " Agora entra no Modo Liderança."
+        : "";
+
   await registrar({
     atorId: eu.id,
     atorNome: eu.nome,
     acao: espelhar ? "Espelhou perfil" : "Somou perfil",
     alvoId: colaboradorId,
     alvoNome: r.nome,
-    detalhes: `${revenda?.nome ?? "Revenda"} — perfil ${perfil?.nome ?? perfilId}: ${r.concessoes} permissão(ões)${r.retiradas > 0 ? `, ${r.retiradas} retirada(s)` : ""}`,
+    // A promoção vai escrita na auditoria: é o fato que o defeito de
+    // 10/09/2026 escondeu.
+    detalhes:
+      `${revenda?.nome ?? "Revenda"} — perfil ${perfil?.nome ?? perfilId}: ${r.concessoes} ${unidade}` +
+      (r.retiradas > 0 ? `, ${r.retiradas} retirada(s)` : "") +
+      (r.promovido ? " — PROMOVIDO a liderança, com confirmação" : ""),
     revendaId,
   });
 
   voltar(
     "sucesso",
-    espelhar
-      ? `${r.nome} ficou igual ao perfil ${perfil?.nome ?? ""}: ${r.concessoes} permissão(ões)` +
-          (r.retiradas > 0
-            ? `, e ${r.retiradas} fora do molde foram retiradas.`
-            : " — não havia nada fora do molde.")
-      : `Perfil ${perfil?.nome ?? ""} somado a ${r.nome}: ${r.concessoes} permissão(ões). Nada foi retirado.`,
+    (espelhar
+      ? `${r.nome} ficou igual ao perfil ${perfil?.nome ?? ""}: ${r.concessoes} ${unidade}` +
+        (r.retiradas > 0
+          ? `, e ${r.retiradas} fora do molde foram retirada(s).`
+          : " — não havia nada fora do molde.")
+      : `Perfil ${perfil?.nome ?? ""} somado a ${r.nome}: ${r.concessoes} ${unidade}. Nada foi retirado.`) + papel,
     revendaId,
   );
 }

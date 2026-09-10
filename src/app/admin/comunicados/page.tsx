@@ -2,7 +2,7 @@ import Link from "next/link";
 import { decodificar } from "@/lib/texto-url";
 import { ehFuturo } from "@/lib/comunicados";
 import { editoriasDaRevenda } from "@/lib/editorias";
-import { requireModulo } from "@/lib/require-admin";
+import { podeNoModulo, requireModulo } from "@/lib/require-admin";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { exigirRevenda } from "@/lib/revendas";
 import { PageHeader } from "@/components/PageHeader";
@@ -17,6 +17,14 @@ export default async function AdminComunicadosPage({
 }) {
   await requireModulo("comunicados", "ver");
   const { erro, sucesso } = await searchParams;
+
+  // "Ver" abre a tela e só isso (10/09/2026): publicar, editar e excluir
+  // aparecem para quem tem a ação -- a mesma que o servidor exige.
+  const [podeCriar, podeEditar, podeExcluir] = await Promise.all([
+    podeNoModulo("comunicados", "criar"),
+    podeNoModulo("comunicados", "editar"),
+    podeNoModulo("comunicados", "excluir"),
+  ]);
 
   const admin = createAdminClient();
   const revendaId = await exigirRevenda("/admin");
@@ -106,6 +114,7 @@ export default async function AdminComunicadosPage({
         </p>
       )}
 
+      {podeCriar && (
       <details className="mb-4 rounded-2xl border border-slate-200 bg-white shadow-sm">
         <summary className="cursor-pointer p-4 font-semibold text-primary">
           + Publicar novo comunicado
@@ -118,6 +127,7 @@ export default async function AdminComunicadosPage({
           />
         </div>
       </details>
+      )}
 
       <h2 className="mb-2 font-semibold text-slate-700">
         Publicados ({comunicados?.length ?? 0})
@@ -138,6 +148,8 @@ export default async function AdminComunicadosPage({
               cargosDisponiveis={cargosDisponiveis}
               editorias={todasEditorias}
               editoriasAtivas={editoriasAtivas}
+              podeEditar={podeEditar}
+              podeExcluir={podeExcluir}
             />
           ))}
         </div>

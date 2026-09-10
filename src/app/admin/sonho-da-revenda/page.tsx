@@ -1,5 +1,5 @@
 import { decodificar } from "@/lib/texto-url";
-import { requireModulo } from "@/lib/require-admin";
+import { podeNoModulo, requireModulo } from "@/lib/require-admin";
 import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/PageHeader";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
@@ -17,6 +17,13 @@ export default async function AdminSonhoRevendaPage({
 }) {
   await requireModulo("sonho", "ver");
   const { erro, sucesso, ano: anoParam } = await searchParams;
+  // Salvar = criar, remover o quadro = editar, excluir o ano = excluir --
+  // as mesmas ações que o servidor exige (10/09/2026).
+  const [podeCriar, podeEditar, podeExcluir] = await Promise.all([
+    podeNoModulo("sonho", "criar"),
+    podeNoModulo("sonho", "editar"),
+    podeNoModulo("sonho", "excluir"),
+  ]);
 
   const anoAtual = new Date().getFullYear();
   const ano = Number(anoParam) || anoAtual;
@@ -89,13 +96,15 @@ export default async function AdminSonhoRevendaPage({
             <p className="text-sm text-slate-500">
               Conteúdo cadastrado para {ano}
             </p>
-            <BotaoExcluir
-              action={excluirSonhoDaRevenda}
-              campos={{ ano }}
-              confirmacao={`Excluir todo o Sonho da Revenda de ${ano}? Essa ação não pode ser desfeita.`}
-            >
-              Excluir o sonho de {ano}
-            </BotaoExcluir>
+            {podeExcluir && (
+              <BotaoExcluir
+                action={excluirSonhoDaRevenda}
+                campos={{ ano }}
+                confirmacao={`Excluir todo o Sonho da Revenda de ${ano}? Essa ação não pode ser desfeita.`}
+              >
+                Excluir o sonho de {ano}
+              </BotaoExcluir>
+            )}
           </div>
 
           {atual.frase && (
@@ -128,13 +137,15 @@ export default async function AdminSonhoRevendaPage({
                 <p className="text-xs text-slate-500">
                   Quadro de indicadores atual:
                 </p>
-                <BotaoExcluir
-                  action={removerQuadroIndicadores}
-                  campos={{ ano }}
-                  confirmacao={`Remover o quadro de indicadores de ${ano}?`}
-                >
-                  Remover quadro
-                </BotaoExcluir>
+                {podeEditar && (
+                  <BotaoExcluir
+                    action={removerQuadroIndicadores}
+                    campos={{ ano }}
+                    confirmacao={`Remover o quadro de indicadores de ${ano}?`}
+                  >
+                    Remover quadro
+                  </BotaoExcluir>
+                )}
               </div>
               {atual.quadro_indicadores_url.toLowerCase().endsWith(".pdf") ? (
                 <a
@@ -158,6 +169,7 @@ export default async function AdminSonhoRevendaPage({
         </div>
       )}
 
+      {podeCriar && (
       <form
         action={enviarSonhoDaRevenda}
         className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
@@ -220,6 +232,7 @@ export default async function AdminSonhoRevendaPage({
           Salvar
         </BotaoEnviar>
       </form>
+      )}
     </div>
   );
 }

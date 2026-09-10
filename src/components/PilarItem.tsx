@@ -14,6 +14,8 @@ export function PilarItem({
   onMover,
   onAlternar,
   onExcluir,
+  podeEditar = true,
+  podeExcluir = true,
 }: {
   pilar: PilarCadastrado;
   quantidadeArquivos: number;
@@ -23,6 +25,9 @@ export function PilarItem({
   onMover: (formData: FormData) => void;
   onAlternar: (formData: FormData) => void;
   onExcluir: (formData: FormData) => void;
+  /** Mover, renomear e ocultar são "editar" no servidor. */
+  podeEditar?: boolean;
+  podeExcluir?: boolean;
 }) {
   const [editando, setEditando] = useState(false);
   const aoExcluir = useConfirmarEnvio();
@@ -86,6 +91,8 @@ export function PilarItem({
         </p>
       </div>
 
+      {podeEditar && (
+      <>
       <form action={onMover}>
         <input type="hidden" name="id" value={pilar.id} />
         <input type="hidden" name="direcao" value="cima" />
@@ -134,7 +141,10 @@ export function PilarItem({
           {pilar.visivel ? "Ocultar" : "Mostrar"}
         </BotaoEnviar>
       </form>
+      </>
+      )}
 
+      {podeExcluir && (
       <form
         action={onExcluir}
         onSubmit={aoExcluir({ titulo: `Excluir o pilar "${pilar.nome}"?` })}
@@ -148,6 +158,7 @@ export function PilarItem({
           Excluir
         </BotaoEnviar>
       </form>
+      )}
     </div>
   );
 }

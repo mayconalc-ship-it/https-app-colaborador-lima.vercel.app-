@@ -6,9 +6,26 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { exigirRevenda } from "@/lib/revendas";
 import { requireModulo } from "@/lib/require-admin";
 import { getPerfil } from "@/lib/sessao";
-import { MODULOS } from "@/lib/acessos";
+import { MODULOS, MODULOS_OPCIONAIS } from "@/lib/acessos";
 import { lerConcessoesDoFormulario, type Concessao } from "@/lib/perfis-acesso";
-import { aplicarPerfilA, propagarPerfil } from "@/lib/perfis-acesso-server";
+import {
+  aplicarPerfilA,
+  propagarPerfil,
+  tipoDoPerfil,
+  type TipoDePerfil,
+} from "@/lib/perfis-acesso-server";
+
+/** Os módulos do app marcados no formulário (`app-<modulo>`), só os que
+ *  existem de verdade na lista de módulos liberáveis por pessoa. */
+function lerModulosDoApp(formData: FormData): string[] {
+  const saida: string[] = [];
+  for (const [campo] of formData.entries()) {
+    if (!campo.startsWith("app-")) continue;
+    const modulo = campo.slice("app-".length);
+    if ((MODULOS_OPCIONAIS as readonly string[]).includes(modulo)) saida.push(modulo);
+  }
+  return [...new Set(saida)];
+}
 
 const ROTA = "/admin/perfis-de-acesso";
 
@@ -57,9 +74,27 @@ export async function salvarPerfil(formData: FormData) {
   const descricao = String(formData.get("descricao") ?? "").trim() || null;
   if (!nome) voltar("erro", "Dê um nome ao perfil.");
 
-  const concessoes = apenasValidas(lerConcessoesDoFormulario(formData.entries()));
-  if (concessoes.length === 0) {
+  /*
+    O TIPO É ESCOLHIDO NA CRIAÇÃO E NÃO MUDA DEPOIS (10/09/2026).
+
+    Trocar o tipo de um perfil que já tem gente mudaria de uma vez o
+    significado do acesso de todas essas pessoas -- de "vê no app" para
+    "gerencia no Modo Liderança", ou o contrário. Quem quer o outro tipo
+    cria outro perfil. Por isso, na edição, o tipo vem do banco e o campo
+    do formulário é ignorado.
+  */
+  let tipo: TipoDePerfil =
+    String(formData.get("tipo") ?? "") === "colaborador" ? "colaborador" : "lideranca";
+  if (id) tipo = await tipoDoPerfil(id);
+
+  const concessoes =
+    tipo === "lideranca" ? apenasValidas(lerConcessoesDoFormulario(formData.entries())) : [];
+  const modulosApp = tipo === "colaborador" ? lerModulosDoApp(formData) : [];
+  if (tipo === "lideranca" && concessoes.length === 0) {
     voltar("erro", "Marque ao menos uma permissão -- um perfil vazio não entrega nada a ninguém.");
+  }
+  if (tipo === "colaborador" && modulosApp.length === 0) {
+    voltar("erro", "Marque ao menos um módulo do app -- um perfil vazio não entrega nada a ninguém.");
   }
 
   let perfilId = id;
@@ -73,7 +108,7 @@ export async function salvarPerfil(formData: FormData) {
   } else {
     const { data, error } = await admin
       .from("perfis_acesso")
-      .insert({ revenda_id: revendaId, nome, descricao, criado_por: perfil?.id ?? null })
+      .insert({ revenda_id: revendaId, nome, descricao, tipo, criado_por: perfil?.id ?? null })
       .select("id")
       .maybeSingle();
     if (error) {
@@ -87,27 +122,39 @@ export async function salvarPerfil(formData: FormData) {
     perfilId = data?.id as string;
   }
 
-  await admin.from("perfil_permissoes").delete().eq("perfil_id", perfilId);
-  const { error: erroPerm } = await admin
-    .from("perfil_permissoes")
-    .insert(concessoes.map((c) => ({ perfil_id: perfilId, modulo: c.modulo, acao: c.acao })));
-  if (erroPerm) voltar("erro", `Não foi possível salvar as permissões: ${erroPerm.message}`);
+  if (tipo === "lideranca") {
+    await admin.from("perfil_permissoes").delete().eq("perfil_id", perfilId);
+    const { error: erroPerm } = await admin
+      .from("perfil_permissoes")
+      .insert(concessoes.map((c) => ({ perfil_id: perfilId, modulo: c.modulo, acao: c.acao })));
+    if (erroPerm) voltar("erro", `Não foi possível salvar as permissões: ${erroPerm.message}`);
+  } else {
+    await admin.from("perfil_modulos_app").delete().eq("perfil_id", perfilId);
+    const { error: erroMod } = await admin
+      .from("perfil_modulos_app")
+      .insert(modulosApp.map((modulo) => ({ perfil_id: perfilId, modulo })));
+    if (erroMod) voltar("erro", `Não foi possível salvar os módulos: ${erroMod.message}`);
+  }
 
   const alcance = await propagarPerfil({
     perfilId: perfilId as string,
     revendaId,
+    tipo,
     concessoes,
+    modulosApp,
     quemAplicaId: perfil?.id ?? null,
   });
 
-  let recado = `Perfil "${nome}" salvo com ${concessoes.length} permissão(ões).`;
+  const unidade = tipo === "colaborador" ? "módulo(s) do app" : "permissão(ões)";
+  const total = tipo === "colaborador" ? modulosApp.length : concessoes.length;
+  let recado = `Perfil "${nome}" salvo com ${total} ${unidade}.`;
   if (alcance.pessoas === 0) {
     recado += " Ninguém está neste perfil ainda — aplique-o a alguém para o molde valer.";
   } else if (alcance.acrescentadas === 0 && alcance.retiradas === 0) {
     recado += ` As ${alcance.pessoas} pessoa(s) deste perfil já estavam iguais ao molde.`;
   } else {
     recado += ` ${alcance.pessoas} pessoa(s) deste perfil agora estão iguais ao molde:`;
-    if (alcance.acrescentadas > 0) recado += ` entraram ${alcance.acrescentadas} permissão(ões)`;
+    if (alcance.acrescentadas > 0) recado += ` entraram ${alcance.acrescentadas} ${unidade}`;
     if (alcance.acrescentadas > 0 && alcance.retiradas > 0) recado += " e";
     if (alcance.retiradas > 0) {
       // Nome, e não só número: quem perdeu acesso é a informação que faz
@@ -163,6 +210,8 @@ export async function criarPerfilDePessoa(formData: FormData) {
       revenda_id: revendaId,
       nome,
       descricao: "Criado a partir das permissões de uma pessoa.",
+      // Copia permissões de Modo Liderança, então é perfil de liderança.
+      tipo: "lideranca",
       criado_por: perfil?.id ?? null,
     })
     .select("id")
@@ -270,9 +319,10 @@ export async function tirarDoPerfil(formData: FormData) {
  * O que o espelhar NUNCA toca: as permissões das outras revendas (o
  * `revenda_id` está nos dois lados da conta) e o papel de quem é owner.
  *
- * Papel: quem recebe um perfil vira "lideranca", porque sem isso as
- * concessões não fazem efeito nenhum -- `podeFazer` só as consulta para
- * esse papel. Quem já é owner não é rebaixado.
+ * PAPEL (10/09/2026, depois do defeito grave do perfil "Motorista"):
+ * perfil de COLABORADOR nunca muda o papel. Perfil de LIDERANÇA só promove
+ * um colaborador se a caixa "tornar_lideranca" vier marcada -- sem ela, a
+ * operação é recusada antes de gravar qualquer coisa (ver aplicarPerfilA).
  */
 export async function aplicarPerfil(formData: FormData) {
   await requireModulo("perfis-acesso", "editar");
@@ -297,19 +347,30 @@ export async function aplicarPerfil(formData: FormData) {
     revendaId,
     espelhar,
     quemAplicaId: quemAplica?.id ?? null,
+    // Só vale marcada: qualquer outra coisa -- campo ausente, valor
+    // estranho -- é "não promover".
+    tornarLideranca: formData.get("tornar_lideranca") === "on",
   });
   if (!r.ok) voltar("erro", r.erro, `&perfil=${perfilId}`);
+
+  const unidade = r.tipo === "colaborador" ? "módulo(s) do app" : "permissão(ões)";
+  const papel =
+    r.tipo === "colaborador"
+      ? " O papel não mudou: continua colaborador."
+      : r.promovido
+        ? " Agora entra no Modo Liderança."
+        : "";
 
   revalidatePath(ROTA);
   revalidatePath("/admin/acessos");
   voltar(
     "sucesso",
-    espelhar
-      ? `${r.nome} agora está igual ao perfil: ${r.concessoes} permissão(ões)` +
-          (r.retiradas > 0
-            ? `, e ${r.retiradas} que sobrava(m) foram retiradas.`
-            : " — não havia nada sobrando para retirar.")
-      : `Perfil somado a ${r.nome}: ${r.concessoes} permissão(ões). Nada foi retirado.`,
+    (espelhar
+      ? `${r.nome} agora está igual ao perfil: ${r.concessoes} ${unidade}` +
+        (r.retiradas > 0
+          ? `, e ${r.retiradas} que sobrava(m) foram retirada(s).`
+          : " — não havia nada sobrando para retirar.")
+      : `Perfil somado a ${r.nome}: ${r.concessoes} ${unidade}. Nada foi retirado.`) + papel,
     `&perfil=${perfilId}`,
   );
 }

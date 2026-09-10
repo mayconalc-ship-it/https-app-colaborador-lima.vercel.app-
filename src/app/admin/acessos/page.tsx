@@ -176,33 +176,67 @@ function BlocoDoModulo({
  *     nome por nome, o que vai sair. Confirmação sobre uma lista, não
  *     sobre uma palavra.
  */
+type PerfilDaRevenda = { id: string; nome: string; tipo: "lideranca" | "colaborador" };
+
+/**
+ * A CAIXA DE CONFIRMAÇÃO DA PROMOÇÃO (10/09/2026). Aparece nos
+ * formulários da ficha quando a pessoa é colaborador e o perfil pode ser
+ * de liderança -- o servidor recusa sem ela, e nada é gravado.
+ */
+function ConfirmarLideranca({ nome }: { nome: string }) {
+  return (
+    <label className="flex w-full items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-2 text-[11px] leading-snug text-red-900">
+      <input type="checkbox" name="tornar_lideranca" className="mt-0.5 h-4 w-4 shrink-0" />
+      <span>
+        Se o perfil for <strong>⚙️ Liderança</strong>, confirmo que {nome} passa a{" "}
+        <strong>entrar no Modo Liderança</strong>. Sem esta marca, perfil de liderança não é
+        aplicado — perfil 📱 Colaborador não precisa dela.
+      </span>
+    </label>
+  );
+}
+
 function PerfilDaPessoa({
   pessoaId,
   pessoaNome,
+  papel,
   revendaId,
   meus,
   perfis,
   concessoesDoPerfil,
+  modulosDoPerfil,
   minhas,
+  meusModulos,
 }: {
   pessoaId: string;
   pessoaNome: string;
+  /** O papel da pessoa -- decide se aplicar um perfil de liderança a promove. */
+  papel: string;
   revendaId: string;
-  meus: { id: string; nome: string }[];
-  perfis: { id: string; nome: string }[];
+  meus: PerfilDaRevenda[];
+  perfis: PerfilDaRevenda[];
   concessoesDoPerfil: Map<string, Concessao[]>;
+  modulosDoPerfil: Map<string, string[]>;
   minhas: Set<string>;
+  /** Os módulos do app liberados a esta pessoa nesta revenda. */
+  meusModulos: Set<string>;
 }) {
   const jaTem: Concessao[] = [...minhas].map((c) => {
     const corte = c.lastIndexOf(":");
     return { modulo: c.slice(0, corte), acao: c.slice(corte + 1) };
   });
+  const ehColaborador = papel === "colaborador";
+  const primeiroNome = pessoaNome.split(" ")[0];
 
   const rotuloDaConcessao = (c: Concessao) => {
     const m = moduloPorId(c.modulo);
     return m
       ? `${m.rotulo} · ${rotuloDaAcaoNoModulo(m, c.acao as Acao)}`
       : `${c.modulo}:${c.acao}`;
+  };
+  const rotuloDoModuloApp = (id: string) => {
+    const m = moduloPorId(id);
+    return m ? `${m.emoji} ${m.rotulo} (no app)` : id;
   };
 
   // SEM PERFIL: a tela oferece um, em vez de só constatar a falta.
@@ -239,6 +273,7 @@ function PerfilDaPessoa({
               </option>
               {perfis.map((p) => (
                 <option key={p.id} value={p.id}>
+                  {p.tipo === "colaborador" ? "📱 " : "⚙️ "}
                   {p.nome}
                 </option>
               ))}
@@ -249,7 +284,12 @@ function PerfilDaPessoa({
             >
               Somar este perfil
             </BotaoEnviar>
-            <span className="text-[11px] text-slate-400">Acrescenta; não tira nada.</span>
+            <span className="text-[11px] text-slate-400">
+              Acrescenta; não tira nada. 📱 = módulos do app · ⚙️ = Modo Liderança.
+            </span>
+            {ehColaborador && perfis.some((p) => p.tipo === "lideranca") && (
+              <ConfirmarLideranca nome={primeiroNome} />
+            )}
           </form>
         )}
       </div>
@@ -277,11 +317,28 @@ function PerfilDaPessoa({
   }
 
   const perfil = meus[0];
-  const { entram, foraDoPerfil } = simularAplicacao(
-    concessoesDoPerfil.get(perfil.id) ?? [],
-    jaTem,
-  );
+  // A comparação é com o que o perfil DÁ: módulos do app num perfil de
+  // colaborador, permissões de Modo Liderança no outro. Comparar um perfil
+  // de colaborador com as permissões de liderança da pessoa diria que ela
+  // está "fora do molde" em tudo.
+  let entram: { chave: string; rotulo: string }[];
+  let foraDoPerfil: { chave: string; rotulo: string }[];
+  if (perfil.tipo === "colaborador") {
+    const doPerfil = new Set(modulosDoPerfil.get(perfil.id) ?? []);
+    entram = [...doPerfil]
+      .filter((m) => !meusModulos.has(m))
+      .map((m) => ({ chave: m, rotulo: rotuloDoModuloApp(m) }));
+    foraDoPerfil = [...meusModulos]
+      .filter((m) => !doPerfil.has(m))
+      .map((m) => ({ chave: m, rotulo: rotuloDoModuloApp(m) }));
+  } else {
+    const sim = simularAplicacao(concessoesDoPerfil.get(perfil.id) ?? [], jaTem);
+    const comRotulo = (c: Concessao) => ({ chave: `${c.modulo}:${c.acao}`, rotulo: rotuloDaConcessao(c) });
+    entram = sim.entram.map(comRotulo);
+    foraDoPerfil = sim.foraDoPerfil.map(comRotulo);
+  }
   const igual = entram.length === 0 && foraDoPerfil.length === 0;
+  const pedeConfirmacao = perfil.tipo === "lideranca" && ehColaborador;
 
   return (
     <div
@@ -291,6 +348,9 @@ function PerfilDaPessoa({
     >
       <p className="text-sm font-semibold text-slate-800">
         🎫 {perfil.nome}
+        <span className="ml-2 text-[11px] font-semibold text-slate-500">
+          {perfil.tipo === "colaborador" ? "📱 módulos do app" : "⚙️ Modo Liderança"}
+        </span>
         <span
           className={`ml-2 rounded-full px-2 py-0.5 text-[11px] font-semibold ${
             igual ? "bg-green-600 text-white" : "bg-amber-600 text-white"
@@ -302,7 +362,9 @@ function PerfilDaPessoa({
 
       {igual ? (
         <p className="mt-0.5 text-xs text-slate-500">
-          As permissões desta pessoa são exatamente as do perfil.
+          {perfil.tipo === "colaborador"
+            ? "Os módulos do app desta pessoa são exatamente os do perfil."
+            : "As permissões desta pessoa são exatamente as do perfil."}
         </p>
       ) : (
         <>
@@ -314,7 +376,7 @@ function PerfilDaPessoa({
                 </p>
                 <ul className="mt-0.5 space-y-0.5 text-slate-700">
                   {foraDoPerfil.map((c) => (
-                    <li key={`${c.modulo}:${c.acao}`}>+ {rotuloDaConcessao(c)}</li>
+                    <li key={c.chave}>+ {c.rotulo}</li>
                   ))}
                 </ul>
               </div>
@@ -326,7 +388,7 @@ function PerfilDaPessoa({
                 </p>
                 <ul className="mt-0.5 space-y-0.5 text-slate-700">
                   {entram.map((c) => (
-                    <li key={`${c.modulo}:${c.acao}`}>− {rotuloDaConcessao(c)}</li>
+                    <li key={c.chave}>− {c.rotulo}</li>
                   ))}
                 </ul>
               </div>
@@ -337,7 +399,7 @@ function PerfilDaPessoa({
             {/* VOLTAR AO MOLDE é o espelhar: acrescenta o que falta e
                 RETIRA o que sobra. A lista acima é a confirmação -- quem
                 aperta já leu, nome por nome, o que sai. */}
-            <form action={aplicarPerfilNaFicha}>
+            <form action={aplicarPerfilNaFicha} className="space-y-1.5">
               <input type="hidden" name="revenda" value={revendaId} />
               <input type="hidden" name="colaborador_id" value={pessoaId} />
               <input type="hidden" name="perfil_id" value={perfil.id} />
@@ -346,14 +408,16 @@ function PerfilDaPessoa({
                 textoEnviando="Aplicando..."
                 className="rounded-lg bg-amber-600 px-3 py-2 text-xs font-semibold text-white hover:bg-amber-700"
               >
-                Deixar {pessoaNome.split(" ")[0]} igual ao perfil
+                Deixar {primeiroNome} igual ao perfil
               </BotaoEnviar>
+              {pedeConfirmacao && <ConfirmarLideranca nome={primeiroNome} />}
             </form>
             {entram.length > 0 && (
-              <form action={aplicarPerfilNaFicha}>
+              <form action={aplicarPerfilNaFicha} className="space-y-1.5">
                 <input type="hidden" name="revenda" value={revendaId} />
                 <input type="hidden" name="colaborador_id" value={pessoaId} />
                 <input type="hidden" name="perfil_id" value={perfil.id} />
+                {pedeConfirmacao && <ConfirmarLideranca nome={primeiroNome} />}
                 <BotaoEnviar
                   textoEnviando="Aplicando..."
                   className="rounded-lg border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700 hover:border-primary hover:text-primary"
@@ -472,13 +536,15 @@ export default async function GestaoDeAcessosPage({
       .neq("revenda_id", escolhida.id),
     // O MOLDE e quem o veste -- é o que faltava para esta tela poder
     // dizer "está fora do molde". Ver o bloco PerfilDaPessoa abaixo.
-    admin.from("perfis_acesso").select("id, nome").eq("revenda_id", escolhida.id).order("nome"),
+    admin.from("perfis_acesso").select("id, nome, tipo").eq("revenda_id", escolhida.id).order("nome"),
     admin.from("perfil_permissoes").select("perfil_id, modulo, acao"),
     admin
       .from("perfil_pessoas")
       .select("perfil_id, colaborador_id")
       .eq("revenda_id", escolhida.id),
   ]);
+  // Os módulos do app de cada perfil de colaborador (migration 111).
+  const { data: perfilModulosApp } = await admin.from("perfil_modulos_app").select("perfil_id, modulo");
 
   const porPessoa = new Map<string, Set<string>>();
   for (const p of permissoes ?? []) {
@@ -546,7 +612,13 @@ export default async function GestaoDeAcessosPage({
   const analisesDaRevenda = PAINEIS.filter((p) => modulos.some((m) => m.id === p.modulo));
 
   // O molde de cada pessoa: qual perfil ela veste e o que ele contém.
-  const perfis = (perfisBanco ?? []) as { id: string; nome: string }[];
+  const perfis: PerfilDaRevenda[] = ((perfisBanco ?? []) as { id: string; nome: string; tipo: string }[]).map(
+    (p) => ({ id: p.id, nome: p.nome, tipo: p.tipo === "colaborador" ? "colaborador" : "lideranca" }),
+  );
+  const modulosDoPerfil = new Map<string, string[]>();
+  for (const m of perfilModulosApp ?? []) {
+    modulosDoPerfil.set(m.perfil_id, [...(modulosDoPerfil.get(m.perfil_id) ?? []), m.modulo]);
+  }
   const concessoesDoPerfil = new Map<string, Concessao[]>();
   for (const p of perfilPermissoes ?? []) {
     const lista = concessoesDoPerfil.get(p.perfil_id) ?? [];
@@ -557,7 +629,7 @@ export default async function GestaoDeAcessosPage({
   // (o supervisor que também é analista). A comparação com o molde só faz
   // sentido quando há exatamente um -- com dois, qual deles seria o
   // molde? A tela diz isso em vez de escolher sozinha.
-  const perfisDaPessoa = new Map<string, { id: string; nome: string }[]>();
+  const perfisDaPessoa = new Map<string, PerfilDaRevenda[]>();
   for (const v of perfilPessoas ?? []) {
     const perfil = perfis.find((p) => p.id === v.perfil_id);
     if (!perfil) continue;
@@ -1184,11 +1256,14 @@ export default async function GestaoDeAcessosPage({
                   <PerfilDaPessoa
                     pessoaId={p.id}
                     pessoaNome={p.nome ?? ""}
+                    papel={p.role}
                     revendaId={escolhida.id}
                     meus={meusPerfis}
                     perfis={perfis}
                     concessoesDoPerfil={concessoesDoPerfil}
+                    modulosDoPerfil={modulosDoPerfil}
                     minhas={minhas}
+                    meusModulos={extrasPorPessoa.get(p.id) ?? new Set<string>()}
                   />
                 </div>
 

@@ -29,11 +29,16 @@ export function RankingItem({
   sugestoes,
   onAtualizar,
   onExcluir,
+  podeEditar = true,
+  podeExcluir = true,
 }: {
   registro: Registro;
   sugestoes: Record<TimeRanking, string[]>;
   onAtualizar: (formData: FormData) => void;
   onExcluir: (formData: FormData) => void;
+  /** Quem só tem "ver" não recebe botão que o servidor vai recusar. */
+  podeEditar?: boolean;
+  podeExcluir?: boolean;
 }) {
   const [editando, setEditando] = useState(false);
   const aoExcluir = useConfirmarEnvio();
@@ -129,6 +134,7 @@ export function RankingItem({
           {registro.time} · {formatarMes(registro.mes_ano)}
         </p>
       </div>
+      {podeEditar && (
       <button
         type="button"
         onClick={() => setEditando(true)}
@@ -136,6 +142,8 @@ export function RankingItem({
       >
         Editar
       </button>
+      )}
+      {podeExcluir && (
       <form
         action={onExcluir}
         onSubmit={aoExcluir({
@@ -151,6 +159,7 @@ export function RankingItem({
           Excluir
         </BotaoEnviar>
       </form>
+      )}
     </div>
   );
 }

@@ -20,12 +20,17 @@ export function PadraoItem({
   pilares,
   onAtualizar,
   onExcluir,
+  podeEditar = true,
+  podeExcluir = true,
 }: {
   padrao: Padrao;
   pastas: string[];
   pilares: string[];
   onAtualizar: (formData: FormData) => void;
   onExcluir: (formData: FormData) => void;
+  /** Quem só tem "ver" não recebe botão que o servidor vai recusar. */
+  podeEditar?: boolean;
+  podeExcluir?: boolean;
 }) {
   const [editando, setEditando] = useState(false);
   const aoExcluir = useConfirmarEnvio();
@@ -117,6 +122,7 @@ export function PadraoItem({
       >
         {padrao.nome}
       </a>
+      {podeEditar && (
       <button
         type="button"
         onClick={() => setEditando(true)}
@@ -124,6 +130,8 @@ export function PadraoItem({
       >
         Editar
       </button>
+      )}
+      {podeExcluir && (
       <form
         action={onExcluir}
         onSubmit={aoExcluir({
@@ -140,6 +148,7 @@ export function PadraoItem({
           Excluir
         </BotaoEnviar>
       </form>
+      )}
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import { decodificar } from "@/lib/texto-url";
-import { requireModulo } from "@/lib/require-admin";
+import { podeNoModulo, requireModulo } from "@/lib/require-admin";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { PageHeader } from "@/components/PageHeader";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
@@ -15,6 +15,9 @@ export default async function AdminEscalaPage({
 }) {
   await requireModulo("escala", "ver");
   const { erro, sucesso } = await searchParams;
+  // Trocar e remover a escala exigem "editar" no servidor; só "ver" vê a
+  // escala publicada e nada mais (10/09/2026).
+  const podeEditar = await podeNoModulo("escala", "editar");
 
   const admin = createAdminClient();
   const revendaId = await exigirRevenda("/admin");
@@ -44,11 +47,13 @@ export default async function AdminEscalaPage({
         </p>
       )}
 
+      {podeEditar && (
       <p className="mb-4 rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-600 shadow-sm">
         Envie a escala em <strong>PDF</strong> ou <strong>imagem</strong>. O
         colaborador vê direto na tela, sem precisar baixar. Trocar o arquivo
         substitui o anterior automaticamente.
       </p>
+      )}
 
       <div className="space-y-4">
         {AREAS.map((area) => {
@@ -85,6 +90,7 @@ export default async function AdminEscalaPage({
                     atualizada em{" "}
                     {new Date(atual.atualizado_em).toLocaleDateString("pt-BR")}
                   </span>
+                  {podeEditar && (
                   <div className="ml-auto">
                     <BotaoExcluir
                       action={removerEscala}
@@ -94,9 +100,11 @@ export default async function AdminEscalaPage({
                       Remover
                     </BotaoExcluir>
                   </div>
+                  )}
                 </div>
               )}
 
+              {podeEditar && (
               <form action={salvarEscala} className="space-y-3">
                 <input type="hidden" name="area" value={area.id} />
 
@@ -142,6 +150,7 @@ export default async function AdminEscalaPage({
                   Salvar escala de {area.curto}
                 </BotaoEnviar>
               </form>
+              )}
             </div>
           );
         })}

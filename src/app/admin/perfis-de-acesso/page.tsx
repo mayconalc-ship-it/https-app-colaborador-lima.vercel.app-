@@ -7,7 +7,14 @@ import { AplicarPerfil } from "@/components/admin/AplicarPerfil";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getRevendaId } from "@/lib/revendas";
 import { requireModulo, podeNoModulo } from "@/lib/require-admin";
-import { GRUPOS_DO_ADMIN, MODULOS, ROTULO_ACAO, rotuloDaAcaoNoModulo } from "@/lib/acessos";
+import {
+  GRUPOS_DO_ADMIN,
+  MODULOS,
+  MODULOS_OPCIONAIS,
+  ROTULO_ACAO,
+  moduloPorId,
+  rotuloDaAcaoNoModulo,
+} from "@/lib/acessos";
 import { agruparPorModulo, type Concessao } from "@/lib/perfis-acesso";
 import {
   aplicarPerfil,
@@ -23,10 +30,19 @@ const campo =
   "w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-base text-slate-900 focus:border-primary focus:outline-none";
 const rotulo = "mb-1 block text-xs font-semibold uppercase text-slate-500";
 
-type Perfil = { id: string; nome: string; descricao: string | null };
+type TipoDePerfil = "lideranca" | "colaborador";
+type Perfil = { id: string; nome: string; descricao: string | null; tipo: TipoDePerfil };
 
 /**
  * PERFIS DE ACESSO
+ *
+ * DOIS TIPOS (10/09/2026, migration 111). Um perfil "Motorista", montado
+ * para dizer o que o motorista vê no app, promoveu o motorista a
+ * liderança -- a tela só sabia montar permissão de Modo Liderança. Agora o
+ * tipo é escolhido na criação:
+ *   📱 Colaborador -- os módulos que a pessoa vê no app. Nunca muda o papel.
+ *   ⚙️ Liderança   -- ver/criar/editar/excluir no Modo Liderança. Promover
+ *                    um colaborador pede confirmação explícita.
  *
  * "Liderança" nunca foi um perfil -- era um saco de concessões módulo ×
  * ação preenchido à mão, pessoa por pessoa. Não havia como dizer "este é
@@ -41,7 +57,13 @@ type Perfil = { id: string; nome: string; descricao: string | null };
 export default async function PerfisDeAcessoPage({
   searchParams,
 }: {
-  searchParams: Promise<{ erro?: string; sucesso?: string; perfil?: string; novo?: string }>;
+  searchParams: Promise<{
+    erro?: string;
+    sucesso?: string;
+    perfil?: string;
+    /** "colaborador" ou "lideranca" -- o tipo do perfil que está nascendo. */
+    novo?: string;
+  }>;
 }) {
   await requireModulo("perfis-acesso", "ver");
   const sp = await searchParams;
@@ -60,8 +82,15 @@ export default async function PerfisDeAcessoPage({
     { data: pessoasBanco },
     { data: concessoesBanco },
     { data: vinculosBanco },
+    { data: modulosDePerfilBanco },
+    { data: extrasBanco },
+    { data: ativosBanco },
   ] = await Promise.all([
-    admin.from("perfis_acesso").select("id, nome, descricao").eq("revenda_id", revendaId).order("nome"),
+    admin
+      .from("perfis_acesso")
+      .select("id, nome, descricao, tipo")
+      .eq("revenda_id", revendaId)
+      .order("nome"),
     admin.from("perfil_permissoes").select("perfil_id, modulo, acao"),
     admin.from("profiles").select("id, nome, cargo, role").order("nome"),
     // Da revenda aberta, e só dela: é com estas concessões que a tela
@@ -79,9 +108,38 @@ export default async function PerfisDeAcessoPage({
       .from("perfil_pessoas")
       .select("perfil_id, colaborador_id")
       .eq("revenda_id", revendaId),
+    // Os módulos do app de cada perfil de COLABORADOR, e os que cada
+    // pessoa já tem liberados nesta revenda.
+    admin.from("perfil_modulos_app").select("perfil_id, modulo"),
+    admin
+      .from("colaborador_modulos_extra")
+      .select("colaborador_id, modulo")
+      .eq("revenda_id", revendaId),
+    // Só se oferece módulo que a revenda tem ligado: liberar um módulo
+    // desligado prometeria uma tela que não aparece.
+    admin.from("revenda_modulos").select("modulo").eq("revenda_id", revendaId).eq("ativo", true),
   ]);
 
-  const perfis = (perfisBanco ?? []) as Perfil[];
+  const perfis = ((perfisBanco ?? []) as Perfil[]).map((p) => ({
+    ...p,
+    tipo: (p.tipo === "colaborador" ? "colaborador" : "lideranca") as TipoDePerfil,
+  }));
+
+  const modulosDoPerfil = new Map<string, string[]>();
+  for (const m of (modulosDePerfilBanco ?? []) as { perfil_id: string; modulo: string }[]) {
+    modulosDoPerfil.set(m.perfil_id, [...(modulosDoPerfil.get(m.perfil_id) ?? []), m.modulo]);
+  }
+  const modulosDaPessoa: Record<string, string[]> = {};
+  for (const e of (extrasBanco ?? []) as { colaborador_id: string; modulo: string }[]) {
+    (modulosDaPessoa[e.colaborador_id] ??= []).push(e.modulo);
+  }
+  const ativos = new Set((ativosBanco ?? []).map((a) => a.modulo as string));
+  const modulosAppDaRevenda = MODULOS_OPCIONAIS.filter((m) => ativos.has(m)) as string[];
+  const rotulosDeModuloApp: Record<string, string> = {};
+  for (const m of MODULOS_OPCIONAIS) {
+    const mod = moduloPorId(m);
+    rotulosDeModuloApp[m] = mod ? `${mod.emoji} ${mod.rotulo}` : m;
+  }
   const permsDoPerfil = new Map<string, Concessao[]>();
   for (const p of (permsBanco ?? []) as { perfil_id: string; modulo: string; acao: string }[]) {
     const lista = permsDoPerfil.get(p.perfil_id) ?? [];
@@ -125,11 +183,26 @@ export default async function PerfisDeAcessoPage({
     }
     return escudo;
   };
+  // O mesmo escudo para os módulos do app (ver modulosDosOutrosPerfis).
+  const modulosProtegidos = (colaboradorId: string, perfilIgnorado: string) => {
+    const escudo = new Set<string>();
+    for (const outro of perfisDaPessoa.get(colaboradorId) ?? []) {
+      if (outro === perfilIgnorado) continue;
+      for (const m of modulosDoPerfil.get(outro) ?? []) escudo.add(m);
+    }
+    return escudo;
+  };
+
+  const papelDe: Record<string, string> = {};
+  for (const p of pessoas) papelDe[p.id] = p.role;
 
   const emEdicao = sp.perfil ? perfis.find((p) => p.id === sp.perfil) ?? null : null;
-  const criandoNovo = sp.novo === "1";
+  const tipoNovo: TipoDePerfil | null =
+    sp.novo === "colaborador" ? "colaborador" : sp.novo === "lideranca" || sp.novo === "1" ? "lideranca" : null;
+  const criandoNovo = tipoNovo !== null;
   const permsEmEdicao = emEdicao ? permsDoPerfil.get(emEdicao.id) ?? [] : [];
   const marcadas = new Set(permsEmEdicao.map((c) => `${c.modulo}:${c.acao}`));
+  const modulosMarcados = new Set(emEdicao ? modulosDoPerfil.get(emEdicao.id) ?? [] : []);
 
   // Chave como string: o módulo vem do BANCO, e um id que saiu do
   // catálogo (módulo renomeado, permissão antiga) tem que aparecer com o
@@ -184,7 +257,7 @@ export default async function PerfisDeAcessoPage({
       <div className="rounded-2xl bg-slate-50 p-4 text-xs leading-relaxed text-slate-600">
         <p>
           <strong>Um perfil é um molde, não uma pessoa.</strong> Ele guarda um
-          conjunto de permissões com nome — &quot;Analista de Rota&quot; — para
+          conjunto de acessos com nome — &quot;Analista de Rota&quot; — para
           não remontar tudo à mão a cada contratação. Aplicá-lo grava
           exatamente as mesmas marcações que você faria em{" "}
           <Link
@@ -194,6 +267,15 @@ export default async function PerfisDeAcessoPage({
             Acessos por Pessoa
           </Link>
           : não é um segundo sistema de permissão, é um atalho para o mesmo.
+        </p>
+        <p className="mt-2">
+          <strong>Existem dois tipos, e eles não se misturam.</strong>{" "}
+          <span className="font-semibold text-emerald-800">📱 Colaborador</span> diz quais
+          módulos a pessoa vê no app (Comunicados, Escala, Ranking…) — ela continua
+          colaborador e <strong>nunca</strong> entra no Modo Liderança.{" "}
+          <span className="font-semibold text-amber-800">⚙️ Liderança</span> diz o que a pessoa
+          pode <strong>ver, criar, editar e excluir</strong> no Modo Liderança; aplicá-lo a um
+          colaborador só acontece com uma confirmação em vermelho.
         </p>
         <p className="mt-2">
           Ao aplicar você escolhe entre <strong>Somar</strong>, que acrescenta o
@@ -221,7 +303,9 @@ export default async function PerfisDeAcessoPage({
       ) : (
         <div className="space-y-3">
           {perfis.map((p) => {
+            const ehColaborador = p.tipo === "colaborador";
             const perms = permsDoPerfil.get(p.id) ?? [];
+            const modulosApp = modulosDoPerfil.get(p.id) ?? [];
             const idsDoPerfil = new Set(doPerfil.get(p.id) ?? []);
             const quantos = idsDoPerfil.size;
             const porModulo = agruparPorModulo(perms);
@@ -255,8 +339,19 @@ export default async function PerfisDeAcessoPage({
                     )}
                   </div>
                   <div className="flex shrink-0 items-center gap-2">
+                    {/* O TIPO NA CARA DO PERFIL: é a primeira coisa a saber
+                        antes de aplicá-lo em alguém. */}
+                    <span
+                      className={`rounded-lg px-2 py-1 text-[11px] font-bold ${
+                        ehColaborador ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"
+                      }`}
+                    >
+                      {ehColaborador ? "📱 Colaborador" : "⚙️ Liderança"}
+                    </span>
                     <span className="rounded-lg bg-slate-100 px-2 py-1 text-[11px] font-bold text-slate-600">
-                      {perms.length} permissão(ões)
+                      {ehColaborador
+                        ? `${modulosApp.length} módulo(s) do app`
+                        : `${perms.length} permissão(ões)`}
                     </span>
                     <span className="rounded-lg bg-primary-soft px-2 py-1 text-[11px] font-bold text-primary-dark">
                       {quantos} pessoa(s)
@@ -270,6 +365,30 @@ export default async function PerfisDeAcessoPage({
                       comunicado com cadastrar produto; por gaveta, dá
                       para ver de relance que um perfil é "tudo de
                       Comunicação e nada de Configuração". */}
+                  {ehColaborador ? (
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">
+                        Vê no app
+                      </p>
+                      {modulosApp.length === 0 ? (
+                        <p className="mt-1 text-xs text-slate-500">Nenhum módulo marcado.</p>
+                      ) : (
+                        <div className="mt-1 flex flex-wrap gap-1.5">
+                          {modulosApp.map((m) => (
+                            <span
+                              key={m}
+                              className="rounded-lg bg-emerald-50 px-2 py-0.5 text-[11px] text-emerald-900"
+                            >
+                              {rotulosDeModuloApp[m] ?? m}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                      <p className="mt-1.5 text-[11px] text-slate-400">
+                        Não dá acesso ao Modo Liderança: nada aqui cria, edita ou exclui.
+                      </p>
+                    </div>
+                  ) : (
                   <div className="space-y-2">
                     {GRUPOS_DO_ADMIN.map((grupo) => {
                       const doGrupo = [...porModulo].filter(
@@ -328,6 +447,7 @@ export default async function PerfisDeAcessoPage({
                       );
                     })()}
                   </div>
+                  )}
 
                   {/* QUEM TEM ESTE PERFIL -- os que ele foi APLICADO A.
                       Não mais "quem tem todas as permissões dele": essa
@@ -366,7 +486,7 @@ export default async function PerfisDeAcessoPage({
                                 <BotaoExcluir
                                   action={tirarDoPerfil}
                                   campos={{ perfil_id: p.id, colaborador_id: pessoa.id }}
-                                  confirmacao={`Tirar ${pessoa.nome} da lista do perfil "${p.nome}"? As permissões dela NÃO mudam — só o vínculo com o perfil some.`}
+                                  confirmacao={`Tirar ${pessoa.nome} da lista do perfil "${p.nome}"? Os acessos dela NÃO mudam — só o vínculo com o perfil some.`}
                                   rotuloConfirmar="Tirar do perfil"
                                   perigo={false}
                                   textoEnviando="..."
@@ -424,15 +544,28 @@ export default async function PerfisDeAcessoPage({
                     <div className="mt-3 border-t border-slate-100 pt-3">
                       <GradeDePermissoes
                         perfil={p}
+                        tipo={p.tipo}
                         marcadas={marcadas}
+                        modulosMarcados={modulosMarcados}
+                        modulosApp={modulosAppDaRevenda}
                         noPerfil={(doPerfil.get(p.id) ?? []).map((id) => {
+                          const nome = pessoas.find((x) => x.id === id)?.nome ?? "sem nome";
+                          // O que essa pessoa perderia num salvar de
+                          // AGORA, sem mexer em nada: o que ela tem, o
+                          // molde salvo não tem e nenhum outro perfil
+                          // dela sustenta.
+                          if (ehColaborador) {
+                            const escudo = modulosProtegidos(id, p.id);
+                            return {
+                              nome,
+                              perderia: (modulosDaPessoa[id] ?? [])
+                                .filter((m) => !modulosMarcados.has(m) && !escudo.has(m))
+                                .map((m) => rotulosDeModuloApp[m] ?? m),
+                            };
+                          }
                           const escudo = protegidoPor(id, p.id);
                           return {
-                            nome: pessoas.find((x) => x.id === id)?.nome ?? "sem nome",
-                            // O que essa pessoa perderia num salvar de
-                            // AGORA, sem mexer em nada: o que ela tem, o
-                            // molde salvo não tem e nenhum outro perfil
-                            // dela sustenta.
+                            nome,
                             perderia: (jaTem[id] ?? [])
                               .filter((c) => !marcadas.has(c) && !escudo.has(c))
                               .map((c) => rotulosDeConcessao[c] ?? c),
@@ -450,9 +583,13 @@ export default async function PerfisDeAcessoPage({
                       perfilId={p.id}
                       perfilNome={p.nome}
                       pessoas={pessoas}
-                      doPerfil={perms.map((c) => `${c.modulo}:${c.acao}`)}
-                      jaTem={jaTem}
-                      rotulos={rotulosDeConcessao}
+                      tipo={p.tipo}
+                      papelDe={papelDe}
+                      doPerfil={
+                        ehColaborador ? modulosApp : perms.map((c) => `${c.modulo}:${c.acao}`)
+                      }
+                      jaTem={ehColaborador ? modulosDaPessoa : jaTem}
+                      rotulos={ehColaborador ? rotulosDeModuloApp : rotulosDeConcessao}
                     />
                   </div>
                 )}
@@ -466,12 +603,14 @@ export default async function PerfisDeAcessoPage({
       {podeEditar && !emEdicao && !criandoNovo && (
         <details className="overflow-hidden rounded-2xl border border-slate-200 bg-white" open={perfis.length === 0}>
           <summary className="cursor-pointer list-none p-4 text-sm font-semibold text-slate-700">
-            👤 Criar a partir de uma pessoa
+            👤 Criar a partir de uma pessoa{" "}
+            <span className="font-normal text-slate-400">(perfil de liderança)</span>
           </summary>
           <form action={criarPerfilDePessoa} className="space-y-3 border-t border-slate-100 p-4">
             <p className="text-xs text-slate-500">
-              Copia as permissões que alguém já tem. É o jeito mais honesto de começar — os perfis
-              que a operação usa já estão no banco, só não têm nome.
+              Copia as permissões de Modo Liderança que alguém já tem, e o perfil nasce do tipo
+              ⚙️ Liderança. Para os módulos que um colaborador vê no app, monte um perfil 📱
+              Colaborador do zero.
             </p>
             <div>
               <label className={rotulo} htmlFor="de-pessoa">Copiar de</label>
@@ -495,13 +634,32 @@ export default async function PerfisDeAcessoPage({
         </details>
       )}
 
+      {/* O TIPO SE ESCOLHE AQUI, antes de qualquer marcação -- e não
+          muda depois. São duas portas porque são duas perguntas
+          diferentes: "o que a pessoa vê no app?" e "o que ela gerencia?". */}
       {podeEditar && !emEdicao && !criandoNovo && (
-        <Link
-          href="/admin/perfis-de-acesso?novo=1"
-          className="block rounded-2xl border border-dashed border-slate-300 p-4 text-center text-sm font-semibold text-primary hover:border-primary"
-        >
-          + Montar um perfil do zero
-        </Link>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Link
+            href="/admin/perfis-de-acesso?novo=colaborador"
+            className="block rounded-2xl border border-dashed border-emerald-300 p-4 hover:border-emerald-500 hover:bg-emerald-50/50"
+          >
+            <span className="block text-sm font-bold text-emerald-800">+ 📱 Perfil de colaborador</span>
+            <span className="mt-1 block text-xs leading-snug text-slate-500">
+              Quais módulos a pessoa vê no app. Ela continua colaborador — não entra no Modo
+              Liderança. Ex.: Motorista, Ajudante.
+            </span>
+          </Link>
+          <Link
+            href="/admin/perfis-de-acesso?novo=lideranca"
+            className="block rounded-2xl border border-dashed border-amber-300 p-4 hover:border-amber-500 hover:bg-amber-50/50"
+          >
+            <span className="block text-sm font-bold text-amber-800">+ ⚙️ Perfil de liderança</span>
+            <span className="mt-1 block text-xs leading-snug text-slate-500">
+              O que a pessoa pode ver, criar, editar e excluir no Modo Liderança. Ex.: Supervisor,
+              Analista de Rota.
+            </span>
+          </Link>
+        </div>
       )}
 
       {/* ---------- GRADE DE PERMISSÕES, SÓ PARA O PERFIL NOVO ----------
@@ -513,8 +671,13 @@ export default async function PerfisDeAcessoPage({
           entre o perfil e as configurações dele ficavam os outros perfis.
           A tela mostrava duas coisas ligadas em lugares distantes, e nada
           dizia que uma era da outra. */}
-      {podeEditar && criandoNovo && (
-        <GradeDePermissoes marcadas={marcadas} />
+      {podeEditar && tipoNovo && (
+        <GradeDePermissoes
+          tipo={tipoNovo}
+          marcadas={marcadas}
+          modulosMarcados={modulosMarcados}
+          modulosApp={modulosAppDaRevenda}
+        />
       )}
     </div>
   );
@@ -528,20 +691,52 @@ export default async function PerfisDeAcessoPage({
  */
 function GradeDePermissoes({
   perfil,
+  tipo,
   marcadas,
+  modulosMarcados,
+  modulosApp,
   noPerfil = [],
 }: {
   perfil?: Perfil;
+  tipo: TipoDePerfil;
   marcadas: Set<string>;
+  /** Os módulos do app já marcados (perfil de colaborador). */
+  modulosMarcados: Set<string>;
+  /** Os módulos do app que esta revenda tem ligados. */
+  modulosApp: string[];
   /** Quem está neste perfil e o que cada um perderia num salvar de agora. */
   noPerfil?: { nome: string; perderia: string[] }[];
 }) {
   const emEdicao = perfil ?? null;
   const perdendo = noPerfil.filter((p) => p.perderia.length > 0);
+  const ehColaborador = tipo === "colaborador";
 
   return (
         <form action={salvarPerfil} className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
           {emEdicao && <input type="hidden" name="id" value={emEdicao.id} />}
+          {/* Na edição o servidor lê o tipo do banco e ignora este campo --
+              o tipo não muda depois de criado. */}
+          <input type="hidden" name="tipo" value={tipo} />
+
+          <p
+            className={`rounded-xl px-3 py-2 text-xs leading-snug ${
+              ehColaborador ? "bg-emerald-50 text-emerald-900" : "bg-amber-50 text-amber-900"
+            }`}
+          >
+            {ehColaborador ? (
+              <>
+                <strong>📱 Perfil de colaborador.</strong> Marque os módulos que a pessoa vê no
+                app. Ela continua colaborador: não entra no Modo Liderança, e não cria, edita
+                nem exclui nada da gestão.
+              </>
+            ) : (
+              <>
+                <strong>⚙️ Perfil de liderança.</strong> Cada linha é uma ação no Modo Liderança —
+                ver, criar, editar, excluir. Marque só o que o cargo precisa: quem tem só
+                &quot;ver&quot; abre a tela e não recebe botão de editar nem de excluir.
+              </>
+            )}
+          </p>
 
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
@@ -551,7 +746,7 @@ function GradeDePermissoes({
                 name="nome"
                 required
                 defaultValue={emEdicao?.nome ?? ""}
-                placeholder="Ex.: Supervisor de Armazém"
+                placeholder={ehColaborador ? "Ex.: Motorista" : "Ex.: Supervisor de Armazém"}
                 className={campo}
               />
             </div>
@@ -567,6 +762,35 @@ function GradeDePermissoes({
             </div>
           </div>
 
+          {ehColaborador ? (
+            modulosApp.length === 0 ? (
+              <p className="rounded-xl bg-slate-50 p-3 text-xs text-slate-500">
+                Esta revenda não tem nenhum módulo opcional ligado — não há o que liberar.
+              </p>
+            ) : (
+              <div className="grid gap-2 sm:grid-cols-2">
+                {modulosApp.map((id) => {
+                  const m = moduloPorId(id);
+                  return (
+                    <label
+                      key={id}
+                      className="flex items-center gap-2 rounded-xl border border-slate-200 p-3 text-sm text-slate-700 has-[:checked]:border-emerald-400 has-[:checked]:bg-emerald-50"
+                    >
+                      <input
+                        type="checkbox"
+                        name={`app-${id}`}
+                        defaultChecked={modulosMarcados.has(id)}
+                        className="h-4 w-4 shrink-0 rounded border-slate-300 text-primary"
+                      />
+                      <span>
+                        {m?.emoji} {m?.rotulo ?? id}
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
+            )
+          ) : (
           <div className="space-y-4">
             {GRUPOS_DO_ADMIN.map((grupo) => {
               const doGrupo = MODULOS.filter((m) => m.grupo === grupo && !m.subGrupoDe);
@@ -612,6 +836,7 @@ function GradeDePermissoes({
               );
             })}
           </div>
+          )}
 
           {/* O ALCANCE DO SALVAR, ANTES DE SALVAR. Quem mexe no molde
               precisa saber que o clique alcança gente -- e quem. Dizer isso
@@ -625,7 +850,7 @@ function GradeDePermissoes({
                   {noPerfil.length} pessoa{noPerfil.length > 1 ? "s" : ""}
                 </strong>{" "}
                 deste perfil <strong>iguais ao molde</strong>: o que você marcar entra, e o que
-                estiver desmarcado sai.
+                estiver desmarcado sai. Salvar nunca muda o papel de ninguém.
               </p>
               {perdendo.length > 0 && (
                 <details className="rounded-lg bg-white/70 px-2 py-1.5">

@@ -1,5 +1,5 @@
 import { decodificar } from "@/lib/texto-url";
-import { requireModulo } from "@/lib/require-admin";
+import { podeNoModulo, requireModulo } from "@/lib/require-admin";
 import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/PageHeader";
 import { RankingForm } from "@/components/RankingForm";
@@ -35,6 +35,12 @@ export default async function AdminRankingPage({
 }) {
   await requireModulo("ranking", "ver");
   const { erro, sucesso, time: timeParam, mes: mesParam } = await searchParams;
+  // Enviar, editar e excluir aparecem só para quem tem a ação (10/09/2026).
+  const [podeCriar, podeEditar, podeExcluir] = await Promise.all([
+    podeNoModulo("ranking", "criar"),
+    podeNoModulo("ranking", "editar"),
+    podeNoModulo("ranking", "excluir"),
+  ]);
 
   // Time e mês do último envio, devolvidos pela ação. Quem lança o AL
   // categoria por categoria não pode ver o seletor voltar sozinho para DU
@@ -99,12 +105,14 @@ export default async function AdminRankingPage({
         </p>
       )}
 
-      <RankingForm
-        action={enviarRanking}
-        sugestoes={sugestoes}
-        timeInicial={timeInicial}
-        mesInicial={mesInicial}
-      />
+      {podeCriar && (
+        <RankingForm
+          action={enviarRanking}
+          sugestoes={sugestoes}
+          timeInicial={timeInicial}
+          mesInicial={mesInicial}
+        />
+      )}
 
       <h2 className="mb-2 font-semibold text-slate-700">
         Fotos cadastradas ({historico?.length ?? 0})
@@ -156,6 +164,8 @@ export default async function AdminRankingPage({
                             sugestoes={sugestoes}
                             onAtualizar={atualizarRanking}
                             onExcluir={excluirRanking}
+                            podeEditar={podeEditar}
+                            podeExcluir={podeExcluir}
                           />
                         ))}
                       </div>

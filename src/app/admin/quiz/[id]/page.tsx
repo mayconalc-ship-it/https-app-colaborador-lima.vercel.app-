@@ -445,13 +445,16 @@ export default async function RodadaPage({
                 {q.alternativas.map((a, j) => (
                   <li
                     key={a.id}
+                    // O GABARITO só para quem pode editar o Desafio
+                    // (10/09/2026). Quem tem só "ver" pode estar jogando a
+                    // rodada -- e abrir esta tela era ver a resposta.
                     className={
-                      a.correta
+                      podeEditar && a.correta
                         ? "font-semibold text-emerald-700"
                         : "text-slate-600"
                     }
                   >
-                    {letra(j)}) {a.texto} {a.correta && "✔"}
+                    {letra(j)}) {a.texto} {podeEditar && a.correta && "✔"}
                   </li>
                 ))}
               </ul>

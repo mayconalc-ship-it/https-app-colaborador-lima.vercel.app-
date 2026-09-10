@@ -37,8 +37,13 @@ export function ComunicadoItem({
   cargosDisponiveis,
   editorias,
   editoriasAtivas,
+  podeEditar = true,
+  podeExcluir = true,
 }: {
   comunicado: Comunicado;
+  /** Quem só tem "ver" não recebe botão que o servidor vai recusar. */
+  podeEditar?: boolean;
+  podeExcluir?: boolean;
   onSalvar: (formData: FormData) => void;
   onExcluir: (formData: FormData) => void;
   cargosDisponiveis: string[];
@@ -130,6 +135,7 @@ export function ComunicadoItem({
       </div>
 
       <div className="flex shrink-0 gap-2">
+        {podeEditar && (
         <button
           type="button"
           onClick={() => setEditando(true)}
@@ -137,6 +143,8 @@ export function ComunicadoItem({
         >
           Editar
         </button>
+        )}
+        {podeExcluir && (
         <form
           action={onExcluir}
           onSubmit={aoExcluir({
@@ -152,6 +160,7 @@ export function ComunicadoItem({
             Excluir
           </BotaoEnviar>
         </form>
+        )}
       </div>
     </div>
   );

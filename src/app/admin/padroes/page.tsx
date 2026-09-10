@@ -1,6 +1,6 @@
 import { decodificar } from "@/lib/texto-url";
 import Link from "next/link";
-import { requireModulo } from "@/lib/require-admin";
+import { podeNoModulo, requireModulo } from "@/lib/require-admin";
 import { createClient } from "@/lib/supabase/server";
 import { getRevendaId } from "@/lib/revendas";
 import { PageHeader } from "@/components/PageHeader";
@@ -34,6 +34,14 @@ export default async function AdminPadroesPage({
   await requireModulo("padroes", "ver");
   const { erro, sucesso, pilar: pilarParam, aba } = await searchParams;
   const abaPilares = aba === "pilares";
+  // Cada botão aparece para quem tem a ação que o servidor exige dele
+  // (10/09/2026): enviar arquivo e criar pilar = criar; renomear, mover e
+  // ocultar = editar; excluir = excluir.
+  const [podeCriar, podeEditar, podeExcluir] = await Promise.all([
+    podeNoModulo("padroes", "criar"),
+    podeNoModulo("padroes", "editar"),
+    podeNoModulo("padroes", "excluir"),
+  ]);
 
   const pilares = await listarPilares(true);
   const pilaresVisiveis = pilares.filter((p) => p.visivel);
@@ -127,6 +135,7 @@ export default async function AdminPadroesPage({
 
       {abaPilares ? (
         <>
+          {podeCriar && (
           <details className="group mb-4 rounded-2xl border border-slate-200 bg-white shadow-sm">
             <summary className="flex cursor-pointer list-none items-center gap-2 p-4 font-semibold text-primary-dark marker:content-none [&::-webkit-details-marker]:hidden">
               <MaisOuFechar />
@@ -157,6 +166,7 @@ export default async function AdminPadroesPage({
               </BotaoEnviar>
             </form>
           </details>
+          )}
 
           <div className="divide-y divide-slate-100 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
             {pilares.map((p, i) => (
@@ -170,6 +180,8 @@ export default async function AdminPadroesPage({
                 onMover={moverPilar}
                 onAlternar={alternarVisibilidadePilar}
                 onExcluir={excluirPilar}
+                podeEditar={podeEditar}
+                podeExcluir={podeExcluir}
               />
             ))}
           </div>
@@ -181,6 +193,7 @@ export default async function AdminPadroesPage({
         </>
       ) : (
         <>
+          {podeCriar && (
           <details className="mb-4 rounded-2xl border border-slate-200 bg-white shadow-sm">
             <summary className="cursor-pointer p-4 font-semibold text-primary">
               + Enviar arquivos
@@ -195,6 +208,7 @@ export default async function AdminPadroesPage({
               />
             </div>
           </details>
+          )}
 
           <div className="mb-4 flex flex-wrap gap-2">
             {pilares.map((p) => (
@@ -235,6 +249,8 @@ export default async function AdminPadroesPage({
                         pilares={pilares.map((p) => p.nome)}
                         onAtualizar={atualizarPadrao}
                         onExcluir={excluirPadrao}
+                        podeEditar={podeEditar}
+                        podeExcluir={podeExcluir}
                       />
                     ))}
                   </div>
