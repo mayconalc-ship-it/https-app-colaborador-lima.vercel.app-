@@ -750,6 +750,13 @@ left join public.pa_empilhadeira_config cfg on cfg.revenda_id = g.revenda_id;
 --
 -- E recriada inteira (e nao alterada) porque "create or replace view" do
 -- Postgres so aceita acrescentar coluna no FIM -- ver a nota do 01.
+-- A primeira versao deste arquivo criou bi.dim_quiz_gabarito, que saiu do
+-- modelo em 10/09/2026 (a resposta certa virou coluna do fato, abaixo).
+-- Quem ja tinha rodado aquela versao ficou com a view no banco, orfa --
+-- e expondo o gabarito ao powerbi_readonly sem nenhuma pagina que
+-- precisasse dele. Limpa aqui para ninguem ter de lembrar.
+drop view if exists bi.dim_quiz_gabarito;
+
 drop view if exists bi.fato_quiz_resposta;
 create view bi.fato_quiz_resposta as
 select
