@@ -229,27 +229,28 @@ export default function FeedbackRotaPage() {
               </button>
             )}
 
-            <button
-              type="submit"
-              name="acao"
-              value="5porques"
-              disabled={pendente}
-              aria-busy={pendente}
-              className="flex w-full flex-col items-center justify-center gap-0.5 rounded-xl border-2 border-primary bg-primary-soft py-3 font-semibold text-primary transition hover:bg-primary/10 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <span>
-                {pendente
-                  ? "Enviando..."
-                  : ehRuim
-                    ? "🧠 Fazer 5 Porquês (obrigatório)"
-                    : "🧠 Fazer 5 Porquês"}
-              </span>
-              {!pendente && (
-                <span className="text-xs font-normal text-primary/80">
-                  Encontre a causa raiz do problema
-                </span>
-              )}
-            </button>
+            {/* O 5 PORQUÊS É SÓ DA ROTA RUIM (10/09/2026, pedido do dono).
+                Ele aparecia como opcional em Regular, Boa e Ótima -- e
+                oferecer análise de causa raiz para uma rota ótima não faz
+                sentido. Regular pede o comentário obrigatório e vai para a
+                tratativa da liderança; Boa e Ótima só enviam. */}
+            {ehRuim && (
+              <button
+                type="submit"
+                name="acao"
+                value="5porques"
+                disabled={pendente}
+                aria-busy={pendente}
+                className="flex w-full flex-col items-center justify-center gap-0.5 rounded-xl border-2 border-primary bg-primary-soft py-3 font-semibold text-primary transition hover:bg-primary/10 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <span>{pendente ? "Enviando..." : "🧠 Fazer 5 Porquês (obrigatório)"}</span>
+                {!pendente && (
+                  <span className="text-xs font-normal text-primary/80">
+                    Encontre a causa raiz do problema
+                  </span>
+                )}
+              </button>
+            )}
           </div>
         ) : (
           <button

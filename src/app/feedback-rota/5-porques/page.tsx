@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getRevendaId } from "@/lib/revendas";
-import { labelOcorrencia } from "@/lib/feedback-ocorrencias";
+import { labelOcorrencia, notaExigeCincoPorques, rotuloNota } from "@/lib/feedback-ocorrencias";
 import { PageHeader } from "@/components/PageHeader";
 import { FluxoCincoPorques } from "./FluxoCincoPorques";
 
@@ -69,6 +69,26 @@ export default async function CincoPorquesPage({
       <div>
         <PageHeader title="🧠 Fazer 5 Porquês" fecharHref="/feedback-rota" />
         <BloqueioSemFeedback />
+      </div>
+    );
+  }
+
+  // Só rota RUIM faz 5 Porquês (10/09/2026). O formulário já não oferece o
+  // botão nas outras notas; este portão cobre o link antigo e a URL
+  // digitada à mão.
+  if (!notaExigeCincoPorques(feedback.nota)) {
+    return (
+      <div>
+        <PageHeader title="🧠 Fazer 5 Porquês" fecharHref="/feedback-rota" />
+        <div className="rounded-2xl border border-slate-200 bg-white p-6 text-center">
+          <p className="text-3xl">✅</p>
+          <p className="mt-2 font-semibold text-slate-800">
+            Este feedback foi {rotuloNota(feedback.nota)} — não precisa de 5 Porquês.
+          </p>
+          <p className="mt-1 text-sm text-slate-500">
+            O 5 Porquês é feito só quando a rota foi Ruim.
+          </p>
+        </div>
       </div>
     );
   }
