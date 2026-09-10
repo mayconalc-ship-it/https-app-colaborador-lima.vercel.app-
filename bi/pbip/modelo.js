@@ -380,7 +380,7 @@ const tabelas = [
     colunas:
       'resposta_id:s revenda_id:s rodada_id:s rodada:s mes_ref:t colaborador_id:s ' +
       'colaborador:s area:s questao_id:s pergunta:s dificuldade:s dificuldade_rotulo:s ' +
-      'pilar:s padrao:s atividade:s origem:s explicacao:s ' +
+      'pilar:s padrao:s atividade:s origem:s explicacao:s resposta_certa:s ' +
       'correta:b errou:b tempo_segundos:n chute:b respondida_em:t data:t hora:i ' + CHAVE,
     chaveComposta: true,
     data: 'data',
@@ -555,39 +555,28 @@ const tabelas = [
     // revenda e em todo dia. Uma ligacao a mais aqui so criaria caminho
     // ambiguo ate os fatos.
   },
-  {
-    nome: 'dim_pa_produto',
-    view: 'dim_pa_produto',
-    descricao: 'Produto do armazem com familia (cluster do SAP) e tipo retornavel/descartavel.',
-    colunas:
-      'produto_id:s revenda_id:s codigo:s produto:s familia:s tipo:s tipo_rotulo:s ' +
-      'embalagem:s fator_hecto:n unidades_por_caixa:i caixas_pallet:i caixas_por_lastro:i ' +
-      'meta_reepack_hora:n meta_despejo_hora:n ativo:b criado_em:t',
-    revendaDireta: true,
-  },
-  {
-    nome: 'dim_pa_embalagem_despejo',
-    view: 'dim_pa_embalagem_despejo',
-    descricao: 'Catalogo de embalagens do despejo -- diferente do catalogo do repack.',
-    colunas:
-      'embalagem_despejo_id:s revenda_id:s embalagem_despejo:s litros_por_unidade:n ' +
-      'meta_litros_hora:n ativo:b criado_em:t',
-    revendaDireta: true,
-  },
-  {
-    nome: 'dim_empilhadeira',
-    view: 'dim_empilhadeira',
-    descricao: 'As maquinas. Duas empilhadeiras nao consomem igual -- a media das duas nao descreve nenhuma.',
-    colunas: 'empilhadeira_id:s revenda_id:s empilhadeira:s numero:s',
-    revendaDireta: true,
-  },
-  {
-    nome: 'dim_transportadora',
-    view: 'dim_transportadora',
-    descricao: 'Transportadoras que entregam na revenda.',
-    colunas: 'transportadora_id:s revenda_id:s transportadora:s',
-    revendaDireta: true,
-  },
+  /*
+    AS DIMENSOES DE PRODUTO, EMBALAGEM, MAQUINA E TRANSPORTADORA SAIRAM
+    DAQUI -- e a saida e a correcao de um bug de verdade.
+
+    Elas entraram ligadas so em dim_revenda, seguindo o padrao de
+    dim_quiz_rodada. So que dim_quiz_rodada nunca e usada como eixo de
+    visual, e estas foram: a pagina da Empilhadeira usava
+    dim_empilhadeira[empilhadeira] no grafico "horas por maquina", e sem
+    relacionamento com o fato o filtro nao propaga -- TODAS as maquinas
+    apareceram com o MESMO numero (o total geral repetido). O sintoma nao
+    parece erro de modelagem; parece dado errado.
+
+    Ligar dim -> fato tambem nao servia: o fato ja chega em dim_revenda
+    pela chave composta, e uma segunda rota criaria ambiguidade que o
+    Power BI resolve desativando um relacionamento em silencio.
+
+    A saida certa e a que o resto do modelo ja usa: cada fato carrega
+    produto, familia, embalagem, maquina e transportadora
+    DENORMALIZADOS, e os visuais usam a coluna do proprio fato. As views
+    continuam existindo no banco para consulta avulsa -- so nao entram no
+    modelo, onde viravam armadilha na lista de campos.
+  */
   {
     nome: 'fato_pa_bancada',
     view: 'fato_pa_bancada',
@@ -746,12 +735,27 @@ const tabelas = [
     hora: true,
   },
   {
-    nome: 'dim_quiz_gabarito',
-    view: 'dim_quiz_gabarito',
-    descricao:
-      'A resposta certa de cada pergunta. SO PARA LIDERANCA -- tire do modelo se o BI for distribuido ao time.',
-    colunas: 'questao_id:s revenda_id:s pergunta:s resposta_certa:s explicacao:s',
+    // O CICLO DO BOTIJAO, como RELATORIO.
+    //
+    // Uma linha por ciclo fechado: a troca que abriu, a que fechou e
+    // quanto rendeu. A lista de trocas sozinha respondia "quando trocou"
+    // e obrigava quem lia a subtrair uma linha da outra para saber a
+    // duracao.
+    //
+    // Liga em revenda e no calendario, e NAO em dim_hora nem em
+    // dim_colaborador: um ciclo atravessa turnos e operadores, e
+    // recortado por qualquer um dos dois ele deixa de descrever um
+    // botijao real.
+    nome: 'fato_empilhadeira_ciclo_gas',
+    view: 'fato_empilhadeira_ciclo_gas',
+    descricao: 'Um ciclo de P20 por linha: da troca anterior até esta. RELATORIO -- nao filtre por turno.',
+    colunas:
+      'ciclo_id:s revenda_id:s colaborador_id:s colaborador:s empilhadeira_id:s ' +
+      'empilhadeira:s inicio_em:t horimetro_inicio:n trocou_no_inicio:s fim_em:t ' +
+      'horimetro_fim:n trocou_no_fim:s horas_do_botijao:n dias_do_botijao:i ' +
+      'custo_p20:n data:t hora:i turno:s turno_rotulo:s',
     revendaDireta: true,
+    data: 'data',
   },
 ];
 

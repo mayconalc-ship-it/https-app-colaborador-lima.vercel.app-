@@ -1168,6 +1168,23 @@ MEASURE '_Medidas'[% do tempo na triagem] =
 MEASURE '_Medidas'[Bancada h/dia] =
     DIVIDE ( [Horas de bancada], DISTINCTCOUNT ( fato_pa_bancada[data] ) )
 
+MEASURE '_Medidas'[Lançamentos de bancada] =
+    COUNTROWS ( fato_pa_bancada )
+
+// Duração média por CAIXA, não por lançamento — é a mesma conta do
+// cartão do app. Um lançamento pode ter 2 caixas ou 20, então "duração
+// média do lançamento" mistura sessões de tamanhos muito diferentes.
+// Em MINUTOS porque em horas o número sai "0,04h", que não se lê nem se
+// cadastra como meta.
+MEASURE '_Medidas'[Minutos por caixa] =
+    DIVIDE (
+        CALCULATE ( SUM ( fato_pa_bancada[horas] ), fato_pa_bancada[etapa] = "repack" ) * 60,
+        [Caixas repackadas]
+    )
+
+MEASURE '_Medidas'[Dias com bancada] =
+    DISTINCTCOUNT ( fato_pa_bancada[data] )
+
 // ------------------------------------------------------------------
 // DESPEJO E A BOMBONA
 // ------------------------------------------------------------------
@@ -1177,6 +1194,12 @@ MEASURE '_Medidas'[Litros despejados] =
 
 MEASURE '_Medidas'[Litros por hora] =
     DIVIDE ( [Litros despejados], SUM ( fato_pa_despejo[horas] ) )
+
+MEASURE '_Medidas'[Lançamentos de despejo] =
+    COUNTROWS ( fato_pa_despejo )
+
+MEASURE '_Medidas'[Horas de despejo] =
+    SUM ( fato_pa_despejo[horas] )
 
 /*
     A BOMBONA IGNORA OS FILTROS, e isso é o desenho, não um descuido.
@@ -1479,6 +1502,28 @@ MEASURE '_Medidas'[Trocas de P20] =
 // máquina no recorte, que é o que sai do caixa.
 MEASURE '_Medidas'[Custo do gás (R$)] =
     SUMX ( fato_empilhadeira_gas, fato_empilhadeira_gas[custo_p20] )
+
+/*
+    QUANTO RENDE UM BOTIJÃO — a média dos ciclos fechados.
+
+    Vem de fato_empilhadeira_ciclo_gas, que é um RELATÓRIO: cada linha é
+    um ciclo com início, fim e horas. A média aqui é honesta enquanto se
+    olha máquina e período; recortada por turno ou por operador, ela
+    passa a somar pedaços de ciclos diferentes e o botijão parece render
+    mais do que rende. Por isso a tabela do ciclo não liga em dim_hora
+    nem em dim_colaborador — ver a nota da view.
+*/
+MEASURE '_Medidas'[Horas por botijão] =
+    AVERAGE ( fato_empilhadeira_ciclo_gas[horas_do_botijao] )
+
+// Junto das horas, separa "rendeu pouco" de "a máquina rodou muito":
+// 8h em dois dias e 8h em duas semanas são operações diferentes com o
+// mesmo consumo.
+MEASURE '_Medidas'[Dias por botijão] =
+    AVERAGE ( fato_empilhadeira_ciclo_gas[dias_do_botijao] )
+
+MEASURE '_Medidas'[Botijões fechados] =
+    COUNTROWS ( fato_empilhadeira_ciclo_gas )
 
 // ==================================================================
 // DESAFIO DO MÊS — o que a análise nova passou a olhar

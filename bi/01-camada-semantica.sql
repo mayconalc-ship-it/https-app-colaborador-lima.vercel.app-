@@ -2577,6 +2577,14 @@ select
     'Sem padrão de origem'
   )                           as origem,
   q.explicacao,
+  -- A RESPOSTA CERTA VIAJA NO FATO, e nao numa dimensao a parte.
+  --
+  -- Uma dim_quiz_gabarito sem relacionamento com este fato mostraria a
+  -- resposta de TODAS as perguntas em cada linha da tabela -- o erro
+  -- classico de dimensao solta, que nao acusa nada e so entrega numero
+  -- errado. Denormalizar aqui e o mesmo caminho que o resto do modelo ja
+  -- usa (ver dim_quiz_rodada no 01).
+  gab.texto                   as resposta_certa,
   resp.correta,
   (not resp.correta)          as errou,
   round(resp.tempo_ms / 1000.0, 1) as tempo_segundos,
@@ -2587,32 +2595,83 @@ select
 from public.quiz_respostas resp
 join public.quiz_participacoes pa on pa.id = resp.participacao_id
 join public.quiz_rodadas r        on r.id  = pa.rodada_id
-join public.quiz_questoes q       on q.id  = resp.questao_id;
-
-comment on view bi.fato_quiz_resposta is
-  'Grao: uma resposta. `origem` da endereco a pauta de treinamento; `chute` separa pressa de desconhecimento.';
-
--- O gabarito da pergunta, para a pagina de treinamento poder mostrar a
--- resposta certa ao lado da taxa de erro. Uma linha por questao.
---
--- CUIDADO DELIBERADO: esta view expoe a alternativa correta. Ela existe
--- porque o BI e lido por lideranca, nao por quem responde o desafio. Se
--- um dia o relatorio for distribuido para o time inteiro, tire esta view
--- do modelo -- ou o campeonato do mes acaba no primeiro compartilhamento.
-create or replace view bi.dim_quiz_gabarito as
-select
-  q.id                        as questao_id,
-  q.revenda_id,
-  q.pergunta,
-  alt.texto                   as resposta_certa,
-  q.explicacao
-from public.quiz_questoes q
+join public.quiz_questoes q       on q.id  = resp.questao_id
 left join lateral (
+  -- CUIDADO DELIBERADO: isto traz a alternativa correta para o modelo.
+  -- Existe porque a reuniao de treinamento precisa saber o que ENSINAR
+  -- ao lado da pergunta que o time errou. Se o relatorio for distribuido
+  -- ao time inteiro, remova esta coluna -- ou o campeonato do mes acaba
+  -- no primeiro compartilhamento.
   select a.texto
   from public.quiz_alternativas a
   where a.questao_id = q.id and a.correta
   limit 1
-) alt on true;
+) gab on true;
+
+comment on view bi.fato_quiz_resposta is
+  'Grao: uma resposta. `origem` da endereco a pauta; `chute` separa pressa de desconhecimento; `resposta_certa` e GABARITO.';
+
+-- ------------------------------------------------------------------
+-- 10) O CICLO DO BOTIJAO -- inicio, fim e quanto rendeu
+-- ------------------------------------------------------------------
+-- A lista de TROCAS respondia "quando trocou" e mais nada: cada linha
+-- era um carimbo solto, e quem lia tinha de subtrair mentalmente uma
+-- linha da outra para saber quanto durou o botijao.
+--
+-- Aqui cada linha e um CICLO FECHADO: a troca que abriu, a que fechou, o
+-- horimetro de cada ponta e as horas rendidas. `lag()` por maquina,
+-- ordenado no tempo -- e a primeira troca de cada maquina fica de fora
+-- (fim_* nulo) porque sem ponto anterior nao ha intervalo para medir.
+--
+-- Continua valendo o que esta na view de trocas: este e um RELATORIO
+-- para ler linha a linha, nao base de media filtrada por turno. Um ciclo
+-- atravessa turnos e operadores; filtrado por T1, ele deixaria de
+-- descrever qualquer botijao real.
+create or replace view bi.fato_empilhadeira_ciclo_gas as
+select * from (
+  select
+    g.id                                        as ciclo_id,
+    g.revenda_id,
+    g.operador_id                               as colaborador_id,
+    g.operador_nome                             as colaborador,
+    g.empilhadeira_id,
+    'Empilhadeira ' || m.numero                 as empilhadeira,
+
+    -- A ponta que ABRE o ciclo: a troca anterior desta mesma maquina.
+    lag(g.realizada_em) over w                  as inicio_em,
+    lag(g.horimetro)    over w                  as horimetro_inicio,
+    lag(g.operador_nome) over w                 as trocou_no_inicio,
+
+    -- A ponta que FECHA: esta troca.
+    g.realizada_em                              as fim_em,
+    g.horimetro                                 as horimetro_fim,
+    g.operador_nome                             as trocou_no_fim,
+
+    round((g.horimetro - lag(g.horimetro) over w)::numeric, 2) as horas_do_botijao,
+    -- Quantos dias o botijao durou no relogio. Junto das horas de
+    -- horimetro, e o que separa "rendeu pouco" de "a maquina rodou
+    -- muito" -- 8h em dois dias e 8h em duas semanas sao operacoes
+    -- diferentes com o mesmo consumo.
+    (bi.dia_local(g.realizada_em) - bi.dia_local(lag(g.realizada_em) over w)) as dias_do_botijao,
+    cfg.custo_p20,
+
+    bi.dia_local(g.realizada_em)                as data,
+    bi.hora_local(g.realizada_em)               as hora,
+    bi.turno_local(g.realizada_em)              as turno,
+    bi.turno_rotulo(bi.turno_local(g.realizada_em)) as turno_rotulo
+  from public.pa_empilhadeira_trocas_gas g
+  left join public.pa_empilhadeiras m on m.id = g.empilhadeira_id
+  left join public.pa_empilhadeira_config cfg on cfg.revenda_id = g.revenda_id
+  window w as (partition by g.empilhadeira_id order by g.realizada_em)
+) c
+-- Sem ponta de abertura nao ha ciclo. E horimetro que anda para tras e
+-- digitacao errada, nao consumo negativo -- desenhar isso como se fosse
+-- real poria uma barra invertida no meio do relatorio.
+where c.inicio_em is not null
+  and c.horas_do_botijao > 0;
+
+comment on view bi.fato_empilhadeira_ciclo_gas is
+  'Um ciclo de P20 por linha: da troca anterior ate esta. RELATORIO -- nao filtre por turno.';
 
 -- ==================================================================
 -- FIM. Rode agora o 02-acesso-powerbi.sql -- sem ele o powerbi_readonly

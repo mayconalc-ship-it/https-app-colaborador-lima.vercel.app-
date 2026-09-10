@@ -19,6 +19,28 @@ const { tabelas } = require('./modelo');
 let erros = 0;
 const falha = (msg) => { console.log('  FALHA  ' + msg); erros++; };
 
+/*
+  OS TIPOS DE VISUAL QUE O DESKTOP CONHECE.
+
+  Esta lista existe por causa de um erro real (09/09/2026): a pagina do
+  Armazem nasceu com `stackedColumnChart`, que PARECE o nome certo -- a
+  interface do Power BI chama o visual de "Coluna empilhada" -- e nao e.
+  Internamente o empilhado e `columnChart`; `clusteredColumnChart` e o
+  agrupado, e "stacked" nao existe.
+
+  O JSON saiu perfeitamente valido, o projeto abriu, e o visual virou uma
+  caixa cinza com "Erro Subjacente: CustomVisualNotFound" -- mensagem que
+  aponta para visual PERSONALIZADO e manda quem le procurar um .pbiviz
+  que nunca existiu.
+
+  Tipo novo entra nesta lista DEPOIS de abrir no Desktop, nunca antes.
+*/
+const TIPOS_CONHECIDOS = new Set([
+  'cardVisual', 'clusteredBarChart', 'clusteredColumnChart', 'columnChart',
+  'lineChart', 'pivotTable', 'tableEx', 'slicer', 'textbox', 'shape',
+  'actionButton', 'image', 'pageNavigator',
+]);
+
 // --- os $schema dos arquivos de definicao ------------------------------
 // O Desktop valida cada um por expressao regular e recusa o projeto
 // inteiro quando um nao bate -- com uma mensagem que nao diz qual era o
@@ -219,6 +241,18 @@ for (const arq of arquivos) {
   if (!j.visual) continue;
   visuais++;
   const onde = `${j.visual.visualType} ${j.name}`;
+
+  // O tipo de visual, ANTES de qualquer coisa: um tipo desconhecido não
+  // deixa erro no JSON nem na geração -- ele vira uma caixa cinza no
+  // Desktop com "CustomVisualNotFound", que manda procurar um visual
+  // personalizado inexistente. Ver TIPOS_CONHECIDOS no topo.
+  if (!TIPOS_CONHECIDOS.has(j.visual.visualType)) {
+    falha(
+      `${onde}: tipo de visual desconhecido "${j.visual.visualType}" -- `
+      + 'o Desktop vai mostrar "CustomVisualNotFound". '
+      + `Conhecidos: ${[...TIPOS_CONHECIDOS].join(', ')}`,
+    );
+  }
 
   const pos = j.position;
   if (pos.x < 0 || pos.y < 0 || pos.x + pos.width > 1280 || pos.y + pos.height > 720) {
