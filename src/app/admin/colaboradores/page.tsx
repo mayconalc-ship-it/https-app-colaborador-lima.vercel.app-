@@ -8,6 +8,7 @@ import { BotaoEnviar } from "@/components/BotaoEnviar";
 import { ColaboradorItem } from "@/components/ColaboradorItem";
 import { CampoComNovaOpcao } from "@/components/CampoComNovaOpcao";
 import { SENHA_PADRAO } from "@/lib/senha";
+import { ImportarColaboradores } from "@/components/admin/ImportarColaboradores";
 import {
   redefinirSenha,
   criarColaborador,
@@ -17,6 +18,11 @@ import {
   concederAcessoAtivoGiro,
   revogarAcessoAtivoGiro,
 } from "./actions";
+
+// A importação por planilha cria até cem acessos numa ação só (login,
+// perfil e vínculo cada um, em lotes de cinco) -- passa fácil dos 10 s
+// padrão. O mesmo motivo do import de produtos.
+export const maxDuration = 60;
 
 export default async function AdminColaboradoresPage({
   searchParams,
@@ -31,6 +37,8 @@ export default async function AdminColaboradoresPage({
   const usuarioAtual = await requireModulo("colaboradores", "ver");
   // O botão de promover só existe para quem tem essa permissão específica.
   const podePromover = await podeNoModulo("colaboradores", "promover");
+  // A importação cria acesso -- a mesma chave do "+ Cadastrar novo".
+  const podeCriar = await podeNoModulo("colaboradores", "criar");
   // Mexer em vínculo é só do dono: decide o que a pessoa vê do app inteiro.
   const souDono = ehOwner(usuarioAtual.role);
   const { busca = "", revenda: filtroRevenda = "", erro, sucesso } =
@@ -185,6 +193,47 @@ export default async function AdminColaboradoresPage({
         <p className="mb-3 rounded-lg bg-green-50 p-3 text-sm text-green-700">
           {decodificar(sucesso)}
         </p>
+      )}
+
+      {/*
+        IMPORTAR POR PLANILHA (10/09/2026, pedido do dono na implantação de
+        Barreiras): "a tela de importação com a planilha padrão para
+        exportar da mesma forma que fizemos com o código de produto".
+
+        Baixa-se a planilha JÁ PREENCHIDA com quem está na unidade, edita-se
+        e importa-se de volta: quem é novo ganha acesso, quem mudou é
+        atualizado, ninguém é apagado. Tudo vale para a unidade ATIVA -- o
+        seletor 🏢 no topo decide para onde as pessoas vão.
+      */}
+      {podeCriar && (
+        <details className="mb-4 rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <summary className="cursor-pointer p-4 font-semibold text-primary">
+            📥 Importar planilha de colaboradores
+          </summary>
+          <div className="space-y-3 border-t border-slate-100 p-4">
+            <div className="rounded-xl bg-slate-50 p-3 text-xs leading-relaxed text-slate-600">
+              <p>
+                <strong>1.</strong> Baixe a planilha padrão — ela já vem com quem está em{" "}
+                <strong>{revendaAtiva.nome}</strong>. Acrescente os novos e corrija o que mudou.
+              </p>
+              <p className="mt-1">
+                <strong>2.</strong> Leia a planilha: a tela mostra quem entra, quem muda e quem foi
+                recusado <strong>antes</strong> de gravar qualquer coisa.
+              </p>
+              <p className="mt-1">
+                Colunas: <strong>Matrícula, Nome, CPF, Cargo, Área</strong>. Coluna a mais é
+                ignorada. Ninguém sai do app por não estar no arquivo.
+              </p>
+            </div>
+            <a
+              href="/api/colaboradores/exportar"
+              className="inline-flex items-center gap-1.5 rounded-xl border border-primary/30 bg-primary-soft px-3 py-2 text-sm font-semibold text-primary-dark hover:bg-primary/10"
+            >
+              ⬇️ Baixar planilha padrão ({revendaAtiva.nome})
+            </a>
+            <ImportarColaboradores revendaNome={revendaAtiva.nome} senhaPadrao={SENHA_PADRAO} />
+          </div>
+        </details>
       )}
 
       <details className="mb-4 rounded-2xl border border-slate-200 bg-white shadow-sm">
