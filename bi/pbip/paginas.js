@@ -75,37 +75,23 @@ function faixaKpi(lista) {
 }
 
 const paginas = [
-  // ================================================================
-  {
-    // A CAPA.
-    //
-    // Existe porque a lista de abas do Power BI e uma tira de texto no
-    // rodape que cabe umas quatro paginas antes de comecar a rolar --
-    // quem abre o relatorio pela primeira vez nao ve que existem oito. E
-    // porque "onde vejo contagem de AG?" e a pergunta que mais se repete
-    // quando um BI passa a circular.
-    //
-    // Cada cartao e um botao de navegacao de pagina. Se o Desktop
-    // recusar a navegacao (ver ACAB.capa em gerar-pbip.js), o gerador
-    // troca os botoes por um indice de texto -- a capa continua de pe,
-    // so deixa de ser clicavel.
-    nome: '🧭 Capa',
-    capa: true,
-    subtitulo:
-      'Painel de gestão do App do Colaborador · Ctrl+clique para abrir uma página',
-    kpis: [],
-    visuais: [],
-    nota:
-      'No modo de edição, os botões abrem com Ctrl+clique; no modo de leitura e no Power BI ' +
-      'na web, com clique simples. Para voltar, use a seta no canto direito da faixa azul — ' +
-      'ela volta para a página anterior, então funciona quando você chegou por aqui; ' +
-      'quem entra direto por uma aba do rodapé volta pelas abas. ' +
-      'Os filtros de Revenda, Período, Área e Colaborador estão sincronizados: o que você ' +
-      'escolher numa página vale em todas. O filtro de Colaborador aceita busca — clique nele ' +
-      'e digite as primeiras letras do nome. Duas páginas não aparecem aqui por não ' +
-      'serem painel de gestão: "Mapa do App" (índice do menu, para quem administra) e ' +
-      '"Detalhe" (destino de drill-through — clique com o botão direito em qualquer visual).',
-  },
+  /*
+    A CAPA SAIU (10/09/2026, pedido do dono).
+
+    Ela nasceu com oito paginas, para resolver a tira de abas do rodape
+    que escondia metade do relatorio. Com dezenove, a grade de botoes do
+    Navegador de Paginas virou uma parede de retangulos apertados -- pior
+    que a lista lateral de paginas do Power BI Service, que rola, mostra o
+    nome inteiro e ja e o caminho que quem usa o BI conhece.
+
+    Sem pagina com `capa: true`, o gerador deixa de criar tambem a seta
+    de "voltar" em cada pagina (ela so existe para voltar a capa).
+
+    O que a capa tinha de insubstituivel -- o carimbo "Dados atualizados
+    em" -- veio para a Visao Geral, abaixo. Continua sendo mostrado UMA
+    vez, na pagina que abre o relatorio, e nao em todas: repetido em
+    dezenove paginas ele viraria moldura e ninguem mais leria.
+  */
 
   // ================================================================
   {
@@ -123,6 +109,13 @@ const paginas = [
       ['👆 Interações', '@Interações'],
       ['📂 Módulos usados', '@Módulos usados'],
       ['⚠️ Aguardando tratativa', '@Aguardando tratativa'],
+      // O CARIMBO que morava na capa. E a hora em que o MODELO atualizou,
+      // nao a hora em que o arquivo foi aberto: um .pbix aberto na segunda
+      // pode estar com dado de sexta, e quem leva o numero para a reuniao
+      // precisa saber disso antes. Sexto cartao da faixa -- o gerador
+      // reparte a largura sozinho, e como a medida e texto (MEDIDAS_TEXTO)
+      // ela ganha corpo menor e cabe.
+      ['🕒 Dados atualizados em', '@Atualizado em'],
     ],
     visuais: [
       {

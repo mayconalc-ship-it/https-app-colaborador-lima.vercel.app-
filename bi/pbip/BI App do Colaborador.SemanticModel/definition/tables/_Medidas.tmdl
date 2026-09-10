@@ -1477,7 +1477,6 @@ table '_Medidas'
 			        FILTER ( Elegiveis, [@Acerto] = Pior ),
 			        fato_quiz_resposta[origem], ", "
 			    )
-		formatString: #,0
 		lineageTag: e2636e75-295c-4d30-8af4-4b188274b0b2
 
 	column Coluna1

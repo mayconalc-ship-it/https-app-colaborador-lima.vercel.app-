@@ -1,13 +1,13 @@
 {
   "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.12.0/schema.json",
-  "name": "078ea911b490c32de3ad",
+  "name": "66e0f0debf4ec31e1187",
   "position": {
-    "x": 450,
-    "y": 492,
-    "z": 4000,
-    "height": 76,
-    "width": 380,
-    "tabOrder": 4000
+    "x": 1066,
+    "y": 152,
+    "z": 13000,
+    "height": 96,
+    "width": 198,
+    "tabOrder": 13000
   },
   "visual": {
     "visualType": "cardVisual",
@@ -40,7 +40,7 @@
             "fontSize": {
               "expr": {
                 "Literal": {
-                  "Value": "18D"
+                  "Value": "15D"
                 }
               }
             }
@@ -56,7 +56,7 @@
             "fontSize": {
               "expr": {
                 "Literal": {
-                  "Value": "18D"
+                  "Value": "15D"
                 }
               }
             }
@@ -163,26 +163,6 @@
               "expr": {
                 "Literal": {
                   "Value": "false"
-                }
-              }
-            }
-          }
-        }
-      ],
-      "visualHeaderTooltip": [
-        {
-          "properties": {
-            "type": {
-              "expr": {
-                "Literal": {
-                  "Value": "'Text'"
-                }
-              }
-            },
-            "text": {
-              "expr": {
-                "Literal": {
-                  "Value": "'O instante em que o modelo foi atualizado pela última vez, no horário de Brasília — não a hora em que você abriu o arquivo. É o que diz se o número da tela ainda vale: um .pbix aberto na segunda pode estar com dado de sexta. A atualização é agendada pelo gateway do escritório (ver 04-gateway-e-atualizacao.md); para forçar fora do horário, use 05-atualizar-agora.ps1.'"
                 }
               }
             }

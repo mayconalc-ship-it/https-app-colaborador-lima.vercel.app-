@@ -229,6 +229,10 @@ const MEDIDAS_TEXTO = new Set([
   // Devolve a data ja formatada em dd/MM/yyyy. Sem entrar aqui, cairia
   // na regra geral e sairia com format string numerico numa data.
   'Último dia contado',
+  // O nome do padrao de origem ("POP-ARM-001"), no cartao do Desafio.
+  // Entrou em 09/09/2026 sem vir para esta lista: sairia a 30pt, o corpo
+  // de NUMERO, e um nome de procedimento nao cabe em 240 px nesse tamanho.
+  'Padrão mais crítico',
 ]);
 
 // Razoes que o nome nao denuncia: "Aproveitamento médio" cairia na regra

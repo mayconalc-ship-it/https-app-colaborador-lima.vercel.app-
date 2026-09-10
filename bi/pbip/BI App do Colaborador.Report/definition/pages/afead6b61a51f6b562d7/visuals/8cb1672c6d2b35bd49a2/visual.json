@@ -4,10 +4,10 @@
   "position": {
     "x": 1024,
     "y": 152,
-    "z": 14000,
+    "z": 13000,
     "height": 96,
     "width": 240,
-    "tabOrder": 14000
+    "tabOrder": 13000
   },
   "visual": {
     "visualType": "cardVisual",
@@ -34,6 +34,35 @@
       }
     },
     "objects": {
+      "value": [
+        {
+          "properties": {
+            "fontSize": {
+              "expr": {
+                "Literal": {
+                  "Value": "18D"
+                }
+              }
+            }
+          },
+          "selector": {
+            "id": "default"
+          }
+        }
+      ],
+      "labels": [
+        {
+          "properties": {
+            "fontSize": {
+              "expr": {
+                "Literal": {
+                  "Value": "18D"
+                }
+              }
+            }
+          }
+        }
+      ],
       "accentBar": [
         {
           "properties": {
