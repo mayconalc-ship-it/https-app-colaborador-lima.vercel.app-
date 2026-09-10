@@ -120,7 +120,7 @@ table '_Medidas'
 		lineageTag: cb75aa17-f51c-4b72-a690-ddc3426ece6d
 
 	measure 'Total em caixas' =
-			SUM ( fato_ag_contagem[total_caixas] )
+			CALCULATE ( SUM ( fato_ag_contagem[total_caixas] ), fato_ag_contagem[viva] = TRUE () )
 		formatString: #,0
 		lineageTag: d5bf76c4-fa1d-4054-90c6-3b648c6a69b3
 
@@ -214,7 +214,9 @@ table '_Medidas'
 			    CALCULATE (
 			        SUM ( fato_ag_contagem[palete] ),
 			        fato_ag_contagem[data] = Dia,
-			        fato_ag_contagem[tipo] = "GFE sem Garrafa"
+			        fato_ag_contagem[tipo] = "GFE sem Garrafa",
+			        // Só as vivas — ver [Total em caixas].
+			        fato_ag_contagem[viva] = TRUE ()
 			    )
 		formatString: #,0
 		lineageTag: ef0ceebb-9857-42f9-a92a-ca304142e2fd
@@ -226,7 +228,9 @@ table '_Medidas'
 			    CALCULATE (
 			        SUM ( fato_ag_contagem[caixa] ),
 			        fato_ag_contagem[data] = Dia,
-			        fato_ag_contagem[tipo] = "GFE sem Garrafa"
+			        fato_ag_contagem[tipo] = "GFE sem Garrafa",
+			        // Só as vivas — ver [Total em caixas].
+			        fato_ag_contagem[viva] = TRUE ()
 			    )
 		formatString: #,0
 		lineageTag: 728d4ff3-a8c1-47d2-8b13-55c90db6a72a
@@ -249,14 +253,145 @@ table '_Medidas'
 
 	measure 'Diferença' =
 			VAR C = [Contado]
+			VAR T = [Em trânsito]
 			VAR P = [Parque]
 			RETURN
 			    IF (
-			        NOT ( ISBLANK ( C ) && ISBLANK ( P ) ),
-			        COALESCE ( C, 0 ) - COALESCE ( P, 0 )
+			        NOT ( ISBLANK ( C ) && ISBLANK ( T ) && ISBLANK ( P ) ),
+			        COALESCE ( C, 0 ) + COALESCE ( T, 0 ) - COALESCE ( P, 0 )
 			    )
+			
+			/*
+			AS TRÊS PARCELAS FORA DO PÁTIO — a parte da conta do app que o BI não
+			tinha (10/09/2026).
+			
+			A diferença do app é contado + rota + carreta + comodato − parque. As
+			três parcelas são ativo DA REVENDA que ninguém consegue contar porque
+			não está no pátio: saiu com a entrega, está com o transportador ou
+			emprestado ao cliente. Sem elas, todo dia com entrega na rua acusava
+			falta — era a "diferença sempre alta" que o dono via no BI.
+			
+			Mesmo recorte de dia de [Contado] e [Parque]: a fotografia do último
+			dia conciliado dentro do filtro.
+			*/
 		formatString: #,0
 		lineageTag: 80bde363-2847-41ca-a4ec-e4b7da05d929
+
+	measure 'Trânsito rota' =
+			VAR Dia =
+			    CALCULATE ( MAX ( fato_ag_conciliacao[data] ), ALLSELECTED ( fato_ag_conciliacao ) )
+			RETURN
+			    CALCULATE ( SUM ( fato_ag_conciliacao[transito_rota] ), fato_ag_conciliacao[data] = Dia )
+		formatString: #,0
+		lineageTag: 79bad17b-e36f-4964-be7e-9bc2f858b2f8
+
+	measure 'Trânsito carreta' =
+			VAR Dia =
+			    CALCULATE ( MAX ( fato_ag_conciliacao[data] ), ALLSELECTED ( fato_ag_conciliacao ) )
+			RETURN
+			    CALCULATE ( SUM ( fato_ag_conciliacao[transito_carreta] ), fato_ag_conciliacao[data] = Dia )
+		formatString: #,0
+		lineageTag: a193289f-18ee-4afe-ab38-1c22e2558cf0
+
+	measure 'Comodato' =
+			VAR Dia =
+			    CALCULATE ( MAX ( fato_ag_conciliacao[data] ), ALLSELECTED ( fato_ag_conciliacao ) )
+			RETURN
+			    CALCULATE ( SUM ( fato_ag_conciliacao[comodato] ), fato_ag_conciliacao[data] = Dia )
+		formatString: #,0
+		lineageTag: 4ad2fa9d-f3ae-4a2f-9e6d-48aec2dee3d8
+
+	measure 'Em trânsito' =
+			VAR R = [Trânsito rota]
+			VAR C = [Trânsito carreta]
+			VAR M = [Comodato]
+			RETURN
+			    IF (
+			        NOT ( ISBLANK ( R ) && ISBLANK ( C ) && ISBLANK ( M ) ),
+			        COALESCE ( R, 0 ) + COALESCE ( C, 0 ) + COALESCE ( M, 0 )
+			    )
+		formatString: #,0
+		lineageTag: 40ecbfc5-5c2e-485b-9c50-9e10e4cd1a8d
+
+	measure '% Diferença' =
+			VAR P = [Parque]
+			RETURN
+			    IF ( P > 0, DIVIDE ( ABS ( [Diferença] ), P ) )
+		formatString: 0.0%
+		lineageTag: fb685075-131d-4aad-982f-74694b1decf8
+
+	measure 'Situação da conciliação' =
+			VAR D = [Diferença]
+			VAR P = [Parque]
+			VAR Pct = [% Diferença]
+			RETURN
+			    SWITCH (
+			        TRUE (),
+			        ISBLANK ( D ), BLANK (),
+			        ISBLANK ( P ) || P <= 0, "Sem parque",
+			        Pct <= 0.05, "✅ Dentro do aceitável",
+			        D > 0, "⚠️ Sobra acima de 5%",
+			        "❌ Falta acima de 5%"
+			    )
+		lineageTag: f1886c8a-291f-4c0b-b1d8-585435d17974
+
+	measure 'Dia conciliado' =
+			VAR Dia =
+			    CALCULATE ( MAX ( fato_ag_conciliacao[data] ), ALLSELECTED ( fato_ag_conciliacao ) )
+			RETURN
+			    IF ( NOT ISBLANK ( Dia ), FORMAT ( Dia, "dd/MM/yyyy" ) )
+			
+			/*
+			O HISTÓRICO DIA A DIA — a aba Histórico do app (conciliarPorDia).
+			
+			Numa linha de dia, cada medida é o total EXATO daquele dia. Na linha
+			de total ela é a MÉDIA DIÁRIA do período, e não a soma: somar o parque
+			de trinta dias daria trinta vezes o parque, um número que não existe.
+			O "por dia" no nome é para isso ficar dito na coluna.
+			*/
+		lineageTag: 72e97d96-33da-4bda-bbe8-f6a63770e367
+
+	measure 'Contado por dia' =
+			AVERAGEX (
+			    VALUES ( fato_ag_conciliacao[data] ),
+			    CALCULATE ( SUM ( fato_ag_conciliacao[contado] ) )
+			)
+		formatString: #,0
+		lineageTag: 8fc6b30f-33ee-4181-b033-4edaf3b7123b
+
+	measure 'Em trânsito por dia' =
+			AVERAGEX (
+			    VALUES ( fato_ag_conciliacao[data] ),
+			    CALCULATE ( SUM ( fato_ag_conciliacao[transito] ) )
+			)
+		formatString: #,0
+		lineageTag: a4378b36-fcb9-4fb5-81b2-94f1c313ebae
+
+	measure 'Parque por dia' =
+			AVERAGEX (
+			    VALUES ( fato_ag_conciliacao[data] ),
+			    CALCULATE ( SUM ( fato_ag_conciliacao[parque] ) )
+			)
+		formatString: #,0
+		lineageTag: 73d2aa04-8a1f-48f6-8dab-9c6c759f86e0
+
+	measure 'Diferença por dia' =
+			AVERAGEX (
+			    VALUES ( fato_ag_conciliacao[data] ),
+			    CALCULATE ( SUM ( fato_ag_conciliacao[diferenca] ) )
+			)
+		formatString: #,0
+		lineageTag: d77fbf5d-bced-40d6-9619-16ac286cf9e1
+
+	measure '% Diferença por dia' =
+			AVERAGEX (
+			    VALUES ( fato_ag_conciliacao[data] ),
+			    VAR P = CALCULATE ( SUM ( fato_ag_conciliacao[parque] ) )
+			    RETURN
+			        IF ( P > 0, DIVIDE ( ABS ( CALCULATE ( SUM ( fato_ag_conciliacao[diferenca] ) ) ), P ) )
+			)
+		formatString: 0.0%
+		lineageTag: 94e94b20-0ece-48f8-85c7-804662a76787
 
 	measure 'Ocorrências de contagem' =
 			COUNTROWS ( fato_ag_dia_colaborador )
@@ -1230,6 +1365,19 @@ table '_Medidas'
 			)
 		formatString: 0.0%
 		lineageTag: f9eba4b8-9691-4546-8637-c1dd0f23db7c
+
+	measure 'Carretas fora da meta' =
+			CALCULATE ( COUNTROWS ( fato_carreta ), fato_carreta[dentro_da_meta] = FALSE () )
+		formatString: #,0
+		lineageTag: ae096def-31cb-441f-8414-d6e67e1e76f7
+
+	measure '% fora da meta de TMA' =
+			DIVIDE (
+			    [Carretas fora da meta],
+			    CALCULATE ( COUNTROWS ( fato_carreta ), NOT ISBLANK ( fato_carreta[tma_min] ) )
+			)
+		formatString: 0.0%
+		lineageTag: 445a9cc1-3895-4f2b-9bc1-b97172b53331
 
 	measure 'Meta de TMA (min)' =
 			AVERAGE ( fato_carreta[tma_alvo_min] )

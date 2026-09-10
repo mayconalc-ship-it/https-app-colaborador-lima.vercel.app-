@@ -1,0 +1,167 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.12.0/schema.json",
+  "name": "816e4d8d2558ab685fe7",
+  "position": {
+    "x": 648,
+    "y": 500,
+    "z": 14000,
+    "height": 166,
+    "width": 616,
+    "tabOrder": 14000
+  },
+  "visual": {
+    "visualType": "tableEx",
+    "query": {
+      "queryState": {
+        "Values": {
+          "projections": [
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "fato_ag_conciliacao"
+                    }
+                  },
+                  "Property": "data"
+                }
+              },
+              "queryRef": "fato_ag_conciliacao.data",
+              "nativeQueryRef": "data"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "_Medidas"
+                    }
+                  },
+                  "Property": "Contado por dia"
+                }
+              },
+              "queryRef": "_Medidas.Contado por dia",
+              "nativeQueryRef": "Contado por dia"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "_Medidas"
+                    }
+                  },
+                  "Property": "Em trânsito por dia"
+                }
+              },
+              "queryRef": "_Medidas.Em trânsito por dia",
+              "nativeQueryRef": "Em trânsito por dia"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "_Medidas"
+                    }
+                  },
+                  "Property": "Parque por dia"
+                }
+              },
+              "queryRef": "_Medidas.Parque por dia",
+              "nativeQueryRef": "Parque por dia"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "_Medidas"
+                    }
+                  },
+                  "Property": "Diferença por dia"
+                }
+              },
+              "queryRef": "_Medidas.Diferença por dia",
+              "nativeQueryRef": "Diferença por dia"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "_Medidas"
+                    }
+                  },
+                  "Property": "% Diferença por dia"
+                }
+              },
+              "queryRef": "_Medidas.% Diferença por dia",
+              "nativeQueryRef": "% Diferença por dia"
+            }
+          ]
+        }
+      },
+      "sortDefinition": {
+        "sort": [
+          {
+            "field": {
+              "Column": {
+                "Expression": {
+                  "SourceRef": {
+                    "Entity": "fato_ag_conciliacao"
+                  }
+                },
+                "Property": "data"
+              }
+            },
+            "direction": "Descending"
+          }
+        ]
+      }
+    },
+    "visualContainerObjects": {
+      "title": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            },
+            "text": {
+              "expr": {
+                "Literal": {
+                  "Value": "'🗓️ Histórico dia a dia'"
+                }
+              }
+            },
+            "fontSize": {
+              "expr": {
+                "Literal": {
+                  "Value": "11D"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "visualHeader": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "drillFilterOtherVisuals": true
+  }
+}

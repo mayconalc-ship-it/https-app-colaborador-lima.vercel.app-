@@ -1,13 +1,13 @@
 {
   "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.12.0/schema.json",
-  "name": "5514bddddce28c9ff791",
+  "name": "ab4ea0464ebec8f43afc",
   "position": {
-    "x": 802,
-    "y": 460,
-    "z": 20000,
-    "height": 206,
-    "width": 454,
-    "tabOrder": 20000
+    "x": 16,
+    "y": 252,
+    "z": 12000,
+    "height": 240,
+    "width": 1248,
+    "tabOrder": 12000
   },
   "visual": {
     "visualType": "tableEx",
@@ -51,6 +51,48 @@
                       "Entity": "_Medidas"
                     }
                   },
+                  "Property": "Trânsito rota"
+                }
+              },
+              "queryRef": "_Medidas.Trânsito rota",
+              "nativeQueryRef": "Trânsito rota"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "_Medidas"
+                    }
+                  },
+                  "Property": "Trânsito carreta"
+                }
+              },
+              "queryRef": "_Medidas.Trânsito carreta",
+              "nativeQueryRef": "Trânsito carreta"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "_Medidas"
+                    }
+                  },
+                  "Property": "Comodato"
+                }
+              },
+              "queryRef": "_Medidas.Comodato",
+              "nativeQueryRef": "Comodato"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "_Medidas"
+                    }
+                  },
                   "Property": "Parque"
                 }
               },
@@ -73,17 +115,31 @@
             },
             {
               "field": {
-                "Column": {
+                "Measure": {
                   "Expression": {
                     "SourceRef": {
-                      "Entity": "fato_ag_conciliacao"
+                      "Entity": "_Medidas"
                     }
                   },
-                  "Property": "parque_atualizado_em"
+                  "Property": "% Diferença"
                 }
               },
-              "queryRef": "fato_ag_conciliacao.parque_atualizado_em",
-              "nativeQueryRef": "parque_atualizado_em"
+              "queryRef": "_Medidas.% Diferença",
+              "nativeQueryRef": "% Diferença"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "_Medidas"
+                    }
+                  },
+                  "Property": "Situação da conciliação"
+                }
+              },
+              "queryRef": "_Medidas.Situação da conciliação",
+              "nativeQueryRef": "Situação da conciliação"
             }
           ]
         }
@@ -120,7 +176,7 @@
             "text": {
               "expr": {
                 "Literal": {
-                  "Value": "'⚖️ Conciliação do dia — contado × parque'"
+                  "Value": "'⚖️ Conciliação do dia — contado + rota + carreta + comodato − parque'"
                 }
               }
             },

@@ -160,8 +160,13 @@ MEASURE '_Medidas'[Contadores] =
 MEASURE '_Medidas'[Dias com contagem] =
     DISTINCTCOUNT ( fato_ag_contagem[data] )
 
+// Só as contagens VIVAS: a recontagem SOBREPÕE a contagem antiga
+// (migration 109), e o app soma só as vivas (vivas() em
+// src/lib/ativo-giro.ts). Somar tudo contava o item recontado duas
+// vezes. Esta medida alimenta Caixas de garrafeira, Paletes de
+// garrafeira e Caixas no dia — o filtro vale para todas por aqui.
 MEASURE '_Medidas'[Total em caixas] =
-    SUM ( fato_ag_contagem[total_caixas] )
+    CALCULATE ( SUM ( fato_ag_contagem[total_caixas] ), fato_ag_contagem[viva] = TRUE () )
 
 MEASURE '_Medidas'[% Participação AG] =
     DIVIDE ( [Contadores], [Colaboradores] )
@@ -273,7 +278,9 @@ MEASURE '_Medidas'[Paletes GFE] =
         CALCULATE (
             SUM ( fato_ag_contagem[palete] ),
             fato_ag_contagem[data] = Dia,
-            fato_ag_contagem[tipo] = "GFE sem Garrafa"
+            fato_ag_contagem[tipo] = "GFE sem Garrafa",
+            // Só as vivas — ver [Total em caixas].
+            fato_ag_contagem[viva] = TRUE ()
         )
 
 MEASURE '_Medidas'[Caixas GFE] =
@@ -283,7 +290,9 @@ MEASURE '_Medidas'[Caixas GFE] =
         CALCULATE (
             SUM ( fato_ag_contagem[caixa] ),
             fato_ag_contagem[data] = Dia,
-            fato_ag_contagem[tipo] = "GFE sem Garrafa"
+            fato_ag_contagem[tipo] = "GFE sem Garrafa",
+            // Só as vivas — ver [Total em caixas].
+            fato_ag_contagem[viva] = TRUE ()
         )
 
 // --- Conciliação do dia, igual à do app ----------------------------
@@ -306,12 +315,132 @@ MEASURE '_Medidas'[Parque] =
 
 MEASURE '_Medidas'[Diferença] =
     VAR C = [Contado]
+    VAR T = [Em trânsito]
     VAR P = [Parque]
     RETURN
         IF (
-            NOT ( ISBLANK ( C ) && ISBLANK ( P ) ),
-            COALESCE ( C, 0 ) - COALESCE ( P, 0 )
+            NOT ( ISBLANK ( C ) && ISBLANK ( T ) && ISBLANK ( P ) ),
+            COALESCE ( C, 0 ) + COALESCE ( T, 0 ) - COALESCE ( P, 0 )
         )
+
+/*
+    AS TRÊS PARCELAS FORA DO PÁTIO — a parte da conta do app que o BI não
+    tinha (10/09/2026).
+
+    A diferença do app é contado + rota + carreta + comodato − parque. As
+    três parcelas são ativo DA REVENDA que ninguém consegue contar porque
+    não está no pátio: saiu com a entrega, está com o transportador ou
+    emprestado ao cliente. Sem elas, todo dia com entrega na rua acusava
+    falta — era a "diferença sempre alta" que o dono via no BI.
+
+    Mesmo recorte de dia de [Contado] e [Parque]: a fotografia do último
+    dia conciliado dentro do filtro.
+*/
+MEASURE '_Medidas'[Trânsito rota] =
+    VAR Dia =
+        CALCULATE ( MAX ( fato_ag_conciliacao[data] ), ALLSELECTED ( fato_ag_conciliacao ) )
+    RETURN
+        CALCULATE ( SUM ( fato_ag_conciliacao[transito_rota] ), fato_ag_conciliacao[data] = Dia )
+
+MEASURE '_Medidas'[Trânsito carreta] =
+    VAR Dia =
+        CALCULATE ( MAX ( fato_ag_conciliacao[data] ), ALLSELECTED ( fato_ag_conciliacao ) )
+    RETURN
+        CALCULATE ( SUM ( fato_ag_conciliacao[transito_carreta] ), fato_ag_conciliacao[data] = Dia )
+
+// O comodato é um saldo que vale até alguém mudar (igual ao parque), e a
+// view já o repete em todo dia conciliado. Por isso o mesmo recorte de dia
+// funciona aqui sem somar o mesmo comodato duas vezes.
+MEASURE '_Medidas'[Comodato] =
+    VAR Dia =
+        CALCULATE ( MAX ( fato_ag_conciliacao[data] ), ALLSELECTED ( fato_ag_conciliacao ) )
+    RETURN
+        CALCULATE ( SUM ( fato_ag_conciliacao[comodato] ), fato_ag_conciliacao[data] = Dia )
+
+MEASURE '_Medidas'[Em trânsito] =
+    VAR R = [Trânsito rota]
+    VAR C = [Trânsito carreta]
+    VAR M = [Comodato]
+    RETURN
+        IF (
+            NOT ( ISBLANK ( R ) && ISBLANK ( C ) && ISBLANK ( M ) ),
+            COALESCE ( R, 0 ) + COALESCE ( C, 0 ) + COALESCE ( M, 0 )
+        )
+
+// A diferença em MÓDULO sobre o parque — a mesma conta da tela. No total,
+// soma antes de dividir (média de porcentagens daria o mesmo peso a uma
+// linha de 100 caixas e a uma de 18 mil). Sem parque não há percentual:
+// dividir por zero não dá "0% de erro", dá pergunta sem resposta.
+MEASURE '_Medidas'[% Diferença] =
+    VAR P = [Parque]
+    RETURN
+        IF ( P > 0, DIVIDE ( ABS ( [Diferença] ), P ) )
+
+// O verde e o vermelho da tela, em texto. Aceitável até 5% do parque
+// (LIMITE_DIFERENCA_PCT em src/lib/ativo-giro.ts) — não é meta de
+// desempenho, é o ruído normal de um parque que se move o dia inteiro.
+MEASURE '_Medidas'[Situação da conciliação] =
+    VAR D = [Diferença]
+    VAR P = [Parque]
+    VAR Pct = [% Diferença]
+    RETURN
+        SWITCH (
+            TRUE (),
+            ISBLANK ( D ), BLANK (),
+            ISBLANK ( P ) || P <= 0, "Sem parque",
+            Pct <= 0.05, "✅ Dentro do aceitável",
+            D > 0, "⚠️ Sobra acima de 5%",
+            "❌ Falta acima de 5%"
+        )
+
+// O dia que a conciliação está mostrando. Todo número desta parte é a
+// FOTOGRAFIA de um dia — e quem lê precisa saber de qual antes de levar
+// a diferença para a reunião.
+MEASURE '_Medidas'[Dia conciliado] =
+    VAR Dia =
+        CALCULATE ( MAX ( fato_ag_conciliacao[data] ), ALLSELECTED ( fato_ag_conciliacao ) )
+    RETURN
+        IF ( NOT ISBLANK ( Dia ), FORMAT ( Dia, "dd/MM/yyyy" ) )
+
+/*
+    O HISTÓRICO DIA A DIA — a aba Histórico do app (conciliarPorDia).
+
+    Numa linha de dia, cada medida é o total EXATO daquele dia. Na linha
+    de total ela é a MÉDIA DIÁRIA do período, e não a soma: somar o parque
+    de trinta dias daria trinta vezes o parque, um número que não existe.
+    O "por dia" no nome é para isso ficar dito na coluna.
+*/
+MEASURE '_Medidas'[Contado por dia] =
+    AVERAGEX (
+        VALUES ( fato_ag_conciliacao[data] ),
+        CALCULATE ( SUM ( fato_ag_conciliacao[contado] ) )
+    )
+
+MEASURE '_Medidas'[Em trânsito por dia] =
+    AVERAGEX (
+        VALUES ( fato_ag_conciliacao[data] ),
+        CALCULATE ( SUM ( fato_ag_conciliacao[transito] ) )
+    )
+
+MEASURE '_Medidas'[Parque por dia] =
+    AVERAGEX (
+        VALUES ( fato_ag_conciliacao[data] ),
+        CALCULATE ( SUM ( fato_ag_conciliacao[parque] ) )
+    )
+
+MEASURE '_Medidas'[Diferença por dia] =
+    AVERAGEX (
+        VALUES ( fato_ag_conciliacao[data] ),
+        CALCULATE ( SUM ( fato_ag_conciliacao[diferenca] ) )
+    )
+
+MEASURE '_Medidas'[% Diferença por dia] =
+    AVERAGEX (
+        VALUES ( fato_ag_conciliacao[data] ),
+        VAR P = CALCULATE ( SUM ( fato_ag_conciliacao[parque] ) )
+        RETURN
+            IF ( P > 0, DIVIDE ( ABS ( CALCULATE ( SUM ( fato_ag_conciliacao[diferenca] ) ) ), P ) )
+    )
 
 // --- Aderência ao processo -----------------------------------------
 // "Ocorrências de contagem" é quantas VEZES se contou, não quanto se

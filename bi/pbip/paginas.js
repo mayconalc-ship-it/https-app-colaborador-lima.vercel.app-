@@ -455,17 +455,19 @@ const paginas = [
         // sobre a conta -- o parque e fixo de proposito --, e sim a
         // resposta para "esse saldo ainda e o que combinamos?".
         t: 'tableEx', x: 802, y: 460, w: 454, h: 206,
-        titulo: '⚖️ Conciliação do dia — contado × parque',
+        // A regra do app desde 10/09/2026 (contado + transito - parque).
+        // Aqui a versao COMPACTA -- a tabela tem 454 px. As tres parcelas
+        // do transito separadas, o % e a situacao estao na pagina
+        // "Conciliacao do AG", logo depois desta.
+        titulo: '⚖️ Conciliação do dia — detalhe na página seguinte',
         roles: {
           Values: [
             'fato_ag_conciliacao.item',
             '@Contado',
+            '@Em trânsito',
             '@Parque',
             '@Diferença',
-            // A coluna "resultado" saiu: Falta/Sobra/Bateu e o sinal da
-            // diferenca dito de novo, e o espaco vale mais para a data
-            // do parque, que e o que diz se dá para confiar na conta.
-            'fato_ag_conciliacao.parque_atualizado_em',
+            '@% Diferença',
           ],
         },
         ordem: { campo: '@Diferença', dir: 'Ascending' },
@@ -482,6 +484,99 @@ const paginas = [
       'mais duro dos dois. Use o filtro de Mês para ler os percentuais: o denominador são as ' +
       'semanas e os dias úteis JÁ DECORRIDOS do que estiver selecionado, então com o ano ' +
       'inteiro aberto todo mundo parece ruim.',
+  },
+
+  // ================================================================
+  {
+    /*
+      A CONCILIACAO DO AG, como a aba Conciliacao do app (10/09/2026).
+
+      O dono: "no BI pega somente o contado vs o parque e sempre gera
+      diferenca alta". Eram tres defeitos -- a recontagem somando em vez
+      de sobrepor, o transito fora da conta e o fator ausente virando
+      zero --, todos corrigidos em 15-armazem-e-desafio-no-bi.sql.
+
+      Pagina propria, e nao so a tabela da pagina do AG, porque a conta do
+      app tem nove colunas (contado, rota, carreta, comodato, parque,
+      diferenca, %, situacao) e na pagina do AG a tabela tem 454 px: as
+      tres parcelas do transito sao justamente o que diz ONDE esta o
+      ativo que falta no patio, e espremidas elas deixariam de ser lidas.
+
+      Sem os filtros de Area e Colaborador: a conciliacao e da REVENDA no
+      dia, nao de uma pessoa. Uma segmentacao de colaborador aqui nao
+      filtraria nada -- e segmentacao que nao filtra e pior que nenhuma,
+      porque quem mexe nela conclui que o numero e daquela pessoa.
+    */
+    nome: '⚖️ Conciliação do AG',
+    filtros: filtros.filter((f) => !f.campo.startsWith('dim_colaborador.')),
+    kpis: [
+      ['📅 Dia conciliado', '@Dia conciliado'],
+      ['📦 Contado', '@Contado'],
+      ['🚚 Fora do pátio', '@Em trânsito'],
+      ['🏷️ Parque', '@Parque'],
+      ['⚖️ Diferença (cx)', '@Diferença'],
+      ['📊 % sobre o parque', '@% Diferença'],
+    ],
+    visuais: [
+      {
+        t: 'tableEx', x: 16, y: Y.meio, w: 1248, h: H.meio,
+        titulo: '⚖️ Conciliação do dia — contado + rota + carreta + comodato − parque',
+        roles: {
+          Values: [
+            'fato_ag_conciliacao.item',
+            '@Contado',
+            // As tres parcelas SEPARADAS, como na tela: e o que diz onde
+            // esta o ativo que nao foi contado. Um numero so de transito
+            // diria apenas que ele nao estava aqui.
+            '@Trânsito rota',
+            '@Trânsito carreta',
+            '@Comodato',
+            '@Parque',
+            '@Diferença',
+            '@% Diferença',
+            '@Situação da conciliação',
+          ],
+        },
+        // Maiores FALTAS no topo: e o que alguem precisa ir atras.
+        ordem: { campo: '@Diferença', dir: 'Ascending' },
+      },
+      {
+        t: 'columnChart', x: 16, y: Y.base, w: 620, h: H.base,
+        titulo: '📉 Diferença por dia — a evolução das faltas e sobras',
+        roles: {
+          Category: ['dim_calendario.data'],
+          Y: ['@Diferença por dia'],
+        },
+      },
+      {
+        t: 'tableEx', x: 648, y: Y.base, w: 616, h: H.base,
+        titulo: '🗓️ Histórico dia a dia',
+        roles: {
+          Values: [
+            'fato_ag_conciliacao.data',
+            '@Contado por dia',
+            '@Em trânsito por dia',
+            '@Parque por dia',
+            '@Diferença por dia',
+            '@% Diferença por dia',
+          ],
+        },
+        ordem: { campo: 'fato_ag_conciliacao.data', dir: 'Descending' },
+      },
+    ],
+    nota:
+      'A CONTA É A DO APP: contado + trânsito rota + trânsito carreta + comodato − parque. As três '
+      + 'parcelas do meio são ativo da revenda que não está no pátio para ser contado — saiu com a '
+      + 'entrega, está com o transportador ou emprestado ao cliente. Aceitável até 5% do parque, em '
+      + 'módulo. '
+      + 'O contado soma só as contagens VIVAS: quando há recontagem, ela SOBREPÕE a contagem antiga '
+      + '(a antiga continua no histórico, mas sai do total). '
+      + 'Os cartões e a tabela de cima são a FOTOGRAFIA do último dia conciliado dentro do filtro '
+      + '— o dia está no primeiro cartão. No histórico, cada linha é um dia exato; a linha de total é '
+      + 'a média diária, porque somar o parque de trinta dias daria um número que não existe. '
+      + 'Dia sem contagem não aparece: é dia sem medição, não dia com falta de 100%. '
+      + 'O parque e o comodato são saldos que valem até alguém mudar — um dia de semanas atrás é '
+      + 'conciliado com o parque e o comodato de HOJE, igual ao app.',
   },
 
   // ================================================================

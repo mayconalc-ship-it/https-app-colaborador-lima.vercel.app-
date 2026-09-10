@@ -1795,10 +1795,11 @@ comment on view bi.fato_atividade is
 -- mexa no 15 e rode `node bi/dobrar-15-no-01.mjs`. Duas verdades
 -- sobre a mesma view e pior que uma so imperfeita.
 --
--- bi.fato_quiz_resposta e criada duas vezes neste arquivo, e e
--- intencional: a versao de cima e a original e esta a substitui com
--- as colunas `origem` e `chute`. Numa execucao unica do arquivo, a
--- ultima e a que fica.
+-- Cinco views sao criadas duas vezes neste arquivo, e e intencional:
+-- fato_quiz_resposta, fato_atividade, fato_ag_contagem,
+-- fato_ag_dia_colaborador e fato_ag_conciliacao. A versao de cima e a
+-- original; a daqui a substitui (ver os comentarios de cada uma no 15).
+-- Numa execucao unica do arquivo, a ultima e a que fica.
 
 -- ==================================================================
 -- BI: PRODUTIVIDADE DO ARMAZEM, RECEBIMENTO DE CARRETAS E O DESAFIO
@@ -2679,6 +2680,231 @@ where c.inicio_em is not null
 
 comment on view bi.fato_empilhadeira_ciclo_gas is
   'Um ciclo de P20 por linha: da troca anterior ate esta. RELATORIO -- nao filtre por turno.';
+
+-- ------------------------------------------------------------------
+-- 10b) ATIVO DE GIRO -- A CONCILIACAO DO APP, E NAO SO CONTADO x PARQUE
+-- ------------------------------------------------------------------
+-- O dono (10/09/2026): "no BI pega somente o contado vs o parque e
+-- sempre gera diferenca alta". Eram tres defeitos somados, e todos tem a
+-- mesma raiz -- o BI ficou parado enquanto a regra do app evoluiu:
+--
+--   1. RECONTAGEM SOMAVA. Desde a migration 109 a recontagem SOBREPOE a
+--      contagem antiga (ag_contagens.substituida_em), e o app so soma as
+--      "vivas" (vivas() em src/lib/ativo-giro.ts). O BI somava as duas --
+--      o item recontado entrava duas vezes e o contado subia.
+--
+--   2. SEM TRANSITO. Desde a 094 a conta do app e
+--          contado + transito rota + transito carreta + comodato - parque
+--      e o BI fazia contado - parque. Todo AG na rua, na estrada ou
+--      emprestado ao cliente aparecia como FALTA no BI.
+--
+--   3. FATOR AUSENTE VIRAVA ZERO. O app converte palete e lastro com os
+--      fatores padrao (FATORES_PADRAO) quando a revenda nao cadastrou o
+--      seu; o BI multiplicava por zero e contava so a caixa solta.
+--
+-- Sem os tres, os numeros da tela e do BI eram numeros diferentes -- e o
+-- dono passaria a auditar um contra o outro no Excel, que e exatamente o
+-- que a camada de BI existe para evitar.
+
+-- A contagem ganha as colunas da sobreposicao e passa a converter com o
+-- fator padrao. Mesmas colunas, na mesma ordem, e tres novas NO FIM --
+-- e o unico jeito que "create or replace" aceita (ver a nota do 01).
+-- O historico continua vendo TODAS as linhas, como no app: a contagem
+-- substituida some do TOTAL, nao do registro. Quem quer so as que valem
+-- filtra `viva`.
+create or replace view bi.fato_ag_contagem as
+select
+  c.id                                    as contagem_id,
+  c.revenda_id,
+  c.data,
+  c.colaborador_id,
+  c.colaborador_nome,
+  c.tipo,
+  c.formato,
+  c.status,
+  (c.status like 'Trânsito%')             as em_transito,
+  c.palete,
+  c.lastro,
+  c.caixa,
+  c.palete * coalesce(f.palete, pad.palete)
+    + c.lastro * coalesce(f.lastro, pad.lastro)
+    + c.caixa                             as total_caixas,
+  case when coalesce(f.palete, pad.palete) > 0 then
+    round((c.palete * coalesce(f.palete, pad.palete)
+           + c.lastro * coalesce(f.lastro, pad.lastro) + c.caixa)::numeric
+          / coalesce(f.palete, pad.palete), 2)
+  end                                     as paletes_equivalentes,
+  coalesce(f.palete, pad.palete)          as fator_palete,
+  coalesce(f.lastro, pad.lastro)          as fator_lastro,
+  -- Continua dizendo "a revenda nao cadastrou fator" -- so que agora a
+  -- conta usa o padrao do app no lugar de zero, igual a tela.
+  (f.formato is null)                     as fator_ausente,
+  c.recontagem_id,
+  (c.recontagem_id is not null)           as eh_recontagem,
+  c.criado_em,
+  bi.dia_local(c.criado_em)               as data_lancamento,
+  (bi.dia_local(c.criado_em) - c.data)    as atraso_dias,
+  (bi.dia_local(c.criado_em) = c.data)    as lancado_no_dia,
+  -- ---- novas, no fim ----
+  c.substituida_em,
+  c.substituida_por,
+  (c.substituida_em is null)              as viva
+from public.ag_contagens c
+left join public.ag_fatores f
+  on f.revenda_id = c.revenda_id
+ and f.formato    = c.formato
+-- FATORES_PADRAO de src/lib/ativo-giro.ts. Se mudar la, mude aqui.
+cross join lateral (
+  select
+    case c.formato when '600ml' then 42 when '300ml' then 90
+                   when '1000ml' then 50 when 'Verde' then 42 end as palete,
+    case c.formato when '600ml' then 7  when '300ml' then 10
+                   when '1000ml' then 10 when 'Verde' then 7  end as lastro
+) pad;
+
+comment on view bi.fato_ag_contagem is
+  'Grao: uma linha de contagem, TODAS (inclusive as sobrepostas por recontagem). Para volume, filtre viva = true.';
+
+-- O resumo por pessoa e dia: o VOLUME passa a ser so das vivas; as
+-- contagens de LINHAS continuam contando tudo, porque lancar e recontar
+-- foram trabalho feito -- e e disso que a aderencia fala.
+create or replace view bi.fato_ag_dia_colaborador as
+select
+  c.revenda_id,
+  c.data,
+  c.colaborador_id,
+  max(c.colaborador_nome)                          as colaborador,
+  count(*)                                         as lancamentos,
+  count(*) filter (where c.eh_recontagem)          as lancamentos_recontagem,
+  coalesce(sum(c.total_caixas) filter (where c.viva), 0) as total_caixas,
+  count(distinct c.formato)                        as formatos_contados,
+  min(c.criado_em)                                 as primeiro_lancamento,
+  max(c.criado_em)                                 as ultimo_lancamento,
+  bool_and(c.lancado_no_dia)                       as tudo_no_dia
+from bi.fato_ag_contagem c
+group by c.revenda_id, c.data, c.colaborador_id;
+
+-- A CONCILIACAO, na regra de conciliarPorDia() do app.
+--
+--   * so dias com pelo menos uma contagem VIVA: dia sem contagem nao e
+--     dia de falta de 100%, e dia sem medicao;
+--   * em cada dia, todo tipo+formato que exista em ALGUM lugar -- no
+--     contado, no parque, no transito do dia ou no comodato. O item que
+--     tem parque e ninguem contou aparece com contado zero, como falta;
+--     antes ele simplesmente sumia da tabela;
+--   * rota e carreta sao DO DIA (ag_transito); o comodato e um saldo que
+--     vale para todos os dias, igual ao parque (ag_comodato);
+--   * aceitavel ate 5% do parque (LIMITE_DIFERENCA_PCT), diferenca em
+--     MODULO sobre o parque -- a mesma conta da tela.
+--
+-- Recriada com drop porque a lista de colunas mudou no meio (ver a nota
+-- do 01 sobre o 42P16).
+drop view if exists bi.fato_ag_conciliacao;
+create view bi.fato_ag_conciliacao as
+with dias as (
+  select distinct c.revenda_id, c.data
+    from bi.fato_ag_contagem c
+   where c.viva
+),
+contado as (
+  select c.revenda_id, c.data, c.tipo, c.formato,
+         sum(c.total_caixas)              as contado,
+         count(*)                         as linhas,
+         count(distinct c.colaborador_id) as contadores
+    from bi.fato_ag_contagem c
+   where c.viva
+   group by 1, 2, 3, 4
+),
+itens as (
+  select revenda_id, data, tipo, formato from contado
+  union
+  select d.revenda_id, d.data, p.tipo, p.formato
+    from dias d
+    join public.ag_parque p on p.revenda_id = d.revenda_id
+  union
+  select t.revenda_id, t.data, t.tipo, t.formato
+    from public.ag_transito t
+    join dias d on d.revenda_id = t.revenda_id and d.data = t.data
+  union
+  select d.revenda_id, d.data, cm.tipo, cm.formato
+    from dias d
+    join public.ag_comodato cm on cm.revenda_id = d.revenda_id
+),
+base as (
+  select
+    i.revenda_id, i.data, i.tipo, i.formato,
+    coalesce(ct.contado, 0)         as contado,
+    coalesce(ct.linhas, 0)          as linhas,
+    coalesce(ct.contadores, 0)      as contadores,
+    coalesce(t.transito_rota, 0)    as transito_rota,
+    coalesce(t.transito_carreta, 0) as transito_carreta,
+    coalesce(cm.quantidade, 0)      as comodato,
+    p.quantidade                    as parque_cadastrado,
+    coalesce(p.quantidade, 0)       as parque,
+    p.atualizado_em                 as parque_atualizado_em,
+    cm.atualizado_em                as comodato_atualizado_em
+  from itens i
+  left join contado ct
+    on ct.revenda_id = i.revenda_id and ct.data = i.data
+   and ct.tipo = i.tipo and ct.formato = i.formato
+  left join public.ag_transito t
+    on t.revenda_id = i.revenda_id and t.data = i.data
+   and t.tipo = i.tipo and t.formato = i.formato
+  left join public.ag_comodato cm
+    on cm.revenda_id = i.revenda_id and cm.tipo = i.tipo and cm.formato = i.formato
+  left join public.ag_parque p
+    on p.revenda_id = i.revenda_id and p.tipo = i.tipo and p.formato = i.formato
+)
+select
+  b.revenda_id,
+  b.data,
+  b.tipo,
+  b.formato,
+  b.tipo || ' · ' || b.formato                                  as item,
+  b.contado,
+  b.linhas,
+  b.contadores,
+  b.transito_rota,
+  b.transito_carreta,
+  b.comodato,
+  (b.transito_rota + b.transito_carreta + b.comodato)           as transito,
+  b.parque,
+  x.dif                                                         as diferenca,
+  abs(x.dif)                                                    as diferenca_abs,
+  -- Em MODULO sobre o parque, como a tela. Sem parque nao ha
+  -- percentual: dividir por zero nao da "0% de erro", da pergunta sem
+  -- resposta.
+  case when b.parque > 0 then round(abs(x.dif)::numeric / b.parque, 4) end as diferenca_pct,
+  0.05::numeric                                                 as limite_pct,
+  case when b.parque > 0 then abs(x.dif)::numeric / b.parque <= 0.05 end    as dentro_do_aceitavel,
+  case
+    when b.parque_cadastrado is null then 'Sem parque cadastrado'
+    when x.dif = 0                   then 'Bateu'
+    when x.dif > 0                   then 'Sobra'
+    else                                  'Falta'
+  end                                                           as resultado,
+  -- O que a tela pinta de verde ou vermelho, em texto. E o que se
+  -- filtra na hora de perguntar "o que precisa de alguem indo atras?".
+  case
+    when b.parque <= 0                                   then 'Sem parque'
+    when abs(x.dif)::numeric / b.parque <= 0.05          then '✅ Dentro do aceitável'
+    when x.dif > 0                                       then '⚠️ Sobra acima de 5%'
+    else                                                      '❌ Falta acima de 5%'
+  end                                                           as situacao,
+  b.parque_atualizado_em,
+  (b.data = bi.dia_local(b.parque_atualizado_em))              as parque_confiavel,
+  b.comodato_atualizado_em
+from base b
+cross join lateral (
+  select b.contado + b.transito_rota + b.transito_carreta + b.comodato - b.parque as dif
+) x
+-- Item sem nada em lugar nenhum nao existe para esta revenda (mesma
+-- regra de conciliar(): contado, parque e transito todos zero).
+where not (b.contado = 0 and b.parque = 0
+           and b.transito_rota + b.transito_carreta + b.comodato = 0);
+
+comment on view bi.fato_ag_conciliacao is
+  'Conciliacao do app: contado (vivas) + rota + carreta + comodato - parque, por dia/item. Aceitavel ate 5% do parque.';
 
 -- ------------------------------------------------------------------
 -- 11) A VISAO GERAL PASSA A ENXERGAR O ARMAZEM

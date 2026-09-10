@@ -1,6 +1,6 @@
 {
   "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.12.0/schema.json",
-  "name": "017588d1af5b56a294d5",
+  "name": "5f6ac0c893b45a43587f",
   "position": {
     "x": 474,
     "y": 460,
@@ -28,6 +28,20 @@
               },
               "queryRef": "fato_ag_contagem.colaborador_nome",
               "nativeQueryRef": "colaborador_nome"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "fato_ag_contagem"
+                    }
+                  },
+                  "Property": "formato"
+                }
+              },
+              "queryRef": "fato_ag_contagem.formato",
+              "nativeQueryRef": "formato"
             },
             {
               "field": {
@@ -92,7 +106,7 @@
             "text": {
               "expr": {
                 "Literal": {
-                  "Value": "'🧺 Garrafeira sem garrafa por colaborador — último dia'"
+                  "Value": "'🧺 Garrafeira sem garrafa por colaborador e formato — último dia'"
                 }
               }
             },

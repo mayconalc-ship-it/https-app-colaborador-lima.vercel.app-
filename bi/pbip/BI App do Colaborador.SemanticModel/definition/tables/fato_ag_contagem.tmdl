@@ -193,6 +193,31 @@ table fato_ag_contagem
 
 		annotation SummarizationSetBy = Automatic
 
+	column substituida_em
+		dataType: dateTime
+		formatString: dd/MM/yyyy
+		lineageTag: ee0cd47f-d7f3-4f3f-8fd1-c5cf6f1cca50
+		summarizeBy: none
+		sourceColumn: substituida_em
+
+		annotation SummarizationSetBy = Automatic
+
+	column substituida_por
+		dataType: int64
+		lineageTag: 8bd79453-c695-4651-8e1e-a22b855065eb
+		summarizeBy: none
+		sourceColumn: substituida_por
+
+		annotation SummarizationSetBy = Automatic
+
+	column viva
+		dataType: boolean
+		lineageTag: 06928f42-34f1-463d-9697-1791d0dcdc2b
+		summarizeBy: none
+		sourceColumn: viva
+
+		annotation SummarizationSetBy = Automatic
+
 	column chave
 		dataType: string
 		isHidden

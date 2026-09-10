@@ -1,53 +1,106 @@
 {
   "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.12.0/schema.json",
-  "name": "9ecf883eb82080cf45ac",
+  "name": "7d7a091e6a1c7f1c93f0",
   "position": {
-    "x": 556,
-    "y": 72,
-    "z": 6000,
-    "height": 72,
-    "width": 168,
-    "tabOrder": 6000
+    "x": 226,
+    "y": 152,
+    "z": 7000,
+    "height": 96,
+    "width": 198,
+    "tabOrder": 7000
   },
   "visual": {
-    "visualType": "slicer",
+    "visualType": "cardVisual",
     "query": {
       "queryState": {
-        "Values": {
+        "Data": {
           "projections": [
             {
               "field": {
-                "Column": {
+                "Measure": {
                   "Expression": {
                     "SourceRef": {
-                      "Entity": "dim_colaborador"
+                      "Entity": "_Medidas"
                     }
                   },
-                  "Property": "colaborador"
+                  "Property": "Contado"
                 }
               },
-              "queryRef": "dim_colaborador.colaborador",
-              "nativeQueryRef": "colaborador"
+              "queryRef": "_Medidas.Contado",
+              "nativeQueryRef": "Contado"
             }
           ]
         }
       }
     },
     "objects": {
-      "data": [
+      "accentBar": [
         {
           "properties": {
-            "mode": {
+            "show": {
               "expr": {
                 "Literal": {
-                  "Value": "'Dropdown'"
+                  "Value": "true"
                 }
               }
             }
+          },
+          "selector": {
+            "id": "default"
           }
         }
       ],
-      "header": [
+      "border": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "false"
+                }
+              }
+            }
+          },
+          "selector": {
+            "id": "default"
+          }
+        }
+      ],
+      "outline": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "false"
+                }
+              }
+            }
+          },
+          "selector": {
+            "id": "default"
+          }
+        }
+      ],
+      "label": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "false"
+                }
+              }
+            }
+          },
+          "selector": {
+            "id": "default"
+          }
+        }
+      ]
+    },
+    "visualContainerObjects": {
+      "title": [
         {
           "properties": {
             "show": {
@@ -60,41 +113,21 @@
             "text": {
               "expr": {
                 "Literal": {
-                  "Value": "'👤 Colaborador'"
+                  "Value": "'📦 Contado'"
                 }
               }
             },
-            "textSize": {
+            "fontSize": {
               "expr": {
                 "Literal": {
-                  "Value": "10D"
+                  "Value": "11D"
                 }
               }
             }
           }
         }
       ],
-      "general": [
-        {
-          "properties": {
-            "selfFilterEnabled": {
-              "expr": {
-                "Literal": {
-                  "Value": "true"
-                }
-              }
-            }
-          }
-        }
-      ]
-    },
-    "syncGroup": {
-      "groupName": "dim_colaborador.colaborador",
-      "fieldChanges": true,
-      "filterChanges": true
-    },
-    "visualContainerObjects": {
-      "title": [
+      "border": [
         {
           "properties": {
             "show": {

@@ -20,13 +20,13 @@
                 "Column": {
                   "Expression": {
                     "SourceRef": {
-                      "Entity": "dim_colaborador"
+                      "Entity": "fato_pa_bancada"
                     }
                   },
                   "Property": "colaborador"
                 }
               },
-              "queryRef": "dim_colaborador.colaborador",
+              "queryRef": "fato_pa_bancada.colaborador",
               "nativeQueryRef": "colaborador"
             }
           ]
@@ -89,7 +89,7 @@
       ]
     },
     "syncGroup": {
-      "groupName": "dim_colaborador.colaborador",
+      "groupName": "fato_pa_bancada.colaborador",
       "fieldChanges": true,
       "filterChanges": true
     },

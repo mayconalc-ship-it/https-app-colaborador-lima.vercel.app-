@@ -233,6 +233,10 @@ const MEDIDAS_TEXTO = new Set([
   // Entrou em 09/09/2026 sem vir para esta lista: sairia a 30pt, o corpo
   // de NUMERO, e um nome de procedimento nao cabe em 240 px nesse tamanho.
   'Padrão mais crítico',
+  // Os dois textos da conciliacao do AG (10/09/2026): o verde/vermelho
+  // da tela em palavras, e o dia que a fotografia esta mostrando.
+  'Situação da conciliação',
+  'Dia conciliado',
 ]);
 
 // Razoes que o nome nao denuncia: "Aproveitamento médio" cairia na regra

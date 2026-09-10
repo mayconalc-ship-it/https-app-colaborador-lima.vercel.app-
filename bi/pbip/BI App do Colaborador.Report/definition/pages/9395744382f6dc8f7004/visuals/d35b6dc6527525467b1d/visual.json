@@ -1,13 +1,13 @@
 {
   "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.12.0/schema.json",
-  "name": "ada01cc11550f69e25db",
+  "name": "d35b6dc6527525467b1d",
   "position": {
-    "x": 772,
+    "x": 16,
     "y": 152,
-    "z": 13000,
+    "z": 6000,
     "height": 96,
-    "width": 240,
-    "tabOrder": 13000
+    "width": 198,
+    "tabOrder": 6000
   },
   "visual": {
     "visualType": "cardVisual",
@@ -23,17 +23,46 @@
                       "Entity": "_Medidas"
                     }
                   },
-                  "Property": "% dentro da meta de TMA"
+                  "Property": "Dia conciliado"
                 }
               },
-              "queryRef": "_Medidas.% dentro da meta de TMA",
-              "nativeQueryRef": "% dentro da meta de TMA"
+              "queryRef": "_Medidas.Dia conciliado",
+              "nativeQueryRef": "Dia conciliado"
             }
           ]
         }
       }
     },
     "objects": {
+      "value": [
+        {
+          "properties": {
+            "fontSize": {
+              "expr": {
+                "Literal": {
+                  "Value": "15D"
+                }
+              }
+            }
+          },
+          "selector": {
+            "id": "default"
+          }
+        }
+      ],
+      "labels": [
+        {
+          "properties": {
+            "fontSize": {
+              "expr": {
+                "Literal": {
+                  "Value": "15D"
+                }
+              }
+            }
+          }
+        }
+      ],
       "accentBar": [
         {
           "properties": {
@@ -113,7 +142,7 @@
             "text": {
               "expr": {
                 "Literal": {
-                  "Value": "'🎯 % dentro da meta'"
+                  "Value": "'📅 Dia conciliado'"
                 }
               }
             },

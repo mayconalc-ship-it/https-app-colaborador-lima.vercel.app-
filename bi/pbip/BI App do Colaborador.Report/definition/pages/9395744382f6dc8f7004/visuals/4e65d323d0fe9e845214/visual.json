@@ -1,0 +1,91 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.12.0/schema.json",
+  "name": "4e65d323d0fe9e845214",
+  "position": {
+    "x": 16,
+    "y": 672,
+    "z": 15000,
+    "height": 30,
+    "width": 1248,
+    "tabOrder": 15000
+  },
+  "visual": {
+    "visualType": "textbox",
+    "objects": {
+      "general": [
+        {
+          "properties": {
+            "paragraphs": [
+              {
+                "textRuns": [
+                  {
+                    "value": "A CONTA É A DO APP: contado + trânsito rota + trânsito carreta + comodato − parque. As três parcelas do meio são ativo da revenda que não está no pátio para ser contado — saiu com a entrega, está com o transportador ou emprestado ao cliente. Aceitável até 5% do parque, em módulo. O contado soma só as contagens VIVAS: quando há recontagem, ela SOBREPÕE a contagem antiga (a antiga continua no histórico, mas sai do total). Os cartões e a tabela de cima são a FOTOGRAFIA do último dia conciliado dentro do filtro — o dia está no primeiro cartão. No histórico, cada linha é um dia exato; a linha de total é a média diária, porque somar o parque de trinta dias daria um número que não existe. Dia sem contagem não aparece: é dia sem medição, não dia com falta de 100%. O parque e o comodato são saldos que valem até alguém mudar — um dia de semanas atrás é conciliado com o parque e o comodato de HOJE, igual ao app.",
+                    "textStyle": {
+                      "fontSize": "8pt",
+                      "color": "#64748B"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "visualContainerObjects": {
+      "title": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "false"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "border": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "false"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "background": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "false"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "dropShadow": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "false"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "drillFilterOtherVisuals": true
+  }
+}

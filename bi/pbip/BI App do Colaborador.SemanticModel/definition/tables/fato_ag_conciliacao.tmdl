@@ -1,4 +1,4 @@
-/// Filtre parque_confiavel = true. ag_parque nao tem historico.
+/// Conciliacao do app por dia e item: contado + transito - parque. Aceitavel ate 5%.
 table fato_ag_conciliacao
 	lineageTag: 63596bcc-9379-473e-ad96-957ae42fd3cd
 
@@ -68,6 +68,38 @@ table fato_ag_conciliacao
 
 		annotation SummarizationSetBy = Automatic
 
+	column transito_rota
+		dataType: int64
+		lineageTag: 328635be-1bfb-46f2-bdb4-dce834df86f3
+		summarizeBy: none
+		sourceColumn: transito_rota
+
+		annotation SummarizationSetBy = Automatic
+
+	column transito_carreta
+		dataType: int64
+		lineageTag: 091f50e7-955c-442e-ac6d-febae765fc63
+		summarizeBy: none
+		sourceColumn: transito_carreta
+
+		annotation SummarizationSetBy = Automatic
+
+	column comodato
+		dataType: int64
+		lineageTag: 0a1bd971-8aa4-461e-98d1-0d44bfd51150
+		summarizeBy: none
+		sourceColumn: comodato
+
+		annotation SummarizationSetBy = Automatic
+
+	column transito
+		dataType: int64
+		lineageTag: 07eb6eae-7e9f-49d0-b95b-92b4257f5e6f
+		summarizeBy: none
+		sourceColumn: transito
+
+		annotation SummarizationSetBy = Automatic
+
 	column parque
 		dataType: int64
 		lineageTag: 22fc82fa-4314-44bf-a47a-f5f9ea617482
@@ -100,11 +132,35 @@ table fato_ag_conciliacao
 
 		annotation SummarizationSetBy = Automatic
 
+	column limite_pct
+		dataType: decimal
+		lineageTag: d470c443-ba17-47a7-adb7-dfa55516edfa
+		summarizeBy: none
+		sourceColumn: limite_pct
+
+		annotation SummarizationSetBy = Automatic
+
+	column dentro_do_aceitavel
+		dataType: boolean
+		lineageTag: 819f09fa-b1c8-4ec5-982f-d768183c667a
+		summarizeBy: none
+		sourceColumn: dentro_do_aceitavel
+
+		annotation SummarizationSetBy = Automatic
+
 	column resultado
 		dataType: string
 		lineageTag: f8eca782-53d3-42ff-9f78-196e75c1a8c3
 		summarizeBy: none
 		sourceColumn: resultado
+
+		annotation SummarizationSetBy = Automatic
+
+	column situacao
+		dataType: string
+		lineageTag: f114f396-0063-48a5-8d71-c9b5c06db83a
+		summarizeBy: none
+		sourceColumn: situacao
 
 		annotation SummarizationSetBy = Automatic
 
@@ -122,6 +178,15 @@ table fato_ag_conciliacao
 		lineageTag: 877d4a12-b614-4c1d-b7cf-8418b66b3747
 		summarizeBy: none
 		sourceColumn: parque_confiavel
+
+		annotation SummarizationSetBy = Automatic
+
+	column comodato_atualizado_em
+		dataType: dateTime
+		formatString: dd/MM/yyyy
+		lineageTag: 2c6b3bc6-3005-46d1-b992-0032ef694fec
+		summarizeBy: none
+		sourceColumn: comodato_atualizado_em
 
 		annotation SummarizationSetBy = Automatic
 

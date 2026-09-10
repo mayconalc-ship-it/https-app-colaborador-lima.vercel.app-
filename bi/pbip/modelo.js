@@ -166,7 +166,10 @@ const tabelas = [
       'formato:s status:s em_transito:b palete:i lastro:i caixa:i total_caixas:i ' +
       'paletes_equivalentes:n fator_palete:i fator_lastro:i ' +
       'fator_ausente:b recontagem_id:s eh_recontagem:b criado_em:t ' +
-      'data_lancamento:t atraso_dias:i lancado_no_dia:b ' + CHAVE,
+      'data_lancamento:t atraso_dias:i lancado_no_dia:b ' +
+      // A sobreposicao da recontagem (migration 109). `viva` e o que
+      // as medidas de volume filtram -- ver [Total em caixas].
+      'substituida_em:t substituida_por:i viva:b ' + CHAVE,
     chaveComposta: true,
     data: 'data',
   },
@@ -183,11 +186,15 @@ const tabelas = [
   {
     nome: 'fato_ag_conciliacao',
     view: 'fato_ag_conciliacao',
-    descricao: 'Filtre parque_confiavel = true. ag_parque nao tem historico.',
+    // A conta do app (10/09/2026): contado (vivas) + rota + carreta +
+    // comodato - parque, aceitavel ate 5% do parque. Ver o 15.
+    descricao: 'Conciliacao do app por dia e item: contado + transito - parque. Aceitavel ate 5%.',
     colunas:
       'revenda_id:s data:t tipo:s formato:s item:s contado:i linhas:i contadores:i ' +
-      'parque:i diferenca:i diferenca_abs:i diferenca_pct:n resultado:s ' +
-      'parque_atualizado_em:t parque_confiavel:b',
+      'transito_rota:i transito_carreta:i comodato:i transito:i ' +
+      'parque:i diferenca:i diferenca_abs:i diferenca_pct:n limite_pct:n ' +
+      'dentro_do_aceitavel:b resultado:s situacao:s ' +
+      'parque_atualizado_em:t parque_confiavel:b comodato_atualizado_em:t',
     revendaDireta: true,
     data: 'data',
   },

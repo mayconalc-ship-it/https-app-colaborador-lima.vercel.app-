@@ -7,8 +7,9 @@
 > por print da tela do app. Agora são **7 páginas novas** (🧰 Bancada, 📦 Repack, 🫗 Despejo,
 > 🧃 Abastecimento, 🚛 Recebimento de Carretas, 🏗️ Empilhadeira e
 > 🎯 Desafio — o que treinar), **17 views novas**, **71 medidas novas** e
-> **30 relacionamentos novos** — o projeto foi de 12 para 18 páginas (a
-> Capa saiu em 10/09/2026 — a navegação é pelo menu lateral), de
+> **30 relacionamentos novos** — o projeto foi de 12 para 19 páginas (a
+> Capa saiu e a ⚖️ Conciliação do AG entrou em 10/09/2026 — a navegação é
+> pelo menu lateral), de
 > 37 para 50 tabelas, de 36 para 53 views e de 124 para 195 medidas.
 >
 > Três coisas que mudam a leitura e valem antes de abrir:
@@ -62,7 +63,7 @@ que transformam as tabelas do app em fatos e dimensões prontos) e a
 
 **Comece por [`08-abrir-o-pbip.md`](08-abrir-o-pbip.md).** O projeto em
 `bi/pbip/` já traz o modelo, as 195 medidas, os 84 relacionamentos, o tema
-e as 18 páginas montadas — abre no Power BI Desktop e salva como `.pbix`,
+e as 19 páginas montadas — abre no Power BI Desktop e salva como `.pbix`,
 sem arrastar visual nenhum. O roteiro manual de montagem
 (`06-montar-pbix.md`) ficou como referência de quem quer entender as
 escolhas, não como caminho obrigatório.
@@ -78,7 +79,7 @@ escolhas, não como caminho obrigatório.
 | 7 | `15-armazem-e-desafio-no-bi.sql` | **Produtividade do Armazém, carretas, empilhadeira e o gabarito do Desafio.** Recorte de colagem do 09/09/2026. |
 | — | `dobrar-15-no-01.mjs` | Copia o 15 para dentro do 01 (fonte da verdade). Rode depois de mexer no 15. |
 | — | `pbip/gerar-pbip.js` | Regera o projeto a partir de `modelo.js` + `paginas.js` + `07-medidas.dax`. |
-| — | `pbip/validar.js` | Confere os campos das 18 páginas contra o modelo antes de abrir. |
+| — | `pbip/validar.js` | Confere os campos das 19 páginas contra o modelo antes de abrir. |
 | — | `07-medidas.dax` | As 195 medidas. **Fonte da verdade** — o gerador lê daqui. |
 | — | `medidas-dax.md` | As mesmas medidas explicadas uma a uma, com o porquê de cada corte. |
 | — | `layout-relatorio.md` | Layout das 8 páginas de gestão originais, visual a visual. |
