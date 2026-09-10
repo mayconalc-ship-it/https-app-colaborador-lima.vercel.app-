@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { requireModulo } from "@/lib/require-admin";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getRevendaId } from "@/lib/revendas";
-import { MENU_PADRAO } from "@/lib/menu";
+import { completarComPadrao } from "@/lib/menu";
 
 /**
  * Cada revenda tem o próprio menu, e o de uma revenda nova nasce vazio.
@@ -17,15 +17,23 @@ async function garantirSemeado(
   admin: ReturnType<typeof createAdminClient>,
   revendaId: string,
 ) {
-  const { count } = await admin
+  const { data: existentes } = await admin
     .from("menu_itens")
-    .select("*", { count: "exact", head: true })
+    .select("chave, titulo, emoji, href, ordem, visivel")
     .eq("revenda_id", revendaId);
 
-  if (!count) {
+  // Vazio: semeia o padrão inteiro. Com itens: grava só o que o padrão
+  // ganhou depois (10/09/2026) -- senão mover ou esconder um cartão novo
+  // não acharia a linha dele.
+  const tem = new Set((existentes ?? []).map((i) => i.chave));
+  const faltando = completarComPadrao(existentes).filter((i) => !tem.has(i.chave));
+  if (faltando.length > 0) {
     await admin
       .from("menu_itens")
-      .insert(MENU_PADRAO.map((i) => ({ ...i, revenda_id: revendaId })));
+      .upsert(
+        faltando.map((i) => ({ ...i, revenda_id: revendaId })),
+        { onConflict: "revenda_id,chave", ignoreDuplicates: true },
+      );
   }
 }
 

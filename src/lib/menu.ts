@@ -155,6 +155,27 @@ export function agruparItens<T extends { chave: string }>(itens: T[]) {
   return blocos.filter((b) => b.itens.length > 0);
 }
 
+/**
+ * O MENU DA REVENDA, COMPLETADO PELO PADRÃO (10/09/2026).
+ *
+ * O menu de cada revenda é gravado em `menu_itens` na primeira vez que
+ * alguém abre a tela Ordem do Menu -- e a partir daí o banco manda. O
+ * defeito: um cartão criado no app DEPOIS disso nunca chegava àquela
+ * revenda. Barreiras ficou sem "Meus Indicadores" e sem "Desafio do Mês"
+ * mesmo com os módulos ligados e liberados para os motoristas.
+ *
+ * Aqui entra o que o banco não tem, com o `visivel` do padrão, depois do
+ * último item. O que o banco TEM continua mandando -- inclusive o
+ * "oculto": esconder um cartão segue funcionando.
+ */
+export function completarComPadrao<T extends ItemMenu>(itensBanco: T[] | null | undefined): ItemMenu[] {
+  if (!itensBanco || itensBanco.length === 0) return MENU_PADRAO;
+  const tem = new Set(itensBanco.map((i) => i.chave));
+  let ordem = Math.max(...itensBanco.map((i) => i.ordem ?? 0));
+  const faltando = MENU_PADRAO.filter((i) => !tem.has(i.chave)).map((i) => ({ ...i, ordem: ++ordem }));
+  return [...itensBanco, ...faltando];
+}
+
 // Usado enquanto a tabela menu_itens nao estiver populada.
 export const MENU_PADRAO: ItemMenu[] = [
   { chave: "sonho", titulo: "Sonho da Revenda", emoji: "🎯", href: "/sonho-da-revenda", ordem: 1, visivel: true },

@@ -11,7 +11,7 @@ import {
   type Modulo,
   type ModuloId,
 } from "@/lib/acessos";
-import { MENU_PADRAO, agruparItens, cartoesVisiveis, type ItemMenu } from "@/lib/menu";
+import { agruparItens, cartoesVisiveis, completarComPadrao, type ItemMenu } from "@/lib/menu";
 import { paineisPara, type Painel } from "@/lib/gestao";
 
 /**
@@ -118,7 +118,8 @@ export async function simularAcesso(
         ),
   );
 
-  const todos = (itensBanco && itensBanco.length > 0 ? itensBanco : MENU_PADRAO) as ItemMenu[];
+  // A mesma conta da home (completarComPadrao): a prévia não pode divergir.
+  const todos = completarComPadrao(itensBanco as ItemMenu[] | null);
   const blocos = agruparItens(cartoesVisiveis(todos, modulosDaRevenda, modulosAcessiveis)).map(
     (b) => ({ id: b.id, titulo: b.titulo, itens: b.itens }),
   );

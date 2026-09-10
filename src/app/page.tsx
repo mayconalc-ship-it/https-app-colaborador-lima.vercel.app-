@@ -2,7 +2,7 @@ import { MenuCard } from "@/components/MenuCard";
 import { createClient } from "@/lib/supabase/server";
 import { getPerfil } from "@/lib/sessao";
 import { getRevendaAtiva, getModulosDaRevenda } from "@/lib/revendas";
-import { DESTAQUES_DO_MENU, MENU_PADRAO, agruparItens, cartoesVisiveis } from "@/lib/menu";
+import { DESTAQUES_DO_MENU, agruparItens, cartoesVisiveis, completarComPadrao } from "@/lib/menu";
 
 /**
  * A frase abaixo do título nos cartões grandes. Só nos destaques: num
@@ -50,7 +50,10 @@ export default async function Home() {
   ]);
 
   const primeiroNome = perfil?.nome?.split(" ")[0] ?? "";
-  const todos = itensBanco && itensBanco.length > 0 ? itensBanco : MENU_PADRAO;
+  // O banco manda, e o que ele não tem vem do padrão -- senão um cartão
+  // novo nunca chega à revenda que já tinha menu gravado (ver
+  // completarComPadrao).
+  const todos = completarComPadrao(itensBanco);
   // A regra mora em lib/menu.ts desde 06/09/2026: a prévia de acesso, em
   // Acessos por Pessoa, responde à mesma pergunta e precisa da MESMA
   // resposta -- uma prévia que reimplementa a regra mente na primeira

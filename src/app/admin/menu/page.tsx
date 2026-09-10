@@ -5,7 +5,7 @@ import { getRevendaAtiva } from "@/lib/revendas";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { PageHeader } from "@/components/PageHeader";
 import { MenuItemRow } from "@/components/MenuItemRow";
-import { MENU_PADRAO, type ItemMenu } from "@/lib/menu";
+import { completarComPadrao, type ItemMenu } from "@/lib/menu";
 import { moverItem, alternarVisibilidade, renomearItem } from "./actions";
 
 export default async function AdminMenuPage({
@@ -26,15 +26,20 @@ export default async function AdminMenuPage({
     .eq("revenda_id", revenda.id)
     .order("ordem", { ascending: true });
 
-  // Primeira visita DESTA REVENDA: popula com o menu padrão do app.
-  let itens: ItemMenu[];
-  if (!existentes || existentes.length === 0) {
+  // Primeira visita DESTA REVENDA: popula com o menu padrão do app. E nas
+  // seguintes, grava o que o padrão ganhou depois (10/09/2026): sem isso,
+  // o cartão novo aparecia na home (completarComPadrao) mas não aqui, e não
+  // havia como escondê-lo nem mudá-lo de lugar.
+  const itens: ItemMenu[] = completarComPadrao(existentes);
+  const tem = new Set((existentes ?? []).map((i) => i.chave));
+  const faltando = itens.filter((i) => !tem.has(i.chave));
+  if (faltando.length > 0) {
     await admin
       .from("menu_itens")
-      .insert(MENU_PADRAO.map((i) => ({ ...i, revenda_id: revenda.id })));
-    itens = MENU_PADRAO;
-  } else {
-    itens = existentes;
+      .upsert(
+        faltando.map((i) => ({ ...i, revenda_id: revenda.id })),
+        { onConflict: "revenda_id,chave", ignoreDuplicates: true },
+      );
   }
 
   return (
