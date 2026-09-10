@@ -1363,6 +1363,25 @@ MEASURE '_Medidas'[% dentro da meta de TMA] =
         CALCULATE ( COUNTROWS ( fato_carreta ), NOT ISBLANK ( fato_carreta[tma_min] ) )
     )
 
+// A outra face do "% dentro da meta" — pedida pelo dono em 10/09/2026,
+// e é a que se leva para a conversa: "14 carretas estouraram a meta"
+// é uma frase que gera ação; "82% dentro" é uma que gera aceno.
+//
+// FALSE() e não NOT TRUE(): carreta sem TMA medido tem dentro_da_meta
+// NULO, e ela não estourou meta nenhuma — só não foi medida. NOT TRUE()
+// a contaria como fora e inflaria o número exatamente com as carretas
+// de apontamento incompleto.
+MEASURE '_Medidas'[Carretas fora da meta] =
+    CALCULATE ( COUNTROWS ( fato_carreta ), fato_carreta[dentro_da_meta] = FALSE () )
+
+// Mesmo denominador do "% dentro": só carretas com TMA medido. As duas
+// somam 100% — e é por isso que a página mostra uma e não as duas.
+MEASURE '_Medidas'[% fora da meta de TMA] =
+    DIVIDE (
+        [Carretas fora da meta],
+        CALCULATE ( COUNTROWS ( fato_carreta ), NOT ISBLANK ( fato_carreta[tma_min] ) )
+    )
+
 // A régua é a cadastrada em Admin > Recebimento e viaja na linha do
 // fato. Quando ela mudar, o BI acompanha sozinho.
 MEASURE '_Medidas'[Meta de TMA (min)] =

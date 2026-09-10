@@ -878,6 +878,124 @@ where c.inicio_em is not null
 comment on view bi.fato_empilhadeira_ciclo_gas is
   'Um ciclo de P20 por linha: da troca anterior ate esta. RELATORIO -- nao filtre por turno.';
 
+-- ------------------------------------------------------------------
+-- 11) A VISAO GERAL PASSA A ENXERGAR O ARMAZEM
+-- ------------------------------------------------------------------
+-- bi.fato_atividade e a espinha da pagina Visao Geral: "interacoes por
+-- modulo" e "quem usa o que" saem dela. Ela nasceu com seis modulos (AG,
+-- Feedback, 5 Porques, Quiz, Comunicados e 5S) e nunca foi estendida --
+-- entao, com o armazem inteiro dentro do BI, a pagina executiva
+-- continuava dizendo que ninguem usava bancada, despejo, carreta ou
+-- empilhadeira. O dono percebeu em 10/09/2026.
+--
+-- Recriada inteira aqui, e nao so acrescentada: e a mesma lista de
+-- colunas, na mesma ordem, entao "create or replace" aceita. Os seis
+-- ramos originais sao copia literal do 01 -- se mudar um la, mude aqui,
+-- porque ESTA e a definicao que vale depois que o 15 roda.
+--
+-- Mesmo grao do resto: "a pessoa usou o modulo naquele dia", contando
+-- lancamentos. O bate palete conta o LOTE, nao o item: contar item a
+-- item faria quem bate um palete de dez SKUs parecer dez vezes mais
+-- ativo que quem bate um palete de um SKU so.
+create or replace view bi.fato_atividade as
+  select c.revenda_id, c.data, c.colaborador_id, c.colaborador_nome as colaborador,
+         'Ativo de Giro'::text as modulo, count(*)::bigint as interacoes
+    from bi.fato_ag_contagem c
+   group by 1, 2, 3, 4
+
+union all
+  select f.revenda_id, bi.dia_local(f.criado_em), f.colaborador_id,
+         coalesce(p.nome, 'Sem cadastro'), 'Feedback de Rota', count(*)::bigint
+    from public.feedback_rota f
+    left join public.profiles p on p.id = f.colaborador_id
+   group by 1, 2, 3, 4
+
+union all
+  select a.revenda_id, bi.dia_local(a.iniciada_em), a.colaborador_id,
+         a.colaborador_nome, '5 Porquês', count(*)::bigint
+    from public.cinco_porques_analises a
+   group by 1, 2, 3, 4
+
+union all
+  select pa.revenda_id, bi.dia_local(pa.iniciada_em), pa.colaborador_id,
+         pa.colaborador_nome, 'Quiz', count(*)::bigint
+    from public.quiz_participacoes pa
+   group by 1, 2, 3, 4
+
+union all
+  select c.revenda_id, bi.dia_local(ck.criado_em), ck.colaborador_id,
+         coalesce(p.nome, 'Sem cadastro'), 'Comunicados', count(*)::bigint
+    from public.comunicado_curtidas ck
+    join public.comunicados c on c.id = ck.comunicado_id
+    left join public.profiles p on p.id = ck.colaborador_id
+   group by 1, 2, 3, 4
+
+union all
+  select au.revenda_id, bi.dia_local(au.finalizada_em), au.auditor_id,
+         coalesce(p.nome, 'Auditor fora do cadastro'), 'Programa 5S', count(*)::bigint
+    from public.cinco_s_auditorias au
+    left join public.profiles p on p.id = au.auditor_id
+   where au.status = 'finalizada'
+     and au.finalizada_em is not null
+     and au.auditor_id is not null
+   group by 1, 2, 3, 4
+
+-- ---- os modulos do armazem, a partir das views deste arquivo ----
+union all
+  select b.revenda_id, b.data, b.colaborador_id, b.colaborador,
+         'Bancada (Seleção e Repack)', count(*)::bigint
+    from bi.fato_pa_bancada b
+   group by 1, 2, 3, 4
+
+union all
+  select d.revenda_id, d.data, d.colaborador_id, d.colaborador,
+         'Despejo', count(*)::bigint
+    from bi.fato_pa_despejo d
+   group by 1, 2, 3, 4
+
+union all
+  select a.revenda_id, a.data, a.colaborador_id, a.colaborador,
+         'Abastecimento do Picking', count(*)::bigint
+    from bi.fato_pa_abastecimento a
+   group by 1, 2, 3, 4
+
+union all
+  select r.revenda_id, r.data, r.colaborador_id, r.colaborador,
+         'Ressuprimento', count(*)::bigint
+    from bi.fato_pa_ressuprimento r
+   group by 1, 2, 3, 4
+
+union all
+  select bp.revenda_id, bp.data, bp.colaborador_id, bp.colaborador,
+         'Bate Palete', count(distinct bp.bate_palete_id)::bigint
+    from bi.fato_pa_bate_palete bp
+   group by 1, 2, 3, 4
+
+union all
+  -- A carreta tem DUAS pessoas usando o modulo: a portaria, que aponta a
+  -- chegada, e o conferente, que atende. As duas contam. O `union` (e nao
+  -- `union all`) interno descarta o par repetido quando a mesma pessoa
+  -- fez as duas pontas da mesma carreta -- senao ela contaria dobrado.
+  select x.revenda_id, x.data, x.colaborador_id, x.colaborador,
+         'Recebimento de Carretas', count(*)::bigint
+    from (
+      select carreta_id, revenda_id, data, colaborador_id, colaborador
+        from bi.fato_carreta where colaborador_id is not null
+      union
+      select carreta_id, revenda_id, data, portaria_colaborador_id, portaria
+        from bi.fato_carreta where portaria_colaborador_id is not null
+    ) x
+   group by 1, 2, 3, 4
+
+union all
+  select o.revenda_id, o.data, o.colaborador_id, o.colaborador,
+         'Empilhadeira', count(*)::bigint
+    from bi.fato_empilhadeira_operacao o
+   group by 1, 2, 3, 4;
+
+comment on view bi.fato_atividade is
+  'Grao: revenda x data x colaborador x modulo, 13 modulos incluindo o armazem. So contagem de interacoes.';
+
 -- ==================================================================
 -- FIM. Rode agora o 02-acesso-powerbi.sql -- sem ele o powerbi_readonly
 -- nao enxerga nenhuma view deste arquivo e as paginas novas nascem

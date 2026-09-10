@@ -64,6 +64,42 @@ const filtros = [
   { campo: 'dim_calendario.ano_mes', titulo: '📆 Mês' },
 ];
 
+/*
+  O FILTRO DE COLABORADOR DAS PAGINAS DO ARMAZEM (10/09/2026).
+
+  O filtro global lista a dim_colaborador inteira: ~160 nomes, e na
+  pagina de Repack quase todos dariam tela vazia -- motorista, vendedor,
+  quem nunca pisou na bancada. O dono pediu para ver so quem teve
+  operacao.
+
+  A troca: nestas paginas o filtro de Colaborador usa a coluna de NOME
+  do proprio fato da pagina, que por definicao so tem quem lancou
+  alguma coisa ali. E o mesmo caminho que ja provou funcionar nos
+  filtros de Transportadora, Maquina, Familia e Embalagem.
+
+  O preco, que esta escrito na nota de cada pagina:
+    * ele filtra o fato PRINCIPAL da pagina. Visual de outro fato na
+      mesma pagina (o bate palete no Repack, o ressuprimento no
+      Abastecimento) nao acompanha -- use o filtro de Area ou a propria
+      coluna de nome daquele visual;
+    * ele nao sincroniza com o Colaborador das outras paginas (e outro
+      campo). Escolher alguem no AG nao leva a escolha para a Bancada.
+      As paginas que usam o MESMO fato (Bancada e Repack) sincronizam
+      entre si.
+
+  Por que nao um filtro de "medida nao vazia" na segmentacao global,
+  que resolveria as duas coisas: o gerador ja tem uma construcao de
+  filtro Advanced (o corte de amostra minima) e ela ZERA o visual no
+  Desktop -- ver o cabecalho de gerar-pbip.js. Numa segmentacao, zerar
+  e entregar uma lista vazia. Nao vale o risco sem um .pbix de
+  referencia para copiar a forma certa.
+*/
+function filtrosComColaboradorDaPagina(campoDoNome, titulo = '👤 Colaborador') {
+  return filtros.map((f) =>
+    f.campo === 'dim_colaborador.colaborador' ? { campo: campoDoNome, titulo, busca: true } : f,
+  );
+}
+
 // kpis: lista de [titulo, medida]
 function faixaKpi(lista) {
   return lista.map((k, i) => ({
@@ -160,6 +196,10 @@ const paginas = [
       },
     ],
     nota:
+      'Desde 10/09/2026 os gráficos de módulo incluem o ARMAZÉM — bancada, despejo, ' +
+      'abastecimento, ressuprimento, bate palete, recebimento de carretas e empilhadeira —, ' +
+      'somando 13 módulos. Na carreta contam as duas pontas (portaria e conferente); no bate ' +
+      'palete conta o LOTE, não cada produto do lote. ' +
       'fato_atividade conta INTERAÇÕES, não qualidade. Um colaborador com 40 ' +
       'lançamentos de AG e nenhum feedback aparece aqui como "muito ativo". ' +
       'Adesão e desempenho são perguntas diferentes e moram em páginas diferentes.',
@@ -383,7 +423,7 @@ const paginas = [
         // palete e caixa. O total convertido em caixas responde outra
         // pergunta e ja mora no visual ao lado.
         t: 'tableEx', x: 474, y: 460, w: 320, h: 206,
-        titulo: '🧺 Garrafeira sem garrafa por colaborador — último dia',
+        titulo: '🧺 Garrafeira sem garrafa por colaborador e formato — último dia',
         dica:
           'Mesma regra do visual ao lado: só quem contou NO ÚLTIMO DIA CONTADO do período. '
           + 'Quem contou em outro dia não aparece — não é falta de dado. '
@@ -393,6 +433,10 @@ const paginas = [
         roles: {
           Values: [
             'fato_ag_contagem.colaborador_nome',
+            // O formato, como no painel do app. Sem ele a linha somava
+            // 600ml com 1000ml -- paletes de tamanhos diferentes, que
+            // nao se somam na hora de decidir o que buscar no patio.
+            'fato_ag_contagem.formato',
             '@Paletes GFE',
             '@Caixas GFE',
           ],
@@ -1293,7 +1337,7 @@ const paginas = [
     */
     nome: '🧰 Bancada — Seleção e Repack',
     filtros: [
-      ...filtros,
+      ...filtrosComColaboradorDaPagina('fato_pa_bancada.colaborador'),
       // Pelo TURNO do lancamento, nao pela hora: o lancamento carrega o
       // turno apontado pela pessoa, e e ele que a escala usa.
       { campo: 'dim_hora.turno_rotulo', titulo: '🕐 Turno' },
@@ -1395,7 +1439,7 @@ const paginas = [
     */
     nome: '📦 Repack — produto e família',
     filtros: [
-      ...filtros,
+      ...filtrosComColaboradorDaPagina('fato_pa_bancada.colaborador'),
       { campo: 'dim_hora.turno_rotulo', titulo: '🕐 Turno' },
       // Familia e tipo saem do cadastro do SAP (cluster_produto e tipo).
       // Garrafa retornavel e lata descartavel nao embalam no mesmo ritmo,
@@ -1505,7 +1549,7 @@ const paginas = [
     */
     nome: '🫗 Despejo',
     filtros: [
-      ...filtros,
+      ...filtrosComColaboradorDaPagina('fato_pa_despejo.colaborador'),
       { campo: 'dim_hora.turno_rotulo', titulo: '🕐 Turno' },
       { campo: 'fato_pa_despejo.embalagem_despejo', titulo: '🧴 Embalagem' },
     ],
@@ -1608,7 +1652,7 @@ const paginas = [
     */
     nome: '🧃 Abastecimento e Ressuprimento',
     filtros: [
-      ...filtros,
+      ...filtrosComColaboradorDaPagina('fato_pa_abastecimento.colaborador', '👤 Quem abasteceu'),
       { campo: 'dim_hora.turno_rotulo', titulo: '🕐 Turno' },
       { campo: 'fato_pa_abastecimento.tipo_rotulo', titulo: '🔄 Tipo' },
     ],
@@ -1715,7 +1759,7 @@ const paginas = [
     */
     nome: '🚛 Recebimento de Carretas',
     filtros: [
-      ...filtros,
+      ...filtrosComColaboradorDaPagina('fato_carreta.conferente', '👤 Conferente'),
       { campo: 'dim_hora.turno_rotulo', titulo: '🕐 Turno' },
       // A transportadora vira segmentacao propria: e a entidade externa
       // da pagina, e a conversa com ela e diferente da conversa interna.
@@ -1731,7 +1775,12 @@ const paginas = [
       // carretas de cinco horas que geram a reclamacao e a estadia, e
       // elas somem dentro de uma media feita com vinte carretas rapidas.
       ['📈 TMA no pior 10% (min)', '@TMA P90 (min)'],
-      ['🎯 % dentro da meta', '@% dentro da meta de TMA'],
+      // O LADO QUE GERA ACAO (10/09/2026): "14 carretas estouraram" e
+      // uma frase que leva a conversa; "82% dentro" leva a um aceno. O
+      // % dentro saiu porque os dois somam 100% -- mostrar os dois e
+      // repetir o mesmo numero de costas.
+      ['🚫 Carretas fora da meta', '@Carretas fora da meta'],
+      ['🎯 % fora da meta', '@% fora da meta de TMA'],
       ['💥 % de avaria (paletes)', '@% de avaria'],
     ],
     visuais: [
@@ -1837,7 +1886,7 @@ const paginas = [
     */
     nome: '🏗️ Empilhadeira',
     filtros: [
-      ...filtros,
+      ...filtrosComColaboradorDaPagina('fato_empilhadeira_operacao.colaborador', '👤 Operador'),
       { campo: 'dim_hora.turno_rotulo', titulo: '🕐 Turno' },
       /*
         A MAQUINA VEM DO FATO, e nao de uma dim_empilhadeira.
