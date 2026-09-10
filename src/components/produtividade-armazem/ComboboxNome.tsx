@@ -16,17 +16,35 @@ const CAMPOS_PESSOA = [
   { nome: "cpf", rotulo: "CPF (000.000.000-00)", tipo: "cpf" as const },
 ];
 
+const RECADO_SO_CADASTRADOS = "Escolha um nome da lista, ou cadastre pelo + ao lado.";
+
 /**
  * Campo de nome com busca (motorista, empilhador) -- mesma interação do
- * ComboboxProduto, mas sem campo escondido de id: motorista/empilhador
- * continuam texto livre nas tabelas de atendimento, então clicar numa
- * sugestão só preenche o próprio campo visível. Digitar um nome que não
- * está na lista continua funcionando -- a busca ajuda, não obriga.
+ * ComboboxProduto.
+ *
+ * DOIS MODOS, e quem monta a tela escolhe:
+ *
+ *   LIVRE (o padrão): clicar numa sugestão só preenche o campo, e digitar
+ *   um nome fora da lista continua funcionando. É o do empilhador na
+ *   Conferência, e não mudou.
+ *
+ *   SÓ CADASTRADOS (`somenteCadastrados`): o nome digitado não vale nada
+ *   até ser ESCOLHIDO da lista -- ou criado pelo "+". O id escolhido vai
+ *   num campo escondido (`nomeCampoId`), e é ele que o servidor confere.
+ *   Pedido do dono (10/09/2026) para o motorista da Portaria: 16 de 17
+ *   atendimentos tinham nome digitado fora do cadastro, sem CPF, e um
+ *   atendimento que não identifica o motorista não serve para cruzar
+ *   blitz nem avaria.
+ *
+ *   O bloqueio é a VALIDAÇÃO NATIVA do formulário (`setCustomValidity`),
+ *   e não um botão desabilitado: o navegador aponta o campo e diz o que
+ *   fazer, em vez de a pessoa ficar olhando um "Registrar" que não
+ *   responde sem saber por quê. O servidor confere de novo -- esconder o
+ *   caminho não é regra.
  *
  * `criarRapido` é opcional: quando passado, aparece o "+" quadrado no
  * canto direito do campo (padrão visual do app, ver BotaoMais) que abre um
- * cadastro rápido sem sair da tela. Quem monta a tela só passa a ação para
- * quem tem permissão -- e a ação confere de novo no servidor.
+ * cadastro rápido sem sair da tela.
  */
 export function ComboboxNome({
   nome,
@@ -37,6 +55,8 @@ export function ComboboxNome({
   className,
   criarRapido,
   sugestoes = [],
+  somenteCadastrados = false,
+  nomeCampoId,
 }: {
   nome: string;
   onChange: (valor: string) => void;
@@ -47,16 +67,25 @@ export function ComboboxNome({
   criarRapido?: CriarRapido;
   /** Lista já cadastrada, mostrada assim que o campo recebe o toque --
    *  sem exigir que a pessoa acerte 2 letras de um nome que ela não sabe.
-   *  Vale para catálogo curto (empilhadores da casa); para lista grande
-   *  (motoristas de fora) deixe vazio e confie na busca. */
+   *  No modo `somenteCadastrados` é a lista suspensa inteira. */
   sugestoes?: Pessoa[];
+  /** Só aceita nome escolhido da lista (ou criado pelo "+"). */
+  somenteCadastrados?: boolean;
+  /** Nome do campo escondido que leva o id escolhido ao servidor. */
+  nomeCampoId?: string;
 }) {
   const [resultados, setResultados] = useState<Pessoa[]>([]);
   const [aberto, setAberto] = useState(false);
   const [popoverAberto, setPopoverAberto] = useState(false);
+  /** O cadastro escolhido. Qualquer letra digitada depois desfaz a
+   *  escolha: o texto no campo passou a ser outro nome. */
+  const [escolhido, setEscolhido] = useState<Pessoa | null>(null);
+  /** Criados pelo "+" nesta tela, para aparecerem na lista sem recarregar. */
+  const [criadosAqui, setCriadosAqui] = useState<Pessoa[]>([]);
   const [pending, startTransition] = useTransition();
   const relogio = useRef<ReturnType<typeof setTimeout> | null>(null);
   const caixaRef = useRef<HTMLDivElement>(null);
+  const campoRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     function aoClicarFora(e: MouseEvent) {
@@ -69,8 +98,17 @@ export function ComboboxNome({
     return () => document.removeEventListener("mousedown", aoClicarFora);
   }, []);
 
+  // A trava do modo SÓ CADASTRADOS: com texto e sem escolha, o formulário
+  // não envia, e o navegador diz por quê apontando para este campo.
+  useEffect(() => {
+    if (!somenteCadastrados || !campoRef.current) return;
+    const semEscolha = nome.trim().length > 0 && !escolhido;
+    campoRef.current.setCustomValidity(semEscolha ? RECADO_SO_CADASTRADOS : "");
+  }, [somenteCadastrados, nome, escolhido]);
+
   function aoDigitar(valor: string) {
     onChange(valor);
+    if (escolhido && valor !== escolhido.nome) setEscolhido(null);
     setAberto(true);
     if (relogio.current) clearTimeout(relogio.current);
     if (valor.trim().length < 2) {
@@ -87,27 +125,35 @@ export function ComboboxNome({
 
   function escolher(p: Pessoa) {
     onChange(p.nome);
+    setEscolhido(p);
     setAberto(false);
   }
 
   // Digitou 2+ letras: manda a busca no servidor. Antes disso, mostra o
   // catálogo que veio pronto -- é o que faz a lista aparecer no primeiro
   // toque, sem a pessoa ter que adivinhar o começo do nome.
-  const buscando = nome.trim().length >= 2;
-  const lista = buscando ? resultados : sugestoes;
+  const buscando = nome.trim().length >= 2 && !escolhido;
+  const catalogo = [...criadosAqui, ...sugestoes.filter((s) => !criadosAqui.some((c) => c.id === s.id))];
+  const lista = buscando ? resultados : catalogo;
 
   return (
     <div ref={caixaRef} className="relative">
       <input
+        ref={campoRef}
         type="text"
         value={nome}
         onChange={(e) => aoDigitar(e.target.value)}
         onFocus={() => setAberto(true)}
         placeholder={placeholder}
         required={required}
-        className={`${className ?? campo} ${criarRapido ? "pr-11" : ""}`}
+        className={`${className ?? campo} ${criarRapido ? "pr-11" : ""} ${
+          somenteCadastrados && escolhido ? "border-green-400 bg-green-50/40" : ""
+        }`}
         autoComplete="off"
       />
+      {somenteCadastrados && nomeCampoId && (
+        <input type="hidden" name={nomeCampoId} value={escolhido?.id ?? ""} />
+      )}
       {criarRapido && (
         <button
           type="button"
@@ -121,9 +167,9 @@ export function ComboboxNome({
           +
         </button>
       )}
-      {aberto && (buscando || sugestoes.length > 0) && (
+      {aberto && (buscando || catalogo.length > 0 || somenteCadastrados) && (
         <div className="absolute z-10 mt-1 max-h-56 w-full overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-lg">
-          {!buscando && (
+          {!buscando && catalogo.length > 0 && (
             <p className="border-b border-slate-100 px-3 py-1.5 text-[11px] font-semibold uppercase text-slate-400">
               Cadastrados
             </p>
@@ -131,7 +177,17 @@ export function ComboboxNome({
           {buscando && pending ? (
             <p className="p-3 text-sm text-slate-400">Buscando...</p>
           ) : lista.length === 0 ? (
-            <p className="p-3 text-sm text-slate-400">Nenhum nome cadastrado com isso -- pode digitar mesmo assim.</p>
+            <p className="p-3 text-sm text-slate-500">
+              {/* No modo SÓ CADASTRADOS o recado muda de sentido: não é
+                  mais "pode digitar", é "o caminho é o +". Dizer "pode
+                  digitar" aqui seria mandar a pessoa para um envio que vai
+                  ser recusado. */}
+              {somenteCadastrados
+                ? buscando
+                  ? "Ninguém cadastrado com esse nome — cadastre pelo + ao lado."
+                  : "Nenhum cadastrado ainda — cadastre pelo + ao lado."
+                : "Nenhum nome cadastrado com isso -- pode digitar mesmo assim."}
+            </p>
           ) : (
             lista.map((p) => (
               <button
@@ -154,6 +210,14 @@ export function ComboboxNome({
           onFechar={() => setPopoverAberto(false)}
           onCriado={(criado) => {
             onChange(criado.rotulo);
+            // No modo SÓ CADASTRADOS o "+" já deixa o recém-criado
+            // escolhido: quem acabou de cadastrar não pode ter de achá-lo
+            // na lista em seguida. `valor` é o id (ver criarMotoristaRapido).
+            if (somenteCadastrados) {
+              const novo = { id: criado.valor, nome: criado.rotulo };
+              setEscolhido(novo);
+              setCriadosAqui((atual) => [novo, ...atual]);
+            }
             setPopoverAberto(false);
           }}
         />

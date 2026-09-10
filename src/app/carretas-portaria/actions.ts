@@ -7,6 +7,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { exigirContextoCarretas } from "@/lib/carretas-server";
 import { temAcessoModulo } from "@/lib/require-admin";
 import { getRevendaId } from "@/lib/revendas";
+import { getPerfil } from "@/lib/sessao";
 import { datetimeLocalParaUTC } from "@/lib/comunicados";
 import { decidirBlitzDaChegada } from "@/lib/blitz-server";
 
@@ -45,11 +46,22 @@ export async function criarMotoristaRapido(
   const cpf = String(formData.get("cpf") ?? "").replace(/\D/g, "");
   if (cpf.length !== 11) return { ok: false, erro: "Informe um CPF válido, com 11 dígitos." };
 
+  // QUEM CADASTROU sai da sessão, não de um campo: digitado, ele aceitaria
+  // qualquer nome, e a auditoria valeria o que vale o campo (ver 110).
+  const perfil = await getPerfil();
+  if (!perfil) return { ok: false, erro: "Sessão expirada. Entre de novo." };
+
   const admin = createAdminClient();
   const { data, error } = await admin
     .from("pa_motoristas")
-    .insert({ revenda_id: revendaId, nome, cpf })
-    .select("nome")
+    .insert({
+      revenda_id: revendaId,
+      nome,
+      cpf,
+      criado_por: perfil.id,
+      criado_por_nome: perfil.nome,
+    })
+    .select("id, nome")
     .single();
 
   if (error) {
@@ -58,8 +70,9 @@ export async function criarMotoristaRapido(
   }
 
   revalidatePath(ROTA);
-  // Motorista é texto livre no atendimento -- o valor gravado é o nome.
-  return { ok: true, valor: data.nome, rotulo: data.nome };
+  // O VALOR É O ID desde 10/09/2026: o campo passou a aceitar só motorista
+  // cadastrado, e o que o servidor confere no registro da chegada é o id.
+  return { ok: true, valor: data.id, rotulo: data.nome };
 }
 
 function notasDoFormulario(formData: FormData, tipo: "produto" | "remessa") {
@@ -76,7 +89,7 @@ export async function registrarAtendimento(formData: FormData) {
   const fabricaId = String(formData.get("fabrica_id") ?? "");
   const transportadoraId = String(formData.get("transportadora_id") ?? "");
   const numeroDt = String(formData.get("numero_dt") ?? "").trim();
-  const motoristaNome = String(formData.get("motorista_nome") ?? "").trim();
+  const motoristaId = String(formData.get("motorista_id") ?? "").trim();
   const placaCavalo = String(formData.get("placa_cavalo") ?? "").trim().toUpperCase();
   const placaCarreta = String(formData.get("placa_carreta") ?? "").trim().toUpperCase();
   const cargaAgendada = formData.get("carga_agendada") === "on";
@@ -85,8 +98,39 @@ export async function registrarAtendimento(formData: FormData) {
   if (!fabricaId) erro("Escolha o fornecedor/fábrica.");
   if (!transportadoraId) erro("Escolha o transportador.");
   if (!numeroDt) erro("Informe o número da DT.");
-  if (!motoristaNome) erro("Informe o nome do motorista.");
+  if (!motoristaId) {
+    erro("Escolha o motorista da lista. Se ele não estiver lá, cadastre pelo + no campo.");
+  }
   if (!placaCavalo) erro("Informe a placa do cavalo.");
+
+  /*
+    O MOTORISTA TEM QUE ESTAR NO CADASTRO (10/09/2026, pedido do dono).
+
+    Conferido AQUI, no servidor, e não só na tela: a trava do formulário é
+    cortesia, e um envio que chegue sem ela -- aba antiga aberta desde
+    antes da mudança, formulário montado à mão -- não pode gravar nome
+    solto de novo.
+
+    Três condições, e cada uma fecha um buraco: o id existe, é DESTA
+    revenda (o motorista de Barreiras não entra numa chegada de São
+    Félix), e está ATIVO (desativar no Modo Liderança tem de tirar a
+    pessoa da portaria de verdade, não só da lista).
+
+    O nome gravado é o do CADASTRO, não o que veio do formulário: é o que
+    garante que "Ivan santana" e "IVAN SANTANA" não virem duas pessoas no
+    histórico.
+  */
+  const { data: motorista } = await createAdminClient()
+    .from("pa_motoristas")
+    .select("id, nome")
+    .eq("id", motoristaId)
+    .eq("revenda_id", revendaId)
+    .eq("ativo", true)
+    .maybeSingle();
+  if (!motorista) {
+    erro("Este motorista não está no cadastro (ou foi desativado). Escolha da lista ou cadastre pelo +.");
+  }
+  const motoristaNome = motorista.nome as string;
   if (!placaCarreta) erro("Informe a placa da carreta.");
 
   // datetime-local não carrega fuso -- new Date(string) sozinho seria
@@ -120,6 +164,7 @@ export async function registrarAtendimento(formData: FormData) {
       fabrica_id: fabricaId,
       transportadora_id: transportadoraId,
       numero_dt: numeroDt,
+      motorista_id: motorista.id,
       motorista_nome: motoristaNome,
       agendamento_em: agendamentoEm,
       carga_agendada: cargaAgendada,

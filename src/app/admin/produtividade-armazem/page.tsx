@@ -266,7 +266,7 @@ export default async function AdminProdutividadeArmazemPage({
       .select("id, senso, descricao, ativo")
       .eq("revenda_id", revendaId)
       .order("ordem"),
-    supabase.from("pa_motoristas").select("id, nome, cpf, ativo").eq("revenda_id", revendaId).order("nome"),
+    supabase.from("pa_motoristas").select("id, nome, cpf, ativo, criado_por_nome").eq("revenda_id", revendaId).order("nome"),
     supabase.from("pa_empilhadores").select("id, nome, cpf, ativo").eq("revenda_id", revendaId).order("nome"),
     supabase.from("pa_ag_catalogo").select("id, codigo, descricao, unidade, ativo").eq("revenda_id", revendaId).order("codigo"),
     supabase.from("pa_recebimento_config").select("tma_alvo_minutos, dias_minimos_validade_alerta").eq("revenda_id", revendaId).maybeSingle(),
@@ -1877,7 +1877,9 @@ export default async function AdminProdutividadeArmazemPage({
                   key={m.id}
                   ativo={m.ativo}
                   titulo={m.nome}
-                  subtitulo={m.cpf ?? "sem CPF cadastrado"}
+                  subtitulo={`${m.cpf ?? "sem CPF cadastrado"}${
+                    m.criado_por_nome ? ` · cadastrado por ${m.criado_por_nome}` : ""
+                  }`}
                   acoes={
                     <>
                       <BotaoIcone action={alternarMotoristaAtivo} campos={{ id: m.id, ativo: String(m.ativo) }} titulo={m.ativo ? "Desativar" : "Ativar"}>

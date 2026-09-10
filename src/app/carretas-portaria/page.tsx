@@ -65,6 +65,7 @@ export default async function CarretasPortariaPage({
     { data: transportadorasBanco },
     { data: historicoBanco },
     { data: configBanco },
+    { data: motoristasBanco },
   ] = await Promise.all([
     supabase.from("pa_fabricas").select("id, nome").eq("revenda_id", revendaId).eq("ativo", true).order("nome"),
     supabase.from("pa_transportadoras").select("id, nome").eq("revenda_id", revendaId).eq("ativo", true).order("nome"),
@@ -84,6 +85,17 @@ export default async function CarretasPortariaPage({
       .select("tma_alvo_minutos")
       .eq("revenda_id", revendaId)
       .maybeSingle(),
+    // A LISTA SUSPENSA do motorista (10/09/2026): o campo só aceita quem
+    // está aqui, então a lista inteira vem pronta -- sem exigir que o
+    // porteiro acerte duas letras de um nome para descobrir se existe.
+    aba === "lancar"
+      ? supabase
+          .from("pa_motoristas")
+          .select("id, nome")
+          .eq("revenda_id", revendaId)
+          .eq("ativo", true)
+          .order("nome")
+      : Promise.resolve({ data: null }),
   ]);
 
   const fabricas: Fabrica[] = fabricasBanco ?? [];
@@ -136,6 +148,7 @@ export default async function CarretasPortariaPage({
           <FormPortaria
             fabricas={fabricas}
             transportadoras={transportadoras}
+            motoristas={(motoristasBanco ?? []) as { id: string; nome: string }[]}
             podeEditarCatalogo={podeEditarCatalogo}
           />
         ))}

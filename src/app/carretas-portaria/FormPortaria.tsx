@@ -88,10 +88,13 @@ function ListaNotas({
 export function FormPortaria({
   fabricas,
   transportadoras,
+  motoristas = [],
   podeEditarCatalogo = false,
 }: {
   fabricas: Fabrica[];
   transportadoras: Transportadora[];
+  /** Os motoristas ATIVOS desta revenda -- a lista suspensa inteira. */
+  motoristas?: { id: string; nome: string }[];
   podeEditarCatalogo?: boolean;
 }) {
   const [cargaAgendada, setCargaAgendada] = useState(false);
@@ -146,16 +149,26 @@ export function FormPortaria({
         </div>
 
         <div>
-          <label className={rotulo}>Nome do motorista</label>
+          <label className={rotulo}>Motorista</label>
+          {/* SÓ CADASTRADOS (10/09/2026, pedido do dono): a lista suspensa
+              traz quem está no cadastro, e quem não está entra pelo "+" --
+              nome completo e CPF obrigatórios, e quem cadastrou fica
+              gravado pela sessão. O id escolhido é o que vai ao servidor
+              (`motorista_id`); o nome gravado sai do cadastro. */}
           <ComboboxNome
             nome={motorista}
             onChange={setMotorista}
             buscar={buscarMotoristas}
-            placeholder="Digite o nome do motorista"
+            placeholder="Escolha o motorista"
             required
             criarRapido={criarMotoristaRapido}
+            sugestoes={motoristas}
+            somenteCadastrados
+            nomeCampoId="motorista_id"
           />
-          <input type="hidden" name="motorista_nome" value={motorista} />
+          <p className="mt-1 text-[11px] leading-snug text-slate-400">
+            Não está na lista? Toque no <strong>+</strong> e cadastre com nome completo e CPF.
+          </p>
         </div>
 
         <div className="grid grid-cols-2 gap-3">

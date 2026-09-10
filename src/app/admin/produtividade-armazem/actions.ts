@@ -955,14 +955,21 @@ function cpfOuErro(v: FormDataEntryValue | null, aba: string): string {
 
 // -------------------- MOTORISTAS --------------------
 export async function salvarMotorista(formData: FormData) {
-  await requireModulo("produtividade-armazem", "editar");
+  const perfil = await requireModulo("produtividade-armazem", "editar");
   const revendaId = await exigirRevenda(ROTA);
   const admin = createAdminClient();
   const nome = String(formData.get("nome") ?? "").trim();
   if (!nome) erro("recebimento", "Informe o nome do motorista.");
   if (!ehNomeCompleto(nome)) erro("recebimento", "Informe o nome completo do motorista.");
   const cpf = cpfOuErro(formData.get("cpf"), "recebimento");
-  const { error } = await admin.from("pa_motoristas").insert({ revenda_id: revendaId, nome, cpf });
+  // Quem cadastrou, pela sessão -- a mesma regra do "+" da Portaria (110).
+  const { error } = await admin.from("pa_motoristas").insert({
+    revenda_id: revendaId,
+    nome,
+    cpf,
+    criado_por: perfil.id,
+    criado_por_nome: perfil.nome,
+  });
   if (error) erro("recebimento", `Não foi possível salvar: ${error.message}`);
   revalidatePath(ROTA);
   sucesso("recebimento", "Motorista cadastrado");
