@@ -1,8 +1,31 @@
 # Do zero ao `.pbix` — o caminho curto
 
-O projeto em `bi/pbip/` já traz o modelo inteiro e as 8 páginas montadas.
+O projeto em `bi/pbip/` já traz o modelo inteiro e as 16 páginas montadas.
 Você não vai arrastar visual nenhum. São quatro passos, e só o primeiro
 exige atenção.
+
+---
+
+## Atalho se o BI JÁ ESTÁ no ar (rodada de 09/09/2026)
+
+Se você já rodou o `01` e o `02` alguma vez e o `.pbix` já atualiza, **não
+rode o `01` de novo** — ele derruba o esquema inteiro sem necessidade.
+Para trazer a Produtividade do Armazém, são dois passos:
+
+1. SQL Editor → cole [`15-armazem-e-desafio-no-bi.sql`](15-armazem-e-desafio-no-bi.sql) → **Run**.
+2. SQL Editor → cole [`02-acesso-powerbi.sql`](02-acesso-powerbi.sql) → **Run**.
+   **Não precisa trocar a senha**: o bloco do usuário só cria o role se ele
+   ainda não existir, então rodar de novo mantém a senha que já está no
+   Power BI. O que o `02` faz aqui é dar o `GRANT` nas 17 views novas.
+
+Depois, no Power BI Desktop: **Página Inicial > Transformar dados > Fechar
+e Aplicar** não basta — as tabelas novas não existem no arquivo antigo.
+Abra o `.pbip` regerado (passo 2 abaixo) e salve como `.pbix` por cima do
+antigo, ou refaça o passo 4.
+
+> Se o `15` acusar `relation "bi.xxx" does not exist` numa função como
+> `bi.dia_local`, é sinal de que o esquema `bi` não existe ainda — aí o
+> caminho é o completo, do passo 1.
 
 ---
 
@@ -15,7 +38,7 @@ REST não executa DDL.
 No painel do Supabase → **SQL Editor** → **New query**:
 
 1. Cole o conteúdo inteiro de [`01-camada-semantica.sql`](01-camada-semantica.sql) → **Run**.
-   Cria o esquema `bi` com 25 views. Não altera nenhuma tabela do app.
+   Cria o esquema `bi` com 53 views. Não altera nenhuma tabela do app.
 2. Abra [`02-acesso-powerbi.sql`](02-acesso-powerbi.sql), **troque
    `TROQUE-ESTA-SENHA`** por uma senha real, cole → **Run**.
 
@@ -47,7 +70,7 @@ select (select count(*) from pg_views where schemaname = 'bi')            as vie
        (select count(*) from bi.fato_quiz_participacao)                   as linhas_quiz;
 ```
 
-Esperado: `views_criadas` = 26, `role_existe` = 1, `permissoes` > 0. As
+Esperado: `views_criadas` = 53, `role_existe` = 1, `permissoes` > 0. As
 duas últimas colunas são o volume real do app — zero ali significa que
 ainda não há lançamento, não falta de permissão.
 
@@ -67,7 +90,7 @@ bi\pbip\BI App do Colaborador.pbip
 ```
 
 O Power BI Desktop abre o projeto já com modelo, medidas, relacionamentos,
-tema e as 12 páginas.
+tema e as 16 páginas.
 
 > Se o Desktop reclamar que projetos PBIP estão desabilitados:
 > **Arquivo > Opções > Recursos de visualização > Salvar como projeto do
@@ -117,8 +140,9 @@ editar um campo, não 27 consultas.
 **Arquivo > Opções e configurações > Opções > ARQUIVO ATUAL > Carregamento
 de dados > Carregamento paralelo de tabelas → Desabilitar.**
 
-O modelo tem 27 tabelas e o Power BI abre uma conexão por tabela, todas de
-uma vez. O Session Pooler do Supabase aceita 15 simultâneas, então a carga
+**Este passo deixou de ser opcional em 09/09/2026.** O modelo tem **54
+tabelas** (eram 27) e o Power BI abre uma conexão por tabela, todas de uma
+vez. O Session Pooler do Supabase aceita 15 simultâneas, então a carga
 morre com:
 
 ```
@@ -237,8 +261,8 @@ node bi/pbip/gerar-pbip.js && node bi/pbip/validar.js
 
 O `validar.js` existe para pegar o erro que não dá erro: campo escrito
 errado em `paginas.js` gera um JSON perfeitamente válido, que o Desktop
-abre como um visual **vazio**, sem explicar por quê. Ele confere os 191
-campos das 12 páginas contra o modelo, mais sobreposição de visuais e
+abre como um visual **vazio**, sem explicar por quê. Ele confere os 399
+campos das 16 páginas contra o modelo, mais sobreposição de visuais e
 estouro de canvas.
 
 Medidas **não** se editam aqui: elas são lidas de
