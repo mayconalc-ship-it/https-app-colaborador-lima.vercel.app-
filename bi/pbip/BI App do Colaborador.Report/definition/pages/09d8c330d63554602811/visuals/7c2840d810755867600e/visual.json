@@ -4,10 +4,10 @@
   "position": {
     "x": 458,
     "y": 252,
-    "z": 16000,
+    "z": 17000,
     "height": 240,
     "width": 430,
-    "tabOrder": 16000
+    "tabOrder": 17000
   },
   "visual": {
     "visualType": "clusteredBarChart",
@@ -20,13 +20,13 @@
                 "Column": {
                   "Expression": {
                     "SourceRef": {
-                      "Entity": "dim_empilhadeira"
+                      "Entity": "fato_empilhadeira_operacao"
                     }
                   },
                   "Property": "empilhadeira"
                 }
               },
-              "queryRef": "dim_empilhadeira.empilhadeira",
+              "queryRef": "fato_empilhadeira_operacao.empilhadeira",
               "nativeQueryRef": "empilhadeira",
               "active": true
             }

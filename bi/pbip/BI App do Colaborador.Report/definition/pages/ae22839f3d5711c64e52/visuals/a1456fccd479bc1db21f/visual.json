@@ -1,0 +1,91 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.12.0/schema.json",
+  "name": "a1456fccd479bc1db21f",
+  "position": {
+    "x": 16,
+    "y": 672,
+    "z": 21000,
+    "height": 30,
+    "width": 1248,
+    "tabOrder": 21000
+  },
+  "visual": {
+    "visualType": "textbox",
+    "objects": {
+      "general": [
+        {
+          "properties": {
+            "paragraphs": [
+              {
+                "textRuns": [
+                  {
+                    "value": "OS TRÊS PRIMEIROS CARTÕES NÃO SEGUEM OS FILTROS, e isso é o desenho. A bombona é um recipiente físico: não tem turno nem dono, e não existe \"quanto tinha nela em agosto\". Filtrada por turno, o T1 veria a bombona pela metade e o T2 vazia — sendo a mesma bombona. A conta começa no último esvaziamento registrado no app. O filtro de Revenda continua valendo: cada revenda tem a sua. \"Litros no recorte\" (4º cartão) é o oposto: esse sim segue período, turno, pessoa e embalagem — é produção, não nível. \"% no descarte\" muito abaixo de 100% é viagem sobrando na rota do resíduo; \"dias sem esvaziar\" alto com a bombona cheia é risco ambiental. Nenhum dos dois aparece em \"litros despejados no mês\".",
+                    "textStyle": {
+                      "fontSize": "8pt",
+                      "color": "#64748B"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "visualContainerObjects": {
+      "title": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "false"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "border": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "false"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "background": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "false"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "dropShadow": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "false"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "drillFilterOtherVisuals": true
+  }
+}

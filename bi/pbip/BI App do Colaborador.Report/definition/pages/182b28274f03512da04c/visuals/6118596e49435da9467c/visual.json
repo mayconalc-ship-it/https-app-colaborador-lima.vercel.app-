@@ -1,0 +1,181 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.12.0/schema.json",
+  "name": "6118596e49435da9467c",
+  "position": {
+    "x": 16,
+    "y": 500,
+    "z": 20000,
+    "height": 166,
+    "width": 620,
+    "tabOrder": 20000
+  },
+  "visual": {
+    "visualType": "tableEx",
+    "query": {
+      "queryState": {
+        "Values": {
+          "projections": [
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "fato_pa_bancada"
+                    }
+                  },
+                  "Property": "produto"
+                }
+              },
+              "queryRef": "fato_pa_bancada.produto",
+              "nativeQueryRef": "produto"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "fato_pa_bancada"
+                    }
+                  },
+                  "Property": "familia"
+                }
+              },
+              "queryRef": "fato_pa_bancada.familia",
+              "nativeQueryRef": "familia"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "fato_pa_bancada"
+                    }
+                  },
+                  "Property": "tipo_rotulo"
+                }
+              },
+              "queryRef": "fato_pa_bancada.tipo_rotulo",
+              "nativeQueryRef": "tipo_rotulo"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "_Medidas"
+                    }
+                  },
+                  "Property": "Caixas repackadas"
+                }
+              },
+              "queryRef": "_Medidas.Caixas repackadas",
+              "nativeQueryRef": "Caixas repackadas"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "_Medidas"
+                    }
+                  },
+                  "Property": "Horas de bancada"
+                }
+              },
+              "queryRef": "_Medidas.Horas de bancada",
+              "nativeQueryRef": "Horas de bancada"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "_Medidas"
+                    }
+                  },
+                  "Property": "Repack cx/h"
+                }
+              },
+              "queryRef": "_Medidas.Repack cx/h",
+              "nativeQueryRef": "Repack cx/h"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "_Medidas"
+                    }
+                  },
+                  "Property": "Minutos por caixa"
+                }
+              },
+              "queryRef": "_Medidas.Minutos por caixa",
+              "nativeQueryRef": "Minutos por caixa"
+            }
+          ]
+        }
+      },
+      "sortDefinition": {
+        "sort": [
+          {
+            "field": {
+              "Measure": {
+                "Expression": {
+                  "SourceRef": {
+                    "Entity": "_Medidas"
+                  }
+                },
+                "Property": "Repack cx/h"
+              }
+            },
+            "direction": "Ascending"
+          }
+        ]
+      }
+    },
+    "visualContainerObjects": {
+      "title": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            },
+            "text": {
+              "expr": {
+                "Literal": {
+                  "Value": "'📋 Produto — realizado contra a meta cadastrada'"
+                }
+              }
+            },
+            "fontSize": {
+              "expr": {
+                "Literal": {
+                  "Value": "11D"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "visualHeader": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "drillFilterOtherVisuals": true
+  }
+}

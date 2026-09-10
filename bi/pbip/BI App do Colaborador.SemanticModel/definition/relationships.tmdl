@@ -208,22 +208,6 @@ relationship 05368813-ac2f-47b6-9fae-9f34e9dbf7e5
 	fromColumn: fato_atividade.chave
 	toColumn: dim_colaborador.chave
 
-relationship 9ec58a9d-77ee-4b6b-8ae7-838f93e74c1e
-	fromColumn: dim_pa_produto.revenda_id
-	toColumn: dim_revenda.revenda_id
-
-relationship 1482dc6f-86cf-42bf-98aa-2b327654b729
-	fromColumn: dim_pa_embalagem_despejo.revenda_id
-	toColumn: dim_revenda.revenda_id
-
-relationship 686edb3d-a3f6-4e92-8b20-98b887375041
-	fromColumn: dim_empilhadeira.revenda_id
-	toColumn: dim_revenda.revenda_id
-
-relationship 0328614a-0eb4-4511-a14f-92f114f815b7
-	fromColumn: dim_transportadora.revenda_id
-	toColumn: dim_revenda.revenda_id
-
 relationship f154f34d-78b6-4b73-8630-8d5bf76c2dc1
 	fromColumn: fato_pa_bancada.data
 	toColumn: dim_calendario.data
@@ -341,8 +325,12 @@ relationship 06b5f149-9750-4027-ac12-bf98583acc0c
 	fromColumn: fato_empilhadeira_gas.chave
 	toColumn: dim_colaborador.chave
 
-relationship e3869c87-91da-4af1-a7d7-22c6fb546814
-	fromColumn: dim_quiz_gabarito.revenda_id
+relationship f03c077d-2053-40e3-8420-413e26eaf190
+	fromColumn: fato_empilhadeira_ciclo_gas.data
+	toColumn: dim_calendario.data
+
+relationship 10fae307-9259-414e-94ac-34f4c9e7342e
+	fromColumn: fato_empilhadeira_ciclo_gas.revenda_id
 	toColumn: dim_revenda.revenda_id
 
 relationship 76015a7d-8cbc-486a-9890-b550ff3ffaa8

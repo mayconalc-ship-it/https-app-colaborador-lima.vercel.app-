@@ -1,0 +1,205 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.12.0/schema.json",
+  "name": "b1377fec3fc8d45aab37",
+  "position": {
+    "x": 648,
+    "y": 500,
+    "z": 20000,
+    "height": 166,
+    "width": 616,
+    "tabOrder": 20000
+  },
+  "visual": {
+    "visualType": "tableEx",
+    "query": {
+      "queryState": {
+        "Values": {
+          "projections": [
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "fato_empilhadeira_ciclo_gas"
+                    }
+                  },
+                  "Property": "empilhadeira"
+                }
+              },
+              "queryRef": "fato_empilhadeira_ciclo_gas.empilhadeira",
+              "nativeQueryRef": "empilhadeira"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "fato_empilhadeira_ciclo_gas"
+                    }
+                  },
+                  "Property": "inicio_em"
+                }
+              },
+              "queryRef": "fato_empilhadeira_ciclo_gas.inicio_em",
+              "nativeQueryRef": "inicio_em"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "fato_empilhadeira_ciclo_gas"
+                    }
+                  },
+                  "Property": "fim_em"
+                }
+              },
+              "queryRef": "fato_empilhadeira_ciclo_gas.fim_em",
+              "nativeQueryRef": "fim_em"
+            },
+            {
+              "field": {
+                "Aggregation": {
+                  "Expression": {
+                    "Column": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "fato_empilhadeira_ciclo_gas"
+                        }
+                      },
+                      "Property": "horimetro_inicio"
+                    }
+                  },
+                  "Function": 0
+                }
+              },
+              "queryRef": "Sum(fato_empilhadeira_ciclo_gas.horimetro_inicio)",
+              "nativeQueryRef": "horimetro_inicio"
+            },
+            {
+              "field": {
+                "Aggregation": {
+                  "Expression": {
+                    "Column": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "fato_empilhadeira_ciclo_gas"
+                        }
+                      },
+                      "Property": "horimetro_fim"
+                    }
+                  },
+                  "Function": 0
+                }
+              },
+              "queryRef": "Sum(fato_empilhadeira_ciclo_gas.horimetro_fim)",
+              "nativeQueryRef": "horimetro_fim"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "_Medidas"
+                    }
+                  },
+                  "Property": "Horas por botijão"
+                }
+              },
+              "queryRef": "_Medidas.Horas por botijão",
+              "nativeQueryRef": "Horas por botijão"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "_Medidas"
+                    }
+                  },
+                  "Property": "Dias por botijão"
+                }
+              },
+              "queryRef": "_Medidas.Dias por botijão",
+              "nativeQueryRef": "Dias por botijão"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "fato_empilhadeira_ciclo_gas"
+                    }
+                  },
+                  "Property": "trocou_no_fim"
+                }
+              },
+              "queryRef": "fato_empilhadeira_ciclo_gas.trocou_no_fim",
+              "nativeQueryRef": "trocou_no_fim"
+            }
+          ]
+        }
+      },
+      "sortDefinition": {
+        "sort": [
+          {
+            "field": {
+              "Column": {
+                "Expression": {
+                  "SourceRef": {
+                    "Entity": "fato_empilhadeira_ciclo_gas"
+                  }
+                },
+                "Property": "fim_em"
+              }
+            },
+            "direction": "Descending"
+          }
+        ]
+      }
+    },
+    "visualContainerObjects": {
+      "title": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            },
+            "text": {
+              "expr": {
+                "Literal": {
+                  "Value": "'⛽ Ciclo do botijão — da troca anterior até esta'"
+                }
+              }
+            },
+            "fontSize": {
+              "expr": {
+                "Literal": {
+                  "Value": "11D"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "visualHeader": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "drillFilterOtherVisuals": true
+  }
+}

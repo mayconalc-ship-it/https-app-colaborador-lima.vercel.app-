@@ -1,0 +1,91 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.12.0/schema.json",
+  "name": "0990799abc96e01e1da6",
+  "position": {
+    "x": 16,
+    "y": 672,
+    "z": 19000,
+    "height": 30,
+    "width": 1248,
+    "tabOrder": 19000
+  },
+  "visual": {
+    "visualType": "textbox",
+    "objects": {
+      "general": [
+        {
+          "properties": {
+            "paragraphs": [
+              {
+                "textRuns": [
+                  {
+                    "value": "Seleção e Repack são as duas etapas do MESMO ciclo (POP-ARM-001, 7.2 a 7.6): o produto sai do palete avariado, é triado e volta embalado. Por isso a carga da bancada é a soma das duas — e por isso \"% do tempo na triagem\" é o número que interessa: se a triagem passar a puxar a maior fatia, o gargalo está na QUALIDADE DO QUE CHEGA, não na velocidade de quem embala, e antes disso aparecia como \"repack lento\". Caixas (repack) e unidades triadas (seleção) NÃO se somam — são unidades diferentes, e por isso vivem em colunas separadas. \"Média por dia\" divide pelos dias que TIVERAM lançamento, não pelos dias do período: contar domingo e dia parado faria a bancada parecer ociosa quando ela apenas não operou. Duas pessoas na bancada ao mesmo tempo somam as duas horas — é carga de trabalho, não relógio de parede. O ritmo por produto está na página seguinte.",
+                    "textStyle": {
+                      "fontSize": "8pt",
+                      "color": "#64748B"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "visualContainerObjects": {
+      "title": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "false"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "border": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "false"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "background": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "false"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "dropShadow": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "false"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "drillFilterOtherVisuals": true
+  }
+}

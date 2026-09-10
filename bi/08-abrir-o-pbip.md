@@ -1,6 +1,6 @@
 # Do zero ao `.pbix` — o caminho curto
 
-O projeto em `bi/pbip/` já traz o modelo inteiro e as 16 páginas montadas.
+O projeto em `bi/pbip/` já traz o modelo inteiro e as 19 páginas montadas.
 Você não vai arrastar visual nenhum. São quatro passos, e só o primeiro
 exige atenção.
 
@@ -90,7 +90,7 @@ bi\pbip\BI App do Colaborador.pbip
 ```
 
 O Power BI Desktop abre o projeto já com modelo, medidas, relacionamentos,
-tema e as 16 páginas.
+tema e as 19 páginas.
 
 > Se o Desktop reclamar que projetos PBIP estão desabilitados:
 > **Arquivo > Opções > Recursos de visualização > Salvar como projeto do
@@ -140,7 +140,7 @@ editar um campo, não 27 consultas.
 **Arquivo > Opções e configurações > Opções > ARQUIVO ATUAL > Carregamento
 de dados > Carregamento paralelo de tabelas → Desabilitar.**
 
-**Este passo deixou de ser opcional em 09/09/2026.** O modelo tem **54
+**Este passo deixou de ser opcional em 09/09/2026.** O modelo tem **50
 tabelas** (eram 27) e o Power BI abre uma conexão por tabela, todas de uma
 vez. O Session Pooler do Supabase aceita 15 simultâneas, então a carga
 morre com:
@@ -180,7 +180,7 @@ O gerador aplica cinco coisas que antes eram manuais:
 | # | Acabamento | Onde | Estado |
 |---|---|---|---|
 | 1 | Filtro `parque_confiavel = True` no nível **Página** | Ativo de Giro | ligado |
-| 2 | Segmentações sincronizadas (`syncGroup` por campo) | as 7 páginas visíveis | ligado |
+| 2 | Segmentações sincronizadas (`syncGroup` por campo) | todas as páginas visíveis | ligado |
 | 3 | Corte de ≥ 5 respostas | Quiz, "Perguntas com maior índice de erro" | **desligado** — ver abaixo |
 | 4 | Drill-through por colaborador | página Detalhe (oculta) | ligado, mas inerte — ver abaixo |
 | 5 | Gradiente sequencial por valor | Ativo de Giro, barras de divergência | ligado |
@@ -261,8 +261,8 @@ node bi/pbip/gerar-pbip.js && node bi/pbip/validar.js
 
 O `validar.js` existe para pegar o erro que não dá erro: campo escrito
 errado em `paginas.js` gera um JSON perfeitamente válido, que o Desktop
-abre como um visual **vazio**, sem explicar por quê. Ele confere os 399
-campos das 16 páginas contra o modelo, mais sobreposição de visuais e
+abre como um visual **vazio**, sem explicar por quê. Ele confere os 509
+campos das 19 páginas contra o modelo, mais sobreposição de visuais e
 estouro de canvas.
 
 Medidas **não** se editam aqui: elas são lidas de

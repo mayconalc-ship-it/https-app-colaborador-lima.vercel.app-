@@ -1,0 +1,91 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.12.0/schema.json",
+  "name": "a23efa8422c80a3a6d10",
+  "position": {
+    "x": 16,
+    "y": 672,
+    "z": 21000,
+    "height": 30,
+    "width": 1248,
+    "tabOrder": 21000
+  },
+  "visual": {
+    "visualType": "textbox",
+    "objects": {
+      "general": [
+        {
+          "properties": {
+            "paragraphs": [
+              {
+                "textRuns": [
+                  {
+                    "value": "As três esperas têm DONOS diferentes e por isso não viram um \"tempo total\": espera pela empilhadeira é do pedido até alguém aceitar, transporte é do aceite até o último item na área, espera pelo ajudante é da área até começar a abastecer. Um ciclo de 40 minutos com 35 de espera não se resolve treinando quem abastece — e é isso que \"% do ciclo esperando\" diz num número só. Completo e pontual NÃO se misturam na média: uma varredura da manhã de 2h é normal, um chamado pontual de 2h é um problema. Somados, o \"ciclo médio\" não descreve nenhum dos dois — e é justamente o número que alguém usaria para cobrar a pessoa errada. Use o filtro de Tipo. Se \"% urgentes\" for a maioria, o campo perdeu o significado e a fila voltou a ser ordem de chegada com outro nome. O filtro de Colaborador alcança esta página pelo SOLICITANTE (é o dono do pedido); empilhador e ajudante são atributos, com as tabelas próprias abaixo.",
+                    "textStyle": {
+                      "fontSize": "8pt",
+                      "color": "#64748B"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "visualContainerObjects": {
+      "title": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "false"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "border": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "false"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "background": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "false"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "dropShadow": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "false"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "drillFilterOtherVisuals": true
+  }
+}

@@ -144,6 +144,14 @@ table fato_quiz_resposta
 
 		annotation SummarizationSetBy = Automatic
 
+	column resposta_certa
+		dataType: string
+		lineageTag: bf1251e3-10d9-4639-a9ef-97ec6f99798a
+		summarizeBy: none
+		sourceColumn: resposta_certa
+
+		annotation SummarizationSetBy = Automatic
+
 	column correta
 		dataType: boolean
 		lineageTag: 2fcca64f-7c85-4aa5-9f56-5a6ee88a8958

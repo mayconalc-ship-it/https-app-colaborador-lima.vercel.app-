@@ -1010,6 +1010,24 @@ table '_Medidas'
 		formatString: #,0
 		lineageTag: d22ab097-d527-4dd5-bbc5-9ca3e74e6c2a
 
+	measure 'Lançamentos de bancada' =
+			COUNTROWS ( fato_pa_bancada )
+		formatString: #,0
+		lineageTag: bdcc9430-4703-49b5-9f09-3f9b52afa17b
+
+	measure 'Minutos por caixa' =
+			DIVIDE (
+			    CALCULATE ( SUM ( fato_pa_bancada[horas] ), fato_pa_bancada[etapa] = "repack" ) * 60,
+			    [Caixas repackadas]
+			)
+		formatString: #,0
+		lineageTag: 840310cb-ecbe-4327-b8da-610f0abbcafb
+
+	measure 'Dias com bancada' =
+			DISTINCTCOUNT ( fato_pa_bancada[data] )
+		formatString: #,0
+		lineageTag: 7e54b7b2-1bc5-49e9-8a3e-bcdb539d1ad3
+
 	measure 'Litros despejados' =
 			SUM ( fato_pa_despejo[litros] )
 		formatString: #,0
@@ -1017,6 +1035,16 @@ table '_Medidas'
 
 	measure 'Litros por hora' =
 			DIVIDE ( [Litros despejados], SUM ( fato_pa_despejo[horas] ) )
+		formatString: #,0
+		lineageTag: 53aaf425-22d9-4bf5-9d66-97cd5ae95a71
+
+	measure 'Lançamentos de despejo' =
+			COUNTROWS ( fato_pa_despejo )
+		formatString: #,0
+		lineageTag: 906d1971-0cac-437d-8c2d-83270c9534a2
+
+	measure 'Horas de despejo' =
+			SUM ( fato_pa_despejo[horas] )
 			
 			/*
 			A BOMBONA IGNORA OS FILTROS, e isso é o desenho, não um descuido.
@@ -1029,8 +1057,8 @@ table '_Medidas'
 			continua valendo: cada revenda tem a sua bombona, e somar as duas
 			daria um nível que não existe em lugar nenhum.
 			*/
-		formatString: #,0
-		lineageTag: 53aaf425-22d9-4bf5-9d66-97cd5ae95a71
+		formatString: 0.0
+		lineageTag: 3d412e3d-248d-4206-89fb-1df1a73a30e1
 
 	measure 'Na bombona (L)' =
 			CALCULATE (
@@ -1361,8 +1389,34 @@ table '_Medidas'
 
 	measure 'Custo do gás (R$)' =
 			SUMX ( fato_empilhadeira_gas, fato_empilhadeira_gas[custo_p20] )
+			
+			/*
+			QUANTO RENDE UM BOTIJÃO — a média dos ciclos fechados.
+			
+			Vem de fato_empilhadeira_ciclo_gas, que é um RELATÓRIO: cada linha é
+			um ciclo com início, fim e horas. A média aqui é honesta enquanto se
+			olha máquina e período; recortada por turno ou por operador, ela
+			passa a somar pedaços de ciclos diferentes e o botijão parece render
+			mais do que rende. Por isso a tabela do ciclo não liga em dim_hora
+			nem em dim_colaborador — ver a nota da view.
+			*/
 		formatString: #,0
 		lineageTag: 37c09d98-caba-4de4-a48f-308a6b8adfd6
+
+	measure 'Horas por botijão' =
+			AVERAGE ( fato_empilhadeira_ciclo_gas[horas_do_botijao] )
+		formatString: 0.0
+		lineageTag: 5889f6b5-b3d7-4be4-83d9-7e018381ff0d
+
+	measure 'Dias por botijão' =
+			AVERAGE ( fato_empilhadeira_ciclo_gas[dias_do_botijao] )
+		formatString: #,0
+		lineageTag: 2efdae43-333c-4ebd-b5f2-64a112577c49
+
+	measure 'Botijões fechados' =
+			COUNTROWS ( fato_empilhadeira_ciclo_gas )
+		formatString: #,0
+		lineageTag: f5854d1e-1b1e-4b89-b135-3cb0534d3fcc
 
 	measure 'Respostas' =
 			COUNTROWS ( fato_quiz_resposta )

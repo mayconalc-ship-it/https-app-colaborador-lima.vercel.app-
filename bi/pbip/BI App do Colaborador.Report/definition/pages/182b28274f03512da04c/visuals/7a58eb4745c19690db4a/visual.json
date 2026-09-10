@@ -1,0 +1,91 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.12.0/schema.json",
+  "name": "7a58eb4745c19690db4a",
+  "position": {
+    "x": 16,
+    "y": 672,
+    "z": 22000,
+    "height": 30,
+    "width": 1248,
+    "tabOrder": 22000
+  },
+  "visual": {
+    "visualType": "textbox",
+    "objects": {
+      "general": [
+        {
+          "properties": {
+            "paragraphs": [
+              {
+                "textRuns": [
+                  {
+                    "value": "Toda taxa desta página é SOMA ÷ SOMA (caixas do recorte ÷ horas do recorte), nunca média das taxas de cada lançamento: um lançamento de dois minutos tem taxa absurda e pesaria igual a um de seis horas. Pelo mesmo motivo, aplique no painel Filtros um corte de ≥ 1 hora apontada nos gráficos de ritmo (o corte vem declarado mas nasce desligado — ver o cabeçalho de gerar-pbip.js). \"Minutos por caixa\" é por CAIXA, não por lançamento — é a mesma conta do cartão do app. A meta por produto é a cadastrada em Admin; produto sem meta simplesmente não entra na comparação, em vez de entrar como zero e derrubar a média de todo mundo. No bate palete, o % sai da soma sobre a soma: a média dos percentuais trataria um lote de 2 HL igual a um de 200, e o lote pequeno é sempre o de percentual extremo.",
+                    "textStyle": {
+                      "fontSize": "8pt",
+                      "color": "#64748B"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "visualContainerObjects": {
+      "title": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "false"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "border": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "false"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "background": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "false"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "dropShadow": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "false"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "drillFilterOtherVisuals": true
+  }
+}

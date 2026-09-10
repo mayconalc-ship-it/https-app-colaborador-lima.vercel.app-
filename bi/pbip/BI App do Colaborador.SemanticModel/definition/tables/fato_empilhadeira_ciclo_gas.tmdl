@@ -1,0 +1,172 @@
+/// Um ciclo de P20 por linha: da troca anterior até esta. RELATORIO -- nao filtre por turno.
+table fato_empilhadeira_ciclo_gas
+	lineageTag: 7833b0b1-10ba-4624-ae66-226fdeb7981e
+
+	column ciclo_id
+		dataType: string
+		lineageTag: 8186d7f2-d792-49df-80ed-5c0b7cb676b5
+		summarizeBy: none
+		sourceColumn: ciclo_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column revenda_id
+		dataType: string
+		isHidden
+		lineageTag: d9f58f81-a993-43ed-9ff8-6db92d880d40
+		summarizeBy: none
+		sourceColumn: revenda_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column colaborador_id
+		dataType: string
+		isHidden
+		lineageTag: c880464c-17f3-4c89-9388-a765ca1a28fd
+		summarizeBy: none
+		sourceColumn: colaborador_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column colaborador
+		dataType: string
+		lineageTag: 1751be43-1c1e-493b-9be4-1b2ab74109d1
+		summarizeBy: none
+		sourceColumn: colaborador
+
+		annotation SummarizationSetBy = Automatic
+
+	column empilhadeira_id
+		dataType: string
+		isHidden
+		lineageTag: e900f54f-c85b-456c-99c7-9857310083f2
+		summarizeBy: none
+		sourceColumn: empilhadeira_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column empilhadeira
+		dataType: string
+		lineageTag: 1edb69f6-c4db-41cf-a887-5df4a5f2e1cc
+		summarizeBy: none
+		sourceColumn: empilhadeira
+
+		annotation SummarizationSetBy = Automatic
+
+	column inicio_em
+		dataType: dateTime
+		formatString: dd/MM/yyyy
+		lineageTag: 6155408c-ec98-4f04-a517-e6fd5c85559c
+		summarizeBy: none
+		sourceColumn: inicio_em
+
+		annotation SummarizationSetBy = Automatic
+
+	column horimetro_inicio
+		dataType: decimal
+		lineageTag: 3a399345-4f61-4888-916e-c05470ef039b
+		summarizeBy: none
+		sourceColumn: horimetro_inicio
+
+		annotation SummarizationSetBy = Automatic
+
+	column trocou_no_inicio
+		dataType: string
+		lineageTag: ae80f651-74b9-428d-a5ec-067d84beb5d8
+		summarizeBy: none
+		sourceColumn: trocou_no_inicio
+
+		annotation SummarizationSetBy = Automatic
+
+	column fim_em
+		dataType: dateTime
+		formatString: dd/MM/yyyy
+		lineageTag: 5c772fe9-7dd7-442e-9ad8-d4bf8edd7f73
+		summarizeBy: none
+		sourceColumn: fim_em
+
+		annotation SummarizationSetBy = Automatic
+
+	column horimetro_fim
+		dataType: decimal
+		lineageTag: 65a5d030-ea98-42ac-bba6-a8834ce1fef3
+		summarizeBy: none
+		sourceColumn: horimetro_fim
+
+		annotation SummarizationSetBy = Automatic
+
+	column trocou_no_fim
+		dataType: string
+		lineageTag: 3b48537b-777d-43b9-b796-169087765cbf
+		summarizeBy: none
+		sourceColumn: trocou_no_fim
+
+		annotation SummarizationSetBy = Automatic
+
+	column horas_do_botijao
+		dataType: decimal
+		lineageTag: c1e830d7-5e56-4ada-94f7-3ebd0f4fa89f
+		summarizeBy: none
+		sourceColumn: horas_do_botijao
+
+		annotation SummarizationSetBy = Automatic
+
+	column dias_do_botijao
+		dataType: int64
+		lineageTag: 2ff18da9-4574-4363-a977-8cef3eaa4d86
+		summarizeBy: none
+		sourceColumn: dias_do_botijao
+
+		annotation SummarizationSetBy = Automatic
+
+	column custo_p20
+		dataType: decimal
+		lineageTag: 4af79b67-e6d3-41e8-a784-be702b0a8dd3
+		summarizeBy: none
+		sourceColumn: custo_p20
+
+		annotation SummarizationSetBy = Automatic
+
+	column data
+		dataType: dateTime
+		formatString: dd/MM/yyyy
+		lineageTag: 3208cf18-bf87-47c6-a44c-fc7671028449
+		summarizeBy: none
+		sourceColumn: data
+
+		annotation SummarizationSetBy = Automatic
+
+	column hora
+		dataType: int64
+		lineageTag: 3d6b7635-f32c-4924-89d0-21095a7e1808
+		summarizeBy: none
+		sourceColumn: hora
+
+		annotation SummarizationSetBy = Automatic
+
+	column turno
+		dataType: string
+		lineageTag: 50ad204e-a6d6-41ca-8ff9-8506fd32e577
+		summarizeBy: none
+		sourceColumn: turno
+
+		annotation SummarizationSetBy = Automatic
+
+	column turno_rotulo
+		dataType: string
+		lineageTag: 9e7fd9be-0bf7-4471-85b2-96f997e59b98
+		summarizeBy: none
+		sourceColumn: turno_rotulo
+
+		annotation SummarizationSetBy = Automatic
+
+	partition fato_empilhadeira_ciclo_gas = m
+		mode: import
+		source =
+				let
+				    Origem = PostgreSQL.Database(Servidor, Banco),
+				    Dados = Origem{[Schema="bi",Item="fato_empilhadeira_ciclo_gas"]}[Data]
+				in
+				    Dados
+
+	annotation PBI_ResultType = Table

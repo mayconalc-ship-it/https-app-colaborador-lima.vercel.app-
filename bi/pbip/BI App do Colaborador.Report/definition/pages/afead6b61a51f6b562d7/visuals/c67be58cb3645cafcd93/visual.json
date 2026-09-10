@@ -4,10 +4,10 @@
   "position": {
     "x": 16,
     "y": 500,
-    "z": 17000,
+    "z": 18000,
     "height": 166,
     "width": 1248,
-    "tabOrder": 17000
+    "tabOrder": 18000
   },
   "visual": {
     "visualType": "tableEx",
@@ -104,13 +104,13 @@
                 "Column": {
                   "Expression": {
                     "SourceRef": {
-                      "Entity": "dim_quiz_gabarito"
+                      "Entity": "fato_quiz_resposta"
                     }
                   },
                   "Property": "resposta_certa"
                 }
               },
-              "queryRef": "dim_quiz_gabarito.resposta_certa",
+              "queryRef": "fato_quiz_resposta.resposta_certa",
               "nativeQueryRef": "resposta_certa"
             },
             {
@@ -118,13 +118,13 @@
                 "Column": {
                   "Expression": {
                     "SourceRef": {
-                      "Entity": "dim_quiz_gabarito"
+                      "Entity": "fato_quiz_resposta"
                     }
                   },
                   "Property": "explicacao"
                 }
               },
-              "queryRef": "dim_quiz_gabarito.explicacao",
+              "queryRef": "fato_quiz_resposta.explicacao",
               "nativeQueryRef": "explicacao"
             }
           ]

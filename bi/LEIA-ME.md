@@ -4,11 +4,11 @@
 > A área inteira estava de fora: bancada, despejo, abastecimento,
 > ressuprimento, bate palete, recebimento de carretas e empilhadeira não
 > tinham uma única view. Quem cobrava produtividade de armazém cobrava
-> por print da tela do app. Agora são **4 páginas novas** (🏭 Armazém,
-> 🚛 Recebimento de Carretas, 🏗️ Empilhadeira e 🎯 Desafio — o que
-> treinar), **17 views novas**, **63 medidas novas** e **33
-> relacionamentos novos** — o projeto foi de 12 para 16 páginas, de 37
-> para 54 tabelas, de 36 para 53 views e de 124 para 187 medidas.
+> por print da tela do app. Agora são **7 páginas novas** (🧰 Bancada, 📦 Repack, 🫗 Despejo,
+> 🧃 Abastecimento, 🚛 Recebimento de Carretas, 🏗️ Empilhadeira e
+> 🎯 Desafio — o que treinar), **17 views novas**, **71 medidas novas** e
+> **30 relacionamentos novos** — o projeto foi de 12 para 19 páginas, de
+> 37 para 50 tabelas, de 36 para 53 views e de 124 para 195 medidas.
 >
 > Três coisas que mudam a leitura e valem antes de abrir:
 >
@@ -24,8 +24,8 @@
 >    revenda.
 > 3. **A página 🎯 Desafio mostra o gabarito.** É para a reunião de
 >    treinamento. Se o relatório for distribuído ao time inteiro, remova
->    `dim_quiz_gabarito` do modelo — ou o campeonato do mês acaba no
->    primeiro compartilhamento.
+>    a coluna `resposta_certa` de `fato_quiz_resposta` — ou o campeonato
+>    do mês acaba no primeiro compartilhamento.
 >
 > **O banco precisa ser atualizado:** rode
 > `15-armazem-e-desafio-no-bi.sql` e **em seguida `02-acesso-powerbi.sql`**
@@ -60,8 +60,8 @@ que transformam as tabelas do app em fatos e dimensões prontos) e a
 ## Ordem de execução
 
 **Comece por [`08-abrir-o-pbip.md`](08-abrir-o-pbip.md).** O projeto em
-`bi/pbip/` já traz o modelo, as 187 medidas, os 87 relacionamentos, o tema
-e as 16 páginas montadas — abre no Power BI Desktop e salva como `.pbix`,
+`bi/pbip/` já traz o modelo, as 195 medidas, os 84 relacionamentos, o tema
+e as 19 páginas montadas — abre no Power BI Desktop e salva como `.pbix`,
 sem arrastar visual nenhum. O roteiro manual de montagem
 (`06-montar-pbix.md`) ficou como referência de quem quer entender as
 escolhas, não como caminho obrigatório.
@@ -77,8 +77,8 @@ escolhas, não como caminho obrigatório.
 | 7 | `15-armazem-e-desafio-no-bi.sql` | **Produtividade do Armazém, carretas, empilhadeira e o gabarito do Desafio.** Recorte de colagem do 09/09/2026. |
 | — | `dobrar-15-no-01.mjs` | Copia o 15 para dentro do 01 (fonte da verdade). Rode depois de mexer no 15. |
 | — | `pbip/gerar-pbip.js` | Regera o projeto a partir de `modelo.js` + `paginas.js` + `07-medidas.dax`. |
-| — | `pbip/validar.js` | Confere os campos das 16 páginas contra o modelo antes de abrir. |
-| — | `07-medidas.dax` | As 187 medidas. **Fonte da verdade** — o gerador lê daqui. |
+| — | `pbip/validar.js` | Confere os campos das 19 páginas contra o modelo antes de abrir. |
+| — | `07-medidas.dax` | As 195 medidas. **Fonte da verdade** — o gerador lê daqui. |
 | — | `medidas-dax.md` | As mesmas medidas explicadas uma a uma, com o porquê de cada corte. |
 | — | `layout-relatorio.md` | Layout das 8 páginas de gestão originais, visual a visual. |
 | — | `06-montar-pbix.md` | Montagem manual, caso queira refazer à mão. |
