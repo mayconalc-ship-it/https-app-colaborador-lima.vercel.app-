@@ -270,30 +270,34 @@ export async function buscarRVdoColaborador(cpf: string): Promise<ResultadoRV> {
   const encontrados: LinhaRV[] = [];
   const falhas: { rotulo: string; motivo: string }[] = [];
 
-  for (const config of ativas) {
-    try {
-      const linhas = await baixarPlanilha(config.csv_url!);
-      const { linhas: doColaborador } = buscarLinhasDoColaborador(
-        linhas,
-        cpf,
-        config.coluna_cpf,
-        config.coluna_valor,
-      );
+  // EM PARALELO (11/09/2026). Eram baixadas uma depois da outra, e quem
+  // tem duas planilhas (Motorista e Ajudante, DU e AL) esperava a SOMA dos
+  // dois downloads. O resultado segue na ordem das áreas.
+  const baixadas = await Promise.allSettled(ativas.map((c) => baixarPlanilha(c.csv_url!)));
 
-      for (const linha of doColaborador) {
-        encontrados.push({
-          area: config.area,
-          rotulo: config.rotulo,
-          competencia: linha.competencia,
-          nome: linha.nome,
-          valor: linha.valor,
-          detalhes: linha.detalhes,
-        });
-      }
-    } catch (e) {
-      falhas.push({ rotulo: config.rotulo, motivo: (e as Error).message });
+  baixadas.forEach((r, i) => {
+    const config = ativas[i];
+    if (r.status === "rejected") {
+      falhas.push({ rotulo: config.rotulo, motivo: (r.reason as Error)?.message ?? "falha ao baixar" });
+      return;
     }
-  }
+    const { linhas: doColaborador } = buscarLinhasDoColaborador(
+      r.value,
+      cpf,
+      config.coluna_cpf,
+      config.coluna_valor,
+    );
+    for (const linha of doColaborador) {
+      encontrados.push({
+        area: config.area,
+        rotulo: config.rotulo,
+        competencia: linha.competencia,
+        nome: linha.nome,
+        valor: linha.valor,
+        detalhes: linha.detalhes,
+      });
+    }
+  });
 
   encontrados.sort(
     (a, b) =>

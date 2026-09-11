@@ -58,12 +58,23 @@ export function resolverOrigem(url: string): OrigemPlanilha | null {
 
   const sheets = limpo.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
   if (sheets) {
-    const gid = limpo.match(/[#&?]gid=(\d+)/)?.[1] ?? "0";
+    const gidExplicito = limpo.match(/[#&?]gid=(\d+)/)?.[1];
+    const gid = gidExplicito ?? "0";
+    const csv = `https://docs.google.com/spreadsheets/d/${sheets[1]}/export?format=csv&gid=${gid}`;
+    const xlsx = `https://docs.google.com/spreadsheets/d/${sheets[1]}/export?format=xlsx`;
+    /*
+      O XLSX VEM PRIMEIRO (11/09/2026). As quatro planilhas de RV (São
+      Félix e Barreiras) são arquivos do Excel abertos no Google, e o
+      export CSV desse tipo de arquivo responde 400. Medido: 0,75 a 1,1 s
+      jogados fora em CADA consulta, por planilha -- resposta de erro não
+      entra no cache, então a tentativa perdida se repetia sempre. O XLSX
+      funciona para os dois tipos (Excel no Drive e planilha nativa).
+
+      A exceção é o link que aponta uma ABA específica (gid diferente de
+      0): só o CSV respeita a aba, e o XLSX leria sempre a primeira.
+    */
     return {
-      candidatos: [
-        `https://docs.google.com/spreadsheets/d/${sheets[1]}/export?format=csv&gid=${gid}`,
-        `https://docs.google.com/spreadsheets/d/${sheets[1]}/export?format=xlsx`,
-      ],
+      candidatos: gidExplicito && gidExplicito !== "0" ? [csv, xlsx] : [xlsx, csv],
       descricao: "Google Sheets",
     };
   }
