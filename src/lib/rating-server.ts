@@ -2,6 +2,7 @@ import "server-only";
 
 import ExcelJS from "exceljs";
 import { baixarBytesDoDrive } from "@/lib/drive-pasta";
+import { lerXlsxSimples } from "@/lib/xlsx-simples";
 import { lerAvaliacoes, type AvaliacaoLida, type LinhaPlanilha } from "@/lib/rating";
 
 /**
@@ -43,34 +44,58 @@ export async function lerPlanilhaLogCo(
     return { avaliacoes: [], ignoradas: 0, erro: "não consegui baixar (o arquivo está compartilhado?)" };
   }
 
-  const wb = new ExcelJS.Workbook();
-  try {
-    await wb.xlsx.load(bytes as unknown as ArrayBuffer);
-  } catch (e) {
-    return { avaliacoes: [], ignoradas: 0, erro: `não consegui abrir a planilha: ${(e as Error).message}` };
-  }
+  const matriz = await matrizDaPlanilha(bytes);
+  if ("erro" in matriz) return { avaliacoes: [], ignoradas: 0, erro: matriz.erro };
 
-  const ws = wb.worksheets[0];
-  if (!ws) return { avaliacoes: [], ignoradas: 0, erro: "a planilha não tem nenhuma aba" };
-
-  const cabecalho: string[] = [];
-  for (let i = 1; i <= ws.columnCount; i++) cabecalho.push(valorDaCelula(ws.getRow(1).getCell(i)));
-
+  const [cabecalho = [], ...resto] = matriz.linhas;
   const linhas: LinhaPlanilha[] = [];
-  for (let n = 2; n <= ws.rowCount; n++) {
+  for (const celulas of resto) {
     const linha: LinhaPlanilha = {};
     let temAlgo = false;
-    for (let i = 1; i <= ws.columnCount; i++) {
-      const nome = cabecalho[i - 1];
-      if (!nome) continue;
-      const valor = valorDaCelula(ws.getRow(n).getCell(i));
+    cabecalho.forEach((nome, i) => {
+      if (!nome) return;
+      const valor = celulas[i] ?? "";
       linha[nome] = valor;
       if (valor) temAlgo = true;
-    }
+    });
     if (temAlgo) linhas.push(linha);
   }
 
   return lerAvaliacoes(linhas);
+}
+
+/**
+ * A primeira aba como matriz de textos -- linha 1 é o cabeçalho.
+ *
+ * O ExcelJS continua sendo o caminho normal: é por ele que São Félix
+ * sempre entrou, e nada muda para esses arquivos. Só quando ele não abre
+ * entra o leitor próprio (lib/xlsx-simples) -- foi o caso dos LOG.CO de
+ * Barreiras de 01 a 05/2026, gerados por sistema, em 11/09/2026.
+ */
+async function matrizDaPlanilha(bytes: Buffer): Promise<{ linhas: string[][] } | { erro: string }> {
+  const wb = new ExcelJS.Workbook();
+  try {
+    await wb.xlsx.load(bytes as unknown as ArrayBuffer);
+  } catch (e) {
+    try {
+      const linhas = await lerXlsxSimples(bytes);
+      if (linhas.length > 0) return { linhas };
+    } catch {
+      // cai no erro do ExcelJS, que é o mais informativo
+    }
+    return { erro: `não consegui abrir a planilha: ${(e as Error).message}` };
+  }
+
+  const ws = wb.worksheets[0];
+  if (!ws) return { erro: "a planilha não tem nenhuma aba" };
+
+  const linhas: string[][] = [];
+  for (let n = 1; n <= ws.rowCount; n++) {
+    const celulas: string[] = [];
+    for (let i = 1; i <= ws.columnCount; i++) celulas.push(valorDaCelula(ws.getRow(n).getCell(i)));
+    linhas.push(celulas);
+  }
+  return { linhas };
 }
 
 /**
