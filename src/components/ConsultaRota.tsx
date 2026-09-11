@@ -11,7 +11,8 @@ import {
   formatarTempo,
   type Metas,
 } from "@/lib/rotas";
-import { consultarRota, type RotaEncontrada } from "@/app/minha-rota/actions";
+import { consultarRota, type ClienteDaRota, type RotaEncontrada } from "@/app/minha-rota/actions";
+import { linkDoWhatsApp } from "@/lib/clientes-base";
 import { gerarImagemPreRota } from "@/lib/imagem-rota";
 import { AvisosDaRota } from "@/components/AvisosDaRota";
 
@@ -170,6 +171,158 @@ function LinhaRegiao({
             </li>
           ))}
         </ul>
+      )}
+    </li>
+  );
+}
+
+/** "5577998069328" -> "(77) 99806-9328". */
+function telefoneLegivel(t: string) {
+  const d = t.replace(/\D/g, "").replace(/^55(?=\d{10,11}$)/, "");
+  if (d.length === 11) return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`;
+  if (d.length === 10) return `(${d.slice(0, 2)}) ${d.slice(2, 6)}-${d.slice(6)}`;
+  return t;
+}
+
+/**
+ * OS CLIENTES DA ROTA, em três níveis (11/09/2026, pedido do dono):
+ * cidade → código + Fantasia → bairro, endereço e telefone.
+ *
+ * Substitui o "Região + entregas" quando a pré-rota do dia trouxe a lista
+ * de clientes. Cada nível começa fechado: a cidade diz quantos são, o
+ * cliente diz quem é, e o endereço só aparece quando o motorista vai
+ * atrás dele -- a lista inteira aberta seria uma parede de texto.
+ */
+function ClientesDaRota({ clientes, entregas }: { clientes: ClienteDaRota[]; entregas: number | null }) {
+  const porCidade = new Map<string, ClienteDaRota[]>();
+  for (const c of clientes) {
+    const cidade = c.cidade ?? "Cidade não informada";
+    porCidade.set(cidade, [...(porCidade.get(cidade) ?? []), c]);
+  }
+  const cidades = [...porCidade].sort((a, b) => b[1].length - a[1].length || a[0].localeCompare(b[0], "pt-BR"));
+  const maior = Math.max(1, ...cidades.map(([, l]) => l.length));
+  const foraDaBase = clientes.filter((c) => !c.nome).length;
+
+  return (
+    <div className="border-t border-slate-100 bg-slate-50/60 px-4 py-3">
+      <div className="mb-2 flex items-baseline justify-between">
+        <span className="text-xs font-bold uppercase tracking-wide text-slate-500">
+          🏙️ Cidades e clientes
+        </span>
+        <span className="text-xs text-slate-400">toque para detalhar</span>
+      </div>
+      <ul className="space-y-1.5">
+        {cidades.map(([cidade, lista]) => (
+          <CidadeDaRota key={cidade} cidade={cidade} clientes={lista} maior={maior} />
+        ))}
+      </ul>
+      <div className="mt-2 flex items-center justify-between rounded-lg bg-primary-soft px-3 py-2">
+        <span className="text-sm font-bold text-primary-dark">Total</span>
+        <span className="text-sm font-bold tabular-nums text-primary-dark">
+          {clientes.length} cliente{clientes.length === 1 ? "" : "s"}
+        </span>
+      </div>
+      {entregas !== null && entregas !== clientes.length && (
+        <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
+          ⚠️ A lista tem {clientes.length} cliente(s) e o resumo fala em {entregas} entregas. Confira
+          com a liderança antes de sair.
+        </p>
+      )}
+      {foraDaBase > 0 && (
+        <p className="mt-2 text-[11px] text-slate-400">
+          {foraDaBase} cliente(s) sem cadastro na base de clientes — aparece só o código.
+        </p>
+      )}
+    </div>
+  );
+}
+
+function CidadeDaRota({ cidade, clientes, maior }: { cidade: string; clientes: ClienteDaRota[]; maior: number }) {
+  const [aberta, setAberta] = useState(false);
+  return (
+    <li className="overflow-hidden rounded-lg bg-white">
+      <button
+        type="button"
+        onClick={() => setAberta((v) => !v)}
+        aria-expanded={aberta}
+        className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left"
+      >
+        <span className="flex min-w-0 flex-1 items-center gap-1.5">
+          <span className={`shrink-0 text-xs text-slate-400 transition-transform ${aberta ? "rotate-90" : ""}`} aria-hidden="true">
+            ▸
+          </span>
+          <span className="min-w-0 truncate text-base font-medium text-slate-800">{cidade}</span>
+        </span>
+        <span className="shrink-0 text-lg font-bold tabular-nums text-primary">{clientes.length}</span>
+      </button>
+      <div className="h-1 bg-primary/60" style={{ width: `${(clientes.length / maior) * 100}%` }} aria-hidden="true" />
+      {aberta && (
+        <ul className="divide-y divide-slate-100 border-t border-slate-100 bg-slate-50/60">
+          {clientes.map((c) => (
+            <ClienteDaLinha key={c.codPdv} cliente={c} />
+          ))}
+        </ul>
+      )}
+    </li>
+  );
+}
+
+function ClienteDaLinha({ cliente: c }: { cliente: ClienteDaRota }) {
+  const [aberto, setAberto] = useState(false);
+  const whats = c.telefone ? linkDoWhatsApp(c.telefone, "") : "";
+  return (
+    <li>
+      <button
+        type="button"
+        onClick={() => setAberto((v) => !v)}
+        aria-expanded={aberto}
+        className="flex w-full items-center gap-2 px-4 py-2 text-left"
+      >
+        <span className={`shrink-0 text-[10px] text-slate-400 transition-transform ${aberto ? "rotate-90" : ""}`} aria-hidden="true">
+          ▸
+        </span>
+        <span className="shrink-0 rounded bg-slate-200/70 px-1.5 py-0.5 text-[11px] font-bold tabular-nums text-slate-600">
+          {c.codPdv}
+        </span>
+        <span className={`min-w-0 truncate text-sm ${c.nome ? "font-medium text-slate-800" : "italic text-slate-400"}`}>
+          {c.nome ?? "Sem cadastro na base"}
+        </span>
+      </button>
+      {aberto && (
+        <dl className="space-y-1 px-4 pb-3 pl-9 text-xs text-slate-600">
+          <div className="flex gap-2">
+            <dt className="w-16 shrink-0 font-semibold text-slate-400">Bairro</dt>
+            <dd className="min-w-0">{c.bairro ?? "—"}</dd>
+          </div>
+          <div className="flex gap-2">
+            <dt className="w-16 shrink-0 font-semibold text-slate-400">Endereço</dt>
+            <dd className="min-w-0">{c.endereco ?? "—"}</dd>
+          </div>
+          <div className="flex items-center gap-2">
+            <dt className="w-16 shrink-0 font-semibold text-slate-400">Telefone</dt>
+            <dd className="flex min-w-0 flex-wrap items-center gap-2">
+              {c.telefone ? (
+                <>
+                  <a href={`tel:+${c.telefone.replace(/\D/g, "")}`} className="font-semibold text-primary underline">
+                    {telefoneLegivel(c.telefone)}
+                  </a>
+                  {whats && (
+                    <a
+                      href={whats}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="rounded-md bg-green-600 px-2 py-0.5 text-[11px] font-semibold text-white"
+                    >
+                      WhatsApp
+                    </a>
+                  )}
+                </>
+              ) : (
+                "—"
+              )}
+            </dd>
+          </div>
+        </dl>
       )}
     </li>
   );
@@ -386,8 +539,11 @@ export function ConsultaRota({ metas }: { metas: Metas }) {
             />
           </div>
 
-          {/* Região + entregas, recolhida por padrão */}
-          {rota.cidades.length > 0 && (
+          {/* Com a lista de clientes do dia: cidade → cliente → endereço.
+              Sem ela: Região + entregas, recolhida por padrão, como era. */}
+          {rota.clientes.length > 0 ? (
+            <ClientesDaRota clientes={rota.clientes} entregas={rota.entregas} />
+          ) : rota.cidades.length > 0 && (
             <div className="border-t border-slate-100 bg-slate-50/60 px-4 py-3">
               <div className="mb-2 flex items-baseline justify-between">
                 <span className="text-xs font-bold uppercase tracking-wide text-slate-500">

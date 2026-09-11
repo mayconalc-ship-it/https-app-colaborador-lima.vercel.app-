@@ -16,7 +16,10 @@
 
 export type ClienteDaBase = {
   codPdv: string;
+  /** Razão Social, quando a planilha tem -- ver SINONIMOS. */
   nome: string | null;
+  /** Nome Fantasia: como o motorista conhece o cliente (11/09/2026). */
+  fantasia: string | null;
   telefone: string | null;
   cidade: string | null;
   bairro: string | null;
@@ -59,6 +62,12 @@ const SINONIMOS: Record<keyof Omit<ClienteDaBase, "codPdv"> | "codPdv", string[]
   cidade: ["cidade", "municipio", "nomecidade"],
   bairro: ["bairro", "nomebairro"],
   endereco: ["endereco", "logradouro", "rua", "enderecocompleto"],
+  // POR ÚLTIMO, de propósito (11/09/2026): a busca é na ordem desta
+  // lista e uma coluna não serve a dois campos. Com Razão Social e
+  // Fantasia na planilha, o nome fica com a Razão e a Fantasia com a dela;
+  // só com a Fantasia, o nome fica com ela e aqui não sobra nada -- e a
+  // tela, que prefere a Fantasia, cai no nome, que é a mesma coisa.
+  fantasia: ["nomefantasia", "fantasia"],
 };
 
 /**
@@ -156,6 +165,7 @@ export function lerLinhaDeCliente(
   return {
     codPdv,
     nome: em("nome"),
+    fantasia: em("fantasia"),
     telefone: normalizarTelefone(em("telefone")),
     cidade: em("cidade"),
     bairro: em("bairro"),

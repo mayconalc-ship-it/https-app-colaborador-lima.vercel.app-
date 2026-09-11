@@ -59,9 +59,22 @@ eq("vazio e null", codigoDaBase(""), null);
 console.log("\nLINHA");
 const colunas = { codPdv: 0, nome: 1, telefone: 2, cidade: 3, bairro: 4, endereco: 5 };
 eq("linha completa", lerLinhaDeCliente(["0002178", "BAR DO JAIR", "(77) 99999-8888", "Sao Felix", "Centro", "Rua A, 10"], colunas), {
-  codPdv: "2178", nome: "BAR DO JAIR", telefone: "5577999998888",
+  codPdv: "2178", nome: "BAR DO JAIR", fantasia: null, telefone: "5577999998888",
   cidade: "Sao Felix", bairro: "Centro", endereco: "Rua A, 10",
 });
+
+// A planilha real das duas revendas traz Razao Social E Nome Fantasia
+// (11/09/2026): cada uma vai para o seu campo.
+const cabReal = ["Cód PDV", "Nome Fantasia", "Razão Social", "Endereço", "Bairro", "Cidade", "Telefone(s)"];
+const colReal = acharColunas(cabReal);
+eq("razao social vai para o nome", colReal.nome, 2);
+eq("nome fantasia vai para a fantasia", colReal.fantasia, 1);
+eq(
+  "linha com as duas",
+  lerLinhaDeCliente(["961", "BAR DO ROMARIO", "52.535.056 ROMARIO DOS SANTOS SILVA", "R JABORANDI 24", "CENTRO", "SAO FELIX", "77998069328"], colReal).fantasia,
+  "BAR DO ROMARIO",
+);
+eq("so com a fantasia, ela fica no nome", acharColunas(["Codigo Cliente", "Nome Fantasia"]).nome, 1);
 eq("sem codigo nao vira cliente", lerLinhaDeCliente(["", "TOTAL", "", "", "", ""], colunas), null);
 eq("telefone torto vira null, o cliente entra", lerLinhaDeCliente(["91", "KIT LANCHES", "0000", "Correntina", "", ""], colunas).telefone, null);
 eq("celula vazia vira null e nao string vazia", lerLinhaDeCliente(["91", "", "", "", "", ""], colunas).nome, null);

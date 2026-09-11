@@ -282,6 +282,7 @@ export async function importarBaseDeClientes(
         revenda_id: revendaId,
         cod_pdv: c.codPdv,
         nome: c.nome,
+        fantasia: c.fantasia,
         telefone: c.telefone,
         cidade: c.cidade,
         bairro: c.bairro,
