@@ -420,6 +420,17 @@ function CartaoDaFonte({
                       </span>
                     </div>
                     <div className="flex flex-wrap gap-2">
+                      {/* O nome que o colaborador vê em cima da RV dele --
+                          em Barreiras, "Motorista" e "Ajudante" (10/09/2026). */}
+                      <input
+                        name="rotulo"
+                        defaultValue={r.rotulo ?? ""}
+                        maxLength={40}
+                        placeholder="Nome no app"
+                        aria-label={`Nome no app da RV ${r.area}`}
+                        title="Nome que o colaborador vê no cartão da RV"
+                        className={`${campo} w-full sm:w-44`}
+                      />
                       <input
                         id={`rv-${r.area}`}
                         name="csv_url"

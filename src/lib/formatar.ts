@@ -79,7 +79,10 @@ export type TipoColuna = "moeda" | "percentual" | "numero" | "texto";
 export function tipoDaColuna(rotulo: string): TipoColuna {
   const nome = normalizarTexto(rotulo);
 
-  if (/(valor|rv|total|r\$|premio|liquido|bruto)/.test(nome)) return "moeda";
+  // "remuneracao", "bonus" e "adicional" vieram com a RV de Barreiras
+  // (10/09/2026): "Remuneração sem %" tem "%" no nome e aparecia como
+  // "870,81%".
+  if (/(valor|rv|total|r\$|premio|liquido|bruto|remuneracao|bonus|adicional)/.test(nome)) return "moeda";
   if (nome.includes("%") || nome.includes("percent")) return "percentual";
   if (/^(qt|qtd|quantidade|n[°º]|num)/.test(nome)) return "numero";
 
@@ -88,7 +91,17 @@ export function tipoDaColuna(rotulo: string): TipoColuna {
 
 export function formatarCelula(rotulo: string, bruto: string): string {
   const tipo = tipoDaColuna(rotulo);
-  if (tipo === "texto") return bruto;
+  if (tipo === "texto") {
+    // Número cru do Excel numa coluna de título qualquer ("Tempo de
+    // Empresa", "Ajudante 1", "TML") chegava como "2.254794520547945".
+    // Número com casa decimal ganha o formato brasileiro; texto de verdade
+    // e número inteiro (matrícula, código) seguem como vieram.
+    if (/^-?\d+[.,]\d+$/.test(bruto.trim())) {
+      const n = paraNumero(bruto);
+      if (n !== null) return formatarNumero(n);
+    }
+    return bruto;
+  }
 
   const n = paraNumero(bruto);
   if (n === null) return bruto;
@@ -112,7 +125,11 @@ export function formatarCelula(rotulo: string, bruto: string): string {
 const COLUNAS_OCULTAS = ["obs", "tt", "observacao", "observacoes"];
 
 export function deveOcultarColuna(rotulo: string) {
-  return COLUNAS_OCULTAS.includes(normalizarTexto(rotulo));
+  const nome = normalizarTexto(rotulo);
+  // Título sem letra nem número ("\", "-", "#") é coluna de controle -- na
+  // RV de Barreiras, a que numera as linhas.
+  if (!/[a-z0-9]/.test(nome)) return true;
+  return COLUNAS_OCULTAS.includes(nome);
 }
 
 /**
@@ -120,12 +137,14 @@ export function deveOcultarColuna(rotulo: string) {
  * colaborador precisam ser autoexplicativos.
  */
 const APELIDOS: { casaCom: (nome: string) => boolean; rotulo: string }[] = [
+  // A mesma régua estrita da escada (rv-contracheque): "RV C/ bonus
+  // devolução %", de Barreiras, não é o "RV com %" de absenteísmo.
   {
-    casaCom: (n) => n.startsWith("rv s/") || n.startsWith("rv sem"),
+    casaCom: (n) => /^rv (s\/|sem) ?%$/.test(n.replace(/\s+/g, " ")),
     rotulo: "RV sem % de Absenteísmo",
   },
   {
-    casaCom: (n) => n.startsWith("rv c/") || n.startsWith("rv com"),
+    casaCom: (n) => /^rv (c\/|com) ?%$/.test(n.replace(/\s+/g, " ")),
     rotulo: "RV com % de Absenteísmo",
   },
 ];

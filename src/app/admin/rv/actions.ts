@@ -171,13 +171,29 @@ export async function salvarConfigRV(formData: FormData) {
   const admin = createAdminClient();
   const revendaId = await exigirRevenda("/admin/rv");
 
+  /*
+    O NOME DO CARTÃO É DA REVENDA (10/09/2026). Era sempre o da área --
+    "Distribuição Urbana" / "Armazém Logístico" -- e Barreiras usa as duas
+    vagas para Motorista e Ajudante: o ajudante veria "Armazém Logístico"
+    em cima da própria RV. Campo vazio mantém o nome que já está gravado;
+    só sem nenhum volta ao da área.
+  */
+  const rotuloDoForm = ((formData.get("rotulo") as string) || "").trim().slice(0, 40);
+  const { data: atual } = await admin
+    .from("rv_config")
+    .select("rotulo")
+    .eq("revenda_id", revendaId)
+    .eq("area", area)
+    .maybeSingle();
+  const rotulo = rotuloDoForm || atual?.rotulo || AREAS.find((a) => a.id === area)?.rotulo || area;
+
   // Upsert porque numa revenda nova a linha da área ainda não existe: um
   // update simples não gravaria nada e a tela diria "salvo" sem ter salvo.
   const { error } = await admin.from("rv_config").upsert(
     {
       revenda_id: revendaId,
       area,
-      rotulo: AREAS.find((a) => a.id === area)?.rotulo ?? area,
+      rotulo,
       csv_url: csvUrl || null,
       coluna_cpf: colunaCpf || null,
       coluna_valor: colunaValor || null,
@@ -202,7 +218,7 @@ export async function salvarConfigRV(formData: FormData) {
   revalidatePath("/rv");
   revalidatePath("/admin/fontes-de-dados");
   redirect(
-    voltarCom(destino, "sucesso", `Link de ${AREAS.find((a) => a.id === area)?.rotulo ?? area} salvo.`),
+    voltarCom(destino, "sucesso", `RV "${rotulo}" salva.`),
   );
 }
 

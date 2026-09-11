@@ -28,10 +28,24 @@ function chave(rotulo: string) {
 
 type Busca = (nome: string) => boolean;
 
+/** "RV s/ %", "RV sem %" -- e nada além disso depois do "%". */
+export function ehRvSemPercentual(n: string) {
+  return /^rv (s\/|sem) ?%$/.test(chave(n));
+}
+
+/** "RV c/ %", "RV com %" -- "RV C/ bonus devolução %" NÃO é este. */
+export function ehRvComPercentual(n: string) {
+  return /^rv (c\/|com) ?%$/.test(chave(n));
+}
+
 const COLUNAS = {
   caixas: (n: string) => n === "qt caixas",
-  semAbs: (n: string) => n.startsWith("rv s/") || n.startsWith("rv sem"),
-  comAbs: (n: string) => n.startsWith("rv c/") || n.startsWith("rv com"),
+  // SÓ o título de São Félix -- "RV s/ %" e "RV com %" (10/09/2026). Era
+  // "começa com rv c/", e o "RV C/ bonus devolução %" da planilha de
+  // motorista de Barreiras caía aqui: a escada montava a conta do modelo de
+  // São Félix e mostrava R$ 870,81 para quem tinha R$ 1.314,36 no TOTAL.
+  semAbs: ehRvSemPercentual,
+  comAbs: ehRvComPercentual,
   valorRec: (n: string) => n === "valor rec",
   qtRec: (n: string) => n.startsWith("qt. rec") || n.startsWith("qt rec"),
   comRec: (n: string) => n === "tt-devolucao",
