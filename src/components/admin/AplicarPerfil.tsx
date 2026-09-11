@@ -35,6 +35,7 @@ export function AplicarPerfil({
   rotulos,
   tipo = "lideranca",
   papelDe = {},
+  podeEspelhar = true,
 }: {
   action: (formData: FormData) => void;
   perfilId: string;
@@ -49,6 +50,9 @@ export function AplicarPerfil({
   tipo?: TipoDePerfil;
   /** O papel de cada pessoa -- é o que decide se aplicar vai promovê-la. */
   papelDe?: Record<string, string>;
+  /** Espelhar retira acessos: só o Admin (11/09/2026). O servidor recusa
+   *  de qualquer jeito; a opção some para ninguém descobrir pelo erro. */
+  podeEspelhar?: boolean;
 }) {
   const [pessoaId, setPessoaId] = useState("");
   const [espelhar, setEspelhar] = useState(false);
@@ -187,12 +191,14 @@ export function AplicarPerfil({
           titulo="Somar"
           ajuda="Acrescenta o que falta. Não tira nada."
         />
-        <Modo
-          escolhido={espelhar}
-          onClick={() => setEspelhar(true)}
-          titulo="Espelhar"
-          ajuda="Deixa igual ao perfil: acrescenta o que falta e tira o que sobra."
-        />
+        {podeEspelhar && (
+          <Modo
+            escolhido={espelhar}
+            onClick={() => setEspelhar(true)}
+            titulo="Espelhar"
+            ajuda="Deixa igual ao perfil: acrescenta o que falta e tira o que sobra."
+          />
+        )}
       </fieldset>
 
       {pessoaId && (

@@ -6,8 +6,10 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { exigirRevenda } from "@/lib/revendas";
 import { requireModulo } from "@/lib/require-admin";
 import { getPerfil } from "@/lib/sessao";
-import { MODULOS, MODULOS_OPCIONAIS } from "@/lib/acessos";
+import { MODULOS, MODULOS_OPCIONAIS, ehOwner } from "@/lib/acessos";
 import { lerConcessoesDoFormulario, type Concessao } from "@/lib/perfis-acesso";
+import { alcanceDe, mesclarNoAlcance } from "@/lib/gestao-de-acessos";
+import { gerenciaAcessos, permissoesNaRevenda } from "@/lib/gestao-de-acessos-server";
 import {
   aplicarPerfilA,
   propagarPerfil,
@@ -32,6 +34,31 @@ const ROTA = "/admin/perfis-de-acesso";
 function voltar(chave: "erro" | "sucesso", mensagem: string, extra = ""): never {
   redirect(`${ROTA}?${chave}=${encodeURIComponent(mensagem)}${extra}`);
 }
+
+/**
+ * AS TRAVAS DE QUEM NÃO É O ADMIN (11/09/2026).
+ *
+ * Perfis de Acesso é delegável (`perfis-acesso`), e até aqui bastava ter
+ * o "editar" para montar um perfil com QUALQUER permissão -- inclusive a
+ * gestão de acessos -- e aplicá-lo a alguém. Era um caminho para dar mais
+ * do que se tem. Agora vale o mesmo ALCANCE de Acessos por Pessoa
+ * (lib/gestao-de-acessos): só entra o que a própria pessoa tem nesta
+ * revenda, e nunca a gestão de acessos.
+ *
+ * `alcance` nulo é o Admin: nada muda para ele.
+ */
+async function alcanceDeQuemEdita(revendaId: string) {
+  const eu = await getPerfil();
+  if (!eu) voltar("erro", "Sessão expirada. Entre de novo.");
+  if (ehOwner(eu.role)) return { eu, dono: true, alcance: null as Set<string> | null };
+  return { eu, dono: false, alcance: alcanceDe(await permissoesNaRevenda(eu.id, revendaId)) as Set<string> | null };
+}
+
+const chave = (c: Concessao) => `${c.modulo}:${c.acao}`;
+const daChave = (k: string): Concessao => {
+  const corte = k.lastIndexOf(":");
+  return { modulo: k.slice(0, corte), acao: k.slice(corte + 1) };
+};
 
 /** Só concessões que existem de verdade no catálogo entram no banco. */
 function apenasValidas(concessoes: Concessao[]): Concessao[] {
@@ -87,9 +114,47 @@ export async function salvarPerfil(formData: FormData) {
     String(formData.get("tipo") ?? "") === "colaborador" ? "colaborador" : "lideranca";
   if (id) tipo = await tipoDoPerfil(id);
 
-  const concessoes =
+  const doFormulario =
     tipo === "lideranca" ? apenasValidas(lerConcessoesDoFormulario(formData.entries())) : [];
   const modulosApp = tipo === "colaborador" ? lerModulosDoApp(formData) : [];
+
+  /*
+    O ALCANCE NO MOLDE (11/09/2026). Para quem não é o Admin, o perfil de
+    liderança só ganha ou perde o que ela mesma tem nesta revenda; o que já
+    estava no molde fora desse alcance fica como está (a caixa aparece
+    travada na tela, e uma caixa travada nem chega pelo formulário).
+
+    E SALVAR ALCANÇA QUEM ESTÁ NO PERFIL: se entre essas pessoas houver
+    quem também gerencia acessos, o salvar mudaria as permissões dela --
+    o que só o Admin faz. Recusa antes de gravar.
+  */
+  // `meuAlcance`, e não `alcance`: este nome já é o resultado da
+  // propagação, mais abaixo.
+  const { eu, dono, alcance: meuAlcance } = await alcanceDeQuemEdita(revendaId);
+  let concessoes = doFormulario;
+  if (!dono && tipo === "lideranca") {
+    if (id) {
+      const { data: noPerfil } = await admin.from("perfil_pessoas").select("colaborador_id").eq("perfil_id", id);
+      for (const p of noPerfil ?? []) {
+        if (p.colaborador_id !== eu.id && (await gerenciaAcessos(p.colaborador_id))) {
+          voltar(
+            "erro",
+            "Neste perfil há quem também gerencia acessos, e salvar mudaria as permissões dessa pessoa. Só o Admin altera este molde.",
+            `&perfil=${id}`,
+          );
+        }
+      }
+    }
+    const { data: atuais } = id
+      ? await admin.from("perfil_permissoes").select("modulo, acao").eq("perfil_id", id)
+      : { data: [] as Concessao[] };
+    concessoes = mesclarNoAlcance(
+      ((atuais ?? []) as Concessao[]).map(chave),
+      doFormulario.map(chave),
+      meuAlcance,
+    ).map(daChave);
+  }
+
   if (tipo === "lideranca" && concessoes.length === 0) {
     voltar("erro", "Marque ao menos uma permissão -- um perfil vazio não entrega nada a ninguém.");
   }
@@ -202,6 +267,20 @@ export async function criarPerfilDePessoa(formData: FormData) {
   const concessoes = apenasValidas((permissoes ?? []) as Concessao[]);
   if (concessoes.length === 0) {
     voltar("erro", "Esta pessoa não tem nenhuma permissão para virar perfil.");
+  }
+
+  // Quem não é o Admin só copia o que ela mesma tem nesta revenda
+  // (11/09/2026) -- senão "criar a partir de alguém" seria o atalho para
+  // montar um molde maior do que o próprio acesso.
+  const { dono, alcance } = await alcanceDeQuemEdita(revendaId);
+  if (!dono) {
+    const fora = concessoes.filter((c) => !alcance?.has(chave(c)));
+    if (fora.length > 0) {
+      voltar(
+        "erro",
+        `Esta pessoa tem ${fora.length} permissão(ões) que você mesmo não tem nesta revenda (ex.: ${chave(fora[0])}). Só o Admin cria um perfil a partir dela.`,
+      );
+    }
   }
 
   const { data, error } = await admin
@@ -337,6 +416,44 @@ export async function aplicarPerfil(formData: FormData) {
   // nada.
   const espelhar = String(formData.get("modo") ?? "") === "espelhar";
   if (!perfilId || !colaboradorId) voltar("erro", "Escolha o perfil e a pessoa.");
+
+  // AS TRAVAS DE QUEM NÃO É O ADMIN (11/09/2026) -- as mesmas de aplicar
+  // um perfil pela ficha, em Acessos por Pessoa.
+  const { eu, dono, alcance } = await alcanceDeQuemEdita(revendaId);
+  if (!dono) {
+    const volta = `&perfil=${perfilId}`;
+    if (colaboradorId === eu.id) {
+      voltar("erro", "Você não pode aplicar um perfil em si mesmo: só o Admin altera os seus acessos.", volta);
+    }
+    if (espelhar) {
+      voltar("erro", "Espelhar retira acessos, e isso só o Admin faz. Use Somar.", volta);
+    }
+    const admin = createAdminClient();
+    const [{ data: vinculo }, { data: doPerfil }, { data: perfilDaRevenda }] = await Promise.all([
+      admin
+        .from("colaborador_revendas")
+        .select("revenda_id")
+        .eq("colaborador_id", colaboradorId)
+        .eq("revenda_id", revendaId)
+        .maybeSingle(),
+      admin.from("perfil_permissoes").select("modulo, acao").eq("perfil_id", perfilId),
+      admin.from("perfis_acesso").select("revenda_id").eq("id", perfilId).maybeSingle(),
+    ]);
+    if (!vinculo) voltar("erro", "A pessoa não está vinculada a esta revenda.", volta);
+    if (perfilDaRevenda?.revenda_id !== revendaId) voltar("erro", "Este perfil não é desta revenda.", volta);
+    if (await gerenciaAcessos(colaboradorId)) {
+      voltar("erro", "Essa pessoa também gerencia acessos: só o Admin altera os acessos dela.", volta);
+    }
+    // Perfil de colaborador não tem permissão de liderança nenhuma e passa.
+    const fora = ((doPerfil ?? []) as Concessao[]).filter((c) => !alcance?.has(chave(c)));
+    if (fora.length > 0) {
+      voltar(
+        "erro",
+        `Este perfil dá ${fora.length} permissão(ões) que você mesmo não tem nesta revenda (ex.: ${chave(fora[0])}). Só o Admin aplica.`,
+        volta,
+      );
+    }
+  }
 
   // A OPERAÇÃO MORA EM lib/perfis-acesso-server.ts desde 06/09/2026,
   // quando a tela de Acessos por Pessoa passou a oferecer o "voltar ao

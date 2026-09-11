@@ -7,6 +7,10 @@ import { AplicarPerfil } from "@/components/admin/AplicarPerfil";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getRevendaId } from "@/lib/revendas";
 import { requireModulo, podeNoModulo } from "@/lib/require-admin";
+import { getPerfil } from "@/lib/sessao";
+import { ehOwner } from "@/lib/acessos";
+import { alcanceDe } from "@/lib/gestao-de-acessos";
+import { permissoesNaRevenda } from "@/lib/gestao-de-acessos-server";
 import {
   GRUPOS_DO_ADMIN,
   MODULOS,
@@ -75,6 +79,12 @@ export default async function PerfisDeAcessoPage({
 
   const admin = createAdminClient();
   const podeEditar = await podeNoModulo("perfis-acesso", "editar");
+  // O ALCANCE de quem não é o Admin (11/09/2026): nas grades, a caixa de
+  // uma permissão que ela mesma não tem aparece travada, e o servidor
+  // preserva o que estava. Nulo para o Admin.
+  const eu = await getPerfil();
+  const dono = ehOwner(eu?.role);
+  const alcance = dono || !eu ? null : alcanceDe(await permissoesNaRevenda(eu.id, revendaId));
 
   const [
     { data: perfisBanco },
@@ -545,6 +555,7 @@ export default async function PerfisDeAcessoPage({
                       <GradeDePermissoes
                         perfil={p}
                         tipo={p.tipo}
+                        alcance={alcance}
                         marcadas={marcadas}
                         modulosMarcados={modulosMarcados}
                         modulosApp={modulosAppDaRevenda}
@@ -590,6 +601,8 @@ export default async function PerfisDeAcessoPage({
                       }
                       jaTem={ehColaborador ? modulosDaPessoa : jaTem}
                       rotulos={ehColaborador ? rotulosDeModuloApp : rotulosDeConcessao}
+                      // Espelhar retira acessos: só o Admin (11/09/2026).
+                      podeEspelhar={dono}
                     />
                   </div>
                 )}
@@ -674,6 +687,7 @@ export default async function PerfisDeAcessoPage({
       {podeEditar && tipoNovo && (
         <GradeDePermissoes
           tipo={tipoNovo}
+          alcance={alcance}
           marcadas={marcadas}
           modulosMarcados={modulosMarcados}
           modulosApp={modulosAppDaRevenda}
@@ -696,7 +710,10 @@ function GradeDePermissoes({
   modulosMarcados,
   modulosApp,
   noPerfil = [],
+  alcance = null,
 }: {
+  /** O que quem edita pode marcar num perfil de liderança. Nulo = o Admin. */
+  alcance?: Set<string> | null;
   perfil?: Perfil;
   tipo: TipoDePerfil;
   marcadas: Set<string>;
@@ -717,6 +734,13 @@ function GradeDePermissoes({
           {/* Na edição o servidor lê o tipo do banco e ignora este campo --
               o tipo não muda depois de criado. */}
           <input type="hidden" name="tipo" value={tipo} />
+          {alcance && tipo === "lideranca" && (
+            <p className="rounded-xl bg-amber-50 px-3 py-2 text-xs leading-snug text-amber-900">
+              🔐 Só dá para marcar o que <strong>você mesmo tem</strong> nesta revenda. O que
+              aparecer travado fica como está no perfil. A gestão de acessos nunca entra num perfil
+              montado por aqui.
+            </p>
+          )}
 
           <p
             className={`rounded-xl px-3 py-2 text-xs leading-snug ${
@@ -818,7 +842,13 @@ function GradeDePermissoes({
                                 type="checkbox"
                                 name={`perm-${m.id}-${acao}`}
                                 defaultChecked={marcadas.has(`${m.id}:${acao}`)}
-                                className="mt-0.5 h-4 w-4 shrink-0 rounded border-slate-300 text-primary"
+                                disabled={!!alcance && !alcance.has(`${m.id}:${acao}`)}
+                                title={
+                                  alcance && !alcance.has(`${m.id}:${acao}`)
+                                    ? "Fora do seu alcance: você não tem esta permissão nesta revenda"
+                                    : undefined
+                                }
+                                className="mt-0.5 h-4 w-4 shrink-0 rounded border-slate-300 text-primary disabled:opacity-40"
                               />
                               <span>
                                 {rotuloDaAcaoNoModulo(m, acao)}
