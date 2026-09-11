@@ -6,7 +6,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getRevendaId } from "@/lib/revendas";
 import { podeNoModulo } from "@/lib/require-admin";
 import { idDaPasta } from "@/lib/drive-pasta";
-import { fonteDe, linkDeCanalValido } from "@/lib/fontes-de-dados";
+import { fonteDe, linkDeCanalValido, tipoDoLink } from "@/lib/fontes-de-dados";
 import { voltarCom } from "@/lib/url-de-volta";
 import { getPerfil } from "@/lib/sessao";
 
@@ -61,9 +61,13 @@ export async function salvarFonte(formData: FormData) {
 
   const pasta = link ? idDaPasta(link) : null;
   if (link && !pasta) {
+    // O erro mais comum é colar o link de um ARQUIVO onde vai a pasta --
+    // e a mensagem diz isso com todas as letras (11/09/2026).
     voltar(
       "erro",
-      "Não reconheci o link. Abra a pasta no Drive e copie o endereço da barra do navegador.",
+      tipoDoLink(link) === "arquivo"
+        ? `Esse é o link de um ARQUIVO. A fonte de ${fonte.rotulo} lê uma PASTA: abra a pasta no Drive e copie o endereço da barra do navegador (começa com drive.google.com/drive/folders/…).`
+        : "Não reconheci o link. Abra a PASTA no Drive e copie o endereço da barra do navegador (começa com drive.google.com/drive/folders/…).",
       chave,
     );
   }

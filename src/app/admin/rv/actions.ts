@@ -1,5 +1,7 @@
 "use server";
 
+import { tipoDoLink } from "@/lib/fontes-de-dados";
+
 import { redirect } from "next/navigation";
 import { voltarCom } from "@/lib/url-de-volta";
 import { revalidatePath, updateTag } from "next/cache";
@@ -166,6 +168,18 @@ export async function salvarConfigRV(formData: FormData) {
 
   if (area !== "DU" && area !== "AL") {
     redirect(voltarCom(destino, "erro", "Área inválida"));
+  }
+
+  // A RV lê o ARQUIVO da planilha. O link de uma pasta era aceito ao
+  // salvar e só falhava quando o colaborador abria a tela (11/09/2026).
+  if (csvUrl && tipoDoLink(csvUrl) === "pasta") {
+    redirect(
+      voltarCom(
+        destino,
+        "erro",
+        "Esse é o link de uma PASTA. A RV lê o ARQUIVO da planilha: no Drive, clique com o botão direito na planilha → Compartilhar → Copiar link.",
+      ),
+    );
   }
 
   const admin = createAdminClient();

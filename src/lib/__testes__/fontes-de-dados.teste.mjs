@@ -4,7 +4,7 @@
 // organizada, que e pior que a bagunca de antes.
 //   npx tsx src/lib/__testes__/fontes-de-dados.teste.mjs
 import {
-  FONTES, ROTULO_TIPO, fonteDe, linkDeCanalValido,
+  FONTES, ROTULO_TIPO, fonteDe, linkDeCanalValido, COMO_COLAR, tipoDoLink,
   tempoDesde, estaVelha, DIAS_ATE_ENVELHECER,
 } from "../fontes-de-dados.ts";
 
@@ -39,6 +39,20 @@ ok("todo tipo tem rotulo", FONTES.every((f) => !!ROTULO_TIPO[f.tipo]));
 console.log("\n== TODA FONTE TEM LINK E TABELA ==");
 ok("toda fonte aponta a tabela", FONTES.every((f) => !!f.tabela));
 eq("quantas fontes", FONTES.length, 7);
+
+// Toda fonte diz o que colar, e o que ela diz bate com o que ela le.
+ok("toda fonte diz o que colar", FONTES.every((f) => !!COMO_COLAR[f.colar]));
+ok("fonte de pasta pede pasta", FONTES.filter((f) => f.tipo === "pasta-drive" && f.chave !== "clientes").every((f) => f.colar === "pasta"));
+eq("RV pede o arquivo", fonteDe("rv").colar, "arquivo");
+eq("canais pedem o site", fonteDe("canais").colar, "site");
+
+eq("link de pasta", tipoDoLink("https://drive.google.com/drive/folders/1Mqr0T3iRQOAH-Mk_rVaBD94ojOhWJCnx"), "pasta");
+eq("link de pasta com conta", tipoDoLink("https://drive.google.com/drive/u/0/folders/1Mqr0T3iRQOAH"), "pasta");
+eq("link de arquivo", tipoDoLink("https://drive.google.com/file/d/1abcDEF/view?usp=sharing"), "arquivo");
+eq("link de planilha", tipoDoLink("https://docs.google.com/spreadsheets/d/1QURLwttbRXpBAYX/edit#gid=0"), "arquivo");
+eq("csv publicado", tipoDoLink("https://docs.google.com/spreadsheets/d/e/2PACX/pub?output=csv"), "arquivo");
+eq("formulario", tipoDoLink("https://forms.office.com/r/MGf5xTSDzr"), "site");
+eq("texto solto", tipoDoLink("pasta do rating"), "outro");
 ok("canais do rodape e link fixo", fonteDe("canais")?.estatica === true && fonteDe("canais")?.tipo === "link-canal");
 
 // O link do canal vira href no botao da ouvidoria, que todo mundo ve.

@@ -5,11 +5,13 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getRevendaId } from "@/lib/revendas";
 import { requireGestor, podeNoModulo } from "@/lib/require-admin";
 import {
+  COMO_COLAR,
   FONTES,
   ROTULO_TIPO,
   estaVelha,
   tempoDesde,
   type Fonte,
+  type OQueColar,
 } from "@/lib/fontes-de-dados";
 import { salvarCanais, salvarFonte } from "./actions";
 import { avisarRVAtualizada, salvarConfigRV } from "@/app/admin/rv/actions";
@@ -355,6 +357,31 @@ function FormDosCanais({
   );
 }
 
+/**
+ * O que colar no campo, dito ANTES de colar (11/09/2026, pedido do dono).
+ *
+ * Fica logo abaixo da frase do que a fonte alimenta e acima de qualquer
+ * campo -- é a primeira coisa que se lê ao abrir a gaveta. Pasta e arquivo
+ * são links parecidos, e colar o errado só dava "não reconheci o link".
+ */
+function OQueColarAqui({ tipo }: { tipo: OQueColar }) {
+  const c = COMO_COLAR[tipo];
+  return (
+    <div className="mt-3 flex gap-2.5 rounded-xl border border-sky-200 bg-sky-50 px-3 py-2.5">
+      <span className="shrink-0 text-lg leading-none" aria-hidden="true">
+        {c.emoji}
+      </span>
+      <div className="min-w-0 text-[11px] leading-snug text-sky-900">
+        <p className="text-xs font-bold">{c.titulo}</p>
+        <p className="mt-0.5">{c.comoCopiar}</p>
+        <p className="mt-1 text-sky-800/80">
+          Começa com <code className="break-all rounded bg-white/80 px-1 py-0.5">{c.comecaCom}</code>
+        </p>
+      </div>
+    </div>
+  );
+}
+
 /** O endereço que abre esta fonte e para a rolagem nela. */
 const enderecoDa = (chave: string) => `/admin/fontes-de-dados?aberta=${chave}#fonte-${chave}`;
 
@@ -417,6 +444,11 @@ function CartaoDaFonte({
                 ? `salvo ${tempoDesde(estado.ultima_sincronizacao)}`
                 : "nenhum link salvo"
               : tempoDesde(estado?.ultima_sincronizacao)}
+            {/* Com a gaveta fechada já dá para saber o que colar. */}
+            <span className="text-slate-400">
+              {" · "}
+              {COMO_COLAR[fonte.colar].emoji} {COMO_COLAR[fonte.colar].curto}
+            </span>
           </span>
         </span>
         <span
@@ -442,6 +474,8 @@ function CartaoDaFonte({
 
       <div className="border-t border-slate-100 p-4">
         <p className="text-xs text-slate-500">{fonte.alimenta}</p>
+
+        <OQueColarAqui tipo={fonte.colar} />
 
         {/* O RECADO FICA AQUI DENTRO, ao lado do botão que foi apertado --
             no topo da página ele estaria fora da tela depois da âncora. */}
@@ -684,7 +718,7 @@ function CartaoDaFonte({
               className="block text-[11px] font-semibold uppercase text-slate-500"
               htmlFor={`link-${fonte.chave}`}
             >
-              Link no Drive
+              Link do arquivo no Drive
             </label>
             <div className="flex flex-wrap gap-2">
               <input

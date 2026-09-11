@@ -21,9 +21,79 @@ export type TipoDaFonte =
   /** Um link que o app só abre -- não lê nem importa nada dele. */
   | "link-canal";
 
+/**
+ * O QUE COLAR NO CAMPO (11/09/2026, pedido do dono: "seria bom deixar uma
+ * observação se aquele caminho ou link do Drive é para o arquivo ou pasta").
+ *
+ * O tipo da fonte ("Pasta do Drive", "CSV publicado") diz como o app LÊ,
+ * não o que a pessoa COLA -- a RV é "CSV publicado" e o que se cola nela é
+ * o link do arquivo da planilha. Quem configura precisa da segunda
+ * informação, dita antes de colar, e não descoberta pelo erro.
+ */
+export type OQueColar = "pasta" | "arquivo" | "arquivo-ou-pasta" | "site";
+
+export const COMO_COLAR: Record<
+  OQueColar,
+  { emoji: string; curto: string; titulo: string; comoCopiar: string; comecaCom: string }
+> = {
+  pasta: {
+    emoji: "📁",
+    curto: "link da pasta",
+    titulo: "Cole o link da PASTA do Drive — não o de um arquivo",
+    comoCopiar:
+      "Abra a pasta no Drive e copie o endereço da barra do navegador. O app procura os arquivos lá dentro sozinho.",
+    comecaCom: "https://drive.google.com/drive/folders/…",
+  },
+  arquivo: {
+    emoji: "📄",
+    curto: "link do arquivo",
+    titulo: "Cole o link do ARQUIVO (a planilha) — não o da pasta",
+    comoCopiar:
+      "No Drive, clique com o botão direito no arquivo → Compartilhar → Copiar link, com o acesso em “Qualquer pessoa com o link”.",
+    comecaCom: "https://docs.google.com/spreadsheets/d/… ou https://drive.google.com/file/d/…",
+  },
+  "arquivo-ou-pasta": {
+    emoji: "📄",
+    curto: "link do arquivo (ou da pasta)",
+    titulo: "Cole o link do ARQUIVO — de preferência. O da pasta também funciona",
+    comoCopiar:
+      "No Drive, clique com o botão direito no arquivo → Compartilhar → Copiar link. Pela pasta, o app precisa ler a listagem do Drive, que é o que mais falha.",
+    comecaCom: "https://drive.google.com/file/d/… ou https://docs.google.com/spreadsheets/d/…",
+  },
+  site: {
+    emoji: "🔗",
+    curto: "endereço do site",
+    titulo: "Cole o endereço do formulário ou do site — não é link do Drive",
+    comoCopiar: "Abra o formulário ou o site no navegador e copie o endereço inteiro da barra.",
+    comecaCom: "https://…",
+  },
+};
+
+/**
+ * Que tipo de link a pessoa colou -- para o erro dizer "isso é o link de
+ * um ARQUIVO, aqui vai o da PASTA" em vez de "não reconheci o link".
+ */
+export function tipoDoLink(bruto: string): "pasta" | "arquivo" | "site" | "outro" {
+  const link = (bruto ?? "").trim();
+  if (!link) return "outro";
+  if (/\/drive\/(u\/\d+\/)?folders\//.test(link)) return "pasta";
+  if (
+    /\/file\/d\//.test(link) ||
+    /\/spreadsheets\/d\//.test(link) ||
+    /drive\.google\.com\/.*[?&]id=/.test(link) ||
+    /output=csv|format=csv/.test(link)
+  ) {
+    return "arquivo";
+  }
+  if (/^https?:\/\//i.test(link)) return "site";
+  return "outro";
+}
+
 export type Fonte = {
   chave: string;
   rotulo: string;
+  /** O que a pessoa cola no campo -- ver COMO_COLAR. */
+  colar: OQueColar;
   /** O que esta fonte alimenta, em uma frase de operação. */
   alimenta: string;
   tipo: TipoDaFonte;
@@ -88,6 +158,7 @@ export const FONTES: Fonte[] = [
     alimenta: "Nota do cliente, cadastro de motoristas e ajudantes, e o mapa que liga um ao outro",
     tipo: "pasta-drive",
     tabela: "rating_config",
+    colar: "pasta",
     telaDoModulo: "/admin/rating",
     modulo: "rating",
     aoAtualizar: "Lê os quatro relatórios da pasta. Leva cerca de um minuto.",
@@ -107,6 +178,7 @@ export const FONTES: Fonte[] = [
     alimenta: "Aferição de vasilhame por mapa, com o defeito encontrado em cada garrafa",
     tipo: "pasta-drive",
     tabela: "refugo_config",
+    colar: "pasta",
     telaDoModulo: "/admin/refugo",
     modulo: "refugo",
     aoAtualizar: "Lê a subpasta Refugo. Rápido, mas depende do Rating já ter sido importado.",
@@ -119,6 +191,7 @@ export const FONTES: Fonte[] = [
     alimenta: "Notas devolvidas por dia e por PDV, e a tabela de motivos",
     tipo: "pasta-drive",
     tabela: "devolucao_config",
+    colar: "pasta",
     telaDoModulo: "/admin/devolucao",
     modulo: "devolucao",
     aoAtualizar: "Traz só o mês corrente. Cada arquivo tem ~7 mil linhas — pode levar alguns minutos.",
@@ -138,6 +211,7 @@ export const FONTES: Fonte[] = [
     alimenta: "A pré-rota que o motorista consulta antes de sair",
     tipo: "pasta-drive",
     tabela: "rotas_config",
+    colar: "pasta",
     telaDoModulo: "/admin/rotas",
     modulo: "rotas",
     aoAtualizar: "Lê o CSV mais recente da pasta. Reimportar não duplica nada.",
@@ -156,6 +230,9 @@ export const FONTES: Fonte[] = [
     alimenta: "O resultado do mês de cada pessoa, e o resumo de Meus Indicadores",
     tipo: "csv-publicado",
     tabela: "rv_config",
+    // O tipo diz "CSV publicado", mas o que se cola é o link do ARQUIVO
+    // da planilha -- que é justamente o motivo de `colar` existir.
+    colar: "arquivo",
     telaDoModulo: "/admin/rv",
     modulo: "rv",
     // O módulo RV não tem "criar": a chave que aponta a planilha é
@@ -170,6 +247,7 @@ export const FONTES: Fonte[] = [
     alimenta: "O telefone do PDV (que abre a conversa certa no WhatsApp) e a busca de clientes no cadastro de particularidades",
     tipo: "pasta-drive",
     tabela: "pa_pdv_config",
+    colar: "arquivo-ou-pasta",
     telaDoModulo: "/admin/pdv-particularidades",
     modulo: "pdv-particularidades",
     acaoParaEditar: "editar",
@@ -187,6 +265,7 @@ export const FONTES: Fonte[] = [
       "Os links da Solicitação de EPI e do Canal de Ouvidoria no rodapé da tela inicial -- e o QR code da ouvidoria, gerado a partir do link",
     tipo: "link-canal",
     tabela: "revenda_canais",
+    colar: "site",
     telaDoModulo: "/",
     modulo: "fontes-dados",
     acaoParaEditar: "editar",
