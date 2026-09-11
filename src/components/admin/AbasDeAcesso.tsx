@@ -62,16 +62,24 @@ const ABAS: {
 export function AbasDeAcesso({
   atual,
   revendaId,
+  mostrarPerfis = true,
 }: {
   atual: AbaDeAcesso;
   revendaId?: string;
+  /**
+   * Desde 11/09/2026 Acessos por Pessoa também abre para a liderança que
+   * tem o módulo "acessos" -- e ela pode não ter `perfis-acesso`. A aba
+   * some para quem não pode abri-la, em vez de levar a um "sem permissão".
+   */
+  mostrarPerfis?: boolean;
 }) {
   const daVez = ABAS.find((a) => a.id === atual);
+  const abas = mostrarPerfis ? ABAS : ABAS.filter((a) => a.id !== "perfil");
 
   return (
     <div className="mb-4">
       <div className="flex flex-wrap gap-2">
-        {ABAS.map((a) => (
+        {abas.map((a) => (
           <Link
             key={a.id}
             href={a.href(revendaId)}

@@ -54,7 +54,8 @@ export type ModuloId =
   | "pdv-particularidades"
   | "metas"
   | "fontes-dados"
-  | "perfis-acesso";
+  | "perfis-acesso"
+  | "acessos";
 
 /**
  * As gavetas do Modo Liderança, na ordem em que aparecem.
@@ -288,6 +289,32 @@ export const MODULOS: Modulo[] = [
     //
     // "editar" é só dos canais do rodapé (11/09/2026): eles não pertencem
     // a módulo nenhum, então não havia permissão de onde herdar.
+    acoes: ["ver", "editar"],
+  },
+  {
+    /*
+      ACESSOS POR PESSOA, DELEGÁVEL (11/09/2026, pedido do dono: liberar
+      para a liderança de Barreiras, "somente Barreiras ou das duas").
+
+      A permissão é por revenda, como todas: dada só em Barreiras, a pessoa
+      só entra e só mexe em Barreiras. E dentro da revenda há um ALCANCE
+      (lib/gestao-de-acessos): ela só concede e só retira o que ela mesma
+      tem ali, não repassa esta gestão, não mexe em si nem em quem também
+      gerencia, não "espelha" perfil (espelhar retira) e só rebaixa quem não
+      tem permissão em outra revenda. Tudo segue para a auditoria.
+
+      O Admin continua chegando pelo bloco dele (MODULOS_DO_DONO); este
+      item é a porta da liderança.
+    */
+    id: "acessos",
+    rotulosDeAcao: {
+      ver: "Consultar as fichas de acesso desta revenda (sem alterar nada)",
+      editar: "Alterar os acessos desta revenda — só dentro do que a própria pessoa tem",
+    },
+    rotulo: "Acessos por Pessoa",
+    emoji: "🔐",
+    href: "/admin/acessos",
+    grupo: "Pessoas",
     acoes: ["ver", "editar"],
   },
   {
@@ -955,6 +982,11 @@ export const MODULOS_DO_DONO: {
     // Pessoas -- lá se monta um molde, aqui se mexe em gente. O rótulo
     // antigo ("Usuários e Acessos") ainda discordava do título da própria
     // tela ("Gestão de Acessos"): duas telas parecidas e três nomes.
+    //
+    // Desde 11/09/2026 a tela também é da liderança que tem o módulo
+    // "acessos" (ver a entrada dele em MODULOS). Este item continua sendo o
+    // caminho do Admin -- a barra tira o item do módulo para ele, para não
+    // aparecer duas vezes.
     href: "/admin/acessos",
     rotulo: "Acessos por Pessoa",
     emoji: "🔐",

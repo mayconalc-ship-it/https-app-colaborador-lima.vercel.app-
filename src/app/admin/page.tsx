@@ -37,6 +37,8 @@ export default async function AdminPage({
       !m.semTelaAdmin &&
       // Mudou de área: a tela mora em /gestao (ver lib/gestao.ts).
       !m.emGestao &&
+      // O Admin já tem Acessos por Pessoa no bloco dele (11/09/2026).
+      !(dono && m.id === "acessos") &&
       modulosDaRevenda.has(m.id) &&
       podeFazer(perfil.role, concessoes, m.id, "ver"),
   );

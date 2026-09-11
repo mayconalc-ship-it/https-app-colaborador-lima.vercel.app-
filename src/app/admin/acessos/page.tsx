@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { decodificar } from "@/lib/texto-url";
-import { requireOwner } from "@/lib/require-admin";
+import { podeNoModulo } from "@/lib/require-admin";
+import { exigirTelaDeAcessos } from "@/lib/gestao-de-acessos-server";
+import { MODULO_ACESSOS } from "@/lib/gestao-de-acessos";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { PageHeader } from "@/components/PageHeader";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
@@ -46,11 +48,15 @@ function BlocoDoModulo({
   tituloAlternativo,
   ajuda,
   omitirVer = false,
+  alcance = null,
 }: {
   m: Modulo;
   minhas: Set<string>;
   tituloAlternativo?: string;
   ajuda?: string;
+  /** O que quem edita pode marcar. Nulo = o Admin (tudo). Fora dele, a
+   *  caixa aparece travada -- e o servidor preserva o que estava. */
+  alcance?: Set<string> | null;
   /**
    * O "Visualizar" deste módulo é marcado no bloco das Análises, e não
    * aqui. Nasceu do relato do dono (06/09/2026): a linha "vem junto com o
@@ -125,7 +131,13 @@ function BlocoDoModulo({
               name="permissao"
               value={`${m.id}:${acao}`}
               defaultChecked={minhas.has(`${m.id}:${acao}`)}
-              className="mt-0.5 h-4 w-4 shrink-0 rounded border-slate-300 text-primary"
+              disabled={!!alcance && !alcance.has(`${m.id}:${acao}`)}
+              title={
+                alcance && !alcance.has(`${m.id}:${acao}`)
+                  ? "Fora do seu alcance: você não tem esta permissão nesta revenda"
+                  : undefined
+              }
+              className="mt-0.5 h-4 w-4 shrink-0 rounded border-slate-300 text-primary disabled:opacity-40"
             />
             <span>
               {rotuloDaAcaoNoModulo(m, acao)}
@@ -207,6 +219,8 @@ function PerfilDaPessoa({
   modulosDoPerfil,
   minhas,
   meusModulos,
+  podeAlterar = true,
+  podeEspelhar = true,
 }: {
   pessoaId: string;
   pessoaNome: string;
@@ -220,6 +234,10 @@ function PerfilDaPessoa({
   minhas: Set<string>;
   /** Os módulos do app liberados a esta pessoa nesta revenda. */
   meusModulos: Set<string>;
+  /** Quem olha pode aplicar perfil nesta ficha? (11/09/2026) */
+  podeAlterar?: boolean;
+  /** "Deixar igual ao perfil" retira acessos: só o Admin. */
+  podeEspelhar?: boolean;
 }) {
   const jaTem: Concessao[] = [...minhas].map((c) => {
     const corte = c.lastIndexOf(":");
@@ -256,7 +274,7 @@ function PerfilDaPessoa({
             </Link>
             . Dá para criá-lo a partir das permissões de alguém que já esteja certo.
           </p>
-        ) : (
+        ) : !podeAlterar ? null : (
           <form action={aplicarPerfilNaFicha} className="mt-2 flex flex-wrap items-center gap-2">
             <input type="hidden" name="revenda" value={revendaId} />
             <input type="hidden" name="colaborador_id" value={pessoaId} />
@@ -399,6 +417,7 @@ function PerfilDaPessoa({
             {/* VOLTAR AO MOLDE é o espelhar: acrescenta o que falta e
                 RETIRA o que sobra. A lista acima é a confirmação -- quem
                 aperta já leu, nome por nome, o que sai. */}
+            {podeAlterar && podeEspelhar && (
             <form action={aplicarPerfilNaFicha} className="space-y-1.5">
               <input type="hidden" name="revenda" value={revendaId} />
               <input type="hidden" name="colaborador_id" value={pessoaId} />
@@ -412,7 +431,8 @@ function PerfilDaPessoa({
               </BotaoEnviar>
               {pedeConfirmacao && <ConfirmarLideranca nome={primeiroNome} />}
             </form>
-            {entram.length > 0 && (
+            )}
+            {podeAlterar && entram.length > 0 && (
               <form action={aplicarPerfilNaFicha} className="space-y-1.5">
                 <input type="hidden" name="revenda" value={revendaId} />
                 <input type="hidden" name="colaborador_id" value={pessoaId} />
@@ -449,7 +469,6 @@ export default async function GestaoDeAcessosPage({
     aba?: string;
   }>;
 }) {
-  const eu = await requireOwner();
   const {
     erro,
     sucesso,
@@ -463,6 +482,19 @@ export default async function GestaoDeAcessosPage({
     aba,
   } = await searchParams;
 
+  // QUEM ENTRA AQUI (11/09/2026): o Admin, e a liderança que tem o módulo
+  // Acessos por Pessoa naquela revenda -- e só nas revendas em que tem.
+  // `podeEditar` separa quem consulta de quem altera; `alcance` é o que a
+  // liderança pode marcar (nulo para o Admin).
+  const {
+    eu,
+    dono,
+    podeEditar,
+    alcance,
+    revendas,
+    escolhida: revendaDoGestor,
+  } = await exigirTelaDeAcessos(revendaParam);
+
   // A ficha da pessoa é o padrão: é a pergunta mais frequente e a única
   // que responde por alguém em particular. As grades são de manutenção em
   // lote, e quem vai fazer isso sabe que vai.
@@ -470,18 +502,15 @@ export default async function GestaoDeAcessosPage({
 
   const admin = createAdminClient();
 
-  const { data: revendas } = await admin
-    .from("revendas")
-    .select("id, nome")
-    .eq("ativa", true)
-    .order("ordem");
-
   // Permissão é sempre "nesta revenda". A tela inteira trabalha sobre uma
   // unidade de cada vez -- é assim que o Admin pensa ("estou configurando
   // Barreiras"), e evita uma matriz de módulos vezes revendas na mesma
-  // página, que ninguém consegue ler no celular.
-  const escolhida =
-    (revendas ?? []).find((r) => r.id === revendaParam) ?? (revendas ?? [])[0];
+  // página, que ninguém consegue ler no celular. As revendas oferecidas
+  // são só as que quem olha gerencia (exigirTelaDeAcessos).
+  const escolhida = revendaDoGestor;
+  // A aba de Perfis tem porta própria (`perfis-acesso`): some para quem
+  // não a tem, em vez de levar a um "sem permissão".
+  const mostrarPerfis = dono || (await podeNoModulo("perfis-acesso", "ver"));
 
   if (!escolhida) {
     return (
@@ -698,7 +727,7 @@ export default async function GestaoDeAcessosPage({
       {/* As três liberações viraram ABAS (06/09/2026). Eram três cartões
           explicando onde cada coisa ficava -- e o dono continuou sem achar
           o que procurava. Explicação some quando a estrutura resolve. */}
-      <AbasDeAcesso atual={abaAtual} revendaId={escolhida.id} />
+      <AbasDeAcesso atual={abaAtual} revendaId={escolhida.id} mostrarPerfis={mostrarPerfis} />
 
       {/* A revenda que está sendo configurada. Fica no topo porque muda o
           sentido de tudo o que vem abaixo. */}
@@ -732,17 +761,48 @@ export default async function GestaoDeAcessosPage({
         </p>
       )}
 
-      <div className="mb-4 rounded-2xl border border-primary/25 bg-primary-soft p-4">
-        <p className="text-sm font-semibold text-primary-dark">
-          👑 Admin: {eu.nome}
-        </p>
-        <p className="mt-1 text-xs text-primary-dark">
-          Só existe um Admin, e ele é definido no banco de dados — não há botão
-          que promova alguém a Admin. Você também não consegue alterar o próprio
-          acesso por esta tela, para não haver risco de se trancar do lado de
-          fora.
-        </p>
-      </div>
+      {dono ? (
+        <div className="mb-4 rounded-2xl border border-primary/25 bg-primary-soft p-4">
+          <p className="text-sm font-semibold text-primary-dark">
+            👑 Admin: {eu.nome}
+          </p>
+          <p className="mt-1 text-xs text-primary-dark">
+            Só existe um Admin, e ele é definido no banco de dados — não há botão
+            que promova alguém a Admin. Você também não consegue alterar o próprio
+            acesso por esta tela, para não haver risco de se trancar do lado de
+            fora.
+          </p>
+        </div>
+      ) : (
+        /* AS REGRAS DE QUEM NÃO É O ADMIN, ditas antes de qualquer caixa
+           (11/09/2026). Descobrir o limite pelo erro seria a pior forma. */
+        <div className="mb-4 rounded-2xl border border-amber-300 bg-amber-50 p-4">
+          <p className="text-sm font-semibold text-amber-900">
+            🔐 {eu.nome} — {podeEditar ? "gestão" : "consulta"} de acessos em {escolhida.nome}
+          </p>
+          {podeEditar ? (
+            <ul className="mt-1.5 list-disc space-y-0.5 pl-4 text-xs leading-snug text-amber-900">
+              <li>
+                Você só dá e só tira o que <strong>você mesmo tem</strong> em {escolhida.nome}. O que
+                estiver fora disso aparece travado e fica como está.
+              </li>
+              <li>A gestão de acessos não se repassa: só o Admin libera esta tela para alguém.</li>
+              <li>
+                Não dá para mexer na sua própria ficha, nem na de quem também gerencia acessos.
+              </li>
+              <li>
+                “Deixar igual ao perfil” retira acessos e fica com o Admin — aqui você soma.
+              </li>
+              <li>Toda alteração fica registrada no Log de Auditoria, com o seu nome.</li>
+            </ul>
+          ) : (
+            <p className="mt-1 text-xs leading-snug text-amber-900">
+              Você pode consultar as fichas e as grades, mas não alterar nada. Para alterar, peça ao
+              Admin a permissão de editar Acessos por Pessoa.
+            </p>
+          )}
+        </div>
+      )}
 
       {/* ---- Tabela de acesso por módulo opcional ---- */}
       {abaAtual === "modulos" && (
@@ -838,6 +898,9 @@ export default async function GestaoDeAcessosPage({
 
             <form action={liberarAcessosEmLote}>
               <input type="hidden" name="revenda" value={escolhida.id} />
+              {/* Quem só consulta vê a grade, com tudo travado: o fieldset
+                  desabilita de uma vez cada caixa e o botão. */}
+              <fieldset disabled={!podeEditar} className="contents">
               <div className="max-h-[70vh] overflow-auto">
                 <table className="w-full text-sm">
                   {/* sticky no <thead> inteiro (não célula a célula): as
@@ -952,6 +1015,7 @@ export default async function GestaoDeAcessosPage({
                   ✅ Liberar acesso
                 </BotaoEnviar>
               </div>
+              </fieldset>
             </form>
           </div>
         )}
@@ -1005,6 +1069,7 @@ export default async function GestaoDeAcessosPage({
             <div className="rounded-2xl border border-primary/30 bg-white shadow-sm">
               <form action={liberarAnalisesEmLote}>
                 <input type="hidden" name="revenda" value={escolhida.id} />
+                <fieldset disabled={!podeEditar} className="contents">
                 <div className="max-h-[60vh] overflow-auto">
                   <table className="w-full text-sm">
                     <thead className="sticky top-0 z-20 bg-primary-soft/40 text-left text-xs uppercase text-slate-500">
@@ -1103,6 +1168,7 @@ export default async function GestaoDeAcessosPage({
                     🔒 = já vê porque administra o módulo. Muda na ficha da pessoa.
                   </p>
                 </div>
+                </fieldset>
               </form>
             </div>
           )}
@@ -1110,7 +1176,7 @@ export default async function GestaoDeAcessosPage({
       )}
 
       {/* ---- Promover alguém ---- */}
-      {abaAtual === "pessoa" && (
+      {abaAtual === "pessoa" && podeEditar && (
       <details className="mb-4 rounded-2xl border border-slate-200 bg-white shadow-sm">
         <summary className="cursor-pointer p-4 font-semibold text-primary">
           + Tornar alguém liderança
@@ -1209,6 +1275,18 @@ export default async function GestaoDeAcessosPage({
                   }))
                 : null;
             const foraDoMolde = molde ? molde.entram.length + molde.foraDoPerfil.length : 0;
+            // A FICHA TRAVADA, e o motivo por escrito (11/09/2026). O
+            // servidor recusa os mesmos casos -- a tela só evita a pessoa
+            // descobrir o limite pelo erro.
+            const gerenciaAqui =
+              minhas.has(`${MODULO_ACESSOS}:ver`) || minhas.has(`${MODULO_ACESSOS}:editar`);
+            const travada = !podeEditar
+              ? "Você pode consultar esta ficha, mas não alterar."
+              : !dono && p.id === eu.id
+                ? "É a sua própria ficha: só o Admin altera os seus acessos."
+                : !dono && gerenciaAqui
+                  ? `${p.nome?.split(" ")[0]} também gerencia acessos: só o Admin altera a ficha dessa pessoa.`
+                  : null;
             return (
               <details
                 key={p.id}
@@ -1264,12 +1342,25 @@ export default async function GestaoDeAcessosPage({
                     modulosDoPerfil={modulosDoPerfil}
                     minhas={minhas}
                     meusModulos={extrasPorPessoa.get(p.id) ?? new Set<string>()}
+                    podeAlterar={!travada}
+                    podeEspelhar={dono}
                   />
                 </div>
 
                 <form action={salvarPermissoes} className="px-4 pb-4">
                   <input type="hidden" name="id" value={p.id} />
                   <input type="hidden" name="revenda" value={escolhida.id} />
+                  {travada ? (
+                    <p className="mb-3 rounded-lg bg-slate-100 p-2.5 text-xs text-slate-600">🔒 {travada}</p>
+                  ) : (
+                    !dono && (
+                      <p className="mb-3 rounded-lg bg-amber-50 p-2.5 text-xs text-amber-900">
+                        Só dá para marcar o que você mesmo tem em {escolhida.nome}. O resto aparece
+                        travado e fica como está.
+                      </p>
+                    )
+                  )}
+                  <fieldset disabled={!!travada} className="contents">
 
                   {/*
                     AGRUPADO POR GAVETA, e não uma lista corrida.
@@ -1372,6 +1463,7 @@ export default async function GestaoDeAcessosPage({
                                   minhas={minhas}
                                   tituloAlternativo={`${p.emoji} ${p.rotulo}`}
                                   ajuda={p.pergunta}
+                                  alcance={alcance}
                                 />
                               );
                             })}
@@ -1420,7 +1512,7 @@ export default async function GestaoDeAcessosPage({
                                             name="permissao"
                                             value={`${m.id}:ver`}
                                             defaultChecked={minhas.has(`${m.id}:ver`)}
-                                            disabled={administra}
+                                            disabled={administra || (!!alcance && !alcance.has(`${m.id}:ver`))}
                                             className="mt-0.5 h-4 w-4 shrink-0 rounded border-slate-300 text-primary disabled:opacity-60"
                                           />
                                           <span>
@@ -1517,6 +1609,7 @@ export default async function GestaoDeAcessosPage({
                                 // marcado no bloco 📊 lá em cima -- um
                                 // controle só por permissão.
                                 omitirVer={analisesDaRevenda.some((p) => p.modulo === m.id)}
+                                alcance={alcance}
                               />
                             ))}
                           </div>
@@ -1549,8 +1642,10 @@ export default async function GestaoDeAcessosPage({
                       👁️ Ver como {p.nome?.split(" ")[0]} vê
                     </Link>
                   </div>
+                  </fieldset>
                 </form>
 
+                {!travada && (
                 <form
                   action={definirPapel}
                   className="border-t border-slate-100 p-4"
@@ -1569,6 +1664,7 @@ export default async function GestaoDeAcessosPage({
                     acesso ao Modo Liderança e todas as permissões.
                   </p>
                 </form>
+                )}
               </details>
             );
           })}

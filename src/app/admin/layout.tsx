@@ -77,6 +77,9 @@ export default async function AdminLayout({
         chega pelas abas.
       */
       m.id !== "perfis-acesso" &&
+      // O Admin chega a Acessos por Pessoa pelo bloco dele; o item do
+      // módulo "acessos" é a porta da liderança (11/09/2026).
+      !(dono && m.id === "acessos") &&
       modulosDaRevenda.has(m.id) &&
       // Módulo cuja tela de cadastro exige "editar" (as Particularidades do
       // PDV, hoje) só entra na barra para quem pode editar. Oferecer o

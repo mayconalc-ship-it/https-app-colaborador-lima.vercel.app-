@@ -1,7 +1,8 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { requireOwner } from "@/lib/require-admin";
+import { exigirGestaoDeAcessos, gerenciaAcessos, permissoesNaRevenda } from "@/lib/gestao-de-acessos-server";
+import { mesclarNoAlcance } from "@/lib/gestao-de-acessos";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
   ehAcaoValida,
@@ -66,16 +67,16 @@ async function nomeDe(id: string) {
 /**
  * Promove a liderança ou devolve para colaborador.
  *
- * Só o dono chega aqui. E há duas travas a mais: ninguém mexe no próprio
- * nível, e ninguém vira dono por esta porta -- o dono é único e definido
- * no banco.
+ * O Admin, ou a liderança que gerencia os acessos DESTA revenda
+ * (11/09/2026). Travas de sempre: ninguém mexe no próprio nível, e ninguém
+ * vira dono por esta porta -- o dono é único e definido no banco. E para
+ * quem não é o Admin, mais três (logo abaixo).
  */
 export async function definirPapel(formData: FormData) {
-  const eu = await requireOwner();
-
   const id = (formData.get("id") as string) || "";
   const papel = (formData.get("papel") as string) || "";
   const revendaId = (formData.get("revenda") as string) || "";
+  const { eu, dono } = await exigirGestaoDeAcessos(revendaId, "editar", (m) => voltar("erro", m, revendaId));
 
   if (!id) voltar("erro", "Colaborador inválido.", revendaId);
   if (papel !== "lideranca" && papel !== "colaborador") {
@@ -89,6 +90,38 @@ export async function definirPapel(formData: FormData) {
   if (!alvo) voltar("erro", "Colaborador não encontrado.", revendaId);
   if (alvo.role === "owner") {
     voltar("erro", "O dono do app não pode ser rebaixado por aqui.", revendaId);
+  }
+
+  if (!dono) {
+    const adminDaTrava = createAdminClient();
+    // 1. Só gente desta revenda.
+    const { data: vinculo } = await adminDaTrava
+      .from("colaborador_revendas")
+      .select("revenda_id")
+      .eq("colaborador_id", id)
+      .eq("revenda_id", revendaId)
+      .maybeSingle();
+    if (!vinculo) voltar("erro", `${alvo.nome} não está vinculado a esta revenda.`, revendaId);
+    // 2. Quem gerencia não mexe em quem gerencia.
+    if (await gerenciaAcessos(id)) {
+      voltar("erro", `${alvo.nome} também gerencia acessos: só o Admin muda o papel dessa pessoa.`, revendaId);
+    }
+    // 3. Rebaixar tira as permissões de TODAS as revendas -- e a liderança
+    //    só responde por esta.
+    if (papel === "colaborador") {
+      const { count } = await adminDaTrava
+        .from("lideranca_permissoes")
+        .select("*", { count: "exact", head: true })
+        .eq("colaborador_id", id)
+        .neq("revenda_id", revendaId);
+      if (count) {
+        voltar(
+          "erro",
+          `${alvo.nome} tem permissões em outra revenda, e rebaixar tiraria todas elas. Só o Admin faz isso.`,
+          revendaId,
+        );
+      }
+    }
   }
 
   const admin = createAdminClient();
@@ -141,9 +174,10 @@ export async function definirPapel(formData: FormData) {
  * só 2 tiveram algo alterado de verdade.
  */
 export async function liberarAcessosEmLote(formData: FormData) {
-  const eu = await requireOwner();
   const revendaId = (formData.get("revenda") as string) || "";
-  if (!revendaId) voltar("erro", "Revenda inválida.");
+  const { eu, dono } = await exigirGestaoDeAcessos(revendaId, "editar", (m) =>
+    voltar("erro", m, revendaId, "modulos"),
+  );
 
   const universoPorPessoa = new Map<string, Set<string>>();
   for (const par of formData.getAll("universo").map(String)) {
@@ -152,12 +186,25 @@ export async function liberarAcessosEmLote(formData: FormData) {
     if (!universoPorPessoa.has(id)) universoPorPessoa.set(id, new Set());
     universoPorPessoa.get(id)!.add(modulo);
   }
+  // Ninguém mexe nos próprios módulos por aqui. E quem não é o Admin só
+  // mexe em gente desta revenda -- a tela só mostra essas, mas o
+  // formulário é do navegador de quem envia (11/09/2026).
+  universoPorPessoa.delete(eu.id);
+  const admin = createAdminClient();
+  if (!dono && universoPorPessoa.size > 0) {
+    const { data: vinculados } = await admin
+      .from("colaborador_revendas")
+      .select("colaborador_id")
+      .eq("revenda_id", revendaId)
+      .in("colaborador_id", [...universoPorPessoa.keys()]);
+    const daqui = new Set((vinculados ?? []).map((v) => v.colaborador_id));
+    for (const id of [...universoPorPessoa.keys()]) if (!daqui.has(id)) universoPorPessoa.delete(id);
+  }
   if (universoPorPessoa.size === 0) {
     voltar("erro", "Nenhuma alteração para aplicar.", revendaId, "modulos");
   }
 
   const marcados = new Set(formData.getAll("marcado").map(String));
-  const admin = createAdminClient();
 
   const { data: atuais } = await admin
     .from("colaborador_modulos_extra")
@@ -264,8 +311,10 @@ export async function liberarAcessosEmLote(formData: FormData) {
  * não desfaz nada.
  */
 export async function aplicarPerfilNaFicha(formData: FormData) {
-  const eu = await requireOwner();
   const revendaId = (formData.get("revenda") as string) || "";
+  const { eu, dono, alcance } = await exigirGestaoDeAcessos(revendaId, "editar", (m) =>
+    voltar("erro", m, revendaId),
+  );
   const perfilId = (formData.get("perfil_id") as string) || "";
   const colaboradorId = (formData.get("colaborador_id") as string) || "";
   const espelhar = String(formData.get("modo") ?? "") === "espelhar";
@@ -288,6 +337,40 @@ export async function aplicarPerfilNaFicha(formData: FormData) {
     .maybeSingle();
   if (!vinculo) {
     voltar("erro", "A pessoa não está vinculada a esta revenda.", revendaId);
+  }
+
+  // As travas de quem não é o Admin (11/09/2026).
+  if (!dono) {
+    if (espelhar) {
+      voltar(
+        "erro",
+        "Deixar igual ao perfil retira acessos, e isso só o Admin faz. Use “Só somar o que falta”.",
+        revendaId,
+      );
+    }
+    if (await gerenciaAcessos(colaboradorId)) {
+      voltar("erro", "Essa pessoa também gerencia acessos: só o Admin altera os acessos dela.", revendaId);
+    }
+    const [{ data: doPerfil }, { data: perfilDaRevenda }] = await Promise.all([
+      admin.from("perfil_permissoes").select("modulo, acao").eq("perfil_id", perfilId),
+      admin.from("perfis_acesso").select("revenda_id").eq("id", perfilId).maybeSingle(),
+    ]);
+    if (perfilDaRevenda?.revenda_id !== revendaId) {
+      voltar("erro", "Este perfil não é desta revenda.", revendaId);
+    }
+    // Perfil de liderança só se aplica se tudo o que ele dá está no
+    // alcance de quem aplica. Perfil de colaborador não tem permissão de
+    // liderança nenhuma e passa direto.
+    const fora = (doPerfil ?? [])
+      .map((p) => `${p.modulo}:${p.acao}`)
+      .filter((c) => !(alcance ?? new Set<string>()).has(c));
+    if (fora.length > 0) {
+      voltar(
+        "erro",
+        `Este perfil dá ${fora.length} permissão(ões) que você mesmo não tem nesta revenda (ex.: ${fora[0]}). Só o Admin aplica.`,
+        revendaId,
+      );
+    }
   }
 
   const r = await aplicarPerfilA({
@@ -373,9 +456,10 @@ export async function aplicarPerfilNaFicha(formData: FormData) {
  * Mesmo desenho de liberarAcessosEmLote, pelo mesmo motivo.
  */
 export async function liberarAnalisesEmLote(formData: FormData) {
-  const eu = await requireOwner();
   const revendaId = (formData.get("revenda") as string) || "";
-  if (!revendaId) voltar("erro", "Revenda inválida.");
+  const { eu, dono, alcance } = await exigirGestaoDeAcessos(revendaId, "editar", (m) =>
+    voltar("erro", m, revendaId, "modulos"),
+  );
 
   const universoPorPessoa = new Map<string, Set<string>>();
   for (const par of formData.getAll("universo").map(String)) {
@@ -383,6 +467,10 @@ export async function liberarAnalisesEmLote(formData: FormData) {
     // Só módulo que de fato abre uma análise entra -- a grade não pode
     // virar um atalho para conceder "ver" em qualquer módulo do app.
     if (!id || !MODULOS_COM_ANALISE.includes(modulo as ModuloId)) continue;
+    // Ninguém mexe na própria linha; e quem não é o Admin só libera a
+    // análise que ele mesmo abre nesta revenda (11/09/2026).
+    if (id === eu.id) continue;
+    if (!dono && !alcance?.has(`${modulo}:ver`)) continue;
     if (!universoPorPessoa.has(id)) universoPorPessoa.set(id, new Set());
     universoPorPessoa.get(id)!.add(modulo);
   }
@@ -411,6 +499,16 @@ export async function liberarAnalisesEmLote(formData: FormData) {
 
   const perfilPorId = new Map((perfis ?? []).map((p) => [p.id, p]));
   const daRevenda = new Set((vinculos ?? []).map((v) => v.colaborador_id));
+  // Quem também gerencia acessos só é alterado pelo Admin.
+  const gerentes = new Set<string>();
+  if (!dono) {
+    const { data: comGestao } = await admin
+      .from("lideranca_permissoes")
+      .select("colaborador_id")
+      .eq("modulo", "acessos")
+      .in("colaborador_id", ids);
+    for (const g of comGestao ?? []) gerentes.add(g.colaborador_id);
+  }
 
   // O que a pessoa já tem, por módulo: o conjunto de ações.
   const acoesPorPessoaModulo = new Map<string, Set<string>>();
@@ -437,6 +535,7 @@ export async function liberarAnalisesEmLote(formData: FormData) {
     // quem envia.
     if (!perfil || perfil.role !== "lideranca") continue;
     if (!daRevenda.has(id)) continue;
+    if (gerentes.has(id)) continue;
 
     const liberados: string[] = [];
     const revogados: string[] = [];
@@ -529,13 +628,13 @@ export async function liberarAnalisesEmLote(formData: FormData) {
  * diferenças, e o volume é minúsculo (dezenas de linhas por pessoa).
  */
 export async function salvarPermissoes(formData: FormData) {
-  const eu = await requireOwner();
-
   const id = (formData.get("id") as string) || "";
   const revendaId = (formData.get("revenda") as string) || "";
 
   if (!id) voltar("erro", "Colaborador inválido.");
-  if (!revendaId) voltar("erro", "Revenda inválida.");
+  const { eu, dono, alcance } = await exigirGestaoDeAcessos(revendaId, "editar", (m) =>
+    voltar("erro", m, revendaId),
+  );
   if (id === eu.id) {
     voltar("erro", "Você não pode alterar as suas próprias permissões.", revendaId);
   }
@@ -570,11 +669,28 @@ export async function salvarPermissoes(formData: FormData) {
     );
   }
 
-  const marcadas = formData
+  if (!dono && (await gerenciaAcessos(id))) {
+    voltar(
+      "erro",
+      `${alvo.nome} também gerencia acessos: só o Admin altera as permissões dessa pessoa.`,
+      revendaId,
+    );
+  }
+
+  const enviadas = formData
     .getAll("permissao")
     .map(String)
-    .map((v) => v.split(":"))
-    .filter(([m, a]) => ehModuloValido(m) && ehAcaoValida(a));
+    .filter((v) => {
+      const [m, a] = v.split(":");
+      return ehModuloValido(m) && ehAcaoValida(a);
+    });
+
+  // O ALCANCE (11/09/2026): quem não é o Admin só concede e só retira o
+  // que ele mesmo tem nesta revenda -- e nunca a gestão de acessos. O resto
+  // da ficha fica exatamente como estava (ver mesclarNoAlcance). Para o
+  // Admin, vale o que foi marcado, como sempre.
+  const existentes = dono ? [] : [...(await permissoesNaRevenda(id, revendaId))];
+  const marcadas = mesclarNoAlcance(existentes, enviadas, alcance).map((v) => v.split(":"));
 
   // Coerência: quem pode criar/editar/excluir precisa poder ver. Sem isso a
   // pessoa teria permissão de mexer numa tela que nem consegue abrir.

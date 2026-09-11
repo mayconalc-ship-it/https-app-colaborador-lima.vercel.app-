@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PageHeader } from "@/components/PageHeader";
-import { requireOwner } from "@/lib/require-admin";
+import { exigirTelaDeAcessos } from "@/lib/gestao-de-acessos-server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { EMOJI_GRUPO_ADMIN, ROTULO_PAPEL, rotuloDaAcaoNoModulo, type Papel } from "@/lib/acessos";
 import { simularAcesso } from "@/lib/simulacao-acesso";
@@ -20,8 +20,10 @@ export const dynamic = "force-dynamic";
  * lib/simulacao-acesso.ts). Nenhuma regra é reescrita -- prévia com
  * lógica própria mente na primeira mudança.
  *
- * SÓ O DONO, como o resto de /admin/acessos: ver o que outra pessoa
- * enxerga é informação sobre ela.
+ * A MESMA PORTA de /admin/acessos: o Admin, ou a liderança que gerencia
+ * os acessos daquela revenda (11/09/2026) -- e, para ela, só gente
+ * vinculada à revenda. Ver o que outra pessoa enxerga é informação sobre
+ * ela.
  */
 export default async function PreviaDeAcessoPage({
   params,
@@ -30,19 +32,20 @@ export default async function PreviaDeAcessoPage({
   params: Promise<{ id: string }>;
   searchParams: Promise<{ revenda?: string }>;
 }) {
-  await requireOwner();
   const { id } = await params;
   const { revenda: revendaParam } = await searchParams;
+  const { dono, revendas, escolhida } = await exigirTelaDeAcessos(revendaParam);
 
-  const admin = createAdminClient();
-  const { data: revendas } = await admin
-    .from("revendas")
-    .select("id, nome")
-    .eq("ativa", true)
-    .order("ordem");
-
-  const escolhida = (revendas ?? []).find((r) => r.id === revendaParam) ?? (revendas ?? [])[0];
-  if (!escolhida) notFound();
+  if (!dono) {
+    const admin = createAdminClient();
+    const { data: vinculo } = await admin
+      .from("colaborador_revendas")
+      .select("revenda_id")
+      .eq("colaborador_id", id)
+      .eq("revenda_id", escolhida.id)
+      .maybeSingle();
+    if (!vinculo) notFound();
+  }
 
   const s = await simularAcesso(id, escolhida.id);
   if (!s) notFound();
