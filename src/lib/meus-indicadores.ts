@@ -18,11 +18,19 @@ import type { DetalheRV } from "@/lib/rv";
  * quem tem acesso à remuneração vê tudo na tela da RV, e quem não tem
  * não deve ver aqui por um caminho lateral.
  */
+/*
+  OS NOMES DE BARREIRAS (11/09/2026). A planilha de RV de Motorista de
+  Barreiras chama as colunas de "Qtd Entregas", "Quantidade de Mapa" e
+  "Qtd Entregas Devolvidas" -- o resumo do Adolfo saía com Mapas e
+  Devoluções em branco. "qtd entregas" entra EXATO no primeiro campo:
+  pela regra do "começa com", ele disputaria com "qtd entregas
+  devolvidas", e quem ganhasse dependeria da ordem das colunas.
+*/
 export const CAMPOS_DO_RESUMO = [
-  { chave: "qt_entrega", rotulos: ["qt entrega", "qtd entrega", "quantidade entrega"], titulo: "Entregas", emoji: "📦", formato: "inteiro" },
-  { chave: "qt_mapa", rotulos: ["qt mapa", "qtd mapa", "quantidade mapa"], titulo: "Mapas", emoji: "🗺️", formato: "inteiro" },
+  { chave: "qt_entrega", rotulos: ["qt entrega", "qtd entrega", "qtd entregas", "quantidade entrega", "quantidade de entregas"], titulo: "Entregas", emoji: "📦", formato: "inteiro" },
+  { chave: "qt_mapa", rotulos: ["qt mapa", "qtd mapa", "qtd mapas", "quantidade mapa", "quantidade de mapa", "quantidade de mapas"], titulo: "Mapas", emoji: "🗺️", formato: "inteiro" },
   { chave: "qt_caixas", rotulos: ["qt caixas", "qtd caixas", "quantidade caixas"], titulo: "Caixas", emoji: "🧃", formato: "decimal" },
-  { chave: "qt_devolucao", rotulos: ["qt devolucao", "qtd devolucao", "quantidade devolucao"], titulo: "Devoluções", emoji: "↩️", formato: "inteiro" },
+  { chave: "qt_devolucao", rotulos: ["qt devolucao", "qtd devolucao", "quantidade devolucao", "qtd entregas devolvidas", "entregas devolvidas", "quantidade de devolucao"], titulo: "Devoluções", emoji: "↩️", formato: "inteiro" },
   { chave: "pct_devolucao", rotulos: ["% devolucao", "pct devolucao", "percentual devolucao"], titulo: "% Devolução", emoji: "📉", formato: "percentual" },
   { chave: "qt_rec", rotulos: ["qt. rec.", "qt rec", "qtd rec", "recarga", "recargas"], titulo: "Recargas", emoji: "🔁", formato: "inteiro" },
 ] as const;
