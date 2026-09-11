@@ -46,6 +46,7 @@ export type ModuloId =
   | "fefo-controle"
   | "rating"
   | "refugo"
+  | "refugo-indicadores"
   | "devolucao"
   | "meus-indicadores"
   | "justificativas"
@@ -407,6 +408,27 @@ export const MODULOS: Modulo[] = [
     // materiais. O motorista, o ajudante e o conferente só veem o
     // próprio refugo, e para isso basta a concessão do módulo.
     acoes: ["ver", "criar", "editar"],
+  },
+  {
+    /*
+      A OPERAÇÃO INTEIRA, NÃO A PESSOA (11/09/2026, pedido do dono). "Meu
+      Refugo" mostra a cada um as próprias aferições; este mostra o refugo
+      de todos -- por placa, motorista, conferente, item, defeito e
+      sorteio. É liberado por pessoa, como os outros indicadores, e vive
+      dentro de Meus Indicadores.
+    */
+    id: "refugo-indicadores",
+    rotulosDeAcao: {
+      ver: "Ver os Indicadores do Refugo da operação (no app)",
+    },
+    rotulo: "Indicadores do Refugo",
+    emoji: "📈",
+    href: "/indicadores-refugo",
+    grupo: "Gestão de Dados",
+    acoes: ["ver"],
+    // O que se administra é o Refugo (importar, cadastrar valor). Este
+    // módulo só lê o que o Refugo importou.
+    semTelaAdmin: true,
   },
   {
     id: "rotas",
@@ -867,6 +889,7 @@ export const MODULOS_OPCIONAIS: ModuloId[] = [
   "fefo-controle",
   "rating",
   "refugo",
+  "refugo-indicadores",
   "devolucao",
   "meus-indicadores",
 ];
@@ -880,7 +903,7 @@ export const MODULOS_OPCIONAIS: ModuloId[] = [
  * para alguém. O que muda é o caminho: em vez de três cartões soltos na
  * tela inicial, um só que leva à vitrine.
  */
-export const SUBMODULOS_INDICADORES: ModuloId[] = ["rating", "refugo", "devolucao"];
+export const SUBMODULOS_INDICADORES: ModuloId[] = ["rating", "refugo", "refugo-indicadores", "devolucao"];
 
 const MAPA = new Map(MODULOS.map((m) => [m.id, m]));
 

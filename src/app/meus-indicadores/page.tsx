@@ -15,6 +15,13 @@ const SUBMODULOS: { chave: ModuloId; titulo: string; emoji: string; href: string
   { chave: "rating", titulo: "Meu Rating", emoji: "⭐", href: "/rating", ajuda: "Como os clientes avaliaram suas entregas" },
   { chave: "devolucao", titulo: "Minha Devolução", emoji: "↩️", href: "/devolucao", ajuda: "O que voltou e por quê" },
   { chave: "refugo", titulo: "Meu Refugo", emoji: "♻️", href: "/refugo", ajuda: "A aferição das garrafas que voltaram" },
+  {
+    chave: "refugo-indicadores",
+    titulo: "Indicadores do Refugo",
+    emoji: "📈",
+    href: "/indicadores-refugo",
+    ajuda: "O refugo da operação: por placa, motorista, conferente, item e defeito",
+  },
 ];
 
 export default async function MeusIndicadoresPage({
