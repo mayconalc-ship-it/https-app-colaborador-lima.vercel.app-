@@ -335,6 +335,7 @@ export default async function DevolucaoPage({
             )}
             vazio="Nenhum cliente devolveu no período."
             maximoDeItens={10}
+            formatar={formatarReais}
           />
 
           <BarrasHorizontais

@@ -270,6 +270,7 @@ export function BarrasHorizontais({
   vazio = "Nada no período.",
   maximoDeItens = 8,
   sufixo = "",
+  formatar,
 }: {
   titulo: string;
   subtitulo?: string;
@@ -277,6 +278,10 @@ export function BarrasHorizontais({
   vazio?: string;
   maximoDeItens?: number;
   sufixo?: string;
+  /** Quando o número tem unidade na frente (R$), o sufixo não serve --
+   *  a Devolução por PDV mostrava "1.234,5" em vez de "R$ 1.234,50"
+   *  (pedido do dono, 11/09/2026). */
+  formatar?: (n: number) => string;
 }) {
   const lista = itens.slice(0, maximoDeItens);
   const maior = lista.length ? lista[0].total : 0;
@@ -295,8 +300,7 @@ export function BarrasHorizontais({
               <div className="mb-1 flex items-baseline justify-between gap-2">
                 <span className="min-w-0 truncate text-xs text-slate-700">{i.chave}</span>
                 <span className="shrink-0 text-xs font-bold tabular-nums text-slate-900">
-                  {i.total.toLocaleString("pt-BR")}
-                  {sufixo}
+                  {formatar ? formatar(i.total) : `${i.total.toLocaleString("pt-BR")}${sufixo}`}
                 </span>
               </div>
               <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-100">

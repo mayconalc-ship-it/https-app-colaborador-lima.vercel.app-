@@ -332,6 +332,10 @@ export function ComunicadoForm({
               name="publicar_em"
               type="datetime-local"
               required
+              // Agendar é para DEPOIS: dia passado nem aparece no
+              // calendário. A hora de hoje que já passou o servidor recusa
+              // (11/09/2026).
+              min={`${hoje}T00:00`}
               value={publicarEm}
               onChange={(e) => setPublicarEm(e.target.value)}
               className="w-full rounded-xl border border-slate-200 p-3 text-base focus:border-primary focus:outline-none"
@@ -359,9 +363,18 @@ export function ComunicadoForm({
               id="data"
               name="data"
               type="date"
+              // PUBLICAR AGORA É HOJE OU ANTES (11/09/2026, pedido do dono).
+              // Uma data futura aqui publicava na hora uma matéria datada de
+              // amanhã -- ela ia ao ar sem esperar, e o jornal mostrava a
+              // data errada no topo. Quem quer depois usa o ⏰ Agendar. O
+              // servidor recusa do mesmo jeito.
+              max={hoje}
               defaultValue={comunicado?.data ?? hoje}
               className="w-full rounded-xl border border-slate-200 p-3 text-base focus:border-primary focus:outline-none"
             />
+            <p className="mt-1 text-xs text-slate-400">
+              Hoje ou uma data anterior. Para publicar depois, use ⏰ Agendar.
+            </p>
           </div>
         )}
       </div>

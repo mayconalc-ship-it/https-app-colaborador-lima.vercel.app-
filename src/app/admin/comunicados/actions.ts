@@ -95,6 +95,31 @@ export async function salvarComunicado(formData: FormData) {
   const publicarEm = publicarLocal ? datetimeLocalParaUTC(publicarLocal) : null;
   const agendado = ehFuturo(publicarEm);
 
+  /*
+    AS DUAS PORTAS DA DATA, travadas aqui também (11/09/2026, pedido do
+    dono: "fechar esses gaps"). A tela já impede; o formulário é do
+    navegador de quem envia.
+
+    - Agendar é para DEPOIS. Um horário que já passou era aceito e virava
+      "publicar agora" em silêncio -- quem agendou achava que estava na fila.
+    - Publicar agora é HOJE OU ANTES. Uma data futura publicava na hora uma
+      matéria datada de amanhã, no topo do jornal.
+  */
+  if (publicarLocal && !agendado) {
+    redirect(
+      `/admin/comunicados?erro=${encodeURIComponent(
+        "O agendamento precisa ser para depois de agora. Para publicar já, use Publicar agora.",
+      )}`,
+    );
+  }
+  if (!agendado && data && data > diaNoFuso(new Date().toISOString())) {
+    redirect(
+      `/admin/comunicados?erro=${encodeURIComponent(
+        "Publicar agora aceita só hoje ou uma data anterior. Para uma data futura, use ⏰ Agendar.",
+      )}`,
+    );
+  }
+
   // O que o comunicado já era, antes desta edição. Serve a três decisões
   // abaixo (reabrir o disparo do lembrete, reabrir o aviso da publicação
   // e saber se a matéria está entrando no ar AGORA), então vale a
