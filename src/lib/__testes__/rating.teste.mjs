@@ -69,6 +69,28 @@ eq("dia 04 entrou", serie[3].total, 1);
 eq("atravessa a virada do mes", serieDeDias("2026-08-30", "2026-09-02", []).length, 4);
 eq("intervalo invertido devolve vazio", serieDeDias("2026-08-10", "2026-08-01", []).length, 0);
 eq("respeita o teto de dias", serieDeDias("2026-01-01", "2026-12-31", [], 92).length, 92);
+
+// A cor do dia no calendario do Rating (11/09/2026): detrator = vermelho,
+// neutro = ambar, so promotor = verde.
+const cores = serieDeDias("2026-09-01", "2026-09-03", [
+  { dataAvaliacao: "2026-09-01", nota: 5 },
+  { dataAvaliacao: "2026-09-01", nota: 2 },
+  { dataAvaliacao: "2026-09-01", nota: 4 },
+  { dataAvaliacao: "2026-09-02", nota: 4 },
+  { dataAvaliacao: "2026-09-02", nota: 5 },
+  { dataAvaliacao: "2026-09-03", nota: 5 },
+]);
+eq("dia com detrator conta o detrator", cores[0].detratores, 1);
+eq("e o neutro do mesmo dia", cores[0].neutros, 1);
+eq("dia so com neutro nao tem detrator", cores[1].detratores, 0);
+eq("dia so com neutro conta o neutro", cores[1].neutros, 1);
+eq("dia so de promotor: nenhum detrator", cores[2].detratores, 0);
+eq("dia so de promotor: nenhum neutro", cores[2].neutros, 0);
+eq(
+  "a classificacao do arquivo vale mais que a nota",
+  serieDeDias("2026-09-01", "2026-09-01", [{ dataAvaliacao: "2026-09-01", nota: 4, classificacao: "detrator" }])[0].detratores,
+  1,
+);
 eq("dias no intervalo conta as duas pontas", diasNoIntervalo("2026-08-01", "2026-08-30"), 30);
 eq("diasAntes nao escorrega no fuso", diasAntes("2026-03-01", 1), "2026-02-28");
 

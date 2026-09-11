@@ -422,6 +422,10 @@ export type DiaDoPeriodo = {
   total: number;
   abaixoDaMeta: number;
   media: number | null;
+  /** Avaliações de 1 a 3 estrelas no dia -- pintam o dia de vermelho. */
+  detratores: number;
+  /** Avaliações de 4 estrelas no dia -- pintam de âmbar se não houve detrator. */
+  neutros: number;
 };
 
 /**
@@ -435,15 +439,23 @@ export type DiaDoPeriodo = {
 export function serieDeDias(
   de: string,
   ate: string,
-  avaliacoes: { dataAvaliacao: string; nota: number }[],
+  /** `classificacao` é opcional: quando vem (a do arquivo do LOG.CO), vale
+   *  ela; sem ela, sai da nota. Refugo e Devolução não mandam e não usam. */
+  avaliacoes: { dataAvaliacao: string; nota: number; classificacao?: Classificacao }[],
   maximoDeDias = 92,
 ): DiaDoPeriodo[] {
-  const porDia = new Map<string, { total: number; soma: number; abaixo: number }>();
+  const porDia = new Map<
+    string,
+    { total: number; soma: number; abaixo: number; detratores: number; neutros: number }
+  >();
   for (const a of avaliacoes) {
-    const o = porDia.get(a.dataAvaliacao) ?? { total: 0, soma: 0, abaixo: 0 };
+    const o = porDia.get(a.dataAvaliacao) ?? { total: 0, soma: 0, abaixo: 0, detratores: 0, neutros: 0 };
     o.total++;
     o.soma += a.nota;
     if (precisaFeedback(a.nota)) o.abaixo++;
+    const classe = a.classificacao ?? classificacaoDaNota(a.nota);
+    if (classe === "detrator") o.detratores++;
+    else if (classe === "neutro") o.neutros++;
     porDia.set(a.dataAvaliacao, o);
   }
 
@@ -463,6 +475,8 @@ export function serieDeDias(
       total: o?.total ?? 0,
       abaixoDaMeta: o?.abaixo ?? 0,
       media: o && o.total > 0 ? Math.round((o.soma / o.total) * 100) / 100 : null,
+      detratores: o?.detratores ?? 0,
+      neutros: o?.neutros ?? 0,
     });
   }
   return dias;

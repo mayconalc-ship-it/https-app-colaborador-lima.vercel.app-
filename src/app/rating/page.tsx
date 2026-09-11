@@ -76,9 +76,9 @@ export default async function RatingPage({
   // O RLS já limita às avaliações da própria pessoa (migration 072). Não
   // existe filtro por colaborador aqui de propósito: se um dia a consulta
   // esquecer o filtro, o banco continua não entregando a nota do colega.
-  // A meta de nota média, cadastrada em Admin > Metas. É ela que decide
-  // se o dia fica âmbar (teve detrator, mas a média segurou) ou vermelho
-  // (a média caiu abaixo da régua).
+  // A meta de nota média, cadastrada em Admin > Metas. Desde 11/09/2026 a
+  // cor do dia é a da classificação do cliente (ver a faixa de dias); a
+  // meta continua no balão de cada dia.
   const { data: metaBanco } = await supabase
     .from("pa_metas")
     .select("valor")
@@ -108,7 +108,12 @@ export default async function RatingPage({
   const emFoco = doDia ?? periodo;
 
   const resumo = resumirRating(emFoco);
-  const dias = serieDeDias(de, ate, periodo.map((a) => ({ dataAvaliacao: a.data_avaliacao, nota: a.nota })), MAXIMO_DE_DIAS);
+  const dias = serieDeDias(
+    de,
+    ate,
+    periodo.map((a) => ({ dataAvaliacao: a.data_avaliacao, nota: a.nota, classificacao: a.classificacao })),
+    MAXIMO_DE_DIAS,
+  );
   // Tudo que pede explicação -- respondido ou não. A separação entre
   // "pendente" e "enviado" vem depois, quando já sabemos quais têm
   // feedback gravado.
@@ -163,25 +168,29 @@ export default async function RatingPage({
 
       <Hero resumo={resumo} de={de} ate={ate} dia={diaSelecionado} />
 
-      {/* Três estados, iguais aos da Devolução: verde entregou sem
-          problema, âmbar teve detrator mas a média segurou a meta,
-          vermelho a média do dia ficou ABAIXO da meta. Sem meta
-          cadastrada o vermelho não existe -- pintar sem régua seria
-          inventar uma. */}
+      {/* A COR É A DA CLASSIFICAÇÃO DO CLIENTE (11/09/2026, pedido do
+          dono): vermelho se o dia teve DETRATOR (1 a 3 ★), âmbar se teve
+          NEUTRO (4 ★) e nenhum detrator, verde se foram só PROMOTORES
+          (5 ★). Vale a pior do dia -- um detrator no meio de dez
+          promotores continua sendo o cliente que precisa de resposta.
+
+          Era pela meta de nota média (vermelho = média abaixo da régua),
+          e um dia com detrator podia sair âmbar. A meta não sumiu: ela
+          continua no balão de cada dia. */}
       <FaixaDeDias
         dias={dias.map((d) => ({
           dia: d.dia,
           total: d.total,
-          alerta: d.abaixoDaMeta,
-          // `media` é nula no dia sem avaliação -- esse dia não é grave,
-          // é vazio, e tratar nulo como zero pintaria de vermelho todo
-          // domingo.
-          grave: metaRating !== null && d.media !== null && d.media < metaRating,
+          alerta: d.neutros,
+          grave: d.detratores > 0,
+          contadorGrave: d.detratores,
           titulo:
             d.total === 0
               ? `${formatarData(d.dia)} — nenhuma entrega sua foi avaliada`
               : `${formatarData(d.dia)} — ${d.total} avaliação(ões), média ${d.media}` +
-                (d.abaixoDaMeta ? `, ${d.abaixoDaMeta} abaixo de 5` : ", todas 5 estrelas") +
+                (d.detratores ? ` · ${d.detratores} detrator(es)` : "") +
+                (d.neutros ? ` · ${d.neutros} neutro(s)` : "") +
+                (!d.detratores && !d.neutros ? " · só promotores" : "") +
                 (metaRating !== null && d.media !== null && d.media < metaRating
                   ? ` · abaixo da meta de ${metaRating}`
                   : ""),
@@ -190,18 +199,14 @@ export default async function RatingPage({
         base={(d) => qs({ dia: d === diaSelecionado ? null : d })}
         rotulos={{
           titulo: "Seus dias no período",
-          bom: "Todas 5 estrelas",
-          alerta: metaRating !== null ? "Teve nota abaixo de 5, na meta" : "Teve nota abaixo de 5",
-          grave: metaRating !== null ? `Média abaixo da meta (${metaRating} ★)` : undefined,
+          bom: "Só promotores (5 ★)",
+          alerta: "Teve neutro (4 ★)",
+          grave: "Teve detrator (1 a 3 ★)",
           vazio: "Sem avaliação",
           aviso: (n) =>
-            metaRating !== null
-              ? n === 1
-                ? "1 dia abaixo da meta — toque nele para explicar."
-                : `${n} dias abaixo da meta — toque neles para explicar.`
-              : n === 1
-                ? "1 dia com cliente insatisfeito — toque nele para ver."
-                : `${n} dias com cliente insatisfeito — toque neles para ver.`,
+            n === 1
+              ? "1 dia com detrator — toque nele para ver e explicar."
+              : `${n} dias com detrator — toque neles para ver e explicar.`,
         }}
       />
 

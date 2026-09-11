@@ -48,8 +48,12 @@ export type DiaDaFaixa = {
   /** Quantos problemas no dia. > 0 pinta de âmbar e mostra o contador. */
   alerta: number;
   /** Terceiro estado, opcional: pinta de vermelho. Na devolução é o dia
-   *  que estourou a meta -- diferente do dia que só teve devolução. */
+   *  que estourou a meta -- diferente do dia que só teve devolução; no
+   *  Rating, o dia que teve detrator. */
   grave?: boolean;
+  /** O número no selo do dia vermelho. Sem ele o selo mostra "!" (a
+   *  devolução); o Rating manda quantos detratores o dia teve. */
+  contadorGrave?: number;
   /** O texto do balão -- a tela sabe o vocabulário, o gráfico não. */
   titulo: string;
 };
@@ -162,7 +166,9 @@ function MesDoCalendario({
   const [ano, mes] = chave.split("-");
   const primeiro = new Date(`${dias[0].dia}T00:00:00Z`).getUTCDay();
   const comMovimento = dias.filter((d) => d.total > 0).length;
-  const problemas = dias.filter((d) => d.alerta > 0).length;
+  // O dia vermelho também é alerta -- no Rating ele pode ter só detrator,
+  // sem neutro, e ficaria fora da conta do mês.
+  const problemas = dias.filter((d) => d.alerta > 0 || d.grave).length;
 
   return (
     <div>
@@ -212,7 +218,7 @@ function CelulaDoDia({ dia, selecionado, href }: { dia: DiaDaFaixa; selecionado:
             grave ? "text-rose-800" : "text-amber-700"
           }`}
         >
-          {grave ? "!" : dia.alerta}
+          {grave ? (dia.contadorGrave ?? "!") : dia.alerta}
         </span>
       )}
       {!vazio && !problema && <span className="text-[8px] font-normal opacity-80">{dia.total}</span>}
