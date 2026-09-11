@@ -11,7 +11,7 @@ import {
   tempoDesde,
   type Fonte,
 } from "@/lib/fontes-de-dados";
-import { salvarFonte } from "./actions";
+import { salvarCanais, salvarFonte } from "./actions";
 import { avisarRVAtualizada, salvarConfigRV } from "@/app/admin/rv/actions";
 import { RolarAteAFonte } from "@/components/admin/RolarAteAFonte";
 import { importarRating } from "@/app/admin/rating/actions";
@@ -50,6 +50,9 @@ type Estado = {
   ultima_sincronizacao: string | null;
   ultimo_resultado: string | null;
 };
+
+/** Os dois canais do rodapé -- também não cabem num campo só. */
+type Canais = { epi: string | null; ouvidoria: string | null };
 
 /** A RV tem uma planilha POR ÁREA -- não cabe num campo só, como as outras. */
 type LinhaRV = {
@@ -116,9 +119,28 @@ export default async function FontesDeDadosPage({
   // linha; não vale a pena inventar uma view para isto.
   const estados = new Map<string, Estado | null>();
   const rvLinhas: LinhaRV[] = [];
+  const canais: Canais = { epi: null, ouvidoria: null };
 
   await Promise.all(
     comLink.map(async (f) => {
+      if (f.chave === "canais") {
+        // Sem a migration 113 a tabela não existe: a gaveta aparece como
+        // "sem link" e o salvar explica o que falta, em vez de a tela cair.
+        const { data } = await admin
+          .from("revenda_canais")
+          .select("epi_url, ouvidoria_url, atualizado_em")
+          .eq("revenda_id", revendaId)
+          .maybeSingle();
+        canais.epi = data?.epi_url ?? null;
+        canais.ouvidoria = data?.ouvidoria_url ?? null;
+        const quantos = [canais.epi, canais.ouvidoria].filter(Boolean).length;
+        estados.set(f.chave, {
+          pasta_link: quantos ? `${quantos} de 2 links` : null,
+          ultima_sincronizacao: data?.atualizado_em ?? null,
+          ultimo_resultado: null,
+        });
+        return;
+      }
       if (f.chave === "rv") {
         const { data } = await admin
           .from("rv_config")
@@ -160,7 +182,8 @@ export default async function FontesDeDadosPage({
   const configuradas = comLink.filter((f) => estados.get(f.chave)?.pasta_link).length;
   const velhas = comLink.filter((f) => {
     const e = estados.get(f.chave);
-    return e?.pasta_link && estaVelha(e.ultima_sincronizacao);
+    // Link fixo não envelhece -- ver `estatica` em lib/fontes-de-dados.
+    return e?.pasta_link && !f.estatica && estaVelha(e.ultima_sincronizacao);
   }).length;
 
   return (
@@ -215,6 +238,7 @@ export default async function FontesDeDadosPage({
             estado={estados.get(f.chave) ?? null}
             podeEditar={permissoes.get(f.chave) ?? false}
             rvLinhas={f.chave === "rv" ? rvLinhas : undefined}
+            canais={f.chave === "canais" ? canais : undefined}
             atualizar={IMPORTAR[f.chave]}
             aberta={aberta === f.chave}
             erro={aberta === f.chave ? sp.erro : undefined}
@@ -232,6 +256,105 @@ export default async function FontesDeDadosPage({
   );
 }
 
+/**
+ * OS CANAIS DO RODAPÉ DESTA REVENDA (11/09/2026, implantação de Barreiras).
+ *
+ * Dois campos e UM botão: são o mesmo assunto, e dois botões de salvar na
+ * mesma gaveta fariam alguém salvar um e perder o que digitou no outro.
+ */
+function FormDosCanais({
+  canais,
+  podeEditar,
+  voltarPara,
+  ajuda,
+}: {
+  canais: Canais;
+  podeEditar: boolean;
+  voltarPara: string;
+  ajuda: string;
+}) {
+  const CAMPOS = [
+    {
+      nome: "epi_url",
+      rotulo: "🦺 Solicitação de EPI",
+      valor: canais.epi,
+      exemplo: "https://forms.office.com/r/...",
+    },
+    {
+      nome: "ouvidoria_url",
+      rotulo: "🗣️ Canal de Ouvidoria",
+      valor: canais.ouvidoria,
+      exemplo: "https://...",
+    },
+  ];
+
+  if (!podeEditar) {
+    return (
+      <div className="space-y-2">
+        <ul className="space-y-1.5">
+          {CAMPOS.map((c) => (
+            <li key={c.nome} className="flex items-center justify-between gap-2 text-sm">
+              <span className="min-w-0 truncate text-slate-700">{c.rotulo}</span>
+              <span
+                className={`shrink-0 text-[11px] font-semibold ${
+                  c.valor ? "text-green-700" : "text-red-700"
+                }`}
+              >
+                {c.valor ? "no ar" : "sem link"}
+              </span>
+            </li>
+          ))}
+        </ul>
+        <p className="text-xs text-slate-400">
+          Trocar estes links pede a permissão &quot;Trocar os links dos canais do rodapé&quot;, em
+          Fontes de Dados.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <form action={salvarCanais} className="space-y-3">
+      <input type="hidden" name="voltar_para" value={voltarPara} />
+      {CAMPOS.map((c) => (
+        <div key={c.nome}>
+          <div className="mb-1 flex items-baseline justify-between gap-2">
+            <label
+              className="text-[11px] font-semibold uppercase text-slate-500"
+              htmlFor={`canal-${c.nome}`}
+            >
+              {c.rotulo}
+            </label>
+            <span
+              className={`shrink-0 text-[11px] font-semibold ${
+                c.valor ? "text-green-700" : "text-red-700"
+              }`}
+            >
+              {c.valor ? "no ar" : "sem link — não aparece no app"}
+            </span>
+          </div>
+          <input
+            id={`canal-${c.nome}`}
+            name={c.nome}
+            type="url"
+            inputMode="url"
+            defaultValue={c.valor ?? ""}
+            placeholder={c.exemplo}
+            className={campo}
+          />
+        </div>
+      ))}
+      <BotaoEnviar className="w-full rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-white hover:bg-primary-dark sm:w-auto">
+        Salvar os canais
+      </BotaoEnviar>
+      <p className="text-[11px] text-slate-400">{ajuda}</p>
+      <p className="text-[11px] text-slate-400">
+        O QR code da ouvidoria é gerado a partir do link salvo — trocar o link troca o QR junto.
+      </p>
+    </form>
+  );
+}
+
 /** O endereço que abre esta fonte e para a rolagem nela. */
 const enderecoDa = (chave: string) => `/admin/fontes-de-dados?aberta=${chave}#fonte-${chave}`;
 
@@ -240,6 +363,7 @@ function CartaoDaFonte({
   estado,
   podeEditar,
   rvLinhas,
+  canais,
   atualizar,
   aberta,
   erro,
@@ -249,13 +373,14 @@ function CartaoDaFonte({
   estado: Estado | null;
   podeEditar: boolean;
   rvLinhas?: LinhaRV[];
+  canais?: Canais;
   atualizar?: (f: FormData) => Promise<void>;
   aberta: boolean;
   erro?: string;
   sucesso?: string;
 }) {
   const configurada = !!estado?.pasta_link;
-  const velha = configurada && estaVelha(estado?.ultima_sincronizacao);
+  const velha = configurada && !fonte.estatica && estaVelha(estado?.ultima_sincronizacao);
   const voltarPara = enderecoDa(fonte.chave);
 
   return (
@@ -287,7 +412,11 @@ function CartaoDaFonte({
         <span className="min-w-0 flex-1">
           <span className="block truncate text-sm font-bold text-slate-900">{fonte.rotulo}</span>
           <span className="block text-[11px] text-slate-500">
-            {tempoDesde(estado?.ultima_sincronizacao)}
+            {fonte.estatica
+              ? estado?.ultima_sincronizacao
+                ? `salvo ${tempoDesde(estado.ultima_sincronizacao)}`
+                : "nenhum link salvo"
+              : tempoDesde(estado?.ultima_sincronizacao)}
           </span>
         </span>
         <span
@@ -299,7 +428,15 @@ function CartaoDaFonte({
                 : "bg-green-50 text-green-700"
           }`}
         >
-          {!configurada ? "sem fonte" : velha ? "sem atualizar" : "em dia"}
+          {!configurada
+            ? fonte.estatica
+              ? "sem link"
+              : "sem fonte"
+            : velha
+              ? "sem atualizar"
+              : fonte.estatica
+                ? estado?.pasta_link
+                : "em dia"}
         </span>
       </summary>
 
@@ -322,7 +459,7 @@ function CartaoDaFonte({
             {ROTULO_TIPO[fonte.tipo]}
           </span>
           <Link href={fonte.telaDoModulo} className="font-semibold text-primary hover:underline">
-            Abrir a tela do módulo →
+            {fonte.estatica ? "Ver o rodapé no app →" : "Abrir a tela do módulo →"}
           </Link>
         </div>
 
@@ -394,7 +531,14 @@ function CartaoDaFonte({
           Nenhum dos dois é fonte de dado; são operação de fechamento de
           competência.
         */}
-        {rvLinhas ? (
+        {canais ? (
+          <FormDosCanais
+            canais={canais}
+            podeEditar={podeEditar}
+            voltarPara={voltarPara}
+            ajuda={fonte.ajuda}
+          />
+        ) : rvLinhas ? (
           <>
             {rvLinhas.length === 0 ? (
               <p className="text-sm text-slate-400">Nenhuma área de RV cadastrada.</p>

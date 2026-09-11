@@ -6,8 +6,9 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getRevendaId } from "@/lib/revendas";
 import { podeNoModulo } from "@/lib/require-admin";
 import { idDaPasta } from "@/lib/drive-pasta";
-import { fonteDe } from "@/lib/fontes-de-dados";
+import { fonteDe, linkDeCanalValido } from "@/lib/fontes-de-dados";
 import { voltarCom } from "@/lib/url-de-volta";
+import { getPerfil } from "@/lib/sessao";
 
 const ROTA = "/admin/fontes-de-dados";
 
@@ -82,4 +83,71 @@ export async function salvarFonte(formData: FormData) {
   revalidatePath(ROTA);
   revalidatePath(fonte.telaDoModulo);
   voltar("sucesso", `Fonte de ${fonte.rotulo} atualizada.`, chave);
+}
+
+/**
+ * Salva os dois canais do rodapé DESTA revenda, num botão só.
+ *
+ * Campo vazio é permitido e quer dizer "esta revenda não tem este canal":
+ * o botão some do app. É o jeito de tirar um link errado sem precisar pôr
+ * outro no lugar.
+ */
+export async function salvarCanais(formData: FormData) {
+  const chave = "canais";
+
+  if (!(await podeNoModulo("fontes-dados", "editar"))) {
+    voltar("erro", "Você não tem permissão para trocar os links dos canais do rodapé.", chave);
+  }
+
+  const revendaId = await getRevendaId();
+  if (!revendaId) voltar("erro", "Você não está em nenhuma revenda.", chave);
+
+  const lido = (campo: string) => String(formData.get(campo) ?? "").trim();
+  const epiBruto = lido("epi_url");
+  const ouvidoriaBruto = lido("ouvidoria_url");
+  const epi = epiBruto ? linkDeCanalValido(epiBruto) : null;
+  const ouvidoria = ouvidoriaBruto ? linkDeCanalValido(ouvidoriaBruto) : null;
+
+  if (epiBruto && !epi) {
+    voltar("erro", "O link da Solicitação de EPI não é um endereço de site. Cole o link completo, começando com https://.", chave);
+  }
+  if (ouvidoriaBruto && !ouvidoria) {
+    voltar("erro", "O link do Canal de Ouvidoria não é um endereço de site. Cole o link completo, começando com https://.", chave);
+  }
+
+  const perfil = await getPerfil();
+  const admin = createAdminClient();
+  const { error } = await admin.from("revenda_canais").upsert(
+    {
+      revenda_id: revendaId,
+      epi_url: epi,
+      ouvidoria_url: ouvidoria,
+      atualizado_em: new Date().toISOString(),
+      atualizado_por: perfil?.id ?? null,
+    },
+    { onConflict: "revenda_id" },
+  );
+  if (error) {
+    const tabelaAusente = error.code === "42P01" || error.code === "PGRST205";
+    voltar(
+      "erro",
+      tabelaAusente
+        ? "A tabela dos canais ainda não existe: rode a migration 113 no Supabase e tente de novo."
+        : `Não foi possível salvar: ${error.message}`,
+      chave,
+    );
+  }
+
+  // A tela inicial é onde o rodapé aparece.
+  revalidatePath("/");
+  revalidatePath(ROTA);
+
+  const faltando = [!epi && "Solicitação de EPI", !ouvidoria && "Canal de Ouvidoria"].filter(Boolean);
+  voltar(
+    "sucesso",
+    faltando.length === 0
+      ? "Canais salvos. O rodapé do app já mostra os links novos."
+      : `Canais salvos. Sem link, não aparece no app: ${faltando.join(" e ")}.`,
+    chave,
+  );
 }

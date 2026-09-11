@@ -275,17 +275,20 @@ export const MODULOS: Modulo[] = [
     id: "fontes-dados",
     rotulosDeAcao: {
       ver: "Abrir a lista de Fontes de Dados",
+      editar: "Trocar os links dos canais do rodapé (EPI e Ouvidoria)",
     },
     rotulo: "Fontes de Dados",
     emoji: "🔌",
     href: "/admin/fontes-de-dados",
     grupo: "Configuração",
-    // Só "ver": a tela lista todas as fontes, mas a EDIÇÃO de cada uma
-    // herda a permissão do módulo dela (quem podia importar o Rating
-    // continua sendo quem configura a fonte do Rating). Sem isso, esta
-    // concessão viraria um atalho para configurar módulos que a pessoa
-    // não administra.
-    acoes: ["ver"],
+    // "ver" abre a lista, mas a EDIÇÃO de cada fonte herda a permissão do
+    // módulo dela (quem podia importar o Rating continua sendo quem
+    // configura a fonte do Rating). Sem isso, esta concessão viraria um
+    // atalho para configurar módulos que a pessoa não administra.
+    //
+    // "editar" é só dos canais do rodapé (11/09/2026): eles não pertencem
+    // a módulo nenhum, então não havia permissão de onde herdar.
+    acoes: ["ver", "editar"],
   },
   {
     id: "relato-anomalia",

@@ -4,7 +4,7 @@
 // organizada, que e pior que a bagunca de antes.
 //   npx tsx src/lib/__testes__/fontes-de-dados.teste.mjs
 import {
-  FONTES, ROTULO_TIPO, fonteDe,
+  FONTES, ROTULO_TIPO, fonteDe, linkDeCanalValido,
   tempoDesde, estaVelha, DIAS_ATE_ENVELHECER,
 } from "../fontes-de-dados.ts";
 
@@ -23,7 +23,12 @@ console.log("== O CATALOGO DESCREVE A REALIDADE ==");
 ok("nenhuma chave repetida", new Set(FONTES.map((f) => f.chave)).size === FONTES.length);
 ok("toda fonte diz o que alimenta", FONTES.every((f) => f.alimenta.length > 20));
 ok("toda fonte tem ajuda escrita", FONTES.every((f) => f.ajuda.length > 20));
-ok("toda fonte aponta para a tela do modulo", FONTES.every((f) => f.telaDoModulo.startsWith("/admin/")));
+// Os canais do rodape (link fixo) nao tem tela de modulo: apontam para a
+// inicial, que e onde o rodape aparece.
+ok(
+  "toda fonte aponta para a tela do modulo",
+  FONTES.every((f) => (f.estatica ? f.telaDoModulo === "/" : f.telaDoModulo.startsWith("/admin/"))),
+);
 ok("toda fonte diz de qual modulo herda a permissao", FONTES.every((f) => !!f.modulo));
 ok("todo tipo tem rotulo", FONTES.every((f) => !!ROTULO_TIPO[f.tipo]));
 
@@ -33,7 +38,16 @@ ok("todo tipo tem rotulo", FONTES.every((f) => !!ROTULO_TIPO[f.tipo]));
 // ensina que algumas gavetas nao fazem nada.
 console.log("\n== TODA FONTE TEM LINK E TABELA ==");
 ok("toda fonte aponta a tabela", FONTES.every((f) => !!f.tabela));
-eq("quantas fontes", FONTES.length, 6);
+eq("quantas fontes", FONTES.length, 7);
+ok("canais do rodape e link fixo", fonteDe("canais")?.estatica === true && fonteDe("canais")?.tipo === "link-canal");
+
+// O link do canal vira href no botao da ouvidoria, que todo mundo ve.
+eq("aceita https", linkDeCanalValido("https://forms.office.com/r/MGf5xTSDzr"), "https://forms.office.com/r/MGf5xTSDzr");
+eq("aceita com espaco em volta", linkDeCanalValido("  https://ouvidoria-limalogistica.lovable.app/ "), "https://ouvidoria-limalogistica.lovable.app/");
+eq("recusa javascript:", linkDeCanalValido("javascript:alert(1)"), null);
+eq("recusa texto solto", linkDeCanalValido("ouvidoria barreiras"), null);
+eq("recusa sem dominio", linkDeCanalValido("https://localhost"), null);
+eq("recusa vazio", linkDeCanalValido(""), null);
 ok("nenhuma e por envio de arquivo", FONTES.every((f) => f.tipo !== "upload"));
 // A acao que libera cada fonte tem que EXISTIR no modulo dela -- "criar"
 // no RV nunca apareceria para ninguem (ver 08/09/2026).

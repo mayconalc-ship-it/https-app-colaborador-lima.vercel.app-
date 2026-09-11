@@ -17,7 +17,9 @@ export type TipoDaFonte =
   /** Pasta pública do Drive, varrida pelo app. */
   | "pasta-drive"
   /** Planilha publicada como CSV, lida por URL. */
-  | "csv-publicado";
+  | "csv-publicado"
+  /** Um link que o app só abre -- não lê nem importa nada dele. */
+  | "link-canal";
 
 export type Fonte = {
   chave: string;
@@ -71,6 +73,12 @@ export type Fonte = {
    * evita a pessoa achar que travou e clicar de novo.
    */
   aoAtualizar?: string;
+  /**
+   * Link fixo, sem importação: não "envelhece". Os canais do rodapé valem
+   * até alguém trocá-los -- contá-los em "sem atualizar há 3 dias" poria
+   * um alarme permanente numa gaveta que está certa.
+   */
+  estatica?: boolean;
 };
 
 export const FONTES: Fonte[] = [
@@ -170,7 +178,43 @@ export const FONTES: Fonte[] = [
     ajuda:
       "Prefira o link do PRÓPRIO ARQUIVO (abra a planilha no Drive → Compartilhar → Copiar link); pasta também funciona, mas depende de o app ler a listagem do Drive, que é a parte que mais falha. Vale para .csv, .xlsx e planilha do Google. As colunas são achadas pelo nome (Código Cliente, Razão Social, Celular, Município...), então mudar o layout da exportação não quebra o import. Acima de uns 15 MB, exporte em CSV: o XLSX descompacta para várias vezes o próprio tamanho no servidor.",
   },
+  {
+    // 11/09/2026, implantação de Barreiras: os links moravam fixos no
+    // código e valiam para todas as revendas (ver RodapeCanais).
+    chave: "canais",
+    rotulo: "Canais do Rodapé (EPI e Ouvidoria)",
+    alimenta:
+      "Os links da Solicitação de EPI e do Canal de Ouvidoria no rodapé da tela inicial -- e o QR code da ouvidoria, gerado a partir do link",
+    tipo: "link-canal",
+    tabela: "revenda_canais",
+    telaDoModulo: "/",
+    modulo: "fontes-dados",
+    acaoParaEditar: "editar",
+    estatica: true,
+    ajuda:
+      "Cada revenda tem os próprios canais. Canal sem link NÃO aparece no app desta revenda — melhor nenhum botão do que um que leve à ouvidoria de outra unidade. Cole o endereço completo, começando com https://.",
+  },
 ];
+
+/**
+ * O link de um canal, se for um endereço de site de verdade.
+ *
+ * Só http e https: um `javascript:` salvo aqui viraria um botão que roda
+ * código no celular de quem toca -- e este botão é o da ouvidoria, que
+ * todo mundo vê. Validado ao salvar E ao desenhar.
+ */
+export function linkDeCanalValido(bruto: string): string | null {
+  const texto = (bruto ?? "").trim();
+  if (!texto || texto.length > 2000 || /\s/.test(texto)) return null;
+  try {
+    const url = new URL(texto);
+    if (url.protocol !== "https:" && url.protocol !== "http:") return null;
+    if (!url.hostname.includes(".")) return null;
+    return url.toString();
+  } catch {
+    return null;
+  }
+}
 
 /*
   PRODUTOS DO ARMAZÉM E QUESTÕES DO DESAFIO SAÍRAM DAQUI (08/09/2026,
@@ -194,6 +238,7 @@ export const FONTES: Fonte[] = [
 export const ROTULO_TIPO: Record<TipoDaFonte, string> = {
   "pasta-drive": "Pasta do Drive",
   "csv-publicado": "CSV publicado",
+  "link-canal": "Link fixo",
 };
 
 export function fonteDe(chave: string): Fonte | undefined {
