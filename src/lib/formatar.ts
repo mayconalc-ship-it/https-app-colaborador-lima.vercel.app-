@@ -121,8 +121,23 @@ export function formatarCelula(rotulo: string, bruto: string): string {
 /**
  * Colunas que existem na planilha mas nao interessam ao colaborador.
  * Ficam fora da tela sem precisar mexer no arquivo da operacao.
+ *
+ * "tempo de empresa", "tempo de casa", "rating" e "tml" (11/09/2026,
+ * pedido do dono): na RV de Barreiras estao so a titulo de conhecimento e
+ * nao mexem no valor -- no "Ver como esse valor foi calculado" pareciam
+ * parte da conta. O "bonus tempo de casa", que e dinheiro e entra no
+ * total, NAO e escondido: a comparacao e pelo nome exato.
  */
-const COLUNAS_OCULTAS = ["obs", "tt", "observacao", "observacoes"];
+const COLUNAS_OCULTAS = [
+  "obs",
+  "tt",
+  "observacao",
+  "observacoes",
+  "tempo de empresa",
+  "tempo de casa",
+  "rating",
+  "tml",
+];
 
 export function deveOcultarColuna(rotulo: string) {
   const nome = normalizarTexto(rotulo);
