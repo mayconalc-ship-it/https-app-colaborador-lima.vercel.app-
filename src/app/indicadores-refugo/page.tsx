@@ -9,7 +9,7 @@ import { requireAcessoModulo } from "@/lib/require-admin";
 import { lerTudoEmPaginas } from "@/lib/rating-server";
 import { formatarData, hojeISO } from "@/lib/produtividade-armazem";
 import { diasAntes, diasNoIntervalo } from "@/lib/rating";
-import { formatarReais, resumirRefugo, somarDefeitos } from "@/lib/refugo";
+import { alertaDaAfericao, formatarReais, resumirRefugo, somarDefeitos } from "@/lib/refugo";
 import {
   agruparAfericoes,
   evolucaoDoRefugo,
@@ -63,7 +63,7 @@ const campo =
 export default async function IndicadoresDoRefugoPage({
   searchParams,
 }: {
-  searchParams: Promise<{ de?: string; ate?: string; sorteio?: string }>;
+  searchParams: Promise<{ de?: string; ate?: string; sorteio?: string; sem_erro?: string }>;
 }) {
   await requireAcessoModulo("refugo-indicadores");
   const sp = await searchParams;
@@ -75,6 +75,7 @@ export default async function IndicadoresDoRefugoPage({
   if (ate < de) [de, ate] = [ate, de];
   if (diasNoIntervalo(de, ate) > MAXIMO_DE_DIAS) de = diasAntes(ate, MAXIMO_DE_DIAS - 1);
   const sorteio = sp.sorteio?.trim() || null;
+  const semErro = sp.sem_erro === "1";
 
   const revendaId = await getRevendaId();
   if (!revendaId) redirect(`/?erro=${encodeURIComponent("Você não está em nenhuma revenda.")}`);
@@ -118,8 +119,26 @@ export default async function IndicadoresDoRefugoPage({
 
   // Os tipos de sorteio que o período teve -- os chips do filtro saem daqui,
   // e não de uma lista fixa, para um tipo novo da Ambev aparecer sozinho.
-  const tiposDeSorteio = [...new Set(doPeriodo.map((a) => a.tipoSorteio).filter((t): t is string => !!t))].sort();
-  const afericoes = sorteio ? doPeriodo.filter((a) => a.tipoSorteio === sorteio) : doPeriodo;
+  /*
+    SEM O PROVÁVEL ERRO DE LANÇAMENTO (pedido do dono, 11/09/2026).
+
+    Uma aferição de junho -- 2.616 garrafas "faltantes", o mapa inteiro --
+    era 76% de todo o refugo do ano em São Félix, e sozinha punha uma
+    placa, um motorista, um conferente e um mês no topo de todos os
+    rankings. A régua é a mesma do alerta do "Meu Refugo"
+    (alertaDaAfericao): 90% ou mais do aferido, com 50 garrafas ou mais.
+    O padrão continua sendo mostrar TUDO -- tirar é uma escolha de quem
+    olha, e a faixa diz sempre o que ficou de fora.
+  */
+  const ehErroDeLancamento = (a: AfericaoParaIndicador) =>
+    alertaDaAfericao(a.totalAferido, a.qtFaltante + a.qtQualidade) === "erro_de_lancamento";
+  const erros = doPeriodo.filter(ehErroDeLancamento);
+  const base = semErro ? doPeriodo.filter((a) => !ehErroDeLancamento(a)) : doPeriodo;
+  const refugoDosErros = erros.reduce((s, a) => s + a.qtFaltante + a.qtQualidade, 0);
+  const refugoDoPeriodo = doPeriodo.reduce((s, a) => s + a.qtFaltante + a.qtQualidade, 0);
+
+  const tiposDeSorteio = [...new Set(base.map((a) => a.tipoSorteio).filter((t): t is string => !!t))].sort();
+  const afericoes = sorteio ? base.filter((a) => a.tipoSorteio === sorteio) : base;
 
   const valorPorItem = new Map<string, number>();
   for (const p of precos ?? []) {
@@ -145,7 +164,7 @@ export default async function IndicadoresDoRefugoPage({
   const porMotorista = agruparAfericoes(afericoes, (a) => a.motoristaNome, valorPorItem);
   const porConferente = agruparAfericoes(afericoes, (a) => a.conferenteNome, valorPorItem);
   const porItem = agruparAfericoes(afericoes, (a) => a.itemDescricao ?? a.itemCodigo, valorPorItem, (a) => a.itemCodigo);
-  const porSorteio = agruparAfericoes(doPeriodo, (a) => a.tipoSorteio, valorPorItem);
+  const porSorteio = agruparAfericoes(base, (a) => a.tipoSorteio, valorPorItem);
   const defeitos = somarDefeitos(afericoes);
 
   const rankingIncidencia = [...incidencia]
@@ -155,6 +174,7 @@ export default async function IndicadoresDoRefugoPage({
   const qs = (extra: Record<string, string | null>) => {
     const p = new URLSearchParams({ de, ate });
     if (sorteio) p.set("sorteio", sorteio);
+    if (semErro) p.set("sem_erro", "1");
     for (const [k, v] of Object.entries(extra)) {
       if (v === null) p.delete(k);
       else p.set(k, v);
@@ -170,7 +190,65 @@ export default async function IndicadoresDoRefugoPage({
         fecharHref="/meus-indicadores"
       />
 
-      <FiltroDePeriodo de={de} ate={ate} hoje={hoje} sorteio={sorteio} />
+      <FiltroDePeriodo de={de} ate={ate} hoje={hoje} sorteio={sorteio} semErro={semErro} />
+
+      {/* A faixa só existe quando o período TEM erro provável -- e diz
+          sempre o que está dentro ou fora da conta, nos dois estados. */}
+      {erros.length > 0 && (
+        <section
+          className={`rounded-2xl border p-3 ${
+            semErro ? "border-emerald-200 bg-emerald-50" : "border-amber-300 bg-amber-50"
+          }`}
+        >
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className={`min-w-0 flex-1 text-xs leading-snug ${semErro ? "text-emerald-900" : "text-amber-900"}`}>
+              {semErro ? (
+                <>
+                  <strong>
+                    ✅ Sem {erros.length === 1 ? "o provável erro" : `os ${erros.length} prováveis erros`} de
+                    lançamento.
+                  </strong>{" "}
+                  {refugoDosErros.toLocaleString("pt-BR")} garrafas estão fora da conta.
+                </>
+              ) : (
+                <>
+                  <strong>
+                    ⚠️ {erros.length === 1 ? "1 aferição" : `${erros.length} aferições`} com provável erro de
+                    lançamento
+                  </strong>{" "}
+                  — {refugoDosErros.toLocaleString("pt-BR")} garrafas, {refugoDoPeriodo > 0
+                    ? `${Math.round((refugoDosErros / refugoDoPeriodo) * 100)}%`
+                    : "—"} de todo o refugo do período.
+                </>
+              )}
+            </p>
+            <Link
+              href={qs({ sem_erro: semErro ? null : "1" })}
+              className={`shrink-0 rounded-xl px-3 py-2 text-xs font-bold ${
+                semErro
+                  ? "border border-emerald-300 bg-white text-emerald-800 hover:bg-emerald-100"
+                  : "bg-amber-600 text-white hover:bg-amber-700"
+              }`}
+            >
+              {semErro ? "Voltar a mostrar tudo" : "Ver sem o erro de lançamento"}
+            </Link>
+          </div>
+          <ul className="mt-2 space-y-0.5 text-[11px] text-slate-600">
+            {erros.map((a) => (
+              <li key={`${a.data}|${a.mapa}|${a.itemCodigo}`}>
+                {formatarData(a.data)} · mapa {a.mapa}
+                {a.placa ? ` · ${a.placa}` : ""} · {a.itemDescricao ?? a.itemCodigo} ·{" "}
+                {(a.qtFaltante + a.qtQualidade).toLocaleString("pt-BR")} de{" "}
+                {a.totalAferido.toLocaleString("pt-BR")} garrafas
+              </li>
+            ))}
+          </ul>
+          <p className="mt-1.5 text-[10px] text-slate-500">
+            Provável erro: 90% ou mais do que foi aferido virou refugo, com 50 garrafas ou mais — a
+            mesma régua do alerta do Meu Refugo. O lançamento continua no relatório; aqui só sai da conta.
+          </p>
+        </section>
+      )}
 
       {tiposDeSorteio.length > 1 && (
         <nav className="flex flex-wrap gap-1.5" aria-label="Tipo de sorteio">
@@ -309,15 +387,19 @@ function FiltroDePeriodo({
   ate,
   hoje,
   sorteio,
+  semErro,
 }: {
   de: string;
   ate: string;
   hoje: string;
   sorteio: string | null;
+  semErro: boolean;
 }) {
   const atalhos: [string, number][] = [["30 dias", 30], ["90 dias", 90], ["6 meses", 183], ["12 meses", 366]];
   const diasAtuais = diasNoIntervalo(de, ate);
-  const extra = sorteio ? `&sorteio=${encodeURIComponent(sorteio)}` : "";
+  // Trocar o período não desfaz as outras escolhas de quem está olhando.
+  const extra =
+    (sorteio ? `&sorteio=${encodeURIComponent(sorteio)}` : "") + (semErro ? "&sem_erro=1" : "");
 
   return (
     <section className="rounded-2xl border border-slate-200 bg-white p-3">
@@ -344,6 +426,7 @@ function FiltroDePeriodo({
         </summary>
         <FiltroNoLugar className="mt-2 flex items-end gap-2">
           {sorteio && <input type="hidden" name="sorteio" value={sorteio} />}
+          {semErro && <input type="hidden" name="sem_erro" value="1" />}
           <div className="min-w-0 flex-1">
             <label className="mb-1 block text-[11px] font-semibold uppercase text-slate-500" htmlFor="de">De</label>
             <input id="de" type="date" name="de" defaultValue={de} max={hoje} className={campo} />
