@@ -1,7 +1,7 @@
 {
   "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/page/2.1.0/schema.json",
   "name": "fcabc5265a65cfbe44b0",
-  "displayName": "📅 Cronograma da Comunicação",
+  "displayName": "Gente · 📅 Cronograma da Comunicação",
   "displayOption": "FitToPage",
   "height": 720,
   "width": 1280

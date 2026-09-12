@@ -136,6 +136,11 @@ const paginas = [
     // Onde o app nao tem item correspondente -- AG, Quiz, 5 Porques --
     // escolhi um que nao colide com os existentes.
     nome: '🏠 Visão Geral',
+    // OCULTA (11/09/2026, pedido do dono): o relatorio passa a abrir na
+    // primeira pagina do primeiro bloco (ver `blocos`, no fim do
+    // arquivo). Ela continua existindo -- e o carimbo "Dados atualizados
+    // em" com ela --, acessivel pela lista de paginas no modo de edicao.
+    oculta: true,
     kpis: [
       ['👥 Colaboradores', '@Colaboradores'],
       // O rotulo diz a janela porque a medida ignora o filtro de data --
@@ -2197,4 +2202,55 @@ const paginas = [
   },
 ];
 
-module.exports = { paginas, filtros, Y, H };
+/*
+  OS BLOCOS (11/09/2026, pedido do dono: "organizar as paginas por
+  blocos, Distribuicao Urbana, Armazem Logistico e Gente").
+
+  O Power BI nao tem pasta nem grupo de paginas. O bloco vira duas coisas
+  que ele tem: a ORDEM das abas (um bloco inteiro antes do outro) e um
+  prefixo no nome exibido ("DU · 📝 Feedback da Rota"). O id de cada pagina
+  continua saindo do `nome` acima, entao drill-through e navegacao nao
+  mudam.
+
+  Pagina visivel fora de qualquer bloco vai para o fim, sem prefixo, e o
+  gerador avisa -- e o lembrete para classificar a pagina nova.
+
+  Ativo de Giro e Conciliacao ficam no Armazem (quem conta o parque e o
+  armazem); Programa 5S fica em Gente (e o programa da empresa inteira; o
+  5S DO ARMAZEM e outra coisa, dentro da Produtividade).
+*/
+const blocos = [
+  {
+    sigla: 'DU',
+    nome: 'Distribuição Urbana',
+    paginas: ['📝 Feedback da Rota', '🔍 Cinco Porquês'],
+  },
+  {
+    sigla: 'AL',
+    nome: 'Armazém Logístico',
+    paginas: [
+      '📦 Ativo de Giro',
+      '⚖️ Conciliação do AG',
+      '🧰 Bancada — Seleção e Repack',
+      '📦 Repack — produto e família',
+      '🫗 Despejo',
+      '🧃 Abastecimento e Ressuprimento',
+      '🚛 Recebimento de Carretas',
+      '🏗️ Empilhadeira',
+    ],
+  },
+  {
+    sigla: 'Gente',
+    nome: 'Gente',
+    paginas: [
+      '📣 Comunicados',
+      '📅 Cronograma da Comunicação',
+      '🧠 Quiz',
+      '🎯 Desafio — o que treinar',
+      '🏆 Super Matinal e Sonho',
+      '🧹 Programa 5S',
+    ],
+  },
+];
+
+module.exports = { paginas, filtros, blocos, Y, H };

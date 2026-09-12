@@ -47,7 +47,33 @@ const DEST = path.join(RAIZ, NOME + '.SemanticModel');
 const DEST_REL = path.join(RAIZ, NOME + '.Report');
 
 const { tabelas, ocultas } = require('./modelo');
-const { paginas, filtros } = require('./paginas');
+const { paginas: paginasDoArquivo, filtros, blocos } = require('./paginas');
+
+// OS BLOCOS (11/09/2026): a ordem das abas segue `blocos` (paginas.js), e
+// cada pagina de bloco ganha `bloco`, que vira prefixo no nome exibido.
+// O resto -- ocultas e qualquer pagina ainda sem bloco -- vai para o fim.
+function ordenarPorBloco(lista, grupos) {
+  const saida = [];
+  const usadas = new Set();
+  for (const b of grupos || []) {
+    for (const nome of b.paginas) {
+      const p = lista.find((x) => x.nome === nome);
+      if (!p) {
+        console.warn(`Bloco ${b.sigla}: a pagina "${nome}" nao existe em paginas.js.`);
+        continue;
+      }
+      saida.push({ ...p, bloco: b });
+      usadas.add(nome);
+    }
+  }
+  for (const p of lista) {
+    if (usadas.has(p.nome)) continue;
+    if (!p.oculta) console.warn(`A pagina "${p.nome}" nao esta em bloco nenhum: vai para o fim, sem prefixo.`);
+    saida.push(p);
+  }
+  return saida;
+}
+const paginas = ordenarPorBloco(paginasDoArquivo, blocos);
 
 // Os acabamentos se dividem em dois grupos:
 //
@@ -1419,7 +1445,9 @@ function gerarRelatorio() {
     const pg = {
       $schema: S.page,
       name: nomePagina,
-      displayName: pagina.nome,
+      // O prefixo do bloco so no nome EXIBIDO: o id (`nomePagina`) segue
+      // saindo do nome sem prefixo, e nada que aponta para a pagina muda.
+      displayName: pagina.bloco ? `${pagina.bloco.sigla} · ${pagina.nome}` : pagina.nome,
       displayOption: 'FitToPage',
       height: 720,
       width: 1280,
@@ -1531,10 +1559,14 @@ function gerarRelatorio() {
     });
   }
 
+  // Abre na primeira pagina VISIVEL. Era `ordem[0]`, e desde que a Visao
+  // Geral ficou oculta (11/09/2026) isso abriria o relatorio numa pagina
+  // que nao aparece na barra.
+  const primeiraVisivel = paginas.find((p) => !p.oculta);
   escrever(path.join(DEST_REL, 'definition', 'pages', 'pages.json'), json({
     $schema: S.pages,
     pageOrder: ordem,
-    activePageName: ordem[0],
+    activePageName: primeiraVisivel ? id20('p:' + primeiraVisivel.nome) : ordem[0],
   }));
 
   return ordem.length;
