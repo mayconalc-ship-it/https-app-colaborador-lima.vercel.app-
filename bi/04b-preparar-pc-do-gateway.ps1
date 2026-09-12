@@ -60,6 +60,14 @@ Write-Host "`n2) Energia: sem suspender nem hibernar na tomada"
 powercfg /change standby-timeout-ac 0 | Out-Null
 powercfg /change hibernate-timeout-ac 0 | Out-Null
 Ok "suspender e hibernar = Nunca (na tomada)"
+# Notebook: fechar a tampa costuma SUSPENDER, e o ajuste acima nao cobre
+# isso. Na tomada, a tampa passa a nao fazer nada; na bateria fica como
+# estava.
+if ((Get-CimInstance Win32_ComputerSystem).PCSystemType -eq 2) {
+    powercfg /setacvalueindex SCHEME_CURRENT SUB_BUTTONS LIDACTION 0 | Out-Null
+    powercfg /setactive SCHEME_CURRENT | Out-Null
+    Ok "notebook: fechar a tampa na tomada = Nao fazer nada (deixe-o sempre na tomada)"
+}
 
 Write-Host "`n3) Servico do gateway"
 $servico = Get-Service -Name PBIEgwService -ErrorAction SilentlyContinue
