@@ -3024,6 +3024,71 @@ union all
 comment on view bi.fato_atividade is
   'Grao: revenda x data x colaborador x modulo, 13 modulos incluindo o armazem. So contagem de interacoes.';
 
+-- ------------------------------------------------------------------
+-- 12) A CONCILIACAO DO AG PASSA A SER SO A CONGELADA (12/09/2026)
+-- ------------------------------------------------------------------
+-- Pedido do dono: "congele a conciliacao e que va somente para o BI essas
+-- conciliacoes congeladas". Substitui a view da secao 10 -- a de la
+-- recalculava ao vivo, com o parque e o comodato de HOJE, e somava todos
+-- os conferentes do dia (131% do parque em 29/08).
+--
+-- O dia congelado (migration 116) guarda os numeros daquele momento:
+-- contado de UM conferente, as tres parcelas, o parque e o valor da
+-- caixa. Os *_valor sao em R$ = caixas x valor da caixa; item sem valor
+-- cadastrado no dia fica com R$ nulo, e nao zero -- zero diria que o
+-- ativo nao vale nada.
+--
+-- As colunas de situacao, resultado e percentual sao as mesmas da secao
+-- 10, com a mesma regra (aceitavel ate 5% do parque, em modulo).
+-- PRECISA da migration 116 rodada antes.
+drop view if exists bi.fato_ag_conciliacao;
+create view bi.fato_ag_conciliacao as
+select
+  i.revenda_id,
+  i.data,
+  i.tipo,
+  i.formato,
+  i.tipo || ' · ' || i.formato                                   as item,
+  g.conferente_nome                                              as conferente,
+  i.contado,
+  i.transito_rota,
+  i.transito_carreta,
+  i.comodato,
+  (i.transito_rota + i.transito_carreta + i.comodato)            as transito,
+  i.parque,
+  x.dif                                                          as diferenca,
+  abs(x.dif)                                                     as diferenca_abs,
+  case when i.parque > 0 then round(abs(x.dif)::numeric / i.parque, 4) end as diferenca_pct,
+  0.05::numeric                                                  as limite_pct,
+  case when i.parque > 0 then abs(x.dif)::numeric / i.parque <= 0.05 end    as dentro_do_aceitavel,
+  case
+    when x.dif = 0 then 'Bateu'
+    when x.dif > 0 then 'Sobra'
+    else                'Falta'
+  end                                                            as resultado,
+  case
+    when i.parque <= 0                                   then 'Sem parque'
+    when abs(x.dif)::numeric / i.parque <= 0.05          then '✅ Dentro do aceitável'
+    when x.dif > 0                                       then '⚠️ Sobra acima de 5%'
+    else                                                      '❌ Falta acima de 5%'
+  end                                                            as situacao,
+  i.valor_caixa,
+  i.contado * i.valor_caixa                                      as contado_valor,
+  (i.transito_rota + i.transito_carreta + i.comodato) * i.valor_caixa as transito_valor,
+  i.parque * i.valor_caixa                                       as parque_valor,
+  x.dif * i.valor_caixa                                          as diferenca_valor,
+  g.congelado_em,
+  g.congelado_por_nome                                           as congelado_por
+from public.ag_congelamento_itens i
+join public.ag_congelamentos g
+  on g.revenda_id = i.revenda_id and g.data = i.data
+cross join lateral (
+  select i.contado + i.transito_rota + i.transito_carreta + i.comodato - i.parque as dif
+) x;
+
+comment on view bi.fato_ag_conciliacao is
+  'Conciliacao CONGELADA do AG: contado de um conferente + rota + carreta + comodato - parque, por dia/item, em caixas e em R$.';
+
 -- ==================================================================
 -- FIM. Rode agora o 02-acesso-powerbi.sql -- sem ele o powerbi_readonly
 -- nao enxerga nenhuma view deste arquivo e as paginas novas nascem

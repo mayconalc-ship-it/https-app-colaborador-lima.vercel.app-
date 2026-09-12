@@ -263,14 +263,31 @@ const MEDIDAS_TEXTO = new Set([
   // da tela em palavras, e o dia que a fotografia esta mostrando.
   'Situação da conciliação',
   'Dia conciliado',
+  // A cadeia de cada analise de 5 Porques (12/09/2026): a resposta do
+  // motorista em cada nivel, em texto.
+  '1º porquê',
+  '2º porquê',
+  '3º porquê',
+  '4º porquê',
+  '5º porquê',
 ]);
 
 // Razoes que o nome nao denuncia: "Aproveitamento médio" cairia na regra
 // de media e sairia como 0,8 em vez de 80,0%.
 const MEDIDAS_PERCENTUAL = new Set(['Aproveitamento médio']);
 
+// DUAS CASAS (12/09/2026). A nota media ia com uma casa: 1,875 aparecia
+// como "1,9" e o dono conferiu 1,9 / 3 = 63,3% contra os 62,5% do cartao
+// de satisfacao -- que estava certo (1,875 / 3). Com 1,88 a conta fecha
+// na mao.
+const MEDIDAS_DUAS_CASAS = new Set(['Nota média', 'Nota média por cidade', 'Nota média ajustada da cidade']);
+
 function formatoDe(nome) {
   if (MEDIDAS_TEXTO.has(nome)) return null;
+  if (MEDIDAS_DUAS_CASAS.has(nome)) return '0.00';
+  // Dinheiro (12/09/2026): a conciliacao do AG em R$. "R" e "$" sao
+  // literais na format string; o separador segue a localidade (1.234,56).
+  if (nome.includes('(R$)')) return 'R$ #,0.00';
   if (MEDIDAS_PERCENTUAL.has(nome)) return '0.0%';
   if (nome.startsWith('%') || nome.startsWith('Δ ') || nome.startsWith('Taxa')) return '0.0%';
   if (/Horas|segundos|\(s\)|média|médio/i.test(nome)) return '0.0';
@@ -817,7 +834,10 @@ function visualJson(v, ordemZ) {
     fmt('labels', { show: lit('true'), bold: lit('true') });
   }
 
-  if (v.t === 'lineChart') {
+  // `reta` (12/09/2026): a curva suavizada PASSA do ponto mais alto entre
+  // dois pontos e o topo sai cortado pelo limite do grafico -- o dono viu
+  // o pico das contagens do AG decepado. Onde o pico importa, linha reta.
+  if (v.t === 'lineChart' && !v.reta) {
     // Interpolação cardinal a 70%: a curva suaviza sem inventar
     // ondulação entre pontos, que é o que a cardinalidade alta faz.
     fmt('lineStyles', {
@@ -849,6 +869,18 @@ function visualJson(v, ordemZ) {
       columnAdjustment: lit("'fixedWidth'"),
       defaultColumnWidth: lit(`${v.quebraTexto}D`),
     });
+  }
+
+  // `botaoMais` (12/09/2026): o "+" ao lado de cada linha da matriz, para
+  // abrir o nivel de baixo -- o dono quer a conciliacao agrupada por dia e
+  // o detalhe do dia num clique.
+  //
+  // ATENCAO: esta e a UNICA propriedade desta leva sem exemplo real de
+  // .pbix (ver o episodio do drill-through no cabecalho). Se o Desktop
+  // recusar o relatorio, e ela: tire `botaoMais` da pagina e a matriz
+  // continua abrindo pelas setas de detalhamento do cabecalho do visual.
+  if (v.t === 'pivotTable' && v.botaoMais) {
+    fmt('rowHeaders', { showExpandCollapseButtons: lit('true') });
   }
 
   // Gradiente por valor (acabamento 5).

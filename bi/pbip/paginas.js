@@ -234,6 +234,22 @@ const paginas = [
     // "parque atualizado no mesmo dia da contagem" escondia a pagina
     // inteira -- e visual vazio nao avisa nada, so parece que nao ha
     // divergencia.
+    //
+    // TIPO no lugar de AREA, e QUEM CONTOU no lugar de Colaborador
+    // (12/09/2026, pedido do dono). A area nao dizia nada aqui -- quem
+    // conta AG e sempre do armazem --, e o colaborador global listava
+    // ~160 nomes para meia duzia de contadores. As duas listas saem do
+    // proprio fato das contagens.
+    filtros: filtros.map((f) =>
+      f.campo === 'dim_colaborador.area_rotulo'
+        ? { campo: 'fato_ag_contagem.tipo', titulo: '🧃 Tipo de AG' }
+        : f.campo === 'dim_colaborador.colaborador'
+          ? { campo: 'fato_ag_contagem.colaborador_nome', titulo: '👤 Quem contou', busca: true }
+          : f,
+    ),
+    // "% Semanas na meta" e "% Lançado no dia" SAIRAM (12/09/2026): o dono
+    // nao via uso nelas, e cinco cartoes com regua clara leem melhor que
+    // sete. As medidas continuam em 07-medidas.dax.
     kpis: [
       ['🔢 Ocorrências de contagem', '@Ocorrências de contagem',
         'Quantas VEZES alguém contou — uma por pessoa por dia. Não é o número de linhas '
@@ -271,12 +287,9 @@ const paginas = [
       // desta pagina falam de UM dia, e nao dizer qual e esconder a
       // metade da informacao.
       ['📅 Último dia contado', '@Último dia contado',
-        'O dia mais recente com contagem DENTRO do período filtrado. É a data que manda nos '
-        + 'três visuais de volume lá embaixo: eles mostram só quem contou neste dia, e não o '
-        + 'acumulado. Se um colaborador que você sabe que contou não aparece na tabela, é '
-        + 'porque contou em outro dia. Para mudar a fotografia, ajuste o filtro de Período '
-        + 'para o dia que quer ver. Repare também no volume: dia com muito menos linha que o '
-        + 'anterior costuma ser contagem parcial, e a fotografia sai incompleta sem avisar.'],
+        'O dia mais recente com contagem DENTRO do período filtrado. A conciliação e a '
+        + 'garrafeira sem garrafa estão na página "Conciliação do AG" — lá só entra dia que '
+        + 'alguém congelou no app.'],
     ],
     // Duas faixas em vez das tres do padrao: esta pagina responde a tres
     // perguntas diferentes (a rotina esta sendo mantida? quem sustenta?
@@ -305,7 +318,10 @@ const paginas = [
         // A serie e [Contagens no dia], que devolve ZERO no dia sem
         // lancamento em vez de vazio: categoria vazia nao e desenhada, e
         // o buraco -- justamente o que se quer ver -- sumiria.
-        t: 'lineChart', x: 16, y: Y.meio, w: 380, h: 200,
+        // Mais alto e em linha RETA (12/09/2026): a curva suavizada passava
+        // do ponto mais alto e o pico saia cortado. Com a faixa de baixo
+        // fora da pagina, o grafico ocupa a altura toda.
+        t: 'lineChart', x: 16, y: Y.meio, w: 380, h: 414, reta: true,
         titulo: '📈 Contagens por dia do mês (sem domingos)',
         roles: {
           Category: ['dim_calendario.dia_rotulo'],
@@ -347,7 +363,7 @@ const paginas = [
         // quebraTexto prende cada coluna em 96 px em vez de deixar a
         // tabela distribuir largura pelo conteudo, que e o que espremia
         // as ultimas para fora da area visivel.
-        t: 'tableEx', x: 408, y: Y.meio, w: 420, h: 200,
+        t: 'tableEx', x: 408, y: Y.meio, w: 420, h: 414,
         quebraTexto: 96,
         titulo: '📅 Aderência por dia',
         roles: {
@@ -360,7 +376,6 @@ const paginas = [
             // parcial (21 linhas contra 117 no dia anterior).
             '@Linhas lançadas',
             '@Contadores',
-            '@% Lançado no dia',
             '@Itens conciliados',
             '@% Itens que bateram',
           ],
@@ -377,7 +392,7 @@ const paginas = [
         // tem de premiar quem bate a meta, nao quem cobre o calendario.
         // "Ocorrencias de contagem" voltou junto com as colunas da
         // tabela ao lado, pelo mesmo motivo.
-        t: 'tableEx', x: 840, y: Y.meio, w: 424, h: 200,
+        t: 'tableEx', x: 840, y: Y.meio, w: 424, h: 414,
         quebraTexto: 96,
         titulo: '🏆 Ranking no AG — contra a meta',
         roles: {
@@ -385,7 +400,6 @@ const paginas = [
             'fato_ag_contagem.colaborador_nome',
             '@Dias com contagem',
             '@% da meta de contagens',
-            '@% Lançado no dia',
             '@Atraso médio (dias)',
             // Mesmo motivo da tabela ao lado: por pessoa, "ocorrencias
             // de contagem" e a mesma conta de "dias com contagem".
@@ -395,100 +409,20 @@ const paginas = [
         ordem: { campo: '@% da meta de contagens', dir: 'Descending' },
       },
 
-      // --- faixa 2: o Painel do app, no ultimo dia contado ----------
-      //
-      // As tres leem "@... no dia": o ultimo dia contado dentro do
-      // periodo selecionado, nunca o acumulado. AG e contagem de
-      // estoque, e somar dias conta o mesmo palete duas vezes. Ver o
-      // bloco "Fotografia do dia" em 07-medidas.dax.
-      {
-        // Matriz, e nao tabela por formato: a pergunta virou "quem
-        // contou o que", e o nome do colaborador precisa estar na
-        // primeira coluna, com o total de cada um na ponta da linha.
-        t: 'pivotTable', x: 16, y: 460, w: 450, h: 206,
-        titulo: '📦 Total contado por colaborador e embalagem — último dia contado',
-        dica:
-          'Só quem contou NO ÚLTIMO DIA CONTADO aparece aqui — não é o acumulado do período. '
-          + 'Se falta alguém que você sabe que contou, é porque contou em outro dia: veja o '
-          + 'cartão "Último dia contado" e a tabela "Aderência por dia". '
-          + 'É fotografia de propósito: AG é contagem de ESTOQUE, e somar dois dias contaria o '
-          + 'mesmo palete duas vezes. '
-          + 'Para ver outro dia, ajuste o filtro de Período para esse dia nas duas pontas — '
-          + 'o "último dia" é sempre o último DENTRO do que está filtrado. '
-          + 'Compare o volume com o do dia anterior: dia com muito menos linha costuma ser '
-          + 'contagem parcial, e a fotografia sai incompleta sem avisar.',
-        roles: {
-          Rows: ['fato_ag_contagem.colaborador_nome'],
-          Columns: ['fato_ag_contagem.formato'],
-          Values: ['@Caixas no dia'],
-        },
-      },
-      {
-        // So GFE sem Garrafa, e nas unidades em que foi DIGITADO --
-        // palete e caixa. O total convertido em caixas responde outra
-        // pergunta e ja mora no visual ao lado.
-        t: 'tableEx', x: 474, y: 460, w: 320, h: 206,
-        titulo: '🧺 Garrafeira sem garrafa por colaborador e formato — último dia',
-        dica:
-          'Mesma regra do visual ao lado: só quem contou NO ÚLTIMO DIA CONTADO do período. '
-          + 'Quem contou em outro dia não aparece — não é falta de dado. '
-          + 'Paletes e caixas como foram DIGITADOS, sem conversão: a pergunta do painel de '
-          + 'garrafeira é quantos paletes de GFE sem garrafa estão no pátio, e converter para '
-          + 'caixas responde outra coisa (essa está no visual ao lado).',
-        roles: {
-          Values: [
-            'fato_ag_contagem.colaborador_nome',
-            // O formato, como no painel do app. Sem ele a linha somava
-            // 600ml com 1000ml -- paletes de tamanhos diferentes, que
-            // nao se somam na hora de decidir o que buscar no patio.
-            'fato_ag_contagem.formato',
-            '@Paletes GFE',
-            '@Caixas GFE',
-          ],
-        },
-        ordem: { campo: '@Paletes GFE', dir: 'Descending' },
-      },
-      {
-        // A conciliacao da tela do app: contado x parque x diferenca,
-        // item a item, do dia. Substituiu o ranking de divergencia
-        // absoluta, que exigia parque_confiavel = True e por isso
-        // aparecia VAZIO sempre que o parque nao era atualizado no
-        // mesmo dia da contagem.
-        //
-        // parque_atualizado_em fica visivel como contexto: diz quando o
-        // cadastro do parque foi mexido pela ultima vez. Nao e ressalva
-        // sobre a conta -- o parque e fixo de proposito --, e sim a
-        // resposta para "esse saldo ainda e o que combinamos?".
-        t: 'tableEx', x: 802, y: 460, w: 454, h: 206,
-        // A regra do app desde 10/09/2026 (contado + transito - parque).
-        // Aqui a versao COMPACTA -- a tabela tem 454 px. As tres parcelas
-        // do transito separadas, o % e a situacao estao na pagina
-        // "Conciliacao do AG", logo depois desta.
-        titulo: '⚖️ Conciliação do dia — detalhe na página seguinte',
-        roles: {
-          Values: [
-            'fato_ag_conciliacao.item',
-            '@Contado',
-            '@Em trânsito',
-            '@Parque',
-            '@Diferença',
-            '@% Diferença',
-          ],
-        },
-        ordem: { campo: '@Diferença', dir: 'Ascending' },
-      },
+      // A FAIXA DE BAIXO SAIU (12/09/2026, pedido do dono): o total por
+      // colaborador e embalagem foi removido, e a garrafeira sem garrafa
+      // e a conciliacao foram para a pagina "Conciliacao do AG" -- onde o
+      // dia e o dia congelado. O grafico e as duas tabelas acima ocupam
+      // agora a altura toda.
     ],
     nota:
-      'VOLUME AQUI É FOTOGRAFIA, NÃO SOMA: os três visuais de baixo leem o último dia ' +
-      'contado dentro do que estiver filtrado — mês, período ou um dia só. AG é contagem ' +
-      'de estoque, e somar dois dias conta o mesmo palete duas vezes. Aderência e ranking, ' +
-      'esses sim, somam o intervalo, porque medem frequência e não quantidade. ' +
-      'META DA CIA: 3 contagens por semana — e "contagem" aqui é DIA CONTADO, não linha ' +
-      'lançada: 40 linhas numa terça e nada no resto da semana cumpre 1/3 da meta. ' +
-      '"% da meta" é acumulado no período; "% Semanas na meta" cobra semana a semana, e é o ' +
-      'mais duro dos dois. Use o filtro de Mês para ler os percentuais: o denominador são as ' +
-      'semanas e os dias úteis JÁ DECORRIDOS do que estiver selecionado, então com o ano ' +
-      'inteiro aberto todo mundo parece ruim.',
+      'Aderência e ranking somam o intervalo filtrado, porque medem frequência e não ' +
+      'quantidade. META DA CIA: 3 contagens por semana — e "contagem" aqui é DIA CONTADO, não ' +
+      'linha lançada: 40 linhas numa terça e nada no resto da semana cumprem 1/3 da meta. ' +
+      '"% da meta" é acumulado no período. Use o filtro de Mês para ler os percentuais: o ' +
+      'denominador são as semanas e os dias úteis JÁ DECORRIDOS do que estiver selecionado, ' +
+      'então com o ano inteiro aberto todo mundo parece ruim. A conciliação e a garrafeira ' +
+      'sem garrafa estão na página "Conciliação do AG".',
   },
 
   // ================================================================
@@ -515,100 +449,129 @@ const paginas = [
     */
     nome: '⚖️ Conciliação do AG',
     /*
-      DIA E CONFERENTE no lugar de Período e Colaborador (12/09/2026,
-      pedido do dono).
+      SO DIAS CONGELADOS (12/09/2026, pedido do dono): "congele a
+      conciliacao e que va somente para o BI essas conciliacoes
+      congeladas". A view le ag_congelamentos (15, secao 12) -- o numero
+      daquele momento, com o conferente escolhido na tela do app e o valor
+      da caixa do dia. Dia que ninguem congelou nao aparece aqui.
 
-      Dia: a coluna do PRÓPRIO fato da conciliação, então a lista só traz
-      dia que teve contagem -- um calendário inteiro na lista suspensa
-      seria rolar anos para achar ontem. Marca um ou vários (Ctrl + clique).
+      Dia: a coluna do proprio fato, entao a lista so traz dia congelado.
+      Marca um ou varios (Ctrl + clique).
 
-      Conferente: o nome de quem contou, do fato das contagens. Ele troca o
-      contado pelo daquela pessoa e tira da conta os itens que ela não
-      contou -- ver [Contado do conferente na linha] em 07-medidas.dax. É
-      por isso que aqui ele filtra de verdade, ao contrário do Colaborador
-      global, que nesta página não mexia em nada.
+      Conferente: o nome gravado no dia congelado. Cada conferente conta o
+      patio inteiro (dupla contagem cega), e o dia congelado e a contagem
+      de UM deles -- o filtro nao precisa de conta nenhuma para isso.
+
+      Os cartoes sao em CAIXAS (o dono perguntou se era R$ ou quantidade),
+      e o ultimo e a diferenca em R$.
     */
     filtros: [
       filtros.find((f) => f.campo === 'dim_revenda.revenda'),
       { campo: 'fato_ag_conciliacao.data', titulo: '📅 Dia' },
-      { campo: 'fato_ag_contagem.colaborador_nome', titulo: '👤 Conferente', busca: true },
+      { campo: 'fato_ag_conciliacao.conferente', titulo: '👤 Conferente' },
       filtros.find((f) => f.campo === 'dim_calendario.ano_mes'),
     ],
     kpis: [
-      ['📅 Dia conciliado', '@Dia conciliado'],
-      ['📦 Contado', '@Contado'],
-      ['🚚 Fora do pátio', '@Em trânsito'],
-      ['🏷️ Parque', '@Parque'],
-      ['⚖️ Diferença (cx)', '@Diferença'],
-      ['📊 % sobre o parque', '@% Diferença'],
+      ['📅 Dia conciliado', '@Dia conciliado',
+        'O dia que os cartões mostram. Com vários dias marcados no filtro, é o último deles — ' +
+        'conciliação é fotografia de um dia, e somar o parque de três dias daria um número que ' +
+        'não existe.'],
+      ['📦 Contado (cx)', '@Contado',
+        'Caixas contadas no pátio pelo conferente do dia congelado. Palete e lastro já ' +
+        'convertidos em caixas pelos fatores da revenda.'],
+      ['🚚 Rota + carreta + comodato (cx)', '@Em trânsito',
+        'Caixas da revenda que NÃO estão no pátio para serem contadas: saíram com a entrega ' +
+        '(rota), estão com o transportador (carreta) ou emprestadas ao cliente (comodato). ' +
+        'Somam ao contado antes de comparar com o parque.'],
+      ['🏷️ Parque (cx)', '@Parque',
+        'O saldo oficial de caixas cadastrado na configuração do AG, como estava no dia em ' +
+        'que a conciliação foi congelada.'],
+      ['⚖️ Diferença (cx)', '@Diferença',
+        'Contado + rota + carreta + comodato − parque, em caixas. Negativo é FALTA, positivo é ' +
+        'sobra. Aceitável até 5% do parque.'],
+      ['💰 Diferença (R$)', '@Diferença (R$)',
+        'A diferença em reais: caixas de cada item × o valor da caixa cadastrado na ' +
+        'configuração do AG, como estava no dia do congelamento. Item sem valor cadastrado ' +
+        'fica fora desta soma.'],
     ],
     visuais: [
       {
-        t: 'tableEx', x: 16, y: Y.meio, w: 1248, h: H.meio,
-        titulo: '⚖️ Conciliação do dia — contado + rota + carreta + comodato − parque',
+        // AGRUPADA POR DIA (12/09/2026, pedido do dono): uma linha por dia,
+        // com o total do dia, e o "+" abre os itens. Com um dia so no
+        // filtro, e a mesma leitura de antes com um clique a mais.
+        t: 'pivotTable', x: 16, y: Y.meio, w: 1248, h: H.meio,
+        botaoMais: true,
+        titulo: '⚖️ Conciliação por dia — clique no + do dia para abrir os itens',
         roles: {
+          Rows: ['fato_ag_conciliacao.data', 'fato_ag_conciliacao.item'],
           Values: [
-            // O DIA vem primeiro (12/09/2026): com mais de um dia marcado
-            // no filtro, cada dia tem as suas linhas. Com um dia so, a
-            // coluna repete a data -- e confirma de que dia e a conta.
-            'fato_ag_conciliacao.data',
-            'fato_ag_conciliacao.item',
             '@Contado',
             // As tres parcelas SEPARADAS, como na tela: e o que diz onde
-            // esta o ativo que nao foi contado. Um numero so de transito
-            // diria apenas que ele nao estava aqui.
+            // esta o ativo que nao foi contado.
             '@Trânsito rota',
             '@Trânsito carreta',
             '@Comodato',
             '@Parque',
             '@Diferença',
             '@% Diferença',
+            '@Diferença (R$)',
             '@Situação da conciliação',
           ],
         },
-        // Maiores FALTAS no topo: e o que alguem precisa ir atras.
-        ordem: { campo: '@Diferença', dir: 'Ascending' },
       },
       {
-        t: 'columnChart', x: 16, y: Y.base, w: 620, h: H.base,
-        titulo: '📉 Diferença por dia — a evolução das faltas e sobras',
+        t: 'columnChart', x: 16, y: Y.base, w: 400, h: H.base,
+        titulo: '📉 Diferença por dia (R$) — faltas e sobras',
         roles: {
           Category: ['dim_calendario.data'],
-          Y: ['@Diferença por dia'],
+          Y: ['@Diferença por dia (R$)'],
         },
       },
       {
-        t: 'tableEx', x: 648, y: Y.base, w: 616, h: H.base,
+        t: 'tableEx', x: 428, y: Y.base, w: 440, h: H.base,
         titulo: '🗓️ Histórico dia a dia',
         roles: {
           Values: [
             'fato_ag_conciliacao.data',
-            '@Contado por dia',
-            '@Em trânsito por dia',
-            '@Parque por dia',
+            'fato_ag_conciliacao.conferente',
             '@Diferença por dia',
             '@% Diferença por dia',
+            '@Diferença por dia (R$)',
           ],
         },
         ordem: { campo: 'fato_ag_conciliacao.data', dir: 'Descending' },
       },
+      {
+        // Veio da pagina do Ativo de Giro (12/09/2026, pedido do dono).
+        // Aqui le o DIA CONCILIADO, e nao o ultimo dia contado.
+        t: 'tableEx', x: 880, y: Y.base, w: 384, h: H.base,
+        titulo: '🧺 Garrafeira sem garrafa — dia conciliado',
+        dica:
+          'Paletes e caixas de GFE sem garrafa como foram DIGITADOS, sem conversão, no dia ' +
+          'que os cartões mostram. Aparece quem contou naquele dia — pode ser mais de um ' +
+          'conferente, porque cada um conta o pátio inteiro.',
+        roles: {
+          Values: [
+            'fato_ag_contagem.colaborador_nome',
+            'fato_ag_contagem.formato',
+            '@Paletes GFE do dia conciliado',
+            '@Caixas GFE do dia conciliado',
+          ],
+        },
+        ordem: { campo: '@Paletes GFE do dia conciliado', dir: 'Descending' },
+      },
     ],
     nota:
-      'A CONTA É A DO APP: contado + trânsito rota + trânsito carreta + comodato − parque. As três '
-      + 'parcelas do meio são ativo da revenda que não está no pátio para ser contado — saiu com a '
-      + 'entrega, está com o transportador ou emprestado ao cliente. Aceitável até 5% do parque, em '
-      + 'módulo. '
-      + 'O contado soma só as contagens VIVAS: quando há recontagem, ela SOBREPÕE a contagem antiga '
-      + '(a antiga continua no histórico, mas sai do total). '
-      + 'Filtro de Dia: marque um ou vários (Ctrl + clique). A tabela de cima traz uma linha por dia '
-      + 'e item; os cartões são a FOTOGRAFIA do último dia marcado — o dia está no primeiro cartão. '
-      + 'Filtro de Conferente: o contado passa a ser só o daquela pessoa, e os itens que ela não '
-      + 'contou saem da conta inteira (parque, trânsito e comodato também). '
-      + 'No histórico, cada linha é um dia exato; a linha de total é '
-      + 'a média diária, porque somar o parque de trinta dias daria um número que não existe. '
-      + 'Dia sem contagem não aparece: é dia sem medição, não dia com falta de 100%. '
-      + 'O parque e o comodato são saldos que valem até alguém mudar — um dia de semanas atrás é '
-      + 'conciliado com o parque e o comodato de HOJE, igual ao app.',
+      'SÓ ENTRAM DIAS CONGELADOS: a conciliação oficial, congelada na tela do app por quem tem a ' +
+      'liberação. Dia que ninguém congelou não aparece; para corrigir um dia congelado, o Admin ' +
+      'reabre e alguém congela de novo. ' +
+      'A CONTA É A DO APP: contado + trânsito rota + trânsito carreta + comodato − parque, em ' +
+      'CAIXAS. As três parcelas do meio são ativo da revenda que não está no pátio. Aceitável até ' +
+      '5% do parque, em módulo. ' +
+      'Os valores em R$ usam o valor da caixa gravado no dia do congelamento — mudar o preço depois ' +
+      'não muda o histórico. Item sem valor cadastrado fica fora das somas em R$. ' +
+      'Filtro de Dia: marque um ou vários (Ctrl + clique); os cartões mostram o último dia marcado. ' +
+      'No histórico, a linha de total é a média diária.',
   },
 
   // ================================================================
@@ -622,10 +585,26 @@ const paginas = [
     // O filtro de Mês virou GLOBAL em 09/09/2026 (ver a lista `filtros`
     // no topo do arquivo) -- esta página não precisa mais declarar o
     // seu, e declarar de novo o duplicaria na barra.
+    //
+    // AREA E COLABORADOR DO PROPRIO FEEDBACK (12/09/2026, pedido do dono):
+    // "nao faz sentido ter Armazem, sendo que so a distribuicao faz esse
+    // lancamento". As duas listas saem das colunas do fato, entao so trazem
+    // area e gente que ja mandou feedback. Ocorrencia e cidade acompanham,
+    // porque estao penduradas no feedback.
+    filtros: filtros.map((f) =>
+      f.campo === 'dim_colaborador.area_rotulo'
+        ? { campo: 'fato_feedback_rota.area_rotulo', titulo: '📍 Área' }
+        : f.campo === 'dim_colaborador.colaborador'
+          ? { campo: 'fato_feedback_rota.colaborador', titulo: '👤 Colaborador', busca: true }
+          : f,
+    ),
     kpis: [
       ['📝 Feedbacks', '@Feedbacks'],
       ['★ Nota média (0 a 3)', '@Nota média'],
-      ['🙂 % Satisfação', '@% Satisfação'],
+      ['🙂 % Satisfação', '@% Satisfação',
+        'A nota média em porcentagem: nota média ÷ 3 (a nota vai de 0 = Ruim a 3 = Ótima). ' +
+        'Com nota média 1,88, a satisfação é 1,88 ÷ 3 = 62,5%. A nota aparece com duas casas ' +
+        'para a conta fechar na mão — com uma casa, 1,875 virava "1,9" e parecia dar 63,3%.'],
       ['😞 % Notas ruins', '@% Notas ruins'],
       // Substituiu "Rota mais crítica" em 23/08/2026.
       //
@@ -766,9 +745,18 @@ const paginas = [
   // ================================================================
   {
     nome: '🔍 Cinco Porquês',
+    // COLABORADOR = QUEM FEZ A ANALISE (12/09/2026, pedido do dono). A
+    // lista sai do proprio fato, entao so traz motorista e ajudante que
+    // abriram um 5 Porques.
+    filtros: filtrosComColaboradorDaPagina('fato_cinco_porques.colaborador', '👤 Quem fez'),
     kpis: [
       ['🔍 Análises', '@Análises'],
-      ['✅ % Conclusão', '@% Conclusão'],
+      ['✅ % Conclusão', '@% Conclusão',
+        'Das análises que o motorista ABRIU, quantas ele terminou e enviou. As outras estão ' +
+        '"em andamento": ele começou e parou no meio — em setembro/2026 eram 2 de 4, uma sem ' +
+        'nenhum porquê respondido e outra só com o 1º. O app lista só as concluídas, por isso ' +
+        'lá parece que todas terminaram. Análise em andamento não recebe tratativa e não entra ' +
+        'no "% Chegou ao 5º".'],
       ['🏁 % Chegou ao 5º', '@% Chegou ao 5º porquê',
         'Das análises CONCLUÍDAS, quantas percorreram os cinco porquês até o fim em vez de ' +
         'parar no 2º ou no 3º. É medida de profundidade, não de volume: parar cedo costuma ' +
@@ -824,11 +812,17 @@ const paginas = [
         },
       },
       {
+        // PROBLEMA > CAUSA nas linhas e o ACEITE nas colunas (12/09/2026,
+        // pedido do dono: "preciso ver quais das acoes tiveram aceite e
+        // quais nao tiveram"). O "+" do problema abre as causas dele. Quem
+        // fez cada analise e a cadeia dos porques estao na pagina seguinte,
+        // "5 Porquês — cada análise": numa matriz de 424 px nao cabem.
         t: 'pivotTable', x: 840, y: Y.meio, w: 424, h: H.meio,
-        titulo: '🔀 Problema × causa',
+        botaoMais: true,
+        titulo: '🔀 Problema × causa × aceite do motorista',
         roles: {
-          Rows: ['fato_cinco_porques.problema'],
-          Columns: ['fato_cinco_porques.categoria'],
+          Rows: ['fato_cinco_porques.problema', 'fato_cinco_porques.categoria'],
+          Columns: ['fato_cinco_porques.aceite_rotulo'],
           Values: ['@Análises'],
         },
       },
@@ -889,6 +883,69 @@ const paginas = [
       'a devolutiva e não respondeu, e a análise que nunca recebeu devolutiva nenhuma — ' +
       'esta última aparece com a coluna de resposta vazia. Por isso "% Aceite" divide ' +
       'pelas análises que RECEBERAM devolutiva, e não por todas.',
+  },
+
+  // ================================================================
+  {
+    /*
+      CADA ANALISE, DO PROBLEMA AO ACEITE (12/09/2026, pedido do dono).
+
+      "Traga o motorista ou auxiliar que fez o 5 porques, preciso ver
+      tambem de forma ilustrativa como foi feito." Uma linha por analise,
+      e os cinco porques lado a lado na ordem em que o motorista
+      respondeu: le-se da esquerda para a direita como a cadeia foi do
+      problema ate a causa. Porque em branco e onde ele parou.
+
+      Tabela, e nao arvore de decomposicao: a arvore nao tem exemplo real
+      de .pbix aqui, e uma pagina que nao abre nao ilustra nada.
+
+      As respostas vem de fato_cinco_porques_resposta, pendurada na
+      analise (ver modelo.js) -- e por isso chegam na linha certa.
+    */
+    nome: '🔗 5 Porquês — cada análise',
+    filtros: filtrosComColaboradorDaPagina('fato_cinco_porques.colaborador', '👤 Quem fez'),
+    kpis: [
+      ['🔍 Análises abertas', '@Análises'],
+      ['✅ Concluídas', '@Análises concluídas'],
+      ['⏳ Em andamento', '@Análises em andamento',
+        'O motorista abriu a análise e não enviou. Na tabela, é a linha com os últimos ' +
+        'porquês e a causa raiz em branco — dá para ver exatamente onde ele parou.'],
+      ['🤝 % Aceite do motorista', '@% Aceite do motorista'],
+    ],
+    visuais: [
+      {
+        t: 'tableEx', x: 16, y: Y.meio, w: 1248, h: 414,
+        // Doze colunas de 100 px: cabem em 1248 sem rolar para o lado, e
+        // cada porque desce em quantas linhas precisar.
+        quebraTexto: 100,
+        titulo: '🔗 A cadeia de cada análise — do problema ao aceite',
+        roles: {
+          Values: [
+            'fato_cinco_porques.data',
+            'fato_cinco_porques.colaborador',
+            // Motorista ou ajudante: o cargo do cadastro.
+            'dim_colaborador.cargo',
+            'fato_cinco_porques.problema',
+            '@1º porquê',
+            '@2º porquê',
+            '@3º porquê',
+            '@4º porquê',
+            '@5º porquê',
+            'fato_cinco_porques.causa_raiz',
+            'fato_cinco_porques.acao_sugerida',
+            'fato_cinco_porques.aceite_rotulo',
+          ],
+        },
+        ordem: { campo: 'fato_cinco_porques.data', dir: 'Descending' },
+      },
+    ],
+    nota:
+      'Uma linha por análise. Leia da esquerda para a direita: o problema que o motorista ' +
+      'relatou, cada porquê que ele respondeu, a causa raiz a que chegou, a ação sugerida e se ' +
+      'aceitou a devolutiva da liderança. Quando ele escreveu com as próprias palavras, o texto ' +
+      'vem depois da opção marcada, separado por "—". Porquê em branco é onde a análise parou; ' +
+      'causa raiz em branco é análise ainda em andamento. Análise aberta sem nenhum porquê ' +
+      'respondido não aparece na tabela (não há o que mostrar), mas conta no cartão "Em andamento".',
   },
 
   // ================================================================
@@ -2250,7 +2307,7 @@ const blocos = [
   {
     sigla: 'DU',
     nome: 'Distribuição Urbana',
-    paginas: ['📝 Feedback da Rota', '🔍 Cinco Porquês'],
+    paginas: ['📝 Feedback da Rota', '🔍 Cinco Porquês', '🔗 5 Porquês — cada análise'],
   },
   {
     sigla: 'AL',

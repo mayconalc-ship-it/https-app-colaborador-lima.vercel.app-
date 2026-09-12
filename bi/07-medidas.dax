@@ -318,53 +318,23 @@ MEASURE '_Medidas'[Dia da conciliação] =
     )
 
 /*
-    A CONTAGEM DE UM CONFERENTE SÓ (12/09/2026, pedido do dono).
+    O CONFERENTE JÁ VEM NO DIA CONGELADO (12/09/2026).
 
-    A view já traz o contado somado de todos os conferentes do dia. Com o
-    filtro de Conferente marcado (fato_ag_contagem[colaborador_nome]), o
-    contado sai da contagem dele -- só as vivas, como a view -- e o item
-    que ele NÃO contou sai da conta inteira: parque, trânsito e comodato
-    daquele item também. Sem esse corte, cada item que outro conferente
-    contou apareceria como falta do escolhido.
-
-    Esta é a peça comum: o contado do conferente na LINHA da conciliação
-    (um dia, um tipo, um formato, uma revenda) em que for chamada.
+    Cada conferente conta o pátio inteiro -- dupla contagem cega, ver a
+    tela de conciliação do app: somar dois deu 131% do parque em 29/08.
+    O dia congelado guarda a contagem de UM deles, e o filtro de
+    Conferente é a coluna dele no próprio fato. Por isso as medidas desta
+    parte são somas simples: não há conta de conferente a fazer aqui.
 */
-MEASURE '_Medidas'[Contado do conferente na linha] =
-    CALCULATE (
-        SUM ( fato_ag_contagem[total_caixas] ),
-        fato_ag_contagem[viva] = TRUE (),
-        TREATAS ( VALUES ( fato_ag_conciliacao[data] ), fato_ag_contagem[data] ),
-        TREATAS ( VALUES ( fato_ag_conciliacao[tipo] ), fato_ag_contagem[tipo] ),
-        TREATAS ( VALUES ( fato_ag_conciliacao[formato] ), fato_ag_contagem[formato] ),
-        TREATAS ( VALUES ( fato_ag_conciliacao[revenda_id] ), fato_ag_contagem[revenda_id] )
-    )
-
 MEASURE '_Medidas'[Contado] =
     VAR Dia = [Dia da conciliação]
     RETURN
-        IF (
-            ISFILTERED ( fato_ag_contagem[colaborador_nome] ),
-            SUMX (
-                CALCULATETABLE ( fato_ag_conciliacao, fato_ag_conciliacao[data] = Dia ),
-                [Contado do conferente na linha]
-            ),
-            CALCULATE ( SUM ( fato_ag_conciliacao[contado] ), fato_ag_conciliacao[data] = Dia )
-        )
+        CALCULATE ( SUM ( fato_ag_conciliacao[contado] ), fato_ag_conciliacao[data] = Dia )
 
-// Parque, trânsito e comodato seguem a mesma forma: com conferente, só
-// os itens que ele contou; sem, o dia inteiro.
 MEASURE '_Medidas'[Parque] =
     VAR Dia = [Dia da conciliação]
     RETURN
-        IF (
-            ISFILTERED ( fato_ag_contagem[colaborador_nome] ),
-            SUMX (
-                CALCULATETABLE ( fato_ag_conciliacao, fato_ag_conciliacao[data] = Dia ),
-                IF ( NOT ISBLANK ( [Contado do conferente na linha] ), fato_ag_conciliacao[parque] )
-            ),
-            CALCULATE ( SUM ( fato_ag_conciliacao[parque] ), fato_ag_conciliacao[data] = Dia )
-        )
+        CALCULATE ( SUM ( fato_ag_conciliacao[parque] ), fato_ag_conciliacao[data] = Dia )
 
 MEASURE '_Medidas'[Diferença] =
     VAR C = [Contado]
@@ -392,26 +362,12 @@ MEASURE '_Medidas'[Diferença] =
 MEASURE '_Medidas'[Trânsito rota] =
     VAR Dia = [Dia da conciliação]
     RETURN
-        IF (
-            ISFILTERED ( fato_ag_contagem[colaborador_nome] ),
-            SUMX (
-                CALCULATETABLE ( fato_ag_conciliacao, fato_ag_conciliacao[data] = Dia ),
-                IF ( NOT ISBLANK ( [Contado do conferente na linha] ), fato_ag_conciliacao[transito_rota] )
-            ),
-            CALCULATE ( SUM ( fato_ag_conciliacao[transito_rota] ), fato_ag_conciliacao[data] = Dia )
-        )
+        CALCULATE ( SUM ( fato_ag_conciliacao[transito_rota] ), fato_ag_conciliacao[data] = Dia )
 
 MEASURE '_Medidas'[Trânsito carreta] =
     VAR Dia = [Dia da conciliação]
     RETURN
-        IF (
-            ISFILTERED ( fato_ag_contagem[colaborador_nome] ),
-            SUMX (
-                CALCULATETABLE ( fato_ag_conciliacao, fato_ag_conciliacao[data] = Dia ),
-                IF ( NOT ISBLANK ( [Contado do conferente na linha] ), fato_ag_conciliacao[transito_carreta] )
-            ),
-            CALCULATE ( SUM ( fato_ag_conciliacao[transito_carreta] ), fato_ag_conciliacao[data] = Dia )
-        )
+        CALCULATE ( SUM ( fato_ag_conciliacao[transito_carreta] ), fato_ag_conciliacao[data] = Dia )
 
 // O comodato é um saldo que vale até alguém mudar (igual ao parque), e a
 // view já o repete em todo dia conciliado. Por isso o mesmo recorte de dia
@@ -419,14 +375,7 @@ MEASURE '_Medidas'[Trânsito carreta] =
 MEASURE '_Medidas'[Comodato] =
     VAR Dia = [Dia da conciliação]
     RETURN
-        IF (
-            ISFILTERED ( fato_ag_contagem[colaborador_nome] ),
-            SUMX (
-                CALCULATETABLE ( fato_ag_conciliacao, fato_ag_conciliacao[data] = Dia ),
-                IF ( NOT ISBLANK ( [Contado do conferente na linha] ), fato_ag_conciliacao[comodato] )
-            ),
-            CALCULATE ( SUM ( fato_ag_conciliacao[comodato] ), fato_ag_conciliacao[data] = Dia )
-        )
+        CALCULATE ( SUM ( fato_ag_conciliacao[comodato] ), fato_ag_conciliacao[data] = Dia )
 
 MEASURE '_Medidas'[Em trânsito] =
     VAR R = [Trânsito rota]
@@ -498,6 +447,76 @@ MEASURE '_Medidas'[Diferença por dia] =
 
 MEASURE '_Medidas'[% Diferença por dia] =
     AVERAGEX ( VALUES ( fato_ag_conciliacao[data] ), [% Diferença] )
+
+/*
+    EM R$ (12/09/2026, pedido do dono: "ter valores em R$").
+
+    O valor da caixa vem GRAVADO no dia congelado
+    (ag_congelamento_itens.valor_caixa), então mudar o preço na
+    configuração não muda o que já foi para a reunião. Item que não tinha
+    valor cadastrado quando o dia foi congelado fica fora da soma em R$ --
+    e [Itens sem valor] diz quantos, para o total não parecer completo sem
+    estar.
+*/
+MEASURE '_Medidas'[Diferença (R$)] =
+    VAR Dia = [Dia da conciliação]
+    RETURN
+        CALCULATE ( SUM ( fato_ag_conciliacao[diferenca_valor] ), fato_ag_conciliacao[data] = Dia )
+
+MEASURE '_Medidas'[Contado (R$)] =
+    VAR Dia = [Dia da conciliação]
+    RETURN
+        CALCULATE ( SUM ( fato_ag_conciliacao[contado_valor] ), fato_ag_conciliacao[data] = Dia )
+
+MEASURE '_Medidas'[Em trânsito (R$)] =
+    VAR Dia = [Dia da conciliação]
+    RETURN
+        CALCULATE ( SUM ( fato_ag_conciliacao[transito_valor] ), fato_ag_conciliacao[data] = Dia )
+
+MEASURE '_Medidas'[Parque (R$)] =
+    VAR Dia = [Dia da conciliação]
+    RETURN
+        CALCULATE ( SUM ( fato_ag_conciliacao[parque_valor] ), fato_ag_conciliacao[data] = Dia )
+
+MEASURE '_Medidas'[Diferença por dia (R$)] =
+    AVERAGEX ( VALUES ( fato_ag_conciliacao[data] ), [Diferença (R$)] )
+
+MEASURE '_Medidas'[Itens sem valor] =
+    VAR Dia = [Dia da conciliação]
+    RETURN
+        CALCULATE (
+            COUNTROWS ( fato_ag_conciliacao ),
+            fato_ag_conciliacao[data] = Dia,
+            ISBLANK ( fato_ag_conciliacao[valor_caixa] )
+        ) + 0
+
+/*
+    A GARRAFEIRA SEM GARRAFA DO DIA CONCILIADO (12/09/2026).
+
+    A tabela saiu da página do Ativo de Giro e foi para a da Conciliação,
+    a pedido do dono. Lá o dia é o do filtro de Dia (o dia congelado), e
+    não o "último dia contado" -- estas duas medidas leem esse dia.
+    Paletes e caixas como foram DIGITADOS, só as contagens vivas.
+*/
+MEASURE '_Medidas'[Paletes GFE do dia conciliado] =
+    VAR Dia = [Dia da conciliação]
+    RETURN
+        CALCULATE (
+            SUM ( fato_ag_contagem[palete] ),
+            fato_ag_contagem[data] = Dia,
+            fato_ag_contagem[tipo] = "GFE sem Garrafa",
+            fato_ag_contagem[viva] = TRUE ()
+        )
+
+MEASURE '_Medidas'[Caixas GFE do dia conciliado] =
+    VAR Dia = [Dia da conciliação]
+    RETURN
+        CALCULATE (
+            SUM ( fato_ag_contagem[caixa] ),
+            fato_ag_contagem[data] = Dia,
+            fato_ag_contagem[tipo] = "GFE sem Garrafa",
+            fato_ag_contagem[viva] = TRUE ()
+        )
 
 // --- Aderência ao processo -----------------------------------------
 // "Ocorrências de contagem" é quantas VEZES se contou, não quanto se
@@ -775,11 +794,60 @@ MEASURE '_Medidas'[Análises concluídas] =
 MEASURE '_Medidas'[% Conclusão] =
     DIVIDE ( [Análises concluídas], [Análises] )
 
+// SÓ AS CONCLUÍDAS NO NUMERADOR (12/09/2026). O numerador contava toda
+// análise com 5 porquês, inclusive as que o motorista respondeu até o fim
+// e não enviou -- e o denominador eram só as concluídas. Deu 140% no
+// painel do dono: 7 com cinco porquês sobre 5 concluídas. Agora é a
+// fração das concluídas, e o teto é 100%.
 MEASURE '_Medidas'[% Chegou ao 5º porquê] =
     DIVIDE (
-        CALCULATE ( [Análises], fato_cinco_porques[chegou_ao_quinto] = TRUE () ),
+        CALCULATE (
+            [Análises],
+            fato_cinco_porques[chegou_ao_quinto] = TRUE (),
+            fato_cinco_porques[concluida] = TRUE ()
+        ),
         [Análises concluídas]
     )
+
+// Análises que o motorista abriu e não enviou. É o que separa as
+// concluídas do total em [% Conclusão] -- e o que o dono não via no app,
+// que só lista as concluídas.
+MEASURE '_Medidas'[Análises em andamento] =
+    CALCULATE ( [Análises], fato_cinco_porques[concluida] = FALSE () )
+
+/*
+    A CADEIA DE CADA ANÁLISE, nível a nível (12/09/2026, pedido do dono:
+    "ver de forma ilustrativa como foi feito o 5 porquês pelo motorista").
+
+    Uma medida por nível, para a tabela pôr os cinco lado a lado na linha
+    da análise. A resposta é a opção que o motorista marcou; quando ele
+    escreveu por conta própria, o texto livre vem junto. Nível que ele
+    não respondeu fica vazio -- é onde a análise parou.
+*/
+MEASURE '_Medidas'[1º porquê] =
+    VAR R = CALCULATE ( MAX ( fato_cinco_porques_resposta[resposta] ), fato_cinco_porques_resposta[nivel] = 1 )
+    VAR L = CALCULATE ( MAX ( fato_cinco_porques_resposta[texto_livre] ), fato_cinco_porques_resposta[nivel] = 1 )
+    RETURN IF ( ISBLANK ( L ) || L = "", R, IF ( ISBLANK ( R ) || R = "", L, R & " — " & L ) )
+
+MEASURE '_Medidas'[2º porquê] =
+    VAR R = CALCULATE ( MAX ( fato_cinco_porques_resposta[resposta] ), fato_cinco_porques_resposta[nivel] = 2 )
+    VAR L = CALCULATE ( MAX ( fato_cinco_porques_resposta[texto_livre] ), fato_cinco_porques_resposta[nivel] = 2 )
+    RETURN IF ( ISBLANK ( L ) || L = "", R, IF ( ISBLANK ( R ) || R = "", L, R & " — " & L ) )
+
+MEASURE '_Medidas'[3º porquê] =
+    VAR R = CALCULATE ( MAX ( fato_cinco_porques_resposta[resposta] ), fato_cinco_porques_resposta[nivel] = 3 )
+    VAR L = CALCULATE ( MAX ( fato_cinco_porques_resposta[texto_livre] ), fato_cinco_porques_resposta[nivel] = 3 )
+    RETURN IF ( ISBLANK ( L ) || L = "", R, IF ( ISBLANK ( R ) || R = "", L, R & " — " & L ) )
+
+MEASURE '_Medidas'[4º porquê] =
+    VAR R = CALCULATE ( MAX ( fato_cinco_porques_resposta[resposta] ), fato_cinco_porques_resposta[nivel] = 4 )
+    VAR L = CALCULATE ( MAX ( fato_cinco_porques_resposta[texto_livre] ), fato_cinco_porques_resposta[nivel] = 4 )
+    RETURN IF ( ISBLANK ( L ) || L = "", R, IF ( ISBLANK ( R ) || R = "", L, R & " — " & L ) )
+
+MEASURE '_Medidas'[5º porquê] =
+    VAR R = CALCULATE ( MAX ( fato_cinco_porques_resposta[resposta] ), fato_cinco_porques_resposta[nivel] = 5 )
+    VAR L = CALCULATE ( MAX ( fato_cinco_porques_resposta[texto_livre] ), fato_cinco_porques_resposta[nivel] = 5 )
+    RETURN IF ( ISBLANK ( L ) || L = "", R, IF ( ISBLANK ( R ) || R = "", L, R & " — " & L ) )
 
 MEASURE '_Medidas'[Profundidade média] =
     AVERAGE ( fato_cinco_porques[profundidade] )

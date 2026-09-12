@@ -188,13 +188,18 @@ const tabelas = [
     view: 'fato_ag_conciliacao',
     // A conta do app (10/09/2026): contado (vivas) + rota + carreta +
     // comodato - parque, aceitavel ate 5% do parque. Ver o 15.
-    descricao: 'Conciliacao do app por dia e item: contado + transito - parque. Aceitavel ate 5%.',
+    // SO OS DIAS CONGELADOS (12/09/2026, pedido do dono): a view le
+    // ag_congelamentos, e nao mais a conta ao vivo. Cada dia tem o
+    // conferente cuja contagem foi congelada e o valor da caixa daquele
+    // momento -- os *_valor sao em R$.
+    descricao: 'Conciliacao CONGELADA por dia e item: contado + transito - parque, em caixas e em R$.',
     colunas:
-      'revenda_id:s data:t tipo:s formato:s item:s contado:i linhas:i contadores:i ' +
+      'revenda_id:s data:t tipo:s formato:s item:s conferente:s contado:i ' +
       'transito_rota:i transito_carreta:i comodato:i transito:i ' +
       'parque:i diferenca:i diferenca_abs:i diferenca_pct:n limite_pct:n ' +
       'dentro_do_aceitavel:b resultado:s situacao:s ' +
-      'parque_atualizado_em:t parque_confiavel:b comodato_atualizado_em:t',
+      'valor_caixa:n contado_valor:n transito_valor:n parque_valor:n diferenca_valor:n ' +
+      'congelado_em:t congelado_por:s',
     revendaDireta: true,
     data: 'data',
   },
@@ -315,8 +320,13 @@ const tabelas = [
     colunas:
       'analise_id:s revenda_id:s problema:s data:t ordem:i nivel:i nivel_rotulo:s ' +
       'pergunta:s opcao_id:s resposta:s texto_livre:s escreveu_livre:b',
-    revendaDireta: true,
-    data: 'data',
+    // PENDURADO NA ANALISE (12/09/2026), como ocorrencia e cidade no
+    // feedback. Era ligado direto na revenda e na data, e por isso nao
+    // havia como pôr a resposta de cada porque na linha de QUEM fez a
+    // analise -- o dono pediu para ver "como foi feito o 5 porques pelo
+    // motorista". Pelo pai, revenda, data e colaborador continuam
+    // chegando, e as medidas [1º porquê]..[5º porquê] leem daqui.
+    paiFato: { tabela: 'fato_cinco_porques', coluna: 'analise_id' },
   },
   {
     nome: 'fato_cinco_porques_matriz',
