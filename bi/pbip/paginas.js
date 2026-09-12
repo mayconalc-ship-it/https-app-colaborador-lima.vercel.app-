@@ -1170,6 +1170,25 @@ const paginas = [
   // ================================================================
   {
     nome: '🧠 Quiz',
+    /*
+      AREA E COLABORADOR SO DE QUEM TEM DESAFIO (12/09/2026, pedido do
+      dono). O desafio so existe para Distribuicao Urbana e Armazem
+      Logistico (quiz_rodadas.area = DU/AL). As duas listas continuam
+      sendo da dim_colaborador -- e por isso filtram a pagina inteira --,
+      mas cada segmentacao leva um filtro proprio que so deixa passar
+      essas duas areas. Uma area nova de desafio entra aqui.
+    */
+    filtros: filtros.map((f) =>
+      f.campo === 'dim_colaborador.area_rotulo' || f.campo === 'dim_colaborador.colaborador'
+        ? {
+            ...f,
+            filtroVisual: {
+              campo: 'dim_colaborador.area_rotulo',
+              valores: ['Distribuição Urbana', 'Armazém Logístico'],
+            },
+          }
+        : f,
+    ),
     kpis: [
       ['✅ Participações concluídas', '@Participações concluídas'],
       ['👥 Taxa de participação', '@Taxa de participação'],
@@ -1177,12 +1196,19 @@ const paginas = [
       ['👤 Participantes únicos', '@Participantes únicos'],
       ['⚠️ Questões críticas', '@Questões críticas'],
     ],
+    // TUDO POR MES (12/09/2026, pedido do dono: "como o quiz e realizado
+    // mensal, deixe os graficos com evolucao temporal por mes"). ano_mes
+    // ("2026-08") no eixo: ordena certo e fecha o mes da rodada. O
+    // ranking foi para a pagina seguinte, separado por area; as perguntas
+    // mais erradas estao na matriz da pagina do Desafio.
     visuais: [
       {
-        t: 'clusteredColumnChart', x: 16, y: Y.meio, w: 430, h: H.meio,
-        titulo: '📊 Elegíveis × concluídas por rodada',
+        // Elegiveis e concluidas AGRUPADAS, nao empilhadas -- elegiveis ja
+        // contem concluidas.
+        t: 'clusteredColumnChart', x: 16, y: Y.meio, w: 410, h: H.meio,
+        titulo: '📊 Elegíveis × concluídas por mês',
         roles: {
-          Category: ['fato_quiz_rodada_participacao.mes_ref'],
+          Category: ['dim_calendario.ano_mes'],
           Y: [
             'fato_quiz_rodada_participacao.elegiveis#soma',
             'fato_quiz_rodada_participacao.concluidas#soma',
@@ -1190,65 +1216,125 @@ const paginas = [
         },
       },
       {
-        t: 'lineChart', x: 458, y: Y.meio, w: 430, h: H.meio,
-        titulo: '📈 Evolução do aproveitamento por área',
+        t: 'lineChart', x: 438, y: Y.meio, w: 410, h: H.meio, reta: true,
+        titulo: '📈 Aproveitamento por área — por mês',
         roles: {
-          Category: ['fato_quiz_participacao.mes_ref'],
+          Category: ['dim_calendario.ano_mes'],
           Y: ['@Aproveitamento médio'],
           Series: ['fato_quiz_participacao.area_rotulo'],
         },
       },
       {
-        t: 'clusteredBarChart', x: 900, y: Y.meio, w: 364, h: H.meio,
-        titulo: '❌ Perguntas com maior índice de erro',
+        t: 'lineChart', x: 860, y: Y.meio, w: 404, h: H.meio, reta: true,
+        titulo: '👥 Taxa de participação por mês',
         roles: {
-          Category: ['fato_quiz_resposta.pergunta'],
-          Y: ['@Taxa de erro (período)'],
+          Category: ['dim_calendario.ano_mes'],
+          Y: ['@Taxa de participação'],
         },
-        ordem: { campo: '@Taxa de erro (período)', dir: 'Descending' },
-        // Sem este corte, uma pergunta respondida uma unica vez por quem
-        // errou aparece como 100% de erro no topo da lista.
-        corteMinimo: { campo: 'fato_quiz_resposta.resposta_id', minimo: 5 },
       },
       {
-        t: 'tableEx', x: 16, y: Y.base, w: 1248, h: H.base,
-        titulo: '🏆 Ranking dos colaboradores',
+        t: 'columnChart', x: 16, y: Y.base, w: 620, h: H.base,
+        titulo: '✅ Participações concluídas por mês e área',
+        roles: {
+          Category: ['dim_calendario.ano_mes'],
+          Y: ['@Participações concluídas'],
+          Series: ['fato_quiz_participacao.area_rotulo'],
+        },
+      },
+      {
+        t: 'lineChart', x: 648, y: Y.base, w: 616, h: H.base, reta: true,
+        titulo: '🎯 Taxa de acerto por mês',
+        roles: {
+          Category: ['dim_calendario.ano_mes'],
+          Y: ['@Taxa de acerto'],
+        },
+      },
+    ],
+    nota:
+      'O quiz é mensal: todos os gráficos estão por MÊS. Elegíveis e concluídas ficam AGRUPADAS, ' +
+      'não empilhadas — elegíveis já contém concluídas. Só aparecem as áreas com desafio ' +
+      '(Distribuição Urbana e Armazém Logístico) e os colaboradores delas. O ranking, separado por ' +
+      'área, está na página seguinte; as perguntas mais erradas estão na página do Desafio.',
+  },
+
+  // ================================================================
+  {
+    /*
+      O RANKING POR AREA (12/09/2026, pedido do dono: sem filtro de area,
+      "deve aparecer a segregacao dos primeiros colocados da DU e logo
+      abaixo do Armazem" -- e o Rafael aparecia em 2o, sem ninguem em 1o,
+      porque as duas areas eram comparadas numa conta so).
+
+      Uma tabela por area, DU em cima e Armazem embaixo. A posicao e
+      calculada dentro da area da pessoa, como no app (ver [Posição na
+      temporada]); a medalha acompanha. Com o filtro de area marcado, so a
+      tabela daquela area traz gente.
+    */
+    nome: '🏆 Quiz — ranking por área',
+    filtros: filtros.map((f) =>
+      f.campo === 'dim_colaborador.area_rotulo' || f.campo === 'dim_colaborador.colaborador'
+        ? {
+            ...f,
+            filtroVisual: {
+              campo: 'dim_colaborador.area_rotulo',
+              valores: ['Distribuição Urbana', 'Armazém Logístico'],
+            },
+          }
+        : f,
+    ),
+    kpis: [
+      ['👤 Participantes únicos', '@Participantes únicos'],
+      ['✅ Participações concluídas', '@Participações concluídas'],
+      ['🎯 Aproveitamento médio', '@Aproveitamento médio'],
+    ],
+    visuais: [
+      {
+        t: 'tableEx', x: 16, y: Y.meio, w: 1248, h: 206,
+        titulo: '🥇 Distribuição Urbana — ranking da temporada',
         roles: {
           Values: [
-            // A medalha vem primeiro: e o que o olho procura antes do
-            // nome. 1o ouro, 2o prata, 3o bronze -- ver a medida Medalha
-            // em 07-medidas.dax.
             '@Medalha',
             '@Posição na temporada',
             'fato_quiz_participacao.colaborador',
-            'fato_quiz_participacao.area_rotulo',
             '@Rodadas',
             '@Pontos',
             '@Acertos',
             '@Erros',
             '@Aproveitamento médio',
-            // O tempo fica visivel porque e criterio de desempate: sem a
-            // coluna, duas pessoas com os mesmos pontos aparecem em ordem
-            // diferente e ninguem consegue explicar por que.
+            // O tempo fica visivel porque e criterio de desempate.
             '@Tempo total (s)',
           ],
         },
-        // Ordenar por Pontos deixava o desempate a cargo do visual, que
-        // resolve empate por ordem alfabetica -- podia divulgar como
-        // primeiro colocado alguem que o app coloca em segundo. A posicao
-        // ja carrega a regra completa (pontos, acertos, tempo, conclusao).
+        filtroVisual: { campo: 'fato_quiz_participacao.area_rotulo', valores: ['Distribuição Urbana'] },
+        // A posicao ja carrega a regra completa do app (pontos, acertos,
+        // tempo, conclusao). Ordenar por Pontos deixaria o desempate a
+        // cargo do visual, que resolve por ordem alfabetica.
+        ordem: { campo: '@Posição na temporada', dir: 'Ascending' },
+      },
+      {
+        t: 'tableEx', x: 16, y: 466, w: 1248, h: 200,
+        titulo: '🥇 Armazém Logístico — ranking da temporada',
+        roles: {
+          Values: [
+            '@Medalha',
+            '@Posição na temporada',
+            'fato_quiz_participacao.colaborador',
+            '@Rodadas',
+            '@Pontos',
+            '@Acertos',
+            '@Erros',
+            '@Aproveitamento médio',
+            '@Tempo total (s)',
+          ],
+        },
+        filtroVisual: { campo: 'fato_quiz_participacao.area_rotulo', valores: ['Armazém Logístico'] },
         ordem: { campo: '@Posição na temporada', dir: 'Ascending' },
       },
     ],
     nota:
-      'Elegíveis e concluídas ficam AGRUPADAS, não empilhadas — empilhar sugere que ' +
-      'somam, e elegíveis já contém concluídas. Em "perguntas com maior erro", aplique ' +
-      'no painel Filtros um corte de ≥ 5 respostas: sem ele, uma pergunta respondida ' +
-      'uma única vez por alguém que errou aparece como 100% de erro no topo. ' +
-      'O ranking é ordenado por "Posição na temporada", não por "Pontos": a posição ' +
-      'aplica o desempate oficial do app (pontos → acertos → menos tempo → quem ' +
-      'concluiu primeiro). Não troque a ordenação para Pontos — o BI passaria a ' +
-      'divulgar como líder alguém que a tela do app coloca em segundo.',
+      'Cada área tem o seu campeonato, como no app: a posição compara a pessoa só com quem é da ' +
+      'MESMA área. O desempate é o oficial do app — pontos, depois acertos, depois menos tempo, ' +
+      'depois quem concluiu primeiro. Filtre um período ou mês para ver o ranking daquele recorte.',
   },
 
   // ================================================================
@@ -1267,18 +1353,29 @@ const paginas = [
       da primeira.
     */
     nome: '🎯 Desafio — o que treinar',
-    filtros: [
-      ...filtros,
-      // A hora do dia entra aqui por um motivo especifico: taxa de chute
-      // alta concentrada no fim do turno diz que o problema e o MOMENTO
-      // em que o desafio esta sendo respondido, nao o conteudo.
-      { campo: 'dim_hora.faixa_do_dia', titulo: '🕐 Faixa do dia' },
-    ],
+    // Area e colaborador SO DAS AREAS COM DESAFIO, e a faixa do dia saiu
+    // da barra e virou grafico (12/09/2026, pedido do dono) -- ver a
+    // pagina do Quiz para o porque do filtro dentro da segmentacao.
+    filtros: filtros.map((f) =>
+      f.campo === 'dim_colaborador.area_rotulo' || f.campo === 'dim_colaborador.colaborador'
+        ? {
+            ...f,
+            filtroVisual: {
+              campo: 'dim_colaborador.area_rotulo',
+              valores: ['Distribuição Urbana', 'Armazém Logístico'],
+            },
+          }
+        : f,
+    ),
     kpis: [
       ['🎯 Taxa de acerto', '@Taxa de acerto'],
       ['💬 Respostas', '@Respostas'],
       ['⚠️ Perguntas em alerta', '@Perguntas em alerta'],
-      ['⚡ % de chute', '@% de chute'],
+      ['⚡ % de chute', '@% de chute',
+        'CHUTE = resposta ERRADA dada em MENOS DE 4 SEGUNDOS. O % é chutes ÷ todas as respostas do ' +
+        'recorte. Errar depois de pensar é falta de conhecimento e se treina; errar em menos de ' +
+        'quatro segundos é pressa — a pessoa clicou sem ler. Chute alto pede conversa sobre o ' +
+        'momento de responder, não sobre o conteúdo.'],
       ['📄 Padrão mais crítico', '@Padrão mais crítico'],
     ],
     visuais: [
@@ -1309,42 +1406,40 @@ const paginas = [
         },
       },
       {
-        t: 'columnChart', x: 900, y: Y.meio, w: 364, h: H.meio,
-        titulo: '⚡ Chute por hora do dia',
+        // A FAIXA DO DIA COMO GRAFICO (12/09/2026, pedido do dono): saiu da
+        // barra de filtros. Acerto e chute lado a lado por faixa -- se o
+        // acerto cai e o chute sobe numa faixa, o problema e o momento em
+        // que o desafio e respondido, nao o conteudo.
+        t: 'clusteredColumnChart', x: 900, y: Y.meio, w: 364, h: H.meio,
+        titulo: '🕐 % de acerto e de chute por faixa do dia',
         roles: {
-          Category: ['dim_hora.hora_rotulo'],
-          Y: ['@% de chute'],
+          Category: ['dim_hora.faixa_do_dia'],
+          Y: ['@Taxa de acerto', '@% de chute'],
         },
       },
       {
-        // A PAUTA DA REUNIAO, com a resposta certa ao lado.
-        //
-        // A resposta vem de dim_quiz_gabarito, e isso e deliberado: sem
-        // ela, a reuniao de treinamento tem a pergunta que o time errou
-        // e nao tem o que ensinar -- alguem teria de abrir o app para
-        // procurar cada uma.
-        //
-        // ATENCAO: esta tabela mostra o gabarito. Ver a nota do rodape.
-        t: 'tableEx', x: 16, y: Y.base, w: 1248, h: H.base,
-        titulo: '📋 Perguntas mais erradas — com a resposta certa e o padrão de origem',
+        /*
+          A PAUTA DA REUNIAO EM MATRIZ (12/09/2026, pedido do dono:
+          "faca uma matriz e traga inicio o padrao, e vai descendo as
+          analises"). A linha de cima e o padrao de origem; o "+" abre as
+          perguntas dele, cada uma com o acerto, o chute e a resposta
+          certa.
+
+          ATENCAO: a matriz mostra o gabarito. Ver a nota do rodape.
+        */
+        t: 'pivotTable', x: 16, y: Y.base, w: 1248, h: H.base,
+        botaoMais: true,
+        titulo: '📋 Perguntas mais erradas — padrão › pergunta (clique no + do padrão)',
         roles: {
+          Rows: ['fato_quiz_resposta.origem', 'fato_quiz_resposta.pergunta'],
           Values: [
-            'fato_quiz_resposta.pergunta',
-            'fato_quiz_resposta.origem',
-            'fato_quiz_resposta.dificuldade_rotulo',
             '@Respostas',
             '@Taxa de acerto',
             '@% de chute',
-            // Do FATO, não de uma dimensão à parte: uma dim_quiz_gabarito
-            // sem relacionamento mostraria a resposta de TODAS as
-            // perguntas em cada linha -- o mesmo erro de dimensão solta
-            // que deixou "horas por máquina" com todas iguais.
-            'fato_quiz_resposta.resposta_certa',
-            'fato_quiz_resposta.explicacao',
+            // Do FATO, e so na linha de UMA pergunta -- ver a medida.
+            '@Resposta certa',
           ],
         },
-        ordem: { campo: '@Taxa de acerto', dir: 'Ascending' },
-        corteMinimo: { campo: 'fato_quiz_resposta.resposta_id', minimo: 5 },
       },
     ],
     nota:
@@ -1433,6 +1528,31 @@ const paginas = [
   // ================================================================
   {
     nome: '🧹 Programa 5S',
+    /*
+      SO QUEM FAZ PARTE DO 5S (12/09/2026, pedido do dono).
+
+      Area: as areas de quem audita ou e dono de area no 5S -- medido no
+      banco em 12/09/2026: 27 pessoas, de Armazem, Distribuicao,
+      Financeiro e Gente. A lista continua sendo da dim_colaborador (e
+      por isso filtra a pagina); o filtro dentro da segmentacao so deixa
+      passar essas areas. Area nova no 5S entra aqui.
+
+      Colaborador: o AUDITOR, da propria auditoria -- a lista so traz
+      quem ja auditou. E ele o colaborador de fato_5s_auditoria.
+    */
+    filtros: filtros.map((f) =>
+      f.campo === 'dim_colaborador.area_rotulo'
+        ? {
+            ...f,
+            filtroVisual: {
+              campo: 'dim_colaborador.area_rotulo',
+              valores: ['Armazém Logístico', 'Distribuição Urbana', 'Financeiro', 'Gente'],
+            },
+          }
+        : f.campo === 'dim_colaborador.colaborador'
+          ? { campo: 'fato_5s_auditoria.auditor', titulo: '👤 Auditor', busca: true }
+          : f,
+    ),
     kpis: [
       ['✅ % Conformidade', '@% Conformidade 5S'],
       ['📋 Aderência ao plano', '@% Aderência ao plano',
@@ -1611,7 +1731,11 @@ const paginas = [
         titulo: '📊 % de cada etapa por dia — triagem × reembalagem',
         roles: {
           Category: ['dim_calendario.dia_rotulo'],
-          Y: ['@% do tempo na triagem', '@% do tempo no repack'],
+          // REPACK PRIMEIRO (12/09/2026): a cor sai da ORDEM da serie. No
+          // grafico de horas ao lado o Repack e a primeira serie (azul);
+          // com a triagem primeiro aqui, o azul virava triagem, e o dono
+          // leu o dia 01/09 (repack 67,7%) como se o repack tivesse caido.
+          Y: ['@% do tempo no repack', '@% do tempo na triagem'],
         },
       },
       {
@@ -2720,6 +2844,8 @@ const blocos = [
       '📣 Comunicados',
       '📅 Cronograma da Comunicação',
       '🧠 Quiz',
+      // O ranking por area logo depois do Quiz (12/09/2026).
+      '🏆 Quiz — ranking por área',
       '🎯 Desafio — o que treinar',
       '🏆 Super Matinal e Sonho',
       '🧹 Programa 5S',

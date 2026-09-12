@@ -824,30 +824,53 @@ MEASURE '_Medidas'[Análises em andamento] =
     escreveu por conta própria, o texto livre vem junto. Nível que ele
     não respondeu fica vazio -- é onde a análise parou.
 */
+// SÓ NA LINHA DE UMA ANÁLISE (12/09/2026): na linha de TOTAL da tabela o
+// MAX juntava o texto de todas as análises e a linha ocupava metade da
+// tela -- o dono pediu para tirar. Fora de uma análise só, fica vazio.
 MEASURE '_Medidas'[1º porquê] =
     VAR R = CALCULATE ( MAX ( fato_cinco_porques_resposta[resposta] ), fato_cinco_porques_resposta[nivel] = 1 )
     VAR L = CALCULATE ( MAX ( fato_cinco_porques_resposta[texto_livre] ), fato_cinco_porques_resposta[nivel] = 1 )
-    RETURN IF ( ISBLANK ( L ) || L = "", R, IF ( ISBLANK ( R ) || R = "", L, R & " — " & L ) )
+    RETURN
+        IF (
+            HASONEVALUE ( fato_cinco_porques[analise_id] ),
+            IF ( ISBLANK ( L ) || L = "", R, IF ( ISBLANK ( R ) || R = "", L, R & " — " & L ) )
+        )
 
 MEASURE '_Medidas'[2º porquê] =
     VAR R = CALCULATE ( MAX ( fato_cinco_porques_resposta[resposta] ), fato_cinco_porques_resposta[nivel] = 2 )
     VAR L = CALCULATE ( MAX ( fato_cinco_porques_resposta[texto_livre] ), fato_cinco_porques_resposta[nivel] = 2 )
-    RETURN IF ( ISBLANK ( L ) || L = "", R, IF ( ISBLANK ( R ) || R = "", L, R & " — " & L ) )
+    RETURN
+        IF (
+            HASONEVALUE ( fato_cinco_porques[analise_id] ),
+            IF ( ISBLANK ( L ) || L = "", R, IF ( ISBLANK ( R ) || R = "", L, R & " — " & L ) )
+        )
 
 MEASURE '_Medidas'[3º porquê] =
     VAR R = CALCULATE ( MAX ( fato_cinco_porques_resposta[resposta] ), fato_cinco_porques_resposta[nivel] = 3 )
     VAR L = CALCULATE ( MAX ( fato_cinco_porques_resposta[texto_livre] ), fato_cinco_porques_resposta[nivel] = 3 )
-    RETURN IF ( ISBLANK ( L ) || L = "", R, IF ( ISBLANK ( R ) || R = "", L, R & " — " & L ) )
+    RETURN
+        IF (
+            HASONEVALUE ( fato_cinco_porques[analise_id] ),
+            IF ( ISBLANK ( L ) || L = "", R, IF ( ISBLANK ( R ) || R = "", L, R & " — " & L ) )
+        )
 
 MEASURE '_Medidas'[4º porquê] =
     VAR R = CALCULATE ( MAX ( fato_cinco_porques_resposta[resposta] ), fato_cinco_porques_resposta[nivel] = 4 )
     VAR L = CALCULATE ( MAX ( fato_cinco_porques_resposta[texto_livre] ), fato_cinco_porques_resposta[nivel] = 4 )
-    RETURN IF ( ISBLANK ( L ) || L = "", R, IF ( ISBLANK ( R ) || R = "", L, R & " — " & L ) )
+    RETURN
+        IF (
+            HASONEVALUE ( fato_cinco_porques[analise_id] ),
+            IF ( ISBLANK ( L ) || L = "", R, IF ( ISBLANK ( R ) || R = "", L, R & " — " & L ) )
+        )
 
 MEASURE '_Medidas'[5º porquê] =
     VAR R = CALCULATE ( MAX ( fato_cinco_porques_resposta[resposta] ), fato_cinco_porques_resposta[nivel] = 5 )
     VAR L = CALCULATE ( MAX ( fato_cinco_porques_resposta[texto_livre] ), fato_cinco_porques_resposta[nivel] = 5 )
-    RETURN IF ( ISBLANK ( L ) || L = "", R, IF ( ISBLANK ( R ) || R = "", L, R & " — " & L ) )
+    RETURN
+        IF (
+            HASONEVALUE ( fato_cinco_porques[analise_id] ),
+            IF ( ISBLANK ( L ) || L = "", R, IF ( ISBLANK ( R ) || R = "", L, R & " — " & L ) )
+        )
 
 MEASURE '_Medidas'[Profundidade média] =
     AVERAGE ( fato_cinco_porques[profundidade] )
@@ -1135,6 +1158,14 @@ MEASURE '_Medidas'[Posição na temporada] =
     // primeiros lugares — um do Armazém, outro da Distribuição. O
     // ALLSELECTED da área devolve as áreas que a segmentação deixou
     // passar, anulando só o filtro que vem da linha do visual.
+    //
+    // A CLASSIFICAÇÃO É POR ÁREA (12/09/2026) -- é assim no app
+    // (getClassificacaoTemporada filtra as rodadas pela área). A versão
+    // anterior comparava as duas áreas numa conta só: o dono (Armazém, 250
+    // pontos) ficava na frente de todo mundo, e o Rafael, 1º da
+    // Distribuição, aparecia em 2º numa tabela onde ninguém era o 1º.
+    // Agora cada pessoa é comparada só com quem é da área DELA.
+    VAR MinhaArea = SELECTEDVALUE ( fato_quiz_participacao[area_rotulo] )
     VAR Base =
         CALCULATETABLE (
             ADDCOLUMNS (
@@ -1144,7 +1175,8 @@ MEASURE '_Medidas'[Posição na temporada] =
                 "@Tempo", COALESCE ( [Tempo total (s)], SemTempo ),
                 "@Fim", COALESCE ( CALCULATE ( MAX ( fato_quiz_participacao[concluida_em] ) ), SemFim )
             ),
-            ALLSELECTED ( fato_quiz_participacao[area_rotulo] )
+            REMOVEFILTERS ( fato_quiz_participacao[area_rotulo] ),
+            fato_quiz_participacao[area_rotulo] = MinhaArea
         )
     VAR MeusPontos = [Pontos]
     VAR MeusAcertos = [Acertos]
@@ -1953,6 +1985,15 @@ MEASURE '_Medidas'[Chutes] =
 
 MEASURE '_Medidas'[% de chute] =
     DIVIDE ( [Chutes], [Respostas] )
+
+// O gabarito na linha da pergunta, na matriz do Desafio (12/09/2026).
+// Numa linha de padrão (várias perguntas) fica vazio -- a resposta só faz
+// sentido quando a linha é UMA pergunta.
+MEASURE '_Medidas'[Resposta certa] =
+    IF (
+        HASONEVALUE ( fato_quiz_resposta[questao_id] ),
+        MAX ( fato_quiz_resposta[resposta_certa] )
+    )
 
 // Abaixo de 60% a pergunta deixa de ser placar e vira pauta: metade do
 // time não sabe o procedimento. O corte espelha ALERTA_DE_ACERTO em

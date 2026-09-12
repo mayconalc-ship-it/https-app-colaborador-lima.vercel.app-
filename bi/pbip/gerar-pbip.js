@@ -272,6 +272,8 @@ const MEDIDAS_TEXTO = new Set([
   '5º porquê',
   // "09h (18% das horas)" -- o pico da bancada (12/09/2026).
   'Pico da bancada',
+  // O gabarito na matriz de perguntas do Desafio (12/09/2026).
+  'Resposta certa',
 ]);
 
 // UMA CASA (12/09/2026, pedido do dono: "nos cartoes deixe uma casa
@@ -1253,6 +1255,11 @@ function visuaisFiltro(pagina) {
     x: xs[i], y: 72, w: Math.floor(pesos[i] * unidade), h: 72,
     titulo: null,
     grupoSincronia: f.campo,
+    // FILTRO NA PROPRIA SEGMENTACAO (12/09/2026): e o que faz a lista de
+    // Area mostrar so as areas com desafio, e a de Colaborador so quem e
+    // dessas areas -- sem trocar o campo, que continua filtrando a pagina
+    // inteira pela dim_colaborador.
+    ...(f.filtroVisual ? { filtroVisual: f.filtroVisual } : {}),
     roles: { Values: [f.campo] },
     objects: {
       data: [{ properties: { mode: lit(`'${f.modo || 'Dropdown'}'`) } }],

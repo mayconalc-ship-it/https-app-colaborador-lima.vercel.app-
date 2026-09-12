@@ -564,10 +564,11 @@ const tabelas = [
     nome: 'dim_hora',
     view: 'dim_hora',
     descricao: 'Hora do dia 0-23 com turno. Liga em todo fato do armazem pela coluna hora.',
-    colunas: 'hora:i hora_rotulo:s turno:s turno_rotulo:s faixa_do_dia:s',
+    colunas: 'hora:i hora_rotulo:s turno:s turno_rotulo:s faixa_do_dia:s faixa_ordem:i',
     // Sem isto "00h" viria depois de "10h": ordem alfabetica poria o
-    // pico no lugar errado do eixo.
-    ordenarPor: { hora_rotulo: 'hora' },
+    // pico no lugar errado do eixo. A faixa do dia idem (12/09/2026):
+    // Manha, Tarde, Noite, Madrugada -- e nao em ordem alfabetica.
+    ordenarPor: { hora_rotulo: 'hora', faixa_do_dia: 'faixa_ordem' },
     // Sem revenda e sem data de proposito: hora do dia e igual em toda
     // revenda e em todo dia. Uma ligacao a mais aqui so criaria caminho
     // ambiguo ate os fatos.

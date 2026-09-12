@@ -79,10 +79,13 @@ returns text
 language sql
 immutable
 as $$
+  -- O NUMERO VEM PRIMEIRO (12/09/2026): "Manha (T1)" ordenava por ordem
+  -- alfabetica -- Manha, Noite, Tarde -- em todo grafico, tabela e
+  -- filtro do BI. "T1 · Manha" ordena certo sozinho, em qualquer visual.
   select case p_turno
-    when 'manha' then 'Manhã (T1)'
-    when 'tarde' then 'Tarde (T2)'
-    when 'noite' then 'Noite (T3)'
+    when 'manha' then 'T1 · Manhã'
+    when 'tarde' then 'T2 · Tarde'
+    when 'noite' then 'T3 · Noite'
     else 'Sem turno'
   end;
 $$;
