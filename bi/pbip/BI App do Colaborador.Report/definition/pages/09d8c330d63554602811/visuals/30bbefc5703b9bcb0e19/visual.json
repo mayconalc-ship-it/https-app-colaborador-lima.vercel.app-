@@ -4,10 +4,10 @@
   "position": {
     "x": 16,
     "y": 500,
-    "z": 18000,
+    "z": 16000,
     "height": 166,
     "width": 620,
-    "tabOrder": 18000
+    "tabOrder": 16000
   },
   "visual": {
     "visualType": "tableEx",
@@ -70,20 +70,6 @@
               },
               "queryRef": "_Medidas.Duração média (h)",
               "nativeQueryRef": "Duração média (h)"
-            },
-            {
-              "field": {
-                "Measure": {
-                  "Expression": {
-                    "SourceRef": {
-                      "Entity": "_Medidas"
-                    }
-                  },
-                  "Property": "% aproveitamento do apontamento"
-                }
-              },
-              "queryRef": "_Medidas.% aproveitamento do apontamento",
-              "nativeQueryRef": "% aproveitamento do apontamento"
             },
             {
               "field": {

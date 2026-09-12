@@ -2,12 +2,12 @@
   "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.12.0/schema.json",
   "name": "e4a04db8d26c498b9645",
   "position": {
-    "x": 772,
+    "x": 1024,
     "y": 152,
-    "z": 14000,
+    "z": 13000,
     "height": 96,
     "width": 240,
-    "tabOrder": 14000
+    "tabOrder": 13000
   },
   "visual": {
     "visualType": "cardVisual",
@@ -23,11 +23,11 @@
                       "Entity": "_Medidas"
                     }
                   },
-                  "Property": "Lançamentos de bancada"
+                  "Property": "Lançamentos de repack"
                 }
               },
-              "queryRef": "_Medidas.Lançamentos de bancada",
-              "nativeQueryRef": "Lançamentos de bancada"
+              "queryRef": "_Medidas.Lançamentos de repack",
+              "nativeQueryRef": "Lançamentos de repack"
             }
           ]
         }

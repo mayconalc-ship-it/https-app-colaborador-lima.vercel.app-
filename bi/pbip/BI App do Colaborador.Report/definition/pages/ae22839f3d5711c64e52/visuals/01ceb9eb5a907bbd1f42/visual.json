@@ -4,10 +4,10 @@
   "position": {
     "x": 520,
     "y": 152,
-    "z": 12000,
+    "z": 11000,
     "height": 96,
     "width": 240,
-    "tabOrder": 12000
+    "tabOrder": 11000
   },
   "visual": {
     "visualType": "cardVisual",
@@ -134,6 +134,26 @@
               "expr": {
                 "Literal": {
                   "Value": "false"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "visualHeaderTooltip": [
+        {
+          "properties": {
+            "type": {
+              "expr": {
+                "Literal": {
+                  "Value": "'Text'"
+                }
+              }
+            },
+            "text": {
+              "expr": {
+                "Literal": {
+                  "Value": "'Dias desde o último esvaziamento registrado no app. Sem nenhum registrado, conta desde o primeiro despejo — é desde quando a bombona está enchendo.'"
                 }
               }
             }

@@ -862,11 +862,43 @@ table '_Medidas'
 
 	measure 'Dias até curtir (mediana)' =
 			MEDIANX ( fato_comunicado_curtida, fato_comunicado_curtida[dias_ate_curtir] )
+			
+			// --- Cronograma (a visão de calendário do app) ----------------------
+			//
+			// A pergunta do calendário não é quanto se publicou -- é QUE DIAS
+			// FICARAM VAZIOS. Uma lista ordenada por data não responde isso: o
+			// buraco de duas semanas some entre duas linhas consecutivas. Numa
+			// grade semana x dia da semana, ele é o retângulo em branco.
+			
+			/*
+			O FILTRO DE PUBLICADOR (12/09/2026, pedido do dono: "retire o filtro
+			tipo de marca, e coloque por publicadores").
+			
+			O publicador é o `autor` do comunicado, e mora em fato_comunicado. A
+			agenda (publicações e lembretes) é outra tabela, e não pode se ligar
+			a ela pelo modelo: o lembrete cai num DIA diferente do comunicado, e a
+			grade do calendário depende da data da própria agenda. Então o
+			recorte é feito aqui: com um publicador escolhido, a agenda fica só
+			com os comunicados dele -- de qualquer data, por isso o REMOVEFILTERS
+			no calendário.
+			*/
 		formatString: #,0
 		lineageTag: 819027d5-aafa-4db7-a09e-5dae0a9a441b
 
 	measure 'Itens do cronograma' =
-			COUNTROWS ( fato_comunicado_agenda )
+			IF (
+			    ISFILTERED ( fato_comunicado[autor] ),
+			    CALCULATE (
+			        COUNTROWS ( fato_comunicado_agenda ),
+			        KEEPFILTERS (
+			            TREATAS (
+			                CALCULATETABLE ( VALUES ( fato_comunicado[comunicado_id] ), REMOVEFILTERS ( dim_calendario ) ),
+			                fato_comunicado_agenda[comunicado_id]
+			            )
+			        )
+			    ),
+			    COUNTROWS ( fato_comunicado_agenda )
+			)
 		formatString: #,0
 		lineageTag: ef565774-c3e9-4a57-b73b-f4f94f5f10e8
 
@@ -879,12 +911,27 @@ table '_Medidas'
 		lineageTag: bf7dd64e-d74f-4a78-af2a-b6df24b82d08
 
 	measure 'Agenda do dia' =
-			CONCATENATEX (
-			    fato_comunicado_agenda,
-			    fato_comunicado_agenda[rotulo],
-			    UNICHAR ( 10 ),
-			    fato_comunicado_agenda[hora], ASC
-			)
+			VAR Linhas =
+			    IF (
+			        ISFILTERED ( fato_comunicado[autor] ),
+			        CALCULATETABLE (
+			            fato_comunicado_agenda,
+			            KEEPFILTERS (
+			                TREATAS (
+			                    CALCULATETABLE ( VALUES ( fato_comunicado[comunicado_id] ), REMOVEFILTERS ( dim_calendario ) ),
+			                    fato_comunicado_agenda[comunicado_id]
+			                )
+			            )
+			        ),
+			        fato_comunicado_agenda
+			    )
+			RETURN
+			    CONCATENATEX (
+			        Linhas,
+			        fato_comunicado_agenda[rotulo],
+			        UNICHAR ( 10 ),
+			        fato_comunicado_agenda[hora], ASC
+			    )
 		lineageTag: 3f76e20c-7d33-4883-9113-c8e232b2c4b7
 
 	measure 'Célula do calendário' =
@@ -1270,7 +1317,7 @@ table '_Medidas'
 			    [Caixas repackadas],
 			    CALCULATE ( SUM ( fato_pa_bancada[horas] ), fato_pa_bancada[etapa] = "repack" )
 			)
-		formatString: #,0
+		formatString: 0.0
 		lineageTag: 166c02e1-b888-4548-bd27-2796c71dd372
 
 	measure 'Seleção un/h' =
@@ -1278,7 +1325,7 @@ table '_Medidas'
 			    [Unidades triadas],
 			    CALCULATE ( SUM ( fato_pa_bancada[horas] ), fato_pa_bancada[etapa] = "selecao" )
 			)
-		formatString: #,0
+		formatString: 0.0
 		lineageTag: bf6b2838-083f-4d3b-b61e-7a3a5d2e208e
 
 	measure '% do tempo na triagem' =
@@ -1291,7 +1338,7 @@ table '_Medidas'
 
 	measure 'Bancada h/dia' =
 			DIVIDE ( [Horas de bancada], DISTINCTCOUNT ( fato_pa_bancada[data] ) )
-		formatString: #,0
+		formatString: 0.0
 		lineageTag: d22ab097-d527-4dd5-bbc5-9ca3e74e6c2a
 
 	measure 'Lançamentos de bancada' =
@@ -1304,7 +1351,7 @@ table '_Medidas'
 			    CALCULATE ( SUM ( fato_pa_bancada[horas] ), fato_pa_bancada[etapa] = "repack" ) * 60,
 			    [Caixas repackadas]
 			)
-		formatString: #,0
+		formatString: 0.0
 		lineageTag: 840310cb-ecbe-4327-b8da-610f0abbcafb
 
 	measure 'Dias com bancada' =
@@ -1312,14 +1359,54 @@ table '_Medidas'
 		formatString: #,0
 		lineageTag: 7e54b7b2-1bc5-49e9-8a3e-bcdb539d1ad3
 
+	measure '% do tempo no repack' =
+			DIVIDE (
+			    CALCULATE ( SUM ( fato_pa_bancada[horas] ), fato_pa_bancada[etapa] = "repack" ),
+			    [Horas de bancada]
+			)
+		formatString: 0.0%
+		lineageTag: aafe5fb9-2340-4569-a967-1587f6d79bf0
+
+	measure '% da etapa' =
+			DIVIDE (
+			    [Horas de bancada],
+			    CALCULATE (
+			        [Horas de bancada],
+			        REMOVEFILTERS ( fato_pa_bancada[etapa_rotulo] ),
+			        REMOVEFILTERS ( fato_pa_bancada[etapa] )
+			    )
+			)
+			
+			/*
+			O HORÁRIO DE PICO DA BANCADA (12/09/2026, pedido do dono: o
+			histograma "fazendo referência do período de tempo que mais usa a
+			bancada"). A hora do dia com mais horas de bancada no recorte, e
+			quanto dela é o total -- "09h (18% das horas)".
+			*/
+		formatString: 0.0%
+		lineageTag: a1620542-79aa-4298-bc12-6219b421d2c4
+
+	measure 'Pico da bancada' =
+			VAR PorHora =
+			    ADDCOLUMNS ( VALUES ( dim_hora[hora_rotulo] ), "@h", [Horas de bancada] )
+			VAR Topo = TOPN ( 1, FILTER ( PorHora, [@h] > 0 ), [@h], DESC )
+			VAR Total = [Horas de bancada]
+			RETURN
+			    IF (
+			        COUNTROWS ( Topo ) > 0,
+			        MAXX ( Topo, dim_hora[hora_rotulo] ) & " ("
+			            & FORMAT ( DIVIDE ( MAXX ( Topo, [@h] ), Total ), "0%" ) & " das horas)"
+			    )
+		lineageTag: 1bedb220-0844-456e-9f64-800abba1895a
+
 	measure 'Litros despejados' =
 			SUM ( fato_pa_despejo[litros] )
-		formatString: #,0
+		formatString: 0.0
 		lineageTag: 0b567c0f-bea6-4432-9501-795640ead8a8
 
 	measure 'Litros por hora' =
 			DIVIDE ( [Litros despejados], SUM ( fato_pa_despejo[horas] ) )
-		formatString: #,0
+		formatString: 0.0
 		lineageTag: 53aaf425-22d9-4bf5-9d66-97cd5ae95a71
 
 	measure 'Lançamentos de despejo' =
@@ -1351,7 +1438,7 @@ table '_Medidas'
 			    REMOVEFILTERS ( dim_colaborador ),
 			    REMOVEFILTERS ( dim_hora )
 			)
-		formatString: #,0
+		formatString: 0.0
 		lineageTag: 8f176e4d-30fa-4acb-b38c-5fbd5d3bf0d5
 
 	measure '% da bombona' =
@@ -1369,12 +1456,27 @@ table '_Medidas'
 		lineageTag: 678fd9a2-cb27-4913-b602-fc70c52178c3
 
 	measure 'Dias sem esvaziar' =
-			CALCULATE (
-			    MAX ( fato_pa_bombona[dias_desde_esvaziamento] ),
-			    REMOVEFILTERS ( dim_calendario ),
-			    REMOVEFILTERS ( dim_colaborador ),
-			    REMOVEFILTERS ( dim_hora )
-			)
+			VAR DesdeOEsvaziamento =
+			    CALCULATE (
+			        MAX ( fato_pa_bombona[dias_desde_esvaziamento] ),
+			        REMOVEFILTERS ( dim_calendario ),
+			        REMOVEFILTERS ( dim_colaborador ),
+			        REMOVEFILTERS ( dim_hora )
+			    )
+			VAR PrimeiroDespejo =
+			    CALCULATE (
+			        MIN ( fato_pa_despejo[data] ),
+			        REMOVEFILTERS ( dim_calendario ),
+			        REMOVEFILTERS ( dim_colaborador ),
+			        REMOVEFILTERS ( dim_hora ),
+			        REMOVEFILTERS ( fato_pa_despejo )
+			    )
+			RETURN
+			    IF (
+			        NOT ISBLANK ( DesdeOEsvaziamento ),
+			        DesdeOEsvaziamento,
+			        IF ( NOT ISBLANK ( PrimeiroDespejo ), DATEDIFF ( PrimeiroDespejo, TODAY (), DAY ) )
+			    )
 		formatString: #,0
 		lineageTag: e6b9288b-6208-4b7e-80bc-9fc0dceb2408
 
@@ -1390,12 +1492,12 @@ table '_Medidas'
 
 	measure 'HL abastecidos' =
 			SUM ( fato_pa_abastecimento[hl] )
-		formatString: #,0
+		formatString: 0.0
 		lineageTag: 0535c1df-0d58-4393-ae76-2f66d3c723c9
 
 	measure 'HL por hora' =
 			DIVIDE ( [HL abastecidos], SUM ( fato_pa_abastecimento[horas] ) )
-		formatString: #,0
+		formatString: 0.0
 		lineageTag: 93883677-7e80-435a-8bbf-097af0951305
 
 	measure 'Sessões de abastecimento' =
@@ -1461,18 +1563,59 @@ table '_Medidas'
 
 	measure 'HL batidos' =
 			SUM ( fato_pa_bate_palete[hl_batido] )
-		formatString: #,0
+		formatString: 0.0
 		lineageTag: 319ab5ce-db6e-4b60-b4a6-8964b6116041
 
 	measure 'HL avariados' =
 			SUM ( fato_pa_bate_palete[hl_avariado] )
-		formatString: #,0
+		formatString: 0.0
 		lineageTag: 04d85e63-ba96-4f0c-a60f-6a95606bd511
 
 	measure '% avaria no bate palete' =
 			DIVIDE ( [HL avariados], [HL batidos] )
 		formatString: 0.0%
 		lineageTag: e6dd655f-720b-462b-a812-37553f36bb8f
+
+	measure 'Paletes batidos' =
+			SUM ( fato_pa_bate_palete[paletes] )
+		formatString: #,0
+		lineageTag: 8bd1a3fc-1401-4956-9876-648d595f1aa9
+
+	measure 'HL aproveitados' =
+			SUM ( fato_pa_bate_palete[hl_aproveitado] )
+		formatString: 0.0
+		lineageTag: 0121dd6d-a2c1-407c-a035-3bb127a9fbf1
+
+	measure 'Lançamentos de bate palete' =
+			DISTINCTCOUNT ( fato_pa_bate_palete[bate_palete_id] )
+			
+			/*
+			REPACK CONTRA A META (12/09/2026). A meta é a cadastrada por produto
+			(pa_produtos.meta_reepack_hora) e vem na linha do lançamento. Produto
+			sem meta fica fora da média da meta, em vez de entrar como zero.
+			*/
+		formatString: #,0
+		lineageTag: 4e9a7e5b-7164-449e-b339-f530e399fc57
+
+	measure 'Meta de repack cx/h' =
+			CALCULATE ( AVERAGE ( fato_pa_bancada[meta_hora] ), fato_pa_bancada[etapa] = "repack" )
+		formatString: 0.0
+		lineageTag: 5ab65868-6d91-4f90-a009-4c8a6764741b
+
+	measure '% da meta de repack' =
+			DIVIDE ( [Repack cx/h], [Meta de repack cx/h] )
+		formatString: 0.0%
+		lineageTag: 2641c02a-270d-40b6-9365-8d9f9e88ff56
+
+	measure 'Dias de repack' =
+			CALCULATE ( DISTINCTCOUNT ( fato_pa_bancada[data] ), fato_pa_bancada[etapa] = "repack" )
+		formatString: #,0
+		lineageTag: 7bbd2501-4314-4fb6-bfb9-565c30f60797
+
+	measure 'Lançamentos de repack' =
+			CALCULATE ( COUNTROWS ( fato_pa_bancada ), fato_pa_bancada[etapa] = "repack" )
+		formatString: #,0
+		lineageTag: 682e64c0-0ab0-4c28-a94b-681c77b9c830
 
 	measure 'Carretas finalizadas' =
 			COUNTROWS ( fato_carreta )
@@ -1697,7 +1840,7 @@ table '_Medidas'
 			mais do que rende. Por isso a tabela do ciclo não liga em dim_hora
 			nem em dim_colaborador — ver a nota da view.
 			*/
-		formatString: R$ #,0.00
+		formatString: R$ #,0.0
 		lineageTag: 37c09d98-caba-4de4-a48f-308a6b8adfd6
 
 	measure 'Horas por botijão' =

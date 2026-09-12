@@ -2,12 +2,12 @@
   "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.12.0/schema.json",
   "name": "852768fc5e89feb689d4",
   "position": {
-    "x": 16,
+    "x": 428,
     "y": 500,
-    "z": 16000,
+    "z": 17000,
     "height": 166,
-    "width": 620,
-    "tabOrder": 16000
+    "width": 426,
+    "tabOrder": 17000
   },
   "visual": {
     "visualType": "tableEx",
@@ -51,11 +51,11 @@
                       "Entity": "_Medidas"
                     }
                   },
-                  "Property": "Lançamentos de bancada"
+                  "Property": "% do tempo na triagem"
                 }
               },
-              "queryRef": "_Medidas.Lançamentos de bancada",
-              "nativeQueryRef": "Lançamentos de bancada"
+              "queryRef": "_Medidas.% do tempo na triagem",
+              "nativeQueryRef": "% do tempo na triagem"
             },
             {
               "field": {
@@ -65,11 +65,11 @@
                       "Entity": "_Medidas"
                     }
                   },
-                  "Property": "% do tempo na triagem"
+                  "Property": "% do tempo no repack"
                 }
               },
-              "queryRef": "_Medidas.% do tempo na triagem",
-              "nativeQueryRef": "% do tempo na triagem"
+              "queryRef": "_Medidas.% do tempo no repack",
+              "nativeQueryRef": "% do tempo no repack"
             },
             {
               "field": {
@@ -119,6 +119,48 @@
           }
         ]
       }
+    },
+    "objects": {
+      "values": [
+        {
+          "properties": {
+            "wordWrap": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "columnHeaders": [
+        {
+          "properties": {
+            "wordWrap": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            },
+            "columnAdjustment": {
+              "expr": {
+                "Literal": {
+                  "Value": "'fixedWidth'"
+                }
+              }
+            },
+            "defaultColumnWidth": {
+              "expr": {
+                "Literal": {
+                  "Value": "70D"
+                }
+              }
+            }
+          }
+        }
+      ]
     },
     "visualContainerObjects": {
       "title": [

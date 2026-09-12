@@ -4,10 +4,10 @@
   "position": {
     "x": 16,
     "y": 672,
-    "z": 20000,
+    "z": 18000,
     "height": 30,
     "width": 1248,
-    "tabOrder": 20000
+    "tabOrder": 18000
   },
   "visual": {
     "visualType": "textbox",
@@ -19,7 +19,7 @@
               {
                 "textRuns": [
                   {
-                    "value": "OS TRÊS PRIMEIROS CARTÕES NÃO SEGUEM OS FILTROS, e isso é o desenho. A bombona é um recipiente físico: não tem turno nem dono, e não existe \"quanto tinha nela em agosto\". Filtrada por turno, o T1 veria a bombona pela metade e o T2 vazia — sendo a mesma bombona. A conta começa no último esvaziamento registrado no app. O filtro de Revenda continua valendo: cada revenda tem a sua. \"Litros no recorte\" (4º cartão) é o oposto: esse sim segue período, turno, pessoa e embalagem — é produção, não nível. \"% no descarte\" muito abaixo de 100% é viagem sobrando na rota do resíduo; \"dias sem esvaziar\" alto com a bombona cheia é risco ambiental. Nenhum dos dois aparece em \"litros despejados no mês\".",
+                    "value": "OS TRÊS PRIMEIROS CARTÕES NÃO SEGUEM OS FILTROS: a bombona é um recipiente físico, sem turno nem dono. Ela soma desde o último esvaziamento registrado no app — e, enquanto nenhum for registrado, desde o primeiro despejo. Por isso ela NÃO bate com \"Litros despejados no período\", que soma só o que estiver filtrado: os dois só coincidem com o período inteiro desde o último esvaziamento. Registre o esvaziamento no app a cada descarte, senão a bombona nunca zera. As tabelas estão na página seguinte.",
                     "textStyle": {
                       "fontSize": "8pt",
                       "color": "#64748B"

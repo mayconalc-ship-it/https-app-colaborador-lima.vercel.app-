@@ -4,10 +4,10 @@
   "position": {
     "x": 16,
     "y": 672,
-    "z": 21000,
+    "z": 19000,
     "height": 30,
     "width": 1248,
-    "tabOrder": 21000
+    "tabOrder": 19000
   },
   "visual": {
     "visualType": "textbox",
@@ -19,7 +19,7 @@
               {
                 "textRuns": [
                   {
-                    "value": "Toda taxa desta página é SOMA ÷ SOMA (caixas do recorte ÷ horas do recorte), nunca média das taxas de cada lançamento: um lançamento de dois minutos tem taxa absurda e pesaria igual a um de seis horas. Pelo mesmo motivo, aplique no painel Filtros um corte de ≥ 1 hora apontada nos gráficos de ritmo (o corte vem declarado mas nasce desligado — ver o cabeçalho de gerar-pbip.js). \"Minutos por caixa\" é por CAIXA, não por lançamento — é a mesma conta do cartão do app. A meta por produto é a cadastrada em Admin; produto sem meta simplesmente não entra na comparação, em vez de entrar como zero e derrubar a média de todo mundo. No bate palete, o % sai da soma sobre a soma: a média dos percentuais trataria um lote de 2 HL igual a um de 200, e o lote pequeno é sempre o de percentual extremo.",
+                    "value": "Esta página é só de REPACK: a seleção e triagem ficam na página da Bancada. Toda taxa é SOMA ÷ SOMA (caixas do recorte ÷ horas do recorte), nunca média das taxas de cada lançamento: um lançamento de dois minutos tem taxa absurda e pesaria igual a um de seis horas. Aplique no painel Filtros um corte de ≥ 1 hora apontada no ritmo por produto (o corte vem declarado mas nasce desligado). \"Minutos por caixa\" é por CAIXA, não por lançamento. As tabelas por produto, colaborador e embalagem estão na página seguinte.",
                     "textStyle": {
                       "fontSize": "8pt",
                       "color": "#64748B"

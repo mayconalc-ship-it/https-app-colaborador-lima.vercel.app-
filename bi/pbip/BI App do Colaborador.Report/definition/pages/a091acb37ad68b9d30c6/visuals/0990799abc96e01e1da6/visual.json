@@ -4,10 +4,10 @@
   "position": {
     "x": 16,
     "y": 672,
-    "z": 18000,
+    "z": 19000,
     "height": 30,
     "width": 1248,
-    "tabOrder": 18000
+    "tabOrder": 19000
   },
   "visual": {
     "visualType": "textbox",
@@ -19,7 +19,7 @@
               {
                 "textRuns": [
                   {
-                    "value": "Seleção e Repack são as duas etapas do MESMO ciclo (POP-ARM-001, 7.2 a 7.6): o produto sai do palete avariado, é triado e volta embalado. Por isso a carga da bancada é a soma das duas — e por isso \"% do tempo na triagem\" é o número que interessa: se a triagem passar a puxar a maior fatia, o gargalo está na QUALIDADE DO QUE CHEGA, não na velocidade de quem embala, e antes disso aparecia como \"repack lento\". Caixas (repack) e unidades triadas (seleção) NÃO se somam — são unidades diferentes, e por isso vivem em colunas separadas. \"Média por dia\" divide pelos dias que TIVERAM lançamento, não pelos dias do período: contar domingo e dia parado faria a bancada parecer ociosa quando ela apenas não operou. Duas pessoas na bancada ao mesmo tempo somam as duas horas — é carga de trabalho, não relógio de parede. O ritmo por produto está na página seguinte.",
+                    "value": "Seleção e Repack são as duas etapas do MESMO ciclo (POP-ARM-001, 7.2 a 7.6): a carga da bancada é a soma das duas, e \"% do tempo na triagem\" + \"% do tempo no repack\" dão 100%. Se a triagem passar a puxar a maior fatia, o gargalo está na QUALIDADE DO QUE CHEGA. Caixas (repack) e unidades triadas (seleção) NÃO se somam. As horas vêm do início e do fim de cada lançamento: lançamento aberto e fechado na mesma hora conta segundos. Foi o caso do T3 em 10/09/2026 — 15 lançamentos, todos abertos e fechados em segundos por volta das 07h, somando 0,1 h. Para o turno aparecer com o tempo real, o lançamento tem de ser iniciado quando o trabalho começa e finalizado quando termina. \"Média por dia\" divide pelos dias que TIVERAM lançamento. O ritmo por produto está na página de Repack.",
                     "textStyle": {
                       "fontSize": "8pt",
                       "color": "#64748B"
