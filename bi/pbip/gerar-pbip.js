@@ -270,7 +270,21 @@ const MEDIDAS_TEXTO = new Set([
   '3º porquê',
   '4º porquê',
   '5º porquê',
+  // "09h (18% das horas)" -- o pico da bancada (12/09/2026).
+  'Pico da bancada',
 ]);
+
+// UMA CASA (12/09/2026, pedido do dono: "nos cartoes deixe uma casa
+// decimal nas que tem decimal"). Taxas e medias que o nome nao denuncia --
+// sem esta lista cairiam no '#,0' e mostrariam 38 onde e 37,6.
+const MEDIDAS_UMA_CASA = new Set([
+  'Repack cx/h', 'Minutos por caixa', 'Seleção un/h', 'Bancada h/dia',
+  'Litros por hora', 'Na bombona (L)', 'Litros despejados', 'HL por hora',
+  'HL abastecidos', 'HL batidos', 'HL avariados', 'HL aproveitados',
+  'Meta de repack cx/h',
+]);
+// O custo do gas com UMA casa, como os demais cartoes da Empilhadeira.
+const MEDIDAS_REAIS_UMA_CASA = new Set(['Custo do gás (R$)']);
 
 // Razoes que o nome nao denuncia: "Aproveitamento médio" cairia na regra
 // de media e sairia como 0,8 em vez de 80,0%.
@@ -285,6 +299,8 @@ const MEDIDAS_DUAS_CASAS = new Set(['Nota média', 'Nota média por cidade', 'No
 function formatoDe(nome) {
   if (MEDIDAS_TEXTO.has(nome)) return null;
   if (MEDIDAS_DUAS_CASAS.has(nome)) return '0.00';
+  if (MEDIDAS_UMA_CASA.has(nome)) return '0.0';
+  if (MEDIDAS_REAIS_UMA_CASA.has(nome)) return 'R$ #,0.0';
   // Dinheiro (12/09/2026): a conciliacao do AG em R$. "R" e "$" sao
   // literais na format string; o separador segue a localidade (1.234,56).
   if (nome.includes('(R$)')) return 'R$ #,0.00';
@@ -829,7 +845,10 @@ function visualJson(v, ordemZ) {
   }
 
   const COM_ROTULO = ['columnChart', 'clusteredColumnChart', 'barChart',
-    'clusteredBarChart', 'lineChart', 'stackedAreaChart', 'funnel', 'scatterChart'];
+    'clusteredBarChart', 'lineChart', 'stackedAreaChart', 'funnel', 'scatterChart',
+    // A rosca da bancada (12/09/2026): sem rotulo ela so diz "mais ou
+    // menos metade", e a pergunta e o numero.
+    'donutChart'];
   if (COM_ROTULO.includes(v.t)) {
     fmt('labels', { show: lit('true'), bold: lit('true') });
   }
@@ -1218,12 +1237,20 @@ function visuaisFiltro(pagina) {
   // antes; com 5, 240.
   const lista = pagina.filtros || filtros;
   const vao = 12;
-  const largura = Math.floor((1280 - 32 - vao * (lista.length - 1)) / lista.length);
-  const passo = largura + vao;
+  // LARGURA POR PESO (12/09/2026): com sete filtros na barra do
+  // Recebimento, o de Periodo -- que tem DUAS datas lado a lado -- saia
+  // cortado. Cada filtro pode pedir mais espaco com `peso` (padrao 1).
+  const pesos = lista.map((f) => f.peso || 1);
+  const unidade = (1280 - 32 - vao * (lista.length - 1)) / pesos.reduce((a, b) => a + b, 0);
+  const xs = [];
+  pesos.reduce((x, p) => {
+    xs.push(Math.round(x));
+    return x + p * unidade + vao;
+  }, 16);
   return lista.map((f, i) => ({
     chave: `${pagina.nome}:filtro:${f.titulo}`,
     t: 'slicer',
-    x: 16 + i * passo, y: 72, w: largura, h: 72,
+    x: xs[i], y: 72, w: Math.floor(pesos[i] * unidade), h: 72,
     titulo: null,
     grupoSincronia: f.campo,
     roles: { Values: [f.campo] },

@@ -213,7 +213,7 @@ create or replace view bi.dim_empilhadeira as
 select
   m.id                                        as empilhadeira_id,
   m.revenda_id,
-  'Empilhadeira ' || m.numero                 as empilhadeira,
+  m.numero                                    as empilhadeira,  -- so o numero (pedido do dono, 12/09/2026)
   m.numero
 from public.pa_empilhadeiras m;
 
@@ -680,7 +680,7 @@ select
   o.operador_id                               as colaborador_id,
   o.operador_nome                             as colaborador,
   o.empilhadeira_id,
-  'Empilhadeira ' || m.numero                 as empilhadeira,
+  m.numero                                    as empilhadeira,  -- so o numero (pedido do dono, 12/09/2026)
   o.status,
   (o.horimetro_final is not null)             as encerrada,
   o.horimetro_inicial,
@@ -720,7 +720,7 @@ select
   g.operador_id                               as colaborador_id,
   g.operador_nome                             as colaborador,
   g.empilhadeira_id,
-  'Empilhadeira ' || m.numero                 as empilhadeira,
+  m.numero                                    as empilhadeira,  -- so o numero (pedido do dono, 12/09/2026)
   g.horimetro,
   cfg.custo_p20,
   g.realizada_em,
@@ -840,7 +840,7 @@ select * from (
     g.operador_id                               as colaborador_id,
     g.operador_nome                             as colaborador,
     g.empilhadeira_id,
-    'Empilhadeira ' || m.numero                 as empilhadeira,
+    m.numero                                    as empilhadeira,  -- so o numero (pedido do dono, 12/09/2026)
 
     -- A ponta que ABRE o ciclo: a troca anterior desta mesma maquina.
     lag(g.realizada_em) over w                  as inicio_em,

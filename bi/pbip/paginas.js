@@ -39,7 +39,9 @@ const LARG_KPI = 240;
 // sobra do bloco de filtros.
 const filtros = [
   { campo: 'dim_revenda.revenda', titulo: '🏢 Revenda' },
-  { campo: 'dim_calendario.data', titulo: '🗓️ Período', modo: 'Between' },
+  // peso 1.6 (12/09/2026): o Periodo tem DUAS datas lado a lado, e com
+  // seis ou sete filtros na barra ele saia cortado. Ver visuaisFiltro.
+  { campo: 'dim_calendario.data', titulo: '🗓️ Período', modo: 'Between', peso: 1.6 },
   { campo: 'dim_colaborador.area_rotulo', titulo: '📍 Área' },
   // busca: caixa de "digite para procurar" dentro da segmentacao. So
   // aqui: sao ~160 nomes e a lista cresce a cada contratacao. Revenda
@@ -95,9 +97,14 @@ const filtros = [
   referencia para copiar a forma certa.
 */
 function filtrosComColaboradorDaPagina(campoDoNome, titulo = '👤 Colaborador') {
-  return filtros.map((f) =>
-    f.campo === 'dim_colaborador.colaborador' ? { campo: campoDoNome, titulo, busca: true } : f,
-  );
+  // SEM AREA (12/09/2026, pedido do dono em cada pagina do armazem): a
+  // lista global traz todas as areas, e nestas paginas so o armazem
+  // lanca -- o filtro nao separa nada e ainda oferece Distribuicao.
+  return filtros
+    .filter((f) => f.campo !== 'dim_colaborador.area_rotulo')
+    .map((f) =>
+      f.campo === 'dim_colaborador.colaborador' ? { campo: campoDoNome, titulo, busca: true } : f,
+    );
 }
 
 // kpis: lista de [titulo, medida]
@@ -314,7 +321,9 @@ const paginas = [
         // Mais alto e em linha RETA (12/09/2026): a curva suavizada passava
         // do ponto mais alto e o pico saia cortado. Com a faixa de baixo
         // fora da pagina, o grafico ocupa a altura toda.
-        t: 'lineChart', x: 16, y: Y.meio, w: 380, h: 414, reta: true,
+        // NA HORIZONTAL, na largura toda (12/09/2026, pedido do dono), e
+        // as duas tabelas embaixo.
+        t: 'lineChart', x: 16, y: Y.meio, w: 1248, h: H.meio, reta: true,
         titulo: '📈 Contagens por dia do mês (sem domingos)',
         roles: {
           Category: ['dim_calendario.dia_rotulo'],
@@ -356,7 +365,7 @@ const paginas = [
         // quebraTexto prende cada coluna em 96 px em vez de deixar a
         // tabela distribuir largura pelo conteudo, que e o que espremia
         // as ultimas para fora da area visivel.
-        t: 'tableEx', x: 408, y: Y.meio, w: 420, h: 414,
+        t: 'tableEx', x: 16, y: Y.base, w: 620, h: H.base,
         quebraTexto: 96,
         titulo: '📅 Aderência por dia',
         roles: {
@@ -385,7 +394,7 @@ const paginas = [
         // tem de premiar quem bate a meta, nao quem cobre o calendario.
         // "Ocorrencias de contagem" voltou junto com as colunas da
         // tabela ao lado, pelo mesmo motivo.
-        t: 'tableEx', x: 840, y: Y.meio, w: 424, h: 414,
+        t: 'tableEx', x: 648, y: Y.base, w: 616, h: H.base,
         quebraTexto: 96,
         titulo: '🏆 Ranking no AG — contra a meta',
         roles: {
@@ -1049,7 +1058,10 @@ const paginas = [
     filtros: [
       { campo: 'dim_revenda.revenda', titulo: '🏢 Revenda' },
       { campo: 'dim_calendario.ano_mes', titulo: '📆 Mês' },
-      { campo: 'fato_comunicado_agenda.tipo', titulo: '🏷️ Tipo de marca' },
+      // PUBLICADOR no lugar de "Tipo de marca" (12/09/2026, pedido do
+      // dono). E o autor do comunicado; a agenda o acompanha pelas medidas
+      // (ver [Itens do cronograma] em 07-medidas.dax).
+      { campo: 'fato_comunicado.autor', titulo: '✍️ Publicador' },
       { campo: 'fato_comunicado_agenda.categoria', titulo: '🗂️ Editoria' },
     ],
     kpis: [
@@ -1097,7 +1109,9 @@ const paginas = [
         //      que e o certo num cruzamento de numeros e errado aqui: a
         //      grade E o calendario. Sem ela, a publicacao do dia 11 e a
         //      do dia 12 sao dois blocos de texto encostados.
-        t: 'pivotTable', x: 16, y: Y.meio, w: 1248, h: 414,
+        // 290 de altura (era 414) para abrir espaco a adesao por dia,
+        // logo abaixo (12/09/2026).
+        t: 'pivotTable', x: 16, y: Y.meio, w: 1248, h: 290,
         grade: true,
         // A celula leva o numero e uma linha por marca, separadas por
         // quebra de linha (UNICHAR(10) na medida). Sem quebra de texto
@@ -1113,6 +1127,25 @@ const paginas = [
           Columns: ['dim_calendario.dia_semana_abrev'],
           Values: ['@Célula do calendário'],
         },
+      },
+      {
+        // A ADESAO POR DIA, SEM DOMINGO (12/09/2026, pedido do dono).
+        // Adesao = colaboradores que curtiram algum comunicado naquele dia
+        // / colaboradores da revenda. Domingo fora pelo mesmo motivo do
+        // grafico do AG: o zero de todo domingo so serrilha a linha.
+        t: 'columnChart', x: 16, y: 550, w: 1248, h: 116,
+        titulo: '📈 % de adesão por dia (sem domingos) — quem curtiu no dia ÷ colaboradores',
+        roles: {
+          Category: ['dim_calendario.dia_rotulo'],
+          Y: ['@% Participação na comunicação'],
+        },
+        filtroVisual: {
+          campo: 'dim_calendario.dia_semana_nome',
+          valores: ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'],
+        },
+        dica:
+          'Adesão do dia = colaboradores que curtiram algum comunicado naquele dia ÷ colaboradores ' +
+          'da revenda. Domingos ficam fora. O eixo é o dia do mês: escolha um mês no filtro.',
       },
       // A tabela "Agenda detalhada" ficava aqui e saiu em 23/08/2026.
       //
@@ -1534,10 +1567,17 @@ const paginas = [
       // turno apontado pela pessoa, e e ele que a escala usa.
       { campo: 'dim_hora.turno_rotulo', titulo: '🕐 Turno' },
     ],
+    // 12/09/2026, pedido do dono: unidade na "Media por dia"; o % de
+    // selecao x repack saiu do cartao e virou rosca; o horario de pico
+    // entrou no lugar dele -- e o que torna o histograma analitico.
     kpis: [
-      ['🧰 Horas de bancada', '@Horas de bancada'],
-      ['📅 Média por dia', '@Bancada h/dia'],
-      ['🔍 % do tempo na triagem', '@% do tempo na triagem'],
+      ['🧰 Horas de bancada (h)', '@Horas de bancada'],
+      ['📅 Média por dia (h)', '@Bancada h/dia',
+        'Horas de bancada por DIA TRABALHADO — soma das horas de seleção e de repack dividida ' +
+        'pelos dias que tiveram lançamento. Domingo e dia parado não entram na divisão.'],
+      ['⏰ Pico da bancada', '@Pico da bancada',
+        'A hora do dia em que a bancada mais trabalhou no recorte, e quanto dela é o total de ' +
+        'horas. É a barra mais alta do histograma.'],
       ['📦 Caixas repackadas', '@Caixas repackadas'],
       ['🔍 Unidades triadas', '@Unidades triadas'],
     ],
@@ -1550,34 +1590,69 @@ const paginas = [
         // EXISTE: escrito assim, o Desktop mostra a caixa cinza de
         // "CustomVisualNotFound", que manda procurar um visual
         // personalizado inexistente. O validador agora barra isso.
-        t: 'columnChart', x: 16, y: Y.meio, w: 620, h: H.meio,
+        //
+        // O % de cada etapa no dia vai na DICA de cada pedaco da barra, e
+        // tambem no grafico ao lado, em linha (12/09/2026).
+        t: 'columnChart', x: 16, y: Y.meio, w: 500, h: H.meio,
         titulo: '🧰 Horas de bancada por dia — triagem × reembalagem',
         roles: {
           Category: ['dim_calendario.dia_rotulo'],
           Y: ['@Horas de bancada'],
           Series: ['fato_pa_bancada.etapa_rotulo'],
+          Tooltips: ['@% da etapa'],
         },
       },
       {
-        // A HORA DO DIA cruzando com dim_hora: clicar numa barra aqui
-        // recorta a pagina inteira -- e as outras, pelo filtro
-        // sincronizado.
-        t: 'columnChart', x: 648, y: Y.meio, w: 616, h: H.meio,
-        titulo: '🕐 Quando a bancada trabalha',
+        // O % DE CADA ETAPA POR DIA (12/09/2026, pedido do dono). Em
+        // linha, e nao em coluna 100%: o tipo "100% empilhado" nao tem
+        // exemplo real aqui, e as duas linhas se leem como espelho uma da
+        // outra -- quando a triagem sobe, o repack desce.
+        t: 'lineChart', x: 528, y: Y.meio, w: 460, h: H.meio, reta: true,
+        titulo: '📊 % de cada etapa por dia — triagem × reembalagem',
+        roles: {
+          Category: ['dim_calendario.dia_rotulo'],
+          Y: ['@% do tempo na triagem', '@% do tempo no repack'],
+        },
+      },
+      {
+        // A ROSCA (12/09/2026, pedido do dono: "grafico de pizza ou algum
+        // mais moderno"). O valor e o proprio % da etapa, entao o rotulo
+        // ja sai em porcentagem.
+        t: 'donutChart', x: 1000, y: Y.meio, w: 264, h: H.meio,
+        titulo: '🍩 Seleção × repack — % do tempo',
+        roles: {
+          Category: ['fato_pa_bancada.etapa_rotulo'],
+          Y: ['@% da etapa'],
+        },
+      },
+      {
+        // HISTOGRAMA, com o nome que ele tem (12/09/2026). As cores sao a
+        // FAIXA DO DIA de cada hora -- madrugada, manha, tarde, noite --,
+        // o que diz de relance em que periodo a bancada mais trabalha; o
+        // cartao "Pico da bancada" da a hora exata.
+        t: 'columnChart', x: 16, y: Y.base, w: 400, h: H.base,
+        titulo: '📊 Histograma — horas de bancada por hora do dia',
         roles: {
           Category: ['dim_hora.hora_rotulo'],
           Y: ['@Horas de bancada'],
+          Series: ['dim_hora.faixa_do_dia'],
         },
+        dica:
+          'Histograma: cada barra é uma hora do dia e a altura é quanto a bancada trabalhou naquela ' +
+          'hora, somando todos os dias do recorte. A cor é a faixa do dia. Clicar numa barra recorta ' +
+          'a página inteira por aquela hora.',
       },
       {
-        t: 'tableEx', x: 16, y: Y.base, w: 620, h: H.base,
+        t: 'tableEx', x: 428, y: Y.base, w: 426, h: H.base,
+        quebraTexto: 70,
         titulo: '👥 Tempo de bancada por colaborador',
         roles: {
           Values: [
             'fato_pa_bancada.colaborador',
             '@Horas de bancada',
-            '@Lançamentos de bancada',
             '@% do tempo na triagem',
+            // Pedido do dono (12/09/2026).
+            '@% do tempo no repack',
             '@Caixas repackadas',
             '@Unidades triadas',
           ],
@@ -1585,34 +1660,37 @@ const paginas = [
         ordem: { campo: '@Horas de bancada', dir: 'Descending' },
       },
       {
-        t: 'tableEx', x: 648, y: Y.base, w: 616, h: H.base,
+        t: 'tableEx', x: 866, y: Y.base, w: 398, h: H.base,
+        quebraTexto: 56,
         titulo: '🕐 Por turno — carga e divisão do ciclo',
         roles: {
           Values: [
             'fato_pa_bancada.turno_rotulo',
             '@Horas de bancada',
-            '@Caixas repackadas',
-            '@Repack cx/h',
-            '@Unidades triadas',
-            '@Seleção un/h',
+            // Os lancamentos ao lado das horas: e o que mostra um turno
+            // que lancou e quase nao somou horas (ver a nota).
+            '@Lançamentos de bancada',
             '@% do tempo na triagem',
+            // Pedido do dono (12/09/2026).
+            '@% do tempo no repack',
+            '@Repack cx/h',
+            '@Seleção un/h',
           ],
         },
         ordem: { campo: '@Horas de bancada', dir: 'Descending' },
       },
     ],
     nota:
-      'Seleção e Repack são as duas etapas do MESMO ciclo (POP-ARM-001, 7.2 a 7.6): o produto sai '
-      + 'do palete avariado, é triado e volta embalado. Por isso a carga da bancada é a soma das '
-      + 'duas — e por isso "% do tempo na triagem" é o número que interessa: se a triagem passar a '
-      + 'puxar a maior fatia, o gargalo está na QUALIDADE DO QUE CHEGA, não na velocidade de quem '
-      + 'embala, e antes disso aparecia como "repack lento". '
-      + 'Caixas (repack) e unidades triadas (seleção) NÃO se somam — são unidades diferentes, e por '
-      + 'isso vivem em colunas separadas. '
-      + '"Média por dia" divide pelos dias que TIVERAM lançamento, não pelos dias do período: contar '
-      + 'domingo e dia parado faria a bancada parecer ociosa quando ela apenas não operou. '
-      + 'Duas pessoas na bancada ao mesmo tempo somam as duas horas — é carga de trabalho, não '
-      + 'relógio de parede. O ritmo por produto está na página seguinte.',
+      'Seleção e Repack são as duas etapas do MESMO ciclo (POP-ARM-001, 7.2 a 7.6): a carga da ' +
+      'bancada é a soma das duas, e "% do tempo na triagem" + "% do tempo no repack" dão 100%. ' +
+      'Se a triagem passar a puxar a maior fatia, o gargalo está na QUALIDADE DO QUE CHEGA. ' +
+      'Caixas (repack) e unidades triadas (seleção) NÃO se somam. ' +
+      'As horas vêm do início e do fim de cada lançamento: lançamento aberto e fechado na mesma ' +
+      'hora conta segundos. Foi o caso do T3 em 10/09/2026 — 15 lançamentos, todos abertos e ' +
+      'fechados em segundos por volta das 07h, somando 0,1 h. Para o turno aparecer com o tempo ' +
+      'real, o lançamento tem de ser iniciado quando o trabalho começa e finalizado quando termina. ' +
+      '"Média por dia" divide pelos dias que TIVERAM lançamento. O ritmo por produto está na ' +
+      'página de Repack.',
   },
 
   // ================================================================
@@ -1630,25 +1708,34 @@ const paginas = [
       divisao.
     */
     nome: '📦 Repack — produto e família',
+    /*
+      SO REPACK (12/09/2026, pedido do dono: "deixe somente o que diz
+      respeito de reepack"). O filtro de PAGINA tira a selecao de tudo --
+      inclusive da lista de colaboradores, que passa a trazer so quem
+      lancou repack. Saiu o filtro de Tipo; o bate palete e a tabela
+      produto x meta foram para paginas proprias, logo depois desta.
+    */
+    filtroPagina: { campo: 'fato_pa_bancada.etapa_rotulo', valores: ['Repack'] },
     filtros: [
       ...filtrosComColaboradorDaPagina('fato_pa_bancada.colaborador'),
       { campo: 'dim_hora.turno_rotulo', titulo: '🕐 Turno' },
-      // Familia e tipo saem do cadastro do SAP (cluster_produto e tipo).
-      // Garrafa retornavel e lata descartavel nao embalam no mesmo ritmo,
-      // e uma media unica das duas apaga a diferenca.
+      // Familia sai do cadastro do SAP (cluster_produto).
       { campo: 'fato_pa_bancada.familia', titulo: '🍺 Família' },
-      { campo: 'fato_pa_bancada.tipo_rotulo', titulo: '♻️ Tipo' },
     ],
     kpis: [
       ['📦 Repack cx/h', '@Repack cx/h'],
       ['⏱️ Minutos por caixa', '@Minutos por caixa'],
       ['📦 Caixas repackadas', '@Caixas repackadas'],
-      ['🧾 Lançamentos', '@Lançamentos de bancada'],
-      ['🤲 % avaria no bate palete', '@% avaria no bate palete'],
+      ['🎯 % da meta', '@% da meta de repack',
+        'Caixas por hora do recorte ÷ a média das metas cadastradas dos produtos repackados. ' +
+        'Produto sem meta cadastrada fica fora da meta, em vez de entrar como zero.'],
+      ['🧾 Lançamentos', '@Lançamentos de repack'],
     ],
     visuais: [
+      // A ORDEM pedida pelo dono (12/09/2026): produto, embalagem ao lado,
+      // familia por ultimo.
       {
-        t: 'clusteredBarChart', x: 16, y: Y.meio, w: 430, h: H.meio,
+        t: 'clusteredBarChart', x: 16, y: Y.meio, w: 410, h: H.meio,
         titulo: '📦 Ritmo por produto — caixas por hora',
         roles: {
           Category: ['fato_pa_bancada.produto'],
@@ -1660,20 +1747,10 @@ const paginas = [
         corteMinimo: { campo: 'fato_pa_bancada.horas', minimo: 1 },
       },
       {
-        t: 'clusteredBarChart', x: 458, y: Y.meio, w: 430, h: H.meio,
-        titulo: '🍺 Ritmo por família',
-        roles: {
-          Category: ['fato_pa_bancada.familia'],
-          Y: ['@Repack cx/h'],
-        },
-        ordem: { campo: '@Repack cx/h', dir: 'Descending' },
-      },
-      {
         // Por EMBALAGEM, e nao so por produto: 25 produtos com um
-        // lancamento cada nao formam padrao nenhum -- a embalagem junta,
-        // e lata 350 contra long neck e uma comparacao que se sustenta.
-        t: 'clusteredBarChart', x: 900, y: Y.meio, w: 364, h: H.meio,
-        titulo: '📦 Ritmo por embalagem',
+        // lancamento cada nao formam padrao nenhum -- a embalagem junta.
+        t: 'clusteredBarChart', x: 438, y: Y.meio, w: 410, h: H.meio,
+        titulo: '📦 Ritmo por embalagem — caixas por hora',
         roles: {
           Category: ['fato_pa_bancada.embalagem'],
           Y: ['@Repack cx/h'],
@@ -1681,52 +1758,204 @@ const paginas = [
         ordem: { campo: '@Repack cx/h', dir: 'Descending' },
       },
       {
-        t: 'tableEx', x: 16, y: Y.base, w: 620, h: H.base,
+        t: 'clusteredBarChart', x: 860, y: Y.meio, w: 404, h: H.meio,
+        titulo: '🍺 Ritmo por família — caixas por hora',
+        roles: {
+          Category: ['fato_pa_bancada.familia'],
+          Y: ['@Repack cx/h'],
+        },
+        ordem: { campo: '@Repack cx/h', dir: 'Descending' },
+      },
+      {
+        // QUANTIDADE POR MES (12/09/2026, pedido do dono). ano_mes, e nao
+        // o rotulo "ago/26": o eixo ordena texto em ordem alfabetica.
+        t: 'columnChart', x: 16, y: Y.base, w: 620, h: H.base,
+        titulo: '📆 Caixas repackadas por mês',
+        roles: {
+          Category: ['dim_calendario.ano_mes'],
+          Y: ['@Caixas repackadas'],
+        },
+      },
+      {
+        t: 'clusteredBarChart', x: 648, y: Y.base, w: 616, h: H.base,
+        titulo: '👥 Caixas repackadas por colaborador',
+        roles: {
+          Category: ['fato_pa_bancada.colaborador'],
+          Y: ['@Caixas repackadas'],
+        },
+        ordem: { campo: '@Caixas repackadas', dir: 'Descending' },
+      },
+    ],
+    nota:
+      'Esta página é só de REPACK: a seleção e triagem ficam na página da Bancada. ' +
+      'Toda taxa é SOMA ÷ SOMA (caixas do recorte ÷ horas do recorte), nunca média das taxas de ' +
+      'cada lançamento: um lançamento de dois minutos tem taxa absurda e pesaria igual a um de ' +
+      'seis horas. Aplique no painel Filtros um corte de ≥ 1 hora apontada no ritmo por produto ' +
+      '(o corte vem declarado mas nasce desligado). "Minutos por caixa" é por CAIXA, não por ' +
+      'lançamento. As tabelas por produto, colaborador e embalagem estão na página seguinte.',
+  },
+
+  // ================================================================
+  {
+    /*
+      AS TABELAS DO REPACK (12/09/2026, pedido do dono: "mova a tabela
+      produto realizado contra meta cadastrada em outra pagina, e traga
+      tabelas por colaborador e mais algumas que julga interessante").
+      Mesmo filtro de pagina da anterior: so repack.
+    */
+    nome: '📋 Repack — tabelas',
+    filtroPagina: { campo: 'fato_pa_bancada.etapa_rotulo', valores: ['Repack'] },
+    filtros: [
+      ...filtrosComColaboradorDaPagina('fato_pa_bancada.colaborador'),
+      { campo: 'dim_hora.turno_rotulo', titulo: '🕐 Turno' },
+      { campo: 'fato_pa_bancada.familia', titulo: '🍺 Família' },
+    ],
+    kpis: [
+      ['📦 Caixas repackadas', '@Caixas repackadas'],
+      ['📦 Repack cx/h', '@Repack cx/h'],
+      ['🎯 Meta cx/h (média)', '@Meta de repack cx/h',
+        'A média das metas cadastradas dos produtos repackados no recorte.'],
+      ['🎯 % da meta', '@% da meta de repack'],
+    ],
+    visuais: [
+      {
+        t: 'tableEx', x: 16, y: Y.meio, w: 1248, h: H.meio,
+        quebraTexto: 124,
         titulo: '📋 Produto — realizado contra a meta cadastrada',
         roles: {
           Values: [
             'fato_pa_bancada.produto',
             'fato_pa_bancada.familia',
-            'fato_pa_bancada.tipo_rotulo',
+            'fato_pa_bancada.embalagem',
             '@Caixas repackadas',
             '@Horas de bancada',
             '@Repack cx/h',
+            '@Meta de repack cx/h',
+            '@% da meta de repack',
             '@Minutos por caixa',
           ],
         },
-        // Do mais LENTO para o mais rapido: a lista existe para achar
-        // onde o ritmo trava.
-        ordem: { campo: '@Repack cx/h', dir: 'Ascending' },
+        // Do mais LONGE da meta para o mais perto: a lista existe para
+        // achar onde o ritmo trava.
+        ordem: { campo: '@% da meta de repack', dir: 'Ascending' },
       },
       {
-        // O BATE PALETE mora aqui e nao no Despejo: ele e retrabalho de
-        // produto avariado, e a pergunta que ele responde -- quanto do
-        // palete voltou inteiro ao estoque -- e por SKU, igual ao ritmo
-        // de repack ao lado.
+        t: 'tableEx', x: 16, y: Y.base, w: 620, h: H.base,
+        quebraTexto: 76,
+        titulo: '👥 Por colaborador — volume, ritmo e meta',
+        roles: {
+          Values: [
+            'fato_pa_bancada.colaborador',
+            '@Caixas repackadas',
+            '@Horas de bancada',
+            '@Repack cx/h',
+            '@% da meta de repack',
+            '@Minutos por caixa',
+            '@Dias de repack',
+            '@Lançamentos de repack',
+          ],
+        },
+        ordem: { campo: '@Caixas repackadas', dir: 'Descending' },
+      },
+      {
         t: 'tableEx', x: 648, y: Y.base, w: 616, h: H.base,
-        titulo: '🤲📦 Bate palete — onde está a avaria',
+        quebraTexto: 86,
+        titulo: '🕐 Por turno — volume e ritmo',
+        roles: {
+          Values: [
+            'fato_pa_bancada.turno_rotulo',
+            '@Caixas repackadas',
+            '@Horas de bancada',
+            '@Repack cx/h',
+            '@% da meta de repack',
+            '@Minutos por caixa',
+            '@Lançamentos de repack',
+          ],
+        },
+        ordem: { campo: '@Caixas repackadas', dir: 'Descending' },
+      },
+    ],
+    nota:
+      '"% da meta" = caixas por hora ÷ a meta cadastrada do produto (Admin > produtos). Produto sem ' +
+      'meta fica fora da média da meta, em vez de entrar como zero. A tabela de produto começa pelo ' +
+      'mais longe da meta: é onde o ritmo trava.',
+  },
+
+  // ================================================================
+  {
+    /*
+      BATE PALETE -- pagina propria (12/09/2026, pedido do dono: "bate
+      palete deixe em outra pagina"). E retrabalho de produto avariado, e a
+      pergunta dele e por SKU e por pessoa: quanto do palete voltou
+      inteiro ao estoque.
+    */
+    nome: '🤲 Bate palete',
+    filtros: [
+      ...filtrosComColaboradorDaPagina('fato_pa_bate_palete.colaborador'),
+      { campo: 'dim_hora.turno_rotulo', titulo: '🕐 Turno' },
+    ],
+    kpis: [
+      ['🧱 Paletes batidos', '@Paletes batidos'],
+      ['🍺 HL batidos', '@HL batidos'],
+      ['💥 HL avariados', '@HL avariados'],
+      ['🤲 % de avaria', '@% avaria no bate palete'],
+      ['🧾 Lançamentos', '@Lançamentos de bate palete'],
+    ],
+    visuais: [
+      {
+        t: 'clusteredBarChart', x: 16, y: Y.meio, w: 620, h: H.meio,
+        titulo: '💥 HL avariados por produto',
+        roles: {
+          Category: ['fato_pa_bate_palete.produto'],
+          Y: ['@HL avariados'],
+        },
+        ordem: { campo: '@HL avariados', dir: 'Descending' },
+      },
+      {
+        t: 'lineChart', x: 648, y: Y.meio, w: 616, h: H.meio, reta: true,
+        titulo: '📈 % de avaria por dia',
+        roles: {
+          Category: ['dim_calendario.dia_rotulo'],
+          Y: ['@% avaria no bate palete'],
+        },
+      },
+      {
+        t: 'tableEx', x: 16, y: Y.base, w: 620, h: H.base,
+        quebraTexto: 100,
+        titulo: '🤲 Onde está a avaria — por produto',
         roles: {
           Values: [
             'fato_pa_bate_palete.produto',
+            '@Paletes batidos',
             '@HL batidos',
             '@HL avariados',
+            '@HL aproveitados',
             '@% avaria no bate palete',
           ],
         },
         ordem: { campo: '@HL avariados', dir: 'Descending' },
       },
+      {
+        t: 'tableEx', x: 648, y: Y.base, w: 616, h: H.base,
+        quebraTexto: 100,
+        titulo: '👥 Por colaborador',
+        roles: {
+          Values: [
+            'fato_pa_bate_palete.colaborador',
+            '@Lançamentos de bate palete',
+            '@Paletes batidos',
+            '@HL batidos',
+            '@HL avariados',
+            '@% avaria no bate palete',
+          ],
+        },
+        ordem: { campo: '@HL batidos', dir: 'Descending' },
+      },
     ],
     nota:
-      'Toda taxa desta página é SOMA ÷ SOMA (caixas do recorte ÷ horas do recorte), nunca média das '
-      + 'taxas de cada lançamento: um lançamento de dois minutos tem taxa absurda e pesaria igual a '
-      + 'um de seis horas. Pelo mesmo motivo, aplique no painel Filtros um corte de ≥ 1 hora '
-      + 'apontada nos gráficos de ritmo (o corte vem declarado mas nasce desligado — ver o cabeçalho '
-      + 'de gerar-pbip.js). '
-      + '"Minutos por caixa" é por CAIXA, não por lançamento — é a mesma conta do cartão do app. '
-      + 'A meta por produto é a cadastrada em Admin; produto sem meta simplesmente não entra na '
-      + 'comparação, em vez de entrar como zero e derrubar a média de todo mundo. '
-      + 'No bate palete, o % sai da soma sobre a soma: a média dos percentuais trataria um lote de '
-      + '2 HL igual a um de 200, e o lote pequeno é sempre o de percentual extremo.',
+      'O % de avaria sai da SOMA sobre a SOMA (HL avariados ÷ HL batidos): a média dos percentuais ' +
+      'trataria um lote de 2 HL igual a um de 200, e o lote pequeno é sempre o de percentual ' +
+      'extremo. HL aproveitados é o que voltou inteiro ao estoque.',
   },
 
   // ================================================================
@@ -1748,24 +1977,49 @@ const paginas = [
     kpis: [
       // A bombona vem PRIMEIRO e o rotulo diz que ela nao segue filtro:
       // e o numero que decide QUANDO descartar, e e um so para o armazem.
-      ['🪣 Na bombona agora (sem filtro)', '@Na bombona (L)'],
-      ['📊 % da bombona', '@% da bombona'],
-      ['📆 Dias sem esvaziar', '@Dias sem esvaziar'],
-      ['🫗 Litros no recorte', '@Litros despejados'],
-      ['⚡ Litros por hora', '@Litros por hora'],
+      // A UNIDADE no rotulo (12/09/2026, pedido do dono).
+      ['🪣 Na bombona agora (L)', '@Na bombona (L)',
+        'Litros despejados DESDE O ÚLTIMO ESVAZIAMENTO registrado no app — sem nenhum esvaziamento ' +
+        'registrado, é tudo desde o primeiro despejo. NÃO segue os filtros de período, turno ou ' +
+        'pessoa: a bombona é uma só. Por isso não bate com "Litros despejados no período", que soma ' +
+        'só o que estiver filtrado.'],
+      ['📊 % da bombona cheia', '@% da bombona'],
+      ['📆 Dias sem esvaziar', '@Dias sem esvaziar',
+        'Dias desde o último esvaziamento registrado no app. Sem nenhum registrado, conta desde o ' +
+        'primeiro despejo — é desde quando a bombona está enchendo.'],
+      ['🫗 Litros despejados no período (L)', '@Litros despejados',
+        'Litros despejados no que estiver FILTRADO — período, mês, turno, pessoa e embalagem. É ' +
+        'produção, não o nível da bombona.'],
+      ['⚡ Litros por hora (L/h)', '@Litros por hora'],
     ],
+    // So graficos (12/09/2026, pedido do dono: "as tabelas poderiam ficar
+    // em outra pagina com mais informacoes, e esta somente para analise").
     visuais: [
       {
-        t: 'columnChart', x: 16, y: Y.meio, w: 430, h: H.meio,
-        titulo: '📆 Litros despejados por dia',
+        t: 'columnChart', x: 16, y: Y.meio, w: 620, h: H.meio,
+        titulo: '📆 Litros despejados por dia (L)',
         roles: {
           Category: ['dim_calendario.dia_rotulo'],
           Y: ['@Litros despejados'],
         },
       },
       {
-        t: 'clusteredBarChart', x: 458, y: Y.meio, w: 430, h: H.meio,
-        titulo: '🧴 Litros por hora, por embalagem',
+        // HISTOGRAMA, com o nome que ele tem (12/09/2026). A cor e a faixa
+        // do dia de cada hora.
+        t: 'columnChart', x: 648, y: Y.meio, w: 616, h: H.meio,
+        titulo: '📊 Histograma — litros despejados por hora do dia',
+        roles: {
+          Category: ['dim_hora.hora_rotulo'],
+          Y: ['@Litros despejados'],
+          Series: ['dim_hora.faixa_do_dia'],
+        },
+        dica:
+          'Histograma: cada barra é uma hora do dia e a altura é quanto se despejou naquela hora, ' +
+          'somando todos os dias do recorte. A cor é a faixa do dia.',
+      },
+      {
+        t: 'clusteredBarChart', x: 16, y: Y.base, w: 620, h: H.base,
+        titulo: '🧴 Litros por hora (L/h), por embalagem',
         roles: {
           Category: ['fato_pa_despejo.embalagem_despejo'],
           Y: ['@Litros por hora'],
@@ -1773,34 +2027,83 @@ const paginas = [
         ordem: { campo: '@Litros por hora', dir: 'Descending' },
       },
       {
-        t: 'columnChart', x: 900, y: Y.meio, w: 364, h: H.meio,
-        titulo: '🕐 Quando se despeja',
+        t: 'clusteredBarChart', x: 648, y: Y.base, w: 616, h: H.base,
+        titulo: '🕐 Litros despejados por turno (L)',
         roles: {
-          Category: ['dim_hora.hora_rotulo'],
+          Category: ['fato_pa_despejo.turno_rotulo'],
           Y: ['@Litros despejados'],
         },
+        ordem: { campo: '@Litros despejados', dir: 'Descending' },
       },
+    ],
+    nota:
+      'OS TRÊS PRIMEIROS CARTÕES NÃO SEGUEM OS FILTROS: a bombona é um recipiente físico, sem turno ' +
+      'nem dono. Ela soma desde o último esvaziamento registrado no app — e, enquanto nenhum for ' +
+      'registrado, desde o primeiro despejo. Por isso ela NÃO bate com "Litros despejados no ' +
+      'período", que soma só o que estiver filtrado: os dois só coincidem com o período inteiro ' +
+      'desde o último esvaziamento. Registre o esvaziamento no app a cada descarte, senão a ' +
+      'bombona nunca zera. As tabelas estão na página seguinte.',
+  },
+
+  // ================================================================
+  {
+    /*
+      AS TABELAS DO DESPEJO (12/09/2026, pedido do dono: tabelas em outra
+      pagina, "com mais informacoes").
+    */
+    nome: '📋 Despejo — tabelas',
+    filtros: [
+      ...filtrosComColaboradorDaPagina('fato_pa_despejo.colaborador'),
+      { campo: 'dim_hora.turno_rotulo', titulo: '🕐 Turno' },
+      { campo: 'fato_pa_despejo.embalagem_despejo', titulo: '🧴 Embalagem' },
+    ],
+    kpis: [
+      ['🫗 Litros despejados no período (L)', '@Litros despejados'],
+      ['⏱️ Horas de despejo (h)', '@Horas de despejo'],
+      ['⚡ Litros por hora (L/h)', '@Litros por hora'],
+      ['🧾 Lançamentos', '@Lançamentos de despejo'],
+      ['🪣 Descartes registrados', '@Descartes'],
+    ],
+    visuais: [
       {
-        t: 'tableEx', x: 16, y: Y.base, w: 620, h: H.base,
-        titulo: '👥 Despejo por colaborador e turno',
+        t: 'tableEx', x: 16, y: Y.meio, w: 1248, h: H.meio,
+        quebraTexto: 150,
+        titulo: '👥 Despejo por colaborador, turno e embalagem',
         roles: {
           Values: [
             'fato_pa_despejo.colaborador',
             'fato_pa_despejo.turno_rotulo',
+            'fato_pa_despejo.embalagem_despejo',
             '@Litros despejados',
             '@Horas de despejo',
             '@Litros por hora',
+            'fato_pa_despejo.quantidade_pacotes#soma',
             '@Lançamentos de despejo',
           ],
         },
         ordem: { campo: '@Litros despejados', dir: 'Descending' },
       },
       {
-        // O HISTORICO DE DESCARTE -- o que o app passou a registrar em
-        // 09/09/2026 e nao existia em lugar nenhum. "% no descarte" muito
-        // abaixo de 100% e viagem sobrando na rota do residuo; bombona
-        // parada cheia e risco ambiental. Os dois lados sao decisao.
+        t: 'tableEx', x: 16, y: Y.base, w: 620, h: H.base,
+        quebraTexto: 100,
+        titulo: '📆 Por dia',
+        roles: {
+          Values: [
+            'dim_calendario.data',
+            '@Litros despejados',
+            '@Horas de despejo',
+            '@Litros por hora',
+            '@Lançamentos de despejo',
+          ],
+        },
+        ordem: { campo: 'dim_calendario.data', dir: 'Descending' },
+      },
+      {
+        // O HISTORICO DE DESCARTE. "% no descarte" muito abaixo de 100% e
+        // viagem sobrando na rota do residuo; bombona parada cheia e risco
+        // ambiental.
         t: 'tableEx', x: 648, y: Y.base, w: 616, h: H.base,
+        quebraTexto: 100,
         titulo: '🪣 Descartes — a bombona foi cheia ou pela metade?',
         roles: {
           Values: [
@@ -1815,16 +2118,8 @@ const paginas = [
       },
     ],
     nota:
-      'OS TRÊS PRIMEIROS CARTÕES NÃO SEGUEM OS FILTROS, e isso é o desenho. A bombona é um '
-      + 'recipiente físico: não tem turno nem dono, e não existe "quanto tinha nela em agosto". '
-      + 'Filtrada por turno, o T1 veria a bombona pela metade e o T2 vazia — sendo a mesma bombona. '
-      + 'A conta começa no último esvaziamento registrado no app. O filtro de Revenda continua '
-      + 'valendo: cada revenda tem a sua. '
-      + '"Litros no recorte" (4º cartão) é o oposto: esse sim segue período, turno, pessoa e '
-      + 'embalagem — é produção, não nível. '
-      + '"% no descarte" muito abaixo de 100% é viagem sobrando na rota do resíduo; "dias sem '
-      + 'esvaziar" alto com a bombona cheia é risco ambiental. Nenhum dos dois aparece em '
-      + '"litros despejados no mês".',
+      'Pacotes é a soma das quantidades lançadas. A tabela de descartes só ganha linha quando o ' +
+      'esvaziamento é registrado no app — até 12/09/2026 nenhum tinha sido.',
   },
 
   // ================================================================
@@ -1848,12 +2143,13 @@ const paginas = [
       { campo: 'dim_hora.turno_rotulo', titulo: '🕐 Turno' },
       { campo: 'fato_pa_abastecimento.tipo_rotulo', titulo: '🔄 Tipo' },
     ],
+    // "Ciclo medio (min)" e "% do ciclo esperando" SAIRAM dos cartoes
+    // (12/09/2026, pedido do dono). O ciclo continua nas tabelas e no
+    // grafico de onde o ciclo e gasto.
     kpis: [
       ['🧃 HL abastecidos', '@HL abastecidos'],
       ['⚡ HL por hora', '@HL por hora'],
       ['🧾 Sessões', '@Sessões de abastecimento'],
-      ['⏱️ Ciclo médio (min)', '@Ciclo médio (min)'],
-      ['⏳ % do ciclo esperando', '@% do ciclo esperando'],
     ],
     visuais: [
       {
@@ -1881,12 +2177,17 @@ const paginas = [
         },
       },
       {
+        // HISTOGRAMA, com o nome que ele tem (12/09/2026, pedido do dono).
         t: 'columnChart', x: 900, y: Y.meio, w: 364, h: H.meio,
-        titulo: '🕐 Quando se abastece',
+        titulo: '📊 Histograma — HL abastecidos por hora do dia',
         roles: {
           Category: ['dim_hora.hora_rotulo'],
           Y: ['@HL abastecidos'],
+          Series: ['dim_hora.faixa_do_dia'],
         },
+        dica:
+          'Histograma: cada barra é uma hora do dia e a altura é quanto se abasteceu naquela hora, ' +
+          'somando todos os dias do recorte. A cor é a faixa do dia.',
       },
       {
         t: 'tableEx', x: 16, y: Y.base, w: 620, h: H.base,
@@ -1956,6 +2257,9 @@ const paginas = [
       // A transportadora vira segmentacao propria: e a entidade externa
       // da pagina, e a conversa com ela e diferente da conversa interna.
       { campo: 'fato_carreta.transportadora', titulo: '🚚 Transportadora' },
+      // O PORTEIRO (12/09/2026, pedido do dono): quem apontou a chegada
+      // na portaria. A espera na portaria e dele.
+      { campo: 'fato_carreta.portaria', titulo: '🚧 Porteiro' },
     ],
     kpis: [
       ['🚛 Carretas finalizadas', '@Carretas finalizadas'],
@@ -1977,12 +2281,17 @@ const paginas = [
     ],
     visuais: [
       {
+        // HISTOGRAMA, com o nome que ele tem (12/09/2026, pedido do dono).
         t: 'columnChart', x: 16, y: Y.meio, w: 430, h: H.meio,
-        titulo: '🕐 Quando as carretas chegam',
+        titulo: '📊 Histograma — carretas por hora de chegada',
         roles: {
           Category: ['dim_hora.hora_rotulo'],
           Y: ['@Carretas finalizadas'],
+          Series: ['dim_hora.faixa_do_dia'],
         },
+        dica:
+          'Histograma: cada barra é uma hora do dia e a altura é quantas carretas chegaram naquela ' +
+          'hora, somando todos os dias do recorte. A cor é a faixa do dia.',
       },
       {
         // A MESMA hora no eixo, agora com o TMA: o pico de chegada e o
@@ -2008,42 +2317,29 @@ const paginas = [
         // batido lidera a lista com 100%.
         corteMinimo: { campo: 'fato_carreta.carreta_id', minimo: 3 },
       },
+      // AS TABELAS SAIRAM (12/09/2026, pedido do dono: "deixe a pagina
+      // dedicada para os graficos"). Foram para a pagina seguinte, em
+      // matrizes que abrem carreta por carreta.
       {
-        t: 'tableEx', x: 16, y: Y.base, w: 620, h: H.base,
-        titulo: '👤 TMA por conferente e portaria',
+        // O TMA DIA A DIA, com a meta. Mostra se o tempo esta melhorando
+        // ou se foi um dia ruim que puxou a media.
+        t: 'lineChart', x: 16, y: Y.base, w: 620, h: H.base, reta: true,
+        titulo: '📈 TMA médio por dia (min) — contra a meta',
         roles: {
-          Values: [
-            'fato_carreta.conferente',
-            '@Carretas finalizadas',
-            '@TMA médio (min)',
-            '@Espera na portaria (min)',
-            '@Descarga (min)',
-            '@% dentro da meta de TMA',
-          ],
+          Category: ['dim_calendario.dia_rotulo'],
+          Y: ['@TMA médio (min)', '@Meta de TMA (min)'],
         },
-        // Do mais LENTO para o mais rapido: a lista existe para achar
-        // onde o tempo esta sendo perdido, e isso mora no topo.
-        ordem: { campo: '@TMA médio (min)', dir: 'Descending' },
       },
       {
-        t: 'tableEx', x: 648, y: Y.base, w: 616, h: H.base,
-        titulo: '🚚 Transportadora e motorista — tempo e avaria',
+        // ONDE O TEMPO DA CARRETA VAI, por transportadora: a espera na
+        // portaria e o patio sao conversa com a operacao; a descarga, com
+        // a equipe. Lado a lado, cada barra diz de quem e o tempo.
+        t: 'clusteredColumnChart', x: 648, y: Y.base, w: 616, h: H.base,
+        titulo: '🧱 Onde o tempo vai — portaria, descarga e pátio (min), por transportadora',
         roles: {
-          Values: [
-            'fato_carreta.transportadora',
-            'fato_carreta.motorista',
-            '@Carretas finalizadas',
-            '@TMA médio (min)',
-            // O atraso da CHEGADA separa "a carreta atrasou" de "a
-            // operacao demorou", que se confundem dentro do TMA. O dado
-            // estava no banco desde a migracao 057 e nunca tinha sido
-            // comparado.
-            '@Atraso do transportador (min)',
-            '@% carretas atrasadas',
-            '@% de avaria',
-          ],
+          Category: ['fato_carreta.transportadora'],
+          Y: ['@Espera na portaria (min)', '@Descarga (min)', '@Pátio (min)'],
         },
-        ordem: { campo: '@TMA médio (min)', dir: 'Descending' },
       },
     ],
     nota:
@@ -2060,6 +2356,81 @@ const paginas = [
       + 'uma média feita com uma carreta é ruído, e a barra a desenha do mesmo tamanho de um padrão '
       + 'de quarenta. O turno da carreta é DERIVADO do início do atendimento (ou da chegada) — a '
       + 'tabela não tem coluna de turno.',
+  },
+
+  // ================================================================
+  {
+    /*
+      O TMA EM DETALHE (12/09/2026, pedido do dono: as tabelas do
+      recebimento em outra pagina, "com matrizes, onde possa abrir os
+      detalhes dos TMAs", e a de transportadora com mais informacoes).
+
+      Matriz, e nao tabela: a linha e o conferente (ou a transportadora),
+      e o "+" abre carreta por carreta -- a DT --, com as fases do tempo
+      de cada uma. O total da pessoa e a media das carretas dela.
+    */
+    nome: '📋 Recebimento — TMA em detalhe',
+    filtros: [
+      ...filtrosComColaboradorDaPagina('fato_carreta.conferente', '👤 Conferente'),
+      { campo: 'dim_hora.turno_rotulo', titulo: '🕐 Turno' },
+      { campo: 'fato_carreta.transportadora', titulo: '🚚 Transportadora' },
+      { campo: 'fato_carreta.portaria', titulo: '🚧 Porteiro' },
+    ],
+    kpis: [
+      ['🚛 Carretas finalizadas', '@Carretas finalizadas'],
+      ['⏱️ TMA médio (min)', '@TMA médio (min)'],
+      ['📈 TMA no pior 10% (min)', '@TMA P90 (min)'],
+      ['🚫 Carretas fora da meta', '@Carretas fora da meta'],
+    ],
+    visuais: [
+      {
+        t: 'pivotTable', x: 16, y: Y.meio, w: 1248, h: H.meio,
+        botaoMais: true,
+        titulo: '👤 TMA por conferente — clique no + para abrir as carretas (DT)',
+        roles: {
+          Rows: ['fato_carreta.conferente', 'fato_carreta.numero_dt'],
+          Values: [
+            '@Carretas finalizadas',
+            '@TMA médio (min)',
+            '@Espera na portaria (min)',
+            '@Descarga (min)',
+            '@Pátio (min)',
+            '@Conferência (min)',
+            '@Meta de TMA (min)',
+            '@% dentro da meta de TMA',
+          ],
+        },
+      },
+      {
+        t: 'pivotTable', x: 16, y: Y.base, w: 1248, h: H.base,
+        botaoMais: true,
+        titulo: '🚚 Transportadora › motorista › carreta — tempo, atraso e avaria',
+        roles: {
+          Rows: ['fato_carreta.transportadora', 'fato_carreta.motorista', 'fato_carreta.numero_dt'],
+          Values: [
+            '@Carretas finalizadas',
+            '@TMA médio (min)',
+            '@TMA P90 (min)',
+            '@Carretas fora da meta',
+            // O atraso da CHEGADA separa "a carreta atrasou" de "a
+            // operacao demorou", que se confundem dentro do TMA.
+            '@Atraso do transportador (min)',
+            '@% carretas atrasadas',
+            '@Espera na portaria (min)',
+            '@Descarga (min)',
+            '@Paletes recebidos',
+            '@Paletes avariados',
+            '@% de avaria',
+          ],
+        },
+      },
+    ],
+    nota:
+      'Em cada matriz, o "+" abre o nível de baixo: conferente → carreta (DT), e transportadora → ' +
+      'motorista → carreta. Na linha da carreta, o TMA é o dela; nas linhas de cima, é a média das ' +
+      'carretas do grupo. A CONFERÊNCIA não entra no TMA — a carreta não espera por ela —, mas fica ' +
+      'na matriz para ver quanto ela leva. Confira o número de carretas antes de concluir: média ' +
+      'de uma carreta é ruído.',
   },
 
   // ================================================================
@@ -2097,11 +2468,15 @@ const paginas = [
       */
       { campo: 'fato_empilhadeira_operacao.empilhadeira', titulo: '🏗️ Máquina' },
     ],
+    // 12/09/2026, pedido do dono: o cartao de Aproveitamento saiu, e o de
+    // botijao diz que e MEDIA. Casas decimais: uma, nos que tem (ver
+    // MEDIDAS_UMA_CASA e MEDIDAS_REAIS_UMA_CASA em gerar-pbip.js).
     kpis: [
-      ['⏱️ Horas de horímetro', '@Horas de horímetro'],
+      ['⏱️ Horas de horímetro (h)', '@Horas de horímetro'],
       ['✅ Operações encerradas', '@Operações encerradas'],
-      ['📐 Aproveitamento', '@% aproveitamento do apontamento'],
-      ['⛽ Horas por botijão', '@Horas por botijão'],
+      ['⛽ Horas por botijão (média)', '@Horas por botijão',
+        'MÉDIA de horas de motor que um botijão P20 rendeu, entre uma troca e a seguinte da mesma ' +
+        'máquina, nos ciclos fechados do período.'],
       ['💰 Custo do gás (R$)', '@Custo do gás (R$)'],
     ],
     visuais: [
@@ -2142,7 +2517,8 @@ const paginas = [
             '@Operações encerradas',
             '@Horas de horímetro',
             '@Duração média (h)',
-            '@% aproveitamento do apontamento',
+            // "% aproveitamento do apontamento" saiu (12/09/2026, pedido do
+            // dono).
             // Nao e produtividade, e confianca no numero da linha: quando
             // o lider fecha no dia seguinte, o horimetro final e o que ele
             // achou na maquina e o consumo todo vai para quem abriu.
@@ -2325,9 +2701,15 @@ const blocos = [
       '⚖️ Conciliação do AG',
       '🧰 Bancada — Seleção e Repack',
       '📦 Repack — produto e família',
+      // As paginas de tabela logo depois da pagina de analise de onde
+      // sairam (12/09/2026).
+      '📋 Repack — tabelas',
+      '🤲 Bate palete',
       '🫗 Despejo',
+      '📋 Despejo — tabelas',
       '🧃 Abastecimento e Ressuprimento',
       '🚛 Recebimento de Carretas',
+      '📋 Recebimento — TMA em detalhe',
       '🏗️ Empilhadeira',
     ],
   },
