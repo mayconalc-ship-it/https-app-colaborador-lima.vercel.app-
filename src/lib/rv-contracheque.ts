@@ -1,4 +1,5 @@
 import {
+  formatarCelula,
   formatarMoeda,
   formatarNumero,
   normalizarTexto,
@@ -59,8 +60,16 @@ const COLUNAS = {
  * confunde -- inclusive "Total R$", que nao inclui os 5% de tempo de casa
  * e por isso diverge do total real.
  */
-export function ehColunaDoContracheque(rotulo: string) {
+export function ehColunaDoContracheque(rotulo: string, modelo: ModeloRV = "sao-felix") {
   const n = chave(rotulo);
+  // Em Barreiras, as colunas que a escada já conta. "Valor" sozinho é o
+  // preço da recarga lá -- em São Félix não existe, e por isso a regra é
+  // por modelo, não uma lista só.
+  if (modelo === "barreiras") {
+    return Object.entries(BARREIRAS).some(
+      ([nome, busca]) => nome !== "percentualDevolucao" && busca(n),
+    );
+  }
   return (
     COLUNAS.semAbs(n) ||
     COLUNAS.comAbs(n) ||
@@ -76,18 +85,35 @@ export type PassoRV = {
   rotulo: string;
   detalhe: string;
   valor: number;
-  /** Produtividade e Premio: as duas linhas que aparecem no contracheque. */
+  /** As linhas que aparecem no contracheque. */
   doContracheque?: boolean;
 };
 
+export type ModeloRV = "sao-felix" | "barreiras";
+
 export type MemoriaRV = {
+  modelo: ModeloRV;
   passos: PassoRV[];
-  produtividade: number;
-  premio: number;
   total: number;
+  /** A frase embaixo do total: quais linhas vão para o contracheque. */
+  nota: string;
 };
 
-export function montarMemoriaRV(detalhes: DetalheRV[]): MemoriaRV | null {
+/**
+ * Qual das duas planilhas é. A de Barreiras tem "Remuneração sem %"; a de
+ * São Félix, "RV s/ %". Nenhuma tem as duas.
+ */
+function modeloDe(detalhes: DetalheRV[]): ModeloRV {
+  return detalhes.some((d) => BARREIRAS.semPercentual(chave(d.rotulo))) ? "barreiras" : "sao-felix";
+}
+
+export function montarMemoriaRV(detalhes: DetalheRV[], totalDaPlanilha?: string | null): MemoriaRV | null {
+  return modeloDe(detalhes) === "barreiras"
+    ? montarMemoriaBarreiras(detalhes, totalDaPlanilha ?? null)
+    : montarMemoriaSaoFelix(detalhes);
+}
+
+function montarMemoriaSaoFelix(detalhes: DetalheRV[]): MemoriaRV | null {
   const valorDe = (busca: Busca) => {
     const achado = detalhes.find((d) => busca(chave(d.rotulo)));
     return achado ? paraNumero(achado.valor) : null;
@@ -162,5 +188,176 @@ export function montarMemoriaRV(detalhes: DetalheRV[]): MemoriaRV | null {
     doContracheque: true,
   });
 
-  return { passos, produtividade, premio, total: produtividade + premio };
+  return {
+    modelo: "sao-felix",
+    passos,
+    total: produtividade + premio,
+    nota: "Produtividade + Prêmio. São essas 2 linhas que aparecem no seu contracheque.",
+  };
+}
+
+/**
+ * A ESCADA DE BARREIRAS (11/09/2026, pedido do dono: "senti falta do
+ * detalhamento da RV como o de São Félix").
+ *
+ * A planilha é outra, e a conta também -- conferida linha a linha contra a
+ * de motorista e a de ajudante:
+ *
+ *   Remuneração sem %        = caixas × R$ 0,18 (motorista) ou 0,10 (ajudante)
+ *   RV c/ bônus devolução %  = o anterior + Valor devolução
+ *                              -- COM ABS, vira 95% da Remuneração, sem o
+ *                              prêmio (ajudante Marcelo, julho/2026)
+ *   bônus tempo de casa      = 5% da Remuneração sem %, a partir de 1,5 ano
+ *   Valor recarga            = Qtd recarga × Valor
+ *   TOTAL                    = RV c/ bônus + tempo de casa + recarga + adicional
+ *
+ * No contracheque são TRÊS linhas: Produtividade, Prêmio e Tempo de casa --
+ * esta última separada das outras duas (dito pelo dono).
+ *
+ * O ABS NÃO É UMA TAXA FIXA AQUI: o app não refaz a regra, lê o efeito. O
+ * que a planilha tirou é a diferença entre "RV c/ bônus" e "Remuneração +
+ * devolução" -- primeiro some o prêmio, e o que passar dele sai da
+ * Remuneração. Assim o app nunca discorda da folha, nem quando a regra do
+ * ABS mudar.
+ */
+const BARREIRAS = {
+  caixas: (n: string) => n === "qtd caixas" || n === "quantidade caixas",
+  semPercentual: (n: string) => n === "remuneracao sem %",
+  devolucao: (n: string) => n === "valor devolucao",
+  percentualDevolucao: (n: string) => n === "% devolucao",
+  checkAbs: (n: string) => n === "check abs",
+  comBonus: (n: string) => n === "rv c/ bonus devolucao %" || n === "remuneracao com %",
+  // Na de ajudante o título vem cortado: "bonus tempo de cas".
+  tempoDeCasa: (n: string) => n.startsWith("bonus tempo de cas"),
+  qtdRecarga: (n: string) => n === "qtd recarga",
+  valorPorRecarga: (n: string) => n === "valor",
+  recarga: (n: string) => n === "valor recarga",
+  adicional: (n: string) => n === "adicional pendente",
+} satisfies Record<string, Busca>;
+
+function montarMemoriaBarreiras(detalhes: DetalheRV[], totalDaPlanilha: string | null): MemoriaRV | null {
+  const achar = (busca: Busca) => detalhes.find((d) => busca(chave(d.rotulo)));
+  const valorDe = (busca: Busca) => {
+    const achado = achar(busca);
+    return achado ? paraNumero(achado.valor) : null;
+  };
+  const centavos = (n: number) => Math.round(n * 100) / 100;
+
+  const semPercentual = valorDe(BARREIRAS.semPercentual);
+  if (semPercentual === null) return null;
+
+  const caixas = valorDe(BARREIRAS.caixas);
+  const devolucao = valorDe(BARREIRAS.devolucao) ?? 0;
+  const comBonus = valorDe(BARREIRAS.comBonus);
+  const tempoDeCasa = valorDe(BARREIRAS.tempoDeCasa) ?? 0;
+  const qtdRecarga = valorDe(BARREIRAS.qtdRecarga);
+  const valorPorRecarga = valorDe(BARREIRAS.valorPorRecarga);
+  const recarga = valorDe(BARREIRAS.recarga) ?? 0;
+  const adicional = valorDe(BARREIRAS.adicional) ?? 0;
+  const checkAbs = achar(BARREIRAS.checkAbs)?.valor.trim() || null;
+  const colunaPct = achar(BARREIRAS.percentualDevolucao);
+  const pctDevolucao = colunaPct ? formatarCelula(colunaPct.rotulo, colunaPct.valor) : null;
+
+  // O EFEITO DO ABS, lido da própria planilha (ver o comentário acima).
+  // Sem a coluna "RV c/ bônus", não há o que ler: nada foi descontado.
+  // Os valores ficam crus, com todas as casas da planilha: arredondar cada
+  // degrau antes de somar deixava a soma 1 centavo longe do TOTAL (Adolfo,
+  // 1.314,35 contra 1.314,36). O centavo só serve para dizer "é zero".
+  const zeroSeQuase = (n: number) => (Math.abs(n) < 0.005 ? 0 : n);
+  const acimaDaRemuneracao = comBonus === null ? devolucao : zeroSeQuase(comBonus - semPercentual);
+  const premio = Math.min(devolucao, Math.max(0, acimaDaRemuneracao));
+  const premioPerdido = centavos(devolucao - premio);
+  const descontoAbs = Math.min(0, acimaDaRemuneracao);
+
+  const passos: PassoRV[] = [];
+
+  const taxa = caixas ? semPercentual / caixas : null;
+  passos.push({
+    rotulo: "Valor/Caixa",
+    detalhe:
+      taxa !== null
+        ? `${formatarNumero(caixas!)} caixas × ${formatarMoeda(taxa)} por caixa`
+        : "Valor pago pelas caixas entregues",
+    valor: semPercentual,
+  });
+
+  if (recarga !== 0) {
+    passos.push({
+      rotulo: "+ Recarga",
+      detalhe:
+        qtdRecarga && valorPorRecarga
+          ? `${formatarNumero(qtdRecarga)} recarga${qtdRecarga > 1 ? "s" : ""} × ${formatarMoeda(valorPorRecarga)}`
+          : "Recargas do mês",
+      valor: recarga,
+    });
+  }
+
+  if (adicional !== 0) {
+    passos.push({ rotulo: "+ Adicional pendente", detalhe: "Valor de mês anterior pago agora", valor: adicional });
+  }
+
+  // O ABS SEMPRE APARECE -- inclusive quando não tirou nada. É a pergunta
+  // que o colaborador faz ("perdi por falta?"), e a resposta "não" também
+  // é informação.
+  const semAbs = descontoAbs === 0 && premioPerdido === 0;
+  passos.push({
+    rotulo: descontoAbs < 0 ? "− ABS" : "ABS",
+    detalhe: semAbs
+      ? "Sem desconto de absenteísmo neste mês"
+      : `Absenteísmo no mês${checkAbs ? ` (Check ABS: ${checkAbs})` : ""}` +
+        (descontoAbs < 0
+          ? `: sai ${formatarNumero(Math.round((-descontoAbs / semPercentual) * 1000) / 10)}% do Valor/Caixa`
+          : "") +
+        (premioPerdido > 0 ? " e o prêmio da devolução não entra" : ""),
+    valor: descontoAbs,
+  });
+
+  const produtividade = semPercentual + recarga + adicional + descontoAbs;
+  const partes = ["Valor/Caixa", recarga !== 0 && "Recarga", adicional !== 0 && "Adicional"].filter(Boolean);
+  passos.push({
+    rotulo: "Produtividade",
+    detalhe: partes.join(" + ") + (descontoAbs < 0 ? " − ABS" : ""),
+    valor: produtividade,
+    doContracheque: true,
+  });
+
+  passos.push({
+    rotulo: "Prêmio",
+    detalhe:
+      premioPerdido > 0
+        ? `Referente à devolução${pctDevolucao ? ` (${pctDevolucao} no mês)` : ""} — os ${formatarMoeda(premioPerdido)} não entraram por causa do ABS`
+        : premio > 0
+          ? `Referente à devolução${pctDevolucao ? ` — ${pctDevolucao} no mês` : ""}`
+          : `Sem prêmio de devolução neste mês${pctDevolucao ? ` — ${pctDevolucao} de devolução` : ""}`,
+    valor: premio,
+    doContracheque: true,
+  });
+
+  passos.push({
+    rotulo: "Tempo de casa",
+    detalhe:
+      (tempoDeCasa > 0
+        ? "5% sobre o Valor/Caixa, a partir de 18 meses de empresa"
+        : "5% sobre o Valor/Caixa — entra a partir de 18 meses de empresa") +
+      ". No contracheque vem numa linha própria, separada da Produtividade e do Prêmio.",
+    valor: tempoDeCasa,
+    doContracheque: true,
+  });
+
+  // O TOTAL É O DA PLANILHA, e a escada tem de fechar com ele. Se não
+  // fechar -- uma coluna renomeada, um número lido errado ("128.087" vira
+  // 128 mil em paraNumero) --, a escada NÃO aparece: a tela volta ao total
+  // da folha com as colunas cruas. Uma conta que não bate com o que a
+  // pessoa recebe é pior do que conta nenhuma.
+  const soma = produtividade + premio + tempoDeCasa;
+  const daPlanilha = totalDaPlanilha ? paraNumero(totalDaPlanilha) : null;
+  if (daPlanilha !== null && Math.abs(daPlanilha - soma) > 0.05) return null;
+  const total = daPlanilha ?? soma;
+
+  return {
+    modelo: "barreiras",
+    passos,
+    total,
+    nota: "Produtividade + Prêmio + Tempo de casa. São essas 3 linhas que aparecem no seu contracheque.",
+  };
 }

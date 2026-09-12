@@ -85,9 +85,21 @@ export async function definirPapel(formData: FormData) {
   if (id === eu.id) {
     voltar("erro", "Você não pode alterar o seu próprio nível de acesso.", revendaId);
   }
+  // A CONFIRMAÇÃO, cobrada aqui também (11/09/2026): a Lais virou liderança
+  // num toque. Promover exige a caixa vermelha -- a mesma regra dos Perfis
+  // --, e tirar exige ter passado pela pergunta.
+  if (papel === "lideranca" && formData.get("tornar_lideranca") !== "on") {
+    voltar("erro", "Para tornar alguém liderança, marque a caixa vermelha de confirmação.", revendaId);
+  }
+  if (papel === "colaborador" && formData.get("confirmado") !== "sim") {
+    voltar("erro", "Confirme antes de tirar a liderança.", revendaId);
+  }
 
   const alvo = await nomeDe(id);
   if (!alvo) voltar("erro", "Colaborador não encontrado.", revendaId);
+  if (papel === alvo.role) {
+    voltar("erro", `${alvo.nome} já é ${papel === "lideranca" ? "liderança" : "colaborador"}.`, revendaId);
+  }
   if (alvo.role === "owner") {
     voltar("erro", "O dono do app não pode ser rebaixado por aqui.", revendaId);
   }

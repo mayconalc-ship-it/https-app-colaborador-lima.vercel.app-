@@ -7,6 +7,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { PageHeader } from "@/components/PageHeader";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
 import { AbasDeAcesso, type AbaDeAcesso } from "@/components/admin/AbasDeAcesso";
+import { FormDoPapel } from "@/components/admin/FormDoPapel";
 import {
   AJUDA_ACAO,
   EMOJI_GRUPO_ADMIN,
@@ -1219,17 +1220,16 @@ export default async function GestaoDeAcessosPage({
                     </p>
                     <p className="truncate text-xs text-slate-400">{p.cargo}</p>
                   </div>
-                  <form action={definirPapel}>
-                    <input type="hidden" name="id" value={p.id} />
-                    <input type="hidden" name="papel" value="lideranca" />
-                    <input type="hidden" name="revenda" value={escolhida.id} />
-                    <BotaoEnviar
-                      textoEnviando="Aplicando..."
-                      className="shrink-0 rounded-lg border border-primary px-3 py-2 text-xs font-semibold text-primary hover:bg-primary-soft"
-                    >
-                      Tornar liderança
-                    </BotaoEnviar>
-                  </form>
+                  {/* Com a caixa vermelha e a pergunta (11/09/2026): a
+                      Lais virou liderança num toque só por aqui. */}
+                  <FormDoPapel
+                    action={definirPapel}
+                    id={p.id}
+                    nome={p.nome ?? ""}
+                    papel="lideranca"
+                    revendaId={escolhida.id}
+                    className="w-56 shrink-0"
+                  />
                 </li>
               ))}
             </ul>
@@ -1646,24 +1646,14 @@ export default async function GestaoDeAcessosPage({
                 </form>
 
                 {!travada && (
-                <form
-                  action={definirPapel}
-                  className="border-t border-slate-100 p-4"
-                >
-                  <input type="hidden" name="id" value={p.id} />
-                  <input type="hidden" name="papel" value="colaborador" />
-                  <input type="hidden" name="revenda" value={escolhida.id} />
-                  <BotaoEnviar
-                    textoEnviando="Removendo..."
-                    className="w-full rounded-xl border border-red-300 py-3 text-sm font-medium text-red-600 hover:bg-red-50"
-                  >
-                    Remover a liderança de {p.nome?.split(" ")[0]}
-                  </BotaoEnviar>
-                  <p className="mt-2 text-xs text-slate-400">
-                    A pessoa continua usando o app normalmente. Só perde o
-                    acesso ao Modo Liderança e todas as permissões.
-                  </p>
-                </form>
+                  <FormDoPapel
+                    action={definirPapel}
+                    id={p.id}
+                    nome={p.nome ?? ""}
+                    papel="colaborador"
+                    revendaId={escolhida.id}
+                    className="border-t border-slate-100 p-4"
+                  />
                 )}
               </details>
             );

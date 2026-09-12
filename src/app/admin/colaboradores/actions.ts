@@ -535,6 +535,14 @@ export async function promoverColaborador(formData: FormData) {
   if (id === eu.id) {
     voltar({ erro: "Você não pode alterar o seu próprio acesso", ...extra });
   }
+  // A mesma confirmação de Acessos por Pessoa e dos Perfis (11/09/2026):
+  // promover exige a caixa vermelha, e tirar exige ter passado pela pergunta.
+  if (papel === "lideranca" && formData.get("tornar_lideranca") !== "on") {
+    voltar({ erro: "Para tornar alguém liderança, marque a caixa vermelha de confirmação", ...extra });
+  }
+  if (papel === "colaborador" && formData.get("confirmado") !== "sim") {
+    voltar({ erro: "Confirme antes de tirar a liderança", ...extra });
+  }
 
   const admin = createAdminClient();
 

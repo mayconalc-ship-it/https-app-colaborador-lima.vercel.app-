@@ -258,6 +258,19 @@ export function ColaboradorItem({
                 name="papel"
                 value={c.role === "lideranca" ? "colaborador" : "lideranca"}
               />
+              {/* O servidor recusa sem estes dois (11/09/2026): o campo diz
+                  que a pergunta foi feita; a caixa vermelha, a mesma dos
+                  Perfis e de Acessos por Pessoa, que a promoção foi lida.
+                  `required` segura o envio antes até da pergunta. */}
+              <input type="hidden" name="confirmado" value="sim" />
+              {c.role !== "lideranca" && (
+                <label className="mb-2 flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-2 text-[11px] leading-snug text-red-900">
+                  <input type="checkbox" name="tornar_lideranca" required className="mt-0.5 h-4 w-4 shrink-0" />
+                  <span>
+                    Confirmo que {c.nome.split(" ")[0]} passa a <strong>entrar no Modo Liderança</strong>.
+                  </span>
+                </label>
+              )}
               <BotaoEnviar
                 textoEnviando="Aplicando..."
                 className={`w-full rounded-lg border px-3 py-2 text-xs font-medium ${

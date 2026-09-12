@@ -101,7 +101,7 @@ export default async function RVPage({
 
           <div className="space-y-4">
             {visiveis.map((item, i) => {
-              const memoria = montarMemoriaRV(item.detalhes);
+              const memoria = montarMemoriaRV(item.detalhes, item.valor);
 
               // Colunas de controle interno e as que já aparecem em destaque
               // acima não precisam repetir no detalhamento.
@@ -109,7 +109,7 @@ export default async function RVPage({
                 (d) =>
                   d.valor.trim() !== "" &&
                   !deveOcultarColuna(d.rotulo) &&
-                  !(memoria && ehColunaDoContracheque(d.rotulo)),
+                  !(memoria && ehColunaDoContracheque(d.rotulo, memoria.modelo)),
               );
 
               return (
@@ -206,8 +206,7 @@ export default async function RVPage({
                         </span>
                       </div>
                       <p className="mt-1 text-xs text-slate-500">
-                        Produtividade + Prêmio. São essas 2 linhas que aparecem
-                        no seu contracheque.
+                        {memoria.nota}
                       </p>
                     </div>
                   )}
