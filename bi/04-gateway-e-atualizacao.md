@@ -48,6 +48,12 @@ Se aparecer o erro *"Please install Npgsql version 4.0.10.0 or earlier"*, o
 gateway está velho — atualize o gateway em vez de sair instalando Npgsql à
 mão.
 
+> **Atalho (12/09/2026):** o `04b-preparar-pc-do-gateway.ps1`, rodado como
+> administrador no PC do escritório, faz o Passo 2 e os três ajustes de "O
+> que fazer com o PC" de uma vez, testa a porta 5432 e imprime os campos do
+> Passo 3. Precisa do `supabase-prod-ca-2021.crt` na mesma pasta. Não tem
+> senha nenhuma dentro.
+
 ## Passo 2 — Certificado SSL naquele PC
 
 Repita no PC do escritório o passo 4 do guia antigo (o do `.crt`), porque é
