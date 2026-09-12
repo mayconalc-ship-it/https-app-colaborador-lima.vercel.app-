@@ -1,16 +1,16 @@
 {
   "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.12.0/schema.json",
-  "name": "81712f8f686602adfd00",
+  "name": "1ea42d7fcf0ac795342f",
   "position": {
     "x": 16,
-    "y": 252,
-    "z": 13000,
-    "height": 240,
-    "width": 430,
-    "tabOrder": 13000
+    "y": 500,
+    "z": 16000,
+    "height": 166,
+    "width": 620,
+    "tabOrder": 16000
   },
   "visual": {
-    "visualType": "clusteredColumnChart",
+    "visualType": "columnChart",
     "query": {
       "queryState": {
         "Category": {
@@ -20,14 +20,14 @@
                 "Column": {
                   "Expression": {
                     "SourceRef": {
-                      "Entity": "fato_quiz_rodada_participacao"
+                      "Entity": "dim_calendario"
                     }
                   },
-                  "Property": "mes_ref"
+                  "Property": "ano_mes"
                 }
               },
-              "queryRef": "fato_quiz_rodada_participacao.mes_ref",
-              "nativeQueryRef": "mes_ref",
+              "queryRef": "dim_calendario.ano_mes",
+              "nativeQueryRef": "ano_mes",
               "active": true
             }
           ]
@@ -36,41 +36,36 @@
           "projections": [
             {
               "field": {
-                "Aggregation": {
+                "Measure": {
                   "Expression": {
-                    "Column": {
-                      "Expression": {
-                        "SourceRef": {
-                          "Entity": "fato_quiz_rodada_participacao"
-                        }
-                      },
-                      "Property": "elegiveis"
+                    "SourceRef": {
+                      "Entity": "_Medidas"
                     }
                   },
-                  "Function": 0
+                  "Property": "Participações concluídas"
                 }
               },
-              "queryRef": "Sum(fato_quiz_rodada_participacao.elegiveis)",
-              "nativeQueryRef": "elegiveis"
-            },
+              "queryRef": "_Medidas.Participações concluídas",
+              "nativeQueryRef": "Participações concluídas"
+            }
+          ]
+        },
+        "Series": {
+          "projections": [
             {
               "field": {
-                "Aggregation": {
+                "Column": {
                   "Expression": {
-                    "Column": {
-                      "Expression": {
-                        "SourceRef": {
-                          "Entity": "fato_quiz_rodada_participacao"
-                        }
-                      },
-                      "Property": "concluidas"
+                    "SourceRef": {
+                      "Entity": "fato_quiz_participacao"
                     }
                   },
-                  "Function": 0
+                  "Property": "area_rotulo"
                 }
               },
-              "queryRef": "Sum(fato_quiz_rodada_participacao.concluidas)",
-              "nativeQueryRef": "concluidas"
+              "queryRef": "fato_quiz_participacao.area_rotulo",
+              "nativeQueryRef": "area_rotulo",
+              "active": true
             }
           ]
         }
@@ -112,7 +107,7 @@
             "text": {
               "expr": {
                 "Literal": {
-                  "Value": "'📊 Elegíveis × concluídas por rodada'"
+                  "Value": "'✅ Participações concluídas por mês e área'"
                 }
               }
             },

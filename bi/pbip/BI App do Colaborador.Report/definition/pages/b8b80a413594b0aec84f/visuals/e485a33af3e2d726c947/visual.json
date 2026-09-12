@@ -1,16 +1,16 @@
 {
   "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.12.0/schema.json",
-  "name": "fc39c00cbc3dc6d3a569",
+  "name": "e485a33af3e2d726c947",
   "position": {
-    "x": 900,
+    "x": 860,
     "y": 252,
     "z": 15000,
     "height": 240,
-    "width": 364,
+    "width": 404,
     "tabOrder": 15000
   },
   "visual": {
-    "visualType": "clusteredBarChart",
+    "visualType": "lineChart",
     "query": {
       "queryState": {
         "Category": {
@@ -20,14 +20,14 @@
                 "Column": {
                   "Expression": {
                     "SourceRef": {
-                      "Entity": "fato_quiz_resposta"
+                      "Entity": "dim_calendario"
                     }
                   },
-                  "Property": "pergunta"
+                  "Property": "ano_mes"
                 }
               },
-              "queryRef": "fato_quiz_resposta.pergunta",
-              "nativeQueryRef": "pergunta",
+              "queryRef": "dim_calendario.ano_mes",
+              "nativeQueryRef": "ano_mes",
               "active": true
             }
           ]
@@ -42,31 +42,14 @@
                       "Entity": "_Medidas"
                     }
                   },
-                  "Property": "Taxa de erro (período)"
+                  "Property": "Taxa de participação"
                 }
               },
-              "queryRef": "_Medidas.Taxa de erro (período)",
-              "nativeQueryRef": "Taxa de erro (período)"
+              "queryRef": "_Medidas.Taxa de participação",
+              "nativeQueryRef": "Taxa de participação"
             }
           ]
         }
-      },
-      "sortDefinition": {
-        "sort": [
-          {
-            "field": {
-              "Measure": {
-                "Expression": {
-                  "SourceRef": {
-                    "Entity": "_Medidas"
-                  }
-                },
-                "Property": "Taxa de erro (período)"
-              }
-            },
-            "direction": "Descending"
-          }
-        ]
       }
     },
     "objects": {
@@ -105,7 +88,7 @@
             "text": {
               "expr": {
                 "Literal": {
-                  "Value": "'❌ Perguntas com maior índice de erro'"
+                  "Value": "'👥 Taxa de participação por mês'"
                 }
               }
             },

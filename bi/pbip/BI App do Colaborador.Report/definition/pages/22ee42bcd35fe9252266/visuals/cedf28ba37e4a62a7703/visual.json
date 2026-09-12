@@ -1,13 +1,13 @@
 {
   "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.12.0/schema.json",
-  "name": "2a19411212507c30e243",
+  "name": "cedf28ba37e4a62a7703",
   "position": {
-    "x": 1084,
+    "x": 1050,
     "y": 72,
-    "z": 8000,
+    "z": 7000,
     "height": 72,
-    "width": 180,
-    "tabOrder": 8000
+    "width": 214,
+    "tabOrder": 7000
   },
   "visual": {
     "visualType": "slicer",
@@ -20,14 +20,14 @@
                 "Column": {
                   "Expression": {
                     "SourceRef": {
-                      "Entity": "dim_hora"
+                      "Entity": "dim_calendario"
                     }
                   },
-                  "Property": "faixa_do_dia"
+                  "Property": "ano_mes"
                 }
               },
-              "queryRef": "dim_hora.faixa_do_dia",
-              "nativeQueryRef": "faixa_do_dia"
+              "queryRef": "dim_calendario.ano_mes",
+              "nativeQueryRef": "ano_mes"
             }
           ]
         }
@@ -60,7 +60,7 @@
             "text": {
               "expr": {
                 "Literal": {
-                  "Value": "'🕐 Faixa do dia'"
+                  "Value": "'📆 Mês'"
                 }
               }
             },
@@ -76,7 +76,7 @@
       ]
     },
     "syncGroup": {
-      "groupName": "dim_hora.faixa_do_dia",
+      "groupName": "dim_calendario.ano_mes",
       "fieldChanges": true,
       "filterChanges": true
     },

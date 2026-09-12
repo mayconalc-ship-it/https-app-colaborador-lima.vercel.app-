@@ -1,19 +1,38 @@
 {
   "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.12.0/schema.json",
-  "name": "9bd25456742a09db7712",
+  "name": "3cec2fa32081244a4453",
   "position": {
-    "x": 16,
-    "y": 152,
-    "z": 8000,
-    "height": 96,
-    "width": 240,
-    "tabOrder": 8000
+    "x": 900,
+    "y": 252,
+    "z": 15000,
+    "height": 240,
+    "width": 364,
+    "tabOrder": 15000
   },
   "visual": {
-    "visualType": "cardVisual",
+    "visualType": "clusteredColumnChart",
     "query": {
       "queryState": {
-        "Data": {
+        "Category": {
+          "projections": [
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "dim_hora"
+                    }
+                  },
+                  "Property": "faixa_do_dia"
+                }
+              },
+              "queryRef": "dim_hora.faixa_do_dia",
+              "nativeQueryRef": "faixa_do_dia",
+              "active": true
+            }
+          ]
+        },
+        "Y": {
           "projections": [
             {
               "field": {
@@ -28,13 +47,27 @@
               },
               "queryRef": "_Medidas.Taxa de acerto",
               "nativeQueryRef": "Taxa de acerto"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "_Medidas"
+                    }
+                  },
+                  "Property": "% de chute"
+                }
+              },
+              "queryRef": "_Medidas.% de chute",
+              "nativeQueryRef": "% de chute"
             }
           ]
         }
       }
     },
     "objects": {
-      "accentBar": [
+      "labels": [
         {
           "properties": {
             "show": {
@@ -43,58 +76,14 @@
                   "Value": "true"
                 }
               }
-            }
-          },
-          "selector": {
-            "id": "default"
-          }
-        }
-      ],
-      "border": [
-        {
-          "properties": {
-            "show": {
+            },
+            "bold": {
               "expr": {
                 "Literal": {
-                  "Value": "false"
+                  "Value": "true"
                 }
               }
             }
-          },
-          "selector": {
-            "id": "default"
-          }
-        }
-      ],
-      "outline": [
-        {
-          "properties": {
-            "show": {
-              "expr": {
-                "Literal": {
-                  "Value": "false"
-                }
-              }
-            }
-          },
-          "selector": {
-            "id": "default"
-          }
-        }
-      ],
-      "label": [
-        {
-          "properties": {
-            "show": {
-              "expr": {
-                "Literal": {
-                  "Value": "false"
-                }
-              }
-            }
-          },
-          "selector": {
-            "id": "default"
           }
         }
       ]
@@ -113,7 +102,7 @@
             "text": {
               "expr": {
                 "Literal": {
-                  "Value": "'🎯 Taxa de acerto'"
+                  "Value": "'🕐 % de acerto e de chute por faixa do dia'"
                 }
               }
             },
@@ -121,19 +110,6 @@
               "expr": {
                 "Literal": {
                   "Value": "11D"
-                }
-              }
-            }
-          }
-        }
-      ],
-      "border": [
-        {
-          "properties": {
-            "show": {
-              "expr": {
-                "Literal": {
-                  "Value": "false"
                 }
               }
             }

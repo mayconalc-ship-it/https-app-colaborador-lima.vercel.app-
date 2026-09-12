@@ -1,13 +1,13 @@
 {
   "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.12.0/schema.json",
-  "name": "c638f4d9bd7e3b7b684e",
+  "name": "bdb6e968fea9f41c73d7",
   "position": {
-    "x": 242,
+    "x": 16,
     "y": 72,
-    "z": 4000,
+    "z": 3000,
     "height": 72,
-    "width": 342,
-    "tabOrder": 4000
+    "width": 214,
+    "tabOrder": 3000
   },
   "visual": {
     "visualType": "slicer",
@@ -20,14 +20,14 @@
                 "Column": {
                   "Expression": {
                     "SourceRef": {
-                      "Entity": "dim_calendario"
+                      "Entity": "dim_revenda"
                     }
                   },
-                  "Property": "data"
+                  "Property": "revenda"
                 }
               },
-              "queryRef": "dim_calendario.data",
-              "nativeQueryRef": "data"
+              "queryRef": "dim_revenda.revenda",
+              "nativeQueryRef": "revenda"
             }
           ]
         }
@@ -40,7 +40,7 @@
             "mode": {
               "expr": {
                 "Literal": {
-                  "Value": "'Between'"
+                  "Value": "'Dropdown'"
                 }
               }
             }
@@ -60,7 +60,7 @@
             "text": {
               "expr": {
                 "Literal": {
-                  "Value": "'🗓️ Período'"
+                  "Value": "'🏢 Revenda'"
                 }
               }
             },
@@ -76,7 +76,7 @@
       ]
     },
     "syncGroup": {
-      "groupName": "dim_calendario.data",
+      "groupName": "dim_revenda.revenda",
       "fieldChanges": true,
       "filterChanges": true
     },

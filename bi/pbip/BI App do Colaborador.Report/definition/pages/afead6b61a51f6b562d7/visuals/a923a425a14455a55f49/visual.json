@@ -4,10 +4,10 @@
   "position": {
     "x": 772,
     "y": 152,
-    "z": 12000,
+    "z": 11000,
     "height": 96,
     "width": 240,
-    "tabOrder": 12000
+    "tabOrder": 11000
   },
   "visual": {
     "visualType": "cardVisual",
@@ -134,6 +134,26 @@
               "expr": {
                 "Literal": {
                   "Value": "false"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "visualHeaderTooltip": [
+        {
+          "properties": {
+            "type": {
+              "expr": {
+                "Literal": {
+                  "Value": "'Text'"
+                }
+              }
+            },
+            "text": {
+              "expr": {
+                "Literal": {
+                  "Value": "'CHUTE = resposta ERRADA dada em MENOS DE 4 SEGUNDOS. O % é chutes ÷ todas as respostas do recorte. Errar depois de pensar é falta de conhecimento e se treina; errar em menos de quatro segundos é pressa — a pessoa clicou sem ler. Chute alto pede conversa sobre o momento de responder, não sobre o conteúdo.'"
                 }
               }
             }

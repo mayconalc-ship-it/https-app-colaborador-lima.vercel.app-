@@ -1,53 +1,106 @@
 {
   "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.12.0/schema.json",
-  "name": "acfef3300bb5a07dbd8e",
+  "name": "92cfa4f7d954eb488232",
   "position": {
-    "x": 823,
-    "y": 72,
-    "z": 6000,
-    "height": 72,
-    "width": 214,
-    "tabOrder": 6000
+    "x": 16,
+    "y": 152,
+    "z": 8000,
+    "height": 96,
+    "width": 408,
+    "tabOrder": 8000
   },
   "visual": {
-    "visualType": "slicer",
+    "visualType": "cardVisual",
     "query": {
       "queryState": {
-        "Values": {
+        "Data": {
           "projections": [
             {
               "field": {
-                "Column": {
+                "Measure": {
                   "Expression": {
                     "SourceRef": {
-                      "Entity": "dim_colaborador"
+                      "Entity": "_Medidas"
                     }
                   },
-                  "Property": "colaborador"
+                  "Property": "Participantes únicos"
                 }
               },
-              "queryRef": "dim_colaborador.colaborador",
-              "nativeQueryRef": "colaborador"
+              "queryRef": "_Medidas.Participantes únicos",
+              "nativeQueryRef": "Participantes únicos"
             }
           ]
         }
       }
     },
     "objects": {
-      "data": [
+      "accentBar": [
         {
           "properties": {
-            "mode": {
+            "show": {
               "expr": {
                 "Literal": {
-                  "Value": "'Dropdown'"
+                  "Value": "true"
                 }
               }
             }
+          },
+          "selector": {
+            "id": "default"
           }
         }
       ],
-      "header": [
+      "border": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "false"
+                }
+              }
+            }
+          },
+          "selector": {
+            "id": "default"
+          }
+        }
+      ],
+      "outline": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "false"
+                }
+              }
+            }
+          },
+          "selector": {
+            "id": "default"
+          }
+        }
+      ],
+      "label": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "false"
+                }
+              }
+            }
+          },
+          "selector": {
+            "id": "default"
+          }
+        }
+      ]
+    },
+    "visualContainerObjects": {
+      "title": [
         {
           "properties": {
             "show": {
@@ -60,41 +113,21 @@
             "text": {
               "expr": {
                 "Literal": {
-                  "Value": "'👤 Colaborador'"
+                  "Value": "'👤 Participantes únicos'"
                 }
               }
             },
-            "textSize": {
+            "fontSize": {
               "expr": {
                 "Literal": {
-                  "Value": "10D"
+                  "Value": "11D"
                 }
               }
             }
           }
         }
       ],
-      "general": [
-        {
-          "properties": {
-            "selfFilterEnabled": {
-              "expr": {
-                "Literal": {
-                  "Value": "true"
-                }
-              }
-            }
-          }
-        }
-      ]
-    },
-    "syncGroup": {
-      "groupName": "dim_colaborador.colaborador",
-      "fieldChanges": true,
-      "filterChanges": true
-    },
-    "visualContainerObjects": {
-      "title": [
+      "border": [
         {
           "properties": {
             "show": {

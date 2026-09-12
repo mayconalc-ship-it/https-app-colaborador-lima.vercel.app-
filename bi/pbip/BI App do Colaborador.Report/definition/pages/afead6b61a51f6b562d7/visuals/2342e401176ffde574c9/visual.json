@@ -1,34 +1,20 @@
 {
   "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.12.0/schema.json",
-  "name": "c67be58cb3645cafcd93",
+  "name": "2342e401176ffde574c9",
   "position": {
     "x": 16,
     "y": 500,
-    "z": 17000,
+    "z": 16000,
     "height": 166,
     "width": 1248,
-    "tabOrder": 17000
+    "tabOrder": 16000
   },
   "visual": {
-    "visualType": "tableEx",
+    "visualType": "pivotTable",
     "query": {
       "queryState": {
-        "Values": {
+        "Rows": {
           "projections": [
-            {
-              "field": {
-                "Column": {
-                  "Expression": {
-                    "SourceRef": {
-                      "Entity": "fato_quiz_resposta"
-                    }
-                  },
-                  "Property": "pergunta"
-                }
-              },
-              "queryRef": "fato_quiz_resposta.pergunta",
-              "nativeQueryRef": "pergunta"
-            },
             {
               "field": {
                 "Column": {
@@ -41,7 +27,8 @@
                 }
               },
               "queryRef": "fato_quiz_resposta.origem",
-              "nativeQueryRef": "origem"
+              "nativeQueryRef": "origem",
+              "active": true
             },
             {
               "field": {
@@ -51,12 +38,17 @@
                       "Entity": "fato_quiz_resposta"
                     }
                   },
-                  "Property": "dificuldade_rotulo"
+                  "Property": "pergunta"
                 }
               },
-              "queryRef": "fato_quiz_resposta.dificuldade_rotulo",
-              "nativeQueryRef": "dificuldade_rotulo"
-            },
+              "queryRef": "fato_quiz_resposta.pergunta",
+              "nativeQueryRef": "pergunta",
+              "active": true
+            }
+          ]
+        },
+        "Values": {
+          "projections": [
             {
               "field": {
                 "Measure": {
@@ -101,52 +93,36 @@
             },
             {
               "field": {
-                "Column": {
+                "Measure": {
                   "Expression": {
                     "SourceRef": {
-                      "Entity": "fato_quiz_resposta"
+                      "Entity": "_Medidas"
                     }
                   },
-                  "Property": "resposta_certa"
+                  "Property": "Resposta certa"
                 }
               },
-              "queryRef": "fato_quiz_resposta.resposta_certa",
-              "nativeQueryRef": "resposta_certa"
-            },
-            {
-              "field": {
-                "Column": {
-                  "Expression": {
-                    "SourceRef": {
-                      "Entity": "fato_quiz_resposta"
-                    }
-                  },
-                  "Property": "explicacao"
-                }
-              },
-              "queryRef": "fato_quiz_resposta.explicacao",
-              "nativeQueryRef": "explicacao"
+              "queryRef": "_Medidas.Resposta certa",
+              "nativeQueryRef": "Resposta certa"
             }
           ]
         }
-      },
-      "sortDefinition": {
-        "sort": [
-          {
-            "field": {
-              "Measure": {
-                "Expression": {
-                  "SourceRef": {
-                    "Entity": "_Medidas"
-                  }
-                },
-                "Property": "Taxa de acerto"
-              }
-            },
-            "direction": "Ascending"
-          }
-        ]
       }
+    },
+    "objects": {
+      "rowHeaders": [
+        {
+          "properties": {
+            "showExpandCollapseButtons": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            }
+          }
+        }
+      ]
     },
     "visualContainerObjects": {
       "title": [
@@ -162,7 +138,7 @@
             "text": {
               "expr": {
                 "Literal": {
-                  "Value": "'📋 Perguntas mais erradas — com a resposta certa e o padrão de origem'"
+                  "Value": "'📋 Perguntas mais erradas — padrão › pergunta (clique no + do padrão)'"
                 }
               }
             },

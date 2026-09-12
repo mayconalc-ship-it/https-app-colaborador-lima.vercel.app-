@@ -1,12 +1,12 @@
 {
   "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.12.0/schema.json",
-  "name": "0d378b6c2f85fd44018c",
+  "name": "78bf848e510685a12240",
   "position": {
-    "x": 458,
+    "x": 438,
     "y": 252,
     "z": 14000,
     "height": 240,
-    "width": 430,
+    "width": 410,
     "tabOrder": 14000
   },
   "visual": {
@@ -20,14 +20,14 @@
                 "Column": {
                   "Expression": {
                     "SourceRef": {
-                      "Entity": "fato_quiz_participacao"
+                      "Entity": "dim_calendario"
                     }
                   },
-                  "Property": "mes_ref"
+                  "Property": "ano_mes"
                 }
               },
-              "queryRef": "fato_quiz_participacao.mes_ref",
-              "nativeQueryRef": "mes_ref",
+              "queryRef": "dim_calendario.ano_mes",
+              "nativeQueryRef": "ano_mes",
               "active": true
             }
           ]
@@ -91,40 +91,6 @@
             }
           }
         }
-      ],
-      "lineStyles": [
-        {
-          "properties": {
-            "lineChartType": {
-              "expr": {
-                "Literal": {
-                  "Value": "'smooth'"
-                }
-              }
-            },
-            "interpolationSmooth": {
-              "expr": {
-                "Literal": {
-                  "Value": "'cardinal'"
-                }
-              }
-            },
-            "interpolationSmoothParam": {
-              "expr": {
-                "Literal": {
-                  "Value": "70D"
-                }
-              }
-            },
-            "strokeWidth": {
-              "expr": {
-                "Literal": {
-                  "Value": "2D"
-                }
-              }
-            }
-          }
-        }
       ]
     },
     "visualContainerObjects": {
@@ -141,7 +107,7 @@
             "text": {
               "expr": {
                 "Literal": {
-                  "Value": "'📈 Evolução do aproveitamento por área'"
+                  "Value": "'📈 Aproveitamento por área — por mês'"
                 }
               }
             },

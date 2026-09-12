@@ -1,13 +1,13 @@
 {
   "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.12.0/schema.json",
-  "name": "9bd25456742a09db7712",
+  "name": "4526e3efcfe975dc36eb",
   "position": {
-    "x": 16,
+    "x": 856,
     "y": 152,
-    "z": 8000,
+    "z": 10000,
     "height": 96,
-    "width": 240,
-    "tabOrder": 8000
+    "width": 408,
+    "tabOrder": 10000
   },
   "visual": {
     "visualType": "cardVisual",
@@ -23,11 +23,11 @@
                       "Entity": "_Medidas"
                     }
                   },
-                  "Property": "Taxa de acerto"
+                  "Property": "Aproveitamento médio"
                 }
               },
-              "queryRef": "_Medidas.Taxa de acerto",
-              "nativeQueryRef": "Taxa de acerto"
+              "queryRef": "_Medidas.Aproveitamento médio",
+              "nativeQueryRef": "Aproveitamento médio"
             }
           ]
         }
@@ -113,7 +113,7 @@
             "text": {
               "expr": {
                 "Literal": {
-                  "Value": "'🎯 Taxa de acerto'"
+                  "Value": "'🎯 Aproveitamento médio'"
                 }
               }
             },

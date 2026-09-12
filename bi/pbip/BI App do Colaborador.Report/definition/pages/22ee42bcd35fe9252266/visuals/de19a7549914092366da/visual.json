@@ -1,13 +1,13 @@
 {
   "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.12.0/schema.json",
-  "name": "8d5455db57588fc607d8",
+  "name": "de19a7549914092366da",
   "position": {
-    "x": 597,
+    "x": 823,
     "y": 72,
-    "z": 5000,
+    "z": 6000,
     "height": 72,
     "width": 214,
-    "tabOrder": 5000
+    "tabOrder": 6000
   },
   "visual": {
     "visualType": "slicer",
@@ -23,11 +23,11 @@
                       "Entity": "dim_colaborador"
                     }
                   },
-                  "Property": "area_rotulo"
+                  "Property": "colaborador"
                 }
               },
-              "queryRef": "dim_colaborador.area_rotulo",
-              "nativeQueryRef": "area_rotulo"
+              "queryRef": "dim_colaborador.colaborador",
+              "nativeQueryRef": "colaborador"
             }
           ]
         }
@@ -60,7 +60,7 @@
             "text": {
               "expr": {
                 "Literal": {
-                  "Value": "'📍 Área'"
+                  "Value": "'👤 Colaborador'"
                 }
               }
             },
@@ -73,10 +73,23 @@
             }
           }
         }
+      ],
+      "general": [
+        {
+          "properties": {
+            "selfFilterEnabled": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            }
+          }
+        }
       ]
     },
     "syncGroup": {
-      "groupName": "dim_colaborador.area_rotulo",
+      "groupName": "dim_colaborador.colaborador",
       "fieldChanges": true,
       "filterChanges": true
     },
