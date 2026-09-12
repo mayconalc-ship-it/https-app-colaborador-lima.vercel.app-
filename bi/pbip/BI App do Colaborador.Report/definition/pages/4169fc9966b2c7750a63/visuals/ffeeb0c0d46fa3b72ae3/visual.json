@@ -1,33 +1,60 @@
 {
   "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.12.0/schema.json",
-  "name": "90a5762107ce236369d0",
+  "name": "ffeeb0c0d46fa3b72ae3",
   "position": {
-    "x": 16,
-    "y": 672,
-    "z": 18000,
-    "height": 30,
-    "width": 1248,
-    "tabOrder": 18000
+    "x": 0,
+    "y": 0,
+    "z": 1000,
+    "height": 68,
+    "width": 1280,
+    "tabOrder": 1000
   },
   "visual": {
-    "visualType": "textbox",
+    "visualType": "shape",
     "objects": {
-      "general": [
+      "shape": [
         {
           "properties": {
-            "paragraphs": [
-              {
-                "textRuns": [
-                  {
-                    "value": "Aderência e ranking somam o intervalo filtrado, porque medem frequência e não quantidade. META DA CIA: 3 contagens por semana — e \"contagem\" aqui é DIA CONTADO, não linha lançada: 40 linhas numa terça e nada no resto da semana cumprem 1/3 da meta. \"% da meta\" é acumulado no período. Use o filtro de Mês para ler os percentuais: o denominador são as semanas e os dias úteis JÁ DECORRIDOS do que estiver selecionado, então com o ano inteiro aberto todo mundo parece ruim. A conciliação e a garrafeira sem garrafa estão na página \"Conciliação do AG\".",
-                    "textStyle": {
-                      "fontSize": "8pt",
-                      "color": "#64748B"
+            "tileShape": {
+              "expr": {
+                "Literal": {
+                  "Value": "'rectangle'"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "fill": [
+        {
+          "properties": {
+            "fillColor": {
+              "solid": {
+                "color": {
+                  "expr": {
+                    "Literal": {
+                      "Value": "'#0B4DA2'"
                     }
                   }
-                ]
+                }
               }
-            ]
+            }
+          },
+          "selector": {
+            "id": "default"
+          }
+        }
+      ],
+      "outline": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "false"
+                }
+              }
+            }
           }
         }
       ]

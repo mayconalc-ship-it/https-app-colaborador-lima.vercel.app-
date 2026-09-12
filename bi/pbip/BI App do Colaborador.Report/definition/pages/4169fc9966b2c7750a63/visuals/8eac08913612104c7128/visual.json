@@ -1,0 +1,293 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.12.0/schema.json",
+  "name": "8eac08913612104c7128",
+  "position": {
+    "x": 16,
+    "y": 252,
+    "z": 12000,
+    "height": 414,
+    "width": 1248,
+    "tabOrder": 12000
+  },
+  "visual": {
+    "visualType": "tableEx",
+    "query": {
+      "queryState": {
+        "Values": {
+          "projections": [
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "fato_cinco_porques"
+                    }
+                  },
+                  "Property": "data"
+                }
+              },
+              "queryRef": "fato_cinco_porques.data",
+              "nativeQueryRef": "data"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "fato_cinco_porques"
+                    }
+                  },
+                  "Property": "colaborador"
+                }
+              },
+              "queryRef": "fato_cinco_porques.colaborador",
+              "nativeQueryRef": "colaborador"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "dim_colaborador"
+                    }
+                  },
+                  "Property": "cargo"
+                }
+              },
+              "queryRef": "dim_colaborador.cargo",
+              "nativeQueryRef": "cargo"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "fato_cinco_porques"
+                    }
+                  },
+                  "Property": "problema"
+                }
+              },
+              "queryRef": "fato_cinco_porques.problema",
+              "nativeQueryRef": "problema"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "_Medidas"
+                    }
+                  },
+                  "Property": "1º porquê"
+                }
+              },
+              "queryRef": "_Medidas.1º porquê",
+              "nativeQueryRef": "1º porquê"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "_Medidas"
+                    }
+                  },
+                  "Property": "2º porquê"
+                }
+              },
+              "queryRef": "_Medidas.2º porquê",
+              "nativeQueryRef": "2º porquê"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "_Medidas"
+                    }
+                  },
+                  "Property": "3º porquê"
+                }
+              },
+              "queryRef": "_Medidas.3º porquê",
+              "nativeQueryRef": "3º porquê"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "_Medidas"
+                    }
+                  },
+                  "Property": "4º porquê"
+                }
+              },
+              "queryRef": "_Medidas.4º porquê",
+              "nativeQueryRef": "4º porquê"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "_Medidas"
+                    }
+                  },
+                  "Property": "5º porquê"
+                }
+              },
+              "queryRef": "_Medidas.5º porquê",
+              "nativeQueryRef": "5º porquê"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "fato_cinco_porques"
+                    }
+                  },
+                  "Property": "causa_raiz"
+                }
+              },
+              "queryRef": "fato_cinco_porques.causa_raiz",
+              "nativeQueryRef": "causa_raiz"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "fato_cinco_porques"
+                    }
+                  },
+                  "Property": "acao_sugerida"
+                }
+              },
+              "queryRef": "fato_cinco_porques.acao_sugerida",
+              "nativeQueryRef": "acao_sugerida"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "fato_cinco_porques"
+                    }
+                  },
+                  "Property": "aceite_rotulo"
+                }
+              },
+              "queryRef": "fato_cinco_porques.aceite_rotulo",
+              "nativeQueryRef": "aceite_rotulo"
+            }
+          ]
+        }
+      },
+      "sortDefinition": {
+        "sort": [
+          {
+            "field": {
+              "Column": {
+                "Expression": {
+                  "SourceRef": {
+                    "Entity": "fato_cinco_porques"
+                  }
+                },
+                "Property": "data"
+              }
+            },
+            "direction": "Descending"
+          }
+        ]
+      }
+    },
+    "objects": {
+      "values": [
+        {
+          "properties": {
+            "wordWrap": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "columnHeaders": [
+        {
+          "properties": {
+            "wordWrap": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            },
+            "columnAdjustment": {
+              "expr": {
+                "Literal": {
+                  "Value": "'fixedWidth'"
+                }
+              }
+            },
+            "defaultColumnWidth": {
+              "expr": {
+                "Literal": {
+                  "Value": "100D"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "visualContainerObjects": {
+      "title": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            },
+            "text": {
+              "expr": {
+                "Literal": {
+                  "Value": "'🔗 A cadeia de cada análise — do problema ao aceite'"
+                }
+              }
+            },
+            "fontSize": {
+              "expr": {
+                "Literal": {
+                  "Value": "11D"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "visualHeader": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "drillFilterOtherVisuals": true
+  }
+}

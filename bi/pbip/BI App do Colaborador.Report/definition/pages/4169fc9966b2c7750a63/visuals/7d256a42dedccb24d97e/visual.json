@@ -1,13 +1,13 @@
 {
   "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.12.0/schema.json",
-  "name": "938c12e74a083d17ad06",
+  "name": "7d256a42dedccb24d97e",
   "position": {
-    "x": 646,
+    "x": 16,
     "y": 72,
-    "z": 5000,
+    "z": 3000,
     "height": 72,
-    "width": 303,
-    "tabOrder": 5000
+    "width": 240,
+    "tabOrder": 3000
   },
   "visual": {
     "visualType": "slicer",
@@ -20,14 +20,14 @@
                 "Column": {
                   "Expression": {
                     "SourceRef": {
-                      "Entity": "fato_ag_conciliacao"
+                      "Entity": "dim_revenda"
                     }
                   },
-                  "Property": "conferente"
+                  "Property": "revenda"
                 }
               },
-              "queryRef": "fato_ag_conciliacao.conferente",
-              "nativeQueryRef": "conferente"
+              "queryRef": "dim_revenda.revenda",
+              "nativeQueryRef": "revenda"
             }
           ]
         }
@@ -60,7 +60,7 @@
             "text": {
               "expr": {
                 "Literal": {
-                  "Value": "'👤 Conferente'"
+                  "Value": "'🏢 Revenda'"
                 }
               }
             },
@@ -76,7 +76,7 @@
       ]
     },
     "syncGroup": {
-      "groupName": "fato_ag_conciliacao.conferente",
+      "groupName": "dim_revenda.revenda",
       "fieldChanges": true,
       "filterChanges": true
     },

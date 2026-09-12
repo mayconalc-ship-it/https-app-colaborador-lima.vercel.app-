@@ -1,4 +1,4 @@
-/// Conciliacao do app por dia e item: contado + transito - parque. Aceitavel ate 5%.
+/// Conciliacao CONGELADA por dia e item: contado + transito - parque, em caixas e em R$.
 table fato_ag_conciliacao
 	lineageTag: 63596bcc-9379-473e-ad96-957ae42fd3cd
 
@@ -44,27 +44,19 @@ table fato_ag_conciliacao
 
 		annotation SummarizationSetBy = Automatic
 
+	column conferente
+		dataType: string
+		lineageTag: 2012606e-99c1-4ff7-a918-0960dc077809
+		summarizeBy: none
+		sourceColumn: conferente
+
+		annotation SummarizationSetBy = Automatic
+
 	column contado
 		dataType: int64
 		lineageTag: 73f9b914-4f77-498b-b868-b691fdded64a
 		summarizeBy: none
 		sourceColumn: contado
-
-		annotation SummarizationSetBy = Automatic
-
-	column linhas
-		dataType: int64
-		lineageTag: e97c3c3a-1446-4055-8114-f5edabe874c6
-		summarizeBy: none
-		sourceColumn: linhas
-
-		annotation SummarizationSetBy = Automatic
-
-	column contadores
-		dataType: int64
-		lineageTag: b0b28ad3-a469-4709-a4a1-dc768aa0f9b4
-		summarizeBy: none
-		sourceColumn: contadores
 
 		annotation SummarizationSetBy = Automatic
 
@@ -164,29 +156,60 @@ table fato_ag_conciliacao
 
 		annotation SummarizationSetBy = Automatic
 
-	column parque_atualizado_em
-		dataType: dateTime
-		formatString: dd/MM/yyyy
-		lineageTag: d636eac7-66c2-4f9d-91ca-073a596d18e5
+	column valor_caixa
+		dataType: decimal
+		lineageTag: 9d594c05-702b-4477-8e0a-a27586791075
 		summarizeBy: none
-		sourceColumn: parque_atualizado_em
+		sourceColumn: valor_caixa
 
 		annotation SummarizationSetBy = Automatic
 
-	column parque_confiavel
-		dataType: boolean
-		lineageTag: 877d4a12-b614-4c1d-b7cf-8418b66b3747
+	column contado_valor
+		dataType: decimal
+		lineageTag: 3cc9684e-4314-46af-b427-e1d735096b44
 		summarizeBy: none
-		sourceColumn: parque_confiavel
+		sourceColumn: contado_valor
 
 		annotation SummarizationSetBy = Automatic
 
-	column comodato_atualizado_em
+	column transito_valor
+		dataType: decimal
+		lineageTag: e7140a03-975e-4ad9-b67a-85b003cf9eb0
+		summarizeBy: none
+		sourceColumn: transito_valor
+
+		annotation SummarizationSetBy = Automatic
+
+	column parque_valor
+		dataType: decimal
+		lineageTag: bbe35a4a-0a34-47f2-a700-76fc961c5a03
+		summarizeBy: none
+		sourceColumn: parque_valor
+
+		annotation SummarizationSetBy = Automatic
+
+	column diferenca_valor
+		dataType: decimal
+		lineageTag: b3ae779a-189b-4321-bf84-728f7134df33
+		summarizeBy: none
+		sourceColumn: diferenca_valor
+
+		annotation SummarizationSetBy = Automatic
+
+	column congelado_em
 		dataType: dateTime
 		formatString: dd/MM/yyyy
-		lineageTag: 2c6b3bc6-3005-46d1-b992-0032ef694fec
+		lineageTag: 31a0c443-0054-49ba-8fac-42b4362672a0
 		summarizeBy: none
-		sourceColumn: comodato_atualizado_em
+		sourceColumn: congelado_em
+
+		annotation SummarizationSetBy = Automatic
+
+	column congelado_por
+		dataType: string
+		lineageTag: a64004f0-b6b3-429f-8f74-525a360994ce
+		summarizeBy: none
+		sourceColumn: congelado_por
 
 		annotation SummarizationSetBy = Automatic
 

@@ -1,13 +1,13 @@
 {
   "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.12.0/schema.json",
-  "name": "938c12e74a083d17ad06",
+  "name": "f836be91b0cc0cfd1e67",
   "position": {
-    "x": 646,
+    "x": 772,
     "y": 72,
-    "z": 5000,
+    "z": 6000,
     "height": 72,
-    "width": 303,
-    "tabOrder": 5000
+    "width": 240,
+    "tabOrder": 6000
   },
   "visual": {
     "visualType": "slicer",
@@ -20,14 +20,14 @@
                 "Column": {
                   "Expression": {
                     "SourceRef": {
-                      "Entity": "fato_ag_conciliacao"
+                      "Entity": "fato_cinco_porques"
                     }
                   },
-                  "Property": "conferente"
+                  "Property": "colaborador"
                 }
               },
-              "queryRef": "fato_ag_conciliacao.conferente",
-              "nativeQueryRef": "conferente"
+              "queryRef": "fato_cinco_porques.colaborador",
+              "nativeQueryRef": "colaborador"
             }
           ]
         }
@@ -60,7 +60,7 @@
             "text": {
               "expr": {
                 "Literal": {
-                  "Value": "'👤 Conferente'"
+                  "Value": "'👤 Quem fez'"
                 }
               }
             },
@@ -73,10 +73,23 @@
             }
           }
         }
+      ],
+      "general": [
+        {
+          "properties": {
+            "selfFilterEnabled": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            }
+          }
+        }
       ]
     },
     "syncGroup": {
-      "groupName": "fato_ag_conciliacao.conferente",
+      "groupName": "fato_cinco_porques.colaborador",
       "fieldChanges": true,
       "filterChanges": true
     },

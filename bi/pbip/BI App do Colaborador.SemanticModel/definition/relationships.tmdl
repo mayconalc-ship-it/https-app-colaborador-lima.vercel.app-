@@ -68,13 +68,10 @@ relationship 15eacef4-c9b8-4c81-912a-81c114a43c3d
 	fromColumn: fato_cinco_porques.chave
 	toColumn: dim_colaborador.chave
 
-relationship 66ac774f-a322-44ab-93c7-d19976613928
-	fromColumn: fato_cinco_porques_resposta.data
-	toColumn: dim_calendario.data
-
-relationship e0980223-e7c5-4373-a566-f4071092d983
-	fromColumn: fato_cinco_porques_resposta.revenda_id
-	toColumn: dim_revenda.revenda_id
+relationship 3327ef8a-cfc7-4acb-accf-75826293447e
+	crossFilteringBehavior: bothDirections
+	fromColumn: fato_cinco_porques_resposta.analise_id
+	toColumn: fato_cinco_porques.analise_id
 
 relationship 98f3c827-912b-4e2b-bb79-5e11dbaec6e4
 	fromColumn: fato_cinco_porques_matriz.revenda_id

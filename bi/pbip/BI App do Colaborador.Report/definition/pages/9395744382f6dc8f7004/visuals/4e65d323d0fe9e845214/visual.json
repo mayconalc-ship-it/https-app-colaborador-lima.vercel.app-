@@ -4,10 +4,10 @@
   "position": {
     "x": 16,
     "y": 672,
-    "z": 16000,
+    "z": 17000,
     "height": 30,
     "width": 1248,
-    "tabOrder": 16000
+    "tabOrder": 17000
   },
   "visual": {
     "visualType": "textbox",
@@ -19,7 +19,7 @@
               {
                 "textRuns": [
                   {
-                    "value": "A CONTA É A DO APP: contado + trânsito rota + trânsito carreta + comodato − parque. As três parcelas do meio são ativo da revenda que não está no pátio para ser contado — saiu com a entrega, está com o transportador ou emprestado ao cliente. Aceitável até 5% do parque, em módulo. O contado soma só as contagens VIVAS: quando há recontagem, ela SOBREPÕE a contagem antiga (a antiga continua no histórico, mas sai do total). Filtro de Dia: marque um ou vários (Ctrl + clique). A tabela de cima traz uma linha por dia e item; os cartões são a FOTOGRAFIA do último dia marcado — o dia está no primeiro cartão. Filtro de Conferente: o contado passa a ser só o daquela pessoa, e os itens que ela não contou saem da conta inteira (parque, trânsito e comodato também). No histórico, cada linha é um dia exato; a linha de total é a média diária, porque somar o parque de trinta dias daria um número que não existe. Dia sem contagem não aparece: é dia sem medição, não dia com falta de 100%. O parque e o comodato são saldos que valem até alguém mudar — um dia de semanas atrás é conciliado com o parque e o comodato de HOJE, igual ao app.",
+                    "value": "SÓ ENTRAM DIAS CONGELADOS: a conciliação oficial, congelada na tela do app por quem tem a liberação. Dia que ninguém congelou não aparece; para corrigir um dia congelado, o Admin reabre e alguém congela de novo. A CONTA É A DO APP: contado + trânsito rota + trânsito carreta + comodato − parque, em CAIXAS. As três parcelas do meio são ativo da revenda que não está no pátio. Aceitável até 5% do parque, em módulo. Os valores em R$ usam o valor da caixa gravado no dia do congelamento — mudar o preço depois não muda o histórico. Item sem valor cadastrado fica fora das somas em R$. Filtro de Dia: marque um ou vários (Ctrl + clique); os cartões mostram o último dia marcado. No histórico, a linha de total é a média diária.",
                     "textStyle": {
                       "fontSize": "8pt",
                       "color": "#64748B"

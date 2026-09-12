@@ -1,13 +1,13 @@
 {
   "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.12.0/schema.json",
-  "name": "b047a45ff864b3bc84af",
+  "name": "62a689dde7e883064d8c",
   "position": {
-    "x": 856,
+    "x": 1066,
     "y": 152,
-    "z": 11000,
+    "z": 12000,
     "height": 96,
     "width": 198,
-    "tabOrder": 11000
+    "tabOrder": 12000
   },
   "visual": {
     "visualType": "cardVisual",
@@ -23,11 +23,11 @@
                       "Entity": "_Medidas"
                     }
                   },
-                  "Property": "Diferença"
+                  "Property": "Diferença (R$)"
                 }
               },
-              "queryRef": "_Medidas.Diferença",
-              "nativeQueryRef": "Diferença"
+              "queryRef": "_Medidas.Diferença (R$)",
+              "nativeQueryRef": "Diferença (R$)"
             }
           ]
         }
@@ -113,7 +113,7 @@
             "text": {
               "expr": {
                 "Literal": {
-                  "Value": "'⚖️ Diferença (cx)'"
+                  "Value": "'💰 Diferença (R$)'"
                 }
               }
             },
@@ -153,7 +153,7 @@
             "text": {
               "expr": {
                 "Literal": {
-                  "Value": "'Contado + rota + carreta + comodato − parque, em caixas. Negativo é FALTA, positivo é sobra. Aceitável até 5% do parque.'"
+                  "Value": "'A diferença em reais: caixas de cada item × o valor da caixa cadastrado na configuração do AG, como estava no dia do congelamento. Item sem valor cadastrado fica fora desta soma.'"
                 }
               }
             }

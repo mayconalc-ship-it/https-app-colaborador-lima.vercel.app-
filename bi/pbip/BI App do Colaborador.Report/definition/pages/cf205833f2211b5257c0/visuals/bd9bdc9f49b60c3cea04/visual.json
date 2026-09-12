@@ -1,12 +1,12 @@
 {
   "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.12.0/schema.json",
-  "name": "938c12e74a083d17ad06",
+  "name": "bd9bdc9f49b60c3cea04",
   "position": {
-    "x": 646,
+    "x": 520,
     "y": 72,
     "z": 5000,
     "height": 72,
-    "width": 303,
+    "width": 240,
     "tabOrder": 5000
   },
   "visual": {
@@ -20,14 +20,14 @@
                 "Column": {
                   "Expression": {
                     "SourceRef": {
-                      "Entity": "fato_ag_conciliacao"
+                      "Entity": "fato_ag_contagem"
                     }
                   },
-                  "Property": "conferente"
+                  "Property": "tipo"
                 }
               },
-              "queryRef": "fato_ag_conciliacao.conferente",
-              "nativeQueryRef": "conferente"
+              "queryRef": "fato_ag_contagem.tipo",
+              "nativeQueryRef": "tipo"
             }
           ]
         }
@@ -60,7 +60,7 @@
             "text": {
               "expr": {
                 "Literal": {
-                  "Value": "'👤 Conferente'"
+                  "Value": "'🧃 Tipo de AG'"
                 }
               }
             },
@@ -76,7 +76,7 @@
       ]
     },
     "syncGroup": {
-      "groupName": "fato_ag_conciliacao.conferente",
+      "groupName": "fato_ag_contagem.tipo",
       "fieldChanges": true,
       "filterChanges": true
     },

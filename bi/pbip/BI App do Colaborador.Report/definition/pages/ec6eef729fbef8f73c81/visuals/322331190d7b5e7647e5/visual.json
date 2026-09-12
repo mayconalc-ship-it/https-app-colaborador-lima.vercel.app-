@@ -140,6 +140,26 @@
           }
         }
       ],
+      "visualHeaderTooltip": [
+        {
+          "properties": {
+            "type": {
+              "expr": {
+                "Literal": {
+                  "Value": "'Text'"
+                }
+              }
+            },
+            "text": {
+              "expr": {
+                "Literal": {
+                  "Value": "'A nota média em porcentagem: nota média ÷ 3 (a nota vai de 0 = Ruim a 3 = Ótima). Com nota média 1,88, a satisfação é 1,88 ÷ 3 = 62,5%. A nota aparece com duas casas para a conta fechar na mão — com uma casa, 1,875 virava \"1,9\" e parecia dar 63,3%.'"
+                }
+              }
+            }
+          }
+        }
+      ],
       "visualHeader": [
         {
           "properties": {

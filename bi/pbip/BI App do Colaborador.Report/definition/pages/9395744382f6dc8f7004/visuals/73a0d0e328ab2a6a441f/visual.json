@@ -1,0 +1,241 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.12.0/schema.json",
+  "name": "73a0d0e328ab2a6a441f",
+  "position": {
+    "x": 16,
+    "y": 252,
+    "z": 13000,
+    "height": 240,
+    "width": 1248,
+    "tabOrder": 13000
+  },
+  "visual": {
+    "visualType": "pivotTable",
+    "query": {
+      "queryState": {
+        "Rows": {
+          "projections": [
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "fato_ag_conciliacao"
+                    }
+                  },
+                  "Property": "data"
+                }
+              },
+              "queryRef": "fato_ag_conciliacao.data",
+              "nativeQueryRef": "data",
+              "active": true
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "fato_ag_conciliacao"
+                    }
+                  },
+                  "Property": "item"
+                }
+              },
+              "queryRef": "fato_ag_conciliacao.item",
+              "nativeQueryRef": "item",
+              "active": true
+            }
+          ]
+        },
+        "Values": {
+          "projections": [
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "_Medidas"
+                    }
+                  },
+                  "Property": "Contado"
+                }
+              },
+              "queryRef": "_Medidas.Contado",
+              "nativeQueryRef": "Contado"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "_Medidas"
+                    }
+                  },
+                  "Property": "Trânsito rota"
+                }
+              },
+              "queryRef": "_Medidas.Trânsito rota",
+              "nativeQueryRef": "Trânsito rota"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "_Medidas"
+                    }
+                  },
+                  "Property": "Trânsito carreta"
+                }
+              },
+              "queryRef": "_Medidas.Trânsito carreta",
+              "nativeQueryRef": "Trânsito carreta"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "_Medidas"
+                    }
+                  },
+                  "Property": "Comodato"
+                }
+              },
+              "queryRef": "_Medidas.Comodato",
+              "nativeQueryRef": "Comodato"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "_Medidas"
+                    }
+                  },
+                  "Property": "Parque"
+                }
+              },
+              "queryRef": "_Medidas.Parque",
+              "nativeQueryRef": "Parque"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "_Medidas"
+                    }
+                  },
+                  "Property": "Diferença"
+                }
+              },
+              "queryRef": "_Medidas.Diferença",
+              "nativeQueryRef": "Diferença"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "_Medidas"
+                    }
+                  },
+                  "Property": "% Diferença"
+                }
+              },
+              "queryRef": "_Medidas.% Diferença",
+              "nativeQueryRef": "% Diferença"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "_Medidas"
+                    }
+                  },
+                  "Property": "Diferença (R$)"
+                }
+              },
+              "queryRef": "_Medidas.Diferença (R$)",
+              "nativeQueryRef": "Diferença (R$)"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "_Medidas"
+                    }
+                  },
+                  "Property": "Situação da conciliação"
+                }
+              },
+              "queryRef": "_Medidas.Situação da conciliação",
+              "nativeQueryRef": "Situação da conciliação"
+            }
+          ]
+        }
+      }
+    },
+    "objects": {
+      "rowHeaders": [
+        {
+          "properties": {
+            "showExpandCollapseButtons": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "visualContainerObjects": {
+      "title": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            },
+            "text": {
+              "expr": {
+                "Literal": {
+                  "Value": "'⚖️ Conciliação por dia — clique no + do dia para abrir os itens'"
+                }
+              }
+            },
+            "fontSize": {
+              "expr": {
+                "Literal": {
+                  "Value": "11D"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "visualHeader": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "drillFilterOtherVisuals": true
+  }
+}

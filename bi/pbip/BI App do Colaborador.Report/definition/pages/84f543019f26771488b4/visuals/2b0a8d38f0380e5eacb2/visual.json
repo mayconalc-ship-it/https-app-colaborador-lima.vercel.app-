@@ -140,6 +140,26 @@
           }
         }
       ],
+      "visualHeaderTooltip": [
+        {
+          "properties": {
+            "type": {
+              "expr": {
+                "Literal": {
+                  "Value": "'Text'"
+                }
+              }
+            },
+            "text": {
+              "expr": {
+                "Literal": {
+                  "Value": "'Das análises que o motorista ABRIU, quantas ele terminou e enviou. As outras estão \"em andamento\": ele começou e parou no meio — em setembro/2026 eram 2 de 4, uma sem nenhum porquê respondido e outra só com o 1º. O app lista só as concluídas, por isso lá parece que todas terminaram. Análise em andamento não recebe tratativa e não entra no \"% Chegou ao 5º\".'"
+                }
+              }
+            }
+          }
+        }
+      ],
       "visualHeader": [
         {
           "properties": {

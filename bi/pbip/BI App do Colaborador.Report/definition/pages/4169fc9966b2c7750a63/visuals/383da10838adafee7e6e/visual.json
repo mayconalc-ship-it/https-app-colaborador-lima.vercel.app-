@@ -1,13 +1,13 @@
 {
   "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.12.0/schema.json",
-  "name": "938c12e74a083d17ad06",
+  "name": "383da10838adafee7e6e",
   "position": {
-    "x": 646,
+    "x": 1024,
     "y": 72,
-    "z": 5000,
+    "z": 7000,
     "height": 72,
-    "width": 303,
-    "tabOrder": 5000
+    "width": 240,
+    "tabOrder": 7000
   },
   "visual": {
     "visualType": "slicer",
@@ -20,14 +20,14 @@
                 "Column": {
                   "Expression": {
                     "SourceRef": {
-                      "Entity": "fato_ag_conciliacao"
+                      "Entity": "dim_calendario"
                     }
                   },
-                  "Property": "conferente"
+                  "Property": "ano_mes"
                 }
               },
-              "queryRef": "fato_ag_conciliacao.conferente",
-              "nativeQueryRef": "conferente"
+              "queryRef": "dim_calendario.ano_mes",
+              "nativeQueryRef": "ano_mes"
             }
           ]
         }
@@ -60,7 +60,7 @@
             "text": {
               "expr": {
                 "Literal": {
-                  "Value": "'👤 Conferente'"
+                  "Value": "'📆 Mês'"
                 }
               }
             },
@@ -76,7 +76,7 @@
       ]
     },
     "syncGroup": {
-      "groupName": "fato_ag_conciliacao.conferente",
+      "groupName": "dim_calendario.ano_mes",
       "fieldChanges": true,
       "filterChanges": true
     },

@@ -1,13 +1,13 @@
 {
   "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.12.0/schema.json",
-  "name": "b047a45ff864b3bc84af",
+  "name": "7c1fb10471269e7c1a7f",
   "position": {
-    "x": 856,
+    "x": 16,
     "y": 152,
-    "z": 11000,
+    "z": 8000,
     "height": 96,
-    "width": 198,
-    "tabOrder": 11000
+    "width": 303,
+    "tabOrder": 8000
   },
   "visual": {
     "visualType": "cardVisual",
@@ -23,11 +23,11 @@
                       "Entity": "_Medidas"
                     }
                   },
-                  "Property": "Diferença"
+                  "Property": "Análises"
                 }
               },
-              "queryRef": "_Medidas.Diferença",
-              "nativeQueryRef": "Diferença"
+              "queryRef": "_Medidas.Análises",
+              "nativeQueryRef": "Análises"
             }
           ]
         }
@@ -113,7 +113,7 @@
             "text": {
               "expr": {
                 "Literal": {
-                  "Value": "'⚖️ Diferença (cx)'"
+                  "Value": "'🔍 Análises abertas'"
                 }
               }
             },
@@ -134,26 +134,6 @@
               "expr": {
                 "Literal": {
                   "Value": "false"
-                }
-              }
-            }
-          }
-        }
-      ],
-      "visualHeaderTooltip": [
-        {
-          "properties": {
-            "type": {
-              "expr": {
-                "Literal": {
-                  "Value": "'Text'"
-                }
-              }
-            },
-            "text": {
-              "expr": {
-                "Literal": {
-                  "Value": "'Contado + rota + carreta + comodato − parque, em caixas. Negativo é FALTA, positivo é sobra. Aceitável até 5% do parque.'"
                 }
               }
             }

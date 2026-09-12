@@ -20,13 +20,13 @@
                 "Column": {
                   "Expression": {
                     "SourceRef": {
-                      "Entity": "dim_colaborador"
+                      "Entity": "fato_feedback_rota"
                     }
                   },
                   "Property": "area_rotulo"
                 }
               },
-              "queryRef": "dim_colaborador.area_rotulo",
+              "queryRef": "fato_feedback_rota.area_rotulo",
               "nativeQueryRef": "area_rotulo"
             }
           ]
@@ -76,7 +76,7 @@
       ]
     },
     "syncGroup": {
-      "groupName": "dim_colaborador.area_rotulo",
+      "groupName": "fato_feedback_rota.area_rotulo",
       "fieldChanges": true,
       "filterChanges": true
     },

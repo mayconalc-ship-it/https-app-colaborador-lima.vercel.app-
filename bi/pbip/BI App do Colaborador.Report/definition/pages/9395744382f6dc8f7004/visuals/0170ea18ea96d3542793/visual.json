@@ -1,13 +1,13 @@
 {
   "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.12.0/schema.json",
-  "name": "b047a45ff864b3bc84af",
+  "name": "0170ea18ea96d3542793",
   "position": {
-    "x": 856,
+    "x": 646,
     "y": 152,
-    "z": 11000,
+    "z": 10000,
     "height": 96,
     "width": 198,
-    "tabOrder": 11000
+    "tabOrder": 10000
   },
   "visual": {
     "visualType": "cardVisual",
@@ -23,11 +23,11 @@
                       "Entity": "_Medidas"
                     }
                   },
-                  "Property": "Diferença"
+                  "Property": "Parque"
                 }
               },
-              "queryRef": "_Medidas.Diferença",
-              "nativeQueryRef": "Diferença"
+              "queryRef": "_Medidas.Parque",
+              "nativeQueryRef": "Parque"
             }
           ]
         }
@@ -113,7 +113,7 @@
             "text": {
               "expr": {
                 "Literal": {
-                  "Value": "'⚖️ Diferença (cx)'"
+                  "Value": "'🏷️ Parque (cx)'"
                 }
               }
             },
@@ -153,7 +153,7 @@
             "text": {
               "expr": {
                 "Literal": {
-                  "Value": "'Contado + rota + carreta + comodato − parque, em caixas. Negativo é FALTA, positivo é sobra. Aceitável até 5% do parque.'"
+                  "Value": "'O saldo oficial de caixas cadastrado na configuração do AG, como estava no dia em que a conciliação foi congelada.'"
                 }
               }
             }

@@ -1,12 +1,12 @@
 {
   "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.12.0/schema.json",
-  "name": "c11fc90cebbab40b15e0",
+  "name": "bc5d4ff50e69b51e4fb4",
   "position": {
-    "x": 408,
-    "y": 252,
+    "x": 880,
+    "y": 500,
     "z": 16000,
-    "height": 414,
-    "width": 420,
+    "height": 166,
+    "width": 384,
     "tabOrder": 16000
   },
   "visual": {
@@ -20,14 +20,28 @@
                 "Column": {
                   "Expression": {
                     "SourceRef": {
-                      "Entity": "dim_calendario"
+                      "Entity": "fato_ag_contagem"
                     }
                   },
-                  "Property": "data"
+                  "Property": "colaborador_nome"
                 }
               },
-              "queryRef": "dim_calendario.data",
-              "nativeQueryRef": "data"
+              "queryRef": "fato_ag_contagem.colaborador_nome",
+              "nativeQueryRef": "colaborador_nome"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "fato_ag_contagem"
+                    }
+                  },
+                  "Property": "formato"
+                }
+              },
+              "queryRef": "fato_ag_contagem.formato",
+              "nativeQueryRef": "formato"
             },
             {
               "field": {
@@ -37,11 +51,11 @@
                       "Entity": "_Medidas"
                     }
                   },
-                  "Property": "Linhas lançadas"
+                  "Property": "Paletes GFE do dia conciliado"
                 }
               },
-              "queryRef": "_Medidas.Linhas lançadas",
-              "nativeQueryRef": "Linhas lançadas"
+              "queryRef": "_Medidas.Paletes GFE do dia conciliado",
+              "nativeQueryRef": "Paletes GFE do dia conciliado"
             },
             {
               "field": {
@@ -51,39 +65,11 @@
                       "Entity": "_Medidas"
                     }
                   },
-                  "Property": "Contadores"
+                  "Property": "Caixas GFE do dia conciliado"
                 }
               },
-              "queryRef": "_Medidas.Contadores",
-              "nativeQueryRef": "Contadores"
-            },
-            {
-              "field": {
-                "Measure": {
-                  "Expression": {
-                    "SourceRef": {
-                      "Entity": "_Medidas"
-                    }
-                  },
-                  "Property": "Itens conciliados"
-                }
-              },
-              "queryRef": "_Medidas.Itens conciliados",
-              "nativeQueryRef": "Itens conciliados"
-            },
-            {
-              "field": {
-                "Measure": {
-                  "Expression": {
-                    "SourceRef": {
-                      "Entity": "_Medidas"
-                    }
-                  },
-                  "Property": "% Itens que bateram"
-                }
-              },
-              "queryRef": "_Medidas.% Itens que bateram",
-              "nativeQueryRef": "% Itens que bateram"
+              "queryRef": "_Medidas.Caixas GFE do dia conciliado",
+              "nativeQueryRef": "Caixas GFE do dia conciliado"
             }
           ]
         }
@@ -92,61 +78,19 @@
         "sort": [
           {
             "field": {
-              "Column": {
+              "Measure": {
                 "Expression": {
                   "SourceRef": {
-                    "Entity": "dim_calendario"
+                    "Entity": "_Medidas"
                   }
                 },
-                "Property": "data"
+                "Property": "Paletes GFE do dia conciliado"
               }
             },
             "direction": "Descending"
           }
         ]
       }
-    },
-    "objects": {
-      "values": [
-        {
-          "properties": {
-            "wordWrap": {
-              "expr": {
-                "Literal": {
-                  "Value": "true"
-                }
-              }
-            }
-          }
-        }
-      ],
-      "columnHeaders": [
-        {
-          "properties": {
-            "wordWrap": {
-              "expr": {
-                "Literal": {
-                  "Value": "true"
-                }
-              }
-            },
-            "columnAdjustment": {
-              "expr": {
-                "Literal": {
-                  "Value": "'fixedWidth'"
-                }
-              }
-            },
-            "defaultColumnWidth": {
-              "expr": {
-                "Literal": {
-                  "Value": "96D"
-                }
-              }
-            }
-          }
-        }
-      ]
     },
     "visualContainerObjects": {
       "title": [
@@ -162,7 +106,7 @@
             "text": {
               "expr": {
                 "Literal": {
-                  "Value": "'📅 Aderência por dia'"
+                  "Value": "'🧺 Garrafeira sem garrafa — dia conciliado'"
                 }
               }
             },
@@ -170,6 +114,26 @@
               "expr": {
                 "Literal": {
                   "Value": "11D"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "visualHeaderTooltip": [
+        {
+          "properties": {
+            "type": {
+              "expr": {
+                "Literal": {
+                  "Value": "'Text'"
+                }
+              }
+            },
+            "text": {
+              "expr": {
+                "Literal": {
+                  "Value": "'Paletes e caixas de GFE sem garrafa como foram DIGITADOS, sem conversão, no dia que os cartões mostram. Aparece quem contou naquele dia — pode ser mais de um conferente, porque cada um conta o pátio inteiro.'"
                 }
               }
             }

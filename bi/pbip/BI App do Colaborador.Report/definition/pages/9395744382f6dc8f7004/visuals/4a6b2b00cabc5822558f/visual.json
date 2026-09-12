@@ -1,13 +1,13 @@
 {
   "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.12.0/schema.json",
-  "name": "b047a45ff864b3bc84af",
+  "name": "4a6b2b00cabc5822558f",
   "position": {
-    "x": 856,
+    "x": 436,
     "y": 152,
-    "z": 11000,
+    "z": 9000,
     "height": 96,
     "width": 198,
-    "tabOrder": 11000
+    "tabOrder": 9000
   },
   "visual": {
     "visualType": "cardVisual",
@@ -23,11 +23,11 @@
                       "Entity": "_Medidas"
                     }
                   },
-                  "Property": "Diferença"
+                  "Property": "Em trânsito"
                 }
               },
-              "queryRef": "_Medidas.Diferença",
-              "nativeQueryRef": "Diferença"
+              "queryRef": "_Medidas.Em trânsito",
+              "nativeQueryRef": "Em trânsito"
             }
           ]
         }
@@ -113,7 +113,7 @@
             "text": {
               "expr": {
                 "Literal": {
-                  "Value": "'⚖️ Diferença (cx)'"
+                  "Value": "'🚚 Rota + carreta + comodato (cx)'"
                 }
               }
             },
@@ -153,7 +153,7 @@
             "text": {
               "expr": {
                 "Literal": {
-                  "Value": "'Contado + rota + carreta + comodato − parque, em caixas. Negativo é FALTA, positivo é sobra. Aceitável até 5% do parque.'"
+                  "Value": "'Caixas da revenda que NÃO estão no pátio para serem contadas: saíram com a entrega (rota), estão com o transportador (carreta) ou emprestadas ao cliente (comodato). Somam ao contado antes de comparar com o parque.'"
                 }
               }
             }

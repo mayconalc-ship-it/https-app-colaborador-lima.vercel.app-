@@ -5,7 +5,7 @@
     "x": 840,
     "y": 252,
     "z": 17000,
-    "height": 200,
+    "height": 414,
     "width": 424,
     "tabOrder": 17000
   },
@@ -56,20 +56,6 @@
               },
               "queryRef": "_Medidas.% da meta de contagens",
               "nativeQueryRef": "% da meta de contagens"
-            },
-            {
-              "field": {
-                "Measure": {
-                  "Expression": {
-                    "SourceRef": {
-                      "Entity": "_Medidas"
-                    }
-                  },
-                  "Property": "% Lançado no dia"
-                }
-              },
-              "queryRef": "_Medidas.% Lançado no dia",
-              "nativeQueryRef": "% Lançado no dia"
             },
             {
               "field": {

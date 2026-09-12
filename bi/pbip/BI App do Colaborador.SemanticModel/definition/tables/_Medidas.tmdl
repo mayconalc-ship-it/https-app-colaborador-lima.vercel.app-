@@ -259,58 +259,28 @@ table '_Medidas'
 			)
 			
 			/*
-			A CONTAGEM DE UM CONFERENTE SÓ (12/09/2026, pedido do dono).
+			O CONFERENTE JÁ VEM NO DIA CONGELADO (12/09/2026).
 			
-			A view já traz o contado somado de todos os conferentes do dia. Com o
-			filtro de Conferente marcado (fato_ag_contagem[colaborador_nome]), o
-			contado sai da contagem dele -- só as vivas, como a view -- e o item
-			que ele NÃO contou sai da conta inteira: parque, trânsito e comodato
-			daquele item também. Sem esse corte, cada item que outro conferente
-			contou apareceria como falta do escolhido.
-			
-			Esta é a peça comum: o contado do conferente na LINHA da conciliação
-			(um dia, um tipo, um formato, uma revenda) em que for chamada.
+			Cada conferente conta o pátio inteiro -- dupla contagem cega, ver a
+			tela de conciliação do app: somar dois deu 131% do parque em 29/08.
+			O dia congelado guarda a contagem de UM deles, e o filtro de
+			Conferente é a coluna dele no próprio fato. Por isso as medidas desta
+			parte são somas simples: não há conta de conferente a fazer aqui.
 			*/
 		formatString: #,0
 		lineageTag: 4c285daa-051e-4b8e-820c-c7595ac16348
 
-	measure 'Contado do conferente na linha' =
-			CALCULATE (
-			    SUM ( fato_ag_contagem[total_caixas] ),
-			    fato_ag_contagem[viva] = TRUE (),
-			    TREATAS ( VALUES ( fato_ag_conciliacao[data] ), fato_ag_contagem[data] ),
-			    TREATAS ( VALUES ( fato_ag_conciliacao[tipo] ), fato_ag_contagem[tipo] ),
-			    TREATAS ( VALUES ( fato_ag_conciliacao[formato] ), fato_ag_contagem[formato] ),
-			    TREATAS ( VALUES ( fato_ag_conciliacao[revenda_id] ), fato_ag_contagem[revenda_id] )
-			)
-		formatString: #,0
-		lineageTag: 5d7b9e0b-1f18-48ad-9e6b-b7bf9e566220
-
 	measure 'Contado' =
 			VAR Dia = [Dia da conciliação]
 			RETURN
-			    IF (
-			        ISFILTERED ( fato_ag_contagem[colaborador_nome] ),
-			        SUMX (
-			            CALCULATETABLE ( fato_ag_conciliacao, fato_ag_conciliacao[data] = Dia ),
-			            [Contado do conferente na linha]
-			        ),
-			        CALCULATE ( SUM ( fato_ag_conciliacao[contado] ), fato_ag_conciliacao[data] = Dia )
-			    )
+			    CALCULATE ( SUM ( fato_ag_conciliacao[contado] ), fato_ag_conciliacao[data] = Dia )
 		formatString: #,0
 		lineageTag: 5bf47143-cd07-47e5-b26c-c6b60fa69e96
 
 	measure 'Parque' =
 			VAR Dia = [Dia da conciliação]
 			RETURN
-			    IF (
-			        ISFILTERED ( fato_ag_contagem[colaborador_nome] ),
-			        SUMX (
-			            CALCULATETABLE ( fato_ag_conciliacao, fato_ag_conciliacao[data] = Dia ),
-			            IF ( NOT ISBLANK ( [Contado do conferente na linha] ), fato_ag_conciliacao[parque] )
-			        ),
-			        CALCULATE ( SUM ( fato_ag_conciliacao[parque] ), fato_ag_conciliacao[data] = Dia )
-			    )
+			    CALCULATE ( SUM ( fato_ag_conciliacao[parque] ), fato_ag_conciliacao[data] = Dia )
 		formatString: #,0
 		lineageTag: d0d5ac10-53fa-407a-ab9b-ff175f38ef5f
 
@@ -343,42 +313,21 @@ table '_Medidas'
 	measure 'Trânsito rota' =
 			VAR Dia = [Dia da conciliação]
 			RETURN
-			    IF (
-			        ISFILTERED ( fato_ag_contagem[colaborador_nome] ),
-			        SUMX (
-			            CALCULATETABLE ( fato_ag_conciliacao, fato_ag_conciliacao[data] = Dia ),
-			            IF ( NOT ISBLANK ( [Contado do conferente na linha] ), fato_ag_conciliacao[transito_rota] )
-			        ),
-			        CALCULATE ( SUM ( fato_ag_conciliacao[transito_rota] ), fato_ag_conciliacao[data] = Dia )
-			    )
+			    CALCULATE ( SUM ( fato_ag_conciliacao[transito_rota] ), fato_ag_conciliacao[data] = Dia )
 		formatString: #,0
 		lineageTag: 79bad17b-e36f-4964-be7e-9bc2f858b2f8
 
 	measure 'Trânsito carreta' =
 			VAR Dia = [Dia da conciliação]
 			RETURN
-			    IF (
-			        ISFILTERED ( fato_ag_contagem[colaborador_nome] ),
-			        SUMX (
-			            CALCULATETABLE ( fato_ag_conciliacao, fato_ag_conciliacao[data] = Dia ),
-			            IF ( NOT ISBLANK ( [Contado do conferente na linha] ), fato_ag_conciliacao[transito_carreta] )
-			        ),
-			        CALCULATE ( SUM ( fato_ag_conciliacao[transito_carreta] ), fato_ag_conciliacao[data] = Dia )
-			    )
+			    CALCULATE ( SUM ( fato_ag_conciliacao[transito_carreta] ), fato_ag_conciliacao[data] = Dia )
 		formatString: #,0
 		lineageTag: a193289f-18ee-4afe-ab38-1c22e2558cf0
 
 	measure 'Comodato' =
 			VAR Dia = [Dia da conciliação]
 			RETURN
-			    IF (
-			        ISFILTERED ( fato_ag_contagem[colaborador_nome] ),
-			        SUMX (
-			            CALCULATETABLE ( fato_ag_conciliacao, fato_ag_conciliacao[data] = Dia ),
-			            IF ( NOT ISBLANK ( [Contado do conferente na linha] ), fato_ag_conciliacao[comodato] )
-			        ),
-			        CALCULATE ( SUM ( fato_ag_conciliacao[comodato] ), fato_ag_conciliacao[data] = Dia )
-			    )
+			    CALCULATE ( SUM ( fato_ag_conciliacao[comodato] ), fato_ag_conciliacao[data] = Dia )
 		formatString: #,0
 		lineageTag: 4ad2fa9d-f3ae-4a2f-9e6d-48aec2dee3d8
 
@@ -453,8 +402,96 @@ table '_Medidas'
 
 	measure '% Diferença por dia' =
 			AVERAGEX ( VALUES ( fato_ag_conciliacao[data] ), [% Diferença] )
+			
+			/*
+			EM R$ (12/09/2026, pedido do dono: "ter valores em R$").
+			
+			O valor da caixa vem GRAVADO no dia congelado
+			(ag_congelamento_itens.valor_caixa), então mudar o preço na
+			configuração não muda o que já foi para a reunião. Item que não tinha
+			valor cadastrado quando o dia foi congelado fica fora da soma em R$ --
+			e [Itens sem valor] diz quantos, para o total não parecer completo sem
+			estar.
+			*/
 		formatString: 0.0%
 		lineageTag: 94e94b20-0ece-48f8-85c7-804662a76787
+
+	measure 'Diferença (R$)' =
+			VAR Dia = [Dia da conciliação]
+			RETURN
+			    CALCULATE ( SUM ( fato_ag_conciliacao[diferenca_valor] ), fato_ag_conciliacao[data] = Dia )
+		formatString: R$ #,0.00
+		lineageTag: 2ea64276-e61c-4730-b654-ee83a0cffcef
+
+	measure 'Contado (R$)' =
+			VAR Dia = [Dia da conciliação]
+			RETURN
+			    CALCULATE ( SUM ( fato_ag_conciliacao[contado_valor] ), fato_ag_conciliacao[data] = Dia )
+		formatString: R$ #,0.00
+		lineageTag: c2c0d058-9aee-4d71-a1a6-051a52be4094
+
+	measure 'Em trânsito (R$)' =
+			VAR Dia = [Dia da conciliação]
+			RETURN
+			    CALCULATE ( SUM ( fato_ag_conciliacao[transito_valor] ), fato_ag_conciliacao[data] = Dia )
+		formatString: R$ #,0.00
+		lineageTag: fbb50a8b-7064-4515-bcab-e0165252a54f
+
+	measure 'Parque (R$)' =
+			VAR Dia = [Dia da conciliação]
+			RETURN
+			    CALCULATE ( SUM ( fato_ag_conciliacao[parque_valor] ), fato_ag_conciliacao[data] = Dia )
+		formatString: R$ #,0.00
+		lineageTag: 98576f55-d4d1-4701-bb0e-84dd8b17ae36
+
+	measure 'Diferença por dia (R$)' =
+			AVERAGEX ( VALUES ( fato_ag_conciliacao[data] ), [Diferença (R$)] )
+		formatString: R$ #,0.00
+		lineageTag: 2d97b00c-d77e-48cc-9538-1ccee27eef42
+
+	measure 'Itens sem valor' =
+			VAR Dia = [Dia da conciliação]
+			RETURN
+			    CALCULATE (
+			        COUNTROWS ( fato_ag_conciliacao ),
+			        fato_ag_conciliacao[data] = Dia,
+			        ISBLANK ( fato_ag_conciliacao[valor_caixa] )
+			    ) + 0
+			
+			/*
+			A GARRAFEIRA SEM GARRAFA DO DIA CONCILIADO (12/09/2026).
+			
+			A tabela saiu da página do Ativo de Giro e foi para a da Conciliação,
+			a pedido do dono. Lá o dia é o do filtro de Dia (o dia congelado), e
+			não o "último dia contado" -- estas duas medidas leem esse dia.
+			Paletes e caixas como foram DIGITADOS, só as contagens vivas.
+			*/
+		formatString: #,0
+		lineageTag: 0658b04c-c57c-438b-9994-03e532beb426
+
+	measure 'Paletes GFE do dia conciliado' =
+			VAR Dia = [Dia da conciliação]
+			RETURN
+			    CALCULATE (
+			        SUM ( fato_ag_contagem[palete] ),
+			        fato_ag_contagem[data] = Dia,
+			        fato_ag_contagem[tipo] = "GFE sem Garrafa",
+			        fato_ag_contagem[viva] = TRUE ()
+			    )
+		formatString: #,0
+		lineageTag: e58e4d23-70d3-47a7-a377-b8bbfa55ca42
+
+	measure 'Caixas GFE do dia conciliado' =
+			VAR Dia = [Dia da conciliação]
+			RETURN
+			    CALCULATE (
+			        SUM ( fato_ag_contagem[caixa] ),
+			        fato_ag_contagem[data] = Dia,
+			        fato_ag_contagem[tipo] = "GFE sem Garrafa",
+			        fato_ag_contagem[viva] = TRUE ()
+			    )
+		formatString: #,0
+		lineageTag: f8839c8d-326f-476b-9c9c-af83577beaca
 
 	measure 'Ocorrências de contagem' =
 			COUNTROWS ( fato_ag_dia_colaborador )
@@ -547,7 +584,7 @@ table '_Medidas'
 
 	measure 'Nota média' =
 			AVERAGE ( fato_feedback_rota[nota] )
-		formatString: 0.0
+		formatString: 0.00
 		lineageTag: 62267487-ec62-4d05-84c2-945884968c54
 
 	measure '% Satisfação' =
@@ -603,7 +640,7 @@ table '_Medidas'
 
 	measure 'Nota média por cidade' =
 			AVERAGE ( fato_feedback_cidade[nota] )
-		formatString: 0.0
+		formatString: 0.00
 		lineageTag: 66d52304-8221-4ada-80ef-7f8e75c24605
 
 	measure 'Nota média ajustada da cidade' =
@@ -617,7 +654,7 @@ table '_Medidas'
 			VAR Soma = CALCULATE ( SUM ( fato_feedback_cidade[nota] ) )
 			RETURN
 			    DIVIDE ( Soma + Peso * MediaGeral, Observacoes + Peso )
-		formatString: 0.0
+		formatString: 0.00
 		lineageTag: 32cd703a-150b-42d0-b8fd-7aa3aae965a9
 
 	measure 'Cidade mais crítica' =
@@ -664,11 +701,60 @@ table '_Medidas'
 
 	measure '% Chegou ao 5º porquê' =
 			DIVIDE (
-			    CALCULATE ( [Análises], fato_cinco_porques[chegou_ao_quinto] = TRUE () ),
+			    CALCULATE (
+			        [Análises],
+			        fato_cinco_porques[chegou_ao_quinto] = TRUE (),
+			        fato_cinco_porques[concluida] = TRUE ()
+			    ),
 			    [Análises concluídas]
 			)
 		formatString: 0.0%
 		lineageTag: a0141168-74d9-489b-b1bf-5e330d658e8e
+
+	measure 'Análises em andamento' =
+			CALCULATE ( [Análises], fato_cinco_porques[concluida] = FALSE () )
+			
+			/*
+			A CADEIA DE CADA ANÁLISE, nível a nível (12/09/2026, pedido do dono:
+			"ver de forma ilustrativa como foi feito o 5 porquês pelo motorista").
+			
+			Uma medida por nível, para a tabela pôr os cinco lado a lado na linha
+			da análise. A resposta é a opção que o motorista marcou; quando ele
+			escreveu por conta própria, o texto livre vem junto. Nível que ele
+			não respondeu fica vazio -- é onde a análise parou.
+			*/
+		formatString: #,0
+		lineageTag: c952e71c-03a2-40b4-a410-d0dd0448dd9b
+
+	measure '1º porquê' =
+			VAR R = CALCULATE ( MAX ( fato_cinco_porques_resposta[resposta] ), fato_cinco_porques_resposta[nivel] = 1 )
+			VAR L = CALCULATE ( MAX ( fato_cinco_porques_resposta[texto_livre] ), fato_cinco_porques_resposta[nivel] = 1 )
+			RETURN IF ( ISBLANK ( L ) || L = "", R, IF ( ISBLANK ( R ) || R = "", L, R & " — " & L ) )
+		lineageTag: ef2221a0-dd7d-4db8-87d0-1b218ae7855f
+
+	measure '2º porquê' =
+			VAR R = CALCULATE ( MAX ( fato_cinco_porques_resposta[resposta] ), fato_cinco_porques_resposta[nivel] = 2 )
+			VAR L = CALCULATE ( MAX ( fato_cinco_porques_resposta[texto_livre] ), fato_cinco_porques_resposta[nivel] = 2 )
+			RETURN IF ( ISBLANK ( L ) || L = "", R, IF ( ISBLANK ( R ) || R = "", L, R & " — " & L ) )
+		lineageTag: bb7cbd6e-8318-434e-aa81-2bf8a393c4b6
+
+	measure '3º porquê' =
+			VAR R = CALCULATE ( MAX ( fato_cinco_porques_resposta[resposta] ), fato_cinco_porques_resposta[nivel] = 3 )
+			VAR L = CALCULATE ( MAX ( fato_cinco_porques_resposta[texto_livre] ), fato_cinco_porques_resposta[nivel] = 3 )
+			RETURN IF ( ISBLANK ( L ) || L = "", R, IF ( ISBLANK ( R ) || R = "", L, R & " — " & L ) )
+		lineageTag: cb67caf4-1ed9-40b8-a55a-314452729801
+
+	measure '4º porquê' =
+			VAR R = CALCULATE ( MAX ( fato_cinco_porques_resposta[resposta] ), fato_cinco_porques_resposta[nivel] = 4 )
+			VAR L = CALCULATE ( MAX ( fato_cinco_porques_resposta[texto_livre] ), fato_cinco_porques_resposta[nivel] = 4 )
+			RETURN IF ( ISBLANK ( L ) || L = "", R, IF ( ISBLANK ( R ) || R = "", L, R & " — " & L ) )
+		lineageTag: 234755ed-c1c6-46a9-bfdd-52e174c0e9a2
+
+	measure '5º porquê' =
+			VAR R = CALCULATE ( MAX ( fato_cinco_porques_resposta[resposta] ), fato_cinco_porques_resposta[nivel] = 5 )
+			VAR L = CALCULATE ( MAX ( fato_cinco_porques_resposta[texto_livre] ), fato_cinco_porques_resposta[nivel] = 5 )
+			RETURN IF ( ISBLANK ( L ) || L = "", R, IF ( ISBLANK ( R ) || R = "", L, R & " — " & L ) )
+		lineageTag: 0585d2be-3542-498b-9de4-2ede028ee6fb
 
 	measure 'Profundidade média' =
 			AVERAGE ( fato_cinco_porques[profundidade] )
@@ -1611,7 +1697,7 @@ table '_Medidas'
 			mais do que rende. Por isso a tabela do ciclo não liga em dim_hora
 			nem em dim_colaborador — ver a nota da view.
 			*/
-		formatString: #,0
+		formatString: R$ #,0.00
 		lineageTag: 37c09d98-caba-4de4-a48f-308a6b8adfd6
 
 	measure 'Horas por botijão' =

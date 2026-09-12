@@ -182,7 +182,7 @@
             "text": {
               "expr": {
                 "Literal": {
-                  "Value": "'O dia mais recente com contagem DENTRO do período filtrado. É a data que manda nos três visuais de volume lá embaixo: eles mostram só quem contou neste dia, e não o acumulado. Se um colaborador que você sabe que contou não aparece na tabela, é porque contou em outro dia. Para mudar a fotografia, ajuste o filtro de Período para o dia que quer ver. Repare também no volume: dia com muito menos linha que o anterior costuma ser contagem parcial, e a fotografia sai incompleta sem avisar.'"
+                  "Value": "'O dia mais recente com contagem DENTRO do período filtrado. A conciliação e a garrafeira sem garrafa estão na página \"Conciliação do AG\" — lá só entra dia que alguém congelou no app.'"
                 }
               }
             }

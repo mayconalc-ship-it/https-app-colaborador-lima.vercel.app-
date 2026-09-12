@@ -169,6 +169,26 @@
           }
         }
       ],
+      "visualHeaderTooltip": [
+        {
+          "properties": {
+            "type": {
+              "expr": {
+                "Literal": {
+                  "Value": "'Text'"
+                }
+              }
+            },
+            "text": {
+              "expr": {
+                "Literal": {
+                  "Value": "'O dia que os cartões mostram. Com vários dias marcados no filtro, é o último deles — conciliação é fotografia de um dia, e somar o parque de três dias daria um número que não existe.'"
+                }
+              }
+            }
+          }
+        }
+      ],
       "visualHeader": [
         {
           "properties": {
