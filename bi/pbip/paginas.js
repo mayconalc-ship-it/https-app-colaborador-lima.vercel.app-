@@ -276,13 +276,6 @@ const paginas = [
         'mesmo que 8 deles tenham caído na mesma semana. Para cobrar regularidade, use o ' +
         'cartão ao lado. Filtre um mês: o denominador são as semanas já decorridas do que ' +
         'estiver selecionado, então com o ano inteiro aberto todo mundo parece ruim.'],
-      ['📆 % Semanas na meta', '@% Semanas na meta',
-        'Das semanas já decorridas no período, quantas fecharam com 3 ou mais dias contados. ' +
-        'É o par duro de "% da meta": aqui não há compensação entre semanas — uma semana com ' +
-        '6 contagens não paga a semana seguinte com nenhuma. Quando os dois cartões ' +
-        'discordam, o volume está certo e a rotina está irregular, que é exatamente o que a ' +
-        'meta de 3 por semana existe para evitar.'],
-      ['✅ % Lançado no dia', '@% Lançado no dia'],
       // Substituiu "Recontagens pendentes": os tres visuais de volume
       // desta pagina falam de UM dia, e nao dizer qual e esconder a
       // metade da informacao.
@@ -591,13 +584,20 @@ const paginas = [
     // lancamento". As duas listas saem das colunas do fato, entao so trazem
     // area e gente que ja mandou feedback. Ocorrencia e cidade acompanham,
     // porque estao penduradas no feedback.
-    filtros: filtros.map((f) =>
-      f.campo === 'dim_colaborador.area_rotulo'
-        ? { campo: 'fato_feedback_rota.area_rotulo', titulo: '📍 Área' }
-        : f.campo === 'dim_colaborador.colaborador'
+    //
+    // AREA SAIU DE VEZ (12/09/2026, segunda leitura do dono: "os filtros
+    // nao sairam"). A lista do proprio fato ainda trazia "Armazem
+    // Logistico" -- de 20 pessoas que mandaram feedback, 19 sao da
+    // Distribuicao e 1 e o proprio dono, cadastrado como Apoio Logistico,
+    // com os feedbacks de teste. Como so a distribuicao lanca, o filtro
+    // de area nao separa nada que importe.
+    filtros: filtros
+      .filter((f) => f.campo !== 'dim_colaborador.area_rotulo')
+      .map((f) =>
+        f.campo === 'dim_colaborador.colaborador'
           ? { campo: 'fato_feedback_rota.colaborador', titulo: '👤 Colaborador', busca: true }
           : f,
-    ),
+      ),
     kpis: [
       ['📝 Feedbacks', '@Feedbacks'],
       ['★ Nota média (0 a 3)', '@Nota média'],
@@ -748,7 +748,11 @@ const paginas = [
     // COLABORADOR = QUEM FEZ A ANALISE (12/09/2026, pedido do dono). A
     // lista sai do proprio fato, entao so traz motorista e ajudante que
     // abriram um 5 Porques.
-    filtros: filtrosComColaboradorDaPagina('fato_cinco_porques.colaborador', '👤 Quem fez'),
+    // SEM AREA (12/09/2026): so a distribuicao faz 5 Porques, e a lista
+    // global trazia o Armazem -- o mesmo motivo que o dono deu para a
+    // pagina de Feedback. Quem fez ja recorta o que interessa.
+    filtros: filtrosComColaboradorDaPagina('fato_cinco_porques.colaborador', '👤 Quem fez')
+      .filter((f) => f.campo !== 'dim_colaborador.area_rotulo'),
     kpis: [
       ['🔍 Análises', '@Análises'],
       ['✅ % Conclusão', '@% Conclusão',
@@ -903,7 +907,11 @@ const paginas = [
       analise (ver modelo.js) -- e por isso chegam na linha certa.
     */
     nome: '🔗 5 Porquês — cada análise',
-    filtros: filtrosComColaboradorDaPagina('fato_cinco_porques.colaborador', '👤 Quem fez'),
+    // SEM AREA (12/09/2026): so a distribuicao faz 5 Porques, e a lista
+    // global trazia o Armazem -- o mesmo motivo que o dono deu para a
+    // pagina de Feedback. Quem fez ja recorta o que interessa.
+    filtros: filtrosComColaboradorDaPagina('fato_cinco_porques.colaborador', '👤 Quem fez')
+      .filter((f) => f.campo !== 'dim_colaborador.area_rotulo'),
     kpis: [
       ['🔍 Análises abertas', '@Análises'],
       ['✅ Concluídas', '@Análises concluídas'],
