@@ -39,13 +39,17 @@ import { getUltimaCombinacao } from "./ultima-combinacao";
 import { Lancamento } from "./Lancamento";
 import {
   cancelarRecontagem,
+  congelarConciliacao,
   dispensarRecontagem,
   excluirContagem,
+  podeCongelar,
   podeLancarTransito,
+  reabrirConciliacao,
   salvarComodato,
   salvarTransito,
   solicitarRecontagem,
 } from "./actions";
+import { ehOwner } from "@/lib/acessos";
 import { ExportarContagens } from "./ExportarContagens";
 
 export const dynamic = "force-dynamic";
@@ -175,6 +179,8 @@ export default async function AtivoDeGiroPage({
     podeConfigurar,
     podeExcluirQualquer,
     ultimaCombinacao,
+    podeCongelarDia,
+    { data: congelamento },
   ] = await Promise.all([
     supabase
       .from("ag_fatores")
@@ -287,6 +293,17 @@ export default async function AtivoDeGiroPage({
     podeNoModulo("ativo-giro", "editar"),
     podeNoModulo("ativo-giro", "excluir"),
     getUltimaCombinacao(),
+    podeCongelar(),
+    // O dia aberto já foi congelado? (migration 116) -- é o que decide se
+    // a tela mostra o botão de congelar ou o selo de "congelado".
+    aba === "conciliacao"
+      ? supabase
+          .from("ag_congelamentos")
+          .select("conferente_nome, congelado_por_nome, congelado_em")
+          .eq("revenda_id", revendaId)
+          .eq("data", dia)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
   ]);
 
   const fatores = fatoresDeLinhas(fatoresBanco);
@@ -806,6 +823,68 @@ export default async function AtivoDeGiroPage({
               </p>
             </>
           )}
+
+          {/* ---- CONGELAR A CONCILIAÇÃO (12/09/2026) ----
+              Pedido do dono: congelar e mandar para o BI só as
+              conciliações congeladas. A trava está nos dois lados: a tela
+              mostra o botão só para quem pode e só com o conferente
+              escolhido; a ação confere tudo de novo e refaz a conta no
+              servidor. Reabrir é só do Admin. */}
+          {congelamento ? (
+            <div className="mt-4 rounded-2xl border border-sky-300 bg-sky-50 p-4">
+              <p className="text-sm font-bold text-sky-900">
+                🧊 Conciliação de {formatarData(dia)} congelada
+              </p>
+              <p className="mt-1 text-xs text-sky-900">
+                Contagem de <strong>{congelamento.conferente_nome}</strong>, congelada por{" "}
+                {congelamento.congelado_por_nome ?? "—"} em{" "}
+                {new Date(congelamento.congelado_em).toLocaleString("pt-BR", {
+                  timeZone: "America/Sao_Paulo",
+                  dateStyle: "short",
+                  timeStyle: "short",
+                })}
+                . É ela que vai para o BI, com os números daquele momento — a tabela acima é a
+                conta de agora, e pode ter mudado desde então.
+              </p>
+              {ehOwner(perfil.role) && (
+                <BotaoExcluir
+                  action={reabrirConciliacao}
+                  campos={{ data: dia }}
+                  confirmacao={`Reabrir a conciliação de ${formatarData(dia)}? O dia sai do BI até alguém congelar de novo.`}
+                  rotuloConfirmar="Reabrir"
+                  className="mt-3 rounded-lg border border-sky-300 bg-white px-3 py-2 text-xs font-semibold text-sky-900 hover:bg-sky-100"
+                >
+                  Reabrir (só o Admin)
+                </BotaoExcluir>
+              )}
+            </div>
+          ) : podeCongelarDia && linhas.length > 0 ? (
+            colabDaConciliacao ? (
+              <div className="mt-4 rounded-2xl border border-sky-300 bg-white p-4">
+                <p className="text-sm font-bold text-sky-900">🧊 Congelar esta conciliação</p>
+                <p className="mt-1 text-xs text-slate-600">
+                  Grava a conciliação de {formatarData(dia)}
+                  {nomeFiltrado ? ` (contagem de ${nomeFiltrado})` : ""} como a{" "}
+                  <strong>oficial</strong>. Só dia congelado vai para o BI, e os números ficam como
+                  estão agora. Depois de congelado, só o Admin reabre.
+                </p>
+                <BotaoExcluir
+                  action={congelarConciliacao}
+                  campos={{ data: dia, colab: colabDaConciliacao }}
+                  confirmacao={`Congelar a conciliação de ${formatarData(dia)}${nomeFiltrado ? ` com a contagem de ${nomeFiltrado}` : ""}? Ela passa a ser a oficial e vai para o BI; só o Admin reabre.`}
+                  rotuloConfirmar="Congelar"
+                  perigo={false}
+                  className="mt-3 w-full rounded-xl bg-sky-700 px-4 py-3 text-sm font-bold text-white hover:bg-sky-800"
+                >
+                  🧊 Congelar a conciliação de {formatarData(dia)}
+                </BotaoExcluir>
+              </div>
+            ) : (
+              <p className="mt-4 rounded-xl bg-sky-50 p-3 text-xs text-sky-900">
+                🧊 Para congelar este dia, escolha acima de quem é a contagem.
+              </p>
+            )
+          ) : null}
 
           {/* ---- Lançar o trânsito (só quem tem liberação) ---- */}
           {podeTransito && (

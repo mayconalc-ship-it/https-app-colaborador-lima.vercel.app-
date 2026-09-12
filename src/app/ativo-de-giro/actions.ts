@@ -15,14 +15,23 @@ import {
   COOKIE_ULTIMA,
   COOKIE_ULTIMA_DIAS,
   COOKIE_ULTIMA_PATH,
+  chave,
+  comodatoDeLinhas,
+  conciliar,
   ehFormato,
   ehStatus,
   ehTipo,
+  fatoresDeLinhas,
+  formatarData,
   inteiro,
+  juntarParcelas,
+  parqueDeLinhas,
   serializarCombinacao,
+  transitoDeLinhas,
   type Combinacao,
   type Contagem,
 } from "@/lib/ativo-giro";
+import { ehOwner } from "@/lib/acessos";
 
 const ROTA = "/ativo-de-giro";
 
@@ -748,4 +757,209 @@ export async function salvarComodato(formData: FormData) {
 
   revalidatePath(ROTA);
   redirect(`${ROTA}?aba=conciliacao&sucesso=${encodeURIComponent("Comodato atualizado")}`);
+}
+
+/**
+ * Quem pode CONGELAR a conciliacao do dia (12/09/2026): quem administra o
+ * modulo, ou quem esta na lista da configuracao do AG. Mesmo desenho do
+ * transito -- a controladoria se libera ali, sem chamado ao Admin.
+ */
+export async function podeCongelar(): Promise<boolean> {
+  const perfil = await getPerfil();
+  const revendaId = await getRevendaId();
+  if (!perfil || !revendaId) return false;
+
+  if (await podeNoModulo("ativo-giro", "editar")) return true;
+
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("ag_congelar_liberados")
+    .select("colaborador_id")
+    .eq("revenda_id", revendaId)
+    .eq("colaborador_id", perfil.id)
+    .maybeSingle();
+
+  return Boolean(data);
+}
+
+/**
+ * CONGELA A CONCILIACAO DO DIA -- a oficial, a unica que vai para o BI
+ * (pedido do dono, 12/09/2026).
+ *
+ * O SERVIDOR REFAZ A CONTA, e nao confia em numero vindo da tela: le as
+ * contagens, o parque, o transito, o comodato e o valor da caixa e roda o
+ * mesmo `conciliar()` da aba Conciliacao. O que se grava e exatamente o
+ * que a tela mostrava.
+ *
+ * UM CONFERENTE: cada um conta o patio inteiro, e somar dois deu 131% do
+ * parque em 29/08. Com mais de uma pessoa no dia, a tela obriga a
+ * escolher -- e aqui a mesma regra e cobrada de novo.
+ *
+ * Congelado, fica: nao se congela por cima. Reabrir e so do Admin.
+ */
+export async function congelarConciliacao(formData: FormData) {
+  const perfil = await getPerfil();
+  if (!perfil) redirect("/login");
+
+  const revendaId = await getRevendaId();
+  if (!revendaId) erro("Voce nao esta em nenhuma revenda.");
+
+  if (!(await podeCongelar())) {
+    erro("Voce nao tem liberacao para congelar a conciliacao. Fale com quem cuida do Ativo de Giro.");
+  }
+
+  const data = String(formData.get("data") ?? "").trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(data)) erro("Dia invalido.");
+  const colab = String(formData.get("colab") ?? "").trim();
+  const voltar = (chaveMsg: "erro" | "sucesso", msg: string): never =>
+    redirect(
+      `${ROTA}?aba=conciliacao&data=${data}&colab=${encodeURIComponent(colab)}&${chaveMsg}=${encodeURIComponent(msg)}`,
+    );
+
+  const admin = createAdminClient();
+  const { data: ja } = await admin
+    .from("ag_congelamentos")
+    .select("congelado_por_nome")
+    .eq("revenda_id", revendaId)
+    .eq("data", data)
+    .maybeSingle();
+  if (ja) {
+    voltar(
+      "erro",
+      `O dia ${formatarData(data)} ja esta congelado${ja.congelado_por_nome ? ` (por ${ja.congelado_por_nome})` : ""}. Para mudar, o Admin precisa reabrir.`,
+    );
+  }
+
+  const [
+    { data: contagensBanco },
+    { data: fatoresBanco },
+    { data: parqueBanco },
+    { data: transitoBanco },
+    { data: comodatoBanco },
+    { data: valoresBanco },
+  ] = await Promise.all([
+    admin.from("ag_contagens").select(COLUNAS_CONTAGEM).eq("revenda_id", revendaId).eq("data", data),
+    admin.from("ag_fatores").select("formato, palete, lastro").eq("revenda_id", revendaId),
+    admin.from("ag_parque").select("tipo, formato, quantidade").eq("revenda_id", revendaId),
+    admin
+      .from("ag_transito")
+      .select("tipo, formato, transito_rota, transito_carreta")
+      .eq("revenda_id", revendaId)
+      .eq("data", data),
+    admin.from("ag_comodato").select("tipo, formato, quantidade").eq("revenda_id", revendaId),
+    admin.from("ag_valores").select("tipo, formato, valor_caixa").eq("revenda_id", revendaId),
+  ]);
+
+  const doDia = (contagensBanco ?? []) as unknown as Contagem[];
+  const pessoas = [...new Set(doDia.map((c) => c.colaborador_id))];
+  const conferente = colab || (pessoas.length === 1 ? pessoas[0] : "");
+  if (!conferente) {
+    voltar("erro", "Mais de uma pessoa contou neste dia: escolha de quem e a contagem antes de congelar.");
+  }
+  const doConferente = doDia.filter((c) => c.colaborador_id === conferente);
+  if (doConferente.length === 0) voltar("erro", "Essa pessoa nao tem contagem neste dia.");
+
+  const linhas = conciliar(
+    doConferente,
+    parqueDeLinhas(parqueBanco),
+    fatoresDeLinhas(fatoresBanco),
+    juntarParcelas(transitoDeLinhas(transitoBanco), comodatoDeLinhas(comodatoBanco)),
+  );
+  if (linhas.length === 0) voltar("erro", "Nada para congelar neste dia.");
+
+  // Valor zero e "ainda nao precificado": grava nulo, para o BI nao dizer
+  // que o ativo nao vale nada.
+  const valorPorItem = new Map(
+    ((valoresBanco ?? []) as { tipo: string; formato: string; valor_caixa: number }[])
+      .filter((v) => Number(v.valor_caixa) > 0)
+      .map((v) => [chave(v.tipo, v.formato), Number(v.valor_caixa)]),
+  );
+
+  const nomeConferente = doConferente[0].colaborador_nome;
+  const { error: erroCabecalho } = await admin.from("ag_congelamentos").insert({
+    revenda_id: revendaId,
+    data,
+    conferente_id: conferente,
+    conferente_nome: nomeConferente,
+    congelado_por: perfil.id,
+    congelado_por_nome: perfil.nome,
+  });
+  if (erroCabecalho) voltar("erro", `Nao foi possivel congelar: ${erroCabecalho.message}`);
+
+  const { error: erroItens } = await admin.from("ag_congelamento_itens").insert(
+    linhas.map((l) => ({
+      revenda_id: revendaId,
+      data,
+      tipo: l.tipo,
+      formato: l.formato,
+      contado: Math.round(l.contado),
+      transito_rota: l.rota,
+      transito_carreta: l.carreta,
+      comodato: l.comodato,
+      parque: l.parque,
+      valor_caixa: valorPorItem.get(chave(l.tipo, l.formato)) ?? null,
+    })),
+  );
+  if (erroItens) {
+    // Sem os itens o cabecalho sozinho seria um dia "congelado" vazio no
+    // BI. Desfaz e avisa.
+    await admin.from("ag_congelamentos").delete().eq("revenda_id", revendaId).eq("data", data);
+    voltar("erro", `Nao foi possivel congelar: ${erroItens.message}`);
+  }
+
+  await admin.from("auditoria").insert({
+    ator_id: perfil.id,
+    ator_nome: perfil.nome,
+    acao: "Congelou a conciliacao do AG",
+    alvo_id: conferente,
+    alvo_nome: nomeConferente,
+    detalhes: `Dia ${formatarData(data)} — ${linhas.length} item(ns), contagem de ${nomeConferente}`,
+    revenda_id: revendaId,
+  });
+
+  revalidatePath(ROTA);
+  voltar("sucesso", `Conciliacao de ${formatarData(data)} congelada. E ela que vai para o BI.`);
+}
+
+/** REABRE um dia congelado -- so o Admin (decisao do dono, 12/09/2026). */
+export async function reabrirConciliacao(formData: FormData) {
+  const perfil = await getPerfil();
+  if (!perfil) redirect("/login");
+  if (!ehOwner(perfil.role)) erro("So o Admin reabre um dia congelado.");
+
+  const revendaId = await getRevendaId();
+  if (!revendaId) erro("Voce nao esta em nenhuma revenda.");
+
+  const data = String(formData.get("data") ?? "").trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(data)) erro("Dia invalido.");
+
+  const admin = createAdminClient();
+  const { data: congelado } = await admin
+    .from("ag_congelamentos")
+    .select("conferente_nome, congelado_por_nome")
+    .eq("revenda_id", revendaId)
+    .eq("data", data)
+    .maybeSingle();
+  if (!congelado) erro("Este dia nao esta congelado.");
+
+  // Os itens vao junto (on delete cascade na migration 116).
+  const { error } = await admin
+    .from("ag_congelamentos")
+    .delete()
+    .eq("revenda_id", revendaId)
+    .eq("data", data);
+  if (error) erro(`Nao foi possivel reabrir: ${error.message}`);
+
+  await admin.from("auditoria").insert({
+    ator_id: perfil.id,
+    ator_nome: perfil.nome,
+    acao: "Reabriu a conciliacao do AG",
+    detalhes: `Dia ${formatarData(data)} — era a contagem de ${congelado.conferente_nome}, congelada por ${congelado.congelado_por_nome ?? "?"}`,
+    revenda_id: revendaId,
+  });
+
+  revalidatePath(ROTA);
+  redirect(
+    `${ROTA}?aba=conciliacao&data=${data}&sucesso=${encodeURIComponent(`Dia ${formatarData(data)} reaberto. Ele sai do BI ate ser congelado de novo.`)}`,
+  );
 }

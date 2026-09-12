@@ -14,10 +14,14 @@ import {
   parqueDeLinhas,
 } from "@/lib/ativo-giro";
 import {
+  buscarParaLiberarCongelar,
   buscarParaLiberarTransito,
+  liberarCongelar,
   liberarTransito,
   salvarFator,
   salvarParque,
+  salvarValores,
+  tirarLiberacaoCongelar,
   tirarLiberacaoTransito,
 } from "./actions";
 
@@ -42,8 +46,13 @@ export default async function AdminAtivoDeGiroPage({
 
   const supabase = await createClient();
   const admin = createAdminClient();
-  const [{ data: fatoresBanco }, { data: parqueBanco }, { data: liberadosBanco }] =
-    await Promise.all([
+  const [
+    { data: fatoresBanco },
+    { data: parqueBanco },
+    { data: liberadosBanco },
+    { data: valoresBanco },
+    { data: congelarBanco },
+  ] = await Promise.all([
       supabase
         .from("ag_fatores")
         .select("formato, palete, lastro")
@@ -60,9 +69,25 @@ export default async function AdminAtivoDeGiroPage({
         .from("ag_transito_liberados")
         .select("colaborador_id")
         .eq("revenda_id", revendaId),
+      // O valor da caixa de cada item (migration 116).
+      supabase
+        .from("ag_valores")
+        .select("tipo, formato, valor_caixa")
+        .eq("revenda_id", revendaId),
+      // Quem pode congelar: mesma regra de `ag_transito_liberados`.
+      admin
+        .from("ag_congelar_liberados")
+        .select("colaborador_id")
+        .eq("revenda_id", revendaId),
     ]);
   const fatores = fatoresDeLinhas(fatoresBanco);
   const parque = parqueDeLinhas(parqueBanco);
+  const valorDaCaixa = new Map(
+    ((valoresBanco ?? []) as { tipo: string; formato: string; valor_caixa: number }[]).map((v) => [
+      chave(v.tipo, v.formato),
+      Number(v.valor_caixa),
+    ]),
+  );
 
   // Os nomes vêm à parte, e não por join: `colaborador_id` aponta para
   // auth.users, não para public.profiles, então o PostgREST não atravessa
@@ -70,22 +95,27 @@ export default async function AdminAtivoDeGiroPage({
   // NULL, que a tela leria como "ninguém liberado". Foi exatamente esse o
   // defeito do alerta de gás, corrigido em 03/09/2026.
   const idsLiberados = (liberadosBanco ?? []).map((l) => l.colaborador_id);
-  const { data: perfisLiberados } = idsLiberados.length
-    ? await admin.from("profiles").select("id, nome, cargo").in("id", idsLiberados)
+  const idsCongelar = (congelarBanco ?? []).map((l) => l.colaborador_id);
+  const todosIds = [...new Set([...idsLiberados, ...idsCongelar])];
+  const { data: perfisLiberados } = todosIds.length
+    ? await admin.from("profiles").select("id, nome, cargo").in("id", todosIds)
     : { data: [] as { id: string; nome: string; cargo: string | null }[] };
 
-  const liberados = idsLiberados
-    .map((id) => {
-      const p = (perfisLiberados ?? []).find((x) => x.id === id);
-      return {
-        colaborador_id: id,
-        // Cadastro apagado deixa o vínculo para trás. A linha aparece
-        // assim mesmo, para dar como tirá-la.
-        nome: p?.nome ?? "(cadastro removido)",
-        cargo: p?.cargo ?? null,
-      };
-    })
-    .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
+  const comNome = (ids: string[]) =>
+    ids
+      .map((id) => {
+        const p = (perfisLiberados ?? []).find((x) => x.id === id);
+        return {
+          colaborador_id: id,
+          // Cadastro apagado deixa o vínculo para trás. A linha aparece
+          // assim mesmo, para dar como tirá-la.
+          nome: p?.nome ?? "(cadastro removido)",
+          cargo: p?.cargo ?? null,
+        };
+      })
+      .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
+  const liberados = comNome(idsLiberados);
+  const liberadosCongelar = comNome(idsCongelar);
 
   return (
     <div>
@@ -203,6 +233,63 @@ export default async function AdminAtivoDeGiroPage({
           </form>
         </div>
 
+        {/* ---- VALOR DO AG EM R$ (12/09/2026) ----
+            Pedido do dono: "colocar os valores dos AGs e com isso ter
+            valores em R$". Um valor por CAIXA de cada item -- a mesma
+            unidade do parque --, então a diferença em R$ sai direto no
+            BI. Um formulário, um botão, como o parque. */}
+        <div className="rounded-2xl border border-slate-200 bg-white p-4">
+          <h2 className="text-sm font-bold uppercase text-slate-500">
+            💰 Valor do AG (R$ por caixa)
+          </h2>
+          <p className="mt-1 text-xs text-slate-500">
+            Quanto vale <strong>uma caixa</strong> de cada item. É o que transforma a diferença da
+            conciliação em reais no BI. Mudar aqui não muda dia já congelado: cada dia guarda o
+            valor do momento em que foi congelado.
+          </p>
+          <form action={salvarValores} className="mt-3">
+            <div className="space-y-2">
+              {TIPOS.flatMap((tipo) =>
+                FORMATOS.map((formato) => (
+                  <div key={`v-${chave(tipo, formato)}`} className="flex items-center gap-2">
+                    <input type="hidden" name="tipo" value={tipo} />
+                    <input type="hidden" name="formato" value={formato} />
+                    <span className="min-w-0 flex-1 truncate text-sm text-slate-700">
+                      {tipo} · {formato}
+                    </span>
+                    <span className="text-sm text-slate-400">R$</span>
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      name="valor_caixa"
+                      placeholder="0,00"
+                      defaultValue={
+                        valorDaCaixa.get(chave(tipo, formato))
+                          ? valorDaCaixa
+                              .get(chave(tipo, formato))!
+                              .toLocaleString("pt-BR", { minimumFractionDigits: 2 })
+                          : ""
+                      }
+                      aria-label={`Valor em R$ de uma caixa de ${tipo} ${formato}`}
+                      className="w-28 rounded-lg border border-slate-300 px-2 py-1.5 text-right text-base"
+                    />
+                  </div>
+                )),
+              )}
+            </div>
+            <p className="mt-2 text-xs text-slate-500">
+              Em branco = ainda sem valor. No BI, item sem valor fica fora da soma em R$ e aparece
+              no cartão &quot;Itens sem valor&quot;.
+            </p>
+            <BotaoEnviar
+              textoEnviando="Salvando..."
+              className="mt-3 w-full rounded-xl bg-primary px-4 py-3 text-sm font-bold text-white hover:bg-primary-dark"
+            >
+              Salvar os valores
+            </BotaoEnviar>
+          </form>
+        </div>
+
         {/* ---- QUEM PODE LANÇAR O TRÂNSITO ----
             A liberação mora aqui, e não em Acessos por Pessoa (pedido do
             dono, 03/09/2026). O motivo é de fluxo: quem cuida do parque
@@ -253,6 +340,63 @@ export default async function AdminAtivoDeGiroPage({
                     action={tirarLiberacaoTransito}
                     campos={{ colaborador_id: l.colaborador_id }}
                     confirmacao={`Tirar a liberação de ${l.nome} para lançar o trânsito? O que ela já lançou continua valendo.`}
+                    rotuloConfirmar="Tirar liberação"
+                    perigo={false}
+                    className="shrink-0 rounded-lg border border-slate-200 px-2 py-1 text-xs font-semibold text-slate-500 hover:bg-slate-50"
+                  >
+                    Tirar
+                  </BotaoExcluir>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
+        {/* ---- QUEM PODE CONGELAR A CONCILIAÇÃO (12/09/2026) ----
+            Mesmo desenho da liberação do trânsito: a controladoria se
+            libera aqui, sem chamado ao Admin. Reabrir um dia congelado
+            continua só do Admin (decisão do dono). */}
+        <div className="rounded-2xl border border-slate-200 bg-white p-4">
+          <h2 className="text-sm font-bold uppercase text-slate-500">
+            🧊 Quem pode congelar a conciliação
+          </h2>
+          <p className="mt-1 text-xs text-slate-500">
+            Congelar grava a conciliação do dia como a <strong>oficial</strong> — é a única que vai
+            para o BI. Os números ficam como estavam naquele momento, mesmo que o parque, o
+            comodato ou o valor da caixa mudem depois.
+          </p>
+          <p className="mt-1 text-xs text-slate-500">
+            Quem administra o Ativo de Giro já pode congelar, sem estar nesta lista. Reabrir um dia
+            congelado é só do Admin.
+          </p>
+
+          <FormularioComPessoa
+            action={liberarCongelar}
+            buscar={buscarParaLiberarCongelar}
+            campoId="colaborador_id"
+            placeholder="Digite o nome ou CPF de quem vai congelar"
+            rotuloBotao="Liberar"
+          />
+
+          <div className="mt-3 divide-y divide-slate-100 border-t border-slate-100">
+            {liberadosCongelar.length === 0 ? (
+              <p className="py-4 text-center text-sm text-slate-400">
+                Ninguém liberado ainda — só quem administra o módulo congela.
+              </p>
+            ) : (
+              liberadosCongelar.map((l) => (
+                <div
+                  key={`cg-${l.colaborador_id}`}
+                  className="flex items-center justify-between gap-2 py-2"
+                >
+                  <span className="min-w-0 flex-1 truncate text-sm text-slate-700">
+                    {l.nome}
+                    {l.cargo && <span className="text-xs text-slate-400"> · {l.cargo}</span>}
+                  </span>
+                  <BotaoExcluir
+                    action={tirarLiberacaoCongelar}
+                    campos={{ colaborador_id: l.colaborador_id }}
+                    confirmacao={`Tirar a liberação de ${l.nome} para congelar a conciliação? O que ela já congelou continua valendo.`}
                     rotuloConfirmar="Tirar liberação"
                     perigo={false}
                     className="shrink-0 rounded-lg border border-slate-200 px-2 py-1 text-xs font-semibold text-slate-500 hover:bg-slate-50"

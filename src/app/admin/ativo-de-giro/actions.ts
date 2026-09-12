@@ -192,3 +192,117 @@ export async function buscarParaLiberarTransito(termo: string) {
   const { data } = await consulta;
   return data ?? [];
 }
+
+/**
+ * "12,50", "12.50", "1.234,56" -> numero. Vazio vira zero: item sem valor
+ * e item que ainda nao foi precificado, e zero e o que o formulario mostra.
+ */
+function reais(bruto: FormDataEntryValue | null): number {
+  const t = String(bruto ?? "").trim().replace(/\s|R\$/gi, "");
+  if (!t) return 0;
+  const normal = t.includes(",") ? t.replace(/\./g, "").replace(",", ".") : t;
+  const n = Number(normal);
+  if (!Number.isFinite(n) || n < 0 || n > 1_000_000) erro(`Valor invalido: ${t}`);
+  return Math.round(n * 100) / 100;
+}
+
+/**
+ * O VALOR DE UMA CAIXA de cada item (12/09/2026, pedido do dono: "ter
+ * valores em R$"). Mesma unidade do parque e do contado, entao a
+ * diferenca em R$ e caixas x valor, sem conversao no meio.
+ *
+ * Um formulario, um botao -- os oito itens de uma vez, como o parque.
+ * Mudar o valor NAO muda dia ja congelado: o congelamento guarda o valor
+ * daquele momento (migration 116).
+ */
+export async function salvarValores(formData: FormData) {
+  const eu = await requireModulo("ativo-giro", "editar");
+  const revendaId = await exigirRevenda(ROTA);
+
+  const tipos = formData.getAll("tipo").map(String);
+  const formatos = formData.getAll("formato").map(String);
+  const valores = formData.getAll("valor_caixa");
+
+  if (tipos.length !== formatos.length || tipos.length !== valores.length) {
+    erro("Formulario incompleto -- recarregue a tela e tente de novo.");
+  }
+
+  const linhas = tipos.map((tipo, i) => {
+    const formato = formatos[i];
+    if (!ehTipo(tipo) || !ehFormato(formato)) erro("Item invalido no formulario.");
+    return {
+      revenda_id: revendaId,
+      tipo,
+      formato,
+      valor_caixa: reais(valores[i]),
+      atualizado_em: new Date().toISOString(),
+      atualizado_por: eu.id,
+      atualizado_por_nome: eu.nome,
+    };
+  });
+
+  if (linhas.length === 0) erro("Nada para salvar.");
+
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("ag_valores")
+    .upsert(linhas, { onConflict: "revenda_id,tipo,formato" });
+
+  if (error) erro(`Nao foi possivel salvar os valores: ${error.message}`);
+
+  revalidatePath(ROTA);
+  revalidatePath("/ativo-de-giro");
+  redirect(`${ROTA}?sucesso=${encodeURIComponent("Valores do AG salvos")}`);
+}
+
+/**
+ * QUEM PODE CONGELAR A CONCILIACAO (12/09/2026) -- mesma lista e mesmo
+ * desenho da liberacao do transito: quem cuida da conciliacao e a
+ * controladoria, e a liberacao mora aqui para nao virar chamado ao Admin.
+ * Quem administra o modulo ja pode, sem estar na lista. Reabrir um dia
+ * congelado continua so do Admin.
+ */
+export async function liberarCongelar(formData: FormData) {
+  const eu = await requireModulo("ativo-giro", "editar");
+  const revendaId = await exigirRevenda(ROTA);
+
+  const colaboradorId = String(formData.get("colaborador_id") ?? "");
+  if (!colaboradorId) erro("Escolha a pessoa.");
+
+  const admin = createAdminClient();
+  const { error } = await admin.from("ag_congelar_liberados").upsert(
+    { revenda_id: revendaId, colaborador_id: colaboradorId, liberado_por: eu.id },
+    { onConflict: "revenda_id,colaborador_id" },
+  );
+
+  if (error) erro(`Nao foi possivel liberar: ${error.message}`);
+
+  revalidatePath(ROTA);
+  revalidatePath("/ativo-de-giro");
+  redirect(`${ROTA}?sucesso=${encodeURIComponent("Liberado para congelar a conciliacao")}`);
+}
+
+export async function tirarLiberacaoCongelar(formData: FormData) {
+  await requireModulo("ativo-giro", "editar");
+  const revendaId = await exigirRevenda(ROTA);
+
+  const colaboradorId = String(formData.get("colaborador_id") ?? "");
+  if (!colaboradorId) erro("Pessoa invalida.");
+
+  const admin = createAdminClient();
+  // O que ela ja congelou FICA: e o numero que foi para a reuniao.
+  await admin
+    .from("ag_congelar_liberados")
+    .delete()
+    .eq("revenda_id", revendaId)
+    .eq("colaborador_id", colaboradorId);
+
+  revalidatePath(ROTA);
+  revalidatePath("/ativo-de-giro");
+  redirect(`${ROTA}?sucesso=${encodeURIComponent("Liberacao retirada. O que ja foi congelado continua valendo.")}`);
+}
+
+/** A mesma busca da liberacao do transito. */
+export async function buscarParaLiberarCongelar(termo: string) {
+  return buscarParaLiberarTransito(termo);
+}
