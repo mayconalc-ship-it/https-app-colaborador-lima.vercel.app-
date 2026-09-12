@@ -39,6 +39,11 @@ const TIPOS_CONHECIDOS = new Set([
   'cardVisual', 'clusteredBarChart', 'clusteredColumnChart', 'columnChart',
   'lineChart', 'pivotTable', 'tableEx', 'slicer', 'textbox', 'shape',
   'actionButton', 'image', 'pageNavigator',
+  // Rosca (12/09/2026, pedido do dono: "grafico de pizza ou algum mais
+  // moderno" para o % de selecao x repack). E o UNICO tipo desta lista
+  // entrado sem um .pbix de referencia -- se o Desktop mostrar
+  // CustomVisualNotFound, e ele.
+  'donutChart',
 ]);
 
 // --- os $schema dos arquivos de definicao ------------------------------

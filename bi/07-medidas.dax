@@ -978,8 +978,32 @@ MEASURE '_Medidas'[Dias até curtir (mediana)] =
 // buraco de duas semanas some entre duas linhas consecutivas. Numa
 // grade semana x dia da semana, ele é o retângulo em branco.
 
+/*
+    O FILTRO DE PUBLICADOR (12/09/2026, pedido do dono: "retire o filtro
+    tipo de marca, e coloque por publicadores").
+
+    O publicador é o `autor` do comunicado, e mora em fato_comunicado. A
+    agenda (publicações e lembretes) é outra tabela, e não pode se ligar
+    a ela pelo modelo: o lembrete cai num DIA diferente do comunicado, e a
+    grade do calendário depende da data da própria agenda. Então o
+    recorte é feito aqui: com um publicador escolhido, a agenda fica só
+    com os comunicados dele -- de qualquer data, por isso o REMOVEFILTERS
+    no calendário.
+*/
 MEASURE '_Medidas'[Itens do cronograma] =
-    COUNTROWS ( fato_comunicado_agenda )
+    IF (
+        ISFILTERED ( fato_comunicado[autor] ),
+        CALCULATE (
+            COUNTROWS ( fato_comunicado_agenda ),
+            KEEPFILTERS (
+                TREATAS (
+                    CALCULATETABLE ( VALUES ( fato_comunicado[comunicado_id] ), REMOVEFILTERS ( dim_calendario ) ),
+                    fato_comunicado_agenda[comunicado_id]
+                )
+            )
+        ),
+        COUNTROWS ( fato_comunicado_agenda )
+    )
 
 MEASURE '_Medidas'[Marcas na fila] =
     CALCULATE (
@@ -993,13 +1017,30 @@ MEASURE '_Medidas'[Marcas na fila] =
 //
 // UNICHAR(10) é a quebra de linha. Ela só aparece com quebra automática
 // de texto ligada na matriz -- o gerador liga via quebraTexto.
+// Com publicador escolhido, só os comunicados dele -- ver [Itens do
+// cronograma].
 MEASURE '_Medidas'[Agenda do dia] =
-    CONCATENATEX (
-        fato_comunicado_agenda,
-        fato_comunicado_agenda[rotulo],
-        UNICHAR ( 10 ),
-        fato_comunicado_agenda[hora], ASC
-    )
+    VAR Linhas =
+        IF (
+            ISFILTERED ( fato_comunicado[autor] ),
+            CALCULATETABLE (
+                fato_comunicado_agenda,
+                KEEPFILTERS (
+                    TREATAS (
+                        CALCULATETABLE ( VALUES ( fato_comunicado[comunicado_id] ), REMOVEFILTERS ( dim_calendario ) ),
+                        fato_comunicado_agenda[comunicado_id]
+                    )
+                )
+            ),
+            fato_comunicado_agenda
+        )
+    RETURN
+        CONCATENATEX (
+            Linhas,
+            fato_comunicado_agenda[rotulo],
+            UNICHAR ( 10 ),
+            fato_comunicado_agenda[hora], ASC
+        )
 
 // A CÉLULA DO CALENDÁRIO -- o número do dia, e embaixo o que sai nele.
 //
@@ -1439,6 +1480,45 @@ MEASURE '_Medidas'[Minutos por caixa] =
 MEASURE '_Medidas'[Dias com bancada] =
     DISTINCTCOUNT ( fato_pa_bancada[data] )
 
+// O par do "% do tempo na triagem" (12/09/2026, pedido do dono: o % de
+// repack nas tabelas por colaborador e por turno). As duas somam 100%.
+MEASURE '_Medidas'[% do tempo no repack] =
+    DIVIDE (
+        CALCULATE ( SUM ( fato_pa_bancada[horas] ), fato_pa_bancada[etapa] = "repack" ),
+        [Horas de bancada]
+    )
+
+// A fatia da ETAPA no que estiver filtrado -- é o que a rosca desenha e
+// o que a dica do gráfico por dia mostra em cada pedaço da barra: dentro
+// de um dia, é o % daquela etapa naquele dia.
+MEASURE '_Medidas'[% da etapa] =
+    DIVIDE (
+        [Horas de bancada],
+        CALCULATE (
+            [Horas de bancada],
+            REMOVEFILTERS ( fato_pa_bancada[etapa_rotulo] ),
+            REMOVEFILTERS ( fato_pa_bancada[etapa] )
+        )
+    )
+
+/*
+    O HORÁRIO DE PICO DA BANCADA (12/09/2026, pedido do dono: o
+    histograma "fazendo referência do período de tempo que mais usa a
+    bancada"). A hora do dia com mais horas de bancada no recorte, e
+    quanto dela é o total -- "09h (18% das horas)".
+*/
+MEASURE '_Medidas'[Pico da bancada] =
+    VAR PorHora =
+        ADDCOLUMNS ( VALUES ( dim_hora[hora_rotulo] ), "@h", [Horas de bancada] )
+    VAR Topo = TOPN ( 1, FILTER ( PorHora, [@h] > 0 ), [@h], DESC )
+    VAR Total = [Horas de bancada]
+    RETURN
+        IF (
+            COUNTROWS ( Topo ) > 0,
+            MAXX ( Topo, dim_hora[hora_rotulo] ) & " ("
+                & FORMAT ( DIVIDE ( MAXX ( Topo, [@h] ), Total ), "0%" ) & " das horas)"
+        )
+
 // ------------------------------------------------------------------
 // DESPEJO E A BOMBONA
 // ------------------------------------------------------------------
@@ -1489,13 +1569,33 @@ MEASURE '_Medidas'[% da bombona] =
 // Bombona parada cheia é risco ambiental; esvaziada pela metade é
 // viagem desperdiçada. Os dois lados são decisão, e nenhum dos dois
 // aparece em "litros despejados no mês".
+//
+// SEM NENHUM ESVAZIAMENTO REGISTRADO (12/09/2026): o cartão mostrava
+// "--" -- e em São Félix a bombona enchia desde 26/08 sem descarte
+// nenhum lançado no app. Nesse caso conta desde o PRIMEIRO despejo: é
+// desde quando ela está enchendo.
 MEASURE '_Medidas'[Dias sem esvaziar] =
-    CALCULATE (
-        MAX ( fato_pa_bombona[dias_desde_esvaziamento] ),
-        REMOVEFILTERS ( dim_calendario ),
-        REMOVEFILTERS ( dim_colaborador ),
-        REMOVEFILTERS ( dim_hora )
-    )
+    VAR DesdeOEsvaziamento =
+        CALCULATE (
+            MAX ( fato_pa_bombona[dias_desde_esvaziamento] ),
+            REMOVEFILTERS ( dim_calendario ),
+            REMOVEFILTERS ( dim_colaborador ),
+            REMOVEFILTERS ( dim_hora )
+        )
+    VAR PrimeiroDespejo =
+        CALCULATE (
+            MIN ( fato_pa_despejo[data] ),
+            REMOVEFILTERS ( dim_calendario ),
+            REMOVEFILTERS ( dim_colaborador ),
+            REMOVEFILTERS ( dim_hora ),
+            REMOVEFILTERS ( fato_pa_despejo )
+        )
+    RETURN
+        IF (
+            NOT ISBLANK ( DesdeOEsvaziamento ),
+            DesdeOEsvaziamento,
+            IF ( NOT ISBLANK ( PrimeiroDespejo ), DATEDIFF ( PrimeiroDespejo, TODAY (), DAY ) )
+        )
 
 // Com quanto a bombona costuma ir para o descarte. Muito abaixo de 100%
 // é viagem sobrando na rota do resíduo.
@@ -1579,6 +1679,34 @@ MEASURE '_Medidas'[HL avariados] =
 // igual a um de 200 — e o lote pequeno é sempre o de percentual extremo.
 MEASURE '_Medidas'[% avaria no bate palete] =
     DIVIDE ( [HL avariados], [HL batidos] )
+
+// A página própria do bate palete (12/09/2026) -- saiu do Repack a
+// pedido do dono.
+MEASURE '_Medidas'[Paletes batidos] =
+    SUM ( fato_pa_bate_palete[paletes] )
+
+MEASURE '_Medidas'[HL aproveitados] =
+    SUM ( fato_pa_bate_palete[hl_aproveitado] )
+
+MEASURE '_Medidas'[Lançamentos de bate palete] =
+    DISTINCTCOUNT ( fato_pa_bate_palete[bate_palete_id] )
+
+/*
+    REPACK CONTRA A META (12/09/2026). A meta é a cadastrada por produto
+    (pa_produtos.meta_reepack_hora) e vem na linha do lançamento. Produto
+    sem meta fica fora da média da meta, em vez de entrar como zero.
+*/
+MEASURE '_Medidas'[Meta de repack cx/h] =
+    CALCULATE ( AVERAGE ( fato_pa_bancada[meta_hora] ), fato_pa_bancada[etapa] = "repack" )
+
+MEASURE '_Medidas'[% da meta de repack] =
+    DIVIDE ( [Repack cx/h], [Meta de repack cx/h] )
+
+MEASURE '_Medidas'[Dias de repack] =
+    CALCULATE ( DISTINCTCOUNT ( fato_pa_bancada[data] ), fato_pa_bancada[etapa] = "repack" )
+
+MEASURE '_Medidas'[Lançamentos de repack] =
+    CALCULATE ( COUNTROWS ( fato_pa_bancada ), fato_pa_bancada[etapa] = "repack" )
 
 // ==================================================================
 // RECEBIMENTO DE CARRETAS
