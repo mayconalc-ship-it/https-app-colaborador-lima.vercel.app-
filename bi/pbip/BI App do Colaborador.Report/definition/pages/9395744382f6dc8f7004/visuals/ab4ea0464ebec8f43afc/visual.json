@@ -4,10 +4,10 @@
   "position": {
     "x": 16,
     "y": 252,
-    "z": 12000,
+    "z": 13000,
     "height": 240,
     "width": 1248,
-    "tabOrder": 12000
+    "tabOrder": 13000
   },
   "visual": {
     "visualType": "tableEx",
@@ -15,6 +15,20 @@
       "queryState": {
         "Values": {
           "projections": [
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "fato_ag_conciliacao"
+                    }
+                  },
+                  "Property": "data"
+                }
+              },
+              "queryRef": "fato_ag_conciliacao.data",
+              "nativeQueryRef": "data"
+            },
             {
               "field": {
                 "Column": {

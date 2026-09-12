@@ -1,81 +1,53 @@
 {
   "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.12.0/schema.json",
-  "name": "e0bdf210558d41566090",
+  "name": "1d866b67e5933cf38f1a",
   "position": {
-    "x": 16,
-    "y": 500,
-    "z": 14000,
-    "height": 166,
-    "width": 620,
-    "tabOrder": 14000
+    "x": 331,
+    "y": 72,
+    "z": 4000,
+    "height": 72,
+    "width": 303,
+    "tabOrder": 4000
   },
   "visual": {
-    "visualType": "columnChart",
+    "visualType": "slicer",
     "query": {
       "queryState": {
-        "Category": {
+        "Values": {
           "projections": [
             {
               "field": {
                 "Column": {
                   "Expression": {
                     "SourceRef": {
-                      "Entity": "dim_calendario"
+                      "Entity": "fato_ag_conciliacao"
                     }
                   },
                   "Property": "data"
                 }
               },
-              "queryRef": "dim_calendario.data",
-              "nativeQueryRef": "data",
-              "active": true
-            }
-          ]
-        },
-        "Y": {
-          "projections": [
-            {
-              "field": {
-                "Measure": {
-                  "Expression": {
-                    "SourceRef": {
-                      "Entity": "_Medidas"
-                    }
-                  },
-                  "Property": "Diferença por dia"
-                }
-              },
-              "queryRef": "_Medidas.Diferença por dia",
-              "nativeQueryRef": "Diferença por dia"
+              "queryRef": "fato_ag_conciliacao.data",
+              "nativeQueryRef": "data"
             }
           ]
         }
       }
     },
     "objects": {
-      "labels": [
+      "data": [
         {
           "properties": {
-            "show": {
+            "mode": {
               "expr": {
                 "Literal": {
-                  "Value": "true"
-                }
-              }
-            },
-            "bold": {
-              "expr": {
-                "Literal": {
-                  "Value": "true"
+                  "Value": "'Dropdown'"
                 }
               }
             }
           }
         }
-      ]
-    },
-    "visualContainerObjects": {
-      "title": [
+      ],
+      "header": [
         {
           "properties": {
             "show": {
@@ -88,14 +60,34 @@
             "text": {
               "expr": {
                 "Literal": {
-                  "Value": "'📉 Diferença por dia — a evolução das faltas e sobras'"
+                  "Value": "'📅 Dia'"
                 }
               }
             },
-            "fontSize": {
+            "textSize": {
               "expr": {
                 "Literal": {
-                  "Value": "11D"
+                  "Value": "10D"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "syncGroup": {
+      "groupName": "fato_ag_conciliacao.data",
+      "fieldChanges": true,
+      "filterChanges": true
+    },
+    "visualContainerObjects": {
+      "title": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "false"
                 }
               }
             }

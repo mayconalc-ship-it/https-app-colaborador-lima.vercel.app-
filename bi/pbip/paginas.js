@@ -507,13 +507,33 @@ const paginas = [
       tres parcelas do transito sao justamente o que diz ONDE esta o
       ativo que falta no patio, e espremidas elas deixariam de ser lidas.
 
-      Sem os filtros de Area e Colaborador: a conciliacao e da REVENDA no
-      dia, nao de uma pessoa. Uma segmentacao de colaborador aqui nao
-      filtraria nada -- e segmentacao que nao filtra e pior que nenhuma,
-      porque quem mexe nela conclui que o numero e daquela pessoa.
+      Sem os filtros de Area e Colaborador GLOBAIS: a conciliacao e da
+      REVENDA no dia, e o Colaborador da dim_colaborador aqui nao
+      filtraria nada -- segmentacao que nao filtra e pior que nenhuma. O
+      que existe no lugar dele e o Conferente (12/09/2026), que filtra de
+      verdade: ver `filtros` logo abaixo.
     */
     nome: '⚖️ Conciliação do AG',
-    filtros: filtros.filter((f) => !f.campo.startsWith('dim_colaborador.')),
+    /*
+      DIA E CONFERENTE no lugar de Período e Colaborador (12/09/2026,
+      pedido do dono).
+
+      Dia: a coluna do PRÓPRIO fato da conciliação, então a lista só traz
+      dia que teve contagem -- um calendário inteiro na lista suspensa
+      seria rolar anos para achar ontem. Marca um ou vários (Ctrl + clique).
+
+      Conferente: o nome de quem contou, do fato das contagens. Ele troca o
+      contado pelo daquela pessoa e tira da conta os itens que ela não
+      contou -- ver [Contado do conferente na linha] em 07-medidas.dax. É
+      por isso que aqui ele filtra de verdade, ao contrário do Colaborador
+      global, que nesta página não mexia em nada.
+    */
+    filtros: [
+      filtros.find((f) => f.campo === 'dim_revenda.revenda'),
+      { campo: 'fato_ag_conciliacao.data', titulo: '📅 Dia' },
+      { campo: 'fato_ag_contagem.colaborador_nome', titulo: '👤 Conferente', busca: true },
+      filtros.find((f) => f.campo === 'dim_calendario.ano_mes'),
+    ],
     kpis: [
       ['📅 Dia conciliado', '@Dia conciliado'],
       ['📦 Contado', '@Contado'],
@@ -528,6 +548,10 @@ const paginas = [
         titulo: '⚖️ Conciliação do dia — contado + rota + carreta + comodato − parque',
         roles: {
           Values: [
+            // O DIA vem primeiro (12/09/2026): com mais de um dia marcado
+            // no filtro, cada dia tem as suas linhas. Com um dia so, a
+            // coluna repete a data -- e confirma de que dia e a conta.
+            'fato_ag_conciliacao.data',
             'fato_ag_conciliacao.item',
             '@Contado',
             // As tres parcelas SEPARADAS, como na tela: e o que diz onde
@@ -576,8 +600,11 @@ const paginas = [
       + 'módulo. '
       + 'O contado soma só as contagens VIVAS: quando há recontagem, ela SOBREPÕE a contagem antiga '
       + '(a antiga continua no histórico, mas sai do total). '
-      + 'Os cartões e a tabela de cima são a FOTOGRAFIA do último dia conciliado dentro do filtro '
-      + '— o dia está no primeiro cartão. No histórico, cada linha é um dia exato; a linha de total é '
+      + 'Filtro de Dia: marque um ou vários (Ctrl + clique). A tabela de cima traz uma linha por dia '
+      + 'e item; os cartões são a FOTOGRAFIA do último dia marcado — o dia está no primeiro cartão. '
+      + 'Filtro de Conferente: o contado passa a ser só o daquela pessoa, e os itens que ela não '
+      + 'contou saem da conta inteira (parque, trânsito e comodato também). '
+      + 'No histórico, cada linha é um dia exato; a linha de total é '
       + 'a média diária, porque somar o parque de trinta dias daria um número que não existe. '
       + 'Dia sem contagem não aparece: é dia sem medição, não dia com falta de 100%. '
       + 'O parque e o comodato são saldos que valem até alguém mudar — um dia de semanas atrás é '

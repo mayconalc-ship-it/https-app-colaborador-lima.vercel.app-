@@ -232,22 +232,85 @@ table '_Medidas'
 			        // Só as vivas — ver [Total em caixas].
 			        fato_ag_contagem[viva] = TRUE ()
 			    )
+			
+			// --- Conciliação do dia, igual à do app ----------------------------
+			// conciliar() em src/lib/ativo-giro.ts soma todas as contagens do
+			// tipo+formato NAQUELE dia e compara com o parque. Sem o recorte de um
+			// dia só, "contado" viraria a soma de todas as contagens do período
+			// contra um parque que é saldo, e a diferença não significaria nada.
+			
+			/*
+			O DIA DA CONCILIAÇÃO (12/09/2026, pedido do dono: filtro de DIA no
+			lugar do Período, podendo marcar mais de um).
+			
+			Numa linha que já é de um dia (a coluna Dia da tabela, cada dia do
+			histórico e do gráfico), é aquele dia. Fora disso -- cartões, linha de
+			total --, é o ÚLTIMO dia marcado: conciliação é fotografia de um dia, e
+			somar o parque de três dias daria um número que não existe.
+			*/
 		formatString: #,0
 		lineageTag: 728d4ff3-a8c1-47d2-8b13-55c90db6a72a
 
-	measure 'Contado' =
-			VAR Dia =
+	measure 'Dia da conciliação' =
+			IF (
+			    HASONEVALUE ( fato_ag_conciliacao[data] ),
+			    VALUES ( fato_ag_conciliacao[data] ),
 			    CALCULATE ( MAX ( fato_ag_conciliacao[data] ), ALLSELECTED ( fato_ag_conciliacao ) )
+			)
+			
+			/*
+			A CONTAGEM DE UM CONFERENTE SÓ (12/09/2026, pedido do dono).
+			
+			A view já traz o contado somado de todos os conferentes do dia. Com o
+			filtro de Conferente marcado (fato_ag_contagem[colaborador_nome]), o
+			contado sai da contagem dele -- só as vivas, como a view -- e o item
+			que ele NÃO contou sai da conta inteira: parque, trânsito e comodato
+			daquele item também. Sem esse corte, cada item que outro conferente
+			contou apareceria como falta do escolhido.
+			
+			Esta é a peça comum: o contado do conferente na LINHA da conciliação
+			(um dia, um tipo, um formato, uma revenda) em que for chamada.
+			*/
+		formatString: #,0
+		lineageTag: 4c285daa-051e-4b8e-820c-c7595ac16348
+
+	measure 'Contado do conferente na linha' =
+			CALCULATE (
+			    SUM ( fato_ag_contagem[total_caixas] ),
+			    fato_ag_contagem[viva] = TRUE (),
+			    TREATAS ( VALUES ( fato_ag_conciliacao[data] ), fato_ag_contagem[data] ),
+			    TREATAS ( VALUES ( fato_ag_conciliacao[tipo] ), fato_ag_contagem[tipo] ),
+			    TREATAS ( VALUES ( fato_ag_conciliacao[formato] ), fato_ag_contagem[formato] ),
+			    TREATAS ( VALUES ( fato_ag_conciliacao[revenda_id] ), fato_ag_contagem[revenda_id] )
+			)
+		formatString: #,0
+		lineageTag: 5d7b9e0b-1f18-48ad-9e6b-b7bf9e566220
+
+	measure 'Contado' =
+			VAR Dia = [Dia da conciliação]
 			RETURN
-			    CALCULATE ( SUM ( fato_ag_conciliacao[contado] ), fato_ag_conciliacao[data] = Dia )
+			    IF (
+			        ISFILTERED ( fato_ag_contagem[colaborador_nome] ),
+			        SUMX (
+			            CALCULATETABLE ( fato_ag_conciliacao, fato_ag_conciliacao[data] = Dia ),
+			            [Contado do conferente na linha]
+			        ),
+			        CALCULATE ( SUM ( fato_ag_conciliacao[contado] ), fato_ag_conciliacao[data] = Dia )
+			    )
 		formatString: #,0
 		lineageTag: 5bf47143-cd07-47e5-b26c-c6b60fa69e96
 
 	measure 'Parque' =
-			VAR Dia =
-			    CALCULATE ( MAX ( fato_ag_conciliacao[data] ), ALLSELECTED ( fato_ag_conciliacao ) )
+			VAR Dia = [Dia da conciliação]
 			RETURN
-			    CALCULATE ( SUM ( fato_ag_conciliacao[parque] ), fato_ag_conciliacao[data] = Dia )
+			    IF (
+			        ISFILTERED ( fato_ag_contagem[colaborador_nome] ),
+			        SUMX (
+			            CALCULATETABLE ( fato_ag_conciliacao, fato_ag_conciliacao[data] = Dia ),
+			            IF ( NOT ISBLANK ( [Contado do conferente na linha] ), fato_ag_conciliacao[parque] )
+			        ),
+			        CALCULATE ( SUM ( fato_ag_conciliacao[parque] ), fato_ag_conciliacao[data] = Dia )
+			    )
 		formatString: #,0
 		lineageTag: d0d5ac10-53fa-407a-ab9b-ff175f38ef5f
 
@@ -278,26 +341,44 @@ table '_Medidas'
 		lineageTag: 80bde363-2847-41ca-a4ec-e4b7da05d929
 
 	measure 'Trânsito rota' =
-			VAR Dia =
-			    CALCULATE ( MAX ( fato_ag_conciliacao[data] ), ALLSELECTED ( fato_ag_conciliacao ) )
+			VAR Dia = [Dia da conciliação]
 			RETURN
-			    CALCULATE ( SUM ( fato_ag_conciliacao[transito_rota] ), fato_ag_conciliacao[data] = Dia )
+			    IF (
+			        ISFILTERED ( fato_ag_contagem[colaborador_nome] ),
+			        SUMX (
+			            CALCULATETABLE ( fato_ag_conciliacao, fato_ag_conciliacao[data] = Dia ),
+			            IF ( NOT ISBLANK ( [Contado do conferente na linha] ), fato_ag_conciliacao[transito_rota] )
+			        ),
+			        CALCULATE ( SUM ( fato_ag_conciliacao[transito_rota] ), fato_ag_conciliacao[data] = Dia )
+			    )
 		formatString: #,0
 		lineageTag: 79bad17b-e36f-4964-be7e-9bc2f858b2f8
 
 	measure 'Trânsito carreta' =
-			VAR Dia =
-			    CALCULATE ( MAX ( fato_ag_conciliacao[data] ), ALLSELECTED ( fato_ag_conciliacao ) )
+			VAR Dia = [Dia da conciliação]
 			RETURN
-			    CALCULATE ( SUM ( fato_ag_conciliacao[transito_carreta] ), fato_ag_conciliacao[data] = Dia )
+			    IF (
+			        ISFILTERED ( fato_ag_contagem[colaborador_nome] ),
+			        SUMX (
+			            CALCULATETABLE ( fato_ag_conciliacao, fato_ag_conciliacao[data] = Dia ),
+			            IF ( NOT ISBLANK ( [Contado do conferente na linha] ), fato_ag_conciliacao[transito_carreta] )
+			        ),
+			        CALCULATE ( SUM ( fato_ag_conciliacao[transito_carreta] ), fato_ag_conciliacao[data] = Dia )
+			    )
 		formatString: #,0
 		lineageTag: a193289f-18ee-4afe-ab38-1c22e2558cf0
 
 	measure 'Comodato' =
-			VAR Dia =
-			    CALCULATE ( MAX ( fato_ag_conciliacao[data] ), ALLSELECTED ( fato_ag_conciliacao ) )
+			VAR Dia = [Dia da conciliação]
 			RETURN
-			    CALCULATE ( SUM ( fato_ag_conciliacao[comodato] ), fato_ag_conciliacao[data] = Dia )
+			    IF (
+			        ISFILTERED ( fato_ag_contagem[colaborador_nome] ),
+			        SUMX (
+			            CALCULATETABLE ( fato_ag_conciliacao, fato_ag_conciliacao[data] = Dia ),
+			            IF ( NOT ISBLANK ( [Contado do conferente na linha] ), fato_ag_conciliacao[comodato] )
+			        ),
+			        CALCULATE ( SUM ( fato_ag_conciliacao[comodato] ), fato_ag_conciliacao[data] = Dia )
+			    )
 		formatString: #,0
 		lineageTag: 4ad2fa9d-f3ae-4a2f-9e6d-48aec2dee3d8
 
@@ -336,8 +417,7 @@ table '_Medidas'
 		lineageTag: f1886c8a-291f-4c0b-b1d8-585435d17974
 
 	measure 'Dia conciliado' =
-			VAR Dia =
-			    CALCULATE ( MAX ( fato_ag_conciliacao[data] ), ALLSELECTED ( fato_ag_conciliacao ) )
+			VAR Dia = [Dia da conciliação]
 			RETURN
 			    IF ( NOT ISBLANK ( Dia ), FORMAT ( Dia, "dd/MM/yyyy" ) )
 			
@@ -352,44 +432,27 @@ table '_Medidas'
 		lineageTag: 72e97d96-33da-4bda-bbe8-f6a63770e367
 
 	measure 'Contado por dia' =
-			AVERAGEX (
-			    VALUES ( fato_ag_conciliacao[data] ),
-			    CALCULATE ( SUM ( fato_ag_conciliacao[contado] ) )
-			)
+			AVERAGEX ( VALUES ( fato_ag_conciliacao[data] ), [Contado] )
 		formatString: #,0
 		lineageTag: 8fc6b30f-33ee-4181-b033-4edaf3b7123b
 
 	measure 'Em trânsito por dia' =
-			AVERAGEX (
-			    VALUES ( fato_ag_conciliacao[data] ),
-			    CALCULATE ( SUM ( fato_ag_conciliacao[transito] ) )
-			)
+			AVERAGEX ( VALUES ( fato_ag_conciliacao[data] ), [Em trânsito] )
 		formatString: #,0
 		lineageTag: a4378b36-fcb9-4fb5-81b2-94f1c313ebae
 
 	measure 'Parque por dia' =
-			AVERAGEX (
-			    VALUES ( fato_ag_conciliacao[data] ),
-			    CALCULATE ( SUM ( fato_ag_conciliacao[parque] ) )
-			)
+			AVERAGEX ( VALUES ( fato_ag_conciliacao[data] ), [Parque] )
 		formatString: #,0
 		lineageTag: 73d2aa04-8a1f-48f6-8dab-9c6c759f86e0
 
 	measure 'Diferença por dia' =
-			AVERAGEX (
-			    VALUES ( fato_ag_conciliacao[data] ),
-			    CALCULATE ( SUM ( fato_ag_conciliacao[diferenca] ) )
-			)
+			AVERAGEX ( VALUES ( fato_ag_conciliacao[data] ), [Diferença] )
 		formatString: #,0
 		lineageTag: d77fbf5d-bced-40d6-9619-16ac286cf9e1
 
 	measure '% Diferença por dia' =
-			AVERAGEX (
-			    VALUES ( fato_ag_conciliacao[data] ),
-			    VAR P = CALCULATE ( SUM ( fato_ag_conciliacao[parque] ) )
-			    RETURN
-			        IF ( P > 0, DIVIDE ( ABS ( CALCULATE ( SUM ( fato_ag_conciliacao[diferenca] ) ) ), P ) )
-			)
+			AVERAGEX ( VALUES ( fato_ag_conciliacao[data] ), [% Diferença] )
 		formatString: 0.0%
 		lineageTag: 94e94b20-0ece-48f8-85c7-804662a76787
 

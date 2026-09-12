@@ -301,17 +301,70 @@ MEASURE '_Medidas'[Caixas GFE] =
 // dia só, "contado" viraria a soma de todas as contagens do período
 // contra um parque que é saldo, e a diferença não significaria nada.
 
-MEASURE '_Medidas'[Contado] =
-    VAR Dia =
-        CALCULATE ( MAX ( fato_ag_conciliacao[data] ), ALLSELECTED ( fato_ag_conciliacao ) )
-    RETURN
-        CALCULATE ( SUM ( fato_ag_conciliacao[contado] ), fato_ag_conciliacao[data] = Dia )
+/*
+    O DIA DA CONCILIAÇÃO (12/09/2026, pedido do dono: filtro de DIA no
+    lugar do Período, podendo marcar mais de um).
 
-MEASURE '_Medidas'[Parque] =
-    VAR Dia =
+    Numa linha que já é de um dia (a coluna Dia da tabela, cada dia do
+    histórico e do gráfico), é aquele dia. Fora disso -- cartões, linha de
+    total --, é o ÚLTIMO dia marcado: conciliação é fotografia de um dia, e
+    somar o parque de três dias daria um número que não existe.
+*/
+MEASURE '_Medidas'[Dia da conciliação] =
+    IF (
+        HASONEVALUE ( fato_ag_conciliacao[data] ),
+        VALUES ( fato_ag_conciliacao[data] ),
         CALCULATE ( MAX ( fato_ag_conciliacao[data] ), ALLSELECTED ( fato_ag_conciliacao ) )
+    )
+
+/*
+    A CONTAGEM DE UM CONFERENTE SÓ (12/09/2026, pedido do dono).
+
+    A view já traz o contado somado de todos os conferentes do dia. Com o
+    filtro de Conferente marcado (fato_ag_contagem[colaborador_nome]), o
+    contado sai da contagem dele -- só as vivas, como a view -- e o item
+    que ele NÃO contou sai da conta inteira: parque, trânsito e comodato
+    daquele item também. Sem esse corte, cada item que outro conferente
+    contou apareceria como falta do escolhido.
+
+    Esta é a peça comum: o contado do conferente na LINHA da conciliação
+    (um dia, um tipo, um formato, uma revenda) em que for chamada.
+*/
+MEASURE '_Medidas'[Contado do conferente na linha] =
+    CALCULATE (
+        SUM ( fato_ag_contagem[total_caixas] ),
+        fato_ag_contagem[viva] = TRUE (),
+        TREATAS ( VALUES ( fato_ag_conciliacao[data] ), fato_ag_contagem[data] ),
+        TREATAS ( VALUES ( fato_ag_conciliacao[tipo] ), fato_ag_contagem[tipo] ),
+        TREATAS ( VALUES ( fato_ag_conciliacao[formato] ), fato_ag_contagem[formato] ),
+        TREATAS ( VALUES ( fato_ag_conciliacao[revenda_id] ), fato_ag_contagem[revenda_id] )
+    )
+
+MEASURE '_Medidas'[Contado] =
+    VAR Dia = [Dia da conciliação]
     RETURN
-        CALCULATE ( SUM ( fato_ag_conciliacao[parque] ), fato_ag_conciliacao[data] = Dia )
+        IF (
+            ISFILTERED ( fato_ag_contagem[colaborador_nome] ),
+            SUMX (
+                CALCULATETABLE ( fato_ag_conciliacao, fato_ag_conciliacao[data] = Dia ),
+                [Contado do conferente na linha]
+            ),
+            CALCULATE ( SUM ( fato_ag_conciliacao[contado] ), fato_ag_conciliacao[data] = Dia )
+        )
+
+// Parque, trânsito e comodato seguem a mesma forma: com conferente, só
+// os itens que ele contou; sem, o dia inteiro.
+MEASURE '_Medidas'[Parque] =
+    VAR Dia = [Dia da conciliação]
+    RETURN
+        IF (
+            ISFILTERED ( fato_ag_contagem[colaborador_nome] ),
+            SUMX (
+                CALCULATETABLE ( fato_ag_conciliacao, fato_ag_conciliacao[data] = Dia ),
+                IF ( NOT ISBLANK ( [Contado do conferente na linha] ), fato_ag_conciliacao[parque] )
+            ),
+            CALCULATE ( SUM ( fato_ag_conciliacao[parque] ), fato_ag_conciliacao[data] = Dia )
+        )
 
 MEASURE '_Medidas'[Diferença] =
     VAR C = [Contado]
@@ -337,25 +390,43 @@ MEASURE '_Medidas'[Diferença] =
     dia conciliado dentro do filtro.
 */
 MEASURE '_Medidas'[Trânsito rota] =
-    VAR Dia =
-        CALCULATE ( MAX ( fato_ag_conciliacao[data] ), ALLSELECTED ( fato_ag_conciliacao ) )
+    VAR Dia = [Dia da conciliação]
     RETURN
-        CALCULATE ( SUM ( fato_ag_conciliacao[transito_rota] ), fato_ag_conciliacao[data] = Dia )
+        IF (
+            ISFILTERED ( fato_ag_contagem[colaborador_nome] ),
+            SUMX (
+                CALCULATETABLE ( fato_ag_conciliacao, fato_ag_conciliacao[data] = Dia ),
+                IF ( NOT ISBLANK ( [Contado do conferente na linha] ), fato_ag_conciliacao[transito_rota] )
+            ),
+            CALCULATE ( SUM ( fato_ag_conciliacao[transito_rota] ), fato_ag_conciliacao[data] = Dia )
+        )
 
 MEASURE '_Medidas'[Trânsito carreta] =
-    VAR Dia =
-        CALCULATE ( MAX ( fato_ag_conciliacao[data] ), ALLSELECTED ( fato_ag_conciliacao ) )
+    VAR Dia = [Dia da conciliação]
     RETURN
-        CALCULATE ( SUM ( fato_ag_conciliacao[transito_carreta] ), fato_ag_conciliacao[data] = Dia )
+        IF (
+            ISFILTERED ( fato_ag_contagem[colaborador_nome] ),
+            SUMX (
+                CALCULATETABLE ( fato_ag_conciliacao, fato_ag_conciliacao[data] = Dia ),
+                IF ( NOT ISBLANK ( [Contado do conferente na linha] ), fato_ag_conciliacao[transito_carreta] )
+            ),
+            CALCULATE ( SUM ( fato_ag_conciliacao[transito_carreta] ), fato_ag_conciliacao[data] = Dia )
+        )
 
 // O comodato é um saldo que vale até alguém mudar (igual ao parque), e a
 // view já o repete em todo dia conciliado. Por isso o mesmo recorte de dia
 // funciona aqui sem somar o mesmo comodato duas vezes.
 MEASURE '_Medidas'[Comodato] =
-    VAR Dia =
-        CALCULATE ( MAX ( fato_ag_conciliacao[data] ), ALLSELECTED ( fato_ag_conciliacao ) )
+    VAR Dia = [Dia da conciliação]
     RETURN
-        CALCULATE ( SUM ( fato_ag_conciliacao[comodato] ), fato_ag_conciliacao[data] = Dia )
+        IF (
+            ISFILTERED ( fato_ag_contagem[colaborador_nome] ),
+            SUMX (
+                CALCULATETABLE ( fato_ag_conciliacao, fato_ag_conciliacao[data] = Dia ),
+                IF ( NOT ISBLANK ( [Contado do conferente na linha] ), fato_ag_conciliacao[comodato] )
+            ),
+            CALCULATE ( SUM ( fato_ag_conciliacao[comodato] ), fato_ag_conciliacao[data] = Dia )
+        )
 
 MEASURE '_Medidas'[Em trânsito] =
     VAR R = [Trânsito rota]
@@ -397,8 +468,7 @@ MEASURE '_Medidas'[Situação da conciliação] =
 // FOTOGRAFIA de um dia — e quem lê precisa saber de qual antes de levar
 // a diferença para a reunião.
 MEASURE '_Medidas'[Dia conciliado] =
-    VAR Dia =
-        CALCULATE ( MAX ( fato_ag_conciliacao[data] ), ALLSELECTED ( fato_ag_conciliacao ) )
+    VAR Dia = [Dia da conciliação]
     RETURN
         IF ( NOT ISBLANK ( Dia ), FORMAT ( Dia, "dd/MM/yyyy" ) )
 
@@ -410,37 +480,24 @@ MEASURE '_Medidas'[Dia conciliado] =
     de trinta dias daria trinta vezes o parque, um número que não existe.
     O "por dia" no nome é para isso ficar dito na coluna.
 */
+// Cada dia pelas MESMAS medidas da fotografia (12/09/2026): dentro do
+// AVERAGEX o dia é um só, e [Dia da conciliação] devolve aquele dia. É o
+// que faz o histórico e o gráfico acompanharem o filtro de Conferente --
+// somar as colunas da view daria sempre o contado de todo mundo.
 MEASURE '_Medidas'[Contado por dia] =
-    AVERAGEX (
-        VALUES ( fato_ag_conciliacao[data] ),
-        CALCULATE ( SUM ( fato_ag_conciliacao[contado] ) )
-    )
+    AVERAGEX ( VALUES ( fato_ag_conciliacao[data] ), [Contado] )
 
 MEASURE '_Medidas'[Em trânsito por dia] =
-    AVERAGEX (
-        VALUES ( fato_ag_conciliacao[data] ),
-        CALCULATE ( SUM ( fato_ag_conciliacao[transito] ) )
-    )
+    AVERAGEX ( VALUES ( fato_ag_conciliacao[data] ), [Em trânsito] )
 
 MEASURE '_Medidas'[Parque por dia] =
-    AVERAGEX (
-        VALUES ( fato_ag_conciliacao[data] ),
-        CALCULATE ( SUM ( fato_ag_conciliacao[parque] ) )
-    )
+    AVERAGEX ( VALUES ( fato_ag_conciliacao[data] ), [Parque] )
 
 MEASURE '_Medidas'[Diferença por dia] =
-    AVERAGEX (
-        VALUES ( fato_ag_conciliacao[data] ),
-        CALCULATE ( SUM ( fato_ag_conciliacao[diferenca] ) )
-    )
+    AVERAGEX ( VALUES ( fato_ag_conciliacao[data] ), [Diferença] )
 
 MEASURE '_Medidas'[% Diferença por dia] =
-    AVERAGEX (
-        VALUES ( fato_ag_conciliacao[data] ),
-        VAR P = CALCULATE ( SUM ( fato_ag_conciliacao[parque] ) )
-        RETURN
-            IF ( P > 0, DIVIDE ( ABS ( CALCULATE ( SUM ( fato_ag_conciliacao[diferenca] ) ) ), P ) )
-    )
+    AVERAGEX ( VALUES ( fato_ag_conciliacao[data] ), [% Diferença] )
 
 // --- Aderência ao processo -----------------------------------------
 // "Ocorrências de contagem" é quantas VEZES se contou, não quanto se
