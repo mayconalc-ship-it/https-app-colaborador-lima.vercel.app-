@@ -4,10 +4,10 @@
   "position": {
     "x": 16,
     "y": 252,
-    "z": 14000,
+    "z": 16000,
     "height": 240,
     "width": 1248,
-    "tabOrder": 14000
+    "tabOrder": 16000
   },
   "visual": {
     "visualType": "pivotTable",
@@ -43,7 +43,7 @@
               },
               "queryRef": "fato_carreta.numero_dt",
               "nativeQueryRef": "numero_dt",
-              "active": true
+              "active": false
             }
           ]
         },
@@ -165,6 +165,29 @@
         }
       }
     },
+    "expansionStates": [
+      {
+        "roles": [
+          "Rows"
+        ],
+        "levels": [
+          {
+            "queryRefs": [
+              "fato_carreta.conferente"
+            ],
+            "isCollapsed": true,
+            "isPinned": true
+          },
+          {
+            "queryRefs": [
+              "fato_carreta.numero_dt"
+            ],
+            "isCollapsed": true
+          }
+        ],
+        "root": {}
+      }
+    ],
     "objects": {
       "rowHeaders": [
         {

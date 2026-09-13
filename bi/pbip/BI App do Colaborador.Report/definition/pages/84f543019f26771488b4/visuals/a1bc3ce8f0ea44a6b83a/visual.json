@@ -4,10 +4,10 @@
   "position": {
     "x": 840,
     "y": 252,
-    "z": 15000,
+    "z": 17000,
     "height": 240,
     "width": 424,
-    "tabOrder": 15000
+    "tabOrder": 17000
   },
   "visual": {
     "visualType": "pivotTable",
@@ -43,7 +43,7 @@
               },
               "queryRef": "fato_cinco_porques.categoria",
               "nativeQueryRef": "categoria",
-              "active": true
+              "active": false
             }
           ]
         },
@@ -86,6 +86,29 @@
         }
       }
     },
+    "expansionStates": [
+      {
+        "roles": [
+          "Rows"
+        ],
+        "levels": [
+          {
+            "queryRefs": [
+              "fato_cinco_porques.problema"
+            ],
+            "isCollapsed": true,
+            "isPinned": true
+          },
+          {
+            "queryRefs": [
+              "fato_cinco_porques.categoria"
+            ],
+            "isCollapsed": true
+          }
+        ],
+        "root": {}
+      }
+    ],
     "objects": {
       "rowHeaders": [
         {

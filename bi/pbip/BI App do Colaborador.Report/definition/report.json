@@ -11,6 +11,21 @@
       "type": "RegisteredResources"
     }
   },
+  "objects": {
+    "outspacePane": [
+      {
+        "properties": {
+          "expanded": {
+            "expr": {
+              "Literal": {
+                "Value": "false"
+              }
+            }
+          }
+        }
+      }
+    ]
+  },
   "resourcePackages": [
     {
       "name": "RegisteredResources",
@@ -20,6 +35,11 @@
           "name": "tema-powerbi.json",
           "path": "tema-powerbi.json",
           "type": "CustomTheme"
+        },
+        {
+          "name": "logo-app-c.png",
+          "path": "logo-app-c.png",
+          "type": "Image"
         }
       ]
     }

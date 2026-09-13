@@ -4,10 +4,10 @@
   "position": {
     "x": 16,
     "y": 252,
-    "z": 13000,
+    "z": 15000,
     "height": 240,
     "width": 1248,
-    "tabOrder": 13000
+    "tabOrder": 15000
   },
   "visual": {
     "visualType": "pivotTable",
@@ -43,7 +43,7 @@
               },
               "queryRef": "fato_ag_conciliacao.item",
               "nativeQueryRef": "item",
-              "active": true
+              "active": false
             }
           ]
         },
@@ -179,6 +179,29 @@
         }
       }
     },
+    "expansionStates": [
+      {
+        "roles": [
+          "Rows"
+        ],
+        "levels": [
+          {
+            "queryRefs": [
+              "fato_ag_conciliacao.data"
+            ],
+            "isCollapsed": true,
+            "isPinned": true
+          },
+          {
+            "queryRefs": [
+              "fato_ag_conciliacao.item"
+            ],
+            "isCollapsed": true
+          }
+        ],
+        "root": {}
+      }
+    ],
     "objects": {
       "rowHeaders": [
         {

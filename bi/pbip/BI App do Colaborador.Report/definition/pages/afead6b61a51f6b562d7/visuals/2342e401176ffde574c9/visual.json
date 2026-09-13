@@ -4,10 +4,10 @@
   "position": {
     "x": 16,
     "y": 500,
-    "z": 16000,
+    "z": 18000,
     "height": 166,
     "width": 1248,
-    "tabOrder": 16000
+    "tabOrder": 18000
   },
   "visual": {
     "visualType": "pivotTable",
@@ -43,7 +43,7 @@
               },
               "queryRef": "fato_quiz_resposta.pergunta",
               "nativeQueryRef": "pergunta",
-              "active": true
+              "active": false
             }
           ]
         },
@@ -109,6 +109,29 @@
         }
       }
     },
+    "expansionStates": [
+      {
+        "roles": [
+          "Rows"
+        ],
+        "levels": [
+          {
+            "queryRefs": [
+              "fato_quiz_resposta.origem"
+            ],
+            "isCollapsed": true,
+            "isPinned": true
+          },
+          {
+            "queryRefs": [
+              "fato_quiz_resposta.pergunta"
+            ],
+            "isCollapsed": true
+          }
+        ],
+        "root": {}
+      }
+    ],
     "objects": {
       "rowHeaders": [
         {

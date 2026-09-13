@@ -4,10 +4,10 @@
   "position": {
     "x": 16,
     "y": 500,
-    "z": 15000,
+    "z": 17000,
     "height": 166,
     "width": 1248,
-    "tabOrder": 15000
+    "tabOrder": 17000
   },
   "visual": {
     "visualType": "pivotTable",
@@ -43,7 +43,7 @@
               },
               "queryRef": "fato_carreta.motorista",
               "nativeQueryRef": "motorista",
-              "active": true
+              "active": false
             },
             {
               "field": {
@@ -58,7 +58,7 @@
               },
               "queryRef": "fato_carreta.numero_dt",
               "nativeQueryRef": "numero_dt",
-              "active": true
+              "active": false
             }
           ]
         },
@@ -222,6 +222,36 @@
         }
       }
     },
+    "expansionStates": [
+      {
+        "roles": [
+          "Rows"
+        ],
+        "levels": [
+          {
+            "queryRefs": [
+              "fato_carreta.transportadora"
+            ],
+            "isCollapsed": true,
+            "isPinned": true
+          },
+          {
+            "queryRefs": [
+              "fato_carreta.motorista"
+            ],
+            "isCollapsed": true,
+            "isPinned": true
+          },
+          {
+            "queryRefs": [
+              "fato_carreta.numero_dt"
+            ],
+            "isCollapsed": true
+          }
+        ],
+        "root": {}
+      }
+    ],
     "objects": {
       "rowHeaders": [
         {
