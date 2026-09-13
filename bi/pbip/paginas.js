@@ -193,7 +193,8 @@ const paginas = [
         // (texto): data se ordena sozinha em ordem cronologica, texto
         // sairia em ordem alfabetica.
         t: 'columnChart', x: 16, y: Y.meio, w: 760, h: H.meio,
-        titulo: '📈 Interações por mês e módulo',
+        titulo: '📈 Interações por período e módulo',
+        drill: 'mes',
         roles: {
           Category: ['dim_calendario.inicio_mes'],
           Y: ['@Interações'],
@@ -341,7 +342,8 @@ const paginas = [
         // NA HORIZONTAL, na largura toda (12/09/2026, pedido do dono), e
         // as duas tabelas embaixo.
         t: 'lineChart', x: 16, y: Y.meio, w: 1248, h: H.meio, reta: true,
-        titulo: '📈 Contagens por dia do mês (sem domingos)',
+        titulo: '📈 Contagens por período (sem domingos)',
+        drill: 'dia',
         roles: {
           Category: ['dim_calendario.dia_rotulo'],
           Y: ['@Contagens no dia'],
@@ -545,7 +547,8 @@ const paginas = [
       },
       {
         t: 'columnChart', x: 16, y: Y.base, w: 400, h: H.base,
-        titulo: '📉 Diferença por dia (R$) — faltas e sobras',
+        titulo: '📉 Diferença média por dia conciliado (R$) — faltas e sobras',
+        drill: 'dia',
         roles: {
           Category: ['dim_calendario.data'],
           Y: ['@Diferença por dia (R$)'],
@@ -676,7 +679,8 @@ const paginas = [
         // ordena pela coluna "dia" (ver ordenarPor em modelo.js). E ele
         // so e correto dentro de UM mes -- dai o filtro de Mes acima.
         t: 'lineChart', x: 16, y: Y.meio, w: 380, h: H.meio,
-        titulo: '📈 Evolução da nota média — por dia do mês',
+        titulo: '📈 Evolução da nota média — por período',
+        drill: 'dia',
         roles: { Category: ['dim_calendario.dia_rotulo'], Y: ['@Nota média'] },
       },
       {
@@ -849,7 +853,8 @@ const paginas = [
       },
       {
         t: 'columnChart', x: 428, y: Y.meio, w: 400, h: H.meio,
-        titulo: '📈 Evolução semanal por categoria de causa',
+        titulo: '📈 Evolução por categoria de causa — por período',
+        drill: 'semana',
         roles: {
           Category: ['dim_calendario.inicio_semana'],
           Y: ['@Análises'],
@@ -1026,7 +1031,8 @@ const paginas = [
     visuais: [
       {
         t: 'columnChart', x: 16, y: Y.meio, w: 620, h: H.meio,
-        titulo: '📰 Publicações por mês e categoria',
+        titulo: '📰 Publicações por período e categoria',
+        drill: 'mes',
         roles: {
           Category: ['dim_calendario.inicio_mes'],
           Y: ['@Comunicados publicados'],
@@ -1181,7 +1187,8 @@ const paginas = [
         // / colaboradores da revenda. Domingo fora pelo mesmo motivo do
         // grafico do AG: o zero de todo domingo so serrilha a linha.
         t: 'columnChart', x: 16, y: 550, w: 1248, h: 116,
-        titulo: '📈 % de adesão por dia (sem domingos) — quem curtiu no dia ÷ colaboradores',
+        titulo: '📈 % de adesão por período (sem domingos) — quem curtiu ÷ colaboradores',
+        drill: 'dia',
         roles: {
           Category: ['dim_calendario.dia_rotulo'],
           Y: ['@% Participação na comunicação'],
@@ -1259,6 +1266,7 @@ const paginas = [
         // contem concluidas.
         t: 'clusteredColumnChart', x: 16, y: Y.meio, w: 410, h: H.meio,
         titulo: '📊 Elegíveis × concluídas por mês',
+        drill: 'mes', drillAte: 'mes',
         roles: {
           Category: ['dim_calendario.ano_mes'],
           Y: [
@@ -1270,6 +1278,7 @@ const paginas = [
       {
         t: 'lineChart', x: 438, y: Y.meio, w: 410, h: H.meio, reta: true,
         titulo: '📈 Aproveitamento por área — por mês',
+        drill: 'mes', drillAte: 'mes',
         roles: {
           Category: ['dim_calendario.ano_mes'],
           Y: ['@Aproveitamento médio'],
@@ -1279,6 +1288,7 @@ const paginas = [
       {
         t: 'lineChart', x: 860, y: Y.meio, w: 404, h: H.meio, reta: true,
         titulo: '👥 Taxa de participação por mês',
+        drill: 'mes', drillAte: 'mes',
         roles: {
           Category: ['dim_calendario.ano_mes'],
           Y: ['@Taxa de participação'],
@@ -1287,6 +1297,7 @@ const paginas = [
       {
         t: 'columnChart', x: 16, y: Y.base, w: 620, h: H.base,
         titulo: '✅ Participações concluídas por mês e área',
+        drill: 'mes', drillAte: 'mes',
         roles: {
           Category: ['dim_calendario.ano_mes'],
           Y: ['@Participações concluídas'],
@@ -1296,6 +1307,7 @@ const paginas = [
       {
         t: 'lineChart', x: 648, y: Y.base, w: 616, h: H.base, reta: true,
         titulo: '🎯 Taxa de acerto por mês',
+        drill: 'mes', drillAte: 'mes',
         roles: {
           Category: ['dim_calendario.ano_mes'],
           Y: ['@Taxa de acerto'],
@@ -1675,7 +1687,8 @@ const paginas = [
       },
       {
         t: 'lineChart', x: 900, y: Y.meio, w: 364, h: H.meio,
-        titulo: '📈 Evolução mensal da conformidade',
+        titulo: '📈 Evolução da conformidade — por período',
+        drill: 'mes',
         roles: {
           // Coluna de DATA, e nao mes_rotulo (texto): texto ordena em
           // ordem alfabetica -- abril antes de agosto antes de dezembro
@@ -1791,7 +1804,8 @@ const paginas = [
         // O % de cada etapa no dia vai na DICA de cada pedaco da barra, e
         // tambem no grafico ao lado, em linha (12/09/2026).
         t: 'columnChart', x: 16, y: Y.meio, w: 500, h: H.meio,
-        titulo: '🧰 Horas de bancada por dia — triagem × reembalagem',
+        titulo: '🧰 Horas de bancada por período — triagem × reembalagem',
+        drill: 'dia',
         roles: {
           Category: ['dim_calendario.dia_rotulo'],
           Y: ['@Horas de bancada'],
@@ -1805,7 +1819,8 @@ const paginas = [
         // exemplo real aqui, e as duas linhas se leem como espelho uma da
         // outra -- quando a triagem sobe, o repack desce.
         t: 'lineChart', x: 528, y: Y.meio, w: 460, h: H.meio, reta: true,
-        titulo: '📊 % de cada etapa por dia — triagem × reembalagem',
+        titulo: '📊 % de cada etapa por período — triagem × reembalagem',
+        drill: 'dia',
         roles: {
           Category: ['dim_calendario.dia_rotulo'],
           // REPACK PRIMEIRO (12/09/2026): a cor sai da ORDEM da serie. No
@@ -1976,7 +1991,8 @@ const paginas = [
         // QUANTIDADE POR MES (12/09/2026, pedido do dono). ano_mes, e nao
         // o rotulo "ago/26": o eixo ordena texto em ordem alfabetica.
         t: 'columnChart', x: 16, y: Y.base, w: 620, h: H.base,
-        titulo: '📆 Caixas repackadas por mês',
+        titulo: '📆 Caixas repackadas por período',
+        drill: 'mes',
         roles: {
           Category: ['dim_calendario.ano_mes'],
           Y: ['@Caixas repackadas'],
@@ -2129,7 +2145,8 @@ const paginas = [
       },
       {
         t: 'lineChart', x: 648, y: Y.meio, w: 616, h: H.meio, reta: true,
-        titulo: '📈 % de avaria por dia',
+        titulo: '📈 % de avaria por período',
+        drill: 'dia',
         roles: {
           Category: ['dim_calendario.dia_rotulo'],
           Y: ['@% avaria no bate palete'],
@@ -2218,7 +2235,8 @@ const paginas = [
     visuais: [
       {
         t: 'columnChart', x: 16, y: Y.meio, w: 620, h: H.meio,
-        titulo: '📆 Litros despejados por dia (L)',
+        titulo: '📆 Litros despejados por período (L)',
+        drill: 'dia',
         roles: {
           Category: ['dim_calendario.dia_rotulo'],
           Y: ['@Litros despejados'],
@@ -2385,7 +2403,8 @@ const paginas = [
     visuais: [
       {
         t: 'columnChart', x: 16, y: Y.meio, w: 430, h: H.meio,
-        titulo: '📆 HL abastecidos por dia — completo × pontual',
+        titulo: '📆 HL abastecidos por período — completo × pontual',
+        drill: 'dia',
         roles: {
           Category: ['dim_calendario.dia_rotulo'],
           Y: ['@HL abastecidos'],
@@ -2560,7 +2579,8 @@ const paginas = [
         // O TMA DIA A DIA, com a meta. Mostra se o tempo esta melhorando
         // ou se foi um dia ruim que puxou a media.
         t: 'lineChart', x: 16, y: Y.base, w: 620, h: H.base, reta: true,
-        titulo: '📈 TMA médio por dia (min) — contra a meta',
+        titulo: '📈 TMA médio por período (min) — contra a meta',
+        drill: 'dia',
         roles: {
           Category: ['dim_calendario.dia_rotulo'],
           Y: ['@TMA médio (min)', '@Meta de TMA (min)'],

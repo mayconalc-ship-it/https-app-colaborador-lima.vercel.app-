@@ -144,7 +144,7 @@
               {
                 "textRuns": [
                   {
-                    "value": "•  📈 % de avaria por dia",
+                    "value": "•  📈 % de avaria por período",
                     "textStyle": {
                       "fontSize": "11pt",
                       "color": "#334155"

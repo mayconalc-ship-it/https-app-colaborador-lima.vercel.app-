@@ -1,13 +1,13 @@
 {
   "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.12.0/schema.json",
-  "name": "1ea42d7fcf0ac795342f",
+  "name": "e46961baf86039bcc25a",
   "position": {
     "x": 16,
-    "y": 500,
-    "z": 18000,
-    "height": 166,
-    "width": 620,
-    "tabOrder": 18000
+    "y": 252,
+    "z": 15000,
+    "height": 240,
+    "width": 500,
+    "tabOrder": 15000
   },
   "visual": {
     "visualType": "columnChart",
@@ -43,6 +43,36 @@
               },
               "queryRef": "dim_calendario.ano_mes",
               "nativeQueryRef": "ano_mes",
+              "active": false
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "dim_calendario"
+                    }
+                  },
+                  "Property": "inicio_semana"
+                }
+              },
+              "queryRef": "dim_calendario.inicio_semana",
+              "nativeQueryRef": "inicio_semana",
+              "active": false
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "dim_calendario"
+                    }
+                  },
+                  "Property": "dia_rotulo"
+                }
+              },
+              "queryRef": "dim_calendario.dia_rotulo",
+              "nativeQueryRef": "dia_rotulo",
               "active": true
             }
           ]
@@ -57,11 +87,11 @@
                       "Entity": "_Medidas"
                     }
                   },
-                  "Property": "Participações concluídas"
+                  "Property": "Horas de bancada"
                 }
               },
-              "queryRef": "_Medidas.Participações concluídas",
-              "nativeQueryRef": "Participações concluídas"
+              "queryRef": "_Medidas.Horas de bancada",
+              "nativeQueryRef": "Horas de bancada"
             }
           ]
         },
@@ -72,15 +102,33 @@
                 "Column": {
                   "Expression": {
                     "SourceRef": {
-                      "Entity": "fato_quiz_participacao"
+                      "Entity": "fato_pa_bancada"
                     }
                   },
-                  "Property": "area_rotulo"
+                  "Property": "etapa_rotulo"
                 }
               },
-              "queryRef": "fato_quiz_participacao.area_rotulo",
-              "nativeQueryRef": "area_rotulo",
+              "queryRef": "fato_pa_bancada.etapa_rotulo",
+              "nativeQueryRef": "etapa_rotulo",
               "active": true
+            }
+          ]
+        },
+        "Tooltips": {
+          "projections": [
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "_Medidas"
+                    }
+                  },
+                  "Property": "% da etapa"
+                }
+              },
+              "queryRef": "_Medidas.% da etapa",
+              "nativeQueryRef": "% da etapa"
             }
           ]
         }
@@ -122,7 +170,7 @@
             "text": {
               "expr": {
                 "Literal": {
-                  "Value": "'✅ Participações concluídas por mês e área'"
+                  "Value": "'🧰 Horas de bancada por período — triagem × reembalagem'"
                 }
               }
             },
@@ -149,7 +197,7 @@
             "text": {
               "expr": {
                 "Literal": {
-                  "Value": "'NÍVEIS DE TEMPO: abre por mês e sobe para ano. No cabeçalho do gráfico: a seta ↑ sobe um nível, a seta dupla ⇊ desce um nível no gráfico inteiro, e com a seta ↓ ligada o clique numa barra ou ponto abre só aquele período (por exemplo, os dias de uma semana). Também pelo botão direito do mouse.'"
+                  "Value": "'NÍVEIS DE TEMPO: abre por dia e sobe para semana, mês, ano. No cabeçalho do gráfico: a seta ↑ sobe um nível, a seta dupla ⇊ desce um nível no gráfico inteiro, e com a seta ↓ ligada o clique numa barra ou ponto abre só aquele período (por exemplo, os dias de uma semana). Também pelo botão direito do mouse.'"
                 }
               }
             }

@@ -177,7 +177,7 @@
               {
                 "textRuns": [
                   {
-                    "value": "•  📈 TMA médio por dia (min) — contra a meta",
+                    "value": "•  📈 TMA médio por período (min) — contra a meta",
                     "textStyle": {
                       "fontSize": "11pt",
                       "color": "#334155"

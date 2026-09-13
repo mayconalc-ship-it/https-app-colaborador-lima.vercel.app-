@@ -1,20 +1,65 @@
 {
   "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.12.0/schema.json",
-  "name": "9d24401df33d7b99893f",
+  "name": "fe324e4bc7f20a6f01bd",
   "position": {
     "x": 16,
-    "y": 252,
+    "y": 550,
     "z": 15000,
-    "height": 240,
+    "height": 116,
     "width": 1248,
     "tabOrder": 15000
   },
   "visual": {
-    "visualType": "lineChart",
+    "visualType": "columnChart",
     "query": {
       "queryState": {
         "Category": {
           "projections": [
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "dim_calendario"
+                    }
+                  },
+                  "Property": "ano"
+                }
+              },
+              "queryRef": "dim_calendario.ano",
+              "nativeQueryRef": "ano",
+              "active": false
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "dim_calendario"
+                    }
+                  },
+                  "Property": "ano_mes"
+                }
+              },
+              "queryRef": "dim_calendario.ano_mes",
+              "nativeQueryRef": "ano_mes",
+              "active": false
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "dim_calendario"
+                    }
+                  },
+                  "Property": "inicio_semana"
+                }
+              },
+              "queryRef": "dim_calendario.inicio_semana",
+              "nativeQueryRef": "inicio_semana",
+              "active": false
+            },
             {
               "field": {
                 "Column": {
@@ -42,11 +87,11 @@
                       "Entity": "_Medidas"
                     }
                   },
-                  "Property": "Contagens no dia"
+                  "Property": "% Participação na comunicação"
                 }
               },
-              "queryRef": "_Medidas.Contagens no dia",
-              "nativeQueryRef": "Contagens no dia"
+              "queryRef": "_Medidas.% Participação na comunicação",
+              "nativeQueryRef": "% Participação na comunicação"
             }
           ]
         }
@@ -88,7 +133,7 @@
             "text": {
               "expr": {
                 "Literal": {
-                  "Value": "'📈 Contagens por dia do mês (sem domingos)'"
+                  "Value": "'📈 % de adesão por período (sem domingos) — quem curtiu ÷ colaboradores'"
                 }
               }
             },
@@ -115,7 +160,7 @@
             "text": {
               "expr": {
                 "Literal": {
-                  "Value": "'Uma OCORRÊNCIA é uma vez que alguém contou — uma por pessoa por dia —, e não uma linha digitada: quem conta o pátio uma vez lança dezenas de linhas. Os domingos ficam fora do eixo: não se conta AG em domingo, e o zero de todo domingo só serrilhava a linha. Sábado continua, porque lá se conta e a falta é informação. O eixo é o DIA DO MÊS — escolha um mês no filtro, senão o dia 05 de dois meses diferentes vira o mesmo ponto.'"
+                  "Value": "'Adesão do dia = colaboradores que curtiram algum comunicado naquele dia ÷ colaboradores da revenda. Domingos ficam fora. O eixo é o dia do mês: escolha um mês no filtro. NÍVEIS DE TEMPO: abre por dia e sobe para semana, mês, ano. No cabeçalho do gráfico: a seta ↑ sobe um nível, a seta dupla ⇊ desce um nível no gráfico inteiro, e com a seta ↓ ligada o clique numa barra ou ponto abre só aquele período (por exemplo, os dias de uma semana). Também pelo botão direito do mouse.'"
                 }
               }
             }

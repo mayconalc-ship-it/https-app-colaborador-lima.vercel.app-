@@ -270,6 +270,14 @@ for (const arq of arquivos) {
     for (const proj of estado.projections || []) conferirCampo(proj.field, `${onde} [${papel}]`);
   }
   for (const s of (q.sortDefinition || {}).sort || []) conferirCampo(s.field, `${onde} [ordem]`);
+
+  // Eixo com niveis (drill de tempo, 12/09/2026): exatamente UM nivel
+  // ativo -- e ele que diz em que nivel o grafico abre. Dois ativos ou
+  // nenhum deixam o Desktop decidir sozinho, e ele abre no ano.
+  const eixo = ((q.queryState || {}).Category || {}).projections || [];
+  if (eixo.length > 1 && eixo.filter((p) => p.active).length !== 1) {
+    falha(`${onde}: eixo com ${eixo.length} niveis e ${eixo.filter((p) => p.active).length} ativos (deve ser 1)`);
+  }
 }
 
 // --- imagens registradas ----------------------------------------------

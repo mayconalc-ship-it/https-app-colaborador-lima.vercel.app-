@@ -133,7 +133,7 @@
               {
                 "textRuns": [
                   {
-                    "value": "•  📈 Evolução da nota média — por dia do mês",
+                    "value": "•  📈 Evolução da nota média — por período",
                     "textStyle": {
                       "fontSize": "11pt",
                       "color": "#334155"

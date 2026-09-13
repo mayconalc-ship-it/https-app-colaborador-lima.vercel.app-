@@ -155,7 +155,7 @@
               {
                 "textRuns": [
                   {
-                    "value": "•  📉 Diferença por dia (R$) — faltas e sobras",
+                    "value": "•  📉 Diferença média por dia conciliado (R$) — faltas e sobras",
                     "textStyle": {
                       "fontSize": "11pt",
                       "color": "#334155"

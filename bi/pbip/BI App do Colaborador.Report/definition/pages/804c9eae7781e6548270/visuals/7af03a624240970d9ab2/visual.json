@@ -144,7 +144,7 @@
               {
                 "textRuns": [
                   {
-                    "value": "•  📈 % de adesão por dia (sem domingos) — quem curtiu no dia ÷ colaboradores",
+                    "value": "•  📈 % de adesão por período (sem domingos) — quem curtiu ÷ colaboradores",
                     "textStyle": {
                       "fontSize": "11pt",
                       "color": "#334155"

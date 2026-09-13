@@ -133,7 +133,7 @@
               {
                 "textRuns": [
                   {
-                    "value": "•  🧰 Horas de bancada por dia — triagem × reembalagem",
+                    "value": "•  🧰 Horas de bancada por período — triagem × reembalagem",
                     "textStyle": {
                       "fontSize": "11pt",
                       "color": "#334155"
@@ -144,7 +144,7 @@
               {
                 "textRuns": [
                   {
-                    "value": "•  📊 % de cada etapa por dia — triagem × reembalagem",
+                    "value": "•  📊 % de cada etapa por período — triagem × reembalagem",
                     "textStyle": {
                       "fontSize": "11pt",
                       "color": "#334155"

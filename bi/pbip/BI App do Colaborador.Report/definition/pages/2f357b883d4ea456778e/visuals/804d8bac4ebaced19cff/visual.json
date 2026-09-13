@@ -1,13 +1,13 @@
 {
   "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.12.0/schema.json",
-  "name": "36269b54e1eff9903acc",
+  "name": "804d8bac4ebaced19cff",
   "position": {
     "x": 16,
     "y": 252,
-    "z": 15000,
+    "z": 11000,
     "height": 240,
-    "width": 620,
-    "tabOrder": 15000
+    "width": 760,
+    "tabOrder": 11000
   },
   "visual": {
     "visualType": "columnChart",
@@ -23,12 +23,57 @@
                       "Entity": "dim_calendario"
                     }
                   },
+                  "Property": "ano"
+                }
+              },
+              "queryRef": "dim_calendario.ano",
+              "nativeQueryRef": "ano",
+              "active": false
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "dim_calendario"
+                    }
+                  },
                   "Property": "inicio_mes"
                 }
               },
               "queryRef": "dim_calendario.inicio_mes",
               "nativeQueryRef": "inicio_mes",
               "active": true
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "dim_calendario"
+                    }
+                  },
+                  "Property": "inicio_semana"
+                }
+              },
+              "queryRef": "dim_calendario.inicio_semana",
+              "nativeQueryRef": "inicio_semana",
+              "active": false
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "dim_calendario"
+                    }
+                  },
+                  "Property": "dia_rotulo"
+                }
+              },
+              "queryRef": "dim_calendario.dia_rotulo",
+              "nativeQueryRef": "dia_rotulo",
+              "active": false
             }
           ]
         },
@@ -42,11 +87,11 @@
                       "Entity": "_Medidas"
                     }
                   },
-                  "Property": "Comunicados publicados"
+                  "Property": "Interações"
                 }
               },
-              "queryRef": "_Medidas.Comunicados publicados",
-              "nativeQueryRef": "Comunicados publicados"
+              "queryRef": "_Medidas.Interações",
+              "nativeQueryRef": "Interações"
             }
           ]
         },
@@ -57,14 +102,14 @@
                 "Column": {
                   "Expression": {
                     "SourceRef": {
-                      "Entity": "fato_comunicado"
+                      "Entity": "fato_atividade"
                     }
                   },
-                  "Property": "categoria"
+                  "Property": "modulo"
                 }
               },
-              "queryRef": "fato_comunicado.categoria",
-              "nativeQueryRef": "categoria",
+              "queryRef": "fato_atividade.modulo",
+              "nativeQueryRef": "modulo",
               "active": true
             }
           ]
@@ -107,7 +152,7 @@
             "text": {
               "expr": {
                 "Literal": {
-                  "Value": "'📰 Publicações por mês e categoria'"
+                  "Value": "'📈 Interações por período e módulo'"
                 }
               }
             },
@@ -115,6 +160,26 @@
               "expr": {
                 "Literal": {
                   "Value": "11D"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "visualHeaderTooltip": [
+        {
+          "properties": {
+            "type": {
+              "expr": {
+                "Literal": {
+                  "Value": "'Text'"
+                }
+              }
+            },
+            "text": {
+              "expr": {
+                "Literal": {
+                  "Value": "'NÍVEIS DE TEMPO: abre por mês e sobe para ano; desce até dia. No cabeçalho do gráfico: a seta ↑ sobe um nível, a seta dupla ⇊ desce um nível no gráfico inteiro, e com a seta ↓ ligada o clique numa barra ou ponto abre só aquele período (por exemplo, os dias de uma semana). Também pelo botão direito do mouse.'"
                 }
               }
             }

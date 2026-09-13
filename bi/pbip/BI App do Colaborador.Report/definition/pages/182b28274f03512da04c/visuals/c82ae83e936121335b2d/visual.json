@@ -1,6 +1,6 @@
 {
   "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.12.0/schema.json",
-  "name": "8ec29be9dabb2b3d2274",
+  "name": "c82ae83e936121335b2d",
   "position": {
     "x": 16,
     "y": 500,
@@ -23,12 +23,57 @@
                       "Entity": "dim_calendario"
                     }
                   },
+                  "Property": "ano"
+                }
+              },
+              "queryRef": "dim_calendario.ano",
+              "nativeQueryRef": "ano",
+              "active": false
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "dim_calendario"
+                    }
+                  },
                   "Property": "ano_mes"
                 }
               },
               "queryRef": "dim_calendario.ano_mes",
               "nativeQueryRef": "ano_mes",
               "active": true
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "dim_calendario"
+                    }
+                  },
+                  "Property": "inicio_semana"
+                }
+              },
+              "queryRef": "dim_calendario.inicio_semana",
+              "nativeQueryRef": "inicio_semana",
+              "active": false
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "dim_calendario"
+                    }
+                  },
+                  "Property": "dia_rotulo"
+                }
+              },
+              "queryRef": "dim_calendario.dia_rotulo",
+              "nativeQueryRef": "dia_rotulo",
+              "active": false
             }
           ]
         },
@@ -88,7 +133,7 @@
             "text": {
               "expr": {
                 "Literal": {
-                  "Value": "'📆 Caixas repackadas por mês'"
+                  "Value": "'📆 Caixas repackadas por período'"
                 }
               }
             },
@@ -96,6 +141,26 @@
               "expr": {
                 "Literal": {
                   "Value": "11D"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "visualHeaderTooltip": [
+        {
+          "properties": {
+            "type": {
+              "expr": {
+                "Literal": {
+                  "Value": "'Text'"
+                }
+              }
+            },
+            "text": {
+              "expr": {
+                "Literal": {
+                  "Value": "'NÍVEIS DE TEMPO: abre por mês e sobe para ano; desce até dia. No cabeçalho do gráfico: a seta ↑ sobe um nível, a seta dupla ⇊ desce um nível no gráfico inteiro, e com a seta ↓ ligada o clique numa barra ou ponto abre só aquele período (por exemplo, os dias de uma semana). Também pelo botão direito do mouse.'"
                 }
               }
             }

@@ -766,14 +766,74 @@ function gradienteSequencial() {
   }];
 }
 
+/*
+  NIVEIS DE TEMPO NOS GRAFICOS -- o drill ano › mes › semana › dia
+  (12/09/2026, pedido do dono: "com dois meses de dados, colocar o drill
+  down nos graficos; analises por dia, ver por semana, mes e ano").
+
+  O visual marca em que nivel ele esta hoje (`drill: 'dia'|'semana'|'mes'`)
+  e, se precisar, ate onde desce (`drillAte`, padrao 'dia'). O eixo vira a
+  hierarquia inteira, com a coluna que o grafico ja usava no nivel dele
+  -- entao o grafico ABRE exatamente como era, e ganha as setas de subir e
+  descer.
+
+  Quem diz em que nivel o grafico abre e o `active` da projecao: so o
+  nivel atual leva true. E a mesma regra que o Desktop gravou nas matrizes
+  recolhidas (primeiro nivel true, os de baixo false). PALPITE: em grafico,
+  ainda nao ha exemplo salvo pelo Desktop. Se o grafico abrir no ANO em
+  vez do dia, o active foi ignorado -- o proximo passo e descer um grafico
+  ate o dia no Desktop, salvar e copiar o que ele escrever.
+
+  O que NAO entrou, e por que, esta em paginas.js, junto de cada grafico.
+*/
+const NIVEIS_TEMPO = ['ano', 'mes', 'semana', 'dia'];
+const COLUNA_DO_NIVEL = {
+  ano: 'dim_calendario.ano',
+  // ano_mes ("2026-08") e nao mes_rotulo ("ago/26"): texto se ordena em
+  // ordem alfabetica, e o par mes_rotulo/mes nao e 1:1 entre anos.
+  mes: 'dim_calendario.ano_mes',
+  // A data da segunda-feira da semana: quem le reconhece "07/09/2026" na
+  // hora; "2026-S37" obriga a contar semanas.
+  semana: 'dim_calendario.inicio_semana',
+  dia: 'dim_calendario.dia_rotulo',
+};
+const NOME_DO_NIVEL = { ano: 'ano', mes: 'mês', semana: 'semana', dia: 'dia' };
+
+function comNiveisDeTempo(v) {
+  if (!v.drill) return v;
+  const atual = v.roles.Category[0];
+  const ate = NIVEIS_TEMPO.indexOf(v.drillAte || 'dia');
+  const niveis = NIVEIS_TEMPO.slice(0, ate + 1);
+  const refs = niveis.map((n) => (n === v.drill ? atual : COLUNA_DO_NIVEL[n]));
+  const acima = niveis.slice(0, niveis.indexOf(v.drill)).reverse().map((n) => NOME_DO_NIVEL[n]);
+  const explica =
+    `NÍVEIS DE TEMPO: abre por ${NOME_DO_NIVEL[v.drill]}` +
+    (acima.length ? ` e sobe para ${acima.join(', ')}` : '') +
+    (niveis.indexOf(v.drill) < niveis.length - 1
+      ? `; desce até ${NOME_DO_NIVEL[niveis[niveis.length - 1]]}` : '') +
+    '. No cabeçalho do gráfico: a seta ↑ sobe um nível, a seta dupla ⇊ desce um nível no gráfico ' +
+    'inteiro, e com a seta ↓ ligada o clique numa barra ou ponto abre só aquele período (por ' +
+    'exemplo, os dias de uma semana). Também pelo botão direito do mouse.';
+  return {
+    ...v,
+    roles: { ...v.roles, Category: refs },
+    abrirEm: atual,
+    dica: v.dica ? `${v.dica} ${explica}` : explica,
+  };
+}
+
 function visualJson(v, ordemZ) {
+  v = comNiveisDeTempo(v);
   const nomeVisual = id20(v.chave);
   const queryState = {};
   for (const [papel, refs] of Object.entries(v.roles || {})) {
     queryState[papel] = {
       projections: refs.map((r) => {
         const p = campo(r);
-        if (PAPEL_ATIVO.has(papel)) p.active = true;
+        if (PAPEL_ATIVO.has(papel)) {
+          // Eixo com niveis de tempo: so o nivel em que o grafico abre.
+          p.active = papel === 'Category' && v.abrirEm ? r === v.abrirEm : true;
+        }
         return p;
       }),
     };

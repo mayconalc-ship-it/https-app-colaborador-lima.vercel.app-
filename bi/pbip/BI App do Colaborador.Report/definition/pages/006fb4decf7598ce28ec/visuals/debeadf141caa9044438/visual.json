@@ -133,7 +133,7 @@
               {
                 "textRuns": [
                   {
-                    "value": "•  📆 Litros despejados por dia (L)",
+                    "value": "•  📆 Litros despejados por período (L)",
                     "textStyle": {
                       "fontSize": "11pt",
                       "color": "#334155"

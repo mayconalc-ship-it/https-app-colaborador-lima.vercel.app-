@@ -133,7 +133,7 @@
               {
                 "textRuns": [
                   {
-                    "value": "•  📈 Contagens por dia do mês (sem domingos)",
+                    "value": "•  📈 Contagens por período (sem domingos)",
                     "textStyle": {
                       "fontSize": "11pt",
                       "color": "#334155"

@@ -1,13 +1,13 @@
 {
   "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.12.0/schema.json",
-  "name": "62cb417c88689610165c",
+  "name": "681962ea458fc2492e3f",
   "position": {
-    "x": 900,
+    "x": 16,
     "y": 252,
-    "z": 17000,
+    "z": 14000,
     "height": 240,
-    "width": 364,
-    "tabOrder": 17000
+    "width": 380,
+    "tabOrder": 14000
   },
   "visual": {
     "visualType": "lineChart",
@@ -23,11 +23,56 @@
                       "Entity": "dim_calendario"
                     }
                   },
-                  "Property": "inicio_mes"
+                  "Property": "ano"
                 }
               },
-              "queryRef": "dim_calendario.inicio_mes",
-              "nativeQueryRef": "inicio_mes",
+              "queryRef": "dim_calendario.ano",
+              "nativeQueryRef": "ano",
+              "active": false
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "dim_calendario"
+                    }
+                  },
+                  "Property": "ano_mes"
+                }
+              },
+              "queryRef": "dim_calendario.ano_mes",
+              "nativeQueryRef": "ano_mes",
+              "active": false
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "dim_calendario"
+                    }
+                  },
+                  "Property": "inicio_semana"
+                }
+              },
+              "queryRef": "dim_calendario.inicio_semana",
+              "nativeQueryRef": "inicio_semana",
+              "active": false
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "dim_calendario"
+                    }
+                  },
+                  "Property": "dia_rotulo"
+                }
+              },
+              "queryRef": "dim_calendario.dia_rotulo",
+              "nativeQueryRef": "dia_rotulo",
               "active": true
             }
           ]
@@ -42,11 +87,11 @@
                       "Entity": "_Medidas"
                     }
                   },
-                  "Property": "% Conformidade 5S"
+                  "Property": "Nota média"
                 }
               },
-              "queryRef": "_Medidas.% Conformidade 5S",
-              "nativeQueryRef": "% Conformidade 5S"
+              "queryRef": "_Medidas.Nota média",
+              "nativeQueryRef": "Nota média"
             }
           ]
         }
@@ -122,7 +167,7 @@
             "text": {
               "expr": {
                 "Literal": {
-                  "Value": "'📈 Evolução mensal da conformidade'"
+                  "Value": "'📈 Evolução da nota média — por período'"
                 }
               }
             },
@@ -130,6 +175,26 @@
               "expr": {
                 "Literal": {
                   "Value": "11D"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "visualHeaderTooltip": [
+        {
+          "properties": {
+            "type": {
+              "expr": {
+                "Literal": {
+                  "Value": "'Text'"
+                }
+              }
+            },
+            "text": {
+              "expr": {
+                "Literal": {
+                  "Value": "'NÍVEIS DE TEMPO: abre por dia e sobe para semana, mês, ano. No cabeçalho do gráfico: a seta ↑ sobe um nível, a seta dupla ⇊ desce um nível no gráfico inteiro, e com a seta ↓ ligada o clique numa barra ou ponto abre só aquele período (por exemplo, os dias de uma semana). Também pelo botão direito do mouse.'"
                 }
               }
             }

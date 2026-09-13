@@ -1,13 +1,13 @@
 {
   "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.12.0/schema.json",
-  "name": "2a955947e64195a8d377",
+  "name": "d55a3dfc4789b5ccbea4",
   "position": {
-    "x": 16,
+    "x": 900,
     "y": 252,
-    "z": 14000,
+    "z": 17000,
     "height": 240,
-    "width": 380,
-    "tabOrder": 14000
+    "width": 364,
+    "tabOrder": 17000
   },
   "visual": {
     "visualType": "lineChart",
@@ -23,12 +23,57 @@
                       "Entity": "dim_calendario"
                     }
                   },
+                  "Property": "ano"
+                }
+              },
+              "queryRef": "dim_calendario.ano",
+              "nativeQueryRef": "ano",
+              "active": false
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "dim_calendario"
+                    }
+                  },
+                  "Property": "inicio_mes"
+                }
+              },
+              "queryRef": "dim_calendario.inicio_mes",
+              "nativeQueryRef": "inicio_mes",
+              "active": true
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "dim_calendario"
+                    }
+                  },
+                  "Property": "inicio_semana"
+                }
+              },
+              "queryRef": "dim_calendario.inicio_semana",
+              "nativeQueryRef": "inicio_semana",
+              "active": false
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "dim_calendario"
+                    }
+                  },
                   "Property": "dia_rotulo"
                 }
               },
               "queryRef": "dim_calendario.dia_rotulo",
               "nativeQueryRef": "dia_rotulo",
-              "active": true
+              "active": false
             }
           ]
         },
@@ -42,11 +87,11 @@
                       "Entity": "_Medidas"
                     }
                   },
-                  "Property": "Nota média"
+                  "Property": "% Conformidade 5S"
                 }
               },
-              "queryRef": "_Medidas.Nota média",
-              "nativeQueryRef": "Nota média"
+              "queryRef": "_Medidas.% Conformidade 5S",
+              "nativeQueryRef": "% Conformidade 5S"
             }
           ]
         }
@@ -122,7 +167,7 @@
             "text": {
               "expr": {
                 "Literal": {
-                  "Value": "'📈 Evolução da nota média — por dia do mês'"
+                  "Value": "'📈 Evolução da conformidade — por período'"
                 }
               }
             },
@@ -130,6 +175,26 @@
               "expr": {
                 "Literal": {
                   "Value": "11D"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "visualHeaderTooltip": [
+        {
+          "properties": {
+            "type": {
+              "expr": {
+                "Literal": {
+                  "Value": "'Text'"
+                }
+              }
+            },
+            "text": {
+              "expr": {
+                "Literal": {
+                  "Value": "'NÍVEIS DE TEMPO: abre por mês e sobe para ano; desce até dia. No cabeçalho do gráfico: a seta ↑ sobe um nível, a seta dupla ⇊ desce um nível no gráfico inteiro, e com a seta ↓ ligada o clique numa barra ou ponto abre só aquele período (por exemplo, os dias de uma semana). Também pelo botão direito do mouse.'"
                 }
               }
             }
