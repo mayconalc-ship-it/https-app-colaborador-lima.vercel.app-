@@ -75,6 +75,37 @@ function ordenarPorBloco(lista, grupos) {
 }
 const paginas = ordenarPorBloco(paginasDoArquivo, blocos);
 
+/*
+  O "SOBRE" DE CADA PAGINA (12/09/2026, pedido do dono: "coloque a logo do
+  app do colaborador nos titulos das paginas" e "uma funcao que explique
+  de forma breve os dados da pagina apos ser clicado").
+
+  O C do logo, no canto do cabecalho, e o botao: leva a uma pagina OCULTA
+  com a explicacao -- o campo `sobre` de paginas.js, mais a lista do que
+  tem na tela, montada aqui a partir dos filtros, cartoes e visuais. La, o
+  mesmo C e a seta levam de volta.
+
+  Pagina oculta + navegacao de pagina, e nao indicador (bookmark) para
+  mostrar e esconder um painel: HiddenInViewMode e PageNavigation sao
+  formas que este projeto ja provou no Desktop; bookmark nao tem exemplo
+  real aqui (ver pbir-nao-adivinhar na memoria do projeto).
+*/
+const PREFIXO_SOBRE = 'ℹ️ Sobre · ';
+const LOGO = 'logo-app-c.png';
+const idPagina = (nome) => id20('p:' + nome);
+const paginasSobre = paginas.map((p) => ({
+  nome: PREFIXO_SOBRE + p.nome,
+  oculta: true,
+  sobreDe: p,
+  kpis: [],
+  visuais: [],
+}));
+for (const p of paginas) {
+  if (!p.sobre) {
+    console.warn(`A pagina "${p.nome}" nao tem \`sobre\` em paginas.js: o C abre so a lista do que tem na tela.`);
+  }
+}
+
 // Os acabamentos se dividem em dois grupos:
 //
 //   VERIFICADOS  -- a forma do JSON foi extraida do .pbix de Planos de
@@ -756,6 +787,33 @@ function visualJson(v, ordemZ) {
       sort: [{ field: campo(v.ordem.campo).field, direction: v.ordem.dir }],
     };
   }
+  // MATRIZ NASCE FECHADA (12/09/2026, pedido do dono: "todas as matrizes
+  // do BI devem por padrao aparecer fechadas").
+  //
+  // Forma LIDA, nao deduzida: o dono recolheu as matrizes no Desktop
+  // (botao direito > Recolher > Recolher tudo) e salvou; isto e copia do
+  // que o Desktop escreveu na matriz do Desafio. Duas partes:
+  //   * expansionStates: cada nivel das linhas com isCollapsed, e todos
+  //     MENOS O ULTIMO com isPinned -- na matriz de tres niveis do
+  //     Recebimento o Desktop fixou transportadora e motorista, e nao a DT;
+  //   * active so no PRIMEIRO nivel das linhas -- o Desktop grava false
+  //     nos de baixo quando a matriz esta fechada.
+  // So matriz com dois ou mais niveis nas linhas: com um nivel nao ha o
+  // que abrir.
+  const linhas = (v.roles || {}).Rows || [];
+  if (v.t === 'pivotTable' && linhas.length > 1) {
+    queryState.Rows.projections.forEach((p, i) => { p.active = i === 0; });
+    visual.expansionStates = [{
+      roles: ['Rows'],
+      levels: queryState.Rows.projections.map((p, i, todas) => ({
+        queryRefs: [p.queryRef],
+        isCollapsed: true,
+        ...(i < todas.length - 1 ? { isPinned: true } : {}),
+      })),
+      root: {},
+    }];
+  }
+
   if (v.objects) visual.objects = v.objects;
 
   // --- formatacao padrao por tipo de visual -------------------------
@@ -957,7 +1015,12 @@ function visualJson(v, ordemZ) {
   // -- e quando um botao meu com esses tres nao navegava, cada
   // propriedade a mais que o original nao tem era suspeita. A borda do
   // tema num botao branco de 116 px e discreta e nao atrapalha.
-  if (['shape', 'textbox'].includes(v.t)) {
+  //
+  // A imagem do C do logo entra na mesma regra (12/09/2026): o fundo
+  // BRANCO do tema atras de um C branco apagaria o C, e a borda cinza
+  // desenharia um quadrado em volta de um logo que foi pedido "somente o
+  // C, como se fosse em PNG".
+  if (['shape', 'textbox', 'image'].includes(v.t)) {
     visual.visualContainerObjects.border = [{ properties: { show: lit('false') } }];
     visual.visualContainerObjects.background = [{ properties: { show: lit('false') } }];
     visual.visualContainerObjects.dropShadow = [{ properties: { show: lit('false') } }];
@@ -1016,7 +1079,8 @@ function visualJson(v, ordemZ) {
   // relatorio vira somente-olhar. Formas e caixas de texto ficam de
   // fora: cabecalho em cima de uma faixa decorativa e ruido. Botao da
   // capa tambem -- "exportar dados" em cima de um link nao faz sentido.
-  if (!['shape', 'textbox', 'actionButton'].includes(v.t)) {
+  // O C do logo tambem: foco e "exportar dados" em cima de um logo e ruido.
+  if (!['shape', 'textbox', 'actionButton', 'image'].includes(v.t)) {
     visual.visualContainerObjects.visualHeader = [{ properties: { show: lit('true') } }];
   }
   visual.drillFilterOtherVisuals = true;
@@ -1067,6 +1131,11 @@ function visualJson(v, ordemZ) {
 // Cabecalho: faixa azul + titulo. Identico em todas as paginas -- e o que
 // faz o conjunto parecer um produto e nao oito arquivos.
 function cabecalho(pagina) {
+  // Para onde o C leva: da pagina para o "sobre" dela, e do "sobre" de
+  // volta para a pagina. Ver paginasSobre, no topo.
+  const destinoDoC = pagina.sobreDe
+    ? idPagina(pagina.sobreDe.nome)
+    : idPagina(PREFIXO_SOBRE + pagina.nome);
   return [
     {
       // Faixa colada no topo e cheia: y=0 e h=64, e nao y=16 e h=48.
@@ -1079,6 +1148,52 @@ function cabecalho(pagina) {
           selector: { id: 'default' } }],
         outline: [{ properties: { show: lit('false') } }],
       },
+    },
+    {
+      // O C DO LOGO (12/09/2026) -- e o botao do "sobre" da pagina.
+      //
+      // Visual de imagem apontando para o PNG registrado em
+      // RegisteredResources (ver gerar-logo.js e gerarRelatorio). A acao
+      // e a mesma visualLink/PageNavigation do botao de voltar, que ja
+      // navegou no Desktop.
+      //
+      // ATENCAO: imagem e a UNICA forma desta leva sem .pbix de
+      // referencia -- a expressao ResourcePackageItem veio do formato do
+      // Power BI, nao de um arquivo salvo por este Desktop. Se o C nao
+      // aparecer ou nao navegar, a pagina continua inteira (o titulo e
+      // outro visual) e o proximo passo e inserir uma imagem a mao no
+      // Desktop, salvar e copiar o visual.json dela.
+      //
+      // Fundo e borda desligados no visualJson (o tema liga os dois em
+      // todo visual): com o fundo branco do tema, o C branco sumia.
+      chave: pagina.nome + ':logo', t: 'image', x: 18, y: 10, w: 48, h: 48,
+      titulo: null,
+      navegarPara: destinoDoC,
+      objects: {
+        general: [{ properties: { imageUrl: { expr: { ResourcePackageItem: {
+          PackageName: 'RegisteredResources', PackageType: 1, ItemName: LOGO,
+        } } } } }],
+        // 'Fit': imagem quadrada em caixa quadrada, sem corte.
+        imageScaling: [{ properties: { imageScalingType: lit("'Fit'") } }],
+      },
+    },
+    {
+      // O aviso de que o C clica. Sem ele ninguem descobre: logo, em
+      // qualquer sistema, e enfeite. Azul claro e corpo 9: e legenda do
+      // cabecalho, nao concorre com o titulo.
+      chave: pagina.nome + ':aviso-logo', t: 'textbox',
+      // No "sobre" ele divide o canto com a seta de voltar (x 1220).
+      x: pagina.sobreDe ? 976 : 1010, y: 20, w: pagina.sobreDe ? 238 : 254, h: 30,
+      titulo: null,
+      objects: {
+        general: [{ properties: { paragraphs: [{ textRuns: [{
+          value: pagina.sobreDe
+            ? 'Clique no C ou na seta para voltar'
+            : 'ⓘ Clique no C para entender a página',
+          textStyle: { fontSize: '9pt', color: '#C7D7F0' },
+        }] }] } }],
+      },
+      fundoTransparente: true,
     },
     {
       // O titulo vai DIRETO sobre o azul.
@@ -1096,7 +1211,9 @@ function cabecalho(pagina) {
       // mais folga, e com 40 o Power BI corta a parte de baixo das
       // letras -- o titulo aparece pela metade, sem aviso nenhum.
       chave: pagina.nome + ':titulo', t: 'textbox',
-      x: 28, y: 8, w: 1000, h: 52,
+      // x 76: logo depois do C (18 + 48 + folga). w 890: para antes do
+      // aviso "clique no C", no canto direito.
+      x: 76, y: 8, w: 890, h: 52,
       objects: {
         general: [{ properties: { paragraphs: [{ textRuns: [{
           value: pagina.nome,
@@ -1438,6 +1555,80 @@ function visuaisCapa(pagina, destinos) {
   return lista;
 }
 
+// ------------------------------------------------------------------
+// O "SOBRE" DE UMA PAGINA -- o que abre ao clicar no C do cabecalho
+// ------------------------------------------------------------------
+//
+// Dois cartoes brancos sobre o fundo da pagina. O da esquerda leva as
+// tres frases do campo `sobre` (paginas.js); o da direita, a lista do que
+// a pagina tem na tela -- filtros, cartoes e visuais --, montada aqui a
+// partir da propria pagina, e por isso nunca desatualiza.
+//
+// Uma caixa de texto por secao, com titulo e texto como dois paragrafos,
+// e nao uma caixa so com linhas em branco entre as secoes: paragrafo
+// vazio nao tem exemplo real aqui, e a caixa por secao chega no mesmo
+// desenho sem ele.
+function visuaisSobre(pagina) {
+  const origem = pagina.sobreDe;
+  const s = origem.sobre || {};
+  const par = (valor, estilo) => ({ textRuns: [{ value: valor, textStyle: estilo }] });
+  const TITULO = { fontWeight: 'bold', fontSize: '13pt', color: '#0B4DA2' };
+  const TEXTO = { fontSize: '12pt', color: '#0F172A' };
+  const SUB = { fontWeight: 'bold', fontSize: '11pt', color: '#0F172A' };
+  const ITEM = { fontSize: '11pt', color: '#334155' };
+
+  const cartao = (chave, x, w) => ({
+    chave: `${pagina.nome}:${chave}`, t: 'shape', x, y: 88, w, h: 568, titulo: null,
+    objects: {
+      shape: [{ properties: { tileShape: lit("'rectangle'") } }],
+      fill: [{ properties: { fillColor: { solid: { color: lit("'#FFFFFF'") } } },
+        selector: { id: 'default' } }],
+      outline: [{ properties: { show: lit('false') } }],
+    },
+  });
+
+  const lista = [cartao('cartao-texto', 16, 760), cartao('cartao-tela', 792, 472)];
+
+  [
+    ['📌 O que esta página mostra', s.mostra],
+    ['🗂️ De onde vêm os dados', s.origem],
+    ['👀 Como ler', s.leitura],
+  ].filter(([, texto]) => texto).forEach(([titulo, texto], i) => {
+    lista.push({
+      chave: `${pagina.nome}:secao:${i}`, t: 'textbox',
+      x: 36, y: 104 + i * 180, w: 720, h: 168, titulo: null,
+      objects: { general: [{ properties: { paragraphs: [par(titulo, TITULO), par(texto, TEXTO)] } }] },
+      fundoTransparente: true,
+    });
+  });
+
+  // A lista do que tem na tela. Filtros so nas paginas que tem barra de
+  // filtros (as ocultas nao tem).
+  const filtrosDaPagina = origem.oculta ? [] : (origem.filtros || filtros);
+  const tela = [par('🧩 O que tem na tela', TITULO)];
+  if (filtrosDaPagina.length) {
+    tela.push(par('Filtros', SUB));
+    tela.push(par(filtrosDaPagina.map((f) => f.titulo).join('  ·  '), ITEM));
+  }
+  if ((origem.kpis || []).length) {
+    tela.push(par('Cartões', SUB));
+    for (const k of origem.kpis) tela.push(par('•  ' + k[0], ITEM));
+  }
+  const comTitulo = origem.visuais.filter((v) => v.titulo);
+  if (comTitulo.length) {
+    tela.push(par('Gráficos e tabelas', SUB));
+    for (const v of comTitulo) tela.push(par('•  ' + v.titulo, ITEM));
+  }
+  lista.push({
+    chave: `${pagina.nome}:tela`, t: 'textbox',
+    x: 808, y: 104, w: 440, h: 536, titulo: null,
+    objects: { general: [{ properties: { paragraphs: tela } }] },
+    fundoTransparente: true,
+  });
+
+  return lista;
+}
+
 function gerarRelatorio() {
   limpar(DEST_REL);
 
@@ -1470,6 +1661,13 @@ function gerarRelatorio() {
   const tema = fs.readFileSync(path.join(BI, 'tema-powerbi.json'), 'utf8');
   escrever(path.join(DEST_REL, 'StaticResources', 'RegisteredResources', 'tema-powerbi.json'), tema);
 
+  // O C do logo do cabecalho, no mesmo pacote do tema. E binario: copia
+  // direto, e nao escrever(), que grava texto.
+  const destinoLogo = path.join(DEST_REL, 'StaticResources', 'RegisteredResources', LOGO);
+  fs.mkdirSync(path.dirname(destinoLogo), { recursive: true });
+  fs.copyFileSync(path.join(BI, LOGO), destinoLogo);
+  contador++;
+
   escrever(path.join(DEST_REL, 'definition', 'version.json'),
     json({ $schema: S.versao, version: '2.0.0' }));
 
@@ -1486,9 +1684,19 @@ function gerarRelatorio() {
         type: 'RegisteredResources',
       },
     },
+    // O PAINEL DE FILTROS NASCE FECHADO (12/09/2026). Nao foi pedido em
+    // palavras: foi o que o dono deixou ao salvar no Desktop, e esta e a
+    // forma que o Desktop escreveu. Os filtros da pagina estao na barra
+    // de segmentacoes; o painel lateral aberto so come largura da tela.
+    objects: {
+      outspacePane: [{ properties: { expanded: lit('false') } }],
+    },
     resourcePackages: [{
       name: 'RegisteredResources', type: 'RegisteredResources',
-      items: [{ name: 'tema-powerbi.json', path: 'tema-powerbi.json', type: 'CustomTheme' }],
+      items: [
+        { name: 'tema-powerbi.json', path: 'tema-powerbi.json', type: 'CustomTheme' },
+        { name: LOGO, path: LOGO, type: 'Image' },
+      ],
     }],
     settings: {
       useStylableVisualContainerHeader: true,
@@ -1503,7 +1711,9 @@ function gerarRelatorio() {
   }));
 
   const ordem = [];
-  for (const pagina of paginas) {
+  // As paginas "sobre" vao no fim da ordem: sao ocultas, e so se chega
+  // nelas pelo C do cabecalho.
+  for (const pagina of [...paginas, ...paginasSobre]) {
     const nomePagina = id20('p:' + pagina.nome);
     ordem.push(nomePagina);
     const dir = path.join(DEST_REL, 'definition', 'pages', nomePagina);
@@ -1574,9 +1784,14 @@ function gerarRelatorio() {
       ...cabecalho(pagina),
       // Em toda pagina menos na propria capa. E so com a navegacao
       // ligada: botao que nao navega e pior que botao nenhum.
-      ...(capa && !pagina.capa && ACAB.capa
+      ...(capa && !pagina.capa && !pagina.sobreDe && ACAB.capa
         ? [botaoVoltar(id20('p:' + capa.nome))]
         : []),
+      // No "sobre", a seta volta para a pagina de origem -- a mesma copia
+      // literal do botao que o Desktop grava, ja provada. Ela garante o
+      // caminho de volta mesmo que o clique no C nao pegue.
+      ...(pagina.sobreDe && ACAB.capa ? [botaoVoltar(idPagina(pagina.sobreDe.nome))] : []),
+      ...(pagina.sobreDe ? visuaisSobre(pagina) : []),
       ...(pagina.capa ? visuaisCapa(pagina, destinos) : []),
       ...(pagina.oculta || pagina.capa ? [] : visuaisFiltro(pagina)),
       ...(pagina.kpis || []).map((k, i, todos) => {

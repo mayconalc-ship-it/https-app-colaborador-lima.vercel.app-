@@ -272,6 +272,31 @@ for (const arq of arquivos) {
   for (const s of (q.sortDefinition || {}).sort || []) conferirCampo(s.field, `${onde} [ordem]`);
 }
 
+// --- imagens registradas ----------------------------------------------
+// O C do logo no cabecalho (12/09/2026) e uma imagem de
+// RegisteredResources. Item fora do pacote, ou arquivo que nao foi
+// copiado, nao da erro nenhum no Desktop: a imagem so aparece vazia.
+(function conferirImagens() {
+  const rep = JSON.parse(fs.readFileSync(
+    path.join(RAIZ, NOME + '.Report', 'definition', 'report.json'), 'utf8'));
+  const pacote = (rep.resourcePackages || []).find((r) => r.type === 'RegisteredResources');
+  const itens = new Map((pacote ? pacote.items : []).map((i) => [i.name, i]));
+  const refs = new Set();
+  (function achar(o) {
+    if (o && typeof o === 'object') {
+      if (o.ResourcePackageItem) refs.add(o.ResourcePackageItem.ItemName);
+      for (const v of Object.values(o)) achar(v);
+    }
+  })(arquivos.map((a) => JSON.parse(fs.readFileSync(a, 'utf8'))));
+  for (const nome of refs) {
+    const item = itens.get(nome);
+    if (!item) { falha(`imagem "${nome}" usada num visual e ausente de resourcePackages`); continue; }
+    if (item.type !== 'Image') falha(`imagem "${nome}": item do pacote com type "${item.type}"`);
+    const arq = path.join(RAIZ, NOME + '.Report', 'StaticResources', 'RegisteredResources', item.path);
+    if (!fs.existsSync(arq)) falha(`imagem "${nome}": arquivo nao existe -- ${item.path}`);
+  }
+})();
+
 // --- sobreposicao de visuais na mesma pagina ---------------------------
 // Dois visuais empilhados sao invisiveis no PBIR e obvios na tela.
 for (const dir of fs.readdirSync(dirPaginas, { withFileTypes: true })) {

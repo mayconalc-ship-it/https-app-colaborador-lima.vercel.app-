@@ -117,6 +117,13 @@ function faixaKpi(lista) {
   }));
 }
 
+/*
+  O CAMPO `sobre` (12/09/2026, pedido do dono): o texto que abre ao clicar
+  no C do logo, no cabecalho de cada pagina. Tres frases curtas -- o que a
+  pagina mostra, de onde vem o dado e como ler. A lista do que tem na tela
+  (filtros, cartoes, visuais) o gerador monta sozinho: ver paginasSobre e
+  visuaisSobre em gerar-pbip.js. Pagina nova sem `sobre` gera aviso.
+*/
 const paginas = [
   /*
     A CAPA SAIU (10/09/2026, pedido do dono).
@@ -143,6 +150,11 @@ const paginas = [
     // Onde o app nao tem item correspondente -- AG, Quiz, 5 Porques --
     // escolhi um que nao colide com os existentes.
     nome: '🏠 Visão Geral',
+    sobre: {
+      mostra: 'O uso do app pela revenda: quantos colaboradores, a adesão desde o lançamento e as interações por mês e por módulo — são 13 módulos, incluindo os do armazém.',
+      origem: 'Cada ação registrada no app — um lançamento, um feedback, uma curtida, uma resposta do quiz — conta como uma interação.',
+      leitura: 'Mede ADESÃO, não desempenho: muita interação não quer dizer trabalho bem feito. O cartão "Dados atualizados em" diz de quando é o número.',
+    },
     // OCULTA (11/09/2026, pedido do dono): o relatorio passa a abrir na
     // primeira pagina do primeiro bloco (ver `blocos`, no fim do
     // arquivo). Ela continua existindo -- e o carimbo "Dados atualizados
@@ -220,6 +232,11 @@ const paginas = [
   // ================================================================
   {
     nome: '📦 Ativo de Giro',
+    sobre: {
+      mostra: 'A rotina de contagem do ativo de giro: quantas vezes se contou, em que dias do mês e quem sustenta a meta da cia de 3 contagens por semana.',
+      origem: 'As contagens lançadas na tela de Ativo de Giro do app. Uma ocorrência é uma pessoa contando num dia, não cada linha digitada.',
+      leitura: 'Escolha um mês no filtro: os percentuais dividem pelas semanas e pelos dias já decorridos. A conciliação contra o parque está na página seguinte.',
+    },
     // Cinco filtros aqui, e nao os quatro do padrao.
     //
     // "% Dias com contagem" divide dias contados por dias uteis JA
@@ -450,6 +467,11 @@ const paginas = [
       verdade: ver `filtros` logo abaixo.
     */
     nome: '⚖️ Conciliação do AG',
+    sobre: {
+      mostra: 'O que foi contado no pátio, somado ao que está em rota, carreta e comodato, contra o parque cadastrado — em caixas e em R$, dia a dia.',
+      origem: 'Só os dias CONGELADOS na tela de Conciliação do app, com o conferente escolhido e o valor da caixa daquele dia.',
+      leitura: 'Diferença negativa é falta, positiva é sobra; o aceitável é até 5% do parque. Clique no + do dia para abrir os itens.',
+    },
     /*
       SO DIAS CONGELADOS (12/09/2026, pedido do dono): "congele a
       conciliacao e que va somente para o BI essas conciliacoes
@@ -579,6 +601,11 @@ const paginas = [
   // ================================================================
   {
     nome: '📝 Feedback da Rota',
+    sobre: {
+      mostra: 'Como motoristas e ajudantes avaliam a rota: nota média de 0 a 3, % de satisfação, os problemas relatados e as cidades com a pior nota.',
+      origem: 'Os feedbacks enviados no app ao fim da rota. A cidade vem do cruzamento do nº do mapa com o relatório de rotas importado no admin.',
+      leitura: 'Escolha um mês para ler a evolução por dia. A tabela de baixo fecha o ciclo: comentário, causa raiz, aceite e devolutiva.',
+    },
     // Cinco filtros, como no Ativo de Giro. O de Mes entrou junto com o
     // eixo por dia do grafico de evolucao: "01" de agosto e "01" de
     // setembro sao o mesmo rotulo, entao a leitura diaria so e correta
@@ -754,6 +781,11 @@ const paginas = [
   // ================================================================
   {
     nome: '🔍 Cinco Porquês',
+    sobre: {
+      mostra: 'As análises de causa raiz feitas pelo time: quantas foram concluídas, até que porquê chegaram, as causas mais comuns e o tempo de resposta da liderança (TMR).',
+      origem: 'As análises 5 Porquês feitas no app a partir dos feedbacks, com a tratativa e a devolutiva da liderança.',
+      leitura: '"% Chegou ao 5º" mede profundidade da análise. TMR acima de ~48 h é sinal de alerta. A tabela de baixo é a pauta da reunião.',
+    },
     // COLABORADOR = QUEM FEZ A ANALISE (12/09/2026, pedido do dono). A
     // lista sai do proprio fato, entao so traz motorista e ajudante que
     // abriram um 5 Porques.
@@ -916,6 +948,11 @@ const paginas = [
       analise (ver modelo.js) -- e por isso chegam na linha certa.
     */
     nome: '🔗 5 Porquês — cada análise',
+    sobre: {
+      mostra: 'Cada análise numa linha: quem fez, o problema, os cinco porquês na ordem em que foram respondidos, a causa raiz, a ação e o aceite do motorista.',
+      origem: 'As respostas de cada 5 Porquês gravadas no app.',
+      leitura: 'Leia da esquerda para a direita. Porquê em branco é onde a análise parou; causa raiz em branco é análise ainda em andamento.',
+    },
     // SEM AREA (12/09/2026): so a distribuicao faz 5 Porques, e a lista
     // global trazia o Armazem -- o mesmo motivo que o dono deu para a
     // pagina de Feedback. Quem fez ja recorta o que interessa.
@@ -968,6 +1005,11 @@ const paginas = [
   // ================================================================
   {
     nome: '📣 Comunicados',
+    sobre: {
+      mostra: 'O que saiu no jornal do app, por mês e por categoria, e o engajamento: curtidas, participação e em quantos dias o comunicado alcança o time.',
+      origem: 'Os comunicados publicados no app e as curtidas de cada colaborador.',
+      leitura: 'O app não registra leitura: "Cliques no aviso" é um piso, nunca o total. A curtida é o sinal confiável.',
+    },
     kpis: [
       ['📰 Comunicados publicados', '@Comunicados publicados'],
       ['👍 Curtidas', '@Curtidas'],
@@ -1051,6 +1093,11 @@ const paginas = [
     // ve o buraco de duas semanas ja ve o que aconteceu com o engajamento
     // no mes em que isso ocorreu.
     nome: '📅 Cronograma da Comunicação',
+    sobre: {
+      mostra: 'O calendário do mês: o que sai em cada dia (📰 publicação, 🔔 lembrete no celular) e a adesão diária aos comunicados.',
+      origem: 'A agenda de comunicados e lembretes do app, a mesma do calendário em Admin > Comunicados.',
+      leitura: 'Escolha um mês. Dia vazio na grade é dia sem comunicação; "Na fila" é o que ainda vai sair.',
+    },
     // Sem o filtro de Colaborador e sem o de Area: cronograma e o que a
     // revenda PUBLICA, e nao tem colaborador nem area. Um filtro que nao
     // altera nada da pagina so ensina o usuario a desconfiar dos que
@@ -1170,6 +1217,11 @@ const paginas = [
   // ================================================================
   {
     nome: '🧠 Quiz',
+    sobre: {
+      mostra: 'O Desafio mensal: quem podia jogar, quem concluiu, o aproveitamento por área e a taxa de acerto mês a mês.',
+      origem: 'As rodadas e respostas do Desafio (quiz) no app — só Distribuição Urbana e Armazém Logístico têm desafio.',
+      leitura: 'Tudo está por MÊS. Elegíveis já contêm as concluídas. O ranking está na página seguinte.',
+    },
     /*
       AREA E COLABORADOR SO DE QUEM TEM DESAFIO (12/09/2026, pedido do
       dono). O desafio so existe para Distribuicao Urbana e Armazem
@@ -1271,6 +1323,11 @@ const paginas = [
       tabela daquela area traz gente.
     */
     nome: '🏆 Quiz — ranking por área',
+    sobre: {
+      mostra: 'A classificação da temporada separada por área: Distribuição Urbana em cima, Armazém Logístico embaixo.',
+      origem: 'A pontuação do Desafio no app, com a mesma regra da tela de classificação.',
+      leitura: 'Cada pessoa disputa só com a própria área. Desempate: pontos, depois acertos, depois menos tempo, depois quem concluiu primeiro.',
+    },
     filtros: filtros.map((f) =>
       f.campo === 'dim_colaborador.area_rotulo' || f.campo === 'dim_colaborador.colaborador'
         ? {
@@ -1353,6 +1410,11 @@ const paginas = [
       da primeira.
     */
     nome: '🎯 Desafio — o que treinar',
+    sobre: {
+      mostra: 'O que o time mais erra: acerto por padrão (POP) e por dificuldade, o % de chute por faixa do dia e as perguntas mais erradas com a resposta certa.',
+      origem: 'As respostas do Desafio no app, com o padrão de origem de cada pergunta.',
+      leitura: 'Abaixo de 60% de acerto a pergunta vira pauta de treinamento. Chute é errar em menos de 4 segundos. A página mostra o gabarito: é para a liderança.',
+    },
     // Area e colaborador SO DAS AREAS COM DESAFIO, e a faixa do dia saiu
     // da barra e virou grafico (12/09/2026, pedido do dono) -- ver a
     // pagina do Quiz para o porque do filtro dentro da segmentacao.
@@ -1461,6 +1523,11 @@ const paginas = [
   // ================================================================
   {
     nome: '🏆 Super Matinal e Sonho',
+    sobre: {
+      mostra: 'Se os quadros do Super Matinal foram publicados todo mês, por equipe, e o Sonho da Revenda de cada ano.',
+      origem: 'As imagens do ranking do Super Matinal e o Sonho da Revenda cadastrados no app.',
+      leitura: 'O banco guarda uma imagem por mês e equipe — não há pontos nem colocação. A página mede se houve publicação, não o resultado.',
+    },
     kpis: [
       ['🏆 Quadros publicados', '@Quadros publicados'],
       ['🗓️ Meses com publicação', '@Meses com publicação'],
@@ -1528,6 +1595,11 @@ const paginas = [
   // ================================================================
   {
     nome: '🧹 Programa 5S',
+    sobre: {
+      mostra: 'A conformidade das auditorias 5S por área, por senso e por mês, os itens que mais reprovam e o plano de ação em aberto.',
+      origem: 'As auditorias e os planos de ação do módulo 5S do app.',
+      leitura: 'Leia primeiro a "Aderência ao plano": área não auditada some do relatório em vez de puxar a média para baixo. Alguns meses de 2026 são estimativa.',
+    },
     /*
       SO QUEM FAZ PARTE DO 5S (12/09/2026, pedido do dono).
 
@@ -1681,6 +1753,11 @@ const paginas = [
       numero do turno errado.
     */
     nome: '🧰 Bancada — Seleção e Repack',
+    sobre: {
+      mostra: 'Quanto a bancada trabalhou e como o tempo se divide entre seleção (triagem) e repack — por dia, por hora do dia, por pessoa e por turno.',
+      origem: 'Os lançamentos de bancada da Produtividade do Armazém no app, pelo início e fim de cada lançamento.',
+      leitura: 'Triagem + repack = 100% do tempo. Lançamento aberto e fechado na mesma hora conta segundos: é preciso iniciar e finalizar no momento real do trabalho.',
+    },
     filtros: [
       ...filtrosComColaboradorDaPagina('fato_pa_bancada.colaborador'),
       // Pelo TURNO do lancamento, nao pela hora: o lancamento carrega o
@@ -1832,6 +1909,11 @@ const paginas = [
       divisao.
     */
     nome: '📦 Repack — produto e família',
+    sobre: {
+      mostra: 'O ritmo do repack, em caixas por hora, por produto, embalagem e família, contra a meta — e o volume por mês e por pessoa.',
+      origem: 'Os lançamentos de repack da bancada no app. A família vem do cadastro do SAP e a meta, do cadastro de produtos.',
+      leitura: 'Toda taxa é soma ÷ soma: caixas do recorte ÷ horas do recorte. Só repack aqui — a seleção está na página da Bancada.',
+    },
     /*
       SO REPACK (12/09/2026, pedido do dono: "deixe somente o que diz
       respeito de reepack"). O filtro de PAGINA tira a selecao de tudo --
@@ -1928,6 +2010,11 @@ const paginas = [
       Mesmo filtro de pagina da anterior: so repack.
     */
     nome: '📋 Repack — tabelas',
+    sobre: {
+      mostra: 'O realizado contra a meta cadastrada, produto a produto, e o repack por colaborador e por turno.',
+      origem: 'Os mesmos lançamentos de repack, com a meta de Admin > produtos.',
+      leitura: 'A tabela de produto começa pelo mais longe da meta: é onde o ritmo trava. Produto sem meta fica fora da média da meta.',
+    },
     filtroPagina: { campo: 'fato_pa_bancada.etapa_rotulo', valores: ['Repack'] },
     filtros: [
       ...filtrosComColaboradorDaPagina('fato_pa_bancada.colaborador'),
@@ -2014,6 +2101,11 @@ const paginas = [
       inteiro ao estoque.
     */
     nome: '🤲 Bate palete',
+    sobre: {
+      mostra: 'O retrabalho de paletes avariados: quantos paletes e HL foram batidos, quanto se perdeu e quanto voltou ao estoque, por produto e por pessoa.',
+      origem: 'Os lançamentos de bate palete da Produtividade do Armazém no app.',
+      leitura: '% de avaria = HL avariados ÷ HL batidos, somados no recorte. HL aproveitados é o que voltou inteiro ao estoque.',
+    },
     filtros: [
       ...filtrosComColaboradorDaPagina('fato_pa_bate_palete.colaborador'),
       { campo: 'dim_hora.turno_rotulo', titulo: '🕐 Turno' },
@@ -2093,6 +2185,11 @@ const paginas = [
       entre repack e abastecimento, ele so parecia quebrado.
     */
     nome: '🫗 Despejo',
+    sobre: {
+      mostra: 'O nível da bombona agora e a produção do despejo: litros por dia, por hora do dia, por embalagem e por turno.',
+      origem: 'Os lançamentos de despejo e os registros de esvaziamento da bombona no app.',
+      leitura: 'Os três primeiros cartões NÃO seguem os filtros: a bombona é uma só. Registre o esvaziamento no app a cada descarte, senão ela nunca zera.',
+    },
     filtros: [
       ...filtrosComColaboradorDaPagina('fato_pa_despejo.colaborador'),
       { campo: 'dim_hora.turno_rotulo', titulo: '🕐 Turno' },
@@ -2176,6 +2273,11 @@ const paginas = [
       pagina, "com mais informacoes").
     */
     nome: '📋 Despejo — tabelas',
+    sobre: {
+      mostra: 'O despejo em detalhe: por colaborador, turno e embalagem, por dia, e o histórico de descartes da bombona.',
+      origem: 'Os lançamentos de despejo e de esvaziamento no app.',
+      leitura: 'No descarte, veja com quantos litros a bombona foi esvaziada: muito abaixo de cheia é viagem sobrando.',
+    },
     filtros: [
       ...filtrosComColaboradorDaPagina('fato_pa_despejo.colaborador'),
       { campo: 'dim_hora.turno_rotulo', titulo: '🕐 Turno' },
@@ -2262,6 +2364,11 @@ const paginas = [
       abastece.
     */
     nome: '🧃 Abastecimento e Ressuprimento',
+    sobre: {
+      mostra: 'Quanto se abasteceu no picking (HL e HL por hora) e onde o ressuprimento perde tempo: espera pela empilhadeira, transporte e espera pelo ajudante.',
+      origem: 'As sessões de abastecimento e os pedidos de ressuprimento do app.',
+      leitura: 'Cada espera tem um dono diferente. Não misture abastecimento completo com pontual: use o filtro de Tipo.',
+    },
     filtros: [
       ...filtrosComColaboradorDaPagina('fato_pa_abastecimento.colaborador', '👤 Quem abasteceu'),
       { campo: 'dim_hora.turno_rotulo', titulo: '🕐 Turno' },
@@ -2375,6 +2482,11 @@ const paginas = [
       conferente.
     */
     nome: '🚛 Recebimento de Carretas',
+    sobre: {
+      mostra: 'O tempo que a carreta fica na revenda (TMA) contra a meta, a hora em que as carretas chegam, onde o tempo vai e a avaria por transportadora.',
+      origem: 'Os apontamentos da portaria e do conferente no Recebimento de Carretas do app.',
+      leitura: 'O TMA vai do agendamento (ou da chegada) ao fim da descarga; a conferência não entra. Pico de chegada com TMA alto é fila, não lentidão.',
+    },
     filtros: [
       ...filtrosComColaboradorDaPagina('fato_carreta.conferente', '👤 Conferente'),
       { campo: 'dim_hora.turno_rotulo', titulo: '🕐 Turno' },
@@ -2494,6 +2606,11 @@ const paginas = [
       de cada uma. O total da pessoa e a media das carretas dela.
     */
     nome: '📋 Recebimento — TMA em detalhe',
+    sobre: {
+      mostra: 'O TMA aberto por conferente e por transportadora › motorista, até cada carreta (DT), com as fases do tempo, o atraso e a avaria.',
+      origem: 'As mesmas carretas do Recebimento no app.',
+      leitura: 'Clique no + para descer um nível. Nas linhas de cima, o TMA é a média das carretas do grupo; confira quantas carretas sustentam a média.',
+    },
     filtros: [
       ...filtrosComColaboradorDaPagina('fato_carreta.conferente', '👤 Conferente'),
       { campo: 'dim_hora.turno_rotulo', titulo: '🕐 Turno' },
@@ -2572,6 +2689,11 @@ const paginas = [
       maquina ociosa, e operacao aberta e esquecida.
     */
     nome: '🏗️ Empilhadeira',
+    sobre: {
+      mostra: 'As horas de motor das empilhadeiras por hora do dia, por máquina e por operador, e o rendimento e o custo do gás.',
+      origem: 'As operações abertas e encerradas no app, com o horímetro, e as trocas de botijão.',
+      leitura: 'As horas são do HORÍMETRO, não do tempo entre abrir e fechar a operação. "Horas por botijão" é a média dos ciclos fechados.',
+    },
     filtros: [
       ...filtrosComColaboradorDaPagina('fato_empilhadeira_operacao.colaborador', '👤 Operador'),
       { campo: 'dim_hora.turno_rotulo', titulo: '🕐 Turno' },
@@ -2701,6 +2823,11 @@ const paginas = [
     // que existe no app -- inclusive o que esta oculto no menu, que e
     // uma informacao que ninguem tem hoje sem abrir o admin.
     nome: '🧭 Mapa do App',
+    sobre: {
+      mostra: 'O menu do app como o colaborador vê no celular, com o que está no ar e o que está oculto.',
+      origem: 'O cadastro do menu, editável no admin do app.',
+      leitura: 'É ferramenta de quem administra. A coluna Link só aparece com bi.url_app() definido.',
+    },
     // Oculta: e ferramenta de quem administra o app, nao painel de
     // gestao. Continua acessivel pela lista de paginas no modo de edicao.
     oculta: true,
@@ -2738,6 +2865,11 @@ const paginas = [
   // ================================================================
   {
     nome: '🔎 Detalhe',
+    sobre: {
+      mostra: 'Tudo de um colaborador numa página: contagens e conciliação do AG, feedbacks e 5 Porquês, e respostas do quiz.',
+      origem: 'Abre por detalhamento: botão direito num colaborador em qualquer visual > Detalhamento > Detalhe.',
+      leitura: 'Os dados já vêm filtrados pela pessoa escolhida.',
+    },
     oculta: true,
     // Destino de drill-through a partir de qualquer visual das outras
     // paginas. E o que responde "de onde saiu esse numero" sem poluir as
