@@ -1959,7 +1959,18 @@ select
     when h >= 12 and h < 18 then 'Tarde'
     when h >= 18 and h < 24 then 'Noite'
     else 'Madrugada'
-  end                                        as faixa_do_dia
+  end                                        as faixa_do_dia,
+  -- A ORDEM da faixa (12/09/2026, pedido do dono): sem ela a legenda dos
+  -- histogramas sai em ordem alfabetica -- Manha, Noite, Tarde. O modelo
+  -- ordena faixa_do_dia por esta coluna (ver ordenarPor em modelo.js).
+  -- No FIM da lista de colunas: create or replace view so aceita coluna
+  -- nova depois das que ja existem.
+  case
+    when h >= 5  and h < 12 then 1
+    when h >= 12 and h < 18 then 2
+    when h >= 18 and h < 24 then 3
+    else 4
+  end                                        as faixa_ordem
 from generate_series(0, 23) as h;
 
 comment on view bi.dim_hora is
