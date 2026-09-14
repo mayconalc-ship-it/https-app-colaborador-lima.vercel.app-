@@ -931,19 +931,13 @@ table '_Medidas'
 		lineageTag: bf7dd64e-d74f-4a78-af2a-b6df24b82d08
 
 	measure 'Agenda do dia' =
+			VAR PorPublicador = ISFILTERED ( fato_comunicado[autor] )
+			VAR DoPublicador =
+			    CALCULATETABLE ( VALUES ( fato_comunicado[comunicado_id] ), REMOVEFILTERS ( dim_calendario ) )
 			VAR Linhas =
-			    IF (
-			        ISFILTERED ( fato_comunicado[autor] ),
-			        CALCULATETABLE (
-			            fato_comunicado_agenda,
-			            KEEPFILTERS (
-			                TREATAS (
-			                    CALCULATETABLE ( VALUES ( fato_comunicado[comunicado_id] ), REMOVEFILTERS ( dim_calendario ) ),
-			                    fato_comunicado_agenda[comunicado_id]
-			                )
-			            )
-			        ),
-			        fato_comunicado_agenda
+			    FILTER (
+			        fato_comunicado_agenda,
+			        NOT PorPublicador || fato_comunicado_agenda[comunicado_id] IN DoPublicador
 			    )
 			RETURN
 			    CONCATENATEX (
