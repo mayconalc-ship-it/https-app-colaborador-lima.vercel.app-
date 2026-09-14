@@ -1867,11 +1867,10 @@ function gerarRelatorio() {
       // O prefixo do bloco so no nome EXIBIDO: o id (`nomePagina`) segue
       // saindo do nome sem prefixo, e nada que aponta para a pagina muda.
       displayName: pagina.bloco ? `${pagina.bloco.sigla} · ${pagina.nome}` : pagina.nome,
-      // AJUSTAR A LARGURA (14/09/2026, pedido do dono): os visuais ocupam a
-      // largura da tela e a pagina rola para baixo, em vez de encolher tudo
-      // para caber na altura. E o padrao de quem abre; cada um ainda pode
-      // trocar em Exibir, so para si.
-      displayOption: 'FitToWidth',
+      // AJUSTAR A PAGINA. Em 14/09/2026 o dono testou "ajustar a largura"
+      // (FitToWidth) publicado e preferiu voltar: a pagina inteira na tela,
+      // sem rolar. Cada um ainda pode trocar em Exibir, so para si.
+      displayOption: 'FitToPage',
       // Pagina de area ganha a faixa de quadradinhos: DESLOC px a mais,
       // para nada que ja estava na tela perder espaco (ver navegacao.js).
       height: pagina.bloco ? 720 + navegacao.DESLOC : 720,
