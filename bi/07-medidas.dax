@@ -1042,20 +1042,23 @@ MEASURE '_Medidas'[Marcas na fila] =
 // de texto ligada na matriz -- o gerador liga via quebraTexto.
 // Com publicador escolhido, só os comunicados dele -- ver [Itens do
 // cronograma].
+//
+// SEM IF ENTRE TABELAS (14/09/2026). A versao de 12/09 escolhia a tabela
+// com IF ( ISFILTERED(...), CALCULATETABLE(...), fato_comunicado_agenda )
+// -- e IF em DAX so devolve VALOR, nunca tabela. A medida ficou em erro
+// ("faz referencia a varias colunas"), levou junto a [Célula do
+// calendário], e a grade do Cronograma parou. Foi o aviso da primeira
+// atualizacao pelo gateway que denunciou. Agora a condicao vai DENTRO do
+// FILTER, linha a linha: sem publicador, passa tudo; com publicador, so
+// os comunicados dele (de qualquer data -- o REMOVEFILTERS no calendario).
 MEASURE '_Medidas'[Agenda do dia] =
+    VAR PorPublicador = ISFILTERED ( fato_comunicado[autor] )
+    VAR DoPublicador =
+        CALCULATETABLE ( VALUES ( fato_comunicado[comunicado_id] ), REMOVEFILTERS ( dim_calendario ) )
     VAR Linhas =
-        IF (
-            ISFILTERED ( fato_comunicado[autor] ),
-            CALCULATETABLE (
-                fato_comunicado_agenda,
-                KEEPFILTERS (
-                    TREATAS (
-                        CALCULATETABLE ( VALUES ( fato_comunicado[comunicado_id] ), REMOVEFILTERS ( dim_calendario ) ),
-                        fato_comunicado_agenda[comunicado_id]
-                    )
-                )
-            ),
-            fato_comunicado_agenda
+        FILTER (
+            fato_comunicado_agenda,
+            NOT PorPublicador || fato_comunicado_agenda[comunicado_id] IN DoPublicador
         )
     RETURN
         CONCATENATEX (
