@@ -2,7 +2,8 @@
   "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/page/2.1.0/schema.json",
   "name": "cae89b229d33b2b051b3",
   "displayName": "5S · 🧹 Programa 5S",
-  "displayOption": "FitToPage",
+  "displayOption": "FitToWidth",
   "height": 768,
-  "width": 1280
+  "width": 1280,
+  "visibility": "HiddenInViewMode"
 }

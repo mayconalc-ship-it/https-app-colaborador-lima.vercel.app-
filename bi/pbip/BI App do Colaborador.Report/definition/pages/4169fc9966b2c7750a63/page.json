@@ -2,7 +2,8 @@
   "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/page/2.1.0/schema.json",
   "name": "4169fc9966b2c7750a63",
   "displayName": "DU · 🔗 5 Porquês — cada análise",
-  "displayOption": "FitToPage",
+  "displayOption": "FitToWidth",
   "height": 768,
-  "width": 1280
+  "width": 1280,
+  "visibility": "HiddenInViewMode"
 }

@@ -2,7 +2,7 @@
   "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/page/2.1.0/schema.json",
   "name": "1c9ac709e3c37fa1a00e",
   "displayName": "ℹ️ Sobre · ⚖️ Conciliação do AG",
-  "displayOption": "FitToPage",
+  "displayOption": "FitToWidth",
   "height": 720,
   "width": 1280,
   "visibility": "HiddenInViewMode"
