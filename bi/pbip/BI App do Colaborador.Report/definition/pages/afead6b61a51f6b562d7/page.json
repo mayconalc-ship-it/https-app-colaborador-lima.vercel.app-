@@ -2,7 +2,7 @@
   "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/page/2.1.0/schema.json",
   "name": "afead6b61a51f6b562d7",
   "displayName": "Quiz · 🎯 Desafio — o que treinar",
-  "displayOption": "FitToWidth",
+  "displayOption": "FitToPage",
   "height": 768,
   "width": 1280,
   "visibility": "HiddenInViewMode"
