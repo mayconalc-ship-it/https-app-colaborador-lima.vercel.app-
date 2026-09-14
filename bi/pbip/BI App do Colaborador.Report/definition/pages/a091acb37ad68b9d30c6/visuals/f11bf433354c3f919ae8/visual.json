@@ -3,11 +3,11 @@
   "name": "f11bf433354c3f919ae8",
   "position": {
     "x": 866,
-    "y": 500,
-    "z": 20000,
+    "y": 548,
+    "z": 30000,
     "height": 166,
     "width": 398,
-    "tabOrder": 20000
+    "tabOrder": 30000
   },
   "visual": {
     "visualType": "tableEx",

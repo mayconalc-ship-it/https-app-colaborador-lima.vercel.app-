@@ -3,11 +3,11 @@
   "name": "bb6fc1ed3930d026250c",
   "position": {
     "x": 1000,
-    "y": 252,
-    "z": 17000,
+    "y": 300,
+    "z": 27000,
     "height": 240,
     "width": 264,
-    "tabOrder": 17000
+    "tabOrder": 27000
   },
   "visual": {
     "visualType": "donutChart",

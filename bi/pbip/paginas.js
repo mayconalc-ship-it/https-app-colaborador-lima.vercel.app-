@@ -2963,44 +2963,90 @@ const paginas = [
   armazem); Programa 5S fica em Gente (e o programa da empresa inteira; o
   5S DO ARMAZEM e outra coisa, dentro da Produtividade).
 */
+/*
+  AS OITO AREAS (14/09/2026, pedido do dono: "uma pagina de Inicio com
+  secoes; clica em DU e vem o feedback e uns quadradinhos com o cinco
+  porques que ao clicar leva para a pagina").
+
+  Cada area vira: um cartao na capa "Inicio" (leva a PRIMEIRA pagina da
+  lista), a faixa de quadradinhos abaixo do cabecalho de cada pagina dela
+  (um por pagina, o da pagina aberta aceso) e o prefixo no nome da aba.
+
+  paginas: [nome em paginas.js, rotulo curto do quadradinho]. O rotulo
+  com "·" (as paginas de tabela) nao entra na lista do cartao da capa --
+  e desdobramento da pagina anterior, e nao assunto novo.
+
+  icone: um dos desenhos de gerar-imagens.js. resumo: a frase do cartao,
+  curta (uma linha no cartao de 290 px).
+
+  Mudou uma area, um rotulo ou um resumo? Rode `node bi/pbip/gerar-imagens.js`
+  antes do gerador: os cartoes e os quadradinhos sao imagens.
+*/
 const blocos = [
   {
-    sigla: 'DU',
-    nome: 'Distribuição Urbana',
-    paginas: ['📝 Feedback da Rota', '🔍 Cinco Porquês', '🔗 5 Porquês — cada análise'],
-  },
-  {
-    sigla: 'AL',
-    nome: 'Armazém Logístico',
+    sigla: 'DU', chave: 'du', nome: 'Distribuição Urbana', icone: 'caminhao',
+    resumo: 'Feedback da rota e causa raiz',
     paginas: [
-      '📦 Ativo de Giro',
-      '⚖️ Conciliação do AG',
-      '🧰 Bancada — Seleção e Repack',
-      '📦 Repack — produto e família',
-      // As paginas de tabela logo depois da pagina de analise de onde
-      // sairam (12/09/2026).
-      '📋 Repack — tabelas',
-      '🤲 Bate palete',
-      '🫗 Despejo',
-      '📋 Despejo — tabelas',
-      '🧃 Abastecimento e Ressuprimento',
-      '🚛 Recebimento de Carretas',
-      '📋 Recebimento — TMA em detalhe',
-      '🏗️ Empilhadeira',
+      ['📝 Feedback da Rota', 'Feedback da Rota'],
+      ['🔍 Cinco Porquês', '5 Porquês'],
+      ['🔗 5 Porquês — cada análise', 'Cada análise'],
     ],
   },
   {
-    sigla: 'Gente',
-    nome: 'Gente',
+    sigla: 'AG', chave: 'ag', nome: 'Ativo de Giro', icone: 'caixa',
+    resumo: 'Contagem do pátio e conciliação',
     paginas: [
-      '📣 Comunicados',
-      '📅 Cronograma da Comunicação',
-      '🧠 Quiz',
-      // O ranking por area logo depois do Quiz (12/09/2026).
-      '🏆 Quiz — ranking por área',
-      '🎯 Desafio — o que treinar',
-      '🏆 Super Matinal e Sonho',
-      '🧹 Programa 5S',
+      ['📦 Ativo de Giro', 'Contagens'],
+      ['⚖️ Conciliação do AG', 'Conciliação'],
+    ],
+  },
+  {
+    sigla: 'Armazém', chave: 'armazem', nome: 'Produtividade Armazém', icone: 'grafico',
+    resumo: 'O ritmo e o volume de cada operação',
+    paginas: [
+      ['🧰 Bancada — Seleção e Repack', 'Bancada'],
+      ['📦 Repack — produto e família', 'Repack'],
+      ['📋 Repack — tabelas', 'Repack · tabelas'],
+      ['🤲 Bate palete', 'Bate palete'],
+      ['🫗 Despejo', 'Despejo'],
+      ['📋 Despejo — tabelas', 'Despejo · tabelas'],
+      ['🧃 Abastecimento e Ressuprimento', 'Abastecimento'],
+    ],
+  },
+  {
+    sigla: 'TMA', chave: 'tma', nome: 'Recebimento · TMA', icone: 'relogio',
+    resumo: 'O tempo de cada carreta na revenda',
+    paginas: [
+      ['🚛 Recebimento de Carretas', 'Recebimento'],
+      ['📋 Recebimento — TMA em detalhe', 'TMA em detalhe'],
+    ],
+  },
+  {
+    sigla: 'Frota', chave: 'frota', nome: 'Frota', icone: 'empilhadeira',
+    resumo: 'Horas de motor e gás das máquinas',
+    paginas: [['🏗️ Empilhadeira', 'Empilhadeira']],
+  },
+  {
+    sigla: 'Gente', chave: 'gente', nome: 'Gente', icone: 'pessoas',
+    resumo: 'Comunicação e reconhecimento',
+    paginas: [
+      ['📣 Comunicados', 'Comunicados'],
+      ['📅 Cronograma da Comunicação', 'Cronograma'],
+      ['🏆 Super Matinal e Sonho', 'Super Matinal'],
+    ],
+  },
+  {
+    sigla: '5S', chave: '5s', nome: 'Programa 5S', icone: 'brilho',
+    resumo: 'Auditorias, conformidade e ações',
+    paginas: [['🧹 Programa 5S', 'Programa 5S']],
+  },
+  {
+    sigla: 'Quiz', chave: 'quiz', nome: 'Quiz e Desafio', icone: 'pergunta',
+    resumo: 'Participação, ranking e o que treinar',
+    paginas: [
+      ['🧠 Quiz', 'Quiz'],
+      ['🏆 Quiz — ranking por área', 'Ranking'],
+      ['🎯 Desafio — o que treinar', 'O que treinar'],
     ],
   },
 ];

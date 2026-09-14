@@ -40,6 +40,316 @@
           "name": "logo-app-c.png",
           "path": "logo-app-c.png",
           "type": "Image"
+        },
+        {
+          "name": "inicio-topo.png",
+          "path": "inicio-topo.png",
+          "type": "Image"
+        },
+        {
+          "name": "botao-inicio.png",
+          "path": "botao-inicio.png",
+          "type": "Image"
+        },
+        {
+          "name": "secao-du.png",
+          "path": "secao-du.png",
+          "type": "Image"
+        },
+        {
+          "name": "chip-du.png",
+          "path": "chip-du.png",
+          "type": "Image"
+        },
+        {
+          "name": "aba-du-0-on.png",
+          "path": "aba-du-0-on.png",
+          "type": "Image"
+        },
+        {
+          "name": "aba-du-0-off.png",
+          "path": "aba-du-0-off.png",
+          "type": "Image"
+        },
+        {
+          "name": "aba-du-1-on.png",
+          "path": "aba-du-1-on.png",
+          "type": "Image"
+        },
+        {
+          "name": "aba-du-1-off.png",
+          "path": "aba-du-1-off.png",
+          "type": "Image"
+        },
+        {
+          "name": "aba-du-2-on.png",
+          "path": "aba-du-2-on.png",
+          "type": "Image"
+        },
+        {
+          "name": "aba-du-2-off.png",
+          "path": "aba-du-2-off.png",
+          "type": "Image"
+        },
+        {
+          "name": "secao-ag.png",
+          "path": "secao-ag.png",
+          "type": "Image"
+        },
+        {
+          "name": "chip-ag.png",
+          "path": "chip-ag.png",
+          "type": "Image"
+        },
+        {
+          "name": "aba-ag-0-on.png",
+          "path": "aba-ag-0-on.png",
+          "type": "Image"
+        },
+        {
+          "name": "aba-ag-0-off.png",
+          "path": "aba-ag-0-off.png",
+          "type": "Image"
+        },
+        {
+          "name": "aba-ag-1-on.png",
+          "path": "aba-ag-1-on.png",
+          "type": "Image"
+        },
+        {
+          "name": "aba-ag-1-off.png",
+          "path": "aba-ag-1-off.png",
+          "type": "Image"
+        },
+        {
+          "name": "secao-armazem.png",
+          "path": "secao-armazem.png",
+          "type": "Image"
+        },
+        {
+          "name": "chip-armazem.png",
+          "path": "chip-armazem.png",
+          "type": "Image"
+        },
+        {
+          "name": "aba-armazem-0-on.png",
+          "path": "aba-armazem-0-on.png",
+          "type": "Image"
+        },
+        {
+          "name": "aba-armazem-0-off.png",
+          "path": "aba-armazem-0-off.png",
+          "type": "Image"
+        },
+        {
+          "name": "aba-armazem-1-on.png",
+          "path": "aba-armazem-1-on.png",
+          "type": "Image"
+        },
+        {
+          "name": "aba-armazem-1-off.png",
+          "path": "aba-armazem-1-off.png",
+          "type": "Image"
+        },
+        {
+          "name": "aba-armazem-2-on.png",
+          "path": "aba-armazem-2-on.png",
+          "type": "Image"
+        },
+        {
+          "name": "aba-armazem-2-off.png",
+          "path": "aba-armazem-2-off.png",
+          "type": "Image"
+        },
+        {
+          "name": "aba-armazem-3-on.png",
+          "path": "aba-armazem-3-on.png",
+          "type": "Image"
+        },
+        {
+          "name": "aba-armazem-3-off.png",
+          "path": "aba-armazem-3-off.png",
+          "type": "Image"
+        },
+        {
+          "name": "aba-armazem-4-on.png",
+          "path": "aba-armazem-4-on.png",
+          "type": "Image"
+        },
+        {
+          "name": "aba-armazem-4-off.png",
+          "path": "aba-armazem-4-off.png",
+          "type": "Image"
+        },
+        {
+          "name": "aba-armazem-5-on.png",
+          "path": "aba-armazem-5-on.png",
+          "type": "Image"
+        },
+        {
+          "name": "aba-armazem-5-off.png",
+          "path": "aba-armazem-5-off.png",
+          "type": "Image"
+        },
+        {
+          "name": "aba-armazem-6-on.png",
+          "path": "aba-armazem-6-on.png",
+          "type": "Image"
+        },
+        {
+          "name": "aba-armazem-6-off.png",
+          "path": "aba-armazem-6-off.png",
+          "type": "Image"
+        },
+        {
+          "name": "secao-tma.png",
+          "path": "secao-tma.png",
+          "type": "Image"
+        },
+        {
+          "name": "chip-tma.png",
+          "path": "chip-tma.png",
+          "type": "Image"
+        },
+        {
+          "name": "aba-tma-0-on.png",
+          "path": "aba-tma-0-on.png",
+          "type": "Image"
+        },
+        {
+          "name": "aba-tma-0-off.png",
+          "path": "aba-tma-0-off.png",
+          "type": "Image"
+        },
+        {
+          "name": "aba-tma-1-on.png",
+          "path": "aba-tma-1-on.png",
+          "type": "Image"
+        },
+        {
+          "name": "aba-tma-1-off.png",
+          "path": "aba-tma-1-off.png",
+          "type": "Image"
+        },
+        {
+          "name": "secao-frota.png",
+          "path": "secao-frota.png",
+          "type": "Image"
+        },
+        {
+          "name": "chip-frota.png",
+          "path": "chip-frota.png",
+          "type": "Image"
+        },
+        {
+          "name": "aba-frota-0-on.png",
+          "path": "aba-frota-0-on.png",
+          "type": "Image"
+        },
+        {
+          "name": "aba-frota-0-off.png",
+          "path": "aba-frota-0-off.png",
+          "type": "Image"
+        },
+        {
+          "name": "secao-gente.png",
+          "path": "secao-gente.png",
+          "type": "Image"
+        },
+        {
+          "name": "chip-gente.png",
+          "path": "chip-gente.png",
+          "type": "Image"
+        },
+        {
+          "name": "aba-gente-0-on.png",
+          "path": "aba-gente-0-on.png",
+          "type": "Image"
+        },
+        {
+          "name": "aba-gente-0-off.png",
+          "path": "aba-gente-0-off.png",
+          "type": "Image"
+        },
+        {
+          "name": "aba-gente-1-on.png",
+          "path": "aba-gente-1-on.png",
+          "type": "Image"
+        },
+        {
+          "name": "aba-gente-1-off.png",
+          "path": "aba-gente-1-off.png",
+          "type": "Image"
+        },
+        {
+          "name": "aba-gente-2-on.png",
+          "path": "aba-gente-2-on.png",
+          "type": "Image"
+        },
+        {
+          "name": "aba-gente-2-off.png",
+          "path": "aba-gente-2-off.png",
+          "type": "Image"
+        },
+        {
+          "name": "secao-5s.png",
+          "path": "secao-5s.png",
+          "type": "Image"
+        },
+        {
+          "name": "chip-5s.png",
+          "path": "chip-5s.png",
+          "type": "Image"
+        },
+        {
+          "name": "aba-5s-0-on.png",
+          "path": "aba-5s-0-on.png",
+          "type": "Image"
+        },
+        {
+          "name": "aba-5s-0-off.png",
+          "path": "aba-5s-0-off.png",
+          "type": "Image"
+        },
+        {
+          "name": "secao-quiz.png",
+          "path": "secao-quiz.png",
+          "type": "Image"
+        },
+        {
+          "name": "chip-quiz.png",
+          "path": "chip-quiz.png",
+          "type": "Image"
+        },
+        {
+          "name": "aba-quiz-0-on.png",
+          "path": "aba-quiz-0-on.png",
+          "type": "Image"
+        },
+        {
+          "name": "aba-quiz-0-off.png",
+          "path": "aba-quiz-0-off.png",
+          "type": "Image"
+        },
+        {
+          "name": "aba-quiz-1-on.png",
+          "path": "aba-quiz-1-on.png",
+          "type": "Image"
+        },
+        {
+          "name": "aba-quiz-1-off.png",
+          "path": "aba-quiz-1-off.png",
+          "type": "Image"
+        },
+        {
+          "name": "aba-quiz-2-on.png",
+          "path": "aba-quiz-2-on.png",
+          "type": "Image"
+        },
+        {
+          "name": "aba-quiz-2-off.png",
+          "path": "aba-quiz-2-off.png",
+          "type": "Image"
         }
       ]
     }

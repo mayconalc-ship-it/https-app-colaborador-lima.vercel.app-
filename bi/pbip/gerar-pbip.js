@@ -56,7 +56,8 @@ function ordenarPorBloco(lista, grupos) {
   const saida = [];
   const usadas = new Set();
   for (const b of grupos || []) {
-    for (const nome of b.paginas) {
+    // [nome, rotulo do quadradinho] desde as oito areas (14/09/2026).
+    for (const [nome] of b.paginas) {
       const p = lista.find((x) => x.nome === nome);
       if (!p) {
         console.warn(`Bloco ${b.sigla}: a pagina "${nome}" nao existe em paginas.js.`);
@@ -73,7 +74,18 @@ function ordenarPorBloco(lista, grupos) {
   }
   return saida;
 }
-const paginas = ordenarPorBloco(paginasDoArquivo, blocos);
+// A CAPA "INICIO" (14/09/2026) vem na frente de tudo e e a pagina que
+// abre o relatorio. Ela nao mora em paginas.js: o conteudo dela SAO as
+// areas (`blocos`), e o desenho vem de navegacao.js.
+const navegacao = require('./navegacao');
+const paginas = [
+  { nome: navegacao.NOME_INICIO, inicio: true, kpis: [], visuais: [] },
+  ...ordenarPorBloco(paginasDoArquivo, blocos),
+];
+// Criada na primeira chamada, e nao aqui: ela usa lit() e id20(), que so
+// existem mais abaixo neste arquivo.
+let NAV;
+const nav = () => NAV || (NAV = navegacao.criar({ lit, idPagina, blocos }));
 
 /*
   O "SOBRE" DE CADA PAGINA (12/09/2026, pedido do dono: "coloque a logo do
@@ -93,7 +105,8 @@ const paginas = ordenarPorBloco(paginasDoArquivo, blocos);
 const PREFIXO_SOBRE = 'ℹ️ Sobre · ';
 const LOGO = 'logo-app-c.png';
 const idPagina = (nome) => id20('p:' + nome);
-const paginasSobre = paginas.map((p) => ({
+// A capa nao tem "sobre": ela e o proprio indice.
+const paginasSobre = paginas.filter((p) => !p.inicio).map((p) => ({
   nome: PREFIXO_SOBRE + p.nome,
   oculta: true,
   sobreDe: p,
@@ -101,7 +114,7 @@ const paginasSobre = paginas.map((p) => ({
   visuais: [],
 }));
 for (const p of paginas) {
-  if (!p.sobre) {
+  if (!p.sobre && !p.inicio) {
     console.warn(`A pagina "${p.nome}" nao tem \`sobre\` em paginas.js: o C abre so a lista do que tem na tela.`);
   }
 }
@@ -1196,6 +1209,14 @@ function cabecalho(pagina) {
   const destinoDoC = pagina.sobreDe
     ? idPagina(pagina.sobreDe.nome)
     : idPagina(PREFIXO_SOBRE + pagina.nome);
+  // O BOTAO INICIO (14/09/2026) no canto direito de toda pagina, menos no
+  // "sobre" (la o canto e da seta de voltar). O aviso do C passa para a
+  // esquerda dele, e o titulo para antes do aviso.
+  const comInicio = !pagina.sobreDe;
+  const wAviso = pagina.sobreDe ? 238 : 254;
+  const xAviso = pagina.sobreDe
+    ? 976
+    : 1264 - nav().larguraBotaoInicio - 12 - wAviso;
   return [
     {
       // Faixa colada no topo e cheia: y=0 e h=64, e nao y=16 e h=48.
@@ -1242,8 +1263,9 @@ function cabecalho(pagina) {
       // qualquer sistema, e enfeite. Azul claro e corpo 9: e legenda do
       // cabecalho, nao concorre com o titulo.
       chave: pagina.nome + ':aviso-logo', t: 'textbox',
-      // No "sobre" ele divide o canto com a seta de voltar (x 1220).
-      x: pagina.sobreDe ? 976 : 1010, y: 20, w: pagina.sobreDe ? 238 : 254, h: 30,
+      // No "sobre" ele divide o canto com a seta de voltar (x 1220); nas
+      // outras, com o botao Inicio (ver xAviso no topo da funcao).
+      x: xAviso, y: 20, w: wAviso, h: 30,
       titulo: null,
       objects: {
         general: [{ properties: { paragraphs: [{ textRuns: [{
@@ -1273,7 +1295,8 @@ function cabecalho(pagina) {
       chave: pagina.nome + ':titulo', t: 'textbox',
       // x 76: logo depois do C (18 + 48 + folga). w 890: para antes do
       // aviso "clique no C", no canto direito.
-      x: 76, y: 8, w: 890, h: 52,
+      // w: ate 8 px antes do aviso do C, que agora depende do botao Inicio.
+      x: 76, y: 8, w: xAviso - 84, h: 52,
       objects: {
         general: [{ properties: { paragraphs: [{ textRuns: [{
           value: pagina.nome,
@@ -1290,6 +1313,8 @@ function cabecalho(pagina) {
       // nao foi removida, quando e o fundo do proprio texto.
       fundoTransparente: true,
     },
+    // Por ultimo: fica por cima de tudo no cabecalho, e o clique e dele.
+    ...(comInicio ? [nav().botaoInicio(pagina)] : []),
   ];
 }
 
@@ -1777,6 +1802,14 @@ function gerarRelatorio() {
   fs.copyFileSync(path.join(BI, LOGO), destinoLogo);
   contador++;
 
+  // As imagens da capa e da navegacao por area (14/09/2026), no mesmo
+  // pacote. A lista e o manifesto de gerar-imagens.js.
+  for (const arquivo of Object.keys(navegacao.MANIFESTO)) {
+    fs.copyFileSync(path.join(navegacao.PASTA, arquivo),
+      path.join(DEST_REL, 'StaticResources', 'RegisteredResources', arquivo));
+    contador++;
+  }
+
   escrever(path.join(DEST_REL, 'definition', 'version.json'),
     json({ $schema: S.versao, version: '2.0.0' }));
 
@@ -1805,6 +1838,7 @@ function gerarRelatorio() {
       items: [
         { name: 'tema-powerbi.json', path: 'tema-powerbi.json', type: 'CustomTheme' },
         { name: LOGO, path: LOGO, type: 'Image' },
+        ...Object.keys(navegacao.MANIFESTO).map((a) => ({ name: a, path: a, type: 'Image' })),
       ],
     }],
     settings: {
@@ -1834,7 +1868,9 @@ function gerarRelatorio() {
       // saindo do nome sem prefixo, e nada que aponta para a pagina muda.
       displayName: pagina.bloco ? `${pagina.bloco.sigla} · ${pagina.nome}` : pagina.nome,
       displayOption: 'FitToPage',
-      height: 720,
+      // Pagina de area ganha a faixa de quadradinhos: DESLOC px a mais,
+      // para nada que ja estava na tela perder espaco (ver navegacao.js).
+      height: pagina.bloco ? 720 + navegacao.DESLOC : 720,
       width: 1280,
     };
     // A pagina de detalhe fica oculta: ela e destino de drill-through, e
@@ -1943,7 +1979,10 @@ function gerarRelatorio() {
       });
     }
 
-    lista.forEach((v, i) => {
+    // A capa troca a pagina inteira pelo desenho dela; a pagina de area
+    // ganha a faixa de quadradinhos, e o resto desce (navegacao.js).
+    const final = pagina.inicio ? nav().visuaisInicio() : nav().comNavegacao(pagina, lista);
+    final.forEach((v, i) => {
       const j = visualJson(v, (i + 1) * 1000);
       escrever(path.join(dir, 'visuals', j.name, 'visual.json'), json(j));
     });

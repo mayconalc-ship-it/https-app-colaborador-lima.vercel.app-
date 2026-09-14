@@ -3,11 +3,11 @@
   "name": "dcc450a40dc8001498c6",
   "position": {
     "x": 16,
-    "y": 500,
-    "z": 16000,
+    "y": 548,
+    "z": 21000,
     "height": 166,
     "width": 400,
-    "tabOrder": 16000
+    "tabOrder": 21000
   },
   "visual": {
     "visualType": "columnChart",

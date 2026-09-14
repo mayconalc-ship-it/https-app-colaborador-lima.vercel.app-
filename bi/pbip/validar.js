@@ -259,8 +259,12 @@ for (const arq of arquivos) {
     );
   }
 
+  // O limite e o da PAGINA, e nao 720 fixo: as paginas das areas cresceram
+  // para 768 com a faixa de navegacao (14/09/2026).
   const pos = j.position;
-  if (pos.x < 0 || pos.y < 0 || pos.x + pos.width > 1280 || pos.y + pos.height > 720) {
+  const pagJson = path.join(path.dirname(arq), '..', '..', 'page.json');
+  const pag = fs.existsSync(pagJson) ? JSON.parse(fs.readFileSync(pagJson, 'utf8')) : { width: 1280, height: 720 };
+  if (pos.x < 0 || pos.y < 0 || pos.x + pos.width > pag.width || pos.y + pos.height > pag.height) {
     falha(`${onde}: sai do canvas (x=${pos.x} y=${pos.y} w=${pos.width} h=${pos.height})`);
   }
 
@@ -315,7 +319,9 @@ for (const dir of fs.readdirSync(dirPaginas, { withFileTypes: true })) {
     const j = JSON.parse(fs.readFileSync(path.join(dv, n, 'visual.json'), 'utf8'));
     return { t: j.visual.visualType, ...j.position };
   // A faixa do cabecalho e o titulo ficam sobrepostos de proposito.
-  }).filter((c) => c.t !== 'shape' && c.t !== 'textbox');
+  // Imagem tambem fica de fora (14/09/2026): o topo da capa e FUNDO, e o
+  // cartao "Dados atualizados em" fica em cima dele de proposito.
+  }).filter((c) => c.t !== 'shape' && c.t !== 'textbox' && c.t !== 'image');
 
   for (let i = 0; i < caixas.length; i++) {
     for (let k = i + 1; k < caixas.length; k++) {
