@@ -1628,17 +1628,44 @@ function visuaisCapa(pagina, destinos) {
 // e nao uma caixa so com linhas em branco entre as secoes: paragrafo
 // vazio nao tem exemplo real aqui, e a caixa por secao chega no mesmo
 // desenho sem ele.
+//
+// COMO CADA NUMERO E CALCULADO (14/09/2026, pedido do dono: "mostrar como
+// e feito os calculos"). A faixa de baixo lista, em duas colunas, cada
+// cartao pelo titulo que aparece na tela e depois cada medida dos graficos
+// e tabelas que ainda nao apareceu -- sem repetir. O texto vem de
+// explicacoes.js; o que faltar la vira aviso na geracao.
+const EXPLICACOES = require('./explicacoes');
+const PAPEIS_DE_VALOR = ['Y', 'Values', 'Data', 'Tooltips'];
+
+function contasDaPagina(origem) {
+  const itens = [];
+  const vistos = new Set();
+  const faltam = [];
+  const entrada = (ref, rotuloCartao) => {
+    if (vistos.has(ref) || (!ref.startsWith('@') && !ref.includes('#'))) return;
+    vistos.add(ref);
+    const e = EXPLICACOES[ref.startsWith('@') ? ref.slice(1) : ref];
+    if (!e) { faltam.push(ref); return; }
+    const [rotulo, texto] = Array.isArray(e) ? e : [ref.slice(1), e];
+    itens.push({ rotulo: rotuloCartao || rotulo, texto });
+  };
+  for (const k of origem.kpis || []) entrada(k[1], k[0]);
+  for (const v of origem.visuais) {
+    for (const papel of PAPEIS_DE_VALOR) for (const r of (v.roles || {})[papel] || []) entrada(r);
+  }
+  if (faltam.length) console.warn(`"${origem.nome}": sem explicacao em explicacoes.js -- ${faltam.join(', ')}`);
+  return itens;
+}
+
 function visuaisSobre(pagina) {
   const origem = pagina.sobreDe;
   const s = origem.sobre || {};
   const par = (valor, estilo) => ({ textRuns: [{ value: valor, textStyle: estilo }] });
-  const TITULO = { fontWeight: 'bold', fontSize: '13pt', color: '#0B4DA2' };
-  const TEXTO = { fontSize: '12pt', color: '#0F172A' };
-  const SUB = { fontWeight: 'bold', fontSize: '11pt', color: '#0F172A' };
-  const ITEM = { fontSize: '11pt', color: '#334155' };
+  const TITULO = { fontWeight: 'bold', fontSize: '12pt', color: '#0B4DA2' };
+  const TEXTO = { fontSize: '10.5pt', color: '#0F172A' };
 
-  const cartao = (chave, x, w) => ({
-    chave: `${pagina.nome}:${chave}`, t: 'shape', x, y: 88, w, h: 568, titulo: null,
+  const cartao = (chave, x, y, w, h) => ({
+    chave: `${pagina.nome}:${chave}`, t: 'shape', x, y, w, h, titulo: null,
     objects: {
       shape: [{ properties: { tileShape: lit("'rectangle'") } }],
       fill: [{ properties: { fillColor: { solid: { color: lit("'#FFFFFF'") } } },
@@ -1647,43 +1674,65 @@ function visuaisSobre(pagina) {
     },
   });
 
-  const lista = [cartao('cartao-texto', 16, 760), cartao('cartao-tela', 792, 472)];
+  const lista = [];
 
+  // FAIXA DE CIMA: as tres frases do `sobre`, lado a lado.
   [
     ['📌 O que esta página mostra', s.mostra],
     ['🗂️ De onde vêm os dados', s.origem],
     ['👀 Como ler', s.leitura],
-  ].filter(([, texto]) => texto).forEach(([titulo, texto], i) => {
+  ].forEach(([titulo, texto], i) => {
+    const x = 16 + i * 420;
+    lista.push(cartao(`cartao-sobre:${i}`, x, 80, 408, 156));
     lista.push({
       chave: `${pagina.nome}:secao:${i}`, t: 'textbox',
-      x: 36, y: 104 + i * 180, w: 720, h: 168, titulo: null,
-      objects: { general: [{ properties: { paragraphs: [par(titulo, TITULO), par(texto, TEXTO)] } }] },
+      x: x + 10, y: 88, w: 388, h: 142, titulo: null,
+      objects: { general: [{ properties: { paragraphs: [par(titulo, TITULO), par(texto || '—', TEXTO)] } }] },
       fundoTransparente: true,
     });
   });
 
-  // A lista do que tem na tela. Filtros so nas paginas que tem barra de
-  // filtros (as ocultas nao tem).
-  const filtrosDaPagina = origem.oculta ? [] : (origem.filtros || filtros);
-  const tela = [par('🧩 O que tem na tela', TITULO)];
-  if (filtrosDaPagina.length) {
-    tela.push(par('Filtros', SUB));
-    tela.push(par(filtrosDaPagina.map((f) => f.titulo).join('  ·  '), ITEM));
-  }
-  if ((origem.kpis || []).length) {
-    tela.push(par('Cartões', SUB));
-    for (const k of origem.kpis) tela.push(par('•  ' + k[0], ITEM));
-  }
-  const comTitulo = origem.visuais.filter((v) => v.titulo);
-  if (comTitulo.length) {
-    tela.push(par('Gráficos e tabelas', SUB));
-    for (const v of comTitulo) tela.push(par('•  ' + v.titulo, ITEM));
-  }
+  // FAIXA DE BAIXO: a conta de cada numero.
+  lista.push(cartao('cartao-contas', 16, 246, 1248, 462));
   lista.push({
-    chave: `${pagina.nome}:tela`, t: 'textbox',
-    x: 808, y: 104, w: 440, h: 536, titulo: null,
-    objects: { general: [{ properties: { paragraphs: tela } }] },
+    chave: `${pagina.nome}:contas-titulo`, t: 'textbox',
+    x: 30, y: 252, w: 1220, h: 32, titulo: null,
+    objects: { general: [{ properties: { paragraphs: [par('🧮 Como cada número é calculado', TITULO)] } }] },
     fundoTransparente: true,
+  });
+
+  const itens = contasDaPagina(origem);
+  // Divide as duas colunas pela ALTURA estimada, e nao pela quantidade:
+  // uma explicacao de tres linhas pesa o triplo de uma de uma linha.
+  // ~92 caracteres por linha a 10pt em 596 px; a 9pt, ~102.
+  const linhas = (it, porLinha) => Math.ceil((it.rotulo.length + it.texto.length + 3) / porLinha);
+  const CAPACIDADE = { '10pt': 44, '9pt': 50 }; // linhas somando as duas colunas
+  const total10 = itens.reduce((a, it) => a + linhas(it, 92), 0);
+  const corpo = total10 <= CAPACIDADE['10pt'] ? '10pt' : '9pt';
+  const porLinha = corpo === '10pt' ? 92 : 102;
+  const total = itens.reduce((a, it) => a + linhas(it, porLinha), 0);
+  if (total > CAPACIDADE[corpo]) {
+    console.warn(`"${origem.nome}": ~${total} linhas de explicacao, cabem ~${CAPACIDADE[corpo]} -- o fim pode ser cortado.`);
+  }
+  const colunas = [[], []];
+  let acumulado = 0;
+  for (const it of itens) {
+    colunas[acumulado < total / 2 ? 0 : 1].push(it);
+    acumulado += linhas(it, porLinha);
+  }
+  colunas.forEach((col, i) => {
+    if (!col.length) return;
+    lista.push({
+      chave: `${pagina.nome}:contas:${i}`, t: 'textbox',
+      x: 30 + i * 618, y: 288, w: 604, h: 412, titulo: null,
+      objects: { general: [{ properties: { paragraphs: col.map((it) => ({
+        textRuns: [
+          { value: `${it.rotulo}: `, textStyle: { fontWeight: 'bold', fontSize: corpo, color: '#0B4DA2' } },
+          { value: it.texto, textStyle: { fontSize: corpo, color: '#334155' } },
+        ],
+      })) } }] },
+      fundoTransparente: true,
+    });
   });
 
   return lista;

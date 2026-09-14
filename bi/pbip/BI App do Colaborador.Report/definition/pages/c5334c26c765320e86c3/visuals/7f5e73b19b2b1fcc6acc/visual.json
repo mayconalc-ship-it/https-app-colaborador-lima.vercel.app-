@@ -2,11 +2,11 @@
   "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.12.0/schema.json",
   "name": "7f5e73b19b2b1fcc6acc",
   "position": {
-    "x": 36,
-    "y": 284,
+    "x": 446,
+    "y": 88,
     "z": 9000,
-    "height": 168,
-    "width": 720,
+    "height": 142,
+    "width": 388,
     "tabOrder": 9000
   },
   "visual": {
@@ -22,7 +22,7 @@
                     "value": "🗂️ De onde vêm os dados",
                     "textStyle": {
                       "fontWeight": "bold",
-                      "fontSize": "13pt",
+                      "fontSize": "12pt",
                       "color": "#0B4DA2"
                     }
                   }
@@ -33,7 +33,7 @@
                   {
                     "value": "As análises 5 Porquês feitas no app a partir dos feedbacks, com a tratativa e a devolutiva da liderança.",
                     "textStyle": {
-                      "fontSize": "12pt",
+                      "fontSize": "10.5pt",
                       "color": "#0F172A"
                     }
                   }

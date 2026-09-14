@@ -2,12 +2,12 @@
   "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.12.0/schema.json",
   "name": "8b0fb4cf76956678cb76",
   "position": {
-    "x": 36,
-    "y": 104,
-    "z": 8000,
-    "height": 168,
-    "width": 720,
-    "tabOrder": 8000
+    "x": 26,
+    "y": 88,
+    "z": 7000,
+    "height": 142,
+    "width": 388,
+    "tabOrder": 7000
   },
   "visual": {
     "visualType": "textbox",
@@ -22,7 +22,7 @@
                     "value": "📌 O que esta página mostra",
                     "textStyle": {
                       "fontWeight": "bold",
-                      "fontSize": "13pt",
+                      "fontSize": "12pt",
                       "color": "#0B4DA2"
                     }
                   }
@@ -33,7 +33,7 @@
                   {
                     "value": "As horas de motor das empilhadeiras por hora do dia, por máquina e por operador, e o rendimento e o custo do gás.",
                     "textStyle": {
-                      "fontSize": "12pt",
+                      "fontSize": "10.5pt",
                       "color": "#0F172A"
                     }
                   }
