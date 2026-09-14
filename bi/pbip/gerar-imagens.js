@@ -22,7 +22,9 @@ const sharp = require(path.join(__dirname, '..', '..', 'node_modules', 'sharp'))
 const { blocos } = require('./paginas');
 
 const DEST = path.join(__dirname, '..', 'imagens');
-const ESCALA = 2;
+// 3x e nao 2x (14/09/2026): numa tela grande o Power BI amplia a pagina
+// inteira ("ajustar a pagina"), e com 2x os quadradinhos borravam.
+const ESCALA = 3;
 const COR = {
   azul: '#0B4DA2', azulEscuro: '#063573', azulSuave: '#E7EEFA',
   ouro: '#FFC72C', ouroSuave: '#FFF4D6', ouroTexto: '#7A5600',
@@ -136,24 +138,30 @@ async function cartao(b) {
 }
 
 // --- a faixa de navegacao de cada area ------------------------------------
+// MAIS NITIDOS (14/09/2026, pedido do dono): 36 px de altura, texto em
+// negrito, e o quadradinho apagado deixou de ser branco com borda cinza --
+// sobre a faixa branca ele sumia. Agora: fundo azul-claro, borda azul
+// visivel, texto azul-escuro. O aceso continua azul cheio.
 async function selo(b) {
-  const H = 34, wT = await largura(b.nome, 13.5, 700), W = 40 + wT + 14;
+  const H = 36, wT = await largura(b.nome, 14, 700), W = 42 + wT + 16;
   await salvar(`chip-${b.chave}.png`, W, H,
     `<rect x="0.5" y="0.5" width="${W - 1}" height="${H - 1}" rx="10" fill="${COR.azulSuave}"/>` +
-    icone(b.icone, 12, 8, 18, COR.azulEscuro, 2.2) +
-    texto(40, 22, b.nome, 13.5, 700, COR.azulEscuro));
+    icone(b.icone, 13, 9, 18, COR.azulEscuro, 2.3) +
+    texto(42, 23.5, b.nome, 14, 700, COR.azulEscuro));
 }
 
 async function abas(b) {
-  const H = 34;
+  const H = 36;
   for (const [i, [, rotulo]] of b.paginas.entries()) {
-    const W = (await largura(rotulo, 14, 600)) + 36;
+    const W = (await largura(rotulo, 14.5, 700)) + 38;
     await salvar(`aba-${b.chave}-${i}-on.png`, W, H,
-      `<rect x="0.5" y="0.5" width="${W - 1}" height="${H - 1}" rx="17" fill="${COR.azul}"/>` +
-      texto(W / 2, 22, rotulo, 14, 600, '#FFFFFF', 'text-anchor="middle"'));
+      `<rect x="0.75" y="0.75" width="${W - 1.5}" height="${H - 1.5}" rx="18" fill="${COR.azul}" ` +
+      `stroke="${COR.azulEscuro}" stroke-width="1.5"/>` +
+      texto(W / 2, 23.5, rotulo, 14.5, 700, '#FFFFFF', 'text-anchor="middle"'));
     await salvar(`aba-${b.chave}-${i}-off.png`, W, H,
-      `<rect x="0.5" y="0.5" width="${W - 1}" height="${H - 1}" rx="17" fill="#FFFFFF" stroke="${COR.borda}"/>` +
-      texto(W / 2, 22, rotulo, 14, 600, COR.azul, 'text-anchor="middle"'));
+      `<rect x="0.75" y="0.75" width="${W - 1.5}" height="${H - 1.5}" rx="18" fill="#F1F6FD" ` +
+      `stroke="#8FB0DD" stroke-width="1.5"/>` +
+      texto(W / 2, 23.5, rotulo, 14.5, 700, COR.azulEscuro, 'text-anchor="middle"'));
   }
 }
 

@@ -1875,7 +1875,14 @@ function gerarRelatorio() {
     };
     // A pagina de detalhe fica oculta: ela e destino de drill-through, e
     // nao um item de navegacao.
-    if (pagina.oculta) pg.visibility = 'HiddenInViewMode';
+    //
+    // AS PAGINAS DAS AREAS TAMBEM FICAM OCULTAS (14/09/2026, pedido do
+    // dono: "como temos o menu, nao ha mais necessidade do menu lateral").
+    // O painel de paginas do Service passa a listar so o Inicio; as areas
+    // se abrem pelos cartoes e quadradinhos -- navegacao de pagina chega em
+    // pagina oculta, como ja chega nas "sobre". No Desktop, em edicao, elas
+    // continuam na barra de abas.
+    if (pagina.oculta || pagina.bloco) pg.visibility = 'HiddenInViewMode';
 
     // Filtro obrigatorio no nivel da pagina (acabamento 1). Este e o
     // unico acabamento que nao e cosmetico: sem ele a pagina do AG

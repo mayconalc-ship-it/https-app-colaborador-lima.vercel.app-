@@ -99,15 +99,22 @@ function criar({ lit, idPagina, blocos }) {
     const b = pagina.bloco;
     if (!b) return lista;
     const eCabecalho = (v) => DO_CABECALHO.some((s) => v.chave === pagina.nome + s);
-    const nav = [faixaBranca(`${pagina.nome}:nav:faixa`, 68, DESLOC)];
+    // Uma linha fina embaixo da faixa (14/09/2026): separa a navegacao do
+    // conteudo, que antes emendava nela.
+    const linha = faixaBranca(`${pagina.nome}:nav:linha`, 68 + DESLOC - 2, 2);
+    linha.objects.fill = [{ properties: { fillColor: { solid: { color: lit("'#CBD5E1'") } } },
+      selector: { id: 'default' } }];
+    const nav = [faixaBranca(`${pagina.nome}:nav:faixa`, 68, DESLOC), linha];
+    // Centrado na faixa pela altura real das imagens, e nao por um y fixo.
+    const yNav = 68 + Math.round((DESLOC - 2 - tam(`chip-${b.chave}.png`).h) / 2);
     let x = 16;
-    const chip = imagem(`${pagina.nome}:nav:area`, `chip-${b.chave}.png`, x, 75);
+    const chip = imagem(`${pagina.nome}:nav:area`, `chip-${b.chave}.png`, x, yNav);
     nav.push(chip);
     x += chip.w + 14;
     b.paginas.forEach(([nome], i) => {
       const atual = nome === pagina.nome;
       const im = imagem(`${pagina.nome}:nav:${i}`, `aba-${b.chave}-${i}-${atual ? 'on' : 'off'}.png`,
-        x, 75, atual ? null : idPagina(nome));
+        x, yNav, atual ? null : idPagina(nome));
       nav.push(im);
       x += im.w + 8;
     });
