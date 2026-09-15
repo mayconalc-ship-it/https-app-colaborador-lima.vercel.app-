@@ -193,6 +193,10 @@ relationship e45c688c-2e92-41fe-8fe2-ef6e3f5256f1
 	fromColumn: fato_evento_acesso.chave
 	toColumn: dim_colaborador.chave
 
+relationship 300519ca-7c6f-42cc-82b4-1fed981396bb
+	fromColumn: dim_meta_armazem.revenda_id
+	toColumn: dim_revenda.revenda_id
+
 relationship 365013ce-7eff-46f5-ac4d-f1f3fbda9408
 	fromColumn: fato_uso_sessao.data
 	toColumn: dim_calendario.data

@@ -19,6 +19,25 @@
               {
                 "textRuns": [
                   {
+                    "value": "🎯 % da meta de seleção: ",
+                    "textStyle": {
+                      "fontWeight": "bold",
+                      "fontSize": "10pt",
+                      "color": "#0B4DA2"
+                    }
+                  },
+                  {
+                    "value": "unidades triadas por hora ÷ meta de Seleção e Triagem (Admin > Metas).",
+                    "textStyle": {
+                      "fontSize": "10pt",
+                      "color": "#334155"
+                    }
+                  }
+                ]
+              },
+              {
+                "textRuns": [
+                  {
                     "value": "% da etapa: ",
                     "textStyle": {
                       "fontWeight": "bold",

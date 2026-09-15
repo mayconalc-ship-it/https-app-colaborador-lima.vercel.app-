@@ -4,10 +4,10 @@
   "position": {
     "x": 16,
     "y": 548,
-    "z": 27000,
+    "z": 29000,
     "height": 166,
     "width": 620,
-    "tabOrder": 27000
+    "tabOrder": 29000
   },
   "visual": {
     "visualType": "tableEx",
@@ -107,6 +107,20 @@
                       "Entity": "_Medidas"
                     }
                   },
+                  "Property": "% da meta min/caixa"
+                }
+              },
+              "queryRef": "_Medidas.% da meta min/caixa",
+              "nativeQueryRef": "% da meta min/caixa"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "_Medidas"
+                    }
+                  },
                   "Property": "Dias de repack"
                 }
               },
@@ -182,7 +196,7 @@
             "defaultColumnWidth": {
               "expr": {
                 "Literal": {
-                  "Value": "76D"
+                  "Value": "66D"
                 }
               }
             }

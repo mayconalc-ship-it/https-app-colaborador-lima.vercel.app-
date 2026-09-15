@@ -72,6 +72,25 @@
                     }
                   }
                 ]
+              },
+              {
+                "textRuns": [
+                  {
+                    "value": "🎯 % da meta (cx/h): ",
+                    "textStyle": {
+                      "fontWeight": "bold",
+                      "fontSize": "10pt",
+                      "color": "#0B4DA2"
+                    }
+                  },
+                  {
+                    "value": "caixas por hora do repack ÷ média das metas cadastradas dos produtos repackados.",
+                    "textStyle": {
+                      "fontSize": "10pt",
+                      "color": "#334155"
+                    }
+                  }
+                ]
               }
             ]
           }

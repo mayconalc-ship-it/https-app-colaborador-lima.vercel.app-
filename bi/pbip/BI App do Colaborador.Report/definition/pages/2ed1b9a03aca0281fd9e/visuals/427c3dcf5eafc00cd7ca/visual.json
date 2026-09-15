@@ -4,10 +4,10 @@
   "position": {
     "x": 648,
     "y": 548,
-    "z": 28000,
+    "z": 30000,
     "height": 166,
     "width": 616,
-    "tabOrder": 28000
+    "tabOrder": 30000
   },
   "visual": {
     "visualType": "tableEx",
@@ -107,6 +107,20 @@
                       "Entity": "_Medidas"
                     }
                   },
+                  "Property": "% da meta min/caixa"
+                }
+              },
+              "queryRef": "_Medidas.% da meta min/caixa",
+              "nativeQueryRef": "% da meta min/caixa"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "_Medidas"
+                    }
+                  },
                   "Property": "Lançamentos de repack"
                 }
               },
@@ -168,7 +182,7 @@
             "defaultColumnWidth": {
               "expr": {
                 "Literal": {
-                  "Value": "86D"
+                  "Value": "74D"
                 }
               }
             }

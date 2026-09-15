@@ -1374,8 +1374,51 @@ table '_Medidas'
 			    CALCULATE ( SUM ( fato_pa_bancada[horas] ), fato_pa_bancada[etapa] = "repack" ) * 60,
 			    [Caixas repackadas]
 			)
+			
+			/*
+			AS METAS DA BANCADA DE ADMIN > METAS (15/09/2026, pedido do dono).
+			
+			As mesmas da tela de gestão do armazém, por revenda, em
+			dim_meta_armazem. Com as duas revendas no recorte, vale a média das
+			duas metas -- e a revenda sem meta cadastrada (Barreiras, em setembro)
+			fica fora da média em vez de entrar como zero.
+			
+			O "% da meta" segue o sentido de cada meta: minutos por caixa é MENOR
+			melhor, então é meta ÷ realizado (acima de 100% = mais rápido que a
+			meta); seleção e horas por dia são MAIOR melhor, realizado ÷ meta.
+			*/
 		formatString: 0.0
 		lineageTag: 840310cb-ecbe-4327-b8da-610f0abbcafb
+
+	measure 'Meta min/caixa (repack)' =
+			CALCULATE ( AVERAGE ( dim_meta_armazem[valor] ), dim_meta_armazem[chave] = "reepack_minutos_caixa" )
+		formatString: 0.0
+		lineageTag: d708d39a-91c3-435e-a46f-7793fdefbfe9
+
+	measure '% da meta min/caixa' =
+			DIVIDE ( [Meta min/caixa (repack)], [Minutos por caixa] )
+		formatString: 0.0%
+		lineageTag: efa1bb63-d1d5-473d-b3c2-f3acfb0751e1
+
+	measure 'Meta seleção un/h' =
+			CALCULATE ( AVERAGE ( dim_meta_armazem[valor] ), dim_meta_armazem[chave] = "selecao_un_hora" )
+		formatString: #,0
+		lineageTag: 7dae9a57-f88f-4fa5-8c49-901587df137d
+
+	measure '% da meta de seleção' =
+			DIVIDE ( [Seleção un/h], [Meta seleção un/h] )
+		formatString: 0.0%
+		lineageTag: 0cc57ab8-4279-434c-af0b-a399cc60153f
+
+	measure 'Meta bancada h/dia' =
+			CALCULATE ( AVERAGE ( dim_meta_armazem[valor] ), dim_meta_armazem[chave] = "bancada_horas_dia" )
+		formatString: 0.0
+		lineageTag: 996b1362-7944-4795-b384-ea9798400982
+
+	measure '% da meta h/dia' =
+			DIVIDE ( [Bancada h/dia], [Meta bancada h/dia] )
+		formatString: 0.0%
+		lineageTag: aa762f50-db37-4f99-ba47-ce1fac6ebf8a
 
 	measure 'Dias com bancada' =
 			DISTINCTCOUNT ( fato_pa_bancada[data] )

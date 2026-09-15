@@ -76,7 +76,7 @@
               {
                 "textRuns": [
                   {
-                    "value": "🎯 % da meta: ",
+                    "value": "🎯 % da meta (cx/h): ",
                     "textStyle": {
                       "fontWeight": "bold",
                       "fontSize": "10pt",
@@ -85,6 +85,25 @@
                   },
                   {
                     "value": "caixas por hora do repack ÷ média das metas cadastradas dos produtos repackados.",
+                    "textStyle": {
+                      "fontSize": "10pt",
+                      "color": "#334155"
+                    }
+                  }
+                ]
+              },
+              {
+                "textRuns": [
+                  {
+                    "value": "⏱️ Meta (min/caixa): ",
+                    "textStyle": {
+                      "fontWeight": "bold",
+                      "fontSize": "10pt",
+                      "color": "#0B4DA2"
+                    }
+                  },
+                  {
+                    "value": "a meta de minutos por caixa do Repack cadastrada em Admin > Metas (grupo Bancada), da revenda. Menor é melhor.",
                     "textStyle": {
                       "fontSize": "10pt",
                       "color": "#334155"

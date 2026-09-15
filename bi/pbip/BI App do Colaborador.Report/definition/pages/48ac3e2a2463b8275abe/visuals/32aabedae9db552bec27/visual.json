@@ -19,6 +19,25 @@
               {
                 "textRuns": [
                   {
+                    "value": "📏 % da meta (min/caixa): ",
+                    "textStyle": {
+                      "fontWeight": "bold",
+                      "fontSize": "10pt",
+                      "color": "#0B4DA2"
+                    }
+                  },
+                  {
+                    "value": "meta de minutos por caixa ÷ minutos por caixa realizados. Acima de 100%: mais rápido que a meta.",
+                    "textStyle": {
+                      "fontSize": "10pt",
+                      "color": "#334155"
+                    }
+                  }
+                ]
+              },
+              {
+                "textRuns": [
+                  {
                     "value": "Horas de bancada: ",
                     "textStyle": {
                       "fontWeight": "bold",

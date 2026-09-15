@@ -33,6 +33,7 @@ role 'Revenda São Félix'
 	tablePermission fato_5s_acao = fato_5s_acao[revenda_id] = "7afe4da5-e846-4b02-947f-96843a2791fe"
 	tablePermission fato_evento_acesso = fato_evento_acesso[revenda_id] = "7afe4da5-e846-4b02-947f-96843a2791fe"
 	tablePermission fato_quiz_gabarito = fato_quiz_gabarito[revenda_id] = "7afe4da5-e846-4b02-947f-96843a2791fe"
+	tablePermission dim_meta_armazem = dim_meta_armazem[revenda_id] = "7afe4da5-e846-4b02-947f-96843a2791fe"
 	tablePermission fato_atividade = fato_atividade[revenda_id] = "7afe4da5-e846-4b02-947f-96843a2791fe"
 	tablePermission fato_pa_bancada = fato_pa_bancada[revenda_id] = "7afe4da5-e846-4b02-947f-96843a2791fe"
 	tablePermission fato_pa_despejo = fato_pa_despejo[revenda_id] = "7afe4da5-e846-4b02-947f-96843a2791fe"

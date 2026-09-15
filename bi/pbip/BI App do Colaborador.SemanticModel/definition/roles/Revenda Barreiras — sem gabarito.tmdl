@@ -33,6 +33,7 @@ role 'Revenda Barreiras — sem gabarito'
 	tablePermission fato_5s_acao = fato_5s_acao[revenda_id] = "fc365d16-ccbd-4322-ae02-e992a36861e8"
 	tablePermission fato_evento_acesso = fato_evento_acesso[revenda_id] = "fc365d16-ccbd-4322-ae02-e992a36861e8"
 	tablePermission fato_quiz_gabarito = FALSE()
+	tablePermission dim_meta_armazem = dim_meta_armazem[revenda_id] = "fc365d16-ccbd-4322-ae02-e992a36861e8"
 	tablePermission fato_atividade = fato_atividade[revenda_id] = "fc365d16-ccbd-4322-ae02-e992a36861e8"
 	tablePermission fato_pa_bancada = fato_pa_bancada[revenda_id] = "fc365d16-ccbd-4322-ae02-e992a36861e8"
 	tablePermission fato_pa_despejo = fato_pa_despejo[revenda_id] = "fc365d16-ccbd-4322-ae02-e992a36861e8"

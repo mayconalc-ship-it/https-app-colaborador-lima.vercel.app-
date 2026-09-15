@@ -1,13 +1,13 @@
 {
   "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.12.0/schema.json",
-  "name": "b4d368b09174e2cf5db6",
+  "name": "0953d4427b0bed42e98b",
   "position": {
-    "x": 556,
+    "x": 916,
     "y": 200,
-    "z": 24000,
+    "z": 26000,
     "height": 96,
     "width": 168,
-    "tabOrder": 24000
+    "tabOrder": 26000
   },
   "visual": {
     "visualType": "cardVisual",
@@ -23,11 +23,11 @@
                       "Entity": "_Medidas"
                     }
                   },
-                  "Property": "Caixas repackadas"
+                  "Property": "% da meta h/dia"
                 }
               },
-              "queryRef": "_Medidas.Caixas repackadas",
-              "nativeQueryRef": "Caixas repackadas"
+              "queryRef": "_Medidas.% da meta h/dia",
+              "nativeQueryRef": "% da meta h/dia"
             }
           ]
         }
@@ -113,7 +113,7 @@
             "text": {
               "expr": {
                 "Literal": {
-                  "Value": "'📦 Caixas repackadas'"
+                  "Value": "'🎯 % da meta h/dia'"
                 }
               }
             },
@@ -134,6 +134,26 @@
               "expr": {
                 "Literal": {
                   "Value": "false"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "visualHeaderTooltip": [
+        {
+          "properties": {
+            "type": {
+              "expr": {
+                "Literal": {
+                  "Value": "'Text'"
+                }
+              }
+            },
+            "text": {
+              "expr": {
+                "Literal": {
+                  "Value": "'Média por dia ÷ a meta de tempo de bancada por dia (Admin > Metas, grupo Bancada). Revenda sem meta cadastrada fica em branco.'"
                 }
               }
             }

@@ -110,6 +110,25 @@
                     }
                   }
                 ]
+              },
+              {
+                "textRuns": [
+                  {
+                    "value": "🎯 % da meta h/dia: ",
+                    "textStyle": {
+                      "fontWeight": "bold",
+                      "fontSize": "10pt",
+                      "color": "#0B4DA2"
+                    }
+                  },
+                  {
+                    "value": "horas de bancada por dia trabalhado ÷ meta de horas por dia (Admin > Metas).",
+                    "textStyle": {
+                      "fontSize": "10pt",
+                      "color": "#334155"
+                    }
+                  }
+                ]
               }
             ]
           }

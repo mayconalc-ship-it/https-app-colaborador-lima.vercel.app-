@@ -1,0 +1,49 @@
+/// Metas por revenda de Admin > Metas (pa_metas). Filtre pela chave.
+table dim_meta_armazem
+	lineageTag: 68ca8443-fcd9-4771-a823-7502b69871bb
+
+	column revenda_id
+		dataType: string
+		isHidden
+		lineageTag: 6e10361c-7733-4137-b2e0-419ccc466434
+		summarizeBy: none
+		sourceColumn: revenda_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column chave
+		dataType: string
+		isHidden
+		lineageTag: 0b8cba90-7479-456c-8e5b-d6f3e46a0fd4
+		summarizeBy: none
+		sourceColumn: chave
+
+		annotation SummarizationSetBy = Automatic
+
+	column valor
+		dataType: decimal
+		lineageTag: 9690f674-6b12-41ae-b26d-f6baf240c768
+		summarizeBy: none
+		sourceColumn: valor
+
+		annotation SummarizationSetBy = Automatic
+
+	column atualizado_em
+		dataType: dateTime
+		formatString: dd/MM/yyyy
+		lineageTag: bdccdd99-2c49-4f59-8f97-05973d7a4e60
+		summarizeBy: none
+		sourceColumn: atualizado_em
+
+		annotation SummarizationSetBy = Automatic
+
+	partition dim_meta_armazem = m
+		mode: import
+		source =
+				let
+				    Origem = PostgreSQL.Database(Servidor, Banco),
+				    Dados = Origem{[Schema="bi",Item="dim_meta_armazem"]}[Data]
+				in
+				    Dados
+
+	annotation PBI_ResultType = Table

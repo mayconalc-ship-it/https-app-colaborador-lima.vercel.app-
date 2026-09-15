@@ -7,7 +7,7 @@ model Model
 		legacyRedirects
 		returnErrorValuesAsNull
 
-	annotation PBI_QueryOrder = ["Servidor","Banco","_Medidas","dim_atualizacao","dim_revenda","dim_colaborador","dim_calendario","dim_ocorrencia_rota","dim_menu_app","dim_quiz_rodada","dim_quiz_questao","dim_sonho_revenda","fato_ag_contagem","fato_ag_dia_colaborador","fato_ag_conciliacao","fato_ag_recontagem","fato_feedback_rota","fato_feedback_ocorrencia","fato_feedback_cidade","fato_cinco_porques","fato_cinco_porques_resposta","fato_cinco_porques_matriz","fato_comunicado","fato_comunicado_curtida","fato_comunicado_agenda","fato_quiz_participacao","fato_quiz_resposta","fato_quiz_rodada_participacao","fato_ranking_matinal","fato_ranking_matinal_cobertura","dim_5s_area","dim_5s_pergunta","fato_5s_auditoria","fato_5s_senso","fato_5s_resposta","fato_5s_acao","fato_evento_acesso","fato_quiz_gabarito","fato_uso_sessao","fato_atividade","dim_hora","fato_pa_bancada","fato_pa_despejo","fato_pa_bombona","fato_pa_esvaziamento","fato_pa_abastecimento","fato_pa_ressuprimento","fato_pa_bate_palete","fato_carreta","fato_carreta_item","fato_empilhadeira_operacao","fato_empilhadeira_gas","fato_empilhadeira_ciclo_gas"]
+	annotation PBI_QueryOrder = ["Servidor","Banco","_Medidas","dim_atualizacao","dim_revenda","dim_colaborador","dim_calendario","dim_ocorrencia_rota","dim_menu_app","dim_quiz_rodada","dim_quiz_questao","dim_sonho_revenda","fato_ag_contagem","fato_ag_dia_colaborador","fato_ag_conciliacao","fato_ag_recontagem","fato_feedback_rota","fato_feedback_ocorrencia","fato_feedback_cidade","fato_cinco_porques","fato_cinco_porques_resposta","fato_cinco_porques_matriz","fato_comunicado","fato_comunicado_curtida","fato_comunicado_agenda","fato_quiz_participacao","fato_quiz_resposta","fato_quiz_rodada_participacao","fato_ranking_matinal","fato_ranking_matinal_cobertura","dim_5s_area","dim_5s_pergunta","fato_5s_auditoria","fato_5s_senso","fato_5s_resposta","fato_5s_acao","fato_evento_acesso","fato_quiz_gabarito","dim_meta_armazem","fato_uso_sessao","fato_atividade","dim_hora","fato_pa_bancada","fato_pa_despejo","fato_pa_bombona","fato_pa_esvaziamento","fato_pa_abastecimento","fato_pa_ressuprimento","fato_pa_bate_palete","fato_carreta","fato_carreta_item","fato_empilhadeira_operacao","fato_empilhadeira_gas","fato_empilhadeira_ciclo_gas"]
 
 	annotation __PBI_TimeIntelligenceEnabled = 0
 
@@ -49,6 +49,7 @@ ref table fato_5s_resposta
 ref table fato_5s_acao
 ref table fato_evento_acesso
 ref table fato_quiz_gabarito
+ref table dim_meta_armazem
 ref table fato_uso_sessao
 ref table fato_atividade
 ref table dim_hora

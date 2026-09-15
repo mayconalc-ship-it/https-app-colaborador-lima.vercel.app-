@@ -1,12 +1,12 @@
 {
   "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.12.0/schema.json",
-  "name": "0933a01f5818b0184c65",
+  "name": "4099d13d509dd70fe2d5",
   "position": {
-    "x": 772,
+    "x": 646,
     "y": 200,
     "z": 25000,
     "height": 96,
-    "width": 240,
+    "width": 198,
     "tabOrder": 25000
   },
   "visual": {
@@ -113,7 +113,7 @@
             "text": {
               "expr": {
                 "Literal": {
-                  "Value": "'🎯 % da meta'"
+                  "Value": "'🎯 % da meta (cx/h)'"
                 }
               }
             },
@@ -134,26 +134,6 @@
               "expr": {
                 "Literal": {
                   "Value": "false"
-                }
-              }
-            }
-          }
-        }
-      ],
-      "visualHeaderTooltip": [
-        {
-          "properties": {
-            "type": {
-              "expr": {
-                "Literal": {
-                  "Value": "'Text'"
-                }
-              }
-            },
-            "text": {
-              "expr": {
-                "Literal": {
-                  "Value": "'Caixas por hora do recorte ÷ a média das metas cadastradas dos produtos repackados. Produto sem meta cadastrada fica fora da meta, em vez de entrar como zero.'"
                 }
               }
             }
