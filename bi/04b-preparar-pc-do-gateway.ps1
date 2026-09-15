@@ -60,6 +60,12 @@ Write-Host "`n2) Energia: sem suspender nem hibernar na tomada"
 powercfg /change standby-timeout-ac 0 | Out-Null
 powercfg /change hibernate-timeout-ac 0 | Out-Null
 Ok "suspender e hibernar = Nunca (na tomada)"
+# ESPERA MODERNA (15/09/2026): em notebook "S0 conectado via rede" (veja
+# powercfg /a), APAGAR A TELA ja poe o PC em espera e congela o gateway,
+# mesmo com suspender = Nunca. A tela apagava em 3 h e a atualizacao das
+# 06h falhou com GatewayUnreachable. Na tomada, a tela nao apaga mais.
+powercfg /change monitor-timeout-ac 0 | Out-Null
+Ok "tela na tomada = Nunca apagar (senao a espera moderna congela o gateway)"
 # Notebook: fechar a tampa costuma SUSPENDER, e o ajuste acima nao cobre
 # isso. Na tomada, a tampa passa a nao fazer nada; na bateria fica como
 # estava.
