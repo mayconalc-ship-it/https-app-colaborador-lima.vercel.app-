@@ -134,13 +134,16 @@ async function liderancaDoArmazem(
     .eq("modulo", "produtividade-armazem")
     .eq("acao", "ver");
   const ids = [...new Set((permissoes ?? []).map((p) => p.colaborador_id as string))];
-  if (ids.length === 0) return [];
   // A permissão só vale para quem ainda é liderança (ver podeFazer em
   // lib/acessos.ts): quem voltou a colaborador fica fora do aviso.
-  const { data: pessoas } = await admin
-    .from("profiles")
-    .select("id")
-    .in("id", ids)
-    .eq("role", "lideranca");
-  return (pessoas ?? []).map((p) => p.id as string);
+  const [{ data: pessoas }, { data: donos }] = await Promise.all([
+    ids.length > 0
+      ? admin.from("profiles").select("id").in("id", ids).eq("role", "lideranca")
+      : Promise.resolve({ data: [] as { id: string }[] }),
+    // O DONO TAMBÉM (14/09/2026, pedido dele): owner não tem linha em
+    // lideranca_permissoes -- passa por qualquer módulo pelo papel --, e
+    // por isso ficava de fora. Recebe o aviso das duas revendas.
+    admin.from("profiles").select("id").eq("role", "owner"),
+  ]);
+  return [...new Set([...(pessoas ?? []), ...(donos ?? [])].map((p) => p.id as string))];
 }
