@@ -2649,14 +2649,9 @@ select
     'Sem padrão de origem'
   )                           as origem,
   q.explicacao,
-  -- A RESPOSTA CERTA VIAJA NO FATO, e nao numa dimensao a parte.
-  --
-  -- Uma dim_quiz_gabarito sem relacionamento com este fato mostraria a
-  -- resposta de TODAS as perguntas em cada linha da tabela -- o erro
-  -- classico de dimensao solta, que nao acusa nada e so entrega numero
-  -- errado. Denormalizar aqui e o mesmo caminho que o resto do modelo ja
-  -- usa (ver dim_quiz_rodada no 01).
-  gab.texto                   as resposta_certa,
+  -- A RESPOSTA CERTA SAIU DAQUI (14/09/2026) e mora em bi.fato_quiz_gabarito,
+  -- logo abaixo: numa tabela so dela, a seguranca do BI consegue esconde-la
+  -- de quem nao e lideranca sem apagar as respostas junto.
   resp.correta,
   (not resp.correta)          as errou,
   round(resp.tempo_ms / 1000.0, 1) as tempo_segundos,
@@ -2668,20 +2663,42 @@ from public.quiz_respostas resp
 join public.quiz_participacoes pa on pa.id = resp.participacao_id
 join public.quiz_rodadas r        on r.id  = pa.rodada_id
 join public.quiz_questoes q       on q.id  = resp.questao_id
+-- Fora do BI (ver bi.fora_do_bi). Faltava aqui: esta e a versao que vale
+-- depois do 15, e a do 01 era a unica com o filtro.
+where not exists (select 1 from bi.fora_do_bi x where x.colaborador_id = pa.colaborador_id);
+
+comment on view bi.fato_quiz_resposta is
+  'Grao: uma resposta. `origem` da endereco a pauta; `chute` separa pressa de desconhecimento. O gabarito mora em bi.fato_quiz_gabarito.';
+
+-- O GABARITO, uma linha por pergunta (14/09/2026).
+--
+-- CUIDADO DELIBERADO: isto traz a alternativa correta para o modelo. Existe
+-- porque a reuniao de treinamento precisa saber o que ENSINAR ao lado da
+-- pergunta que o time errou. Tabela propria, e nao coluna do fato de
+-- respostas, para a seguranca do BI poder bloquea-la inteira nas funcoes
+-- "sem gabarito" (bi/pbip/seguranca.js) -- quem joga o Desafio ve a coluna
+-- em branco, e a matriz continua de pe.
+--
+-- Sem relacionamento no modelo: a medida [Resposta certa] a busca pela
+-- pergunta da linha (LOOKUPVALUE). Solta com relacionamento nenhum e usada
+-- como coluna, ela mostraria a resposta de todas as perguntas em cada linha
+-- -- foi o que tirou a antiga dim_quiz_gabarito do modelo.
+drop view if exists bi.fato_quiz_gabarito;
+create view bi.fato_quiz_gabarito as
+select
+  q.id          as questao_id,
+  q.revenda_id,
+  gab.texto     as resposta_certa
+from public.quiz_questoes q
 left join lateral (
-  -- CUIDADO DELIBERADO: isto traz a alternativa correta para o modelo.
-  -- Existe porque a reuniao de treinamento precisa saber o que ENSINAR
-  -- ao lado da pergunta que o time errou. Se o relatorio for distribuido
-  -- ao time inteiro, remova esta coluna -- ou o campeonato do mes acaba
-  -- no primeiro compartilhamento.
   select a.texto
   from public.quiz_alternativas a
   where a.questao_id = q.id and a.correta
   limit 1
 ) gab on true;
 
-comment on view bi.fato_quiz_resposta is
-  'Grao: uma resposta. `origem` da endereco a pauta; `chute` separa pressa de desconhecimento; `resposta_certa` e GABARITO.';
+comment on view bi.fato_quiz_gabarito is
+  'GABARITO do Desafio, uma linha por pergunta. Bloqueado nas funcoes "sem gabarito" da seguranca do BI.';
 
 -- ------------------------------------------------------------------
 -- 10) O CICLO DO BOTIJAO -- inicio, fim e quanto rendeu

@@ -1517,10 +1517,9 @@ const paginas = [
       },
     ],
     nota:
-      'ESTA PÁGINA MOSTRA O GABARITO. Ela é para a liderança e para a reunião de treinamento — '
-      + 'se o relatório for distribuído ao time inteiro, remova a tabela de resposta certa (ou a '
-      + 'tabela dim_quiz_gabarito do modelo), ou o campeonato do mês acaba no primeiro '
-      + 'compartilhamento. '
+      'A RESPOSTA CERTA É SÓ DA LIDERANÇA: quem estiver numa função "sem gabarito" da segurança '
+      + 'do BI (Service > modelo > Segurança) vê essa coluna em branco. Ponha nelas quem joga o '
+      + 'Desafio, ou o campeonato do mês acaba no primeiro compartilhamento. '
       + 'Abaixo de 60% de acerto a pergunta deixa de ser placar e vira pauta: metade do time não '
       + 'sabe o procedimento. Aplique no painel Filtros um corte de ≥ 5 respostas nos dois visuais '
       + 'de pergunta e no de padrão (o corte vem declarado mas nasce desligado — ver o cabeçalho de '

@@ -113,7 +113,7 @@ module.exports = {
   'Perguntas em alerta': 'perguntas com menos de 60% de acerto e pelo menos 5 respostas.',
   '% de chute': 'respostas erradas dadas em menos de 4 segundos ÷ todas as respostas.',
   'Padrão mais crítico': 'o padrão (POP) com a menor taxa de acerto entre os que têm 5 ou mais respostas.',
-  'Resposta certa': 'o gabarito da pergunta — só aparece na linha de uma pergunta.',
+  'Resposta certa': 'o gabarito da pergunta — só aparece na linha de uma pergunta, e fica em branco para quem está numa função "sem gabarito".',
   'fato_quiz_resposta.tempo_segundos#soma': ['Tempo (s)', 'segundos que a pessoa levou para responder a pergunta.'],
 
   // --- Super Matinal e Sonho --------------------------------------------

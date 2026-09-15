@@ -397,7 +397,9 @@ const tabelas = [
     colunas:
       'resposta_id:s revenda_id:s rodada_id:s rodada:s mes_ref:t colaborador_id:s ' +
       'colaborador:s area:s questao_id:s pergunta:s dificuldade:s dificuldade_rotulo:s ' +
-      'pilar:s padrao:s atividade:s origem:s explicacao:s resposta_certa:s ' +
+      // resposta_certa saiu daqui (14/09/2026): mora em fato_quiz_gabarito,
+      // que a seguranca consegue bloquear sem apagar as respostas.
+      'pilar:s padrao:s atividade:s origem:s explicacao:s ' +
       'correta:b errou:b tempo_segundos:n chute:b respondida_em:t data:t hora:i ' + CHAVE,
     chaveComposta: true,
     data: 'data',
@@ -526,6 +528,18 @@ const tabelas = [
       'sessao_id:s criado_em:t data:t hora:i ' + CHAVE,
     chaveComposta: true,
     data: 'data',
+  },
+  {
+    // O GABARITO DO DESAFIO, uma linha por pergunta (14/09/2026).
+    //
+    // Tabela propria para a seguranca poder bloquea-la inteira nas funcoes
+    // "sem gabarito" (seguranca.js) sem apagar as respostas. Sem
+    // relacionamento de proposito: a medida [Resposta certa] a busca pela
+    // pergunta da linha, e ninguem deve arrastar esta coluna para um visual.
+    nome: 'fato_quiz_gabarito',
+    view: 'fato_quiz_gabarito',
+    descricao: 'GABARITO do Desafio. Bloqueado nas funcoes "sem gabarito" da seguranca.',
+    colunas: 'questao_id:s revenda_id:s resposta_certa:s',
   },
   {
     nome: 'fato_uso_sessao',

@@ -1992,11 +1992,22 @@ MEASURE '_Medidas'[% de chute] =
 // O gabarito na linha da pergunta, na matriz do Desafio (12/09/2026).
 // Numa linha de padrão (várias perguntas) fica vazio -- a resposta só faz
 // sentido quando a linha é UMA pergunta.
+//
+// BUSCA NA TABELA DE GABARITO (14/09/2026). A resposta saiu do fato para
+// fato_quiz_gabarito, que as funções "sem gabarito" da segurança bloqueiam
+// -- para quem está nelas, esta medida volta vazia e a matriz continua de
+// pé. LOOKUPVALUE pela pergunta da linha, sem relacionamento: é o que
+// impede a tabela solta de mostrar a resposta de todas as perguntas.
 MEASURE '_Medidas'[Resposta certa] =
-    IF (
-        HASONEVALUE ( fato_quiz_resposta[questao_id] ),
-        MAX ( fato_quiz_resposta[resposta_certa] )
-    )
+    VAR Pergunta = SELECTEDVALUE ( fato_quiz_resposta[questao_id] )
+    RETURN
+        IF (
+            NOT ISBLANK ( Pergunta ),
+            LOOKUPVALUE (
+                fato_quiz_gabarito[resposta_certa],
+                fato_quiz_gabarito[questao_id], Pergunta
+            )
+        )
 
 // Abaixo de 60% a pergunta deixa de ser placar e vira pauta: metade do
 // time não sabe o procedimento. O corte espelha ALERTA_DE_ACERTO em

@@ -1,0 +1,40 @@
+/// GABARITO do Desafio. Bloqueado nas funcoes "sem gabarito" da seguranca.
+table fato_quiz_gabarito
+	lineageTag: 1b188daa-e141-4bd3-b2d2-7f89e4e527d3
+
+	column questao_id
+		dataType: string
+		isHidden
+		lineageTag: 1565fd8f-5a4e-4143-a599-f7d2491b9aa9
+		summarizeBy: none
+		sourceColumn: questao_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column revenda_id
+		dataType: string
+		isHidden
+		lineageTag: 8a06558d-a347-426c-9786-bec29d0eb48b
+		summarizeBy: none
+		sourceColumn: revenda_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column resposta_certa
+		dataType: string
+		lineageTag: 08dae6cf-430f-4817-8035-889c5c42a5dd
+		summarizeBy: none
+		sourceColumn: resposta_certa
+
+		annotation SummarizationSetBy = Automatic
+
+	partition fato_quiz_gabarito = m
+		mode: import
+		source =
+				let
+				    Origem = PostgreSQL.Database(Servidor, Banco),
+				    Dados = Origem{[Schema="bi",Item="fato_quiz_gabarito"]}[Data]
+				in
+				    Dados
+
+	annotation PBI_ResultType = Table

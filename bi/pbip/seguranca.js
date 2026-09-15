@@ -15,32 +15,53 @@
 // fica bloqueada inteira nas funcoes (BLOQUEADAS). Hoje e so a de sessoes
 // de uso, que nenhuma pagina nem medida usa.
 //
+// O GABARITO DO DESAFIO (14/09/2026): cada revenda tem uma segunda funcao,
+// "<revenda> — sem gabarito", igual a primeira e com fato_quiz_gabarito
+// bloqueada. E para quem JOGA o Desafio: a coluna "Resposta certa" da
+// matriz sai em branco e o resto da pagina continua igual. A lideranca fica
+// na funcao sem o sufixo. Ninguem deve estar nas duas da mesma revenda --
+// funcoes se somam, e a que ve o gabarito ganharia.
+//
 // O QUE A SEGURANCA NAO ALCANCA: quem e Administrador, Membro ou
 // Colaborador do workspace ve tudo, sempre -- e regra do Power BI. Ela vale
 // para quem recebe o relatorio compartilhado ou como Visualizador.
 //
 // Revenda nova: acrescente aqui (o id vem de public.revendas). Tabela nova
 // com revenda_id entra sozinha; o validar.js falha se alguma escapar.
-const FUNCOES = [
+const REVENDAS = [
   { nome: 'Revenda São Félix', revendaId: '7afe4da5-e846-4b02-947f-96843a2791fe' },
   { nome: 'Revenda Barreiras', revendaId: 'fc365d16-ccbd-4322-ae02-e992a36861e8' },
 ];
+
+const TABELA_GABARITO = 'fato_quiz_gabarito';
+
+const FUNCOES = REVENDAS.flatMap((r) => [
+  { nome: r.nome, revendaId: r.revendaId, semGabarito: false },
+  { nome: `${r.nome} — sem gabarito`, revendaId: r.revendaId, semGabarito: true },
+]);
 
 const BLOQUEADAS = ['fato_uso_sessao'];
 
 function tmdlDaFuncao(funcao, tabelas) {
   const comRevenda = tabelas.filter((t) =>
     t.colunas.trim().split(/\s+/).some((c) => c.split(':')[0] === 'revenda_id'));
+  const filtro = (t) =>
+    funcao.semGabarito && t.nome === TABELA_GABARITO
+      ? `\ttablePermission ${t.nome} = FALSE()`
+      : `\ttablePermission ${t.nome} = ${t.nome}[revenda_id] = "${funcao.revendaId}"`;
+  const quem = funcao.semGabarito
+    ? `Ve so a ${funcao.nome.replace(' — sem gabarito', '')}, sem a resposta certa do Desafio (para quem joga).`
+    : `Ve so a ${funcao.nome}, com o gabarito do Desafio (lideranca).`;
   const linhas = [
-    `/// Ve so a ${funcao.nome}. Membros: Power BI Service > modelo semantico > Seguranca.`,
+    `/// ${quem} Membros: Power BI Service > modelo semantico > Seguranca.`,
     `role '${funcao.nome}'`,
     '\tmodelPermission: read',
     '',
-    ...comRevenda.map((t) => `\ttablePermission ${t.nome} = ${t.nome}[revenda_id] = "${funcao.revendaId}"`),
+    ...comRevenda.map(filtro),
     ...BLOQUEADAS.map((nome) => `\ttablePermission ${nome} = FALSE()`),
     '',
   ];
   return linhas.join('\n');
 }
 
-module.exports = { FUNCOES, BLOQUEADAS, tmdlDaFuncao };
+module.exports = { FUNCOES, BLOQUEADAS, TABELA_GABARITO, tmdlDaFuncao };

@@ -46,7 +46,7 @@
                     }
                   },
                   {
-                    "value": "o gabarito da pergunta — só aparece na linha de uma pergunta.",
+                    "value": "o gabarito da pergunta — só aparece na linha de uma pergunta, e fica em branco para quem está numa função \"sem gabarito\".",
                     "textStyle": {
                       "fontSize": "10pt",
                       "color": "#334155"

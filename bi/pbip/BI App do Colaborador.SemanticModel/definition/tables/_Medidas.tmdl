@@ -1915,10 +1915,15 @@ table '_Medidas'
 		lineageTag: d750c442-9dc5-4b1c-8fd8-f6cc6bb6aa64
 
 	measure 'Resposta certa' =
-			IF (
-			    HASONEVALUE ( fato_quiz_resposta[questao_id] ),
-			    MAX ( fato_quiz_resposta[resposta_certa] )
-			)
+			VAR Pergunta = SELECTEDVALUE ( fato_quiz_resposta[questao_id] )
+			RETURN
+			    IF (
+			        NOT ISBLANK ( Pergunta ),
+			        LOOKUPVALUE (
+			            fato_quiz_gabarito[resposta_certa],
+			            fato_quiz_gabarito[questao_id], Pergunta
+			        )
+			    )
 		lineageTag: e7e6b9d7-2af3-456c-8627-ed4a6c116d0d
 
 	measure 'Perguntas em alerta' =
