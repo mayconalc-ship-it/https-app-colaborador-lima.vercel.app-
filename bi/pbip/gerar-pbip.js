@@ -1051,6 +1051,23 @@ function visualJson(v, ordemZ) {
     visual.objects.dataPoint = gradienteSequencial();
   }
 
+  // COR FIXA POR SERIE (15/09/2026, pedido do dono: a meta nos graficos
+  // "com outra cor"). `corSerie: { '@Medida': '#RRGGBB' }`. Sem isto a
+  // segunda serie pega a segunda cor do tema -- um azul-claro que mal se
+  // separa do azul do realizado.
+  //
+  // PALPITE: o seletor por medida (selector.metadata = queryRef) e a forma
+  // do Power BI para "cor desta serie", mas este projeto ainda nao tem um
+  // exemplo salvo pelo Desktop. Se ele ignorar, a serie volta a cor do
+  // tema -- o grafico continua certo, so sem a cor pedida.
+  if (v.corSerie) {
+    visual.objects = visual.objects || {};
+    visual.objects.dataPoint = Object.entries(v.corSerie).map(([ref, cor]) => ({
+      properties: { fill: { solid: { color: lit(`'${cor}'`) } } },
+      selector: { metadata: campo(ref).queryRef },
+    }));
+  }
+
   // Segmentacoes sincronizadas (acabamento 2). O grupo leva o nome do
   // campo: e o que faz o mesmo filtro se reencontrar em todas as paginas.
   if (v.grupoSincronia && ACAB.sync) {

@@ -1968,11 +1968,17 @@ const paginas = [
       // familia por ultimo.
       {
         t: 'clusteredBarChart', x: 16, y: Y.meio, w: 410, h: H.meio,
-        titulo: '📦 Ritmo por produto — caixas por hora',
+        titulo: '📦 Ritmo por produto — caixas por hora × meta',
         roles: {
           Category: ['fato_pa_bancada.produto'],
-          Y: ['@Repack cx/h'],
+          // A META AO LADO (15/09/2026, pedido do dono), em dourado -- a cor
+          // de destaque do app --, e o realizado no azul de sempre.
+          Y: ['@Repack cx/h', '@Meta de repack cx/h'],
         },
+        corSerie: { '@Meta de repack cx/h': '#FFC72C' },
+        dica:
+          'Barra azul: caixas por hora realizadas no recorte. Barra dourada: a meta cadastrada do produto ' +
+          '(Admin > produtos). Produto sem meta cadastrada fica só com a barra azul.',
         ordem: { campo: '@Repack cx/h', dir: 'Descending' },
         // Sem corte minimo, um produto com um lancamento de dois minutos
         // aparece com taxa absurda no topo da lista.
@@ -1982,20 +1988,32 @@ const paginas = [
         // Por EMBALAGEM, e nao so por produto: 25 produtos com um
         // lancamento cada nao formam padrao nenhum -- a embalagem junta.
         t: 'clusteredBarChart', x: 438, y: Y.meio, w: 410, h: H.meio,
-        titulo: '📦 Ritmo por embalagem — caixas por hora',
+        titulo: '📦 Ritmo por embalagem — caixas por hora × meta',
         roles: {
           Category: ['fato_pa_bancada.embalagem'],
-          Y: ['@Repack cx/h'],
+          // A META AO LADO (15/09/2026, pedido do dono), em dourado -- a cor
+          // de destaque do app --, e o realizado no azul de sempre.
+          Y: ['@Repack cx/h', '@Meta de repack cx/h'],
         },
+        corSerie: { '@Meta de repack cx/h': '#FFC72C' },
+        dica:
+          'Barra azul: caixas por hora realizadas no recorte. Barra dourada: a média das metas dos produtos lançados naquela embalagem ' +
+          '(Admin > produtos). Produto sem meta cadastrada fica só com a barra azul.',
         ordem: { campo: '@Repack cx/h', dir: 'Descending' },
       },
       {
         t: 'clusteredBarChart', x: 860, y: Y.meio, w: 404, h: H.meio,
-        titulo: '🍺 Ritmo por família — caixas por hora',
+        titulo: '🍺 Ritmo por família — caixas por hora × meta',
         roles: {
           Category: ['fato_pa_bancada.familia'],
-          Y: ['@Repack cx/h'],
+          // A META AO LADO (15/09/2026, pedido do dono), em dourado -- a cor
+          // de destaque do app --, e o realizado no azul de sempre.
+          Y: ['@Repack cx/h', '@Meta de repack cx/h'],
         },
+        corSerie: { '@Meta de repack cx/h': '#FFC72C' },
+        dica:
+          'Barra azul: caixas por hora realizadas no recorte. Barra dourada: a média das metas dos produtos lançados naquela família ' +
+          '(Admin > produtos). Produto sem meta cadastrada fica só com a barra azul.',
         ordem: { campo: '@Repack cx/h', dir: 'Descending' },
       },
       {
