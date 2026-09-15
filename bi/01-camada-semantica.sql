@@ -68,6 +68,26 @@ comment on schema bi is
   'Camada de leitura para Power BI. Views apenas -- nada aqui e escrito pelo app.';
 
 -- ------------------------------------------------------------------
+-- QUEM FICA FORA DO BI (14/09/2026, pedido do dono)
+-- ------------------------------------------------------------------
+-- O dono (role owner) testa o app com lancamento de verdade -- feedback
+-- nota 0, despejo de 45 L em 15 s -- e cada teste virava numero no
+-- relatorio, apagado depois a mao no banco. Os fatos de LANCAMENTO
+-- operacional (feedback, 5 Porques, Quiz, contagem do AG e o armazem)
+-- ignoram quem esta aqui. O que o dono faz de verdade (publicar
+-- comunicado, auditar 5S, confirmar pedido de gas, congelar a
+-- conciliacao) continua contando.
+--
+-- View, e nao funcao: funcao roda com o privilegio de quem CHAMA (o
+-- powerbi_readonly, que nao le profiles); view dentro de view roda como
+-- o dono dela. E NOT EXISTS, e nao NOT IN: com NOT IN, a linha sem
+-- colaborador (null) sumiria junto.
+create or replace view bi.fora_do_bi as
+select p.id as colaborador_id
+from public.profiles p
+where p.role = 'owner';
+
+-- ------------------------------------------------------------------
 -- 0) FUNCOES DE APOIO
 -- ------------------------------------------------------------------
 
@@ -381,7 +401,8 @@ select
 from public.ag_contagens c
 left join public.ag_fatores f
   on f.revenda_id = c.revenda_id
- and f.formato    = c.formato;
+ and f.formato    = c.formato
+where not exists (select 1 from bi.fora_do_bi x where x.colaborador_id = c.colaborador_id);
 
 comment on view bi.fato_ag_contagem is
   'Grao: uma linha de contagem. total_caixas ja convertido pelos fatores da revenda.';
@@ -584,7 +605,8 @@ left join lateral (
    where a2.feedback_rota_id = f.id
    order by a2.iniciada_em desc
    limit 1
-) a on true;
+) a on true
+where not exists (select 1 from bi.fora_do_bi x where x.colaborador_id = f.colaborador_id);
 
 comment on view bi.fato_feedback_rota is
   'Grao: um feedback. Uma linha por envio, com a nota em tres leituras.';
@@ -623,7 +645,8 @@ select
   coalesce(d.grupo, 'Não catalogada') as grupo
 from public.feedback_rota f
 cross join lateral unnest(f.ocorrencias) as o(ocorrencia_id)
-left join bi.dim_ocorrencia_rota d on d.ocorrencia_id = o.ocorrencia_id;
+left join bi.dim_ocorrencia_rota d on d.ocorrencia_id = o.ocorrencia_id
+where not exists (select 1 from bi.fora_do_bi x where x.colaborador_id = f.colaborador_id);
 
 comment on view bi.fato_feedback_ocorrencia is
   'Grao: feedback x ocorrencia (explodido). Conte DISTINCT feedback_id, nunca linhas.';
@@ -703,7 +726,8 @@ left join lateral (
 ) r on true
 left join lateral jsonb_array_elements(
   case when jsonb_typeof(r.cidades) = 'array' then r.cidades else '[]'::jsonb end
-) as c(item) on true;
+) as c(item) on true
+where not exists (select 1 from bi.fora_do_bi x where x.colaborador_id = f.colaborador_id);
 
 comment on view bi.fato_feedback_cidade is
   'Grao: feedback x cidade da rota. Conte DISTINCT feedback_id, nunca linhas.';
@@ -775,7 +799,8 @@ select
   case when a.status = 'concluida' and a.tratativa_status = 'pendente' then
     round(extract(epoch from (now() - a.concluida_em)) / 3600.0, 1)
   end                         as horas_aguardando
-from public.cinco_porques_analises a;
+from public.cinco_porques_analises a
+where not exists (select 1 from bi.fora_do_bi x where x.colaborador_id = a.colaborador_id);
 
 comment on view bi.fato_cinco_porques is
   'Grao: uma analise. Tres status distintos: do motorista, da lideranca e do aceite.';
@@ -799,7 +824,8 @@ select
   (nullif(btrim(coalesce(r.item ->> 'textoLivre', '')), '') is not null) as escreveu_livre
 from public.cinco_porques_analises a
 cross join lateral jsonb_array_elements(a.respostas)
-  with ordinality as r(item, ord);
+  with ordinality as r(item, ord)
+where not exists (select 1 from bi.fora_do_bi x where x.colaborador_id = a.colaborador_id);
 
 comment on view bi.fato_cinco_porques_resposta is
   'Grao: analise x porque. Alimenta a matriz problema -> causa -> acao.';
@@ -849,6 +875,7 @@ select
   count(*) filter (where a.resposta_lideranca is not null) as com_tratativa
 from public.cinco_porques_analises a
 where a.status = 'concluida'
+  and not exists (select 1 from bi.fora_do_bi x where x.colaborador_id = a.colaborador_id)
 group by 1, 2, 3, 4, 5;
 
 -- ==================================================================
@@ -1192,7 +1219,8 @@ select
              pa.pontos desc, pa.acertos desc, pa.tempo_ms asc
   )                           as posicao
 from public.quiz_participacoes pa
-join public.quiz_rodadas r on r.id = pa.rodada_id;
+join public.quiz_rodadas r on r.id = pa.rodada_id
+where not exists (select 1 from bi.fora_do_bi x where x.colaborador_id = pa.colaborador_id);
 
 comment on view bi.fato_quiz_participacao is
   'Grao: uma tentativa por pessoa por rodada. posicao segue o desempate do app (pontos > acertos > tempo).';
@@ -1248,7 +1276,8 @@ select
 from public.quiz_respostas resp
 join public.quiz_participacoes pa on pa.id = resp.participacao_id
 join public.quiz_rodadas r        on r.id  = pa.rodada_id
-join public.quiz_questoes q       on q.id  = resp.questao_id;
+join public.quiz_questoes q       on q.id  = resp.questao_id
+where not exists (select 1 from bi.fora_do_bi x where x.colaborador_id = pa.colaborador_id);
 
 comment on view bi.fato_quiz_resposta is
   'Grao: uma resposta. Use para taxa de erro POR PERIODO -- os contadores da questao sao vitalicios.';
@@ -1297,6 +1326,7 @@ left join lateral (
     max(q.pontos)                                     as melhor_pontos
   from public.quiz_participacoes q
   where q.rodada_id = r.id
+    and not exists (select 1 from bi.fora_do_bi x where x.colaborador_id = q.colaborador_id)
 ) pa on true;
 
 comment on view bi.fato_quiz_rodada_participacao is
@@ -1739,18 +1769,21 @@ union all
          coalesce(p.nome, 'Sem cadastro'), 'Feedback de Rota', count(*)::bigint
     from public.feedback_rota f
     left join public.profiles p on p.id = f.colaborador_id
+   where not exists (select 1 from bi.fora_do_bi x where x.colaborador_id = f.colaborador_id)
    group by 1, 2, 3, 4
 
 union all
   select a.revenda_id, bi.dia_local(a.iniciada_em), a.colaborador_id,
          a.colaborador_nome, '5 Porquês', count(*)::bigint
     from public.cinco_porques_analises a
+   where not exists (select 1 from bi.fora_do_bi x where x.colaborador_id = a.colaborador_id)
    group by 1, 2, 3, 4
 
 union all
   select pa.revenda_id, bi.dia_local(pa.iniciada_em), pa.colaborador_id,
          pa.colaborador_nome, 'Quiz', count(*)::bigint
     from public.quiz_participacoes pa
+   where not exists (select 1 from bi.fora_do_bi x where x.colaborador_id = pa.colaborador_id)
    group by 1, 2, 3, 4
 
 union all
@@ -1859,6 +1892,27 @@ comment on view bi.fato_atividade is
 -- 0) FUNCOES DE APOIO
 -- ------------------------------------------------------------------
 
+-- ------------------------------------------------------------------
+-- QUEM FICA FORA DO BI (14/09/2026, pedido do dono)
+-- ------------------------------------------------------------------
+-- O dono (role owner) testa o app com lancamento de verdade -- feedback
+-- nota 0, despejo de 45 L em 15 s -- e cada teste virava numero no
+-- relatorio, apagado depois a mao no banco. Os fatos de LANCAMENTO
+-- operacional (feedback, 5 Porques, Quiz, contagem do AG e o armazem)
+-- ignoram quem esta aqui. O que o dono faz de verdade (publicar
+-- comunicado, auditar 5S, confirmar pedido de gas, congelar a
+-- conciliacao) continua contando.
+--
+-- View, e nao funcao: funcao roda com o privilegio de quem CHAMA (o
+-- powerbi_readonly, que nao le profiles); view dentro de view roda como
+-- o dono dela. E NOT EXISTS, e nao NOT IN: com NOT IN, a linha sem
+-- colaborador (null) sumiria junto.
+create or replace view bi.fora_do_bi as
+select p.id as colaborador_id
+from public.profiles p
+where p.role = 'owner';
+
+
 -- O turno de um instante, no fuso da operacao. Espelha turnoAtual() de
 -- src/lib/produtividade-armazem.ts.
 create or replace function bi.turno_local(p_ts timestamptz)
@@ -1959,18 +2013,7 @@ select
     when h >= 12 and h < 18 then 'Tarde'
     when h >= 18 and h < 24 then 'Noite'
     else 'Madrugada'
-  end                                        as faixa_do_dia,
-  -- A ORDEM da faixa (12/09/2026, pedido do dono): sem ela a legenda dos
-  -- histogramas sai em ordem alfabetica -- Manha, Noite, Tarde. O modelo
-  -- ordena faixa_do_dia por esta coluna (ver ordenarPor em modelo.js).
-  -- No FIM da lista de colunas: create or replace view so aceita coluna
-  -- nova depois das que ja existem.
-  case
-    when h >= 5  and h < 12 then 1
-    when h >= 12 and h < 18 then 2
-    when h >= 18 and h < 24 then 3
-    else 4
-  end                                        as faixa_ordem
+  end                                        as faixa_do_dia
 from generate_series(0, 23) as h;
 
 comment on view bi.dim_hora is
@@ -2095,7 +2138,8 @@ select
 from public.pa_reepack_lancamentos l
 left join public.pa_produtos   pr  on pr.id  = l.produto_id
 left join public.pa_embalagens emb on emb.id = l.embalagem_id
-where l.fim is not null;
+where l.fim is not null
+  and not exists (select 1 from bi.fora_do_bi x where x.colaborador_id = l.colaborador_id);
 
 comment on view bi.fato_pa_bancada is
   'Selecao + Repack, uma linha por lancamento. `caixas` e `unidades_triadas` sao excludentes de proposito.';
@@ -2125,7 +2169,8 @@ select
   bi.hora_local(d.inicio)                     as hora
 from public.pa_despejo_lancamentos d
 left join public.pa_embalagens_despejo emb on emb.id = d.embalagem_despejo_id
-where d.fim is not null;
+where d.fim is not null
+  and not exists (select 1 from bi.fora_do_bi x where x.colaborador_id = d.colaborador_id);
 
 -- A BOMBONA E UM RECIPIENTE FISICO, e este e o unico fato do modelo que
 -- NAO deve ser filtrado por periodo, turno ou pessoa.
@@ -2174,6 +2219,7 @@ left join lateral (
   where d.revenda_id = r.id
     and d.fim is not null
     and (ult.esvaziada_em is null or d.inicio >= ult.esvaziada_em)
+    and not exists (select 1 from bi.fora_do_bi x where x.colaborador_id = d.colaborador_id)
 ) niv on true
 left join lateral (
   -- A capacidade e meta cadastrada em Admin > Metas. Sem linha, 1000 L,
@@ -2212,7 +2258,8 @@ left join lateral (
   select coalesce(max(m.valor), 1000)::numeric as capacidade
   from public.pa_metas m
   where m.revenda_id = e.revenda_id and m.chave = 'despejo_capacidade_bombona'
-) cap on true;
+) cap on true
+where not exists (select 1 from bi.fora_do_bi x where x.colaborador_id = e.colaborador_id);
 
 -- ------------------------------------------------------------------
 -- 5) ABASTECIMENTO DO PICKING E RESSUPRIMENTO
@@ -2247,7 +2294,8 @@ left join lateral (
   from public.pa_abastecimento_itens i
   where i.abastecimento_id = a.id
 ) itens on true
-where a.fim is not null;
+where a.fim is not null
+  and not exists (select 1 from bi.fora_do_bi x where x.colaborador_id = a.colaborador_id);
 
 -- O ressuprimento mede o TEMPO ENTRE tres pessoas, nao o volume (esse
 -- ja esta no abastecimento). Cada fase tem responsavel diferente, e por
@@ -2301,7 +2349,8 @@ left join lateral (
   where a.ressuprimento_id = s.id
   order by a.inicio
   limit 1
-) ab on true;
+) ab on true
+where not exists (select 1 from bi.fora_do_bi x where x.colaborador_id = s.solicitante_id);
 
 comment on view bi.fato_pa_ressuprimento is
   'Grao: um pedido. colaborador_id = SOLICITANTE; empilhador e ajudante sao atributos.';
@@ -2337,7 +2386,8 @@ select
 from public.pa_bate_palete_itens i
 join public.pa_bate_palete b on b.id = i.bate_palete_id
 left join public.pa_produtos pr on pr.id = i.produto_id
-where b.fim is not null;
+where b.fim is not null
+  and not exists (select 1 from bi.fora_do_bi x where x.colaborador_id = b.colaborador_id);
 
 -- ------------------------------------------------------------------
 -- 7) RECEBIMENTO DE CARRETAS
@@ -2774,7 +2824,8 @@ cross join lateral (
                    when '1000ml' then 50 when 'Verde' then 42 end as palete,
     case c.formato when '600ml' then 7  when '300ml' then 10
                    when '1000ml' then 10 when 'Verde' then 7  end as lastro
-) pad;
+) pad
+where not exists (select 1 from bi.fora_do_bi x where x.colaborador_id = c.colaborador_id);
 
 comment on view bi.fato_ag_contagem is
   'Grao: uma linha de contagem, TODAS (inclusive as sobrepostas por recontagem). Para volume, filtre viva = true.';
@@ -2950,18 +3001,21 @@ union all
          coalesce(p.nome, 'Sem cadastro'), 'Feedback de Rota', count(*)::bigint
     from public.feedback_rota f
     left join public.profiles p on p.id = f.colaborador_id
+   where not exists (select 1 from bi.fora_do_bi x where x.colaborador_id = f.colaborador_id)
    group by 1, 2, 3, 4
 
 union all
   select a.revenda_id, bi.dia_local(a.iniciada_em), a.colaborador_id,
          a.colaborador_nome, '5 Porquês', count(*)::bigint
     from public.cinco_porques_analises a
+   where not exists (select 1 from bi.fora_do_bi x where x.colaborador_id = a.colaborador_id)
    group by 1, 2, 3, 4
 
 union all
   select pa.revenda_id, bi.dia_local(pa.iniciada_em), pa.colaborador_id,
          pa.colaborador_nome, 'Quiz', count(*)::bigint
     from public.quiz_participacoes pa
+   where not exists (select 1 from bi.fora_do_bi x where x.colaborador_id = pa.colaborador_id)
    group by 1, 2, 3, 4
 
 union all

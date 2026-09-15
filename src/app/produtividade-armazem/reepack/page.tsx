@@ -28,6 +28,7 @@ import {
   type ProdutoReepack,
 } from "@/lib/produtividade-armazem";
 import { cancelarReepack, editarReepack, excluirReepack, finalizarReepack, iniciarReepack } from "./actions";
+import { FormFinalizarCronometro } from "@/components/FormFinalizarCronometro";
 
 export const dynamic = "force-dynamic";
 
@@ -234,7 +235,7 @@ export default async function ReepackPage({
         <section className="space-y-6">
           {aberto ? (
             <div className="space-y-3 rounded-2xl border border-amber-200 bg-amber-50 p-4">
-              <form action={finalizarReepack} className="space-y-3">
+              <FormFinalizarCronometro action={finalizarReepack} inicio={aberto.inicio} className="space-y-3">
                 <input type="hidden" name="id" value={aberto.id} />
                 <p className="text-sm font-bold text-amber-900">
                   🕐 {ETAPA_REEPACK[etapaDoAberto].rotulo} em andamento —{" "}
@@ -273,7 +274,7 @@ export default async function ReepackPage({
                 >
                   Finalizar {ETAPA_REEPACK[etapaDoAberto].curto.toLowerCase()}
                 </BotaoEnviar>
-              </form>
+              </FormFinalizarCronometro>
 
               <BotaoExcluir
                 action={cancelarReepack}

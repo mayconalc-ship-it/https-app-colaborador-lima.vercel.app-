@@ -1,5 +1,7 @@
 ﻿"use server";
 
+import { duracaoCurtaSemConfirmar, mensagemDuracaoCurta } from "@/lib/duracao-lancamento";
+
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { getPerfil } from "@/lib/sessao";
@@ -119,7 +121,7 @@ export async function finalizarReepack(formData: FormData) {
 
   const { data: aberto } = await supabase
     .from("pa_reepack_lancamentos")
-    .select("id, produto_id, etapa")
+    .select("id, produto_id, etapa, inicio")
     .eq("id", id)
     .eq("revenda_id", revendaId)
     .eq("colaborador_id", perfil.id)
@@ -127,6 +129,11 @@ export async function finalizarReepack(formData: FormData) {
     .maybeSingle();
 
   if (!aberto) erro("Este lançamento já foi finalizado ou não é seu.");
+
+  // Menos de 1 minuto entre Iniciar e Finalizar só passa confirmado -- a
+  // tela pergunta, aqui é a trava. Ver lib/duracao-lancamento.ts.
+  const curto = duracaoCurtaSemConfirmar(aberto.inicio, formData);
+  if (curto !== null) erro(mensagemDuracaoCurta(curto));
 
   const etapa = ehEtapaReepack(aberto.etapa) ? aberto.etapa : "repack";
 

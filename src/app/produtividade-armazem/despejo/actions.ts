@@ -9,6 +9,7 @@ import { podeNoModulo } from "@/lib/require-admin";
 import { getRevendaId } from "@/lib/revendas";
 import { exigirContextoModulo } from "@/lib/produtividade-armazem-server";
 import { ehTurno, inteiroNaoNegativo } from "@/lib/produtividade-armazem";
+import { duracaoCurtaSemConfirmar, mensagemDuracaoCurta } from "@/lib/duracao-lancamento";
 
 const ROTA = "/produtividade-armazem/despejo";
 
@@ -96,7 +97,7 @@ export async function finalizarDespejo(formData: FormData) {
 
   const { data: aberto } = await supabase
     .from("pa_despejo_lancamentos")
-    .select("id, embalagem_despejo_id")
+    .select("id, embalagem_despejo_id, inicio")
     .eq("id", id)
     .eq("revenda_id", revendaId)
     .eq("colaborador_id", perfil.id)
@@ -104,6 +105,11 @@ export async function finalizarDespejo(formData: FormData) {
     .maybeSingle();
 
   if (!aberto) erro("Este lançamento já foi finalizado ou não é seu.");
+
+  // Menos de 1 minuto entre Iniciar e Finalizar só passa confirmado -- a
+  // tela pergunta, aqui é a trava. Ver lib/duracao-lancamento.ts.
+  const curto = duracaoCurtaSemConfirmar(aberto.inicio, formData);
+  if (curto !== null) erro(mensagemDuracaoCurta(curto));
 
   const { data: embalagem } = await supabase
     .from("pa_embalagens_despejo")

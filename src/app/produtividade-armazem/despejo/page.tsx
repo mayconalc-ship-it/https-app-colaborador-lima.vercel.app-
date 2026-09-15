@@ -20,6 +20,7 @@ import {
   type EmbalagemDespejo,
 } from "@/lib/produtividade-armazem";
 import { cancelarDespejo, editarDespejo, excluirDespejo, finalizarDespejo, iniciarDespejo } from "./actions";
+import { FormFinalizarCronometro } from "@/components/FormFinalizarCronometro";
 
 export const dynamic = "force-dynamic";
 
@@ -161,7 +162,7 @@ export default async function DespejoPage({
         <section className="space-y-6">
           {aberto ? (
             <div className="space-y-3 rounded-2xl border border-amber-200 bg-amber-50 p-4">
-              <form action={finalizarDespejo} className="space-y-3">
+              <FormFinalizarCronometro action={finalizarDespejo} inicio={aberto.inicio} className="space-y-3">
                 <input type="hidden" name="id" value={aberto.id} />
                 <p className="text-sm font-bold text-amber-900">
                   🕐 Despejo em andamento — {embalagemRotulo(aberto.embalagem_despejo_id, embalagemPorId)} ·{" "}
@@ -193,7 +194,7 @@ export default async function DespejoPage({
                 >
                   Finalizar despejo
                 </BotaoEnviar>
-              </form>
+              </FormFinalizarCronometro>
 
               <BotaoExcluir
                 action={cancelarDespejo}

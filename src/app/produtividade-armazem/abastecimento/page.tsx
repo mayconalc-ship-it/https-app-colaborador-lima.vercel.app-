@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import { PageHeader } from "@/components/PageHeader";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
+import { FormFinalizarCronometro } from "@/components/FormFinalizarCronometro";
 import { BotaoExcluir } from "@/components/BotaoExcluir";
 import { createClient } from "@/lib/supabase/server";
 import { getRevendaId } from "@/lib/revendas";
@@ -1193,7 +1194,7 @@ function SessaoEmAndamento({
       )}
 
       {/* --- Finalizar --- */}
-      <form action={finalizarAbastecimento} className="space-y-3">
+      <FormFinalizarCronometro action={finalizarAbastecimento} inicio={sessao.inicio} className="space-y-3">
         <input type="hidden" name="id" value={sessao.id} />
         <div>
           <label className={rotulo} htmlFor="observacao">Observação (opcional)</label>
@@ -1210,7 +1211,7 @@ function SessaoEmAndamento({
             Informe pelo menos um produto antes de finalizar.
           </p>
         )}
-      </form>
+      </FormFinalizarCronometro>
 
       <BotaoExcluir
         action={cancelarAbastecimento}

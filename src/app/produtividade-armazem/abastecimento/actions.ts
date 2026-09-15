@@ -1,5 +1,7 @@
 "use server";
 
+import { duracaoCurtaSemConfirmar, mensagemDuracaoCurta } from "@/lib/duracao-lancamento";
+
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { getPerfil } from "@/lib/sessao";
@@ -214,6 +216,20 @@ export async function finalizarAbastecimento(formData: FormData) {
     .eq("abastecimento_id", id);
 
   if (!count) erro("Informe pelo menos um produto antes de finalizar.");
+
+  // Menos de 1 minuto entre Iniciar e Finalizar só passa confirmado -- a
+  // tela pergunta, aqui é a trava. Ver lib/duracao-lancamento.ts.
+  const { data: aberta } = await supabase
+    .from("pa_abastecimentos")
+    .select("inicio")
+    .eq("id", id)
+    .eq("revenda_id", revendaId)
+    .eq("colaborador_id", perfil.id)
+    .is("fim", null)
+    .maybeSingle();
+  if (!aberta) erro("Este abastecimento já foi finalizado ou não é seu.");
+  const curto = duracaoCurtaSemConfirmar(aberta.inicio, formData);
+  if (curto !== null) erro(mensagemDuracaoCurta(curto));
 
   const { error } = await supabase
     .from("pa_abastecimentos")
