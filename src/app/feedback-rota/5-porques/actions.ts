@@ -212,3 +212,72 @@ export async function responderTratativa(dados: {
   if (error) return { ok: false, erro: "Não foi possível registrar sua resposta." };
   return { ok: true };
 }
+
+export type RetomarResultado =
+  | {
+      ok: true;
+      problemaLabel: string;
+      respostas: RespostaPorque[];
+      proximoNo?: NoDecisao;
+      terminal?: Terminal;
+    }
+  | { ok: false; erro: string };
+
+/**
+ * RETOMA uma análise que ficou pela metade (14/09/2026, junto do lembrete
+ * de 5 Porquês parado).
+ *
+ * A trilha já está no banco -- `responderEAvancar` grava a trilha inteira a
+ * cada toque. O que não está é a PRÓXIMA pergunta, que só existe depois de
+ * perguntar à IA com a trilha em mãos. É o mesmo passo de sempre, só que
+ * partindo das respostas gravadas em vez de uma trilha vazia.
+ */
+export async function retomarAnalise(analiseId: number): Promise<RetomarResultado> {
+  if (!iaConfigurada()) {
+    return {
+      ok: false,
+      erro: "A análise por IA não está disponível no momento. Fale com a liderança.",
+    };
+  }
+
+  const perfil = await getPerfil();
+  if (!perfil) return { ok: false, erro: "Sessão expirada. Entre novamente." };
+
+  const supabase = await createClient();
+  const { data: analise } = await supabase
+    .from("cinco_porques_analises")
+    .select("id, problema_label, respostas, status")
+    .eq("id", analiseId)
+    .eq("colaborador_id", perfil.id)
+    .maybeSingle();
+
+  if (!analise || analise.status !== "em_andamento") {
+    return { ok: false, erro: "Esta análise não está mais em andamento." };
+  }
+
+  const respostas = (Array.isArray(analise.respostas) ? analise.respostas : []) as RespostaPorque[];
+
+  try {
+    const resultado = await proximoPasso({ problemaLabel: analise.problema_label, respostas });
+    await registrarUsoIA({
+      recurso: "cinco_porques",
+      modelo: MODELO,
+      revendaId: await getRevendaId(),
+      colaboradorId: perfil.id,
+      entrada: resultado.custo.entrada,
+      saida: resultado.custo.saida,
+    });
+    if (!resultado.proximoNo && !resultado.terminal) {
+      return { ok: false, erro: "Não foi possível continuar a análise. Tente de novo." };
+    }
+    return {
+      ok: true,
+      problemaLabel: analise.problema_label,
+      respostas,
+      proximoNo: resultado.proximoNo,
+      terminal: resultado.terminal,
+    };
+  } catch (erro) {
+    return { ok: false, erro: mensagemDeErro(erro) };
+  }
+}

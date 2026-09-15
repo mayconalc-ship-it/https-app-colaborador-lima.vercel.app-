@@ -26,8 +26,15 @@ export type ModuloNotificavel =
   | "ativo-giro"
   | "quiz"
   | "cinco-porques"
+  // A análise que ficou pela metade (14/09/2026). Módulo próprio, e não
+  // "cinco-porques", porque o botão do sino sai do módulo: lá ele diz "Ver
+  // resposta" (a devolutiva da liderança), aqui a tarefa é continuar.
+  | "cinco-porques-pendente"
   | "5s"
   | "produtividade-armazem"
+  // A bombona do despejo enchendo (14/09/2026). Próprio pelo mesmo motivo:
+  // o botão de "produtividade-armazem" diz "Abrir empilhadeira".
+  | "despejo"
   | "relato-anomalia"
   | "meus-indicadores";
 
@@ -50,8 +57,10 @@ export const MODULOS_NOTIFICAVEIS: ModuloNotificavel[] = [
   "ativo-giro",
   "quiz",
   "cinco-porques",
+  "cinco-porques-pendente",
   "5s",
   "produtividade-armazem",
+  "despejo",
   "relato-anomalia",
   "meus-indicadores",
 ];
@@ -69,8 +78,10 @@ export const EMOJI_MODULO: Record<ModuloNotificavel, string> = {
   "ativo-giro": "🔁",
   quiz: "🏆",
   "cinco-porques": "🧠",
+  "cinco-porques-pendente": "🧠",
   "5s": "🧹",
   "produtividade-armazem": "🏭",
+  despejo: "🪣",
   "relato-anomalia": "🚨",
   "meus-indicadores": "📊",
 };
@@ -88,8 +99,10 @@ export const ROTULO_MODULO: Record<ModuloNotificavel, string> = {
   "ativo-giro": "Ativo de Giro",
   quiz: "Desafio do Mês",
   "cinco-porques": "5 Porquês",
+  "cinco-porques-pendente": "5 Porquês pela metade",
   "5s": "Programa 5S",
   "produtividade-armazem": "Produtividade do Armazém",
+  despejo: "Bombona do despejo",
   "relato-anomalia": "Relato de Anomalia",
   "meus-indicadores": "Meus Indicadores",
 };
@@ -136,8 +149,10 @@ export const ROTULO_BOTAO: Record<ModuloNotificavel, string> = {
   "ativo-giro": "Recontar agora",
   quiz: "Participar",
   "cinco-porques": "Ver resposta",
+  "cinco-porques-pendente": "Continuar análise",
   "5s": "Abrir o 5S",
   "produtividade-armazem": "Abrir empilhadeira",
+  despejo: "Ver a bombona",
   // "Registrar o relato", e não "Ver": o aviso do gatilho não é
   // informação -- é uma tarefa com dono, e o botão diz o que fazer.
   "relato-anomalia": "Registrar o relato",

@@ -99,6 +99,20 @@ export default async function CincoPorquesPage({
   ].filter((parte): parte is string => Boolean(parte && parte.trim()));
   const problemaAuto = partesContexto.length > 0 ? partesContexto.join(". ") : null;
 
+  // A ANÁLISE PARADA DESTE FEEDBACK CONTINUA (14/09/2026). Se o motorista
+  // começou e fechou o app no meio, abrir de novo -- pelo botão ou pelo
+  // lembrete de "5 Porquês pela metade" -- retoma a MESMA análise, em vez
+  // de criar outra e deixar a primeira parada para sempre.
+  const { data: parada } = await supabase
+    .from("cinco_porques_analises")
+    .select("id")
+    .eq("feedback_rota_id", feedback.id)
+    .eq("colaborador_id", user.id)
+    .eq("status", "em_andamento")
+    .order("iniciada_em", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
   return (
     <div>
       <PageHeader
@@ -110,6 +124,7 @@ export default async function CincoPorquesPage({
         feedbackRotaId={feedback.id}
         rota={feedback.rota}
         problemaAuto={problemaAuto}
+        retomarAnaliseId={parada?.id ?? null}
       />
     </div>
   );

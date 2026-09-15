@@ -10,6 +10,7 @@ import { getRevendaId } from "@/lib/revendas";
 import { exigirContextoModulo } from "@/lib/produtividade-armazem-server";
 import { ehTurno, inteiroNaoNegativo } from "@/lib/produtividade-armazem";
 import { duracaoCurtaSemConfirmar, mensagemDuracaoCurta } from "@/lib/duracao-lancamento";
+import { avisarSeBombonaEncheu } from "@/lib/bombona-server";
 
 const ROTA = "/produtividade-armazem/despejo";
 
@@ -129,6 +130,10 @@ export async function finalizarDespejo(formData: FormData) {
     .eq("id", id);
 
   if (error) erro(`Não foi possível finalizar: ${error.message}`);
+
+  // Este despejo pode ter levado a bombona a 90% ou 100% -- avisa a
+  // liderança. Nunca lança erro. Ver lib/bombona-server.ts.
+  await avisarSeBombonaEncheu(revendaId);
 
   revalidatePath(ROTA);
   redirect(`${ROTA}?sucesso=Despejo+finalizado`);

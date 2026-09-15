@@ -43,6 +43,8 @@ export type Varredura = {
   empilhadeiras: number;
   /** Relatos de anomalia abertos por gatilho disparado. */
   anomalias: number;
+  /** Análises de 5 Porquês paradas há mais de 24 h, com o motorista avisado. */
+  cincoPorques: number;
   erro?: string;
 };
 
@@ -90,13 +92,14 @@ export async function varrerLembretes(): Promise<Varredura> {
   const cincoS = await lembretesDo5S(admin);
   const desafios = await lembretesDoDesafio(admin);
   const empilhadeiras = await lembretesDeEmpilhadeira(admin);
+  const cincoPorques = await lembretesDoCincoPorques(admin);
   // O GATILHO DE ANOMALIA FICA POR ÚLTIMO: é a etapa mais cara (lê 90
   // dias de atendimentos por revenda) e a menos urgente -- um desvio do
   // dia esperar 15 minutos não muda nada, e um comunicado agendado
   // esperando na frente dele, sim.
   const anomalias = (await varrerGatilhosDeAnomalia()).abertos;
 
-  return { ...enviados, cincoS, desafios, publicadas, aberturas, empilhadeiras, anomalias };
+  return { ...enviados, cincoS, desafios, publicadas, aberturas, empilhadeiras, cincoPorques, anomalias };
 }
 
 /**
@@ -499,6 +502,66 @@ async function jaAvisado(
     .maybeSingle();
 
   return Boolean(data);
+}
+
+/**
+ * O 5 PORQUÊS QUE FICOU PELA METADE (14/09/2026, pedido do dono).
+ *
+ * A análise nasce no banco como "em_andamento" no primeiro toque; se o
+ * motorista fecha o app no meio, ela fica parada -- em setembro/2026
+ * eram 2 de 4. Depois de 24 h sem envio, um aviso só para ele, uma vez
+ * por análise (chave `5p-parado:<id>`).
+ *
+ * O link é o mesmo da tela de 5 Porquês daquele feedback, que agora
+ * RETOMA a análise parada de onde ela ficou em vez de começar outra (ver
+ * feedback-rota/5-porques/page.tsx).
+ *
+ * Só os últimos 7 dias: análise largada há semanas não vira cobrança
+ * surpresa. E só a que tem feedback de origem -- sem ele, a tela de 5
+ * Porquês não abre.
+ */
+async function lembretesDoCincoPorques(admin: ReturnType<typeof createAdminClient>) {
+  const agora = Date.now();
+  const { data: paradas } = await admin
+    .from("cinco_porques_analises")
+    .select("id, revenda_id, colaborador_id, feedback_rota_id, problema_label")
+    .eq("status", "em_andamento")
+    .not("feedback_rota_id", "is", null)
+    .lte("iniciada_em", new Date(agora - 24 * 3_600_000).toISOString())
+    .gte("iniciada_em", new Date(agora - 7 * 86_400_000).toISOString());
+
+  let enviados = 0;
+
+  for (const a of paradas ?? []) {
+    const chave = `5p-parado:${a.id}`;
+    if (await jaAvisado(admin, chave, "cinco-porques-pendente")) continue;
+
+    const titulo = "🧠 Seu 5 Porquês ficou pela metade";
+    const problema = (a.problema_label ?? "").trim().slice(0, 80);
+    const mensagem = `${problema || "A análise da sua rota"} — toque para continuar de onde parou.`;
+    const url = `/feedback-rota/5-porques?feedbackId=${a.feedback_rota_id}`;
+
+    await criarNotificacao({
+      modulo: "cinco-porques-pendente",
+      tipo: "pendencia",
+      titulo,
+      mensagem,
+      url,
+      revendaId: a.revenda_id,
+      destinatarioId: a.colaborador_id,
+      referenciaId: chave,
+    });
+    await enviarPushDaRevenda(a.revenda_id, {
+      modulo: "cinco-porques-pendente",
+      titulo,
+      mensagem,
+      url,
+      apenas: [a.colaborador_id],
+    });
+    enviados++;
+  }
+
+  return enviados;
 }
 
 /**

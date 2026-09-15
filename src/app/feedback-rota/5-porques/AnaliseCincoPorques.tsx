@@ -25,17 +25,23 @@ export function AnaliseCincoPorques({
   analiseId,
   problemaLabel,
   primeiroNo,
+  respostasIniciais = [],
+  resultadoInicial = null,
   onRefazer,
 }: {
   analiseId: number;
   problemaLabel: string;
   primeiroNo: NoDecisao;
+  /** Na RETOMADA (14/09/2026): a trilha que já estava gravada, e a causa
+   *  raiz quando a IA já a encontrou com ela. Numa análise nova, vazios. */
+  respostasIniciais?: RespostaPorque[];
+  resultadoInicial?: Terminal | null;
   onRefazer: () => void;
 }) {
   const [inicio] = useState(() => Date.now());
   const [noAtual, setNoAtual] = useState<NoDecisao>(primeiroNo);
-  const [respostas, setRespostas] = useState<RespostaPorque[]>([]);
-  const [resultado, setResultado] = useState<Terminal | null>(null);
+  const [respostas, setRespostas] = useState<RespostaPorque[]>(respostasIniciais);
+  const [resultado, setResultado] = useState<Terminal | null>(resultadoInicial);
   const [erro, setErro] = useState<string | null>(null);
   const [carregando, iniciarPasso] = useTransition();
   const [concluindo, iniciarConclusao] = useTransition();
