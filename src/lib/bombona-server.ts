@@ -25,7 +25,9 @@ import { enviarPushDaRevenda } from "@/lib/push-server";
  *
  * Quem recebe: a liderança com "ver" no módulo do armazém -- a mesma
  * régua do botão "Esvaziei a bombona" (gestao/armazem/actions.ts). É quem
- * pode registrar o descarte.
+ * pode registrar o descarte. E o dono, das duas revendas, no celular dele
+ * onde quer que o aparelho esteja inscrito -- por isso o título diz a
+ * revenda.
  *
  * NUNCA lança erro: o despejo já foi gravado, e um aviso que falhou não
  * pode virar erro na tela de quem despejou.
@@ -37,7 +39,7 @@ export async function avisarSeBombonaEncheu(revendaId: string): Promise<void> {
   try {
     const admin = createAdminClient();
 
-    const [{ data: ultimo }, { data: meta }] = await Promise.all([
+    const [{ data: ultimo }, { data: meta }, { data: revenda }] = await Promise.all([
       admin
         .from("pa_despejo_esvaziamentos")
         .select("id, esvaziada_em")
@@ -51,6 +53,7 @@ export async function avisarSeBombonaEncheu(revendaId: string): Promise<void> {
         .eq("revenda_id", revendaId)
         .eq("chave", "despejo_capacidade_bombona")
         .maybeSingle(),
+      admin.from("revendas").select("nome").eq("id", revendaId).maybeSingle(),
     ]);
 
     // Mesma conta do termômetro da gestão: 1.000 L quando não há meta.
@@ -89,11 +92,14 @@ export async function avisarSeBombonaEncheu(revendaId: string): Promise<void> {
         .maybeSingle();
       if (jaFoi) return;
 
-      const destinos = await liderancaDoArmazem(admin, revendaId);
-      if (destinos.length === 0) return;
+      const { lideres, donos } = await quemRecebe(admin, revendaId);
+      const todos = [...new Set([...lideres, ...donos])];
+      if (todos.length === 0) return;
 
+      // "Revenda Lima Barreiras" -> "Barreiras": o dono recebe das duas.
+      const onde = (revenda?.nome ?? "").replace(/^Revenda\s+Lima\s+/i, "").trim();
       const fmt = (n: number) => n.toLocaleString("pt-BR", { maximumFractionDigits: 0 });
-      const titulo = marco === 100 ? "🪣 Bombona cheia" : "🪣 Bombona a 90%";
+      const titulo = `${marco === 100 ? "🪣 Bombona cheia" : "🪣 Bombona a 90%"}${onde ? ` — ${onde}` : ""}`;
       const mensagem =
         marco === 100
           ? `${fmt(litros)} L de ${fmt(capacidade)} L — passou da capacidade. Descarte e registre o esvaziamento.`
@@ -101,7 +107,7 @@ export async function avisarSeBombonaEncheu(revendaId: string): Promise<void> {
       const url = "/gestao/armazem";
 
       await Promise.all(
-        destinos.map((id) =>
+        todos.map((id) =>
           criarNotificacao({
             modulo: "despejo",
             tipo: marco === 100 ? "pendencia" : "lembrete",
@@ -114,7 +120,20 @@ export async function avisarSeBombonaEncheu(revendaId: string): Promise<void> {
           }),
         ),
       );
-      await enviarPushDaRevenda(revendaId, { modulo: "despejo", titulo, mensagem, url, apenas: destinos });
+      // A liderança, nos aparelhos inscritos nesta revenda; o dono, em
+      // qualquer aparelho dele (qualquerRevenda, em push-server.ts).
+      const soLideres = lideres.filter((id) => !donos.includes(id));
+      await Promise.all([
+        enviarPushDaRevenda(revendaId, { modulo: "despejo", titulo, mensagem, url, apenas: soLideres }),
+        enviarPushDaRevenda(revendaId, {
+          modulo: "despejo",
+          titulo,
+          mensagem,
+          url,
+          apenas: donos,
+          qualquerRevenda: true,
+        }),
+      ]);
       return;
     }
   } catch {
@@ -122,11 +141,14 @@ export async function avisarSeBombonaEncheu(revendaId: string): Promise<void> {
   }
 }
 
-/** Liderança com "ver" no módulo do armazém, nesta revenda. */
-async function liderancaDoArmazem(
+/**
+ * Liderança com "ver" no módulo do armazém, nesta revenda -- e o dono.
+ * Separados porque o push de cada grupo sai de um jeito (ver acima).
+ */
+async function quemRecebe(
   admin: ReturnType<typeof createAdminClient>,
   revendaId: string,
-): Promise<string[]> {
+): Promise<{ lideres: string[]; donos: string[] }> {
   const { data: permissoes } = await admin
     .from("lideranca_permissoes")
     .select("colaborador_id")
@@ -145,5 +167,8 @@ async function liderancaDoArmazem(
     // por isso ficava de fora. Recebe o aviso das duas revendas.
     admin.from("profiles").select("id").eq("role", "owner"),
   ]);
-  return [...new Set([...(pessoas ?? []), ...(donos ?? [])].map((p) => p.id as string))];
+  return {
+    lideres: (pessoas ?? []).map((p) => p.id as string),
+    donos: (donos ?? []).map((p) => p.id as string),
+  };
 }

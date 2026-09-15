@@ -116,6 +116,12 @@ type Recado = {
   /** Só estes aparelhos recebem -- em vez da revenda inteira. Usado
    *  quando o aviso é dirigido (ex.: recontagem, só para quem contou). */
   apenas?: string[];
+  /** Com `apenas`: vale o aparelho da pessoa em QUALQUER revenda, e não só
+   *  os inscritos nesta. Existe para o dono (14/09/2026): os aparelhos dele
+   *  estão inscritos em São Félix, e o aviso da bombona de Barreiras não
+   *  chegava ao celular. Sem `apenas`, é ignorado -- nunca vira "o app
+   *  inteiro". */
+  qualquerRevenda?: boolean;
 };
 
 /**
@@ -149,8 +155,12 @@ export async function enviarPushDaRevenda(
       .from("push_inscricoes")
       .select(
         "id, endpoint, p256dh, auth, colaborador_id, criado_em, usado_em, user_agent",
-      )
-      .eq("revenda_id", revendaId);
+      );
+    // Só o aviso dirigido a pessoas certas pode sair da revenda (ver
+    // `qualquerRevenda` no tipo Recado). Todo o resto continua preso a ela.
+    if (!(recado.qualquerRevenda && recado.apenas)) {
+      consulta = consulta.eq("revenda_id", revendaId);
+    }
 
     if (recado.apenas) consulta = consulta.in("colaborador_id", recado.apenas);
     else if (recado.exceto) consulta = consulta.neq("colaborador_id", recado.exceto);
