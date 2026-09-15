@@ -30,6 +30,7 @@ export type ModuloId =
   | "rotas"
   | "ativo-giro"
   | "quiz"
+  | "boas-praticas"
   | "5s"
   | "produtividade-armazem"
   | "pa-reepack"
@@ -540,6 +541,28 @@ export const MODULOS: Modulo[] = [
     acoes: ["ver", "criar", "editar", "excluir"],
   },
   {
+    /*
+      PROGRAMA DE BOAS PRÁTICAS (15/09/2026, pedido do dono). O
+      colaborador sugere e vota -- isso é de todo mundo da revenda e NÃO
+      passa por aqui (o módulo fica fora de MODULOS_OPCIONAIS). Estas
+      concessões são só da liderança que conduz o programa.
+
+      Sem "criar": quem cria prática é o colaborador, e a votação nasce
+      da avaliação -- montar a votação é o mesmo trabalho de avaliar.
+    */
+    id: "boas-praticas",
+    rotulosDeAcao: {
+      ver: "Abrir as Boas Práticas no Modo Liderança e acompanhar a parcial da votação",
+      editar: "Avaliar sugestão, abrir e encerrar a votação",
+      excluir: "Apagar sugestão e cancelar votação aberta",
+    },
+    rotulo: "Boas Práticas",
+    emoji: "💡",
+    href: "/admin/boas-praticas",
+    grupo: "Engajamento",
+    acoes: ["ver", "editar", "excluir"],
+  },
+  {
     id: "5s",
     rotulosDeAcao: {
       ver: "📊 Abrir o BI do 5S e o módulo no app",
@@ -877,6 +900,10 @@ export const MODULOS: Modulo[] = [
  * não perdeu nada -- os dois caminhos convivem.
  *
  * De propósito FORA desta lista:
+ *   "boas-praticas" -- todo colaborador da revenda sugere e vota
+ *              (15/09/2026). Liberar pessoa a pessoa um programa que é
+ *              para todos seria cadastrar 160 pessoas para ninguém ficar
+ *              de fora.
  *   colaboradores/metricas/pesquisa/menu -- são telas do Admin, não
  *              conteúdo que um colaborador comum navegue; já protegidas
  *              por `requireModulo`/permissão de liderança.

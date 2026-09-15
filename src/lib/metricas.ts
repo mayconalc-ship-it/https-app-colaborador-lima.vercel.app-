@@ -16,6 +16,7 @@ const NOMES: { prefixo: string; nome: string; emoji: string }[] = [
   { prefixo: "/feedback-rota", nome: "Feedback da Rota", emoji: "📝" },
   { prefixo: "/5s", nome: "Programa 5S", emoji: "🧹" },
   { prefixo: "/desafio", nome: "Desafio do Mês", emoji: "🧠" },
+  { prefixo: "/boas-praticas", nome: "Boas Práticas", emoji: "💡" },
   { prefixo: "/ativo-de-giro", nome: "Ativo de Giro", emoji: "📦" },
   { prefixo: "/minha-rota", nome: "Minha Rota", emoji: "🚚" },
   { prefixo: "/minha-conta", nome: "Minha Conta", emoji: "👤" },

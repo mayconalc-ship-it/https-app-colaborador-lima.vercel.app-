@@ -40,7 +40,14 @@ export type ModuloNotificavel =
   // o botão de "produtividade-armazem" diz "Abrir empilhadeira".
   | "despejo"
   | "relato-anomalia"
-  | "meus-indicadores";
+  | "meus-indicadores"
+  // Boas Práticas (15/09/2026): votação aberta, vencedora e a resposta da
+  // liderança para quem sugeriu.
+  | "boas-praticas"
+  // A sugestão nova esperando a LIDERANÇA avaliar. Próprio pelo mesmo
+  // motivo do "cinco-porques-tratativa": o aviso e o botão são de quem
+  // avalia, não de quem sugeriu.
+  | "boas-praticas-avaliar";
 
 /**
  * A mesma lista, em forma de array.
@@ -68,6 +75,8 @@ export const MODULOS_NOTIFICAVEIS: ModuloNotificavel[] = [
   "despejo",
   "relato-anomalia",
   "meus-indicadores",
+  "boas-praticas",
+  "boas-praticas-avaliar",
 ];
 
 export const EMOJI_MODULO: Record<ModuloNotificavel, string> = {
@@ -90,6 +99,8 @@ export const EMOJI_MODULO: Record<ModuloNotificavel, string> = {
   despejo: "🪣",
   "relato-anomalia": "🚨",
   "meus-indicadores": "📊",
+  "boas-praticas": "💡",
+  "boas-praticas-avaliar": "💡",
 };
 
 export const ROTULO_MODULO: Record<ModuloNotificavel, string> = {
@@ -112,6 +123,8 @@ export const ROTULO_MODULO: Record<ModuloNotificavel, string> = {
   despejo: "Bombona do despejo",
   "relato-anomalia": "Relato de Anomalia",
   "meus-indicadores": "Meus Indicadores",
+  "boas-praticas": "Boas Práticas",
+  "boas-praticas-avaliar": "Boas Práticas para avaliar",
 };
 
 /**
@@ -165,6 +178,8 @@ export const ROTULO_BOTAO: Record<ModuloNotificavel, string> = {
   // informação -- é uma tarefa com dono, e o botão diz o que fazer.
   "relato-anomalia": "Registrar o relato",
   "meus-indicadores": "Ver meus indicadores",
+  "boas-praticas": "Ver Boas Práticas",
+  "boas-praticas-avaliar": "Avaliar agora",
 };
 
 /** "há 2 min", "há 3 h", "ontem" — mais legível que data completa. */

@@ -32,6 +32,7 @@ import {
   Factory,
   Forklift,
   Gauge,
+  Lightbulb,
   Lock,
   Megaphone,
   Newspaper,
@@ -87,6 +88,7 @@ const POR_CHAVE: Record<string, LucideIcon> = {
   // Engajamento
   quiz: Brain,
   ranking: Trophy,
+  "boas-praticas": Lightbulb,
 
   // Indicadores individuais
   rating: Star,

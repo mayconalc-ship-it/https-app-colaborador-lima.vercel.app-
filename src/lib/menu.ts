@@ -18,6 +18,8 @@ export const MODULO_DO_ITEM: Record<string, ModuloId> = {
   feedback: "feedbacks",
   "ativo-giro": "ativo-giro",
   quiz: "quiz",
+  // Não é opcional: a revenda ligou, todo mundo vê (ver acessos.ts).
+  "boas-praticas": "boas-praticas",
   "5s": "5s",
   "produtividade-armazem": "produtividade-armazem",
   "carretas-portaria": "carretas-portaria",
@@ -79,8 +81,8 @@ export const BLOCOS_DO_MENU = [
   {
     id: "engajamento",
     titulo: "Engajamento",
-    subtitulo: "Desafio e ranking",
-    chaves: ["quiz", "ranking"],
+    subtitulo: "Desafio, ranking e boas práticas",
+    chaves: ["quiz", "ranking", "boas-praticas"],
   },
 ] as const;
 
@@ -202,6 +204,8 @@ export const MENU_PADRAO: ItemMenu[] = [
   // acessíveis, só não têm mais cartão próprio -- três cartões seguidos
   // para o mesmo assunto disputavam espaço sem ajudar ninguém a decidir.
   { chave: "meus-indicadores", titulo: "Meus Indicadores", emoji: "📊", href: "/meus-indicadores", ordem: 14, visivel: true },
+  // Programa de Boas Práticas (15/09/2026): sugerir e votar.
+  { chave: "boas-praticas", titulo: "Boas Práticas", emoji: "💡", href: "/boas-praticas", ordem: 15, visivel: true },
   // "Minha Conta" fica oculto: já existe o botão "Conta" no topo de todas as
   // telas, e repetir ocupava espaço da grade sem acrescentar nada.
   { chave: "conta", titulo: "Minha Conta", emoji: "🔒", href: "/minha-conta", ordem: 9, visivel: false },
