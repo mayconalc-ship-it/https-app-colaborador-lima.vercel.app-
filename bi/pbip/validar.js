@@ -161,6 +161,24 @@ for (const t of tabelas) {
   );
 }
 
+// --- seguranca por revenda (roles) ------------------------------------
+// Toda tabela com revenda_id tem de estar filtrada em TODA funcao: uma que
+// escape e uma revenda vendo o dado da outra, sem erro nenhum na tela.
+(function conferirFuncoes() {
+  const dir = path.join(RAIZ, NOME + '.SemanticModel', 'definition', 'roles');
+  const arquivos = fs.existsSync(dir) ? fs.readdirSync(dir).filter((n) => n.endsWith('.tmdl')) : [];
+  if (arquivos.length === 0) { falha('roles: nenhuma funcao de seguranca gerada'); return; }
+  const comRevenda = tabelas
+    .filter((t) => colunasPorTabela.get(t.nome).has('revenda_id'))
+    .map((t) => t.nome);
+  for (const a of arquivos) {
+    const txt = fs.readFileSync(path.join(dir, a), 'utf8');
+    const cobertas = new Set([...txt.matchAll(/^\s*tablePermission\s+(\S+)\s*=/gm)].map((m) => m[1]));
+    for (const t of cobertas) if (!colunasPorTabela.has(t)) falha(`roles/${a}: tabela inexistente "${t}"`);
+    for (const t of comRevenda) if (!cobertas.has(t)) falha(`roles/${a}: "${t}" tem revenda_id e ficou sem filtro`);
+  }
+})();
+
 const medidas = new Set(
   fs.readFileSync(path.join(BI, '07-medidas.dax'), 'utf8')
     .split(/\r?\n/)

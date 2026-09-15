@@ -597,6 +597,14 @@ function gerarModelo(medidas) {
     escrever(path.join(DEST, 'definition', 'tables', t.nome + '.tmdl'), tmdlTabela(t, []));
   }
 
+  // SEGURANCA POR REVENDA (14/09/2026): uma funcao por revenda, cada uma
+  // num arquivo de definition/roles -- ver seguranca.js. Sem "ref role" no
+  // model.tmdl: ref so da a ordem, e seria mais uma forma sem exemplo real.
+  const { FUNCOES, tmdlDaFuncao } = require('./seguranca');
+  for (const f of FUNCOES) {
+    escrever(path.join(DEST, 'definition', 'roles', f.nome + '.tmdl'), tmdlDaFuncao(f, tabelas));
+  }
+
   const modelo = [
     'model Model',
     '\tculture: pt-BR',
