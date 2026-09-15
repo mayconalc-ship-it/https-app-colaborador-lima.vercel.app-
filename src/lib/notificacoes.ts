@@ -30,6 +30,10 @@ export type ModuloNotificavel =
   // "cinco-porques", porque o botão do sino sai do módulo: lá ele diz "Ver
   // resposta" (a devolutiva da liderança), aqui a tarefa é continuar.
   | "cinco-porques-pendente"
+  // A análise concluída esperando a devolutiva da LIDERANÇA (14/09/2026).
+  // Próprio pelo mesmo motivo: o aviso é para quem responde, não para o
+  // motorista, e o botão é "Responder agora".
+  | "cinco-porques-tratativa"
   | "5s"
   | "produtividade-armazem"
   // A bombona do despejo enchendo (14/09/2026). Próprio pelo mesmo motivo:
@@ -58,6 +62,7 @@ export const MODULOS_NOTIFICAVEIS: ModuloNotificavel[] = [
   "quiz",
   "cinco-porques",
   "cinco-porques-pendente",
+  "cinco-porques-tratativa",
   "5s",
   "produtividade-armazem",
   "despejo",
@@ -79,6 +84,7 @@ export const EMOJI_MODULO: Record<ModuloNotificavel, string> = {
   quiz: "🏆",
   "cinco-porques": "🧠",
   "cinco-porques-pendente": "🧠",
+  "cinco-porques-tratativa": "🧠",
   "5s": "🧹",
   "produtividade-armazem": "🏭",
   despejo: "🪣",
@@ -100,6 +106,7 @@ export const ROTULO_MODULO: Record<ModuloNotificavel, string> = {
   quiz: "Desafio do Mês",
   "cinco-porques": "5 Porquês",
   "cinco-porques-pendente": "5 Porquês pela metade",
+  "cinco-porques-tratativa": "5 Porquês para responder",
   "5s": "Programa 5S",
   "produtividade-armazem": "Produtividade do Armazém",
   despejo: "Bombona do despejo",
@@ -150,6 +157,7 @@ export const ROTULO_BOTAO: Record<ModuloNotificavel, string> = {
   quiz: "Participar",
   "cinco-porques": "Ver resposta",
   "cinco-porques-pendente": "Continuar análise",
+  "cinco-porques-tratativa": "Responder agora",
   "5s": "Abrir o 5S",
   "produtividade-armazem": "Abrir empilhadeira",
   despejo: "Ver a bombona",

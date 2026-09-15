@@ -45,6 +45,8 @@ export type Varredura = {
   anomalias: number;
   /** Análises de 5 Porquês paradas há mais de 24 h, com o motorista avisado. */
   cincoPorques: number;
+  /** Análises concluídas esperando a tratativa da liderança há mais de 24 h. */
+  tratativas: number;
   erro?: string;
 };
 
@@ -93,13 +95,14 @@ export async function varrerLembretes(): Promise<Varredura> {
   const desafios = await lembretesDoDesafio(admin);
   const empilhadeiras = await lembretesDeEmpilhadeira(admin);
   const cincoPorques = await lembretesDoCincoPorques(admin);
+  const tratativas = await lembretesDaTratativa(admin);
   // O GATILHO DE ANOMALIA FICA POR ÚLTIMO: é a etapa mais cara (lê 90
   // dias de atendimentos por revenda) e a menos urgente -- um desvio do
   // dia esperar 15 minutos não muda nada, e um comunicado agendado
   // esperando na frente dele, sim.
   const anomalias = (await varrerGatilhosDeAnomalia()).abertos;
 
-  return { ...enviados, cincoS, desafios, publicadas, aberturas, empilhadeiras, cincoPorques, anomalias };
+  return { ...enviados, cincoS, desafios, publicadas, aberturas, empilhadeiras, cincoPorques, tratativas, anomalias };
 }
 
 /**
@@ -562,6 +565,100 @@ async function lembretesDoCincoPorques(admin: ReturnType<typeof createAdminClien
   }
 
   return enviados;
+}
+
+/**
+ * O 5 PORQUÊS ESPERANDO A LIDERANÇA (14/09/2026, pedido do dono).
+ *
+ * O par do lembrete do motorista: aqui quem está devendo é quem responde.
+ * A análise concluída fica esperando a devolutiva da liderança, e a nota
+ * do próprio BI diz o custo: passou de ~48 h sem resposta, o time aprende
+ * a não preencher o próximo.
+ *
+ * Depois de 24 h da conclusão com a tratativa pendente, um aviso para a
+ * liderança que PODE responder -- "feedbacks: editar", a mesma régua de
+ * salvarTratativa (gestao/feedbacks/actions.ts) --, uma vez por análise
+ * (chave `5p-tratativa:<id>`). Só as concluídas nos últimos 14 dias:
+ * pendência antiga não vira enxurrada no primeiro dia.
+ */
+async function lembretesDaTratativa(admin: ReturnType<typeof createAdminClient>) {
+  const agora = Date.now();
+  const { data: esperando } = await admin
+    .from("cinco_porques_analises")
+    .select("id, revenda_id, colaborador_nome, problema_label")
+    .eq("status", "concluida")
+    .eq("tratativa_status", "pendente")
+    .lte("concluida_em", new Date(agora - 24 * 3_600_000).toISOString())
+    .gte("concluida_em", new Date(agora - 14 * 86_400_000).toISOString());
+
+  let enviados = 0;
+  const lideresDa = new Map<string, string[]>();
+
+  for (const a of esperando ?? []) {
+    const chave = `5p-tratativa:${a.id}`;
+    if (await jaAvisado(admin, chave, "cinco-porques-tratativa")) continue;
+
+    let lideres = lideresDa.get(a.revenda_id);
+    if (!lideres) {
+      lideres = await quemRespondeCincoPorques(admin, a.revenda_id);
+      lideresDa.set(a.revenda_id, lideres);
+    }
+    if (lideres.length === 0) continue;
+
+    const titulo = "🧠 5 Porquês esperando resposta";
+    const problema = (a.problema_label ?? "").trim().slice(0, 70);
+    const mensagem =
+      `${a.colaborador_nome ?? "Um motorista"} concluiu a análise há mais de 24 h` +
+      (problema ? `: ${problema}` : ".");
+    const url = "/gestao/feedbacks?aba=5-porques";
+
+    await Promise.all(
+      lideres.map((id) =>
+        criarNotificacao({
+          modulo: "cinco-porques-tratativa",
+          tipo: "pendencia",
+          titulo,
+          mensagem,
+          url,
+          revendaId: a.revenda_id,
+          destinatarioId: id,
+          referenciaId: chave,
+        }),
+      ),
+    );
+    await enviarPushDaRevenda(a.revenda_id, {
+      modulo: "cinco-porques-tratativa",
+      titulo,
+      mensagem,
+      url,
+      apenas: lideres,
+    });
+    enviados++;
+  }
+
+  return enviados;
+}
+
+/** Liderança com "feedbacks: editar" na revenda -- quem salva a tratativa. */
+async function quemRespondeCincoPorques(
+  admin: ReturnType<typeof createAdminClient>,
+  revendaId: string,
+): Promise<string[]> {
+  const { data: permissoes } = await admin
+    .from("lideranca_permissoes")
+    .select("colaborador_id")
+    .eq("revenda_id", revendaId)
+    .eq("modulo", "feedbacks")
+    .eq("acao", "editar");
+  const ids = [...new Set((permissoes ?? []).map((p) => p.colaborador_id as string))];
+  if (ids.length === 0) return [];
+  // A permissão só vale para quem ainda é liderança (podeFazer, lib/acessos.ts).
+  const { data: pessoas } = await admin
+    .from("profiles")
+    .select("id")
+    .in("id", ids)
+    .eq("role", "lideranca");
+  return (pessoas ?? []).map((p) => p.id as string);
 }
 
 /**
