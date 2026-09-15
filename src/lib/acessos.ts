@@ -31,6 +31,7 @@ export type ModuloId =
   | "ativo-giro"
   | "quiz"
   | "boas-praticas"
+  | "boas-praticas-config"
   | "5s"
   | "produtividade-armazem"
   | "pa-reepack"
@@ -561,6 +562,24 @@ export const MODULOS: Modulo[] = [
     href: "/admin/boas-praticas",
     grupo: "Engajamento",
     acoes: ["ver", "editar", "excluir"],
+  },
+  {
+    /*
+      A CONFIGURAÇÃO DO PROGRAMA (15/09/2026, pedido do dono: "ativar em
+      configuração para as áreas"). Áreas que participam, calendário e
+      premiação. Concessão à parte: quem conduz a votação não precisa ser
+      quem define quanto vale o prêmio.
+    */
+    id: "boas-praticas-config",
+    rotulosDeAcao: {
+      ver: "Abrir a configuração do programa de Boas Práticas",
+      editar: "Escolher as áreas que participam, o calendário e a premiação",
+    },
+    rotulo: "Programa Boas Práticas",
+    emoji: "💡",
+    href: "/admin/boas-praticas/configuracao",
+    grupo: "Configuração",
+    acoes: ["ver", "editar"],
   },
   {
     id: "5s",

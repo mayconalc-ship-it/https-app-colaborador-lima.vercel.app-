@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
-import { LIMITES } from "@/lib/boas-praticas";
+import { LIMITES, formatarReais, premiosDe, validarDatasDaVotacao, type Premios } from "@/lib/boas-praticas";
 import { abrirVotacao } from "./actions";
 
 const campo =
@@ -10,23 +10,31 @@ const campo =
 const rotulo = "mb-1 block text-xs font-semibold uppercase text-slate-500";
 
 /**
- * Monta a votação com as selecionadas. O botão só liga com o mínimo de
- * práticas marcadas e o prazo não aceita data passada -- as mesmas
- * regras que `abrirVotacao` confere no servidor.
+ * Monta a votação com as aprovadas. O botão só liga com o mínimo de
+ * práticas marcadas e com as datas em ordem -- as mesmas regras que
+ * `abrirVotacao` confere no servidor. Prazo e divulgação vêm preenchidos
+ * com o calendário da Configuração.
  */
 export function AbrirVotacao({
   praticas,
   nomeSugerido,
   hoje,
   fimPadrao,
+  divulgacaoPadrao,
+  premios,
 }: {
   praticas: { id: string; titulo: string; autor: string }[];
   nomeSugerido: string;
   hoje: string;
   fimPadrao: string;
+  divulgacaoPadrao: string;
+  premios: Premios;
 }) {
   const [marcadas, setMarcadas] = useState(() => new Set(praticas.map((p) => p.id)));
+  const [fim, setFim] = useState(fimPadrao);
+  const [divulgacao, setDivulgacao] = useState(divulgacaoPadrao);
   const faltam = LIMITES.minimoNaVotacao - marcadas.size;
+  const erroDeData = validarDatasDaVotacao(fim || null, divulgacao || null, hoje);
 
   function alternar(id: string) {
     setMarcadas((atual) => {
@@ -56,25 +64,42 @@ export function AbrirVotacao({
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div>
-          <label className={rotulo} htmlFor="premio-votacao">
-            Prêmio <span className="normal-case text-slate-400">(opcional — dá para definir depois)</span>
-          </label>
+          <label className={rotulo} htmlFor="fim-votacao">Votação aberta até (inclusive)</label>
           <input
-            id="premio-votacao"
-            name="premio"
-            maxLength={LIMITES.premioMax}
-            placeholder="Ex: vale-compras de R$ 100"
+            id="fim-votacao"
+            name="fim"
+            type="date"
+            required
+            min={hoje}
+            value={fim}
+            onChange={(e) => setFim(e.target.value)}
             className={campo}
           />
         </div>
         <div>
-          <label className={rotulo} htmlFor="fim-votacao">Votação aberta até (inclusive)</label>
-          <input id="fim-votacao" name="fim" type="date" required min={hoje} defaultValue={fimPadrao} className={campo} />
+          <label className={rotulo} htmlFor="divulgacao-votacao">Divulgação do resultado</label>
+          <input
+            id="divulgacao-votacao"
+            name="divulgacao_em"
+            type="date"
+            required
+            min={fim || hoje}
+            value={divulgacao}
+            onChange={(e) => setDivulgacao(e.target.value)}
+            className={campo}
+          />
         </div>
       </div>
 
+      <p className="rounded-xl bg-amber-50 p-3 text-xs text-amber-900">
+        Premiação (da Configuração):{" "}
+        {premiosDe(premios)
+          .map((p) => `${p.medalha} ${formatarReais(p.valor)}`)
+          .join(" · ")}
+      </p>
+
       <fieldset>
-        <legend className={rotulo}>Práticas na votação</legend>
+        <legend className={rotulo}>Práticas aprovadas na votação</legend>
         <ul className="space-y-2">
           {praticas.map((p) => (
             <li key={p.id}>
@@ -106,9 +131,10 @@ export function AbrirVotacao({
           Marque pelo menos {LIMITES.minimoNaVotacao} práticas para abrir a votação.
         </p>
       )}
+      {erroDeData && <p className="text-xs font-semibold text-amber-700">{erroDeData}</p>}
 
       <BotaoEnviar
-        disabled={faltam > 0}
+        disabled={faltam > 0 || Boolean(erroDeData)}
         textoEnviando="Abrindo..."
         className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-white hover:bg-primary-dark"
       >

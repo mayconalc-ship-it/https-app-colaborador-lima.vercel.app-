@@ -13,6 +13,8 @@ const LEGENDA_DO_DESTAQUE: Record<string, string> = {
   "produtividade-armazem": "Reepack, despejo, empilhadeira e recebimento",
 };
 import { getModulosAcessiveis } from "@/lib/require-admin";
+import { getConcessoes } from "@/lib/concessoes";
+import { boasPraticasForaDaArea } from "@/lib/boas-praticas-server";
 import { CartaoDePainel } from "@/components/gestao/CartaoDePainel";
 import { BLOCOS_DA_GESTAO } from "@/lib/gestao";
 import { paineisVisiveis, sinaisDosPaineis } from "@/lib/gestao-server";
@@ -58,7 +60,13 @@ export default async function Home() {
   // Acessos por Pessoa, responde à mesma pergunta e precisa da MESMA
   // resposta -- uma prévia que reimplementa a regra mente na primeira
   // mudança.
-  const itens = cartoesVisiveis(todos, modulosDaRevenda, modulosAcessiveis);
+  // Boas Práticas só para as áreas marcadas em Configuração -- a mesma
+  // regra da tela e das ações (participaPorArea).
+  const ocultos = new Set<string>();
+  if (perfil && (await boasPraticasForaDaArea(perfil, await getConcessoes(), revenda.id, modulosDaRevenda))) {
+    ocultos.add("boas-praticas");
+  }
+  const itens = cartoesVisiveis(todos, modulosDaRevenda, modulosAcessiveis, ocultos);
 
   return (
     <div>

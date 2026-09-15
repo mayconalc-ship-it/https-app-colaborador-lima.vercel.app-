@@ -128,9 +128,13 @@ export function cartoesVisiveis<T extends { chave: string; visivel: boolean }>(
   itens: T[],
   modulosDaRevenda: Set<string>,
   modulosAcessiveis: Set<string>,
+  /** Cartões que uma regra de fora tirou desta pessoa -- hoje, as Boas
+   *  Práticas para quem não é das áreas que participam. */
+  ocultos: Set<string> = new Set(),
 ): T[] {
   return itens.filter((item) => {
     if (!item.visivel) return false;
+    if (ocultos.has(item.chave)) return false;
     const modulo = MODULO_DO_ITEM[item.chave];
     if (modulo && !modulosDaRevenda.has(modulo)) return false;
     if (modulo && (MODULOS_OPCIONAIS as readonly string[]).includes(modulo)) {

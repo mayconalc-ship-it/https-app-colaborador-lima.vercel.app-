@@ -1,31 +1,32 @@
+import Link from "next/link";
 import { PageHeader } from "@/components/PageHeader";
-import { BotaoEnviar } from "@/components/BotaoEnviar";
 import { BotaoExcluir } from "@/components/BotaoExcluir";
 import { CartaoPratica, SeloPratica, type PraticaParaCartao } from "@/components/boas-praticas/CartaoPratica";
 import { podeNoModulo, requireModulo } from "@/lib/require-admin";
 import { exigirRevenda } from "@/lib/revendas";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { lerConfigBoasPraticas } from "@/lib/boas-praticas-server";
+import { AREAS } from "@/lib/areas";
 import {
-  LIMITES,
+  MEDALHA,
   apurar,
   formatarDia,
+  formatarReais,
   hojeSP,
+  motivoParaNaoDivulgar,
   nomeSugeridoDaVotacao,
+  podioSugerido,
+  premiosDe,
+  somarDias,
   textoDoPrazo,
-  votacaoRecebeVoto,
   type StatusPratica,
 } from "@/lib/boas-praticas";
 import { decodificar } from "@/lib/texto-url";
 import { AvaliarPratica } from "./AvaliarPratica";
 import { AbrirVotacao } from "./AbrirVotacao";
-import { FormConfirmado } from "./FormConfirmado";
-import {
-  atualizarVotacao,
-  cancelarVotacao,
-  encerrarVotacao,
-  excluirPraticaAdmin,
-  voltarParaAnalise,
-} from "./actions";
+import { AjustarVotacao } from "./AjustarVotacao";
+import { DivulgarResultado } from "./DivulgarResultado";
+import { cancelarVotacao, excluirPraticaAdmin, voltarParaAnalise } from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -40,11 +41,16 @@ type Pratica = PraticaParaCartao & {
 type Votacao = {
   id: string;
   titulo: string;
-  premio: string | null;
   fim: string;
+  divulgacao_em: string | null;
   encerrada_em: string | null;
   encerrada_por_nome: string | null;
   vencedora_id: string | null;
+  segunda_id: string | null;
+  terceira_id: string | null;
+  premio_1: number | null;
+  premio_2: number | null;
+  premio_3: number | null;
   aberta_por_nome: string;
   aberta_em: string;
 };
@@ -52,11 +58,11 @@ type Votacao = {
 const COLUNAS =
   "id, titulo, problema, objetivo, escopo, beneficios, foto_url, colaborador_id, colaborador_nome, criado_em, status, retorno, avaliado_por_nome, votacao_id";
 const COLUNAS_VOTACAO =
-  "id, titulo, premio, fim, encerrada_em, encerrada_por_nome, vencedora_id, aberta_por_nome, aberta_em";
+  "id, titulo, fim, divulgacao_em, encerrada_em, encerrada_por_nome, vencedora_id, segunda_id, terceira_id, premio_1, premio_2, premio_3, aberta_por_nome, aberta_em";
 
-const campo =
-  "w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-primary focus:outline-none";
-const rotulo = "mb-1 block text-xs font-semibold uppercase text-slate-500";
+function podioDe(v: Votacao) {
+  return [v.vencedora_id, v.segunda_id, v.terceira_id];
+}
 
 export default async function AdminBoasPraticasPage({
   searchParams,
@@ -66,15 +72,16 @@ export default async function AdminBoasPraticasPage({
   await requireModulo("boas-praticas", "ver");
   const sp = await searchParams;
   // Os botões aparecem só para quem a ação do servidor deixaria passar.
-  const [podeEditar, podeExcluir] = await Promise.all([
+  const [podeEditar, podeExcluir, podeVerConfig] = await Promise.all([
     podeNoModulo("boas-praticas", "editar"),
     podeNoModulo("boas-praticas", "excluir"),
+    podeNoModulo("boas-praticas-config", "ver"),
   ]);
   const revendaId = await exigirRevenda("/admin");
   const hoje = hojeSP();
 
   const admin = createAdminClient();
-  const [{ data: praticasBanco }, { data: atualBanco }, { data: encerradasBanco }] = await Promise.all([
+  const [{ data: praticasBanco }, { data: atualBanco }, { data: encerradasBanco }, config] = await Promise.all([
     admin
       .from("boas_praticas")
       .select(COLUNAS)
@@ -94,6 +101,7 @@ export default async function AdminBoasPraticasPage({
       .not("encerrada_em", "is", null)
       .order("encerrada_em", { ascending: false })
       .limit(12),
+    lerConfigBoasPraticas(revendaId),
   ]);
 
   const praticas = (praticasBanco ?? []) as Pratica[];
@@ -121,7 +129,7 @@ export default async function AdminBoasPraticasPage({
       encerradas.map(async (v) => ({
         id: v.id,
         total: await contarVotos(v.id),
-        daVencedora: v.vencedora_id ? await contarVotos(v.id, v.vencedora_id) : 0,
+        porLugar: await Promise.all(podioDe(v).map((id) => (id ? contarVotos(v.id, id) : Promise.resolve(0)))),
       })),
     ),
   ]);
@@ -138,30 +146,58 @@ export default async function AdminBoasPraticasPage({
     naVotacao.map((p) => p.id),
     (votosBanco ?? []) as { pratica_id: string }[],
   );
-  const recebeVoto = atual ? votacaoRecebeVoto(atual, hoje) : false;
+  const contagem = Object.fromEntries(resultado.contagem);
 
-  const fimPadrao = new Date(Date.parse(`${hoje}T12:00:00Z`) + 7 * 86_400_000).toISOString().slice(0, 10);
+  // O calendário da Configuração preenche a votação nova; data que já
+  // passou vira hoje, para o formulário não nascer recusado.
+  const fimPadrao = config.votacao_ate && config.votacao_ate >= hoje ? config.votacao_ate : somarDias(hoje, 3);
+  const divulgacaoPadrao =
+    config.divulgacao_em && config.divulgacao_em > fimPadrao ? config.divulgacao_em : somarDias(fimPadrao, 1);
+
+  const nomesDasAreas = AREAS.filter((a) => config.areas.includes(a.id)).map((a) => a.curto).join(" e ");
 
   return (
     <div>
-      <PageHeader
-        title="Boas Práticas"
-        subtitle="Avalie as sugestões, monte a votação e divulgue a vencedora"
-      />
+      <PageHeader title="Boas Práticas" subtitle="Analise as sugestões, monte a votação e divulgue o pódio" />
 
       {sp.erro && <p className="mb-3 rounded-lg bg-red-50 p-3 text-sm text-red-700">{decodificar(sp.erro)}</p>}
       {sp.sucesso && (
         <p className="mb-3 rounded-lg bg-green-50 p-3 text-sm text-green-700">{decodificar(sp.sucesso)}</p>
       )}
 
+      <div className="mb-4 rounded-2xl border border-slate-200 bg-white p-3 text-xs text-slate-600 shadow-sm">
+        <p>
+          📅 Sugestões até <b>{config.sugestoes_ate ? formatarDia(config.sugestoes_ate) : "—"}</b> · Votação até{" "}
+          <b>{config.votacao_ate ? formatarDia(config.votacao_ate) : "—"}</b> · Divulgação{" "}
+          <b>{config.divulgacao_em ? formatarDia(config.divulgacao_em) : "—"}</b>
+        </p>
+        <p className="mt-1">
+          🎁 {premiosDe(config).map((p) => `${p.medalha} ${formatarReais(p.valor)}`).join(" · ")} · Áreas:{" "}
+          {nomesDasAreas}
+          {podeVerConfig && (
+            <>
+              {" "}
+              ·{" "}
+              <Link href="/admin/boas-praticas/configuracao" className="font-semibold text-primary underline">
+                Configuração
+              </Link>
+            </>
+          )}
+        </p>
+      </div>
+
       <div className="mb-6 flex flex-wrap gap-2 text-xs font-semibold">
-        <span className={`rounded-lg px-3 py-1.5 ${emAnalise.length > 0 ? "bg-amber-100 text-amber-800" : "bg-slate-100 text-slate-600"}`}>
-          {emAnalise.length} para avaliar
+        <span
+          className={`rounded-lg px-3 py-1.5 ${emAnalise.length > 0 ? "bg-amber-100 text-amber-800" : "bg-slate-100 text-slate-600"}`}
+        >
+          {emAnalise.length} para analisar
         </span>
         <span className="rounded-lg bg-green-100 px-3 py-1.5 text-green-800">
-          {aguardando.length} aguardando votação
+          {aguardando.length} aprovada{aguardando.length === 1 ? "" : "s"} aguardando votação
         </span>
-        <span className={`rounded-lg px-3 py-1.5 ${atual ? "bg-primary-soft text-primary-dark" : "bg-slate-100 text-slate-600"}`}>
+        <span
+          className={`rounded-lg px-3 py-1.5 ${atual ? "bg-primary-soft text-primary-dark" : "bg-slate-100 text-slate-600"}`}
+        >
           {atual ? "Votação em andamento" : "Nenhuma votação aberta"}
         </span>
       </div>
@@ -173,11 +209,16 @@ export default async function AdminBoasPraticasPage({
             <div className="space-y-4 rounded-2xl border border-primary/30 bg-white p-4 shadow-sm">
               <div>
                 <p className="text-base font-bold text-slate-900">{atual.titulo}</p>
-                <p className="mt-1 text-sm text-slate-600">🎁 Prêmio: {atual.premio ?? "a definir"}</p>
                 <p className="text-sm text-slate-600">⏰ {textoDoPrazo(atual, hoje)}</p>
+                {atual.divulgacao_em && (
+                  <p className="text-sm text-slate-600">📣 Divulgação em {formatarDia(atual.divulgacao_em)}</p>
+                )}
+                <p className="text-sm text-slate-600">
+                  🎁 {premiosDe(atual).map((p) => `${p.medalha} ${formatarReais(p.valor)}`).join(" · ")}
+                </p>
                 <p className="mt-1 text-xs text-slate-400">
-                  Aberta por {atual.aberta_por_nome} em {formatarDia(atual.aberta_em)} ·{" "}
-                  {resultado.total} voto{resultado.total === 1 ? "" : "s"} até agora
+                  Aberta por {atual.aberta_por_nome} em {formatarDia(atual.aberta_em)} · {resultado.total} voto
+                  {resultado.total === 1 ? "" : "s"} até agora
                 </p>
               </div>
 
@@ -192,9 +233,10 @@ export default async function AdminBoasPraticasPage({
                       <li key={id}>
                         <div className="flex items-baseline justify-between gap-2 text-sm">
                           <span className="min-w-0 truncate font-medium text-slate-800">
-                            {p?.titulo ?? "—"} <span className="text-xs font-normal text-slate-400">· {p?.colaborador_nome}</span>
+                            {p?.titulo ?? "—"}{" "}
+                            <span className="text-xs font-normal text-slate-400">· {p?.colaborador_nome}</span>
                           </span>
-                          <span className="shrink-0 tabular-nums font-bold text-slate-900">{n}</span>
+                          <span className="shrink-0 font-bold tabular-nums text-slate-900">{n}</span>
                         </div>
                         <div className="mt-1 h-2 rounded-full bg-slate-100">
                           <div className="h-2 rounded-full bg-primary" style={{ width: `${largura}%` }} />
@@ -204,87 +246,41 @@ export default async function AdminBoasPraticasPage({
                   })}
                 </ul>
                 <p className="mt-2 text-xs text-slate-400">
-                  A parcial só aparece aqui. Para o colaborador o voto é secreto, e o resultado sai quando a votação é
-                  encerrada.
+                  A parcial só aparece aqui. Para o colaborador o voto é secreto, e o resultado sai no dia da
+                  divulgação.
                 </p>
               </div>
 
               {podeEditar && (
                 <details className="rounded-xl border border-slate-200">
                   <summary className="cursor-pointer list-none p-3 text-sm font-semibold text-slate-700">
-                    ✏️ Mudar prêmio ou prazo
+                    ✏️ Mudar prazo, divulgação ou prêmios
                   </summary>
-                  <form action={atualizarVotacao} className="space-y-3 border-t border-slate-100 p-3">
-                    <input type="hidden" name="id" value={atual.id} />
-                    <div>
-                      <label className={rotulo} htmlFor="premio-atual">Prêmio</label>
-                      <input
-                        id="premio-atual"
-                        name="premio"
-                        maxLength={LIMITES.premioMax}
-                        defaultValue={atual.premio ?? ""}
-                        placeholder="Deixe em branco enquanto não estiver definido"
-                        className={campo}
-                      />
-                    </div>
-                    <div>
-                      <label className={rotulo} htmlFor="fim-atual">Votação aberta até (inclusive)</label>
-                      <input
-                        id="fim-atual"
-                        name="fim"
-                        type="date"
-                        required
-                        min={hoje}
-                        defaultValue={atual.fim < hoje ? hoje : atual.fim}
-                        className={campo}
-                      />
-                    </div>
-                    <BotaoEnviar className="w-full rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white hover:bg-primary-dark">
-                      Salvar
-                    </BotaoEnviar>
-                  </form>
+                  <AjustarVotacao
+                    id={atual.id}
+                    hoje={hoje}
+                    fim={atual.fim < hoje ? hoje : atual.fim}
+                    divulgacao={atual.divulgacao_em ?? somarDias(atual.fim, 1)}
+                    premios={[atual.premio_1, atual.premio_2, atual.premio_3].map((v) =>
+                      v == null ? "" : String(v),
+                    ) as [string, string, string]}
+                  />
                 </details>
               )}
 
               {podeEditar && (
-                <FormConfirmado
-                  action={encerrarVotacao}
-                  confirmacao={
-                    recebeVoto
-                      ? "Encerrar antes do prazo? Quem ainda não votou não vai mais poder votar."
-                      : "Encerrar a votação e divulgar o resultado?"
-                  }
-                  detalhe="Toda a revenda recebe o aviso com a vencedora."
-                  rotuloConfirmar="Encerrar"
-                  className="space-y-2 rounded-xl bg-amber-50 p-3"
-                >
-                  <input type="hidden" name="id" value={atual.id} />
-                  {resultado.lideres.length === 0 ? (
-                    <p className="text-sm text-amber-900">
-                      Ninguém votou ainda. Encerrar agora fecha a votação sem vencedora.
-                    </p>
-                  ) : (
-                    <fieldset className="space-y-1">
-                      <legend className="mb-1 text-sm font-semibold text-amber-900">
-                        {resultado.lideres.length > 1
-                          ? `Empate em primeiro lugar com ${resultado.maximo} votos. Escolha qual será divulgada:`
-                          : "Vencedora (a mais votada):"}
-                      </legend>
-                      {resultado.lideres.map((id, i) => (
-                        <label key={id} className="flex items-center gap-2 text-sm text-slate-800">
-                          <input type="radio" name="vencedora_id" value={id} defaultChecked={i === 0} required />
-                          {porId.get(id)?.titulo} — {porId.get(id)?.colaborador_nome}
-                        </label>
-                      ))}
-                    </fieldset>
-                  )}
-                  <BotaoEnviar
-                    textoEnviando="Encerrando..."
-                    className="w-full rounded-xl bg-amber-500 px-4 py-2.5 text-sm font-bold text-white hover:bg-amber-600"
-                  >
-                    🏆 Encerrar e divulgar
-                  </BotaoEnviar>
-                </FormConfirmado>
+                <DivulgarResultado
+                  votacaoId={atual.id}
+                  opcoes={resultado.ranking.map((id) => ({
+                    id,
+                    titulo: porId.get(id)?.titulo ?? "—",
+                    autor: porId.get(id)?.colaborador_nome ?? "—",
+                    votos: resultado.contagem.get(id) ?? 0,
+                  }))}
+                  sugerido={podioSugerido(contagem)}
+                  bloqueio={motivoParaNaoDivulgar(atual, hoje)}
+                  premios={premiosDe(atual).map((p) => p.valor)}
+                />
               )}
 
               {podeExcluir && (
@@ -304,9 +300,9 @@ export default async function AdminBoasPraticasPage({
         )}
 
         <section className="space-y-3">
-          <h2 className="text-sm font-bold uppercase text-slate-500">Para avaliar ({emAnalise.length})</h2>
+          <h2 className="text-sm font-bold uppercase text-slate-500">Para analisar ({emAnalise.length})</h2>
           {emAnalise.length === 0 ? (
-            <p className="rounded-xl bg-green-50 p-4 text-sm text-green-800">✅ Nenhuma sugestão esperando avaliação.</p>
+            <p className="rounded-xl bg-green-50 p-4 text-sm text-green-800">✅ Nenhuma sugestão esperando análise.</p>
           ) : (
             <ul className="space-y-3">
               {emAnalise.map((p) => (
@@ -331,11 +327,11 @@ export default async function AdminBoasPraticasPage({
 
         <section className="space-y-3">
           <h2 className="text-sm font-bold uppercase text-slate-500">
-            Selecionadas — aguardando votação ({aguardando.length})
+            Aprovadas — aguardando votação ({aguardando.length})
           </h2>
           {aguardando.length === 0 ? (
             <p className="rounded-xl bg-slate-50 p-4 text-sm text-slate-500">
-              Nenhuma prática selecionada esperando votação.
+              Nenhuma prática aprovada esperando votação.
             </p>
           ) : (
             <>
@@ -345,16 +341,18 @@ export default async function AdminBoasPraticasPage({
                   nomeSugerido={nomeSugeridoDaVotacao(hoje)}
                   hoje={hoje}
                   fimPadrao={fimPadrao}
+                  divulgacaoPadrao={divulgacaoPadrao}
+                  premios={config}
                 />
               )}
               {atual && (
                 <p className="rounded-xl bg-slate-50 p-3 text-xs text-slate-500">
-                  Estas entram na próxima votação, depois que a atual for encerrada.
+                  Estas entram na próxima votação, depois que o resultado da atual for divulgado.
                 </p>
               )}
               <ul className="space-y-3">
                 {aguardando.map((p) => (
-                  <CartaoPratica key={p.id} p={p} selo={<SeloPratica texto="✅ Selecionada" tom="selecionada" />}>
+                  <CartaoPratica key={p.id} p={p} selo={<SeloPratica texto="✅ Aprovada" tom="selecionada" />}>
                     <AcoesDaAvaliada p={p} podeEditar={podeEditar} podeExcluir={podeExcluir} />
                   </CartaoPratica>
                 ))}
@@ -380,25 +378,37 @@ export default async function AdminBoasPraticasPage({
 
         {encerradas.length > 0 && (
           <section className="space-y-3">
-            <h2 className="text-sm font-bold uppercase text-slate-500">Votações encerradas</h2>
+            <h2 className="text-sm font-bold uppercase text-slate-500">Resultados divulgados</h2>
             <ul className="space-y-2">
               {encerradas.map((v) => {
-                const vencedora = v.vencedora_id ? porId.get(v.vencedora_id) : undefined;
                 const pl = placar.get(v.id);
+                const premios = premiosDe(v);
+                const podio = podioDe(v);
                 return (
                   <li key={v.id} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
                     <div className="flex flex-wrap items-baseline justify-between gap-2">
                       <p className="text-sm font-bold text-slate-900">{v.titulo}</p>
                       <span className="text-xs text-slate-400">
-                        {v.encerrada_em ? formatarDia(v.encerrada_em) : ""} · {v.encerrada_por_nome}
+                        {v.encerrada_em ? formatarDia(v.encerrada_em) : ""} · {v.encerrada_por_nome} · {pl?.total ?? 0}{" "}
+                        votos
                       </span>
                     </div>
-                    <p className="mt-1 text-sm text-slate-700">
-                      {vencedora
-                        ? `🏆 ${vencedora.titulo} — ${vencedora.colaborador_nome} (${pl?.daVencedora ?? 0} de ${pl?.total ?? 0} votos)`
-                        : "Encerrada sem vencedora"}
-                    </p>
-                    {v.premio && <p className="text-xs text-slate-500">🎁 {v.premio}</p>}
+                    {podio.every((id) => !id) ? (
+                      <p className="mt-1 text-sm text-slate-500">Encerrada sem pódio</p>
+                    ) : (
+                      <ol className="mt-1 space-y-0.5 text-sm text-slate-700">
+                        {podio.map((id, i) => {
+                          const p = id ? porId.get(id) : undefined;
+                          if (!p) return null;
+                          return (
+                            <li key={p.id}>
+                              {MEDALHA[i]} {p.titulo} — {p.colaborador_nome} ({pl?.porLugar[i] ?? 0} votos
+                              {premios[i].valor != null ? ` · ${formatarReais(premios[i].valor)}` : ""})
+                            </li>
+                          );
+                        })}
+                      </ol>
+                    )}
                   </li>
                 );
               })}

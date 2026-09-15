@@ -7,7 +7,21 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { exigirRevenda } from "@/lib/revendas";
 import { criarNotificacao } from "@/lib/notificacoes-server";
 import { enviarPushDaRevenda } from "@/lib/push-server";
-import { LIMITES, apurar, formatarDia, hojeSP } from "@/lib/boas-praticas";
+import { lerConfigBoasPraticas } from "@/lib/boas-praticas-server";
+import {
+  LIMITES,
+  MEDALHA,
+  apurar,
+  formatarDia,
+  formatarReais,
+  lerData,
+  lerReais,
+  motivoParaNaoDivulgar,
+  premiosDe,
+  validarDatasDaVotacao,
+  validarPodio,
+  validarPremios,
+} from "@/lib/boas-praticas";
 
 const ROTA = "/admin/boas-praticas";
 
@@ -19,8 +33,6 @@ function atualizarTelas() {
   revalidatePath(ROTA);
   revalidatePath("/boas-praticas");
 }
-
-const DATA = /^\d{4}-\d{2}-\d{2}$/;
 
 /**
  * Selecionar para a votação ou não. A recusa exige o motivo: quem sugeriu
@@ -63,10 +75,9 @@ export async function avaliarPratica(formData: FormData) {
 
   const selecionada = decisao === "selecionada";
   const titulo = selecionada
-    ? `✅ Sua prática “${pratica.titulo}” foi selecionada`
+    ? `✅ Sua prática “${pratica.titulo}” foi aprovada para a votação`
     : `Sua prática “${pratica.titulo}” não foi selecionada desta vez`;
-  const mensagem =
-    retorno || "Ela vai para a próxima votação. Boa sorte!";
+  const mensagem = retorno || "Ela vai para a votação. Boa sorte!";
   const url = "/boas-praticas?aba=minhas";
 
   await criarNotificacao({
@@ -88,7 +99,7 @@ export async function avaliarPratica(formData: FormData) {
   });
 
   atualizarTelas();
-  voltar("sucesso", selecionada ? "Prática selecionada para a votação." : "Resposta enviada para quem sugeriu.");
+  voltar("sucesso", selecionada ? "Prática aprovada para a votação." : "Resposta enviada para quem sugeriu.");
 }
 
 /** Desfaz a avaliação -- só antes de a prática entrar numa votação. */
@@ -155,25 +166,28 @@ export async function excluirPraticaAdmin(formData: FormData) {
 }
 
 /**
- * Abre a votação com as práticas escolhidas. Todas as regras de novo aqui,
- * independente do que a tela já barrou: pelo menos duas, todas
- * selecionadas e livres, prazo de hoje em diante, uma votação aberta por
- * vez (esta última também é índice único no banco).
+ * Abre a votação com as práticas aprovadas. Todas as regras de novo aqui,
+ * independente do que a tela já barrou: pelo menos duas, todas aprovadas
+ * e livres, prazo de hoje em diante com a divulgação depois dele, uma
+ * votação aberta por vez (esta última também é índice único no banco).
+ *
+ * A premiação vem da Configuração e é COPIADA para a votação: mudar a
+ * configuração da próxima edição não reescreve o prêmio desta.
  */
 export async function abrirVotacao(formData: FormData) {
   const perfil = await requireModulo("boas-praticas", "editar", ROTA);
   const revendaId = await exigirRevenda(ROTA);
 
   const titulo = String(formData.get("titulo") ?? "").trim();
-  const premio = String(formData.get("premio") ?? "").trim().slice(0, LIMITES.premioMax) || null;
-  const fim = String(formData.get("fim") ?? "").trim();
+  const fim = lerData(formData.get("fim"));
+  const divulgacao = lerData(formData.get("divulgacao_em"));
   const ids = [...new Set(formData.getAll("pratica_id").map(String).filter(Boolean))];
 
   if (titulo.length < 3 || titulo.length > LIMITES.votacaoTituloMax) {
     voltar("erro", `Dê um nome à votação (até ${LIMITES.votacaoTituloMax} caracteres).`);
   }
-  if (!DATA.test(fim)) voltar("erro", "Informe até que dia a votação fica aberta.");
-  if (fim < hojeSP()) voltar("erro", "O prazo da votação não pode estar no passado.");
+  const erroDeData = validarDatasDaVotacao(fim, divulgacao);
+  if (erroDeData) voltar("erro", erroDeData);
   if (ids.length < LIMITES.minimoNaVotacao) {
     voltar("erro", `Escolha pelo menos ${LIMITES.minimoNaVotacao} práticas para a votação.`);
   }
@@ -186,7 +200,7 @@ export async function abrirVotacao(formData: FormData) {
     .eq("revenda_id", revendaId)
     .is("encerrada_em", null)
     .maybeSingle();
-  if (jaAberta) voltar("erro", "Já existe uma votação aberta. Encerre ou cancele antes de abrir outra.");
+  if (jaAberta) voltar("erro", "Já existe uma votação aberta. Divulgue ou cancele antes de abrir outra.");
 
   const { data: livres } = await admin
     .from("boas_praticas")
@@ -199,13 +213,18 @@ export async function abrirVotacao(formData: FormData) {
     voltar("erro", "Alguma prática escolhida não está mais disponível. Recarregue a tela e confira.");
   }
 
+  const config = await lerConfigBoasPraticas(revendaId);
+
   const { data: votacao, error } = await admin
     .from("boas_praticas_votacoes")
     .insert({
       revenda_id: revendaId,
       titulo,
-      premio,
       fim,
+      divulgacao_em: divulgacao,
+      premio_1: config.premio_1,
+      premio_2: config.premio_2,
+      premio_3: config.premio_3,
       aberta_por_id: perfil.id,
       aberta_por_nome: perfil.nome,
     })
@@ -214,7 +233,7 @@ export async function abrirVotacao(formData: FormData) {
 
   if (error || !votacao) {
     if (error?.code === "23505") {
-      voltar("erro", "Já existe uma votação aberta. Encerre ou cancele antes de abrir outra.");
+      voltar("erro", "Já existe uma votação aberta. Divulgue ou cancele antes de abrir outra.");
     }
     voltar("erro", `Não foi possível abrir a votação: ${error?.message ?? "tente de novo"}`);
   }
@@ -236,10 +255,9 @@ export async function abrirVotacao(formData: FormData) {
     voltar("erro", "Alguma prática mudou enquanto a votação era aberta. Recarregue a tela e tente de novo.");
   }
 
+  const premio1 = config.premio_1 != null ? ` O 1º lugar leva ${formatarReais(config.premio_1)}.` : "";
   const tituloAviso = `🗳️ Votação aberta: ${titulo}`;
-  const mensagem = `${ids.length} práticas concorrendo. Vote até ${formatarDia(fim)}${
-    premio ? ` — prêmio: ${premio}` : ""
-  }.`;
+  const mensagem = `${ids.length} práticas aprovadas concorrendo. Vote até ${formatarDia(fim!)}.${premio1}`;
   const url = "/boas-praticas?aba=votar";
 
   await criarNotificacao({
@@ -263,56 +281,65 @@ export async function abrirVotacao(formData: FormData) {
   voltar("sucesso", "Votação aberta! A revenda inteira foi avisada.");
 }
 
-/** Prêmio e prazo mudam com a votação aberta -- o prêmio ainda está sendo definido. */
+/** Prazo, divulgação e prêmios mudam com a votação aberta. */
 export async function atualizarVotacao(formData: FormData) {
   await requireModulo("boas-praticas", "editar", ROTA);
   const revendaId = await exigirRevenda(ROTA);
 
   const id = String(formData.get("id") ?? "");
-  const premio = String(formData.get("premio") ?? "").trim().slice(0, LIMITES.premioMax) || null;
-  const fim = String(formData.get("fim") ?? "").trim();
+  const fim = lerData(formData.get("fim"));
+  const divulgacao = lerData(formData.get("divulgacao_em"));
+  const premios = {
+    premio_1: lerReais(formData.get("premio_1")),
+    premio_2: lerReais(formData.get("premio_2")),
+    premio_3: lerReais(formData.get("premio_3")),
+  };
 
   if (!id) voltar("erro", "Votação inválida.");
-  if (!DATA.test(fim)) voltar("erro", "Informe até que dia a votação fica aberta.");
-  if (fim < hojeSP()) voltar("erro", "O prazo da votação não pode estar no passado.");
+  const erro = validarDatasDaVotacao(fim, divulgacao) ?? validarPremios(premios);
+  if (erro) voltar("erro", erro);
 
   const admin = createAdminClient();
   const { data: alteradas, error } = await admin
     .from("boas_praticas_votacoes")
-    .update({ premio, fim })
+    .update({ fim, divulgacao_em: divulgacao, ...premios })
     .eq("id", id)
     .eq("revenda_id", revendaId)
     .is("encerrada_em", null)
     .select("id");
 
   if (error) voltar("erro", `Não foi possível salvar: ${error.message}`);
-  if (!alteradas || alteradas.length === 0) voltar("erro", "Esta votação já foi encerrada.");
+  if (!alteradas || alteradas.length === 0) voltar("erro", "O resultado desta votação já foi divulgado.");
 
   atualizarTelas();
   voltar("sucesso", "Votação atualizada.");
 }
 
 /**
- * Encerra e divulga. Quem ganha é o VOTO: a liderança só escolhe entre as
- * empatadas no primeiro lugar, e o servidor recusa qualquer outra.
+ * Divulga o pódio. Quem decide é o VOTO: a liderança só ordena as
+ * empatadas, e o servidor recusa qualquer pódio que contrarie a contagem
+ * (validarPodio). E só no calendário: depois do último dia de votação e a
+ * partir do dia da divulgação (motivoParaNaoDivulgar).
  */
-export async function encerrarVotacao(formData: FormData) {
+export async function divulgarResultado(formData: FormData) {
   const perfil = await requireModulo("boas-praticas", "editar", ROTA);
   const revendaId = await exigirRevenda(ROTA);
 
   const id = String(formData.get("id") ?? "");
-  const vencedoraId = String(formData.get("vencedora_id") ?? "");
+  const escolhidas = [1, 2, 3].map((n) => String(formData.get(`lugar_${n}`) ?? ""));
   if (!id) voltar("erro", "Votação inválida.");
 
   const admin = createAdminClient();
   const { data: votacao } = await admin
     .from("boas_praticas_votacoes")
-    .select("id, titulo, premio")
+    .select("id, titulo, fim, divulgacao_em, encerrada_em, premio_1, premio_2, premio_3")
     .eq("id", id)
     .eq("revenda_id", revendaId)
-    .is("encerrada_em", null)
     .maybeSingle();
-  if (!votacao) voltar("erro", "Esta votação já foi encerrada.");
+  if (!votacao) voltar("erro", "Votação não encontrada.");
+
+  const bloqueio = motivoParaNaoDivulgar(votacao);
+  if (bloqueio) voltar("erro", bloqueio);
 
   // Uma revenda tem ~160 pessoas e é um voto por pessoa: cabe folgado
   // abaixo das 1.000 linhas que o PostgREST devolve por consulta.
@@ -321,37 +348,40 @@ export async function encerrarVotacao(formData: FormData) {
     admin.from("boas_praticas_votos").select("pratica_id").eq("votacao_id", id),
   ]);
   const lista = praticas ?? [];
-  const resultado = apurar(
+  const { contagem } = apurar(
     lista.map((p) => p.id as string),
     (votos ?? []) as { pratica_id: string }[],
   );
 
-  if (resultado.total > 0 && !resultado.lideres.includes(vencedoraId)) {
-    voltar("erro", "A vencedora tem de ser a mais votada (ou uma das empatadas em primeiro lugar).");
-  }
-  const vencedora = resultado.total > 0 ? lista.find((p) => p.id === vencedoraId) : undefined;
+  const resultado = validarPodio(Object.fromEntries(contagem), escolhidas);
+  if (!resultado.ok) voltar("erro", resultado.erro);
+  const podio = resultado.podio;
 
   const { data: encerradas, error } = await admin
     .from("boas_praticas_votacoes")
     .update({
       encerrada_em: new Date().toISOString(),
       encerrada_por_nome: perfil.nome,
-      vencedora_id: vencedora?.id ?? null,
+      vencedora_id: podio[0] ?? null,
+      segunda_id: podio[1] ?? null,
+      terceira_id: podio[2] ?? null,
     })
     .eq("id", id)
     .is("encerrada_em", null)
     .select("id");
 
-  if (error) voltar("erro", `Não foi possível encerrar: ${error.message}`);
-  if (!encerradas || encerradas.length === 0) voltar("erro", "Esta votação já foi encerrada.");
+  if (error) voltar("erro", `Não foi possível divulgar: ${error.message}`);
+  if (!encerradas || encerradas.length === 0) voltar("erro", "O resultado desta votação já foi divulgado.");
 
-  if (vencedora) {
-    const votosDela = resultado.contagem.get(vencedora.id) ?? 0;
-    const titulo = `🏆 “${vencedora.titulo}” venceu a votação!`;
-    const mensagem = `Prática de ${vencedora.colaborador_nome}, com ${votosDela} voto${
-      votosDela === 1 ? "" : "s"
-    }.${votacao.premio ? ` Prêmio: ${votacao.premio}.` : ""}`;
+  if (podio.length > 0) {
+    const premios = premiosDe(votacao);
+    const porId = new Map(lista.map((p) => [p.id as string, p]));
     const url = "/boas-praticas?aba=vencedoras";
+
+    const titulo = `🏆 Resultado: ${votacao.titulo}`;
+    const mensagem = podio
+      .map((pid, i) => `${MEDALHA[i]} ${porId.get(pid)?.titulo} (${porId.get(pid)?.colaborador_nome})`)
+      .join(" · ");
 
     await criarNotificacao({
       modulo: "boas-praticas",
@@ -363,13 +393,31 @@ export async function encerrarVotacao(formData: FormData) {
       criadoPor: perfil.nome,
     });
     await enviarPushDaRevenda(revendaId, { modulo: "boas-praticas", titulo, mensagem, url });
+
+    // E o recado pessoal para cada premiado.
+    await Promise.all(
+      podio.map((pid, i) => {
+        const p = porId.get(pid);
+        if (!p) return Promise.resolve();
+        return criarNotificacao({
+          modulo: "boas-praticas",
+          tipo: "importante",
+          titulo: `${MEDALHA[i]} Sua prática “${p.titulo}” ficou em ${i + 1}º lugar!`,
+          mensagem:
+            premios[i].valor != null
+              ? `Parabéns! Prêmio: ${formatarReais(premios[i].valor)}.`
+              : "Parabéns pela prática!",
+          url,
+          referenciaId: votacao.id,
+          criadoPor: perfil.nome,
+          destinatarioId: p.colaborador_id as string,
+        });
+      }),
+    );
   }
 
   atualizarTelas();
-  voltar(
-    "sucesso",
-    vencedora ? "Votação encerrada e vencedora divulgada para a revenda." : "Votação encerrada sem votos.",
-  );
+  voltar("sucesso", podio.length > 0 ? "Resultado divulgado para a revenda." : "Votação encerrada sem votos.");
 }
 
 /**
@@ -394,7 +442,7 @@ export async function cancelarVotacao(formData: FormData) {
 
   if (error) voltar("erro", `Não foi possível cancelar: ${error.message}`);
   if (!apagadas || apagadas.length === 0) {
-    voltar("erro", "Votação encerrada não se cancela: o resultado já foi divulgado.");
+    voltar("erro", "Votação com resultado divulgado não se cancela.");
   }
 
   atualizarTelas();

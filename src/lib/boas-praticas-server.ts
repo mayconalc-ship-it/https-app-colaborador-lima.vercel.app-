@@ -2,22 +2,76 @@ import "server-only";
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getPerfil, type Perfil } from "@/lib/sessao";
+import { getConcessoes } from "@/lib/concessoes";
 import { getRevendaId, revendaTemModulo } from "@/lib/revendas";
-import { MODULO_BOAS_PRATICAS } from "@/lib/boas-praticas";
+import { ehOwner, podeFazer } from "@/lib/acessos";
+import { areaDoColaborador } from "@/lib/quiz";
+import {
+  MODULO_BOAS_PRATICAS,
+  normalizarConfig,
+  type ConfigBoasPraticas,
+} from "@/lib/boas-praticas";
+
+/** A configuração do programa na revenda (áreas, calendário, prêmios). */
+export async function lerConfigBoasPraticas(revendaId: string): Promise<ConfigBoasPraticas> {
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("boas_praticas_config")
+    .select("areas, sugestoes_ate, votacao_ate, divulgacao_em, premio_1, premio_2, premio_3")
+    .eq("revenda_id", revendaId)
+    .maybeSingle();
+  return normalizarConfig(data);
+}
 
 /**
- * Quem pode sugerir e votar: qualquer pessoa da revenda, desde que a
- * revenda tenha o módulo ligado.
+ * A pessoa participa? AS ÁREAS MARCADAS EM CONFIGURAÇÃO (15/09/2026).
+ *
+ * A área vem do cadastro, lida pelo mesmo tradutor do Desafio do Mês
+ * (`areaDoColaborador`): "DISTRIBUIÇÃO URBANA" vira DU, "ARMAZÉM" vira AL.
+ * Quem está com uma área que ele não reconhece fica de fora até o cadastro
+ * ser corrigido -- a tela de Configuração mostra quantos são.
+ *
+ * O dono e a liderança que conduz o programa passam sempre: quem avalia
+ * precisa enxergar a tela do colaborador, seja de que área for.
+ *
+ * Uma função só para a home, para a prévia de acesso e para as ações.
+ */
+export function participaPorArea(
+  config: ConfigBoasPraticas,
+  pessoa: { role: string; area: string | null },
+  concessoes: Set<string>,
+) {
+  if (ehOwner(pessoa.role)) return true;
+  if (podeFazer(pessoa.role, concessoes, MODULO_BOAS_PRATICAS, "ver")) return true;
+  const area = areaDoColaborador(pessoa.area);
+  return area !== null && config.areas.includes(area);
+}
+
+/** O cartão da home some para quem não participa. */
+export async function boasPraticasForaDaArea(
+  pessoa: { role: string; area: string | null },
+  concessoes: Set<string>,
+  revendaId: string,
+  modulosDaRevenda: Set<string>,
+) {
+  if (!modulosDaRevenda.has(MODULO_BOAS_PRATICAS)) return false;
+  const config = await lerConfigBoasPraticas(revendaId);
+  return !participaPorArea(config, pessoa, concessoes);
+}
+
+/**
+ * Quem pode sugerir e votar: a pessoa da revenda com o módulo ligado, das
+ * áreas que participam.
  *
  * Não usa `temAcessoModulo`: aquela função é a porta dos módulos
- * OPCIONAIS, e barraria o colaborador comum que não tem liberação
- * individual -- que aqui é todo mundo (ver acessos.ts).
+ * OPCIONAIS, e barraria o colaborador comum sem liberação individual --
+ * que aqui é todo mundo (ver acessos.ts).
  *
- * A tela e as ações chamam esta MESMA função: a regra da tela é a regra
- * do servidor.
+ * A tela e as ações chamam esta MESMA função.
  */
 export async function contextoBoasPraticas(): Promise<
-  { ok: true; perfil: Perfil; revendaId: string } | { ok: false; erro: string }
+  | { ok: true; perfil: Perfil; revendaId: string; config: ConfigBoasPraticas }
+  | { ok: false; erro: string }
 > {
   const perfil = await getPerfil();
   if (!perfil) return { ok: false, erro: "Sua sessão expirou. Entre de novo." };
@@ -26,7 +80,11 @@ export async function contextoBoasPraticas(): Promise<
   if (!(await revendaTemModulo(MODULO_BOAS_PRATICAS))) {
     return { ok: false, erro: "O programa de Boas Práticas não está ativo nesta revenda." };
   }
-  return { ok: true, perfil, revendaId };
+  const [config, concessoes] = await Promise.all([lerConfigBoasPraticas(revendaId), getConcessoes()]);
+  if (!participaPorArea(config, perfil, concessoes)) {
+    return { ok: false, erro: "O programa de Boas Práticas ainda não está aberto para a sua área." };
+  }
+  return { ok: true, perfil, revendaId, config };
 }
 
 /**

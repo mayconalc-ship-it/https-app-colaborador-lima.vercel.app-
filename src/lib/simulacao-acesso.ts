@@ -13,6 +13,7 @@ import {
 } from "@/lib/acessos";
 import { agruparItens, cartoesVisiveis, completarComPadrao, type ItemMenu } from "@/lib/menu";
 import { paineisPara, type Painel } from "@/lib/gestao";
+import { boasPraticasForaDaArea } from "@/lib/boas-praticas-server";
 
 /**
  * "VER COMO ESTA PESSOA VÊ" -- a prévia de acesso.
@@ -120,7 +121,12 @@ export async function simularAcesso(
 
   // A mesma conta da home (completarComPadrao): a prévia não pode divergir.
   const todos = completarComPadrao(itensBanco as ItemMenu[] | null);
-  const blocos = agruparItens(cartoesVisiveis(todos, modulosDaRevenda, modulosAcessiveis)).map(
+  // A mesma regra de área da home (participaPorArea).
+  const ocultos = new Set<string>();
+  if (await boasPraticasForaDaArea(pessoa, concessoes, revendaId, modulosDaRevenda)) {
+    ocultos.add("boas-praticas");
+  }
+  const blocos = agruparItens(cartoesVisiveis(todos, modulosDaRevenda, modulosAcessiveis, ocultos)).map(
     (b) => ({ id: b.id, titulo: b.titulo, itens: b.itens }),
   );
 

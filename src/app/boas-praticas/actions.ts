@@ -7,7 +7,13 @@ import { subirFotoHorimetro } from "@/lib/produtividade-armazem-server";
 import { criarNotificacao } from "@/lib/notificacoes-server";
 import { enviarPushDaRevenda } from "@/lib/push-server";
 import { contextoBoasPraticas, quemAvaliaBoasPraticas } from "@/lib/boas-praticas-server";
-import { lerPratica, validarPratica, votacaoRecebeVoto } from "@/lib/boas-praticas";
+import {
+  lerPratica,
+  mensagemPrazoDeSugestao,
+  recebeSugestao,
+  validarPratica,
+  votacaoRecebeVoto,
+} from "@/lib/boas-praticas";
 
 const ROTA = "/boas-praticas";
 
@@ -32,7 +38,11 @@ async function fotoDoFormulario(formData: FormData, prefixo: string, aba: string
 }
 
 export async function enviarPratica(formData: FormData) {
-  const { perfil, revendaId } = await contexto();
+  const { perfil, revendaId, config } = await contexto();
+
+  // O prazo das sugestões (Configuração). A tela esconde o formulário
+  // depois dele; aqui é a mesma regra para quem chamar a ação por fora.
+  if (!recebeSugestao(config)) voltar("sugerir", "erro", mensagemPrazoDeSugestao(config));
 
   const dados = lerPratica(formData);
   const problema = validarPratica(dados);
@@ -104,7 +114,11 @@ export async function enviarPratica(formData: FormData) {
  * mudar ali mudaria a prática por baixo da decisão.
  */
 export async function editarPratica(formData: FormData) {
-  const { perfil, revendaId } = await contexto();
+  const { perfil, revendaId, config } = await contexto();
+
+  // Corrigir também fecha no prazo: depois dele a liderança já está
+  // analisando o texto que foi enviado.
+  if (!recebeSugestao(config)) voltar("minhas", "erro", mensagemPrazoDeSugestao(config));
 
   const id = String(formData.get("id") ?? "");
   if (!id) voltar("minhas", "erro", "Prática inválida.");

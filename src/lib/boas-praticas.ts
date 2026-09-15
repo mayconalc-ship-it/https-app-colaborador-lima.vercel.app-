@@ -2,17 +2,20 @@
  * PROGRAMA DE BOAS PRÁTICAS -- as regras, num lugar só.
  *
  * Pedido do dono (15/09/2026). O colaborador sugere quantas práticas
- * quiser; a liderança seleciona quais vão para a votação; os colegas
- * votam; a mais votada ganha o incentivo.
+ * quiser até o prazo; a liderança analisa e libera para a votação só as
+ * aprovadas; os colegas votam; as três mais votadas sobem ao pódio e são
+ * premiadas.
  *
- * Fica separado do servidor de propósito: o formulário do colaborador e a
- * tela da liderança leem os MESMOS limites que a ação confere. Limite
- * escrito duas vezes é limite que discorda na primeira mudança.
+ * Fica separado do servidor de propósito: o formulário do colaborador, a
+ * tela da liderança e a ação do servidor leem as MESMAS regras. Regra
+ * escrita duas vezes é regra que discorda na primeira mudança.
  */
+
+import { ehAreaValida, type AreaId } from "@/lib/areas";
 
 export const MODULO_BOAS_PRATICAS = "boas-praticas" as const;
 
-/** Os mesmos números das travas da migration 117. */
+/** Os mesmos números das travas das migrations 117 e 118. */
 export const LIMITES = {
   tituloMin: 3,
   tituloMax: 100,
@@ -23,6 +26,8 @@ export const LIMITES = {
   votacaoTituloMax: 120,
   /** Votação com uma prática só não é votação. */
   minimoNaVotacao: 2,
+  /** 1º, 2º e 3º lugar. */
+  lugaresNoPodio: 3,
 } as const;
 
 export type StatusPratica = "em_analise" | "selecionada" | "nao_selecionada";
@@ -33,8 +38,7 @@ export type CampoTexto = "problema" | "objetivo" | "escopo" | "beneficios";
  * Os quatro campos que o dono pediu, com a pergunta que cada um responde.
  *
  * Os exemplos são os dois casos reais que ele citou, de outras revendas:
- * prática boa não precisa de investimento alto. Eles aparecem no próprio
- * formulário para quem nunca escreveu uma proposta ver o tamanho da coisa.
+ * prática boa não precisa de investimento alto.
  */
 export const CAMPOS_DA_PRATICA: {
   nome: CampoTexto;
@@ -74,6 +78,8 @@ export const ROTULO_STATUS: Record<StatusPratica, string> = {
   nao_selecionada: "Não selecionada",
 };
 
+export const MEDALHA = ["🥇", "🥈", "🥉"] as const;
+
 export type DadosDaPratica = {
   titulo: string;
   problema: string;
@@ -112,10 +118,14 @@ export function validarPratica(d: DadosDaPratica): string | null {
   return null;
 }
 
+// ------------------------------------------------------------------
+// Datas
+// ------------------------------------------------------------------
+
 /**
  * Hoje em "AAAA-MM-DD" no fuso da operação.
  *
- * A Vercel roda em UTC: com a data do servidor, a votação que acaba "hoje"
+ * A Vercel roda em UTC: com a data do servidor, o prazo que acaba "hoje"
  * fecharia às 21h, no meio do turno da noite.
  */
 export function hojeSP(quando: Date = new Date()) {
@@ -127,22 +137,29 @@ export function hojeSP(quando: Date = new Date()) {
   }).format(quando);
 }
 
+export const DATA_ISO = /^\d{4}-\d{2}-\d{2}$/;
+
+/** "AAAA-MM-DD" ou null, sem aceitar lixo. */
+export function lerData(valor: unknown): string | null {
+  const t = String(valor ?? "").trim();
+  return DATA_ISO.test(t) ? t : null;
+}
+
 /** "2026-09-30" -> "30/09/2026". */
 export function formatarDia(iso: string) {
   const [a, m, d] = iso.slice(0, 10).split("-");
   return `${d}/${m}/${a}`;
 }
 
-export type VotacaoBasica = { encerrada_em: string | null; fim: string };
+/** "2026-09-30" -> "30/09". */
+export function formatarDiaCurto(iso: string) {
+  const [, m, d] = iso.slice(0, 10).split("-");
+  return `${d}/${m}`;
+}
 
-/**
- * Dá para votar agora? Não encerrada E dentro do prazo.
- *
- * O prazo vencido fecha o voto sozinho, mesmo que a liderança ainda não
- * tenha encerrado: ninguém vota depois da data que foi anunciada.
- */
-export function votacaoRecebeVoto(v: VotacaoBasica, hoje = hojeSP()) {
-  return !v.encerrada_em && hoje <= v.fim;
+/** "AAAA-MM-DD" + n dias. */
+export function somarDias(iso: string, dias: number) {
+  return new Date(Date.parse(`${iso}T12:00:00Z`) + dias * 86_400_000).toISOString().slice(0, 10);
 }
 
 /** Quantos dias faltam, contando hoje. 0 = acaba hoje. */
@@ -151,19 +168,167 @@ export function diasParaAcabar(fim: string, hoje = hojeSP()) {
   return Math.round((Date.parse(`${fim}T00:00:00Z`) - Date.parse(`${hoje}T00:00:00Z`)) / umDia);
 }
 
+// ------------------------------------------------------------------
+// Prêmios
+// ------------------------------------------------------------------
+
+/** Valor em reais vindo do formulário. Vazio = null; lixo = NaN. */
+export function lerReais(valor: unknown): number | null {
+  const t = String(valor ?? "").trim();
+  if (!t) return null;
+  return Number(t.replace(",", "."));
+}
+
+export function formatarReais(valor: number | null | undefined) {
+  if (valor == null) return "a definir";
+  return new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+    minimumFractionDigits: Number.isInteger(valor) ? 0 : 2,
+    maximumFractionDigits: 2,
+  }).format(valor);
+}
+
+export type Premios = { premio_1: number | null; premio_2: number | null; premio_3: number | null };
+
+export function premiosDe(v: Premios) {
+  return [v.premio_1, v.premio_2, v.premio_3].map((valor, i) => ({
+    lugar: i + 1,
+    medalha: MEDALHA[i],
+    valor: valor == null ? null : Number(valor),
+  }));
+}
+
+/** O 2º não vale mais que o 1º, nem o 3º mais que o 2º. */
+export function validarPremios(p: Premios): string | null {
+  const valores = [p.premio_1, p.premio_2, p.premio_3];
+  for (const [i, v] of valores.entries()) {
+    if (v != null && (!Number.isFinite(v) || v < 0)) return `O prêmio do ${i + 1}º lugar está inválido.`;
+  }
+  const [a, b, c] = valores;
+  if (a != null && b != null && b > a) return "O prêmio do 2º lugar não pode ser maior que o do 1º.";
+  if (b != null && c != null && c > b) return "O prêmio do 3º lugar não pode ser maior que o do 2º.";
+  return null;
+}
+
+// ------------------------------------------------------------------
+// Configuração do programa (áreas, calendário, premiação)
+// ------------------------------------------------------------------
+
+export type ConfigBoasPraticas = Premios & {
+  areas: AreaId[];
+  sugestoes_ate: string | null;
+  votacao_ate: string | null;
+  divulgacao_em: string | null;
+};
+
+/** Sem linha no banco: todas as áreas, sem prazo, prêmio a definir. */
+export const CONFIG_PADRAO: ConfigBoasPraticas = {
+  areas: ["DU", "AL"],
+  sugestoes_ate: null,
+  votacao_ate: null,
+  divulgacao_em: null,
+  premio_1: null,
+  premio_2: null,
+  premio_3: null,
+};
+
+export function normalizarConfig(linha: Record<string, unknown> | null | undefined): ConfigBoasPraticas {
+  if (!linha) return CONFIG_PADRAO;
+  const numero = (v: unknown) => (v == null ? null : Number(v));
+  const areas = (Array.isArray(linha.areas) ? linha.areas : []).map(String).filter(ehAreaValida);
+  return {
+    areas: areas.length > 0 ? areas : CONFIG_PADRAO.areas,
+    sugestoes_ate: lerData(linha.sugestoes_ate),
+    votacao_ate: lerData(linha.votacao_ate),
+    divulgacao_em: lerData(linha.divulgacao_em),
+    premio_1: numero(linha.premio_1),
+    premio_2: numero(linha.premio_2),
+    premio_3: numero(linha.premio_3),
+  };
+}
+
+/** A mesma checagem da tela de Configuração e da migration 118. */
+export function validarConfig(c: ConfigBoasPraticas): string | null {
+  if (c.areas.length === 0) return "Marque pelo menos uma área participante.";
+  if (c.areas.some((a) => !ehAreaValida(a))) return "Área inválida.";
+  if (c.sugestoes_ate && c.votacao_ate && c.sugestoes_ate > c.votacao_ate) {
+    return "O prazo das sugestões tem de ser antes do fim da votação.";
+  }
+  if (c.votacao_ate && c.divulgacao_em && c.divulgacao_em <= c.votacao_ate) {
+    return "A divulgação tem de ser depois do último dia de votação.";
+  }
+  return validarPremios(c);
+}
+
+/** Ainda dá para enviar ou corrigir sugestão? */
+export function recebeSugestao(c: Pick<ConfigBoasPraticas, "sugestoes_ate">, hoje = hojeSP()) {
+  return !c.sugestoes_ate || hoje <= c.sugestoes_ate;
+}
+
+export function mensagemPrazoDeSugestao(c: Pick<ConfigBoasPraticas, "sugestoes_ate">) {
+  return c.sugestoes_ate
+    ? `O prazo para enviar sugestões terminou em ${formatarDia(c.sugestoes_ate)}.`
+    : "O envio de sugestões está fechado.";
+}
+
+// ------------------------------------------------------------------
+// Votação
+// ------------------------------------------------------------------
+
+export type VotacaoBasica = { encerrada_em: string | null; fim: string; divulgacao_em?: string | null };
+
+/**
+ * Dá para votar agora? Não encerrada E dentro do prazo.
+ *
+ * O prazo vencido fecha o voto sozinho, mesmo que a liderança ainda não
+ * tenha divulgado: ninguém vota depois da data que foi anunciada.
+ */
+export function votacaoRecebeVoto(v: VotacaoBasica, hoje = hojeSP()) {
+  return !v.encerrada_em && hoje <= v.fim;
+}
+
 export function textoDoPrazo(v: VotacaoBasica, hoje = hojeSP()) {
-  if (v.encerrada_em) return "Votação encerrada";
+  if (v.encerrada_em) return "Resultado divulgado";
   const dias = diasParaAcabar(v.fim, hoje);
-  if (dias < 0) return "Prazo encerrado — aguardando o resultado";
+  if (dias < 0) {
+    return v.divulgacao_em
+      ? `Votação encerrada — resultado em ${formatarDia(v.divulgacao_em)}`
+      : "Votação encerrada — aguardando o resultado";
+  }
   if (dias === 0) return "Último dia para votar";
-  if (dias === 1) return "Termina amanhã";
-  return `Faltam ${dias} dias · até ${formatarDia(v.fim)}`;
+  if (dias === 1) return `Termina amanhã (${formatarDiaCurto(v.fim)})`;
+  return `Faltam ${dias} dias · votação até ${formatarDia(v.fim)}`;
+}
+
+/** Prazo e divulgação da votação: o prazo não fica no passado e a divulgação vem depois dele. */
+export function validarDatasDaVotacao(fim: string | null, divulgacao: string | null, hoje = hojeSP()) {
+  if (!fim) return "Informe até que dia a votação fica aberta.";
+  if (fim < hoje) return "O prazo da votação não pode estar no passado.";
+  if (!divulgacao) return "Informe o dia da divulgação do resultado.";
+  if (divulgacao <= fim) return "A divulgação tem de ser depois do último dia de votação.";
+  return null;
 }
 
 /**
- * A apuração. `lideres` é quem tem o maior número de votos -- mais de um
- * quando há empate, e vazio quando ninguém votou.
+ * Por que ainda NÃO dá para divulgar -- ou null, quando dá.
+ *
+ * O calendário é a regra: a votação vai até o fim do último dia, e o
+ * resultado sai no dia da divulgação, não antes. A tela desliga o botão
+ * com este mesmo texto, e a ação recusa com ele.
  */
+export function motivoParaNaoDivulgar(v: VotacaoBasica, hoje = hojeSP()): string | null {
+  if (v.encerrada_em) return "O resultado desta votação já foi divulgado.";
+  if (hoje <= v.fim) {
+    return `A votação vai até ${formatarDia(v.fim)}. O resultado sai depois disso${
+      v.divulgacao_em ? `, em ${formatarDia(v.divulgacao_em)}` : ""
+    }.`;
+  }
+  if (v.divulgacao_em && hoje < v.divulgacao_em) return `A divulgação é em ${formatarDia(v.divulgacao_em)}.`;
+  return null;
+}
+
+/** A contagem de votos por prática e a ordem, do mais votado ao menos. */
 export function apurar(praticaIds: string[], votos: { pratica_id: string }[]) {
   const contagem = new Map<string, number>(praticaIds.map((id) => [id, 0]));
   for (const v of votos) {
@@ -171,9 +336,61 @@ export function apurar(praticaIds: string[], votos: { pratica_id: string }[]) {
   }
   const total = [...contagem.values()].reduce((a, b) => a + b, 0);
   const maximo = Math.max(0, ...contagem.values());
-  const lideres = maximo > 0 ? praticaIds.filter((id) => contagem.get(id) === maximo) : [];
   const ranking = [...praticaIds].sort((a, b) => (contagem.get(b) ?? 0) - (contagem.get(a) ?? 0));
-  return { contagem, total, maximo, lideres, ranking };
+  return { contagem, total, maximo, ranking };
+}
+
+/** O pódio que a contagem dá, sem ninguém mexer: as três mais votadas, com pelo menos um voto. */
+export function podioSugerido(contagem: Record<string, number>) {
+  return Object.keys(contagem)
+    .filter((id) => (contagem[id] ?? 0) > 0)
+    .sort((a, b) => contagem[b] - contagem[a])
+    .slice(0, LIMITES.lugaresNoPodio);
+}
+
+/**
+ * O pódio escolhido respeita o voto?
+ *
+ * Quem decide é o voto. A liderança só ordena as que EMPATARAM: pode
+ * trocar de lugar duas práticas com o mesmo número de votos, nunca pôr uma
+ * menos votada na frente de uma mais votada. Lugar no pódio exige ao menos
+ * um voto -- prêmio para zero voto não é resultado de votação.
+ */
+export function validarPodio(
+  contagem: Record<string, number>,
+  escolhidas: string[],
+): { ok: true; podio: string[] } | { ok: false; erro: string } {
+  const votos = (id: string) => contagem[id] ?? 0;
+  const comVoto = Object.keys(contagem).filter((id) => votos(id) > 0);
+  const vagas = Math.min(LIMITES.lugaresNoPodio, comVoto.length);
+  const podio = escolhidas.filter(Boolean);
+
+  if (vagas === 0) {
+    return podio.length === 0 ? { ok: true, podio: [] } : { ok: false, erro: "Ninguém votou: não há pódio." };
+  }
+  if (podio.length !== vagas) {
+    return {
+      ok: false,
+      erro:
+        vagas < LIMITES.lugaresNoPodio
+          ? `Só ${vagas} prática${vagas === 1 ? "" : "s"} recebeu voto: preencha ${vagas} lugar${vagas === 1 ? "" : "es"}.`
+          : "Preencha o 1º, o 2º e o 3º lugar.",
+    };
+  }
+  if (new Set(podio).size !== podio.length) return { ok: false, erro: "A mesma prática está em dois lugares." };
+  if (podio.some((id) => !(id in contagem) || votos(id) === 0)) {
+    return { ok: false, erro: "Só entra no pódio prática que está na votação e recebeu voto." };
+  }
+  for (let i = 1; i < podio.length; i++) {
+    if (votos(podio[i]) > votos(podio[i - 1])) {
+      return { ok: false, erro: `O ${i + 1}º lugar não pode ter mais votos que o ${i}º.` };
+    }
+  }
+  const ultimo = votos(podio[podio.length - 1]);
+  if (comVoto.some((id) => !podio.includes(id) && votos(id) > ultimo)) {
+    return { ok: false, erro: "Ficou de fora do pódio uma prática com mais votos que uma das escolhidas." };
+  }
+  return { ok: true, podio };
 }
 
 export function nomeSugeridoDaVotacao(hoje = hojeSP()) {
