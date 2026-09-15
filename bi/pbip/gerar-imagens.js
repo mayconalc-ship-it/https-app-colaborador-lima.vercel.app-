@@ -14,8 +14,9 @@
 //
 // Rodar quando mudar uma area, rotulo ou resumo (blocos, em paginas.js):
 //   node bi/pbip/gerar-imagens.js
-// Saida: bi/imagens/*.png + manifesto.json (tamanho de exibicao de cada
-// uma, que o gerador usa para posicionar). Desenha em 2x para ficar nitido.
+// Saida: bi/imagens/*.svg (o que o BI usa, desde 15/09/2026) + *.png de
+// reserva, em 3x + manifesto.json (tamanho de exibicao de cada uma, que o
+// gerador usa para posicionar).
 const fs = require('fs');
 const path = require('path');
 const sharp = require(path.join(__dirname, '..', '..', 'node_modules', 'sharp'));
@@ -86,12 +87,60 @@ async function quebrar(s, px, peso, larguraMax, max) {
   return linhas;
 }
 
+// Largura de AVANCO do texto -- a que o navegador usa para posicionar --, e
+// nao so a da tinta: "|texto|" menos "||" tira as bordas das barras.
+async function avanco(s, px, peso) {
+  return (await largura(`|${s}|`, px, peso)) - (await largura('||', px, peso));
+}
+
+// Cada <text> ganha textLength com a largura medida aqui. Assim o texto
+// ocupa o MESMO espaco em qualquer aparelho, com ou sem Segoe UI -- no
+// celular sem a fonte, o rotulo nao estoura o quadradinho.
+async function travarLarguras(corpo) {
+  const re = /<text ([^>]*)>([^<]*)<\/text>/g;
+  let saida = '';
+  let ultimo = 0;
+  let m;
+  while ((m = re.exec(corpo))) {
+    const attrs = m[1];
+    const px = Number(/font-size="([\d.]+)"/.exec(attrs)[1]);
+    const peso = Number(/font-weight="(\d+)"/.exec(attrs)[1]);
+    const conteudo = m[2].replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
+    const w = await avanco(conteudo, px, peso);
+    saida += corpo.slice(ultimo, m.index) +
+      `<text ${attrs} textLength="${w}" lengthAdjust="spacingAndGlyphs">${m[2]}</text>`;
+    ultimo = re.lastIndex;
+  }
+  return saida + corpo.slice(ultimo);
+}
+
+// SVG, E NAO SO PNG (15/09/2026, pedido do dono: capa e navegacao
+// "embacadas"). O PNG, mesmo em 3x, e REDUZIDO pelo navegador para caber
+// na tela ("ajustar a pagina") -- e reducao em fator quebrado amacia texto
+// fino e borda. O SVG e vetor: o navegador desenha no tamanho exato da
+// tela, nitido em qualquer monitor e em qualquer zoom.
+//
+// O PNG continua saindo ao lado, de reserva: voltar para ele e trocar EXT
+// em navegacao.js.
+//
+// Os ids (gradiente, sombra, recorte) ganham o nome do arquivo: se o Power
+// BI puser dois SVG na mesma pagina do navegador, "#s" de um cartao nao
+// pode pegar a sombra do outro.
 const manifesto = {};
 async function salvar(nome, w, h, corpo) {
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w * ESCALA}" height="${h * ESCALA}" ` +
-    `viewBox="0 0 ${w} ${h}">${corpo}</svg>`;
-  await sharp(Buffer.from(svg)).png().toFile(path.join(DEST, nome));
-  manifesto[nome] = { w, h };
+  const base = nome.replace(/\.png$/, '');
+  const sufixo = base.replace(/[^a-z0-9]+/gi, '-');
+  const unico = corpo
+    .replace(/id="([^"]+)"/g, `id="$1-${sufixo}"`)
+    .replace(/url\(#([^)]+)\)/g, `url(#$1-${sufixo})`);
+  const vetor = await travarLarguras(unico);
+  const abre = (lw, lh) =>
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${lw}" height="${lh}" viewBox="0 0 ${w} ${h}">`;
+  fs.writeFileSync(path.join(DEST, `${base}.svg`), `${abre(w, h)}${vetor}</svg>\n`);
+  await sharp(Buffer.from(`${abre(w * ESCALA, h * ESCALA)}${vetor}</svg>`)).png()
+    .toFile(path.join(DEST, `${base}.png`));
+  manifesto[`${base}.svg`] = { w, h };
+  manifesto[`${base}.png`] = { w, h };
 }
 
 // --- o topo da capa -----------------------------------------------------

@@ -18,6 +18,12 @@ const svg = fs.readFileSync(path.join(__dirname, '..', '..', 'src', 'app', 'icon
   // 100. 256 px para ficar nitido no 48 x 48 do cabecalho.
   .replace(/viewBox="[^"]*"/, 'viewBox="6 6 88 88" width="256" height="256"');
 
+// O SVG e o que o BI usa desde 15/09/2026 (nitidez -- ver gerar-imagens.js),
+// no tamanho do cabecalho; o PNG continua saindo, de reserva.
+fs.writeFileSync(path.join(__dirname, '..', 'logo-app-c.svg'),
+  svg.replace('width="256" height="256"', 'width="48" height="48"'));
+console.log('bi/logo-app-c.svg');
+
 sharp(Buffer.from(svg)).png()
   .toFile(path.join(__dirname, '..', 'logo-app-c.png'))
   .then((i) => console.log(`bi/logo-app-c.png  ${i.width}x${i.height}  ${i.size} bytes`));

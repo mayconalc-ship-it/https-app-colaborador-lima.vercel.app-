@@ -18,19 +18,30 @@ const path = require('path');
 
 const PASTA = path.join(__dirname, '..', 'imagens');
 const MANIFESTO = JSON.parse(fs.readFileSync(path.join(PASTA, 'manifesto.json'), 'utf8'));
+// A EXTENSAO EM USO (15/09/2026, pedido do dono: capa e quadradinhos
+// "embacados"). SVG e vetor: nitido em qualquer tela. O PNG de reserva
+// continua saindo de gerar-imagens.js -- voltar para ele e trocar aqui (e o
+// LOGO em gerar-pbip.js).
+const EXT = '.svg';
+const IMAGENS = Object.keys(MANIFESTO).filter((a) => a.endsWith(EXT));
 const DESLOC = 48;
 const NOME_INICIO = '🏠 Início';
 // Visuais do cabecalho que NAO descem com a faixa de navegacao.
 const DO_CABECALHO = [':faixa', ':logo', ':titulo', ':aviso-logo', ':inicio-botao'];
 
 function criar({ lit, idPagina, blocos }) {
+  // Os nomes abaixo continuam escritos com .png; aqui viram a extensao em
+  // uso -- um lugar so para trocar, em vez de doze.
+  const emUso = (arquivo) => arquivo.replace(/\.png$/, EXT);
+
   const tam = (arquivo) => {
-    const m = MANIFESTO[arquivo];
-    if (!m) throw new Error(`imagem ${arquivo} fora do manifesto -- rode: node bi/pbip/gerar-imagens.js`);
+    const m = MANIFESTO[emUso(arquivo)];
+    if (!m) throw new Error(`imagem ${emUso(arquivo)} fora do manifesto -- rode: node bi/pbip/gerar-imagens.js`);
     return m;
   };
 
-  const imagem = (chave, arquivo, x, y, destino) => {
+  const imagem = (chave, arquivoPedido, x, y, destino) => {
+    const arquivo = emUso(arquivoPedido);
     const { w, h } = tam(arquivo);
     return {
       chave, t: 'image', x, y, w, h, titulo: null,
@@ -129,4 +140,4 @@ function criar({ lit, idPagina, blocos }) {
   return { visuaisInicio, comNavegacao, botaoInicio, larguraBotaoInicio, imagem };
 }
 
-module.exports = { criar, DESLOC, NOME_INICIO, MANIFESTO, PASTA };
+module.exports = { criar, DESLOC, NOME_INICIO, MANIFESTO, PASTA, EXT, IMAGENS };

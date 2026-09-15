@@ -20,7 +20,7 @@
                 "ResourcePackageItem": {
                   "PackageName": "RegisteredResources",
                   "PackageType": 1,
-                  "ItemName": "logo-app-c.png"
+                  "ItemName": "logo-app-c.svg"
                 }
               }
             }

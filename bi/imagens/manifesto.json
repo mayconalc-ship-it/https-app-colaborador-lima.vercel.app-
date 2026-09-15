@@ -1,21 +1,45 @@
 {
+  "inicio-topo.svg": {
+    "w": 1280,
+    "h": 200
+  },
   "inicio-topo.png": {
     "w": 1280,
     "h": 200
+  },
+  "botao-inicio.svg": {
+    "w": 89,
+    "h": 34
   },
   "botao-inicio.png": {
     "w": 89,
     "h": 34
   },
+  "secao-du.svg": {
+    "w": 306,
+    "h": 222
+  },
   "secao-du.png": {
     "w": 306,
     "h": 222
+  },
+  "chip-du.svg": {
+    "w": 188,
+    "h": 36
   },
   "chip-du.png": {
     "w": 188,
     "h": 36
   },
+  "aba-du-0-on.svg": {
+    "w": 157,
+    "h": 36
+  },
   "aba-du-0-on.png": {
+    "w": 157,
+    "h": 36
+  },
+  "aba-du-0-off.svg": {
     "w": 157,
     "h": 36
   },
@@ -23,7 +47,15 @@
     "w": 157,
     "h": 36
   },
+  "aba-du-1-on.svg": {
+    "w": 104,
+    "h": 36
+  },
   "aba-du-1-on.png": {
+    "w": 104,
+    "h": 36
+  },
+  "aba-du-1-off.svg": {
     "w": 104,
     "h": 36
   },
@@ -31,7 +63,15 @@
     "w": 104,
     "h": 36
   },
+  "aba-du-2-on.svg": {
+    "w": 122,
+    "h": 36
+  },
   "aba-du-2-on.png": {
+    "w": 122,
+    "h": 36
+  },
+  "aba-du-2-off.svg": {
     "w": 122,
     "h": 36
   },
@@ -39,15 +79,31 @@
     "w": 122,
     "h": 36
   },
+  "secao-ag.svg": {
+    "w": 306,
+    "h": 222
+  },
   "secao-ag.png": {
     "w": 306,
     "h": 222
+  },
+  "chip-ag.svg": {
+    "w": 145,
+    "h": 36
   },
   "chip-ag.png": {
     "w": 145,
     "h": 36
   },
+  "aba-ag-0-on.svg": {
+    "w": 110,
+    "h": 36
+  },
   "aba-ag-0-on.png": {
+    "w": 110,
+    "h": 36
+  },
+  "aba-ag-0-off.svg": {
     "w": 110,
     "h": 36
   },
@@ -55,7 +111,15 @@
     "w": 110,
     "h": 36
   },
+  "aba-ag-1-on.svg": {
+    "w": 115,
+    "h": 36
+  },
   "aba-ag-1-on.png": {
+    "w": 115,
+    "h": 36
+  },
+  "aba-ag-1-off.svg": {
     "w": 115,
     "h": 36
   },
@@ -63,15 +127,31 @@
     "w": 115,
     "h": 36
   },
+  "secao-armazem.svg": {
+    "w": 306,
+    "h": 222
+  },
   "secao-armazem.png": {
     "w": 306,
     "h": 222
+  },
+  "chip-armazem.svg": {
+    "w": 217,
+    "h": 36
   },
   "chip-armazem.png": {
     "w": 217,
     "h": 36
   },
+  "aba-armazem-0-on.svg": {
+    "w": 94,
+    "h": 36
+  },
   "aba-armazem-0-on.png": {
+    "w": 94,
+    "h": 36
+  },
+  "aba-armazem-0-off.svg": {
     "w": 94,
     "h": 36
   },
@@ -79,7 +159,15 @@
     "w": 94,
     "h": 36
   },
+  "aba-armazem-1-on.svg": {
+    "w": 86,
+    "h": 36
+  },
   "aba-armazem-1-on.png": {
+    "w": 86,
+    "h": 36
+  },
+  "aba-armazem-1-off.svg": {
     "w": 86,
     "h": 36
   },
@@ -87,7 +175,15 @@
     "w": 86,
     "h": 36
   },
+  "aba-armazem-2-on.svg": {
+    "w": 146,
+    "h": 36
+  },
   "aba-armazem-2-on.png": {
+    "w": 146,
+    "h": 36
+  },
+  "aba-armazem-2-off.svg": {
     "w": 146,
     "h": 36
   },
@@ -95,7 +191,15 @@
     "w": 146,
     "h": 36
   },
+  "aba-armazem-3-on.svg": {
+    "w": 114,
+    "h": 36
+  },
   "aba-armazem-3-on.png": {
+    "w": 114,
+    "h": 36
+  },
+  "aba-armazem-3-off.svg": {
     "w": 114,
     "h": 36
   },
@@ -103,7 +207,15 @@
     "w": 114,
     "h": 36
   },
+  "aba-armazem-4-on.svg": {
+    "w": 92,
+    "h": 36
+  },
   "aba-armazem-4-on.png": {
+    "w": 92,
+    "h": 36
+  },
+  "aba-armazem-4-off.svg": {
     "w": 92,
     "h": 36
   },
@@ -111,7 +223,15 @@
     "w": 92,
     "h": 36
   },
+  "aba-armazem-5-on.svg": {
+    "w": 152,
+    "h": 36
+  },
   "aba-armazem-5-on.png": {
+    "w": 152,
+    "h": 36
+  },
+  "aba-armazem-5-off.svg": {
     "w": 152,
     "h": 36
   },
@@ -119,7 +239,15 @@
     "w": 152,
     "h": 36
   },
+  "aba-armazem-6-on.svg": {
+    "w": 140,
+    "h": 36
+  },
   "aba-armazem-6-on.png": {
+    "w": 140,
+    "h": 36
+  },
+  "aba-armazem-6-off.svg": {
     "w": 140,
     "h": 36
   },
@@ -127,15 +255,31 @@
     "w": 140,
     "h": 36
   },
+  "secao-tma.svg": {
+    "w": 306,
+    "h": 222
+  },
   "secao-tma.png": {
     "w": 306,
     "h": 222
+  },
+  "chip-tma.svg": {
+    "w": 186,
+    "h": 36
   },
   "chip-tma.png": {
     "w": 186,
     "h": 36
   },
+  "aba-tma-0-on.svg": {
+    "w": 126,
+    "h": 36
+  },
   "aba-tma-0-on.png": {
+    "w": 126,
+    "h": 36
+  },
+  "aba-tma-0-off.svg": {
     "w": 126,
     "h": 36
   },
@@ -143,7 +287,15 @@
     "w": 126,
     "h": 36
   },
+  "aba-tma-1-on.svg": {
+    "w": 150,
+    "h": 36
+  },
   "aba-tma-1-on.png": {
+    "w": 150,
+    "h": 36
+  },
+  "aba-tma-1-off.svg": {
     "w": 150,
     "h": 36
   },
@@ -151,15 +303,31 @@
     "w": 150,
     "h": 36
   },
+  "secao-frota.svg": {
+    "w": 306,
+    "h": 222
+  },
   "secao-frota.png": {
     "w": 306,
     "h": 222
+  },
+  "chip-frota.svg": {
+    "w": 91,
+    "h": 36
   },
   "chip-frota.png": {
     "w": 91,
     "h": 36
   },
+  "aba-frota-0-on.svg": {
+    "w": 126,
+    "h": 36
+  },
   "aba-frota-0-on.png": {
+    "w": 126,
+    "h": 36
+  },
+  "aba-frota-0-off.svg": {
     "w": 126,
     "h": 36
   },
@@ -167,15 +335,31 @@
     "w": 126,
     "h": 36
   },
+  "secao-gente.svg": {
+    "w": 306,
+    "h": 222
+  },
   "secao-gente.png": {
     "w": 306,
     "h": 222
+  },
+  "chip-gente.svg": {
+    "w": 97,
+    "h": 36
   },
   "chip-gente.png": {
     "w": 97,
     "h": 36
   },
+  "aba-gente-0-on.svg": {
+    "w": 130,
+    "h": 36
+  },
   "aba-gente-0-on.png": {
+    "w": 130,
+    "h": 36
+  },
+  "aba-gente-0-off.svg": {
     "w": 130,
     "h": 36
   },
@@ -183,7 +367,15 @@
     "w": 130,
     "h": 36
   },
+  "aba-gente-1-on.svg": {
+    "w": 123,
+    "h": 36
+  },
   "aba-gente-1-on.png": {
+    "w": 123,
+    "h": 36
+  },
+  "aba-gente-1-off.svg": {
     "w": 123,
     "h": 36
   },
@@ -191,7 +383,15 @@
     "w": 123,
     "h": 36
   },
+  "aba-gente-2-on.svg": {
+    "w": 133,
+    "h": 36
+  },
   "aba-gente-2-on.png": {
+    "w": 133,
+    "h": 36
+  },
+  "aba-gente-2-off.svg": {
     "w": 133,
     "h": 36
   },
@@ -199,15 +399,31 @@
     "w": 133,
     "h": 36
   },
+  "secao-5s.svg": {
+    "w": 306,
+    "h": 222
+  },
   "secao-5s.png": {
     "w": 306,
     "h": 222
+  },
+  "chip-5s.svg": {
+    "w": 141,
+    "h": 36
   },
   "chip-5s.png": {
     "w": 141,
     "h": 36
   },
+  "aba-5s-0-on.svg": {
+    "w": 124,
+    "h": 36
+  },
   "aba-5s-0-on.png": {
+    "w": 124,
+    "h": 36
+  },
+  "aba-5s-0-off.svg": {
     "w": 124,
     "h": 36
   },
@@ -215,15 +431,31 @@
     "w": 124,
     "h": 36
   },
+  "secao-quiz.svg": {
+    "w": 306,
+    "h": 222
+  },
   "secao-quiz.png": {
     "w": 306,
     "h": 222
+  },
+  "chip-quiz.svg": {
+    "w": 152,
+    "h": 36
   },
   "chip-quiz.png": {
     "w": 152,
     "h": 36
   },
+  "aba-quiz-0-on.svg": {
+    "w": 69,
+    "h": 36
+  },
   "aba-quiz-0-on.png": {
+    "w": 69,
+    "h": 36
+  },
+  "aba-quiz-0-off.svg": {
     "w": 69,
     "h": 36
   },
@@ -231,7 +463,15 @@
     "w": 69,
     "h": 36
   },
+  "aba-quiz-1-on.svg": {
+    "w": 93,
+    "h": 36
+  },
   "aba-quiz-1-on.png": {
+    "w": 93,
+    "h": 36
+  },
+  "aba-quiz-1-off.svg": {
     "w": 93,
     "h": 36
   },
@@ -239,7 +479,15 @@
     "w": 93,
     "h": 36
   },
+  "aba-quiz-2-on.svg": {
+    "w": 129,
+    "h": 36
+  },
   "aba-quiz-2-on.png": {
+    "w": 129,
+    "h": 36
+  },
+  "aba-quiz-2-off.svg": {
     "w": 129,
     "h": 36
   },

@@ -103,7 +103,9 @@ const nav = () => NAV || (NAV = navegacao.criar({ lit, idPagina, blocos }));
   real aqui (ver pbir-nao-adivinhar na memoria do projeto).
 */
 const PREFIXO_SOBRE = 'ℹ️ Sobre · ';
-const LOGO = 'logo-app-c.png';
+// SVG desde 15/09/2026 (nitidez -- ver gerar-imagens.js). O PNG continua
+// sendo gerado ao lado (gerar-logo.js), de reserva.
+const LOGO = 'logo-app-c.svg';
 const idPagina = (nome) => id20('p:' + nome);
 // A capa nao tem "sobre": ela e o proprio indice.
 const paginasSobre = paginas.filter((p) => !p.inicio).map((p) => ({
@@ -1831,7 +1833,9 @@ function gerarRelatorio() {
 
   // As imagens da capa e da navegacao por area (14/09/2026), no mesmo
   // pacote. A lista e o manifesto de gerar-imagens.js.
-  for (const arquivo of Object.keys(navegacao.MANIFESTO)) {
+  // So as da extensao em uso (navegacao.EXT): o manifesto lista o SVG e o
+  // PNG de reserva de cada uma.
+  for (const arquivo of navegacao.IMAGENS) {
     fs.copyFileSync(path.join(navegacao.PASTA, arquivo),
       path.join(DEST_REL, 'StaticResources', 'RegisteredResources', arquivo));
     contador++;
@@ -1865,7 +1869,7 @@ function gerarRelatorio() {
       items: [
         { name: 'tema-powerbi.json', path: 'tema-powerbi.json', type: 'CustomTheme' },
         { name: LOGO, path: LOGO, type: 'Image' },
-        ...Object.keys(navegacao.MANIFESTO).map((a) => ({ name: a, path: a, type: 'Image' })),
+        ...navegacao.IMAGENS.map((a) => ({ name: a, path: a, type: 'Image' })),
       ],
     }],
     settings: {
