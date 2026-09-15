@@ -6,6 +6,7 @@ import { requireModulo } from "@/lib/require-admin";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { exigirRevenda, getRevendaId } from "@/lib/revendas";
 import { criarOuAgrupar } from "@/lib/notificacoes-server";
+import { garantirPilaresPadrao } from "@/lib/pilares";
 
 function caminhoDoStorage(arquivoUrl: string) {
   const prefixo = "/storage/v1/object/public/conteudo/";
@@ -50,6 +51,10 @@ export async function prepararEnvios(
   const admin = createAdminClient();
   const revendaId = await getRevendaId();
   if (!revendaId) return { ok: false, erro: "Você não está em nenhuma revenda." };
+
+  // Revenda sem pilar ganha os padrão antes de conferir -- ver
+  // garantirPilaresPadrao em lib/pilares.ts (Barreiras, 15/09/2026).
+  await garantirPilaresPadrao(revendaId);
 
   const { data: pilarExiste } = await admin
     .from("padroes_pilares")
@@ -189,6 +194,10 @@ export async function atualizarPadrao(formData: FormData) {
   const admin = createAdminClient();
   const revendaId = await exigirRevenda("/admin/padroes");
 
+  // Revenda sem pilar ganha os padrão antes de conferir -- ver
+  // garantirPilaresPadrao em lib/pilares.ts (Barreiras, 15/09/2026).
+  await garantirPilaresPadrao(revendaId);
+
   const { data: pilarExiste } = await admin
     .from("padroes_pilares")
     .select("nome")
@@ -229,6 +238,10 @@ export async function criarPilar(formData: FormData) {
 
   const admin = createAdminClient();
   const revendaId = await exigirRevenda("/admin/padroes");
+
+  // Revenda sem pilar ganha os padrão antes de conferir -- ver
+  // garantirPilaresPadrao em lib/pilares.ts (Barreiras, 15/09/2026).
+  await garantirPilaresPadrao(revendaId);
 
   const { data: ultimo } = await admin
     .from("padroes_pilares")
