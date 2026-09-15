@@ -19,25 +19,6 @@
               {
                 "textRuns": [
                   {
-                    "value": "⏱️ Meta (min/caixa): ",
-                    "textStyle": {
-                      "fontWeight": "bold",
-                      "fontSize": "10pt",
-                      "color": "#0B4DA2"
-                    }
-                  },
-                  {
-                    "value": "a meta de minutos por caixa do Repack cadastrada em Admin > Metas (grupo Bancada), da revenda. Menor é melhor.",
-                    "textStyle": {
-                      "fontSize": "10pt",
-                      "color": "#334155"
-                    }
-                  }
-                ]
-              },
-              {
-                "textRuns": [
-                  {
                     "value": "📏 % da meta (min/caixa): ",
                     "textStyle": {
                       "fontWeight": "bold",
@@ -66,6 +47,25 @@
                   },
                   {
                     "value": "lançamentos da etapa repack.",
+                    "textStyle": {
+                      "fontSize": "10pt",
+                      "color": "#334155"
+                    }
+                  }
+                ]
+              },
+              {
+                "textRuns": [
+                  {
+                    "value": "Meta de repack cx/h: ",
+                    "textStyle": {
+                      "fontWeight": "bold",
+                      "fontSize": "10pt",
+                      "color": "#0B4DA2"
+                    }
+                  },
+                  {
+                    "value": "média das metas de caixas por hora cadastradas nos produtos repackados. Produto sem meta fica fora.",
                     "textStyle": {
                       "fontSize": "10pt",
                       "color": "#334155"

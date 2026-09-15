@@ -91,6 +91,25 @@
                     }
                   }
                 ]
+              },
+              {
+                "textRuns": [
+                  {
+                    "value": "⏱️ Meta (min/caixa): ",
+                    "textStyle": {
+                      "fontWeight": "bold",
+                      "fontSize": "10pt",
+                      "color": "#0B4DA2"
+                    }
+                  },
+                  {
+                    "value": "a meta de minutos por caixa do Repack cadastrada em Admin > Metas (grupo Bancada), da revenda. Menor é melhor.",
+                    "textStyle": {
+                      "fontSize": "10pt",
+                      "color": "#334155"
+                    }
+                  }
+                ]
               }
             ]
           }

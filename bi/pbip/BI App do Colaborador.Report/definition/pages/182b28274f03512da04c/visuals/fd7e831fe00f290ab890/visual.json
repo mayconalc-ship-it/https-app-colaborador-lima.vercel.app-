@@ -1,13 +1,13 @@
 {
   "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.12.0/schema.json",
-  "name": "749cc8b45bc67cd24f49",
+  "name": "fd7e831fe00f290ab890",
   "position": {
-    "x": 16,
+    "x": 438,
     "y": 300,
-    "z": 29000,
+    "z": 30000,
     "height": 240,
     "width": 410,
-    "tabOrder": 29000
+    "tabOrder": 30000
   },
   "visual": {
     "visualType": "clusteredBarChart",
@@ -23,11 +23,11 @@
                       "Entity": "fato_pa_bancada"
                     }
                   },
-                  "Property": "produto"
+                  "Property": "embalagem"
                 }
               },
-              "queryRef": "fato_pa_bancada.produto",
-              "nativeQueryRef": "produto",
+              "queryRef": "fato_pa_bancada.embalagem",
+              "nativeQueryRef": "embalagem",
               "active": true
             }
           ]
@@ -47,6 +47,20 @@
               },
               "queryRef": "_Medidas.Repack cx/h",
               "nativeQueryRef": "Repack cx/h"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "_Medidas"
+                    }
+                  },
+                  "Property": "Meta de repack cx/h"
+                }
+              },
+              "queryRef": "_Medidas.Meta de repack cx/h",
+              "nativeQueryRef": "Meta de repack cx/h"
             }
           ]
         }
@@ -89,6 +103,26 @@
             }
           }
         }
+      ],
+      "dataPoint": [
+        {
+          "properties": {
+            "fill": {
+              "solid": {
+                "color": {
+                  "expr": {
+                    "Literal": {
+                      "Value": "'#FFC72C'"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "selector": {
+            "metadata": "_Medidas.Meta de repack cx/h"
+          }
+        }
       ]
     },
     "visualContainerObjects": {
@@ -105,7 +139,7 @@
             "text": {
               "expr": {
                 "Literal": {
-                  "Value": "'📦 Ritmo por produto — caixas por hora'"
+                  "Value": "'📦 Ritmo por embalagem — caixas por hora × meta'"
                 }
               }
             },
@@ -113,6 +147,26 @@
               "expr": {
                 "Literal": {
                   "Value": "11D"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "visualHeaderTooltip": [
+        {
+          "properties": {
+            "type": {
+              "expr": {
+                "Literal": {
+                  "Value": "'Text'"
+                }
+              }
+            },
+            "text": {
+              "expr": {
+                "Literal": {
+                  "Value": "'Barra azul: caixas por hora realizadas no recorte. Barra dourada: a média das metas dos produtos lançados naquela embalagem (Admin > produtos). Produto sem meta cadastrada fica só com a barra azul.'"
                 }
               }
             }
