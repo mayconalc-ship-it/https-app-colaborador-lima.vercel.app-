@@ -1789,6 +1789,12 @@ const paginas = [
         'horas. É a barra mais alta do histograma.'],
       ['📦 Caixas repackadas', '@Caixas repackadas'],
       ['🔍 Unidades triadas', '@Unidades triadas'],
+      // As metas de Admin > Metas (15/09/2026, pedido do dono).
+      ['🎯 % da meta h/dia', '@% da meta h/dia',
+        'Média por dia ÷ a meta de tempo de bancada por dia (Admin > Metas, grupo Bancada). ' +
+        'Revenda sem meta cadastrada fica em branco.'],
+      ['🎯 % da meta de seleção', '@% da meta de seleção',
+        'Unidades triadas por hora ÷ a meta de Seleção e Triagem (Admin > Metas).'],
     ],
     visuais: [
       {
@@ -1946,9 +1952,15 @@ const paginas = [
       ['📦 Repack cx/h', '@Repack cx/h'],
       ['⏱️ Minutos por caixa', '@Minutos por caixa'],
       ['📦 Caixas repackadas', '@Caixas repackadas'],
-      ['🎯 % da meta', '@% da meta de repack',
+      ['🎯 % da meta (cx/h)', '@% da meta de repack',
         'Caixas por hora do recorte ÷ a média das metas cadastradas dos produtos repackados. ' +
         'Produto sem meta cadastrada fica fora da meta, em vez de entrar como zero.'],
+      // As metas de Admin > Metas (15/09/2026, pedido do dono).
+      ['⏱️ Meta (min/caixa)', '@Meta min/caixa (repack)',
+        'A meta de minutos por caixa cadastrada em Admin > Metas (grupo Bancada) para a revenda. ' +
+        'Menor é melhor. Revenda sem meta cadastrada fica em branco.'],
+      ['📏 % da meta (min/caixa)', '@% da meta min/caixa',
+        'Meta ÷ minutos por caixa realizados. Acima de 100%: mais rápido que a meta; abaixo, mais lento.'],
       ['🧾 Lançamentos', '@Lançamentos de repack'],
     ],
     visuais: [
@@ -2041,7 +2053,13 @@ const paginas = [
       ['📦 Repack cx/h', '@Repack cx/h'],
       ['🎯 Meta cx/h (média)', '@Meta de repack cx/h',
         'A média das metas cadastradas dos produtos repackados no recorte.'],
-      ['🎯 % da meta', '@% da meta de repack'],
+      ['🎯 % da meta (cx/h)', '@% da meta de repack'],
+      // As metas de Admin > Metas (15/09/2026, pedido do dono).
+      ['⏱️ Meta (min/caixa)', '@Meta min/caixa (repack)',
+        'A meta de minutos por caixa cadastrada em Admin > Metas (grupo Bancada) para a revenda. ' +
+        'Menor é melhor. Revenda sem meta cadastrada fica em branco.'],
+      ['📏 % da meta (min/caixa)', '@% da meta min/caixa',
+        'Meta ÷ minutos por caixa realizados. Acima de 100%: mais rápido que a meta; abaixo, mais lento.'],
     ],
     visuais: [
       {
@@ -2067,7 +2085,7 @@ const paginas = [
       },
       {
         t: 'tableEx', x: 16, y: Y.base, w: 620, h: H.base,
-        quebraTexto: 76,
+        quebraTexto: 66,
         titulo: '👥 Por colaborador — volume, ritmo e meta',
         roles: {
           Values: [
@@ -2077,6 +2095,7 @@ const paginas = [
             '@Repack cx/h',
             '@% da meta de repack',
             '@Minutos por caixa',
+            '@% da meta min/caixa',
             '@Dias de repack',
             '@Lançamentos de repack',
           ],
@@ -2085,7 +2104,7 @@ const paginas = [
       },
       {
         t: 'tableEx', x: 648, y: Y.base, w: 616, h: H.base,
-        quebraTexto: 86,
+        quebraTexto: 74,
         titulo: '🕐 Por turno — volume e ritmo',
         roles: {
           Values: [
@@ -2095,6 +2114,7 @@ const paginas = [
             '@Repack cx/h',
             '@% da meta de repack',
             '@Minutos por caixa',
+            '@% da meta min/caixa',
             '@Lançamentos de repack',
           ],
         },

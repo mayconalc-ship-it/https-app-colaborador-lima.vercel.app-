@@ -1512,6 +1512,36 @@ MEASURE '_Medidas'[Minutos por caixa] =
         [Caixas repackadas]
     )
 
+/*
+    AS METAS DA BANCADA DE ADMIN > METAS (15/09/2026, pedido do dono).
+
+    As mesmas da tela de gestão do armazém, por revenda, em
+    dim_meta_armazem. Com as duas revendas no recorte, vale a média das
+    duas metas -- e a revenda sem meta cadastrada (Barreiras, em setembro)
+    fica fora da média em vez de entrar como zero.
+
+    O "% da meta" segue o sentido de cada meta: minutos por caixa é MENOR
+    melhor, então é meta ÷ realizado (acima de 100% = mais rápido que a
+    meta); seleção e horas por dia são MAIOR melhor, realizado ÷ meta.
+*/
+MEASURE '_Medidas'[Meta min/caixa (repack)] =
+    CALCULATE ( AVERAGE ( dim_meta_armazem[valor] ), dim_meta_armazem[chave] = "reepack_minutos_caixa" )
+
+MEASURE '_Medidas'[% da meta min/caixa] =
+    DIVIDE ( [Meta min/caixa (repack)], [Minutos por caixa] )
+
+MEASURE '_Medidas'[Meta seleção un/h] =
+    CALCULATE ( AVERAGE ( dim_meta_armazem[valor] ), dim_meta_armazem[chave] = "selecao_un_hora" )
+
+MEASURE '_Medidas'[% da meta de seleção] =
+    DIVIDE ( [Seleção un/h], [Meta seleção un/h] )
+
+MEASURE '_Medidas'[Meta bancada h/dia] =
+    CALCULATE ( AVERAGE ( dim_meta_armazem[valor] ), dim_meta_armazem[chave] = "bancada_horas_dia" )
+
+MEASURE '_Medidas'[% da meta h/dia] =
+    DIVIDE ( [Bancada h/dia], [Meta bancada h/dia] )
+
 MEASURE '_Medidas'[Dias com bancada] =
     DISTINCTCOUNT ( fato_pa_bancada[data] )
 

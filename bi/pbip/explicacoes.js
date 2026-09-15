@@ -148,6 +148,12 @@ module.exports = {
   'Meta de repack cx/h': 'média das metas de caixas por hora cadastradas nos produtos repackados. Produto sem meta fica fora.',
   'Lançamentos de repack': 'lançamentos da etapa repack.',
   'Dias de repack': 'dias diferentes com lançamento de repack.',
+  'Meta min/caixa (repack)': 'a meta de minutos por caixa do Repack cadastrada em Admin > Metas (grupo Bancada), da revenda. Menor é melhor.',
+  '% da meta min/caixa': 'meta de minutos por caixa ÷ minutos por caixa realizados. Acima de 100%: mais rápido que a meta.',
+  'Meta seleção un/h': 'a meta de Seleção e Triagem, em unidades por hora, cadastrada em Admin > Metas.',
+  '% da meta de seleção': 'unidades triadas por hora ÷ meta de Seleção e Triagem (Admin > Metas).',
+  'Meta bancada h/dia': 'a meta de tempo de bancada por dia cadastrada em Admin > Metas.',
+  '% da meta h/dia': 'horas de bancada por dia trabalhado ÷ meta de horas por dia (Admin > Metas).',
 
   // --- Bate palete --------------------------------------------------------
   'Paletes batidos': 'soma dos paletes lançados no bate palete.',

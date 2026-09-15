@@ -542,6 +542,17 @@ const tabelas = [
     colunas: 'questao_id:s revenda_id:s resposta_certa:s',
   },
   {
+    // AS METAS DO ARMAZEM (15/09/2026): Admin > Metas, uma linha por
+    // revenda x chave. Ligada direto na revenda -- e a revenda que tem meta,
+    // nao a pessoa nem o dia --, entao nenhum filtro de colaborador ou de
+    // periodo mexe no valor da meta. As medidas filtram pela chave.
+    nome: 'dim_meta_armazem',
+    view: 'dim_meta_armazem',
+    descricao: 'Metas por revenda de Admin > Metas (pa_metas). Filtre pela chave.',
+    colunas: 'revenda_id:s chave:s valor:n atualizado_em:t',
+    revendaDireta: true,
+  },
+  {
     nome: 'fato_uso_sessao',
     view: 'fato_uso_sessao',
     descricao: 'Sem revenda_id na origem -- liga so no calendario.',

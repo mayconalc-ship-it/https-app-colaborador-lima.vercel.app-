@@ -2262,6 +2262,27 @@ left join lateral (
 where not exists (select 1 from bi.fora_do_bi x where x.colaborador_id = e.colaborador_id);
 
 -- ------------------------------------------------------------------
+-- 4b) AS METAS DO ARMAZEM (15/09/2026, pedido do dono)
+-- ------------------------------------------------------------------
+-- As metas por revenda cadastradas em Admin > Metas (public.pa_metas) --
+-- as mesmas que a tela de gestao do armazem compara com o realizado. O BI
+-- lia so a capacidade da bombona; agora le todas, e as medidas de meta
+-- da Bancada e do Repack em 07-medidas.dax filtram pela chave.
+--
+-- Uma linha por revenda x chave, sem pivotar: meta nova no catalogo do
+-- app (src/lib/metas.ts) chega aqui sem mexer nesta view.
+create or replace view bi.dim_meta_armazem as
+select
+  m.revenda_id,
+  m.chave,
+  m.valor::numeric           as valor,
+  m.atualizado_em
+from public.pa_metas m;
+
+comment on view bi.dim_meta_armazem is
+  'Metas por revenda de Admin > Metas (pa_metas). Filtre pela chave; ver src/lib/metas.ts.';
+
+-- ------------------------------------------------------------------
 -- 5) ABASTECIMENTO DO PICKING E RESSUPRIMENTO
 -- ------------------------------------------------------------------
 create or replace view bi.fato_pa_abastecimento as

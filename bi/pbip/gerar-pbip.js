@@ -328,6 +328,8 @@ const MEDIDAS_UMA_CASA = new Set([
   'Litros por hora', 'Na bombona (L)', 'Litros despejados', 'HL por hora',
   'HL abastecidos', 'HL batidos', 'HL avariados', 'HL aproveitados',
   'Meta de repack cx/h',
+  // As metas de Admin > Metas (15/09/2026): 2,5 h/dia sairia "3" no #,0.
+  'Meta min/caixa (repack)', 'Meta bancada h/dia',
 ]);
 // O custo do gas com UMA casa, como os demais cartoes da Empilhadeira.
 const MEDIDAS_REAIS_UMA_CASA = new Set(['Custo do gás (R$)']);
