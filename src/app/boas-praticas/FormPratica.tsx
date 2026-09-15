@@ -22,7 +22,7 @@ export function FormPratica({ pratica }: { pratica?: DadosDaPratica & { id: stri
       <div className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
         <div>
           <label className={rotulo} htmlFor="titulo">
-            Nome da prática
+            Nome da boa prática
           </label>
           <input
             id="titulo"
@@ -31,7 +31,7 @@ export function FormPratica({ pratica }: { pratica?: DadosDaPratica & { id: stri
             minLength={LIMITES.tituloMin}
             maxLength={LIMITES.tituloMax}
             defaultValue={pratica?.titulo}
-            placeholder="Ex: Canetinha para o palmtop"
+            placeholder="Um nome curto para a sua ideia"
             className={campo}
           />
         </div>
@@ -50,7 +50,7 @@ export function FormPratica({ pratica }: { pratica?: DadosDaPratica & { id: stri
               minLength={LIMITES.textoMin}
               maxLength={LIMITES.textoMax}
               defaultValue={pratica?.[c.nome]}
-              placeholder={`Ex: ${c.exemplo}`}
+              placeholder={c.dica}
               className={campo}
             />
           </div>

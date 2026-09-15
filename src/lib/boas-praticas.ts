@@ -32,44 +32,49 @@ export const LIMITES = {
 
 export type StatusPratica = "em_analise" | "selecionada" | "nao_selecionada";
 
-export type CampoTexto = "problema" | "objetivo" | "escopo" | "beneficios";
+export type CampoTexto = "problema" | "beneficios";
 
 /**
- * Os quatro campos que o dono pediu, com a pergunta que cada um responde.
+ * Os campos do formulário, com a pergunta que cada um responde.
  *
- * Os exemplos são os dois casos reais que ele citou, de outras revendas:
- * prática boa não precisa de investimento alto.
+ * Eram quatro (problema, objetivo, escopo, benefícios). O dono tirou
+ * objetivo e escopo em 15/09/2026: quem sugere é o chão da operação, e
+ * formulário comprido afasta justamente a ideia simples que o programa
+ * procura. As colunas continuam no banco, opcionais desde a 119, para o
+ * que já foi escrito não se perder.
+ *
+ * Sem os exemplos das outras revendas, também a pedido dele: a dica diz
+ * o que escrever sem sugerir a resposta.
  */
 export const CAMPOS_DA_PRATICA: {
   nome: CampoTexto;
   rotulo: string;
   pergunta: string;
-  exemplo: string;
+  dica: string;
 }[] = [
   {
     nome: "problema",
     rotulo: "Problema",
     pergunta: "Qual problema do dia a dia ela resolve?",
-    exemplo: "A tela do palmtop não responde bem ao dedo e a digitação no pedido atrasa.",
-  },
-  {
-    nome: "objetivo",
-    rotulo: "Objetivo",
-    pergunta: "O que você quer alcançar com ela?",
-    exemplo: "Digitar mais rápido e errar menos no palmtop.",
-  },
-  {
-    nome: "escopo",
-    rotulo: "Escopo",
-    pergunta: "Onde e com quem ela vai funcionar? O que precisa para fazer?",
-    exemplo: "Todos os palmtops da entrega. Comprar uma caneta touch (canetinha mágica) para cada aparelho.",
+    dica: "O que atrapalha, atrasa ou gera erro hoje no seu trabalho.",
   },
   {
     nome: "beneficios",
     rotulo: "Benefícios",
     pergunta: "O que melhora quando ela estiver funcionando?",
-    exemplo: "Menos erro de digitação, menos tempo no cliente e a tela do aparelho dura mais.",
+    dica: "Tempo, segurança, qualidade, custo, conforto — o que muda para melhor.",
   },
+];
+
+/** O que o cartão mostra: os campos de hoje e os antigos, quando a prática os tem. */
+export const CAMPOS_EXIBIDOS: {
+  nome: "problema" | "objetivo" | "escopo" | "beneficios";
+  rotulo: string;
+}[] = [
+  { nome: "problema", rotulo: "Problema" },
+  { nome: "objetivo", rotulo: "Objetivo" },
+  { nome: "escopo", rotulo: "Escopo" },
+  { nome: "beneficios", rotulo: "Benefícios" },
 ];
 
 export const ROTULO_STATUS: Record<StatusPratica, string> = {
@@ -83,8 +88,6 @@ export const MEDALHA = ["🥇", "🥈", "🥉"] as const;
 export type DadosDaPratica = {
   titulo: string;
   problema: string;
-  objetivo: string;
-  escopo: string;
   beneficios: string;
 };
 
@@ -94,17 +97,15 @@ export function lerPratica(formData: FormData): DadosDaPratica {
   return {
     titulo: texto("titulo"),
     problema: texto("problema"),
-    objetivo: texto("objetivo"),
-    escopo: texto("escopo"),
     beneficios: texto("beneficios"),
   };
 }
 
 /** A mensagem do primeiro problema, ou null quando está tudo certo. */
 export function validarPratica(d: DadosDaPratica): string | null {
-  if (d.titulo.length < LIMITES.tituloMin) return "Dê um nome para a sua prática.";
+  if (d.titulo.length < LIMITES.tituloMin) return "Dê um nome para a sua boa prática.";
   if (d.titulo.length > LIMITES.tituloMax) {
-    return `O nome da prática passa de ${LIMITES.tituloMax} caracteres. Encurte um pouco.`;
+    return `O nome da boa prática passa de ${LIMITES.tituloMax} caracteres. Encurte um pouco.`;
   }
   for (const c of CAMPOS_DA_PRATICA) {
     const valor = d[c.nome];

@@ -482,10 +482,10 @@ function ComoFunciona({ config }: { config: ConfigBoasPraticas }) {
   return (
     <div className="space-y-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
       <div>
-        <p className="font-semibold">Não precisa ser caro.</p>
+        <p className="font-semibold">💡 Ideia simples que funciona vale muito.</p>
         <p className="mt-1">
-          Em outras revendas, uma canetinha para o palmtop e caixas de papelão reaproveitadas para acomodar
-          produtos como sabão em pó viraram boas práticas.
+          Pequenas mudanças que facilitam o trabalho, economizam tempo ou evitam erro são exatamente o que
+          procuramos. Pensou em algo? Mande — quantas ideias quiser.
         </p>
       </div>
       <ol className="space-y-2">

@@ -1,13 +1,14 @@
 import { FotoEvidencia } from "@/components/FotoEvidencia";
 import { formatarDataHora } from "@/lib/produtividade-armazem";
-import { CAMPOS_DA_PRATICA } from "@/lib/boas-praticas";
+import { CAMPOS_EXIBIDOS } from "@/lib/boas-praticas";
 
 export type PraticaParaCartao = {
   id: string;
   titulo: string;
   problema: string;
-  objetivo: string;
-  escopo: string;
+  // Opcionais desde a 119: saíram do formulário, ficam só nas antigas.
+  objetivo: string | null;
+  escopo: string | null;
   beneficios: string;
   foto_url: string | null;
   colaborador_nome: string;
@@ -61,7 +62,7 @@ export function CartaoPratica({
         </summary>
 
         <dl className="mt-3 space-y-3 border-t border-slate-100 pt-3">
-          {CAMPOS_DA_PRATICA.map((c) => (
+          {CAMPOS_EXIBIDOS.filter((c) => p[c.nome]).map((c) => (
             <div key={c.nome}>
               <dt className="text-xs font-bold uppercase tracking-wide text-slate-500">{c.rotulo}</dt>
               <dd className="mt-0.5 whitespace-pre-line break-words text-sm text-slate-800">{p[c.nome]}</dd>
