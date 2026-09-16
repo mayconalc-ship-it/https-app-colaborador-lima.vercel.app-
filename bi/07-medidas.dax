@@ -309,13 +309,24 @@ MEASURE '_Medidas'[Caixas GFE] =
     histórico e do gráfico), é aquele dia. Fora disso -- cartões, linha de
     total --, é o ÚLTIMO dia marcado: conciliação é fotografia de um dia, e
     somar o parque de três dias daria um número que não existe.
+
+    MAX NO FILTRO DE AGORA, E NÃO ALLSELECTED (16/09/2026, o dono: "o filtro
+    de mês não está conectado à tabela de conciliação por dia").
+
+    Era IF(HASONEVALUE(dia), dia, CALCULATE(MAX(dia), ALLSELECTED(fato))).
+    O Power BI avalia a tabela para TODOS os dias do fato, e numa linha de
+    agosto com setembro no filtro não sobra dia nenhum: HASONEVALUE dava
+    falso, o ALLSELECTED jogava fora a linha e devolvia o último dia de
+    setembro -- e [Contado], [Parque] e as outras enchiam a linha de agosto
+    com os números de 10/09. Linha com valor não some: a tabela mostrava
+    todos os dias com qualquer mês escolhido, e com número errado.
+
+    MAX no contexto de agora dá o mesmo dia onde há dia (a linha, ou o
+    último dia marcado nos cartões e no total) e VAZIO onde não há -- e a
+    linha vazia sai da tabela, que é o filtro funcionando.
 */
 MEASURE '_Medidas'[Dia da conciliação] =
-    IF (
-        HASONEVALUE ( fato_ag_conciliacao[data] ),
-        VALUES ( fato_ag_conciliacao[data] ),
-        CALCULATE ( MAX ( fato_ag_conciliacao[data] ), ALLSELECTED ( fato_ag_conciliacao ) )
-    )
+    MAX ( fato_ag_conciliacao[data] )
 
 /*
     O CONFERENTE JÁ VEM NO DIA CONGELADO (12/09/2026).
@@ -528,11 +539,26 @@ MEASURE '_Medidas'[Caixas GFE do dia conciliado] =
 // contou o pátio uma vez e digitou 21 linhas — o gráfico diário subia
 // para 21 e dava a impressão de vinte e uma contagens naquele dia.
 //
-// fato_ag_dia_colaborador tem o grão certo: uma linha por pessoa por
-// dia, ou seja, uma linha por VEZ que alguém contou. Naquele dia, 1.
-// Para o volume de linhas, use [Linhas lançadas].
+// O grão certo é uma linha por pessoa por dia -- uma por VEZ que alguém
+// contou. Naquele dia, 1. Para o volume de linhas, use [Linhas lançadas].
+//
+// CONTADA NAS PRÓPRIAS CONTAGENS, e não mais em fato_ag_dia_colaborador
+// (16/09/2026, o dono: "o filtro de quem contou não está conectado ao
+// gráfico de contagens por período"). Os filtros "Quem contou" e "Tipo de
+// AG" da página são colunas de fato_ag_contagem, e filtro de um fato não
+// chega a outro fato: o gráfico e o cartão de ocorrências ignoravam os
+// dois. Os pares distintos (dia, pessoa) de fato_ag_contagem são a mesma
+// conta -- a view dia_colaborador é esse agrupamento -- e respondem a todo
+// filtro da página.
 MEASURE '_Medidas'[Ocorrências de contagem] =
-    COUNTROWS ( fato_ag_dia_colaborador )
+    COUNTROWS (
+        SUMMARIZE (
+            fato_ag_contagem,
+            fato_ag_contagem[revenda_id],
+            fato_ag_contagem[data],
+            fato_ag_contagem[colaborador_id]
+        )
+    )
 
 MEASURE '_Medidas'[Dias úteis no período] =
     CALCULATE (
@@ -1766,6 +1792,18 @@ MEASURE '_Medidas'[Meta de repack cx/h] =
 
 MEASURE '_Medidas'[% da meta de repack] =
     DIVIDE ( [Repack cx/h], [Meta de repack cx/h] )
+
+// A META DO DESPEJO POR EMBALAGEM (16/09/2026, pedido do dono: as metas
+// cadastradas nos gráficos do despejo). É a meta_litros_hora da embalagem,
+// que a view já traz em cada lançamento (Admin > Produtividade do Armazém >
+// embalagens de despejo). Numa barra de embalagem é a meta dela; embalagem
+// sem meta cadastrada fica vazia, e o gráfico mostra só o realizado.
+//
+// A meta GERAL de L/h (Admin > Metas, despejo_litros_hora) não entra aqui:
+// ela é a do conjunto das embalagens, e numa barra de uma embalagem só não
+// é comparável.
+MEASURE '_Medidas'[Meta despejo L/h (embalagem)] =
+    AVERAGE ( fato_pa_despejo[meta_litros_hora] )
 
 MEASURE '_Medidas'[Dias de repack] =
     CALCULATE ( DISTINCTCOUNT ( fato_pa_bancada[data] ), fato_pa_bancada[etapa] = "repack" )

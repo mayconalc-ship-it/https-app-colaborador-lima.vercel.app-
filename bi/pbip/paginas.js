@@ -2295,11 +2295,20 @@ const paginas = [
       },
       {
         t: 'clusteredBarChart', x: 16, y: Y.base, w: 620, h: H.base,
-        titulo: '🧴 Litros por hora (L/h), por embalagem',
+        titulo: '🧴 Litros por hora (L/h), por embalagem × meta',
         roles: {
           Category: ['fato_pa_despejo.embalagem_despejo'],
-          Y: ['@Litros por hora'],
+          // A META AO LADO (16/09/2026, pedido do dono), em dourado como no
+          // Repack. Os outros três gráficos desta página são de LITROS, e as
+          // metas cadastradas são de L/h: numa escala de litros a meta não
+          // teria onde ficar -- esses ficaram como estavam.
+          Y: ['@Litros por hora', '@Meta despejo L/h (embalagem)'],
         },
+        corSerie: { '@Meta despejo L/h (embalagem)': '#FFC72C' },
+        dica:
+          'Barra azul: litros por hora realizados na embalagem, no recorte. Barra dourada: a meta ' +
+          'de L/h cadastrada para a embalagem (Admin > Produtividade do Armazém). Embalagem sem ' +
+          'meta cadastrada fica só com a barra azul.',
         ordem: { campo: '@Litros por hora', dir: 'Descending' },
       },
       {

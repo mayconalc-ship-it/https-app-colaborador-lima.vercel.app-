@@ -1,6 +1,6 @@
 {
   "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.12.0/schema.json",
-  "name": "43e7e26419ec3a6cce95",
+  "name": "914aded2d6fedbc12977",
   "position": {
     "x": 16,
     "y": 548,
@@ -47,6 +47,20 @@
               },
               "queryRef": "_Medidas.Litros por hora",
               "nativeQueryRef": "Litros por hora"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "_Medidas"
+                    }
+                  },
+                  "Property": "Meta despejo L/h (embalagem)"
+                }
+              },
+              "queryRef": "_Medidas.Meta despejo L/h (embalagem)",
+              "nativeQueryRef": "Meta despejo L/h (embalagem)"
             }
           ]
         }
@@ -89,6 +103,26 @@
             }
           }
         }
+      ],
+      "dataPoint": [
+        {
+          "properties": {
+            "fill": {
+              "solid": {
+                "color": {
+                  "expr": {
+                    "Literal": {
+                      "Value": "'#FFC72C'"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "selector": {
+            "metadata": "_Medidas.Meta despejo L/h (embalagem)"
+          }
+        }
       ]
     },
     "visualContainerObjects": {
@@ -105,7 +139,7 @@
             "text": {
               "expr": {
                 "Literal": {
-                  "Value": "'🧴 Litros por hora (L/h), por embalagem'"
+                  "Value": "'🧴 Litros por hora (L/h), por embalagem × meta'"
                 }
               }
             },
@@ -113,6 +147,26 @@
               "expr": {
                 "Literal": {
                   "Value": "11D"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "visualHeaderTooltip": [
+        {
+          "properties": {
+            "type": {
+              "expr": {
+                "Literal": {
+                  "Value": "'Text'"
+                }
+              }
+            },
+            "text": {
+              "expr": {
+                "Literal": {
+                  "Value": "'Barra azul: litros por hora realizados na embalagem, no recorte. Barra dourada: a meta de L/h cadastrada para a embalagem (Admin > Produtividade do Armazém). Embalagem sem meta cadastrada fica só com a barra azul.'"
                 }
               }
             }

@@ -169,6 +169,7 @@ module.exports = {
   'Dias sem esvaziar': 'dias desde o último esvaziamento registrado; sem nenhum, desde o primeiro despejo. Não segue filtros.',
   'Litros despejados': 'soma dos litros dos lançamentos de despejo no recorte filtrado.',
   'Litros por hora': 'litros despejados ÷ horas de despejo (fim − início de cada lançamento).',
+  'Meta despejo L/h (embalagem)': 'a meta de litros por hora cadastrada na embalagem de despejo (Admin > Produtividade do Armazém). Embalagem sem meta fica vazia.',
   'Horas de despejo': 'soma de (fim − início) de cada lançamento de despejo.',
   'Lançamentos de despejo': 'lançamentos de despejo.',
   'Descartes': 'esvaziamentos da bombona registrados no app.',

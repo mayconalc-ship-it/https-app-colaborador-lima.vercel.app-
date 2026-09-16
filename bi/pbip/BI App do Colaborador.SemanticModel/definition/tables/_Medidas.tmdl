@@ -247,16 +247,27 @@ table '_Medidas'
 			histórico e do gráfico), é aquele dia. Fora disso -- cartões, linha de
 			total --, é o ÚLTIMO dia marcado: conciliação é fotografia de um dia, e
 			somar o parque de três dias daria um número que não existe.
+			
+			MAX NO FILTRO DE AGORA, E NÃO ALLSELECTED (16/09/2026, o dono: "o filtro
+			de mês não está conectado à tabela de conciliação por dia").
+			
+			Era IF(HASONEVALUE(dia), dia, CALCULATE(MAX(dia), ALLSELECTED(fato))).
+			O Power BI avalia a tabela para TODOS os dias do fato, e numa linha de
+			agosto com setembro no filtro não sobra dia nenhum: HASONEVALUE dava
+			falso, o ALLSELECTED jogava fora a linha e devolvia o último dia de
+			setembro -- e [Contado], [Parque] e as outras enchiam a linha de agosto
+			com os números de 10/09. Linha com valor não some: a tabela mostrava
+			todos os dias com qualquer mês escolhido, e com número errado.
+			
+			MAX no contexto de agora dá o mesmo dia onde há dia (a linha, ou o
+			último dia marcado nos cartões e no total) e VAZIO onde não há -- e a
+			linha vazia sai da tabela, que é o filtro funcionando.
 			*/
 		formatString: #,0
 		lineageTag: 728d4ff3-a8c1-47d2-8b13-55c90db6a72a
 
 	measure 'Dia da conciliação' =
-			IF (
-			    HASONEVALUE ( fato_ag_conciliacao[data] ),
-			    VALUES ( fato_ag_conciliacao[data] ),
-			    CALCULATE ( MAX ( fato_ag_conciliacao[data] ), ALLSELECTED ( fato_ag_conciliacao ) )
-			)
+			MAX ( fato_ag_conciliacao[data] )
 			
 			/*
 			O CONFERENTE JÁ VEM NO DIA CONGELADO (12/09/2026).
@@ -494,7 +505,14 @@ table '_Medidas'
 		lineageTag: f8839c8d-326f-476b-9c9c-af83577beaca
 
 	measure 'Ocorrências de contagem' =
-			COUNTROWS ( fato_ag_dia_colaborador )
+			COUNTROWS (
+			    SUMMARIZE (
+			        fato_ag_contagem,
+			        fato_ag_contagem[revenda_id],
+			        fato_ag_contagem[data],
+			        fato_ag_contagem[colaborador_id]
+			    )
+			)
 		formatString: #,0
 		lineageTag: 960faa40-6b10-4f3b-9dbb-b2ddae40c42a
 
@@ -1672,6 +1690,11 @@ table '_Medidas'
 			DIVIDE ( [Repack cx/h], [Meta de repack cx/h] )
 		formatString: 0.0%
 		lineageTag: 2641c02a-270d-40b6-9365-8d9f9e88ff56
+
+	measure 'Meta despejo L/h (embalagem)' =
+			AVERAGE ( fato_pa_despejo[meta_litros_hora] )
+		formatString: 0.0
+		lineageTag: be6ca838-7114-4634-9bbd-521a35f579d7
 
 	measure 'Dias de repack' =
 			CALCULATE ( DISTINCTCOUNT ( fato_pa_bancada[data] ), fato_pa_bancada[etapa] = "repack" )

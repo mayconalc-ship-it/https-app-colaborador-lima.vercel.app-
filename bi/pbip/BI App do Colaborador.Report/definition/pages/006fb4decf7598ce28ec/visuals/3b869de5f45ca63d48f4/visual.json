@@ -19,7 +19,7 @@
               {
                 "textRuns": [
                   {
-                    "value": "🫗 Litros despejados no período (L): ",
+                    "value": "⚡ Litros por hora (L/h): ",
                     "textStyle": {
                       "fontWeight": "bold",
                       "fontSize": "10pt",
@@ -27,7 +27,7 @@
                     }
                   },
                   {
-                    "value": "soma dos litros dos lançamentos de despejo no recorte filtrado.",
+                    "value": "litros despejados ÷ horas de despejo (fim − início de cada lançamento).",
                     "textStyle": {
                       "fontSize": "10pt",
                       "color": "#334155"
@@ -38,7 +38,7 @@
               {
                 "textRuns": [
                   {
-                    "value": "⚡ Litros por hora (L/h): ",
+                    "value": "Meta despejo L/h (embalagem): ",
                     "textStyle": {
                       "fontWeight": "bold",
                       "fontSize": "10pt",
@@ -46,7 +46,7 @@
                     }
                   },
                   {
-                    "value": "litros despejados ÷ horas de despejo (fim − início de cada lançamento).",
+                    "value": "a meta de litros por hora cadastrada na embalagem de despejo (Admin > Produtividade do Armazém). Embalagem sem meta fica vazia.",
                     "textStyle": {
                       "fontSize": "10pt",
                       "color": "#334155"
