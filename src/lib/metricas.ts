@@ -29,6 +29,7 @@ const NOMES: { prefixo: string; nome: string; emoji: string }[] = [
   { prefixo: "/gestao/feedbacks", nome: "Feedbacks das Rotas", emoji: "📝" },
   { prefixo: "/gestao/justificativas", nome: "Justificativas", emoji: "🗣️" },
   { prefixo: "/gestao/uso-do-app", nome: "Uso do App", emoji: "📱" },
+  { prefixo: "/gestao/resumo-semanal", nome: "Resumo da semana", emoji: "🗓️" },
   { prefixo: "/gestao", nome: "Painel de Gestão", emoji: "📊" },
   { prefixo: "/admin", nome: "Área de gestão", emoji: "⚙️" },
 ];

@@ -5,8 +5,8 @@ import { revalidatePath } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireModulo } from "@/lib/require-admin";
 import { exigirRevenda } from "@/lib/revendas";
-import { avisarMaterialDeApoio } from "@/lib/material-apoio-server";
-import { lerProduto, validarProduto } from "@/lib/material-apoio";
+import { avisarMaterialDeApoio, quemPodeContar } from "@/lib/material-apoio-server";
+import { lerProduto, validarHoraDoLembrete, validarProduto } from "@/lib/material-apoio";
 
 const ROTA = "/admin/material-de-apoio";
 
@@ -133,6 +133,67 @@ export async function salvarDestinatarios(formData: FormData) {
     validos.length > 0
       ? `${validos.length} pessoa${validos.length === 1 ? "" : "s"} recebe${validos.length === 1 ? "" : "m"} o alerta de compra.`
       : "Ninguém recebe o alerta de compra agora.",
+  );
+}
+
+/**
+ * O LEMBRETE DIÁRIO DA CONTAGEM -- liga/desliga, horário e quem recebe,
+ * num Salvar só.
+ *
+ * As mesmas travas da tela: hora dentro da faixa, e só entra quem é da
+ * revenda E consegue lançar a contagem (a tela nem oferece as outras
+ * pessoas; um id de fora que chegue pelo formulário é descartado aqui).
+ * Ligado sem ninguém não vale: seria um lembrete que não toca para ninguém.
+ */
+export async function salvarLembreteDeContagem(formData: FormData) {
+  const perfil = await requireModulo("material-apoio", "editar", ROTA);
+  const revendaId = await exigirRevenda(ROTA);
+
+  const ativo = formData.get("ativo") === "on";
+  const hora = validarHoraDoLembrete(formData.get("hora"));
+  if ("erro" in hora) voltar("erro", hora.erro);
+
+  const pedidos = [...new Set(formData.getAll("colaborador_id").map(String).filter(Boolean))];
+  const admin = createAdminClient();
+  const podem = await quemPodeContar(revendaId);
+
+  let validos: string[] = [];
+  if (pedidos.length > 0) {
+    const { data } = await admin
+      .from("colaborador_revendas")
+      .select("colaborador_id")
+      .eq("revenda_id", revendaId)
+      .in("colaborador_id", pedidos);
+    validos = [...new Set((data ?? []).map((d) => String(d.colaborador_id)))].filter((id) => podem.has(id));
+  }
+  if (ativo && validos.length === 0) {
+    voltar("erro", "Para ligar o lembrete, escolha pelo menos uma pessoa que possa fazer a contagem.");
+  }
+
+  const { error: erroConfig } = await admin.from("ma_lembrete_config").upsert({
+    revenda_id: revendaId,
+    ativo,
+    hora: hora.hora,
+    atualizado_em: new Date().toISOString(),
+    atualizado_por_nome: perfil.nome,
+  });
+  if (erroConfig) voltar("erro", `Não foi possível salvar: ${erroConfig.message}`);
+
+  const { error: erroApagar } = await admin.from("ma_lembrete_destinatarios").delete().eq("revenda_id", revendaId);
+  if (erroApagar) voltar("erro", `Não foi possível salvar: ${erroApagar.message}`);
+  if (validos.length > 0) {
+    const { error } = await admin
+      .from("ma_lembrete_destinatarios")
+      .insert(validos.map((colaborador_id) => ({ revenda_id: revendaId, colaborador_id })));
+    if (error) voltar("erro", `Não foi possível salvar: ${error.message}`);
+  }
+
+  atualizarTelas();
+  voltar(
+    "sucesso",
+    ativo
+      ? `Lembrete ligado: todo dia às ${hora.hora}h, se ninguém tiver contado, ${validos.length} pessoa${validos.length === 1 ? "" : "s"} recebe${validos.length === 1 ? "" : "m"} o aviso.`
+      : "Lembrete da contagem desligado.",
   );
 }
 

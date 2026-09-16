@@ -26,7 +26,7 @@ import Link from "next/link";
  * Então elas continuam duas rotas e passam a se comportar como uma tela:
  * a mesma barra em cima, sempre com o mesmo lugar para cada coisa.
  */
-export type AbaDeAcesso = "perfil" | "pessoa" | "modulos";
+export type AbaDeAcesso = "perfil" | "pessoa" | "modulos" | "limpeza";
 
 const ABAS: {
   id: AbaDeAcesso;
@@ -56,6 +56,14 @@ const ABAS: {
     ajuda: "As duas grades: o cartão no app, e os relatórios da Gestão.",
     href: (r) =>
       r ? `/admin/acessos?aba=modulos&revenda=${r}` : "/admin/acessos?aba=modulos",
+  },
+  {
+    // 16/09/2026: o que está liberado e ninguém usa, e quem não entra mais.
+    id: "limpeza",
+    rotulo: "Limpeza",
+    emoji: "🧹",
+    ajuda: "O que está liberado e ninguém usa, e quem não entra mais no app.",
+    href: (r) => (r ? `/admin/acessos/limpeza?revenda=${r}` : "/admin/acessos/limpeza"),
   },
 ];
 

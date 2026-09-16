@@ -9,7 +9,8 @@ import { hojeIso } from "@/lib/pesquisa";
 import { areaDoColaborador, diasRestantes } from "@/lib/quiz";
 import type { AreaId } from "@/lib/areas";
 import { FIM_TURNO, hojeISO, type Turno } from "@/lib/produtividade-armazem";
-import { varrerMaterialDeApoio } from "@/lib/material-apoio-server";
+import { lembrarContagensDoDia, varrerMaterialDeApoio } from "@/lib/material-apoio-server";
+import { enviarResumosSemanais } from "@/lib/resumo-semanal-server";
 
 /** De quanto em quanto tempo o próprio app varre a fila. */
 const INTERVALO_MINUTOS = 5;
@@ -50,6 +51,10 @@ export type Varredura = {
   tratativas: number;
   /** Alertas de compra de material de apoio (perto ou abaixo da política mínima). */
   materialApoio: number;
+  /** Revendas lembradas de contar o material de apoio hoje. */
+  contagensMaterialApoio: number;
+  /** Revendas cuja liderança recebeu o resumo de segunda-feira. */
+  resumosSemanais: number;
   erro?: string;
 };
 
@@ -103,13 +108,19 @@ export async function varrerLembretes(): Promise<Varredura> {
   // em que ele chega na política mínima quase nunca é dia de contagem, e
   // só a varredura pega. Barato -- poucos produtos por revenda.
   const materialApoio = await varrerMaterialDeApoio();
+  // O lembrete de CONTAR: uma consulta por revenda com o lembrete ligado,
+  // e só depois da hora escolhida.
+  const contagensMaterialApoio = await lembrarContagensDoDia();
+  // O resumo de segunda: fora da segunda-feira é um `if` e volta; na
+  // segunda, depois do primeiro envio, é uma consulta por revenda.
+  const resumosSemanais = await enviarResumosSemanais();
   // O GATILHO DE ANOMALIA FICA POR ÚLTIMO: é a etapa mais cara (lê 90
   // dias de atendimentos por revenda) e a menos urgente -- um desvio do
   // dia esperar 15 minutos não muda nada, e um comunicado agendado
   // esperando na frente dele, sim.
   const anomalias = (await varrerGatilhosDeAnomalia()).abertos;
 
-  return { ...enviados, cincoS, desafios, publicadas, aberturas, empilhadeiras, cincoPorques, tratativas, materialApoio, anomalias };
+  return { ...enviados, cincoS, desafios, publicadas, aberturas, empilhadeiras, cincoPorques, tratativas, materialApoio, contagensMaterialApoio, resumosSemanais, anomalias };
 }
 
 /**

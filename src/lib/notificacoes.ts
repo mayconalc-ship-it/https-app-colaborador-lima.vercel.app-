@@ -50,7 +50,14 @@ export type ModuloNotificavel =
   | "boas-praticas-avaliar"
   // Material de apoio chegando na política mínima (16/09/2026): o aviso é
   // para quem compra, com a quantidade sugerida.
-  | "material-apoio";
+  | "material-apoio"
+  // O lembrete diário de CONTAR o material de apoio (16/09/2026). Próprio
+  // porque o botão é outro ("Contar agora") e quem recebe é quem conta, não
+  // quem compra.
+  | "material-apoio-contagem"
+  // O resumo de segunda-feira para a liderança (16/09/2026): ranking,
+  // metas e pendências da semana que fechou.
+  | "resumo-semanal";
 
 /**
  * A mesma lista, em forma de array.
@@ -81,6 +88,8 @@ export const MODULOS_NOTIFICAVEIS: ModuloNotificavel[] = [
   "boas-praticas",
   "boas-praticas-avaliar",
   "material-apoio",
+  "material-apoio-contagem",
+  "resumo-semanal",
 ];
 
 export const EMOJI_MODULO: Record<ModuloNotificavel, string> = {
@@ -106,6 +115,8 @@ export const EMOJI_MODULO: Record<ModuloNotificavel, string> = {
   "boas-praticas": "💡",
   "boas-praticas-avaliar": "💡",
   "material-apoio": "🧰",
+  "material-apoio-contagem": "🧰",
+  "resumo-semanal": "🗓️",
 };
 
 export const ROTULO_MODULO: Record<ModuloNotificavel, string> = {
@@ -131,6 +142,8 @@ export const ROTULO_MODULO: Record<ModuloNotificavel, string> = {
   "boas-praticas": "Boas Práticas",
   "boas-praticas-avaliar": "Boas Práticas para avaliar",
   "material-apoio": "Material de Apoio",
+  "material-apoio-contagem": "Contagem diária do material de apoio",
+  "resumo-semanal": "Resumo semanal da liderança",
 };
 
 /**
@@ -187,6 +200,8 @@ export const ROTULO_BOTAO: Record<ModuloNotificavel, string> = {
   "boas-praticas": "Ver Boas Práticas",
   "boas-praticas-avaliar": "Avaliar agora",
   "material-apoio": "Ver o estoque",
+  "material-apoio-contagem": "Contar agora",
+  "resumo-semanal": "Ver o resumo",
 };
 
 /** "há 2 min", "há 3 h", "ontem" — mais legível que data completa. */

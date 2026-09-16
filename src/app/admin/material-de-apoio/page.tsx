@@ -5,12 +5,18 @@ import { CartaoEstoque } from "@/components/material-apoio/CartaoEstoque";
 import { podeNoModulo, requireModulo } from "@/lib/require-admin";
 import { exigirRevenda } from "@/lib/revendas";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { destinatariosDoAlerta, lerEstoque } from "@/lib/material-apoio-server";
+import {
+  destinatariosDoAlerta,
+  lerEstoque,
+  lerLembreteDeContagem,
+  quemPodeContar,
+} from "@/lib/material-apoio-server";
 import { formatarDataHora } from "@/lib/produtividade-armazem";
 import { formatarLinear, formatarQuantidade, formatarReais } from "@/lib/material-apoio";
 import { decodificar } from "@/lib/texto-url";
 import { FormProduto } from "./FormProduto";
 import { Destinatarios } from "./Destinatarios";
+import { LembreteContagem } from "./LembreteContagem";
 import { alternarProduto, excluirContagem, excluirProduto } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -30,9 +36,11 @@ export default async function AdminMaterialDeApoioPage({
   const revendaId = await exigirRevenda("/admin");
 
   const admin = createAdminClient();
-  const [estoque, marcados, { data: vinculos }, { data: recentes }, { data: contados }] = await Promise.all([
+  const [estoque, marcados, lembrete, podemContar, { data: vinculos }, { data: recentes }, { data: contados }] = await Promise.all([
     lerEstoque(revendaId, { incluirInativos: true }),
     destinatariosDoAlerta(revendaId),
+    lerLembreteDeContagem(revendaId),
+    quemPodeContar(revendaId),
     admin.from("colaborador_revendas").select("colaborador_id").eq("revenda_id", revendaId),
     admin
       .from("ma_contagens")
@@ -75,7 +83,7 @@ export default async function AdminMaterialDeApoioPage({
     <div>
       <PageHeader
         title="Material de Apoio"
-        subtitle="Produtos, linear de uso, políticas de estoque e quem recebe o alerta de compra"
+        subtitle="Produtos, linear de uso, políticas de estoque, o lembrete diário da contagem e o alerta de compra"
       />
 
       {sp.erro && <p className="mb-3 rounded-lg bg-red-50 p-3 text-sm text-red-700">{decodificar(sp.erro)}</p>}
@@ -162,6 +170,30 @@ export default async function AdminMaterialDeApoioPage({
               <p className="mb-3 text-sm font-bold text-slate-800">➕ Novo produto</p>
               <FormProduto />
             </div>
+          )}
+        </section>
+
+        <section className="space-y-3">
+          <h2 className="text-sm font-bold uppercase text-slate-500">Lembrete diário da contagem</h2>
+          <p className="text-xs text-slate-500">
+            A contagem precisa ser feita todo dia: é ela que mostra quanto sai de verdade. No horário escolhido, se
+            ninguém tiver contado ainda, as pessoas marcadas recebem o aviso no sino e no celular. Quando alguém conta, o
+            aviso some para todos. Só aparecem aqui as pessoas que conseguem lançar a contagem (com Material de Apoio
+            liberado).
+          </p>
+          {podeEditar ? (
+            <LembreteContagem
+              pessoas={pessoas.filter((p) => podemContar.has(p.id))}
+              ativo={lembrete.ativo}
+              hora={lembrete.hora}
+              marcados={lembrete.destinatarios.filter((id) => podemContar.has(id))}
+            />
+          ) : !lembrete.ativo ? (
+            <p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900">O lembrete da contagem está desligado.</p>
+          ) : (
+            <p className="text-sm text-slate-700">
+              Todo dia às {lembrete.hora}h: {lembrete.destinatarios.map((id) => nomeDaPessoa.get(id) ?? "—").join(", ")}
+            </p>
           )}
         </section>
 

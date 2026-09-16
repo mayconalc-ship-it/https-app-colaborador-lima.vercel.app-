@@ -167,6 +167,51 @@ export function diaSP(iso: string) {
   return DIA_SP.format(new Date(iso));
 }
 
+// ------------------------------------------------------------------
+// Lembrete diário da contagem (16/09/2026)
+// ------------------------------------------------------------------
+
+/** As horas que se podem escolher -- as mesmas do check da migration 125. */
+export const HORA_LEMBRETE_MIN = 5;
+export const HORA_LEMBRETE_MAX = 22;
+export const HORA_LEMBRETE_PADRAO = 14;
+
+export const HORAS_DO_LEMBRETE = Array.from(
+  { length: HORA_LEMBRETE_MAX - HORA_LEMBRETE_MIN + 1 },
+  (_, i) => HORA_LEMBRETE_MIN + i,
+);
+
+/** Hora vinda do formulário: um inteiro dentro da faixa, ou a mensagem do problema. */
+export function validarHoraDoLembrete(v: unknown): { hora: number } | { erro: string } {
+  const hora = Number(String(v ?? "").trim());
+  if (!Number.isInteger(hora) || hora < HORA_LEMBRETE_MIN || hora > HORA_LEMBRETE_MAX) {
+    return { erro: `Escolha um horário entre ${HORA_LEMBRETE_MIN}h e ${HORA_LEMBRETE_MAX}h.` };
+  }
+  return { hora };
+}
+
+const HORA_SP = new Intl.DateTimeFormat("en-US", { timeZone: "America/Sao_Paulo", hour: "2-digit", hour12: false });
+
+/** A hora cheia agora, no fuso da operação. */
+export function horaSP(quando: Date = new Date()) {
+  return Number(HORA_SP.format(quando)) % 24;
+}
+
+/** O começo do dia de hoje (fuso da operação) em ISO -- o corte de "já contou hoje?". */
+export function inicioDoDiaSP(quando: Date = new Date()) {
+  return `${hojeSP(quando)}T00:00:00-03:00`;
+}
+
+/** A chave do lembrete: um por revenda por dia. */
+export function chaveDoLembreteDeContagem(revendaId: string, dia: string) {
+  return `material-apoio-contagem:${revendaId}:${dia}`;
+}
+
+/** É hora de lembrar? Ligado, passou da hora e ninguém contou hoje. */
+export function deveLembrarContagem(p: { ativo: boolean; hora: number; horaAgora: number; contouHoje: boolean }) {
+  return p.ativo && p.horaAgora >= p.hora && !p.contouHoje;
+}
+
 export function diasEntre(de: string, ate: string) {
   return Math.round((Date.parse(`${ate}T00:00:00Z`) - Date.parse(`${de}T00:00:00Z`)) / 86_400_000);
 }

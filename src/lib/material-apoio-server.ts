@@ -8,7 +8,12 @@ import { getRevendaId, revendaTemModulo } from "@/lib/revendas";
 import { temAcessoModulo } from "@/lib/require-admin";
 import {
   FAIXAS_DE_ALERTA,
+  HORA_LEMBRETE_PADRAO,
   MODULO_MATERIAL_APOIO,
+  chaveDoLembreteDeContagem,
+  deveLembrarContagem,
+  horaSP,
+  inicioDoDiaSP,
   formatarCompra,
   formatarDias,
   formatarReais,
@@ -223,6 +228,161 @@ export async function avisarMaterialDeApoio(revendaId: string): Promise<number> 
     // Silêncio proposital: avisar é secundário, a contagem é o que importa.
   }
   return enviados;
+}
+
+// ------------------------------------------------------------------
+// LEMBRETE DIÁRIO DA CONTAGEM (16/09/2026)
+// ------------------------------------------------------------------
+
+export type LembreteDeContagem = { ativo: boolean; hora: number; destinatarios: string[] };
+
+/** A configuração do lembrete. Sem linha: desligado, com a hora padrão para a tela. */
+export async function lerLembreteDeContagem(revendaId: string): Promise<LembreteDeContagem> {
+  const admin = createAdminClient();
+  const [{ data: config }, { data: pessoas }] = await Promise.all([
+    admin.from("ma_lembrete_config").select("ativo, hora").eq("revenda_id", revendaId).maybeSingle(),
+    admin.from("ma_lembrete_destinatarios").select("colaborador_id").eq("revenda_id", revendaId),
+  ]);
+  return {
+    ativo: Boolean(config?.ativo),
+    hora: config ? Number(config.hora) : HORA_LEMBRETE_PADRAO,
+    destinatarios: (pessoas ?? []).map((p) => String(p.colaborador_id)),
+  };
+}
+
+/**
+ * Quem pode LANÇAR a contagem nesta revenda -- a mesma régua de
+ * `requireAcessoModulo`: o módulo liberado para a pessoa, a liderança com
+ * "ver" e o Admin. Lembrar alguém de contar sem que ela consiga contar é
+ * mandar bater numa porta trancada; por isso a tela só oferece estas
+ * pessoas e o servidor descarta as outras.
+ */
+export async function quemPodeContar(revendaId: string): Promise<Set<string>> {
+  const admin = createAdminClient();
+  const [{ data: extras }, { data: permissoes }, { data: donos }] = await Promise.all([
+    admin.from("colaborador_modulos_extra").select("colaborador_id").eq("revenda_id", revendaId).eq("modulo", MODULO_MATERIAL_APOIO),
+    admin
+      .from("lideranca_permissoes")
+      .select("colaborador_id")
+      .eq("revenda_id", revendaId)
+      .eq("modulo", MODULO_MATERIAL_APOIO)
+      .eq("acao", "ver"),
+    admin.from("profiles").select("id").eq("role", "owner"),
+  ]);
+  const liderancaIds = [...new Set((permissoes ?? []).map((p) => String(p.colaborador_id)))];
+  const { data: liderancas } = liderancaIds.length
+    ? await admin.from("profiles").select("id").in("id", liderancaIds).eq("role", "lideranca")
+    : { data: [] };
+  return new Set([
+    ...(extras ?? []).map((e) => String(e.colaborador_id)),
+    ...(liderancas ?? []).map((l) => String(l.id)),
+    ...(donos ?? []).map((d) => String(d.id)),
+  ]);
+}
+
+async function contouHoje(revendaId: string, agora: Date) {
+  const admin = createAdminClient();
+  const { count } = await admin
+    .from("ma_contagens")
+    .select("id", { count: "exact", head: true })
+    .eq("revenda_id", revendaId)
+    .gte("contado_em", inicioDoDiaSP(agora));
+  return (count ?? 0) > 0;
+}
+
+/**
+ * O AVISO DO DIA, chamado pela varredura a cada poucos minutos.
+ *
+ * Sai uma vez por dia por revenda (a chave leva a data), depois da hora
+ * escolhida e só se ninguém contou hoje. Quem é avisado e não pode mais
+ * contar (perdeu o módulo) fica de fora na hora do envio.
+ */
+export async function lembrarContagensDoDia(agora: Date = new Date()): Promise<number> {
+  const admin = createAdminClient();
+  const { data: configs } = await admin
+    .from("ma_lembrete_config")
+    .select("revenda_id, hora")
+    .eq("ativo", true)
+    .lte("hora", horaSP(agora));
+
+  let enviados = 0;
+  for (const c of configs ?? []) {
+    const revendaId = String(c.revenda_id);
+    try {
+      const chave = chaveDoLembreteDeContagem(revendaId, hojeSP(agora));
+      const { data: jaFoi } = await admin
+        .from("notificacoes")
+        .select("id")
+        .eq("modulo", "material-apoio-contagem")
+        .eq("referencia_id", chave)
+        .limit(1)
+        .maybeSingle();
+      if (jaFoi) continue;
+
+      const [{ data: modulo }, lembrete, podem, contou] = await Promise.all([
+        admin.from("revenda_modulos").select("ativo").eq("revenda_id", revendaId).eq("modulo", MODULO_MATERIAL_APOIO).maybeSingle(),
+        lerLembreteDeContagem(revendaId),
+        quemPodeContar(revendaId),
+        contouHoje(revendaId, agora),
+      ]);
+      if (!modulo?.ativo) continue;
+      if (!deveLembrarContagem({ ativo: lembrete.ativo, hora: lembrete.hora, horaAgora: horaSP(agora), contouHoje: contou })) {
+        continue;
+      }
+      const destinatarios = lembrete.destinatarios.filter((id) => podem.has(id));
+      if (destinatarios.length === 0) continue;
+
+      const titulo = "🧰 Contagem do material de apoio";
+      const mensagem =
+        "Ainda não houve contagem hoje. Conte o filme, o fitilho e os outros materiais — é a contagem diária que mostra quanto sai de verdade.";
+      const url = "/material-de-apoio";
+
+      await Promise.all(
+        destinatarios.map((id) =>
+          criarNotificacao({
+            modulo: "material-apoio-contagem",
+            tipo: "pendencia",
+            titulo,
+            mensagem,
+            url,
+            revendaId,
+            destinatarioId: id,
+            referenciaId: chave,
+          }),
+        ),
+      );
+      await enviarPushDaRevenda(revendaId, {
+        modulo: "material-apoio-contagem",
+        titulo,
+        mensagem,
+        url,
+        apenas: destinatarios,
+        qualquerRevenda: true,
+      });
+      enviados++;
+    } catch {
+      // Uma revenda com problema não impede o aviso da outra.
+    }
+  }
+  return enviados;
+}
+
+/**
+ * A contagem foi feita: o aviso de hoje sai do sino de todo mundo. Deixá-lo
+ * lá faria a próxima pessoa contar de novo o que já foi contado.
+ * NUNCA lança erro: a contagem já foi gravada.
+ */
+export async function encerrarLembreteDeContagem(revendaId: string, agora: Date = new Date()) {
+  try {
+    const admin = createAdminClient();
+    await admin
+      .from("notificacoes")
+      .update({ ativa: false })
+      .eq("modulo", "material-apoio-contagem")
+      .eq("referencia_id", chaveDoLembreteDeContagem(revendaId, hojeSP(agora)));
+  } catch {
+    // Silêncio proposital.
+  }
 }
 
 /** A varredura periódica: toda revenda com o módulo ligado. */

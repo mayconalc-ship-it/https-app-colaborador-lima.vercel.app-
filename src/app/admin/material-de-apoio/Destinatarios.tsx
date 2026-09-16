@@ -13,7 +13,24 @@ type Pessoa = { id: string; nome: string; cargo: string | null };
  * Os marcados que a busca esconde continuam indo no envio (campos ocultos):
  * filtrar a lista não pode desmarcar ninguém sem a pessoa ver.
  */
-export function Destinatarios({ pessoas, marcados }: { pessoas: Pessoa[]; marcados: string[] }) {
+export function Destinatarios({
+  pessoas,
+  marcados,
+  acao = salvarDestinatarios,
+  rotuloDoBotao = "Salvar quem recebe",
+  exigirAlguem = null,
+  children,
+}: {
+  pessoas: Pessoa[];
+  marcados: string[];
+  /** Serve às duas listas da tela: o alerta de compra e o lembrete de contagem. */
+  acao?: (formData: FormData) => Promise<void>;
+  rotuloDoBotao?: string;
+  /** Com ninguém marcado, trava o Salvar e diz o porquê (o servidor confere igual). */
+  exigirAlguem?: string | null;
+  /** Campos que vão no MESMO Salvar, acima da lista (horário, liga/desliga). */
+  children?: React.ReactNode;
+}) {
   const [selecionados, setSelecionados] = useState(() => new Set(marcados));
   const [busca, setBusca] = useState("");
 
@@ -40,7 +57,8 @@ export function Destinatarios({ pessoas, marcados }: { pessoas: Pessoa[]; marcad
   }
 
   return (
-    <form action={salvarDestinatarios} className="space-y-3">
+    <form action={acao} className="space-y-3">
+      {children}
       <input
         type="search"
         value={busca}
@@ -76,8 +94,14 @@ export function Destinatarios({ pessoas, marcados }: { pessoas: Pessoa[]; marcad
         ))}
         {visiveis.length === 0 && <li className="p-2 text-sm text-slate-500">Ninguém encontrado.</li>}
       </ul>
-      <BotaoEnviar className="w-full rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white hover:bg-primary-dark">
-        Salvar quem recebe ({selecionados.size})
+      {exigirAlguem && selecionados.size === 0 && (
+        <p className="rounded-lg bg-amber-50 p-2 text-xs text-amber-900">{exigirAlguem}</p>
+      )}
+      <BotaoEnviar
+        disabled={Boolean(exigirAlguem) && selecionados.size === 0}
+        className="w-full rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white hover:bg-primary-dark disabled:cursor-not-allowed disabled:opacity-40"
+      >
+        {rotuloDoBotao} ({selecionados.size})
       </BotaoEnviar>
     </form>
   );

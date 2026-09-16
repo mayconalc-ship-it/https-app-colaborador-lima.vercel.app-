@@ -6,7 +6,7 @@ import { revalidatePath } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAcessoModulo } from "@/lib/require-admin";
 import { exigirRevenda } from "@/lib/revendas";
-import { avisarMaterialDeApoio } from "@/lib/material-apoio-server";
+import { avisarMaterialDeApoio, encerrarLembreteDeContagem } from "@/lib/material-apoio-server";
 import {
   LIMITES,
   MODULO_MATERIAL_APOIO,
@@ -79,6 +79,8 @@ export async function registrarContagem(formData: FormData) {
   if (error) voltar("erro", `Não foi possível registrar: ${error.message}`);
 
   const alertas = await avisarMaterialDeApoio(revendaId);
+  // Contou hoje: o lembrete do dia sai do sino de quem ainda não abriu.
+  await encerrarLembreteDeContagem(revendaId);
 
   revalidatePath(ROTA);
   revalidatePath("/admin/material-de-apoio");

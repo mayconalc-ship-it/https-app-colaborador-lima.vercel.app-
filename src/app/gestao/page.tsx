@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { PageHeader } from "@/components/PageHeader";
 import { CartaoDePainel } from "@/components/gestao/CartaoDePainel";
 import { getRevendaAtiva } from "@/lib/revendas";
@@ -28,6 +29,23 @@ export default async function GestaoPage() {
             : "O que os números dizem"
         }
       />
+
+      {/* O resumo de segunda-feira fica acima dos painéis: é a leitura
+          de todos eles numa tela, e cada bloco dele respeita a permissão
+          do módulo de origem. */}
+      <Link
+        href="/gestao/resumo-semanal"
+        className="mb-6 flex items-center gap-3 rounded-2xl border border-primary/25 bg-primary-soft p-4 hover:border-primary"
+      >
+        <span className="text-2xl">🗓️</span>
+        <span className="min-w-0 flex-1">
+          <span className="block font-semibold text-primary-dark">Resumo da semana</span>
+          <span className="block text-xs text-primary-dark">
+            Ranking do armazém, metas e o que está esperando a liderança — chega toda segunda às 7h.
+          </span>
+        </span>
+        <span className="text-primary-dark">→</span>
+      </Link>
 
       {blocos.map(({ bloco, itens }) => (
         <section key={bloco} className="mb-6">
