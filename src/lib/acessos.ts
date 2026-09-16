@@ -29,6 +29,7 @@ export type ModuloId =
   | "menu"
   | "rotas"
   | "ativo-giro"
+  | "material-apoio"
   | "quiz"
   | "boas-praticas"
   | "boas-praticas-config"
@@ -525,6 +526,28 @@ export const MODULOS: Modulo[] = [
     acoes: ["ver", "criar", "editar", "excluir"],
   },
   {
+    /*
+      MATERIAL DE APOIO DO ARMAZÉM (16/09/2026, pedido do dono): filme
+      stretch, filme contrátil, fitilho -- linear de uso, contagem, dias de
+      estoque, políticas mínima/objetiva/máxima e o alerta de compra.
+
+      "ver" é o que libera o cartão e a CONTAGEM no app (módulo opcional,
+      pessoa a pessoa, como o Ativo de Giro). O cadastro fica atrás de
+      "editar"; "excluir" é para o engano.
+    */
+    id: "material-apoio",
+    rotulosDeAcao: {
+      ver: "Contar o material de apoio no app e abrir o cadastro no Modo Liderança",
+      editar: "Cadastrar produto, linear, políticas e quem recebe o alerta de compra",
+      excluir: "Apagar contagem lançada por engano e produto nunca contado",
+    },
+    rotulo: "Material de Apoio",
+    emoji: "🧰",
+    href: "/admin/material-de-apoio",
+    grupo: "Configuração",
+    acoes: ["ver", "editar", "excluir"],
+  },
+  {
     id: "quiz",
     rotulosDeAcao: {
       ver: "Abrir o Desafio no Modo Liderança (e no app)",
@@ -941,6 +964,7 @@ export const MODULOS: Modulo[] = [
  */
 export const MODULOS_OPCIONAIS: ModuloId[] = [
   "ativo-giro",
+  "material-apoio",
   "comunicados",
   "ranking",
   "padroes",

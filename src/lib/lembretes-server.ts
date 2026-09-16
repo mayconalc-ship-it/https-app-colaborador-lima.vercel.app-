@@ -9,6 +9,7 @@ import { hojeIso } from "@/lib/pesquisa";
 import { areaDoColaborador, diasRestantes } from "@/lib/quiz";
 import type { AreaId } from "@/lib/areas";
 import { FIM_TURNO, hojeISO, type Turno } from "@/lib/produtividade-armazem";
+import { varrerMaterialDeApoio } from "@/lib/material-apoio-server";
 
 /** De quanto em quanto tempo o próprio app varre a fila. */
 const INTERVALO_MINUTOS = 5;
@@ -47,6 +48,8 @@ export type Varredura = {
   cincoPorques: number;
   /** Análises concluídas esperando a tratativa da liderança há mais de 24 h. */
   tratativas: number;
+  /** Alertas de compra de material de apoio (perto ou abaixo da política mínima). */
+  materialApoio: number;
   erro?: string;
 };
 
@@ -96,13 +99,17 @@ export async function varrerLembretes(): Promise<Varredura> {
   const empilhadeiras = await lembretesDeEmpilhadeira(admin);
   const cincoPorques = await lembretesDoCincoPorques(admin);
   const tratativas = await lembretesDaTratativa(admin);
+  // O estoque de material de apoio cai sozinho com a linear de uso: o dia
+  // em que ele chega na política mínima quase nunca é dia de contagem, e
+  // só a varredura pega. Barato -- poucos produtos por revenda.
+  const materialApoio = await varrerMaterialDeApoio();
   // O GATILHO DE ANOMALIA FICA POR ÚLTIMO: é a etapa mais cara (lê 90
   // dias de atendimentos por revenda) e a menos urgente -- um desvio do
   // dia esperar 15 minutos não muda nada, e um comunicado agendado
   // esperando na frente dele, sim.
   const anomalias = (await varrerGatilhosDeAnomalia()).abertos;
 
-  return { ...enviados, cincoS, desafios, publicadas, aberturas, empilhadeiras, cincoPorques, tratativas, anomalias };
+  return { ...enviados, cincoS, desafios, publicadas, aberturas, empilhadeiras, cincoPorques, tratativas, materialApoio, anomalias };
 }
 
 /**

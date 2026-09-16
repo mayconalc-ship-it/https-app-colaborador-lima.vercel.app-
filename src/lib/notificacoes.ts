@@ -47,7 +47,10 @@ export type ModuloNotificavel =
   // A sugestão nova esperando a LIDERANÇA avaliar. Próprio pelo mesmo
   // motivo do "cinco-porques-tratativa": o aviso e o botão são de quem
   // avalia, não de quem sugeriu.
-  | "boas-praticas-avaliar";
+  | "boas-praticas-avaliar"
+  // Material de apoio chegando na política mínima (16/09/2026): o aviso é
+  // para quem compra, com a quantidade sugerida.
+  | "material-apoio";
 
 /**
  * A mesma lista, em forma de array.
@@ -77,6 +80,7 @@ export const MODULOS_NOTIFICAVEIS: ModuloNotificavel[] = [
   "meus-indicadores",
   "boas-praticas",
   "boas-praticas-avaliar",
+  "material-apoio",
 ];
 
 export const EMOJI_MODULO: Record<ModuloNotificavel, string> = {
@@ -101,6 +105,7 @@ export const EMOJI_MODULO: Record<ModuloNotificavel, string> = {
   "meus-indicadores": "📊",
   "boas-praticas": "💡",
   "boas-praticas-avaliar": "💡",
+  "material-apoio": "🧰",
 };
 
 export const ROTULO_MODULO: Record<ModuloNotificavel, string> = {
@@ -125,6 +130,7 @@ export const ROTULO_MODULO: Record<ModuloNotificavel, string> = {
   "meus-indicadores": "Meus Indicadores",
   "boas-praticas": "Boas Práticas",
   "boas-praticas-avaliar": "Boas Práticas para avaliar",
+  "material-apoio": "Material de Apoio",
 };
 
 /**
@@ -180,6 +186,7 @@ export const ROTULO_BOTAO: Record<ModuloNotificavel, string> = {
   "meus-indicadores": "Ver meus indicadores",
   "boas-praticas": "Ver Boas Práticas",
   "boas-praticas-avaliar": "Avaliar agora",
+  "material-apoio": "Ver o estoque",
 };
 
 /** "há 2 min", "há 3 h", "ontem" — mais legível que data completa. */

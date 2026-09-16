@@ -17,6 +17,7 @@ export const MODULO_DO_ITEM: Record<string, ModuloId> = {
   rota: "rotas",
   feedback: "feedbacks",
   "ativo-giro": "ativo-giro",
+  "material-apoio": "material-apoio",
   quiz: "quiz",
   // Não é opcional: a revenda ligou, todo mundo vê (ver acessos.ts).
   "boas-praticas": "boas-praticas",
@@ -70,7 +71,9 @@ export const BLOCOS_DO_MENU = [
     id: "operacao",
     titulo: "Minha operação",
     subtitulo: "O que você executa e registra",
-    chaves: ["produtividade-armazem", "feedback", "ativo-giro"],
+    // Material de Apoio logo depois do Ativo de Giro (pedido do dono,
+    // 16/09/2026): as duas contagens do armazém lado a lado.
+    chaves: ["produtividade-armazem", "feedback", "ativo-giro", "material-apoio"],
   },
   {
     id: "empresa",
@@ -194,6 +197,8 @@ export const MENU_PADRAO: ItemMenu[] = [
   { chave: "feedback", titulo: "Feedback da Rota", emoji: "📝", href: "/feedback-rota", ordem: 8, visivel: true },
   // Módulo opcional: só aparece pra quem o Admin liberou (ver temAcessoModulo).
   { chave: "ativo-giro", titulo: "Ativo de Giro", emoji: "📦", href: "/ativo-de-giro", ordem: 10, visivel: true },
+  // Módulo opcional, logo depois do Ativo de Giro (16/09/2026).
+  { chave: "material-apoio", titulo: "Material de Apoio", emoji: "🧰", href: "/material-de-apoio", ordem: 16, visivel: true },
   { chave: "quiz", titulo: "Desafio do Mês", emoji: "🏆", href: "/desafio", ordem: 11, visivel: true },
   // O cartão aparece para todo mundo, mas a tela só abre para quem é
   // auditor, dono de área ou gestor do 5S -- quem não é vê o convite a

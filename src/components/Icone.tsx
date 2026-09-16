@@ -32,6 +32,7 @@ import {
   Factory,
   Forklift,
   Gauge,
+  Layers,
   Lightbulb,
   Lock,
   Megaphone,
@@ -77,6 +78,7 @@ const POR_CHAVE: Record<string, LucideIcon> = {
   "carretas-conferencia": Gauge,
   feedback: ClipboardList,
   "ativo-giro": Archive,
+  "material-apoio": Layers,
   fefo: Target,
 
   // Da empresa
