@@ -7,7 +7,7 @@ import { exigirRevenda } from "@/lib/revendas";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { destinatariosDoAlerta, lerEstoque } from "@/lib/material-apoio-server";
 import { formatarDataHora } from "@/lib/produtividade-armazem";
-import { formatarLinear, formatarQuantidade } from "@/lib/material-apoio";
+import { formatarLinear, formatarQuantidade, formatarReais } from "@/lib/material-apoio";
 import { decodificar } from "@/lib/texto-url";
 import { FormProduto } from "./FormProduto";
 import { Destinatarios } from "./Destinatarios";
@@ -114,6 +114,7 @@ export default async function AdminMaterialDeApoioPage({
                     <span className="text-xs tabular-nums text-slate-500">
                       {formatarLinear(p)} · mín {p.politica_minima_dias} · obj {p.politica_objetivo_dias} · máx{" "}
                       {p.politica_maxima_dias} dias
+                      {p.valor_unitario != null ? ` · ${formatarReais(p.valor_unitario)}/${p.unidade}` : " · sem valor"}
                     </span>
                   </summary>
                   <div className="space-y-3 border-t border-slate-100 p-4">

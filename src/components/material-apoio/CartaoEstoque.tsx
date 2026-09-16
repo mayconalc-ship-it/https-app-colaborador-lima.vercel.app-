@@ -1,9 +1,14 @@
 import { formatarDataHora } from "@/lib/produtividade-armazem";
 import {
   FAIXAS,
+  JANELA_DA_MEDIA_DIAS,
+  MINIMO_DIAS_DA_MEDIA,
+  consumoDiario,
+  formatarAproximado,
+  formatarCompra,
   formatarDias,
-  formatarLinear,
   formatarQuantidade,
+  formatarReais,
   type Faixa,
 } from "@/lib/material-apoio";
 import type { ItemDoEstoque } from "@/lib/material-apoio-server";
@@ -28,7 +33,13 @@ const BORDA_DO_TOM: Record<(typeof FAIXAS)[Faixa]["tom"], string> = {
 
 export function SeloFaixa({ faixa }: { faixa: Faixa }) {
   const f = FAIXAS[faixa];
-  return <span className={`rounded-lg px-2 py-1 text-xs font-bold ${COR_DO_TOM[f.tom]}`}>{f.rotulo}</span>;
+  // shrink-0 + nowrap: o selo nunca espreme o nome do produto ao lado, e
+  // nunca quebra em duas linhas.
+  return (
+    <span className={`shrink-0 whitespace-nowrap rounded-lg px-2 py-1 text-xs font-bold ${COR_DO_TOM[f.tom]}`}>
+      {f.rotulo}
+    </span>
+  );
 }
 
 /**
@@ -68,6 +79,54 @@ function ReguaDasPoliticas({ item }: { item: ItemDoEstoque }) {
   );
 }
 
+/** O consumo que as contas usam, de onde ele vem, e o custo que ele dá. */
+function ConsumoECusto({ item }: { item: ItemDoEstoque }) {
+  const { produto: p, situacao: s, media } = item;
+  const linear = consumoDiario(p.linear_quantidade, p.linear_periodo);
+  const real = s.fonteDoConsumo === "real";
+
+  return (
+    <div className="mt-3 grid grid-cols-1 gap-2 rounded-xl bg-slate-50 p-3 text-sm sm:grid-cols-2">
+      <div className="min-w-0">
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+          {real ? "Consumo real" : "Consumo (linear cadastrada)"}
+        </p>
+        <p className="font-semibold tabular-nums text-slate-900">{formatarAproximado(s.consumo, p.unidade)} por dia</p>
+        <p className="text-xs text-slate-500">
+          {real
+            ? `Média das contagens de ${media.dias} dias · linear cadastrada: ${formatarAproximado(linear, p.unidade)}/dia`
+            : media.dias > 0
+              ? `A média real sai com ${MINIMO_DIAS_DA_MEDIA} dias de contagens (hoje: ${media.dias})`
+              : `A média real sai depois de contagens em ${MINIMO_DIAS_DA_MEDIA} dias ou mais`}
+        </p>
+      </div>
+      <div className="min-w-0">
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Custo</p>
+        {s.custoDiario != null ? (
+          <>
+            <p className="font-semibold tabular-nums text-slate-900">
+              {formatarReais(s.custoDiario)}/dia · {formatarReais(s.custoMensal ?? 0)}/mês
+            </p>
+            <p className="text-xs text-slate-500">
+              {formatarReais(p.valor_unitario ?? 0)} por {p.unidade}
+              {s.valorDoEstoque != null ? ` · estoque de hoje ≈ ${formatarReais(s.valorDoEstoque)}` : ""}
+            </p>
+          </>
+        ) : (
+          <p className="text-xs text-slate-500">Sem valor cadastrado — informe no cadastro do produto.</p>
+        )}
+      </div>
+      {media.ignorados > 0 && (
+        <p className="text-xs text-amber-800 sm:col-span-2">
+          ⚠️ {media.ignorados} {media.ignorados === 1 ? "contagem subiu" : "contagens subiram"} sem entrada informada e{" "}
+          {media.ignorados === 1 ? "ficou" : "ficaram"} fora da média (últimos {JANELA_DA_MEDIA_DIAS} dias). Ao contar, informe
+          quanto entrou.
+        </p>
+      )}
+    </div>
+  );
+}
+
 export function CartaoEstoque({ item }: { item: ItemDoEstoque }) {
   const { produto: p, ultima, situacao: s } = item;
   const tom = FAIXAS[s.faixa].tom;
@@ -75,14 +134,14 @@ export function CartaoEstoque({ item }: { item: ItemDoEstoque }) {
 
   return (
     <li className={`rounded-2xl border bg-white p-4 shadow-sm ${BORDA_DO_TOM[tom]}`}>
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="break-words text-base font-bold text-slate-900">
-            {p.nome}
-            {!p.ativo && <span className="ml-2 text-xs font-medium text-slate-400">(desativado)</span>}
-          </p>
-          <p className="text-xs text-slate-500">Linear: {formatarLinear(p)}</p>
-        </div>
+      {/* O nome ganha a largura que sobra (flex-1) e, se o selo não couber
+          ao lado, o selo desce para a linha de baixo (flex-wrap) -- em vez
+          de os dois se espremerem. */}
+      <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2">
+        <p className="min-w-0 flex-1 basis-44 break-words text-base font-bold leading-snug text-slate-900">
+          {p.nome}
+          {!p.ativo && <span className="ml-2 text-xs font-medium text-slate-400">(desativado)</span>}
+        </p>
         <SeloFaixa faixa={s.faixa} />
       </div>
 
@@ -94,24 +153,30 @@ export function CartaoEstoque({ item }: { item: ItemDoEstoque }) {
             <p className="text-2xl font-extrabold tabular-nums text-slate-900">
               {formatarDias(s.dias)} <span className="text-sm font-semibold text-slate-500">dias de estoque</span>
             </p>
-            <p className="text-sm tabular-nums text-slate-600">≈ {formatarQuantidade(s.estoque ?? 0, p.unidade)} hoje</p>
+            <p className="text-sm tabular-nums text-slate-600">≈ {formatarAproximado(s.estoque ?? 0, p.unidade)} hoje</p>
           </div>
           <ReguaDasPoliticas item={item} />
           {precisaComprar && (
             <p className={`mt-3 rounded-xl p-3 text-sm ${tom === "critico" ? "bg-red-50 text-red-900" : "bg-amber-50 text-amber-900"}`}>
-              🛒 Solicitar compra: <b>~{formatarQuantidade(s.comprarParaObjetivo ?? 0, p.unidade)}</b> para a política objetiva
-              ({p.politica_objetivo_dias} dias) · até ~{formatarQuantidade(s.comprarAteMaxima ?? 0, p.unidade)} para a máxima.
-            </p>
-          )}
-          {ultima && (
-            <p className="mt-2 text-[11px] text-slate-400">
-              Contado em {formatarDataHora(ultima.contado_em)} por {ultima.colaborador_nome}
-              {s.diasDesdeContagem
-                ? ` · ${formatarQuantidade(ultima.quantidade, p.unidade)} na contagem, menos ${s.diasDesdeContagem} dia${s.diasDesdeContagem === 1 ? "" : "s"} de uso`
-                : ""}
+              🛒 Solicitar compra: <b>~{formatarCompra(s.comprarParaObjetivo ?? 0, p.unidade)}</b>
+              {s.valorDaCompraObjetivo != null && s.valorDaCompraObjetivo > 0 && (
+                <b> (≈ {formatarReais(s.valorDaCompraObjetivo)})</b>
+              )}{" "}
+              para a política objetiva ({p.politica_objetivo_dias} dias) · até ~
+              {formatarCompra(s.comprarAteMaxima ?? 0, p.unidade)} para a máxima.
             </p>
           )}
         </>
+      )}
+
+      <ConsumoECusto item={item} />
+
+      {ultima && (
+        <p className="mt-2 text-[11px] text-slate-400">
+          Última contagem: {formatarQuantidade(ultima.quantidade, p.unidade)} em {formatarDataHora(ultima.contado_em)} por{" "}
+          {ultima.colaborador_nome}
+          {s.diasDesdeContagem ? ` · a estimativa de hoje desconta ${s.diasDesdeContagem} dia${s.diasDesdeContagem === 1 ? "" : "s"} de consumo` : ""}
+        </p>
       )}
     </li>
   );

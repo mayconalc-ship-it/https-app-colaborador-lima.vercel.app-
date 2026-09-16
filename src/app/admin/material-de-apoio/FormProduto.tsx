@@ -4,11 +4,13 @@ import { useState } from "react";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
 import {
   LIMITES,
+  MINIMO_DIAS_DA_MEDIA,
   PERIODOS,
   UNIDADES,
   consumoDiario,
   curtoDaUnidade,
-  formatarQuantidade,
+  formatarAproximado,
+  formatarReais,
   lerNumero,
   validarProduto,
 } from "@/lib/material-apoio";
@@ -28,6 +30,7 @@ export type ProdutoInicial = {
   politica_objetivo_dias: number;
   politica_maxima_dias: number;
   antecedencia_alerta_dias: number;
+  valor_unitario: number | null;
 };
 
 /**
@@ -46,6 +49,7 @@ export function FormProduto({ inicial }: { inicial?: ProdutoInicial }) {
     politica_objetivo_dias: inicial ? String(inicial.politica_objetivo_dias) : "",
     politica_maxima_dias: inicial ? String(inicial.politica_maxima_dias) : "",
     antecedencia_alerta_dias: inicial ? String(inicial.antecedencia_alerta_dias) : "2",
+    valor_unitario: inicial?.valor_unitario != null ? String(inicial.valor_unitario) : "",
   });
   const mudar = (k: keyof typeof v) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setV((a) => ({ ...a, [k]: e.target.value }));
@@ -59,12 +63,13 @@ export function FormProduto({ inicial }: { inicial?: ProdutoInicial }) {
     politica_objetivo_dias: lerNumero(v.politica_objetivo_dias),
     politica_maxima_dias: lerNumero(v.politica_maxima_dias),
     antecedencia_alerta_dias: lerNumero(v.antecedencia_alerta_dias),
+    valor_unitario: lerNumero(v.valor_unitario),
   };
   const erro = validarProduto(dados);
   const consumo =
     dados.linear_quantidade && dados.linear_quantidade > 0 ? consumoDiario(dados.linear_quantidade, v.linear_periodo) : null;
   const emEstoque = (dias: number | null) =>
-    consumo != null && dias != null && Number.isFinite(dias) ? ` = ${formatarQuantidade(dias * consumo, v.unidade)}` : "";
+    consumo != null && dias != null && Number.isFinite(dias) ? ` = ${formatarAproximado(dias * consumo, v.unidade)}` : "";
 
   return (
     <form action={salvarProduto} className="space-y-3">
@@ -118,7 +123,41 @@ export function FormProduto({ inicial }: { inicial?: ProdutoInicial }) {
           </select>
         </div>
         {consumo != null && v.linear_periodo !== "dia" && (
-          <p className="mt-1 text-xs text-slate-500">≈ {formatarQuantidade(consumo, v.unidade)} por dia</p>
+          <p className="mt-1 text-xs text-slate-500">≈ {formatarAproximado(consumo, v.unidade)} por dia</p>
+        )}
+        <p className="mt-1 text-xs text-slate-500">
+          É o ponto de partida. Com contagens em {MINIMO_DIAS_DA_MEDIA} dias ou mais, o app passa a usar a média real de
+          saída.
+        </p>
+      </div>
+
+      {/* O VALOR (16/09/2026, pedido do dono): para saber o custo do
+          material por dia e por mês. Opcional -- sem ele, o produto só fica
+          fora da soma do custo. */}
+      <div>
+        <label className={rotulo} htmlFor={`valor-${inicial?.id ?? "novo"}`}>
+          Valor (R$ por {curtoDaUnidade(v.unidade)}) <span className="normal-case text-slate-400">(opcional)</span>
+        </label>
+        <div className="flex items-center gap-2">
+          <span className="shrink-0 text-sm font-semibold text-slate-500">R$</span>
+          <input
+            id={`valor-${inicial?.id ?? "novo"}`}
+            name="valor_unitario"
+            type="number"
+            inputMode="decimal"
+            min={0}
+            max={LIMITES.valorMax}
+            step="0.01"
+            value={v.valor_unitario}
+            onChange={mudar("valor_unitario")}
+            className={`${campo} min-w-0 flex-1 text-right tabular-nums`}
+          />
+        </div>
+        {consumo != null && dados.valor_unitario != null && Number.isFinite(dados.valor_unitario) && (
+          <p className="mt-1 text-xs text-slate-500">
+            Custo pela linear: ≈ {formatarReais(consumo * dados.valor_unitario)} por dia ·{" "}
+            {formatarReais(consumo * dados.valor_unitario * 30)} por mês
+          </p>
         )}
       </div>
 

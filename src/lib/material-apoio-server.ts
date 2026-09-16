@@ -9,10 +9,13 @@ import { temAcessoModulo } from "@/lib/require-admin";
 import {
   FAIXAS_DE_ALERTA,
   MODULO_MATERIAL_APOIO,
+  formatarCompra,
   formatarDias,
-  formatarQuantidade,
+  formatarReais,
   hojeSP,
+  mediaDeSaida,
   situacaoDoEstoque,
+  type ContagemDoHistorico,
 } from "@/lib/material-apoio";
 
 export type ProdutoMaterial = {
@@ -25,6 +28,8 @@ export type ProdutoMaterial = {
   politica_objetivo_dias: number;
   politica_maxima_dias: number;
   antecedencia_alerta_dias: number;
+  valor_unitario: number | null;
+  media_real_diaria: number | null;
   ativo: boolean;
 };
 
@@ -36,27 +41,12 @@ export type UltimaContagem = {
 };
 
 const COLUNAS_PRODUTO =
-  "id, nome, unidade, linear_quantidade, linear_periodo, politica_minima_dias, politica_objetivo_dias, politica_maxima_dias, antecedencia_alerta_dias, ativo";
-
-function normalizarProduto(p: Record<string, unknown>): ProdutoMaterial {
-  return {
-    id: String(p.id),
-    nome: String(p.nome),
-    unidade: String(p.unidade),
-    linear_quantidade: Number(p.linear_quantidade),
-    linear_periodo: String(p.linear_periodo),
-    politica_minima_dias: Number(p.politica_minima_dias),
-    politica_objetivo_dias: Number(p.politica_objetivo_dias),
-    politica_maxima_dias: Number(p.politica_maxima_dias),
-    antecedencia_alerta_dias: Number(p.antecedencia_alerta_dias),
-    ativo: Boolean(p.ativo),
-  };
-}
+  "id, nome, unidade, linear_quantidade, linear_periodo, politica_minima_dias, politica_objetivo_dias, politica_maxima_dias, antecedencia_alerta_dias, valor_unitario, ativo";
 
 /**
- * Os produtos da revenda, cada um com a última contagem e a situação de
- * hoje. É o que a tela de contagem, o cadastro e o alerta leem -- a mesma
- * conta nos três.
+ * Os produtos da revenda, cada um com a última contagem, a média real de
+ * saída e a situação de hoje. É o que a tela de contagem, o cadastro e o
+ * alerta leem -- a mesma conta nos três.
  */
 export async function lerEstoque(revendaId: string, opcoes: { incluirInativos?: boolean } = {}) {
   const admin = createAdminClient();
@@ -69,34 +59,55 @@ export async function lerEstoque(revendaId: string, opcoes: { incluirInativos?: 
 
   const [{ data: produtosBanco }, { data: contagens }] = await Promise.all([
     consulta,
-    // As mais recentes primeiro: a primeira de cada produto é a última
-    // contagem dele. 1.000 linhas cobrem dezenas de conciliações de cada
-    // produto -- e é o teto do PostgREST de qualquer jeito.
+    // As mais recentes primeiro. 1.000 linhas cobrem dezenas de
+    // conciliações de cada produto -- mais que os 90 dias da média -- e é o
+    // teto do PostgREST de qualquer jeito.
     admin
       .from("ma_contagens")
-      .select("id, produto_id, quantidade, contado_em, colaborador_nome")
+      .select("id, produto_id, quantidade, entrada, contado_em, colaborador_nome")
       .eq("revenda_id", revendaId)
       .order("contado_em", { ascending: false })
       .limit(1000),
   ]);
 
   const ultimaDe = new Map<string, UltimaContagem>();
+  const historicoDe = new Map<string, ContagemDoHistorico[]>();
   for (const c of contagens ?? []) {
     const produto = String(c.produto_id);
-    if (ultimaDe.has(produto)) continue;
-    ultimaDe.set(produto, {
-      id: String(c.id),
-      quantidade: Number(c.quantidade),
-      contado_em: String(c.contado_em),
-      colaborador_nome: String(c.colaborador_nome),
-    });
+    if (!ultimaDe.has(produto)) {
+      ultimaDe.set(produto, {
+        id: String(c.id),
+        quantidade: Number(c.quantidade),
+        contado_em: String(c.contado_em),
+        colaborador_nome: String(c.colaborador_nome),
+      });
+    }
+    const lista = historicoDe.get(produto) ?? [];
+    lista.push({ quantidade: Number(c.quantidade), entrada: Number(c.entrada ?? 0), contado_em: String(c.contado_em) });
+    historicoDe.set(produto, lista);
   }
 
   const hoje = hojeSP();
   return (produtosBanco ?? []).map((linha) => {
-    const produto = normalizarProduto(linha);
+    // Veio da mais nova para a mais antiga; a média lê em ordem cronológica.
+    const historico = [...(historicoDe.get(String(linha.id)) ?? [])].reverse();
+    const media = mediaDeSaida(historico, hoje);
+    const produto: ProdutoMaterial = {
+      id: String(linha.id),
+      nome: String(linha.nome),
+      unidade: String(linha.unidade),
+      linear_quantidade: Number(linha.linear_quantidade),
+      linear_periodo: String(linha.linear_periodo),
+      politica_minima_dias: Number(linha.politica_minima_dias),
+      politica_objetivo_dias: Number(linha.politica_objetivo_dias),
+      politica_maxima_dias: Number(linha.politica_maxima_dias),
+      antecedencia_alerta_dias: Number(linha.antecedencia_alerta_dias),
+      valor_unitario: linha.valor_unitario == null ? null : Number(linha.valor_unitario),
+      media_real_diaria: media.mediaDiaria,
+      ativo: Boolean(linha.ativo),
+    };
     const ultima = ultimaDe.get(produto.id) ?? null;
-    return { produto, ultima, situacao: situacaoDoEstoque(produto, ultima, hoje) };
+    return { produto, ultima, media, situacao: situacaoDoEstoque(produto, ultima, hoje) };
   });
 }
 
@@ -135,7 +146,7 @@ export async function podeAbrirMaterialDeApoio() {
  * esse.
  *
  * Roda depois de cada contagem e de cada mudança no cadastro, e também na
- * varredura periódica: o estoque cai sozinho com a linear, e o dia em que
+ * varredura periódica: o estoque cai sozinho com o consumo, e o dia em que
  * ele chega na mínima quase nunca é um dia de contagem.
  *
  * NUNCA lança erro: a contagem já foi gravada.
@@ -172,9 +183,13 @@ export async function avisarMaterialDeApoio(revendaId: string): Promise<number> 
       const chave = `material-apoio:${produto.id}:${ultima.id}:${situacao.faixa}`;
       const abaixo = situacao.faixa === "abaixo-minima";
       const titulo = `${abaixo ? "🚨" : "⚠️"} ${produto.nome} ${abaixo ? "abaixo da" : "perto da"} política mínima${onde ? ` — ${onde}` : ""}`;
+      const valorDaCompra =
+        situacao.valorDaCompraObjetivo != null && situacao.valorDaCompraObjetivo > 0
+          ? ` (≈ ${formatarReais(situacao.valorDaCompraObjetivo)})`
+          : "";
       const mensagem =
         `${formatarDias(situacao.dias)} dias de estoque (mínima ${produto.politica_minima_dias}). ` +
-        `Solicite a compra: ~${formatarQuantidade(situacao.comprarParaObjetivo ?? 0, produto.unidade)} ` +
+        `Solicite a compra: ~${formatarCompra(situacao.comprarParaObjetivo ?? 0, produto.unidade)}${valorDaCompra} ` +
         `para chegar à política objetiva (${produto.politica_objetivo_dias} dias).`;
       const url = "/material-de-apoio";
 
