@@ -91,7 +91,7 @@ const rotulo = "mb-1 block text-xs font-semibold uppercase text-slate-500";
 /** Mesmo texto em todo canto que mostra "Pontuação" -- ver calcularPontuacao
  *  em lib/produtividade-armazem.ts, a fórmula de verdade mora lá. */
 const EXPLICACAO_PONTUACAO =
-  "Pontuação = média das atividades PONDERADA PELAS HORAS de cada uma: uma atividade pesa o quanto ocupou do dia. Reepack = % da meta por produto; Despejo = % da meta por embalagem; Seleção (un/h) e Picking (HL/h) = % da média do grupo no mesmo recorte, pela TAXA e não pelo total. Quem não fez uma atividade não entra na média dela. Abaixo de 1h apontada no período não há nota — amostra curta não vira ritmo. O 5S aparece na linha mas não entra na nota: as execuções não têm tempo medido, e sem tempo não há como pesá-las.";
+  "Pontuação = média das atividades PONDERADA PELAS HORAS de cada uma: uma atividade pesa o quanto ocupou do dia. Reepack = % da meta por produto; Despejo = % da meta por embalagem; Seleção (un/h), Picking (HL/h) e Bate Palete (HL/h) = % da média do grupo no mesmo recorte, pela TAXA e não pelo total. Quem não fez uma atividade não entra na média dela. Abaixo de 1h apontada no período não há nota — amostra curta não vira ritmo. O 5S aparece na linha mas não entra na nota: as execuções não têm tempo medido, e sem tempo não há como pesá-las.";
 
 /**
  * Os tópicos da tela. O slug é o prefixo dos parâmetros na URL
@@ -759,6 +759,13 @@ export default async function IndicadoresPage({
   const reepacksRank = recorte(reepacksTodos, turnoRanking, pessoaRanking);
   const despejosRank = recorte(despejosTodos, turnoRanking, pessoaRanking);
   const pickingsRank = recorte(pickingsTodos, turnoRanking, pessoaRanking);
+  // Bate Palete na forma do ranking: um lote, o HL batido e o tempo. Até
+  // 16/09/2026 o módulo tinha tempo medido e ficava fora da nota e da tabela.
+  const batePaleteComHl = batePaleteTodos.map((s) => ({
+    ...s,
+    hl: (s.pa_bate_palete_itens ?? []).reduce((t, i) => t + Number(i.hl_batido), 0),
+  }));
+  const batePaletesRank = recorte(batePaleteComHl, turnoRanking, pessoaRanking);
   const execucoes5sRank = execucoes5sTodos.filter(
     (e) =>
       (!turnoRanking || e.turno === turnoRanking) &&
@@ -775,6 +782,7 @@ export default async function IndicadoresPage({
   const despejosTabela = porPessoaRank(despejosTodos);
   const pickingsTabela = porPessoaRank(pickingsTodos);
   const execucoes5sTabela = porPessoaRank(execucoes5sTodos);
+  const batePaletesTabela = porPessoaRank(batePaleteComHl);
 
   // ---- Reepack: agregados gerais (sem quebrar por produto) ----
   const reepackQuantidadeTotal = reepacks.reduce((s, r) => s + r.quantidade, 0);
@@ -980,6 +988,9 @@ export default async function IndicadoresPage({
   // Seleção compara TAXA (un/h), não total: um turno mais longo não é
   // melhor por ter triado mais, e sim quem triou mais rápido.
   const mediaTaxaSelecaoPeriodo = mediaTaxaPorPessoa(selecoesTabela);
+  const comoTaxaBatePalete = (linhas: typeof batePaleteComHl) =>
+    linhas.map((b) => ({ quantidade: b.hl, inicio: b.inicio, fim: b.fim }));
+  const mediaTaxaBatePaletePeriodo = mediaTaxaPorPessoa(comoTaxaBatePalete(batePaletesTabela));
 
   const porTurno = TURNOS.map((t) => {
     const reepacksT = reepacksTabela.filter((r) => r.turno === t);
@@ -987,6 +998,12 @@ export default async function IndicadoresPage({
     const despejosT = despejosTabela.filter((d) => d.turno === t);
     const pickingsT = pickingsTabela.filter((p) => p.turno === t);
     const execucoes5sT = execucoes5sTabela.filter((e) => e.turno === t);
+    const batePaletesT = batePaletesTabela.filter((b) => b.turno === t);
+    const horasBatePaleteT = batePaletesT.reduce((s, b) => s + horasEntre(b.inicio, b.fim), 0);
+    const batePaletePctT = pctRelativoAoGrupo(
+      mediaTaxaPorPessoa(comoTaxaBatePalete(batePaletesT)),
+      mediaTaxaBatePaletePeriodo,
+    );
 
     // Mesma fórmula da pontuação individual (ver calcularPontuacao),
     // só que aplicada em cima do total do turno -- trata o turno como
@@ -1029,6 +1046,7 @@ export default async function IndicadoresPage({
       },
       { pct: pickingPctT, horas: horasPickingT },
       { pct: selecaoPctT, horas: horasSelecaoT },
+      { pct: batePaletePctT, horas: horasBatePaleteT },
     ]);
 
 
@@ -1038,9 +1056,15 @@ export default async function IndicadoresPage({
       reepackCx: reepacksT.reduce((s, r) => s + r.quantidade, 0),
       despejoLitros: Math.round(despejosT.reduce((s, d) => s + d.litros, 0) * 10) / 10,
       pickingHl: hlPickingT,
+      batePaleteHl: Math.round(batePaletesT.reduce((s, b) => s + b.hl, 0) * 10) / 10,
       execucoes5s: execucoes5sT.length,
       totalLancamentos:
-        selecoesT.length + reepacksT.length + despejosT.length + pickingsT.length + execucoes5sT.length,
+        selecoesT.length +
+        reepacksT.length +
+        despejosT.length +
+        pickingsT.length +
+        execucoes5sT.length +
+        batePaletesT.length,
       pontuacao,
     };
   });
@@ -1063,6 +1087,7 @@ export default async function IndicadoresPage({
   const horasDespejoGeral = despejosTabela.reduce((s, d) => s + horasEntre(d.inicio, d.fim), 0);
   const horasPickingGeral = pickingsTabela.reduce((s, p) => s + horasEntre(p.inicio, p.fim), 0);
   const horasSelecaoGeral = selecoesTabela.reduce((s, x) => s + horasEntre(x.inicio, x.fim), 0);
+  const horasBatePaleteGeral = batePaletesTabela.reduce((s, b) => s + horasEntre(b.inicio, b.fim), 0);
   const pontuacaoGeral = calcularPontuacao([
     {
       pct: mediaPonderadaPorHoras(reepackAgrupadoGeral.map((r) => ({ pct: r.pctMeta, horas: r.horas }))),
@@ -1074,6 +1099,10 @@ export default async function IndicadoresPage({
     },
     { pct: pctRelativoAoGrupo(mediaHlPickingPeriodo, mediaHlPickingPeriodo), horas: horasPickingGeral },
     { pct: pctRelativoAoGrupo(mediaTaxaSelecaoPeriodo, mediaTaxaSelecaoPeriodo), horas: horasSelecaoGeral },
+    {
+      pct: pctRelativoAoGrupo(mediaTaxaBatePaletePeriodo, mediaTaxaBatePaletePeriodo),
+      horas: horasBatePaleteGeral,
+    },
   ]);
 
   const totalGeral = porTurno.reduce(
@@ -1082,10 +1111,19 @@ export default async function IndicadoresPage({
       reepackCx: s.reepackCx + l.reepackCx,
       despejoLitros: Math.round((s.despejoLitros + l.despejoLitros) * 10) / 10,
       pickingHl: Math.round((s.pickingHl + l.pickingHl) * 10) / 10,
+      batePaleteHl: Math.round((s.batePaleteHl + l.batePaleteHl) * 10) / 10,
       execucoes5s: s.execucoes5s + l.execucoes5s,
       totalLancamentos: s.totalLancamentos + l.totalLancamentos,
     }),
-    { selecaoUn: 0, reepackCx: 0, despejoLitros: 0, pickingHl: 0, execucoes5s: 0, totalLancamentos: 0 },
+    {
+      selecaoUn: 0,
+      reepackCx: 0,
+      despejoLitros: 0,
+      pickingHl: 0,
+      batePaleteHl: 0,
+      execucoes5s: 0,
+      totalLancamentos: 0,
+    },
   );
 
   // ---- Empilhadeira: por máquina e por operador ----
@@ -1634,6 +1672,13 @@ export default async function IndicadoresPage({
       inicio: s.inicio,
       fim: s.fim,
     })),
+    batePaletesRank.map((b) => ({
+      colaboradorId: b.colaborador_id,
+      colaboradorNome: b.colaborador_nome,
+      quantidade: b.hl,
+      inicio: b.inicio,
+      fim: b.fim,
+    })),
   );
 
   /**
@@ -1657,11 +1702,13 @@ export default async function IndicadoresPage({
     r.despejoPctMeta,
     r.selecaoPctMedia,
     r.pickingPctMedia,
+    r.batePaletePctMedia,
     r.cincoSPctMedia,
     r.totalReepacks,
     r.totalDespejoLitros,
     r.totalSelecao,
     r.hlPicking,
+    r.hlBatePalete,
     r.totalExecucoes5s,
     r.totalAtividades,
     // As horas apontadas faltavam na planilha, e são o desempate do
@@ -1711,7 +1758,14 @@ export default async function IndicadoresPage({
   };
 
   const pessoasRanking = listaDePessoas(
-    [...selecoesTodas, ...reepacksTodos, ...despejosTodos, ...pickingsTodos, ...execucoes5sTodos].map(comoPessoa),
+    [
+      ...selecoesTodas,
+      ...reepacksTodos,
+      ...despejosTodos,
+      ...pickingsTodos,
+      ...execucoes5sTodos,
+      ...batePaleteTodos,
+    ].map(comoPessoa),
   );
   /** Todo mundo que apareceu em qualquer bloco -- é a lista do filtro do topo. */
   const pessoasGeral = listaDePessoas(
@@ -2702,11 +2756,13 @@ export default async function IndicadoresPage({
                 "% meta Despejo",
                 "% média Seleção",
                 "% média Picking",
+                "% média Bate Palete",
                 "% média 5S",
                 "Repacks (un)",
                 "Despejo (L)",
                 "Seleção (un)",
                 "Picking (HL)",
+                "Bate Palete (HL)",
                 "Execuções 5S",
                 "Lançamentos",
                 "Horas apontadas",
@@ -2734,6 +2790,7 @@ export default async function IndicadoresPage({
                   <th className="p-3 text-right">📦 Reepack</th>
                   <th className="p-3 text-right">🫗 Despejo</th>
                   <th className="p-3 text-right">🏬 Picking</th>
+                  <th className="p-3 text-right">🤲📦 Bate Palete</th>
                   <th className="p-3 text-right">🧹 5S</th>
                   {/* "Total" de quê? São contagens de LANÇAMENTOS somadas
                       -- caixas, litros e HL não somam entre si. O rótulo
@@ -2752,6 +2809,7 @@ export default async function IndicadoresPage({
                     <td className="p-3 text-right tabular-nums">{l.reepackCx} cx</td>
                     <td className="p-3 text-right tabular-nums">{l.despejoLitros} L</td>
                     <td className="p-3 text-right tabular-nums">{l.pickingHl} HL</td>
+                    <td className="p-3 text-right tabular-nums">{l.batePaleteHl} HL</td>
                     <td className="p-3 text-right tabular-nums">{l.execucoes5s}</td>
                     <td className="p-3 text-right font-bold tabular-nums text-slate-900">{l.totalLancamentos}</td>
                     <td className="p-3 text-right">
@@ -2769,6 +2827,7 @@ export default async function IndicadoresPage({
                   <td className="p-3 text-right tabular-nums">{totalGeral.reepackCx} cx</td>
                   <td className="p-3 text-right tabular-nums">{totalGeral.despejoLitros} L</td>
                   <td className="p-3 text-right tabular-nums">{totalGeral.pickingHl} HL</td>
+                  <td className="p-3 text-right tabular-nums">{totalGeral.batePaleteHl} HL</td>
                   <td className="p-3 text-right tabular-nums">{totalGeral.execucoes5s}</td>
                   <td className="p-3 text-right tabular-nums text-slate-900">{totalGeral.totalLancamentos}</td>
                   <td className="p-3 text-right tabular-nums text-slate-900">{pontuacaoGeral} pts</td>
@@ -2784,8 +2843,8 @@ export default async function IndicadoresPage({
               nada esteja errado -- e sem este aviso a conclusão natural é
               que a conta está quebrada. */}
           <p className="mt-2 rounded-xl bg-slate-50 p-3 text-xs text-slate-500">
-            ⚠️ <strong>A pontuação do Total não se compara com a das linhas.</strong> Picking e
-            Seleção não têm meta cadastrada, então valem &ldquo;% da média do grupo&rdquo;. Na linha
+            ⚠️ <strong>A pontuação do Total não se compara com a das linhas.</strong> Picking,
+            Seleção e Bate Palete não têm meta cadastrada, então valem &ldquo;% da média do grupo&rdquo;. Na linha
             Total o grupo é o próprio período, e comparar o período com ele mesmo dá 100% sempre. Use
             o Total para os volumes; para desempenho, compare os turnos entre si.
             {pessoaRanking && (
@@ -2825,6 +2884,7 @@ export default async function IndicadoresPage({
                     <th className="p-3 text-right">📦 Reepack</th>
                     <th className="p-3 text-right">🫗 Despejo</th>
                     <th className="p-3 text-right">🏬 Picking</th>
+                    <th className="p-3 text-right">🤲📦 Bate Palete</th>
                     <th className="p-3 text-right">🧹 5S</th>
                     {/* Dizia "Atividades" e mostrava HORAS -- a célula
                         sempre renderizou formatarHoras(horasApontadas).
@@ -2885,6 +2945,18 @@ export default async function IndicadoresPage({
                             {r.hlPicking} HL
                             {r.pickingPctMedia !== null && (
                               <span className="ml-1 text-xs text-slate-400">({r.pickingPctMedia}% da média)</span>
+                            )}
+                          </>
+                        ) : (
+                          <span className="text-slate-300">—</span>
+                        )}
+                      </td>
+                      <td className="p-3 text-right tabular-nums">
+                        {r.hlBatePalete > 0 ? (
+                          <>
+                            {r.hlBatePalete} HL
+                            {r.batePaletePctMedia !== null && (
+                              <span className="ml-1 text-xs text-slate-400">({r.batePaletePctMedia}% da média)</span>
                             )}
                           </>
                         ) : (

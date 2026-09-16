@@ -718,7 +718,13 @@ export type PontuacaoRanking = {
   /** % da TAXA média (un/h) do grupo no mesmo recorte -- não do total,
    *  senão quem triou mais tempo ganharia de quem triou mais rápido. */
   selecaoPctMedia: number | null;
-  /** Quantas linhas de atividade (reepack + despejo + picking + 5S) a
+  /** HL batidos no Bate Palete. Entrou no ranking em 16/09/2026 -- até
+   *  então o módulo existia, tinha tempo medido, e não pontuava ninguém. */
+  hlBatePalete: number;
+  /** % da TAXA média (HL/h) do grupo no mesmo recorte -- sem meta
+   *  cadastrada, mesma régua do picking. */
+  batePaletePctMedia: number | null;
+  /** Quantas linhas de atividade (reepack + despejo + picking + 5S + bate palete) a
    *  pessoa registrou. Informativo -- deixou de ser o desempate, porque
    *  premiava quem fatiava o trabalho em muitos lançamentos curtos. */
   totalAtividades: number;
@@ -986,8 +992,12 @@ export function construirRanking(
   /** Seleção e Triagem (etapa 1 do Repack). Sem meta cadastrada, entra
    *  pela régua do grupo -- ver calcularPontuacao. */
   selecoes: { colaboradorId: string; colaboradorNome: string; quantidade: number; inicio: string; fim: string }[] = [],
+  /** Bate Palete, com `quantidade` em HL batido. Sem meta cadastrada:
+   *  entra pela taxa (HL/h) comparada com o grupo, igual ao picking. */
+  batePaletes: { colaboradorId: string; colaboradorNome: string; quantidade: number; inicio: string; fim: string }[] = [],
 ): PontuacaoRanking[] {
   const pessoas = new Map<string, string>();
+  for (const b of batePaletes) pessoas.set(b.colaboradorId, b.colaboradorNome);
   for (const r of reepacks) pessoas.set(r.colaboradorId, r.colaboradorNome);
   for (const d of despejos) pessoas.set(d.colaboradorId, d.colaboradorNome);
   for (const p of pickings) pessoas.set(p.colaboradorId, p.colaboradorNome);
@@ -1002,6 +1012,7 @@ export function construirRanking(
   // A régua da seleção é a TAXA (un/h), não o total: quem triou 2 horas
   // não é melhor que quem triou 1 hora no mesmo ritmo.
   const mediaTaxaSelecaoGrupo = mediaTaxaPorPessoa(selecoes);
+  const mediaTaxaBatePaleteGrupo = mediaTaxaPorPessoa(batePaletes);
 
   const resultado: PontuacaoRanking[] = [];
   for (const [colaboradorId, colaboradorNome] of pessoas) {
@@ -1047,6 +1058,9 @@ export function construirRanking(
       mediaExecucoes5sGrupo,
     );
     const selecaoPctMedia = pctRelativoAoGrupo(mediaTaxaPorPessoa(minhasSelecoes), mediaTaxaSelecaoGrupo);
+    const meusBatePaletes = batePaletes.filter((b) => b.colaboradorId === colaboradorId);
+    const horasBatePalete = meusBatePaletes.reduce((s, b) => s + horasEntre(b.inicio, b.fim), 0);
+    const batePaletePctMedia = pctRelativoAoGrupo(mediaTaxaPorPessoa(meusBatePaletes), mediaTaxaBatePaleteGrupo);
 
     resultado.push({
       colaboradorId,
@@ -1061,18 +1075,23 @@ export function construirRanking(
       cincoSPctMedia,
       totalSelecao: minhasSelecoes.reduce((s, x) => s + x.quantidade, 0),
       selecaoPctMedia,
+      hlBatePalete: Math.round(meusBatePaletes.reduce((s, b) => s + b.quantidade, 0) * 10) / 10,
+      batePaletePctMedia,
       totalAtividades:
         meusReepacks.length +
         meusDespejos.length +
         meusPickings.length +
         minhasExecucoes5s.length +
-        minhasSelecoes.length,
-      horasApontadas: Math.round((horasReepack + horasDespejo + horasPicking + horasSelecao) * 100) / 100,
+        minhasSelecoes.length +
+        meusBatePaletes.length,
+      horasApontadas:
+        Math.round((horasReepack + horasDespejo + horasPicking + horasSelecao + horasBatePalete) * 100) / 100,
       pontuacao: calcularPontuacao([
         { pct: reepacksPctMeta, horas: horasReepack },
         { pct: despejoPctMeta, horas: horasDespejo },
         { pct: pickingPctMedia, horas: horasPicking },
         { pct: selecaoPctMedia, horas: horasSelecao },
+        { pct: batePaletePctMedia, horas: horasBatePalete },
       ]),
     });
   }
