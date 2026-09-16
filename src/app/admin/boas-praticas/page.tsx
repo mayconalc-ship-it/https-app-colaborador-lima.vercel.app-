@@ -154,7 +154,9 @@ export default async function AdminBoasPraticasPage({
   const divulgacaoPadrao =
     config.divulgacao_em && config.divulgacao_em > fimPadrao ? config.divulgacao_em : somarDias(fimPadrao, 1);
 
-  const nomesDasAreas = AREAS.filter((a) => config.areas.includes(a.id)).map((a) => a.curto).join(" e ");
+  const nomesDasAreas = config.todas_areas
+    ? "todas"
+    : AREAS.filter((a) => config.areas.includes(a.id)).map((a) => a.curto).join(" e ");
 
   return (
     <div>

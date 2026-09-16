@@ -17,7 +17,7 @@ export async function lerConfigBoasPraticas(revendaId: string): Promise<ConfigBo
   const admin = createAdminClient();
   const { data } = await admin
     .from("boas_praticas_config")
-    .select("areas, sugestoes_ate, votacao_ate, divulgacao_em, premio_1, premio_2, premio_3")
+    .select("todas_areas, areas, sugestoes_ate, votacao_ate, divulgacao_em, premio_1, premio_2, premio_3")
     .eq("revenda_id", revendaId)
     .maybeSingle();
   return normalizarConfig(data);
@@ -41,6 +41,9 @@ export function participaPorArea(
   pessoa: { role: string; area: string | null },
   concessoes: Set<string>,
 ) {
+  // "Todas as áreas" (15/09/2026): a revenda inteira, inclusive quem está
+  // sem área reconhecida no cadastro.
+  if (config.todas_areas) return true;
   if (ehOwner(pessoa.role)) return true;
   if (podeFazer(pessoa.role, concessoes, MODULO_BOAS_PRATICAS, "ver")) return true;
   const area = areaDoColaborador(pessoa.area);

@@ -24,6 +24,7 @@ export function FormConfiguracao({
   contagem: Record<AreaId | "sem", number>;
   podeEditar: boolean;
 }) {
+  const [todas, setTodas] = useState(inicial.todas_areas);
   const [areas, setAreas] = useState<AreaId[]>(inicial.areas);
   const [datas, setDatas] = useState({
     sugestoes_ate: inicial.sugestoes_ate ?? "",
@@ -35,6 +36,7 @@ export function FormConfiguracao({
   );
 
   const erro = validarConfig({
+    todas_areas: todas,
     areas,
     sugestoes_ate: datas.sugestoes_ate || null,
     votacao_ate: datas.votacao_ate || null,
@@ -52,11 +54,41 @@ export function FormConfiguracao({
     <form action={salvarConfiguracao} className="space-y-4">
       <fieldset className={bloco} disabled={!podeEditar}>
         <legend className="sr-only">Áreas que participam</legend>
-        <p className="text-sm font-bold text-slate-800">👥 Áreas que participam</p>
+        <p className="text-sm font-bold text-slate-800">👥 Quem participa</p>
+
+        {/* O caminho mais curto para "todo mundo" (15/09/2026): marcar as
+            duas áreas deixaria de fora quem está com uma área que o app não
+            traduz -- e é justamente quem some sem ninguém perceber. */}
+        <label
+          className={`flex cursor-pointer items-start gap-2 rounded-xl border p-3 ${
+            todas ? "border-primary bg-primary-soft" : "border-slate-200"
+          }`}
+        >
+          <input
+            type="checkbox"
+            name="todas_areas"
+            checked={todas}
+            onChange={(e) => setTodas(e.target.checked)}
+            className="mt-0.5 h-4 w-4"
+          />
+          <span className="min-w-0">
+            <span className="block text-sm font-semibold text-slate-800">
+              Todas as áreas — a revenda inteira participa
+            </span>
+            <span className="block text-xs text-slate-500">
+              Inclui quem está sem área reconhecida no cadastro
+              {contagem.sem > 0 ? ` (${contagem.sem} pessoa${contagem.sem === 1 ? "" : "s"} hoje)` : ""} e quem for
+              cadastrado numa área nova.
+            </span>
+          </span>
+        </label>
+
         <p className="text-xs text-slate-500">
-          Só quem é destas áreas vê o cartão, sugere e vota. A área vem do cadastro do colaborador.
+          {todas
+            ? "Com o item acima marcado, a lista de áreas abaixo fica guardada para quando o programa voltar a ser por área."
+            : "Só quem é destas áreas vê o cartão, sugere e vota. A área vem do cadastro do colaborador."}
         </p>
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+        <div className={`grid grid-cols-1 gap-2 sm:grid-cols-2 ${todas ? "opacity-50" : ""}`}>
           {AREAS.map((a) => (
             <label
               key={a.id}
@@ -71,6 +103,7 @@ export function FormConfiguracao({
                   value={a.id}
                   checked={areas.includes(a.id)}
                   onChange={() => alternarArea(a.id)}
+                  disabled={todas}
                   className="h-4 w-4"
                 />
                 <span className="text-sm font-semibold text-slate-800">{a.rotulo}</span>
@@ -79,11 +112,12 @@ export function FormConfiguracao({
             </label>
           ))}
         </div>
-        {contagem.sem > 0 && (
+        {contagem.sem > 0 && !todas && (
           <p className="rounded-xl bg-amber-50 p-3 text-xs text-amber-900">
             ⚠️ {contagem.sem} pessoa{contagem.sem === 1 ? "" : "s"} desta revenda {contagem.sem === 1 ? "está" : "estão"}{" "}
-            com uma área que não é Distribuição nem Armazém no cadastro (TRANSPORTE, por exemplo) e{" "}
-            {contagem.sem === 1 ? "fica" : "ficam"} fora do programa até a área ser corrigida em Colaboradores.
+            com uma área que não é Distribuição nem Armazém no cadastro (Financeiro e Gente, por exemplo) e{" "}
+            {contagem.sem === 1 ? "fica" : "ficam"} fora do programa. Marque &ldquo;Todas as áreas&rdquo; acima, ou
+            corrija a área em Colaboradores.
           </p>
         )}
       </fieldset>

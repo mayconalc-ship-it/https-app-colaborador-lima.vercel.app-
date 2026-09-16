@@ -217,14 +217,25 @@ export function validarPremios(p: Premios): string | null {
 // ------------------------------------------------------------------
 
 export type ConfigBoasPraticas = Premios & {
+  /**
+   * TODO MUNDO PARTICIPA (15/09/2026, pedido do dono: "o programa irá
+   * abranger a todos").
+   *
+   * Ligado, ignora a lista de áreas -- inclusive quem está com uma área
+   * que o app não traduz (FINANCEIRO, GENTE) e quem for cadastrado numa
+   * área nova amanhã. A lista continua guardada para o dia em que o
+   * programa voltar a ser por área.
+   */
+  todas_areas: boolean;
   areas: AreaId[];
   sugestoes_ate: string | null;
   votacao_ate: string | null;
   divulgacao_em: string | null;
 };
 
-/** Sem linha no banco: todas as áreas, sem prazo, prêmio a definir. */
+/** Sem linha no banco: todo mundo, sem prazo, prêmio a definir. */
 export const CONFIG_PADRAO: ConfigBoasPraticas = {
+  todas_areas: true,
   areas: ["DU", "AL"],
   sugestoes_ate: null,
   votacao_ate: null,
@@ -239,6 +250,7 @@ export function normalizarConfig(linha: Record<string, unknown> | null | undefin
   const numero = (v: unknown) => (v == null ? null : Number(v));
   const areas = (Array.isArray(linha.areas) ? linha.areas : []).map(String).filter(ehAreaValida);
   return {
+    todas_areas: Boolean(linha.todas_areas),
     areas: areas.length > 0 ? areas : CONFIG_PADRAO.areas,
     sugestoes_ate: lerData(linha.sugestoes_ate),
     votacao_ate: lerData(linha.votacao_ate),
@@ -251,7 +263,9 @@ export function normalizarConfig(linha: Record<string, unknown> | null | undefin
 
 /** A mesma checagem da tela de Configuração e da migration 118. */
 export function validarConfig(c: ConfigBoasPraticas): string | null {
-  if (c.areas.length === 0) return "Marque pelo menos uma área participante.";
+  // Com "todas as áreas" ligado a lista não significa nada, então não faz
+  // sentido exigir uma marcada.
+  if (!c.todas_areas && c.areas.length === 0) return "Marque pelo menos uma área participante.";
   if (c.areas.some((a) => !ehAreaValida(a))) return "Área inválida.";
   if (c.sugestoes_ate && c.votacao_ate && c.sugestoes_ate > c.votacao_ate) {
     return "O prazo das sugestões tem de ser antes do fim da votação.";

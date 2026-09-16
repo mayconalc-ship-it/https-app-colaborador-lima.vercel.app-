@@ -20,6 +20,7 @@ export async function salvarConfiguracao(formData: FormData) {
   const revendaId = await exigirRevenda(ROTA);
 
   const config: ConfigBoasPraticas = {
+    todas_areas: formData.get("todas_areas") === "on",
     areas: [...new Set(formData.getAll("areas").map(String))].filter(ehAreaValida),
     sugestoes_ate: lerData(formData.get("sugestoes_ate")),
     votacao_ate: lerData(formData.get("votacao_ate")),
