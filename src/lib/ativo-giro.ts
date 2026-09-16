@@ -261,6 +261,17 @@ export function parqueDeLinhas(
 export const LIMITE_DIFERENCA_PCT = 5;
 
 /**
+ * JUSTIFICATIVA POR LINHA DA CONCILIAÇÃO (16/09/2026, pedido do dono):
+ * opcional, uma por tipo + formato. O mesmo limite da migration 123.
+ */
+export const LIMITE_JUSTIFICATIVA = 500;
+
+/** O nome do campo da justificativa de uma linha, no formulário. */
+export function campoJustificativa(tipo: string, formato: string) {
+  return `just:${chave(tipo, formato)}`;
+}
+
+/**
  * AS TRÊS PARCELAS QUE NÃO ESTÃO NO PÁTIO, por tipo|formato.
  *
  * Cada uma é um lugar diferente onde o ativo pode estar, e é por isso que

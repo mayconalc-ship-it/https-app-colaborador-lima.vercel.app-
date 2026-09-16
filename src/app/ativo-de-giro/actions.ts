@@ -25,6 +25,10 @@ import {
   formatarData,
   inteiro,
   juntarParcelas,
+  LIMITE_JUSTIFICATIVA,
+  campoJustificativa,
+  FORMATOS,
+  TIPOS,
   parqueDeLinhas,
   serializarCombinacao,
   transitoDeLinhas,
@@ -867,6 +871,21 @@ export async function congelarConciliacao(formData: FormData) {
   );
   if (linhas.length === 0) voltar("erro", "Nada para congelar neste dia.");
 
+  // As justificativas salvas da conciliacao (migration 123) vao junto: o
+  // dia congelado guarda o texto daquele momento, como guarda os numeros.
+  const { data: justificativasBanco } = await admin
+    .from("ag_conciliacao_justificativas")
+    .select("tipo, formato, justificativa")
+    .eq("revenda_id", revendaId)
+    .eq("data", data)
+    .eq("conferente_id", conferente);
+  const justificativaPorItem = new Map(
+    ((justificativasBanco ?? []) as { tipo: string; formato: string; justificativa: string }[]).map((j) => [
+      chave(j.tipo, j.formato),
+      j.justificativa,
+    ]),
+  );
+
   // Valor zero e "ainda nao precificado": grava nulo, para o BI nao dizer
   // que o ativo nao vale nada.
   const valorPorItem = new Map(
@@ -898,6 +917,7 @@ export async function congelarConciliacao(formData: FormData) {
       comodato: l.comodato,
       parque: l.parque,
       valor_caixa: valorPorItem.get(chave(l.tipo, l.formato)) ?? null,
+      justificativa: justificativaPorItem.get(chave(l.tipo, l.formato)) ?? null,
     })),
   );
   if (erroItens) {
@@ -919,6 +939,99 @@ export async function congelarConciliacao(formData: FormData) {
 
   revalidatePath(ROTA);
   voltar("sucesso", `Conciliacao de ${formatarData(data)} congelada. E ela que vai para o BI.`);
+}
+
+/**
+ * SALVA AS JUSTIFICATIVAS DA CONCILIACAO -- linha por linha, opcionais
+ * (pedido do dono, 16/09/2026).
+ *
+ * Quem pode: a mesma liberacao de congelar -- e quem fecha a conciliacao
+ * que explica a diferenca dela. Dia congelado nao aceita mais mudanca: o
+ * texto congelado e o que foi para o BI, e so volta a ser editavel se o
+ * Admin reabrir.
+ *
+ * Um Salvar para a tela toda: linha preenchida grava (ou troca), linha
+ * vazia apaga a justificativa que havia. So entram tipo e formato validos
+ * -- o nome do campo vem do navegador, e nao se confia nele.
+ */
+export async function salvarJustificativas(formData: FormData) {
+  const perfil = await getPerfil();
+  if (!perfil) redirect("/login");
+
+  const revendaId = await getRevendaId();
+  if (!revendaId) erro("Voce nao esta em nenhuma revenda.");
+
+  const data = String(formData.get("data") ?? "").trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(data)) erro("Dia invalido.");
+  const colab = String(formData.get("colab") ?? "").trim();
+  const voltar = (chaveMsg: "erro" | "sucesso", msg: string): never =>
+    redirect(
+      `${ROTA}?aba=conciliacao&data=${data}&colab=${encodeURIComponent(colab)}&${chaveMsg}=${encodeURIComponent(msg)}`,
+    );
+
+  if (!(await podeCongelar())) {
+    voltar("erro", "Voce nao tem liberacao para justificar a conciliacao. Fale com quem cuida do Ativo de Giro.");
+  }
+  if (!colab) voltar("erro", "Escolha de quem e a contagem antes de justificar.");
+
+  const admin = createAdminClient();
+  const [{ data: congelado }, { count: contagensDoConferente }] = await Promise.all([
+    admin.from("ag_congelamentos").select("data").eq("revenda_id", revendaId).eq("data", data).maybeSingle(),
+    admin
+      .from("ag_contagens")
+      .select("id", { count: "exact", head: true })
+      .eq("revenda_id", revendaId)
+      .eq("data", data)
+      .eq("colaborador_id", colab),
+  ]);
+  if (congelado) {
+    voltar("erro", `O dia ${formatarData(data)} ja esta congelado: as justificativas dele nao mudam mais.`);
+  }
+  if (!contagensDoConferente) voltar("erro", "Essa pessoa nao tem contagem neste dia.");
+
+  const gravar: { tipo: string; formato: string; justificativa: string }[] = [];
+  const apagar: { tipo: string; formato: string }[] = [];
+  for (const tipo of TIPOS) {
+    for (const formato of FORMATOS) {
+      const valor = formData.get(campoJustificativa(tipo, formato));
+      if (valor === null) continue; // linha que nao estava na tela
+      const texto = String(valor).trim();
+      if (texto.length > LIMITE_JUSTIFICATIVA) {
+        voltar("erro", `A justificativa de ${tipo} ${formato} passa de ${LIMITE_JUSTIFICATIVA} caracteres.`);
+      }
+      if (texto) gravar.push({ tipo, formato, justificativa: texto });
+      else apagar.push({ tipo, formato });
+    }
+  }
+
+  if (gravar.length > 0) {
+    const { error } = await admin.from("ag_conciliacao_justificativas").upsert(
+      gravar.map((g) => ({
+        revenda_id: revendaId,
+        data,
+        conferente_id: colab,
+        ...g,
+        atualizado_em: new Date().toISOString(),
+        atualizado_por: perfil.id,
+        atualizado_por_nome: perfil.nome,
+      })),
+      { onConflict: "revenda_id,data,conferente_id,tipo,formato" },
+    );
+    if (error) voltar("erro", `Nao foi possivel salvar: ${error.message}`);
+  }
+  for (const a of apagar) {
+    await admin
+      .from("ag_conciliacao_justificativas")
+      .delete()
+      .eq("revenda_id", revendaId)
+      .eq("data", data)
+      .eq("conferente_id", colab)
+      .eq("tipo", a.tipo)
+      .eq("formato", a.formato);
+  }
+
+  revalidatePath(ROTA);
+  voltar("sucesso", "Justificativas salvas.");
 }
 
 /** REABRE um dia congelado -- so o Admin (decisao do dono, 12/09/2026). */

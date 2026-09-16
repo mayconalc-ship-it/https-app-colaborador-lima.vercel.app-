@@ -51,6 +51,7 @@ import {
 } from "./actions";
 import { ehOwner } from "@/lib/acessos";
 import { ExportarContagens } from "./ExportarContagens";
+import { TabelaConciliacao } from "./TabelaConciliacao";
 
 export const dynamic = "force-dynamic";
 
@@ -299,7 +300,7 @@ export default async function AtivoDeGiroPage({
     aba === "conciliacao"
       ? supabase
           .from("ag_congelamentos")
-          .select("conferente_nome, congelado_por_nome, congelado_em")
+          .select("conferente_id, conferente_nome, congelado_por_nome, congelado_em")
           .eq("revenda_id", revendaId)
           .eq("data", dia)
           .maybeSingle()
@@ -502,6 +503,99 @@ export default async function AtivoDeGiroPage({
       : [];
   const totais = totaisPorFormato(contagensDia, fatores);
   const maiorTotal = Math.max(1, ...totais.map((t) => t.total));
+
+  /*
+    AS JUSTIFICATIVAS DA CONCILIAÇÃO (16/09/2026, migration 123).
+
+    Dia congelado: as que foram congeladas com ele, e só quando a pessoa
+    escolhida é a do congelamento -- a tabela de outra pessoa não herda o
+    texto de quem foi congelado. Dia aberto: as salvas para este dia e esta
+    pessoa. Sem pessoa escolhida não há justificativa: a conciliação é de
+    um conferente.
+  */
+  const justificativas: Record<string, string> = {};
+  if (aba === "conciliacao" && colabDaConciliacao && linhas.length > 0) {
+    const { data: linhasJust } = congelamento
+      ? congelamento.conferente_id === colabDaConciliacao
+        ? await supabase
+            .from("ag_congelamento_itens")
+            .select("tipo, formato, justificativa")
+            .eq("revenda_id", revendaId)
+            .eq("data", dia)
+            .not("justificativa", "is", null)
+        : { data: [] }
+      : await supabase
+          .from("ag_conciliacao_justificativas")
+          .select("tipo, formato, justificativa")
+          .eq("revenda_id", revendaId)
+          .eq("data", dia)
+          .eq("conferente_id", colabDaConciliacao);
+    for (const j of (linhasJust ?? []) as { tipo: string; formato: string; justificativa: string | null }[]) {
+      if (j.justificativa) justificativas[chave(j.tipo, j.formato)] = j.justificativa;
+    }
+  }
+  // Justifica quem pode congelar, com a pessoa escolhida e o dia aberto --
+  // a mesma regra que salvarJustificativas cobra no servidor.
+  const podeJustificar = podeCongelarDia && Boolean(colabDaConciliacao) && !congelamento;
+
+  // ---- CONGELAR A CONCILIAÇÃO (12/09/2026) ----
+  // Pedido do dono: congelar e mandar para o BI só as conciliações
+  // congeladas. A trava está nos dois lados: a tela mostra o botão só para
+  // quem pode e só com o conferente escolhido; a ação confere tudo de novo e
+  // refaz a conta no servidor. Reabrir é só do Admin.
+  const blocoCongelar = congelamento ? (
+    <div className="mt-4 rounded-2xl border border-sky-300 bg-sky-50 p-4">
+      <p className="text-sm font-bold text-sky-900">🧊 Conciliação de {formatarData(dia)} congelada</p>
+      <p className="mt-1 text-xs text-sky-900">
+        Contagem de <strong>{congelamento.conferente_nome}</strong>, congelada por{" "}
+        {congelamento.congelado_por_nome ?? "—"} em{" "}
+        {new Date(congelamento.congelado_em).toLocaleString("pt-BR", {
+          timeZone: "America/Sao_Paulo",
+          dateStyle: "short",
+          timeStyle: "short",
+        })}
+        . É ela que vai para o BI, com os números e as justificativas daquele momento — a tabela acima é a
+        conta de agora, e pode ter mudado desde então.
+      </p>
+      {ehOwner(perfil.role) && (
+        <BotaoExcluir
+          action={reabrirConciliacao}
+          campos={{ data: dia }}
+          confirmacao={`Reabrir a conciliação de ${formatarData(dia)}? O dia sai do BI até alguém congelar de novo.`}
+          rotuloConfirmar="Reabrir"
+          className="mt-3 rounded-lg border border-sky-300 bg-white px-3 py-2 text-xs font-semibold text-sky-900 hover:bg-sky-100"
+        >
+          Reabrir (só o Admin)
+        </BotaoExcluir>
+      )}
+    </div>
+  ) : podeCongelarDia && linhas.length > 0 ? (
+    colabDaConciliacao ? (
+      <div className="mt-4 rounded-2xl border border-sky-300 bg-white p-4">
+        <p className="text-sm font-bold text-sky-900">🧊 Congelar esta conciliação</p>
+        <p className="mt-1 text-xs text-slate-600">
+          Grava a conciliação de {formatarData(dia)}
+          {nomeFiltrado ? ` (contagem de ${nomeFiltrado})` : ""} como a <strong>oficial</strong>, com as
+          justificativas salvas. Só dia congelado vai para o BI, e os números ficam como estão agora. Depois de
+          congelado, só o Admin reabre.
+        </p>
+        <BotaoExcluir
+          action={congelarConciliacao}
+          campos={{ data: dia, colab: colabDaConciliacao }}
+          confirmacao={`Congelar a conciliação de ${formatarData(dia)}${nomeFiltrado ? ` com a contagem de ${nomeFiltrado}` : ""}? Ela passa a ser a oficial e vai para o BI; só o Admin reabre.`}
+          rotuloConfirmar="Congelar"
+          perigo={false}
+          className="mt-3 w-full rounded-xl bg-sky-700 px-4 py-3 text-sm font-bold text-white hover:bg-sky-800"
+        >
+          🧊 Congelar a conciliação de {formatarData(dia)}
+        </BotaoExcluir>
+      </div>
+    ) : (
+      <p className="mt-4 rounded-xl bg-sky-50 p-3 text-xs text-sky-900">
+        🧊 Para congelar e justificar este dia, escolha acima de quem é a contagem.
+      </p>
+    )
+  ) : null;
 
   const garrafeira = FORMATOS.map((formato) => {
     const total = contagensDia
@@ -731,160 +825,25 @@ export default async function AtivoDeGiroPage({
                 )}
               </div>
 
-              <div className="overflow-x-auto rounded-2xl border border-slate-200">
-                <table className="w-full text-sm">
-                  <thead className="bg-slate-50 text-left text-xs uppercase text-slate-500">
-                    <tr>
-                      <th className="p-2">Tipo</th>
-                      <th className="p-2">Formato</th>
-                      <th className="p-2 text-right">Contado</th>
-                      {/* As três parcelas separadas: é o que diz ONDE
-                          está o ativo que não foi contado. Com um número
-                          só, sabia-se apenas que ele não estava aqui. */}
-                      <th
-                        className="p-2 text-right"
-                        title="Saiu com a entrega e volta no mesmo dia. Lançado por quem tem liberação."
-                      >
-                        Rota
-                      </th>
-                      <th
-                        className="p-2 text-right"
-                        title="Está entre unidades, com o transportador. Lançado por quem tem liberação."
-                      >
-                        Carreta
-                      </th>
-                      <th
-                        className="p-2 text-right"
-                        title="Emprestado ao cliente. Vale até alguém mudar -- não se lança todo dia."
-                      >
-                        Comodato
-                      </th>
-                      <th className="p-2 text-right">Parque</th>
-                      <th className="p-2 text-right">Diferença</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {linhas.map((l) => (
-                      <tr
-                        key={`${l.tipo}-${l.formato}`}
-                        className="border-t border-slate-100"
-                      >
-                        <td className="p-2">{l.tipo}</td>
-                        <td className="p-2">{l.formato}</td>
-                        <td className="p-2 text-right tabular-nums">{l.contado}</td>
-                        {/* Só leitura para quem conta -- é o que o dono
-                            pediu: os números aparecem do lado do contado
-                            para explicar a diferença, mas quem edita é
-                            quem tem liberação, nos blocos abaixo. */}
-                        <td className="p-2 text-right tabular-nums text-slate-500">
-                          {l.rota > 0 ? l.rota : "—"}
-                        </td>
-                        <td className="p-2 text-right tabular-nums text-slate-500">
-                          {l.carreta > 0 ? l.carreta : "—"}
-                        </td>
-                        <td className="p-2 text-right tabular-nums text-slate-500">
-                          {l.comodato > 0 ? l.comodato : "—"}
-                        </td>
-                        <td className="p-2 text-right tabular-nums">{l.parque}</td>
-                        <td
-                          className={`p-2 text-right font-bold tabular-nums ${
-                            l.diferenca === 0
-                              ? "text-slate-500"
-                              : l.dentroDoAceitavel
-                                ? "text-slate-700"
-                                : "text-red-600"
-                          }`}
-                        >
-                          {l.diferenca > 0 ? "+" : ""}
-                          {l.diferenca}
-                          {/* O percentual vem junto do número, e não numa
-                              coluna própria: é ele que diz se a
-                              diferença é grande, e 40 caixas significam
-                              coisas opostas num parque de 400 e num de
-                              18 mil. */}
-                          {l.pctDiferenca !== null && l.diferenca !== 0 && (
-                            <span className="ml-1 text-[11px] font-medium text-slate-400">
-                              {l.pctDiferenca.toLocaleString("pt-BR")}%
-                            </span>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* A cor sozinha não serve para quem não a enxerga -- a
-                  legenda diz a regra por escrito, e o ✓/⚠ do cartão
-                  acima repete o sinal em símbolo. */}
-              <p className="mt-2 text-xs text-slate-500">
-                Em vermelho, a linha cuja diferença passa de{" "}
-                {LIMITE_DIFERENCA_PCT}% do parque daquele item.
-              </p>
+              {/* A tabela, com a justificativa de cada linha (16/09/2026) e
+                  o bloco de congelar embaixo -- que fica travado enquanto
+                  houver justificativa digitada e não salva. */}
+              <TabelaConciliacao
+                key={`${dia}|${colabDaConciliacao}|${Boolean(congelamento)}`}
+                linhas={linhas}
+                justificativas={justificativas}
+                podeJustificar={podeJustificar}
+                data={dia}
+                colab={colabDaConciliacao}
+                congelar={blocoCongelar}
+              />
             </>
           )}
 
-          {/* ---- CONGELAR A CONCILIAÇÃO (12/09/2026) ----
-              Pedido do dono: congelar e mandar para o BI só as
-              conciliações congeladas. A trava está nos dois lados: a tela
-              mostra o botão só para quem pode e só com o conferente
-              escolhido; a ação confere tudo de novo e refaz a conta no
-              servidor. Reabrir é só do Admin. */}
-          {congelamento ? (
-            <div className="mt-4 rounded-2xl border border-sky-300 bg-sky-50 p-4">
-              <p className="text-sm font-bold text-sky-900">
-                🧊 Conciliação de {formatarData(dia)} congelada
-              </p>
-              <p className="mt-1 text-xs text-sky-900">
-                Contagem de <strong>{congelamento.conferente_nome}</strong>, congelada por{" "}
-                {congelamento.congelado_por_nome ?? "—"} em{" "}
-                {new Date(congelamento.congelado_em).toLocaleString("pt-BR", {
-                  timeZone: "America/Sao_Paulo",
-                  dateStyle: "short",
-                  timeStyle: "short",
-                })}
-                . É ela que vai para o BI, com os números daquele momento — a tabela acima é a
-                conta de agora, e pode ter mudado desde então.
-              </p>
-              {ehOwner(perfil.role) && (
-                <BotaoExcluir
-                  action={reabrirConciliacao}
-                  campos={{ data: dia }}
-                  confirmacao={`Reabrir a conciliação de ${formatarData(dia)}? O dia sai do BI até alguém congelar de novo.`}
-                  rotuloConfirmar="Reabrir"
-                  className="mt-3 rounded-lg border border-sky-300 bg-white px-3 py-2 text-xs font-semibold text-sky-900 hover:bg-sky-100"
-                >
-                  Reabrir (só o Admin)
-                </BotaoExcluir>
-              )}
-            </div>
-          ) : podeCongelarDia && linhas.length > 0 ? (
-            colabDaConciliacao ? (
-              <div className="mt-4 rounded-2xl border border-sky-300 bg-white p-4">
-                <p className="text-sm font-bold text-sky-900">🧊 Congelar esta conciliação</p>
-                <p className="mt-1 text-xs text-slate-600">
-                  Grava a conciliação de {formatarData(dia)}
-                  {nomeFiltrado ? ` (contagem de ${nomeFiltrado})` : ""} como a{" "}
-                  <strong>oficial</strong>. Só dia congelado vai para o BI, e os números ficam como
-                  estão agora. Depois de congelado, só o Admin reabre.
-                </p>
-                <BotaoExcluir
-                  action={congelarConciliacao}
-                  campos={{ data: dia, colab: colabDaConciliacao }}
-                  confirmacao={`Congelar a conciliação de ${formatarData(dia)}${nomeFiltrado ? ` com a contagem de ${nomeFiltrado}` : ""}? Ela passa a ser a oficial e vai para o BI; só o Admin reabre.`}
-                  rotuloConfirmar="Congelar"
-                  perigo={false}
-                  className="mt-3 w-full rounded-xl bg-sky-700 px-4 py-3 text-sm font-bold text-white hover:bg-sky-800"
-                >
-                  🧊 Congelar a conciliação de {formatarData(dia)}
-                </BotaoExcluir>
-              </div>
-            ) : (
-              <p className="mt-4 rounded-xl bg-sky-50 p-3 text-xs text-sky-900">
-                🧊 Para congelar este dia, escolha acima de quem é a contagem.
-              </p>
-            )
-          ) : null}
+          {/* Sem linha nenhuma o bloco de congelar aparece sozinho (o selo de
+              dia congelado, por exemplo); com linhas, ele vem dentro da
+              TabelaConciliacao, logo abaixo das justificativas. */}
+          {linhas.length === 0 && blocoCongelar}
 
           {/* ---- Lançar o trânsito (só quem tem liberação) ---- */}
           {podeTransito && (
