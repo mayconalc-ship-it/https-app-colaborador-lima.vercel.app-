@@ -5,7 +5,7 @@ import {
   tempoAberto,
   urgenciaDoEstoque,
 } from "@/lib/gas-p20";
-import type { ConfigDeGas, PedidoDeGas } from "@/lib/gas-p20-server";
+import type { ConfigDeGas, PedidoDeGas, PedidoDeGasConfirmado } from "@/lib/gas-p20-server";
 import { confirmarPedidoDeGas } from "@/app/produtividade-armazem/empilhadeira/actions";
 
 /**
@@ -98,6 +98,31 @@ export function AlertaGasP20({
           ✅ Já solicitei o gás
         </BotaoEnviar>
       </form>
+    </section>
+  );
+}
+
+/**
+ * O GÁS JÁ FOI SOLICITADO (16/09/2026, pedido do dono).
+ *
+ * Aparece no lugar do alerta, por 24 h depois da confirmação: quem abre a
+ * empilhadeira sabe que o pedido já foi feito, e por quem -- e não liga
+ * para o fornecedor uma segunda vez.
+ */
+export function AvisoGasSolicitado({ pedido }: { pedido: PedidoDeGasConfirmado }) {
+  return (
+    <section className="mb-4 min-w-0 rounded-2xl border border-green-300 bg-green-50 p-4 shadow-sm">
+      <p className="text-sm font-extrabold text-green-800">✅ Gás P20 já solicitado</p>
+      <p className="mt-1 break-words text-xs text-green-800">
+        Pedido feito por <strong>{pedido.confirmadoPorNome ?? "alguém da equipe"}</strong> há{" "}
+        {tempoAberto(pedido.confirmadoEm)}. Não precisa pedir de novo.
+      </p>
+      {pedido.observacao && (
+        <p className="mt-2 break-words rounded-xl bg-white/70 p-2 text-xs text-slate-700">
+          <span className="font-semibold text-slate-500">Observação: </span>
+          {pedido.observacao}
+        </p>
+      )}
     </section>
   );
 }

@@ -6,7 +6,8 @@ import { createClient } from "@/lib/supabase/server";
 import { exigirContextoModulo, subirFotoHorimetro } from "@/lib/produtividade-armazem-server";
 import { avaliarHorimetro } from "@/lib/empilhadeira-gas";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { avaliarEstoqueDeGas } from "@/lib/gas-p20-server";
+import { avaliarEstoqueDeGas, encerrarAvisoDeGas } from "@/lib/gas-p20-server";
+import { tempoAberto } from "@/lib/gas-p20";
 
 const ROTA = "/produtividade-armazem/empilhadeira";
 
@@ -284,18 +285,31 @@ export async function registrarTrocaGas(formData: FormData) {
  * empilhador é quem liga, mas se o supervisor resolveu antes, exigir que
  * o empilhador clique deixaria o alerta aceso sem motivo. Reabrir não
  * existe -- a próxima troca com estoque baixo abre um pedido novo.
+ *
+ * Desde 16/09/2026 (pedido do dono), confirmar também tira o aviso do sino
+ * e conta a quem o recebeu que o gás já foi solicitado, e por quem (ver
+ * encerrarAvisoDeGas). E quem tenta confirmar um pedido que outra pessoa já
+ * confirmou -- tela aberta desde antes -- fica sabendo quem pediu, em vez
+ * de um "obrigado" que não diz nada.
  */
 export async function confirmarPedidoDeGas(formData: FormData) {
   const { perfil, revendaId } = await exigirContexto();
 
   const pedidoId = String(formData.get("pedido_id") ?? "");
   const voltarPara = String(formData.get("voltar_para") ?? ROTA);
-  if (!pedidoId) redirect(`${voltarPara}?erro=${encodeURIComponent("Pedido inválido.")}`);
+  // A tela de uma máquina volta com "?aba=gas" no endereço: a mensagem
+  // entra com "&", senão o endereço ficava com dois "?" e ela não aparecia.
+  const separador = voltarPara.includes("?") ? "&" : "?";
+  // Tipo declarado na variável: é o que faz o TypeScript entender que depois
+  // de `voltar(...)` a função não continua.
+  const voltar: (chave: "erro" | "sucesso", mensagem: string) => never = (chave, mensagem) =>
+    redirect(`${voltarPara}${separador}${chave}=${encodeURIComponent(mensagem)}`);
+  if (!pedidoId) voltar("erro", "Pedido inválido.");
 
-  const observacao = String(formData.get("observacao") ?? "").trim();
+  const observacao = String(formData.get("observacao") ?? "").trim().slice(0, 200);
 
   const supabase = await createClient();
-  const { error } = await supabase
+  const { data: confirmados, error } = await supabase
     .from("pa_gas_pedidos")
     .update({
       confirmado_em: new Date().toISOString(),
@@ -305,13 +319,45 @@ export async function confirmarPedidoDeGas(formData: FormData) {
     })
     .eq("id", pedidoId)
     .eq("revenda_id", revendaId)
-    .is("confirmado_em", null);
+    .is("confirmado_em", null)
+    .select("id, aberto_em, aberto_por");
 
-  if (error) {
-    redirect(`${voltarPara}?erro=${encodeURIComponent(`Não foi possível confirmar: ${error.message}`)}`);
+  if (error) voltar("erro", `Não foi possível confirmar: ${error.message}`);
+
+  const pedido = confirmados?.[0];
+  if (!pedido) {
+    // Outra pessoa confirmou antes.
+    const { data: ja } = await createAdminClient()
+      .from("pa_gas_pedidos")
+      .select("confirmado_em, confirmado_por_nome")
+      .eq("id", pedidoId)
+      .eq("revenda_id", revendaId)
+      .maybeSingle();
+    revalidatePath(ROTA);
+    revalidatePath(voltarPara);
+    if (ja?.confirmado_em) {
+      voltar(
+        "sucesso",
+        `Este gás já foi solicitado por ${ja.confirmado_por_nome ?? "outra pessoa"} há ${tempoAberto(ja.confirmado_em)}. Não precisa pedir de novo.`,
+      );
+    }
+    voltar("erro", "Pedido de gás não encontrado.");
   }
+
+  await encerrarAvisoDeGas({
+    revendaId,
+    pedidoId,
+    abertoEm: String(pedido.aberto_em),
+    abertoPor: (pedido.aberto_por as string) ?? null,
+    confirmadoPor: perfil.id,
+    confirmadoPorNome: perfil.nome,
+    observacao: observacao || null,
+  });
 
   revalidatePath(ROTA);
   revalidatePath(voltarPara);
-  redirect(`${voltarPara}?sucesso=${encodeURIComponent("Pedido de gás confirmado. Obrigado!")}`);
+  voltar(
+    "sucesso",
+    "Solicitação de gás registrada. O aviso saiu do sino, e quem recebeu o alerta foi avisado de que você já pediu.",
+  );
 }

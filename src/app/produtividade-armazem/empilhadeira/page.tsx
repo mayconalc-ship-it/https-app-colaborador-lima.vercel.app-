@@ -5,8 +5,8 @@ import { createClient } from "@/lib/supabase/server";
 import { getRevendaId } from "@/lib/revendas";
 import { requireAcessoModulo } from "@/lib/require-admin";
 import { formatarDataHora } from "@/lib/produtividade-armazem";
-import { AlertaGasP20 } from "@/components/produtividade-armazem/AlertaGasP20";
-import { lerConfigDeGas, pedidoDeGasAberto } from "@/lib/gas-p20-server";
+import { AlertaGasP20, AvisoGasSolicitado } from "@/components/produtividade-armazem/AlertaGasP20";
+import { lerConfigDeGas, pedidoDeGasAberto, pedidoDeGasConfirmadoRecente } from "@/lib/gas-p20-server";
 
 export const dynamic = "force-dynamic";
 
@@ -27,9 +27,10 @@ export default async function EmpilhadeiraIndexPage({
   const revendaId = await getRevendaId();
   if (!revendaId) redirect(`/?erro=${encodeURIComponent("Você não está em nenhuma revenda.")}`);
 
-  const [pedidoGas, configGas] = await Promise.all([
+  const [pedidoGas, configGas, gasSolicitado] = await Promise.all([
     pedidoDeGasAberto(revendaId),
     lerConfigDeGas(revendaId),
+    pedidoDeGasConfirmadoRecente(revendaId),
   ]);
 
   const supabase = await createClient();
@@ -69,12 +70,14 @@ export default async function EmpilhadeiraIndexPage({
         </p>
       )}
 
-      {pedidoGas && (
+      {pedidoGas ? (
         <AlertaGasP20
           pedido={pedidoGas}
           config={configGas}
           voltarPara="/produtividade-armazem/empilhadeira"
         />
+      ) : (
+        gasSolicitado && <AvisoGasSolicitado pedido={gasSolicitado} />
       )}
 
       <Link

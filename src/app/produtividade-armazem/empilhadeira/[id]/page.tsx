@@ -15,8 +15,8 @@ import {
   trocaGasDeLinha,
 } from "@/lib/produtividade-armazem";
 import { abrirOperacao, fecharOperacao, registrarTrocaGas } from "../actions";
-import { AlertaGasP20 } from "@/components/produtividade-armazem/AlertaGasP20";
-import { lerConfigDeGas, pedidoDeGasAberto } from "@/lib/gas-p20-server";
+import { AlertaGasP20, AvisoGasSolicitado } from "@/components/produtividade-armazem/AlertaGasP20";
+import { lerConfigDeGas, pedidoDeGasAberto, pedidoDeGasConfirmadoRecente } from "@/lib/gas-p20-server";
 
 export const dynamic = "force-dynamic";
 
@@ -75,9 +75,10 @@ export default async function EmpilhadeiraDetalhePage({
 
   if (!maquina) notFound();
 
-  const [pedidoGas, configGas] = await Promise.all([
+  const [pedidoGas, configGas, gasSolicitado] = await Promise.all([
     pedidoDeGasAberto(revendaId),
     lerConfigDeGas(revendaId),
+    pedidoDeGasConfirmadoRecente(revendaId),
   ]);
 
   const aberta = abertaBanco ? operacaoEmpilhadeiraDeLinha(abertaBanco) : null;
@@ -121,12 +122,14 @@ export default async function EmpilhadeiraDetalhePage({
         <p className="mb-4 rounded-xl bg-green-50 p-3 text-sm font-medium text-green-700">{sp.sucesso}</p>
       )}
 
-      {pedidoGas && (
+      {pedidoGas ? (
         <AlertaGasP20
           pedido={pedidoGas}
           config={configGas}
           voltarPara={`/produtividade-armazem/empilhadeira/${maquina.id}?aba=gas`}
         />
+      ) : (
+        gasSolicitado && <AvisoGasSolicitado pedido={gasSolicitado} />
       )}
 
       {/* Mesmo padrão de segmented control do resto do módulo -- Troca de

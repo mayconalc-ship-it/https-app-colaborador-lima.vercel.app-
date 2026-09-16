@@ -126,20 +126,166 @@ export async function avaliarEstoqueDeGas(opcoes: {
     return;
   }
 
-  const { error } = await admin.from("pa_gas_pedidos").insert({
-    revenda_id: revendaId,
-    troca_id: trocaId,
-    botijoes_cheios: nivel,
-    botijoes_vazios: vazios,
-    aberto_por: operadorId,
-    aberto_por_nome: operadorNome,
-  });
+  const { data: novo, error } = await admin
+    .from("pa_gas_pedidos")
+    .insert({
+      revenda_id: revendaId,
+      troca_id: trocaId,
+      botijoes_cheios: nivel,
+      botijoes_vazios: vazios,
+      aberto_por: operadorId,
+      aberto_por_nome: operadorNome,
+    })
+    .select("id")
+    .single();
 
   // 23505 = o índice único pegou uma corrida entre duas trocas quase
   // simultâneas. O outro pedido já está aberto; não é erro nem duplica.
-  if (error) return;
+  if (error || !novo) return;
 
-  await avisarSobreGas({ revendaId, cheios: nivel, config, operadorId });
+  await avisarSobreGas({ revendaId, cheios: nivel, config, operadorId, pedidoId: String(novo.id) });
+}
+
+/** A chave que liga o aviso ao pedido -- é por ela que o aviso sai do sino quando o gás é solicitado. */
+function chaveDoPedido(pedidoId: string) {
+  return `gas-pedido:${pedidoId}`;
+}
+
+export type PedidoDeGasConfirmado = {
+  confirmadoEm: string;
+  confirmadoPorNome: string | null;
+  observacao: string | null;
+};
+
+/**
+ * O último pedido CONFIRMADO nas últimas `horas` (16/09/2026, pedido do
+ * dono). É o que a tela mostra no lugar do alerta: quem abre a empilhadeira
+ * depois vê que o gás já foi solicitado, e por quem -- em vez de não ver
+ * nada e ligar para o fornecedor de novo.
+ */
+export async function pedidoDeGasConfirmadoRecente(
+  revendaId: string,
+  horas = 24,
+): Promise<PedidoDeGasConfirmado | null> {
+  const supabase = await createClient();
+  const desde = new Date(Date.now() - horas * 3_600_000).toISOString();
+  const { data } = await supabase
+    .from("pa_gas_pedidos")
+    .select("confirmado_em, confirmado_por_nome, observacao")
+    .eq("revenda_id", revendaId)
+    .not("confirmado_em", "is", null)
+    .gte("confirmado_em", desde)
+    .order("confirmado_em", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (!data) return null;
+  return {
+    confirmadoEm: data.confirmado_em as string,
+    confirmadoPorNome: (data.confirmado_por_nome as string) ?? null,
+    observacao: (data.observacao as string) ?? null,
+  };
+}
+
+/**
+ * O GÁS FOI SOLICITADO: TIRA O AVISO E CONTA A TODOS QUEM PEDIU
+ * (16/09/2026, pedido do dono).
+ *
+ * Até aqui, confirmar apagava o alerta da TELA, mas o aviso continuava no
+ * sino e no celular de todo mundo que o recebeu -- e a liderança, sem saber
+ * que o empilhador já tinha ligado, ligava de novo.
+ *
+ *   1. o aviso de "gás acabando" deste pedido sai do sino (ativa = false).
+ *      Pedido aberto antes desta versão não levava a chave: esses avisos são
+ *      achados pelo título do alerta, pela tela e pela hora do pedido;
+ *   2. quem recebeu o alerta -- e a liderança escolhida, e quem contou --
+ *      recebe "já solicitado, por Fulano", menos quem confirmou. O push sai
+ *      com a mesma etiqueta do alerta, e no celular ele SUBSTITUI o de "gás
+ *      acabando" na bandeja.
+ *
+ * NUNCA lança erro: o pedido já foi confirmado.
+ */
+export async function encerrarAvisoDeGas(opcoes: {
+  revendaId: string;
+  pedidoId: string;
+  abertoEm: string;
+  abertoPor: string | null;
+  confirmadoPor: string;
+  confirmadoPorNome: string;
+  observacao: string | null;
+}): Promise<void> {
+  const { revendaId, pedidoId, abertoEm, abertoPor, confirmadoPor, confirmadoPorNome, observacao } = opcoes;
+  try {
+    const admin = createAdminClient();
+    const chave = chaveDoPedido(pedidoId);
+    const titulosDoAlerta = [textoDoAlerta(0).titulo, textoDoAlerta(1).titulo];
+    const desde = new Date(new Date(abertoEm).getTime() - 5 * 60_000).toISOString();
+
+    const [{ data: pelaChave }, { data: semChave }, { data: notificados }] = await Promise.all([
+      admin
+        .from("notificacoes")
+        .select("id, destinatario_id")
+        .eq("revenda_id", revendaId)
+        .eq("modulo", "produtividade-armazem")
+        .eq("referencia_id", chave)
+        .eq("ativa", true),
+      admin
+        .from("notificacoes")
+        .select("id, destinatario_id")
+        .eq("revenda_id", revendaId)
+        .eq("modulo", "produtividade-armazem")
+        .is("referencia_id", null)
+        .eq("url", ROTA_GAS)
+        .in("titulo", titulosDoAlerta)
+        .gte("criado_em", desde)
+        .eq("ativa", true),
+      admin.from("pa_gas_notificados").select("colaborador_id").eq("revenda_id", revendaId),
+    ]);
+
+    const avisos = [...(pelaChave ?? []), ...(semChave ?? [])];
+    if (avisos.length > 0) {
+      await admin
+        .from("notificacoes")
+        .update({ ativa: false })
+        .in("id", avisos.map((a) => a.id));
+    }
+
+    const destinos = [
+      ...new Set([
+        ...avisos.map((a) => a.destinatario_id as string | null).filter((id): id is string => Boolean(id)),
+        ...(notificados ?? []).map((n) => n.colaborador_id as string),
+        ...(abertoPor ? [abertoPor] : []),
+      ]),
+    ].filter((id) => id !== confirmadoPor);
+    if (destinos.length === 0) return;
+
+    const titulo = "✅ Gás P20 já solicitado";
+    const mensagem = `${confirmadoPorNome} já solicitou o gás${observacao ? ` — ${observacao}` : ""}. Não precisa pedir de novo.`;
+
+    await Promise.all(
+      destinos.map((id) =>
+        criarNotificacao({
+          modulo: "produtividade-armazem",
+          tipo: "atualizado",
+          titulo,
+          mensagem,
+          url: ROTA_GAS,
+          destinatarioId: id,
+          revendaId,
+          referenciaId: `${chave}:solicitado`,
+          criadoPor: confirmadoPorNome,
+        }),
+      ),
+    );
+    await enviarPushDaRevenda(revendaId, {
+      modulo: "produtividade-armazem",
+      titulo,
+      mensagem,
+      url: ROTA_GAS,
+      apenas: destinos,
+    });
+  } catch {
+    // Silêncio proposital: o pedido já está confirmado.
+  }
 }
 
 /**
@@ -154,8 +300,9 @@ async function avisarSobreGas(opcoes: {
   cheios: number;
   config: ConfigDeGas;
   operadorId: string;
+  pedidoId: string;
 }): Promise<void> {
-  const { revendaId, cheios, config, operadorId } = opcoes;
+  const { revendaId, cheios, config, operadorId, pedidoId } = opcoes;
   const { titulo, mensagem } = textoDoAlerta(cheios);
 
   const fornecedor = config.fornecedorNome
@@ -188,6 +335,9 @@ async function avisarSobreGas(opcoes: {
         url: ROTA_GAS,
         destinatarioId: id,
         revendaId,
+        // A chave do pedido: é por ela que o aviso sai do sino quando alguém
+        // confirma que solicitou o gás (encerrarAvisoDeGas).
+        referenciaId: chaveDoPedido(pedidoId),
       }),
     ),
   );
