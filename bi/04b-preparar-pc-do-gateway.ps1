@@ -44,13 +44,23 @@ if ($jaTem) {
     Falta "nao achei $Certificado -- coloque o .crt na mesma pasta deste script"
     $pendencias += 'certificado'
 } else {
-    $novo = Import-Certificate -FilePath $Certificado -CertStoreLocation Cert:\LocalMachine\Root
-    if ($novo.Thumbprint -eq $ImpressaoEsperada) {
+    $novo = Import-Certificate -FilePath $Certificado -CertStoreLocation Cert:\LocalMachine\Root -ErrorAction SilentlyContinue
+    if (-not $novo -or [string]::IsNullOrWhiteSpace($novo.Thumbprint)) {
+        # IMPORTACAO FALHOU (arquivo ilegivel, sem permissao, formato errado).
+        # Sem impressao digital nao da para montar o caminho de remocao: o
+        # else abaixo viraria "Cert:\LocalMachine\Root\" + vazio, que e o
+        # REPOSITORIO INTEIRO -- o Remove-Item entao pede confirmacao para
+        # apagar toda autoridade raiz confiavel da maquina, e o padrao do
+        # prompt e "Sim". Por isso este ramo existe e sai antes.
+        Falta "nao consegui importar $Certificado -- rode 'Import-Certificate -FilePath ''$Certificado'' -CertStoreLocation Cert:\LocalMachine\Root' sozinho para ver o erro"
+        $pendencias += 'certificado'
+    } elseif ($novo.Thumbprint -eq $ImpressaoEsperada) {
         Ok "instalado em Autoridades de Certificacao Raiz Confiaveis (computador)"
     } else {
         # Arquivo trocado: tira o que entrou e para, em vez de confiar num
-        # certificado que nao e o do Supabase.
-        Remove-Item "Cert:\LocalMachine\Root\$($novo.Thumbprint)"
+        # certificado que nao e o do Supabase. Aqui a impressao digital existe
+        # e nao e vazia, entao o caminho aponta para um certificado so.
+        Remove-Item "Cert:\LocalMachine\Root\$($novo.Thumbprint)" -Force
         Falta "o arquivo nao e o certificado do Supabase (impressao $($novo.Thumbprint)) -- removido"
         $pendencias += 'certificado'
     }
