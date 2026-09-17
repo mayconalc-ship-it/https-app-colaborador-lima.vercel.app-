@@ -73,7 +73,7 @@ escolhas, não como caminho obrigatório.
 | 1 | `01-camada-semantica.sql` | Cria o esquema `bi` com 53 views. **Não altera nada do app.** |
 | 2 | `02-acesso-powerbi.sql` | Cria o usuário `powerbi_readonly` e libera só o esquema `bi`. |
 | 3 | `08-abrir-o-pbip.md` | **Abrir o projeto pronto e salvar como `.pbix`.** É por aqui. |
-| 4 | `04-gateway-e-atualizacao.md` | Gateway no PC do escritório e agendamento da atualização. |
+| 4 | `04-gateway-e-atualizacao.md` | Gateway no PC do escritório e agendamento da atualização. **Comece pelo Passo 0:** precisa de administrador local. |
 | 5 | `09-atualizacao-23-08-2026.sql` | **Recorte do 01 com o que mudou em 23/08/2026.** Uma colagem em vez de dez. |
 | 6 | `10-conferir-acentos.sql` | **Confere se algum rótulo entrou quebrado no banco.** Três selects, não altera nada. |
 | 7 | `15-armazem-e-desafio-no-bi.sql` | **Produtividade do Armazém, carretas, empilhadeira e o gabarito do Desafio.** Recorte de colagem do 09/09/2026. |
@@ -85,6 +85,8 @@ escolhas, não como caminho obrigatório.
 | — | `layout-relatorio.md` | Layout das 8 páginas de gestão originais, visual a visual. |
 | — | `06-montar-pbix.md` | Montagem manual, caso queira refazer à mão. |
 | — | `tema-powerbi.json` | Já vem embutido no projeto. Só importe à mão se montar do zero. |
+| — | `04b-preparar-pc-do-gateway.ps1` | Prepara o PC do gateway: certificado, energia, serviço e teste da porta 5432. **Como administrador.** |
+| — | `04c-quem-e-admin.ps1` | **Quem é administrador nesta máquina, e como digitar a conta.** Só lê; não precisa de admin. |
 | — | `05-atualizar-agora.ps1` | Força a atualização fora do horário agendado. Precisa do gateway já configurado. |
 | — | `03-opcional-historico-parque-ag.sql` | **Opcional e altera o banco.** Leia antes de rodar. |
 
