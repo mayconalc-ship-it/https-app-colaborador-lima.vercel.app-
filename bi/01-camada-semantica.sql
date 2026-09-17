@@ -1507,6 +1507,30 @@ comment on view bi.dim_5s_pergunta is
 -- porque aderencia (fez? no prazo?) e resultado (que nota?) sao lidos
 -- juntos -- separar em dois fatos obrigaria o relatorio a cruzar duas
 -- tabelas para responder "quantas areas ficaram sem auditoria".
+-- A DATA DA AUDITORIA (17/09/2026, ver 16-5s-data-da-realizacao.sql):
+-- finalizada e com a realizacao no mes da competencia -> o dia em que foi
+-- feita; o resto -> a data planejada. Setembro/2026 foi feito em 16/09 e
+-- planejado para 21/09, e sumia de todo Periodo que terminasse antes.
+create or replace function bi.data_da_auditoria_5s(
+  p_status text,
+  p_planejada date,
+  p_competencia date,
+  p_finalizada_em timestamptz
+) returns date
+language sql
+stable
+as $$
+  select case
+    when p_status = 'finalizada'
+     and p_finalizada_em is not null
+     and date_trunc('month', bi.dia_local(p_finalizada_em)) = date_trunc('month', p_competencia)
+      then bi.dia_local(p_finalizada_em)
+    else p_planejada
+  end
+$$;
+
+grant execute on function bi.data_da_auditoria_5s(text, date, date, timestamptz) to public;
+
 create or replace view bi.fato_5s_auditoria as
 select
   au.id                     as auditoria_5s_id,
@@ -1531,7 +1555,7 @@ select
     when 'finalizada'   then 'Finalizada'
     else 'Cancelada'
   end                       as status_rotulo,
-  au.planejada_para         as data,
+  bi.data_da_auditoria_5s(au.status, au.planejada_para, au.competencia, au.finalizada_em) as data,
   au.competencia            as mes_ref,
   to_char(au.competencia, 'MM/YYYY')            as mes_rotulo,
   bi.dia_local(au.finalizada_em)                as data_realizada,
@@ -1578,7 +1602,7 @@ select
   ar.nome                   as area_5s,
   au.auditor_id,
   au.dono_id,
-  au.planejada_para         as data,
+  bi.data_da_auditoria_5s(au.status, au.planejada_para, au.competencia, au.finalizada_em) as data,
   au.competencia            as mes_ref,
   s.senso,
   case s.senso
@@ -1618,7 +1642,7 @@ select
   ar.nome                   as area_5s,
   au.auditor_id,
   au.dono_id,
-  au.planejada_para         as data,
+  bi.data_da_auditoria_5s(au.status, au.planejada_para, au.competencia, au.finalizada_em) as data,
   au.competencia            as mes_ref,
   r.pergunta_id             as pergunta_5s_id,
   q.codigo,
