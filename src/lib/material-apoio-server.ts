@@ -11,6 +11,7 @@ import {
   HORA_LEMBRETE_PADRAO,
   MODULO_MATERIAL_APOIO,
   chaveDoLembreteDeContagem,
+  deveAvisarCompra,
   deveLembrarContagem,
   horaSP,
   inicioDoDiaSP,
@@ -145,10 +146,10 @@ export async function podeAbrirMaterialDeApoio() {
  * O ALERTA DE COMPRA.
  *
  * Dois níveis, a mais grave primeiro: "abaixo da mínima" e "perto da
- * mínima" (dentro da antecedência do produto). Cada nível toca UMA vez por
- * contagem -- a chave leva o id da última contagem, então contar de novo
- * abre um ciclo novo. Quem pulou direto para abaixo da mínima recebe só
- * esse.
+ * mínima" (dentro da antecedência do produto). Toca uma vez por SITUAÇÃO
+ * (desde 17/09/2026; antes era por contagem, e a contagem diária virou
+ * aviso diário): de novo só se piorar, se entrar material e continuar na
+ * faixa, ou depois de REPETIR_ALERTA_DIAS. Ver deveAvisarCompra.
  *
  * Roda depois de cada contagem e de cada mudança no cadastro, e também na
  * varredura periódica: o estoque cai sozinho com o consumo, e o dia em que
@@ -173,17 +174,36 @@ export async function avisarMaterialDeApoio(revendaId: string): Promise<number> 
     for (const { produto, ultima, situacao } of estoque) {
       if (!ultima || situacao.dias == null || !FAIXAS_DE_ALERTA.includes(situacao.faixa)) continue;
 
-      // Já avisou este nível -- ou, para "perto", o de "abaixo" -- neste ciclo?
-      const niveis = situacao.faixa === "abaixo-minima" ? ["abaixo-minima"] : ["abaixo-minima", "perto-minima"];
-      const chaves = niveis.map((n) => `material-apoio:${produto.id}:${ultima.id}:${n}`);
-      const { data: jaFoi } = await admin
+      // Uma vez por SITUAÇÃO, não por contagem -- ver deveAvisarCompra.
+      const { data: ultimoAviso } = await admin
         .from("notificacoes")
-        .select("id")
+        .select("referencia_id, criado_em")
         .eq("modulo", MODULO_MATERIAL_APOIO)
-        .in("referencia_id", chaves)
+        .like("referencia_id", `material-apoio:${produto.id}:%`)
+        .order("criado_em", { ascending: false })
         .limit(1)
         .maybeSingle();
-      if (jaFoi) continue;
+      let teveEntradaDesde = false;
+      if (ultimoAviso) {
+        const { count } = await admin
+          .from("ma_contagens")
+          .select("id", { count: "exact", head: true })
+          .eq("revenda_id", revendaId)
+          .eq("produto_id", produto.id)
+          .gt("entrada", 0)
+          .gt("contado_em", String(ultimoAviso.criado_em));
+        teveEntradaDesde = (count ?? 0) > 0;
+      }
+      if (
+        !deveAvisarCompra({
+          nivelAtual: situacao.faixa as "abaixo-minima" | "perto-minima",
+          ultimoNivel: ultimoAviso ? (String(ultimoAviso.referencia_id).split(":").pop() ?? null) : null,
+          ultimoEm: ultimoAviso ? String(ultimoAviso.criado_em) : null,
+          teveEntradaDesde,
+        })
+      ) {
+        continue;
+      }
 
       const chave = `material-apoio:${produto.id}:${ultima.id}:${situacao.faixa}`;
       const abaixo = situacao.faixa === "abaixo-minima";

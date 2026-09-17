@@ -13,6 +13,7 @@ import {
 import { haQuantoTempo, liberacoesSemUso, telaCasa, ultimoAcesso, ultimoUsoDoModulo } from "../limpeza-de-acessos.ts";
 import {
   chaveDoLembreteDeContagem,
+  deveAvisarCompra,
   deveLembrarContagem,
   horaSP,
   inicioDoDiaSP,
@@ -96,6 +97,16 @@ eq("desligado não lembra", deveLembrarContagem({ ativo: false, hora: 14, horaAg
 // 22h de 16/09 em SP = 01h de 17/09 em UTC: a hora e o dia são os de SP.
 eq("hora em SP com servidor em UTC", horaSP(new Date("2026-09-17T01:00:00Z")), 22);
 eq("começo do dia em SP", inicioDoDiaSP(new Date("2026-09-17T01:00:00Z")), "2026-09-16T00:00:00-03:00");
+console.log("\n== ALERTA DE COMPRA: UMA VEZ POR SITUAÇÃO ==");
+const agora17 = new Date("2026-09-17T09:00:00Z");
+const base = { ultimoEm: "2026-09-16T16:35:00Z", teveEntradaDesde: false, agora: agora17 };
+eq("nunca avisou: avisa", deveAvisarCompra({ nivelAtual: "abaixo-minima", ultimoNivel: null, ultimoEm: null, teveEntradaDesde: false }), true);
+eq("contou de novo, mesma faixa, ontem: não avisa", deveAvisarCompra({ ...base, nivelAtual: "abaixo-minima", ultimoNivel: "abaixo-minima" }), false);
+eq("perto depois de abaixo: não avisa", deveAvisarCompra({ ...base, nivelAtual: "perto-minima", ultimoNivel: "abaixo-minima" }), false);
+eq("piorou de perto para abaixo: avisa", deveAvisarCompra({ ...base, nivelAtual: "abaixo-minima", ultimoNivel: "perto-minima" }), true);
+eq("entrou material e continua abaixo: avisa", deveAvisarCompra({ ...base, nivelAtual: "abaixo-minima", ultimoNivel: "abaixo-minima", teveEntradaDesde: true }), true);
+eq("7 dias parado: repete", deveAvisarCompra({ ...base, nivelAtual: "abaixo-minima", ultimoNivel: "abaixo-minima", agora: new Date("2026-09-23T17:00:00Z") }), true);
+
 eq("chave por dia", chaveDoLembreteDeContagem("r1", "2026-09-16"), "material-apoio-contagem:r1:2026-09-16");
 
 console.log(falhas === 0 ? "\nTUDO CERTO" : `\n${falhas} FALHA(S)`);

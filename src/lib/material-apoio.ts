@@ -313,6 +313,36 @@ export const FAIXAS: Record<Faixa, { rotulo: string; tom: "critico" | "alerta" |
 /** As faixas que disparam o alerta de compra -- a mais grave primeiro. */
 export const FAIXAS_DE_ALERTA: Faixa[] = ["abaixo-minima", "perto-minima"];
 
+/** Com o produto parado na mesma faixa, o alerta de compra se repete só depois destes dias. */
+export const REPETIR_ALERTA_DIAS = 7;
+
+/**
+ * O ALERTA DE COMPRA SAI DE NOVO? (17/09/2026)
+ *
+ * Era uma vez por CONTAGEM. Com a contagem virando diária (o lembrete de
+ * 16/09), um produto abaixo da mínima avisava todo dia -- o dono reclamou
+ * no primeiro dia. Agora é uma vez por SITUAÇÃO:
+ *   - nunca avisou: avisa;
+ *   - piorou (de "perto" para "abaixo"): avisa;
+ *   - entrou material desde o último aviso (a compra chegou) e continua na
+ *     faixa: é uma situação nova, avisa;
+ *   - senão, só repete depois de REPETIR_ALERTA_DIAS -- a compra pode ter
+ *     sido esquecida, e silêncio para sempre também é ruim.
+ */
+export function deveAvisarCompra(p: {
+  nivelAtual: "abaixo-minima" | "perto-minima";
+  ultimoNivel: string | null;
+  ultimoEm: string | null;
+  teveEntradaDesde: boolean;
+  agora?: Date;
+}) {
+  if (!p.ultimoNivel || !p.ultimoEm) return true;
+  if (p.nivelAtual === "abaixo-minima" && p.ultimoNivel !== "abaixo-minima") return true;
+  if (p.teveEntradaDesde) return true;
+  const dias = ((p.agora ?? new Date()).getTime() - new Date(p.ultimoEm).getTime()) / 86_400_000;
+  return dias >= REPETIR_ALERTA_DIAS;
+}
+
 export function faixaDosDias(p: ProdutoParaSituacao, dias: number): Faixa {
   if (dias < p.politica_minima_dias) return "abaixo-minima";
   if (dias <= p.politica_minima_dias + p.antecedencia_alerta_dias) return "perto-minima";
