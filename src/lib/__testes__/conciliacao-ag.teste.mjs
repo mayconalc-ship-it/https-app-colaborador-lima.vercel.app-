@@ -10,7 +10,7 @@
 import {
   conciliar, resumirConciliacao, conciliarPorDia, transitoDeLinhas,
   comodatoDeLinhas, juntarParcelas, LIMITE_DIFERENCA_PCT,
-  vivas, totaisPorFormato,
+  vivas, totaisPorFormato, substituicoesDoDia,
 } from "../ativo-giro.ts";
 
 let falhas = 0;
@@ -217,6 +217,40 @@ eq("o grafico ignora a sobreposta",
 eq("dia so com contagem sobreposta some",
   conciliarPorDia([{ ...c("600ml", 6, 0, 0, "2026-09-01"), id: 9, substituida_em: "x" }], { "Kit AG|600ml": 600 }, fatores, {}).length,
   0);
+
+console.log("\n== SUBSTITUIÇÃO RECALCULADA DO DIA (17/09/2026) ==");
+{
+  const L = (id, formato, hora, rec = null) => ({
+    id, tipo: "Kit AG", formato, status: "Cheio", criado_em: `2026-09-16T${hora}:00Z`, recontagem_id: rec,
+  });
+  // O dia 16/09 como ficou no banco: originais de manhã; recontagem do
+  // 600ml (pedido 34) com vínculo em todas as linhas; recontagem do 300ml
+  // (pedido 33) com vínculo só na primeira, que foi lançada como 600ml e
+  // corrigida para 300ml.
+  const dia = [
+    L(1, "300ml", "08:49"), L(2, "300ml", "09:08"),
+    L(3, "600ml", "08:50"), L(4, "600ml", "09:10"),
+    L(10, "600ml", "14:18", 34), L(11, "600ml", "14:19", 34),
+    L(20, "300ml", "14:22", 33), L(21, "300ml", "14:23"), L(22, "300ml", "14:24"),
+  ];
+  const s = substituicoesDoDia(dia);
+  eq("300ml original sai (substituída pela 1ª da recontagem)", [s.get(1), s.get(2)], [20, 20]);
+  eq("600ml original sai", [s.get(3), s.get(4)], [10, 10]);
+  eq("recontagem do 600ml vale inteira", [s.get(10), s.get(11)], [null, null]);
+  eq("recontagem do 300ml vale, com e sem vínculo", [s.get(20), s.get(21), s.get(22)], [null, null, null]);
+
+  // Se a 1ª linha do pedido 33 continuasse em 600ml (antes da correção),
+  // o 600ml seria recortado por ela -- é o estado errado que existia.
+  const errado = substituicoesDoDia(dia.map((l) => (l.id === 20 ? { ...l, formato: "600ml" } : l)));
+  eq("linha em combinação errada recorta a outra (por isso refazer ao editar)", errado.get(10), 20);
+
+  eq("dia sem recontagem: nada sai", [...substituicoesDoDia([L(1, "300ml", "08:00"), L(2, "300ml", "09:00")]).values()], [null, null]);
+  eq(
+    "duas recontagens na mesma combinação: a mais recente manda",
+    (() => { const r = substituicoesDoDia([L(1, "300ml", "08:00"), L(2, "300ml", "10:00", 5), L(3, "300ml", "15:00", 6)]); return [r.get(1), r.get(2), r.get(3)]; })(),
+    [3, 3, null],
+  );
+}
 
 console.log(`\n${falhas === 0 ? "TODOS OS CASOS PASSARAM" : falhas + " FALHA(S)"}`);
 process.exit(falhas === 0 ? 0 : 1);

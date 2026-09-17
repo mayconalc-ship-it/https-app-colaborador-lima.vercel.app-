@@ -31,6 +31,7 @@ import {
   TIPOS,
   parqueDeLinhas,
   serializarCombinacao,
+  substituicoesDoDia,
   transitoDeLinhas,
   type Combinacao,
   type Contagem,
@@ -67,6 +68,61 @@ async function lembrarCombinacao(combinacao: Combinacao) {
     maxAge: 60 * 60 * 24 * COOKIE_ULTIMA_DIAS,
     path: COOKIE_ULTIMA_PATH,
   });
+}
+
+/**
+ * REFAZ AS SUBSTITUIÇÕES DE UM DIA (17/09/2026) -- ver substituicoesDoDia.
+ *
+ * Roda depois de lançar uma linha de recontagem e depois de QUALQUER
+ * edição ou exclusão: corrigir a combinação de uma linha, ou apagá-la,
+ * muda quem sobrepõe quem. Só grava o que mudou; a linha que já estava
+ * certa mantém o carimbo original.
+ *
+ * NUNCA lança erro: a contagem já foi gravada. Dia congelado não muda --
+ * o congelamento guarda os números dele.
+ */
+async function recalcularSubstituicoes(revendaId: string, data: string) {
+  try {
+    const admin = createAdminClient();
+    const { data: linhas } = await admin
+      .from("ag_contagens")
+      .select("id, tipo, formato, status, criado_em, recontagem_id, substituida_em, substituida_por")
+      .eq("revenda_id", revendaId)
+      .eq("data", data);
+    if (!linhas || linhas.length === 0) return;
+
+    const certo = substituicoesDoDia(
+      linhas.map((l) => ({ ...l, id: Number(l.id), recontagem_id: l.recontagem_id == null ? null : Number(l.recontagem_id) })),
+    );
+
+    const liberar: number[] = [];
+    const porSubstituta = new Map<number, number[]>();
+    for (const l of linhas) {
+      const deveSer = certo.get(Number(l.id)) ?? null;
+      const eh = l.substituida_em ? (l.substituida_por == null ? null : Number(l.substituida_por)) : null;
+      if (deveSer === eh && Boolean(l.substituida_em) === (deveSer !== null)) continue;
+      if (deveSer === null) liberar.push(Number(l.id));
+      else porSubstituta.set(deveSer, [...(porSubstituta.get(deveSer) ?? []), Number(l.id)]);
+    }
+
+    const agora = new Date().toISOString();
+    if (liberar.length > 0) {
+      await admin
+        .from("ag_contagens")
+        .update({ substituida_em: null, substituida_por: null })
+        .eq("revenda_id", revendaId)
+        .in("id", liberar);
+    }
+    for (const [substituta, ids] of porSubstituta) {
+      await admin
+        .from("ag_contagens")
+        .update({ substituida_em: agora, substituida_por: substituta })
+        .eq("revenda_id", revendaId)
+        .in("id", ids);
+    }
+  } catch {
+    // Silêncio proposital: a contagem já foi salva.
+  }
 }
 
 /**
@@ -244,7 +300,8 @@ export async function registrarContagem(
   if (recontagem_id !== null) {
     try {
       const admin = createAdminClient();
-      const { data: pedido } = await admin
+      // Fecha o pedido; se outra linha já o fechou, não muda nada.
+      await admin
         .from("ag_recontagens")
         .update({
           atendida_em: new Date().toISOString(),
@@ -253,9 +310,7 @@ export async function registrarContagem(
         })
         .eq("id", recontagem_id)
         .eq("revenda_id", revendaId)
-        .is("atendida_em", null)
-        .select("id")
-        .maybeSingle();
+        .is("atendida_em", null);
 
       /*
         A RECONTAGEM SOBREPÕE O QUE JÁ HAVIA SIDO CONTADO.
@@ -288,21 +343,14 @@ export async function registrarContagem(
         diferença entre as duas é o que diz se o problema era contagem ou
         movimento de estoque.
 
-        Só corre se o `pedido` voltar: sem ele, o pedido já estava atendido
-        -- outra pessoa chegou antes -- e não há nada a sobrepor.
+        DESDE 17/09/2026 a marca não é mais feita aqui, uma vez só, com a
+        combinação do momento: o dia inteiro é recalculado a partir das
+        linhas como estão (recalcularSubstituicoes). Uma linha lançada na
+        combinação errada e corrigida depois deixava a marca no lugar errado.
       */
-      if (pedido) {
-        await admin
-          .from("ag_contagens")
-          .update({ substituida_em: new Date().toISOString(), substituida_por: gravada.id })
-          .eq("revenda_id", revendaId)
-          .eq("data", gravada.data)
-          .eq("tipo", gravada.tipo)
-          .eq("formato", gravada.formato)
-          .eq("status", gravada.status)
-          .or(`recontagem_id.is.null,recontagem_id.neq.${recontagem_id}`)
-          .is("substituida_em", null);
-      }
+      // Recalcula mesmo com o pedido já fechado por outra linha: esta pode
+      // ser a primeira do pedido NUMA OUTRA combinação.
+      await recalcularSubstituicoes(revendaId, gravada.data);
       revalidatePath(ROTA);
     } catch {
       // idem: avisar é secundário, salvar é o que importa.
@@ -337,6 +385,14 @@ export async function editarContagem(formData: FormData) {
     exigirRevendaAG(),
   ]);
 
+  // O dia de ANTES da edição: se a data mudou, os dois dias se refazem.
+  const { data: anterior } = await createAdminClient()
+    .from("ag_contagens")
+    .select("data")
+    .eq("id", id)
+    .eq("revenda_id", revendaId)
+    .maybeSingle();
+
   if (gestor) {
     const admin = createAdminClient();
     // O gestor alcança a contagem de qualquer pessoa, mas só dentro da
@@ -362,6 +418,11 @@ export async function editarContagem(formData: FormData) {
     if (error) erro(`Não foi possível editar: ${error.message}`);
   }
 
+  // Corrigir tipo, formato ou status muda quem a recontagem sobrepõe.
+  for (const dia of new Set([anterior?.data, campos.data].filter(Boolean) as string[])) {
+    await recalcularSubstituicoes(revendaId, dia);
+  }
+
   revalidatePath(ROTA);
   revalidatePath("/admin/ativo-de-giro");
   redirect(`${ROTA}?sucesso=Contagem+atualizada`);
@@ -375,6 +436,16 @@ export async function excluirContagem(formData: FormData) {
   if (!Number.isInteger(id)) erro("Contagem inválida.");
 
   const gestor = await podeNoModulo("ativo-giro", "excluir");
+  const revendaId = await exigirRevendaAG();
+
+  // O dia da linha, lido antes de ela sumir: apagar uma linha de
+  // recontagem muda quem ela sobrepunha.
+  const { data: apagada } = await createAdminClient()
+    .from("ag_contagens")
+    .select("data")
+    .eq("id", id)
+    .eq("revenda_id", revendaId)
+    .maybeSingle();
 
   if (gestor) {
     const admin = createAdminClient();
@@ -382,17 +453,19 @@ export async function excluirContagem(formData: FormData) {
       .from("ag_contagens")
       .delete()
       .eq("id", id)
-      .eq("revenda_id", await exigirRevendaAG());
+      .eq("revenda_id", revendaId);
   } else {
     const supabase = await createClient();
     const { error } = await supabase
       .from("ag_contagens")
       .delete()
       .eq("id", id)
-      .eq("revenda_id", await exigirRevendaAG())
+      .eq("revenda_id", revendaId)
       .eq("colaborador_id", perfil.id);
     if (error) erro("Você só pode excluir as suas próprias contagens.");
   }
+
+  if (apagada?.data) await recalcularSubstituicoes(revendaId, String(apagada.data));
 
   revalidatePath(ROTA);
   revalidatePath("/admin/ativo-de-giro");

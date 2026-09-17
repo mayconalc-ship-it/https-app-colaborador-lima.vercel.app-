@@ -166,6 +166,68 @@ export function vivas(contagens: Contagem[]): Contagem[] {
   return contagens.filter((c) => !c.substituida_em);
 }
 
+/** O que a regra de substituição precisa saber de cada linha do dia. */
+export type LinhaParaSubstituicao = {
+  id: number;
+  tipo: string;
+  formato: string;
+  status: string;
+  criado_em: string;
+  recontagem_id: number | null;
+};
+
+/**
+ * QUEM SUBSTITUI QUEM NUM DIA -- recalculado do zero, a partir das linhas
+ * como estão AGORA (17/09/2026).
+ *
+ * Antes a substituição era marcada UMA vez, no lançamento da primeira linha
+ * da recontagem, com a combinação daquele momento. Em 16/09 a primeira
+ * linha do pedido de "300ml Cheio" foi lançada com o formulário ainda em
+ * 600ml e corrigida depois para 300ml: a marca saiu no 600ml -- tirou da
+ * conta a recontagem de 600ml, que estava certa -- e as 12 linhas originais
+ * do 300ml continuaram somando com a recontagem. A controladoria viu o
+ * 300ml em dobro. Editar a linha não refazia nada.
+ *
+ * A REGRA, por combinação (tipo + formato + status):
+ *   - o ponto de corte é a PRIMEIRA linha da recontagem mais recente daquela
+ *     combinação (a linha com `recontagem_id`);
+ *   - tudo o que foi lançado ANTES do corte é substituído por essa linha;
+ *   - tudo o que veio do corte em diante vale -- inclusive as linhas da
+ *     recontagem lançadas sem o vínculo, que é como a tela manda a segunda
+ *     linha em diante.
+ *
+ * Devolve, para cada linha, o id que a substitui, ou `null` se ela vale.
+ */
+export function substituicoesDoDia(linhas: LinhaParaSubstituicao[]): Map<number, number | null> {
+  const antes = (a: LinhaParaSubstituicao, b: LinhaParaSubstituicao) =>
+    a.criado_em < b.criado_em || (a.criado_em === b.criado_em && a.id < b.id);
+
+  const combinacao = (l: LinhaParaSubstituicao) => `${l.tipo}|${l.formato}|${l.status}`;
+  const corte = new Map<string, LinhaParaSubstituicao>();
+
+  // A primeira linha de cada pedido, em cada combinação...
+  const primeiraDoPedido = new Map<string, LinhaParaSubstituicao>();
+  for (const l of linhas) {
+    if (l.recontagem_id === null) continue;
+    const k = `${combinacao(l)}#${l.recontagem_id}`;
+    const atual = primeiraDoPedido.get(k);
+    if (!atual || antes(l, atual)) primeiraDoPedido.set(k, l);
+  }
+  // ...e, entre os pedidos, o que começou por último manda.
+  for (const l of primeiraDoPedido.values()) {
+    const k = combinacao(l);
+    const atual = corte.get(k);
+    if (!atual || antes(atual, l)) corte.set(k, l);
+  }
+
+  const saida = new Map<number, number | null>();
+  for (const l of linhas) {
+    const c = corte.get(combinacao(l));
+    saida.set(l.id, c && antes(l, c) ? c.id : null);
+  }
+  return saida;
+}
+
 /** Quem já lançou contagem -- alimenta o filtro por colaborador. */
 export type Contador = { id: string; nome: string };
 
