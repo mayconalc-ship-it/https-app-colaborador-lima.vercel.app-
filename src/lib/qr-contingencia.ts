@@ -60,11 +60,12 @@ export function validarComprovante(d: DadosDoComprovante): string | null {
   if (total > LIMITES_QR.bytesPorEnvio) {
     return "As fotos juntas passaram do limite de um envio. Mande em dois comprovantes ou tire menos fotos.";
   }
-  if (d.valor !== null) {
-    if (Number.isNaN(d.valor)) return "Valor inválido. Use números, por exemplo 150,00.";
-    if (d.valor <= 0) return "O valor precisa ser maior que zero.";
-    if (d.valor > LIMITES_QR.valorMax) return "Valor alto demais — confira o número.";
-  }
+  // OBRIGATÓRIO desde 18/09/2026 (pedido do dono): é o número que o
+  // financeiro concilia contra o extrato.
+  if (d.valor === null) return "Informe o valor pago.";
+  if (Number.isNaN(d.valor)) return "Valor inválido. Use números, por exemplo 150,00.";
+  if (d.valor <= 0) return "O valor precisa ser maior que zero.";
+  if (d.valor > LIMITES_QR.valorMax) return "Valor alto demais — confira o número.";
   if (d.observacao.length > LIMITES_QR.observacaoMax) {
     return `A observação passa de ${LIMITES_QR.observacaoMax} caracteres.`;
   }
@@ -134,6 +135,24 @@ export function validarConfigQr(d: DadosDaConfig): string | null {
   if (d.chavePix.length > 600) return "O código PIX passa de 600 caracteres.";
   if (d.instrucoes.length > 400) return "As instruções passam de 400 caracteres.";
   return null;
+}
+
+/**
+ * O CAMPO DE VALOR como no app do banco: só números, que entram pela
+ * direita nos centavos. "15240" digitado -> R$ 152,40. Guarda os dígitos;
+ * `valorDosDigitos` é o que vai para o servidor ("152,40").
+ */
+export function digitosDoValor(digitado: string) {
+  return digitado.replace(/\D/g, "").replace(/^0+/, "").slice(0, 9);
+}
+
+export function valorDosDigitos(digitos: string) {
+  if (!digitos) return "";
+  return (Number(digitos) / 100).toFixed(2).replace(".", ",");
+}
+
+export function mostrarDigitosEmReais(digitos: string) {
+  return formatarReais(digitos ? Number(digitos) / 100 : 0);
 }
 
 export function formatarReais(v: number | null) {

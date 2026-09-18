@@ -20,7 +20,10 @@ import {
   LIMITES_QR,
   clienteCasa,
   codigoDigitado,
+  digitosDoValor,
   formatarCnpj,
+  mostrarDigitosEmReais,
+  valorDosDigitos,
   formatarReais,
   lerValor,
   validarComprovante,
@@ -307,7 +310,7 @@ export function TelaContingencia({
   // A MESMA regra do servidor, calculada enquanto a pessoa preenche.
   const problema = validarComprovante({
     codPdv: cliente?.codPdv ?? "",
-    valor: lerValor(valor),
+    valor: lerValor(valorDosDigitos(valor)),
     observacao: observacao.trim(),
     fotos: fotos.map((f) => ({ tamanho: f.arquivo.size, tipo: f.arquivo.type })),
   });
@@ -334,7 +337,7 @@ export function TelaContingencia({
       codPdv: cliente.codPdv,
       clienteNome: cliente.nome ?? "",
       mapa: rota?.mapa ?? mapa,
-      valor,
+      valor: valorDosDigitos(valor),
       observacao,
       fotos: fotos.map((f) => f.arquivo),
       pagoEm: new Date().toISOString(),
@@ -748,13 +751,18 @@ export function TelaContingencia({
 
             <div className="grid gap-3 sm:grid-cols-2">
               <label className="block">
-                <span className="mb-1 block text-xs font-semibold uppercase text-slate-500">Valor pago (opcional)</span>
+                <span className="mb-1 block text-xs font-semibold uppercase text-slate-500">
+                  Valor pago <span className="text-red-600">*</span>
+                </span>
+                {/* Como no app do banco: teclado numérico, e os números entram
+                    pela direita nos centavos (1-5-2-4-0 = R$ 152,40). */}
                 <input
-                  value={valor}
-                  onChange={(e) => setValor(e.target.value)}
-                  inputMode="decimal"
-                  placeholder="0,00"
-                  className={campo}
+                  value={mostrarDigitosEmReais(valor)}
+                  onChange={(e) => setValor(digitosDoValor(e.target.value))}
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  aria-label="Valor pago em reais"
+                  className={`${campo} text-right text-lg font-semibold tabular-nums ${valor ? "" : "text-slate-400"}`}
                 />
               </label>
               <label className="block sm:col-span-2">
@@ -780,7 +788,9 @@ export function TelaContingencia({
                 ? "Enviando..."
                 : fotos.length === 0
                   ? "Tire a foto para enviar"
-                  : online
+                  : !valor
+                    ? "Informe o valor para enviar"
+                    : online
                     ? "Enviar comprovante"
                     : "Guardar no celular (sem internet)"}
             </button>

@@ -4,6 +4,9 @@ import {
   LIMITES_QR,
   clienteCasa,
   codigoDigitado,
+  digitosDoValor,
+  mostrarDigitosEmReais,
+  valorDosDigitos,
   ehEnvioId,
   formatarCnpj,
   horaDoPagamento,
@@ -21,7 +24,7 @@ function eq(nome, obtido, esperado) {
 }
 
 const foto = (kb = 300, tipo = "image/jpeg") => ({ tamanho: kb * 1024, tipo });
-const base = { codPdv: "3163", valor: null, observacao: "", fotos: [foto()] };
+const base = { codPdv: "3163", valor: 152.4, observacao: "", fotos: [foto()] };
 
 console.log("== COMPROVANTE ==");
 eq("certo com uma foto", validarComprovante(base), null);
@@ -34,6 +37,15 @@ eq("envio acima do limite", validarComprovante({ ...base, fotos: [foto(2000), fo
 eq("arquivo que não é foto", validarComprovante({ ...base, fotos: [foto(100, "application/pdf")] }) !== null, true);
 eq("valor inválido", validarComprovante({ ...base, valor: NaN }), "Valor inválido. Use números, por exemplo 150,00.");
 eq("valor zero", validarComprovante({ ...base, valor: 0 }), "O valor precisa ser maior que zero.");
+eq("sem valor: obrigatório", validarComprovante({ ...base, valor: null }), "Informe o valor pago.");
+
+console.log("\n== CAMPO DE VALOR (teclado numérico, centavos pela direita) ==");
+eq("1-5-2-4-0 vira 152,40", valorDosDigitos(digitosDoValor("15240")), "152,40");
+eq("um dígito: 5 centavos", valorDosDigitos(digitosDoValor("5")), "0,05");
+eq("vazio", valorDosDigitos(digitosDoValor("")), "");
+eq("apagando a máscara 'R$ 152,4' (backspace)", valorDosDigitos(digitosDoValor("R$ 152,4")), "15,24");
+eq("mostra em reais", mostrarDigitosEmReais("15240").replace(/\s/g, " "), "R$ 152,40");
+eq("valor chega ao servidor certo", lerValor(valorDosDigitos("15240")), 152.4);
 
 console.log("\n== VALOR DIGITADO ==");
 eq("vazio", lerValor(""), null);
