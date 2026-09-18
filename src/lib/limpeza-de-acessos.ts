@@ -33,6 +33,7 @@ export const DIAS_SEM_ENTRAR = 60;
 export const TELAS_DO_MODULO: Partial<Record<ModuloId, string[]>> = {
   "ativo-giro": ["/ativo-de-giro"],
   "material-apoio": ["/material-de-apoio"],
+  "qr-contingencia": ["/qr-contingencia"],
   rotas: ["/minha-rota"],
   escala: ["/escala"],
   rv: ["/rv"],

@@ -19,6 +19,8 @@ const NOMES: { prefixo: string; nome: string; emoji: string }[] = [
   { prefixo: "/boas-praticas", nome: "Boas Práticas", emoji: "💡" },
   { prefixo: "/material-de-apoio", nome: "Material de Apoio", emoji: "🧰" },
   { prefixo: "/ativo-de-giro", nome: "Ativo de Giro", emoji: "📦" },
+  { prefixo: "/qr-contingencia", nome: "QR de Contingência", emoji: "📲" },
+  { prefixo: "/gestao/comprovantes-qr", nome: "Comprovantes do QR de Contingência", emoji: "🧾" },
   { prefixo: "/minha-rota", nome: "Minha Rota", emoji: "🚚" },
   { prefixo: "/minha-conta", nome: "Minha Conta", emoji: "👤" },
   { prefixo: "/escolher-revenda", nome: "Troca de revenda", emoji: "🏢" },

@@ -38,6 +38,7 @@ import {
   Megaphone,
   Newspaper,
   PackageCheck,
+  QrCode,
   Recycle,
   RotateCcw,
   Route,
@@ -63,6 +64,7 @@ const POR_CHAVE: Record<string, LucideIcon> = {
   // Minha rotina
   escala: CalendarDays,
   rota: Route,
+  "qr-contingencia": QrCode,
   rv: Wallet,
   "meus-indicadores": BarChart3,
   conta: Lock,

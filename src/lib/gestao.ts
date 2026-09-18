@@ -28,6 +28,7 @@ import type { ModuloId } from "./acessos";
 export type PainelId =
   | "anomalias"
   | "pdv"
+  | "comprovantes-qr"
   | "armazem"
   | "gas"
   | "cinco-s"
@@ -107,6 +108,18 @@ export const PAINEIS: Painel[] = [
     bloco: "Operação",
     modulo: "pdv-particularidades",
     pergunta: "Que cliente está bloqueado, e o que cada rota precisa saber antes de sair.",
+    mora: true,
+  },
+  {
+    // O controle do QR de contingência (18/09/2026): o que o motorista
+    // registrou, com as fotos, para o financeiro conciliar.
+    id: "comprovantes-qr",
+    rotulo: "Comprovantes do QR",
+    emoji: "🧾",
+    href: "/gestao/comprovantes-qr",
+    bloco: "Operação",
+    modulo: "qr-contingencia",
+    pergunta: "Quem pagou pelo QR de contingência, em qual mapa, e a foto do comprovante.",
     mora: true,
   },
   {

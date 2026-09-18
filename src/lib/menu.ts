@@ -18,6 +18,7 @@ export const MODULO_DO_ITEM: Record<string, ModuloId> = {
   feedback: "feedbacks",
   "ativo-giro": "ativo-giro",
   "material-apoio": "material-apoio",
+  "qr-contingencia": "qr-contingencia",
   quiz: "quiz",
   // Não é opcional: a revenda ligou, todo mundo vê (ver acessos.ts).
   "boas-praticas": "boas-praticas",
@@ -65,7 +66,9 @@ export const BLOCOS_DO_MENU = [
     id: "rotina",
     titulo: "Minha rotina",
     subtitulo: "Seus números e sua programação",
-    chaves: ["rv", "meus-indicadores", "escala", "rota"],
+    // QR de Contingência logo depois da pré-rota (18/09/2026): é o mesmo
+    // público, na mesma hora do dia -- o motorista na rua.
+    chaves: ["rv", "meus-indicadores", "escala", "rota", "qr-contingencia"],
   },
   {
     id: "operacao",
@@ -194,6 +197,8 @@ export const MENU_PADRAO: ItemMenu[] = [
   { chave: "escala", titulo: "Escala de Trabalho", emoji: "🗓️", href: "/escala", ordem: 5, visivel: true },
   { chave: "rv", titulo: "Minha RV", emoji: "💰", href: "/rv", ordem: 6, visivel: true },
   { chave: "rota", titulo: "Minha Rota", emoji: "🚚", href: "/minha-rota", ordem: 7, visivel: true },
+  // Módulo opcional (18/09/2026): o QR de contingência e os comprovantes.
+  { chave: "qr-contingencia", titulo: "QR de Contingência", emoji: "📲", href: "/qr-contingencia", ordem: 17, visivel: true },
   { chave: "feedback", titulo: "Feedback da Rota", emoji: "📝", href: "/feedback-rota", ordem: 8, visivel: true },
   // Módulo opcional: só aparece pra quem o Admin liberou (ver temAcessoModulo).
   { chave: "ativo-giro", titulo: "Ativo de Giro", emoji: "📦", href: "/ativo-de-giro", ordem: 10, visivel: true },

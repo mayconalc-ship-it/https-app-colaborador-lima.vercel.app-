@@ -30,6 +30,7 @@ export type ModuloId =
   | "rotas"
   | "ativo-giro"
   | "material-apoio"
+  | "qr-contingencia"
   | "quiz"
   | "boas-praticas"
   | "boas-praticas-config"
@@ -548,6 +549,28 @@ export const MODULOS: Modulo[] = [
     acoes: ["ver", "editar", "excluir"],
   },
   {
+    /*
+      QR DE CONTINGÊNCIA (18/09/2026, pedido do dono).
+
+      Opcional, pessoa a pessoa, como a pré-rota: quem tem o módulo abre o
+      QR e registra comprovante no app. A migration 126 deu o acesso de
+      partida a quem já tinha Minha Rota. No Modo Liderança: "ver" abre os
+      comprovantes na Gestão, "editar" cadastra o QR, "excluir" apaga
+      comprovante lançado por engano (o motorista só apaga o dele, no dia).
+    */
+    id: "qr-contingencia",
+    rotulosDeAcao: {
+      ver: "📊 Ver os comprovantes de pagamento na Gestão (e usar o QR no app)",
+      editar: "Cadastrar o QR Code, o CNPJ e a chave PIX de contingência",
+      excluir: "Apagar comprovante lançado por engano",
+    },
+    rotulo: "QR de Contingência",
+    emoji: "📲",
+    href: "/admin/qr-contingencia",
+    grupo: "Configuração",
+    acoes: ["ver", "editar", "excluir"],
+  },
+  {
     id: "quiz",
     rotulosDeAcao: {
       ver: "Abrir o Desafio no Modo Liderança (e no app)",
@@ -965,6 +988,7 @@ export const MODULOS: Modulo[] = [
 export const MODULOS_OPCIONAIS: ModuloId[] = [
   "ativo-giro",
   "material-apoio",
+  "qr-contingencia",
   "comunicados",
   "ranking",
   "padroes",

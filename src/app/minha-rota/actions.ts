@@ -5,7 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getRevendaId } from "@/lib/revendas";
 import { normalizarMapa, type CidadeEntregas } from "@/lib/rotas";
 import { avisosDoMapa, type AvisoNaRota, type AvisosDoMapa } from "@/lib/pdv-particularidades-server";
-import { codigoDaBase } from "@/lib/clientes-base";
+import { clientesDoMapa, type ClienteDaRota } from "@/lib/clientes-do-mapa-server";
 
 export type RotaEncontrada = {
   data: string;
@@ -34,15 +34,9 @@ export type RotaEncontrada = {
   clientes: ClienteDaRota[];
 };
 
-export type ClienteDaRota = {
-  codPdv: string;
-  /** Fantasia, e na falta dela a Razão Social. Nulo = fora da base. */
-  nome: string | null;
-  cidade: string | null;
-  bairro: string | null;
-  endereco: string | null;
-  telefone: string | null;
-};
+// Os clientes do mapa moram em lib/clientes-do-mapa-server desde
+// 18/09/2026: o QR de contingência faz a mesma pergunta.
+export type { ClienteDaRota };
 
 export type ResultadoConsulta =
   | { ok: true; rota: RotaEncontrada }
@@ -166,47 +160,3 @@ export async function consultarRota(
   };
 }
 
-/**
- * Quem está neste mapa, com o que a base de clientes sabe de cada um.
- *
- * SÓ OS CLIENTES DO MESMO DIA. O número do mapa se repete, e os pedidos de
- * cada dia mudam -- adivinhar pela lista de outro dia já foi medido e deu
- * 88% de cliente errado (ver lib/rotas). Sem a lista do dia, devolve vazio
- * e a tela mostra as cidades da pré-rota, como sempre.
- */
-async function clientesDoMapa(revendaId: string, mapa: string, data: string): Promise<ClienteDaRota[]> {
-  const admin = createAdminClient();
-  const { data: doMapa } = await admin
-    .from("pa_pdv_do_mapa")
-    .select("cod_pdv")
-    .eq("revenda_id", revendaId)
-    .eq("mapa", mapa)
-    .eq("data", data)
-    .limit(1000);
-
-  const codigos = [
-    ...new Set((doMapa ?? []).map((l) => codigoDaBase(l.cod_pdv)).filter((c): c is string => !!c)),
-  ];
-  if (codigos.length === 0) return [];
-
-  const { data: base, error } = await admin
-    .from("pa_pdv_clientes")
-    .select("cod_pdv, nome, fantasia, telefone, cidade, bairro, endereco")
-    .eq("revenda_id", revendaId)
-    .in("cod_pdv", codigos);
-  if (error) throw new Error(error.message);
-
-  const porCodigo = new Map((base ?? []).map((c) => [c.cod_pdv as string, c]));
-  return codigos.map((cod) => {
-    const c = porCodigo.get(cod);
-    const limpo = (v: unknown) => (typeof v === "string" && v.trim() ? v.trim() : null);
-    return {
-      codPdv: cod,
-      nome: limpo(c?.fantasia) ?? limpo(c?.nome),
-      cidade: limpo(c?.cidade),
-      bairro: limpo(c?.bairro),
-      endereco: limpo(c?.endereco),
-      telefone: limpo(c?.telefone),
-    };
-  });
-}
