@@ -31,6 +31,7 @@ import {
   excluirComprovante,
   registrarComprovante,
 } from "./actions";
+import { CameraNaTela } from "./CameraNaTela";
 
 export type ConfigParaTela = {
   qrUrl: string | null;
@@ -272,6 +273,27 @@ export function TelaContingencia({
     }
     setFotos((atual) => [...atual, ...novas]);
     setReduzindo(false);
+  }
+
+  // A câmera dentro da tela (ver CameraNaTela): a foto já vem no tamanho
+  // certo, sem passar pela redução.
+  const [cameraAberta, setCameraAberta] = useState(false);
+  const [avisoCamera, setAvisoCamera] = useState<string | null>(null);
+  const capturada = useCallback((arquivo: File) => {
+    setFotos((atual) =>
+      atual.length >= LIMITES_QR.fotosMax
+        ? atual
+        : [...atual, { id: `${Date.now()}-${Math.random()}`, arquivo, previa: URL.createObjectURL(arquivo) }],
+    );
+  }, []);
+  const cameraFalhou = useCallback((motivo: string) => {
+    setCameraAberta(false);
+    setAvisoCamera(motivo);
+  }, []);
+  function abrirCamera() {
+    setAvisoCamera(null);
+    if (typeof navigator.mediaDevices?.getUserMedia === "function") setCameraAberta(true);
+    else inputCamera.current?.click();
   }
 
   function tirarFoto(id: string) {
@@ -663,7 +685,7 @@ export function TelaContingencia({
               <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
-                  onClick={() => inputCamera.current?.click()}
+                  onClick={abrirCamera}
                   disabled={reduzindo || fotos.length >= LIMITES_QR.fotosMax}
                   className="rounded-xl bg-slate-800 px-3 py-3 text-sm font-semibold text-white disabled:opacity-40"
                 >
@@ -679,6 +701,27 @@ export function TelaContingencia({
                 </button>
               </div>
               {reduzindo && <p className="mt-2 text-xs text-slate-500">Preparando a foto...</p>}
+              {avisoCamera && <p className="mt-2 rounded-lg bg-amber-50 p-2 text-xs text-amber-900">{avisoCamera}</p>}
+              {/* O jeito antigo (aplicativo de câmera do celular), de reserva:
+                  câmera da tela negada, ou aparelho sem suporte. */}
+              <button
+                type="button"
+                onClick={() => inputCamera.current?.click()}
+                disabled={reduzindo || fotos.length >= LIMITES_QR.fotosMax}
+                className={`mt-2 w-full text-center text-xs underline disabled:opacity-40 ${
+                  avisoCamera ? "font-semibold text-primary" : "text-slate-500"
+                }`}
+              >
+                Usar a câmera do celular
+              </button>
+              {cameraAberta && (
+                <CameraNaTela
+                  restantes={LIMITES_QR.fotosMax - fotos.length}
+                  aoCapturar={capturada}
+                  aoFechar={() => setCameraAberta(false)}
+                  aoFalhar={cameraFalhou}
+                />
+              )}
               <input
                 ref={inputCamera}
                 type="file"
