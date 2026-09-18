@@ -117,6 +117,13 @@ export function TelaContingencia({
   const inputCamera = useRef<HTMLInputElement>(null);
   const inputGaleria = useRef<HTMLInputElement>(null);
 
+  // Escolheu o cliente lá embaixo numa lista longa: a tela sobe até ele e o
+  // QR, que é o que vai ser mostrado agora.
+  const secaoPagamento = useRef<HTMLElement>(null);
+  useEffect(() => {
+    if (cliente) secaoPagamento.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [cliente]);
+
   // ---- MODO SEM INTERNET (18/09/2026) ----
   const [online, setOnline] = useState(true);
   const [qrSrc, setQrSrc] = useState<string | null>(config.qrUrl);
@@ -511,43 +518,15 @@ export function TelaContingencia({
         </p>
       )}
 
-      {/* ---- O QR, primeiro: é o que o cliente precisa ver ---- */}
-      <section className="rounded-2xl border border-slate-200 bg-white p-4 text-center shadow-sm">
-        <h2 className="text-sm font-bold uppercase tracking-wide text-slate-500">QR Code de contingência</h2>
-        {qrSrc ? (
-          // eslint-disable-next-line @next/next/no-img-element -- link assinado e temporário, fora do otimizador
-          <img
-            src={qrSrc}
-            // Link expirado ou sem sinal: a cópia guardada no celular.
-            onError={() => {
-              const guardada = lerConfigGuardada()?.qrDataUrl;
-              if (guardada && guardada !== qrSrc) setQrSrc(guardada);
-            }}
-            alt="QR Code PIX de contingência"
-            className="mx-auto my-3 aspect-square w-full max-w-[280px] rounded-xl border border-slate-100 object-contain"
-          />
-        ) : (
-          <p className="my-3 rounded-xl bg-amber-50 p-3 text-sm text-amber-900">
-            A liderança ainda não cadastrou o QR Code. Peça para cadastrar em Modo Liderança → Comprovante de Pagamento.
-          </p>
-        )}
-        {config.favorecido && <p className="text-base font-semibold text-slate-900">{config.favorecido}</p>}
-        {config.cnpj && <p className="text-sm tabular-nums text-slate-600">CNPJ {formatarCnpj(config.cnpj)}</p>}
-        {config.chavePix && (
-          <button
-            type="button"
-            onClick={copiarPix}
-            className="mt-3 w-full rounded-xl border border-primary px-4 py-3 text-sm font-semibold text-primary"
-          >
-            {copiado ? "✅ Código copiado" : "📋 Copiar código PIX (copia e cola)"}
-          </button>
-        )}
-        {config.instrucoes && <p className="mt-3 text-left text-xs text-slate-500">{config.instrucoes}</p>}
-      </section>
-
-      {/* ---- Registrar o comprovante ---- */}
-      <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-        <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-slate-500">Registrar comprovante</h2>
+      {/* ---- Registrar o comprovante ----
+          A ORDEM DA RUA (pedido do dono, 18/09/2026): a tela abre na busca
+          do mapa e do cliente; o QR só aparece DEPOIS de escolher o
+          cliente, com o nome dele em cima -- é quando o motorista vira o
+          celular para quem vai pagar. Depois, fotos e valor. */}
+      <section ref={secaoPagamento} className="scroll-mt-24 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+        <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-slate-500">
+          {cliente ? "Pagamento do cliente" : "Qual cliente vai pagar?"}
+        </h2>
 
         {!cliente ? (
           <div className="space-y-3">
@@ -688,6 +667,40 @@ export function TelaContingencia({
               >
                 Trocar
               </button>
+            </div>
+
+            {/* O QR, para o cliente ler. */}
+            <div className="rounded-2xl border-2 border-primary/20 bg-white p-4 text-center">
+              <p className="text-xs font-bold uppercase tracking-wide text-primary-dark">Mostre ao cliente para pagar</p>
+              {qrSrc ? (
+                // eslint-disable-next-line @next/next/no-img-element -- link assinado e temporário, fora do otimizador
+                <img
+                  src={qrSrc}
+                  // Link expirado ou sem sinal: a cópia guardada no celular.
+                  onError={() => {
+                    const guardada = lerConfigGuardada()?.qrDataUrl;
+                    if (guardada && guardada !== qrSrc) setQrSrc(guardada);
+                  }}
+                  alt="QR Code PIX de contingência"
+                  className="mx-auto my-3 aspect-square w-full max-w-[280px] rounded-xl border border-slate-100 object-contain"
+                />
+              ) : (
+                <p className="my-3 rounded-xl bg-amber-50 p-3 text-sm text-amber-900">
+                  A liderança ainda não cadastrou o QR Code. Peça para cadastrar em Modo Liderança → Comprovante de Pagamento.
+                </p>
+              )}
+              {config.favorecido && <p className="text-base font-semibold text-slate-900">{config.favorecido}</p>}
+              {config.cnpj && <p className="text-sm tabular-nums text-slate-600">CNPJ {formatarCnpj(config.cnpj)}</p>}
+              {config.chavePix && (
+                <button
+                  type="button"
+                  onClick={copiarPix}
+                  className="mt-3 w-full rounded-xl border border-primary px-4 py-3 text-sm font-semibold text-primary"
+                >
+                  {copiado ? "✅ Código copiado" : "📋 Copiar código PIX (copia e cola)"}
+                </button>
+              )}
+              {config.instrucoes && <p className="mt-3 text-left text-xs text-slate-500">{config.instrucoes}</p>}
             </div>
 
             <div>
