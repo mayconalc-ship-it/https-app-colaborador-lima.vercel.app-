@@ -127,6 +127,10 @@ export type ComprovanteComFotos = {
   colaboradorId: string | null;
   colaboradorNome: string;
   criadoEm: string;
+  /** Quando foi feito na frente do cliente (no modo sem internet, antes do envio). */
+  pagoEm: string;
+  /** Chegou ao servidor mais de 15 min depois de feito -- veio da fila sem internet. */
+  enviadoDepois: boolean;
   fotos: { id: string; url: string | null }[];
 };
 
@@ -144,6 +148,7 @@ export async function comFotos(
     colaborador_id: string | null;
     colaborador_nome: string;
     criado_em: string;
+    pago_em: string | null;
   }[],
 ): Promise<ComprovanteComFotos[]> {
   if (linhas.length === 0) return [];
@@ -171,6 +176,9 @@ export async function comFotos(
     colaboradorId: l.colaborador_id,
     colaboradorNome: l.colaborador_nome,
     criadoEm: l.criado_em,
+    pagoEm: l.pago_em ?? l.criado_em,
+    enviadoDepois:
+      Boolean(l.pago_em) && new Date(l.criado_em).getTime() - new Date(l.pago_em!).getTime() > 15 * 60_000,
     fotos: fotos
       .filter((f) => f.comprovante_id === l.id)
       .map((f) => ({ id: f.id, url: links.get(f.caminho) ?? null })),
@@ -178,4 +186,4 @@ export async function comFotos(
 }
 
 export const COLUNAS_COMPROVANTE =
-  "id, data, mapa, cod_pdv, cliente_nome, cliente_cidade, valor, observacao, colaborador_id, colaborador_nome, criado_em";
+  "id, data, mapa, cod_pdv, cliente_nome, cliente_cidade, valor, observacao, colaborador_id, colaborador_nome, criado_em, pago_em";

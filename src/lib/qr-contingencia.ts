@@ -71,6 +71,32 @@ export function validarComprovante(d: DadosDoComprovante): string | null {
   return null;
 }
 
+/**
+ * A HORA DO PAGAMENTO vinda do celular (modo sem internet): vale se for dos
+ * últimos 7 dias e não do futuro (10 min de folga para relógio adiantado).
+ * Fora disso, o servidor usa a hora do envio -- relógio errado no celular
+ * não pode jogar um comprovante para outro mês.
+ */
+export const DIAS_MAXIMOS_NA_FILA = 7;
+
+export function horaDoPagamento(informada: unknown, agora: Date = new Date()): Date {
+  const t = new Date(String(informada ?? ""));
+  if (Number.isNaN(t.getTime())) return agora;
+  const diff = agora.getTime() - t.getTime();
+  if (diff < -10 * 60_000 || diff > DIAS_MAXIMOS_NA_FILA * 86_400_000) return agora;
+  return t;
+}
+
+/** Código de cliente digitado à mão: só dígitos, sem zeros à esquerda. */
+export function codigoDigitado(v: string) {
+  return v.replace(/\D/g, "").replace(/^0+/, "");
+}
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+export function ehEnvioId(v: unknown): v is string {
+  return typeof v === "string" && UUID.test(v);
+}
+
 /** Para a busca: sem acento, sem caixa. */
 export function normalizarBusca(s: string) {
   return s

@@ -1,11 +1,25 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { ClienteDaRota } from "@/lib/clientes-do-mapa-server";
 import {
+  formularioDoPendente,
+  guardarConfig,
+  guardarMapa,
+  guardarPendente,
+  lerConfigGuardada,
+  listarPendentes,
+  mapaGuardado,
+  novoEnvioId,
+  registrarModoSemInternet,
+  removerPendente,
+  type ComprovantePendente,
+} from "@/lib/qr-offline";
+import {
   LIMITES_QR,
   clienteCasa,
+  codigoDigitado,
   formatarCnpj,
   formatarReais,
   lerValor,
@@ -89,6 +103,13 @@ export function TelaContingencia({
   const inputCamera = useRef<HTMLInputElement>(null);
   const inputGaleria = useRef<HTMLInputElement>(null);
 
+  // ---- MODO SEM INTERNET (18/09/2026) ----
+  const [online, setOnline] = useState(true);
+  const [qrSrc, setQrSrc] = useState<string | null>(config.qrUrl);
+  const [pendentes, setPendentes] = useState<ComprovantePendente[]>([]);
+  const [manual, setManual] = useState<{ codigo: string; nome: string } | null>(null);
+  const sincronizando = useRef(false);
+
   // O último mapa usado volta preenchido: o motorista faz vários clientes
   // do mesmo mapa no dia.
   useEffect(() => {
@@ -101,6 +122,75 @@ export function TelaContingencia({
     }
   }, []);
 
+  // Guarda a página (service worker) e o QR no celular. Com sinal, a cópia
+  // guardada é renovada a cada abertura -- QR trocado na liderança chega.
+  useEffect(() => {
+    registrarModoSemInternet();
+    const atualizar = () => setOnline(navigator.onLine);
+    atualizar();
+    window.addEventListener("online", atualizar);
+    window.addEventListener("offline", atualizar);
+    if (navigator.onLine) {
+      guardarConfig({
+        qrUrl: config.qrUrl,
+        favorecido: config.favorecido,
+        cnpj: config.cnpj,
+        chavePix: config.chavePix,
+        instrucoes: config.instrucoes,
+      });
+    } else {
+      const guardada = lerConfigGuardada();
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- leitura única do armazenamento do celular
+      if (guardada?.qrDataUrl) setQrSrc(guardada.qrDataUrl);
+    }
+    return () => {
+      window.removeEventListener("online", atualizar);
+      window.removeEventListener("offline", atualizar);
+    };
+  }, [config]);
+
+  /** Envia o que está na fila do celular, um por vez, na ordem em que foi feito. */
+  const sincronizar = useCallback(async () => {
+    if (sincronizando.current || !navigator.onLine) return;
+    sincronizando.current = true;
+    try {
+      let enviados = 0;
+      for (const p of await listarPendentes()) {
+        let r: Awaited<ReturnType<typeof registrarComprovante>>;
+        try {
+          r = await registrarComprovante(formularioDoPendente(p));
+        } catch {
+          break; // o sinal caiu de novo: tenta na próxima
+        }
+        if (r.ok) {
+          await removerPendente(p.envioId);
+          enviados++;
+        } else {
+          await guardarPendente({ ...p, erro: r.erro, definitivo: r.definitivo });
+        }
+      }
+      setPendentes(await listarPendentes());
+      if (enviados > 0) {
+        setAviso({ tipo: "ok", texto: `${enviados} comprovante(s) guardado(s) no celular foram enviados.` });
+        router.refresh();
+      }
+    } finally {
+      sincronizando.current = false;
+    }
+  }, [router]);
+
+  // Tenta ao abrir, quando o sinal volta e, com fila, a cada minuto.
+  useEffect(() => {
+    listarPendentes().then(setPendentes);
+    sincronizar();
+    window.addEventListener("online", sincronizar);
+    const relogio = setInterval(sincronizar, 60_000);
+    return () => {
+      window.removeEventListener("online", sincronizar);
+      clearInterval(relogio);
+    };
+  }, [sincronizar]);
+
   // As prévias das fotos são URLs do navegador; soltam a memória ao sair
   // da tela (as removidas uma a uma são soltas em `tirarFoto`).
   const fotosAtuais = useRef<Foto[]>([]);
@@ -109,26 +199,48 @@ export function TelaContingencia({
   }, [fotos]);
   useEffect(() => () => fotosAtuais.current.forEach((f) => URL.revokeObjectURL(f.previa)), []);
 
+  function usarMapa(r: { mapa: string; data: string; clientes: ClienteDaRota[] }, guardado: boolean) {
+    setRota(r);
+    setFiltro("");
+    try {
+      localStorage.setItem(CHAVE_MAPA, mapa);
+    } catch {
+      // Lembrar o mapa é conveniência, não regra.
+    }
+    if (r.clientes.length === 0) {
+      setErroMapa("Este mapa não trouxe a lista de clientes do dia. Procure o cliente pelo nome ou informe o código.");
+    } else if (guardado) {
+      setErroMapa("Sem internet: usando a lista deste mapa guardada no celular.");
+    }
+  }
+
   function buscarMapa() {
     setErroMapa(null);
     setDaBase(null);
     iniciarBusca(async () => {
-      const r = await buscarClientesDoMapa(mapa);
+      // Sem sinal: a lista guardada da última vez que este mapa foi buscado.
+      const semSinal = () => {
+        const g = mapaGuardado(mapa);
+        if (g) return usarMapa(g, true);
+        setRota(null);
+        setErroMapa(
+          "Sem internet, e este mapa não foi buscado antes neste celular. Informe o código do cliente abaixo — o comprovante fica guardado e sobe quando o sinal voltar.",
+        );
+      };
+      if (!navigator.onLine) return semSinal();
+      let r: Awaited<ReturnType<typeof buscarClientesDoMapa>>;
+      try {
+        r = await buscarClientesDoMapa(mapa);
+      } catch {
+        return semSinal();
+      }
       if (!r.ok) {
         setRota(null);
         setErroMapa(r.erro);
         return;
       }
-      setRota(r);
-      setFiltro("");
-      try {
-        localStorage.setItem(CHAVE_MAPA, mapa);
-      } catch {
-        // Lembrar o mapa é conveniência, não regra.
-      }
-      if (r.clientes.length === 0) {
-        setErroMapa("Este mapa não trouxe a lista de clientes do dia. Procure o cliente pelo nome ou código abaixo.");
-      }
+      guardarMapa({ mapa: r.mapa, data: r.data, clientes: r.clientes });
+      usarMapa(r, false);
     });
   }
 
@@ -139,7 +251,14 @@ export function TelaContingencia({
     [rota, filtro],
   );
   function buscarNaBase() {
-    iniciarBusca(async () => setDaBase(await buscarClientesNaBase(filtro)));
+    iniciarBusca(async () => {
+      try {
+        setDaBase(await buscarClientesNaBase(filtro));
+      } catch {
+        setDaBase([]);
+        setErroMapa("Sem internet para procurar em todos os clientes. Informe o código do cliente abaixo.");
+      }
+    });
   }
 
   async function adicionarFotos(lista: FileList | null) {
@@ -171,31 +290,78 @@ export function TelaContingencia({
     fotos: fotos.map((f) => ({ tamanho: f.arquivo.size, tipo: f.arquivo.type })),
   });
 
+  function limparFormulario() {
+    setCliente(null);
+    fotos.forEach((f) => URL.revokeObjectURL(f.previa));
+    setFotos([]);
+    setValor("");
+    setObservacao("");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  /**
+   * Com sinal, envia na hora. Sem sinal -- ou se o sinal cair no meio --
+   * guarda no celular com um id próprio e a hora de agora, e a fila envia
+   * depois. O id impede que o mesmo comprovante entre duas vezes.
+   */
   function enviar() {
     if (!cliente || problema) return;
     setAviso(null);
-    const dados = new FormData();
-    dados.set("cod_pdv", cliente.codPdv);
-    dados.set("cliente_nome", cliente.nome ?? "");
-    dados.set("mapa", rota?.mapa ?? mapa);
-    dados.set("valor", valor);
-    dados.set("observacao", observacao);
-    for (const f of fotos) dados.append("fotos", f.arquivo);
+    const pendente: ComprovantePendente = {
+      envioId: novoEnvioId(),
+      codPdv: cliente.codPdv,
+      clienteNome: cliente.nome ?? "",
+      mapa: rota?.mapa ?? mapa,
+      valor,
+      observacao,
+      fotos: fotos.map((f) => f.arquivo),
+      pagoEm: new Date().toISOString(),
+    };
+    const guardarNoCelular = async (motivo: string) => {
+      if (!(await guardarPendente(pendente))) {
+        setAviso({
+          tipo: "erro",
+          texto: "Sem internet, e o celular não conseguiu guardar o comprovante. Tente de novo quando tiver sinal.",
+        });
+        return;
+      }
+      setPendentes(await listarPendentes());
+      setAviso({ tipo: "ok", texto: `${motivo} O comprovante ficou guardado no celular e será enviado sozinho quando o sinal voltar.` });
+      limparFormulario();
+    };
     iniciarEnvio(async () => {
-      const r = await registrarComprovante(dados);
+      if (!navigator.onLine) return guardarNoCelular("Sem internet.");
+      let r: Awaited<ReturnType<typeof registrarComprovante>>;
+      try {
+        r = await registrarComprovante(formularioDoPendente(pendente));
+      } catch {
+        return guardarNoCelular("O sinal caiu no envio.");
+      }
       if (!r.ok) {
-        setAviso({ tipo: "erro", texto: r.erro });
+        // Problema do próprio comprovante: mostra e deixa corrigir. Falha
+        // passageira (sessão, servidor): guarda e tenta depois.
+        if (r.definitivo) setAviso({ tipo: "erro", texto: r.erro });
+        else await guardarNoCelular(r.erro);
         return;
       }
       setAviso({ tipo: "ok", texto: r.mensagem });
-      setCliente(null);
-      fotos.forEach((f) => URL.revokeObjectURL(f.previa));
-      setFotos([]);
-      setValor("");
-      setObservacao("");
+      limparFormulario();
       router.refresh();
-      window.scrollTo({ top: 0, behavior: "smooth" });
     });
+  }
+
+  function usarManual() {
+    if (!manual) return;
+    const codigo = codigoDigitado(manual.codigo);
+    if (!codigo) return;
+    setCliente({ codPdv: codigo, nome: manual.nome.trim() || null, cidade: null, bairro: null, endereco: null, telefone: null });
+    setManual(null);
+  }
+
+  async function descartarPendente(p: ComprovantePendente) {
+    if (!confirm(`Descartar o comprovante de ${p.clienteNome || `cliente ${p.codPdv}`}? As fotos guardadas no celular somem.`)) return;
+    await removerPendente(p.envioId);
+    setPendentes(await listarPendentes());
   }
 
   function apagar(id: string) {
@@ -220,6 +386,60 @@ export function TelaContingencia({
 
   return (
     <div className="space-y-5">
+      {!online && (
+        <p role="status" className="rounded-xl bg-slate-800 p-3 text-sm font-medium text-white">
+          📵 Sem internet. O QR continua aqui, e o comprovante que você registrar fica guardado no celular e é enviado
+          sozinho quando o sinal voltar.
+        </p>
+      )}
+
+      {pendentes.length > 0 && (
+        <section className="rounded-2xl border border-amber-300 bg-amber-50 p-4">
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="text-sm font-bold text-amber-900">⏳ Aguardando envio ({pendentes.length})</h2>
+            {online && (
+              <button
+                type="button"
+                onClick={() => sincronizar()}
+                className="rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white"
+              >
+                Enviar agora
+              </button>
+            )}
+          </div>
+          <p className="mt-1 text-xs text-amber-900">
+            Guardados neste celular. Não desinstale o app nem limpe os dados do navegador antes de enviar.
+          </p>
+          <ul className="mt-2 space-y-1.5">
+            {pendentes.map((p) => (
+              <li key={p.envioId} className="rounded-lg bg-white p-2.5 text-sm">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="truncate font-medium text-slate-900">{p.clienteNome || `Cliente ${p.codPdv}`}</p>
+                    <p className="text-xs text-slate-500">
+                      {new Date(p.pagoEm).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
+                      {" · "}
+                      {p.fotos.length} foto(s)
+                      {p.mapa && ` · mapa ${p.mapa}`}
+                    </p>
+                    {p.erro && <p className="mt-0.5 text-xs text-red-600">{p.erro}</p>}
+                  </div>
+                  {p.definitivo && (
+                    <button
+                      type="button"
+                      onClick={() => descartarPendente(p)}
+                      className="shrink-0 rounded-md border border-red-200 px-2 py-0.5 text-xs font-semibold text-red-600"
+                    >
+                      Descartar
+                    </button>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
       {aviso && (
         <p
           role="status"
@@ -235,10 +455,15 @@ export function TelaContingencia({
       {/* ---- O QR, primeiro: é o que o cliente precisa ver ---- */}
       <section className="rounded-2xl border border-slate-200 bg-white p-4 text-center shadow-sm">
         <h2 className="text-sm font-bold uppercase tracking-wide text-slate-500">QR Code de contingência</h2>
-        {config.qrUrl ? (
+        {qrSrc ? (
           // eslint-disable-next-line @next/next/no-img-element -- link assinado e temporário, fora do otimizador
           <img
-            src={config.qrUrl}
+            src={qrSrc}
+            // Link expirado ou sem sinal: a cópia guardada no celular.
+            onError={() => {
+              const guardada = lerConfigGuardada()?.qrDataUrl;
+              if (guardada && guardada !== qrSrc) setQrSrc(guardada);
+            }}
             alt="QR Code PIX de contingência"
             className="mx-auto my-3 aspect-square w-full max-w-[280px] rounded-xl border border-slate-100 object-contain"
           />
@@ -316,7 +541,54 @@ export function TelaContingencia({
               </>
             )}
 
-            {filtro.trim().length >= LIMITES_QR.buscaMin && (
+            {/* Cliente fora da lista, ou sem sinal para buscar: o código à
+                mão. O servidor completa o nome pela base quando enviar. */}
+            {manual ? (
+              <div className="space-y-2 rounded-xl border border-slate-200 p-3">
+                <input
+                  value={manual.codigo}
+                  onChange={(e) => setManual({ ...manual, codigo: e.target.value })}
+                  inputMode="numeric"
+                  placeholder="Código do cliente"
+                  aria-label="Código do cliente"
+                  className={campo}
+                />
+                <input
+                  value={manual.nome}
+                  onChange={(e) => setManual({ ...manual, nome: e.target.value })}
+                  placeholder="Nome do cliente (opcional)"
+                  aria-label="Nome do cliente"
+                  className={campo}
+                />
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={usarManual}
+                    disabled={!codigoDigitado(manual.codigo)}
+                    className="flex-1 rounded-xl bg-primary px-3 py-2.5 text-sm font-semibold text-white disabled:opacity-40"
+                  >
+                    Usar este cliente
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setManual(null)}
+                    className="rounded-xl border border-slate-300 px-3 py-2.5 text-sm text-slate-600"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setManual({ codigo: "", nome: "" })}
+                className="w-full rounded-xl border border-dashed border-slate-300 px-4 py-2.5 text-sm text-slate-600"
+              >
+                ✍️ Cliente não está na lista? Informar o código
+              </button>
+            )}
+
+            {filtro.trim().length >= LIMITES_QR.buscaMin && online && (
               <div className="space-y-2">
                 {daBase === null ? (
                   <button
@@ -461,7 +733,13 @@ export function TelaContingencia({
               disabled={Boolean(problema) || enviando || reduzindo}
               className="w-full rounded-xl bg-primary px-4 py-3.5 text-base font-bold text-white disabled:cursor-not-allowed disabled:opacity-40"
             >
-              {enviando ? "Enviando..." : fotos.length === 0 ? "Tire a foto para enviar" : "Enviar comprovante"}
+              {enviando
+                ? "Enviando..."
+                : fotos.length === 0
+                  ? "Tire a foto para enviar"
+                  : online
+                    ? "Enviar comprovante"
+                    : "Guardar no celular (sem internet)"}
             </button>
           </div>
         )}

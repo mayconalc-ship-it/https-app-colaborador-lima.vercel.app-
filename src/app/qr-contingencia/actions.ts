@@ -12,7 +12,15 @@ import {
 } from "@/lib/clientes-do-mapa-server";
 import { apagarDoBucket, guardarNoBucket, hojeNaOperacao } from "@/lib/qr-contingencia-server";
 import { normalizarMapa } from "@/lib/rotas";
-import { LIMITES_QR, MODULO_QR, lerValor, validarComprovante } from "@/lib/qr-contingencia";
+import {
+  LIMITES_QR,
+  MODULO_QR,
+  codigoDigitado,
+  ehEnvioId,
+  horaDoPagamento,
+  lerValor,
+  validarComprovante,
+} from "@/lib/qr-contingencia";
 
 const ROTA = "/qr-contingencia";
 
@@ -49,7 +57,12 @@ export async function buscarClientesNaBase(termo: string): Promise<ClienteDaRota
   return buscarNaBaseDeClientes(c.revendaId, termo);
 }
 
-export type ResultadoEnvio = { ok: true; mensagem: string } | { ok: false; erro: string };
+/**
+ * `definitivo`: o problema é do comprovante (sem foto, valor torto) e
+ * tentar de novo não resolve. Sem ele, a fila do celular tenta outra vez
+ * mais tarde (sessão expirada, falha do servidor).
+ */
+export type ResultadoEnvio = { ok: true; mensagem: string } | { ok: false; erro: string; definitivo?: boolean };
 
 /**
  * REGISTRA O COMPROVANTE: cliente + fotos (obrigatório) + valor e
@@ -68,8 +81,13 @@ export async function registrarComprovante(formData: FormData): Promise<Resultad
   if (!c.ok) return c;
   const { perfil, revendaId } = c;
 
-  const codPdv = String(formData.get("cod_pdv") ?? "").replace(/\D/g, "").replace(/^0+/, "");
+  const codPdv = codigoDigitado(String(formData.get("cod_pdv") ?? ""));
   const mapa = normalizarMapa(String(formData.get("mapa") ?? "")) || null;
+  // Modo sem internet: o celular manda um id próprio e a hora em que o
+  // comprovante foi feito na frente do cliente.
+  const envioBruto = formData.get("envio_id");
+  const envioId = ehEnvioId(envioBruto) ? envioBruto : null;
+  const pagoEm = horaDoPagamento(formData.get("pago_em"));
   const valor = lerValor(formData.get("valor"));
   const observacao = String(formData.get("observacao") ?? "").trim();
   const fotos = formData.getAll("fotos").filter((f): f is File => f instanceof File && f.size > 0);
@@ -80,9 +98,18 @@ export async function registrarComprovante(formData: FormData): Promise<Resultad
     observacao,
     fotos: fotos.map((f) => ({ tamanho: f.size, tipo: f.type })),
   });
-  if (problema) return { ok: false, erro: problema };
+  if (problema) return { ok: false, erro: problema, definitivo: true };
 
   const admin = createAdminClient();
+
+  // O MESMO ENVIO DE NOVO -- o sinal caiu depois de o servidor gravar e
+  // antes de a resposta chegar ao celular, que tentou outra vez. Responde
+  // "ok" sem gravar nada: para o motorista, o comprovante está lá.
+  if (envioId) {
+    const { data: jaTem } = await admin.from("qr_comprovantes").select("id").eq("envio_id", envioId).maybeSingle();
+    if (jaTem) return { ok: true, mensagem: "Comprovante já estava registrado." };
+  }
+
   const { data: cliente } = await admin
     .from("pa_pdv_clientes")
     .select("nome, fantasia, cidade")
@@ -93,7 +120,7 @@ export async function registrarComprovante(formData: FormData): Promise<Resultad
   const clienteNome = (cliente?.fantasia || cliente?.nome || nomeInformado || null)?.trim().slice(0, 160) ?? null;
   const clienteCidade = (cliente?.cidade ?? null)?.trim().slice(0, 80) || null;
 
-  const dia = hojeNaOperacao();
+  const dia = hojeNaOperacao(pagoEm);
   const pasta = `${revendaId}/${dia}/${codPdv}`;
   const caminhos: string[] = [];
   for (const f of fotos) {
@@ -118,11 +145,15 @@ export async function registrarComprovante(formData: FormData): Promise<Resultad
       observacao: observacao || null,
       colaborador_id: perfil.id,
       colaborador_nome: perfil.nome,
+      envio_id: envioId,
+      pago_em: pagoEm.toISOString(),
     })
     .select("id")
     .single();
   if (error || !gravado) {
     await apagarDoBucket(caminhos);
+    // Duas tentativas do mesmo envio chegando juntas: a outra gravou.
+    if (error?.code === "23505" && envioId) return { ok: true, mensagem: "Comprovante já estava registrado." };
     return { ok: false, erro: `Não foi possível registrar: ${error?.message ?? "resposta vazia"}` };
   }
 

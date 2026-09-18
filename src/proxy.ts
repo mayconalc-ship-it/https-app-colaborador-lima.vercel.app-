@@ -117,6 +117,8 @@ export const config = {
     // Lembrete do jornal, aviso de auditoria 5S e cutucao do desafio
     // simplesmente nao saiam. A rota tem trava propria (Bearer
     // CRON_SECRET), entao ficar fora da sessao e o desenho certo.
-    "/((?!_next/static|_next/image|favicon.ico|sw.js|manifest.json|api/cron|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    // sw-qr.js (18/09/2026) pelo mesmo motivo: é o service worker do QR de
+    // contingência, que guarda a tela para abrir sem sinal.
+    "/((?!_next/static|_next/image|favicon.ico|sw.js|sw-qr.js|manifest.json|api/cron|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };

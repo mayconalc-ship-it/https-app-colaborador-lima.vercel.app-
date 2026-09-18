@@ -124,7 +124,7 @@ export default async function ComprovantesQrPage({
           cabecalho={["Data", "Hora", "Mapa", "Código do cliente", "Cliente", "Cidade", "Valor", "Motorista", "Fotos", "Observação"]}
           linhas={filtradas.map((l) => [
             dataBr(l.data),
-            hora(l.criado_em),
+            hora(l.pago_em ?? l.criado_em),
             l.mapa ?? "",
             l.cod_pdv,
             l.cliente_nome ?? "",
@@ -150,11 +150,14 @@ export default async function ComprovantesQrPage({
                 <div className="min-w-0">
                   <p className="font-semibold text-slate-900">{c.clienteNome ?? `Cliente ${c.codPdv}`}</p>
                   <p className="text-xs text-slate-500">
-                    {dataBr(c.data)} {hora(c.criadoEm)} · código {c.codPdv}
+                    {dataBr(c.data)} {hora(c.pagoEm)} · código {c.codPdv}
                     {c.clienteCidade && ` · ${c.clienteCidade}`}
                     {c.mapa && ` · mapa ${c.mapa}`}
                   </p>
-                  <p className="text-xs text-slate-500">Registrado por {c.colaboradorNome}</p>
+                  <p className="text-xs text-slate-500">
+                    Registrado por {c.colaboradorNome}
+                    {c.enviadoDepois && ` · feito sem internet, enviado às ${hora(c.criadoEm)}`}
+                  </p>
                   {c.observacao && <p className="mt-1 text-sm text-slate-700">“{c.observacao}”</p>}
                 </div>
                 <div className="flex items-center gap-2">

@@ -3,7 +3,10 @@
 import {
   LIMITES_QR,
   clienteCasa,
+  codigoDigitado,
+  ehEnvioId,
   formatarCnpj,
+  horaDoPagamento,
   lerValor,
   validarComprovante,
   validarConfigQr,
@@ -55,6 +58,18 @@ eq("certa", validarConfigQr(cfg), null);
 eq("sem imagem do QR", validarConfigQr({ ...cfg, temQr: false }) !== null, true);
 eq("CNPJ curto", validarConfigQr({ ...cfg, cnpj: "5475151700022" }), "O CNPJ precisa ter 14 dígitos.");
 eq("CNPJ formatado", formatarCnpj("54751517000222"), "54.751.517/0002-22");
+
+console.log("\n== MODO SEM INTERNET ==");
+const agora = new Date("2026-09-18T15:00:00Z");
+eq("hora de 2 h atrás vale", horaDoPagamento("2026-09-18T13:00:00Z", agora).toISOString(), "2026-09-18T13:00:00.000Z");
+eq("de 3 dias atrás vale", horaDoPagamento("2026-09-15T13:00:00Z", agora).toISOString(), "2026-09-15T13:00:00.000Z");
+eq("de 8 dias atrás: usa agora", horaDoPagamento("2026-09-10T13:00:00Z", agora).toISOString(), agora.toISOString());
+eq("do futuro: usa agora", horaDoPagamento("2026-09-18T16:00:00Z", agora).toISOString(), agora.toISOString());
+eq("5 min adiantado vale", horaDoPagamento("2026-09-18T15:05:00Z", agora).toISOString(), "2026-09-18T15:05:00.000Z");
+eq("lixo: usa agora", horaDoPagamento("ontem", agora).toISOString(), agora.toISOString());
+eq("id de envio válido", ehEnvioId("3f2b8c1e-9d4a-4f6b-8e2c-1a2b3c4d5e6f"), true);
+eq("id de envio inválido", ehEnvioId("1; drop table"), false);
+eq("código digitado", codigoDigitado(" 0003163 "), "3163");
 
 console.log(falhas === 0 ? "\nTUDO CERTO" : `\n${falhas} FALHA(S)`);
 process.exit(falhas === 0 ? 0 : 1);

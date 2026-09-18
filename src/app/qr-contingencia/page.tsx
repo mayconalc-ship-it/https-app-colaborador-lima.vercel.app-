@@ -57,7 +57,7 @@ export default async function QrContingenciaPage() {
           codPdv: c.codPdv,
           clienteNome: c.clienteNome,
           valor: c.valor,
-          hora: hora(c.criadoEm),
+          hora: hora(c.pagoEm),
           fotos: c.fotos,
         }))}
       />
