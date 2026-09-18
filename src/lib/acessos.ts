@@ -564,7 +564,8 @@ export const MODULOS: Modulo[] = [
       editar: "Cadastrar o QR Code, o CNPJ e a chave PIX de contingência",
       excluir: "Apagar comprovante lançado por engano",
     },
-    rotulo: "QR de Contingência",
+    // Nome trocado a pedido do dono (18/09/2026); o id continua o mesmo.
+    rotulo: "Comprovante de Pagamento",
     emoji: "📲",
     href: "/admin/qr-contingencia",
     grupo: "Configuração",

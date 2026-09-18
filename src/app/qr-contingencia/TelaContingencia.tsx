@@ -528,7 +528,7 @@ export function TelaContingencia({
           />
         ) : (
           <p className="my-3 rounded-xl bg-amber-50 p-3 text-sm text-amber-900">
-            A liderança ainda não cadastrou o QR Code. Peça para cadastrar em Modo Liderança → QR de Contingência.
+            A liderança ainda não cadastrou o QR Code. Peça para cadastrar em Modo Liderança → Comprovante de Pagamento.
           </p>
         )}
         {config.favorecido && <p className="text-base font-semibold text-slate-900">{config.favorecido}</p>}

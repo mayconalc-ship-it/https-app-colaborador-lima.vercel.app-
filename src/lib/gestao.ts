@@ -114,12 +114,12 @@ export const PAINEIS: Painel[] = [
     // O controle do QR de contingência (18/09/2026): o que o motorista
     // registrou, com as fotos, para o financeiro conciliar.
     id: "comprovantes-qr",
-    rotulo: "Comprovantes do QR",
+    rotulo: "Comprovantes de Pagamento",
     emoji: "🧾",
     href: "/gestao/comprovantes-qr",
     bloco: "Operação",
     modulo: "qr-contingencia",
-    pergunta: "Quem pagou pelo QR de contingência, em qual mapa, e a foto do comprovante.",
+    pergunta: "Quem pagou pelo PIX da empresa, em qual mapa, e a foto do comprovante.",
     mora: true,
   },
   {

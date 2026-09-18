@@ -88,7 +88,7 @@ export function FormConfigQr({
         disabled={Boolean(problema)}
         className="w-full rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white hover:bg-primary-dark"
       >
-        Salvar o QR de contingência
+        Salvar o QR Code
       </BotaoEnviar>
     </form>
   );

@@ -85,7 +85,7 @@ export function PainelComprovantes({
   return (
     <div>
       <PageHeader
-        title="🧾 Comprovantes do QR"
+        title="🧾 Comprovantes de Pagamento"
         subtitle="Pagamentos pelo PIX da empresa, com a foto do comprovante, mapa a mapa."
         fecharHref="/gestao"
       />
@@ -178,7 +178,7 @@ export function PainelComprovantes({
           <p className="text-3xl">🧾</p>
           <p className="mt-2 text-sm font-medium text-slate-700">Nenhum comprovante neste filtro.</p>
           <p className="mt-1 text-xs text-slate-500">
-            Os comprovantes aparecem aqui assim que o motorista registra no QR de Contingência.
+            Os comprovantes aparecem aqui assim que o motorista registra no Comprovante de Pagamento.
           </p>
         </div>
       ) : (

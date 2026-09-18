@@ -70,5 +70,5 @@ export async function salvarConfigQr(formData: FormData) {
 
   revalidatePath(ROTA);
   revalidatePath("/qr-contingencia");
-  voltar("sucesso", "QR de contingência salvo. Os motoristas já veem a versão nova.");
+  voltar("sucesso", "QR Code salvo. Os motoristas já veem a versão nova.");
 }

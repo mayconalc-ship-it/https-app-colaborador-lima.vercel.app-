@@ -198,7 +198,7 @@ export const MENU_PADRAO: ItemMenu[] = [
   { chave: "rv", titulo: "Minha RV", emoji: "💰", href: "/rv", ordem: 6, visivel: true },
   { chave: "rota", titulo: "Minha Rota", emoji: "🚚", href: "/minha-rota", ordem: 7, visivel: true },
   // Módulo opcional (18/09/2026): o QR de contingência e os comprovantes.
-  { chave: "qr-contingencia", titulo: "QR de Contingência", emoji: "📲", href: "/qr-contingencia", ordem: 17, visivel: true },
+  { chave: "qr-contingencia", titulo: "Comprovante de Pagamento", emoji: "📲", href: "/qr-contingencia", ordem: 17, visivel: true },
   { chave: "feedback", titulo: "Feedback da Rota", emoji: "📝", href: "/feedback-rota", ordem: 8, visivel: true },
   // Módulo opcional: só aparece pra quem o Admin liberou (ver temAcessoModulo).
   { chave: "ativo-giro", titulo: "Ativo de Giro", emoji: "📦", href: "/ativo-de-giro", ordem: 10, visivel: true },

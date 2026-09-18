@@ -42,7 +42,7 @@ export default async function QrContingenciaPage() {
 
   return (
     <div>
-      <PageHeader title="📲 QR de Contingência" subtitle="Pagamento pelo PIX da empresa, com o comprovante registrado" />
+      <PageHeader title="📲 Comprovante de Pagamento" subtitle="QR Code do PIX da empresa e o registro do comprovante" />
       <TelaContingencia
         config={{
           qrUrl: config.qrUrl,

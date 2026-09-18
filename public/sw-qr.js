@@ -58,7 +58,7 @@ self.addEventListener("fetch", (evento) => {
           return new Response(
             "<!doctype html><meta charset=utf-8><meta name=viewport content='width=device-width'>" +
               "<body style='font-family:sans-serif;padding:24px'><h2>Sem internet</h2>" +
-              "<p>Abra o QR de Contingência uma vez com sinal para ele passar a funcionar sem internet.</p></body>",
+              "<p>Abra o Comprovante de Pagamento uma vez com sinal para ele passar a funcionar sem internet.</p></body>",
             { headers: { "Content-Type": "text/html; charset=utf-8" } },
           );
         }

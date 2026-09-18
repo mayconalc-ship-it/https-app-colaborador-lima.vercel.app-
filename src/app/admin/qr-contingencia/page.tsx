@@ -22,7 +22,7 @@ export default async function AdminQrContingenciaPage({
   return (
     <div className="space-y-4">
       <PageHeader
-        title="📲 QR de Contingência"
+        title="📲 Comprovante de Pagamento"
         subtitle="O QR Code do PIX da empresa que o motorista mostra quando o pagamento do sistema cai"
       />
       {sp.erro && <p className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{decodificar(sp.erro)}</p>}

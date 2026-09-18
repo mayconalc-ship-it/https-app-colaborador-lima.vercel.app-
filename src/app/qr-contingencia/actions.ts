@@ -31,7 +31,7 @@ async function contexto(): Promise<
   const [perfil, revendaId, acesso] = await Promise.all([getPerfil(), getRevendaId(), temAcessoModulo(MODULO_QR)]);
   if (!perfil) return { ok: false, erro: "Sua sessão expirou. Entre de novo." };
   if (!revendaId) return { ok: false, erro: "Você não está em nenhuma revenda." };
-  if (!acesso) return { ok: false, erro: "Você não tem acesso ao QR de contingência. Fale com a liderança." };
+  if (!acesso) return { ok: false, erro: "Você não tem acesso ao Comprovante de Pagamento. Fale com a liderança." };
   return { ok: true, perfil, revendaId };
 }
 
