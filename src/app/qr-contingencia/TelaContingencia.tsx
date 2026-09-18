@@ -56,6 +56,13 @@ export type ComprovanteDaTela = {
 
 type Foto = { id: string; arquivo: File; previa: string };
 
+type RotaNaTela = {
+  mapa: string;
+  data: string;
+  clientes: ClienteDaRota[];
+  pagos?: { codPdv: string; valor: number }[];
+};
+
 const CHAVE_MAPA = "qr-contingencia:mapa";
 const campo =
   "w-full rounded-xl border border-slate-300 bg-white px-3 py-3 text-base text-slate-900 focus:border-primary focus:outline-none";
@@ -91,7 +98,10 @@ export function TelaContingencia({
 }) {
   const router = useRouter();
   const [mapa, setMapa] = useState("");
-  const [rota, setRota] = useState<{ mapa: string; data: string; clientes: ClienteDaRota[] } | null>(null);
+  const [rota, setRota] = useState<RotaNaTela | null>(null);
+  // Registrados NESTA tela desde a busca do mapa -- entram na marcação
+  // "pago" sem precisar buscar o mapa de novo.
+  const [pagosAgora, setPagosAgora] = useState<{ mapa: string; codPdv: string; valor: number }[]>([]);
   const [erroMapa, setErroMapa] = useState<string | null>(null);
   const [filtro, setFiltro] = useState("");
   const [daBase, setDaBase] = useState<ClienteDaRota[] | null>(null);
@@ -203,7 +213,7 @@ export function TelaContingencia({
   }, [fotos]);
   useEffect(() => () => fotosAtuais.current.forEach((f) => URL.revokeObjectURL(f.previa)), []);
 
-  function usarMapa(r: { mapa: string; data: string; clientes: ClienteDaRota[] }, guardado: boolean) {
+  function usarMapa(r: RotaNaTela, guardado: boolean) {
     setRota(r);
     setFiltro("");
     try {
@@ -243,7 +253,7 @@ export function TelaContingencia({
         setErroMapa(r.erro);
         return;
       }
-      guardarMapa({ mapa: r.mapa, data: r.data, clientes: r.clientes });
+      guardarMapa({ mapa: r.mapa, data: r.data, clientes: r.clientes, pagos: r.pagos });
       usarMapa(r, false);
     });
   }
@@ -254,6 +264,26 @@ export function TelaContingencia({
     () => (rota?.clientes ?? []).filter((c) => clienteCasa(c, filtro)),
     [rota, filtro],
   );
+
+  /**
+   * QUEM JÁ PAGOU NESTE MAPA: o que o servidor devolveu na busca, o que foi
+   * registrado nesta tela desde então e o que está guardado no celular
+   * esperando sinal (esse com a marca de "aguardando envio").
+   */
+  const pagos = useMemo(() => {
+    const m = new Map<string, { valor: number; pendente: boolean }>();
+    if (!rota) return m;
+    const somar = (cod: string, valor: number, pendente: boolean) => {
+      const atual = m.get(cod);
+      m.set(cod, { valor: (atual?.valor ?? 0) + valor, pendente: (atual?.pendente ?? true) && pendente });
+    };
+    for (const p of rota.pagos ?? []) somar(p.codPdv, p.valor, false);
+    for (const p of pagosAgora) if (p.mapa === rota.mapa) somar(p.codPdv, p.valor, false);
+    for (const p of pendentes) {
+      if (codigoDigitado(p.mapa) === rota.mapa) somar(p.codPdv, lerValor(p.valor) || 0, true);
+    }
+    return m;
+  }, [rota, pagosAgora, pendentes]);
   function buscarNaBase() {
     iniciarBusca(async () => {
       try {
@@ -370,6 +400,10 @@ export function TelaContingencia({
         return;
       }
       setAviso({ tipo: "ok", texto: r.mensagem });
+      setPagosAgora((atual) => [
+        ...atual,
+        { mapa: codigoDigitado(pendente.mapa), codPdv: pendente.codPdv, valor: lerValor(pendente.valor) || 0 },
+      ]);
       limparFormulario();
       router.refresh();
     });
@@ -562,7 +596,7 @@ export function TelaContingencia({
                   Mapa {rota.mapa} · {rota.clientes.length} cliente(s)
                   {filtro && ` · ${doMapa.length} encontrado(s)`}
                 </p>
-                <ListaDeClientes clientes={doMapa} escolher={setCliente} />
+                <ListaDeClientes clientes={doMapa} escolher={setCliente} pagos={pagos} />
               </>
             )}
 
@@ -629,7 +663,7 @@ export function TelaContingencia({
                 ) : (
                   <>
                     <p className="text-xs text-slate-500">Na base de clientes:</p>
-                    <ListaDeClientes clientes={daBase} escolher={setCliente} />
+                    <ListaDeClientes clientes={daBase} escolher={setCliente} pagos={pagos} />
                   </>
                 )}
               </div>
@@ -758,6 +792,13 @@ export function TelaContingencia({
                     pela direita nos centavos (1-5-2-4-0 = R$ 152,40). */}
                 <input
                   value={mostrarDigitosEmReais(valor)}
+                  // O CURSOR MORA NO FIM (pedido do dono, 18/09/2026: tocando
+                  // na frente do número e digitando 123, virava R$ 1.000,23).
+                  // Todo toque, foco ou seleção devolve o cursor ao fim -- o
+                  // dígito entra sempre pela direita, como no app do banco.
+                  onFocus={cursorNoFim}
+                  onClick={cursorNoFim}
+                  onSelect={cursorNoFim}
                   onChange={(e) => setValor(digitosDoValor(e.target.value))}
                   inputMode="numeric"
                   pattern="[0-9]*"
@@ -806,86 +847,155 @@ export function TelaContingencia({
         {meusDeHoje.length === 0 ? (
           <p className="rounded-xl bg-slate-50 p-4 text-sm text-slate-500">Nenhum comprovante registrado hoje.</p>
         ) : (
-          <ul className="space-y-2">
-            {meusDeHoje.map((c) => (
-              <li key={c.id} className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <p className="truncate font-semibold text-slate-900">{c.clienteNome ?? `Cliente ${c.codPdv}`}</p>
-                    <p className="text-xs text-slate-500">
-                      {c.hora} · código {c.codPdv}
-                      {c.mapa && ` · mapa ${c.mapa}`}
-                      {c.valor != null && ` · ${formatarReais(c.valor)}`}
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => apagar(c.id)}
-                    disabled={enviando}
-                    className="shrink-0 rounded-lg border border-red-200 px-2.5 py-1 text-xs font-semibold text-red-600"
-                  >
-                    Apagar
-                  </button>
+          // AGRUPADOS POR MAPA (pedido do dono, 18/09/2026) -- o mesmo
+          // desenho da tela de conciliação: o cartão do mapa com o total, e
+          // os clientes dentro, na ordem do dia.
+          <div className="space-y-3">
+            {porMapa(meusDeHoje).map((g) => (
+              <div key={g.mapa ?? "-"} className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+                <div className="flex items-center justify-between gap-2 bg-slate-50 px-3 py-2">
+                  <span className="text-sm font-bold text-slate-800">{g.mapa ? `Mapa ${g.mapa}` : "Sem mapa"}</span>
+                  <span className="text-xs text-slate-500">
+                    {g.itens.length} cliente{g.itens.length === 1 ? "" : "s"} ·{" "}
+                    <strong className="tabular-nums text-slate-800">{formatarReais(g.total)}</strong>
+                  </span>
                 </div>
-                <div className="mt-2 flex gap-2 overflow-x-auto">
-                  {c.fotos.map((f, i) =>
-                    f.url ? (
-                      <a key={f.id} href={f.url} target="_blank" rel="noopener noreferrer" className="shrink-0">
-                        {/* eslint-disable-next-line @next/next/no-img-element -- link assinado e temporário */}
-                        <img
-                          src={f.url}
-                          alt={`Foto ${i + 1}`}
-                          className="h-16 w-12 rounded-md border border-slate-200 object-cover"
-                        />
-                      </a>
-                    ) : null,
-                  )}
-                </div>
-              </li>
+                <ul className="divide-y divide-slate-100">
+                  {g.itens.map((c) => (
+                    <li key={c.id} className="flex items-center gap-3 px-3 py-2.5">
+                      <span className="w-10 shrink-0 text-xs font-semibold tabular-nums text-slate-500">{c.hora}</span>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium text-slate-900">{c.clienteNome ?? `Cliente ${c.codPdv}`}</p>
+                        <div className="mt-1 flex gap-1.5 overflow-x-auto">
+                          {c.fotos.map((f, i) =>
+                            f.url ? (
+                              <a key={f.id} href={f.url} target="_blank" rel="noopener noreferrer" className="shrink-0">
+                                {/* eslint-disable-next-line @next/next/no-img-element -- link assinado e temporário */}
+                                <img
+                                  src={f.url}
+                                  alt={`Foto ${i + 1}`}
+                                  className="h-10 w-8 rounded border border-slate-200 object-cover"
+                                />
+                              </a>
+                            ) : null,
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex shrink-0 flex-col items-end gap-1">
+                        <span className="text-sm font-bold tabular-nums text-slate-900">
+                          {c.valor != null ? formatarReais(c.valor) : "—"}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => apagar(c.id)}
+                          disabled={enviando}
+                          className="text-[11px] font-semibold text-red-600 underline"
+                        >
+                          Apagar
+                        </button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </div>
             ))}
-          </ul>
+          </div>
         )}
       </section>
     </div>
   );
 }
 
+/** Leva o cursor do campo de valor para o fim (ver o comentário no campo). */
+function cursorNoFim(e: React.SyntheticEvent<HTMLInputElement>) {
+  const campo = e.currentTarget;
+  const fim = campo.value.length;
+  if (campo.selectionStart !== fim || campo.selectionEnd !== fim) {
+    // Depois do navegador posicionar o cursor do toque -- senão ele ganha.
+    requestAnimationFrame(() => campo.setSelectionRange(fim, fim));
+  }
+}
+
+/** Os comprovantes do dia agrupados por mapa, com o total de cada um. */
+function porMapa(lista: ComprovanteDaTela[]) {
+  const grupos = new Map<string, { mapa: string | null; itens: ComprovanteDaTela[]; total: number }>();
+  for (const c of lista) {
+    const k = c.mapa ?? "-";
+    const g = grupos.get(k) ?? { mapa: c.mapa, itens: [], total: 0 };
+    g.itens.push(c);
+    g.total += c.valor ?? 0;
+    grupos.set(k, g);
+  }
+  return [...grupos.values()].map((g) => ({ ...g, itens: [...g.itens].sort((a, b) => a.hora.localeCompare(b.hora)) }));
+}
+
+/**
+ * A lista de clientes, com a marcação de quem JÁ PAGOU pelo QR neste mapa.
+ * Quem pagou continua tocável (pode haver um segundo pagamento), mas vai
+ * para o fim da lista, esmaecido: o motorista procura quem falta.
+ */
 function ListaDeClientes({
   clientes,
   escolher,
+  pagos,
 }: {
   clientes: ClienteDaRota[];
   escolher: (c: ClienteDaRota) => void;
+  pagos: Map<string, { valor: number; pendente: boolean }>;
 }) {
   if (clientes.length === 0) {
     return <p className="rounded-xl bg-slate-50 p-3 text-sm text-slate-500">Nenhum cliente com essa busca neste mapa.</p>;
   }
+  const ordenados = [...clientes].sort((a, b) => Number(pagos.has(a.codPdv)) - Number(pagos.has(b.codPdv)));
   return (
     <ul className="max-h-[55vh] divide-y divide-slate-100 overflow-y-auto rounded-xl border border-slate-200">
-      {clientes.map((c) => (
-        <li key={c.codPdv}>
-          <button
-            type="button"
-            onClick={() => escolher(c)}
-            className="flex w-full items-center gap-3 px-3 py-3 text-left hover:bg-slate-50 active:bg-primary-soft"
-          >
-            <span className="shrink-0 rounded bg-slate-100 px-1.5 py-0.5 text-xs font-bold tabular-nums text-slate-600">
-              {c.codPdv}
-            </span>
-            <span className="min-w-0 flex-1">
-              <span className={`block truncate text-sm ${c.nome ? "font-medium text-slate-900" : "italic text-slate-400"}`}>
-                {c.nome ?? "Sem cadastro na base"}
+      {ordenados.map((c) => {
+        const pago = pagos.get(c.codPdv);
+        return (
+          <li key={c.codPdv}>
+            <button
+              type="button"
+              onClick={() => escolher(c)}
+              className={`flex w-full items-center gap-3 px-3 py-3 text-left hover:bg-slate-50 active:bg-primary-soft ${
+                pago ? "bg-emerald-50/60" : ""
+              }`}
+            >
+              <span
+                className={`shrink-0 rounded px-1.5 py-0.5 text-xs font-bold tabular-nums ${
+                  pago ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-600"
+                }`}
+              >
+                {c.codPdv}
               </span>
-              <span className="block truncate text-xs text-slate-500">
-                {[c.bairro, c.cidade].filter(Boolean).join(" · ") || "—"}
+              <span className="min-w-0 flex-1">
+                <span
+                  className={`block truncate text-sm ${
+                    pago ? "text-slate-500" : c.nome ? "font-medium text-slate-900" : "italic text-slate-400"
+                  }`}
+                >
+                  {c.nome ?? "Sem cadastro na base"}
+                </span>
+                <span className="block truncate text-xs text-slate-500">
+                  {[c.bairro, c.cidade].filter(Boolean).join(" · ") || "—"}
+                </span>
               </span>
-            </span>
-            <span className="shrink-0 text-slate-300" aria-hidden="true">
-              ›
-            </span>
-          </button>
-        </li>
-      ))}
+              {pago ? (
+                <span
+                  className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+                    pago.pendente ? "bg-amber-100 text-amber-800" : "bg-emerald-100 text-emerald-800"
+                  }`}
+                >
+                  {pago.pendente ? "⏳" : "✅"} {formatarReais(pago.valor)}
+                </span>
+              ) : (
+                <span className="shrink-0 text-slate-300" aria-hidden="true">
+                  ›
+                </span>
+              )}
+            </button>
+          </li>
+        );
+      })}
     </ul>
   );
 }

@@ -35,18 +35,38 @@ async function contexto(): Promise<
   return { ok: true, perfil, revendaId };
 }
 
+/** Cliente do mapa que já tem comprovante: código e valor somado. */
+export type PagoNoMapa = { codPdv: string; valor: number };
+
 export type ResultadoMapa =
-  | { ok: true; mapa: string; data: string; clientes: ClienteDaRota[] }
+  | { ok: true; mapa: string; data: string; clientes: ClienteDaRota[]; pagos: PagoNoMapa[] }
   | { ok: false; erro: string };
 
-/** O mapa digitado -> os clientes dele, como na pré-rota. */
+/**
+ * O mapa digitado -> os clientes dele, como na pré-rota, e QUAIS já pagaram
+ * pelo QR (pedido do dono, 18/09/2026: "deixe uma marcação como se aquele
+ * PDV já foi feito o pagamento"). Vale o comprovante de qualquer motorista
+ * deste mapa, desde o dia da rota -- dois motoristas no mesmo mapa não
+ * cobram o mesmo cliente duas vezes.
+ */
 export async function buscarClientesDoMapa(mapaDigitado: string): Promise<ResultadoMapa> {
   const c = await contexto();
   if (!c.ok) return c;
   if (!normalizarMapa(mapaDigitado)) return { ok: false, erro: "Informe o número do mapa." };
   const rota = await rotaComClientes(c.revendaId, mapaDigitado);
   if (!rota) return { ok: false, erro: "Não encontramos este mapa. Confira o número ou procure o cliente pelo nome." };
-  return { ok: true, ...rota };
+
+  const { data: feitos } = await createAdminClient()
+    .from("qr_comprovantes")
+    .select("cod_pdv, valor")
+    .eq("revenda_id", c.revendaId)
+    .eq("mapa", rota.mapa)
+    .gte("data", rota.data);
+  const porCliente = new Map<string, number>();
+  for (const f of feitos ?? []) {
+    porCliente.set(String(f.cod_pdv), (porCliente.get(String(f.cod_pdv)) ?? 0) + Number(f.valor ?? 0));
+  }
+  return { ok: true, ...rota, pagos: [...porCliente].map(([codPdv, valor]) => ({ codPdv, valor })) };
 }
 
 /** Busca na base inteira -- para cliente fora do mapa ou mapa sem lista. */

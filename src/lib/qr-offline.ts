@@ -76,7 +76,14 @@ const CHAVE_MAPAS = "qr-contingencia:mapas:v1";
 /** Os últimos mapas buscados. Um motorista faz um ou dois mapas por dia. */
 const MAPAS_GUARDADOS = 6;
 
-export type MapaGuardado = { mapa: string; data: string; clientes: ClienteDaRota[]; guardadoEm: string };
+export type MapaGuardado = {
+  mapa: string;
+  data: string;
+  clientes: ClienteDaRota[];
+  /** Quem já tinha comprovante quando o mapa foi buscado com sinal. */
+  pagos?: { codPdv: string; valor: number }[];
+  guardadoEm: string;
+};
 
 function lerMapas(): MapaGuardado[] {
   try {
