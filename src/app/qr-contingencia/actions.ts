@@ -197,6 +197,84 @@ export async function registrarComprovante(formData: FormData): Promise<Resultad
 }
 
 /**
+ * EDITAR VALOR E FOTOS (pedido do dono, 19/09/2026: na tela do motorista,
+ * "Editar" no lugar de "Apagar"). Só o próprio comprovante, no MESMO dia --
+ * depois disso ele já é do financeiro. Cliente, mapa e observação não mudam.
+ *
+ * As mesmas travas do registro (validarComprovante): valor obrigatório e
+ * pelo menos uma foto no fim. As novas sobem antes; as retiradas só saem
+ * do banco e do bucket depois que o resto gravou.
+ */
+export async function editarComprovante(formData: FormData): Promise<ResultadoEnvio> {
+  const c = await contexto();
+  if (!c.ok) return c;
+  const id = String(formData.get("id") ?? "");
+  const valor = lerValor(formData.get("valor"));
+  const remover = new Set(formData.getAll("remover").map(String));
+  const novas = formData.getAll("fotos").filter((f): f is File => f instanceof File && f.size > 0);
+
+  const admin = createAdminClient();
+  const { data: comp } = await admin
+    .from("qr_comprovantes")
+    .select("id, colaborador_id, data, cod_pdv, observacao")
+    .eq("id", id)
+    .eq("revenda_id", c.revendaId)
+    .maybeSingle();
+  if (!comp) return { ok: false, erro: "Comprovante não encontrado.", definitivo: true };
+  if (comp.colaborador_id !== c.perfil.id || comp.data !== hojeNaOperacao()) {
+    return { ok: false, erro: "Só dá para editar o próprio comprovante, no mesmo dia.", definitivo: true };
+  }
+
+  const { data: atuais } = await admin.from("qr_comprovante_fotos").select("id, caminho").eq("comprovante_id", id);
+  const saindo = (atuais ?? []).filter((f) => remover.has(String(f.id)));
+  const ficam = (atuais ?? []).length - saindo.length;
+
+  const problema = validarComprovante({
+    codPdv: String(comp.cod_pdv),
+    valor,
+    observacao: String(comp.observacao ?? ""),
+    // As que ficam já passaram pela checagem quando subiram; contam só no número.
+    fotos: [
+      ...Array.from({ length: ficam }, () => ({ tamanho: 1, tipo: "" })),
+      ...novas.map((f) => ({ tamanho: f.size, tipo: f.type })),
+    ],
+  });
+  if (problema) return { ok: false, erro: problema, definitivo: true };
+
+  const pasta = `${c.revendaId}/${comp.data}/${comp.cod_pdv}`;
+  const caminhos: string[] = [];
+  for (const f of novas) {
+    const r = await guardarNoBucket(f, pasta);
+    if (!r.ok) {
+      await apagarDoBucket(caminhos);
+      return { ok: false, erro: r.erro };
+    }
+    caminhos.push(r.caminho);
+  }
+  if (caminhos.length > 0) {
+    const { error } = await admin
+      .from("qr_comprovante_fotos")
+      .insert(caminhos.map((caminho) => ({ comprovante_id: id, revenda_id: c.revendaId, caminho })));
+    if (error) {
+      await apagarDoBucket(caminhos);
+      return { ok: false, erro: `Não foi possível guardar as fotos: ${error.message}` };
+    }
+  }
+
+  const { error: erroValor } = await admin.from("qr_comprovantes").update({ valor }).eq("id", id);
+  if (erroValor) return { ok: false, erro: `Não foi possível salvar o valor: ${erroValor.message}` };
+
+  if (saindo.length > 0) {
+    await admin.from("qr_comprovante_fotos").delete().in("id", saindo.map((f) => f.id));
+    await apagarDoBucket(saindo.map((f) => String(f.caminho)));
+  }
+
+  revalidatePath(ROTA);
+  revalidatePath("/gestao/comprovantes-qr");
+  return { ok: true, mensagem: "Comprovante atualizado." };
+}
+
+/**
  * Apagar um comprovante lançado por engano: quem lançou, no MESMO dia; ou
  * a liderança com "excluir". Depois disso ele já é do financeiro.
  */

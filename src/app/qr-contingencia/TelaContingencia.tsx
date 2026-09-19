@@ -28,13 +28,10 @@ import {
   lerValor,
   validarComprovante,
 } from "@/lib/qr-contingencia";
-import {
-  buscarClientesDoMapa,
-  buscarClientesNaBase,
-  excluirComprovante,
-  registrarComprovante,
-} from "./actions";
+import { buscarClientesDoMapa, buscarClientesNaBase, registrarComprovante } from "./actions";
+import { cursorNoFim, reduzir } from "./ajudantes";
 import { CameraNaTela } from "./CameraNaTela";
+import { EditarComprovante } from "./EditarComprovante";
 
 export type ConfigParaTela = {
   qrUrl: string | null;
@@ -66,28 +63,6 @@ type RotaNaTela = {
 const CHAVE_MAPA = "qr-contingencia:mapa";
 const campo =
   "w-full rounded-xl border border-slate-300 bg-white px-3 py-3 text-base text-slate-900 focus:border-primary focus:outline-none";
-
-/**
- * Reduz a foto NO CELULAR antes de enviar: a câmera tira 3-4 MB, e o
- * servidor recusa envio acima de ~4,5 MB. 1600 px e JPEG 80 deixam o
- * comprovante legível em ~300 KB. Se o aparelho não conseguir reduzir,
- * vai o original -- o servidor avisa se passar do limite.
- */
-async function reduzir(arquivo: File): Promise<File> {
-  try {
-    const bitmap = await createImageBitmap(arquivo);
-    const escala = Math.min(1, 1600 / Math.max(bitmap.width, bitmap.height));
-    const canvas = document.createElement("canvas");
-    canvas.width = Math.round(bitmap.width * escala);
-    canvas.height = Math.round(bitmap.height * escala);
-    canvas.getContext("2d")?.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-    const blob: Blob | null = await new Promise((ok) => canvas.toBlob(ok, "image/jpeg", 0.8));
-    if (!blob) return arquivo;
-    return new File([blob], "comprovante.jpg", { type: "image/jpeg" });
-  } catch {
-    return arquivo;
-  }
-}
 
 export function TelaContingencia({
   config,
@@ -430,14 +405,9 @@ export function TelaContingencia({
     setPendentes(await listarPendentes());
   }
 
-  function apagar(id: string) {
-    if (!confirm("Apagar este comprovante e as fotos dele?")) return;
-    iniciarEnvio(async () => {
-      const r = await excluirComprovante(id);
-      setAviso(r.ok ? { tipo: "ok", texto: r.mensagem } : { tipo: "erro", texto: r.erro });
-      router.refresh();
-    });
-  }
+  // Comprovante de hoje aberto para editar valor e fotos (no lugar do
+  // antigo "Apagar" -- pedido do dono, 19/09/2026).
+  const [editando, setEditando] = useState<string | null>(null);
 
   async function copiarPix() {
     if (!config.chavePix) return;
@@ -875,7 +845,8 @@ export function TelaContingencia({
                 </div>
                 <ul className="divide-y divide-slate-100">
                   {g.itens.map((c) => (
-                    <li key={c.id} className="flex items-center gap-3 px-3 py-2.5">
+                    <li key={c.id}>
+                    <div className="flex items-center gap-3 px-3 py-2.5">
                       <span className="w-10 shrink-0 text-xs font-semibold tabular-nums text-slate-500">{c.hora}</span>
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-medium text-slate-900">{c.clienteNome ?? `Cliente ${c.codPdv}`}</p>
@@ -898,15 +869,32 @@ export function TelaContingencia({
                         <span className="text-sm font-bold tabular-nums text-slate-900">
                           {c.valor != null ? formatarReais(c.valor) : "—"}
                         </span>
-                        <button
-                          type="button"
-                          onClick={() => apagar(c.id)}
-                          disabled={enviando}
-                          className="text-[11px] font-semibold text-red-600 underline"
-                        >
-                          Apagar
-                        </button>
+                        {editando !== c.id && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setAviso(null);
+                              setEditando(c.id);
+                            }}
+                            className="rounded-md border border-primary/30 px-2 py-0.5 text-[11px] font-semibold text-primary-dark"
+                          >
+                            ✏️ Editar
+                          </button>
+                        )}
                       </div>
+                    </div>
+                    {editando === c.id && (
+                      <EditarComprovante
+                        comprovante={c}
+                        online={online}
+                        aoFechar={() => setEditando(null)}
+                        aoSalvar={(mensagem) => {
+                          setEditando(null);
+                          setAviso({ tipo: "ok", texto: mensagem });
+                          router.refresh();
+                        }}
+                      />
+                    )}
                     </li>
                   ))}
                 </ul>
@@ -917,16 +905,6 @@ export function TelaContingencia({
       </section>
     </div>
   );
-}
-
-/** Leva o cursor do campo de valor para o fim (ver o comentário no campo). */
-function cursorNoFim(e: React.SyntheticEvent<HTMLInputElement>) {
-  const campo = e.currentTarget;
-  const fim = campo.value.length;
-  if (campo.selectionStart !== fim || campo.selectionEnd !== fim) {
-    // Depois do navegador posicionar o cursor do toque -- senão ele ganha.
-    requestAnimationFrame(() => campo.setSelectionRange(fim, fim));
-  }
 }
 
 /** Os comprovantes do dia agrupados por mapa, com o total de cada um. */
