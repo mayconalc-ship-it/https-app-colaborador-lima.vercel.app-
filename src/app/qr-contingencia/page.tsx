@@ -1,14 +1,8 @@
 import { PageHeader } from "@/components/PageHeader";
-import { createAdminClient } from "@/lib/supabase/admin";
 import { exigirRevenda } from "@/lib/revendas";
 import { requireAcessoModulo } from "@/lib/require-admin";
 import { MODULO_QR } from "@/lib/qr-contingencia";
-import {
-  COLUNAS_COMPROVANTE,
-  comFotos,
-  hojeNaOperacao,
-  lerConfigQr,
-} from "@/lib/qr-contingencia-server";
+import { comprovantesDeHojeDaEquipe, lerConfigQr, paraTelaDoCelular } from "@/lib/qr-contingencia-server";
 import { TelaContingencia } from "./TelaContingencia";
 
 export const dynamic = "force-dynamic";
@@ -25,20 +19,10 @@ export default async function QrContingenciaPage() {
   const perfil = await requireAcessoModulo(MODULO_QR);
   const revendaId = await exigirRevenda("/");
 
-  const [config, { data: linhas }] = await Promise.all([
+  const [config, deHoje] = await Promise.all([
     lerConfigQr(revendaId),
-    createAdminClient()
-      .from("qr_comprovantes")
-      .select(COLUNAS_COMPROVANTE)
-      .eq("revenda_id", revendaId)
-      .eq("colaborador_id", perfil.id)
-      .eq("data", hojeNaOperacao())
-      .order("criado_em", { ascending: false }),
+    comprovantesDeHojeDaEquipe(revendaId, perfil.id),
   ]);
-  const meus = await comFotos(linhas ?? []);
-
-  const hora = (iso: string) =>
-    new Date(iso).toLocaleTimeString("pt-BR", { timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit" });
 
   return (
     <div>
@@ -51,15 +35,7 @@ export default async function QrContingenciaPage() {
           chavePix: config.chavePix,
           instrucoes: config.instrucoes,
         }}
-        meusDeHoje={meus.map((c) => ({
-          id: c.id,
-          mapa: c.mapa,
-          codPdv: c.codPdv,
-          clienteNome: c.clienteNome,
-          valor: c.valor,
-          hora: hora(c.pagoEm),
-          fotos: c.fotos,
-        }))}
+        meusDeHoje={deHoje.map((c) => paraTelaDoCelular(c, perfil.id))}
       />
     </div>
   );

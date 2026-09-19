@@ -28,7 +28,12 @@ import {
   lerValor,
   validarComprovante,
 } from "@/lib/qr-contingencia";
-import { buscarClientesDoMapa, buscarClientesNaBase, registrarComprovante } from "./actions";
+import {
+  buscarClientesDoMapa,
+  buscarClientesNaBase,
+  comprovantesDeHojeComOMapa,
+  registrarComprovante,
+} from "./actions";
 import { cursorNoFim, reduzir } from "./ajudantes";
 import { CameraNaTela } from "./CameraNaTela";
 import { EditarComprovante } from "./EditarComprovante";
@@ -49,6 +54,10 @@ export type ComprovanteDaTela = {
   valor: number | null;
   hora: string;
   fotos: { id: string; url: string | null }[];
+  /** Já foi editado (a conciliação vê o que mudou). */
+  editado: boolean;
+  /** Lançado por outra pessoa da equipe do mapa (o nome); o próprio, null. */
+  lancadoPor: string | null;
 };
 
 type Foto = { id: string; arquivo: File; previa: string };
@@ -95,6 +104,25 @@ export function TelaContingencia({
   // Escolheu o cliente lá embaixo numa lista longa: a tela sobe até ele e o
   // QR, que é o que vai ser mostrado agora.
   const secaoPagamento = useRef<HTMLElement>(null);
+
+  // CONSOLIDADO POR MAPA (pedido do dono, 19/09/2026): motorista e ajudante
+  // veem os mesmos comprovantes. A página já traz os dos mapas em que a
+  // pessoa lançou; o mapa buscado agora entra aqui, mesmo sem nada lançado.
+  const [daEquipe, setDaEquipe] = useState<ComprovanteDaTela[]>([]);
+  async function recarregarEquipe(mapaDaTela: string | undefined) {
+    if (!mapaDaTela || !navigator.onLine) return;
+    try {
+      setDaEquipe(await comprovantesDeHojeComOMapa(mapaDaTela));
+    } catch {
+      // Sem sinal: fica a lista que já estava.
+    }
+  }
+  const deHoje = useMemo(() => {
+    const m = new Map<string, ComprovanteDaTela>();
+    for (const c of daEquipe) m.set(c.id, c);
+    for (const c of meusDeHoje) m.set(c.id, c);
+    return [...m.values()];
+  }, [daEquipe, meusDeHoje]);
   useEffect(() => {
     if (cliente) secaoPagamento.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, [cliente]);
@@ -237,6 +265,7 @@ export function TelaContingencia({
       }
       guardarMapa({ mapa: r.mapa, data: r.data, clientes: r.clientes, pagos: r.pagos });
       usarMapa(r, false);
+      recarregarEquipe(r.mapa);
     });
   }
 
@@ -388,6 +417,7 @@ export function TelaContingencia({
       ]);
       limparFormulario();
       router.refresh();
+      recarregarEquipe(rota?.mapa);
     });
   }
 
@@ -824,17 +854,18 @@ export function TelaContingencia({
 
       {/* ---- O que já foi registrado hoje ---- */}
       <section>
-        <h2 className="mb-2 px-1 text-sm font-bold uppercase tracking-wide text-slate-500">
-          Meus comprovantes de hoje ({meusDeHoje.length})
+        <h2 className="px-1 text-sm font-bold uppercase tracking-wide text-slate-500">
+          Comprovantes de hoje ({deHoje.length})
         </h2>
-        {meusDeHoje.length === 0 ? (
+        <p className="mb-2 px-1 text-xs text-slate-500">Do seu mapa — motorista e ajudante veem os mesmos.</p>
+        {deHoje.length === 0 ? (
           <p className="rounded-xl bg-slate-50 p-4 text-sm text-slate-500">Nenhum comprovante registrado hoje.</p>
         ) : (
           // AGRUPADOS POR MAPA (pedido do dono, 18/09/2026) -- o mesmo
           // desenho da tela de conciliação: o cartão do mapa com o total, e
           // os clientes dentro, na ordem do dia.
           <div className="space-y-3">
-            {porMapa(meusDeHoje).map((g) => (
+            {porMapa(deHoje).map((g) => (
               <div key={g.mapa ?? "-"} className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
                 <div className="flex items-center justify-between gap-2 bg-slate-50 px-3 py-2">
                   <span className="text-sm font-bold text-slate-800">{g.mapa ? `Mapa ${g.mapa}` : "Sem mapa"}</span>
@@ -850,6 +881,13 @@ export function TelaContingencia({
                       <span className="w-10 shrink-0 text-xs font-semibold tabular-nums text-slate-500">{c.hora}</span>
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-medium text-slate-900">{c.clienteNome ?? `Cliente ${c.codPdv}`}</p>
+                        {(c.lancadoPor || c.editado) && (
+                          <p className="truncate text-[11px] text-slate-500">
+                            {c.lancadoPor && `por ${c.lancadoPor}`}
+                            {c.lancadoPor && c.editado && " · "}
+                            {c.editado && <span className="text-amber-700">✏️ editado</span>}
+                          </p>
+                        )}
                         <div className="mt-1 flex gap-1.5 overflow-x-auto">
                           {c.fotos.map((f, i) =>
                             f.url ? (
@@ -892,6 +930,7 @@ export function TelaContingencia({
                           setEditando(null);
                           setAviso({ tipo: "ok", texto: mensagem });
                           router.refresh();
+                          recarregarEquipe(rota?.mapa);
                         }}
                       />
                     )}

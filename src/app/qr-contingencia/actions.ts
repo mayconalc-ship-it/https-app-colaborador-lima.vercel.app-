@@ -10,7 +10,13 @@ import {
   rotaComClientes,
   type ClienteDaRota,
 } from "@/lib/clientes-do-mapa-server";
-import { apagarDoBucket, guardarNoBucket, hojeNaOperacao } from "@/lib/qr-contingencia-server";
+import {
+  apagarDoBucket,
+  comprovantesDeHojeDaEquipe,
+  guardarNoBucket,
+  hojeNaOperacao,
+  paraTelaDoCelular,
+} from "@/lib/qr-contingencia-server";
 import { normalizarMapa } from "@/lib/rotas";
 import {
   LIMITES_QR,
@@ -67,6 +73,18 @@ export async function buscarClientesDoMapa(mapaDigitado: string): Promise<Result
     porCliente.set(String(f.cod_pdv), (porCliente.get(String(f.cod_pdv)) ?? 0) + Number(f.valor ?? 0));
   }
   return { ok: true, ...rota, pagos: [...porCliente].map(([codPdv, valor]) => ({ codPdv, valor })) };
+}
+
+/**
+ * Os comprovantes de hoje da EQUIPE do mapa buscado (motorista e ajudante
+ * veem os mesmos), somados aos da própria pessoa.
+ */
+export async function comprovantesDeHojeComOMapa(mapaDigitado: string) {
+  const c = await contexto();
+  if (!c.ok) return [];
+  const mapa = normalizarMapa(mapaDigitado);
+  const lista = await comprovantesDeHojeDaEquipe(c.revendaId, c.perfil.id, mapa ? [mapa] : []);
+  return lista.map((x) => paraTelaDoCelular(x, c.perfil.id));
 }
 
 /** Busca na base inteira -- para cliente fora do mapa ou mapa sem lista. */
@@ -216,13 +234,17 @@ export async function editarComprovante(formData: FormData): Promise<ResultadoEn
   const admin = createAdminClient();
   const { data: comp } = await admin
     .from("qr_comprovantes")
-    .select("id, colaborador_id, data, cod_pdv, observacao")
+    .select("id, colaborador_id, data, mapa, cod_pdv, observacao, valor")
     .eq("id", id)
     .eq("revenda_id", c.revendaId)
     .maybeSingle();
   if (!comp) return { ok: false, erro: "Comprovante não encontrado.", definitivo: true };
-  if (comp.colaborador_id !== c.perfil.id || comp.data !== hojeNaOperacao()) {
-    return { ok: false, erro: "Só dá para editar o próprio comprovante, no mesmo dia.", definitivo: true };
+  // O mapa é da EQUIPE (motorista e ajudante): quem está nele corrige o
+  // comprovante do colega -- e a edição fica registrada com o nome de quem
+  // corrigiu. Sem mapa, só quem lançou.
+  const daEquipe = comp.colaborador_id === c.perfil.id || Boolean(comp.mapa);
+  if (!daEquipe || comp.data !== hojeNaOperacao()) {
+    return { ok: false, erro: "Só dá para editar comprovante do seu mapa, no mesmo dia.", definitivo: true };
   }
 
   const { data: atuais } = await admin.from("qr_comprovante_fotos").select("id, caminho").eq("comprovante_id", id);
@@ -251,17 +273,45 @@ export async function editarComprovante(formData: FormData): Promise<ResultadoEn
     }
     caminhos.push(r.caminho);
   }
+  let novasIds: string[] = [];
   if (caminhos.length > 0) {
-    const { error } = await admin
+    const { data: gravadas, error } = await admin
       .from("qr_comprovante_fotos")
-      .insert(caminhos.map((caminho) => ({ comprovante_id: id, revenda_id: c.revendaId, caminho })));
+      .insert(caminhos.map((caminho) => ({ comprovante_id: id, revenda_id: c.revendaId, caminho })))
+      .select("id");
     if (error) {
       await apagarDoBucket(caminhos);
       return { ok: false, erro: `Não foi possível guardar as fotos: ${error.message}` };
     }
+    novasIds = (gravadas ?? []).map((f) => String(f.id));
   }
 
-  const { error: erroValor } = await admin.from("qr_comprovantes").update({ valor }).eq("id", id);
+  // O REGISTRO DA EDIÇÃO (migration 128) vem antes de mudar qualquer coisa:
+  // sem ele, a edição não acontece -- quem concilia sempre sabe o que mudou.
+  const agora = new Date().toISOString();
+  const { error: erroRegistro } = await admin.from("qr_comprovante_edicoes").insert({
+    comprovante_id: id,
+    revenda_id: c.revendaId,
+    colaborador_id: c.perfil.id,
+    colaborador_nome: c.perfil.nome,
+    valor_antes: comp.valor == null ? null : Number(comp.valor),
+    valor_depois: valor,
+    fotos_tiradas: saindo.length,
+    fotos_novas: caminhos.length,
+    editado_em: agora,
+  });
+  if (erroRegistro) {
+    if (novasIds.length > 0) await admin.from("qr_comprovante_fotos").delete().in("id", novasIds);
+    await apagarDoBucket(caminhos);
+    return { ok: false, erro: `Não foi possível registrar a edição: ${erroRegistro.message}` };
+  }
+
+  // Editou depois de conferido: a conferência cai -- o financeiro bateu
+  // outro valor, outras fotos.
+  const { error: erroValor } = await admin
+    .from("qr_comprovantes")
+    .update({ valor, editado_em: agora, conferido_em: null, conferido_por_nome: null })
+    .eq("id", id);
   if (erroValor) return { ok: false, erro: `Não foi possível salvar o valor: ${erroValor.message}` };
 
   if (saindo.length > 0) {
@@ -275,32 +325,36 @@ export async function editarComprovante(formData: FormData): Promise<ResultadoEn
 }
 
 /**
- * Apagar um comprovante lançado por engano: quem lançou, no MESMO dia; ou
- * a liderança com "excluir". Depois disso ele já é do financeiro.
+ * A CONFERÊNCIA DO FINANCEIRO (19/09/2026): marca -- ou desmarca -- um ou
+ * vários comprovantes como batidos com o extrato. Só quem tem "editar" no
+ * módulo. Não existe mais "apagar" na conciliação (pedido do dono): o
+ * comprovante errado o motorista corrige no mesmo dia, e fica registrado.
  */
-export async function excluirComprovante(id: string): Promise<ResultadoEnvio> {
+export async function conferirComprovantes(ids: string[], conferido: boolean): Promise<ResultadoEnvio> {
   const c = await contexto();
   if (!c.ok) return c;
-  const admin = createAdminClient();
-  const { data: comp } = await admin
-    .from("qr_comprovantes")
-    .select("id, colaborador_id, data")
-    .eq("id", id)
-    .eq("revenda_id", c.revendaId)
-    .maybeSingle();
-  if (!comp) return { ok: false, erro: "Comprovante não encontrado." };
-
-  const meuDeHoje = comp.colaborador_id === c.perfil.id && comp.data === hojeNaOperacao();
-  if (!meuDeHoje && !(await podeNoModulo(MODULO_QR, "excluir"))) {
-    return { ok: false, erro: "Só dá para apagar o próprio comprovante, no mesmo dia." };
+  if (!(await podeNoModulo(MODULO_QR, "editar"))) {
+    return { ok: false, erro: "Você não tem permissão para conferir comprovantes." };
   }
+  const lista = [...new Set(ids.map(String))].filter(Boolean).slice(0, 500);
+  if (lista.length === 0) return { ok: false, erro: "Nenhum comprovante escolhido." };
 
-  const { data: fotos } = await admin.from("qr_comprovante_fotos").select("caminho").eq("comprovante_id", id);
-  const { error } = await admin.from("qr_comprovantes").delete().eq("id", id);
-  if (error) return { ok: false, erro: `Não foi possível apagar: ${error.message}` };
-  await apagarDoBucket((fotos ?? []).map((f) => String(f.caminho)));
+  const { error } = await createAdminClient()
+    .from("qr_comprovantes")
+    .update(
+      conferido
+        ? { conferido_em: new Date().toISOString(), conferido_por_nome: c.perfil.nome }
+        : { conferido_em: null, conferido_por_nome: null },
+    )
+    .eq("revenda_id", c.revendaId)
+    .in("id", lista);
+  if (error) return { ok: false, erro: `Não foi possível salvar a conferência: ${error.message}` };
 
-  revalidatePath(ROTA);
   revalidatePath("/gestao/comprovantes-qr");
-  return { ok: true, mensagem: "Comprovante apagado." };
+  return {
+    ok: true,
+    mensagem: conferido
+      ? `${lista.length} comprovante${lista.length === 1 ? "" : "s"} conferido${lista.length === 1 ? "" : "s"}.`
+      : "Conferência desfeita.",
+  };
 }

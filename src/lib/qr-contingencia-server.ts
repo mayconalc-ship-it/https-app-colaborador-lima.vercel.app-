@@ -132,6 +132,20 @@ export type ComprovanteComFotos = {
   /** Chegou ao servidor mais de 15 min depois de feito -- veio da fila sem internet. */
   enviadoDepois: boolean;
   fotos: { id: string; url: string | null }[];
+  /** As edições do motorista (migration 128), da mais antiga à mais nova. */
+  edicoes: EdicaoDoComprovante[];
+  /** A conferência do financeiro (migration 128). Cai se o motorista editar. */
+  conferidoEm: string | null;
+  conferidoPorNome: string | null;
+};
+
+export type EdicaoDoComprovante = {
+  colaboradorNome: string;
+  editadoEm: string;
+  valorAntes: number | null;
+  valorDepois: number | null;
+  fotosTiradas: number;
+  fotosNovas: number;
 };
 
 /** Lê comprovantes (já filtrados pela consulta de quem chama) com as fotos assinadas. */
@@ -149,6 +163,9 @@ export async function comFotos(
     colaborador_nome: string;
     criado_em: string;
     pago_em: string | null;
+    editado_em: string | null;
+    conferido_em: string | null;
+    conferido_por_nome: string | null;
   }[],
 ): Promise<ComprovanteComFotos[]> {
   if (linhas.length === 0) return [];
@@ -162,6 +179,27 @@ export async function comFotos(
       .in("comprovante_id", ids.slice(i, i + 150))
       .order("criado_em");
     fotos.push(...((data ?? []) as typeof fotos));
+  }
+  // O histórico só de quem foi editado -- a maioria nunca é.
+  const editados = linhas.filter((l) => l.editado_em).map((l) => l.id);
+  const edicoes: (EdicaoDoComprovante & { comprovanteId: string })[] = [];
+  for (let i = 0; i < editados.length; i += 150) {
+    const { data } = await admin
+      .from("qr_comprovante_edicoes")
+      .select("comprovante_id, colaborador_nome, editado_em, valor_antes, valor_depois, fotos_tiradas, fotos_novas")
+      .in("comprovante_id", editados.slice(i, i + 150))
+      .order("editado_em");
+    for (const e of data ?? []) {
+      edicoes.push({
+        comprovanteId: String(e.comprovante_id),
+        colaboradorNome: String(e.colaborador_nome),
+        editadoEm: String(e.editado_em),
+        valorAntes: e.valor_antes == null ? null : Number(e.valor_antes),
+        valorDepois: e.valor_depois == null ? null : Number(e.valor_depois),
+        fotosTiradas: Number(e.fotos_tiradas ?? 0),
+        fotosNovas: Number(e.fotos_novas ?? 0),
+      });
+    }
   }
   const links = await linksAssinados(fotos.map((f) => f.caminho));
   return linhas.map((l) => ({
@@ -182,8 +220,77 @@ export async function comFotos(
     fotos: fotos
       .filter((f) => f.comprovante_id === l.id)
       .map((f) => ({ id: f.id, url: links.get(f.caminho) ?? null })),
+    edicoes: edicoes
+      .filter((e) => e.comprovanteId === l.id)
+      .map((e) => ({
+        colaboradorNome: e.colaboradorNome,
+        editadoEm: e.editadoEm,
+        valorAntes: e.valorAntes,
+        valorDepois: e.valorDepois,
+        fotosTiradas: e.fotosTiradas,
+        fotosNovas: e.fotosNovas,
+      })),
+    conferidoEm: l.conferido_em,
+    conferidoPorNome: l.conferido_por_nome,
   }));
 }
 
+/**
+ * OS COMPROVANTES DE HOJE NA TELA DO CELULAR, CONSOLIDADOS POR MAPA (pedido
+ * do dono, 19/09/2026: "motorista e ajudante têm acesso; o app deve
+ * consolidar todos os pagamentos por mapa, independente do usuário").
+ * Vêm os da pessoa e TODOS os dos mapas em que ela trabalhou hoje -- os
+ * que ela lançou e os `mapasExtras` (o mapa buscado na tela).
+ */
+export async function comprovantesDeHojeDaEquipe(
+  revendaId: string,
+  colaboradorId: string,
+  mapasExtras: string[] = [],
+): Promise<ComprovanteComFotos[]> {
+  const admin = createAdminClient();
+  const hoje = hojeNaOperacao();
+  const { data: meus } = await admin
+    .from("qr_comprovantes")
+    .select("mapa")
+    .eq("revenda_id", revendaId)
+    .eq("colaborador_id", colaboradorId)
+    .eq("data", hoje);
+  // Mapa é só dígito (normalizarMapa) -- seguro dentro do filtro.
+  const mapas = [...new Set([...(meus ?? []).map((m) => m.mapa), ...mapasExtras])].filter(
+    (m): m is string => typeof m === "string" && /^\d{1,20}$/.test(m),
+  );
+  const filtro = mapas.length
+    ? `colaborador_id.eq.${colaboradorId},mapa.in.(${mapas.join(",")})`
+    : `colaborador_id.eq.${colaboradorId}`;
+  const { data: linhas } = await admin
+    .from("qr_comprovantes")
+    .select(COLUNAS_COMPROVANTE)
+    .eq("revenda_id", revendaId)
+    .eq("data", hoje)
+    .or(filtro)
+    .order("criado_em", { ascending: false });
+  return comFotos(linhas ?? []);
+}
+
+/** O comprovante no formato da tela do celular. */
+export function paraTelaDoCelular(c: ComprovanteComFotos, eu: string) {
+  return {
+    id: c.id,
+    mapa: c.mapa,
+    codPdv: c.codPdv,
+    clienteNome: c.clienteNome,
+    valor: c.valor,
+    hora: new Date(c.pagoEm).toLocaleTimeString("pt-BR", {
+      timeZone: "America/Sao_Paulo",
+      hour: "2-digit",
+      minute: "2-digit",
+    }),
+    fotos: c.fotos,
+    editado: c.edicoes.length > 0,
+    /** Lançado por outra pessoa da equipe do mapa: o nome dela; o próprio, null. */
+    lancadoPor: c.colaboradorId === eu ? null : c.colaboradorNome,
+  };
+}
+
 export const COLUNAS_COMPROVANTE =
-  "id, data, mapa, cod_pdv, cliente_nome, cliente_cidade, valor, observacao, colaborador_id, colaborador_nome, criado_em, pago_em";
+  "id, data, mapa, cod_pdv, cliente_nome, cliente_cidade, valor, observacao, colaborador_id, colaborador_nome, criado_em, pago_em, editado_em, conferido_em, conferido_por_nome";

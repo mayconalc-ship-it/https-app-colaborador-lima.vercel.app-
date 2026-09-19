@@ -42,7 +42,7 @@ export default async function ComprovantesQrPage({
   const motoristaEscolhido = (sp.motorista ?? "").trim();
   const busca = (sp.busca ?? "").trim();
 
-  const [doPeriodo, podeExcluir] = await Promise.all([
+  const [doPeriodo, podeConferir] = await Promise.all([
     lerTudo<Linha>((a, b) =>
       createAdminClient()
         .from("qr_comprovantes")
@@ -53,7 +53,8 @@ export default async function ComprovantesQrPage({
         .order("criado_em", { ascending: false })
         .range(a, b),
     ),
-    podeNoModulo(MODULO_QR, "excluir"),
+    // Conferir é do financeiro: quem tem "editar" no módulo.
+    podeNoModulo(MODULO_QR, "editar"),
   ]);
 
   // As listas dos filtros saem do PERÍODO, antes dos outros filtros: assim
@@ -89,7 +90,7 @@ export default async function ComprovantesQrPage({
       motoristasDoPeriodo={motoristasDoPeriodo}
       filtradas={filtradas}
       comprovantes={comprovantes}
-      podeExcluir={podeExcluir}
+      podeConferir={podeConferir}
     />
   );
 }
