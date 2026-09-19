@@ -160,6 +160,42 @@ export function formatarReais(v: number | null) {
   return v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
 
+// ---- A CONCILIAÇÃO COM O EXTRATO (19/09/2026, migration 129) ----
+
+export type SituacaoConferencia = "conferido" | "divergente";
+
+export const MOTIVOS_DE_DIVERGENCIA = [
+  "Não caiu no extrato",
+  "Valor diferente no extrato",
+  "Pagador diferente do cliente",
+  "Comprovante ilegível",
+] as const;
+
+export const CONFERENCIA_OBS_MAX = 200;
+
+/**
+ * A marcação da conciliação -- a MESMA regra na tela e no servidor.
+ * Conferido vale em lote; divergente é um comprovante por vez, com o
+ * valor que caiu no extrato (0 = não caiu) e o motivo.
+ */
+export function validarConferencia(d: {
+  qtd: number;
+  situacao: SituacaoConferencia | null;
+  valorExtrato: number | null;
+  motivo: string;
+}): string | null {
+  if (d.qtd === 0) return "Nenhum comprovante escolhido.";
+  if (d.qtd > 500) return "No máximo 500 comprovantes de uma vez.";
+  if (d.situacao !== "divergente") return null;
+  if (d.qtd !== 1) return "Divergência é um comprovante por vez.";
+  if (d.valorExtrato === null) return "Informe o valor que caiu no extrato (0 se não caiu).";
+  if (Number.isNaN(d.valorExtrato) || d.valorExtrato < 0) return "Valor do extrato inválido.";
+  if (d.valorExtrato > LIMITES_QR.valorMax) return "Valor do extrato alto demais — confira.";
+  if (!d.motivo.trim()) return "Diga o motivo da divergência.";
+  if (d.motivo.length > CONFERENCIA_OBS_MAX) return `O motivo passa de ${CONFERENCIA_OBS_MAX} caracteres.`;
+  return null;
+}
+
 /** "12345678000190" -> "12.345.678/0001-90". Outro tamanho volta como veio. */
 export function formatarCnpj(cnpj: string | null) {
   const d = (cnpj ?? "").replace(/\D/g, "");

@@ -13,6 +13,7 @@ import {
   lerValor,
   validarComprovante,
   validarConfigQr,
+  validarConferencia,
 } from "../qr-contingencia.ts";
 
 let falhas = 0;
@@ -82,6 +83,18 @@ eq("lixo: usa agora", horaDoPagamento("ontem", agora).toISOString(), agora.toISO
 eq("id de envio válido", ehEnvioId("3f2b8c1e-9d4a-4f6b-8e2c-1a2b3c4d5e6f"), true);
 eq("id de envio inválido", ehEnvioId("1; drop table"), false);
 eq("código digitado", codigoDigitado(" 0003163 "), "3163");
+
+// A conciliação com o extrato (19/09/2026).
+const conc = (d) => validarConferencia({ qtd: 1, situacao: "divergente", valorExtrato: 10, motivo: "Não caiu", ...d });
+eq("conferir em lote vale", validarConferencia({ qtd: 40, situacao: "conferido", valorExtrato: null, motivo: "" }), null);
+eq("desfazer vale", validarConferencia({ qtd: 3, situacao: null, valorExtrato: null, motivo: "" }), null);
+eq("nenhum escolhido", validarConferencia({ qtd: 0, situacao: "conferido", valorExtrato: null, motivo: "" }), "Nenhum comprovante escolhido.");
+eq("divergência completa vale", conc({}), null);
+eq("divergência com extrato 0 vale", conc({ valorExtrato: 0 }), null);
+eq("divergência em lote não", conc({ qtd: 2 }), "Divergência é um comprovante por vez.");
+eq("divergência sem valor do extrato", conc({ valorExtrato: null }), "Informe o valor que caiu no extrato (0 se não caiu).");
+eq("divergência sem motivo", conc({ motivo: "  " }), "Diga o motivo da divergência.");
+eq("divergência com valor torto", conc({ valorExtrato: NaN }), "Valor do extrato inválido.");
 
 console.log(falhas === 0 ? "\nTUDO CERTO" : `\n${falhas} FALHA(S)`);
 process.exit(falhas === 0 ? 0 : 1);

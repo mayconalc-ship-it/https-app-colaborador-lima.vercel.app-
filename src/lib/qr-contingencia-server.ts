@@ -137,6 +137,10 @@ export type ComprovanteComFotos = {
   /** A conferência do financeiro (migration 128). Cai se o motorista editar. */
   conferidoEm: string | null;
   conferidoPorNome: string | null;
+  /** A conciliação com o extrato (migration 129). */
+  situacao: "conferido" | "divergente" | null;
+  valorExtrato: number | null;
+  conferenciaObs: string | null;
 };
 
 export type EdicaoDoComprovante = {
@@ -166,6 +170,9 @@ export async function comFotos(
     editado_em: string | null;
     conferido_em: string | null;
     conferido_por_nome: string | null;
+    conferencia_situacao: string | null;
+    valor_extrato: number | string | null;
+    conferencia_obs: string | null;
   }[],
 ): Promise<ComprovanteComFotos[]> {
   if (linhas.length === 0) return [];
@@ -232,6 +239,14 @@ export async function comFotos(
       })),
     conferidoEm: l.conferido_em,
     conferidoPorNome: l.conferido_por_nome,
+    situacao:
+      l.conferencia_situacao === "divergente"
+        ? "divergente"
+        : l.conferencia_situacao === "conferido" || l.conferido_em
+          ? "conferido"
+          : null,
+    valorExtrato: l.valor_extrato == null ? null : Number(l.valor_extrato),
+    conferenciaObs: l.conferencia_obs,
   }));
 }
 
@@ -293,4 +308,4 @@ export function paraTelaDoCelular(c: ComprovanteComFotos, eu: string) {
 }
 
 export const COLUNAS_COMPROVANTE =
-  "id, data, mapa, cod_pdv, cliente_nome, cliente_cidade, valor, observacao, colaborador_id, colaborador_nome, criado_em, pago_em, editado_em, conferido_em, conferido_por_nome";
+  "id, data, mapa, cod_pdv, cliente_nome, cliente_cidade, valor, observacao, colaborador_id, colaborador_nome, criado_em, pago_em, editado_em, conferido_em, conferido_por_nome, conferencia_situacao, valor_extrato, conferencia_obs";

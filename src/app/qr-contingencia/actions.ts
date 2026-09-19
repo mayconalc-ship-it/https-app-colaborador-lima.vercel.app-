@@ -26,6 +26,8 @@ import {
   horaDoPagamento,
   lerValor,
   validarComprovante,
+  validarConferencia,
+  type SituacaoConferencia,
 } from "@/lib/qr-contingencia";
 
 const ROTA = "/qr-contingencia";
@@ -310,7 +312,15 @@ export async function editarComprovante(formData: FormData): Promise<ResultadoEn
   // outro valor, outras fotos.
   const { error: erroValor } = await admin
     .from("qr_comprovantes")
-    .update({ valor, editado_em: agora, conferido_em: null, conferido_por_nome: null })
+    .update({
+      valor,
+      editado_em: agora,
+      conferido_em: null,
+      conferido_por_nome: null,
+      conferencia_situacao: null,
+      valor_extrato: null,
+      conferencia_obs: null,
+    })
     .eq("id", id);
   if (erroValor) return { ok: false, erro: `Não foi possível salvar o valor: ${erroValor.message}` };
 
@@ -325,36 +335,65 @@ export async function editarComprovante(formData: FormData): Promise<ResultadoEn
 }
 
 /**
- * A CONFERÊNCIA DO FINANCEIRO (19/09/2026): marca -- ou desmarca -- um ou
- * vários comprovantes como batidos com o extrato. Só quem tem "editar" no
- * módulo. Não existe mais "apagar" na conciliação (pedido do dono): o
- * comprovante errado o motorista corrige no mesmo dia, e fica registrado.
+ * A CONCILIAÇÃO DO FINANCEIRO (19/09/2026, migrations 128 e 129): marca um
+ * ou vários comprovantes como CONFERIDOS (batem com o extrato), um como
+ * DIVERGENTE (com o valor que caiu no banco e o motivo), ou desfaz
+ * (`situacao` null). Só quem tem "editar" no módulo; a mesma regra da tela
+ * (validarConferencia). Não existe "apagar" na conciliação (pedido do
+ * dono): o comprovante errado o motorista corrige no mesmo dia.
  */
-export async function conferirComprovantes(ids: string[], conferido: boolean): Promise<ResultadoEnvio> {
+export async function registrarConferencia(entrada: {
+  ids: string[];
+  situacao: SituacaoConferencia | null;
+  valorExtrato?: string;
+  motivo?: string;
+}): Promise<ResultadoEnvio> {
   const c = await contexto();
   if (!c.ok) return c;
   if (!(await podeNoModulo(MODULO_QR, "editar"))) {
     return { ok: false, erro: "Você não tem permissão para conferir comprovantes." };
   }
-  const lista = [...new Set(ids.map(String))].filter(Boolean).slice(0, 500);
-  if (lista.length === 0) return { ok: false, erro: "Nenhum comprovante escolhido." };
+  const situacao =
+    entrada.situacao === "conferido" || entrada.situacao === "divergente" ? entrada.situacao : null;
+  const lista = [...new Set((entrada.ids ?? []).map(String))].filter(Boolean);
+  const valorExtrato = situacao === "divergente" ? lerValor(entrada.valorExtrato ?? "") : null;
+  const motivo = String(entrada.motivo ?? "").trim();
+  const problema = validarConferencia({ qtd: lista.length, situacao, valorExtrato, motivo });
+  if (problema) return { ok: false, erro: problema };
 
+  const agora = new Date().toISOString();
   const { error } = await createAdminClient()
     .from("qr_comprovantes")
     .update(
-      conferido
-        ? { conferido_em: new Date().toISOString(), conferido_por_nome: c.perfil.nome }
-        : { conferido_em: null, conferido_por_nome: null },
+      situacao
+        ? {
+            conferencia_situacao: situacao,
+            conferido_em: agora,
+            conferido_por_nome: c.perfil.nome,
+            valor_extrato: situacao === "divergente" ? valorExtrato : null,
+            conferencia_obs: situacao === "divergente" ? motivo : null,
+          }
+        : {
+            conferencia_situacao: null,
+            conferido_em: null,
+            conferido_por_nome: null,
+            valor_extrato: null,
+            conferencia_obs: null,
+          },
     )
     .eq("revenda_id", c.revendaId)
     .in("id", lista);
-  if (error) return { ok: false, erro: `Não foi possível salvar a conferência: ${error.message}` };
+  if (error) return { ok: false, erro: `Não foi possível salvar a conciliação: ${error.message}` };
 
   revalidatePath("/gestao/comprovantes-qr");
+  const n = lista.length;
   return {
     ok: true,
-    mensagem: conferido
-      ? `${lista.length} comprovante${lista.length === 1 ? "" : "s"} conferido${lista.length === 1 ? "" : "s"}.`
-      : "Conferência desfeita.",
+    mensagem:
+      situacao === "conferido"
+        ? `${n} comprovante${n === 1 ? "" : "s"} conferido${n === 1 ? "" : "s"}.`
+        : situacao === "divergente"
+          ? "Divergência registrada."
+          : "Conciliação desfeita.",
   };
 }

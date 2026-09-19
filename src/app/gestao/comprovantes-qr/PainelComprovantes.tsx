@@ -4,7 +4,7 @@ import { ExportarCsv } from "@/components/ExportarCsv";
 import { FiltroNoLugar } from "@/components/FiltroNoLugar";
 import { formatarReais } from "@/lib/qr-contingencia";
 import type { ComprovanteComFotos, EdicaoDoComprovante } from "@/lib/qr-contingencia-server";
-import { BotaoConferir, CopiarResumo } from "./Conferir";
+import { LivroDoMapa, type LancamentoDoLivro } from "./Conferir";
 
 // O mesmo campo e rótulo das outras telas da Gestão (armazém, AG).
 const campo =
@@ -15,6 +15,14 @@ const dataBr = (iso: string) => iso.split("-").reverse().join("/");
 const dataCurta = (iso: string) => iso.split("-").reverse().slice(0, 2).join("/");
 const hora = (iso: string) =>
   new Date(iso).toLocaleTimeString("pt-BR", { timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit" });
+const diaHora = (iso: string) =>
+  new Date(iso).toLocaleString("pt-BR", {
+    timeZone: "America/Sao_Paulo",
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 
 export type LinhaComprovante = {
   id: string;
@@ -32,6 +40,9 @@ export type LinhaComprovante = {
   editado_em: string | null;
   conferido_em: string | null;
   conferido_por_nome: string | null;
+  conferencia_situacao: string | null;
+  valor_extrato: number | string | null;
+  conferencia_obs: string | null;
 };
 
 /** "valor R$ 80,00 → R$ 85,00 · 1 foto tirada · 2 novas" -- o que a edição mudou. */
@@ -45,6 +56,16 @@ function oQueMudou(e: EdicaoDoComprovante) {
 
 const valorDe = (l: LinhaComprovante) => (l.valor == null ? 0 : Number(l.valor));
 
+/** A situação na conciliação (o conferido da 128 sem situação vale como conferido). */
+function situacaoDe(l: LinhaComprovante): "conferido" | "divergente" | null {
+  if (l.conferencia_situacao === "divergente") return "divergente";
+  if (l.conferencia_situacao === "conferido" || l.conferido_em) return "conferido";
+  return null;
+}
+
+const diferencaDe = (l: LinhaComprovante) =>
+  situacaoDe(l) === "divergente" ? Number(l.valor_extrato ?? 0) - valorDe(l) : 0;
+
 /** O que merece um segundo olhar de quem concilia, por comprovante. */
 function pontosDeAtencao(l: LinhaComprovante, repetidos: Set<string>) {
   const p: string[] = [];
@@ -54,15 +75,16 @@ function pontosDeAtencao(l: LinhaComprovante, repetidos: Set<string>) {
   return p;
 }
 
+const plural = (n: number, s: string, p: string) => `${n} ${n === 1 ? s : p}`;
+
 /**
- * A TELA DA CONCILIAÇÃO -- refeita em 19/09/2026 (pedido do dono: "mapa
- * com data, estranho", "todos os mapas agrupados", sem o Apagar, e "algo
- * que ajude a conciliar e o trabalho do financeiro").
+ * A TELA DA CONCILIAÇÃO -- refeita em 19/09/2026 (pedidos do dono: "mapa
+ * com data, estranho", "todos os mapas agrupados", sem o Apagar, "algo que
+ * ajude a conciliar" e, depois, "mais de contabilidade").
  *
- * De cima para baixo, na ordem do trabalho: quanto entrou em PIX e quanto
- * já foi conferido; o RESUMO DE TODOS OS MAPAS numa tabela (um clique abre
- * o mapa); e cada mapa com os clientes, o "Conferir" de cada comprovante,
- * o "conferir todos" e o resumo para copiar.
+ * De cima para baixo, na ordem do trabalho: o balanço do período
+ * (recebido, conferido, divergente, a conferir); o RESUMO DE TODOS OS
+ * MAPAS; e o LIVRO de cada mapa -- lançamentos com carimbo e o fechamento.
  */
 export function PainelComprovantes({
   de,
@@ -100,13 +122,16 @@ export function PainelComprovantes({
   }
   const repetidos = new Set([...contagem].filter(([, n]) => n > 1).map(([k]) => k));
 
-  // ---- Os números do período (todas as linhas, não só as 300 com foto) ----
+  // ---- O BALANÇO DO PERÍODO (todas as linhas, não só as 300 com foto) ----
   const total = filtradas.reduce((s, l) => s + valorDe(l), 0);
-  const conferidas = filtradas.filter((l) => l.conferido_em);
-  const totalConferido = conferidas.reduce((s, l) => s + valorDe(l), 0);
+  const conferidas = filtradas.filter((l) => situacaoDe(l) === "conferido");
+  const divergentes = filtradas.filter((l) => situacaoDe(l) === "divergente");
+  const pendentes = filtradas.filter((l) => !situacaoDe(l));
+  const soma = (ls: LinhaComprovante[]) => ls.reduce((s, l) => s + valorDe(l), 0);
+  const diferencaTotal = divergentes.reduce((s, l) => s + diferencaDe(l), 0);
   const comAtencao = filtradas.filter((l) => pontosDeAtencao(l, repetidos).length > 0).length;
 
-  // ---- AGRUPADO POR MAPA -- só o número; a data vai no comprovante ----
+  // ---- AGRUPADO POR MAPA -- só o número; a data vai no lançamento ----
   const porMapa = new Map<string, LinhaComprovante[]>();
   for (const l of filtradas) {
     const k = l.mapa ?? "-";
@@ -117,9 +142,11 @@ export function PainelComprovantes({
       chave,
       mapa: chave === "-" ? null : chave,
       linhas,
-      total: linhas.reduce((s, l) => s + valorDe(l), 0),
+      total: soma(linhas),
       clientes: new Set(linhas.map((l) => l.cod_pdv)).size,
-      conferidos: linhas.filter((l) => l.conferido_em).length,
+      conferidos: linhas.filter((l) => situacaoDe(l) === "conferido").length,
+      divergentes: linhas.filter((l) => situacaoDe(l) === "divergente").length,
+      diferenca: linhas.reduce((s, l) => s + diferencaDe(l), 0),
       motoristas: [...new Set(linhas.map((l) => l.colaborador_nome))],
       atencao: linhas.filter((l) => pontosDeAtencao(l, repetidos).length > 0).length,
     }))
@@ -133,7 +160,7 @@ export function PainelComprovantes({
     <div>
       <PageHeader
         title="🧾 Comprovantes de Pagamento"
-        subtitle="Os PIX recebidos na contingência, mapa a mapa, para conferir com o extrato."
+        subtitle="A conciliação dos PIX da contingência com o extrato, mapa a mapa."
         fecharHref="/gestao"
       />
 
@@ -190,32 +217,40 @@ export function PainelComprovantes({
         </p>
       </FiltroNoLugar>
 
-      {/* ---- OS NÚMEROS DA CONCILIAÇÃO ---- */}
-      <div className="mb-5 grid grid-cols-2 gap-2 lg:grid-cols-4">
+      {/* ---- O BALANÇO DO PERÍODO ---- */}
+      <div className="mb-2 grid grid-cols-2 gap-2 lg:grid-cols-4">
         <Numero
           titulo="Recebido em PIX"
           valor={formatarReais(total)}
-          detalhe={`${filtradas.length} comprovante${filtradas.length === 1 ? "" : "s"} · ${resumo.length} mapa${resumo.length === 1 ? "" : "s"}`}
-          destaque
+          detalhe={`${plural(filtradas.length, "comprovante", "comprovantes")} · ${plural(resumo.length, "mapa", "mapas")}`}
+          tom="destaque"
         />
         <Numero
           titulo="Conferido"
-          valor={formatarReais(totalConferido)}
-          detalhe={`${conferidas.length} de ${filtradas.length}`}
+          valor={formatarReais(soma(conferidas))}
+          detalhe={`${conferidas.length} de ${filtradas.length} comprovantes`}
           progresso={filtradas.length ? conferidas.length / filtradas.length : 0}
+          tom={filtradas.length > 0 && conferidas.length === filtradas.length ? "ok" : "neutro"}
         />
         <Numero
-          titulo="Falta conferir"
-          valor={formatarReais(total - totalConferido)}
-          detalhe={`${filtradas.length - conferidas.length} comprovante${filtradas.length - conferidas.length === 1 ? "" : "s"}`}
+          titulo="Divergente"
+          valor={formatarReais(soma(divergentes))}
+          detalhe={divergentes.length ? `${divergentes.length} · diferença ${formatarReais(diferencaTotal)}` : "nenhuma divergência"}
+          tom={divergentes.length ? "erro" : "neutro"}
         />
         <Numero
-          titulo="Pontos de atenção"
-          valor={String(comAtencao)}
-          detalhe={comAtencao ? "veja o ⚠️ nos mapas" : "nada fora do normal"}
-          alerta={comAtencao > 0}
+          titulo="A conferir"
+          valor={formatarReais(soma(pendentes))}
+          detalhe={plural(pendentes.length, "comprovante", "comprovantes")}
         />
       </div>
+      {comAtencao > 0 && (
+        <p className="mb-5 px-1 text-xs text-amber-800">
+          ⚠️ {plural(comAtencao, "comprovante pede", "comprovantes pedem")} um segundo olhar — editado, sem valor ou cliente
+          repetido no mapa. Estão marcados nos mapas.
+        </p>
+      )}
+      {comAtencao === 0 && <div className="mb-5" />}
 
       {resumo.length === 0 ? (
         <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
@@ -232,7 +267,7 @@ export function PainelComprovantes({
             <section className="mb-5 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
               <div className="flex items-center justify-between gap-2 border-b border-slate-100 px-4 py-3">
                 <h2 className="text-sm font-bold text-slate-800">Resumo por mapa</h2>
-                <span className="text-xs text-slate-500">Toque no mapa para ver os clientes</span>
+                <span className="text-xs text-slate-500">Toque no mapa para abrir o livro dele</span>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
@@ -242,7 +277,8 @@ export function PainelComprovantes({
                       <th className="hidden px-2 py-2 sm:table-cell">Motorista</th>
                       <th className="hidden px-2 py-2 text-right sm:table-cell">Clientes</th>
                       <th className="px-2 py-2 text-right">PIX</th>
-                      <th className="px-4 py-2 text-right">Conferência</th>
+                      <th className="hidden px-2 py-2 text-right md:table-cell">Diferença</th>
+                      <th className="px-4 py-2 text-right">Situação</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -250,7 +286,7 @@ export function PainelComprovantes({
                       <tr key={m.chave} className="hover:bg-slate-50">
                         <td className="px-4 py-2.5">
                           {m.mapa ? (
-                            <Link href={hrefMapa(m.mapa)} className="font-bold tabular-nums text-primary-dark hover:underline">
+                            <Link href={hrefMapa(m.mapa)} className="font-mono font-bold tabular-nums text-primary-dark hover:underline">
                               {m.mapa}
                             </Link>
                           ) : (
@@ -266,23 +302,43 @@ export function PainelComprovantes({
                           {m.motoristas.join(", ")}
                         </td>
                         <td className="hidden px-2 py-2.5 text-right tabular-nums text-slate-600 sm:table-cell">{m.clientes}</td>
-                        <td className="px-2 py-2.5 text-right font-semibold tabular-nums text-slate-900">{formatarReais(m.total)}</td>
+                        <td className="px-2 py-2.5 text-right font-mono font-semibold tabular-nums text-slate-900">
+                          {formatarReais(m.total)}
+                        </td>
+                        <td
+                          className={`hidden px-2 py-2.5 text-right font-mono tabular-nums md:table-cell ${
+                            m.divergentes ? "font-semibold text-red-700" : "text-slate-300"
+                          }`}
+                        >
+                          {m.divergentes ? formatarReais(m.diferenca) : "—"}
+                        </td>
                         <td className="px-4 py-2.5 text-right">
-                          <StatusConferencia feitos={m.conferidos} total={m.linhas.length} />
+                          <Situacao divergentes={m.divergentes} feitos={m.conferidos + m.divergentes} total={m.linhas.length} />
                         </td>
                       </tr>
                     ))}
                   </tbody>
                   <tfoot>
-                    <tr className="border-t border-slate-200 bg-slate-50 font-semibold">
+                    <tr className="border-t-[3px] border-double border-slate-300 bg-slate-50 font-semibold">
                       <td className="px-4 py-2.5 text-slate-700">Total</td>
                       <td className="hidden sm:table-cell" />
                       <td className="hidden px-2 py-2.5 text-right tabular-nums text-slate-700 sm:table-cell">
                         {resumo.reduce((s, m) => s + m.clientes, 0)}
                       </td>
-                      <td className="px-2 py-2.5 text-right tabular-nums text-slate-900">{formatarReais(total)}</td>
+                      <td className="px-2 py-2.5 text-right font-mono tabular-nums text-slate-900">{formatarReais(total)}</td>
+                      <td
+                        className={`hidden px-2 py-2.5 text-right font-mono tabular-nums md:table-cell ${
+                          divergentes.length ? "text-red-700" : "text-slate-300"
+                        }`}
+                      >
+                        {divergentes.length ? formatarReais(diferencaTotal) : "—"}
+                      </td>
                       <td className="px-4 py-2.5 text-right">
-                        <StatusConferencia feitos={conferidas.length} total={filtradas.length} />
+                        <Situacao
+                          divergentes={divergentes.length}
+                          feitos={conferidas.length + divergentes.length}
+                          total={filtradas.length}
+                        />
                       </td>
                     </tr>
                   </tfoot>
@@ -293,10 +349,10 @@ export function PainelComprovantes({
 
           <div className="mb-3 flex items-center justify-between gap-2">
             <h2 className="px-1 text-xs font-semibold uppercase tracking-wide text-slate-400">
-              {umMapaSo ? "Clientes do mapa" : "Mapas"}
+              {umMapaSo ? "Livro do mapa" : "Livro de cada mapa"}
             </h2>
             <ExportarCsv
-              nome="comprovantes-qr"
+              nome="conciliacao-pix"
               complemento={`${de}_a_${ate}`}
               cabecalho={[
                 "Data",
@@ -305,38 +361,49 @@ export function PainelComprovantes({
                 "Código do cliente",
                 "Cliente",
                 "Cidade",
-                "Valor",
+                "Valor do comprovante",
+                "Situação",
+                "Valor no extrato",
+                "Diferença",
+                "Motivo da divergência",
+                "Conciliado por",
                 "Motorista",
                 "Fotos",
                 "Observação",
-                "Conferido por",
                 "Editado",
               ]}
-              linhas={filtradas.map((l) => [
-                dataBr(l.data),
-                hora(l.pago_em ?? l.criado_em),
-                l.mapa ?? "",
-                l.cod_pdv,
-                l.cliente_nome ?? "",
-                l.cliente_cidade ?? "",
-                l.valor == null ? "" : Number(l.valor),
-                l.colaborador_nome,
-                detalhe.get(l.id)?.fotos.length ?? "",
-                l.observacao ?? "",
-                l.conferido_em ? `${l.conferido_por_nome ?? ""} ${dataCurta(l.conferido_em.slice(0, 10))} ${hora(l.conferido_em)}`.trim() : "",
-                // Só os 300 com fotos trazem o detalhe; os demais, a hora da última edição.
-                l.editado_em
-                  ? (detalhe
-                      .get(l.id)
-                      ?.edicoes.map((e) => `${hora(e.editadoEm)}: ${oQueMudou(e)}`)
-                      .join(" | ") ?? `às ${hora(l.editado_em)}`)
-                  : "",
-              ])}
+              linhas={filtradas.map((l) => {
+                const s = situacaoDe(l);
+                return [
+                  dataBr(l.data),
+                  hora(l.pago_em ?? l.criado_em),
+                  l.mapa ?? "",
+                  l.cod_pdv,
+                  l.cliente_nome ?? "",
+                  l.cliente_cidade ?? "",
+                  l.valor == null ? "" : Number(l.valor),
+                  s === "conferido" ? "Conferido" : s === "divergente" ? "Divergente" : "A conferir",
+                  s === "conferido" ? valorDe(l) : s === "divergente" ? Number(l.valor_extrato ?? 0) : "",
+                  s === "divergente" ? diferencaDe(l) : s === "conferido" ? 0 : "",
+                  l.conferencia_obs ?? "",
+                  l.conferido_em ? `${l.conferido_por_nome ?? ""} ${diaHora(l.conferido_em)}`.trim() : "",
+                  l.colaborador_nome,
+                  detalhe.get(l.id)?.fotos.length ?? "",
+                  l.observacao ?? "",
+                  // Só os 300 com fotos trazem o detalhe; os demais, a hora da última edição.
+                  l.editado_em
+                    ? (detalhe
+                        .get(l.id)
+                        ?.edicoes.map((e) => `${hora(e.editadoEm)}: ${oQueMudou(e)}`)
+                        .join(" | ") ?? `às ${hora(l.editado_em)}`)
+                    : "",
+                ];
+              })}
               rotulo="Exportar .csv"
             />
           </div>
 
-          {/* ---- CADA MAPA ---- */}
+          {/* ---- O LIVRO DE CADA MAPA ---- */}
           <div className="space-y-3">
             {resumo.map((m) => {
               const itens = m.linhas
@@ -344,169 +411,62 @@ export function PainelComprovantes({
                 .filter((c): c is ComprovanteComFotos => Boolean(c))
                 .sort((a, b) => a.pagoEm.localeCompare(b.pagoEm));
               if (itens.length === 0) return null;
-              const faltam = itens.filter((c) => !c.conferidoEm).map((c) => c.id);
               const dias = [...new Set(itens.map((c) => c.data))].sort();
+              const variasPessoas = m.motoristas.length > 1;
+
+              const lancamentos: LancamentoDoLivro[] = itens.map((c) => {
+                const linha = m.linhas.find((l) => l.id === c.id)!;
+                const atencao = pontosDeAtencao(linha, repetidos);
+                return {
+                  id: c.id,
+                  dia: variosDias ? dataCurta(c.data) : null,
+                  hora: hora(c.pagoEm),
+                  codPdv: c.codPdv,
+                  clienteNome: c.clienteNome,
+                  clienteCidade: c.clienteCidade,
+                  colaboradorNome: variasPessoas ? c.colaboradorNome : null,
+                  valor: c.valor,
+                  fotos: c.fotos,
+                  observacao: c.observacao,
+                  avisos: [
+                    ...(atencao.includes("cliente com mais de um comprovante") ? ["⚠️ cliente com mais de um comprovante neste mapa"] : []),
+                    ...(c.enviadoDepois ? [`📵 feito sem internet · enviado às ${hora(c.criadoEm)}`] : []),
+                  ],
+                  edicoes: c.edicoes.map((e) => `Editado às ${hora(e.editadoEm)} por ${e.colaboradorNome} · ${oQueMudou(e)}`),
+                  situacao: c.situacao,
+                  valorExtrato: c.valorExtrato,
+                  motivo: c.conferenciaObs,
+                  conferidoPor: c.conferidoEm ? `${c.conferidoPorNome ?? "—"} · ${diaHora(c.conferidoEm)}` : null,
+                };
+              });
+
+              const selo = (s: LancamentoDoLivro["situacao"]) => (s === "conferido" ? "[OK]" : s === "divergente" ? "[DIVERGENTE]" : "[ ]");
               const textoResumo = [
                 `Mapa ${m.mapa ?? "sem número"} — ${m.motoristas.join(", ")} — ${dias.map(dataCurta).join(", ")}`,
-                ...itens.map(
-                  (c) =>
-                    `${variosDias ? `${dataCurta(c.data)} ` : ""}${hora(c.pagoEm)} · ${c.codPdv} ${c.clienteNome ?? ""} · ${formatarReais(c.valor)}`,
+                ...lancamentos.map(
+                  (l) =>
+                    `${selo(l.situacao)} ${l.dia ? `${l.dia} ` : ""}${l.hora} · ${l.codPdv} ${l.clienteNome ?? ""} · ${formatarReais(l.valor)}${
+                      l.situacao === "divergente" ? ` (extrato ${formatarReais(l.valorExtrato)} — ${l.motivo ?? ""})` : ""
+                    }`,
                 ),
-                `Total PIX: ${formatarReais(m.total)} (${itens.length} comprovante${itens.length === 1 ? "" : "s"})`,
+                `Total PIX: ${formatarReais(m.total)} (${plural(itens.length, "comprovante", "comprovantes")})`,
+                `Conferido ${m.conferidos} · Divergente ${m.divergentes} · A conferir ${m.linhas.length - m.conferidos - m.divergentes}`,
               ].join("\n");
 
               return (
-                <details
+                <LivroDoMapa
                   key={m.chave}
-                  open={umMapaSo}
-                  className="group overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"
-                >
-                  <summary className="flex cursor-pointer list-none items-center gap-3 p-4 hover:bg-slate-50">
-                    <span className="min-w-0 flex-1">
-                      <span className="flex items-baseline gap-2">
-                        <span className="text-lg font-bold tabular-nums text-slate-900">
-                          {m.mapa ? `Mapa ${m.mapa}` : "Sem mapa informado"}
-                        </span>
-                        {m.atencao > 0 && <span className="text-xs font-semibold text-amber-600">⚠️ {m.atencao}</span>}
-                      </span>
-                      <span className="block truncate text-xs text-slate-500">
-                        {m.motoristas.join(", ")} · {m.clientes} cliente{m.clientes === 1 ? "" : "s"}
-                      </span>
-                    </span>
-                    <span className="shrink-0 text-right">
-                      <span className="block text-lg font-bold tabular-nums text-slate-900">{formatarReais(m.total)}</span>
-                      <StatusConferencia feitos={m.conferidos} total={m.linhas.length} />
-                    </span>
-                    <span
-                      className="shrink-0 text-sm text-slate-400 transition-transform group-open:rotate-180"
-                      aria-hidden="true"
-                    >
-                      ▾
-                    </span>
-                  </summary>
-
-                  <ul className="divide-y divide-slate-100 border-t border-slate-100">
-                    {itens.map((c) => {
-                      const linha = m.linhas.find((l) => l.id === c.id)!;
-                      const atencao = pontosDeAtencao(linha, repetidos);
-                      return (
-                        <li key={c.id} className={`flex gap-3 px-4 py-3 ${c.conferidoEm ? "bg-emerald-50/40" : ""}`}>
-                          <span className="w-11 shrink-0 pt-0.5 text-xs font-semibold tabular-nums text-slate-500">
-                            {variosDias && <span className="block text-[10px] font-medium text-slate-400">{dataCurta(c.data)}</span>}
-                            {hora(c.pagoEm)}
-                          </span>
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-start justify-between gap-2">
-                              <div className="min-w-0">
-                                <p className="truncate text-sm font-semibold text-slate-900">
-                                  {c.clienteNome ?? "Cliente sem cadastro"}
-                                </p>
-                                <p className="truncate text-xs text-slate-500">
-                                  <span className="rounded bg-slate-100 px-1 font-semibold tabular-nums text-slate-600">{c.codPdv}</span>
-                                  {c.clienteCidade && ` · ${c.clienteCidade}`}
-                                  {m.motoristas.length > 1 && ` · ${c.colaboradorNome}`}
-                                </p>
-                              </div>
-                              <span className="shrink-0 text-base font-bold tabular-nums text-slate-900">
-                                {c.valor == null ? <span className="text-sm font-medium text-amber-700">sem valor</span> : formatarReais(c.valor)}
-                              </span>
-                            </div>
-
-                            {(atencao.includes("cliente com mais de um comprovante") || c.enviadoDepois || c.observacao) && (
-                              <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                                {atencao.includes("cliente com mais de um comprovante") && (
-                                  <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-900">
-                                    ⚠️ cliente com mais de um comprovante neste mapa
-                                  </span>
-                                )}
-                                {c.enviadoDepois && (
-                                  <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600">
-                                    📵 feito sem internet · enviado às {hora(c.criadoEm)}
-                                  </span>
-                                )}
-                                {c.observacao && <span className="text-xs italic text-slate-600">“{c.observacao}”</span>}
-                              </div>
-                            )}
-
-                            {c.edicoes.length > 0 && (
-                              <ul className="mt-1 space-y-0.5">
-                                {c.edicoes.map((e, i) => (
-                                  <li
-                                    key={i}
-                                    className="w-fit rounded-md bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-900"
-                                  >
-                                    ✏️ Editado às {hora(e.editadoEm)} por {e.colaboradorNome} · {oQueMudou(e)}
-                                  </li>
-                                ))}
-                              </ul>
-                            )}
-
-                            <div className="mt-2 flex items-end gap-1.5">
-                              <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto">
-                                {c.fotos.map((f, i) =>
-                                  f.url ? (
-                                    <a
-                                      key={f.id}
-                                      href={f.url}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      title={`Abrir a foto ${i + 1}`}
-                                      className="shrink-0 overflow-hidden rounded-lg border border-slate-200 hover:border-primary"
-                                    >
-                                      {/* eslint-disable-next-line @next/next/no-img-element -- link assinado e temporário */}
-                                      <img src={f.url} alt={`Comprovante, foto ${i + 1}`} className="h-14 w-11 object-cover" />
-                                    </a>
-                                  ) : (
-                                    <span
-                                      key={f.id}
-                                      className="flex h-14 w-11 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-[10px] text-slate-400"
-                                    >
-                                      sem foto
-                                    </span>
-                                  ),
-                                )}
-                              </div>
-                              <span className="shrink-0 text-right">
-                                {podeConferir ? (
-                                  <BotaoConferir
-                                    ids={[c.id]}
-                                    conferido={Boolean(c.conferidoEm)}
-                                    variante="item"
-                                    titulo={
-                                      c.conferidoEm
-                                        ? `Conferido por ${c.conferidoPorNome ?? "—"} em ${dataCurta(c.conferidoEm.slice(0, 10))} às ${hora(c.conferidoEm)}`
-                                        : undefined
-                                    }
-                                  />
-                                ) : c.conferidoEm ? (
-                                  <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-800">
-                                    ✅ Conferido
-                                  </span>
-                                ) : null}
-                                {c.conferidoEm && (
-                                  <span className="mt-0.5 block text-[10px] text-slate-400">
-                                    {c.conferidoPorNome} · {hora(c.conferidoEm)}
-                                  </span>
-                                )}
-                              </span>
-                            </div>
-                          </div>
-                        </li>
-                      );
-                    })}
-                  </ul>
-
-                  <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 bg-slate-50 px-4 py-3">
-                    <p className="text-sm text-slate-600">
-                      Total do mapa <strong className="tabular-nums text-slate-900">{formatarReais(m.total)}</strong>
-                      {m.linhas.length > itens.length && ` (${itens.length} de ${m.linhas.length} na tela)`}
-                    </p>
-                    <div className="flex flex-wrap gap-2">
-                      <CopiarResumo texto={textoResumo} />
-                      {podeConferir && faltam.length > 0 && <BotaoConferir ids={faltam} conferido={false} variante="mapa" />}
-                    </div>
-                  </div>
-                </details>
+                  titulo={m.mapa ? `Mapa ${m.mapa}` : "Sem mapa informado"}
+                  subtitulo={`${m.motoristas.join(", ")} · ${plural(m.clientes, "cliente", "clientes")}${
+                    m.atencao > 0 ? ` · ⚠️ ${m.atencao}` : ""
+                  }`}
+                  aberto={umMapaSo}
+                  lancamentos={lancamentos}
+                  totalDoMapa={m.total}
+                  qtdNoMapa={m.linhas.length}
+                  podeConferir={podeConferir}
+                  textoResumo={textoResumo}
+                />
               );
             })}
           </div>
@@ -522,15 +482,15 @@ export function PainelComprovantes({
   );
 }
 
-function StatusConferencia({ feitos, total }: { feitos: number; total: number }) {
-  if (total > 0 && feitos === total) {
-    return <span className="inline-block whitespace-nowrap rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-800">✅ Conferido</span>;
+function Situacao({ divergentes, feitos, total }: { divergentes: number; feitos: number; total: number }) {
+  const base = "inline-block whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-semibold";
+  if (divergentes > 0) {
+    return <span className={`${base} bg-red-100 text-red-800`}>≠ {divergentes} divergente{divergentes === 1 ? "" : "s"}</span>;
   }
-  if (feitos === 0) {
-    return <span className="inline-block whitespace-nowrap rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-600">A conferir</span>;
-  }
+  if (total > 0 && feitos === total) return <span className={`${base} bg-emerald-100 text-emerald-800`}>✓ Fechado</span>;
+  if (feitos === 0) return <span className={`${base} bg-slate-100 text-slate-600`}>A conferir</span>;
   return (
-    <span className="inline-block whitespace-nowrap rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-amber-800">
+    <span className={`${base} bg-amber-100 tabular-nums text-amber-800`}>
       {feitos} de {total}
     </span>
   );
@@ -540,31 +500,31 @@ function Numero({
   titulo,
   valor,
   detalhe,
-  destaque = false,
-  alerta = false,
+  tom = "neutro",
   progresso,
 }: {
   titulo: string;
   valor: string;
   detalhe: string;
-  destaque?: boolean;
-  alerta?: boolean;
+  tom?: "neutro" | "destaque" | "ok" | "erro";
   progresso?: number;
 }) {
+  const caixa = {
+    neutro: "border-slate-200 bg-white",
+    destaque: "border-primary/30 bg-primary-soft",
+    ok: "border-emerald-200 bg-emerald-50",
+    erro: "border-red-200 bg-red-50",
+  }[tom];
+  const numero = {
+    neutro: "text-slate-900",
+    destaque: "text-primary-dark",
+    ok: "text-emerald-800",
+    erro: "text-red-700",
+  }[tom];
   return (
-    <div
-      className={`rounded-2xl border p-3 shadow-sm ${
-        destaque ? "border-primary/30 bg-primary-soft" : alerta ? "border-amber-200 bg-amber-50" : "border-slate-200 bg-white"
-      }`}
-    >
+    <div className={`rounded-2xl border p-3 shadow-sm ${caixa}`}>
       <p className="text-xs font-semibold uppercase text-slate-500">{titulo}</p>
-      <p
-        className={`mt-1 truncate text-xl font-bold tabular-nums ${
-          destaque ? "text-primary-dark" : alerta ? "text-amber-800" : "text-slate-900"
-        }`}
-      >
-        {valor}
-      </p>
+      <p className={`mt-1 truncate font-mono text-xl font-bold tabular-nums ${numero}`}>{valor}</p>
       {progresso !== undefined && (
         <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-slate-100" aria-hidden="true">
           <div className="h-full rounded-full bg-emerald-500" style={{ width: `${Math.round(progresso * 100)}%` }} />
