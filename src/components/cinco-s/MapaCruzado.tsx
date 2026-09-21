@@ -1,5 +1,6 @@
 import { faixaDaTaxa, formatarTaxa } from "@/lib/cinco-s";
 import type { LigacaoCruzada } from "@/lib/cinco-s-server";
+import { ExportarMapa } from "./ExportarMapa";
 
 const COR = { boa: "#059669", atencao: "#d97706", critica: "#dc2626", vazia: "#94a3b8" } as const;
 const PROPRIA = "#dc2626";
@@ -20,7 +21,16 @@ function corta(texto: string, max: number) {
  * SVG montado no servidor, sem biblioteca. No celular o desenho ficaria
  * miúdo: lá vira a mesma informação em lista.
  */
-export function MapaCruzado({ ligacoes }: { ligacoes: LigacaoCruzada[] }) {
+export function MapaCruzado({
+  ligacoes,
+  tituloImagem = "Auditoria cruzada 5S",
+  arquivoImagem = "auditoria-cruzada-5s.png",
+}: {
+  ligacoes: LigacaoCruzada[];
+  /** Vai no alto da imagem exportada. */
+  tituloImagem?: string;
+  arquivoImagem?: string;
+}) {
   if (ligacoes.length === 0) {
     return <p className="py-4 text-center text-sm text-slate-500">Nenhuma auditoria neste recorte.</p>;
   }
@@ -63,7 +73,10 @@ export function MapaCruzado({ ligacoes }: { ligacoes: LigacaoCruzada[] }) {
   return (
     <div>
       {/* ---- Leitura rápida ---- */}
-      <div className="mb-3 flex flex-wrap gap-1.5 text-xs font-semibold">
+      <div className="mb-3 flex flex-wrap items-center gap-1.5 text-xs font-semibold">
+        <span className="order-last ml-auto">
+          <ExportarMapa alvoId="mapa-cruzado-svg" titulo={tituloImagem} arquivo={arquivoImagem} />
+        </span>
         <span className="rounded-full bg-slate-100 px-2.5 py-1 text-slate-700">
           {auditores.length} auditor{auditores.length === 1 ? "" : "es"} · {direita.length} área{direita.length === 1 ? "" : "s"}
         </span>
@@ -86,6 +99,7 @@ export function MapaCruzado({ ligacoes }: { ligacoes: LigacaoCruzada[] }) {
       {/* ---- O mapa (tela média para cima) ---- */}
       <div className="hidden overflow-x-auto sm:block">
         <svg
+          id="mapa-cruzado-svg"
           viewBox={`0 0 720 ${altura}`}
           className="w-full min-w-[640px]"
           role="img"

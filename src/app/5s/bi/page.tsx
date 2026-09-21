@@ -3,8 +3,12 @@ import { redirect } from "next/navigation";
 import { PageHeader } from "@/components/PageHeader";
 import { ExportarCsv } from "@/components/ExportarCsv";
 import { MapaCruzado } from "@/components/cinco-s/MapaCruzado";
+import { Podios } from "@/components/cinco-s/Podio";
+import { Reconhecimentos } from "@/components/cinco-s/Reconhecimentos";
+import { destaquesDoMes, lerReconhecimentos } from "@/lib/cinco-s-reconhecimento-server";
 import {
   auditoriaCruzada,
+  podiosDoAno,
   getCompetencias,
   getContexto5S,
   getDashboard,
@@ -94,7 +98,9 @@ export default async function BI5SPage({
   const donoId = p.dono || null;
   const senso = ehSenso(p.senso) ? p.senso : null;
 
-  const [dados, competencias, areas, cruzada] = await Promise.all([
+  // O ano dos pódios: o do mês escolhido, ou o corrente no "todo o período".
+  const anoDoPodio = Number((mes ?? competenciaAtual()).slice(0, 4));
+  const [dados, competencias, areas, cruzada, reconhecimentos, destaques, podios] = await Promise.all([
     getDashboard(revendaId, {
       competencia: mes,
       areaId,
@@ -107,6 +113,10 @@ export default async function BI5SPage({
     // A auditoria cruzada é de um mês: no acumulado, cada área teria um
     // auditor por mês e o mapa viraria um novelo.
     mes ? auditoriaCruzada(revendaId, mes, { areaId, auditorId, donoId }) : Promise.resolve([]),
+    // O reconhecimento (V.6 do DPO): as fotos do grupo e a sugestão do BI.
+    lerReconhecimentos(revendaId, mes),
+    mes ? destaquesDoMes(revendaId, mes) : Promise.resolve({ maiorNota: [], maiorEvolucao: null }),
+    podiosDoAno(revendaId, anoDoPodio),
   ]);
 
   const { cartoes } = dados;
@@ -388,12 +398,38 @@ export default async function BI5SPage({
         </div>
       )}
 
+      <Bloco titulo="🏆 Pódio do mês">
+        <Podios podios={podios} mes={mes} />
+      </Bloco>
+
       <Bloco titulo="Auditoria cruzada — quem auditou quem" contagem={cruzada.length}>
         {mes ? (
-          <MapaCruzado ligacoes={cruzada} />
+          <MapaCruzado
+            ligacoes={cruzada}
+            tituloImagem={`Auditoria cruzada 5S — ${rotuloCompetencia(mes)}`}
+            arquivoImagem={`auditoria-cruzada-5s-${mes}.png`}
+          />
         ) : (
           <p className="py-4 text-center text-sm text-slate-500">
             Escolha um mês para ver quem auditou quem — no período todo cada área teve um auditor por mês.
+          </p>
+        )}
+      </Bloco>
+
+      <Bloco titulo="Reconhecimento das áreas" contagem={reconhecimentos.length}>
+        {mes ? (
+          <Reconhecimentos
+            competencia={mes}
+            rotuloMes={rotuloCompetencia(mes)}
+            areas={areas.filter((a) => a.ativa).map((a) => ({ id: a.id, nome: a.nome }))}
+            destaques={destaques}
+            registros={reconhecimentos}
+            podeEditar={ctx.podeEditar}
+            podeExcluir={ctx.podeExcluir}
+          />
+        ) : (
+          <p className="py-4 text-center text-sm text-slate-500">
+            Escolha um mês para ver e registrar o reconhecimento das áreas.
           </p>
         )}
       </Bloco>

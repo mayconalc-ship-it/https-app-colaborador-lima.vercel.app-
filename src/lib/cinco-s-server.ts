@@ -350,6 +350,56 @@ export async function auditoriaCruzada(
   }));
 }
 
+/** Um lugar do pódio: a nota e as áreas que a tiraram (empate divide o lugar). */
+export type LugarDoPodio = { lugar: 1 | 2 | 3; conformidade: number; areas: string[] };
+export type PodioDoMes = { competencia: string; lugares: LugarDoPodio[]; auditadas: number };
+
+/**
+ * OS PÓDIOS DO 5S (pedido do dono, 21/09/2026: "ranking com os pódios dos
+ * melhores de cada mês, para divulgar"). Por mês, as três MAIORES NOTAS das
+ * auditorias finalizadas; quem empata na nota divide o lugar (em set/2026
+ * foram cinco áreas com 100%). Ranking denso: 1º, 2º e 3º são as três
+ * notas mais altas, sem pular posição.
+ */
+export async function podiosDoAno(revendaId: string, ano: number): Promise<PodioDoMes[]> {
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("cinco_s_auditorias")
+    .select("area_id, competencia, conformidade")
+    .eq("revenda_id", revendaId)
+    .eq("status", "finalizada")
+    .gte("competencia", `${ano}-01-01`)
+    .lte("competencia", `${ano}-12-01`)
+    .not("conformidade", "is", null);
+  const linhas = data ?? [];
+  if (linhas.length === 0) return [];
+  const { data: areas } = await admin
+    .from("cinco_s_areas")
+    .select("id, nome")
+    .in("id", [...new Set(linhas.map((l) => l.area_id as string))]);
+  const nome = new Map((areas ?? []).map((a) => [a.id as string, a.nome as string]));
+
+  const porMes = new Map<string, { area: string; nota: number }[]>();
+  for (const l of linhas) {
+    const mes = String(l.competencia).slice(0, 7);
+    porMes.set(mes, [...(porMes.get(mes) ?? []), { area: nome.get(l.area_id as string) ?? "—", nota: Number(l.conformidade) }]);
+  }
+  return [...porMes]
+    .sort(([a], [b]) => b.localeCompare(a))
+    .map(([competencia, lista]) => {
+      const notas = [...new Set(lista.map((x) => x.nota))].sort((a, b) => b - a).slice(0, 3);
+      return {
+        competencia,
+        auditadas: lista.length,
+        lugares: notas.map((nota, i) => ({
+          lugar: (i + 1) as 1 | 2 | 3,
+          conformidade: nota,
+          areas: lista.filter((x) => x.nota === nota).map((x) => x.area).sort((a, b) => a.localeCompare(b, "pt-BR")),
+        })),
+      };
+    });
+}
+
 export async function nomesDe(ids: string[]): Promise<Map<string, string>> {
   if (ids.length === 0) return new Map();
   const admin = createAdminClient();
