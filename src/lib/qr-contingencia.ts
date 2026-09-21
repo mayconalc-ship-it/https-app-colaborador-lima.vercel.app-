@@ -66,9 +66,21 @@ export type DadosDoComprovante = {
   valor: number | null;
   observacao: string;
   fotos: { tamanho: number; tipo: string }[];
-  /** As NFs, já lidas por lerNotas (opcional; até LIMITES_QR.notasMax). */
+  /** As NFs, já lidas por lerNotas (até LIMITES_QR.notasMax). */
   notas?: string[];
+  /**
+   * NF obrigatória (padrão). Falso só para o comprovante guardado no
+   * celular sem internet ANTES da regra valer (ver NF_OBRIGATORIA_DESDE).
+   */
+  exigirNf?: boolean;
 };
+
+/**
+ * NF OBRIGATÓRIA (pedido do dono, 21/09/2026). Vale para pagamento feito a
+ * partir daqui: o comprovante que já esperava sinal na fila do celular foi
+ * feito sem o campo e não pode ficar travado lá.
+ */
+export const NF_OBRIGATORIA_DESDE = "2026-09-21T13:30:00Z";
 
 /** O problema do comprovante, em português -- ou null se está tudo certo. */
 export function validarComprovante(d: DadosDoComprovante): string | null {
@@ -94,6 +106,7 @@ export function validarComprovante(d: DadosDoComprovante): string | null {
     return `A observação passa de ${LIMITES_QR.observacaoMax} caracteres.`;
   }
   const notas = d.notas ?? [];
+  if (d.exigirNf !== false && notas.length === 0) return "Informe o número da NF.";
   if (notas.length > LIMITES_QR.notasMax) return `No máximo ${LIMITES_QR.notasMax} notas fiscais por comprovante.`;
   if (notas.some((n) => !/^[1-9]\d*$/.test(n) || n.length > LIMITES_QR.digitosDaNfMax)) {
     return "Número de NF inválido — use só os números da nota.";

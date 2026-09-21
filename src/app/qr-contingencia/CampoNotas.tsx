@@ -5,7 +5,7 @@ import { LIMITES_QR, lerNotas, numeroDaNf } from "@/lib/qr-contingencia";
 
 /**
  * AS NOTAS FISCAIS DO PAGAMENTO (pedido do dono, 21/09/2026): teclado
- * numérico e mais de uma NF. Digita o número e toca "+" (ou "Ir" no
+ * numérico, mais de uma NF, e obrigatória. Digita o número e toca "+" (ou "Ir" no
  * teclado); cada nota vira uma etiqueta com ✕. O número digitado e não
  * adicionado entra sozinho quando o campo perde o foco -- tocar em Enviar
  * direto não perde a nota.
@@ -13,14 +13,23 @@ import { LIMITES_QR, lerNotas, numeroDaNf } from "@/lib/qr-contingencia";
 export function CampoNotas({
   notas,
   aoMudar,
+  aoDigitar,
+  obrigatorio = false,
   desabilitado = false,
 }: {
   notas: string[];
   aoMudar: (notas: string[]) => void;
+  /** O número digitado e ainda não adicionado -- quem usa o campo conta ele como NF. */
+  aoDigitar?: (rascunho: string) => void;
+  obrigatorio?: boolean;
   desabilitado?: boolean;
 }) {
-  const [rascunho, setRascunho] = useState("");
+  const [rascunho, setRascunhoLocal] = useState("");
   const cheio = notas.length >= LIMITES_QR.notasMax;
+  function setRascunho(v: string) {
+    setRascunhoLocal(v);
+    aoDigitar?.(v);
+  }
 
   function adicionar() {
     if (!rascunho) return;
@@ -31,7 +40,7 @@ export function CampoNotas({
   return (
     <div>
       <span className="mb-1 block text-xs font-semibold uppercase text-slate-500">
-        Nota fiscal (NF)
+        Nota fiscal (NF) {obrigatorio && <span className="text-red-600">*</span>}
         <span className="ml-1 font-normal normal-case text-slate-400">— uma ou mais</span>
       </span>
       {notas.length > 0 && (

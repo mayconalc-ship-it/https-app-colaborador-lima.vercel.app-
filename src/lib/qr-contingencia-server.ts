@@ -2,6 +2,7 @@ import "server-only";
 
 import sharp from "sharp";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { NF_OBRIGATORIA_DESDE } from "@/lib/qr-contingencia";
 
 /** O bucket PRIVADO da migration 126 -- nunca o `conteudo`, que é público. */
 export const BUCKET_COMPROVANTES = "comprovantes";
@@ -315,6 +316,8 @@ export function paraTelaDoCelular(c: ComprovanteComFotos, eu: string) {
     }),
     fotos: c.fotos,
     notas: c.notas,
+    /** Feito depois da NF obrigatória: a edição também exige NF. */
+    exigeNf: new Date(c.pagoEm).getTime() >= new Date(NF_OBRIGATORIA_DESDE).getTime(),
     editado: c.edicoes.length > 0,
     /** Lançado por outra pessoa da equipe do mapa: o nome dela; o próprio, null. */
     lancadoPor: c.colaboradorId === eu ? null : c.colaboradorNome,

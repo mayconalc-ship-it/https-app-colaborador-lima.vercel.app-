@@ -21,6 +21,7 @@ import { normalizarMapa } from "@/lib/rotas";
 import {
   LIMITES_QR,
   MODULO_QR,
+  NF_OBRIGATORIA_DESDE,
   codigoDigitado,
   ehEnvioId,
   horaDoPagamento,
@@ -140,6 +141,9 @@ export async function registrarComprovante(formData: FormData): Promise<Resultad
     observacao,
     fotos: fotos.map((f) => ({ tamanho: f.size, tipo: f.type })),
     notas,
+    // NF obrigatória -- menos para o comprovante feito antes da regra e que
+    // esperava sinal na fila do celular.
+    exigirNf: pagoEm.getTime() >= new Date(NF_OBRIGATORIA_DESDE).getTime(),
   });
   if (problema) return { ok: false, erro: problema, definitivo: true };
 
@@ -243,7 +247,7 @@ export async function editarComprovante(formData: FormData): Promise<ResultadoEn
   const admin = createAdminClient();
   const { data: comp } = await admin
     .from("qr_comprovantes")
-    .select("id, colaborador_id, data, mapa, cod_pdv, observacao, valor, notas_fiscais")
+    .select("id, colaborador_id, data, mapa, cod_pdv, observacao, valor, notas_fiscais, pago_em, criado_em")
     .eq("id", id)
     .eq("revenda_id", c.revendaId)
     .maybeSingle();
@@ -270,6 +274,9 @@ export async function editarComprovante(formData: FormData): Promise<ResultadoEn
       ...novas.map((f) => ({ tamanho: f.size, tipo: f.type })),
     ],
     notas,
+    // Comprovante feito antes da NF obrigatória: corrige sem ela.
+    exigirNf:
+      new Date(String(comp.pago_em ?? comp.criado_em)).getTime() >= new Date(NF_OBRIGATORIA_DESDE).getTime(),
   });
   if (problema) return { ok: false, erro: problema, definitivo: true };
   const notasAntes: string[] = Array.isArray(comp.notas_fiscais) ? comp.notas_fiscais.map(String) : [];

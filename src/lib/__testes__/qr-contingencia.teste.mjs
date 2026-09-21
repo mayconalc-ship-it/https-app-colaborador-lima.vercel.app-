@@ -27,7 +27,7 @@ function eq(nome, obtido, esperado) {
 }
 
 const foto = (kb = 300, tipo = "image/jpeg") => ({ tamanho: kb * 1024, tipo });
-const base = { codPdv: "3163", valor: 152.4, observacao: "", fotos: [foto()] };
+const base = { codPdv: "3163", valor: 152.4, observacao: "", fotos: [foto()], notas: ["45871"] };
 
 console.log("== COMPROVANTE ==");
 eq("certo com uma foto", validarComprovante(base), null);
@@ -92,7 +92,8 @@ eq("várias NFs, sem repetir", lerNotas(["123", "0123", "456"]), ["123", "456"])
 eq("NFs coladas num campo só", lerNotas(["789, 790; 791"]), ["789", "790", "791"]);
 eq("NF vazia some", lerNotas(["", "000"]), []);
 const baseNf = { codPdv: "10", valor: 50, observacao: "", fotos: [{ tamanho: 1000, tipo: "image/jpeg" }] };
-eq("sem NF vale", validarComprovante(baseNf), null);
+eq("sem NF: obrigatória", validarComprovante(baseNf), "Informe o número da NF.");
+eq("sem NF feito antes da regra (fila do celular) vale", validarComprovante({ ...baseNf, exigirNf: false }), null);
 eq("com NFs vale", validarComprovante({ ...baseNf, notas: ["123", "456"] }), null);
 eq("NF torta recusada", validarComprovante({ ...baseNf, notas: ["12a"] }), "Número de NF inválido — use só os números da nota.");
 eq("21 NFs recusadas", validarComprovante({ ...baseNf, notas: Array.from({ length: 21 }, (_, i) => String(i + 1)) }), "No máximo 20 notas fiscais por comprovante.");

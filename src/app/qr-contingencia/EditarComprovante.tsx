@@ -1,9 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import {
   LIMITES_QR,
   digitosDoValor,
+  lerNotas,
   lerValor,
   mostrarDigitosEmReais,
   validarComprovante,
@@ -37,6 +38,9 @@ export function EditarComprovante({
   const valorInicial = comprovante.valor != null ? String(Math.round(comprovante.valor * 100)) : "";
   const [valor, setValor] = useState(valorInicial);
   const [notas, setNotas] = useState<string[]>(comprovante.notas);
+  const [nfDigitada, setNfDigitada] = useState("");
+  // O número digitado e não adicionado conta como NF (ver CampoNotas).
+  const notasFinais = useMemo(() => lerNotas([...notas, nfDigitada]), [notas, nfDigitada]);
   const [removidas, setRemovidas] = useState<Set<string>>(new Set());
   const [novas, setNovas] = useState<FotoNova[]>([]);
   const [erro, setErro] = useState<string | null>(null);
@@ -66,13 +70,15 @@ export function EditarComprovante({
       ...Array.from({ length: ficam }, () => ({ tamanho: 1, tipo: "" })),
       ...novas.map((f) => ({ tamanho: f.arquivo.size, tipo: f.arquivo.type })),
     ],
-    notas,
+    notas: notasFinais,
+    // Comprovante feito antes da NF obrigatória corrige sem ela (a mesma regra do servidor).
+    exigirNf: comprovante.exigeNf,
   });
   const mudou =
     valor !== valorInicial ||
     removidas.size > 0 ||
     novas.length > 0 ||
-    notas.join(",") !== comprovante.notas.join(",");
+    notasFinais.join(",") !== comprovante.notas.join(",");
 
   function alternar(id: string) {
     setRemovidas((atual) => {
@@ -119,7 +125,7 @@ export function EditarComprovante({
     fd.set("id", comprovante.id);
     fd.set("valor", valorDosDigitos(valor));
     removidas.forEach((id) => fd.append("remover", id));
-    notas.forEach((nf) => fd.append("nf", nf));
+    notasFinais.forEach((nf) => fd.append("nf", nf));
     novas.forEach((f) => fd.append("fotos", f.arquivo));
     iniciar(async () => {
       try {
@@ -253,7 +259,13 @@ export function EditarComprovante({
         />
       </label>
 
-      <CampoNotas notas={notas} aoMudar={setNotas} desabilitado={salvando} />
+      <CampoNotas
+        notas={notas}
+        aoMudar={setNotas}
+        aoDigitar={setNfDigitada}
+        obrigatorio={comprovante.exigeNf}
+        desabilitado={salvando}
+      />
 
       {(erro || (mudou && problema)) &&<p className="text-sm text-red-600">{erro ?? problema}</p>}
       {!online && <p className="text-xs text-amber-800">Sem internet: a edição só salva com sinal.</p>}

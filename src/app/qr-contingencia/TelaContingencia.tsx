@@ -25,6 +25,7 @@ import {
   mostrarDigitosEmReais,
   valorDosDigitos,
   formatarReais,
+  lerNotas,
   lerValor,
   validarComprovante,
 } from "@/lib/qr-contingencia";
@@ -57,6 +58,8 @@ export type ComprovanteDaTela = {
   fotos: { id: string; url: string | null }[];
   /** As notas fiscais (21/09/2026). */
   notas: string[];
+  /** Feito depois da NF obrigatória -- a edição também exige NF. */
+  exigeNf: boolean;
   /** Já foi editado (a conciliação vê o que mudou). */
   editado: boolean;
   /** Lançado por outra pessoa da equipe do mapa (o nome); o próprio, null. */
@@ -97,6 +100,10 @@ export function TelaContingencia({
   const [valor, setValor] = useState("");
   const [observacao, setObservacao] = useState("");
   const [notas, setNotas] = useState<string[]>([]);
+  // O número digitado e ainda não adicionado conta como NF: tocar em Enviar
+  // direto não perde a nota nem trava o botão.
+  const [nfDigitada, setNfDigitada] = useState("");
+  const notasFinais = useMemo(() => lerNotas([...notas, nfDigitada]), [notas, nfDigitada]);
   const [aviso, setAviso] = useState<{ tipo: "ok" | "erro"; texto: string } | null>(null);
   const [copiado, setCopiado] = useState(false);
   const [buscando, iniciarBusca] = useTransition();
@@ -358,7 +365,7 @@ export function TelaContingencia({
     valor: lerValor(valorDosDigitos(valor)),
     observacao: observacao.trim(),
     fotos: fotos.map((f) => ({ tamanho: f.arquivo.size, tipo: f.arquivo.type })),
-    notas,
+    notas: notasFinais,
   });
 
   function limparFormulario() {
@@ -368,6 +375,7 @@ export function TelaContingencia({
     setValor("");
     setObservacao("");
     setNotas([]);
+    setNfDigitada("");
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
@@ -386,7 +394,7 @@ export function TelaContingencia({
       mapa: rota?.mapa ?? mapa,
       valor: valorDosDigitos(valor),
       observacao,
-      notas,
+      notas: notasFinais,
       fotos: fotos.map((f) => f.arquivo),
       pagoEm: new Date().toISOString(),
     };
@@ -828,7 +836,7 @@ export function TelaContingencia({
                 />
               </label>
               <div className="sm:col-span-2">
-                <CampoNotas notas={notas} aoMudar={setNotas} desabilitado={enviando} />
+                <CampoNotas notas={notas} aoMudar={setNotas} aoDigitar={setNfDigitada} obrigatorio desabilitado={enviando} />
               </div>
               <label className="block sm:col-span-2">
                 <span className="mb-1 block text-xs font-semibold uppercase text-slate-500">Observação (opcional)</span>
@@ -855,7 +863,9 @@ export function TelaContingencia({
                   ? "Tire a foto para enviar"
                   : !valor
                     ? "Informe o valor para enviar"
-                    : online
+                    : notasFinais.length === 0
+                      ? "Informe a NF para enviar"
+                      : online
                     ? "Enviar comprovante"
                     : "Guardar no celular (sem internet)"}
             </button>
