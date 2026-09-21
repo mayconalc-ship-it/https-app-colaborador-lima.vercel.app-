@@ -276,19 +276,29 @@ export const COR_TEXTO_FAIXA: Record<Faixa, string> = {
 /** "2026-08" -> "Agosto de 2026". */
 export function rotuloCompetencia(competencia: string): string {
   const [ano, mes] = competencia.split("-");
-  const data = new Date(Number(ano), Number(mes) - 1, 1);
+  // MEIO-DIA UTC, lido em UTC (corrigido em 21/09/2026). Antes era
+  // "dia 1, 00h" no relógio do servidor (UTC) lido no fuso de São Paulo
+  // -- que ainda é o dia 31 do mês anterior: setembro aparecia como
+  // "Agosto de 2026" e todos os botões de mês do BI 5S andavam um para trás.
+  const data = new Date(Date.UTC(Number(ano), Number(mes) - 1, 1, 12));
   const texto = data.toLocaleDateString("pt-BR", {
-    timeZone: "America/Sao_Paulo",
+    timeZone: "UTC",
     month: "long",
     year: "numeric",
   });
   return texto.charAt(0).toUpperCase() + texto.slice(1);
 }
 
-/** O mês corrente como "2026-08". Base do filtro padrão do BI. */
-export function competenciaAtual(): string {
-  const hoje = new Date();
-  return `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, "0")}`;
+/**
+ * O mês corrente como "2026-08", NO FUSO DE SÃO PAULO. Base do filtro
+ * padrão do BI. O servidor roda em UTC: das 21h às 24h do último dia do
+ * mês ele já estaria no mês seguinte.
+ */
+export function competenciaAtual(agora: Date = new Date()): string {
+  const [ano, mes] = agora
+    .toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo", year: "numeric", month: "2-digit" })
+    .split("-");
+  return `${ano}-${mes}`;
 }
 
 /** "2026-08" -> "2026-08-01", que é o que a função SQL espera. */
