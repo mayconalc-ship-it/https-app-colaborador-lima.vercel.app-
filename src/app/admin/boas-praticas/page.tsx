@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { PageHeader } from "@/components/PageHeader";
 import { BotaoExcluir } from "@/components/BotaoExcluir";
+import { ExportarCsv } from "@/components/ExportarCsv";
 import { CartaoPratica, SeloPratica, type PraticaParaCartao } from "@/components/boas-praticas/CartaoPratica";
 import { podeNoModulo, requireModulo } from "@/lib/require-admin";
 import { exigirRevenda } from "@/lib/revendas";
@@ -9,6 +10,7 @@ import { lerConfigBoasPraticas } from "@/lib/boas-praticas-server";
 import { AREAS } from "@/lib/areas";
 import {
   MEDALHA,
+  ROTULO_STATUS,
   apurar,
   formatarDia,
   formatarReais,
@@ -148,6 +150,48 @@ export default async function AdminBoasPraticasPage({
   );
   const contagem = Object.fromEntries(resultado.contagem);
 
+  // ---- A PLANILHA PARA O RH (pedido do dono, 21/09/2026) ----
+  // Cargo e área de quem indicou (CPF fica de fora: dado sensível que o
+  // RH já tem pelo nome).
+  const idsAutores = [...new Set(praticas.map((p) => p.colaborador_id))];
+  const perfis = new Map<string, { cargo: string | null; area: string | null }>();
+  for (let i = 0; i < idsAutores.length; i += 150) {
+    const { data } = await admin.from("profiles").select("id, cargo, area").in("id", idsAutores.slice(i, i + 150));
+    for (const r of data ?? []) perfis.set(String(r.id), { cargo: r.cargo ?? null, area: r.area ?? null });
+  }
+  // Votos e colocação: da votação aberta (parcial) ou do pódio divulgado.
+  const colocacao = new Map<string, { lugar: string; votos: number | ""; premio: number | null; votacao: string }>();
+  for (const v of encerradas) {
+    const pl = placar.get(v.id);
+    const premios = premiosDe(v);
+    podioDe(v).forEach((id, i) => {
+      if (id) colocacao.set(id, { lugar: `${i + 1}º lugar`, votos: pl?.porLugar[i] ?? 0, premio: premios[i].valor, votacao: v.titulo });
+    });
+  }
+  const linhasCsv = praticas.map((p) => {
+    const perfil = perfis.get(p.colaborador_id);
+    const pod = colocacao.get(p.id);
+    const naAtual = atual && p.votacao_id === atual.id;
+    const encerradaDela = !pod && p.votacao_id ? encerradas.find((v) => v.id === p.votacao_id) : undefined;
+    return [
+      // O dia em São Paulo (o servidor roda em UTC: 22h viraria o dia seguinte).
+      new Date(p.criado_em).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" }),
+      p.colaborador_nome,
+      perfil?.cargo ?? "",
+      perfil?.area ?? "",
+      p.titulo,
+      p.problema ?? "",
+      p.beneficios ?? "",
+      ROTULO_STATUS[p.status] ?? p.status,
+      p.retorno ?? "",
+      p.avaliado_por_nome ?? "",
+      pod?.votacao ?? (naAtual ? atual.titulo : (encerradaDela?.titulo ?? "")),
+      pod ? pod.votos : naAtual ? (resultado.contagem.get(p.id) ?? 0) : "",
+      pod?.lugar ?? (naAtual ? "Votação em andamento" : encerradaDela ? "Não premiada" : ""),
+      pod?.premio ?? "",
+    ];
+  });
+
   // O calendário da Configuração preenche a votação nova; data que já
   // passou vira hoje, para o formulário não nascer recusado.
   const fimPadrao = config.votacao_ate && config.votacao_ate >= hoje ? config.votacao_ate : somarDias(hoje, 3);
@@ -202,6 +246,32 @@ export default async function AdminBoasPraticasPage({
         >
           {atual ? "Votação em andamento" : "Nenhuma votação aberta"}
         </span>
+        {praticas.length > 0 && (
+          <span className="ml-auto">
+            <ExportarCsv
+              nome="boas-praticas"
+              complemento={hoje}
+              cabecalho={[
+                "Data da indicação",
+                "Colaborador",
+                "Cargo",
+                "Área",
+                "Boa prática",
+                "Problema",
+                "Benefícios",
+                "Situação",
+                "Resposta da liderança",
+                "Avaliado por",
+                "Votação",
+                "Votos",
+                "Colocação",
+                "Prêmio (R$)",
+              ]}
+              linhas={linhasCsv}
+              rotulo="Baixar .csv para o RH"
+            />
+          </span>
+        )}
       </div>
 
       <div className="space-y-8">
