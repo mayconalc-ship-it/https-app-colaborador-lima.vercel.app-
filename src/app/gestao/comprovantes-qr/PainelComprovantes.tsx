@@ -43,6 +43,7 @@ export type LinhaComprovante = {
   conferencia_situacao: string | null;
   valor_extrato: number | string | null;
   conferencia_obs: string | null;
+  notas_fiscais: string[] | null;
 };
 
 /** "valor R$ 80,00 → R$ 85,00 · 1 foto tirada · 2 novas" -- o que a edição mudou. */
@@ -51,6 +52,9 @@ function oQueMudou(e: EdicaoDoComprovante) {
   if (e.valorAntes !== e.valorDepois) partes.push(`valor ${formatarReais(e.valorAntes)} → ${formatarReais(e.valorDepois)}`);
   if (e.fotosTiradas > 0) partes.push(`${e.fotosTiradas} foto${e.fotosTiradas === 1 ? " tirada" : "s tiradas"}`);
   if (e.fotosNovas > 0) partes.push(`${e.fotosNovas} foto${e.fotosNovas === 1 ? " nova" : "s novas"}`);
+  if (e.notasAntes && e.notasDepois && e.notasAntes.join(",") !== e.notasDepois.join(",")) {
+    partes.push(`NF ${e.notasAntes.join(", ") || "—"} → ${e.notasDepois.join(", ") || "—"}`);
+  }
   return partes.join(" · ") || "sem mudança";
 }
 
@@ -98,6 +102,7 @@ export function PainelComprovantes({
   filtradas,
   comprovantes,
   podeConferir,
+  clientesDaBase = {},
 }: {
   de: string;
   ate: string;
@@ -110,7 +115,17 @@ export function PainelComprovantes({
   filtradas: LinhaComprovante[];
   comprovantes: ComprovanteComFotos[];
   podeConferir: boolean;
+  /** Razão social e fantasia pela base de clientes, por código. */
+  clientesDaBase?: Record<string, { razaoSocial: string | null; fantasia: string | null }>;
 }) {
+  // Razão social em cima; fantasia embaixo só quando é outro nome. Cliente
+  // fora da base: o nome gravado no comprovante.
+  const nomesDo = (cod: string, gravado: string | null) => {
+    const b = clientesDaBase[cod];
+    const razaoSocial = b?.razaoSocial ?? b?.fantasia ?? gravado;
+    const fantasia = b?.fantasia && b.fantasia !== razaoSocial ? b.fantasia : null;
+    return { razaoSocial, fantasia };
+  };
   const variosDias = de !== ate;
 
   // Cliente com dois comprovantes no mesmo mapa: pode ser pagamento em duas
@@ -194,8 +209,8 @@ export function PainelComprovantes({
             </select>
           </div>
           <div className="col-span-2 min-w-0 sm:w-56">
-            <label className={rotulo} htmlFor="busca">Cliente</label>
-            <input id="busca" name="busca" defaultValue={busca} placeholder="Nome, código ou cidade" className={campo} />
+            <label className={rotulo} htmlFor="busca">Cliente ou NF</label>
+            <input id="busca" name="busca" defaultValue={busca} placeholder="Nome, código, cidade ou NF" className={campo} />
           </div>
           <div className="col-span-2 flex gap-2">
             <button type="submit" className="flex-1 rounded-lg bg-slate-800 px-4 py-2 text-sm font-semibold text-white sm:flex-none">
@@ -359,9 +374,11 @@ export function PainelComprovantes({
                 "Hora do pagamento",
                 "Mapa",
                 "Código do cliente",
-                "Cliente",
+                "Razão social",
+                "Nome fantasia",
                 "Cidade",
                 "Valor do comprovante",
+                "NF",
                 "Situação",
                 "Valor no extrato",
                 "Diferença",
@@ -379,9 +396,11 @@ export function PainelComprovantes({
                   hora(l.pago_em ?? l.criado_em),
                   l.mapa ?? "",
                   l.cod_pdv,
-                  l.cliente_nome ?? "",
+                  nomesDo(l.cod_pdv, l.cliente_nome).razaoSocial ?? "",
+                  clientesDaBase[l.cod_pdv]?.fantasia ?? "",
                   l.cliente_cidade ?? "",
                   l.valor == null ? "" : Number(l.valor),
+                  (l.notas_fiscais ?? []).join(", "),
                   s === "conferido" ? "Conferido" : s === "divergente" ? "Divergente" : "A conferir",
                   s === "conferido" ? valorDe(l) : s === "divergente" ? Number(l.valor_extrato ?? 0) : "",
                   s === "divergente" ? diferencaDe(l) : s === "conferido" ? 0 : "",
@@ -422,10 +441,11 @@ export function PainelComprovantes({
                   dia: variosDias ? dataCurta(c.data) : null,
                   hora: hora(c.pagoEm),
                   codPdv: c.codPdv,
-                  clienteNome: c.clienteNome,
+                  ...nomesDo(c.codPdv, c.clienteNome),
                   clienteCidade: c.clienteCidade,
                   colaboradorNome: variasPessoas ? c.colaboradorNome : null,
                   valor: c.valor,
+                  notas: c.notas,
                   fotos: c.fotos,
                   observacao: c.observacao,
                   avisos: [
@@ -445,7 +465,9 @@ export function PainelComprovantes({
                 `Mapa ${m.mapa ?? "sem número"} — ${m.motoristas.join(", ")} — ${dias.map(dataCurta).join(", ")}`,
                 ...lancamentos.map(
                   (l) =>
-                    `${selo(l.situacao)} ${l.dia ? `${l.dia} ` : ""}${l.hora} · ${l.codPdv} ${l.clienteNome ?? ""} · ${formatarReais(l.valor)}${
+                    `${selo(l.situacao)} ${l.dia ? `${l.dia} ` : ""}${l.hora} · ${l.codPdv} ${l.razaoSocial ?? ""}${l.fantasia ? ` (${l.fantasia})` : ""}${
+                      l.notas.length ? ` · NF ${l.notas.join(", ")}` : ""
+                    } · ${formatarReais(l.valor)}${
                       l.situacao === "divergente" ? ` (extrato ${formatarReais(l.valorExtrato)} — ${l.motivo ?? ""})` : ""
                     }`,
                 ),

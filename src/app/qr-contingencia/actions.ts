@@ -24,6 +24,7 @@ import {
   codigoDigitado,
   ehEnvioId,
   horaDoPagamento,
+  lerNotas,
   lerValor,
   validarComprovante,
   validarConferencia,
@@ -130,6 +131,7 @@ export async function registrarComprovante(formData: FormData): Promise<Resultad
   const pagoEm = horaDoPagamento(formData.get("pago_em"));
   const valor = lerValor(formData.get("valor"));
   const observacao = String(formData.get("observacao") ?? "").trim();
+  const notas = lerNotas(formData.getAll("nf"));
   const fotos = formData.getAll("fotos").filter((f): f is File => f instanceof File && f.size > 0);
 
   const problema = validarComprovante({
@@ -137,6 +139,7 @@ export async function registrarComprovante(formData: FormData): Promise<Resultad
     valor,
     observacao,
     fotos: fotos.map((f) => ({ tamanho: f.size, tipo: f.type })),
+    notas,
   });
   if (problema) return { ok: false, erro: problema, definitivo: true };
 
@@ -183,6 +186,7 @@ export async function registrarComprovante(formData: FormData): Promise<Resultad
       cliente_cidade: clienteCidade,
       valor: valor ?? null,
       observacao: observacao || null,
+      notas_fiscais: notas,
       colaborador_id: perfil.id,
       colaborador_nome: perfil.nome,
       envio_id: envioId,
@@ -219,7 +223,8 @@ export async function registrarComprovante(formData: FormData): Promise<Resultad
 /**
  * EDITAR VALOR E FOTOS (pedido do dono, 19/09/2026: na tela do motorista,
  * "Editar" no lugar de "Apagar"). Só o próprio comprovante, no MESMO dia --
- * depois disso ele já é do financeiro. Cliente, mapa e observação não mudam.
+ * depois disso ele já é do financeiro. Cliente, mapa e observação não mudam;
+ * as NFs, sim (21/09/2026).
  *
  * As mesmas travas do registro (validarComprovante): valor obrigatório e
  * pelo menos uma foto no fim. As novas sobem antes; as retiradas só saem
@@ -232,11 +237,13 @@ export async function editarComprovante(formData: FormData): Promise<ResultadoEn
   const valor = lerValor(formData.get("valor"));
   const remover = new Set(formData.getAll("remover").map(String));
   const novas = formData.getAll("fotos").filter((f): f is File => f instanceof File && f.size > 0);
+  // A tela manda a lista INTEIRA de NFs como deve ficar (21/09/2026).
+  const notas = lerNotas(formData.getAll("nf"));
 
   const admin = createAdminClient();
   const { data: comp } = await admin
     .from("qr_comprovantes")
-    .select("id, colaborador_id, data, mapa, cod_pdv, observacao, valor")
+    .select("id, colaborador_id, data, mapa, cod_pdv, observacao, valor, notas_fiscais")
     .eq("id", id)
     .eq("revenda_id", c.revendaId)
     .maybeSingle();
@@ -262,8 +269,10 @@ export async function editarComprovante(formData: FormData): Promise<ResultadoEn
       ...Array.from({ length: ficam }, () => ({ tamanho: 1, tipo: "" })),
       ...novas.map((f) => ({ tamanho: f.size, tipo: f.type })),
     ],
+    notas,
   });
   if (problema) return { ok: false, erro: problema, definitivo: true };
+  const notasAntes: string[] = Array.isArray(comp.notas_fiscais) ? comp.notas_fiscais.map(String) : [];
 
   const pasta = `${c.revendaId}/${comp.data}/${comp.cod_pdv}`;
   const caminhos: string[] = [];
@@ -300,6 +309,8 @@ export async function editarComprovante(formData: FormData): Promise<ResultadoEn
     valor_depois: valor,
     fotos_tiradas: saindo.length,
     fotos_novas: caminhos.length,
+    notas_antes: notasAntes,
+    notas_depois: notas,
     editado_em: agora,
   });
   if (erroRegistro) {
@@ -314,6 +325,7 @@ export async function editarComprovante(formData: FormData): Promise<ResultadoEn
     .from("qr_comprovantes")
     .update({
       valor,
+      notas_fiscais: notas,
       editado_em: agora,
       conferido_em: null,
       conferido_por_nome: null,

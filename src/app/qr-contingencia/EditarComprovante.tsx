@@ -12,12 +12,13 @@ import {
 import { editarComprovante } from "./actions";
 import { cursorNoFim, reduzir } from "./ajudantes";
 import { CameraNaTela } from "./CameraNaTela";
+import { CampoNotas } from "./CampoNotas";
 import type { ComprovanteDaTela } from "./TelaContingencia";
 
 type FotoNova = { id: string; arquivo: File; previa: string };
 
 /**
- * EDITAR VALOR E FOTOS de um comprovante de hoje (pedido do dono,
+ * EDITAR VALOR, FOTOS E NF de um comprovante de hoje (pedido do dono,
  * 19/09/2026 -- no lugar do "Apagar"). Tira foto errada, acrescenta a que
  * faltou, corrige o valor. As mesmas travas do registro, aqui e no
  * servidor: valor obrigatório e pelo menos uma foto no fim.
@@ -35,6 +36,7 @@ export function EditarComprovante({
 }) {
   const valorInicial = comprovante.valor != null ? String(Math.round(comprovante.valor * 100)) : "";
   const [valor, setValor] = useState(valorInicial);
+  const [notas, setNotas] = useState<string[]>(comprovante.notas);
   const [removidas, setRemovidas] = useState<Set<string>>(new Set());
   const [novas, setNovas] = useState<FotoNova[]>([]);
   const [erro, setErro] = useState<string | null>(null);
@@ -64,8 +66,13 @@ export function EditarComprovante({
       ...Array.from({ length: ficam }, () => ({ tamanho: 1, tipo: "" })),
       ...novas.map((f) => ({ tamanho: f.arquivo.size, tipo: f.arquivo.type })),
     ],
+    notas,
   });
-  const mudou = valor !== valorInicial || removidas.size > 0 || novas.length > 0;
+  const mudou =
+    valor !== valorInicial ||
+    removidas.size > 0 ||
+    novas.length > 0 ||
+    notas.join(",") !== comprovante.notas.join(",");
 
   function alternar(id: string) {
     setRemovidas((atual) => {
@@ -112,6 +119,7 @@ export function EditarComprovante({
     fd.set("id", comprovante.id);
     fd.set("valor", valorDosDigitos(valor));
     removidas.forEach((id) => fd.append("remover", id));
+    notas.forEach((nf) => fd.append("nf", nf));
     novas.forEach((f) => fd.append("fotos", f.arquivo));
     iniciar(async () => {
       try {
@@ -245,7 +253,9 @@ export function EditarComprovante({
         />
       </label>
 
-      {(erro || (mudou && problema)) && <p className="text-sm text-red-600">{erro ?? problema}</p>}
+      <CampoNotas notas={notas} aoMudar={setNotas} desabilitado={salvando} />
+
+      {(erro || (mudou && problema)) &&<p className="text-sm text-red-600">{erro ?? problema}</p>}
       {!online && <p className="text-xs text-amber-800">Sem internet: a edição só salva com sinal.</p>}
 
       <div className="flex gap-2">

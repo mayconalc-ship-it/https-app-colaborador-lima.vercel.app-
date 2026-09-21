@@ -141,6 +141,8 @@ export type ComprovanteComFotos = {
   situacao: "conferido" | "divergente" | null;
   valorExtrato: number | null;
   conferenciaObs: string | null;
+  /** As notas fiscais do pagamento (migration 130). */
+  notas: string[];
 };
 
 export type EdicaoDoComprovante = {
@@ -150,6 +152,9 @@ export type EdicaoDoComprovante = {
   valorDepois: number | null;
   fotosTiradas: number;
   fotosNovas: number;
+  /** As NFs antes e depois (migration 130); null em edição anterior a ela. */
+  notasAntes: string[] | null;
+  notasDepois: string[] | null;
 };
 
 /** Lê comprovantes (já filtrados pela consulta de quem chama) com as fotos assinadas. */
@@ -173,6 +178,7 @@ export async function comFotos(
     conferencia_situacao: string | null;
     valor_extrato: number | string | null;
     conferencia_obs: string | null;
+    notas_fiscais: string[] | null;
   }[],
 ): Promise<ComprovanteComFotos[]> {
   if (linhas.length === 0) return [];
@@ -193,7 +199,9 @@ export async function comFotos(
   for (let i = 0; i < editados.length; i += 150) {
     const { data } = await admin
       .from("qr_comprovante_edicoes")
-      .select("comprovante_id, colaborador_nome, editado_em, valor_antes, valor_depois, fotos_tiradas, fotos_novas")
+      .select(
+        "comprovante_id, colaborador_nome, editado_em, valor_antes, valor_depois, fotos_tiradas, fotos_novas, notas_antes, notas_depois",
+      )
       .in("comprovante_id", editados.slice(i, i + 150))
       .order("editado_em");
     for (const e of data ?? []) {
@@ -205,6 +213,8 @@ export async function comFotos(
         valorDepois: e.valor_depois == null ? null : Number(e.valor_depois),
         fotosTiradas: Number(e.fotos_tiradas ?? 0),
         fotosNovas: Number(e.fotos_novas ?? 0),
+        notasAntes: Array.isArray(e.notas_antes) ? e.notas_antes.map(String) : null,
+        notasDepois: Array.isArray(e.notas_depois) ? e.notas_depois.map(String) : null,
       });
     }
   }
@@ -236,6 +246,8 @@ export async function comFotos(
         valorDepois: e.valorDepois,
         fotosTiradas: e.fotosTiradas,
         fotosNovas: e.fotosNovas,
+        notasAntes: e.notasAntes,
+        notasDepois: e.notasDepois,
       })),
     conferidoEm: l.conferido_em,
     conferidoPorNome: l.conferido_por_nome,
@@ -247,6 +259,7 @@ export async function comFotos(
           : null,
     valorExtrato: l.valor_extrato == null ? null : Number(l.valor_extrato),
     conferenciaObs: l.conferencia_obs,
+    notas: Array.isArray(l.notas_fiscais) ? l.notas_fiscais.map(String) : [],
   }));
 }
 
@@ -301,6 +314,7 @@ export function paraTelaDoCelular(c: ComprovanteComFotos, eu: string) {
       minute: "2-digit",
     }),
     fotos: c.fotos,
+    notas: c.notas,
     editado: c.edicoes.length > 0,
     /** Lançado por outra pessoa da equipe do mapa: o nome dela; o próprio, null. */
     lancadoPor: c.colaboradorId === eu ? null : c.colaboradorNome,
@@ -308,4 +322,4 @@ export function paraTelaDoCelular(c: ComprovanteComFotos, eu: string) {
 }
 
 export const COLUNAS_COMPROVANTE =
-  "id, data, mapa, cod_pdv, cliente_nome, cliente_cidade, valor, observacao, colaborador_id, colaborador_nome, criado_em, pago_em, editado_em, conferido_em, conferido_por_nome, conferencia_situacao, valor_extrato, conferencia_obs";
+  "id, data, mapa, cod_pdv, cliente_nome, cliente_cidade, valor, observacao, colaborador_id, colaborador_nome, criado_em, pago_em, editado_em, conferido_em, conferido_por_nome, conferencia_situacao, valor_extrato, conferencia_obs, notas_fiscais";

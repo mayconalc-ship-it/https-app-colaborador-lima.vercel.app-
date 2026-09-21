@@ -20,10 +20,14 @@ export type LancamentoDoLivro = {
   dia: string | null; // "19/09" quando o filtro pega mais de um dia
   hora: string;
   codPdv: string;
-  clienteNome: string | null;
+  /** A razão social (base de clientes); fora da base, o nome do comprovante. */
+  razaoSocial: string | null;
+  /** O nome fantasia, só quando difere da razão social. */
+  fantasia: string | null;
   clienteCidade: string | null;
   colaboradorNome: string | null; // só quando o mapa tem mais de uma pessoa
   valor: number | null;
+  notas: string[];
   fotos: { id: string; url: string | null }[];
   observacao: string | null;
   avisos: string[]; // "cliente com mais de um comprovante…", "feito sem internet…"
@@ -145,7 +149,7 @@ export function LivroDoMapa({
             {podeConferir && (
               <input
                 type="checkbox"
-                aria-label={`Marcar ${l.clienteNome ?? l.codPdv}`}
+                aria-label={`Marcar ${l.codPdv} ${l.razaoSocial ?? ""}`.trim()}
                 checked={marcados.has(l.id)}
                 disabled={Boolean(l.situacao) || salvando}
                 onChange={() => alternar(l.id)}
@@ -158,16 +162,38 @@ export function LivroDoMapa({
             </span>
 
             <div className="min-w-0 flex-1">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-semibold text-slate-900">{l.clienteNome ?? "Cliente sem cadastro"}</p>
-                  <p className="truncate text-xs text-slate-500">
-                    <span className="rounded bg-slate-100 px-1 font-mono font-semibold tabular-nums text-slate-600">{l.codPdv}</span>
-                    {l.clienteCidade && ` · ${l.clienteCidade}`}
-                    {l.colaboradorNome && ` · ${l.colaboradorNome}`}
+              {/* No celular, o nome ganha a largura toda e o valor desce
+                  para a linha de baixo -- razão social comprida não corta. */}
+              <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1">
+                <div className="min-w-0 flex-1 basis-56">
+                  {/* CÓDIGO, RAZÃO SOCIAL e, embaixo e menor, o FANTASIA
+                      (pedido do dono, 21/09/2026). */}
+                  <p className="text-sm leading-snug [overflow-wrap:normal]">
+                    <span className="mr-1.5 rounded bg-slate-100 px-1.5 font-mono font-bold tabular-nums text-slate-700">
+                      {l.codPdv}
+                    </span>
+                    <span className="font-semibold uppercase text-slate-900">{l.razaoSocial ?? "Cliente sem cadastro"}</span>
                   </p>
+                  {l.fantasia && <p className="mt-0.5 text-xs text-slate-600">{l.fantasia}</p>}
+                  {(l.clienteCidade || l.colaboradorNome) && (
+                    <p className="truncate text-[11px] text-slate-400">
+                      {[l.clienteCidade, l.colaboradorNome].filter(Boolean).join(" · ")}
+                    </p>
+                  )}
+                  {l.notas.length > 0 && (
+                    <p className="mt-1 flex flex-wrap gap-1">
+                      {l.notas.map((n) => (
+                        <span
+                          key={n}
+                          className="rounded border border-slate-300 bg-white px-1.5 font-mono text-[11px] font-semibold tabular-nums text-slate-700"
+                        >
+                          NF {n}
+                        </span>
+                      ))}
+                    </p>
+                  )}
                 </div>
-                <div className="shrink-0 text-right">
+                <div className="ml-auto shrink-0 text-right">
                   <p className="font-mono text-base font-bold tabular-nums text-slate-900">
                     {l.valor == null ? <span className="font-sans text-sm font-medium text-amber-700">sem valor</span> : reais(l.valor)}
                   </p>

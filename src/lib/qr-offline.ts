@@ -120,6 +120,8 @@ export type ComprovantePendente = {
   mapa: string;
   valor: string;
   observacao: string;
+  /** As NFs (21/09/2026). Opcional: comprovante guardado antes disso não tem. */
+  notas?: string[];
   fotos: Blob[];
   pagoEm: string;
   /** A última resposta do servidor, quando ele recusou. */
@@ -197,6 +199,7 @@ export function formularioDoPendente(c: ComprovantePendente): FormData {
   f.set("valor", c.valor);
   f.set("observacao", c.observacao);
   f.set("pago_em", c.pagoEm);
+  (c.notas ?? []).forEach((nf) => f.append("nf", nf));
   c.fotos.forEach((foto, i) => f.append("fotos", new File([foto], `comprovante-${i + 1}.jpg`, { type: foto.type || "image/jpeg" })));
   return f;
 }

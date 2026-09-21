@@ -71,12 +71,34 @@ export default async function ComprovantesQrPage({
     (l) =>
       (!mapaEscolhido || l.mapa === mapaEscolhido) &&
       (!motoristaEscolhido || (l.colaborador_id ?? l.colaborador_nome) === motoristaEscolhido) &&
-      (!termo || normalizarBusca(`${l.cod_pdv} ${l.cliente_nome ?? ""} ${l.cliente_cidade ?? ""}`).includes(termo)),
+      (!termo ||
+        normalizarBusca(
+          `${l.cod_pdv} ${l.cliente_nome ?? ""} ${l.cliente_cidade ?? ""} ${(l.notas_fiscais ?? []).join(" ")}`,
+        ).includes(termo)),
   );
 
   // As fotos só dos 300 primeiros: link assinado custa uma ida ao
   // armazenamento, e ninguém confere 500 comprovantes rolando a tela.
   const comprovantes = await comFotos(filtradas.slice(0, 300));
+
+  // RAZÃO SOCIAL E FANTASIA (pedido do dono, 21/09/2026: "primeiro o
+  // código, seguido da razão social e, abaixo e menor, o nome fantasia").
+  // O comprovante guarda um nome só; os dois vêm da base de clientes.
+  const codigos = [...new Set(filtradas.map((l) => l.cod_pdv))];
+  const clientesDaBase: Record<string, { razaoSocial: string | null; fantasia: string | null }> = {};
+  for (let i = 0; i < codigos.length; i += 150) {
+    const { data } = await createAdminClient()
+      .from("pa_pdv_clientes")
+      .select("cod_pdv, nome, fantasia")
+      .eq("revenda_id", revendaId)
+      .in("cod_pdv", codigos.slice(i, i + 150));
+    for (const c of data ?? []) {
+      clientesDaBase[String(c.cod_pdv)] = {
+        razaoSocial: c.nome?.trim() || null,
+        fantasia: c.fantasia?.trim() || null,
+      };
+    }
+  }
 
   return (
     <PainelComprovantes
@@ -91,6 +113,7 @@ export default async function ComprovantesQrPage({
       filtradas={filtradas}
       comprovantes={comprovantes}
       podeConferir={podeConferir}
+      clientesDaBase={clientesDaBase}
     />
   );
 }

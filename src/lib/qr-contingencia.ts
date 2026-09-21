@@ -24,7 +24,29 @@ export const LIMITES_QR = {
   valorMax: 1_000_000,
   observacaoMax: 300,
   buscaMin: 2,
+  /** Notas fiscais por comprovante (migration 130). */
+  notasMax: 20,
+  /** A NF-e tem até 9 dígitos; 12 dá folga para numeração interna. */
+  digitosDaNfMax: 12,
 } as const;
+
+/** O número da NF como é guardado: só dígitos, sem zeros à esquerda ("000123" -> "123"). */
+export function numeroDaNf(digitado: string) {
+  return digitado.replace(/\D/g, "").replace(/^0+/, "").slice(0, LIMITES_QR.digitosDaNfMax);
+}
+
+/** As NFs de um formulário -> a lista limpa, sem repetição, na ordem digitada. */
+export function lerNotas(valores: unknown[]): string[] {
+  const vistas = new Set<string>();
+  for (const v of valores) {
+    // Aceita também "123, 456" num campo só (colado do WhatsApp).
+    for (const parte of String(v ?? "").split(/[\s,;/]+/)) {
+      const n = numeroDaNf(parte);
+      if (n) vistas.add(n);
+    }
+  }
+  return [...vistas];
+}
 
 export const TIPOS_DE_FOTO = ["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"];
 
@@ -44,6 +66,8 @@ export type DadosDoComprovante = {
   valor: number | null;
   observacao: string;
   fotos: { tamanho: number; tipo: string }[];
+  /** As NFs, já lidas por lerNotas (opcional; até LIMITES_QR.notasMax). */
+  notas?: string[];
 };
 
 /** O problema do comprovante, em português -- ou null se está tudo certo. */
@@ -68,6 +92,11 @@ export function validarComprovante(d: DadosDoComprovante): string | null {
   if (d.valor > LIMITES_QR.valorMax) return "Valor alto demais — confira o número.";
   if (d.observacao.length > LIMITES_QR.observacaoMax) {
     return `A observação passa de ${LIMITES_QR.observacaoMax} caracteres.`;
+  }
+  const notas = d.notas ?? [];
+  if (notas.length > LIMITES_QR.notasMax) return `No máximo ${LIMITES_QR.notasMax} notas fiscais por comprovante.`;
+  if (notas.some((n) => !/^[1-9]\d*$/.test(n) || n.length > LIMITES_QR.digitosDaNfMax)) {
+    return "Número de NF inválido — use só os números da nota.";
   }
   return null;
 }

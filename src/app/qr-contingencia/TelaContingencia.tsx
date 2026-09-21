@@ -36,6 +36,7 @@ import {
 } from "./actions";
 import { cursorNoFim, reduzir } from "./ajudantes";
 import { CameraNaTela } from "./CameraNaTela";
+import { CampoNotas } from "./CampoNotas";
 import { EditarComprovante } from "./EditarComprovante";
 
 export type ConfigParaTela = {
@@ -54,6 +55,8 @@ export type ComprovanteDaTela = {
   valor: number | null;
   hora: string;
   fotos: { id: string; url: string | null }[];
+  /** As notas fiscais (21/09/2026). */
+  notas: string[];
   /** Já foi editado (a conciliação vê o que mudou). */
   editado: boolean;
   /** Lançado por outra pessoa da equipe do mapa (o nome); o próprio, null. */
@@ -93,6 +96,7 @@ export function TelaContingencia({
   const [fotos, setFotos] = useState<Foto[]>([]);
   const [valor, setValor] = useState("");
   const [observacao, setObservacao] = useState("");
+  const [notas, setNotas] = useState<string[]>([]);
   const [aviso, setAviso] = useState<{ tipo: "ok" | "erro"; texto: string } | null>(null);
   const [copiado, setCopiado] = useState(false);
   const [buscando, iniciarBusca] = useTransition();
@@ -354,6 +358,7 @@ export function TelaContingencia({
     valor: lerValor(valorDosDigitos(valor)),
     observacao: observacao.trim(),
     fotos: fotos.map((f) => ({ tamanho: f.arquivo.size, tipo: f.arquivo.type })),
+    notas,
   });
 
   function limparFormulario() {
@@ -362,6 +367,7 @@ export function TelaContingencia({
     setFotos([]);
     setValor("");
     setObservacao("");
+    setNotas([]);
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
@@ -380,6 +386,7 @@ export function TelaContingencia({
       mapa: rota?.mapa ?? mapa,
       valor: valorDosDigitos(valor),
       observacao,
+      notas,
       fotos: fotos.map((f) => f.arquivo),
       pagoEm: new Date().toISOString(),
     };
@@ -487,6 +494,7 @@ export function TelaContingencia({
                       {" · "}
                       {p.fotos.length} foto(s)
                       {p.mapa && ` · mapa ${p.mapa}`}
+                      {p.notas && p.notas.length > 0 && ` · NF ${p.notas.join(", ")}`}
                     </p>
                     {p.erro && <p className="mt-0.5 text-xs text-red-600">{p.erro}</p>}
                   </div>
@@ -819,6 +827,9 @@ export function TelaContingencia({
                   className={`${campo} text-right text-lg font-semibold tabular-nums ${valor ? "" : "text-slate-400"}`}
                 />
               </label>
+              <div className="sm:col-span-2">
+                <CampoNotas notas={notas} aoMudar={setNotas} desabilitado={enviando} />
+              </div>
               <label className="block sm:col-span-2">
                 <span className="mb-1 block text-xs font-semibold uppercase text-slate-500">Observação (opcional)</span>
                 <textarea
@@ -887,6 +898,9 @@ export function TelaContingencia({
                             {c.lancadoPor && c.editado && " · "}
                             {c.editado && <span className="text-amber-700">✏️ editado</span>}
                           </p>
+                        )}
+                        {c.notas.length > 0 && (
+                          <p className="truncate text-[11px] tabular-nums text-slate-600">NF {c.notas.join(", ")}</p>
                         )}
                         <div className="mt-1 flex gap-1.5 overflow-x-auto">
                           {c.fotos.map((f, i) =>

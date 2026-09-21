@@ -14,6 +14,8 @@ import {
   validarComprovante,
   validarConfigQr,
   validarConferencia,
+  lerNotas,
+  numeroDaNf,
 } from "../qr-contingencia.ts";
 
 let falhas = 0;
@@ -83,6 +85,17 @@ eq("lixo: usa agora", horaDoPagamento("ontem", agora).toISOString(), agora.toISO
 eq("id de envio válido", ehEnvioId("3f2b8c1e-9d4a-4f6b-8e2c-1a2b3c4d5e6f"), true);
 eq("id de envio inválido", ehEnvioId("1; drop table"), false);
 eq("código digitado", codigoDigitado(" 0003163 "), "3163");
+
+// As notas fiscais (21/09/2026).
+eq("NF tira zeros e letras", numeroDaNf("NF 000.123-4"), "1234");
+eq("várias NFs, sem repetir", lerNotas(["123", "0123", "456"]), ["123", "456"]);
+eq("NFs coladas num campo só", lerNotas(["789, 790; 791"]), ["789", "790", "791"]);
+eq("NF vazia some", lerNotas(["", "000"]), []);
+const baseNf = { codPdv: "10", valor: 50, observacao: "", fotos: [{ tamanho: 1000, tipo: "image/jpeg" }] };
+eq("sem NF vale", validarComprovante(baseNf), null);
+eq("com NFs vale", validarComprovante({ ...baseNf, notas: ["123", "456"] }), null);
+eq("NF torta recusada", validarComprovante({ ...baseNf, notas: ["12a"] }), "Número de NF inválido — use só os números da nota.");
+eq("21 NFs recusadas", validarComprovante({ ...baseNf, notas: Array.from({ length: 21 }, (_, i) => String(i + 1)) }), "No máximo 20 notas fiscais por comprovante.");
 
 // A conciliação com o extrato (19/09/2026).
 const conc = (d) => validarConferencia({ qtd: 1, situacao: "divergente", valorExtrato: 10, motivo: "Não caiu", ...d });
