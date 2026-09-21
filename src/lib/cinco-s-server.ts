@@ -293,6 +293,63 @@ function vinculoVigente(valor: unknown): string | null {
 }
 
 /** Nomes de um punhado de ids, em uma consulta. */
+/** Uma ligação da auditoria cruzada: quem auditou qual área, de qual dono. */
+export type LigacaoCruzada = {
+  auditoriaId: string;
+  auditorId: string;
+  auditor: string;
+  areaId: string;
+  area: string;
+  donoId: string | null;
+  dono: string | null;
+  status: string;
+  conformidade: number | null;
+};
+
+/**
+ * A AUDITORIA CRUZADA DO MÊS (pedido do dono, 21/09/2026: "quem é o
+ * auditor e quem é o auditado, ligando um ao outro"). Uma linha por
+ * auditoria do mês, com os nomes já resolvidos. O dono é o congelado na
+ * auditoria -- quem respondia pela área naquele mês, não o de hoje.
+ */
+export async function auditoriaCruzada(
+  revendaId: string,
+  competencia: string,
+  filtros: { areaId?: string | null; auditorId?: string | null; donoId?: string | null } = {},
+): Promise<LigacaoCruzada[]> {
+  const admin = createAdminClient();
+  let consulta = admin
+    .from("cinco_s_auditorias")
+    .select("id, auditor_id, dono_id, area_id, status, conformidade")
+    .eq("revenda_id", revendaId)
+    .eq("competencia", `${competencia}-01`)
+    .neq("status", "cancelada");
+  if (filtros.areaId) consulta = consulta.eq("area_id", filtros.areaId);
+  if (filtros.auditorId) consulta = consulta.eq("auditor_id", filtros.auditorId);
+  if (filtros.donoId) consulta = consulta.eq("dono_id", filtros.donoId);
+  const { data } = await consulta;
+  const linhas = data ?? [];
+  if (linhas.length === 0) return [];
+
+  const [nomes, { data: areas }] = await Promise.all([
+    nomesDe([...new Set(linhas.flatMap((l) => [l.auditor_id, l.dono_id].filter(Boolean) as string[]))]),
+    admin.from("cinco_s_areas").select("id, nome").in("id", [...new Set(linhas.map((l) => l.area_id))]),
+  ]);
+  const nomeDaArea = new Map((areas ?? []).map((a) => [a.id as string, a.nome as string]));
+
+  return linhas.map((l) => ({
+    auditoriaId: l.id,
+    auditorId: l.auditor_id,
+    auditor: nomes.get(l.auditor_id) ?? "—",
+    areaId: l.area_id,
+    area: nomeDaArea.get(l.area_id) ?? "—",
+    donoId: l.dono_id,
+    dono: l.dono_id ? (nomes.get(l.dono_id) ?? "—") : null,
+    status: l.status,
+    conformidade: l.conformidade == null ? null : Number(l.conformidade),
+  }));
+}
+
 export async function nomesDe(ids: string[]): Promise<Map<string, string>> {
   if (ids.length === 0) return new Map();
   const admin = createAdminClient();

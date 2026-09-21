@@ -2,7 +2,9 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { PageHeader } from "@/components/PageHeader";
 import { ExportarCsv } from "@/components/ExportarCsv";
+import { MapaCruzado } from "@/components/cinco-s/MapaCruzado";
 import {
+  auditoriaCruzada,
   getCompetencias,
   getContexto5S,
   getDashboard,
@@ -92,7 +94,7 @@ export default async function BI5SPage({
   const donoId = p.dono || null;
   const senso = ehSenso(p.senso) ? p.senso : null;
 
-  const [dados, competencias, areas] = await Promise.all([
+  const [dados, competencias, areas, cruzada] = await Promise.all([
     getDashboard(revendaId, {
       competencia: mes,
       areaId,
@@ -102,6 +104,9 @@ export default async function BI5SPage({
     }),
     getCompetencias(revendaId),
     listarAreas(revendaId),
+    // A auditoria cruzada é de um mês: no acumulado, cada área teria um
+    // auditor por mês e o mapa viraria um novelo.
+    mes ? auditoriaCruzada(revendaId, mes, { areaId, auditorId, donoId }) : Promise.resolve([]),
   ]);
 
   const { cartoes } = dados;
@@ -382,6 +387,16 @@ export default async function BI5SPage({
           </ul>
         </div>
       )}
+
+      <Bloco titulo="Auditoria cruzada — quem auditou quem" contagem={cruzada.length}>
+        {mes ? (
+          <MapaCruzado ligacoes={cruzada} />
+        ) : (
+          <p className="py-4 text-center text-sm text-slate-500">
+            Escolha um mês para ver quem auditou quem — no período todo cada área teve um auditor por mês.
+          </p>
+        )}
+      </Bloco>
 
       <Bloco titulo="Conformidade por senso">
         <RadarSensos dados={dados.por_senso} />
