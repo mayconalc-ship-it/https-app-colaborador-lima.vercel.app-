@@ -47,25 +47,42 @@ export function MapaCruzado({
     if (l.donoId) areasDoDono.set(l.donoId, [...(areasDoDono.get(l.donoId) ?? []), l.area]);
   }
 
-  // ---- Posições: áreas em ordem alfabética à direita; auditores pela
-  // média da posição das áreas que auditaram (menos linhas cruzando). ----
+  // ---- Posições (pedido do dono, 21/09/2026: "queria ver o cruzamento das
+  // linhas"). Áreas em ordem alfabética à direita; cada auditor À ESQUERDA DA
+  // ÁREA DE QUE ELE É DONO -- a linha sai da área dele e vai até a que ele
+  // auditou, e o cruzamento aparece. Linha reta = auditou a própria área (e
+  // essa sai vermelha). Quem não é dono ocupa as linhas livres, em ordem
+  // alfabética. ----
   const direita = [...ligacoes].sort((a, b) => a.area.localeCompare(b.area, "pt-BR"));
   const LINHA = 44;
   const TOPO = 26;
   const yDireita = new Map(direita.map((l, i) => [l.auditoriaId, TOPO + i * LINHA]));
+  const linhaDaArea = new Map<string, number>(); // dono -> linha da área dele
+  direita.forEach((l, i) => {
+    if (l.donoId && !linhaDaArea.has(l.donoId)) linhaDaArea.set(l.donoId, i);
+  });
+  const nomeDo = new Map(ligacoes.map((l) => [l.auditorId, l.auditor]));
+  const linhas = Math.max(direita.length, auditores.length);
+  const ocupadas = new Set<number>();
+  const linhaDoAuditor = new Map<string, number>();
+  for (const id of auditores) {
+    const i = linhaDaArea.get(id);
+    if (i !== undefined && !ocupadas.has(i)) {
+      linhaDoAuditor.set(id, i);
+      ocupadas.add(i);
+    }
+  }
+  const livres = Array.from({ length: linhas }, (_, i) => i).filter((i) => !ocupadas.has(i));
+  auditores
+    .filter((id) => !linhaDoAuditor.has(id))
+    .sort((a, b) => (nomeDo.get(a) ?? "").localeCompare(nomeDo.get(b) ?? "", "pt-BR"))
+    .forEach((id, k) => linhaDoAuditor.set(id, livres[k] ?? linhas + k));
   const esquerda = auditores
-    .map((id) => {
-      const minhas = direita.filter((l) => l.auditorId === id);
-      const media = minhas.reduce((s, l) => s + (yDireita.get(l.auditoriaId) ?? 0), 0) / minhas.length;
-      return { id, nome: minhas[0].auditor, media };
-    })
-    .sort((a, b) => a.media - b.media);
-  const linhas = Math.max(direita.length, esquerda.length);
-  const altura = TOPO + (linhas - 1) * LINHA + 30;
-  const passoEsq = esquerda.length > 1 ? ((linhas - 1) * LINHA) / (esquerda.length - 1) : 0;
-  const yEsquerda = new Map(
-    esquerda.map((a, i) => [a.id, esquerda.length === 1 ? TOPO + ((linhas - 1) * LINHA) / 2 : TOPO + i * passoEsq]),
-  );
+    .map((id) => ({ id, nome: nomeDo.get(id) ?? "—", linha: linhaDoAuditor.get(id) ?? 0 }))
+    .sort((a, b) => a.linha - b.linha);
+  const totalLinhas = Math.max(linhas, ...esquerda.map((a) => a.linha + 1));
+  const altura = TOPO + (totalLinhas - 1) * LINHA + 30;
+  const yEsquerda = new Map(esquerda.map((a) => [a.id, TOPO + a.linha * LINHA]));
 
   const L = 262; // ponto do auditor
   const R = 452; // ponto da área

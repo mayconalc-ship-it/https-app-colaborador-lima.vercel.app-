@@ -350,8 +350,8 @@ export async function auditoriaCruzada(
   }));
 }
 
-/** Um lugar do pódio: a nota e as áreas que a tiraram (empate divide o lugar). */
-export type LugarDoPodio = { lugar: 1 | 2 | 3; conformidade: number; areas: string[] };
+/** Um lugar do pódio: a nota e as áreas que a tiraram (empate divide o lugar), com o dono de cada uma. */
+export type LugarDoPodio = { lugar: 1 | 2 | 3; conformidade: number; areas: { area: string; dono: string | null }[] };
 export type PodioDoMes = { competencia: string; lugares: LugarDoPodio[]; auditadas: number };
 
 /**
@@ -365,7 +365,7 @@ export async function podiosDoAno(revendaId: string, ano: number): Promise<Podio
   const admin = createAdminClient();
   const { data } = await admin
     .from("cinco_s_auditorias")
-    .select("area_id, competencia, conformidade")
+    .select("area_id, dono_id, competencia, conformidade")
     .eq("revenda_id", revendaId)
     .eq("status", "finalizada")
     .gte("competencia", `${ano}-01-01`)
@@ -373,16 +373,24 @@ export async function podiosDoAno(revendaId: string, ano: number): Promise<Podio
     .not("conformidade", "is", null);
   const linhas = data ?? [];
   if (linhas.length === 0) return [];
-  const { data: areas } = await admin
-    .from("cinco_s_areas")
-    .select("id, nome")
-    .in("id", [...new Set(linhas.map((l) => l.area_id as string))]);
+  const [{ data: areas }, donos] = await Promise.all([
+    admin.from("cinco_s_areas").select("id, nome").in("id", [...new Set(linhas.map((l) => l.area_id as string))]),
+    // O dono CONGELADO na auditoria: quem respondia pela área naquele mês.
+    nomesDe([...new Set(linhas.map((l) => l.dono_id as string | null).filter((d): d is string => Boolean(d)))]),
+  ]);
   const nome = new Map((areas ?? []).map((a) => [a.id as string, a.nome as string]));
 
-  const porMes = new Map<string, { area: string; nota: number }[]>();
+  const porMes = new Map<string, { area: string; dono: string | null; nota: number }[]>();
   for (const l of linhas) {
     const mes = String(l.competencia).slice(0, 7);
-    porMes.set(mes, [...(porMes.get(mes) ?? []), { area: nome.get(l.area_id as string) ?? "—", nota: Number(l.conformidade) }]);
+    porMes.set(mes, [
+      ...(porMes.get(mes) ?? []),
+      {
+        area: nome.get(l.area_id as string) ?? "—",
+        dono: l.dono_id ? (donos.get(l.dono_id as string) ?? null) : null,
+        nota: Number(l.conformidade),
+      },
+    ]);
   }
   return [...porMes]
     .sort(([a], [b]) => b.localeCompare(a))
@@ -394,7 +402,10 @@ export async function podiosDoAno(revendaId: string, ano: number): Promise<Podio
         lugares: notas.map((nota, i) => ({
           lugar: (i + 1) as 1 | 2 | 3,
           conformidade: nota,
-          areas: lista.filter((x) => x.nota === nota).map((x) => x.area).sort((a, b) => a.localeCompare(b, "pt-BR")),
+          areas: lista
+            .filter((x) => x.nota === nota)
+            .map((x) => ({ area: x.area, dono: x.dono }))
+            .sort((a, b) => a.area.localeCompare(b.area, "pt-BR")),
         })),
       };
     });

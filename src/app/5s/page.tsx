@@ -197,9 +197,10 @@ export default async function CincoSPage({
           a ele -- administrar o programa é papel de quem o Admin
           indicar, e a porta disso é o Modo Liderança. Um "Gerenciar"
           aqui misturaria as duas coisas na tela de quem vem auditar. */}
-      <div className="mb-4 grid grid-cols-2 gap-3">
+      <div className="mb-4 grid grid-cols-3 gap-3">
         <Atalho href="/5s/bi" emoji="📊" titulo="BI 5S" />
         <Atalho href="/5s/acoes" emoji="🛠️" titulo="Plano de ação" />
+        <Atalho href="/5s/cronograma" emoji="📅" titulo="Cronograma" />
       </div>
 
       {/* ---- O que eu preciso auditar ----

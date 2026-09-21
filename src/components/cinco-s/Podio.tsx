@@ -5,8 +5,21 @@ import { ExportarMapa } from "./ExportarMapa";
 const COR = { 1: "#FFC72C", 2: "#D9E1EA", 3: "#E3B07A" } as const;
 const MEDALHA = { 1: "🥇", 2: "🥈", 3: "🥉" } as const;
 const ALTURA = { 1: 150, 2: 110, 3: 80 } as const;
-const X = { 2: 60, 1: 260, 3: 460 } as const;
+const X = { 2: 50, 1: 270, 3: 490 } as const;
 const LARGURA = 200;
+/** Cada área no degrau ocupa duas linhas: a área e, menor, o dono. */
+const POR_AREA = 34;
+const MAX_AREAS = 6;
+
+const PARTICULAS = new Set(["DE", "DA", "DO", "DAS", "DOS", "E"]);
+/** "JOSE PEREIRA DA COSTA NETO" -> "Jose Pereira": cabe no degrau e na imagem. */
+function nomeCurto(n: string | null) {
+  if (!n) return "sem dono definido";
+  const p = n.trim().split(/\s+/);
+  const sobrenome = p.slice(1).find((x) => !PARTICULAS.has(x.toUpperCase()));
+  const cap = (x: string) => x.charAt(0).toUpperCase() + x.slice(1).toLowerCase();
+  return sobrenome ? `${cap(p[0])} ${cap(sobrenome)}` : cap(p[0]);
+}
 
 function corta(t: string, max: number) {
   return t.length > max ? `${t.slice(0, max - 1)}…` : t;
@@ -14,44 +27,51 @@ function corta(t: string, max: number) {
 
 /**
  * O PÓDIO DO MÊS (pedido do dono, 21/09/2026: "ranking com os pódios dos
- * melhores de cada mês, para divulgar"). SVG montado no servidor -- o mesmo
- * botão do mapa cruzado o baixa como imagem para o grupo de WhatsApp.
- * Empate divide o lugar: as áreas empatadas aparecem juntas no degrau.
+ * melhores de cada mês, para divulgar"; depois, "coloque o nome do dono da
+ * área e a área auditada"). SVG montado no servidor -- o mesmo botão do
+ * mapa cruzado o baixa como imagem para o grupo de WhatsApp. Empate divide
+ * o lugar; cada área aparece com o dono que respondia por ela no mês.
  */
 export function PodioDoMesSvg({ podio, id }: { podio: PodioDoMes; id: string }) {
-  const base = 330;
+  // Altura calculada pelo degrau com mais nomes -- nada sai cortado.
+  const linhasDe = (l: LugarDoPodio) => Math.min(l.areas.length, MAX_AREAS) + (l.areas.length > MAX_AREAS ? 1 : 0);
+  const cabeca = (l: LugarDoPodio) => 44 + linhasDe(l) * POR_AREA; // medalha + nomes
+  const base = Math.max(...podio.lugares.map((l) => cabeca(l) + ALTURA[l.lugar])) + 16;
+  const alturaSvg = base + 14;
+
   const degrau = (l: LugarDoPodio) => {
     const lugar = l.lugar;
     const x = X[lugar];
+    const cx = x + LARGURA / 2;
     const topo = base - ALTURA[lugar];
-    // Até 6 nomes no degrau; o resto vira "+N" (a lista do ano mostra todos).
-    const nomes = l.areas.slice(0, 6);
-    const resto = l.areas.length - nomes.length;
-    const linhasNomes = [...nomes.map((n) => corta(n, 24)), ...(resto > 0 ? [`+${resto} área${resto === 1 ? "" : "s"}`] : [])];
-    const alturaNomes = linhasNomes.length * 17;
+    const mostrar = l.areas.slice(0, MAX_AREAS);
+    const resto = l.areas.length - mostrar.length;
+    const inicioNomes = topo - linhasDe(l) * POR_AREA - 6;
     return (
       <g key={lugar}>
-        <text x={x + LARGURA / 2} y={topo - alturaNomes - 34} textAnchor="middle" fontSize="30">
+        <text x={cx} y={inicioNomes - 10} textAnchor="middle" fontSize="30">
           {MEDALHA[lugar]}
         </text>
-        {linhasNomes.map((n, i) => (
-          <text
-            key={n}
-            x={x + LARGURA / 2}
-            y={topo - alturaNomes - 6 + i * 17}
-            textAnchor="middle"
-            fontSize="14"
-            fontWeight="700"
-            fill="#0f172a"
-          >
-            {n}
-          </text>
+        {mostrar.map((a, i) => (
+          <g key={a.area}>
+            <text x={cx} y={inicioNomes + 16 + i * POR_AREA} textAnchor="middle" fontSize="14" fontWeight="700" fill="#0f172a">
+              {corta(a.area, 26)}
+            </text>
+            <text x={cx} y={inicioNomes + 31 + i * POR_AREA} textAnchor="middle" fontSize="11.5" fill="#475569">
+              {corta(`dono: ${nomeCurto(a.dono)}`, 30)}
+            </text>
+          </g>
         ))}
+        {resto > 0 && (
+          <text x={cx} y={inicioNomes + 16 + mostrar.length * POR_AREA} textAnchor="middle" fontSize="12" fill="#475569">
+            +{resto} área{resto === 1 ? "" : "s"}
+          </text>
+        )}
         <rect x={x} y={topo} width={LARGURA} height={ALTURA[lugar]} rx="8" fill={COR[lugar]} />
-        <text x={x + LARGURA / 2} y={topo + 42} textAnchor="middle" fontSize="34" fontWeight="800" fill="#063573">
+        <text x={cx} y={topo + 42} textAnchor="middle" fontSize="34" fontWeight="800" fill="#063573">
           {lugar}º
         </text>
-        <text x={x + LARGURA / 2} y={topo + 70} textAnchor="middle" fontSize="17" fontWeight="700" fill="#063573">
+        <text x={cx} y={topo + 70} textAnchor="middle" fontSize="17" fontWeight="700" fill="#063573">
           {formatarTaxa(l.conformidade)}
         </text>
       </g>
@@ -60,12 +80,12 @@ export function PodioDoMesSvg({ podio, id }: { podio: PodioDoMes; id: string }) 
   return (
     <svg
       id={id}
-      viewBox="0 0 720 350"
+      viewBox={`0 0 740 ${alturaSvg}`}
       className="w-full max-w-2xl"
       role="img"
       aria-label={`Pódio 5S de ${rotuloCompetencia(podio.competencia)}`}
     >
-      <line x1="40" y1="330" x2="680" y2="330" stroke="#cbd5e1" strokeWidth="2" />
+      <line x1="30" y1={base} x2="710" y2={base} stroke="#cbd5e1" strokeWidth="2" />
       {podio.lugares.map(degrau)}
     </svg>
   );
@@ -106,11 +126,19 @@ export function Podios({ podios, mes }: { podios: PodioDoMes[]; mes: string | nu
           {podios.map((p) => (
             <li key={p.competencia} className={`px-3 py-2.5 ${p.competencia === doMes?.competencia ? "bg-amber-50/60" : ""}`}>
               <p className="text-sm font-semibold text-slate-900">{rotuloCompetencia(p.competencia)}</p>
-              <ul className="mt-1 space-y-0.5">
+              <ul className="mt-1 space-y-1">
                 {p.lugares.map((l) => (
-                  <li key={l.lugar} className="flex items-baseline gap-2 text-xs text-slate-700">
+                  <li key={l.lugar} className="flex items-start gap-2 text-xs text-slate-700">
                     <span className="shrink-0">{MEDALHA[l.lugar]}</span>
-                    <span className="min-w-0 flex-1">{l.areas.join(", ")}</span>
+                    <span className="min-w-0 flex-1">
+                      {l.areas.map((a, i) => (
+                        <span key={a.area}>
+                          <span className="font-medium text-slate-900">{a.area}</span>
+                          <span className="text-slate-500"> ({nomeCurto(a.dono)})</span>
+                          {i < l.areas.length - 1 ? ", " : ""}
+                        </span>
+                      ))}
+                    </span>
                     <span className="shrink-0 font-bold tabular-nums text-slate-900">{formatarTaxa(l.conformidade)}</span>
                   </li>
                 ))}
