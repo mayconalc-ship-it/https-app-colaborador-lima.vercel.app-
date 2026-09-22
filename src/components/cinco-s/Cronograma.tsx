@@ -3,6 +3,8 @@ import { PageHeader } from "@/components/PageHeader";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { nomesDe } from "@/lib/cinco-s-server";
 import { faixaDaTaxa } from "@/lib/cinco-s";
+import { CronogramaSvg, type CelulaCronograma } from "./CronogramaSvg";
+import { ExportarMapa } from "./ExportarMapa";
 
 const MESES = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
 const MESES_LONGOS = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
@@ -80,6 +82,29 @@ export async function Cronograma({ revendaId, anoPedido }: { revendaId: string; 
     porMes.set(m, [...(porMes.get(m) ?? []), a]);
   }
 
+  // A mesma grade, com as cores em hexadecimal, para a imagem (CronogramaSvg).
+  const HEX = {
+    boa: { fundo: "#ECFDF5", cor: "#065F46" },
+    atencao: { fundo: "#FFFBEB", cor: "#92400E" },
+    critica: { fundo: "#FEF2F2", cor: "#B91C1C" },
+    vazia: { fundo: "#F8FAFC", cor: "#64748B" },
+    agendada: { fundo: "#F0F9FF", cor: "#075985" },
+    andamento: { fundo: "#FEF3C7", cor: "#92400E" },
+    atrasada: { fundo: "#FEE2E2", cor: "#B91C1C" },
+  } as const;
+  const celulasSvg: CelulaCronograma[][] = areaIds.map((areaId) =>
+    MESES.map((_, i) => {
+      const a = celula.get(`${areaId}|${i + 1}`);
+      if (!a) return null;
+      const s = situacao(a);
+      const nota = a.conformidade == null ? null : Number(a.conformidade);
+      if (s === "feita") return { texto: nota == null ? "✓" : `${Math.round(nota)}%`, ...HEX[faixaDaTaxa(nota)] };
+      if (s === "agendada") return { texto: `dia ${dataBr(a.planejada_para).slice(0, 2)}`, ...HEX.agendada };
+      if (s === "andamento") return { texto: "em and.", ...HEX.andamento };
+      return { texto: "atras.", ...HEX.atrasada };
+    }),
+  );
+
   const corDaNota = (n: number | null) => {
     const f = faixaDaTaxa(n);
     return f === "boa" ? "bg-emerald-50 text-emerald-800" : f === "atencao" ? "bg-amber-50 text-amber-800" : f === "critica" ? "bg-red-50 text-red-700" : "bg-slate-50 text-slate-500";
@@ -115,7 +140,20 @@ export async function Cronograma({ revendaId, anoPedido }: { revendaId: string; 
           {/* ---- O quadro área × mês ---- */}
           <section className="mb-5 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
             <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-              <h2 className="text-sm font-bold text-slate-800">Área × mês</h2>
+              <div className="flex items-center gap-2">
+                <h2 className="text-sm font-bold text-slate-800">Área × mês</h2>
+                <ExportarMapa
+                  alvoId="cronograma-5s-svg"
+                  titulo={`Cronograma de auditorias 5S — ${ano}`}
+                  arquivo={`cronograma-5s-${ano}.png`}
+                />
+              </div>
+              <CronogramaSvg
+                id="cronograma-5s-svg"
+                areas={areaIds.map((a) => nomeDaArea.get(a) ?? "—")}
+                celulas={celulasSvg}
+                mesAtual={mesAtual}
+              />
               <div className="flex flex-wrap gap-1.5 text-[11px]">
                 <span className="rounded bg-emerald-50 px-1.5 py-0.5 font-semibold text-emerald-800">nota = realizada</span>
                 <span className="rounded bg-sky-50 px-1.5 py-0.5 font-semibold text-sky-800">dia = agendada</span>
