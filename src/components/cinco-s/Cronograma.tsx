@@ -5,7 +5,6 @@ import { nomesDe } from "@/lib/cinco-s-server";
 import { faixaDaTaxa } from "@/lib/cinco-s";
 import { CronogramaSvg, type CelulaCronograma } from "./CronogramaSvg";
 import { ExportarMapa } from "./ExportarMapa";
-import { ExportarCsv } from "@/components/ExportarCsv";
 
 const MESES = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
 const MESES_LONGOS = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
@@ -17,7 +16,6 @@ type Auditoria = {
   dono_id: string | null;
   status: string;
   planejada_para: string;
-  competencia: string | null;
   finalizada_em: string | null;
   conformidade: number | string | null;
 };
@@ -52,7 +50,7 @@ export async function Cronograma({ revendaId, anoPedido }: { revendaId: string; 
   const [{ data: linhas }, { data: areasBanco }] = await Promise.all([
     admin
       .from("cinco_s_auditorias")
-      .select("id, area_id, auditor_id, dono_id, status, planejada_para, competencia, finalizada_em, conformidade")
+      .select("id, area_id, auditor_id, dono_id, status, planejada_para, finalizada_em, conformidade")
       .eq("revenda_id", ctx.revendaId)
       .neq("status", "cancelada")
       .gte("planejada_para", `${ano}-01-01`)
@@ -107,34 +105,6 @@ export async function Cronograma({ revendaId, anoPedido }: { revendaId: string; 
     }),
   );
 
-  // O .csv das realizadas (22/09/2026): o acompanhamento que fica na pasta
-  // do programa, para o auditor do DPO consultar. Uma linha por auditoria.
-  const dataSP = (iso: string | null) =>
-    iso ? new Date(iso).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" }) : "";
-  const linhasCsv = auditorias
-    .filter((a) => situacao(a) === "feita")
-    .map((a) => {
-      const comp = (a.competencia ?? a.planejada_para).slice(0, 7);
-      const nota = a.conformidade == null ? null : Number(a.conformidade);
-      const faixa = faixaDaTaxa(nota);
-      return {
-        chave: `${comp}|${nomeDaArea.get(a.area_id) ?? ""}`,
-        linha: [
-          `${MESES_LONGOS[Number(comp.slice(5, 7)) - 1]}/${comp.slice(0, 4)}`,
-          nomeDaArea.get(a.area_id) ?? "",
-          a.dono_id ? (nomes.get(a.dono_id) ?? "") : "",
-          nomes.get(a.auditor_id) ?? "",
-          a.planejada_para.slice(0, 10).split("-").reverse().join("/"),
-          dataSP(a.finalizada_em),
-          nota,
-          nota == null ? "" : faixa === "boa" ? "Boa (90% ou mais)" : faixa === "atencao" ? "Atenção (70% a 89%)" : "Crítica (abaixo de 70%)",
-          nota == null ? "" : nota >= 85 ? "Sim" : "Não",
-        ],
-      };
-    })
-    .sort((x, y) => x.chave.localeCompare(y.chave, "pt-BR"))
-    .map((x) => x.linha);
-
   const corDaNota = (n: number | null) => {
     const f = faixaDaTaxa(n);
     return f === "boa" ? "bg-emerald-50 text-emerald-800" : f === "atencao" ? "bg-amber-50 text-amber-800" : f === "critica" ? "bg-red-50 text-red-700" : "bg-slate-50 text-slate-500";
@@ -155,16 +125,6 @@ export async function Cronograma({ revendaId, anoPedido }: { revendaId: string; 
       </div>
 
       {/* ---- Resumo ---- */}
-      <div className="mb-2 flex justify-end">
-        <ExportarCsv
-          nome={`auditorias-5s-${ano}`}
-          complemento={hoje}
-          cabecalho={["Competência", "Área", "Dono da área", "Auditor", "Planejada para", "Realizada em", "Nota (%)", "Faixa", "Atingiu a meta de 85%"]}
-          linhas={linhasCsv}
-          rotulo="Baixar .csv das auditorias realizadas"
-        />
-      </div>
-
       <div className="mb-4 grid grid-cols-3 gap-2">
         <Numero valor={feitas} rotulo="realizadas" classe="text-emerald-700" />
         <Numero valor={agendadas.length} rotulo="agendadas" classe="text-primary-dark" />

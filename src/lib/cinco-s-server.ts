@@ -6,7 +6,7 @@ import { getPerfil } from "@/lib/sessao";
 import { getRevendaId, revendaTemModulo } from "@/lib/revendas";
 import { getConcessoes } from "@/lib/concessoes";
 import { podeFazer, ehOwner } from "@/lib/acessos";
-import type { Dashboard, Pergunta, Senso } from "@/lib/cinco-s";
+import { faixaDaTaxa, type Dashboard, type Pergunta, type Senso } from "@/lib/cinco-s";
 
 /**
  * O acesso ao 5S, decidido em um lugar só.
@@ -409,6 +409,81 @@ export async function podiosDoAno(revendaId: string, ano: number): Promise<Podio
         })),
       };
     });
+}
+
+/**
+ * As auditorias REALIZADAS, uma linha por auditoria, para o .csv do BI
+ * (22/09/2026): o acompanhamento que fica na pasta do programa para o
+ * auditor do DPO consultar. Mesmo recorte do BI: o mês (ou todo o
+ * período), área, auditor e dono. Dono é o congelado na auditoria.
+ */
+export async function auditoriasRealizadasCsv(
+  revendaId: string,
+  filtros: { competencia: string | null; areaId?: string | null; auditorId?: string | null; donoId?: string | null },
+): Promise<(string | number | null)[][]> {
+  const admin = createAdminClient();
+  type Linha = {
+    area_id: string;
+    auditor_id: string;
+    dono_id: string | null;
+    competencia: string;
+    planejada_para: string | null;
+    finalizada_em: string | null;
+    conformidade: number | string | null;
+  };
+  const linhas: Linha[] = [];
+  // Em páginas: no "todo o período" a lista cresce ~20 por mês, e o
+  // PostgREST corta em 1.000 sem avisar.
+  for (let de = 0; ; de += 1000) {
+    let consulta = admin
+      .from("cinco_s_auditorias")
+      .select("area_id, auditor_id, dono_id, competencia, planejada_para, finalizada_em, conformidade")
+      .eq("revenda_id", revendaId)
+      .eq("status", "finalizada")
+      .order("competencia")
+      .order("id")
+      .range(de, de + 999);
+    if (filtros.competencia) consulta = consulta.eq("competencia", `${filtros.competencia}-01`);
+    if (filtros.areaId) consulta = consulta.eq("area_id", filtros.areaId);
+    if (filtros.auditorId) consulta = consulta.eq("auditor_id", filtros.auditorId);
+    if (filtros.donoId) consulta = consulta.eq("dono_id", filtros.donoId);
+    const { data } = await consulta;
+    linhas.push(...((data ?? []) as Linha[]));
+    if (!data || data.length < 1000) break;
+  }
+  if (linhas.length === 0) return [];
+
+  const [nomes, { data: areas }] = await Promise.all([
+    nomesDe([...new Set(linhas.flatMap((l) => [l.auditor_id, l.dono_id].filter(Boolean) as string[]))]),
+    admin.from("cinco_s_areas").select("id, nome").eq("revenda_id", revendaId),
+  ]);
+  const nomeDaArea = new Map((areas ?? []).map((a) => [a.id as string, a.nome as string]));
+  const MESES = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
+  const dataBr = (iso: string | null) => (iso ? iso.slice(0, 10).split("-").reverse().join("/") : "");
+
+  return linhas
+    .map((l) => {
+      const comp = String(l.competencia).slice(0, 7);
+      const nota = l.conformidade == null ? null : Number(l.conformidade);
+      const faixa = faixaDaTaxa(nota);
+      return {
+        chave: `${comp}|${nomeDaArea.get(l.area_id) ?? ""}`,
+        linha: [
+          `${MESES[Number(comp.slice(5, 7)) - 1]}/${comp.slice(0, 4)}`,
+          nomeDaArea.get(l.area_id) ?? "",
+          l.dono_id ? (nomes.get(l.dono_id) ?? "") : "",
+          nomes.get(l.auditor_id) ?? "",
+          dataBr(l.planejada_para),
+          // O dia em São Paulo (o servidor roda em UTC).
+          l.finalizada_em ? new Date(l.finalizada_em).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" }) : "",
+          nota,
+          nota == null ? "" : faixa === "boa" ? "Boa (90% ou mais)" : faixa === "atencao" ? "Atenção (70% a 89%)" : "Crítica (abaixo de 70%)",
+          nota == null ? "" : nota >= 85 ? "Sim" : "Não",
+        ],
+      };
+    })
+    .sort((x, y) => x.chave.localeCompare(y.chave, "pt-BR"))
+    .map((x) => x.linha);
 }
 
 export async function nomesDe(ids: string[]): Promise<Map<string, string>> {

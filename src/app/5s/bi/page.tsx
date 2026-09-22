@@ -8,6 +8,7 @@ import { Reconhecimentos } from "@/components/cinco-s/Reconhecimentos";
 import { destaquesDoMes, lerReconhecimentos } from "@/lib/cinco-s-reconhecimento-server";
 import {
   auditoriaCruzada,
+  auditoriasRealizadasCsv,
   podiosDoAno,
   getCompetencias,
   getContexto5S,
@@ -100,7 +101,7 @@ export default async function BI5SPage({
 
   // O ano dos pódios: o do mês escolhido, ou o corrente no "todo o período".
   const anoDoPodio = Number((mes ?? competenciaAtual()).slice(0, 4));
-  const [dados, competencias, areas, cruzada, reconhecimentos, destaques, podios] = await Promise.all([
+  const [dados, competencias, areas, cruzada, reconhecimentos, destaques, podios, csvAuditorias] = await Promise.all([
     getDashboard(revendaId, {
       competencia: mes,
       areaId,
@@ -117,6 +118,8 @@ export default async function BI5SPage({
     lerReconhecimentos(revendaId, mes),
     mes ? destaquesDoMes(revendaId, mes) : Promise.resolve({ maiorNota: [], maiorEvolucao: null }),
     podiosDoAno(revendaId, anoDoPodio),
+    // O .csv das realizadas (22/09/2026), no mesmo recorte da tela.
+    auditoriasRealizadasCsv(revendaId, { competencia: mes, areaId, auditorId, donoId }),
   ]);
 
   const { cartoes } = dados;
@@ -224,6 +227,13 @@ export default async function BI5SPage({
           ]}
           linhas={csvPerguntas}
           rotulo="Perguntas .csv"
+        />
+        <ExportarCsv
+          nome="5s-auditorias-realizadas"
+          complemento={mes ?? "todo-o-periodo"}
+          cabecalho={["Competência", "Área", "Dono da área", "Auditor", "Planejada para", "Realizada em", "Nota (%)", "Faixa", "Atingiu a meta de 85%"]}
+          linhas={csvAuditorias}
+          rotulo="Auditorias realizadas .csv"
         />
       </div>
 
