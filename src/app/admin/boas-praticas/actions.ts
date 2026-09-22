@@ -7,11 +7,14 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { exigirRevenda } from "@/lib/revendas";
 import { criarNotificacao } from "@/lib/notificacoes-server";
 import { enviarPushDaRevenda } from "@/lib/push-server";
-import { lerConfigBoasPraticas } from "@/lib/boas-praticas-server";
+import { eleitoresDaRevenda, lerConfigBoasPraticas } from "@/lib/boas-praticas-server";
 import {
   LIMITES,
   MEDALHA,
   apurar,
+  chaveDoEleitor,
+  validarEleitorLancado,
+  votacaoRecebeVoto,
   formatarDia,
   formatarReais,
   lerData,
@@ -255,30 +258,132 @@ export async function abrirVotacao(formData: FormData) {
     voltar("erro", "Alguma prática mudou enquanto a votação era aberta. Recarregue a tela e tente de novo.");
   }
 
+  // O aviso vai só para quem vota: a liderança do app (22/09/2026).
   const premio1 = config.premio_1 != null ? ` O 1º lugar leva ${formatarReais(config.premio_1)}.` : "";
   const tituloAviso = `🗳️ Votação aberta: ${titulo}`;
   const mensagem = `${ids.length} práticas aprovadas concorrendo. Vote até ${formatarDia(fim!)}.${premio1}`;
   const url = "/boas-praticas?aba=votar";
+  const eleitores = (await eleitoresDaRevenda(revendaId)).map((e) => e.id).filter((id) => id !== perfil.id);
 
-  await criarNotificacao({
-    modulo: "boas-praticas",
-    tipo: "importante",
-    titulo: tituloAviso,
-    mensagem,
-    url,
-    referenciaId: votacao.id,
-    criadoPor: perfil.nome,
-  });
+  await Promise.all(
+    eleitores.map((id) =>
+      criarNotificacao({
+        modulo: "boas-praticas",
+        tipo: "importante",
+        titulo: tituloAviso,
+        mensagem,
+        url,
+        referenciaId: votacao.id,
+        criadoPor: perfil.nome,
+        destinatarioId: id,
+      }),
+    ),
+  );
   await enviarPushDaRevenda(revendaId, {
     modulo: "boas-praticas",
     titulo: tituloAviso,
     mensagem,
     url,
-    exceto: perfil.id,
+    apenas: eleitores,
   });
 
   atualizarTelas();
-  voltar("sucesso", "Votação aberta! A revenda inteira foi avisada.");
+  voltar(
+    "sucesso",
+    `Votação aberta! ${eleitores.length} lideranças do app foram avisadas. Quem vota fora do app tem o voto lançado aqui.`,
+  );
+}
+
+/**
+ * O voto da liderança que não vota pelo app (22/09/2026): quem conduz o
+ * programa lança, com o nome de quem votou e o próprio nome gravados.
+ * As regras do voto do celular valem iguais: votação aberta e no prazo,
+ * prática da votação, nunca a do próprio autor e um voto por líder -- o
+ * nome vira a mesma chave do voto do celular, e o banco aceita uma só.
+ */
+export async function lancarVoto(formData: FormData) {
+  const perfil = await requireModulo("boas-praticas", "editar", ROTA);
+  const revendaId = await exigirRevenda(ROTA);
+
+  const nome = String(formData.get("eleitor_nome") ?? "").trim().replace(/\s+/g, " ");
+  const praticaId = String(formData.get("pratica_id") ?? "");
+  const problema = validarEleitorLancado(nome);
+  if (problema) voltar("erro", problema);
+  if (!praticaId) voltar("erro", "Escolha a prática em que a liderança votou.");
+  const chave = chaveDoEleitor(nome);
+
+  const admin = createAdminClient();
+  const { data: votacao } = await admin
+    .from("boas_praticas_votacoes")
+    .select("id, fim, encerrada_em")
+    .eq("revenda_id", revendaId)
+    .is("encerrada_em", null)
+    .maybeSingle();
+  if (!votacao || !votacaoRecebeVoto(votacao)) voltar("erro", "A votação não está recebendo votos agora.");
+
+  const { data: pratica } = await admin
+    .from("boas_praticas")
+    .select("id, titulo, colaborador_nome, votacao_id")
+    .eq("id", praticaId)
+    .eq("revenda_id", revendaId)
+    .maybeSingle();
+  if (!pratica || pratica.votacao_id !== votacao.id) voltar("erro", "Esta prática não está na votação.");
+  if (chaveDoEleitor(pratica.colaborador_nome ?? "") === chave) {
+    voltar("erro", `${nome} é autor(a) de “${pratica.titulo}”: o voto tem de ir para outra prática.`);
+  }
+
+  const { error } = await admin.from("boas_praticas_votos").insert({
+    revenda_id: revendaId,
+    votacao_id: votacao.id,
+    pratica_id: pratica.id,
+    colaborador_id: null,
+    eleitor_nome: nome,
+    eleitor_chave: chave,
+    registrado_por_id: perfil.id,
+    registrado_por_nome: perfil.nome,
+  });
+  if (error?.code === "23505") {
+    voltar("erro", `${nome} já tem voto nesta votação (pelo app ou lançado). Para trocar um voto lançado, remova e lance de novo.`);
+  }
+  if (error) voltar("erro", `Não foi possível lançar o voto: ${error.message}`);
+
+  atualizarTelas();
+  voltar("sucesso", `Voto de ${nome} lançado.`);
+}
+
+/** Desfaz um voto lançado (engano de nome ou de prática), só com a votação recebendo votos. */
+export async function removerVotoLancado(formData: FormData) {
+  await requireModulo("boas-praticas", "editar", ROTA);
+  const revendaId = await exigirRevenda(ROTA);
+
+  const id = Number(formData.get("id"));
+  if (!Number.isInteger(id) || id <= 0) voltar("erro", "Voto inválido.");
+
+  const admin = createAdminClient();
+  const { data: votacao } = await admin
+    .from("boas_praticas_votacoes")
+    .select("id, fim, encerrada_em")
+    .eq("revenda_id", revendaId)
+    .is("encerrada_em", null)
+    .maybeSingle();
+  if (!votacao || !votacaoRecebeVoto(votacao)) {
+    voltar("erro", "Com o prazo da votação encerrado, os votos não mudam mais.");
+  }
+
+  // Só o voto LANÇADO: o do celular é da própria pessoa.
+  const { data: apagados, error } = await admin
+    .from("boas_praticas_votos")
+    .delete()
+    .eq("id", id)
+    .eq("revenda_id", revendaId)
+    .eq("votacao_id", votacao.id)
+    .is("colaborador_id", null)
+    .select("id");
+  if (error) voltar("erro", `Não foi possível remover: ${error.message}`);
+  if (!apagados || apagados.length === 0) voltar("erro", "Voto não encontrado.");
+
+  atualizarTelas();
+  voltar("sucesso", "Voto lançado removido.");
 }
 
 /** Prazo, divulgação e prêmios mudam com a votação aberta. */

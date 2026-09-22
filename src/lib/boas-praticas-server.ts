@@ -91,6 +91,31 @@ export async function contextoBoasPraticas(): Promise<
 }
 
 /**
+ * Quem vota pelo app nesta revenda: a liderança e o dono (22/09/2026).
+ * É a lista do aviso de votação aberta e da participação na tela da
+ * liderança.
+ */
+export async function eleitoresDaRevenda(revendaId: string): Promise<{ id: string; nome: string }[]> {
+  const admin = createAdminClient();
+  const { data: vinculos } = await admin
+    .from("colaborador_revendas")
+    .select("colaborador_id")
+    .eq("revenda_id", revendaId);
+  const ids = [...new Set((vinculos ?? []).map((v) => v.colaborador_id as string))];
+  const eleitores: { id: string; nome: string }[] = [];
+  // Em lotes: a lista de ids vai na URL da consulta.
+  for (let i = 0; i < ids.length; i += 150) {
+    const { data } = await admin
+      .from("profiles")
+      .select("id, nome, role")
+      .in("id", ids.slice(i, i + 150))
+      .in("role", ["lideranca", "owner"]);
+    for (const p of data ?? []) eleitores.push({ id: p.id as string, nome: (p.nome as string) ?? "" });
+  }
+  return eleitores.sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
+}
+
+/**
  * Liderança com "Boas Práticas: editar" na revenda -- quem avalia a
  * sugestão nova. Mesmo critério de `podeFazer`: a concessão só vale para
  * quem ainda é liderança.

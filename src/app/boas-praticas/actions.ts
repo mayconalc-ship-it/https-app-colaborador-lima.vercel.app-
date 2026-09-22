@@ -8,10 +8,12 @@ import { criarNotificacao } from "@/lib/notificacoes-server";
 import { enviarPushDaRevenda } from "@/lib/push-server";
 import { contextoBoasPraticas, quemAvaliaBoasPraticas } from "@/lib/boas-praticas-server";
 import {
+  chaveDoEleitor,
   lerPratica,
   mensagemPrazoDeSugestao,
   recebeSugestao,
   validarPratica,
+  votaPeloApp,
   votacaoRecebeVoto,
 } from "@/lib/boas-praticas";
 
@@ -110,7 +112,7 @@ export async function enviarPratica(formData: FormData) {
 
 /**
  * Corrigir a própria sugestão -- só enquanto ela está em análise. Depois
- * de avaliada, o texto é o que a liderança leu e o que os colegas votam:
+ * de avaliada, o texto é o que a liderança leu e o que vai a voto:
  * mudar ali mudaria a prática por baixo da decisão.
  */
 export async function editarPratica(formData: FormData) {
@@ -181,14 +183,19 @@ export async function excluirPratica(formData: FormData) {
 }
 
 /**
- * O voto. Um por pessoa por votação; votar de novo TROCA o voto, até o
- * fim do prazo. Nunca na própria prática.
+ * O voto. Só da liderança (22/09/2026 -- o colaborador acompanha). Um por
+ * líder por votação; votar de novo TROCA o voto, até o fim do prazo.
+ * Nunca na própria prática.
  *
  * Tudo conferido aqui, e não confiado ao botão: a votação e a prática vêm
  * do banco, nunca do formulário além do id.
  */
 export async function votar(formData: FormData) {
   const { perfil, revendaId } = await contexto();
+
+  if (!votaPeloApp(perfil.role)) {
+    voltar("votar", "erro", "Nesta votação, quem vota é a liderança. Acompanhe por aqui: o resultado sai no dia da divulgação.");
+  }
 
   const praticaId = String(formData.get("pratica_id") ?? "");
   if (!praticaId) voltar("votar", "erro", "Escolha uma prática.");
@@ -225,11 +232,16 @@ export async function votar(formData: FormData) {
       votacao_id: votacao.id,
       pratica_id: pratica.id,
       colaborador_id: perfil.id,
+      eleitor_chave: chaveDoEleitor(perfil.nome ?? "") || null,
       votado_em: new Date().toISOString(),
     },
     { onConflict: "votacao_id,colaborador_id" },
   );
 
+  // A chave do nome já está num voto LANÇADO pela liderança (migration 132).
+  if (error?.code === "23505") {
+    voltar("votar", "erro", "Seu voto já foi lançado por quem conduz o programa. Para trocar, fale com essa pessoa.");
+  }
   if (error) voltar("votar", "erro", `Não foi possível registrar o voto: ${error.message}`);
 
   revalidatePath(ROTA);

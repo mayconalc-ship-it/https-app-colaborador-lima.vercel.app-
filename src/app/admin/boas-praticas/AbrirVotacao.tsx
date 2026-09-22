@@ -138,7 +138,7 @@ export function AbrirVotacao({
         textoEnviando="Abrindo..."
         className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-white hover:bg-primary-dark"
       >
-        Abrir votação com {marcadas.size} prática{marcadas.size === 1 ? "" : "s"} e avisar a revenda
+        Abrir votação com {marcadas.size} prática{marcadas.size === 1 ? "" : "s"} e avisar a liderança
       </BotaoEnviar>
     </form>
   );

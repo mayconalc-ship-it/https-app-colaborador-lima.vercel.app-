@@ -6,12 +6,16 @@ import { CartaoPratica, SeloPratica, type PraticaParaCartao } from "@/components
 import { podeNoModulo, requireModulo } from "@/lib/require-admin";
 import { exigirRevenda } from "@/lib/revendas";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { lerConfigBoasPraticas } from "@/lib/boas-praticas-server";
+import { BotaoEnviar } from "@/components/BotaoEnviar";
+import { eleitoresDaRevenda, lerConfigBoasPraticas } from "@/lib/boas-praticas-server";
 import { AREAS } from "@/lib/areas";
 import {
+  LIMITES,
   MEDALHA,
   ROTULO_STATUS,
   apurar,
+  chaveDoEleitor,
+  votacaoRecebeVoto,
   formatarDia,
   formatarReais,
   hojeSP,
@@ -28,7 +32,7 @@ import { AvaliarPratica } from "./AvaliarPratica";
 import { AbrirVotacao } from "./AbrirVotacao";
 import { AjustarVotacao } from "./AjustarVotacao";
 import { DivulgarResultado } from "./DivulgarResultado";
-import { cancelarVotacao, excluirPraticaAdmin, voltarParaAnalise } from "./actions";
+import { cancelarVotacao, excluirPraticaAdmin, lancarVoto, removerVotoLancado, voltarParaAnalise } from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -61,6 +65,16 @@ const COLUNAS =
   "id, titulo, problema, objetivo, escopo, beneficios, foto_url, colaborador_id, colaborador_nome, criado_em, status, retorno, avaliado_por_nome, votacao_id";
 const COLUNAS_VOTACAO =
   "id, titulo, fim, divulgacao_em, encerrada_em, encerrada_por_nome, vencedora_id, segunda_id, terceira_id, premio_1, premio_2, premio_3, aberta_por_nome, aberta_em";
+
+type VotoDaVotacao = {
+  id: number;
+  pratica_id: string;
+  colaborador_id: string | null;
+  eleitor_nome: string | null;
+  eleitor_chave: string | null;
+  registrado_por_nome: string | null;
+  votado_em: string;
+};
 
 function podioDe(v: Votacao) {
   return [v.vencedora_id, v.segunda_id, v.terceira_id];
@@ -123,10 +137,13 @@ export default async function AdminBoasPraticasPage({
 
   // Um voto por pessoa numa revenda de ~160: bem abaixo das 1.000 linhas
   // que o PostgREST devolve por consulta.
-  const [{ data: votosBanco }, placares] = await Promise.all([
+  const [{ data: votosBanco }, placares, eleitores] = await Promise.all([
     atual
-      ? admin.from("boas_praticas_votos").select("pratica_id").eq("votacao_id", atual.id)
-      : Promise.resolve({ data: [] as { pratica_id: string }[] }),
+      ? admin
+          .from("boas_praticas_votos")
+          .select("id, pratica_id, colaborador_id, eleitor_nome, eleitor_chave, registrado_por_nome, votado_em")
+          .eq("votacao_id", atual.id)
+      : Promise.resolve({ data: [] as VotoDaVotacao[] }),
     Promise.all(
       encerradas.map(async (v) => ({
         id: v.id,
@@ -134,8 +151,20 @@ export default async function AdminBoasPraticasPage({
         porLugar: await Promise.all(podioDe(v).map((id) => (id ? contarVotos(v.id, id) : Promise.resolve(0)))),
       })),
     ),
+    atual ? eleitoresDaRevenda(revendaId) : Promise.resolve([] as { id: string; nome: string }[]),
   ]);
   const placar = new Map(placares.map((p) => [p.id, p]));
+
+  // ---- QUEM JÁ VOTOU (22/09/2026: vota só a liderança) ----
+  // Mostra quem votou, nunca em quê -- a não ser no voto que a própria
+  // liderança lançou, que quem lançou já conhece.
+  const votos = (votosBanco ?? []) as VotoDaVotacao[];
+  const lancados = votos.filter((v) => !v.colaborador_id);
+  const chavesQueVotaram = new Set(votos.map((v) => v.eleitor_chave).filter(Boolean));
+  const idsQueVotaram = new Set(votos.map((v) => v.colaborador_id).filter(Boolean));
+  const faltamVotar = eleitores.filter(
+    (e) => !idsQueVotaram.has(e.id) && !chavesQueVotaram.has(chaveDoEleitor(e.nome)),
+  );
 
   // A fila de avaliação anda do mais antigo para o mais novo: quem sugeriu
   // primeiro espera a resposta há mais tempo.
@@ -143,6 +172,7 @@ export default async function AdminBoasPraticasPage({
   const aguardando = praticas.filter((p) => p.status === "selecionada" && !p.votacao_id);
   const naoSelecionadas = praticas.filter((p) => p.status === "nao_selecionada");
   const naVotacao = atual ? praticas.filter((p) => p.votacao_id === atual.id) : [];
+  const recebeVotoAgora = atual ? votacaoRecebeVoto(atual, hoje) : false;
 
   const resultado = apurar(
     naVotacao.map((p) => p.id),
@@ -318,10 +348,120 @@ export default async function AdminBoasPraticasPage({
                   })}
                 </ul>
                 <p className="mt-2 text-xs text-slate-400">
-                  A parcial só aparece aqui. Para o colaborador o voto é secreto, e o resultado sai no dia da
-                  divulgação.
+                  A parcial só aparece aqui. O voto é secreto, e o resultado sai no dia da divulgação.
                 </p>
               </div>
+
+              <div className="rounded-xl bg-slate-50 p-3">
+                <p className="text-xs font-bold uppercase text-slate-500">Quem vota: a liderança</p>
+                <p className="mt-1 text-sm text-slate-700">
+                  <b className="tabular-nums">{eleitores.length - faltamVotar.length}</b> de{" "}
+                  <b className="tabular-nums">{eleitores.length}</b> lideranças do app votaram
+                  {lancados.length > 0 && (
+                    <>
+                      {" "}
+                      · <b className="tabular-nums">{lancados.length}</b> voto{lancados.length === 1 ? "" : "s"} lançado
+                      {lancados.length === 1 ? "" : "s"} de fora do app
+                    </>
+                  )}
+                </p>
+                {faltamVotar.length > 0 && (
+                  <details className="mt-1">
+                    <summary className="cursor-pointer text-xs font-semibold text-primary">
+                      Ainda não votaram ({faltamVotar.length})
+                    </summary>
+                    <p className="mt-1 text-xs text-slate-600">{faltamVotar.map((e) => e.nome).join(" · ")}</p>
+                  </details>
+                )}
+              </div>
+
+              {podeEditar && (
+                <details className="rounded-xl border border-slate-200" open={lancados.length > 0 || undefined}>
+                  <summary className="cursor-pointer list-none p-3 text-sm font-semibold text-slate-700">
+                    🗳️ Lançar voto de liderança fora do app
+                  </summary>
+                  <div className="space-y-3 border-t border-slate-100 p-3">
+                    {recebeVotoAgora ? (
+                      <form action={lancarVoto} className="space-y-2">
+                        <label className="block text-xs font-semibold text-slate-600">
+                          Nome da liderança
+                          <input
+                            name="eleitor_nome"
+                            required
+                            minLength={LIMITES.eleitorNomeMin}
+                            maxLength={LIMITES.eleitorNomeMax}
+                            list="eleitores-sem-voto"
+                            autoComplete="off"
+                            className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm font-normal"
+                            placeholder="Nome completo de quem votou"
+                          />
+                        </label>
+                        <datalist id="eleitores-sem-voto">
+                          {faltamVotar.map((e) => (
+                            <option key={e.id} value={e.nome} />
+                          ))}
+                        </datalist>
+                        <label className="block text-xs font-semibold text-slate-600">
+                          Votou em
+                          <select
+                            name="pratica_id"
+                            required
+                            defaultValue=""
+                            className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm font-normal"
+                          >
+                            <option value="" disabled>
+                              Escolha a prática
+                            </option>
+                            {naVotacao.map((p) => (
+                              <option key={p.id} value={p.id}>
+                                {p.titulo} — {p.colaborador_nome}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                        <BotaoEnviar
+                          textoEnviando="Lançando..."
+                          className="w-full rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white hover:bg-primary-dark"
+                        >
+                          Lançar voto
+                        </BotaoEnviar>
+                        <p className="text-[11px] text-slate-500">
+                          Para a liderança que votou por papel, WhatsApp ou de viva voz. Fica gravado quem votou e quem
+                          lançou; um voto por pessoa, e ninguém vota na própria prática.
+                        </p>
+                      </form>
+                    ) : (
+                      <p className="text-sm text-slate-500">O prazo da votação acabou: não dá mais para lançar votos.</p>
+                    )}
+
+                    {lancados.length > 0 && (
+                      <ul className="divide-y divide-slate-100 rounded-lg border border-slate-200">
+                        {lancados.map((v) => (
+                          <li key={v.id} className="flex flex-wrap items-center justify-between gap-2 p-2 text-sm">
+                            <span className="min-w-0">
+                              <b className="text-slate-800">{v.eleitor_nome}</b>
+                              <span className="text-slate-500"> → {porId.get(v.pratica_id)?.titulo ?? "—"}</span>
+                              <span className="block text-[11px] text-slate-400">
+                                lançado por {v.registrado_por_nome ?? "—"}
+                              </span>
+                            </span>
+                            {recebeVotoAgora && (
+                              <BotaoExcluir
+                                action={removerVotoLancado}
+                                campos={{ id: String(v.id) }}
+                                confirmacao={`Remover o voto lançado de ${v.eleitor_nome}?`}
+                                rotuloConfirmar="Remover voto"
+                              >
+                                Remover
+                              </BotaoExcluir>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                </details>
+              )}
 
               {podeEditar && (
                 <details className="rounded-xl border border-slate-200">

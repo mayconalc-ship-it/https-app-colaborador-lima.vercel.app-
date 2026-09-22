@@ -8,6 +8,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { contextoBoasPraticas } from "@/lib/boas-praticas-server";
 import {
   MEDALHA,
+  chaveDoEleitor,
+  votaPeloApp,
   formatarDia,
   formatarReais,
   hojeSP,
@@ -133,12 +135,18 @@ export default async function BoasPraticasPage({
           .eq("votacao_id", atual.id)
           .order("criado_em")
       : Promise.resolve({ data: [] as Pratica[] }),
-    atual
+    // O voto do líder: o do celular ou o que alguém lançou no nome dele.
+    atual && votaPeloApp(perfil.role)
       ? admin
           .from("boas_praticas_votos")
           .select("pratica_id")
           .eq("votacao_id", atual.id)
-          .eq("colaborador_id", perfil.id)
+          .or(
+            chaveDoEleitor(perfil.nome ?? "")
+              ? `colaborador_id.eq.${perfil.id},eleitor_chave.eq."${chaveDoEleitor(perfil.nome ?? "")}"`
+              : `colaborador_id.eq.${perfil.id}`,
+          )
+          .limit(1)
           .maybeSingle()
       : Promise.resolve({ data: null }),
     idsVotacoesDasMinhas.length > 0
@@ -162,6 +170,8 @@ export default async function BoasPraticasPage({
   const doPodio = new Map(((doPodioBanco ?? []) as Pratica[]).map((p) => [p.id, p]));
   const placar = new Map(placares.map((p) => [p.id, p]));
 
+  // Desde 22/09/2026 vota só a liderança; o colaborador acompanha.
+  const eleitor = votaPeloApp(perfil.role);
   const recebeVoto = atual ? votacaoRecebeVoto(atual, hoje) : false;
   const praticaDoMeuVoto = naVotacao.find((p) => p.id === meuVotoId);
 
@@ -182,7 +192,7 @@ export default async function BoasPraticasPage({
           : "sugerir";
 
   const abas: { id: Aba; rotulo: string }[] = [
-    { id: "votar", rotulo: atual && recebeVoto ? "🗳️ Votação aberta" : "🗳️ Votação" },
+    { id: "votar", rotulo: atual && recebeVoto ? (eleitor ? "🗳️ Votação aberta" : "🗳️ Em votação") : "🗳️ Votação" },
     { id: "sugerir", rotulo: "💡 Sugerir" },
     { id: "minhas", rotulo: `Minhas${minhas.length > 0 ? ` (${minhas.length})` : ""}` },
     { id: "vencedoras", rotulo: "🏆 Resultado" },
@@ -192,7 +202,7 @@ export default async function BoasPraticasPage({
     <div>
       <PageHeader
         title="💡 Boas Práticas"
-        subtitle="Sugira uma melhoria para o dia a dia. A liderança analisa, os colegas votam e as três mais votadas são premiadas."
+        subtitle="Sugira uma melhoria para o dia a dia. A liderança analisa e vota, e as três mais votadas são premiadas."
       />
 
       {sp.erro && (
@@ -226,9 +236,11 @@ export default async function BoasPraticasPage({
           <div className="rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm">
             <p className="text-sm text-slate-600">
               Nenhuma votação aberta agora.
-              {config.votacao_ate
-                ? ` A votação vai até ${formatarDia(config.votacao_ate)}: quando a liderança abrir, você recebe um aviso no app.`
-                : " Quando a liderança abrir, você recebe um aviso no app."}
+              {eleitor
+                ? config.votacao_ate
+                  ? ` A votação vai até ${formatarDia(config.votacao_ate)}: quando abrir, você recebe um aviso no app.`
+                  : " Quando abrir, você recebe um aviso no app."
+                : " Quem vota é a liderança; as práticas que concorrem aparecem aqui quando a votação abrir."}
             </p>
             {abertoParaSugestao && (
               <Link
@@ -252,11 +264,15 @@ export default async function BoasPraticasPage({
             </div>
 
             <p className="rounded-xl bg-slate-50 p-3 text-sm text-slate-700">
-              {!recebeVoto
-                ? "O prazo para votar acabou. O resultado sai no dia da divulgação."
-                : praticaDoMeuVoto
-                  ? `Você votou em “${praticaDoMeuVoto.titulo}”. Dá para trocar até o fim da votação.`
-                  : "Estas práticas passaram pela análise da liderança. Leia e escolha UMA. O voto é secreto, e não vale votar na sua."}
+              {!eleitor
+                ? recebeVoto
+                  ? "Estas práticas passaram pela análise da liderança e estão em votação. Quem vota é a liderança, para a escolha não ficar entre áreas ou por afinidade. O resultado sai no dia da divulgação."
+                  : "A votação da liderança terminou. O resultado sai no dia da divulgação."
+                : !recebeVoto
+                  ? "O prazo para votar acabou. O resultado sai no dia da divulgação."
+                  : praticaDoMeuVoto
+                    ? `Você votou em “${praticaDoMeuVoto.titulo}”. Dá para trocar até o fim da votação.`
+                    : "Quem vota é a liderança. Estas práticas passaram pela análise: leia e escolha UMA. O voto é secreto, e não vale votar na sua."}
             </p>
 
             <ul className="space-y-3">
@@ -270,9 +286,9 @@ export default async function BoasPraticasPage({
                     destaque={escolhida ? "voto" : null}
                     selo={escolhida ? <SeloPratica texto="✅ Seu voto" tom="votacao" /> : undefined}
                   >
-                    {minha ? (
+                    {!eleitor ? null : minha ? (
                       <p className="text-xs font-medium text-slate-500">
-                        Esta é a sua prática — o seu voto vai para a de um colega.
+                        Esta é a sua prática — o seu voto vai para outra.
                       </p>
                     ) : recebeVoto && !escolhida ? (
                       <form action={votar}>
@@ -471,7 +487,7 @@ function ComoFunciona({ config }: { config: ConfigBoasPraticas }) {
     },
     {
       quando: config.votacao_ate ? `Até ${formatarDia(config.votacao_ate)}` : "Votação",
-      oque: "Os colegas votam: um voto por pessoa, secreto, e não vale votar na própria.",
+      oque: "A liderança vota: um voto por líder, secreto, e ninguém vota na própria.",
     },
     {
       quando: config.divulgacao_em ? `Dia ${formatarDia(config.divulgacao_em)}` : "Divulgação",

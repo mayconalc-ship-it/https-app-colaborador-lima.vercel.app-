@@ -3,8 +3,8 @@
  *
  * Pedido do dono (15/09/2026). O colaborador sugere quantas práticas
  * quiser até o prazo; a liderança analisa e libera para a votação só as
- * aprovadas; os colegas votam; as três mais votadas sobem ao pódio e são
- * premiadas.
+ * aprovadas; a liderança vota (desde 22/09/2026 -- antes eram os colegas);
+ * as três mais votadas sobem ao pódio e são premiadas.
  *
  * Fica separado do servidor de propósito: o formulário do colaborador, a
  * tela da liderança e a ação do servidor leem as MESMAS regras. Regra
@@ -28,6 +28,9 @@ export const LIMITES = {
   minimoNaVotacao: 2,
   /** 1º, 2º e 3º lugar. */
   lugaresNoPodio: 3,
+  /** O nome da liderança que votou fora do app (migration 132). */
+  eleitorNomeMin: 3,
+  eleitorNomeMax: 80,
 } as const;
 
 export type StatusPratica = "em_analise" | "selecionada" | "nao_selecionada";
@@ -340,6 +343,41 @@ export function motivoParaNaoDivulgar(v: VotacaoBasica, hoje = hojeSP()): string
     }.`;
   }
   if (v.divulgacao_em && hoje < v.divulgacao_em) return `A divulgação é em ${formatarDia(v.divulgacao_em)}.`;
+  return null;
+}
+
+// ------------------------------------------------------------------
+// Quem vota: A LIDERANÇA (22/09/2026)
+// ------------------------------------------------------------------
+// Pedido do dono: o colaborador votando dá margem a conflito entre áreas
+// e a voto por afinidade. Vota a liderança do app pelo celular; a que não
+// está no app tem o voto LANÇADO por quem conduz o programa.
+
+/** Vota pelo app: liderança e o dono. O colaborador acompanha. */
+export function votaPeloApp(papel: string | undefined) {
+  return papel === "lideranca" || papel === "owner" || papel === "admin";
+}
+
+/**
+ * A chave do nome de quem votou: sem acento, maiúsculas, espaço único.
+ * O voto do celular e o lançado gravam a mesma chave, e o banco aceita
+ * uma por votação -- o mesmo líder não vota pelos dois caminhos.
+ */
+export function chaveDoEleitor(nome: string) {
+  return nome
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toUpperCase()
+    .replace(/[^A-Z0-9 ]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/** O nome digitado para o voto lançado. */
+export function validarEleitorLancado(nome: string): string | null {
+  const limpo = nome.trim();
+  if (chaveDoEleitor(limpo).length < LIMITES.eleitorNomeMin) return "Informe o nome da liderança que votou.";
+  if (limpo.length > LIMITES.eleitorNomeMax) return `O nome passa de ${LIMITES.eleitorNomeMax} caracteres.`;
   return null;
 }
 
