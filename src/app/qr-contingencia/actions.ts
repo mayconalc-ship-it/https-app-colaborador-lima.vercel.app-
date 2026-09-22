@@ -374,7 +374,9 @@ export async function registrarConferencia(entrada: {
     return { ok: false, erro: "Você não tem permissão para conferir comprovantes." };
   }
   const situacao =
-    entrada.situacao === "conferido" || entrada.situacao === "divergente" ? entrada.situacao : null;
+    entrada.situacao === "conferido" || entrada.situacao === "divergente" || entrada.situacao === "desconsiderado"
+      ? entrada.situacao
+      : null;
   const lista = [...new Set((entrada.ids ?? []).map(String))].filter(Boolean);
   const valorExtrato = situacao === "divergente" ? lerValor(entrada.valorExtrato ?? "") : null;
   const motivo = String(entrada.motivo ?? "").trim();
@@ -391,7 +393,7 @@ export async function registrarConferencia(entrada: {
             conferido_em: agora,
             conferido_por_nome: c.perfil.nome,
             valor_extrato: situacao === "divergente" ? valorExtrato : null,
-            conferencia_obs: situacao === "divergente" ? motivo : null,
+            conferencia_obs: situacao === "conferido" ? null : motivo,
           }
         : {
             conferencia_situacao: null,
@@ -414,6 +416,8 @@ export async function registrarConferencia(entrada: {
         ? `${n} comprovante${n === 1 ? "" : "s"} conferido${n === 1 ? "" : "s"}.`
         : situacao === "divergente"
           ? "Divergência registrada."
-          : "Conciliação desfeita.",
+          : situacao === "desconsiderado"
+            ? "Comprovante desconsiderado: saiu da conta do mapa."
+            : "Conciliação desfeita.",
   };
 }

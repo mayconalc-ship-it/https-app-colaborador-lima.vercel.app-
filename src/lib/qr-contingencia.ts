@@ -204,7 +204,19 @@ export function formatarReais(v: number | null) {
 
 // ---- A CONCILIAÇÃO COM O EXTRATO (19/09/2026, migration 129) ----
 
-export type SituacaoConferencia = "conferido" | "divergente";
+/**
+ * "desconsiderado" (22/09/2026, migration 133): o comprovante que não é PIX
+ * da contingência -- boleto, duplicado, cliente errado. Sai da conta do
+ * mapa sem ser apagado: fica no livro, riscado, com o motivo e quem marcou.
+ */
+export type SituacaoConferencia = "conferido" | "divergente" | "desconsiderado";
+
+export const MOTIVOS_PARA_DESCONSIDERAR = [
+  "Boleto (não é PIX)",
+  "Comprovante duplicado",
+  "Lançado no cliente errado",
+  "Não é pagamento deste mapa",
+] as const;
 
 export const MOTIVOS_DE_DIVERGENCIA = [
   "Não caiu no extrato",
@@ -218,7 +230,8 @@ export const CONFERENCIA_OBS_MAX = 200;
 /**
  * A marcação da conciliação -- a MESMA regra na tela e no servidor.
  * Conferido vale em lote; divergente é um comprovante por vez, com o
- * valor que caiu no extrato (0 = não caiu) e o motivo.
+ * valor que caiu no extrato (0 = não caiu) e o motivo; desconsiderado
+ * exige o motivo.
  */
 export function validarConferencia(d: {
   qtd: number;
@@ -228,6 +241,11 @@ export function validarConferencia(d: {
 }): string | null {
   if (d.qtd === 0) return "Nenhum comprovante escolhido.";
   if (d.qtd > 500) return "No máximo 500 comprovantes de uma vez.";
+  if (d.situacao === "desconsiderado") {
+    if (!d.motivo.trim()) return "Diga por que o comprovante sai da conta (ex.: boleto).";
+    if (d.motivo.length > CONFERENCIA_OBS_MAX) return `O motivo passa de ${CONFERENCIA_OBS_MAX} caracteres.`;
+    return null;
+  }
   if (d.situacao !== "divergente") return null;
   if (d.qtd !== 1) return "Divergência é um comprovante por vez.";
   if (d.valorExtrato === null) return "Informe o valor que caiu no extrato (0 se não caiu).";

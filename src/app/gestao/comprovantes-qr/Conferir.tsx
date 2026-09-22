@@ -6,12 +6,14 @@ import { registrarConferencia } from "@/app/qr-contingencia/actions";
 import {
   CONFERENCIA_OBS_MAX,
   MOTIVOS_DE_DIVERGENCIA,
+  MOTIVOS_PARA_DESCONSIDERAR,
   digitosDoValor,
   formatarReais,
   lerValor,
   mostrarDigitosEmReais,
   validarConferencia,
   valorDosDigitos,
+  type SituacaoConferencia,
 } from "@/lib/qr-contingencia";
 
 /** Um comprovante no livro do mapa -- já com as datas formatadas no servidor. */
@@ -32,7 +34,7 @@ export type LancamentoDoLivro = {
   observacao: string | null;
   avisos: string[]; // "cliente com mais de um comprovante…", "feito sem internet…"
   edicoes: string[]; // "Editado às 10:32 por João · valor R$ 80,00 → R$ 85,00"
-  situacao: "conferido" | "divergente" | null;
+  situacao: SituacaoConferencia | null;
   valorExtrato: number | null;
   motivo: string | null;
   conferidoPor: string | null; // "Ana · 19/09 17:00"
@@ -71,16 +73,19 @@ export function LivroDoMapa({
   const [erro, setErro] = useState<string | null>(null);
   const [marcados, setMarcados] = useState<Set<string>>(new Set());
   const [divergindo, setDivergindo] = useState<string | null>(null);
+  // Boleto no meio dos PIX (22/09/2026): sai da conta, sem apagar.
+  const [desconsiderando, setDesconsiderando] = useState<string | null>(null);
 
   const pendentes = lancamentos.filter((l) => !l.situacao);
   const conferidos = lancamentos.filter((l) => l.situacao === "conferido");
   const divergentes = lancamentos.filter((l) => l.situacao === "divergente");
+  const desconsiderados = lancamentos.filter((l) => l.situacao === "desconsiderado");
   const soma = (ls: LancamentoDoLivro[]) => ls.reduce((s, l) => s + (l.valor ?? 0), 0);
   const diferenca = divergentes.reduce((s, l) => s + ((l.valorExtrato ?? 0) - (l.valor ?? 0)), 0);
   const fechado = lancamentos.length > 0 && pendentes.length === 0 && divergentes.length === 0;
   const somaMarcados = soma(lancamentos.filter((l) => marcados.has(l.id)));
 
-  function salvar(ids: string[], situacao: "conferido" | "divergente" | null, extra?: { valorExtrato: string; motivo: string }) {
+  function salvar(ids: string[], situacao: SituacaoConferencia | null, extra?: { valorExtrato?: string; motivo: string }) {
     setErro(null);
     iniciar(async () => {
       const r = await registrarConferencia({ ids, situacao, ...extra });
@@ -90,6 +95,7 @@ export function LivroDoMapa({
       }
       setMarcados(new Set());
       setDivergindo(null);
+      setDesconsiderando(null);
       router.refresh();
     });
   }
@@ -113,8 +119,15 @@ export function LivroDoMapa({
           <span className="block truncate text-xs text-slate-500">{subtitulo}</span>
         </span>
         <span className="shrink-0 text-right">
-          <span className="block font-mono text-lg font-bold tabular-nums text-slate-900">{reais(totalDoMapa)}</span>
-          <SituacaoDoMapa fechado={fechado} divergentes={divergentes.length} feitos={conferidos.length + divergentes.length} total={qtdNoMapa} />
+          <span className="block font-mono text-lg font-bold tabular-nums text-slate-900">
+            {reais(totalDoMapa - soma(desconsiderados))}
+          </span>
+          <SituacaoDoMapa
+            fechado={fechado}
+            divergentes={divergentes.length}
+            feitos={conferidos.length + divergentes.length + desconsiderados.length}
+            total={qtdNoMapa}
+          />
         </span>
         <span className="shrink-0 text-sm text-slate-400 transition-transform group-open:rotate-180" aria-hidden="true">
           ▾
@@ -143,7 +156,13 @@ export function LivroDoMapa({
           <li
             key={l.id}
             className={`flex gap-3 px-4 py-3 ${
-              l.situacao === "divergente" ? "bg-red-50/50" : l.situacao === "conferido" ? "bg-emerald-50/30" : ""
+              l.situacao === "divergente"
+                ? "bg-red-50/50"
+                : l.situacao === "conferido"
+                  ? "bg-emerald-50/30"
+                  : l.situacao === "desconsiderado"
+                    ? "bg-slate-50 text-slate-400"
+                    : ""
             }`}
           >
             {podeConferir && (
@@ -194,7 +213,11 @@ export function LivroDoMapa({
                   )}
                 </div>
                 <div className="ml-auto shrink-0 text-right">
-                  <p className="font-mono text-base font-bold tabular-nums text-slate-900">
+                  <p
+                    className={`font-mono text-base font-bold tabular-nums ${
+                      l.situacao === "desconsiderado" ? "text-slate-400 line-through" : "text-slate-900"
+                    }`}
+                  >
                     {l.valor == null ? <span className="font-sans text-sm font-medium text-amber-700">sem valor</span> : reais(l.valor)}
                   </p>
                   {l.situacao === "divergente" && l.valorExtrato != null && (
@@ -249,7 +272,11 @@ export function LivroDoMapa({
                   {l.situacao ? (
                     <div className="flex flex-col items-end gap-1">
                       <Carimbo tipo={l.situacao} />
-                      {l.motivo && <p className="max-w-[12rem] text-[11px] text-red-700">{l.motivo}</p>}
+                      {l.motivo && (
+                        <p className={`max-w-[12rem] text-[11px] ${l.situacao === "desconsiderado" ? "text-slate-500" : "text-red-700"}`}>
+                          {l.motivo}
+                        </p>
+                      )}
                       <p className="text-[10px] text-slate-400">
                         {l.conferidoPor}
                         {podeConferir && (
@@ -269,7 +296,7 @@ export function LivroDoMapa({
                         )}
                       </p>
                     </div>
-                  ) : podeConferir && divergindo !== l.id ? (
+                  ) : podeConferir && divergindo !== l.id && desconsiderando !== l.id ? (
                     <div className="flex gap-1.5">
                       <button
                         type="button"
@@ -287,6 +314,15 @@ export function LivroDoMapa({
                       >
                         ≠ Diverge
                       </button>
+                      <button
+                        type="button"
+                        disabled={salvando}
+                        onClick={() => setDesconsiderando(l.id)}
+                        title="Tirar da conta do mapa (boleto, duplicado...) sem apagar"
+                        className="rounded-lg border border-slate-300 bg-white px-2.5 py-1 text-xs font-bold text-slate-600 hover:bg-slate-100 disabled:opacity-50"
+                      >
+                        ⊘ Desconsiderar
+                      </button>
                     </div>
                   ) : !podeConferir ? (
                     <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">a conferir</span>
@@ -294,6 +330,13 @@ export function LivroDoMapa({
                 </div>
               </div>
 
+              {desconsiderando === l.id && (
+                <FormDesconsiderar
+                  salvando={salvando}
+                  aoCancelar={() => setDesconsiderando(null)}
+                  aoSalvar={(motivo) => salvar([l.id], "desconsiderado", { motivo })}
+                />
+              )}
               {divergindo === l.id && (
                 <FormDivergencia
                   valorComprovante={l.valor}
@@ -339,6 +382,9 @@ export function LivroDoMapa({
       <div className="relative border-t border-slate-200 bg-slate-50/70 px-4 py-4">
         <div className="max-w-sm space-y-1 font-mono text-[13px] tabular-nums">
           <Linha rotulo="Comprovantes" valor={reais(totalDoMapa)} qtd={qtdNoMapa} />
+          {desconsiderados.length > 0 && (
+            <Linha rotulo="(−) Desconsiderado" valor={reais(soma(desconsiderados))} qtd={desconsiderados.length} cor="text-slate-500" />
+          )}
           <Linha rotulo="(−) Conferido" valor={reais(soma(conferidos))} qtd={conferidos.length} cor="text-emerald-700" />
           <Linha rotulo="(−) Divergente" valor={reais(soma(divergentes))} qtd={divergentes.length} cor="text-red-700" />
           <div className="border-t-[3px] border-double border-slate-400 pt-1">
@@ -393,15 +439,77 @@ function Linha({
   );
 }
 
-function Carimbo({ tipo }: { tipo: "conferido" | "divergente" }) {
+function Carimbo({ tipo }: { tipo: SituacaoConferencia }) {
+  const estilo = {
+    conferido: "border-emerald-600 text-emerald-700",
+    divergente: "border-red-600 text-red-700",
+    desconsiderado: "border-slate-400 text-slate-500",
+  }[tipo];
+  const texto = { conferido: "✓ Conferido", divergente: "≠ Divergente", desconsiderado: "⊘ Desconsiderado" }[tipo];
   return (
     <span
-      className={`inline-block -rotate-3 rounded border-2 px-2 py-0.5 font-mono text-[11px] font-black uppercase tracking-[0.18em] ${
-        tipo === "conferido" ? "border-emerald-600 text-emerald-700" : "border-red-600 text-red-700"
-      }`}
+      className={`inline-block -rotate-3 rounded border-2 px-2 py-0.5 font-mono text-[11px] font-black uppercase tracking-[0.18em] ${estilo}`}
     >
-      {tipo === "conferido" ? "✓ Conferido" : "≠ Divergente"}
+      {texto}
     </span>
+  );
+}
+
+/** Tirar da conta do mapa -- boleto no meio dos PIX, duplicado... -- com o motivo. */
+function FormDesconsiderar({
+  salvando,
+  aoCancelar,
+  aoSalvar,
+}: {
+  salvando: boolean;
+  aoCancelar: () => void;
+  aoSalvar: (motivo: string) => void;
+}) {
+  const [motivo, setMotivo] = useState("");
+  // A MESMA regra do servidor (registrarConferencia).
+  const problema = validarConferencia({ qtd: 1, situacao: "desconsiderado", valorExtrato: null, motivo });
+  return (
+    <div className="mt-3 space-y-2 rounded-xl border border-slate-300 bg-white p-3">
+      <p className="text-xs font-bold uppercase tracking-wider text-slate-600">Desconsiderar da conta do mapa</p>
+      <p className="text-xs text-slate-500">
+        O comprovante continua gravado e aparece riscado no livro, mas sai do total de PIX e não trava o fechamento.
+      </p>
+      <div className="flex flex-wrap gap-1.5">
+        {MOTIVOS_PARA_DESCONSIDERAR.map((m) => (
+          <button
+            key={m}
+            type="button"
+            onClick={() => setMotivo(m)}
+            className={`rounded-full border px-2.5 py-1 text-xs ${
+              motivo === m ? "border-slate-600 bg-slate-100 font-semibold text-slate-800" : "border-slate-300 text-slate-600 hover:border-slate-500"
+            }`}
+          >
+            {m}
+          </button>
+        ))}
+      </div>
+      <input
+        value={motivo}
+        onChange={(e) => setMotivo(e.target.value)}
+        maxLength={CONFERENCIA_OBS_MAX}
+        placeholder="Ou escreva o motivo"
+        aria-label="Motivo para desconsiderar"
+        className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none"
+      />
+      <div className="flex gap-2">
+        <button
+          type="button"
+          disabled={Boolean(problema) || salvando}
+          onClick={() => aoSalvar(motivo)}
+          className="flex-1 rounded-lg bg-slate-700 px-3 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-40"
+        >
+          {salvando ? "Salvando..." : "⊘ Desconsiderar"}
+        </button>
+        <button type="button" onClick={aoCancelar} className="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-600">
+          Cancelar
+        </button>
+      </div>
+    </div>
   );
 }
 

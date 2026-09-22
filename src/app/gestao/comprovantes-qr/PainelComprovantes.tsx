@@ -61,7 +61,8 @@ function oQueMudou(e: EdicaoDoComprovante) {
 const valorDe = (l: LinhaComprovante) => (l.valor == null ? 0 : Number(l.valor));
 
 /** A situação na conciliação (o conferido da 128 sem situação vale como conferido). */
-function situacaoDe(l: LinhaComprovante): "conferido" | "divergente" | null {
+function situacaoDe(l: LinhaComprovante): "conferido" | "divergente" | "desconsiderado" | null {
+  if (l.conferencia_situacao === "desconsiderado") return "desconsiderado";
   if (l.conferencia_situacao === "divergente") return "divergente";
   if (l.conferencia_situacao === "conferido" || l.conferido_em) return "conferido";
   return null;
@@ -138,7 +139,11 @@ export function PainelComprovantes({
   const repetidos = new Set([...contagem].filter(([, n]) => n > 1).map(([k]) => k));
 
   // ---- O BALANÇO DO PERÍODO (todas as linhas, não só as 300 com foto) ----
-  const total = filtradas.reduce((s, l) => s + valorDe(l), 0);
+  // O desconsiderado (boleto, duplicado...) sai da conta: fica no livro,
+  // riscado, mas não soma no PIX nem trava o fechamento (22/09/2026).
+  const desconsideradas = filtradas.filter((l) => situacaoDe(l) === "desconsiderado");
+  const considerados = filtradas.filter((l) => situacaoDe(l) !== "desconsiderado");
+  const total = considerados.reduce((s, l) => s + valorDe(l), 0);
   const conferidas = filtradas.filter((l) => situacaoDe(l) === "conferido");
   const divergentes = filtradas.filter((l) => situacaoDe(l) === "divergente");
   const pendentes = filtradas.filter((l) => !situacaoDe(l));
@@ -157,7 +162,9 @@ export function PainelComprovantes({
       chave,
       mapa: chave === "-" ? null : chave,
       linhas,
-      total: soma(linhas),
+      total: soma(linhas.filter((l) => situacaoDe(l) !== "desconsiderado")),
+      totalLancado: soma(linhas),
+      desconsiderados: linhas.filter((l) => situacaoDe(l) === "desconsiderado").length,
       clientes: new Set(linhas.map((l) => l.cod_pdv)).size,
       conferidos: linhas.filter((l) => situacaoDe(l) === "conferido").length,
       divergentes: linhas.filter((l) => situacaoDe(l) === "divergente").length,
@@ -237,15 +244,15 @@ export function PainelComprovantes({
         <Numero
           titulo="Recebido em PIX"
           valor={formatarReais(total)}
-          detalhe={`${plural(filtradas.length, "comprovante", "comprovantes")} · ${plural(resumo.length, "mapa", "mapas")}`}
+          detalhe={`${plural(considerados.length, "comprovante", "comprovantes")} · ${plural(resumo.length, "mapa", "mapas")}`}
           tom="destaque"
         />
         <Numero
           titulo="Conferido"
           valor={formatarReais(soma(conferidas))}
-          detalhe={`${conferidas.length} de ${filtradas.length} comprovantes`}
-          progresso={filtradas.length ? conferidas.length / filtradas.length : 0}
-          tom={filtradas.length > 0 && conferidas.length === filtradas.length ? "ok" : "neutro"}
+          detalhe={`${conferidas.length} de ${considerados.length} comprovantes`}
+          progresso={considerados.length ? conferidas.length / considerados.length : 0}
+          tom={considerados.length > 0 && conferidas.length === considerados.length ? "ok" : "neutro"}
         />
         <Numero
           titulo="Divergente"
@@ -259,6 +266,13 @@ export function PainelComprovantes({
           detalhe={plural(pendentes.length, "comprovante", "comprovantes")}
         />
       </div>
+      {desconsideradas.length > 0 && (
+        <p className="mb-2 px-1 text-xs text-slate-500">
+          ⊘ {plural(desconsideradas.length, "comprovante desconsiderado", "comprovantes desconsiderados")} (
+          {formatarReais(soma(desconsideradas))}) fora da conta — boleto, duplicado ou lançado errado. Continuam no
+          livro do mapa, riscados.
+        </p>
+      )}
       {comAtencao > 0 && (
         <p className="mb-5 px-1 text-xs text-amber-800">
           ⚠️ {plural(comAtencao, "comprovante pede", "comprovantes pedem")} um segundo olhar — editado, sem valor ou cliente
@@ -328,7 +342,7 @@ export function PainelComprovantes({
                           {m.divergentes ? formatarReais(m.diferenca) : "—"}
                         </td>
                         <td className="px-4 py-2.5 text-right">
-                          <Situacao divergentes={m.divergentes} feitos={m.conferidos + m.divergentes} total={m.linhas.length} />
+                          <Situacao divergentes={m.divergentes} feitos={m.conferidos + m.divergentes + m.desconsiderados} total={m.linhas.length} />
                         </td>
                       </tr>
                     ))}
@@ -351,7 +365,7 @@ export function PainelComprovantes({
                       <td className="px-4 py-2.5 text-right">
                         <Situacao
                           divergentes={divergentes.length}
-                          feitos={conferidas.length + divergentes.length}
+                          feitos={conferidas.length + divergentes.length + desconsideradas.length}
                           total={filtradas.length}
                         />
                       </td>
@@ -382,7 +396,7 @@ export function PainelComprovantes({
                 "Situação",
                 "Valor no extrato",
                 "Diferença",
-                "Motivo da divergência",
+                "Motivo (divergência ou desconsiderado)",
                 "Conciliado por",
                 "Motorista",
                 "Fotos",
@@ -401,7 +415,7 @@ export function PainelComprovantes({
                   l.cliente_cidade ?? "",
                   l.valor == null ? "" : Number(l.valor),
                   (l.notas_fiscais ?? []).join(", "),
-                  s === "conferido" ? "Conferido" : s === "divergente" ? "Divergente" : "A conferir",
+                  s === "conferido" ? "Conferido" : s === "divergente" ? "Divergente" : s === "desconsiderado" ? "Desconsiderado" : "A conferir",
                   s === "conferido" ? valorDe(l) : s === "divergente" ? Number(l.valor_extrato ?? 0) : "",
                   s === "divergente" ? diferencaDe(l) : s === "conferido" ? 0 : "",
                   l.conferencia_obs ?? "",
@@ -460,7 +474,8 @@ export function PainelComprovantes({
                 };
               });
 
-              const selo = (s: LancamentoDoLivro["situacao"]) => (s === "conferido" ? "[OK]" : s === "divergente" ? "[DIVERGENTE]" : "[ ]");
+              const selo = (s: LancamentoDoLivro["situacao"]) =>
+                s === "conferido" ? "[OK]" : s === "divergente" ? "[DIVERGENTE]" : s === "desconsiderado" ? "[DESCONSIDERADO]" : "[ ]";
               const textoResumo = [
                 `Mapa ${m.mapa ?? "sem número"} — ${m.motoristas.join(", ")} — ${dias.map(dataCurta).join(", ")}`,
                 ...lancamentos.map(
@@ -468,11 +483,15 @@ export function PainelComprovantes({
                     `${selo(l.situacao)} ${l.dia ? `${l.dia} ` : ""}${l.hora} · ${l.codPdv} ${l.razaoSocial ?? ""}${l.fantasia ? ` (${l.fantasia})` : ""}${
                       l.notas.length ? ` · NF ${l.notas.join(", ")}` : ""
                     } · ${formatarReais(l.valor)}${
-                      l.situacao === "divergente" ? ` (extrato ${formatarReais(l.valorExtrato)} — ${l.motivo ?? ""})` : ""
+                      l.situacao === "divergente"
+                        ? ` (extrato ${formatarReais(l.valorExtrato)} — ${l.motivo ?? ""})`
+                        : l.situacao === "desconsiderado"
+                          ? ` (fora da conta — ${l.motivo ?? ""})`
+                          : ""
                     }`,
                 ),
-                `Total PIX: ${formatarReais(m.total)} (${plural(itens.length, "comprovante", "comprovantes")})`,
-                `Conferido ${m.conferidos} · Divergente ${m.divergentes} · A conferir ${m.linhas.length - m.conferidos - m.divergentes}`,
+                `Total PIX: ${formatarReais(m.total)} (${plural(m.linhas.length - m.desconsiderados, "comprovante", "comprovantes")})`,
+                `Conferido ${m.conferidos} · Divergente ${m.divergentes}${m.desconsiderados ? ` · Desconsiderado ${m.desconsiderados}` : ""} · A conferir ${m.linhas.length - m.conferidos - m.divergentes - m.desconsiderados}`,
               ].join("\n");
 
               return (
@@ -484,7 +503,7 @@ export function PainelComprovantes({
                   }`}
                   aberto={umMapaSo}
                   lancamentos={lancamentos}
-                  totalDoMapa={m.total}
+                  totalDoMapa={m.totalLancado}
                   qtdNoMapa={m.linhas.length}
                   podeConferir={podeConferir}
                   textoResumo={textoResumo}

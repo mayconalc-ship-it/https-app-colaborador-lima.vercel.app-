@@ -2,7 +2,7 @@ import "server-only";
 
 import sharp from "sharp";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { MODULO_QR, NF_OBRIGATORIA_DESDE } from "@/lib/qr-contingencia";
+import { MODULO_QR, NF_OBRIGATORIA_DESDE, type SituacaoConferencia } from "@/lib/qr-contingencia";
 import { podeNoModulo } from "@/lib/require-admin";
 
 /** O bucket PRIVADO da migration 126 -- nunca o `conteudo`, que é público. */
@@ -153,7 +153,7 @@ export type ComprovanteComFotos = {
   conferidoEm: string | null;
   conferidoPorNome: string | null;
   /** A conciliação com o extrato (migration 129). */
-  situacao: "conferido" | "divergente" | null;
+  situacao: SituacaoConferencia | null;
   valorExtrato: number | null;
   conferenciaObs: string | null;
   /** As notas fiscais do pagamento (migration 130). */
@@ -267,8 +267,8 @@ export async function comFotos(
     conferidoEm: l.conferido_em,
     conferidoPorNome: l.conferido_por_nome,
     situacao:
-      l.conferencia_situacao === "divergente"
-        ? "divergente"
+      l.conferencia_situacao === "divergente" || l.conferencia_situacao === "desconsiderado"
+        ? l.conferencia_situacao
         : l.conferencia_situacao === "conferido" || l.conferido_em
           ? "conferido"
           : null,
