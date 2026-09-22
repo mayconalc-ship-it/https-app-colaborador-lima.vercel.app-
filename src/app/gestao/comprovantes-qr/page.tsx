@@ -1,6 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { exigirRevenda } from "@/lib/revendas";
-import { podeNoModulo, requireModulo } from "@/lib/require-admin";
+import { requireModulo } from "@/lib/require-admin";
 import { lerTudo } from "@/lib/ler-tudo";
 import { MODULO_QR, normalizarBusca } from "@/lib/qr-contingencia";
 import { normalizarMapa } from "@/lib/rotas";
@@ -8,6 +8,7 @@ import {
   COLUNAS_COMPROVANTE,
   comFotos,
   hojeNaOperacao,
+  podeConferirComprovantes,
 } from "@/lib/qr-contingencia-server";
 import { PainelComprovantes } from "./PainelComprovantes";
 
@@ -54,7 +55,7 @@ export default async function ComprovantesQrPage({
         .range(a, b),
     ),
     // Conferir é do financeiro: quem tem "editar" no módulo.
-    podeNoModulo(MODULO_QR, "editar"),
+    podeConferirComprovantes(),
   ]);
 
   // As listas dos filtros saem do PERÍODO, antes dos outros filtros: assim

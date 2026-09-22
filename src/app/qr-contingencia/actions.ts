@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getPerfil } from "@/lib/sessao";
 import { getRevendaId } from "@/lib/revendas";
-import { podeNoModulo, temAcessoModulo } from "@/lib/require-admin";
+import { temAcessoModulo } from "@/lib/require-admin";
 import {
   buscarNaBaseDeClientes,
   rotaComClientes,
@@ -16,6 +16,7 @@ import {
   guardarNoBucket,
   hojeNaOperacao,
   paraTelaDoCelular,
+  podeConferirComprovantes,
 } from "@/lib/qr-contingencia-server";
 import { normalizarMapa } from "@/lib/rotas";
 import {
@@ -369,7 +370,7 @@ export async function registrarConferencia(entrada: {
 }): Promise<ResultadoEnvio> {
   const c = await contexto();
   if (!c.ok) return c;
-  if (!(await podeNoModulo(MODULO_QR, "editar"))) {
+  if (!(await podeConferirComprovantes())) {
     return { ok: false, erro: "Você não tem permissão para conferir comprovantes." };
   }
   const situacao =

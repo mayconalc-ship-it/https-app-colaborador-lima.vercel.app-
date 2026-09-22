@@ -557,11 +557,16 @@ export const MODULOS: Modulo[] = [
       partida a quem já tinha Minha Rota. No Modo Liderança: "ver" abre os
       comprovantes na Gestão, "editar" cadastra o QR, "excluir" apaga
       comprovante lançado por engano (o motorista só apaga o dele, no dia).
+
+      "criar" é a CONFERÊNCIA (22/09/2026, pedido do dono): o time do
+      financeiro confere sem precisar da permissão de cadastrar o QR. Quem
+      tem "editar" continua conferindo, como antes.
     */
     id: "qr-contingencia",
     rotulosDeAcao: {
       ver: "📊 Ver os comprovantes de pagamento na Gestão (e usar o QR no app)",
-      editar: "Cadastrar o QR Code, o CNPJ e a chave PIX de contingência",
+      criar: "💰 Conferir os comprovantes (financeiro): conferido, divergência e fechamento do mapa",
+      editar: "Cadastrar o QR Code, o CNPJ e a chave PIX de contingência (e conferir)",
       excluir: "Apagar comprovante lançado por engano",
     },
     // Nome trocado a pedido do dono (18/09/2026); o id continua o mesmo.
@@ -569,7 +574,7 @@ export const MODULOS: Modulo[] = [
     emoji: "📲",
     href: "/admin/qr-contingencia",
     grupo: "Configuração",
-    acoes: ["ver", "editar", "excluir"],
+    acoes: ["ver", "criar", "editar", "excluir"],
   },
   {
     id: "quiz",

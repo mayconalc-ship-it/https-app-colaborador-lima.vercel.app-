@@ -2,7 +2,8 @@ import "server-only";
 
 import sharp from "sharp";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { NF_OBRIGATORIA_DESDE } from "@/lib/qr-contingencia";
+import { MODULO_QR, NF_OBRIGATORIA_DESDE } from "@/lib/qr-contingencia";
+import { podeNoModulo } from "@/lib/require-admin";
 
 /** O bucket PRIVADO da migration 126 -- nunca o `conteudo`, que é público. */
 export const BUCKET_COMPROVANTES = "comprovantes";
@@ -21,6 +22,19 @@ export type ConfigQr = {
   atualizadoEm: string | null;
   atualizadoPorNome: string | null;
 };
+
+/**
+ * Quem confere os comprovantes (22/09/2026): "criar" do módulo, a
+ * permissão do financeiro, ou "editar", que conferia antes dela. A tela
+ * e a ação perguntam por esta mesma função.
+ */
+export async function podeConferirComprovantes() {
+  const [conferir, editar] = await Promise.all([
+    podeNoModulo(MODULO_QR, "criar"),
+    podeNoModulo(MODULO_QR, "editar"),
+  ]);
+  return conferir || editar;
+}
 
 export async function lerConfigQr(revendaId: string): Promise<ConfigQr> {
   const admin = createAdminClient();
