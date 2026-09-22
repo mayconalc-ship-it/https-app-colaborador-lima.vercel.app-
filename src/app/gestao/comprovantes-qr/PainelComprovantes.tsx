@@ -254,36 +254,43 @@ export function PainelComprovantes({
       </FiltroNoLugar>
 
       {/* ---- O BALANÇO DO PERÍODO ---- */}
-      <div className="mb-2 grid grid-cols-2 gap-2 lg:grid-cols-5">
-        <div className="col-span-2 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm lg:col-span-1">
-          <p className="text-xs font-semibold uppercase text-slate-500">
-            {plural(resumo.length, "mapa", "mapas")}
-          </p>
-          <dl className="mt-1 grid grid-cols-3 gap-1 text-center">
-            <div title="Nenhum comprovante conciliado ainda">
-              <dt className="text-[11px] text-slate-500">Abertos</dt>
-              <dd className="font-mono text-xl font-bold tabular-nums text-slate-900">{mapasAbertos}</dd>
-            </div>
-            <div title="Conciliação começada ou com divergência">
-              <dt className="text-[11px] text-amber-700">Pendentes</dt>
-              <dd className={`font-mono text-xl font-bold tabular-nums ${mapasPendentes ? "text-amber-700" : "text-slate-300"}`}>
-                {mapasPendentes}
-              </dd>
-            </div>
-            <div title="Tudo conciliado, sem divergência">
-              <dt className="text-[11px] text-emerald-700">Fechados</dt>
-              <dd className={`font-mono text-xl font-bold tabular-nums ${mapasFechados ? "text-emerald-700" : "text-slate-300"}`}>
-                {mapasFechados}
-              </dd>
-            </div>
-          </dl>
-          {resumo.length > 0 && (
-            <div className="mt-1.5 flex h-1.5 overflow-hidden rounded-full bg-slate-100" aria-hidden="true">
-              <div className="h-full bg-amber-400" style={{ width: `${(mapasPendentes / resumo.length) * 100}%` }} />
-              <div className="h-full bg-emerald-500" style={{ width: `${(mapasFechados / resumo.length) * 100}%` }} />
-            </div>
-          )}
+      {/* A área da Gestão tem ~650 px no computador (max-w-3xl menos a
+          barra lateral): o "lg:" do Tailwind olha a janela, não a área, e
+          cinco colunas ali cortavam os valores. Por isso: os mapas numa
+          faixa inteira em cima e os quatro valores em 2 × 2. */}
+      <section className="mb-2 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <p className="text-xs font-semibold uppercase text-slate-500">Mapas no filtro</p>
+          <p className="font-mono text-sm font-bold tabular-nums text-slate-700">{plural(resumo.length, "mapa", "mapas")}</p>
         </div>
+        <dl className="mt-2 grid grid-cols-3 divide-x divide-slate-100 text-center">
+          <div title="Nenhum comprovante conciliado ainda" className="px-2">
+            <dd className="font-mono text-2xl font-bold tabular-nums text-slate-900 sm:text-3xl">{mapasAbertos}</dd>
+            <dt className="mt-0.5 text-xs font-medium text-slate-500">Abertos</dt>
+          </div>
+          <div title="Conciliação começada ou com divergência" className="px-2">
+            <dd className={`font-mono text-2xl font-bold tabular-nums sm:text-3xl ${mapasPendentes ? "text-amber-600" : "text-slate-300"}`}>
+              {mapasPendentes}
+            </dd>
+            <dt className="mt-0.5 text-xs font-medium text-amber-700">Pendentes</dt>
+          </div>
+          <div title="Tudo conciliado, sem divergência" className="px-2">
+            <dd className={`font-mono text-2xl font-bold tabular-nums sm:text-3xl ${mapasFechados ? "text-emerald-600" : "text-slate-300"}`}>
+              {mapasFechados}
+            </dd>
+            <dt className="mt-0.5 text-xs font-medium text-emerald-700">Fechados</dt>
+          </div>
+        </dl>
+        {resumo.length > 0 && (
+          <div className="mt-3 flex h-2 gap-0.5 overflow-hidden rounded-full bg-slate-100" aria-hidden="true">
+            <div className="h-full rounded-full bg-slate-300" style={{ width: `${(mapasAbertos / resumo.length) * 100}%` }} />
+            <div className="h-full rounded-full bg-amber-400" style={{ width: `${(mapasPendentes / resumo.length) * 100}%` }} />
+            <div className="h-full rounded-full bg-emerald-500" style={{ width: `${(mapasFechados / resumo.length) * 100}%` }} />
+          </div>
+        )}
+      </section>
+
+      <div className="mb-2 grid grid-cols-2 gap-2">
         <Numero
           titulo="Recebido em PIX"
           valor={formatarReais(total)}
@@ -614,7 +621,7 @@ function Numero({
           <div className="h-full rounded-full bg-emerald-500" style={{ width: `${Math.round(progresso * 100)}%` }} />
         </div>
       )}
-      <p className="mt-1 truncate text-xs text-slate-500">{detalhe}</p>
+      <p className="mt-1 text-xs text-slate-500">{detalhe}</p>
     </div>
   );
 }
