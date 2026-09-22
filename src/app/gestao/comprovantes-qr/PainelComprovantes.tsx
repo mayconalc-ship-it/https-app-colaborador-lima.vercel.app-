@@ -174,6 +174,20 @@ export function PainelComprovantes({
     }))
     .sort((a, b) => (a.mapa === null ? 1 : b.mapa === null ? -1 : Number(b.mapa) - Number(a.mapa)));
 
+  // ---- OS MAPAS DO FILTRO, pela situação (pedido do dono, 22/09/2026) ----
+  // Fechado: tudo conciliado (desconsiderado conta) e sem divergência.
+  // Aberto: nenhum comprovante conciliado ainda. Pendente: o resto --
+  // conciliação começada ou com divergência.
+  const situacaoDoMapa = (m: (typeof resumo)[number]) => {
+    const feitos = m.conferidos + m.divergentes + m.desconsiderados;
+    if (m.divergentes === 0 && feitos === m.linhas.length) return "fechado";
+    if (feitos === 0) return "aberto";
+    return "pendente";
+  };
+  const mapasFechados = resumo.filter((m) => situacaoDoMapa(m) === "fechado").length;
+  const mapasAbertos = resumo.filter((m) => situacaoDoMapa(m) === "aberto").length;
+  const mapasPendentes = resumo.length - mapasFechados - mapasAbertos;
+
   const detalhe = new Map(comprovantes.map((c) => [c.id, c]));
   const umMapaSo = resumo.length === 1;
   const hrefMapa = (mapa: string) => `/gestao/comprovantes-qr?${new URLSearchParams({ de, ate, mapa })}`;
@@ -240,7 +254,36 @@ export function PainelComprovantes({
       </FiltroNoLugar>
 
       {/* ---- O BALANÇO DO PERÍODO ---- */}
-      <div className="mb-2 grid grid-cols-2 gap-2 lg:grid-cols-4">
+      <div className="mb-2 grid grid-cols-2 gap-2 lg:grid-cols-5">
+        <div className="col-span-2 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm lg:col-span-1">
+          <p className="text-xs font-semibold uppercase text-slate-500">
+            {plural(resumo.length, "mapa", "mapas")}
+          </p>
+          <dl className="mt-1 grid grid-cols-3 gap-1 text-center">
+            <div title="Nenhum comprovante conciliado ainda">
+              <dt className="text-[11px] text-slate-500">Abertos</dt>
+              <dd className="font-mono text-xl font-bold tabular-nums text-slate-900">{mapasAbertos}</dd>
+            </div>
+            <div title="Conciliação começada ou com divergência">
+              <dt className="text-[11px] text-amber-700">Pendentes</dt>
+              <dd className={`font-mono text-xl font-bold tabular-nums ${mapasPendentes ? "text-amber-700" : "text-slate-300"}`}>
+                {mapasPendentes}
+              </dd>
+            </div>
+            <div title="Tudo conciliado, sem divergência">
+              <dt className="text-[11px] text-emerald-700">Fechados</dt>
+              <dd className={`font-mono text-xl font-bold tabular-nums ${mapasFechados ? "text-emerald-700" : "text-slate-300"}`}>
+                {mapasFechados}
+              </dd>
+            </div>
+          </dl>
+          {resumo.length > 0 && (
+            <div className="mt-1.5 flex h-1.5 overflow-hidden rounded-full bg-slate-100" aria-hidden="true">
+              <div className="h-full bg-amber-400" style={{ width: `${(mapasPendentes / resumo.length) * 100}%` }} />
+              <div className="h-full bg-emerald-500" style={{ width: `${(mapasFechados / resumo.length) * 100}%` }} />
+            </div>
+          )}
+        </div>
         <Numero
           titulo="Recebido em PIX"
           valor={formatarReais(total)}
