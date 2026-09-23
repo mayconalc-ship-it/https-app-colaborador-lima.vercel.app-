@@ -4,43 +4,10 @@ import { getPerfil } from "@/lib/sessao";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getRevendaId } from "@/lib/revendas";
 import { normalizarMapa, type CidadeEntregas } from "@/lib/rotas";
-import { avisosDoMapa, type AvisoNaRota, type AvisosDoMapa } from "@/lib/pdv-particularidades-server";
+import { avisosDoMapa, type AvisosDoMapa } from "@/lib/pdv-particularidades-server";
 import { clientesDoMapa, type ClienteDaRota } from "@/lib/clientes-do-mapa-server";
-
-export type RotaEncontrada = {
-  data: string;
-  mapa: string;
-  /** O que o motorista precisa saber sobre os clientes desta rota. */
-  avisos: AvisoNaRota[];
-  precisaoDosAvisos: "cliente" | "regiao";
-  veiculo: string | null;
-  placa: string | null;
-  motorista: string;
-  kmPrev: number | null;
-  tempoPrev: string | null;
-  entregas: number | null;
-  caixas: number | null;
-  ocupacaoCaixas: number | null;
-  peso: number | null;
-  ocupacaoPeso: number | null;
-  armazem: string | null;
-  classificacao: string | null;
-  cidades: CidadeEntregas[];
-  /**
-   * OS CLIENTES DO MAPA, pela base de clientes (11/09/2026, pedido do
-   * dono). Vazio quando a pré-rota do dia não trouxe a lista de clientes
-   * -- e aí a tela volta ao bloco de cidades de sempre.
-   */
-  clientes: ClienteDaRota[];
-};
-
-// Os clientes do mapa moram em lib/clientes-do-mapa-server desde
-// 18/09/2026: o QR de contingência faz a mesma pergunta.
-export type { ClienteDaRota };
-
-export type ResultadoConsulta =
-  | { ok: true; rota: RotaEncontrada }
-  | { ok: false; erro: string };
+// Os tipos ficam em tipos.ts: arquivo "use server" só exporta ação.
+import type { ResultadoConsulta } from "./tipos";
 
 /**
  * Consulta a pré-rota só pelo número do mapa.

@@ -1,6 +1,6 @@
 "use client";
 
-import type { RotaEncontrada } from "@/app/minha-rota/actions";
+import type { RotaEncontrada } from "@/app/minha-rota/tipos";
 import {
   aferir,
   formatarCaixas,

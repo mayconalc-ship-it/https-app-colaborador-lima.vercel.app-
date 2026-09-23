@@ -11,7 +11,8 @@ import {
   formatarTempo,
   type Metas,
 } from "@/lib/rotas";
-import { consultarRota, type ClienteDaRota, type RotaEncontrada } from "@/app/minha-rota/actions";
+import { consultarRota } from "@/app/minha-rota/actions";
+import type { ClienteDaRota, RotaEncontrada } from "@/app/minha-rota/tipos";
 import { linkDoWhatsApp } from "@/lib/clientes-base";
 import { gerarImagemPreRota } from "@/lib/imagem-rota";
 import { AvisosDaRota } from "@/components/AvisosDaRota";
