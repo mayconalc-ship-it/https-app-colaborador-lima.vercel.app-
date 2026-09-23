@@ -344,11 +344,27 @@ export function ConsultaRota({ metas }: { metas: Metas }) {
     setRota(null);
     setBuscando(true);
 
-    const r = await consultarRota(mapa);
-    setBuscando(false);
-
-    if (r.ok) setRota(r.rota);
-    else setErro(r.erro);
+    // SEMPRE sai do "Consultando...": sem internet, com a página velha
+    // depois de uma publicação ou com erro no servidor, o botão voltava a
+    // girar para sempre e parecia que o mapa não existia (22/09/2026).
+    try {
+      const r = await Promise.race([
+        consultarRota(mapa),
+        new Promise<never>((_, falha) => setTimeout(() => falha(new Error("demorou")), 20000)),
+      ]);
+      if (r.ok) setRota(r.rota);
+      else setErro(r.erro);
+    } catch (falha) {
+      setErro(
+        (falha as Error)?.message === "demorou"
+          ? "A consulta demorou demais. Confira o sinal e tente de novo."
+          : typeof navigator !== "undefined" && !navigator.onLine
+            ? "Sem internet. A pré-rota precisa de sinal para consultar o mapa."
+            : "Não consegui consultar. Feche e abra o app (ou atualize a página) e tente de novo.",
+      );
+    } finally {
+      setBuscando(false);
+    }
   }
 
   async function compartilhar() {

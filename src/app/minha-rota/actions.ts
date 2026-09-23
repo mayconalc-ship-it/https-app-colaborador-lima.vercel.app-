@@ -59,9 +59,23 @@ export type ResultadoConsulta =
  * que torna a consulta instantânea mesmo com 40 motoristas perguntando ao
  * mesmo tempo, antes de sair.
  */
-export async function consultarRota(
-  mapaDigitado: string,
-): Promise<ResultadoConsulta> {
+export async function consultarRota(mapaDigitado: string): Promise<ResultadoConsulta> {
+  // A tela ficava em "Consultando..." para sempre quando algo aqui
+  // falhava: erro em ação de servidor vira exceção no navegador, e o
+  // botão nunca voltava (22/09/2026 -- o dono achou que "não gerava o
+  // mapa"). Agora todo erro volta como mensagem na tela.
+  try {
+    return await buscarRota(mapaDigitado);
+  } catch (e) {
+    console.error("consultarRota falhou:", e);
+    return {
+      ok: false,
+      erro: `Não consegui consultar agora (${(e as Error).message ?? "erro"}). Tente de novo; se repetir, avise a liderança.`,
+    };
+  }
+}
+
+async function buscarRota(mapaDigitado: string): Promise<ResultadoConsulta> {
   const perfil = await getPerfil();
   if (!perfil) return { ok: false, erro: "Sessão expirada. Entre de novo." };
 
