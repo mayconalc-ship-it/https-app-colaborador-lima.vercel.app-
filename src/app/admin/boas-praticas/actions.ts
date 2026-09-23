@@ -1,5 +1,6 @@
 "use server";
 
+import { randomUUID } from "node:crypto";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { requireModulo } from "@/lib/require-admin";
@@ -384,6 +385,45 @@ export async function removerVotoLancado(formData: FormData) {
 
   atualizarTelas();
   voltar("sucesso", "Voto lançado removido.");
+}
+
+/**
+ * O LINK DO GRUPO (23/09/2026, pedido do dono): gera o endereço secreto
+ * da votação, para mandar no WhatsApp. Uma vez só -- chamar de novo
+ * devolve o mesmo, senão o link já enviado morreria no bolso de todo
+ * mundo.
+ */
+export async function gerarLinkDaVotacao(formData: FormData) {
+  await requireModulo("boas-praticas", "editar", ROTA);
+  const revendaId = await exigirRevenda(ROTA);
+
+  const id = String(formData.get("id") ?? "");
+  if (!id) voltar("erro", "Votação inválida.");
+
+  const admin = createAdminClient();
+  const { data: votacao } = await admin
+    .from("boas_praticas_votacoes")
+    .select("id, token_publico")
+    .eq("id", id)
+    .eq("revenda_id", revendaId)
+    .is("encerrada_em", null)
+    .maybeSingle();
+  if (!votacao) voltar("erro", "Votação não encontrada ou já divulgada.");
+  if (votacao.token_publico) {
+    atualizarTelas();
+    voltar("sucesso", "O link já estava criado.");
+  }
+
+  const token = randomUUID().replace(/-/g, "");
+  const { error } = await admin
+    .from("boas_praticas_votacoes")
+    .update({ token_publico: token })
+    .eq("id", votacao.id)
+    .is("token_publico", null);
+  if (error) voltar("erro", `Não foi possível criar o link: ${error.message}`);
+
+  atualizarTelas();
+  voltar("sucesso", "Link criado. Copie e mande no grupo.");
 }
 
 /** Prazo, divulgação e prêmios mudam com a votação aberta. */

@@ -373,6 +373,32 @@ export function chaveDoEleitor(nome: string) {
     .trim();
 }
 
+/**
+ * O VOTO PELO LINK DO GRUPO (23/09/2026, migration 134).
+ *
+ * Quem abre o link escreve o nome e os 3 PRIMEIROS dígitos do CPF. Os
+ * dígitos são a confirmação de que o voto é da própria pessoa: quando o
+ * nome existe no cadastro, o servidor compara. O CPF inteiro nunca é
+ * pedido nem guardado.
+ */
+export const DIGITOS_DO_CPF = 3;
+
+export function digitosDoCpf(valor: string) {
+  return valor.replace(/\D/g, "").slice(0, DIGITOS_DO_CPF);
+}
+
+export function validarVotoPeloLink(d: { nome: string; digitos: string; praticaId: string }): string | null {
+  const nome = d.nome.trim();
+  if (chaveDoEleitor(nome).length < LIMITES.eleitorNomeMin) return "Escreva o seu nome completo.";
+  if (!nome.includes(" ")) return "Escreva o nome e o sobrenome.";
+  if (nome.length > LIMITES.eleitorNomeMax) return `O nome passa de ${LIMITES.eleitorNomeMax} caracteres.`;
+  if (digitosDoCpf(d.digitos).length !== DIGITOS_DO_CPF) {
+    return `Informe os ${DIGITOS_DO_CPF} primeiros números do seu CPF.`;
+  }
+  if (!d.praticaId) return "Escolha uma prática para votar.";
+  return null;
+}
+
 /** O nome digitado para o voto lançado. */
 export function validarEleitorLancado(nome: string): string | null {
   const limpo = nome.trim();

@@ -32,7 +32,15 @@ import { AvaliarPratica } from "./AvaliarPratica";
 import { AbrirVotacao } from "./AbrirVotacao";
 import { AjustarVotacao } from "./AjustarVotacao";
 import { DivulgarResultado } from "./DivulgarResultado";
-import { cancelarVotacao, excluirPraticaAdmin, lancarVoto, removerVotoLancado, voltarParaAnalise } from "./actions";
+import { LinkDaVotacao } from "./LinkDaVotacao";
+import {
+  cancelarVotacao,
+  excluirPraticaAdmin,
+  gerarLinkDaVotacao,
+  lancarVoto,
+  removerVotoLancado,
+  voltarParaAnalise,
+} from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -51,6 +59,7 @@ type Votacao = {
   divulgacao_em: string | null;
   encerrada_em: string | null;
   encerrada_por_nome: string | null;
+  token_publico: string | null;
   vencedora_id: string | null;
   segunda_id: string | null;
   terceira_id: string | null;
@@ -64,7 +73,7 @@ type Votacao = {
 const COLUNAS =
   "id, titulo, problema, objetivo, escopo, beneficios, foto_url, colaborador_id, colaborador_nome, criado_em, status, retorno, avaliado_por_nome, votacao_id";
 const COLUNAS_VOTACAO =
-  "id, titulo, fim, divulgacao_em, encerrada_em, encerrada_por_nome, vencedora_id, segunda_id, terceira_id, premio_1, premio_2, premio_3, aberta_por_nome, aberta_em";
+  "id, titulo, fim, divulgacao_em, encerrada_em, encerrada_por_nome, token_publico, vencedora_id, segunda_id, terceira_id, premio_1, premio_2, premio_3, aberta_por_nome, aberta_em";
 
 type VotoDaVotacao = {
   id: number;
@@ -73,6 +82,7 @@ type VotoDaVotacao = {
   eleitor_nome: string | null;
   eleitor_chave: string | null;
   registrado_por_nome: string | null;
+  origem: string | null;
   votado_em: string;
 };
 
@@ -141,7 +151,7 @@ export default async function AdminBoasPraticasPage({
     atual
       ? admin
           .from("boas_praticas_votos")
-          .select("id, pratica_id, colaborador_id, eleitor_nome, eleitor_chave, registrado_por_nome, votado_em")
+          .select("id, pratica_id, colaborador_id, eleitor_nome, eleitor_chave, registrado_por_nome, origem, votado_em")
           .eq("votacao_id", atual.id)
       : Promise.resolve({ data: [] as VotoDaVotacao[] }),
     Promise.all(
@@ -159,7 +169,8 @@ export default async function AdminBoasPraticasPage({
   // Mostra quem votou, nunca em quê -- a não ser no voto que a própria
   // liderança lançou, que quem lançou já conhece.
   const votos = (votosBanco ?? []) as VotoDaVotacao[];
-  const lancados = votos.filter((v) => !v.colaborador_id);
+  const lancados = votos.filter((v) => !v.colaborador_id && v.origem !== "link");
+  const peloLink = votos.filter((v) => v.origem === "link");
   const chavesQueVotaram = new Set(votos.map((v) => v.eleitor_chave).filter(Boolean));
   const idsQueVotaram = new Set(votos.map((v) => v.colaborador_id).filter(Boolean));
   const faltamVotar = eleitores.filter(
@@ -361,7 +372,13 @@ export default async function AdminBoasPraticasPage({
                     <>
                       {" "}
                       · <b className="tabular-nums">{lancados.length}</b> voto{lancados.length === 1 ? "" : "s"} lançado
-                      {lancados.length === 1 ? "" : "s"} de fora do app
+                      {lancados.length === 1 ? "" : "s"} pela liderança
+                    </>
+                  )}
+                  {peloLink.length > 0 && (
+                    <>
+                      {" "}
+                      · <b className="tabular-nums">{peloLink.length}</b> pelo link do grupo
                     </>
                   )}
                 </p>
@@ -374,6 +391,33 @@ export default async function AdminBoasPraticasPage({
                   </details>
                 )}
               </div>
+
+              {/* O LINK DO GRUPO (23/09/2026): quem não usa o app vota por
+                  aqui, com nome e os 3 primeiros números do CPF. */}
+              {podeEditar &&
+                recebeVotoAgora &&
+                (atual.token_publico ? (
+                  <LinkDaVotacao
+                    token={atual.token_publico}
+                    titulo={atual.titulo}
+                    prazo={textoDoPrazo(atual, hoje)}
+                  />
+                ) : (
+                  <form action={gerarLinkDaVotacao} className="rounded-xl border border-slate-200 p-3">
+                    <input type="hidden" name="id" value={atual.id} />
+                    <p className="mb-2 text-sm font-semibold text-slate-700">🔗 Link para o grupo de WhatsApp</p>
+                    <p className="mb-2 text-xs text-slate-500">
+                      Cria um endereço para quem não vota pelo app. Um voto por pessoa, pelo nome e pelos 3 primeiros
+                      números do CPF.
+                    </p>
+                    <BotaoEnviar
+                      textoEnviando="Criando..."
+                      className="rounded-lg bg-slate-800 px-3 py-2 text-sm font-semibold text-white"
+                    >
+                      Criar o link
+                    </BotaoEnviar>
+                  </form>
+                ))}
 
               {podeEditar && (
                 <details className="rounded-xl border border-slate-200" open={lancados.length > 0 || undefined}>

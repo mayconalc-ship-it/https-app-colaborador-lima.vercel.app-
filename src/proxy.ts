@@ -3,7 +3,10 @@ import { NextResponse, type NextRequest } from "next/server";
 import { precisaTrocarSenha } from "@/lib/senha";
 import { CABECALHO_USUARIO } from "@/lib/sessao-headers";
 
-const PUBLIC_PATHS = ["/login"];
+// /votar é a votação das Boas Práticas por link (23/09/2026): o endereço
+// vai para o grupo de WhatsApp e quem abre não tem conta no app. A trava
+// dela é o token secreto do endereço, conferido na própria tela.
+const PUBLIC_PATHS = ["/login", "/votar"];
 const ROTA_DEFINIR_SENHA = "/definir-senha";
 
 export async function proxy(request: NextRequest) {
