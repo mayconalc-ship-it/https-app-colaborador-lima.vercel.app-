@@ -29,12 +29,16 @@ export function CartaoPratica({
   selo,
   aberto = false,
   destaque = null,
+  semFoto = false,
   children,
 }: {
   p: PraticaParaCartao;
   selo?: React.ReactNode;
   aberto?: boolean;
   destaque?: "voto" | "vencedora" | null;
+  /** A tela mostra a foto por conta própria (a votação por link mostra
+   *  grande, fora do recolhível) -- evita a mesma foto duas vezes. */
+  semFoto?: boolean;
   children?: React.ReactNode;
 }) {
   const borda =
@@ -70,7 +74,7 @@ export function CartaoPratica({
           ))}
         </dl>
 
-        {p.foto_url && (
+        {p.foto_url && !semFoto && (
           <div className="mt-3">
             <FotoEvidencia src={p.foto_url} alt={`Foto da prática ${p.titulo}`} classeCaixa="h-28 w-40" />
           </div>

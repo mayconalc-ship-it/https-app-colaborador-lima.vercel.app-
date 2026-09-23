@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
+import { FotoEvidencia } from "@/components/FotoEvidencia";
 import { CartaoPratica, type PraticaParaCartao } from "@/components/boas-praticas/CartaoPratica";
 import {
   DIGITOS_DO_CPF,
@@ -137,8 +138,18 @@ export default async function VotarPeloLinkPage({
 
           <ul className="space-y-3">
             {praticas.map((p) => (
-              <CartaoPratica key={p.id} p={p}>
-                <label className="flex cursor-pointer items-center gap-2 rounded-xl border border-slate-200 px-3 py-2.5 text-sm font-semibold text-slate-800 hover:border-primary">
+              // A FOTO FORA DO RECOLHÍVEL (23/09/2026, pedido do dono): quem
+              // mandou foto merece que ela seja vista sem abrir o cartão --
+              // é ela que explica a ideia em um segundo.
+              <CartaoPratica key={p.id} p={p} semFoto>
+                {p.foto_url && (
+                  <FotoEvidencia
+                    src={p.foto_url}
+                    alt={`Foto da prática ${p.titulo}`}
+                    classeCaixa="h-56 w-full sm:h-72"
+                  />
+                )}
+                <label className="mt-3 flex cursor-pointer items-center gap-2 rounded-xl border border-slate-200 px-3 py-2.5 text-sm font-semibold text-slate-800 hover:border-primary">
                   <input type="radio" name="pratica_id" value={p.id} required className="h-4 w-4 accent-primary" />
                   Votar nesta
                 </label>
