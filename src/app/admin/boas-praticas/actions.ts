@@ -259,10 +259,11 @@ export async function abrirVotacao(formData: FormData) {
     voltar("erro", "Alguma prática mudou enquanto a votação era aberta. Recarregue a tela e tente de novo.");
   }
 
-  // O aviso vai só para quem vota: a liderança do app (22/09/2026).
+  // O aviso vai para a liderança, que conduz a votação. Desde 23/09/2026
+  // ninguém vota pelo app: a votação acontece pelo link do grupo.
   const premio1 = config.premio_1 != null ? ` O 1º lugar leva ${formatarReais(config.premio_1)}.` : "";
   const tituloAviso = `🗳️ Votação aberta: ${titulo}`;
-  const mensagem = `${ids.length} práticas aprovadas concorrendo. Vote até ${formatarDia(fim!)}.${premio1}`;
+  const mensagem = `${ids.length} práticas aprovadas concorrendo, até ${formatarDia(fim!)}. A votação é pelo link do grupo de WhatsApp.${premio1}`;
   const url = "/boas-praticas?aba=votar";
   const eleitores = (await eleitoresDaRevenda(revendaId)).map((e) => e.id).filter((id) => id !== perfil.id);
 
@@ -291,7 +292,7 @@ export async function abrirVotacao(formData: FormData) {
   atualizarTelas();
   voltar(
     "sucesso",
-    `Votação aberta! ${eleitores.length} lideranças do app foram avisadas. Quem vota fora do app tem o voto lançado aqui.`,
+    `Votação aberta! ${eleitores.length} lideranças foram avisadas. Agora crie o link e mande no grupo.`,
   );
 }
 

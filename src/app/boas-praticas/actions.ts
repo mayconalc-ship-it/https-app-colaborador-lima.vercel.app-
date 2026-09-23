@@ -8,13 +8,10 @@ import { criarNotificacao } from "@/lib/notificacoes-server";
 import { enviarPushDaRevenda } from "@/lib/push-server";
 import { contextoBoasPraticas, quemAvaliaBoasPraticas } from "@/lib/boas-praticas-server";
 import {
-  chaveDoEleitor,
   lerPratica,
   mensagemPrazoDeSugestao,
   recebeSugestao,
   validarPratica,
-  votaPeloApp,
-  votacaoRecebeVoto,
 } from "@/lib/boas-praticas";
 
 const ROTA = "/boas-praticas";
@@ -182,69 +179,9 @@ export async function excluirPratica(formData: FormData) {
   voltar("minhas", "sucesso", "Prática apagada.");
 }
 
-/**
- * O voto. Só da liderança (22/09/2026 -- o colaborador acompanha). Um por
- * líder por votação; votar de novo TROCA o voto, até o fim do prazo.
- * Nunca na própria prática.
- *
- * Tudo conferido aqui, e não confiado ao botão: a votação e a prática vêm
- * do banco, nunca do formulário além do id.
- */
-export async function votar(formData: FormData) {
-  const { perfil, revendaId } = await contexto();
-
-  if (!votaPeloApp(perfil.role)) {
-    voltar("votar", "erro", "Nesta votação, quem vota é a liderança. Acompanhe por aqui: o resultado sai no dia da divulgação.");
-  }
-
-  const praticaId = String(formData.get("pratica_id") ?? "");
-  if (!praticaId) voltar("votar", "erro", "Escolha uma prática.");
-
-  const admin = createAdminClient();
-  const { data: votacao } = await admin
-    .from("boas_praticas_votacoes")
-    .select("id, fim, encerrada_em")
-    .eq("revenda_id", revendaId)
-    .is("encerrada_em", null)
-    .maybeSingle();
-
-  if (!votacao || !votacaoRecebeVoto(votacao)) {
-    voltar("votar", "erro", "A votação não está recebendo votos agora.");
-  }
-
-  const { data: pratica } = await admin
-    .from("boas_praticas")
-    .select("id, colaborador_id, votacao_id")
-    .eq("id", praticaId)
-    .eq("revenda_id", revendaId)
-    .maybeSingle();
-
-  if (!pratica || pratica.votacao_id !== votacao.id) {
-    voltar("votar", "erro", "Esta prática não está na votação.");
-  }
-  if (pratica.colaborador_id === perfil.id) {
-    voltar("votar", "erro", "Não dá para votar na própria prática. Escolha a de um colega.");
-  }
-
-  const { error } = await admin.from("boas_praticas_votos").upsert(
-    {
-      revenda_id: revendaId,
-      votacao_id: votacao.id,
-      pratica_id: pratica.id,
-      colaborador_id: perfil.id,
-      eleitor_chave: chaveDoEleitor(perfil.nome ?? "") || null,
-      votado_em: new Date().toISOString(),
-    },
-    { onConflict: "votacao_id,colaborador_id" },
-  );
-
-  // A chave do nome já está num voto LANÇADO pela liderança (migration 132).
-  if (error?.code === "23505") {
-    voltar("votar", "erro", "Seu voto já foi lançado por quem conduz o programa. Para trocar, fale com essa pessoa.");
-  }
-  if (error) voltar("votar", "erro", `Não foi possível registrar o voto: ${error.message}`);
-
-  revalidatePath(ROTA);
-  revalidatePath("/admin/boas-praticas");
-  voltar("votar", "sucesso", "Voto registrado! Dá para trocar até o fim da votação.");
-}
+/*
+  O VOTO SAIU DAQUI EM 23/09/2026 (pedido do dono): a votação inteira
+  acontece pelo LINK do grupo de WhatsApp (app/votar/[token]). Esta tela
+  agora só sugere, corrige e acompanha -- não existe mais ação de votar
+  pelo app, nem para a liderança.
+*/

@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { PageHeader } from "@/components/PageHeader";
-import { BotaoEnviar } from "@/components/BotaoEnviar";
 import { BotaoExcluir } from "@/components/BotaoExcluir";
 import { CartaoPratica, SeloPratica, type PraticaParaCartao } from "@/components/boas-praticas/CartaoPratica";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -9,7 +8,6 @@ import { contextoBoasPraticas } from "@/lib/boas-praticas-server";
 import {
   MEDALHA,
   chaveDoEleitor,
-  votaPeloApp,
   formatarDia,
   formatarReais,
   hojeSP,
@@ -23,7 +21,7 @@ import {
 } from "@/lib/boas-praticas";
 import { decodificar } from "@/lib/texto-url";
 import { FormPratica } from "./FormPratica";
-import { excluirPratica, votar } from "./actions";
+import { excluirPratica } from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -135,8 +133,8 @@ export default async function BoasPraticasPage({
           .eq("votacao_id", atual.id)
           .order("criado_em")
       : Promise.resolve({ data: [] as Pratica[] }),
-    // O voto do líder: o do celular ou o que alguém lançou no nome dele.
-    atual && votaPeloApp(perfil.role)
+    // O voto da pessoa, venha do link ou lançado pela liderança.
+    atual
       ? admin
           .from("boas_praticas_votos")
           .select("pratica_id")
@@ -170,8 +168,9 @@ export default async function BoasPraticasPage({
   const doPodio = new Map(((doPodioBanco ?? []) as Pratica[]).map((p) => [p.id, p]));
   const placar = new Map(placares.map((p) => [p.id, p]));
 
-  // Desde 22/09/2026 vota só a liderança; o colaborador acompanha.
-  const eleitor = votaPeloApp(perfil.role);
+  // Desde 23/09/2026 NINGUÉM vota pelo app (pedido do dono): a votação
+  // inteira acontece pelo link do grupo de WhatsApp. A tela mostra as
+  // práticas que concorrem e, para quem já votou, o próprio voto.
   const recebeVoto = atual ? votacaoRecebeVoto(atual, hoje) : false;
   const praticaDoMeuVoto = naVotacao.find((p) => p.id === meuVotoId);
 
@@ -192,7 +191,7 @@ export default async function BoasPraticasPage({
           : "sugerir";
 
   const abas: { id: Aba; rotulo: string }[] = [
-    { id: "votar", rotulo: atual && recebeVoto ? (eleitor ? "🗳️ Votação aberta" : "🗳️ Em votação") : "🗳️ Votação" },
+    { id: "votar", rotulo: atual && recebeVoto ? "🗳️ Em votação" : "🗳️ Votação" },
     { id: "sugerir", rotulo: "💡 Sugerir" },
     { id: "minhas", rotulo: `Minhas${minhas.length > 0 ? ` (${minhas.length})` : ""}` },
     { id: "vencedoras", rotulo: "🏆 Resultado" },
@@ -202,7 +201,7 @@ export default async function BoasPraticasPage({
     <div>
       <PageHeader
         title="💡 Boas Práticas"
-        subtitle="Sugira uma melhoria para o dia a dia. A liderança analisa e vota, e as três mais votadas são premiadas."
+        subtitle="Sugira uma melhoria para o dia a dia. A liderança analisa, a votação acontece pelo grupo e as três mais votadas são premiadas."
       />
 
       {sp.erro && (
@@ -236,11 +235,10 @@ export default async function BoasPraticasPage({
           <div className="rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm">
             <p className="text-sm text-slate-600">
               Nenhuma votação aberta agora.
-              {eleitor
-                ? config.votacao_ate
-                  ? ` A votação vai até ${formatarDia(config.votacao_ate)}: quando abrir, você recebe um aviso no app.`
-                  : " Quando abrir, você recebe um aviso no app."
-                : " Quem vota é a liderança; as práticas que concorrem aparecem aqui quando a votação abrir."}
+              {config.votacao_ate
+                ? ` A votação vai até ${formatarDia(config.votacao_ate)}, pelo link que a liderança manda no grupo de WhatsApp.`
+                : " A votação acontece pelo link que a liderança manda no grupo de WhatsApp."}
+              {" "}As práticas que concorrem aparecem aqui quando a votação abrir.
             </p>
             {abertoParaSugestao && (
               <Link
@@ -264,15 +262,11 @@ export default async function BoasPraticasPage({
             </div>
 
             <p className="rounded-xl bg-slate-50 p-3 text-sm text-slate-700">
-              {!eleitor
-                ? recebeVoto
-                  ? "Estas práticas passaram pela análise da liderança e estão em votação. Quem vota é a liderança, para a escolha não ficar entre áreas ou por afinidade. O resultado sai no dia da divulgação."
-                  : "A votação da liderança terminou. O resultado sai no dia da divulgação."
-                : !recebeVoto
-                  ? "O prazo para votar acabou. O resultado sai no dia da divulgação."
-                  : praticaDoMeuVoto
-                    ? `Você votou em “${praticaDoMeuVoto.titulo}”. Dá para trocar até o fim da votação.`
-                    : "Quem vota é a liderança. Estas práticas passaram pela análise: leia e escolha UMA. O voto é secreto, e não vale votar na sua."}
+              {!recebeVoto
+                ? "A votação terminou. O resultado sai no dia da divulgação."
+                : praticaDoMeuVoto
+                  ? `Seu voto já está registrado em “${praticaDoMeuVoto.titulo}”.`
+                  : "Estas práticas passaram pela análise da liderança e estão em votação. A votação é pelo LINK que a liderança manda no grupo de WhatsApp — um voto por pessoa. Aqui você acompanha as práticas que concorrem."}
             </p>
 
             <ul className="space-y-3">
@@ -286,21 +280,9 @@ export default async function BoasPraticasPage({
                     destaque={escolhida ? "voto" : null}
                     selo={escolhida ? <SeloPratica texto="✅ Seu voto" tom="votacao" /> : undefined}
                   >
-                    {!eleitor ? null : minha ? (
-                      <p className="text-xs font-medium text-slate-500">
-                        Esta é a sua prática — o seu voto vai para outra.
-                      </p>
-                    ) : recebeVoto && !escolhida ? (
-                      <form action={votar}>
-                        <input type="hidden" name="pratica_id" value={p.id} />
-                        <BotaoEnviar
-                          textoEnviando="Registrando..."
-                          className="w-full rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white hover:bg-primary-dark"
-                        >
-                          {meuVotoId ? "Trocar meu voto para esta" : "🗳️ Votar nesta"}
-                        </BotaoEnviar>
-                      </form>
-                    ) : null}
+                    {minha && (
+                      <p className="text-xs font-medium text-slate-500">Esta é a sua prática. Boa sorte!</p>
+                    )}
                   </CartaoPratica>
                 );
               })}
@@ -487,7 +469,7 @@ function ComoFunciona({ config }: { config: ConfigBoasPraticas }) {
     },
     {
       quando: config.votacao_ate ? `Até ${formatarDia(config.votacao_ate)}` : "Votação",
-      oque: "A liderança vota: um voto por líder, secreto, e ninguém vota na própria.",
+      oque: "A votação é pelo link no grupo de WhatsApp: um voto por pessoa, secreto, e ninguém vota na própria.",
     },
     {
       quando: config.divulgacao_em ? `Dia ${formatarDia(config.divulgacao_em)}` : "Divulgação",

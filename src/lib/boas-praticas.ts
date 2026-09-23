@@ -347,21 +347,17 @@ export function motivoParaNaoDivulgar(v: VotacaoBasica, hoje = hojeSP()): string
 }
 
 // ------------------------------------------------------------------
-// Quem vota: A LIDERANÇA (22/09/2026)
+// Quem vota: PELO LINK DO GRUPO (23/09/2026)
 // ------------------------------------------------------------------
-// Pedido do dono: o colaborador votando dá margem a conflito entre áreas
-// e a voto por afinidade. Vota a liderança do app pelo celular; a que não
-// está no app tem o voto LANÇADO por quem conduz o programa.
-
-/** Vota pelo app: liderança e o dono. O colaborador acompanha. */
-export function votaPeloApp(papel: string | undefined) {
-  return papel === "lideranca" || papel === "owner" || papel === "admin";
-}
+// Em 22/09 o voto passou a ser só da liderança (o colaborador votando dá
+// margem a conflito entre áreas e a voto por afinidade). Em 23/09 o dono
+// tirou a votação do app de vez: ela acontece pelo LINK mandado no grupo
+// de WhatsApp, e a liderança ainda pode LANÇAR o voto de quem não votou.
 
 /**
  * A chave do nome de quem votou: sem acento, maiúsculas, espaço único.
- * O voto do celular e o lançado gravam a mesma chave, e o banco aceita
- * uma por votação -- o mesmo líder não vota pelos dois caminhos.
+ * O voto pelo link e o lançado gravam a mesma chave, e o banco aceita
+ * uma por votação -- a mesma pessoa não vota duas vezes.
  */
 export function chaveDoEleitor(nome: string) {
   return nome
