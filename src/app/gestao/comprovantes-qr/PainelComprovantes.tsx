@@ -348,22 +348,24 @@ export function PainelComprovantes({
                 <h2 className="text-sm font-bold text-slate-800">Resumo por mapa</h2>
                 <span className="text-xs text-slate-500">Toque no mapa para abrir o livro dele</span>
               </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="bg-slate-50 text-left text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                      <th className="px-4 py-2">Mapa</th>
-                      <th className="hidden px-2 py-2 sm:table-cell">Motorista</th>
-                      <th className="hidden px-2 py-2 text-right sm:table-cell">Clientes</th>
-                      <th className="px-2 py-2 text-right">PIX</th>
-                      <th className="hidden px-2 py-2 text-right md:table-cell">Diferença</th>
-                      <th className="px-4 py-2 text-right">Situação</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {resumo.map((m) => (
-                      <tr key={m.chave} className="hover:bg-slate-50">
-                        <td className="px-4 py-2.5">
+              {/* TRÊS COLUNAS, não seis (24/09/2026: "está cortado"). A área
+                  da Gestão tem ~650 px no computador, e os `sm:`/`md:` do
+                  Tailwind olham a JANELA, não a área: as colunas apareciam
+                  todas e a Situação ficava fora da tela. Motorista, clientes
+                  e diferença viraram a segunda linha do mapa. */}
+              <table className="w-full table-fixed text-sm">
+                <thead>
+                  <tr className="bg-slate-50 text-left text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                    <th className="px-3 py-2">Mapa</th>
+                    <th className="w-[7.5rem] px-2 py-2 text-right">PIX</th>
+                    <th className="w-[6.5rem] px-2 py-2 text-right">Situação</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {resumo.map((m) => (
+                    <tr key={m.chave} className="align-top hover:bg-slate-50">
+                      <td className="px-3 py-2.5">
+                        <span className="flex items-center gap-1.5">
                           {m.mapa ? (
                             <Link href={hrefMapa(m.mapa)} className="font-mono font-bold tabular-nums text-primary-dark hover:underline">
                               {m.mapa}
@@ -372,57 +374,59 @@ export function PainelComprovantes({
                             <span className="text-slate-500">Sem mapa</span>
                           )}
                           {m.atencao > 0 && (
-                            <span className="ml-1.5 text-xs text-amber-600" title={`${m.atencao} ponto(s) de atenção`}>
+                            <span className="text-xs text-amber-600" title={`${m.atencao} ponto(s) de atenção`}>
                               ⚠️
                             </span>
                           )}
-                        </td>
-                        <td className="hidden max-w-[12rem] truncate px-2 py-2.5 text-slate-600 sm:table-cell">
+                        </span>
+                        <span className="block truncate text-[11px] text-slate-500" title={m.motoristas.join(", ")}>
                           {m.motoristas.join(", ")}
-                        </td>
-                        <td className="hidden px-2 py-2.5 text-right tabular-nums text-slate-600 sm:table-cell">{m.clientes}</td>
-                        <td className="px-2 py-2.5 text-right font-mono font-semibold tabular-nums text-slate-900">
-                          {formatarReais(m.total)}
-                        </td>
-                        <td
-                          className={`hidden px-2 py-2.5 text-right font-mono tabular-nums md:table-cell ${
-                            m.divergentes ? "font-semibold text-red-700" : "text-slate-300"
-                          }`}
-                        >
-                          {m.divergentes ? formatarReais(m.diferenca) : "—"}
-                        </td>
-                        <td className="px-4 py-2.5 text-right">
-                          <Situacao divergentes={m.divergentes} feitos={m.conferidos + m.divergentes + m.desconsiderados} total={m.linhas.length} />
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                  <tfoot>
-                    <tr className="border-t-[3px] border-double border-slate-300 bg-slate-50 font-semibold">
-                      <td className="px-4 py-2.5 text-slate-700">Total</td>
-                      <td className="hidden sm:table-cell" />
-                      <td className="hidden px-2 py-2.5 text-right tabular-nums text-slate-700 sm:table-cell">
-                        {resumo.reduce((s, m) => s + m.clientes, 0)}
+                        </span>
+                        <span className="block text-[11px] text-slate-400">
+                          {plural(m.clientes, "cliente", "clientes")}
+                          {m.desconsiderados > 0 && ` · ${m.desconsiderados} desconsiderado${m.desconsiderados === 1 ? "" : "s"}`}
+                        </span>
                       </td>
-                      <td className="px-2 py-2.5 text-right font-mono tabular-nums text-slate-900">{formatarReais(total)}</td>
-                      <td
-                        className={`hidden px-2 py-2.5 text-right font-mono tabular-nums md:table-cell ${
-                          divergentes.length ? "text-red-700" : "text-slate-300"
-                        }`}
-                      >
-                        {divergentes.length ? formatarReais(diferencaTotal) : "—"}
+                      <td className="whitespace-nowrap px-2 py-2.5 text-right font-mono text-[13px] font-semibold tabular-nums text-slate-900">
+                        {formatarReais(m.total)}
+                        {m.divergentes > 0 && (
+                          <span className="block whitespace-nowrap text-[11px] font-normal text-red-700">
+                            dif. {formatarReais(m.diferenca)}
+                          </span>
+                        )}
                       </td>
-                      <td className="px-4 py-2.5 text-right">
-                        <Situacao
-                          divergentes={divergentes.length}
-                          feitos={conferidas.length + divergentes.length + desconsideradas.length}
-                          total={filtradas.length}
-                        />
+                      <td className="px-2 py-2.5 text-right">
+                        <Situacao divergentes={m.divergentes} feitos={m.conferidos + m.divergentes + m.desconsiderados} total={m.linhas.length} />
                       </td>
                     </tr>
-                  </tfoot>
-                </table>
-              </div>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr className="border-t-[3px] border-double border-slate-300 bg-slate-50 align-top font-semibold">
+                    <td className="px-3 py-2.5 text-slate-700">
+                      Total
+                      <span className="block text-[11px] font-normal text-slate-400">
+                        {plural(resumo.reduce((s, m) => s + m.clientes, 0), "cliente", "clientes")}
+                      </span>
+                    </td>
+                    <td className="whitespace-nowrap px-2 py-2.5 text-right font-mono text-[13px] tabular-nums text-slate-900">
+                      {formatarReais(total)}
+                      {divergentes.length > 0 && (
+                        <span className="block whitespace-nowrap text-[11px] font-normal text-red-700">
+                          dif. {formatarReais(diferencaTotal)}
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-2 py-2.5 text-right">
+                      <Situacao
+                        divergentes={divergentes.length}
+                        feitos={conferidas.length + divergentes.length + desconsideradas.length}
+                        total={filtradas.length}
+                      />
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
             </section>
           )}
 
