@@ -3,6 +3,7 @@ import { exigirRevenda } from "@/lib/revendas";
 import { requireModulo } from "@/lib/require-admin";
 import { lerTudo } from "@/lib/ler-tudo";
 import { MODULO_QR, normalizarBusca } from "@/lib/qr-contingencia";
+import { somarDias } from "@/lib/resumo-semanal";
 import { normalizarMapa } from "@/lib/rotas";
 import {
   COLUNAS_COMPROVANTE,
@@ -37,7 +38,11 @@ export default async function ComprovantesQrPage({
 
   const hoje = hojeNaOperacao();
   const valida = (d?: string) => (d && /^\d{4}-\d{2}-\d{2}$/.test(d) ? d : null);
-  const de = valida(sp.de) ?? hoje;
+  // A TELA ABRE NA SEMANA, não no dia (24/09/2026, pedido do dono: "o
+  // financeiro está fechando mapas e eu não vejo"). A conciliação anda com
+  // atraso -- hoje se confere o mapa de anteontem --, e abrir no dia de
+  // hoje escondia justamente o trabalho que acabou de ser feito.
+  const de = valida(sp.de) ?? somarDias(hoje, -6);
   const ate = valida(sp.ate) ?? hoje;
   const mapaEscolhido = normalizarMapa(sp.mapa ?? "");
   const motoristaEscolhido = (sp.motorista ?? "").trim();

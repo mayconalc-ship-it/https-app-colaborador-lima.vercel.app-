@@ -88,15 +88,25 @@ export function LivroDoMapa({
   function salvar(ids: string[], situacao: SituacaoConferencia | null, extra?: { valorExtrato?: string; motivo: string }) {
     setErro(null);
     iniciar(async () => {
-      const r = await registrarConferencia({ ids, situacao, ...extra });
-      if (!r.ok) {
-        setErro(r.erro);
-        return;
+      // Erro de servidor deixava o botão em "Salvando..." para sempre e a
+      // conferência parecia não valer (24/09/2026).
+      try {
+        const r = await registrarConferencia({ ids, situacao, ...extra });
+        if (!r.ok) {
+          setErro(r.erro);
+          return;
+        }
+        setMarcados(new Set());
+        setDivergindo(null);
+        setDesconsiderando(null);
+        router.refresh();
+      } catch {
+        setErro(
+          typeof navigator !== "undefined" && !navigator.onLine
+            ? "Sem internet. A conferência não foi salva — tente de novo quando o sinal voltar."
+            : "Não consegui salvar. Atualize a página (F5) e tente de novo.",
+        );
       }
-      setMarcados(new Set());
-      setDivergindo(null);
-      setDesconsiderando(null);
-      router.refresh();
     });
   }
 
@@ -259,7 +269,17 @@ export function LivroDoMapa({
                         className="shrink-0 overflow-hidden rounded-lg border border-slate-200 hover:border-primary"
                       >
                         {/* eslint-disable-next-line @next/next/no-img-element -- link assinado e temporário */}
-                        <img src={f.url} alt={`Comprovante, foto ${i + 1}`} className="h-14 w-11 object-cover" />
+                        <img
+                          src={f.url}
+                          alt={`Comprovante, foto ${i + 1}`}
+                          // PREGUIÇOSA de propósito (24/09/2026): a semana
+                          // inteira dá ~750 fotos, e baixar todas de uma vez
+                          // travava o navegador do financeiro. Assim só baixa
+                          // a do mapa que a pessoa abriu e está olhando.
+                          loading="lazy"
+                          decoding="async"
+                          className="h-14 w-11 object-cover"
+                        />
                       </a>
                     ) : (
                       <span key={f.id} className="flex h-14 w-11 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-[10px] text-slate-400">
