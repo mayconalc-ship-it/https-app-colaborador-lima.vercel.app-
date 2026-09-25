@@ -72,7 +72,9 @@ export function FormMes({
   const inicial = useMemo(() => {
     const base: Record<string, string> = {};
     for (const chave of Object.keys(MES_VAZIO)) {
-      if (chave === "competencia" || chave === "observacao") continue;
+      // base_meta é uma escolha (select), não um número: deixar entrar aqui
+      // a transformava em null e quebrava a tela (25/09/2026).
+      if (chave === "competencia" || chave === "observacao" || chave === "base_meta") continue;
       const valor = mes ? (mes[chave as keyof MesMaoDeObra] as number | null) : null;
       base[chave] = valor == null ? "" : String(valor);
     }
@@ -83,8 +85,9 @@ export function FormMes({
   const [observacao, setObservacao] = useState(mes?.observacao ?? "");
 
   const previa = useMemo(() => {
-    const m: MesMaoDeObra = { ...MES_VAZIO, competencia };
+    const m: MesMaoDeObra = { ...MES_VAZIO, competencia, base_meta: mes?.base_meta ?? "negociado" };
     for (const chave of Object.keys(valores)) {
+      if (chave === "base_meta") continue;
       const bruto = valores[chave].trim().replace(/\./g, "").replace(",", ".");
       (m[chave as keyof MesMaoDeObra] as number | null) = bruto === "" ? null : Number(bruto);
     }
@@ -94,7 +97,7 @@ export function FormMes({
       problema: validarMes(m),
       conferencia: conferenciaDoPlano(m, volumePorDia(m, new Map())),
     };
-  }, [valores, competencia, config]);
+  }, [valores, competencia, config, mes?.base_meta]);
 
   const calendario = useMemo(() => calendarioDaCompetencia(competencia), [competencia]);
   const usarOCalendario = () =>
