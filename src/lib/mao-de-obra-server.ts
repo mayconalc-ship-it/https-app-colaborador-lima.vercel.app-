@@ -182,6 +182,77 @@ export async function lerAcoes(revendaId: string, ano: number): Promise<AcaoDoPl
   }));
 }
 
+// ------------------------------------------------------------------
+// Vagas para o recrutamento (25/09/2026)
+// ------------------------------------------------------------------
+
+export type Destinatario = { id: string; nome: string | null; email: string; ativo: boolean };
+
+export async function lerDestinatarios(revendaId: string): Promise<Destinatario[]> {
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("mao_obra_destinatarios")
+    .select("id, nome, email, ativo")
+    .eq("revenda_id", revendaId)
+    .order("email");
+  return (data ?? []).map((d) => ({
+    id: String(d.id),
+    nome: d.nome ?? null,
+    email: String(d.email),
+    ativo: Boolean(d.ativo),
+  }));
+}
+
+export type EnvioRegistrado = {
+  id: string;
+  competencia: string;
+  enviadoEm: string;
+  enviadoPorNome: string | null;
+  destinatarios: string[];
+  totalVagas: number;
+  vagas: { funcao: string; rotulo?: string; dimensionado: number; atual: number | null; vagas: number }[];
+  observacao: string | null;
+};
+
+export async function lerEnvios(revendaId: string, limite = 24): Promise<EnvioRegistrado[]> {
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("mao_obra_envios")
+    .select("id, competencia, enviado_em, enviado_por_nome, destinatarios, total_vagas, vagas, observacao")
+    .eq("revenda_id", revendaId)
+    .order("enviado_em", { ascending: false })
+    .limit(limite);
+  return (data ?? []).map((e) => ({
+    id: String(e.id),
+    competencia: String(e.competencia).slice(0, 7),
+    enviadoEm: String(e.enviado_em),
+    enviadoPorNome: e.enviado_por_nome ?? null,
+    destinatarios: (e.destinatarios ?? []) as string[],
+    totalVagas: Number(e.total_vagas ?? 0),
+    vagas: (e.vagas ?? []) as EnvioRegistrado["vagas"],
+    observacao: e.observacao ?? null,
+  }));
+}
+
+// ------------------------------------------------------------------
+// Volume por dia
+// ------------------------------------------------------------------
+
+export async function lerDias(revendaId: string, competencia: string): Promise<Map<number, number>> {
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("mao_obra_dias")
+    .select("dia, volume_realizado")
+    .eq("revenda_id", revendaId)
+    .eq("competencia", primeiroDia(competencia))
+    .order("dia");
+  const saida = new Map<number, number>();
+  for (const l of data ?? []) {
+    if (l.volume_realizado != null) saida.set(Number(l.dia), Number(l.volume_realizado));
+  }
+  return saida;
+}
+
 /** Os anos que já têm mês lançado -- para o seletor de ano. */
 export async function anosComDados(revendaId: string): Promise<number[]> {
   const admin = createAdminClient();

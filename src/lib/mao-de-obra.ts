@@ -350,6 +350,177 @@ export function dispersaoDoVolume(m: MesMaoDeObra): number | null {
 export const DISPERSAO_ACEITA = 0.05;
 
 // ------------------------------------------------------------------
+// AS VAGAS -- o que vai para o recrutamento (25/09/2026)
+// ------------------------------------------------------------------
+
+export type VagaDaFuncao = {
+  funcao: FuncaoId;
+  rotulo: string;
+  area: string;
+  dimensionado: number;
+  /** Quanta gente a revenda tem hoje naquela função. */
+  atual: number | null;
+  /** Dimensionado − atual, nunca negativo: sobra não é vaga. */
+  vagas: number;
+  /** Quanta gente sobra, quando sobra. */
+  excedente: number;
+};
+
+export function vagasDoMes(linhas: LinhaDoDimensionamento[]): VagaDaFuncao[] {
+  return linhas.map((l) => {
+    const atual = l.realizado;
+    const diferenca = atual == null ? 0 : l.dimensionado - atual;
+    return {
+      funcao: l.funcao,
+      rotulo: l.rotulo,
+      area: l.area,
+      dimensionado: l.dimensionado,
+      atual,
+      vagas: atual == null ? 0 : Math.max(0, diferenca),
+      excedente: atual == null ? 0 : Math.max(0, -diferenca),
+    };
+  });
+}
+
+/**
+ * O e-mail do quadro de vagas, em texto puro.
+ *
+ * Texto, e não HTML: ele é colado num e-mail que a pessoa manda da PRÓPRIA
+ * conta (o app não tem SMTP -- mesma decisão da Blitz de Carreta). Começa
+ * pelo que o recrutamento precisa fazer, não pela explicação.
+ */
+export function textoDoEmailDeVagas(d: {
+  revenda: string;
+  competencia: string;
+  vagas: VagaDaFuncao[];
+  volumeNegociado: number | null;
+  observacao?: string | null;
+  quemEnvia: string;
+}): string {
+  const comVaga = d.vagas.filter((v) => v.vagas > 0);
+  const excedentes = d.vagas.filter((v) => v.excedente > 0);
+  const linhas: string[] = [];
+  linhas.push(`Dimensionamento de mão de obra — ${d.revenda} — ${rotuloCompetencia(d.competencia)}`);
+  linhas.push("");
+  if (comVaga.length === 0) {
+    linhas.push("Nenhuma vaga a abrir neste mês: o quadro atual atende o dimensionamento.");
+  } else {
+    linhas.push(`VAGAS A ABRIR (${comVaga.reduce((s, v) => s + v.vagas, 0)} no total):`);
+    for (const v of comVaga) {
+      linhas.push(`- ${v.rotulo} (${v.area}): ${v.vagas} vaga${v.vagas === 1 ? "" : "s"} — dimensionado ${v.dimensionado}, temos ${v.atual ?? "—"}`);
+    }
+  }
+  if (excedentes.length > 0) {
+    linhas.push("");
+    linhas.push("ACIMA DO DIMENSIONADO (atenção para não repor):");
+    for (const v of excedentes) {
+      linhas.push(`- ${v.rotulo}: ${v.excedente} acima — dimensionado ${v.dimensionado}, temos ${v.atual ?? "—"}`);
+    }
+  }
+  linhas.push("");
+  linhas.push(
+    `Base do cálculo: volume negociado de ${d.volumeNegociado == null ? "—" : formatarNumero(d.volumeNegociado, 0)} HL no mês, pelos parâmetros da operação cadastrados no app.`,
+  );
+  if (d.observacao?.trim()) {
+    linhas.push("");
+    linhas.push(`Observação: ${d.observacao.trim()}`);
+  }
+  linhas.push("");
+  linhas.push(`Enviado por ${d.quemEnvia} pelo App do Colaborador.`);
+  return linhas.join("\n");
+}
+
+export function assuntoDoEmailDeVagas(revenda: string, competencia: string, totalVagas: number) {
+  return `Dimensionamento ${rotuloCompetencia(competencia)} — ${revenda} — ${totalVagas} vaga${totalVagas === 1 ? "" : "s"}`;
+}
+
+// ------------------------------------------------------------------
+// O VOLUME POR DIA -- plan x realizado (25/09/2026)
+// ------------------------------------------------------------------
+
+export type DiaDoVolume = {
+  dia: number;
+  /** O volume que o mês pede por dia útil. */
+  plan: number;
+  realizado: number | null;
+  /** realizado / plan − 1. Null enquanto o dia não foi lançado. */
+  dispersao: number | null;
+};
+
+/**
+ * O plano do dia é o volume negociado dividido pelos DIAS ÚTEIS -- os
+ * mesmos dias que dimensionam a frota. Sábado não entra: o volume do
+ * sábado já é lançado à parte no mês.
+ */
+export function planoDoDia(m: MesMaoDeObra): number {
+  const diasUteis = Math.max(0, n(m.dias_totais) - n(m.sabados));
+  if (diasUteis <= 0) return 0;
+  return (n(m.volume_negociado) - n(m.volume_entrega_sabado) * n(m.sabados)) / diasUteis;
+}
+
+export function volumePorDia(m: MesMaoDeObra, realizadoPorDia: Map<number, number>): DiaDoVolume[] {
+  const plan = planoDoDia(m);
+  const diasNoMes = diasDaCompetencia(m.competencia);
+  const dias: DiaDoVolume[] = [];
+  for (let dia = 1; dia <= diasNoMes; dia++) {
+    const realizado = realizadoPorDia.get(dia) ?? null;
+    dias.push({
+      dia,
+      plan,
+      realizado,
+      dispersao: realizado == null || plan <= 0 ? null : realizado / plan - 1,
+    });
+  }
+  return dias;
+}
+
+/** O acumulado do mês até o último dia lançado -- é ele que manda. */
+export function acumuladoDoMes(dias: DiaDoVolume[]): {
+  diasLancados: number;
+  planAcumulado: number;
+  realizadoAcumulado: number;
+  dispersao: number | null;
+} {
+  const lancados = dias.filter((d) => d.realizado != null);
+  const planAcumulado = lancados.reduce((s, d) => s + d.plan, 0);
+  const realizadoAcumulado = lancados.reduce((s, d) => s + (d.realizado ?? 0), 0);
+  return {
+    diasLancados: lancados.length,
+    planAcumulado,
+    realizadoAcumulado,
+    dispersao: planAcumulado > 0 ? realizadoAcumulado / planAcumulado - 1 : null,
+  };
+}
+
+export function diasDaCompetencia(competencia: string): number {
+  const [ano, mes] = competencia.split("-").map(Number);
+  if (!ano || !mes) return 31;
+  return new Date(Date.UTC(ano, mes, 0)).getUTCDate();
+}
+
+// ------------------------------------------------------------------
+// COMPARATIVO -- o dimensionamento de um mês contra os anteriores
+// ------------------------------------------------------------------
+
+export type ColunaDoComparativo = {
+  competencia: string;
+  porFuncao: Record<FuncaoId, number>;
+  total: number;
+  volumeNegociado: number | null;
+};
+
+export function comparativoDeMeses(
+  meses: { mes: MesMaoDeObra; linhas: LinhaDoDimensionamento[] }[],
+): ColunaDoComparativo[] {
+  return meses.map(({ mes, linhas }) => ({
+    competencia: mes.competencia,
+    porFuncao: Object.fromEntries(linhas.map((l) => [l.funcao, l.dimensionado])) as Record<FuncaoId, number>,
+    total: linhas.reduce((s, l) => s + l.dimensionado, 0),
+    volumeNegociado: mes.volume_negociado,
+  }));
+}
+
+// ------------------------------------------------------------------
 // Plano de ação (o desvio vira tarefa)
 // ------------------------------------------------------------------
 
@@ -369,6 +540,53 @@ export const LIMITES_MAO_DE_OBRA = {
   pessoasMax: 2000,
   volumeMax: 10_000_000,
 } as const;
+
+/** O e-mail de quem recebe o quadro de vagas. */
+export function validarEmail(email: string): string | null {
+  const e = email.trim();
+  if (e.length < 5 || e.length > 160) return "E-mail inválido.";
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(e)) return "E-mail inválido.";
+  return null;
+}
+
+/**
+ * O item 1.2 do DPO, verificação por verificação -- e onde o app atende.
+ *
+ * Fica aqui, e não num texto solto na tela, porque é o que a auditoria
+ * percorre: cada linha precisa apontar para uma evidência que existe.
+ */
+export const REQUISITO_DPO = [
+  {
+    id: "V.1",
+    texto: "Processo, ferramenta ou simulador para antecipar a necessidade de mão de obra e da demanda SPOT, com base na previsão de volume, incluindo Marketplace.",
+    ondeEsta: "Esta tela: o volume do mês (PPR, negociado e marketplace) e a frota SPOT dimensionam gente por função.",
+  },
+  {
+    id: "V.2",
+    texto: "Processo revisado no mínimo mensalmente, com estrutura planejada para os meses seguintes junto aos operadores e à área de Gente, com evidências.",
+    ondeEsta: "Cada gravação do mês carimba quem revisou e quando; o envio ao recrutamento fica registrado com data, destinatários e quadro enviado.",
+  },
+  {
+    id: "V.3",
+    texto: "Comparação entre o dimensionamento projetado há 2 a 3 meses e o do mês corrente.",
+    ondeEsta: "Bloco “Comparativo dos últimos meses”, por função, com a variação entre eles.",
+  },
+  {
+    id: "V.4",
+    texto: "Simulador monitorado diariamente, permitindo ajustes conforme a variação do volume.",
+    ondeEsta: "Aba “Volume por dia”: o plano por dia útil, o realizado lançado dia a dia e o acumulado do mês.",
+  },
+  {
+    id: "V.5",
+    texto: "Acompanhamento da dispersão entre volume dimensionado x realizado e realizado x demanda, com aderência às metas.",
+    ondeEsta: "Dispersão do dia, do acumulado e do mês fechado, com faixa de 5% sinalizada.",
+  },
+  {
+    id: "V.6",
+    texto: "Processo monitorado quanto à eficácia, com planos de ação ativos para correção de desvios e melhoria dos resultados dos últimos três meses.",
+    ondeEsta: "Plano de ação por mês, com responsável, prazo e situação, ligado à função em desvio.",
+  },
+] as const;
 
 export function validarAcao(d: { oQue: string; responsavel: string; prazo: string | null }): string | null {
   if (d.oQue.trim().length < 5) return "Escreva o que será feito.";

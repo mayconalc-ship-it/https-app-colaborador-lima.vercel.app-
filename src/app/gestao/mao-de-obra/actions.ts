@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { requireModulo } from "@/lib/require-admin";
 import { exigirRevenda } from "@/lib/revendas";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { primeiroDia } from "@/lib/mao-de-obra-server";
+import { lerConfig, lerMes, lerRealizado, lerSalarios, primeiroDia } from "@/lib/mao-de-obra-server";
 import {
   EH_FUNCAO,
   FUNCOES,
@@ -14,8 +14,12 @@ import {
   MODULO_MAO_DE_OBRA,
   PARAMETROS,
   RUBRICAS,
+  diasDaCompetencia,
+  dimensionamentoDoMes,
   ehCompetencia,
+  vagasDoMes,
   validarAcao,
+  validarEmail,
   validarMes,
   type MesMaoDeObra,
 } from "@/lib/mao-de-obra";
@@ -246,6 +250,153 @@ export async function mudarStatusDaAcao(formData: FormData) {
 
   atualizarTelas();
   voltar(competencia, "sucesso", "Situação da ação atualizada.");
+}
+
+// ------------------------------------------------------------------
+// VAGAS PARA O RECRUTAMENTO (25/09/2026)
+// ------------------------------------------------------------------
+
+/** Cadastra quem recebe o quadro de vagas. */
+export async function adicionarDestinatario(formData: FormData) {
+  const perfil = await requireModulo(MODULO_MAO_DE_OBRA, "editar", ROTA);
+  const revendaId = await exigirRevenda(ROTA);
+  const competencia = String(formData.get("competencia") ?? "");
+
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  const nome = String(formData.get("nome") ?? "").trim().slice(0, 120) || null;
+  const problema = validarEmail(email);
+  if (problema) voltar(competencia, "erro", problema);
+
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("mao_obra_destinatarios")
+    .insert({ revenda_id: revendaId, email, nome, criado_por_nome: perfil.nome });
+  if (error?.code === "23505") voltar(competencia, "erro", "Este e-mail já está cadastrado.");
+  if (error) voltar(competencia, "erro", `Não foi possível salvar: ${error.message}`);
+
+  atualizarTelas();
+  voltar(competencia, "sucesso", `${email} vai receber o quadro de vagas.`);
+}
+
+export async function removerDestinatario(formData: FormData) {
+  await requireModulo(MODULO_MAO_DE_OBRA, "editar", ROTA);
+  const revendaId = await exigirRevenda(ROTA);
+  const competencia = String(formData.get("competencia") ?? "");
+  const id = String(formData.get("id") ?? "");
+  if (!id) voltar(competencia, "erro", "Destinatário inválido.");
+
+  const admin = createAdminClient();
+  const { error } = await admin.from("mao_obra_destinatarios").delete().eq("id", id).eq("revenda_id", revendaId);
+  if (error) voltar(competencia, "erro", `Não foi possível remover: ${error.message}`);
+
+  atualizarTelas();
+  voltar(competencia, "sucesso", "Destinatário removido.");
+}
+
+/**
+ * Registra o envio do quadro de vagas ao recrutamento.
+ *
+ * O e-mail em si abre no cliente da pessoa (o app não tem SMTP, e assim
+ * ele sai do endereço da empresa). O que fica aqui é a EVIDÊNCIA: quando,
+ * por quem, para quem e qual quadro -- congelado, porque o mês seguinte
+ * muda o dimensionamento e a auditoria pergunta pelo que foi enviado.
+ */
+export async function registrarEnvio(formData: FormData) {
+  const perfil = await requireModulo(MODULO_MAO_DE_OBRA, "editar", ROTA);
+  const revendaId = await exigirRevenda(ROTA);
+
+  const competencia = String(formData.get("competencia") ?? "");
+  if (!ehCompetencia(competencia)) voltar("", "erro", "Competência inválida.");
+  const observacao = String(formData.get("observacao") ?? "").trim().slice(0, LIMITES_MAO_DE_OBRA.observacaoMax) || null;
+
+  const admin = createAdminClient();
+
+  // O quadro é recalculado AQUI, do banco: o que o formulário mandasse
+  // seria a tela de quem clicou, não a verdade do mês.
+  const [config, salarios, mes, realizado, { data: destinos }] = await Promise.all([
+    lerConfig(revendaId),
+    lerSalarios(revendaId),
+    lerMes(revendaId, competencia),
+    lerRealizado(revendaId, competencia),
+    admin.from("mao_obra_destinatarios").select("email").eq("revenda_id", revendaId).eq("ativo", true),
+  ]);
+  if (!mes) voltar(competencia, "erro", "Lance o volume do mês antes de enviar o dimensionamento.");
+  const emails = (destinos ?? []).map((d) => String(d.email));
+  if (emails.length === 0) voltar(competencia, "erro", "Cadastre pelo menos um e-mail do recrutamento.");
+
+  const { linhas } = dimensionamentoDoMes(mes, config, salarios, realizado);
+  const vagas = vagasDoMes(linhas);
+  const total = vagas.reduce((s, v) => s + v.vagas, 0);
+
+  const { error } = await admin.from("mao_obra_envios").insert({
+    revenda_id: revendaId,
+    competencia: primeiroDia(competencia),
+    enviado_por_nome: perfil.nome,
+    destinatarios: emails,
+    vagas: vagas.map((v) => ({
+      funcao: v.funcao,
+      rotulo: v.rotulo,
+      dimensionado: v.dimensionado,
+      atual: v.atual,
+      vagas: v.vagas,
+    })),
+    total_vagas: total,
+    observacao,
+  });
+  if (error) voltar(competencia, "erro", `Não foi possível registrar o envio: ${error.message}`);
+
+  atualizarTelas();
+  voltar(
+    competencia,
+    "sucesso",
+    `Envio registrado: ${total} vaga${total === 1 ? "" : "s"} para ${emails.length} destinatário${emails.length === 1 ? "" : "s"}.`,
+  );
+}
+
+/** O volume realizado de cada dia do mês -- um Salvar para a grade toda. */
+export async function salvarDias(formData: FormData) {
+  const perfil = await requireModulo(MODULO_MAO_DE_OBRA, "editar", ROTA);
+  const revendaId = await exigirRevenda(ROTA);
+
+  const competencia = String(formData.get("competencia") ?? "");
+  if (!ehCompetencia(competencia)) voltar("", "erro", "Competência inválida.");
+
+  const guardar: { revenda_id: string; competencia: string; dia: number; volume_realizado: number; atualizado_por_nome: string }[] = [];
+  const apagar: number[] = [];
+  for (let dia = 1; dia <= diasDaCompetencia(competencia); dia++) {
+    const valor = numero(formData.get(`dia_${dia}`));
+    if (valor == null) {
+      apagar.push(dia);
+      continue;
+    }
+    if (valor < 0 || valor > LIMITES_MAO_DE_OBRA.volumeMax) voltar(competencia, "erro", `Volume inválido no dia ${dia}.`);
+    guardar.push({
+      revenda_id: revendaId,
+      competencia: primeiroDia(competencia),
+      dia,
+      volume_realizado: valor,
+      atualizado_por_nome: perfil.nome,
+    });
+  }
+
+  const admin = createAdminClient();
+  if (guardar.length > 0) {
+    const { error } = await admin
+      .from("mao_obra_dias")
+      .upsert(guardar, { onConflict: "revenda_id,competencia,dia" });
+    if (error) voltar(competencia, "erro", `Não foi possível salvar: ${error.message}`);
+  }
+  if (apagar.length > 0) {
+    await admin
+      .from("mao_obra_dias")
+      .delete()
+      .eq("revenda_id", revendaId)
+      .eq("competencia", primeiroDia(competencia))
+      .in("dia", apagar);
+  }
+
+  atualizarTelas();
+  redirect(`${ROTA}?mes=${competencia}&aba=dia&sucesso=${encodeURIComponent("Volume do dia salvo.")}`);
 }
 
 export async function excluirAcao(formData: FormData) {
