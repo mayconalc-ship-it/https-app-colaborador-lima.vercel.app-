@@ -11,6 +11,7 @@ import {
   type ConfigMaoDeObra,
   type FuncaoId,
   type MesMaoDeObra,
+  type LancamentoDoDia,
   type Salario,
   type StatusAcao,
 } from "@/lib/mao-de-obra";
@@ -85,6 +86,10 @@ function paraMes(linha: Record<string, unknown>): MesMaoDeObra {
     if (chave === "competencia") continue;
     if (chave === "observacao") {
       saida.observacao = (linha.observacao as string) ?? null;
+      continue;
+    }
+    if (chave === "base_meta") {
+      saida.base_meta = linha.base_meta === "ppr" ? "ppr" : "negociado";
       continue;
     }
     (saida[chave] as number | null) = num(linha[chave]);
@@ -238,17 +243,23 @@ export async function lerEnvios(revendaId: string, limite = 24): Promise<EnvioRe
 // Volume por dia
 // ------------------------------------------------------------------
 
-export async function lerDias(revendaId: string, competencia: string): Promise<Map<number, number>> {
+export async function lerDias(
+  revendaId: string,
+  competencia: string,
+): Promise<Map<number, LancamentoDoDia>> {
   const admin = createAdminClient();
   const { data } = await admin
     .from("mao_obra_dias")
-    .select("dia, volume_realizado")
+    .select("dia, volume_realizado, opera")
     .eq("revenda_id", revendaId)
     .eq("competencia", primeiroDia(competencia))
     .order("dia");
-  const saida = new Map<number, number>();
+  const saida = new Map<number, LancamentoDoDia>();
   for (const l of data ?? []) {
-    if (l.volume_realizado != null) saida.set(Number(l.dia), Number(l.volume_realizado));
+    saida.set(Number(l.dia), {
+      realizado: l.volume_realizado == null ? null : Number(l.volume_realizado),
+      opera: l.opera !== false,
+    });
   }
   return saida;
 }

@@ -37,7 +37,6 @@ import {
   conferenciaDoPlano,
   contaDistribuicao,
   dimensionamentoNoRitmo,
-  planoPorTipoDeDia,
   projecaoDoMes,
   competenciaAtual,
   comparativoDeMeses,
@@ -125,6 +124,7 @@ export default async function MaoDeObraPage({
   const temQuadro = linhas.some((l) => l.realizado != null);
 
   const diasDoMes = volumePorDia(mesAtual, dias);
+  const conferencia = conferenciaDoPlano(mesAtual, diasDoMes);
   const acumulado = acumuladoDoMes(diasDoMes);
   const projecao = projecaoDoMes(diasDoMes);
   const noRitmo = dimensionamentoNoRitmo(mesAtual, projecao.projetado);
@@ -720,8 +720,8 @@ export default async function MaoDeObraPage({
         <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
           <h2 className="text-sm font-bold text-slate-800">Volume por dia — {rotuloCompetencia(competencia)}</h2>
           <p className="mb-3 text-xs text-slate-500">
-            A meta do dia sai do VOLUME NEGOCIADO do mês: tira-se o volume dos sábados e o resto se divide pelos{" "}
-            {dist.diasUteis} dias úteis informados. Lance o que saiu em cada dia para acompanhar a dispersão.
+            A meta sai do volume do mês e é dividida pelos dias que operam: o sábado leva o volume cadastrado para
+            sábado e o resto se divide pelos dias úteis. Desmarque feriado e a meta dos outros dias sobe sozinha.
           </p>
           {!mes ? (
             <p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900">
@@ -733,9 +733,9 @@ export default async function MaoDeObraPage({
                 competencia={competencia}
                 dias={diasDoMes}
                 podeEditar={podeEditar}
-                planoUtil={planoPorTipoDeDia(mesAtual).util}
-                planoSabado={planoPorTipoDeDia(mesAtual).sabado}
-                conferencia={conferenciaDoPlano(mesAtual)}
+                planoSabado={diasDoMes.find((d) => d.opera && d.tipo === "sabado")?.plan ?? 0}
+                conferencia={conferencia}
+                diasInformados={mesAtual.dias_totais ?? 0}
               />
               {/* A FLEXÃO (V.4): se o mês fechar no ritmo de hoje, quanta
                   gente ele passa a pedir? */}

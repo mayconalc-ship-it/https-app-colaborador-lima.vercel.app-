@@ -160,6 +160,14 @@ export type MesMaoDeObra = {
   // -- Acompanhamento
   volume_realizado: number | null;
   observacao: string | null;
+  /** Qual volume a grade do dia distribui: o negociado (padrão) ou o PPR. */
+  base_meta: BaseDaMeta;
+};
+
+export type BaseDaMeta = "negociado" | "ppr";
+export const ROTULO_BASE_DA_META: Record<BaseDaMeta, string> = {
+  negociado: "Volume negociado",
+  ppr: "Volume PPR",
 };
 
 export const MES_VAZIO: MesMaoDeObra = {
@@ -189,6 +197,7 @@ export const MES_VAZIO: MesMaoDeObra = {
   conferente_tarde: null,
   volume_realizado: null,
   observacao: null,
+  base_meta: "negociado",
 };
 
 const n = (v: number | null | undefined) => (v == null || Number.isNaN(Number(v)) ? 0 : Number(v));
@@ -449,6 +458,8 @@ export type DiaDoVolume = {
   /** "sex" */
   diaDaSemana: string;
   tipo: TipoDeDia;
+  /** Domingo e feriado desmarcado não operam -- e não recebem meta. */
+  opera: boolean;
   /** A média necessária NAQUELE dia: útil, sábado ou domingo. */
   plan: number;
   realizado: number | null;
@@ -469,51 +480,85 @@ export const ROTULO_TIPO_DE_DIA: Record<TipoDeDia, string> = {
   domingo: "Domingo",
 };
 
+/** O volume que a grade do dia distribui. */
+export function volumeBaseDaMeta(m: MesMaoDeObra): number {
+  return n(m.base_meta === "ppr" ? m.volume_ppr : m.volume_negociado);
+}
+
 /**
  * A MÉDIA NECESSÁRIA POR TIPO DE DIA (25/09/2026, pedido do dono).
  *
- * Não é uma média só para o mês inteiro: sábado entrega menos, e é ele
- * quem diz quanto (volume_entrega_sabado). O que sobra do volume
- * negociado, depois de tirar os sábados, se divide pelos dias úteis --
- * exatamente a mesma conta que dimensiona a frota. Domingo não opera.
+ * A meta é distribuída pelos DIAS QUE REALMENTE OPERAM naquele mês, e não
+ * por uma contagem informada à parte: foi assim que um mês de 11.780 HL
+ * apareceu pedindo 15.898 HL, porque a meta saía de 16 dias úteis e era
+ * espalhada pelos 22 dias de semana do calendário.
+ *
+ * Sábado entrega o que foi cadastrado para sábado; o que sobra se divide
+ * pelos dias úteis que operam. Domingo (e feriado desmarcado) fica fora.
+ * Assim a soma da grade é SEMPRE o volume informado.
  */
-export function planoPorTipoDeDia(m: MesMaoDeObra): Record<TipoDeDia, number> {
-  const diasUteis = Math.max(0, n(m.dias_totais) - n(m.sabados));
+export function planoPorTipoDeDia(
+  m: MesMaoDeObra,
+  operacao: { uteis: number; sabados: number } = { uteis: 0, sabados: 0 },
+): Record<TipoDeDia, number> {
+  const uteis = operacao.uteis > 0 ? operacao.uteis : Math.max(0, n(m.dias_totais) - n(m.sabados));
+  const sabados = operacao.sabados > 0 ? operacao.sabados : n(m.sabados);
   const doSabado = n(m.volume_entrega_sabado);
-  const sobra = n(m.volume_negociado) - doSabado * n(m.sabados);
+  const sobra = volumeBaseDaMeta(m) - doSabado * sabados;
   return {
-    util: diasUteis > 0 ? sobra / diasUteis : 0,
+    util: uteis > 0 ? sobra / uteis : 0,
     sabado: doSabado,
     domingo: 0,
   };
 }
 
 /** A média do dia útil -- o número que a tela mostra em destaque. */
-export function planoDoDia(m: MesMaoDeObra): number {
-  return planoPorTipoDeDia(m).util;
+export function planoDoDia(m: MesMaoDeObra, operacao?: { uteis: number; sabados: number }): number {
+  return planoPorTipoDeDia(m, operacao).util;
 }
 
-export function volumePorDia(m: MesMaoDeObra, realizadoPorDia: Map<number, number>): DiaDoVolume[] {
-  const plano = planoPorTipoDeDia(m);
+export type LancamentoDoDia = { realizado: number | null; opera: boolean };
+
+/**
+ * A grade do mês. `lancados` traz o que já foi digitado e quais dias
+ * operam; sem ele, domingo fica de fora e o resto opera.
+ */
+export function volumePorDia(m: MesMaoDeObra, lancados: Map<number, LancamentoDoDia>): DiaDoVolume[] {
   const diasNoMes = diasDaCompetencia(m.competencia);
-  const dias: DiaDoVolume[] = [];
+  const base: { dia: number; data: string; tipo: TipoDeDia; opera: boolean; realizado: number | null }[] = [];
   for (let dia = 1; dia <= diasNoMes; dia++) {
     const data = `${m.competencia}-${String(dia).padStart(2, "0")}`;
     const tipo = tipoDoDia(data);
-    const plan = plano[tipo];
-    const realizado = realizadoPorDia.get(dia) ?? null;
-    dias.push({
+    const lancado = lancados.get(dia);
+    base.push({
       dia,
       data,
-      rotulo: `${String(dia).padStart(2, "0")}/${m.competencia.slice(5)}`,
-      diaDaSemana: DIAS_DA_SEMANA[new Date(`${data}T12:00:00Z`).getUTCDay()],
       tipo,
-      plan,
-      realizado,
-      dispersao: realizado == null || plan <= 0 ? null : realizado / plan - 1,
+      opera: lancado ? lancado.opera : tipo !== "domingo",
+      realizado: lancado?.realizado ?? null,
     });
   }
-  return dias;
+
+  const operando = base.filter((d) => d.opera);
+  const plano = planoPorTipoDeDia(m, {
+    uteis: operando.filter((d) => d.tipo !== "sabado").length,
+    sabados: operando.filter((d) => d.tipo === "sabado").length,
+  });
+
+  return base.map((d) => {
+    const plan = !d.opera ? 0 : d.tipo === "sabado" ? plano.sabado : plano.util;
+    return {
+      dia: d.dia,
+      data: d.data,
+      rotulo: `${String(d.dia).padStart(2, "0")}/${m.competencia.slice(5)}`,
+      diaDaSemana: DIAS_DA_SEMANA[new Date(`${d.data}T12:00:00Z`).getUTCDay()],
+      tipo: d.tipo,
+      opera: d.opera,
+      plan,
+      realizado: d.realizado,
+      dispersao: d.realizado == null || plan <= 0 ? null : d.realizado / plan - 1,
+    };
+  });
 }
 
 /**
@@ -612,30 +657,31 @@ export function calendarioDaCompetencia(competencia: string): {
  * com o calendário. Quando não bate, a tela diz o que ajustar em vez de
  * mostrar um total errado em silêncio.
  */
-export function conferenciaDoPlano(m: MesMaoDeObra): {
+export function conferenciaDoPlano(
+  m: MesMaoDeObra,
+  dias: DiaDoVolume[],
+): {
   planoDoMes: number;
-  negociado: number;
+  volumeBase: number;
+  base: BaseDaMeta;
   diferenca: number;
   fecha: boolean;
-  uteisInformados: number;
-  sabadosInformados: number;
-  uteisNoCalendario: number;
-  sabadosNoCalendario: number;
+  uteisQueOperam: number;
+  sabadosQueOperam: number;
+  diasParados: number;
 } {
-  const cal = calendarioDaCompetencia(m.competencia);
-  const plano = planoPorTipoDeDia(m);
-  const planoDoMes = plano.util * cal.uteis + plano.sabado * cal.sabados;
-  const negociado = n(m.volume_negociado);
-  const diferenca = planoDoMes - negociado;
+  const planoDoMes = dias.reduce((s, d) => s + d.plan, 0);
+  const volumeBase = volumeBaseDaMeta(m);
+  const operando = dias.filter((d) => d.opera);
   return {
     planoDoMes,
-    negociado,
-    diferenca,
-    fecha: Math.abs(diferenca) < 1,
-    uteisInformados: Math.max(0, n(m.dias_totais) - n(m.sabados)),
-    sabadosInformados: n(m.sabados),
-    uteisNoCalendario: cal.uteis,
-    sabadosNoCalendario: cal.sabados,
+    volumeBase,
+    base: m.base_meta,
+    diferenca: planoDoMes - volumeBase,
+    fecha: Math.abs(planoDoMes - volumeBase) < 1,
+    uteisQueOperam: operando.filter((d) => d.tipo !== "sabado").length,
+    sabadosQueOperam: operando.filter((d) => d.tipo === "sabado").length,
+    diasParados: dias.filter((d) => !d.opera).length,
   };
 }
 

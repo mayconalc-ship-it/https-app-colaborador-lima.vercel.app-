@@ -16,6 +16,7 @@ import {
   RUBRICAS,
   diasDaCompetencia,
   dimensionamentoDoMes,
+  tipoDoDia,
   ehCompetencia,
   vagasDoMes,
   validarAcao,
@@ -58,9 +59,10 @@ export async function salvarMes(formData: FormData) {
 
   const mes: MesMaoDeObra = { ...MES_VAZIO, competencia };
   for (const chave of Object.keys(MES_VAZIO) as (keyof MesMaoDeObra)[]) {
-    if (chave === "competencia" || chave === "observacao") continue;
+    if (chave === "competencia" || chave === "observacao" || chave === "base_meta") continue;
     (mes[chave] as number | null) = numero(formData.get(chave));
   }
+  mes.base_meta = String(formData.get("base_meta") ?? "") === "ppr" ? "ppr" : "negociado";
   mes.observacao = String(formData.get("observacao") ?? "").trim().slice(0, LIMITES_MAO_DE_OBRA.observacaoMax) || null;
 
   // A MESMA regra da tela (validarMes), agora no servidor.
@@ -361,20 +363,34 @@ export async function salvarDias(formData: FormData) {
   const competencia = String(formData.get("competencia") ?? "");
   if (!ehCompetencia(competencia)) voltar("", "erro", "Competência inválida.");
 
-  const guardar: { revenda_id: string; competencia: string; dia: number; volume_realizado: number; atualizado_por_nome: string }[] = [];
+  const guardar: {
+    revenda_id: string;
+    competencia: string;
+    dia: number;
+    volume_realizado: number | null;
+    opera: boolean;
+    atualizado_por_nome: string;
+  }[] = [];
   const apagar: number[] = [];
   for (let dia = 1; dia <= diasDaCompetencia(competencia); dia++) {
     const valor = numero(formData.get(`dia_${dia}`));
-    if (valor == null) {
+    // A caixinha só chega marcada; desmarcada não vem no formulário.
+    const opera = formData.get(`opera_${dia}`) != null;
+    const padrao = tipoDoDia(`${competencia}-${String(dia).padStart(2, "0")}`) !== "domingo";
+    if (valor == null && opera === padrao) {
+      // Nada digitado e o dia está como nasce: não precisa de linha.
       apagar.push(dia);
       continue;
     }
-    if (valor < 0 || valor > LIMITES_MAO_DE_OBRA.volumeMax) voltar(competencia, "erro", `Volume inválido no dia ${dia}.`);
+    if (valor != null && (valor < 0 || valor > LIMITES_MAO_DE_OBRA.volumeMax)) {
+      voltar(competencia, "erro", `Volume inválido no dia ${dia}.`);
+    }
     guardar.push({
       revenda_id: revendaId,
       competencia: primeiroDia(competencia),
       dia,
       volume_realizado: valor,
+      opera,
       atualizado_por_nome: perfil.nome,
     });
   }

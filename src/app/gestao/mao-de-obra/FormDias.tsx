@@ -25,42 +25,60 @@ export function FormDias({
   competencia,
   dias,
   podeEditar,
-  planoUtil,
   planoSabado,
   conferencia,
+  diasInformados,
 }: {
   competencia: string;
   dias: DiaDoVolume[];
   podeEditar: boolean;
-  planoUtil: number;
   planoSabado: number;
   /** A soma dos dias contra o volume negociado do mês. */
   conferencia: {
     planoDoMes: number;
-    negociado: number;
+    volumeBase: number;
+    base: "negociado" | "ppr";
     diferenca: number;
     fecha: boolean;
-    uteisInformados: number;
-    sabadosInformados: number;
-    uteisNoCalendario: number;
-    sabadosNoCalendario: number;
+    uteisQueOperam: number;
+    sabadosQueOperam: number;
+    diasParados: number;
   };
+  /** Quantos dias de operação o mês informou -- para conferir com a grade. */
+  diasInformados: number;
 }) {
   const [valores, setValores] = useState<Record<number, string>>(() => {
     const base: Record<number, string> = {};
     for (const d of dias) base[d.dia] = d.realizado == null ? "" : String(d.realizado);
     return base;
   });
+  // Quais dias operam: domingo nasce desligado, feriado se desliga aqui.
+  const [opera, setOpera] = useState<Record<number, boolean>>(() => {
+    const base: Record<number, boolean> = {};
+    for (const d of dias) base[d.dia] = d.opera;
+    return base;
+  });
 
   const conta = useMemo(() => {
+    // A META SE REDISTRIBUI NA HORA: desmarcar um feriado sobe a meta dos
+    // outros dias, e a soma continua sendo o volume do mês.
+    const operando = dias.filter((d) => opera[d.dia]);
+    const sabadosOperando = operando.filter((d) => d.tipo === "sabado").length;
+    const uteisOperando = operando.length - sabadosOperando;
+    const doSabado = planoSabado;
+    const metaUtil = uteisOperando > 0 ? (conferencia.volumeBase - doSabado * sabadosOperando) / uteisOperando : 0;
+
     const linhas = dias.map((d) => {
       const bruto = (valores[d.dia] ?? "").trim().replace(/\./g, "").replace(",", ".");
       const valor = bruto === "" ? null : Number(bruto);
       const valido = valor != null && Number.isFinite(valor);
+      const plan = !opera[d.dia] ? 0 : d.tipo === "sabado" ? doSabado : metaUtil;
       return {
         ...d,
+        plan,
+        opera: opera[d.dia],
         realizado: valido ? valor : null,
-        dispersao: valido && d.plan > 0 ? (valor as number) / d.plan - 1 : null,
+        dispersao: valido && plan > 0 ? (valor as number) / plan - 1 : null,
       };
     });
     const lancados = linhas.filter((l) => l.realizado != null);
@@ -71,6 +89,8 @@ export function FormDias({
     const projetado = lancados.length === 0 ? planDoMes : realizadoAteAgora + (planDoMes - planAteAgora) * ritmo;
     return {
       linhas,
+      metaUtil,
+      diasQueOperam: operando.length,
       lancados: lancados.length,
       planDoMes,
       realizadoAteAgora,
@@ -79,7 +99,7 @@ export function FormDias({
       dispersaoProjetada: planDoMes > 0 && lancados.length > 0 ? projetado / planDoMes - 1 : null,
       falta: Math.max(0, planDoMes - realizadoAteAgora),
     };
-  }, [valores, dias]);
+  }, [valores, dias, opera, planoSabado, conferencia.volumeBase]);
 
   const corDaDispersao = (d: number | null) =>
     d == null ? "text-slate-300" : Math.abs(d) > DISPERSAO_ACEITA ? "text-red-600" : "text-emerald-600";
@@ -97,30 +117,20 @@ export function FormDias({
 
       {/* A META DO DIA VEM DO MÊS: se a soma não bate com o negociado, é
           o mês que precisa de ajuste -- e a tela diz qual campo. */}
-      <p
-        className={`rounded-xl p-3 text-xs ${
-          conferencia.fecha ? "bg-emerald-50 text-emerald-800" : "bg-amber-50 text-amber-900"
-        }`}
-      >
-        {conferencia.fecha ? (
-          <>
-            ✅ A meta dos dias soma <b>{formatarNumero(conferencia.planoDoMes, 0)} HL</b> — exatamente o volume
-            negociado do mês, distribuído em {conferencia.uteisInformados} dias úteis e{" "}
-            {conferencia.sabadosInformados} sábados.
-          </>
-        ) : (
-          <>
-            ⚠️ A meta dos dias soma <b>{formatarNumero(conferencia.planoDoMes, 0)} HL</b> e o volume negociado é{" "}
-            <b>{formatarNumero(conferencia.negociado, 0)} HL</b>. O mês tem {conferencia.uteisNoCalendario} dias de
-            semana e {conferencia.sabadosNoCalendario} sábados, mas foram informados {conferencia.uteisInformados}{" "}
-            dias úteis e {conferencia.sabadosInformados} sábados. Ajuste na aba Dimensionamento (botão “Usar o
-            calendário”).
-          </>
-        )}
+      <p className="rounded-xl bg-emerald-50 p-3 text-xs text-emerald-800">
+        ✅ A meta dos dias soma <b>{formatarNumero(conferencia.volumeBase, 0)} HL</b> — o volume do mês, dividido
+        pelos <b>{conta.diasQueOperam}</b> dias marcados como operação.
       </p>
+      {diasInformados > 0 && diasInformados !== conta.diasQueOperam && (
+        <p className="rounded-xl bg-amber-50 p-3 text-xs text-amber-900">
+          ⚠️ No mês você informou <b>{diasInformados}</b> dias de operação (dias úteis + sábados), e a grade está com{" "}
+          <b>{conta.diasQueOperam}</b> marcados. Desmarque os feriados e paradas na coluna “Opera” — a meta dos
+          outros dias sobe sozinha e o total continua o mesmo.
+        </p>
+      )}
 
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-        <Numero titulo="Média do dia útil" valor={`${formatarNumero(planoUtil, 0)} HL`} />
+        <Numero titulo="Média do dia útil" valor={`${formatarNumero(conta.metaUtil, 0)} HL`} />
         <Numero titulo="Média do sábado" valor={`${formatarNumero(planoSabado, 0)} HL`} />
         <Numero
           titulo={`Realizado (${conta.lancados} dia${conta.lancados === 1 ? "" : "s"})`}
@@ -153,6 +163,7 @@ export function FormDias({
           <thead>
             <tr className="bg-slate-50 text-left text-[11px] font-semibold uppercase tracking-wide text-slate-500">
               <th className="px-2 py-2">Dia</th>
+              <th className="w-14 px-1 py-2 text-center">Opera</th>
               <th className="w-24 px-1 py-2 text-right">Necessário</th>
               <th className="w-32 px-2 py-2 text-right">Realizado</th>
               <th className="w-16 px-2 py-2 text-right">Disp.</th>
@@ -165,8 +176,19 @@ export function FormDias({
                   <span className="font-mono text-xs font-semibold tabular-nums text-slate-700">{l.rotulo}</span>
                   <span className="ml-1 text-[11px] uppercase text-slate-400">{l.diaDaSemana}</span>
                 </td>
+                <td className="px-1 py-1 text-center">
+                  <input
+                    type="checkbox"
+                    name={`opera_${l.dia}`}
+                    checked={opera[l.dia] ?? false}
+                    disabled={!podeEditar}
+                    onChange={(e) => setOpera((v) => ({ ...v, [l.dia]: e.target.checked }))}
+                    aria-label={`${l.rotulo} opera`}
+                    className="h-4 w-4 accent-primary"
+                  />
+                </td>
                 <td className="px-1 py-1 text-right font-mono text-xs tabular-nums text-slate-500">
-                  {l.tipo === "domingo" ? "—" : formatarNumero(l.plan, 0)}
+                  {l.opera ? formatarNumero(l.plan, 0) : "—"}
                 </td>
                 <td className="px-2 py-1 text-right">
                   <input
@@ -175,7 +197,7 @@ export function FormDias({
                     onChange={(e) => setValores((v) => ({ ...v, [l.dia]: e.target.value }))}
                     disabled={!podeEditar}
                     inputMode="decimal"
-                    placeholder={l.tipo === "domingo" ? "não opera" : ""}
+                    placeholder={l.opera ? "" : "não opera"}
                     aria-label={`Volume de ${l.rotulo}`}
                     className="w-full rounded border border-slate-200 bg-white px-2 py-1 text-right font-mono text-xs tabular-nums focus:border-primary focus:outline-none disabled:bg-slate-50"
                   />
@@ -189,6 +211,9 @@ export function FormDias({
           <tfoot>
             <tr className="border-t-[3px] border-double border-slate-300 bg-slate-50 font-semibold">
               <td className="px-2 py-2 text-slate-700">Mês</td>
+              <td className="px-1 py-2 text-center font-mono text-xs tabular-nums text-slate-500">
+                {conta.diasQueOperam}
+              </td>
               <td className="px-1 py-2 text-right font-mono text-xs tabular-nums">
                 {formatarNumero(conta.planDoMes, 0)}
               </td>
@@ -223,8 +248,8 @@ export function FormDias({
         </BotaoEnviar>
       )}
       <p className="text-[11px] text-slate-500">
-        A média necessária vem do mês: sábado entrega o volume cadastrado para sábado, e o resto se divide pelos dias
-        úteis. Dia em branco não entra no acumulado.
+        O sábado entrega o volume cadastrado para sábado; o resto se divide pelos dias úteis marcados. Dia em branco
+        não entra no acumulado, e dia desmarcado não recebe meta.
       </p>
     </form>
   );

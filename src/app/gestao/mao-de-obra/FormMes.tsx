@@ -4,8 +4,10 @@ import { useMemo, useState } from "react";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
 import {
   MES_VAZIO,
+  ROTULO_BASE_DA_META,
   calendarioDaCompetencia,
   conferenciaDoPlano,
+  volumePorDia,
   contaArmazem,
   contaDistribuicao,
   formatarNumero,
@@ -22,9 +24,9 @@ const DISTRIBUICAO: Campo[] = [
   { id: "volume_ppr", rotulo: "Volume PPR (HL)", ajuda: "O volume do plano — move o armazém." },
   { id: "volume_negociado", rotulo: "Volume negociado (HL)", ajuda: "O volume combinado — move a frota." },
   { id: "marketplace", rotulo: "Marketplace (R$)", ajuda: "Só acompanhamento." },
-  { id: "dias_totais", rotulo: "Dias de operação (dia TT)" },
-  { id: "sabados", rotulo: "Sábados no mês" },
-  { id: "volume_entrega_sabado", rotulo: "Volume por sábado (HL)" },
+  { id: "dias_totais", rotulo: "Dias de operação", ajuda: "Dias úteis + sábados (o “dia TT”)." },
+  { id: "sabados", rotulo: "Sábados no mês", ajuda: "Já estão dentro dos dias de operação." },
+  { id: "volume_entrega_sabado", rotulo: "Volume por sábado (HL)", ajuda: "O sábado entrega menos." },
   { id: "media_carro_hl", rotulo: "Média por carro (HL)" },
   { id: "frota_long_dist", rotulo: "Frota long distance" },
   { id: "frota_reserva", rotulo: "Frota reserva" },
@@ -90,7 +92,7 @@ export function FormMes({
       dist: contaDistribuicao(m),
       arm: contaArmazem(m, config),
       problema: validarMes(m),
-      conferencia: conferenciaDoPlano(m),
+      conferencia: conferenciaDoPlano(m, volumePorDia(m, new Map())),
     };
   }, [valores, competencia, config]);
 
@@ -130,6 +132,7 @@ export function FormMes({
         </span>
         <button
           type="button"
+          title="Preenche dias de operação (úteis + sábados) e sábados pelo calendário"
           onClick={usarOCalendario}
           className="rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:border-primary"
         >
@@ -155,6 +158,22 @@ export function FormMes({
       <div>
         <p className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">Acompanhamento</p>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">{ACOMPANHAMENTO.map(campo)}</div>
+        <label className="mt-2 block">
+          <span className="mb-1 block text-[11px] font-semibold uppercase text-slate-500">
+            Volume que a grade do dia distribui
+          </span>
+          <select
+            name="base_meta"
+            defaultValue={mes?.base_meta ?? "negociado"}
+            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+          >
+            <option value="negociado">Volume negociado</option>
+            <option value="ppr">Volume PPR</option>
+          </select>
+          <span className="mt-0.5 block text-[10px] text-slate-400">
+            A meta de cada dia soma exatamente este volume.
+          </span>
+        </label>
         <label className="mt-2 block">
           <span className="mb-1 block text-[11px] font-semibold uppercase text-slate-500">
             Observação da revisão do mês
@@ -186,28 +205,13 @@ export function FormMes({
 
       {/* A SOMA DOS DIAS TEM DE DAR O VOLUME NEGOCIADO. Quando não dá, a
           tela diz exatamente o que ajustar. */}
-      {previa.conferencia.negociado > 0 && (
+      {previa.conferencia.volumeBase > 0 && (
         <p
-          className={`rounded-xl p-3 text-xs ${
-            previa.conferencia.fecha ? "bg-emerald-50 text-emerald-800" : "bg-amber-50 text-amber-900"
-          }`}
+          className="rounded-xl bg-emerald-50 p-3 text-xs text-emerald-800"
         >
-          {previa.conferencia.fecha ? (
-            <>
-              ✅ A meta por dia fecha com o volume negociado:{" "}
-              <b>{formatarNumero(previa.conferencia.planoDoMes, 0)} HL</b> no mês.
-            </>
-          ) : (
-            <>
-              ⚠️ A meta por dia somaria <b>{formatarNumero(previa.conferencia.planoDoMes, 0)} HL</b>, e o volume
-              negociado é <b>{formatarNumero(previa.conferencia.negociado, 0)} HL</b> (
-              {previa.conferencia.diferenca > 0 ? "+" : ""}
-              {formatarNumero(previa.conferencia.diferenca, 0)} HL). O mês tem{" "}
-              {previa.conferencia.uteisNoCalendario} dias de semana e {previa.conferencia.sabadosNoCalendario}{" "}
-              sábados; você informou {previa.conferencia.uteisInformados} dias úteis e{" "}
-              {previa.conferencia.sabadosInformados} sábados. Use o botão “Usar o calendário” ou ajuste os dias.
-            </>
-          )}
+          ✅ A meta dos dias soma <b>{formatarNumero(previa.conferencia.planoDoMes, 0)} HL</b> — exatamente o{" "}
+          {ROTULO_BASE_DA_META[previa.conferencia.base].toLowerCase()} informado, dividido em{" "}
+          {previa.conferencia.uteisQueOperam} dias úteis e {previa.conferencia.sabadosQueOperam} sábados.
         </p>
       )}
 
