@@ -40,6 +40,13 @@ export async function lerConfig(revendaId: string): Promise<ConfigMaoDeObra> {
     jornada: numero(data.jornada, CONFIG_PADRAO.jornada),
     tempo_blitz: numero(data.tempo_blitz, CONFIG_PADRAO.tempo_blitz),
     hl_por_mapa: numero(data.hl_por_mapa, CONFIG_PADRAO.hl_por_mapa),
+    sellout_seg: numero(data.sellout_seg, 0),
+    sellout_ter: numero(data.sellout_ter, 0),
+    sellout_qua: numero(data.sellout_qua, 0),
+    sellout_qui: numero(data.sellout_qui, 0),
+    sellout_sex: numero(data.sellout_sex, 0),
+    sellout_sab: numero(data.sellout_sab, 0),
+    sellout_dom: numero(data.sellout_dom, 0),
   };
 }
 

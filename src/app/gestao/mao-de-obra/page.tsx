@@ -32,9 +32,12 @@ import {
   ROTULO_STATUS_ACAO,
   RUBRICAS,
   STATUS_ACAO,
+  DIAS_DO_SELLOUT,
   acumuladoDoMes,
   competenciaAnterior,
   conferenciaDoPlano,
+  curvaLigada,
+  somaDoSellout,
   contaDistribuicao,
   dimensionamentoNoRitmo,
   projecaoDoMes,
@@ -123,7 +126,7 @@ export default async function MaoDeObraPage({
   const custoDimensionado = linhas.reduce((s, l) => s + l.custoDimensionado, 0);
   const temQuadro = linhas.some((l) => l.realizado != null);
 
-  const diasDoMes = volumePorDia(mesAtual, dias);
+  const diasDoMes = volumePorDia(mesAtual, dias, config);
   const conferencia = conferenciaDoPlano(mesAtual, diasDoMes);
   const acumulado = acumuladoDoMes(diasDoMes);
   const projecao = projecaoDoMes(diasDoMes);
@@ -580,6 +583,38 @@ export default async function MaoDeObraPage({
                       </label>
                     ))}
                   </div>
+                  <div>
+                    <p className="mb-1 text-xs font-bold uppercase tracking-wide text-slate-500">
+                      Curva de sellout por dia da semana
+                    </p>
+                    <p className="mb-2 text-xs text-slate-500">
+                      Quanto do volume da semana sai em cada dia. A soma precisa fechar em <b>100%</b> — e é ela que
+                      distribui a meta na aba Volume por dia. Deixe tudo em zero para usar a média simples.
+                    </p>
+                    <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+                      {DIAS_DO_SELLOUT.map((d) => (
+                        <label key={d.id} className="block">
+                          <span className="mb-1 block text-[11px] font-semibold uppercase text-slate-500">
+                            {d.rotulo}
+                          </span>
+                          <input
+                            name={d.id}
+                            defaultValue={String(config[d.id])}
+                            inputMode="decimal"
+                            className="w-full rounded-lg border border-slate-300 px-2 py-2 text-right font-mono text-sm tabular-nums"
+                          />
+                        </label>
+                      ))}
+                    </div>
+                    <p className="mt-1 text-[11px] text-slate-500">
+                      Hoje somam{" "}
+                      <b className={somaDoSellout(config) === 0 || Math.abs(somaDoSellout(config) - 100) < 0.01 ? "text-emerald-700" : "text-red-700"}>
+                        {formatarNumero(somaDoSellout(config), 2)}%
+                      </b>
+                      {somaDoSellout(config) === 0 && " (curva desligada)"}.
+                    </p>
+                  </div>
+
                   <BotaoEnviar textoEnviando="Salvando..." className="w-full rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white">
                     Salvar os parâmetros
                   </BotaoEnviar>
@@ -736,6 +771,7 @@ export default async function MaoDeObraPage({
                 planoSabado={diasDoMes.find((d) => d.opera && d.tipo === "sabado")?.plan ?? 0}
                 conferencia={conferencia}
                 diasInformados={mesAtual.dias_totais ?? 0}
+                curva={curvaLigada(config) ? DIAS_DO_SELLOUT.map((d) => ({ rotulo: d.rotulo, valor: config[d.id] })) : null}
               />
               {/* A FLEXÃO (V.4): se o mês fechar no ritmo de hoje, quanta
                   gente ele passa a pedir? */}

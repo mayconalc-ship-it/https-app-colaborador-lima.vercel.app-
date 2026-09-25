@@ -12,8 +12,10 @@ import {
   LIMITES_MAO_DE_OBRA,
   MES_VAZIO,
   MODULO_MAO_DE_OBRA,
+  DIAS_DO_SELLOUT,
   PARAMETROS,
   RUBRICAS,
+  validarSellout,
   diasDaCompetencia,
   dimensionamentoDoMes,
   tipoDoDia,
@@ -150,6 +152,17 @@ export async function salvarParametros(formData: FormData) {
     if (p.id === "jornada" && v <= 0) voltar(competencia, "erro", "A jornada não pode ser zero.");
     valores[p.id] = v;
   }
+
+  // A CURVA DE SELLOUT: ou está desligada (tudo zero) ou fecha em 100%.
+  const curva: Record<string, number> = {};
+  for (const d of DIAS_DO_SELLOUT) {
+    const v = numero(formData.get(d.id)) ?? 0;
+    if (v < 0 || v > 100) voltar(competencia, "erro", `Percentual inválido em ${d.rotulo}.`);
+    curva[d.id] = v;
+  }
+  const problemaDaCurva = validarSellout(curva as Parameters<typeof validarSellout>[0]);
+  if (problemaDaCurva) voltar(competencia, "erro", problemaDaCurva);
+  Object.assign(valores, curva);
 
   const admin = createAdminClient();
   const { error } = await admin.from("mao_obra_config").upsert(

@@ -93,6 +93,18 @@ export type ConfigMaoDeObra = {
   tempo_blitz: number;
   /** Hectolitros por mapa -- o divisor dos mapas previstos. */
   hl_por_mapa: number;
+  /**
+   * A CURVA DE SELLOUT (25/09/2026): quanto do volume da semana sai em
+   * cada dia. Em percentual, fechando 100% nos dias que operam. Tudo
+   * zerado = curva desligada, e a meta volta a ser a média simples.
+   */
+  sellout_seg: number;
+  sellout_ter: number;
+  sellout_qua: number;
+  sellout_qui: number;
+  sellout_sex: number;
+  sellout_sab: number;
+  sellout_dom: number;
 };
 
 /** Os números que vieram da planilha da companhia. Cada revenda ajusta os seus. */
@@ -110,7 +122,55 @@ export const CONFIG_PADRAO: ConfigMaoDeObra = {
   jornada: 0.3055555555555556,
   tempo_blitz: 1 / 36,
   hl_por_mapa: 50,
+  sellout_seg: 0,
+  sellout_ter: 0,
+  sellout_qua: 0,
+  sellout_qui: 0,
+  sellout_sex: 0,
+  sellout_sab: 0,
+  sellout_dom: 0,
 };
+
+/** Os dias da semana da curva, na ordem em que a tela mostra. */
+export const DIAS_DO_SELLOUT = [
+  { id: "sellout_seg", rotulo: "Segunda", indice: 1 },
+  { id: "sellout_ter", rotulo: "Terça", indice: 2 },
+  { id: "sellout_qua", rotulo: "Quarta", indice: 3 },
+  { id: "sellout_qui", rotulo: "Quinta", indice: 4 },
+  { id: "sellout_sex", rotulo: "Sexta", indice: 5 },
+  { id: "sellout_sab", rotulo: "Sábado", indice: 6 },
+  { id: "sellout_dom", rotulo: "Domingo", indice: 0 },
+] as const;
+
+export type ChaveDoSellout = (typeof DIAS_DO_SELLOUT)[number]["id"];
+
+export function somaDoSellout(c: Pick<ConfigMaoDeObra, ChaveDoSellout>): number {
+  return DIAS_DO_SELLOUT.reduce((s, d) => s + (Number(c[d.id]) || 0), 0);
+}
+
+/** A curva está em uso? (tudo zerado = desligada) */
+export function curvaLigada(c: Pick<ConfigMaoDeObra, ChaveDoSellout>): boolean {
+  return somaDoSellout(c) > 0;
+}
+
+/**
+ * A curva fecha em 100%? A soma só precisa fechar entre os dias que a
+ * revenda opera -- domingo em zero é o normal.
+ */
+export function validarSellout(c: Pick<ConfigMaoDeObra, ChaveDoSellout>): string | null {
+  const soma = somaDoSellout(c);
+  if (soma === 0) return null;
+  if (Math.abs(soma - 100) > 0.01) {
+    return `A curva de sellout soma ${soma.toFixed(2).replace(".", ",")}% — precisa fechar em 100%.`;
+  }
+  return null;
+}
+
+/** O percentual daquele dia da semana (0 = domingo). */
+export function percentualDoDia(c: Pick<ConfigMaoDeObra, ChaveDoSellout>, diaDaSemana: number): number {
+  const achado = DIAS_DO_SELLOUT.find((d) => d.indice === diaDaSemana);
+  return achado ? Number(c[achado.id]) || 0 : 0;
+}
 
 export const PARAMETROS = [
   { id: "percentual_montagem", rotulo: "Percentual de montagem", ajuda: "Quanto do volume passa pela montagem." },
@@ -523,7 +583,11 @@ export type LancamentoDoDia = { realizado: number | null; opera: boolean };
  * A grade do mês. `lancados` traz o que já foi digitado e quais dias
  * operam; sem ele, domingo fica de fora e o resto opera.
  */
-export function volumePorDia(m: MesMaoDeObra, lancados: Map<number, LancamentoDoDia>): DiaDoVolume[] {
+export function volumePorDia(
+  m: MesMaoDeObra,
+  lancados: Map<number, LancamentoDoDia>,
+  config?: Pick<ConfigMaoDeObra, ChaveDoSellout>,
+): DiaDoVolume[] {
   const diasNoMes = diasDaCompetencia(m.competencia);
   const base: { dia: number; data: string; tipo: TipoDeDia; opera: boolean; realizado: number | null }[] = [];
   for (let dia = 1; dia <= diasNoMes; dia++) {
@@ -540,13 +604,32 @@ export function volumePorDia(m: MesMaoDeObra, lancados: Map<number, LancamentoDo
   }
 
   const operando = base.filter((d) => d.opera);
+
+  /*
+    COM A CURVA DE SELLOUT (25/09/2026): cada dia leva o peso do seu dia
+    da semana, e os pesos dos dias que operam são normalizados para somar
+    o volume do mês. Assim a segunda não recebe a mesma meta da sexta, e
+    o total continua fechando em 100% do volume informado.
+  */
+  const comCurva = config ? curvaLigada(config) : false;
+  const pesoDe = (data: string) =>
+    config ? percentualDoDia(config, new Date(`${data}T12:00:00Z`).getUTCDay()) : 0;
+  const pesoTotal = comCurva ? operando.reduce((s, d) => s + pesoDe(d.data), 0) : 0;
+  const volumeBase = volumeBaseDaMeta(m);
+
   const plano = planoPorTipoDeDia(m, {
     uteis: operando.filter((d) => d.tipo !== "sabado").length,
     sabados: operando.filter((d) => d.tipo === "sabado").length,
   });
 
   return base.map((d) => {
-    const plan = !d.opera ? 0 : d.tipo === "sabado" ? plano.sabado : plano.util;
+    const plan = !d.opera
+      ? 0
+      : comCurva && pesoTotal > 0
+        ? (volumeBase * pesoDe(d.data)) / pesoTotal
+        : d.tipo === "sabado"
+          ? plano.sabado
+          : plano.util;
     return {
       dia: d.dia,
       data: d.data,
@@ -593,6 +676,53 @@ export function projecaoDoMes(dias: DiaDoVolume[]): {
     planQueFalta,
     projetado,
     dispersaoProjetada: planDoMes > 0 && lancados.length > 0 ? projetado / planDoMes - 1 : null,
+  };
+}
+
+/**
+ * O LE (Latest Estimate) -- a previsão de fechamento do mês.
+ *
+ * Pedido do dono (25/09/2026): ao digitar o volume do dia, saber se o mês
+ * chega na meta. Duas leituras, e as duas importam:
+ *   - NO RITMO: o que os dias lançados renderam, projetado nos que faltam;
+ *   - SE FECHAR NA META: o realizado mais a meta dos dias que faltam.
+ */
+export function leDoMes(dias: DiaDoVolume[], metaDoMes: number): {
+  realizado: number;
+  metaAteAgora: number;
+  metaQueFalta: number;
+  diasLancados: number;
+  diasQueFaltam: number;
+  ritmo: number | null;
+  /** A previsão: realizado + o que falta, no ritmo de até agora. */
+  le: number;
+  /** O que dá se os dias que faltam fecharem exatamente na meta. */
+  leNaMeta: number;
+  /** le / meta do mês − 1. */
+  desvio: number | null;
+  /** Quanto falta por dia para ainda bater a meta. */
+  precisaPorDia: number | null;
+  bate: boolean;
+} {
+  const lancados = dias.filter((d) => d.realizado != null);
+  const faltam = dias.filter((d) => d.opera && d.realizado == null);
+  const realizado = lancados.reduce((s, d) => s + (d.realizado ?? 0), 0);
+  const metaAteAgora = lancados.reduce((s, d) => s + d.plan, 0);
+  const metaQueFalta = faltam.reduce((s, d) => s + d.plan, 0);
+  const ritmo = metaAteAgora > 0 ? realizado / metaAteAgora : null;
+  const le = lancados.length === 0 ? metaDoMes : realizado + metaQueFalta * (ritmo ?? 1);
+  return {
+    realizado,
+    metaAteAgora,
+    metaQueFalta,
+    diasLancados: lancados.length,
+    diasQueFaltam: faltam.length,
+    ritmo,
+    le,
+    leNaMeta: realizado + metaQueFalta,
+    desvio: metaDoMes > 0 && lancados.length > 0 ? le / metaDoMes - 1 : null,
+    precisaPorDia: faltam.length > 0 ? Math.max(0, metaDoMes - realizado) / faltam.length : null,
+    bate: le >= metaDoMes,
   };
 }
 

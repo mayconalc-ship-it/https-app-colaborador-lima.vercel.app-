@@ -7,6 +7,7 @@ import {
   ROTULO_TIPO_DE_DIA,
   formatarNumero,
   formatarPercento,
+  leDoMes,
   type DiaDoVolume,
 } from "@/lib/mao-de-obra";
 import { salvarDias } from "./actions";
@@ -28,6 +29,7 @@ export function FormDias({
   planoSabado,
   conferencia,
   diasInformados,
+  curva,
 }: {
   competencia: string;
   dias: DiaDoVolume[];
@@ -46,6 +48,8 @@ export function FormDias({
   };
   /** Quantos dias de operação o mês informou -- para conferir com a grade. */
   diasInformados: number;
+  /** A curva de sellout, quando ligada -- só para explicar a meta na tela. */
+  curva: { rotulo: string; valor: number }[] | null;
 }) {
   const [valores, setValores] = useState<Record<number, string>>(() => {
     const base: Record<number, string> = {};
@@ -67,12 +71,21 @@ export function FormDias({
     const uteisOperando = operando.length - sabadosOperando;
     const doSabado = planoSabado;
     const metaUtil = uteisOperando > 0 ? (conferencia.volumeBase - doSabado * sabadosOperando) / uteisOperando : 0;
+    // Com a curva ligada, o peso de cada dia já veio pronto do servidor:
+    // aqui só se redistribui entre os dias que continuam marcados.
+    const pesoTotal = operando.reduce((s, d) => s + (d.plan || 0), 0);
 
     const linhas = dias.map((d) => {
       const bruto = (valores[d.dia] ?? "").trim().replace(/\./g, "").replace(",", ".");
       const valor = bruto === "" ? null : Number(bruto);
       const valido = valor != null && Number.isFinite(valor);
-      const plan = !opera[d.dia] ? 0 : d.tipo === "sabado" ? doSabado : metaUtil;
+      const plan = !opera[d.dia]
+        ? 0
+        : curva && pesoTotal > 0
+          ? (conferencia.volumeBase * (d.plan || 0)) / pesoTotal
+          : d.tipo === "sabado"
+            ? doSabado
+            : metaUtil;
       return {
         ...d,
         plan,
@@ -92,6 +105,10 @@ export function FormDias({
       metaUtil,
       diasQueOperam: operando.length,
       lancados: lancados.length,
+      le: leDoMes(
+        linhas.map((l) => ({ ...l, opera: opera[l.dia] ?? false })),
+        planDoMes,
+      ),
       planDoMes,
       realizadoAteAgora,
       dispersao: planAteAgora > 0 ? realizadoAteAgora / planAteAgora - 1 : null,
@@ -99,7 +116,7 @@ export function FormDias({
       dispersaoProjetada: planDoMes > 0 && lancados.length > 0 ? projetado / planDoMes - 1 : null,
       falta: Math.max(0, planDoMes - realizadoAteAgora),
     };
-  }, [valores, dias, opera, planoSabado, conferencia.volumeBase]);
+  }, [valores, dias, opera, planoSabado, conferencia.volumeBase, curva]);
 
   const corDaDispersao = (d: number | null) =>
     d == null ? "text-slate-300" : Math.abs(d) > DISPERSAO_ACEITA ? "text-red-600" : "text-emerald-600";
@@ -130,7 +147,15 @@ export function FormDias({
       )}
 
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-        <Numero titulo="Média do dia útil" valor={`${formatarNumero(conta.metaUtil, 0)} HL`} />
+        <Numero
+          titulo={curva ? "Meta média do dia útil" : "Média do dia útil"}
+          valor={`${formatarNumero(
+            curva
+              ? conta.linhas.filter((l) => l.opera && l.tipo !== "sabado").reduce((s, l, _, a) => s + l.plan / a.length, 0)
+              : conta.metaUtil,
+            0,
+          )} HL`}
+        />
         <Numero titulo="Média do sábado" valor={`${formatarNumero(planoSabado, 0)} HL`} />
         <Numero
           titulo={`Realizado (${conta.lancados} dia${conta.lancados === 1 ? "" : "s"})`}
@@ -143,17 +168,43 @@ export function FormDias({
         />
       </div>
 
-      {/* O RITMO: onde o mês termina se continuar assim. */}
+      {/* O LE: a previsão de fechamento, no ritmo dos dias lançados. */}
       {conta.lancados > 0 && (
-        <div className="rounded-xl bg-slate-50 p-3 text-sm">
-          <p className="text-xs font-bold uppercase tracking-wide text-slate-500">No ritmo de hoje</p>
-          <p className="mt-1 text-slate-700">
-            O mês fecha em <b className="font-mono tabular-nums">{formatarNumero(conta.projetado, 0)} HL</b> contra o
-            plano de <b className="font-mono tabular-nums">{formatarNumero(conta.planDoMes, 0)} HL</b> (
-            <b className={`font-mono tabular-nums ${corDaDispersao(conta.dispersaoProjetada)}`}>
-              {formatarPercento(conta.dispersaoProjetada)}
-            </b>
-            ). Faltam <b className="font-mono tabular-nums">{formatarNumero(conta.falta, 0)} HL</b> para o plano.
+        <div
+          className={`rounded-xl p-3 text-sm ${
+            conta.le.bate ? "bg-emerald-50 text-emerald-900" : "bg-amber-50 text-amber-900"
+          }`}
+        >
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <p className="text-xs font-bold uppercase tracking-wide">LE — previsão do mês</p>
+            <p className="font-mono text-lg font-bold tabular-nums">
+              {formatarNumero(conta.le.le, 0)} HL{" "}
+              <span className="text-xs font-normal">
+                ({conta.le.desvio != null && conta.le.desvio >= 0 ? "+" : ""}
+                {formatarPercento(conta.le.desvio)} da meta)
+              </span>
+            </p>
+          </div>
+          <p className="mt-1">
+            {conta.le.bate ? "✅ No ritmo de hoje, o mês bate a meta de " : "⚠️ No ritmo de hoje, o mês NÃO bate a meta de "}
+            <b className="font-mono tabular-nums">{formatarNumero(conta.planDoMes, 0)} HL</b>.{" "}
+            {conta.le.precisaPorDia != null && conta.le.diasQueFaltam > 0 && (
+              <>
+                Para chegar lá, faltam{" "}
+                <b className="font-mono tabular-nums">{formatarNumero(conta.le.precisaPorDia, 0)} HL</b> por dia nos{" "}
+                {conta.le.diasQueFaltam} dias que restam (a meta deles é{" "}
+                <b className="font-mono tabular-nums">
+                  {formatarNumero(conta.le.metaQueFalta / Math.max(1, conta.le.diasQueFaltam), 0)} HL
+                </b>
+                ).
+              </>
+            )}
+          </p>
+          <p className="mt-1 text-xs">
+            Realizado <b className="font-mono tabular-nums">{formatarNumero(conta.le.realizado, 0)} HL</b> em{" "}
+            {conta.le.diasLancados} dia{conta.le.diasLancados === 1 ? "" : "s"} · ritmo de{" "}
+            <b className="font-mono tabular-nums">{formatarPercento((conta.le.ritmo ?? 1) - 1)}</b> contra a meta do
+            período.
           </p>
         </div>
       )}
@@ -248,8 +299,13 @@ export function FormDias({
         </BotaoEnviar>
       )}
       <p className="text-[11px] text-slate-500">
-        O sábado entrega o volume cadastrado para sábado; o resto se divide pelos dias úteis marcados. Dia em branco
-        não entra no acumulado, e dia desmarcado não recebe meta.
+        {curva
+          ? `A meta de cada dia segue a curva de sellout (${curva
+              .filter((c) => c.valor > 0)
+              .map((c) => `${c.rotulo} ${formatarNumero(c.valor, 1)}%`)
+              .join(" · ")}), redistribuída entre os dias marcados.`
+          : "O sábado entrega o volume cadastrado para sábado; o resto se divide pelos dias úteis marcados."}{" "}
+        Dia em branco não entra no acumulado, e dia desmarcado não recebe meta.
       </p>
     </form>
   );
