@@ -438,40 +438,126 @@ export function assuntoDoEmailDeVagas(revenda: string, competencia: string, tota
 // O VOLUME POR DIA -- plan x realizado (25/09/2026)
 // ------------------------------------------------------------------
 
+export type TipoDeDia = "util" | "sabado" | "domingo";
+
 export type DiaDoVolume = {
   dia: number;
-  /** O volume que o mês pede por dia útil. */
+  /** "2026-09-12" -- a data de verdade, para o dia da semana. */
+  data: string;
+  /** "12/09" */
+  rotulo: string;
+  /** "sex" */
+  diaDaSemana: string;
+  tipo: TipoDeDia;
+  /** A média necessária NAQUELE dia: útil, sábado ou domingo. */
   plan: number;
   realizado: number | null;
-  /** realizado / plan − 1. Null enquanto o dia não foi lançado. */
+  /** realizado / plan − 1. Null quando não há plano ou lançamento. */
   dispersao: number | null;
 };
 
+const DIAS_DA_SEMANA = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"];
+
+export function tipoDoDia(data: string): TipoDeDia {
+  const d = new Date(`${data}T12:00:00Z`).getUTCDay();
+  return d === 0 ? "domingo" : d === 6 ? "sabado" : "util";
+}
+
+export const ROTULO_TIPO_DE_DIA: Record<TipoDeDia, string> = {
+  util: "Dia útil",
+  sabado: "Sábado",
+  domingo: "Domingo",
+};
+
 /**
- * O plano do dia é o volume negociado dividido pelos DIAS ÚTEIS -- os
- * mesmos dias que dimensionam a frota. Sábado não entra: o volume do
- * sábado já é lançado à parte no mês.
+ * A MÉDIA NECESSÁRIA POR TIPO DE DIA (25/09/2026, pedido do dono).
+ *
+ * Não é uma média só para o mês inteiro: sábado entrega menos, e é ele
+ * quem diz quanto (volume_entrega_sabado). O que sobra do volume
+ * negociado, depois de tirar os sábados, se divide pelos dias úteis --
+ * exatamente a mesma conta que dimensiona a frota. Domingo não opera.
  */
-export function planoDoDia(m: MesMaoDeObra): number {
+export function planoPorTipoDeDia(m: MesMaoDeObra): Record<TipoDeDia, number> {
   const diasUteis = Math.max(0, n(m.dias_totais) - n(m.sabados));
-  if (diasUteis <= 0) return 0;
-  return (n(m.volume_negociado) - n(m.volume_entrega_sabado) * n(m.sabados)) / diasUteis;
+  const doSabado = n(m.volume_entrega_sabado);
+  const sobra = n(m.volume_negociado) - doSabado * n(m.sabados);
+  return {
+    util: diasUteis > 0 ? sobra / diasUteis : 0,
+    sabado: doSabado,
+    domingo: 0,
+  };
+}
+
+/** A média do dia útil -- o número que a tela mostra em destaque. */
+export function planoDoDia(m: MesMaoDeObra): number {
+  return planoPorTipoDeDia(m).util;
 }
 
 export function volumePorDia(m: MesMaoDeObra, realizadoPorDia: Map<number, number>): DiaDoVolume[] {
-  const plan = planoDoDia(m);
+  const plano = planoPorTipoDeDia(m);
   const diasNoMes = diasDaCompetencia(m.competencia);
   const dias: DiaDoVolume[] = [];
   for (let dia = 1; dia <= diasNoMes; dia++) {
+    const data = `${m.competencia}-${String(dia).padStart(2, "0")}`;
+    const tipo = tipoDoDia(data);
+    const plan = plano[tipo];
     const realizado = realizadoPorDia.get(dia) ?? null;
     dias.push({
       dia,
+      data,
+      rotulo: `${String(dia).padStart(2, "0")}/${m.competencia.slice(5)}`,
+      diaDaSemana: DIAS_DA_SEMANA[new Date(`${data}T12:00:00Z`).getUTCDay()],
+      tipo,
       plan,
       realizado,
       dispersao: realizado == null || plan <= 0 ? null : realizado / plan - 1,
     });
   }
   return dias;
+}
+
+/**
+ * O RITMO DO MÊS: no que saiu até agora, onde o mês termina?
+ *
+ * É o que o item V.4 chama de "ajustes e flexões conforme a variação do
+ * volume" -- projeta o fechamento pelo realizado até aqui mais o plano
+ * dos dias que faltam, corrigido pelo ritmo.
+ */
+export function projecaoDoMes(dias: DiaDoVolume[]): {
+  planDoMes: number;
+  realizadoAteAgora: number;
+  planAteAgora: number;
+  /** O que falta de plano nos dias ainda não lançados. */
+  planQueFalta: number;
+  /** Realizado + o que falta, no ritmo de até agora. */
+  projetado: number;
+  /** projetado / plano do mês − 1. */
+  dispersaoProjetada: number | null;
+} {
+  const planDoMes = dias.reduce((s, d) => s + d.plan, 0);
+  const lancados = dias.filter((d) => d.realizado != null);
+  const planAteAgora = lancados.reduce((s, d) => s + d.plan, 0);
+  const realizadoAteAgora = lancados.reduce((s, d) => s + (d.realizado ?? 0), 0);
+  const planQueFalta = planDoMes - planAteAgora;
+  const ritmo = planAteAgora > 0 ? realizadoAteAgora / planAteAgora : 1;
+  const projetado = lancados.length === 0 ? planDoMes : realizadoAteAgora + planQueFalta * ritmo;
+  return {
+    planDoMes,
+    realizadoAteAgora,
+    planAteAgora,
+    planQueFalta,
+    projetado,
+    dispersaoProjetada: planDoMes > 0 && lancados.length > 0 ? projetado / planDoMes - 1 : null,
+  };
+}
+
+/**
+ * Quanta gente o mês pediria SE fechasse no volume projetado -- a flexão
+ * que o V.4 cobra. Devolve a frota e as funções da Distribuição, que são
+ * as que se movem com o volume do dia.
+ */
+export function dimensionamentoNoRitmo(m: MesMaoDeObra, volumeProjetado: number) {
+  return contaDistribuicao({ ...m, volume_negociado: volumeProjetado });
 }
 
 /** O acumulado do mês até o último dia lançado -- é ele que manda. */

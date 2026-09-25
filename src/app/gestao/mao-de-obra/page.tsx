@@ -34,6 +34,10 @@ import {
   STATUS_ACAO,
   acumuladoDoMes,
   competenciaAnterior,
+  contaDistribuicao,
+  dimensionamentoNoRitmo,
+  planoPorTipoDeDia,
+  projecaoDoMes,
   competenciaAtual,
   comparativoDeMeses,
   custoDaPessoa,
@@ -43,7 +47,6 @@ import {
   formatarNumero,
   formatarPercento,
   formatarReais,
-  planoDoDia,
   rotuloCompetencia,
   vagasDoMes,
   volumePorDia,
@@ -122,14 +125,18 @@ export default async function MaoDeObraPage({
 
   const diasDoMes = volumePorDia(mesAtual, dias);
   const acumulado = acumuladoDoMes(diasDoMes);
+  const projecao = projecaoDoMes(diasDoMes);
+  const noRitmo = dimensionamentoNoRitmo(mesAtual, projecao.projetado);
+  const doPlano = contaDistribuicao(mesAtual);
   const dispersaoFechada = dispersaoDoVolume(mesAtual);
   const dispersao = dispersaoFechada ?? acumulado.dispersao;
 
   // O COMPARATIVO (V.3): o mês e os dois anteriores, lado a lado.
   const anterior1 = competenciaAnterior(competencia);
   const anterior2 = competenciaAnterior(anterior1);
+  const anterior3 = competenciaAnterior(anterior2);
   const paraComparar = await Promise.all(
-    [anterior2, anterior1].map(async (c) => {
+    [anterior3, anterior2, anterior1].map(async (c) => {
       const m = c.slice(0, 4) === String(ano) ? mesesDoAno.find((x) => x.competencia === c) : await lerMes(revendaId, c);
       if (!m) return null;
       const real = c.slice(0, 4) === String(ano) ? (realizadoDoAno.get(c) ?? {}) : await lerRealizado(revendaId, c);
@@ -359,7 +366,7 @@ export default async function MaoDeObraPage({
               <div className="border-b border-slate-100 px-4 py-3">
                 <h2 className="text-sm font-bold text-slate-800">Comparativo dos últimos meses</h2>
                 <p className="text-[11px] text-slate-500">
-                  O que foi dimensionado antes e o que o mês pede agora — a verificação V.3 do DPO.
+                  O que foi dimensionado há 3, 2 e 1 mês contra o que o mês corrente pede — a verificação V.3 do DPO.
                 </p>
               </div>
               <table className="w-full table-fixed text-sm">
@@ -717,16 +724,39 @@ export default async function MaoDeObraPage({
           </p>
           {!mes ? (
             <p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900">
-              Lance o volume do mês na aba Dimensionamento para o plano do dia existir.
+              Lance o volume do mês na aba Dimensionamento para a média necessária existir.
             </p>
           ) : (
-            <FormDias
-              competencia={competencia}
-              plan={planoDoDia(mesAtual)}
-              dias={diasDoMes.length}
-              realizado={Object.fromEntries(dias)}
-              podeEditar={podeEditar}
-            />
+            <>
+              <FormDias
+                competencia={competencia}
+                dias={diasDoMes}
+                podeEditar={podeEditar}
+                planoUtil={planoPorTipoDeDia(mesAtual).util}
+                planoSabado={planoPorTipoDeDia(mesAtual).sabado}
+              />
+              {/* A FLEXÃO (V.4): se o mês fechar no ritmo de hoje, quanta
+                  gente ele passa a pedir? */}
+              {acumulado.diasLancados > 0 && (
+                <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3">
+                  <p className="text-xs font-bold uppercase tracking-wide text-slate-500">
+                    Ajuste no ritmo de hoje
+                  </p>
+                  <p className="mt-1 text-xs text-slate-600">
+                    No volume projetado de {formatarNumero(projecao.projetado, 0)} HL, a operação pediria:
+                  </p>
+                  <div className="mt-2 grid grid-cols-3 gap-2 text-center">
+                    <Flexao rotulo="Frota" plano={doPlano.frotaDimensionada} ritmo={noRitmo.frotaDimensionada} />
+                    <Flexao rotulo="Motoristas" plano={doPlano.motoristas} ritmo={noRitmo.motoristas} />
+                    <Flexao rotulo="Ajudantes" plano={doPlano.ajudantes} ritmo={noRitmo.ajudantes} />
+                  </div>
+                  <p className="mt-2 text-[11px] text-slate-500">
+                    O plano do mês dimensionou {doPlano.frotaDimensionada} carros. Diferença aqui é o momento de
+                    negociar SPOT, hora extra ou férias — e de lançar a ação no plano.
+                  </p>
+                </div>
+              )}
+            </>
           )}
         </section>
       )}
@@ -870,6 +900,24 @@ function Cartao({
       <p className="text-xs font-semibold uppercase text-slate-500">{titulo}</p>
       <p className={`mt-1 font-mono text-2xl font-bold tabular-nums ${cor}`}>{valor}</p>
       <p className="mt-1 text-xs text-slate-500">{detalhe}</p>
+    </div>
+  );
+}
+
+/** Quanto o ritmo do mês muda o dimensionado -- a "flexão" do item V.4. */
+function Flexao({ rotulo, plano, ritmo }: { rotulo: string; plano: number; ritmo: number }) {
+  const diferenca = ritmo - plano;
+  return (
+    <div className="rounded-lg bg-white p-2 ring-1 ring-slate-200">
+      <p className="text-[10px] font-semibold uppercase text-slate-500">{rotulo}</p>
+      <p className="font-mono text-lg font-bold tabular-nums text-slate-900">{ritmo}</p>
+      <p
+        className={`text-[11px] font-medium ${
+          diferenca === 0 ? "text-slate-400" : diferenca > 0 ? "text-amber-600" : "text-emerald-600"
+        }`}
+      >
+        {diferenca === 0 ? "igual ao plano" : `${diferenca > 0 ? "+" : ""}${diferenca} contra o plano`}
+      </p>
     </div>
   );
 }
