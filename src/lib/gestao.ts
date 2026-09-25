@@ -29,6 +29,7 @@ export type PainelId =
   | "anomalias"
   | "pdv"
   | "comprovantes-qr"
+  | "mao-de-obra"
   | "armazem"
   | "gas"
   | "cinco-s"
@@ -120,6 +121,18 @@ export const PAINEIS: Painel[] = [
     bloco: "Operação",
     modulo: "qr-contingencia",
     pergunta: "Quem pagou pelo PIX da empresa, em qual mapa, e a foto do comprovante.",
+    mora: true,
+  },
+  {
+    // O dimensionamento de gente pelo volume (25/09/2026), que o item 1.2
+    // do DPO cobra: quanta gente o mês pede, quanta a revenda tem.
+    id: "mao-de-obra",
+    rotulo: "Simulador de Mão de Obra",
+    emoji: "👷",
+    href: "/gestao/mao-de-obra",
+    bloco: "Pessoas",
+    modulo: "mao-de-obra",
+    pergunta: "Quanta gente o volume do mês pede, quanta temos e quanto custa.",
     mora: true,
   },
   {

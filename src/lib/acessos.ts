@@ -30,6 +30,7 @@ export type ModuloId =
   | "rotas"
   | "ativo-giro"
   | "material-apoio"
+  | "mao-de-obra"
   | "qr-contingencia"
   | "quiz"
   | "boas-praticas"
@@ -545,6 +546,29 @@ export const MODULOS: Modulo[] = [
     rotulo: "Material de Apoio",
     emoji: "🧰",
     href: "/admin/material-de-apoio",
+    grupo: "Configuração",
+    acoes: ["ver", "editar", "excluir"],
+  },
+  {
+    /*
+      SIMULADOR DE MÃO DE OBRA (25/09/2026, pedido do dono).
+
+      Nasce do item 1.2 do DPO (Dimensionamento): antecipar a necessidade
+      de gente pelo volume, comparar com o que a revenda tem e registrar o
+      plano de ação do desvio. Quem tem "ver" abre o simulador na Gestão;
+      "editar" lança o mês, o realizado e as ações; "excluir" apaga ação
+      lançada por engano. Custo de gente é dado sensível: sem "ver", nem
+      o cartão aparece.
+    */
+    id: "mao-de-obra",
+    rotulosDeAcao: {
+      ver: "📊 Abrir o Simulador de Mão de Obra na Gestão",
+      editar: "Lançar o mês, o quadro realizado, as ações e a base salarial",
+      excluir: "Apagar ação do plano lançada por engano",
+    },
+    rotulo: "Simulador de Mão de Obra",
+    emoji: "👷",
+    href: "/gestao/mao-de-obra",
     grupo: "Configuração",
     acoes: ["ver", "editar", "excluir"],
   },
