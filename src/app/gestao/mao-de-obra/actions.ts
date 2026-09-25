@@ -20,6 +20,7 @@ import {
   dimensionamentoDoMes,
   tipoDoDia,
   ehCompetencia,
+  lerNumeroDigitado,
   vagasDoMes,
   validarAcao,
   validarEmail,
@@ -37,13 +38,8 @@ function atualizarTelas() {
   revalidatePath(ROTA);
 }
 
-/** Número do formulário: vazio vira null, vírgula vira ponto. */
-function numero(valor: FormDataEntryValue | null): number | null {
-  const bruto = String(valor ?? "").trim().replace(/\./g, "").replace(",", ".");
-  if (!bruto) return null;
-  const n = Number(bruto);
-  return Number.isFinite(n) ? n : null;
-}
+/** Número do formulário -- a MESMA leitura da tela (lerNumeroDigitado). */
+const numero = (valor: FormDataEntryValue | null): number | null => lerNumeroDigitado(String(valor ?? ""));
 
 /**
  * O MÊS DO SIMULADOR -- volume, dias, frota e os turnos do armazém.
@@ -149,6 +145,15 @@ export async function salvarParametros(formData: FormData) {
   for (const p of PARAMETROS) {
     const v = numero(formData.get(p.id));
     if (v == null || v < 0) voltar(competencia, "erro", `Informe um número válido em ${p.rotulo}.`);
+    // O teto da coluna (migration 135): sem isto o banco recusava com
+    // "numeric field overflow", que não diz nada a quem está na tela.
+    if (v > p.limite) {
+      voltar(
+        competencia,
+        "erro",
+        `${p.rotulo}: ${v.toLocaleString("pt-BR")} passa do máximo aceito (${p.limite.toLocaleString("pt-BR")}). Use vírgula para o decimal — 0,305556, por exemplo.`,
+      );
+    }
     if (p.id === "jornada" && v <= 0) voltar(competencia, "erro", "A jornada não pode ser zero.");
     valores[p.id] = v;
   }

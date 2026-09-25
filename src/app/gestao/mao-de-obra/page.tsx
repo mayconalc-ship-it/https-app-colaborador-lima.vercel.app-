@@ -50,6 +50,7 @@ import {
   formatarNumero,
   formatarPercento,
   formatarReais,
+  mostrarNumero,
   rotuloCompetencia,
   vagasDoMes,
   volumePorDia,
@@ -669,7 +670,7 @@ export default async function MaoDeObraPage({
                         <span className="mb-1 block text-[11px] font-semibold uppercase text-slate-500">{p.rotulo}</span>
                         <input
                           name={p.id}
-                          defaultValue={String(config[p.id])}
+                          defaultValue={mostrarNumero(config[p.id])}
                           inputMode="decimal"
                           className="w-full rounded-lg border border-slate-300 px-2 py-2 text-right font-mono text-sm tabular-nums"
                         />
@@ -692,7 +693,7 @@ export default async function MaoDeObraPage({
                           </span>
                           <input
                             name={d.id}
-                            defaultValue={String(config[d.id])}
+                            defaultValue={mostrarNumero(config[d.id], 3)}
                             inputMode="decimal"
                             className="w-full rounded-lg border border-slate-300 px-2 py-2 text-right font-mono text-sm tabular-nums"
                           />
@@ -738,7 +739,7 @@ export default async function MaoDeObraPage({
                               <span className="mb-1 block text-[10px] font-semibold uppercase text-slate-500">{r.rotulo}</span>
                               <input
                                 name={r.id}
-                                defaultValue={String(salarios[f.id][r.id] ?? 0)}
+                                defaultValue={mostrarNumero(salarios[f.id][r.id] ?? 0, 2)}
                                 inputMode="decimal"
                                 className="w-full rounded-lg border border-slate-300 px-2 py-1.5 text-right font-mono text-xs tabular-nums"
                               />

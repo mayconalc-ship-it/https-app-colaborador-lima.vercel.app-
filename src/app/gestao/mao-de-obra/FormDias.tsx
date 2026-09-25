@@ -8,6 +8,8 @@ import {
   formatarNumero,
   formatarPercento,
   leDoMes,
+  lerNumeroDigitado,
+  mostrarNumero,
   type DiaDoVolume,
 } from "@/lib/mao-de-obra";
 import { salvarDias } from "./actions";
@@ -53,7 +55,7 @@ export function FormDias({
 }) {
   const [valores, setValores] = useState<Record<number, string>>(() => {
     const base: Record<number, string> = {};
-    for (const d of dias) base[d.dia] = d.realizado == null ? "" : String(d.realizado);
+    for (const d of dias) base[d.dia] = mostrarNumero(d.realizado, 2);
     return base;
   });
   // Quais dias operam: domingo nasce desligado, feriado se desliga aqui.
@@ -76,8 +78,7 @@ export function FormDias({
     const pesoTotal = operando.reduce((s, d) => s + (d.plan || 0), 0);
 
     const linhas = dias.map((d) => {
-      const bruto = (valores[d.dia] ?? "").trim().replace(/\./g, "").replace(",", ".");
-      const valor = bruto === "" ? null : Number(bruto);
+      const valor = lerNumeroDigitado(valores[d.dia]);
       const valido = valor != null && Number.isFinite(valor);
       const plan = !opera[d.dia]
         ? 0

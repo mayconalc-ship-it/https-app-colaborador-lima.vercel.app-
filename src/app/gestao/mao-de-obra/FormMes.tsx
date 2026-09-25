@@ -11,6 +11,8 @@ import {
   contaArmazem,
   contaDistribuicao,
   formatarNumero,
+  lerNumeroDigitado,
+  mostrarNumero,
   rotuloCompetencia,
   validarMes,
   type ConfigMaoDeObra,
@@ -76,7 +78,7 @@ export function FormMes({
       // a transformava em null e quebrava a tela (25/09/2026).
       if (chave === "competencia" || chave === "observacao" || chave === "base_meta") continue;
       const valor = mes ? (mes[chave as keyof MesMaoDeObra] as number | null) : null;
-      base[chave] = valor == null ? "" : String(valor);
+      base[chave] = mostrarNumero(valor, 2);
     }
     return base;
   }, [mes]);
@@ -88,8 +90,7 @@ export function FormMes({
     const m: MesMaoDeObra = { ...MES_VAZIO, competencia, base_meta: mes?.base_meta ?? "negociado" };
     for (const chave of Object.keys(valores)) {
       if (chave === "base_meta") continue;
-      const bruto = valores[chave].trim().replace(/\./g, "").replace(",", ".");
-      (m[chave as keyof MesMaoDeObra] as number | null) = bruto === "" ? null : Number(bruto);
+      (m[chave as keyof MesMaoDeObra] as number | null) = lerNumeroDigitado(valores[chave]);
     }
     return {
       dist: contaDistribuicao(m),

@@ -173,17 +173,17 @@ export function percentualDoDia(c: Pick<ConfigMaoDeObra, ChaveDoSellout>, diaDaS
 }
 
 export const PARAMETROS = [
-  { id: "percentual_montagem", rotulo: "Percentual de montagem", ajuda: "Quanto do volume passa pela montagem." },
-  { id: "perc_blitz_carregamento", rotulo: "Percentual de blitz de carregamento", ajuda: "Entra no tempo dos operadores." },
-  { id: "perc_blitz_refugo", rotulo: "Percentual de blitz de refugo", ajuda: "" },
-  { id: "perc_blitz_puxada", rotulo: "Percentual de blitz de puxada", ajuda: "" },
-  { id: "tempo_reposicao_picking", rotulo: "Tempo de reposição do picking", ajuda: "Em fração de jornada." },
-  { id: "tempo_carregamento_caminhao", rotulo: "Tempo de carregamento do caminhão", ajuda: "Por mapa." },
-  { id: "tma", rotulo: "TMA da carreta", ajuda: "Tempo médio de atendimento." },
-  { id: "hl_carreta", rotulo: "HL por carreta", ajuda: "Hectolitros que cabem numa carreta." },
-  { id: "jornada", rotulo: "Jornada", ajuda: "Fração do dia efetivamente trabalhada." },
-  { id: "tempo_blitz", rotulo: "Tempo de blitz", ajuda: "" },
-  { id: "hl_por_mapa", rotulo: "HL por mapa", ajuda: "Divisor dos mapas previstos." },
+  { id: "percentual_montagem", rotulo: "Percentual de montagem", ajuda: "Quanto do volume passa pela montagem (0,4 = 40%).", limite: 99.9999 },
+  { id: "perc_blitz_carregamento", rotulo: "Percentual de blitz de carregamento", ajuda: "Entra no tempo dos operadores.", limite: 99.9999 },
+  { id: "perc_blitz_refugo", rotulo: "Percentual de blitz de refugo", ajuda: "", limite: 99.9999 },
+  { id: "perc_blitz_puxada", rotulo: "Percentual de blitz de puxada", ajuda: "", limite: 99.9999 },
+  { id: "tempo_reposicao_picking", rotulo: "Tempo de reposição do picking", ajuda: "Em fração do dia.", limite: 99.999999 },
+  { id: "tempo_carregamento_caminhao", rotulo: "Tempo de carregamento do caminhão", ajuda: "Fração do dia, por mapa.", limite: 99.999999 },
+  { id: "tma", rotulo: "TMA da carreta", ajuda: "Fração do dia (0,125 = 3 horas).", limite: 99.999999 },
+  { id: "hl_carreta", rotulo: "HL por carreta", ajuda: "Hectolitros que cabem numa carreta.", limite: 99999999 },
+  { id: "jornada", rotulo: "Jornada", ajuda: "Fração do dia (0,305556 = 7h20).", limite: 99.999999 },
+  { id: "tempo_blitz", rotulo: "Tempo de blitz", ajuda: "Fração do dia.", limite: 99.999999 },
+  { id: "hl_por_mapa", rotulo: "HL por mapa", ajuda: "Divisor dos mapas previstos.", limite: 99999999 },
 ] as const;
 
 // ------------------------------------------------------------------
@@ -261,6 +261,37 @@ export const MES_VAZIO: MesMaoDeObra = {
 };
 
 const n = (v: number | null | undefined) => (v == null || Number.isNaN(Number(v)) ? 0 : Number(v));
+
+/**
+ * O NÚMERO QUE A PESSOA DIGITOU -- a mesma leitura na tela e no servidor.
+ *
+ * Ponto é ambíguo no Brasil: em "11.780" é milhar, em "0.305556" é
+ * decimal. A regra: com vírgula, o ponto é milhar; sem vírgula, só é
+ * milhar quando os grupos têm três dígitos (11.780, 1.234.567). O resto
+ * é decimal.
+ *
+ * Nasceu de um erro real (25/09/2026): os parâmetros apareciam como
+ * "0.3055555555555556", o ponto era jogado fora e o banco recusava com
+ * "numeric field overflow".
+ */
+export function lerNumeroDigitado(valor: string | null | undefined): number | null {
+  const bruto = String(valor ?? "").trim();
+  if (!bruto) return null;
+  let limpo = bruto.replace(/\s/g, "");
+  if (limpo.includes(",")) {
+    limpo = limpo.replace(/\./g, "").replace(",", ".");
+  } else if (/^-?\d{1,3}(\.\d{3})+$/.test(limpo)) {
+    limpo = limpo.replace(/\./g, "");
+  }
+  const numero = Number(limpo);
+  return Number.isFinite(numero) ? numero : null;
+}
+
+/** O número como a pessoa espera ver: vírgula decimal, sem zeros à toa. */
+export function mostrarNumero(valor: number | null | undefined, casasMax = 6): string {
+  if (valor == null || !Number.isFinite(Number(valor))) return "";
+  return Number(valor).toLocaleString("pt-BR", { maximumFractionDigits: casasMax, useGrouping: false });
+}
 
 // ------------------------------------------------------------------
 // DISTRIBUIÇÃO -- a mesma conta da aba "Simulador Dist"
