@@ -152,6 +152,30 @@ export default async function MaoDeObraPage({
     { mes: mesAtual, linhas },
   ]);
 
+  /*
+    O VOLUME POR DIA DA SEMANA (25/09/2026, pedido do dono).
+
+    Sai da própria grade do mês: para cada dia da semana, quantos dias
+    operam, o % da curva e o HL de cada um deles. A soma é o volume
+    negociado -- é essa conferência que a tela mostra.
+  */
+  const porDiaDaSemana = DIAS_DO_SELLOUT.map((d) => {
+    const doTipo = diasDoMes.filter(
+      (x) => x.opera && new Date(`${x.data}T12:00:00Z`).getUTCDay() === d.indice,
+    );
+    const hlPorDia = doTipo.length > 0 ? doTipo[0].plan : 0;
+    const total = doTipo.reduce((s, x) => s + x.plan, 0);
+    return {
+      rotulo: d.rotulo,
+      percentualCadastrado: Number(config[d.id]) || 0,
+      dias: doTipo.length,
+      hlPorDia,
+      total,
+      // O peso real daquele dia no mês, mesmo sem a curva cadastrada.
+      fatia: conferencia.volumeBase > 0 ? total / conferencia.volumeBase : 0,
+    };
+  });
+
   const acoesDoMes = acoes.filter((a) => a.competencia === competencia);
   const abertas = acoes.filter((a) => a.status !== "concluida");
   const enviosDoMes = envios.filter((e) => e.competencia === competencia);
@@ -363,6 +387,75 @@ export default async function MaoDeObraPage({
               {formatarNumero(arm.mapsPrevistos, 1)} mapas/dia.
             </p>
           </section>
+
+          {/* ---- VOLUME POR DIA DA SEMANA ---- */}
+          {conferencia.volumeBase > 0 && (
+            <section className="mb-5 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+              <div className="border-b border-slate-100 px-4 py-3">
+                <h2 className="text-sm font-bold text-slate-800">Volume por dia da semana</h2>
+                <p className="text-[11px] text-slate-500">
+                  {curvaLigada(config)
+                    ? "Pela curva de sellout cadastrada nos parâmetros. A soma fecha com o volume do mês."
+                    : "Sem curva cadastrada: o sábado leva o volume de sábado e o resto se divide igual entre os dias úteis. Cadastre o % de cada dia em “⚙️ Parâmetros da operação”."}
+                </p>
+              </div>
+              <table className="w-full table-fixed text-sm">
+                <thead>
+                  <tr className="bg-slate-50 text-left text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                    <th className="px-3 py-2">Dia</th>
+                    <th className="w-14 px-1 py-2 text-right">%</th>
+                    <th className="w-12 px-1 py-2 text-right">Dias</th>
+                    <th className="w-24 px-2 py-2 text-right">HL / dia</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {porDiaDaSemana.map((d) => (
+                    <tr key={d.rotulo} className={d.dias === 0 ? "text-slate-400" : ""}>
+                      <td className="px-3 py-1.5">
+                        {d.rotulo}
+                        {d.dias > 0 && (
+                          <span className="block text-[11px] text-slate-400">
+                            {formatarNumero(d.total, 0)} HL no mês · {formatarPercento(d.fatia)} do volume
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-1 py-1.5 text-right font-mono tabular-nums">
+                        {curvaLigada(config) ? formatarNumero(d.percentualCadastrado, 1) : "—"}
+                      </td>
+                      <td className="px-1 py-1.5 text-right font-mono tabular-nums">{d.dias}</td>
+                      <td className="px-2 py-1.5 text-right font-mono font-bold tabular-nums text-slate-900">
+                        {d.dias > 0 ? formatarNumero(d.hlPorDia, 0) : "—"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr className="border-t-[3px] border-double border-slate-300 bg-slate-50 font-semibold">
+                    <td className="px-3 py-2 text-slate-700">Total do mês</td>
+                    <td className="px-1 py-2 text-right font-mono tabular-nums">
+                      {curvaLigada(config) ? formatarNumero(somaDoSellout(config), 0) : "—"}
+                    </td>
+                    <td className="px-1 py-2 text-right font-mono tabular-nums">
+                      {porDiaDaSemana.reduce((s, d) => s + d.dias, 0)}
+                    </td>
+                    <td className="whitespace-nowrap px-2 py-2 text-right font-mono tabular-nums">
+                      {formatarNumero(conferencia.planoDoMes, 0)}
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
+              <p
+                className={`px-4 py-2 text-[11px] ${
+                  conferencia.fecha ? "bg-emerald-50 text-emerald-800" : "bg-amber-50 text-amber-900"
+                }`}
+              >
+                {conferencia.fecha
+                  ? `✅ Fecha com o volume do mês: ${formatarNumero(conferencia.volumeBase, 0)} HL.`
+                  : `⚠️ A soma dá ${formatarNumero(conferencia.planoDoMes, 0)} HL e o volume do mês é ${formatarNumero(conferencia.volumeBase, 0)} HL.`}{" "}
+                O detalhe dia a dia está na aba “📅 Volume por dia”.
+              </p>
+            </section>
+          )}
 
           {/* ---- COMPARATIVO (V.3) ---- */}
           {comparativo.length > 1 && (
