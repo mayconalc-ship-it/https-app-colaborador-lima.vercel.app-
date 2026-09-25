@@ -34,6 +34,7 @@ import {
   STATUS_ACAO,
   acumuladoDoMes,
   competenciaAnterior,
+  conferenciaDoPlano,
   contaDistribuicao,
   dimensionamentoNoRitmo,
   planoPorTipoDeDia,
@@ -719,8 +720,8 @@ export default async function MaoDeObraPage({
         <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
           <h2 className="text-sm font-bold text-slate-800">Volume por dia — {rotuloCompetencia(competencia)}</h2>
           <p className="mb-3 text-xs text-slate-500">
-            O plano é o volume negociado do mês, menos o dos sábados, dividido pelos {dist.diasUteis} dias úteis
-            cadastrados. Lance o que saiu em cada dia para acompanhar a dispersão.
+            A meta do dia sai do VOLUME NEGOCIADO do mês: tira-se o volume dos sábados e o resto se divide pelos{" "}
+            {dist.diasUteis} dias úteis informados. Lance o que saiu em cada dia para acompanhar a dispersão.
           </p>
           {!mes ? (
             <p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900">
@@ -734,6 +735,7 @@ export default async function MaoDeObraPage({
                 podeEditar={podeEditar}
                 planoUtil={planoPorTipoDeDia(mesAtual).util}
                 planoSabado={planoPorTipoDeDia(mesAtual).sabado}
+                conferencia={conferenciaDoPlano(mesAtual)}
               />
               {/* A FLEXÃO (V.4): se o mês fechar no ritmo de hoje, quanta
                   gente ele passa a pedir? */}

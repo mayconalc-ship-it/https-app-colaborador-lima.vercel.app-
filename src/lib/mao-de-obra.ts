@@ -578,6 +578,67 @@ export function acumuladoDoMes(dias: DiaDoVolume[]): {
   };
 }
 
+/**
+ * O CALENDÁRIO DO MÊS -- quantos dias corridos, sábados, domingos e dias
+ * de semana ele tem de verdade.
+ *
+ * Existe porque a grade do dia é o calendário, mas a meta sai dos dias
+ * que a liderança informou. Quando os dois discordam, a soma do dia não
+ * fecha com o volume negociado -- e foi isso que o dono viu (25/09/2026).
+ */
+export function calendarioDaCompetencia(competencia: string): {
+  corridos: number;
+  sabados: number;
+  domingos: number;
+  /** Segunda a sexta -- o padrão de "dias úteis" antes de feriados. */
+  uteis: number;
+} {
+  const corridos = diasDaCompetencia(competencia);
+  let sabados = 0;
+  let domingos = 0;
+  for (let dia = 1; dia <= corridos; dia++) {
+    const tipo = tipoDoDia(`${competencia}-${String(dia).padStart(2, "0")}`);
+    if (tipo === "sabado") sabados++;
+    if (tipo === "domingo") domingos++;
+  }
+  return { corridos, sabados, domingos, uteis: corridos - sabados - domingos };
+}
+
+/**
+ * A CONFERÊNCIA DO PLANO DIÁRIO: a soma dos dias fecha com o volume
+ * negociado do mês?
+ *
+ * Só fecha quando o que foi informado (dias de operação e sábados) bate
+ * com o calendário. Quando não bate, a tela diz o que ajustar em vez de
+ * mostrar um total errado em silêncio.
+ */
+export function conferenciaDoPlano(m: MesMaoDeObra): {
+  planoDoMes: number;
+  negociado: number;
+  diferenca: number;
+  fecha: boolean;
+  uteisInformados: number;
+  sabadosInformados: number;
+  uteisNoCalendario: number;
+  sabadosNoCalendario: number;
+} {
+  const cal = calendarioDaCompetencia(m.competencia);
+  const plano = planoPorTipoDeDia(m);
+  const planoDoMes = plano.util * cal.uteis + plano.sabado * cal.sabados;
+  const negociado = n(m.volume_negociado);
+  const diferenca = planoDoMes - negociado;
+  return {
+    planoDoMes,
+    negociado,
+    diferenca,
+    fecha: Math.abs(diferenca) < 1,
+    uteisInformados: Math.max(0, n(m.dias_totais) - n(m.sabados)),
+    sabadosInformados: n(m.sabados),
+    uteisNoCalendario: cal.uteis,
+    sabadosNoCalendario: cal.sabados,
+  };
+}
+
 export function diasDaCompetencia(competencia: string): number {
   const [ano, mes] = competencia.split("-").map(Number);
   if (!ano || !mes) return 31;

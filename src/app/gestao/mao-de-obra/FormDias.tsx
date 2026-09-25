@@ -27,12 +27,24 @@ export function FormDias({
   podeEditar,
   planoUtil,
   planoSabado,
+  conferencia,
 }: {
   competencia: string;
   dias: DiaDoVolume[];
   podeEditar: boolean;
   planoUtil: number;
   planoSabado: number;
+  /** A soma dos dias contra o volume negociado do mês. */
+  conferencia: {
+    planoDoMes: number;
+    negociado: number;
+    diferenca: number;
+    fecha: boolean;
+    uteisInformados: number;
+    sabadosInformados: number;
+    uteisNoCalendario: number;
+    sabadosNoCalendario: number;
+  };
 }) {
   const [valores, setValores] = useState<Record<number, string>>(() => {
     const base: Record<number, string> = {};
@@ -82,6 +94,30 @@ export function FormDias({
   return (
     <form action={salvarDias} className="space-y-3">
       <input type="hidden" name="competencia" value={competencia} />
+
+      {/* A META DO DIA VEM DO MÊS: se a soma não bate com o negociado, é
+          o mês que precisa de ajuste -- e a tela diz qual campo. */}
+      <p
+        className={`rounded-xl p-3 text-xs ${
+          conferencia.fecha ? "bg-emerald-50 text-emerald-800" : "bg-amber-50 text-amber-900"
+        }`}
+      >
+        {conferencia.fecha ? (
+          <>
+            ✅ A meta dos dias soma <b>{formatarNumero(conferencia.planoDoMes, 0)} HL</b> — exatamente o volume
+            negociado do mês, distribuído em {conferencia.uteisInformados} dias úteis e{" "}
+            {conferencia.sabadosInformados} sábados.
+          </>
+        ) : (
+          <>
+            ⚠️ A meta dos dias soma <b>{formatarNumero(conferencia.planoDoMes, 0)} HL</b> e o volume negociado é{" "}
+            <b>{formatarNumero(conferencia.negociado, 0)} HL</b>. O mês tem {conferencia.uteisNoCalendario} dias de
+            semana e {conferencia.sabadosNoCalendario} sábados, mas foram informados {conferencia.uteisInformados}{" "}
+            dias úteis e {conferencia.sabadosInformados} sábados. Ajuste na aba Dimensionamento (botão “Usar o
+            calendário”).
+          </>
+        )}
+      </p>
 
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         <Numero titulo="Média do dia útil" valor={`${formatarNumero(planoUtil, 0)} HL`} />

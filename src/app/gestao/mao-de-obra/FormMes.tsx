@@ -4,9 +4,12 @@ import { useMemo, useState } from "react";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
 import {
   MES_VAZIO,
+  calendarioDaCompetencia,
+  conferenciaDoPlano,
   contaArmazem,
   contaDistribuicao,
   formatarNumero,
+  rotuloCompetencia,
   validarMes,
   type ConfigMaoDeObra,
   type MesMaoDeObra,
@@ -83,8 +86,21 @@ export function FormMes({
       const bruto = valores[chave].trim().replace(/\./g, "").replace(",", ".");
       (m[chave as keyof MesMaoDeObra] as number | null) = bruto === "" ? null : Number(bruto);
     }
-    return { dist: contaDistribuicao(m), arm: contaArmazem(m, config), problema: validarMes(m) };
+    return {
+      dist: contaDistribuicao(m),
+      arm: contaArmazem(m, config),
+      problema: validarMes(m),
+      conferencia: conferenciaDoPlano(m),
+    };
   }, [valores, competencia, config]);
+
+  const calendario = useMemo(() => calendarioDaCompetencia(competencia), [competencia]);
+  const usarOCalendario = () =>
+    setValores((v) => ({
+      ...v,
+      dias_totais: String(calendario.corridos - calendario.domingos),
+      sabados: String(calendario.sabados),
+    }));
 
   const campo = (c: Campo) => (
     <label key={String(c.id)} className="block">
@@ -103,6 +119,23 @@ export function FormMes({
   return (
     <form action={salvarMes} className="space-y-4">
       <input type="hidden" name="competencia" value={competencia} />
+
+      {/* O CALENDÁRIO, à mão: é o que faz a meta do dia fechar com o
+          volume negociado (25/09/2026). */}
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-slate-50 p-3 text-xs text-slate-600">
+        <span>
+          {rotuloCompetencia(competencia)} tem <b>{calendario.corridos}</b> dias:{" "}
+          <b>{calendario.uteis}</b> de semana, <b>{calendario.sabados}</b> sábados e{" "}
+          <b>{calendario.domingos}</b> domingos.
+        </span>
+        <button
+          type="button"
+          onClick={usarOCalendario}
+          className="rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:border-primary"
+        >
+          Usar o calendário
+        </button>
+      </div>
 
       <div>
         <p className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">Distribuição</p>
@@ -150,6 +183,33 @@ export function FormMes({
           <span>Operadores: <b>{formatarNumero(previa.arm.operadores, 1)}</b></span>
         </div>
       </div>
+
+      {/* A SOMA DOS DIAS TEM DE DAR O VOLUME NEGOCIADO. Quando não dá, a
+          tela diz exatamente o que ajustar. */}
+      {previa.conferencia.negociado > 0 && (
+        <p
+          className={`rounded-xl p-3 text-xs ${
+            previa.conferencia.fecha ? "bg-emerald-50 text-emerald-800" : "bg-amber-50 text-amber-900"
+          }`}
+        >
+          {previa.conferencia.fecha ? (
+            <>
+              ✅ A meta por dia fecha com o volume negociado:{" "}
+              <b>{formatarNumero(previa.conferencia.planoDoMes, 0)} HL</b> no mês.
+            </>
+          ) : (
+            <>
+              ⚠️ A meta por dia somaria <b>{formatarNumero(previa.conferencia.planoDoMes, 0)} HL</b>, e o volume
+              negociado é <b>{formatarNumero(previa.conferencia.negociado, 0)} HL</b> (
+              {previa.conferencia.diferenca > 0 ? "+" : ""}
+              {formatarNumero(previa.conferencia.diferenca, 0)} HL). O mês tem{" "}
+              {previa.conferencia.uteisNoCalendario} dias de semana e {previa.conferencia.sabadosNoCalendario}{" "}
+              sábados; você informou {previa.conferencia.uteisInformados} dias úteis e{" "}
+              {previa.conferencia.sabadosInformados} sábados. Use o botão “Usar o calendário” ou ajuste os dias.
+            </>
+          )}
+        </p>
+      )}
 
       {previa.problema && <p className="text-xs font-medium text-red-600">{previa.problema}</p>}
 
