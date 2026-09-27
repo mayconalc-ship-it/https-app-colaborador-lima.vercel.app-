@@ -43,6 +43,7 @@ export const SUBMODULOS_ARMAZEM: ModuloId[] = [
   "carretas-descarga",
   "fefo",
   "fefo-controle",
+  "wqi",
 ];
 
 /** Passa quem: é dono; é liderança com a permissão de administrar a área

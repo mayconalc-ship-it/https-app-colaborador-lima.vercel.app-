@@ -2123,3 +2123,81 @@ export async function alternarItemChecklist5sAtivo(formData: FormData) {
   revalidatePath(ROTA);
   sucesso("cinco-s", "Atualizado");
 }
+
+// -------------------- WQI: MOTIVOS E LOCAIS --------------------
+/*
+  Os dois catálogos do formulário de baixa WQI (migration 139). Mesmo
+  tratamento, então as mesmas quatro ações servem aos dois -- o campo
+  "catalogo" escolhe a tabela, e só aceita estes dois nomes.
+
+  Renomear NÃO reescreve as baixas antigas: elas gravam o nome do dia.
+  Excluir também não quebra nada (não há FK), mas some da lista do
+  formulário para sempre -- Desativar é o caminho normal.
+*/
+const CATALOGOS_WQI = { motivo: "pa_wqi_motivos", local: "pa_wqi_locais" } as const;
+
+function catalogoWqi(formData: FormData) {
+  const c = String(formData.get("catalogo") ?? "");
+  if (c !== "motivo" && c !== "local") erro("wqi", "Catálogo inválido.");
+  return { chave: c, tabela: CATALOGOS_WQI[c], nomeDoItem: c === "motivo" ? "motivo" : "local" };
+}
+
+export async function salvarItemWqi(formData: FormData) {
+  await requireModulo("produtividade-armazem", "editar");
+  const revendaId = await exigirRevenda(ROTA);
+  const { chave, tabela, nomeDoItem } = catalogoWqi(formData);
+  const nome = String(formData.get("nome") ?? "").trim().slice(0, 80);
+  if (!nome) erro("wqi", `Informe o nome do ${nomeDoItem}.`);
+  const dados: Record<string, unknown> = { revenda_id: revendaId, nome };
+  if (chave === "motivo") dados.ajuda = String(formData.get("ajuda") ?? "").trim().slice(0, 200) || null;
+
+  const { error } = await createAdminClient().from(tabela).insert(dados);
+  if (error) {
+    if (error.code === "23505") erro("wqi", `Já existe um ${nomeDoItem} com esse nome.`);
+    erro("wqi", `Não foi possível salvar: ${error.message}`);
+  }
+  revalidatePath("/wqi");
+  prontoSemSair();
+}
+
+export async function editarItemWqi(formData: FormData) {
+  await requireModulo("produtividade-armazem", "editar");
+  const revendaId = await exigirRevenda(ROTA);
+  const { chave, tabela, nomeDoItem } = catalogoWqi(formData);
+  const id = String(formData.get("id") ?? "");
+  const nome = String(formData.get("nome") ?? "").trim().slice(0, 80);
+  if (!nome) erro("wqi", `Informe o nome do ${nomeDoItem}.`);
+  const dados: Record<string, unknown> = { nome };
+  if (chave === "motivo") dados.ajuda = String(formData.get("ajuda") ?? "").trim().slice(0, 200) || null;
+
+  const { error } = await createAdminClient().from(tabela).update(dados).eq("id", id).eq("revenda_id", revendaId);
+  if (error) {
+    if (error.code === "23505") erro("wqi", `Já existe um ${nomeDoItem} com esse nome.`);
+    erro("wqi", `Não foi possível salvar: ${error.message}`);
+  }
+  revalidatePath("/wqi");
+  prontoSemSair();
+}
+
+export async function alternarItemWqiAtivo(formData: FormData) {
+  await requireModulo("produtividade-armazem", "editar");
+  const revendaId = await exigirRevenda(ROTA);
+  const { tabela } = catalogoWqi(formData);
+  const id = String(formData.get("id") ?? "");
+  const ativo = formData.get("ativo") === "true";
+  await createAdminClient().from(tabela).update({ ativo: !ativo }).eq("id", id).eq("revenda_id", revendaId);
+  revalidatePath("/wqi");
+  prontoSemSair();
+}
+
+export async function excluirItemWqi(formData: FormData) {
+  // "excluir", não "editar" -- o mesmo degrau dos motivos de FEFO.
+  await requireModulo("produtividade-armazem", "excluir");
+  const revendaId = await exigirRevenda(ROTA);
+  const { tabela } = catalogoWqi(formData);
+  const id = String(formData.get("id") ?? "");
+  const { error } = await createAdminClient().from(tabela).delete().eq("id", id).eq("revenda_id", revendaId);
+  if (error) erro("wqi", `Não foi possível excluir: ${error.message}`);
+  revalidatePath("/wqi");
+  prontoSemSair();
+}

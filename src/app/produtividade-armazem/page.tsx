@@ -35,6 +35,8 @@ const FUNCIONALIDADES: { chave: ModuloId; titulo: string; emoji: string; href: s
   // mesma e decide sozinha o que mostrar para quem abriu.
   { chave: "fefo", titulo: "Quebra de FEFO", emoji: "🚨", href: "/fefo" },
   { chave: "fefo-controle", titulo: "Quebra de FEFO", emoji: "🚨", href: "/fefo" },
+  // Baixa de quebra de PA por manuseio -- a antiga planilha "Baixas WQI".
+  { chave: "wqi", titulo: "Baixa WQI", emoji: "💥", href: "/wqi" },
 ];
 
 export default async function ProdutividadeArmazemPage() {

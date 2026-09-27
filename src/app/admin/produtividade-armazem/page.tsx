@@ -88,6 +88,10 @@ import {
   salvarProdutoReepack,
   salvarTransportadora,
   corrigirAgendamentoCarreta,
+  salvarItemWqi,
+  editarItemWqi,
+  alternarItemWqiAtivo,
+  excluirItemWqi,
 } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -132,14 +136,17 @@ function paraDatetimeLocal(iso: string | null): string {
   return emBrasilia.toISOString().slice(0, 16);
 }
 
-type Aba = "reepack-despejo" | "empilhadeiras" | "recebimento" | "cinco-s" | "fefo";
+type Aba = "reepack-despejo" | "empilhadeiras" | "recebimento" | "cinco-s" | "fefo" | "wqi";
 const ABAS: { id: Aba; rotulo: string; emoji: string }[] = [
   { id: "reepack-despejo", rotulo: "Produtos", emoji: "📦" },
   { id: "empilhadeiras", rotulo: "Empilhadeiras", emoji: "🏗️" },
   { id: "recebimento", rotulo: "Recebimento", emoji: "🚛" },
   { id: "cinco-s", rotulo: "5S", emoji: "🧹" },
   { id: "fefo", rotulo: "FEFO", emoji: "🚨" },
+  { id: "wqi", rotulo: "WQI", emoji: "💥" },
 ];
+
+type ItemWqiBanco = { id: string; nome: string; ajuda?: string | null; ativo: boolean };
 
 const campo =
   "w-full rounded-lg border border-slate-300 bg-white px-2.5 py-2 text-base text-slate-900 focus:border-primary focus:outline-none";
@@ -402,6 +409,19 @@ export default async function AdminProdutividadeArmazemPage({
     .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
 
   const totalMotivosFefo = motivosFefo?.length ?? 0;
+
+  // Os catálogos do WQI (migration 139) -- só na aba deles.
+  const [{ data: motivosWqiBanco }, { data: locaisWqiBanco }] =
+    aba === "wqi"
+      ? await Promise.all([
+          supabase.from("pa_wqi_motivos").select("id, nome, ajuda, ativo").eq("revenda_id", revendaId).order("nome"),
+          supabase.from("pa_wqi_locais").select("id, nome, ativo").eq("revenda_id", revendaId).order("nome"),
+        ])
+      : [{ data: [] }, { data: [] }];
+  const catalogosWqi: { chave: "motivo" | "local"; titulo: string; itens: ItemWqiBanco[] }[] = [
+    { chave: "motivo", titulo: "Motivos da quebra", itens: (motivosWqiBanco ?? []) as ItemWqiBanco[] },
+    { chave: "local", titulo: "Locais do armazém", itens: (locaisWqiBanco ?? []) as ItemWqiBanco[] },
+  ];
 
   /*
     A ORDEM DOS DOIS CATÁLOGOS DO FEFO, resolvida aqui e não no `order`
@@ -2456,6 +2476,76 @@ export default async function AdminProdutividadeArmazemPage({
               </div>
             );
           })}
+        </div>
+      )}
+
+      {aba === "wqi" && (
+        <div className="space-y-6">
+          {catalogosWqi.map((c) => (
+            <PainelCadastro
+              key={c.chave}
+              titulo={c.titulo}
+              contagem={c.itens.length}
+              novoRotulo={c.chave === "motivo" ? "Novo motivo" : "Novo local"}
+              temItens={c.itens.length > 0}
+              vazio={`Nenhum ${c.chave} cadastrado -- sem ele ninguém consegue lançar a baixa WQI.`}
+              formNovo={
+                <form action={salvarItemWqi} className="flex flex-wrap gap-2">
+                  <input type="hidden" name="catalogo" value={c.chave} />
+                  <input name="nome" placeholder={c.chave === "motivo" ? "Nome do motivo" : "Nome do local"} required className={`${campo} flex-1`} />
+                  {c.chave === "motivo" && (
+                    <input name="ajuda" placeholder="Quando usar este motivo (opcional)" className={`${campo} w-full`} />
+                  )}
+                  <BotaoEnviar className="rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-white">
+                    Adicionar
+                  </BotaoEnviar>
+                </form>
+              }
+            >
+              {c.itens.map((i) => (
+                <ItemCadastro
+                  key={i.id}
+                  ativo={i.ativo}
+                  titulo={i.nome}
+                  subtitulo={c.chave === "motivo" ? i.ajuda ?? "sem explicação cadastrada" : undefined}
+                  acoes={
+                    <>
+                      <BotaoIcone
+                        action={alternarItemWqiAtivo}
+                        campos={{ id: i.id, ativo: String(i.ativo), catalogo: c.chave, aba: "wqi" }}
+                        titulo={i.ativo ? "Desativar" : "Ativar"}
+                      >
+                        {i.ativo ? "🚫" : "✅"}
+                      </BotaoIcone>
+                      {podeExcluir && (
+                        <BotaoExcluir
+                          action={excluirItemWqi}
+                          campos={{ id: i.id, catalogo: c.chave }}
+                          confirmacao={`Excluir "${i.nome}"? As baixas antigas continuam com o nome gravado; prefira Desativar.`}
+                          className="flex h-7 w-7 items-center justify-center rounded-lg text-sm hover:bg-red-50"
+                        >
+                          🗑️
+                        </BotaoExcluir>
+                      )}
+                    </>
+                  }
+                  formEditar={
+                    <form action={editarItemWqi} className="flex flex-wrap gap-2">
+                      <input type="hidden" name="id" value={i.id} />
+                      <input type="hidden" name="catalogo" value={c.chave} />
+                      <input name="nome" defaultValue={i.nome} required className={`${campo} flex-1`} />
+                      {c.chave === "motivo" && (
+                        <input name="ajuda" defaultValue={i.ajuda ?? ""} placeholder="Quando usar" className={`${campo} w-full`} />
+                      )}
+                      <BotaoEnviar compacto className="shrink-0 rounded-lg bg-slate-800 px-3 py-1.5 text-xs font-semibold text-white">
+                        Salvar
+                      </BotaoEnviar>
+                    </form>
+                  }
+                />
+              ))}
+            </PainelCadastro>
+          ))}
         </div>
       )}
     </div>

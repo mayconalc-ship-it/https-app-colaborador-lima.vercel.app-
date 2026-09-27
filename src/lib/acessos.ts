@@ -49,6 +49,7 @@ export type ModuloId =
   | "carretas-descarga"
   | "fefo"
   | "fefo-controle"
+  | "wqi"
   | "rating"
   | "refugo"
   | "refugo-indicadores"
@@ -885,6 +886,22 @@ export const MODULOS: Modulo[] = [
     subGrupoDe: "produtividade-armazem",
   },
   {
+    id: "wqi",
+    rotulosDeAcao: {
+      ver: "Lançar baixa WQI no app (e, na liderança, 📊 abrir o painel de quebras)",
+      excluir: "Apagar uma baixa WQI lançada errada",
+    },
+    rotulo: "Baixa WQI (quebra de PA)",
+    emoji: "💥",
+    href: "/wqi",
+    grupo: "Operação",
+    // Quebra de produto acabado por manuseio (migration 139), que vivia na
+    // planilha "Baixas WQI". O operador lança por liberação individual; a
+    // liderança com "ver" abre também o painel em /gestao/wqi.
+    acoes: ["ver", "excluir"],
+    subGrupoDe: "produtividade-armazem",
+  },
+  {
     id: "perfis-acesso",
     rotulosDeAcao: {
       ver: "Abrir os Perfis de Acesso",
@@ -1041,6 +1058,7 @@ export const MODULOS_OPCIONAIS: ModuloId[] = [
   "carretas-descarga",
   "fefo",
   "fefo-controle",
+  "wqi",
   "rating",
   "refugo",
   "refugo-indicadores",

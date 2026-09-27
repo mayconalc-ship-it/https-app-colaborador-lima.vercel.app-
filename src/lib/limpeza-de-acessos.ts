@@ -52,6 +52,7 @@ export const TELAS_DO_MODULO: Partial<Record<ModuloId, string[]>> = {
   "carretas-descarga": ["/carretas-conferencia"],
   fefo: ["/fefo"],
   "fefo-controle": ["/fefo"],
+  wqi: ["/wqi"],
   rating: ["/rating"],
   refugo: ["/refugo"],
   "refugo-indicadores": ["/indicadores-refugo"],

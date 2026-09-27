@@ -31,6 +31,7 @@ export type PainelId =
   | "comprovantes-qr"
   | "mao-de-obra"
   | "armazem"
+  | "wqi"
   | "gas"
   | "cinco-s"
   | "feedbacks"
@@ -145,6 +146,18 @@ export const PAINEIS: Painel[] = [
     pergunta: "Quanto o armazém produziu, por pessoa e contra a meta.",
     mora: true,
     antigo: "/produtividade-armazem/indicadores",
+  },
+  {
+    // A visibilidade da baixa WQI (26/09/2026): o que substitui as tabelas
+    // dinâmicas da planilha "Baixas WQI".
+    id: "wqi",
+    rotulo: "Quebras WQI",
+    emoji: "💥",
+    href: "/gestao/wqi",
+    bloco: "Operação",
+    modulo: "wqi",
+    pergunta: "Quanto PA quebrou no manuseio, por motivo, local, turno e colaborador.",
+    mora: true,
   },
   {
     id: "gas",
