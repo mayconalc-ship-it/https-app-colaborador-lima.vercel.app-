@@ -966,10 +966,18 @@ export function comparativoDeMeses(
 // PLANEJAR 2 A 3 MESES À FRENTE (28/09/2026)
 // ------------------------------------------------------------------
 
-/** O mês atual e os dois seguintes -- o horizonte que o DPO pede (V.2). */
+/**
+ * Os TRÊS MESES SEGUINTES ao escolhido -- o horizonte que o DPO pede (V.2).
+ *
+ * Pedido do dono (28/09/2026): clicar em setembro mostra out-nov-dez. O
+ * mês corrente já está contratado; o que se planeja no início dele é o
+ * quadro de 1 a 3 meses à frente, que é o que o time de Gente consegue
+ * programar a tempo.
+ */
 export function mesesDoPlanejamento(competencia: string): string[] {
-  const seguinte = competenciaSeguinte(competencia);
-  return [competencia, seguinte, competenciaSeguinte(seguinte)];
+  const um = competenciaSeguinte(competencia);
+  const dois = competenciaSeguinte(um);
+  return [um, dois, competenciaSeguinte(dois)];
 }
 
 // ------------------------------------------------------------------

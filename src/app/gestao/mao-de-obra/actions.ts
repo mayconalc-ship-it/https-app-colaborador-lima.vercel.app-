@@ -380,8 +380,10 @@ export async function formalizarPlanejamento(formData: FormData) {
     return { competencia: c, mes, qlp, vagas: vagasDoMes(linhas) };
   });
 
-  // 1. O envio (o mês-base). Se o mês-base não tiver volume, vai o primeiro planejado.
-  const doMes = quadros.find((q) => q.competencia === competencia) ?? quadros[0];
+  // 1. O envio, registrado no mês-base (quando se planejou). O quadro que
+  // vai nele é o do PRIMEIRO mês à frente -- desde 28/09/2026 o horizonte
+  // são os 3 meses seguintes ao escolhido.
+  const doMes = quadros[0];
   const totalVagas = doMes.vagas.reduce((s, v) => s + v.vagas, 0);
   const { data: envio, error } = await admin
     .from("mao_obra_envios")

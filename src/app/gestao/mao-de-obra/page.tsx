@@ -114,8 +114,11 @@ export default async function MaoDeObraPage({
   const competencia = ehCompetencia(sp.mes) ? sp.mes : competenciaAtual();
   const ano = Number(competencia.slice(0, 4));
   const aba: Aba = ABAS.some((a) => a.id === sp.aba) ? (sp.aba as Aba) : "planejar";
+  // O quadro mostra os 3 meses SEGUINTES; o próprio mês continua editável
+  // (é o volume dele que a grade do dia distribui).
   const horizonte = mesesDoPlanejamento(competencia);
-  const editar = ehCompetencia(sp.editar) && horizonte.includes(sp.editar) ? sp.editar : competencia;
+  const editaveis = [competencia, ...horizonte];
+  const editar = ehCompetencia(sp.editar) && editaveis.includes(sp.editar) ? sp.editar : horizonte[0];
 
   // A janela: 3 meses para trás (eficácia) e 2 para a frente (planejamento).
   const tres = competenciaAnterior(competenciaAnterior(competenciaAnterior(competencia)));
@@ -190,7 +193,9 @@ export default async function MaoDeObraPage({
   // ---- RESULTADO ----
   const dispersoes = dispersoesDoMes(mesAtual, diasDoMes);
   const linhaDoTempo = linhaDoTempoDaProjecao(projecoes, competencia);
-  const hoje = planejamento[0].vagas;
+  // "Hoje" do V.3 é o que ESTE mês pede agora -- não a primeira coluna do
+  // planejamento, que desde 28/09/2026 já é o mês seguinte.
+  const hoje = mes ? vagasDoMes(dimensionamentoDoMes(mes, config, salarios, qlpAtual).linhas) : null;
   const eficacia = [3, 2, 1].map((voltas) => {
     let c = competencia;
     for (let i = 0; i < voltas; i++) c = competenciaAnterior(c);
@@ -298,7 +303,9 @@ export default async function MaoDeObraPage({
           <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
             <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-4 py-3">
               <div>
-                <h2 className="text-sm font-bold text-slate-800">Quadro necessário nos próximos 3 meses</h2>
+                <h2 className="text-sm font-bold text-slate-800">
+                  Quadro necessário nos próximos 3 meses — {rotuloCurto(horizonte[0])} a {rotuloCurto(horizonte[2])}
+                </h2>
                 <p className="text-[11px] text-slate-500">
                   O volume de cada mês vira gente por função. A diferença para o QLP atual é o que o time de Gente
                   precisa contratar (▲) ou não repor (▼).
@@ -418,7 +425,7 @@ export default async function MaoDeObraPage({
 
           {/* ---- LANÇAR O VOLUME DE UM DOS 3 MESES ---- */}
           {podeEditar && (
-            <details id="lancar" open={Boolean(sp.editar) || !mes} className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+            <details id="lancar" open={Boolean(sp.editar) || !meses.get(editar)} className="rounded-2xl border border-slate-200 bg-white shadow-sm">
               <summary className="cursor-pointer list-none p-4 text-sm font-bold text-slate-800">
                 ✏️ Volume e estrutura de {rotuloCompetencia(editar)}
                 <span className="block text-[11px] font-normal text-slate-500">
@@ -427,7 +434,7 @@ export default async function MaoDeObraPage({
               </summary>
               <div className="border-t border-slate-100 p-4">
                 <div className="mb-3 flex flex-wrap gap-1">
-                  {horizonte.map((c) => (
+                  {editaveis.map((c) => (
                     <Link
                       key={c}
                       href={href(competencia, "planejar", `&editar=${c}#lancar`)}
@@ -526,6 +533,20 @@ export default async function MaoDeObraPage({
           <p className="mb-3 text-xs text-slate-500">
             Lance o realizado de cada dia. A meta do dia vem do volume do mês; desmarque o feriado e ela se redistribui.
           </p>
+          {mes && (
+            <div className="mb-3 grid grid-cols-2 gap-2">
+              <Cartao
+                titulo="Volume negociado"
+                valor={`${formatarNumero(mes.volume_negociado, 0)} HL`}
+                detalhe={mes.base_meta === "negociado" ? "é ele que a meta do dia distribui" : "demanda do mês"}
+              />
+              <Cartao
+                titulo="Volume PPR"
+                valor={`${formatarNumero(mes.volume_ppr, 0)} HL`}
+                detalhe={mes.base_meta === "ppr" ? "é ele que a meta do dia distribui" : "volume do plano"}
+              />
+            </div>
+          )}
           {!mes ? (
             <p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900">
               Lance o volume do mês na aba 1 · Planejar para a meta do dia existir.
