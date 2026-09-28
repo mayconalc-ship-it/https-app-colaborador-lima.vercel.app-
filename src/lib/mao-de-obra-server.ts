@@ -12,6 +12,7 @@ import {
   type FuncaoId,
   type MesMaoDeObra,
   type LancamentoDoDia,
+  type ProjecaoCongelada,
   type Salario,
   type StatusAcao,
 } from "@/lib/mao-de-obra";
@@ -269,6 +270,110 @@ export async function lerDias(
     });
   }
   return saida;
+}
+
+// ------------------------------------------------------------------
+// Por período -- o planejamento atravessa a virada do ano (28/09/2026)
+// ------------------------------------------------------------------
+
+/** Os meses lançados entre duas competências, do mais antigo ao mais novo. */
+export async function lerMesesDoPeriodo(revendaId: string, de: string, ate: string): Promise<Map<string, MesMaoDeObra>> {
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("mao_obra_meses")
+    .select("*")
+    .eq("revenda_id", revendaId)
+    .gte("competencia", primeiroDia(de))
+    .lte("competencia", primeiroDia(ate))
+    .order("competencia");
+  return new Map((data ?? []).map((l) => [String(l.competencia).slice(0, 7), paraMes(l)]));
+}
+
+export async function lerRealizadoDoPeriodo(
+  revendaId: string,
+  de: string,
+  ate: string,
+): Promise<Map<string, Partial<Record<FuncaoId, number>>>> {
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("mao_obra_realizado")
+    .select("competencia, funcao, quantidade")
+    .eq("revenda_id", revendaId)
+    .gte("competencia", primeiroDia(de))
+    .lte("competencia", primeiroDia(ate));
+  const saida = new Map<string, Partial<Record<FuncaoId, number>>>();
+  for (const l of data ?? []) {
+    const comp = String(l.competencia).slice(0, 7);
+    const funcao = String(l.funcao);
+    if (!EH_FUNCAO(funcao)) continue;
+    const atual = saida.get(comp) ?? {};
+    atual[funcao] = Number(l.quantidade);
+    saida.set(comp, atual);
+  }
+  return saida;
+}
+
+/**
+ * O QLP que vale para um mês: o dele, ou o último informado antes dele.
+ * Quadro de gente não zera na virada do mês -- quem estava em setembro
+ * continua em outubro até alguém atualizar.
+ */
+export function qlpVigente(
+  porMes: Map<string, Partial<Record<FuncaoId, number>>>,
+  competencia: string,
+): Partial<Record<FuncaoId, number>> {
+  const anteriores = [...porMes.keys()].filter((c) => c <= competencia).sort();
+  return anteriores.length > 0 ? (porMes.get(anteriores[anteriores.length - 1]) ?? {}) : {};
+}
+
+export async function lerAcoesDoPeriodo(revendaId: string, de: string, ate: string): Promise<AcaoDoPlano[]> {
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("mao_obra_acoes")
+    .select("id, competencia, funcao, o_que, responsavel, prazo, status, criado_por_nome, criado_em")
+    .eq("revenda_id", revendaId)
+    .gte("competencia", primeiroDia(de))
+    .lte("competencia", primeiroDia(ate))
+    .order("criado_em", { ascending: false })
+    .limit(300);
+  return (data ?? []).map((a) => ({
+    id: String(a.id),
+    competencia: String(a.competencia).slice(0, 7),
+    funcao: EH_FUNCAO(String(a.funcao)) ? (String(a.funcao) as FuncaoId) : null,
+    oQue: String(a.o_que),
+    responsavel: String(a.responsavel),
+    prazo: a.prazo ? String(a.prazo).slice(0, 10) : null,
+    status: (["aberta", "em_andamento", "concluida"] as const).includes(a.status) ? a.status : "aberta",
+    criadoPorNome: a.criado_por_nome ?? null,
+    criadoEm: String(a.criado_em),
+  }));
+}
+
+/** As fotografias da projeção (migration 143) cujo mês-alvo está no período. */
+export async function lerProjecoes(revendaId: string, de: string, ate: string): Promise<ProjecaoCongelada[]> {
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("mao_obra_projecoes")
+    .select("id, competencia_base, competencia_alvo, volume_ppr, volume_negociado, dimensionado, total, qlp, vagas, feita_em, feita_por_nome")
+    .eq("revenda_id", revendaId)
+    .gte("competencia_alvo", primeiroDia(de))
+    .lte("competencia_alvo", primeiroDia(ate))
+    .order("feita_em", { ascending: false })
+    .limit(500);
+  const num = (v: unknown) => (v == null ? null : Number(v));
+  return (data ?? []).map((p) => ({
+    id: String(p.id),
+    competenciaBase: String(p.competencia_base).slice(0, 7),
+    competenciaAlvo: String(p.competencia_alvo).slice(0, 7),
+    volumePpr: num(p.volume_ppr),
+    volumeNegociado: num(p.volume_negociado),
+    dimensionado: (p.dimensionado ?? {}) as ProjecaoCongelada["dimensionado"],
+    total: Number(p.total ?? 0),
+    qlp: (p.qlp ?? null) as ProjecaoCongelada["qlp"],
+    vagas: Number(p.vagas ?? 0),
+    feitaEm: String(p.feita_em),
+    feitaPorNome: p.feita_por_nome ?? null,
+  }));
 }
 
 /** Os anos que já têm mês lançado -- para o seletor de ano. */

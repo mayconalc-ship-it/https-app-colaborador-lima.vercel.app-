@@ -172,19 +172,69 @@ export function percentualDoDia(c: Pick<ConfigMaoDeObra, ChaveDoSellout>, diaDaS
   return achado ? Number(c[achado.id]) || 0 : 0;
 }
 
+/**
+ * COMO CADA PARÂMETRO APARECE NA TELA (28/09/2026, pedido do dono: "o
+ * que for % em %").
+ *
+ * O BANCO NÃO MUDA: guarda fração, como a planilha da companhia (0,4 é
+ * 40%; 0,305556 é 7h20 do dia). A conversão acontece só na borda -- na
+ * hora de mostrar e na hora de ler o que foi digitado -- para que as
+ * contas continuem idênticas às da planilha.
+ *
+ *   percentual -> 0,4  aparece como 40 (%)
+ *   horas      -> 0,305556 aparece como 7:20 (h:mm)
+ *   numero     -> como está (HL)
+ */
+export type FormatoDoParametro = "percentual" | "horas" | "numero";
+
 export const PARAMETROS = [
-  { id: "percentual_montagem", rotulo: "Percentual de montagem", ajuda: "Quanto do volume passa pela montagem (0,4 = 40%).", limite: 99.9999 },
-  { id: "perc_blitz_carregamento", rotulo: "Percentual de blitz de carregamento", ajuda: "Entra no tempo dos operadores.", limite: 99.9999 },
-  { id: "perc_blitz_refugo", rotulo: "Percentual de blitz de refugo", ajuda: "", limite: 99.9999 },
-  { id: "perc_blitz_puxada", rotulo: "Percentual de blitz de puxada", ajuda: "", limite: 99.9999 },
-  { id: "tempo_reposicao_picking", rotulo: "Tempo de reposição do picking", ajuda: "Em fração do dia.", limite: 99.999999 },
-  { id: "tempo_carregamento_caminhao", rotulo: "Tempo de carregamento do caminhão", ajuda: "Fração do dia, por mapa.", limite: 99.999999 },
-  { id: "tma", rotulo: "TMA da carreta", ajuda: "Fração do dia (0,125 = 3 horas).", limite: 99.999999 },
-  { id: "hl_carreta", rotulo: "HL por carreta", ajuda: "Hectolitros que cabem numa carreta.", limite: 99999999 },
-  { id: "jornada", rotulo: "Jornada", ajuda: "Fração do dia (0,305556 = 7h20).", limite: 99.999999 },
-  { id: "tempo_blitz", rotulo: "Tempo de blitz", ajuda: "Fração do dia.", limite: 99.999999 },
-  { id: "hl_por_mapa", rotulo: "HL por mapa", ajuda: "Divisor dos mapas previstos.", limite: 99999999 },
-] as const;
+  { id: "percentual_montagem", rotulo: "Montagem", ajuda: "Quanto do volume passa pela montagem.", formato: "percentual", limite: 99.9999 },
+  { id: "perc_blitz_carregamento", rotulo: "Blitz de carregamento", ajuda: "Dos mapas do dia. Entra no tempo dos operadores.", formato: "percentual", limite: 99.9999 },
+  { id: "perc_blitz_refugo", rotulo: "Blitz de refugo", ajuda: "", formato: "percentual", limite: 99.9999 },
+  { id: "perc_blitz_puxada", rotulo: "Blitz de puxada", ajuda: "", formato: "percentual", limite: 99.9999 },
+  { id: "tempo_reposicao_picking", rotulo: "Reposição do picking", ajuda: "Por mapa.", formato: "horas", limite: 99.999999 },
+  { id: "tempo_carregamento_caminhao", rotulo: "Carregamento do caminhão", ajuda: "Por mapa.", formato: "horas", limite: 99.999999 },
+  { id: "tma", rotulo: "TMA da carreta", ajuda: "Tempo médio de atendimento.", formato: "horas", limite: 99.999999 },
+  { id: "jornada", rotulo: "Jornada útil", ajuda: "Do turno.", formato: "horas", limite: 99.999999 },
+  { id: "tempo_blitz", rotulo: "Tempo de uma blitz", ajuda: "", formato: "horas", limite: 99.999999 },
+  { id: "hl_carreta", rotulo: "HL por carreta", ajuda: "O que cabe numa carreta.", formato: "numero", limite: 99999999 },
+  { id: "hl_por_mapa", rotulo: "HL por mapa", ajuda: "Divide o volume em mapas.", formato: "numero", limite: 99999999 },
+] as const satisfies readonly { id: string; rotulo: string; ajuda: string; formato: FormatoDoParametro; limite: number }[];
+
+/** O valor do banco como a pessoa lê: "40", "7:20", "210". */
+export function parametroParaTela(valor: number, formato: FormatoDoParametro): string {
+  if (!Number.isFinite(valor)) return "";
+  if (formato === "percentual") return mostrarNumero(Math.round(valor * 100 * 1e4) / 1e4, 4);
+  if (formato === "horas") {
+    const minutos = Math.round(valor * 24 * 60);
+    return `${Math.floor(minutos / 60)}:${String(minutos % 60).padStart(2, "0")}`;
+  }
+  return mostrarNumero(valor);
+}
+
+/**
+ * O que foi digitado, de volta para o banco. Horas aceitam "7:20" e
+ * "7,33"; percentual aceita "40" ou "40%". Null quando não dá para ler.
+ */
+export function parametroDaTela(texto: string, formato: FormatoDoParametro): number | null {
+  const bruto = String(texto ?? "").trim().replace("%", "");
+  if (!bruto) return null;
+  if (formato === "horas") {
+    const hm = bruto.match(/^(\d{1,2})\s*[:hH]\s*(\d{1,2})?$/);
+    if (hm) return (Number(hm[1]) * 60 + Number(hm[2] ?? 0)) / (24 * 60);
+    const horas = lerNumeroDigitado(bruto);
+    return horas == null ? null : horas / 24;
+  }
+  const n = lerNumeroDigitado(bruto);
+  if (n == null) return null;
+  return formato === "percentual" ? n / 100 : n;
+}
+
+export const SUFIXO_DO_FORMATO: Record<FormatoDoParametro, string> = {
+  percentual: "%",
+  horas: "h:mm",
+  numero: "HL",
+};
 
 // ------------------------------------------------------------------
 // O mês: o que a liderança digita
@@ -906,6 +956,199 @@ export function comparativoDeMeses(
 }
 
 // ------------------------------------------------------------------
+// PLANEJAR 2 A 3 MESES À FRENTE (28/09/2026)
+// ------------------------------------------------------------------
+
+/** O mês atual e os dois seguintes -- o horizonte que o DPO pede (V.2). */
+export function mesesDoPlanejamento(competencia: string): string[] {
+  const seguinte = competenciaSeguinte(competencia);
+  return [competencia, seguinte, competenciaSeguinte(seguinte)];
+}
+
+// ------------------------------------------------------------------
+// AS DUAS DISPERSÕES (V.5) -- pedido do dono, 28/09/2026:
+//   dimensionado x realizado = realizado ÷ volume PPR − 1
+//   realizado x demanda      = realizado ÷ volume negociado − 1
+// ------------------------------------------------------------------
+
+export type DispersoesDoMes = {
+  realizado: number;
+  /** O mês já tem volume realizado fechado? Senão, é o acumulado dos dias. */
+  fechado: boolean;
+  diasLancados: number;
+  contraPpr: number | null;
+  contraNegociado: number | null;
+};
+
+/**
+ * Mês fechado compara o total com o volume do mês. Mês em andamento
+ * compara o acumulado com a parte do volume que já devia ter saído -- a
+ * meta dos dias lançados, na proporção de cada volume. Comparar 20 dias
+ * de venda com o mês inteiro daria sempre "abaixo" até o dia 30.
+ */
+export function dispersoesDoMes(m: MesMaoDeObra, dias: DiaDoVolume[]): DispersoesDoMes {
+  const ppr = n(m.volume_ppr);
+  const negociado = n(m.volume_negociado);
+  if (m.volume_realizado != null) {
+    const real = n(m.volume_realizado);
+    return {
+      realizado: real,
+      fechado: true,
+      diasLancados: dias.filter((d) => d.realizado != null).length,
+      contraPpr: ppr > 0 ? real / ppr - 1 : null,
+      contraNegociado: negociado > 0 ? real / negociado - 1 : null,
+    };
+  }
+  const acumulado = acumuladoDoMes(dias);
+  const base = volumeBaseDaMeta(m);
+  // A fração do mês que já passou, pela meta dos dias lançados.
+  const fracao = base > 0 ? acumulado.planAcumulado / base : 0;
+  const esperado = (volume: number) => volume * fracao;
+  return {
+    realizado: acumulado.realizadoAcumulado,
+    fechado: false,
+    diasLancados: acumulado.diasLancados,
+    contraPpr: ppr > 0 && esperado(ppr) > 0 ? acumulado.realizadoAcumulado / esperado(ppr) - 1 : null,
+    contraNegociado:
+      negociado > 0 && esperado(negociado) > 0 ? acumulado.realizadoAcumulado / esperado(negociado) - 1 : null,
+  };
+}
+
+/** Fora da faixa de ±5% para qualquer uma das duas: é desvio. */
+export function temDesvio(d: DispersoesDoMes): boolean {
+  return [d.contraPpr, d.contraNegociado].some((x) => x != null && Math.abs(x) > DISPERSAO_ACEITA);
+}
+
+// ------------------------------------------------------------------
+// A FOTOGRAFIA DA PROJEÇÃO (V.3) -- migration 143
+// ------------------------------------------------------------------
+
+export type ProjecaoCongelada = {
+  id: string;
+  competenciaBase: string;
+  competenciaAlvo: string;
+  volumePpr: number | null;
+  volumeNegociado: number | null;
+  dimensionado: Partial<Record<FuncaoId, number>>;
+  total: number;
+  qlp: Partial<Record<FuncaoId, number>> | null;
+  vagas: number;
+  feitaEm: string;
+  feitaPorNome: string | null;
+};
+
+/** Quantos meses antes do alvo a projeção foi feita. */
+export function mesesDeAntecedencia(p: Pick<ProjecaoCongelada, "competenciaBase" | "competenciaAlvo">): number {
+  const [ab, mb] = p.competenciaBase.split("-").map(Number);
+  const [aa, ma] = p.competenciaAlvo.split("-").map(Number);
+  return (aa - ab) * 12 + (ma - mb);
+}
+
+/**
+ * Para cada antecedência (3, 2, 1 e 0 meses), a ÚLTIMA fotografia feita
+ * naquele mês-base. É a linha do tempo do V.3: o que se dizia deste mês
+ * lá atrás, e o que ele pede hoje.
+ */
+export function linhaDoTempoDaProjecao(projecoes: ProjecaoCongelada[], alvo: string): ProjecaoCongelada[] {
+  const doAlvo = projecoes.filter((p) => p.competenciaAlvo === alvo);
+  const porBase = new Map<string, ProjecaoCongelada>();
+  for (const p of doAlvo) {
+    const atual = porBase.get(p.competenciaBase);
+    if (!atual || p.feitaEm > atual.feitaEm) porBase.set(p.competenciaBase, p);
+  }
+  return [...porBase.values()].sort((a, b) => a.competenciaBase.localeCompare(b.competenciaBase));
+}
+
+// ------------------------------------------------------------------
+// EFICÁCIA DOS ÚLTIMOS 3 MESES (V.6)
+// ------------------------------------------------------------------
+
+export type EficaciaDoMes = {
+  competencia: string;
+  volumeProjetado: number | null;
+  /** De onde veio o projetado: a fotografia mais antiga, ou o mês lançado. */
+  origemDoProjetado: "fotografia" | "mes" | null;
+  realizado: number | null;
+  dispersao: number | null;
+  qlpProjetado: number | null;
+  qlpReal: number | null;
+  acoes: number;
+  acoesConcluidas: number;
+  situacao: "dentro" | "desvio_com_acao" | "desvio_sem_acao" | "sem_dado";
+};
+
+export function eficaciaDoMes(d: {
+  competencia: string;
+  mes: MesMaoDeObra | null;
+  fotografias: ProjecaoCongelada[];
+  qlpReal: Partial<Record<FuncaoId, number>>;
+  acoes: { competencia: string; status: StatusAcao }[];
+}): EficaciaDoMes {
+  const primeira = linhaDoTempoDaProjecao(d.fotografias, d.competencia)[0] ?? null;
+  const volumeProjetado = primeira?.volumeNegociado ?? d.mes?.volume_negociado ?? null;
+  const origemDoProjetado = primeira?.volumeNegociado != null ? "fotografia" : d.mes?.volume_negociado != null ? "mes" : null;
+  const realizado = d.mes?.volume_realizado ?? null;
+  const dispersao = volumeProjetado && realizado != null ? realizado / volumeProjetado - 1 : null;
+  const qlpValores = Object.values(d.qlpReal);
+  const acoesDoMes = d.acoes.filter((a) => a.competencia === d.competencia);
+  const desvio = dispersao != null && Math.abs(dispersao) > DISPERSAO_ACEITA;
+  return {
+    competencia: d.competencia,
+    volumeProjetado,
+    origemDoProjetado,
+    realizado,
+    dispersao,
+    qlpProjetado: primeira ? primeira.total : null,
+    qlpReal: qlpValores.length > 0 ? qlpValores.reduce((s, v) => s + (v ?? 0), 0) : null,
+    acoes: acoesDoMes.length,
+    acoesConcluidas: acoesDoMes.filter((a) => a.status === "concluida").length,
+    situacao: dispersao == null ? "sem_dado" : !desvio ? "dentro" : acoesDoMes.length > 0 ? "desvio_com_acao" : "desvio_sem_acao",
+  };
+}
+
+export const ROTULO_SITUACAO: Record<EficaciaDoMes["situacao"], string> = {
+  dentro: "✅ Dentro da faixa",
+  desvio_com_acao: "🟡 Desvio com plano de ação",
+  desvio_sem_acao: "🔴 Desvio sem plano de ação",
+  sem_dado: "— Sem volume para comparar",
+};
+
+/** O e-mail da formalização: os três meses, o que falta e o que sobra. */
+export function textoDaFormalizacao(d: {
+  revenda: string;
+  meses: { competencia: string; vagas: VagaDaFuncao[]; volumeNegociado: number | null; volumePpr: number | null }[];
+  observacao?: string | null;
+  quemEnvia: string;
+}): string {
+  const linhas: string[] = [];
+  linhas.push(`Planejamento de mão de obra — ${d.revenda}`);
+  linhas.push(`Horizonte: ${d.meses.map((m) => rotuloCompetencia(m.competencia)).join(", ")}`);
+  for (const m of d.meses) {
+    linhas.push("");
+    linhas.push(`■ ${rotuloCompetencia(m.competencia).toUpperCase()}`);
+    linhas.push(
+      `  Volume: PPR ${m.volumePpr == null ? "—" : formatarNumero(m.volumePpr, 0)} HL · negociado ${m.volumeNegociado == null ? "—" : formatarNumero(m.volumeNegociado, 0)} HL`,
+    );
+    linhas.push(`  Quadro necessário: ${m.vagas.reduce((s, v) => s + v.dimensionado, 0)} pessoas`);
+    const comVaga = m.vagas.filter((v) => v.vagas > 0);
+    const sobra = m.vagas.filter((v) => v.excedente > 0);
+    linhas.push(
+      comVaga.length === 0
+        ? "  Contratar: nenhuma vaga."
+        : `  Contratar: ${comVaga.map((v) => `${v.rotulo} ${v.vagas}`).join(" · ")}`,
+    );
+    if (sobra.length > 0) linhas.push(`  Acima do necessário (não repor): ${sobra.map((v) => `${v.rotulo} ${v.excedente}`).join(" · ")}`);
+  }
+  if (d.observacao?.trim()) {
+    linhas.push("");
+    linhas.push(`Observação: ${d.observacao.trim()}`);
+  }
+  linhas.push("");
+  linhas.push(`Enviado por ${d.quemEnvia} pelo App do Colaborador (Simulador de Mão de Obra).`);
+  return linhas.join("\n");
+}
+
+// ------------------------------------------------------------------
 // Plano de ação (o desvio vira tarefa)
 // ------------------------------------------------------------------
 
@@ -944,32 +1187,32 @@ export const REQUISITO_DPO = [
   {
     id: "V.1",
     texto: "Processo, ferramenta ou simulador para antecipar a necessidade de mão de obra e da demanda SPOT, com base na previsão de volume, incluindo Marketplace.",
-    ondeEsta: "Esta tela: o volume do mês (PPR, negociado e marketplace) e a frota SPOT dimensionam gente por função.",
+    ondeEsta: "Aba 1 · Planejar: o volume PPR, negociado e marketplace de cada mês, com a frota SPOT, vira gente por função.",
   },
   {
     id: "V.2",
     texto: "Processo revisado no mínimo mensalmente, com estrutura planejada para os meses seguintes junto aos operadores e à área de Gente, com evidências.",
-    ondeEsta: "Cada gravação do mês carimba quem revisou e quando; o envio ao recrutamento fica registrado com data, destinatários e quadro enviado.",
+    ondeEsta: "Aba 1 · Planejar: o mês atual e os 2 seguintes; “Formalizar para Gente” registra data, destinatários e o quadro enviado.",
   },
   {
     id: "V.3",
     texto: "Comparação entre o dimensionamento projetado há 2 a 3 meses e o do mês corrente.",
-    ondeEsta: "Bloco “Comparativo dos últimos meses”, por função, com a variação entre eles.",
+    ondeEsta: "Aba 3 · Resultado: a fotografia congelada em cada formalização contra o que o mês pede hoje.",
   },
   {
     id: "V.4",
     texto: "Simulador monitorado diariamente, permitindo ajustes conforme a variação do volume.",
-    ondeEsta: "Aba “Volume por dia”: o plano por dia útil, o realizado lançado dia a dia e o acumulado do mês.",
+    ondeEsta: "Aba 2 · Acompanhar o dia: necessário × realizado por dia, previsão do mês e a frota no ritmo de hoje.",
   },
   {
     id: "V.5",
     texto: "Acompanhamento da dispersão entre volume dimensionado x realizado e realizado x demanda, com aderência às metas.",
-    ondeEsta: "Dispersão do dia, do acumulado e do mês fechado, com faixa de 5% sinalizada.",
+    ondeEsta: "Aba 3 · Resultado: realizado ÷ PPR e realizado ÷ negociado, em %, com faixa de ±5%.",
   },
   {
     id: "V.6",
     texto: "Processo monitorado quanto à eficácia, com planos de ação ativos para correção de desvios e melhoria dos resultados dos últimos três meses.",
-    ondeEsta: "Plano de ação por mês, com responsável, prazo e situação, ligado à função em desvio.",
+    ondeEsta: "Aba 3 · Resultado: eficácia dos últimos 3 meses (projetado × realizado) e o plano de ação de cada desvio.",
   },
 ] as const;
 
@@ -1022,6 +1265,17 @@ export function competenciaAtual(quando: Date = new Date()) {
 export function competenciaAnterior(competencia: string) {
   const [ano, mes] = competencia.split("-").map(Number);
   return mes === 1 ? `${ano - 1}-12` : `${ano}-${String(mes - 1).padStart(2, "0")}`;
+}
+
+export function competenciaSeguinte(competencia: string) {
+  const [ano, mes] = competencia.split("-").map(Number);
+  return mes === 12 ? `${ano + 1}-01` : `${ano}-${String(mes + 1).padStart(2, "0")}`;
+}
+
+/** "2026-09" -> "Set/26", para cabeçalho de coluna. */
+export function rotuloCurto(competencia: string) {
+  const [ano, mes] = competencia.split("-");
+  return `${MESES_CURTOS[Number(mes) - 1] ?? mes}/${ano.slice(2)}`;
 }
 
 export const ehCompetencia = (v: string | undefined | null): v is string =>

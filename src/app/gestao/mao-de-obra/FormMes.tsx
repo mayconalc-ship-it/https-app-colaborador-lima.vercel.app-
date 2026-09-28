@@ -64,10 +64,13 @@ const ACOMPANHAMENTO: Campo[] = [
  */
 export function FormMes({
   competencia,
+  base,
   mes,
   config,
 }: {
   competencia: string;
+  /** O mês que a tela está planejando -- é para ele que o Salvar volta. */
+  base?: string;
   mes: MesMaoDeObra | null;
   config: ConfigMaoDeObra;
 }) {
@@ -125,6 +128,7 @@ export function FormMes({
   return (
     <form action={salvarMes} className="space-y-4">
       <input type="hidden" name="competencia" value={competencia} />
+      <input type="hidden" name="base" value={base ?? competencia} />
 
       {/* O CALENDÁRIO, à mão: é o que faz a meta do dia fechar com o
           volume negociado (25/09/2026). */}

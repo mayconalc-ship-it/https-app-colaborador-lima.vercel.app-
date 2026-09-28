@@ -5,7 +5,14 @@ import { revalidatePath } from "next/cache";
 import { requireModulo } from "@/lib/require-admin";
 import { exigirRevenda } from "@/lib/revendas";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { lerConfig, lerMes, lerRealizado, lerSalarios, primeiroDia } from "@/lib/mao-de-obra-server";
+import {
+  lerConfig,
+  lerMesesDoPeriodo,
+  lerRealizadoDoPeriodo,
+  lerSalarios,
+  primeiroDia,
+  qlpVigente,
+} from "@/lib/mao-de-obra-server";
 import {
   EH_FUNCAO,
   FUNCOES,
@@ -21,6 +28,9 @@ import {
   tipoDoDia,
   ehCompetencia,
   lerNumeroDigitado,
+  mesesDoPlanejamento,
+  parametroDaTela,
+  rotuloCompetencia,
   vagasDoMes,
   validarAcao,
   validarEmail,
@@ -30,8 +40,11 @@ import {
 
 const ROTA = "/gestao/mao-de-obra";
 
-function voltar(competencia: string, chave: "erro" | "sucesso", mensagem: string): never {
-  redirect(`${ROTA}?mes=${competencia}&${chave}=${encodeURIComponent(mensagem)}`);
+type Aba = "planejar" | "dia" | "resultado" | "configurar";
+
+/** Volta para a MESMA aba de onde a pessoa salvou -- não para o topo. */
+function voltar(competencia: string, chave: "erro" | "sucesso", mensagem: string, aba: Aba = "planejar"): never {
+  redirect(`${ROTA}?mes=${competencia}&aba=${aba}&${chave}=${encodeURIComponent(mensagem)}`);
 }
 
 function atualizarTelas() {
@@ -82,10 +95,14 @@ export async function salvarMes(formData: FormData) {
     },
     { onConflict: "revenda_id,competencia" },
   );
-  if (error) voltar(competencia, "erro", `Não foi possível salvar: ${error.message}`);
+  // Volta para o mês que a tela estava planejando, não para o mês editado:
+  // quem planeja outubro e ajusta dezembro continua vendo out-nov-dez.
+  const base = String(formData.get("base") ?? "");
+  const destino = ehCompetencia(base) ? base : competencia;
+  if (error) voltar(destino, "erro", `Não foi possível salvar: ${error.message}`);
 
   atualizarTelas();
-  voltar(competencia, "sucesso", "Mês salvo e revisão registrada.");
+  voltar(destino, "sucesso", `${rotuloCompetencia(competencia)} salvo e revisão registrada.`);
 }
 
 /** O QLP real de cada função -- o outro lado do "dimensionado x realizado". */
@@ -132,7 +149,7 @@ export async function salvarRealizado(formData: FormData) {
   }
 
   atualizarTelas();
-  voltar(competencia, "sucesso", "Quadro realizado atualizado.");
+  voltar(competencia, "sucesso", "Quadro atual (QLP) atualizado.");
 }
 
 /** Os parâmetros da operação (a aba Imputs da planilha). */
@@ -143,18 +160,20 @@ export async function salvarParametros(formData: FormData) {
 
   const valores: Record<string, number> = {};
   for (const p of PARAMETROS) {
-    const v = numero(formData.get(p.id));
-    if (v == null || v < 0) voltar(competencia, "erro", `Informe um número válido em ${p.rotulo}.`);
-    // O teto da coluna (migration 135): sem isto o banco recusava com
-    // "numeric field overflow", que não diz nada a quem está na tela.
-    if (v > p.limite) {
+    // A tela mostra % e h:mm; o banco guarda fração (28/09/2026).
+    const v = parametroDaTela(String(formData.get(p.id) ?? ""), p.formato);
+    if (v == null || v < 0) {
       voltar(
         competencia,
         "erro",
-        `${p.rotulo}: ${v.toLocaleString("pt-BR")} passa do máximo aceito (${p.limite.toLocaleString("pt-BR")}). Use vírgula para o decimal — 0,305556, por exemplo.`,
+        `Informe um valor válido em ${p.rotulo} (${p.formato === "horas" ? "ex.: 7:20" : p.formato === "percentual" ? "ex.: 40" : "ex.: 210"}).`,
+        "configurar",
       );
     }
-    if (p.id === "jornada" && v <= 0) voltar(competencia, "erro", "A jornada não pode ser zero.");
+    // O teto da coluna (migration 135): sem isto o banco recusava com
+    // "numeric field overflow", que não diz nada a quem está na tela.
+    if (v > p.limite) voltar(competencia, "erro", `${p.rotulo}: valor alto demais — confira o número.`, "configurar");
+    if (p.id === "jornada" && v <= 0) voltar(competencia, "erro", "A jornada não pode ser zero.", "configurar");
     valores[p.id] = v;
   }
 
@@ -162,11 +181,11 @@ export async function salvarParametros(formData: FormData) {
   const curva: Record<string, number> = {};
   for (const d of DIAS_DO_SELLOUT) {
     const v = numero(formData.get(d.id)) ?? 0;
-    if (v < 0 || v > 100) voltar(competencia, "erro", `Percentual inválido em ${d.rotulo}.`);
+    if (v < 0 || v > 100) voltar(competencia, "erro", `Percentual inválido em ${d.rotulo}.`, "configurar");
     curva[d.id] = v;
   }
   const problemaDaCurva = validarSellout(curva as Parameters<typeof validarSellout>[0]);
-  if (problemaDaCurva) voltar(competencia, "erro", problemaDaCurva);
+  if (problemaDaCurva) voltar(competencia, "erro", problemaDaCurva, "configurar");
   Object.assign(valores, curva);
 
   const admin = createAdminClient();
@@ -182,7 +201,7 @@ export async function salvarParametros(formData: FormData) {
   if (error) voltar(competencia, "erro", `Não foi possível salvar: ${error.message}`);
 
   atualizarTelas();
-  voltar(competencia, "sucesso", "Parâmetros salvos.");
+  voltar(competencia, "sucesso", "Parâmetros salvos.", "configurar");
 }
 
 /** A base salarial de uma função -- o que multiplica o dimensionamento. */
@@ -215,7 +234,7 @@ export async function salvarSalario(formData: FormData) {
   if (error) voltar(competencia, "erro", `Não foi possível salvar: ${error.message}`);
 
   atualizarTelas();
-  voltar(competencia, "sucesso", "Base salarial atualizada.");
+  voltar(competencia, "sucesso", "Base salarial atualizada.", "configurar");
 }
 
 /** Uma ação do plano -- o desvio que vira tarefa com dono e prazo. */
@@ -247,7 +266,7 @@ export async function criarAcao(formData: FormData) {
   if (error) voltar(competencia, "erro", `Não foi possível salvar a ação: ${error.message}`);
 
   atualizarTelas();
-  voltar(competencia, "sucesso", "Ação incluída no plano.");
+  voltar(competencia, "sucesso", "Ação incluída no plano.", "resultado");
 }
 
 export async function mudarStatusDaAcao(formData: FormData) {
@@ -269,7 +288,7 @@ export async function mudarStatusDaAcao(formData: FormData) {
   if (error) voltar(competencia, "erro", `Não foi possível salvar: ${error.message}`);
 
   atualizarTelas();
-  voltar(competencia, "sucesso", "Situação da ação atualizada.");
+  voltar(competencia, "sucesso", "Situação da ação atualizada.", "resultado");
 }
 
 // ------------------------------------------------------------------
@@ -295,7 +314,7 @@ export async function adicionarDestinatario(formData: FormData) {
   if (error) voltar(competencia, "erro", `Não foi possível salvar: ${error.message}`);
 
   atualizarTelas();
-  voltar(competencia, "sucesso", `${email} vai receber o quadro de vagas.`);
+  voltar(competencia, "sucesso", `${email} vai receber o planejamento.`, "configurar");
 }
 
 export async function removerDestinatario(formData: FormData) {
@@ -310,18 +329,25 @@ export async function removerDestinatario(formData: FormData) {
   if (error) voltar(competencia, "erro", `Não foi possível remover: ${error.message}`);
 
   atualizarTelas();
-  voltar(competencia, "sucesso", "Destinatário removido.");
+  voltar(competencia, "sucesso", "Destinatário removido.", "configurar");
 }
 
 /**
- * Registra o envio do quadro de vagas ao recrutamento.
+ * FORMALIZAR O PLANEJAMENTO PARA O TIME DE GENTE (V.2 e V.3).
  *
- * O e-mail em si abre no cliente da pessoa (o app não tem SMTP, e assim
- * ele sai do endereço da empresa). O que fica aqui é a EVIDÊNCIA: quando,
- * por quem, para quem e qual quadro -- congelado, porque o mês seguinte
- * muda o dimensionamento e a auditoria pergunta pelo que foi enviado.
+ * O e-mail abre no cliente da pessoa (o app não tem SMTP, e assim ele sai
+ * do endereço da empresa). O que fica aqui é a EVIDÊNCIA, em duas partes:
+ *   1. o envio: quando, por quem, para quem e o quadro do mês;
+ *   2. a FOTOGRAFIA dos 3 meses (migration 143): o que se projetou hoje
+ *      para este mês e os dois seguintes. É ela que o V.3 compara daqui a
+ *      2-3 meses -- sem congelar, o "projetado" seria recalculado com os
+ *      parâmetros de hoje e o comparativo mediria o simulador contra ele
+ *      mesmo.
+ *
+ * Tudo é recalculado AQUI, do banco: o que o formulário mandasse seria a
+ * tela de quem clicou, não a verdade do mês.
  */
-export async function registrarEnvio(formData: FormData) {
+export async function formalizarPlanejamento(formData: FormData) {
   const perfil = await requireModulo(MODULO_MAO_DE_OBRA, "editar", ROTA);
   const revendaId = await exigirRevenda(ROTA);
 
@@ -330,46 +356,77 @@ export async function registrarEnvio(formData: FormData) {
   const observacao = String(formData.get("observacao") ?? "").trim().slice(0, LIMITES_MAO_DE_OBRA.observacaoMax) || null;
 
   const admin = createAdminClient();
+  const horizonte = mesesDoPlanejamento(competencia);
 
-  // O quadro é recalculado AQUI, do banco: o que o formulário mandasse
-  // seria a tela de quem clicou, não a verdade do mês.
-  const [config, salarios, mes, realizado, { data: destinos }] = await Promise.all([
+  const [config, salarios, meses, qlpPorMes, { data: destinos }] = await Promise.all([
     lerConfig(revendaId),
     lerSalarios(revendaId),
-    lerMes(revendaId, competencia),
-    lerRealizado(revendaId, competencia),
+    lerMesesDoPeriodo(revendaId, horizonte[0], horizonte[2]),
+    // O QLP vigente pode ter sido informado meses antes.
+    lerRealizadoDoPeriodo(revendaId, "2000-01", horizonte[2]),
     admin.from("mao_obra_destinatarios").select("email").eq("revenda_id", revendaId).eq("ativo", true),
   ]);
-  if (!mes) voltar(competencia, "erro", "Lance o volume do mês antes de enviar o dimensionamento.");
   const emails = (destinos ?? []).map((d) => String(d.email));
-  if (emails.length === 0) voltar(competencia, "erro", "Cadastre pelo menos um e-mail do recrutamento.");
+  if (emails.length === 0) voltar(competencia, "erro", "Cadastre pelo menos um e-mail do time de Gente na aba Configurar.");
 
-  const { linhas } = dimensionamentoDoMes(mes, config, salarios, realizado);
-  const vagas = vagasDoMes(linhas);
-  const total = vagas.reduce((s, v) => s + v.vagas, 0);
+  const planejados = horizonte
+    .map((c) => ({ competencia: c, mes: meses.get(c) ?? null }))
+    .filter((x): x is { competencia: string; mes: MesMaoDeObra } => x.mes != null);
+  if (planejados.length === 0) voltar(competencia, "erro", "Lance o volume de pelo menos um dos 3 meses antes de formalizar.");
 
-  const { error } = await admin.from("mao_obra_envios").insert({
-    revenda_id: revendaId,
-    competencia: primeiroDia(competencia),
-    enviado_por_nome: perfil.nome,
-    destinatarios: emails,
-    vagas: vagas.map((v) => ({
-      funcao: v.funcao,
-      rotulo: v.rotulo,
-      dimensionado: v.dimensionado,
-      atual: v.atual,
-      vagas: v.vagas,
-    })),
-    total_vagas: total,
-    observacao,
+  const quadros = planejados.map(({ competencia: c, mes }) => {
+    const qlp = qlpVigente(qlpPorMes, c);
+    const { linhas } = dimensionamentoDoMes(mes, config, salarios, qlp);
+    return { competencia: c, mes, qlp, vagas: vagasDoMes(linhas) };
   });
+
+  // 1. O envio (o mês-base). Se o mês-base não tiver volume, vai o primeiro planejado.
+  const doMes = quadros.find((q) => q.competencia === competencia) ?? quadros[0];
+  const totalVagas = doMes.vagas.reduce((s, v) => s + v.vagas, 0);
+  const { data: envio, error } = await admin
+    .from("mao_obra_envios")
+    .insert({
+      revenda_id: revendaId,
+      competencia: primeiroDia(competencia),
+      enviado_por_nome: perfil.nome,
+      destinatarios: emails,
+      vagas: doMes.vagas.map((v) => ({
+        funcao: v.funcao,
+        rotulo: v.rotulo,
+        dimensionado: v.dimensionado,
+        atual: v.atual,
+        vagas: v.vagas,
+      })),
+      total_vagas: totalVagas,
+      observacao,
+    })
+    .select("id")
+    .single();
   if (error) voltar(competencia, "erro", `Não foi possível registrar o envio: ${error.message}`);
+
+  // 2. A fotografia dos 3 meses.
+  const { error: erroFoto } = await admin.from("mao_obra_projecoes").insert(
+    quadros.map((q) => ({
+      revenda_id: revendaId,
+      competencia_base: primeiroDia(competencia),
+      competencia_alvo: primeiroDia(q.competencia),
+      volume_ppr: q.mes.volume_ppr,
+      volume_negociado: q.mes.volume_negociado,
+      dimensionado: Object.fromEntries(q.vagas.map((v) => [v.funcao, v.dimensionado])),
+      total: q.vagas.reduce((s, v) => s + v.dimensionado, 0),
+      qlp: Object.keys(q.qlp).length > 0 ? q.qlp : null,
+      vagas: q.vagas.reduce((s, v) => s + v.vagas, 0),
+      envio_id: envio.id,
+      feita_por_nome: perfil.nome,
+    })),
+  );
+  if (erroFoto) voltar(competencia, "erro", `O envio foi registrado, mas a fotografia falhou: ${erroFoto.message}`);
 
   atualizarTelas();
   voltar(
     competencia,
     "sucesso",
-    `Envio registrado: ${total} vaga${total === 1 ? "" : "s"} para ${emails.length} destinatário${emails.length === 1 ? "" : "s"}.`,
+    `Planejamento de ${quadros.length} mês(es) formalizado para ${emails.length} destinatário${emails.length === 1 ? "" : "s"} e congelado para o comparativo.`,
   );
 }
 
