@@ -252,6 +252,8 @@ export type MesMaoDeObra = {
   media_carro_hl: number | null;
   frota_long_dist: number | null;
   frota_reserva: number | null;
+  /** Quem cobre FÉRIAS (migration 147) -- diferente da reserva, que cobre faltas. */
+  frota_ferista: number | null;
   frota_spot: number | null;
   frota_fixa_total: number | null;
   puxadores: number | null;
@@ -291,6 +293,7 @@ export const MES_VAZIO: MesMaoDeObra = {
   media_carro_hl: null,
   frota_long_dist: null,
   frota_reserva: null,
+  frota_ferista: null,
   frota_spot: null,
   frota_fixa_total: null,
   puxadores: null,
@@ -368,8 +371,12 @@ export function contaDistribuicao(m: MesMaoDeObra): ContaDistribuicao {
   const linear = diasUteis > 0 ? (n(m.volume_negociado) - volumeDosSabados) / diasUteis : 0;
   const mediaCarro = n(m.media_carro_hl);
   const frotasReal = mediaCarro > 0 ? linear / mediaCarro + n(m.frota_long_dist) : 0;
-  // FLOOR como na planilha: meia frota não existe na rua.
-  const frotaDimensionada = Math.max(0, Math.floor(frotasReal + n(m.frota_reserva) - n(m.frota_spot)));
+  // FLOOR como na planilha: meia frota não existe na rua. O ferista
+  // (férias) entra como a reserva (faltas) -- migration 147.
+  const frotaDimensionada = Math.max(
+    0,
+    Math.floor(frotasReal + n(m.frota_reserva) + n(m.frota_ferista) - n(m.frota_spot)),
+  );
   return {
     diasUteis,
     volumeDosSabados,
