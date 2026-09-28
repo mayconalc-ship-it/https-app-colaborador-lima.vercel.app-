@@ -34,6 +34,9 @@ import {
   STATUS_ACAO,
   DIAS_DO_SELLOUT,
   acumuladoDoMes,
+  classeDaDispersao,
+  rotuloDaDispersao,
+  sentidoDaDispersao,
   competenciaAnterior,
   conferenciaDoPlano,
   curvaLigada,
@@ -304,7 +307,7 @@ export default async function MaoDeObraPage({
             />
             <Cartao
               titulo="Dispersão do volume"
-              valor={formatarPercento(dispersao)}
+              valor={rotuloDaDispersao(dispersao)}
               detalhe={
                 dispersao == null
                   ? "lance o volume por dia"
@@ -312,7 +315,8 @@ export default async function MaoDeObraPage({
                     ? "mês fechado"
                     : `acumulado de ${acumulado.diasLancados} dia${acumulado.diasLancados === 1 ? "" : "s"}`
               }
-              tom={dispersao != null && Math.abs(dispersao) > DISPERSAO_ACEITA ? "erro" : "neutro"}
+              // Acima do necessário = verde, abaixo = vermelho.
+              tom={sentidoDaDispersao(dispersao) === "abaixo" ? "erro" : sentidoDaDispersao(dispersao) === "acima" ? "bom" : "neutro"}
             />
             <Cartao titulo="Custo estimado" valor={formatarReais(custoDimensionado)} detalhe="do quadro dimensionado" />
           </div>
@@ -810,15 +814,11 @@ export default async function MaoDeObraPage({
                       </td>
                       <td className="px-1 py-2 text-right font-mono font-bold tabular-nums text-slate-900">{h.dimensionado}</td>
                       <td
-                        className={`px-2 py-2 text-right font-mono text-[13px] tabular-nums ${
-                          h.dispersao == null
-                            ? "text-slate-300"
-                            : Math.abs(h.dispersao) > DISPERSAO_ACEITA
-                              ? "font-semibold text-red-700"
-                              : "text-emerald-700"
-                        }`}
+                        className={`px-2 py-2 text-right font-mono text-[13px] font-semibold tabular-nums ${classeDaDispersao(
+                          h.dispersao,
+                        )}`}
                       >
-                        {formatarPercento(h.dispersao)}
+                        {rotuloDaDispersao(h.dispersao)}
                       </td>
                     </tr>
                   ))}
@@ -1013,19 +1013,21 @@ function Cartao({
   titulo: string;
   valor: string;
   detalhe: string;
-  tom?: "neutro" | "destaque" | "atencao" | "erro";
+  tom?: "neutro" | "destaque" | "atencao" | "erro" | "bom";
 }) {
   const caixa = {
     neutro: "border-slate-200 bg-white",
     destaque: "border-primary/30 bg-primary-soft",
     atencao: "border-amber-200 bg-amber-50",
     erro: "border-red-200 bg-red-50",
+    bom: "border-emerald-200 bg-emerald-50",
   }[tom];
   const cor = {
     neutro: "text-slate-900",
     destaque: "text-primary-dark",
     atencao: "text-amber-700",
     erro: "text-red-700",
+    bom: "text-emerald-700",
   }[tom];
   return (
     <div className={`rounded-2xl border p-3 shadow-sm ${caixa}`}>

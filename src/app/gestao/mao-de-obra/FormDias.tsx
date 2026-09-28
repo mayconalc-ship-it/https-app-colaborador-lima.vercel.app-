@@ -3,13 +3,14 @@
 import { useMemo, useState } from "react";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
 import {
-  DISPERSAO_ACEITA,
   ROTULO_TIPO_DE_DIA,
+  classeDaDispersao,
   formatarNumero,
   formatarPercento,
   leDoMes,
   lerNumeroDigitado,
   mostrarNumero,
+  rotuloDaDispersao,
   type DiaDoVolume,
 } from "@/lib/mao-de-obra";
 import { salvarDias } from "./actions";
@@ -119,8 +120,8 @@ export function FormDias({
     };
   }, [valores, dias, opera, planoSabado, conferencia.volumeBase, curva]);
 
-  const corDaDispersao = (d: number | null) =>
-    d == null ? "text-slate-300" : Math.abs(d) > DISPERSAO_ACEITA ? "text-red-600" : "text-emerald-600";
+  // Acima do necessário = verde, abaixo = vermelho (lib/mao-de-obra.ts).
+  const corDaDispersao = classeDaDispersao;
 
   // Cada tipo de dia com a sua faixa: o domingo precisa saltar aos olhos.
   const faixaDoTipo = {
@@ -164,7 +165,7 @@ export function FormDias({
         />
         <Numero
           titulo="Dispersão acumulada"
-          valor={formatarPercento(conta.dispersao)}
+          valor={rotuloDaDispersao(conta.dispersao)}
           classe={corDaDispersao(conta.dispersao)}
         />
       </div>
@@ -255,7 +256,7 @@ export function FormDias({
                   />
                 </td>
                 <td className={`px-2 py-1 text-right font-mono text-xs tabular-nums ${corDaDispersao(l.dispersao)}`}>
-                  {l.dispersao == null ? "—" : formatarPercento(l.dispersao)}
+                  {rotuloDaDispersao(l.dispersao)}
                 </td>
               </tr>
             ))}
@@ -273,7 +274,7 @@ export function FormDias({
                 {formatarNumero(conta.realizadoAteAgora, 0)}
               </td>
               <td className={`px-2 py-2 text-right font-mono text-xs tabular-nums ${corDaDispersao(conta.dispersao)}`}>
-                {formatarPercento(conta.dispersao)}
+                {rotuloDaDispersao(conta.dispersao)}
               </td>
             </tr>
           </tfoot>
@@ -286,9 +287,8 @@ export function FormDias({
             {ROTULO_TIPO_DE_DIA[t]}
           </span>
         ))}
-        <span className="rounded px-2 py-0.5 font-medium text-slate-500">
-          Faixa aceita: {formatarPercento(DISPERSAO_ACEITA)} para mais ou para menos
-        </span>
+        <span className="rounded px-2 py-0.5 font-medium text-emerald-700">▲ acima do necessário</span>
+        <span className="rounded px-2 py-0.5 font-medium text-red-700">▼ abaixo do necessário</span>
       </div>
 
       {podeEditar && (

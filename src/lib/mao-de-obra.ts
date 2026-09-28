@@ -449,6 +449,37 @@ export function dispersaoDoVolume(m: MesMaoDeObra): number | null {
 /** Acima disso a dispersão vira desvio que precisa de plano de ação. */
 export const DISPERSAO_ACEITA = 0.05;
 
+/**
+ * A COR DA DISPERSÃO: volume ACIMA do necessário é verde, ABAIXO é
+ * vermelho (pedido do dono, 28/09/2026). Antes a cor saía da faixa de
+ * ±5% -- e um dia 20% acima ficava vermelho igual a um dia 20% abaixo,
+ * quando só um deles é problema.
+ *
+ * Zero conta como acima: o dia bateu o necessário. A seta vai junto com
+ * a cor, para quem não distingue verde de vermelho.
+ */
+export function sentidoDaDispersao(d: number | null | undefined): "acima" | "abaixo" | null {
+  if (d == null) return null;
+  return d >= 0 ? "acima" : "abaixo";
+}
+
+export const COR_DA_DISPERSAO = {
+  acima: "text-emerald-600",
+  abaixo: "text-red-600",
+  vazio: "text-slate-300",
+} as const;
+
+export function classeDaDispersao(d: number | null | undefined): string {
+  return COR_DA_DISPERSAO[sentidoDaDispersao(d) ?? "vazio"];
+}
+
+/** "+3,2% ▲" / "-4,1% ▼" -- o sinal e a seta dizem o sentido sem depender da cor. */
+export function rotuloDaDispersao(d: number | null | undefined): string {
+  const s = sentidoDaDispersao(d);
+  if (s == null) return "—";
+  return `${s === "acima" && d! > 0 ? "+" : ""}${formatarPercento(d)} ${s === "acima" ? "▲" : "▼"}`;
+}
+
 // ------------------------------------------------------------------
 // AS VAGAS -- o que vai para o recrutamento (25/09/2026)
 // ------------------------------------------------------------------
