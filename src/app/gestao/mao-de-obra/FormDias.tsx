@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
 import {
   LIMITE_ANS_VENDAS,
@@ -220,99 +220,104 @@ export function FormDias({
         </div>
       )}
 
-      <div className="overflow-hidden rounded-xl border border-slate-200">
-        <table className="w-full table-fixed text-sm">
+      {/* A JUSTIFICATIVA MORA NA LINHA DO DIA (28/09/2026, pedido do dono):
+          uma coluna à frente da dispersão, que só pede preenchimento quando
+          o dia sai de ±20% do necessário (ANS com Vendas). Rola de lado no
+          celular em vez de espremer as colunas. */}
+      <div className="overflow-x-auto rounded-xl border border-slate-200">
+        <table className="w-full min-w-[640px] table-fixed text-sm">
           <thead>
             <tr className="bg-slate-50 text-left text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-              <th className="px-2 py-2">Dia</th>
-              <th className="w-14 px-1 py-2 text-center">Opera</th>
-              <th className="w-24 px-1 py-2 text-right">Necessário</th>
-              <th className="w-32 px-2 py-2 text-right">Realizado</th>
-              <th className="w-16 px-2 py-2 text-right">Disp.</th>
+              <th className="w-20 px-2 py-2">Dia</th>
+              <th className="w-12 px-1 py-2 text-center">Opera</th>
+              <th className="w-20 px-1 py-2 text-right">Necessário</th>
+              <th className="w-24 px-2 py-2 text-right">Realizado</th>
+              <th className="w-20 px-2 py-2 text-right">Disp.</th>
+              <th className="px-2 py-2">Justificativa (fora de ±{Math.round(LIMITE_ANS_VENDAS * 100)}%)</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {conta.linhas.map((l) => (
-              <Fragment key={l.dia}>
-              <tr className={faixaDoTipo[l.tipo]}>
-                <td className="px-2 py-1">
-                  <span className="font-mono text-xs font-semibold tabular-nums text-slate-700">{l.rotulo}</span>
-                  <span className="ml-1 text-[11px] uppercase text-slate-400">{l.diaDaSemana}</span>
-                </td>
-                <td className="px-1 py-1 text-center">
-                  <input
-                    type="checkbox"
-                    name={`opera_${l.dia}`}
-                    checked={opera[l.dia] ?? false}
-                    disabled={!podeEditar}
-                    onChange={(e) => setOpera((v) => ({ ...v, [l.dia]: e.target.checked }))}
-                    aria-label={`${l.rotulo} opera`}
-                    className="h-4 w-4 accent-primary"
-                  />
-                </td>
-                <td className="px-1 py-1 text-right font-mono text-xs tabular-nums text-slate-500">
-                  {l.opera ? formatarNumero(l.plan, 0) : "—"}
-                </td>
-                <td className="px-2 py-1 text-right">
-                  <input
-                    name={`dia_${l.dia}`}
-                    value={valores[l.dia] ?? ""}
-                    onChange={(e) => setValores((v) => ({ ...v, [l.dia]: e.target.value }))}
-                    disabled={!podeEditar}
-                    inputMode="decimal"
-                    placeholder={l.opera ? "" : "não opera"}
-                    aria-label={`Volume de ${l.rotulo}`}
-                    className="w-full rounded border border-slate-200 bg-white px-2 py-1 text-right font-mono text-xs tabular-nums focus:border-primary focus:outline-none disabled:bg-slate-50"
-                  />
-                </td>
-                <td className={`px-2 py-1 text-right font-mono text-xs tabular-nums ${corDaDispersao(l.dispersao)}`}>
-                  {rotuloDaDispersao(l.dispersao)}
-                </td>
-              </tr>
-              {/* ACIMA DO ANS COM VENDAS (+20%): o dia pede motivo. */}
-              {excedeAns(l.dispersao) && (
-                <tr className="bg-red-50">
-                  <td colSpan={5} className="px-2 py-1.5">
-                    <p className="mb-1 text-[11px] font-semibold text-red-800">
-                      ⚠️ {l.rotulo}: {(l.dispersao ?? 0) > 0 ? "acima" : "abaixo"} do ANS com Vendas (±
-                      {Math.round(LIMITE_ANS_VENDAS * 100)}% do necessário) — justifique
-                    </p>
-                    <div className="grid grid-cols-1 gap-1 sm:grid-cols-3">
-                      <select
-                        name={`motivo_${l.dia}`}
-                        required
-                        disabled={!podeEditar}
-                        value={justificativas[l.dia]?.motivo ?? ""}
-                        onChange={(e) =>
-                          setJustificativas((j) => ({ ...j, [l.dia]: { motivo: e.target.value, texto: j[l.dia]?.texto ?? "" } }))
-                        }
-                        className="rounded border border-red-200 bg-white px-1.5 py-1 text-xs"
-                      >
-                        <option value="">Motivo (obrigatório)</option>
-                        {MOTIVOS_DIA_ACIMA.map((m) => (
-                          <option key={m} value={m}>
-                            {m}
-                          </option>
-                        ))}
-                      </select>
-                      <input
-                        name={`justificativa_${l.dia}`}
-                        maxLength={300}
-                        required={justificativas[l.dia]?.motivo === "Outro"}
-                        disabled={!podeEditar}
-                        value={justificativas[l.dia]?.texto ?? ""}
-                        onChange={(e) =>
-                          setJustificativas((j) => ({ ...j, [l.dia]: { motivo: j[l.dia]?.motivo ?? "", texto: e.target.value } }))
-                        }
-                        placeholder="Detalhe (ex.: pedido do cliente X combinado com o comercial)"
-                        className="rounded border border-red-200 bg-white px-2 py-1 text-xs sm:col-span-2"
-                      />
-                    </div>
+            {conta.linhas.map((l) => {
+              const fora = excedeAns(l.dispersao);
+              return (
+                <tr key={l.dia} className={fora ? "bg-red-50" : faixaDoTipo[l.tipo]}>
+                  <td className="px-2 py-1">
+                    <span className="font-mono text-xs font-semibold tabular-nums text-slate-700">{l.rotulo}</span>
+                    <span className="ml-1 text-[11px] uppercase text-slate-400">{l.diaDaSemana}</span>
+                  </td>
+                  <td className="px-1 py-1 text-center">
+                    <input
+                      type="checkbox"
+                      name={`opera_${l.dia}`}
+                      checked={opera[l.dia] ?? false}
+                      disabled={!podeEditar}
+                      onChange={(e) => setOpera((v) => ({ ...v, [l.dia]: e.target.checked }))}
+                      aria-label={`${l.rotulo} opera`}
+                      className="h-4 w-4 accent-primary"
+                    />
+                  </td>
+                  <td className="px-1 py-1 text-right font-mono text-xs tabular-nums text-slate-500">
+                    {l.opera ? formatarNumero(l.plan, 0) : "—"}
+                  </td>
+                  <td className="px-2 py-1 text-right">
+                    <input
+                      name={`dia_${l.dia}`}
+                      value={valores[l.dia] ?? ""}
+                      onChange={(e) => setValores((v) => ({ ...v, [l.dia]: e.target.value }))}
+                      disabled={!podeEditar}
+                      inputMode="decimal"
+                      placeholder={l.opera ? "" : "não opera"}
+                      aria-label={`Volume de ${l.rotulo}`}
+                      className="w-full rounded border border-slate-200 bg-white px-2 py-1 text-right font-mono text-xs tabular-nums focus:border-primary focus:outline-none disabled:bg-slate-50"
+                    />
+                  </td>
+                  <td className={`px-2 py-1 text-right font-mono text-xs tabular-nums ${corDaDispersao(l.dispersao)}`}>
+                    {rotuloDaDispersao(l.dispersao)}
+                  </td>
+                  <td className="px-2 py-1">
+                    {fora ? (
+                      <div className="flex flex-col gap-1">
+                        <select
+                          name={`motivo_${l.dia}`}
+                          required
+                          disabled={!podeEditar}
+                          value={justificativas[l.dia]?.motivo ?? ""}
+                          onChange={(e) =>
+                            setJustificativas((j) => ({ ...j, [l.dia]: { motivo: e.target.value, texto: j[l.dia]?.texto ?? "" } }))
+                          }
+                          aria-label={`Motivo de ${l.rotulo}`}
+                          className={`w-full rounded border bg-white px-1.5 py-1 text-xs ${
+                            justificativas[l.dia]?.motivo ? "border-slate-200" : "border-red-300"
+                          }`}
+                        >
+                          <option value="">⚠️ Motivo (obrigatório)</option>
+                          {MOTIVOS_DIA_ACIMA.map((m) => (
+                            <option key={m} value={m}>
+                              {m}
+                            </option>
+                          ))}
+                        </select>
+                        <input
+                          name={`justificativa_${l.dia}`}
+                          maxLength={300}
+                          required={justificativas[l.dia]?.motivo === "Outro"}
+                          disabled={!podeEditar}
+                          value={justificativas[l.dia]?.texto ?? ""}
+                          onChange={(e) =>
+                            setJustificativas((j) => ({ ...j, [l.dia]: { motivo: j[l.dia]?.motivo ?? "", texto: e.target.value } }))
+                          }
+                          aria-label={`Detalhe de ${l.rotulo}`}
+                          placeholder="Detalhe (opcional)"
+                          className="w-full rounded border border-slate-200 bg-white px-2 py-1 text-xs"
+                        />
+                      </div>
+                    ) : (
+                      <span className="text-[11px] text-slate-300">—</span>
+                    )}
                   </td>
                 </tr>
-              )}
-              </Fragment>
-            ))}
+              );
+            })}
           </tbody>
           <tfoot>
             <tr className="border-t-[3px] border-double border-slate-300 bg-slate-50 font-semibold">
@@ -328,6 +333,9 @@ export function FormDias({
               </td>
               <td className={`px-2 py-2 text-right font-mono text-xs tabular-nums ${corDaDispersao(conta.dispersao)}`}>
                 {rotuloDaDispersao(conta.dispersao)}
+              </td>
+              <td className="px-2 py-2 text-[11px] font-normal text-slate-500">
+                {conta.linhas.filter((l) => excedeAns(l.dispersao)).length} dia(s) fora do ANS
               </td>
             </tr>
           </tfoot>
