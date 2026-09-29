@@ -1218,7 +1218,10 @@ function MemoriaDoArmazem({ arm, jornada, jornadaConferenteNoite }: { arm: Conta
             <span className="text-sm font-semibold text-slate-800">{rotulo}</span>
             <span className="font-mono text-xs tabular-nums text-slate-600">
               {TURNOS_DO_ARMAZEM.map((t) => `${t} ${formatarNumero(f.turnos[t].pessoas, 1)}`).join(" · ")}
-              {f.reserva > 0 && ` · reserva ${f.reserva}`} → <b className="text-slate-900">{f.total}</b>
+              {f.reserva > 0 && ` · reserva ${f.reserva}`} → <b className="text-slate-900">{f.calculado ?? f.total}</b>
+              {f.calculado != null && (
+                <span className="ml-1 rounded bg-amber-100 px-1.5 py-0.5 font-sans font-semibold text-amber-800">fixado em {f.total}</span>
+              )}
             </span>
           </summary>
           <div className="overflow-x-auto border-t border-slate-100">
@@ -1251,6 +1254,7 @@ function MemoriaDoArmazem({ arm, jornada, jornadaConferenteNoite }: { arm: Conta
             </table>
             <p className="px-3 py-2 text-[11px] text-slate-500">
               Fechamento: {comoFecha}.
+              {f.calculado != null && ` O PPR calcula ${f.calculado}; o quadro está FIXADO em ${f.total} por política da operação (Configurar › Quadro fixo).`}
               {f.ajusteFerias != null && ` Ajuste de férias ${f.ajusteFerias} (substitui a reserva ${f.reserva} quando menor), alta temporada ${f.altaTemporada}.`}
             </p>
           </div>

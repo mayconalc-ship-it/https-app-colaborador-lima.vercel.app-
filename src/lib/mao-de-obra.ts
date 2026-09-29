@@ -198,6 +198,13 @@ export const PARAMETROS_ARMAZEM = [
   // As jornadas que dividem os minutos (como na aba Dimensionamento Plan).
   { id: "jornada_horas", grupo: "Jornadas", rotulo: "Jornada útil (horas decimais)", unidade: "h", padrao: 7.33 },
   { id: "jornada_conferente_noite", grupo: "Jornadas", rotulo: "Jornada do conferente à noite", unidade: "h", padrao: 6.33 },
+  // QUADRO FIXO (29/09/2026, pedido do dono: "operador de empilhadeira não
+  // pode mexer, deve ficar sempre com 4"): a política da operação por cima
+  // da conta. 0 = vale o que o PPR calcula; a memória mostra os dois.
+  { id: "fixo_operador", grupo: "Quadro fixo (0 = calcula pelo PPR)", rotulo: "Operadores de empilhadeira", unidade: "un", padrao: 0 },
+  { id: "fixo_ajudante", grupo: "Quadro fixo (0 = calcula pelo PPR)", rotulo: "Ajudantes de armazém", unidade: "un", padrao: 0 },
+  { id: "fixo_amarracao", grupo: "Quadro fixo (0 = calcula pelo PPR)", rotulo: "Ajudantes de amarração", unidade: "un", padrao: 0 },
+  { id: "fixo_conferente", grupo: "Quadro fixo (0 = calcula pelo PPR)", rotulo: "Conferentes", unidade: "un", padrao: 0 },
 ] as const satisfies readonly { id: string; grupo: string; rotulo: string; unidade: UnidadeDoInput; padrao: number }[];
 
 export type ParametroArmazemId = (typeof PARAMETROS_ARMAZEM)[number]["id"];
@@ -618,6 +625,8 @@ export type FuncaoDoArmazem = {
   altaTemporada: number;
   ajusteFerias: number | null;
   total: number;
+  /** O que o PPR calcula, quando o quadro foi FIXADO por política (fixo_*). */
+  calculado: number | null;
 };
 
 export type BaseDoArmazem = {
@@ -676,7 +685,7 @@ function fecharFuncao(
   ) as FuncaoDoArmazem["turnos"];
   const somaDosTurnos = TURNOS_DO_ARMAZEM.reduce((s, t) => s + turnos[t].pessoas, 0);
   const reserva = reservaDe ? reservaDe(somaDosTurnos) : 0;
-  return { unidade, atividades, turnos, reserva, altaTemporada: 0, ajusteFerias: null, total: somaDosTurnos + reserva };
+  return { unidade, atividades, turnos, reserva, altaTemporada: 0, ajusteFerias: null, total: somaDosTurnos + reserva, calculado: null };
 }
 
 export function contaArmazem(m: MesMaoDeObra, c: ConfigMaoDeObra): ContaArmazem {
@@ -848,6 +857,14 @@ export function contaArmazem(m: MesMaoDeObra, c: ConfigMaoDeObra): ContaArmazem 
     (s) => arredondarParaCima(s * A.absenteismo + s / 12),
   );
 
+  // O quadro fixo por política vence a conta, e a conta fica registrada.
+  const fixar = (f: FuncaoDoArmazem, fixo: number): FuncaoDoArmazem =>
+    fixo > 0 ? { ...f, calculado: f.total, total: Math.round(fixo) } : f;
+  const operadorF = fixar(operador, A.fixo_operador);
+  const ajudanteF = fixar(ajudante, A.fixo_ajudante);
+  const amarracaoF = fixar(amarracao, A.fixo_amarracao);
+  const conferenteF = fixar(conferente, A.fixo_conferente);
+
   return {
     base: {
       dias,
@@ -864,14 +881,14 @@ export function contaArmazem(m: MesMaoDeObra, c: ConfigMaoDeObra): ContaArmazem 
       mixRetornavel: mixRet,
       picoRetorno: pico,
     },
-    operador,
-    ajudante,
-    amarracao,
-    conferente,
-    operadores: operador.total,
-    ajudantes: ajudante.total,
-    amarracoes: amarracao.total,
-    conferentes: conferente.total,
+    operador: operadorF,
+    ajudante: ajudanteF,
+    amarracao: amarracaoF,
+    conferente: conferenteF,
+    operadores: operadorF.total,
+    ajudantes: ajudanteF.total,
+    amarracoes: amarracaoF.total,
+    conferentes: conferenteF.total,
     manobristas: n(m.manobristas),
   };
 }
