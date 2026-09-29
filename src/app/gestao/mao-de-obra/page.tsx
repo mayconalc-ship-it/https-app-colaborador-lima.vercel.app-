@@ -28,6 +28,7 @@ import {
   MESES_CURTOS,
   MES_VAZIO,
   MODULO_MAO_DE_OBRA,
+  MOTIVOS_VOLUME,
   PARAMETROS,
   REQUISITO_DPO,
   ROTULO_SITUACAO,
@@ -74,6 +75,7 @@ import {
   excluirAcao,
   mudarStatusDaAcao,
   removerDestinatario,
+  salvarJustificativaVolume,
   salvarParametros,
   salvarRealizado,
   salvarSalario,
@@ -180,6 +182,8 @@ export default async function MaoDeObraPage({
       vagas: p.vagas!,
       volumeNegociado: p.mes!.volume_negociado,
       volumePpr: p.mes!.volume_ppr,
+      justificativaMotivo: p.mes!.qlp_justificativa_motivo,
+      justificativa: p.mes!.qlp_justificativa,
     }));
   const ultimoEnvio = envios.find((e) => e.competencia === competencia) ?? null;
 
@@ -326,7 +330,7 @@ export default async function MaoDeObraPage({
                 <thead>
                   <tr className="bg-slate-50 text-left text-[11px] font-semibold uppercase tracking-wide text-slate-500">
                     <th className="px-3 py-2">Função</th>
-                    <th className="w-16 px-1 py-2 text-right">QLP hoje</th>
+                    <th className="w-16 px-1 py-2 text-right">QLP atual</th>
                     {planejamento.map((p) => (
                       <th key={p.competencia} className="w-20 px-2 py-2 text-right">
                         <Link href={href(competencia, "planejar", `&editar=${p.competencia}#lancar`)} className="text-primary-dark hover:underline">
@@ -385,13 +389,16 @@ export default async function MaoDeObraPage({
                   ))}
                 </tbody>
                 <tfoot>
-                  <tr className="border-t-[3px] border-double border-slate-300 bg-slate-50 font-semibold">
-                    <td className="px-3 py-2 text-slate-700">Total</td>
+                  <tr className="border-t-[3px] border-double border-slate-300 bg-primary-soft/40 font-semibold">
+                    <td className="px-3 py-2 text-slate-800">
+                      QLP dimensionado
+                      <span className="block text-[10px] font-normal text-slate-500">× QLP atual · custo do mês</span>
+                    </td>
                     <td className="px-1 py-2 text-right font-mono tabular-nums">
                       {temQlp ? Object.values(qlpAtual).reduce((s, v) => s + (v ?? 0), 0) : "—"}
                     </td>
                     {planejamento.map((p) => (
-                      <td key={p.competencia} className="px-2 py-2 text-right font-mono tabular-nums">
+                      <td key={p.competencia} className="px-2 py-2 text-right font-mono tabular-nums text-slate-900">
                         {p.vagas ? p.vagas.reduce((s, v) => s + v.dimensionado, 0) : "—"}
                         {p.vagas && (
                           <span className="block text-[10px] font-normal text-slate-400">{formatarReais(p.custo)}</span>
@@ -400,11 +407,33 @@ export default async function MaoDeObraPage({
                     ))}
                   </tr>
                   <tr className="bg-slate-50 text-xs">
-                    <td className="px-3 py-1.5 font-semibold text-amber-700">Vagas a abrir</td>
+                    <td className="px-3 py-1.5 font-semibold text-slate-700">Contratar / reduzir</td>
+                    <td />
+                    {planejamento.map((p) => {
+                      const contratar = p.vagas ? p.vagas.reduce((s, v) => s + v.vagas, 0) : 0;
+                      const reduzir = p.vagas ? p.vagas.reduce((s, v) => s + v.excedente, 0) : 0;
+                      return (
+                        <td key={p.competencia} className="px-2 py-1.5 text-right font-mono font-bold tabular-nums">
+                          {!p.vagas || !temQlp ? (
+                            "—"
+                          ) : contratar === 0 && reduzir === 0 ? (
+                            <span className="text-emerald-600">= atende</span>
+                          ) : (
+                            <>
+                              {contratar > 0 && <span className="block text-amber-600">▲ +{contratar}</span>}
+                              {reduzir > 0 && <span className="block text-red-600">▼ −{reduzir}</span>}
+                            </>
+                          )}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                  <tr className="bg-slate-50 text-[11px] align-top">
+                    <td className="px-3 py-1.5 font-semibold text-slate-700">Justificativa</td>
                     <td />
                     {planejamento.map((p) => (
-                      <td key={p.competencia} className="px-2 py-1.5 text-right font-mono font-bold tabular-nums text-amber-700">
-                        {p.vagas && temQlp ? p.vagas.reduce((s, v) => s + v.vagas, 0) : "—"}
+                      <td key={p.competencia} className="px-2 py-1.5 text-right text-slate-600" title={p.mes?.qlp_justificativa ?? undefined}>
+                        {p.mes?.qlp_justificativa_motivo ?? (p.mes?.qlp_justificativa ? "ver ✏️" : <span className="text-amber-600">falta</span>)}
                       </td>
                     ))}
                   </tr>
@@ -499,6 +528,7 @@ export default async function MaoDeObraPage({
                 destinatarios={emailsAtivos}
                 quemEnvia={perfil?.nome ?? "—"}
                 podeEditar={podeEditar}
+                hoje={new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" })}
               />
             )}
             {envios.length > 0 && (
@@ -514,8 +544,14 @@ export default async function MaoDeObraPage({
                         {e.totalVagas === 1 ? "" : "s"}
                       </span>
                       <span className="text-slate-500">
-                        {new Date(e.enviadoEm).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })} ·{" "}
+                        enviado em {new Date(e.enviadoEm).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })} ·{" "}
                         {e.enviadoPorNome ?? "—"}
+                        {e.retroativo && (
+                          <span className="ml-1 rounded bg-amber-100 px-1 text-[10px] text-amber-800">
+                            retroativo · registrado em{" "}
+                            {new Date(e.registradoEm).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}
+                          </span>
+                        )}
                       </span>
                     </li>
                   ))}
@@ -614,6 +650,42 @@ export default async function MaoDeObraPage({
             <p className="mt-2 text-[11px] text-slate-500">
               ▲ verde: acima do volume · ▼ vermelho: abaixo. Fora de ±{formatarNumero(DISPERSAO_ACEITA * 100, 0)}% pede plano de ação.
             </p>
+
+            {/* POR QUE FICOU ACIMA OU ABAIXO DO ACORDADO (V.5) */}
+            {mes && (
+              <div className={`mt-3 rounded-xl p-3 ${temDesvio(dispersoes) && !mes.volume_justificativa_motivo ? "bg-red-50" : "bg-slate-50"}`}>
+                <p className="text-xs font-bold uppercase tracking-wide text-slate-500">
+                  Justificativa do volume {temDesvio(dispersoes) && !mes.volume_justificativa_motivo && "— 🔴 obrigatória, está fora da faixa"}
+                </p>
+                {podeEditar ? (
+                  <form action={salvarJustificativaVolume} className="mt-2 grid gap-2 sm:grid-cols-3">
+                    <input type="hidden" name="competencia" value={competencia} />
+                    <select name="motivo" defaultValue={mes.volume_justificativa_motivo ?? ""} className="rounded-lg border border-slate-300 px-2 py-2 text-sm">
+                      <option value="">Motivo (escolha)</option>
+                      {MOTIVOS_VOLUME.map((m) => (
+                        <option key={m} value={m}>
+                          {m}
+                        </option>
+                      ))}
+                    </select>
+                    <input
+                      name="detalhe"
+                      defaultValue={mes.volume_justificativa ?? ""}
+                      maxLength={500}
+                      placeholder="Detalhe (ex.: 3 dias de chuva forte na 2ª semana)"
+                      className="rounded-lg border border-slate-300 px-3 py-2 text-sm sm:col-span-2"
+                    />
+                    <BotaoEnviar textoEnviando="Salvando..." className="rounded-lg bg-slate-800 px-3 py-2 text-sm font-semibold text-white sm:col-span-3">
+                      Salvar a justificativa
+                    </BotaoEnviar>
+                  </form>
+                ) : (
+                  <p className="mt-1 text-sm text-slate-700">
+                    {[mes.volume_justificativa_motivo, mes.volume_justificativa].filter(Boolean).join(" — ") || "Sem justificativa."}
+                  </p>
+                )}
+              </div>
+            )}
           </section>
 
           {/* V.3 -- o projetado lá atrás contra hoje */}
@@ -733,6 +805,11 @@ export default async function MaoDeObraPage({
                       </td>
                       <td className="px-2 py-2 text-xs">
                         {ROTULO_SITUACAO[e.situacao]}
+                        {meses.get(e.competencia)?.volume_justificativa_motivo && (
+                          <span className="block text-[10px] text-slate-500">
+                            Motivo: {meses.get(e.competencia)?.volume_justificativa_motivo}
+                          </span>
+                        )}
                         {e.acoes > 0 && (
                           <span className="block text-[10px] text-slate-400">
                             {e.acoesConcluidas}/{e.acoes} ação(ões) concluída(s)

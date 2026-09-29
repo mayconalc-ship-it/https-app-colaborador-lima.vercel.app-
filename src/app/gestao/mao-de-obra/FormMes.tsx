@@ -4,7 +4,9 @@ import { useMemo, useState } from "react";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
 import {
   MES_VAZIO,
+  MOTIVOS_QLP,
   ROTULO_BASE_DA_META,
+  ehCampoNumericoDoMes,
   calendarioDaCompetencia,
   conferenciaDoPlano,
   volumePorDia,
@@ -36,6 +38,7 @@ const DISTRIBUICAO: Campo[] = [
   { id: "frota_spot", rotulo: "Frota SPOT" },
   { id: "frota_fixa_total", rotulo: "Frota fixa que temos", ajuda: "Só para comparar a ocupação." },
   { id: "puxadores", rotulo: "Motoristas puxadores" },
+  { id: "ajudante_extra_entrega", rotulo: "Ajudantes extras da entrega", ajuda: "Além de 1 por carro." },
 ];
 
 const ARMAZEM: Campo[] = [
@@ -78,9 +81,9 @@ export function FormMes({
   const inicial = useMemo(() => {
     const base: Record<string, string> = {};
     for (const chave of Object.keys(MES_VAZIO)) {
-      // base_meta é uma escolha (select), não um número: deixar entrar aqui
-      // a transformava em null e quebrava a tela (25/09/2026).
-      if (chave === "competencia" || chave === "observacao" || chave === "base_meta") continue;
+      // base_meta é uma escolha (select) e as justificativas são texto:
+      // deixar entrar aqui os transformava em null (25/09/2026).
+      if (!ehCampoNumericoDoMes(chave)) continue;
       const valor = mes ? (mes[chave as keyof MesMaoDeObra] as number | null) : null;
       base[chave] = mostrarNumero(valor, 2);
     }
@@ -162,6 +165,36 @@ export function FormMes({
           Operadores da noite e da manhã saem da conta (volume, TMA e jornada). O resto é o desenho da sua operação.
         </p>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">{ARMAZEM.map(campo)}</div>
+      </div>
+
+      {/* A JUSTIFICATIVA DO QLP (V.2): por que o quadro planejado sobe ou
+          desce. Vai junto no e-mail para o time de Gente. */}
+      <div className="rounded-xl border border-amber-200 bg-amber-50/50 p-3">
+        <p className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">
+          Justificativa de contratação ou redução do QLP
+        </p>
+        <div className="grid gap-2 sm:grid-cols-3">
+          <select
+            name="qlp_justificativa_motivo"
+            defaultValue={mes?.qlp_justificativa_motivo ?? ""}
+            className="rounded-lg border border-slate-300 px-2 py-2 text-sm"
+          >
+            <option value="">Motivo (escolha)</option>
+            {MOTIVOS_QLP.map((m) => (
+              <option key={m} value={m}>
+                {m}
+              </option>
+            ))}
+          </select>
+          <textarea
+            name="qlp_justificativa"
+            defaultValue={mes?.qlp_justificativa ?? ""}
+            rows={2}
+            maxLength={500}
+            placeholder="Detalhe: quem entra, quem sai, a partir de quando."
+            className="rounded-lg border border-slate-300 px-3 py-2 text-sm sm:col-span-2"
+          />
+        </div>
       </div>
 
       <div>

@@ -13,6 +13,11 @@ import {
   primeiroDia,
   qlpVigente,
 } from "@/lib/mao-de-obra-server";
+
+/** O dia de hoje em Brasília, "AAAA-MM-DD" -- o servidor roda em UTC. */
+function hojeNaOperacao() {
+  return new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
+}
 import {
   EH_FUNCAO,
   FUNCOES,
@@ -28,6 +33,8 @@ import {
   tipoDoDia,
   ehCompetencia,
   lerNumeroDigitado,
+  MOTIVOS_VOLUME,
+  ehCampoNumericoDoMes,
   mesesDoPlanejamento,
   parametroDaTela,
   rotuloCompetencia,
@@ -70,26 +77,31 @@ export async function salvarMes(formData: FormData) {
 
   const mes: MesMaoDeObra = { ...MES_VAZIO, competencia };
   for (const chave of Object.keys(MES_VAZIO) as (keyof MesMaoDeObra)[]) {
-    if (chave === "competencia" || chave === "observacao" || chave === "base_meta") continue;
+    if (!ehCampoNumericoDoMes(chave)) continue;
     (mes[chave] as number | null) = numero(formData.get(chave));
   }
+  const texto = (campo: string, max: number) => String(formData.get(campo) ?? "").trim().slice(0, max) || null;
   mes.base_meta = String(formData.get("base_meta") ?? "") === "ppr" ? "ppr" : "negociado";
-  mes.observacao = String(formData.get("observacao") ?? "").trim().slice(0, LIMITES_MAO_DE_OBRA.observacaoMax) || null;
+  mes.observacao = texto("observacao", LIMITES_MAO_DE_OBRA.observacaoMax);
+  mes.qlp_justificativa_motivo = texto("qlp_justificativa_motivo", 80);
+  mes.qlp_justificativa = texto("qlp_justificativa", LIMITES_MAO_DE_OBRA.observacaoMax);
 
   // A MESMA regra da tela (validarMes), agora no servidor.
   const problema = validarMes(mes);
   if (problema) voltar(competencia, "erro", problema);
+
+  // A justificativa do VOLUME tem Salvar próprio (aba Resultado). Fica fora
+  // daqui para o Salvar do mês não apagá-la.
+  const gravar = (Object.keys(MES_VAZIO) as (keyof MesMaoDeObra)[]).filter(
+    (k) => k !== "competencia" && k !== "volume_justificativa_motivo" && k !== "volume_justificativa",
+  );
 
   const admin = createAdminClient();
   const { error } = await admin.from("mao_obra_meses").upsert(
     {
       revenda_id: revendaId,
       competencia: primeiroDia(competencia),
-      ...Object.fromEntries(
-        (Object.keys(MES_VAZIO) as (keyof MesMaoDeObra)[])
-          .filter((k) => k !== "competencia")
-          .map((k) => [k, mes[k]]),
-      ),
+      ...Object.fromEntries(gravar.map((k) => [k, mes[k]])),
       revisado_em: new Date().toISOString(),
       revisado_por_nome: perfil.nome,
     },
@@ -103,6 +115,43 @@ export async function salvarMes(formData: FormData) {
 
   atualizarTelas();
   voltar(destino, "sucesso", `${rotuloCompetencia(competencia)} salvo e revisão registrada.`);
+}
+
+/**
+ * POR QUE O VOLUME FICOU ACIMA OU ABAIXO DO ACORDADO (V.5) -- um motivo da
+ * lista e o detalhe em texto. Só grava estes dois campos: o resto do mês
+ * não é tocado.
+ */
+export async function salvarJustificativaVolume(formData: FormData) {
+  const perfil = await requireModulo(MODULO_MAO_DE_OBRA, "editar", ROTA);
+  const revendaId = await exigirRevenda(ROTA);
+
+  const competencia = String(formData.get("competencia") ?? "");
+  if (!ehCompetencia(competencia)) voltar("", "erro", "Competência inválida.", "resultado");
+  const motivo = String(formData.get("motivo") ?? "").trim();
+  const detalhe = String(formData.get("detalhe") ?? "").trim().slice(0, LIMITES_MAO_DE_OBRA.observacaoMax) || null;
+  if (motivo && !(MOTIVOS_VOLUME as readonly string[]).includes(motivo)) {
+    voltar(competencia, "erro", "Motivo inválido.", "resultado");
+  }
+  if (motivo === "Outro" && !detalhe) voltar(competencia, "erro", "Com “Outro”, escreva o motivo.", "resultado");
+
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from("mao_obra_meses")
+    .update({
+      volume_justificativa_motivo: motivo || null,
+      volume_justificativa: detalhe,
+      revisado_em: new Date().toISOString(),
+      revisado_por_nome: perfil.nome,
+    })
+    .eq("revenda_id", revendaId)
+    .eq("competencia", primeiroDia(competencia))
+    .select("competencia");
+  if (error) voltar(competencia, "erro", `Não foi possível salvar: ${error.message}`, "resultado");
+  if (!data || data.length === 0) voltar(competencia, "erro", "Lance o volume do mês antes de justificar.", "resultado");
+
+  atualizarTelas();
+  voltar(competencia, "sucesso", "Justificativa do volume salva.", "resultado");
 }
 
 /** O QLP real de cada função -- o outro lado do "dimensionado x realizado". */
@@ -355,6 +404,24 @@ export async function formalizarPlanejamento(formData: FormData) {
   if (!ehCompetencia(competencia)) voltar("", "erro", "Competência inválida.");
   const observacao = String(formData.get("observacao") ?? "").trim().slice(0, LIMITES_MAO_DE_OBRA.observacaoMax) || null;
 
+  /*
+    A DATA DO ENVIO (28/09/2026, pedido do dono): a do dia em que o e-mail
+    saiu, que pode ser passada -- "enviei março (abr, mai, jun); a data
+    conta de março". Tem de cair DENTRO do mês-base (é ele que o envio
+    documenta) e não pode ser no futuro. Quando não é hoje, o registro fica
+    marcado como retroativo, com a data em que foi lançado no app ao lado.
+  */
+  const hoje = hojeNaOperacao();
+  const data = String(formData.get("data_envio") ?? "").trim() || hoje;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(data)) voltar(competencia, "erro", "Data do envio inválida.");
+  if (data.slice(0, 7) !== competencia) {
+    voltar(competencia, "erro", `A data do envio precisa ser em ${rotuloCompetencia(competencia)} — é o mês que você está formalizando.`);
+  }
+  if (data > hoje) voltar(competencia, "erro", "A data do envio não pode ser no futuro.");
+  const retroativo = data !== hoje;
+  // Meio-dia de Brasília: a data não escorrega para o dia anterior em UTC.
+  const enviadoEm = retroativo ? `${data}T12:00:00-03:00` : new Date().toISOString();
+
   const admin = createAdminClient();
   const horizonte = mesesDoPlanejamento(competencia);
 
@@ -401,6 +468,8 @@ export async function formalizarPlanejamento(formData: FormData) {
       })),
       total_vagas: totalVagas,
       observacao,
+      enviado_em: enviadoEm,
+      retroativo,
     })
     .select("id")
     .single();
@@ -419,6 +488,8 @@ export async function formalizarPlanejamento(formData: FormData) {
       qlp: Object.keys(q.qlp).length > 0 ? q.qlp : null,
       vagas: q.vagas.reduce((s, v) => s + v.vagas, 0),
       envio_id: envio.id,
+      feita_em: enviadoEm,
+      retroativa: retroativo,
       feita_por_nome: perfil.nome,
     })),
   );
@@ -428,7 +499,7 @@ export async function formalizarPlanejamento(formData: FormData) {
   voltar(
     competencia,
     "sucesso",
-    `Planejamento de ${quadros.length} mês(es) formalizado para ${emails.length} destinatário${emails.length === 1 ? "" : "s"} e congelado para o comparativo.`,
+    `Planejamento de ${quadros.length} mês(es) formalizado em ${data.split("-").reverse().join("/")}${retroativo ? " (registro retroativo)" : ""} para ${emails.length} destinatário${emails.length === 1 ? "" : "s"}.`,
   );
 }
 

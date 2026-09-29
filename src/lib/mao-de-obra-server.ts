@@ -2,6 +2,7 @@ import "server-only";
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
+  CAMPOS_DE_TEXTO_DO_MES,
   CONFIG_PADRAO,
   EH_FUNCAO,
   FUNCOES,
@@ -92,8 +93,8 @@ function paraMes(linha: Record<string, unknown>): MesMaoDeObra {
   const saida: MesMaoDeObra = { ...MES_VAZIO, competencia: String(linha.competencia).slice(0, 7) };
   for (const chave of Object.keys(MES_VAZIO) as (keyof MesMaoDeObra)[]) {
     if (chave === "competencia") continue;
-    if (chave === "observacao") {
-      saida.observacao = (linha.observacao as string) ?? null;
+    if ((CAMPOS_DE_TEXTO_DO_MES as readonly string[]).includes(chave)) {
+      (saida[chave] as string | null) = (linha[chave] as string) ?? null;
       continue;
     }
     if (chave === "base_meta") {
@@ -225,13 +226,16 @@ export type EnvioRegistrado = {
   totalVagas: number;
   vagas: { funcao: string; rotulo?: string; dimensionado: number; atual: number | null; vagas: number }[];
   observacao: string | null;
+  /** Quando foi lançado no app -- difere de enviadoEm num registro retroativo. */
+  registradoEm: string;
+  retroativo: boolean;
 };
 
 export async function lerEnvios(revendaId: string, limite = 24): Promise<EnvioRegistrado[]> {
   const admin = createAdminClient();
   const { data } = await admin
     .from("mao_obra_envios")
-    .select("id, competencia, enviado_em, enviado_por_nome, destinatarios, total_vagas, vagas, observacao")
+    .select("id, competencia, enviado_em, enviado_por_nome, destinatarios, total_vagas, vagas, observacao, registrado_em, retroativo")
     .eq("revenda_id", revendaId)
     .order("enviado_em", { ascending: false })
     .limit(limite);
@@ -244,6 +248,8 @@ export async function lerEnvios(revendaId: string, limite = 24): Promise<EnvioRe
     totalVagas: Number(e.total_vagas ?? 0),
     vagas: (e.vagas ?? []) as EnvioRegistrado["vagas"],
     observacao: e.observacao ?? null,
+    registradoEm: String(e.registrado_em ?? e.enviado_em),
+    retroativo: Boolean(e.retroativo),
   }));
 }
 

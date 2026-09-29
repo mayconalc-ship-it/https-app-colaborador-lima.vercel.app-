@@ -257,6 +257,8 @@ export type MesMaoDeObra = {
   frota_spot: number | null;
   frota_fixa_total: number | null;
   puxadores: number | null;
+  /** Ajudantes além de 1 por carro (migration 148): carro com 2, férias só de ajudante. */
+  ajudante_extra_entrega: number | null;
   // -- Armazém (os turnos que não saem de conta)
   operador_tarde: number | null;
   operador_reserva: number | null;
@@ -272,9 +274,61 @@ export type MesMaoDeObra = {
   // -- Acompanhamento
   volume_realizado: number | null;
   observacao: string | null;
+  // -- Justificativas (migration 148)
+  /** Por que o volume ficou acima/abaixo do acordado (V.5). */
+  volume_justificativa_motivo: string | null;
+  volume_justificativa: string | null;
+  /** Por que o QLP planejado sobe ou desce (V.2). */
+  qlp_justificativa_motivo: string | null;
+  qlp_justificativa: string | null;
   /** Qual volume a grade do dia distribui: o negociado (padrão) ou o PPR. */
   base_meta: BaseDaMeta;
 };
+
+/**
+ * Os campos do mês que são TEXTO, não número. Os laços que leem e gravam
+ * o mês tratam tudo como número -- estes ficam de fora deles e são lidos
+ * um a um (e observacao já era assim).
+ */
+export const CAMPOS_DE_TEXTO_DO_MES = [
+  "observacao",
+  "volume_justificativa_motivo",
+  "volume_justificativa",
+  "qlp_justificativa_motivo",
+  "qlp_justificativa",
+] as const;
+
+export function ehCampoNumericoDoMes(chave: string): boolean {
+  return chave !== "competencia" && chave !== "base_meta" && !(CAMPOS_DE_TEXTO_DO_MES as readonly string[]).includes(chave);
+}
+
+/**
+ * Motivos prontos (28/09/2026, pedido do dono: "algumas justificativas").
+ * Lista curta de propósito: é o que dá para AGRUPAR depois. O texto livre
+ * ao lado conta o detalhe.
+ */
+export const MOTIVOS_VOLUME = [
+  "Chuva / clima",
+  "Feriado ou evento na região",
+  "Falta de produto (ruptura)",
+  "Ação comercial / promoção",
+  "Aumento de preço",
+  "Perda ou ganho de cliente",
+  "Sazonalidade",
+  "Meta negociada acima do mercado",
+  "Outro",
+] as const;
+
+export const MOTIVOS_QLP = [
+  "Aumento de volume",
+  "Redução de volume",
+  "Reposição de desligamento (turnover)",
+  "Cobertura de férias",
+  "Absenteísmo acima do normal",
+  "Remanejamento entre áreas",
+  "Mudança na média por carro / rota",
+  "Outro",
+] as const;
 
 export type BaseDaMeta = "negociado" | "ppr";
 export const ROTULO_BASE_DA_META: Record<BaseDaMeta, string> = {
@@ -297,6 +351,7 @@ export const MES_VAZIO: MesMaoDeObra = {
   frota_spot: null,
   frota_fixa_total: null,
   puxadores: null,
+  ajudante_extra_entrega: null,
   operador_tarde: null,
   operador_reserva: null,
   manobristas: null,
@@ -310,6 +365,10 @@ export const MES_VAZIO: MesMaoDeObra = {
   conferente_tarde: null,
   volume_realizado: null,
   observacao: null,
+  volume_justificativa_motivo: null,
+  volume_justificativa: null,
+  qlp_justificativa_motivo: null,
+  qlp_justificativa: null,
   base_meta: "negociado",
 };
 
@@ -384,7 +443,8 @@ export function contaDistribuicao(m: MesMaoDeObra): ContaDistribuicao {
     frotasReal,
     frotaDimensionada,
     motoristas: frotaDimensionada,
-    ajudantes: frotaDimensionada,
+    // 1 por carro, mais os extras (migration 148).
+    ajudantes: frotaDimensionada + Math.max(0, n(m.ajudante_extra_entrega)),
     puxadores: n(m.puxadores),
     ocupacaoDaFrota: n(m.frota_fixa_total) > 0 ? frotaDimensionada / n(m.frota_fixa_total) : null,
   };
@@ -1129,14 +1189,26 @@ export const ROTULO_SITUACAO: Record<EficaciaDoMes["situacao"], string> = {
 };
 
 /** O e-mail da formalização: os três meses, o que falta e o que sobra. */
+export type MesDaFormalizacao = {
+  competencia: string;
+  vagas: VagaDaFuncao[];
+  volumeNegociado: number | null;
+  volumePpr: number | null;
+  justificativaMotivo?: string | null;
+  justificativa?: string | null;
+};
+
 export function textoDaFormalizacao(d: {
   revenda: string;
-  meses: { competencia: string; vagas: VagaDaFuncao[]; volumeNegociado: number | null; volumePpr: number | null }[];
+  meses: MesDaFormalizacao[];
   observacao?: string | null;
   quemEnvia: string;
+  /** "2026-03-05" -- a data do envio, que pode ser retroativa. */
+  data?: string | null;
 }): string {
   const linhas: string[] = [];
   linhas.push(`Planejamento de mão de obra — ${d.revenda}`);
+  if (d.data) linhas.push(`Data: ${d.data.split("-").reverse().join("/")}`);
   linhas.push(`Horizonte: ${d.meses.map((m) => rotuloCompetencia(m.competencia)).join(", ")}`);
   for (const m of d.meses) {
     linhas.push("");
@@ -1144,7 +1216,10 @@ export function textoDaFormalizacao(d: {
     linhas.push(
       `  Volume: PPR ${m.volumePpr == null ? "—" : formatarNumero(m.volumePpr, 0)} HL · negociado ${m.volumeNegociado == null ? "—" : formatarNumero(m.volumeNegociado, 0)} HL`,
     );
-    linhas.push(`  Quadro necessário: ${m.vagas.reduce((s, v) => s + v.dimensionado, 0)} pessoas`);
+    const atual = m.vagas.some((v) => v.atual != null) ? m.vagas.reduce((s, v) => s + (v.atual ?? 0), 0) : null;
+    linhas.push(
+      `  QLP dimensionado: ${m.vagas.reduce((s, v) => s + v.dimensionado, 0)} pessoas${atual == null ? "" : ` (QLP atual ${atual})`}`,
+    );
     const comVaga = m.vagas.filter((v) => v.vagas > 0);
     const sobra = m.vagas.filter((v) => v.excedente > 0);
     linhas.push(
@@ -1153,6 +1228,9 @@ export function textoDaFormalizacao(d: {
         : `  Contratar: ${comVaga.map((v) => `${v.rotulo} ${v.vagas}`).join(" · ")}`,
     );
     if (sobra.length > 0) linhas.push(`  Acima do necessário (não repor): ${sobra.map((v) => `${v.rotulo} ${v.excedente}`).join(" · ")}`);
+    if (m.justificativaMotivo || m.justificativa) {
+      linhas.push(`  Justificativa: ${[m.justificativaMotivo, m.justificativa].filter(Boolean).join(" — ")}`);
+    }
   }
   if (d.observacao?.trim()) {
     linhas.push("");
@@ -1254,6 +1332,7 @@ export function validarMes(m: MesMaoDeObra): string | null {
     if (typeof valor === "number" && valor < 0) return "Nenhum campo pode ser negativo.";
   }
   if ((m.observacao ?? "").length > LIMITES_MAO_DE_OBRA.observacaoMax) return "Observação longa demais.";
+  if ((m.qlp_justificativa ?? "").length > LIMITES_MAO_DE_OBRA.observacaoMax) return "Justificativa do QLP longa demais.";
   return null;
 }
 
