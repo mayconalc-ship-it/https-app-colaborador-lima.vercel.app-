@@ -470,7 +470,7 @@ export default async function MaoDeObraPage({
               titulo="Contratar"
               valor={proximo.vagas && temQlp ? comSinal(somaVagas(proximo.vagas, "vagas") ?? 0, "+") : "—"}
               detalhe={rotuloCurto(horizonte[0])}
-              tom={(somaVagas(proximo.vagas, "vagas") ?? 0) > 0 ? "atencao" : "neutro"}
+              tom={(somaVagas(proximo.vagas, "vagas") ?? 0) > 0 ? "bom" : "neutro"}
             />
             <Indicador
               titulo="Reduzir"
@@ -532,8 +532,8 @@ export default async function MaoDeObraPage({
                               {v ? (
                                 <>
                                   <span className="font-semibold text-slate-900">{v.dimensionado}</span>
-                                  {v.atual != null && v.vagas > 0 && <span className="ml-1.5 text-xs text-amber-600">▲{v.vagas}</span>}
-                                  {v.atual != null && v.excedente > 0 && <span className="ml-1.5 text-xs text-red-600">▼{v.excedente}</span>}
+                                  {v.atual != null && v.vagas > 0 && <span className="ml-1.5 text-xs font-semibold text-emerald-600">▲{v.vagas}</span>}
+                                  {v.atual != null && v.excedente > 0 && <span className="ml-1.5 text-xs font-semibold text-red-600">▼{v.excedente}</span>}
                                 </>
                               ) : (
                                 <span className="text-slate-300">—</span>
@@ -569,7 +569,7 @@ export default async function MaoDeObraPage({
                             <span className="text-emerald-600">atende</span>
                           ) : (
                             <>
-                              {contratar > 0 && <span className="text-amber-600">▲{contratar}</span>}
+                              {contratar > 0 && <span className="text-emerald-600">▲{contratar}</span>}
                               {reduzir > 0 && <span className="ml-1.5 text-red-600">▼{reduzir}</span>}
                             </>
                           )}
@@ -737,7 +737,12 @@ export default async function MaoDeObraPage({
                   detalhe={mes.base_meta === "ppr" ? "HL · base da meta do dia" : "HL · plano"}
                   tom={mes.base_meta === "ppr" ? "destaque" : "neutro"}
                 />
-                <Indicador titulo="Previsão do mês" valor={formatarNumero(projecao.projetado, 0)} detalhe="HL na tendência de hoje" />
+                <Indicador
+                  titulo="Previsão do mês"
+                  valor={formatarNumero(projecao.projetado, 0)}
+                  detalhe={`HL na tendência de hoje · ${rotuloDaDispersao(projecao.dispersaoProjetada)}`}
+                  tom={tomDaDispersao(projecao.dispersaoProjetada)}
+                />
                 <Indicador
                   titulo="Fora do ANS (±20%)"
                   valor={String(diasForaDoAns.length)}
@@ -879,10 +884,10 @@ export default async function MaoDeObraPage({
                             <td className="px-2 py-2 text-right font-mono font-semibold tabular-nums text-slate-900">{atual ?? "—"}</td>
                             <td
                               className={`px-3 py-2 text-right font-mono font-semibold tabular-nums ${
-                                !variacao ? "text-slate-300" : variacao > 0 ? "text-amber-600" : "text-emerald-600"
+                                !variacao ? "text-slate-300" : variacao > 0 ? "text-emerald-600" : "text-red-600"
                               }`}
                             >
-                              {variacao == null ? "—" : variacao > 0 ? `+${variacao}` : variacao}
+                              {variacao == null ? "—" : variacao > 0 ? `▲ +${variacao}` : variacao < 0 ? `▼ ${variacao}` : "0"}
                             </td>
                           </tr>
                         );
@@ -1158,8 +1163,8 @@ function Flexao({ rotulo, plano, ritmo }: { rotulo: string; plano: number; ritmo
     <div className="rounded-xl bg-slate-50 p-3">
       <p className="text-xs font-medium text-slate-500">{rotulo}</p>
       <p className="font-mono text-2xl font-bold tabular-nums text-slate-900">{ritmo}</p>
-      <p className={`text-xs font-medium ${diferenca === 0 ? "text-slate-400" : diferenca > 0 ? "text-amber-600" : "text-emerald-600"}`}>
-        {diferenca === 0 ? "igual ao plano" : `${diferenca > 0 ? "+" : ""}${diferenca} contra o plano`}
+      <p className={`text-xs font-medium ${diferenca === 0 ? "text-slate-400" : diferenca > 0 ? "text-emerald-600" : "text-red-600"}`}>
+        {diferenca === 0 ? "igual ao plano" : `${diferenca > 0 ? "▲ +" : "▼ "}${diferenca} contra o plano`}
       </p>
     </div>
   );

@@ -9,7 +9,6 @@ import {
   classeDaDispersao,
   excedeAns,
   formatarNumero,
-  formatarPercento,
   leDoMes,
   lerNumeroDigitado,
   mostrarNumero,
@@ -183,7 +182,7 @@ export function FormDias({
       {conta.lancados > 0 && (
         <div
           className={`rounded-xl p-3 text-sm ${
-            conta.le.bate ? "bg-emerald-50 text-emerald-900" : "bg-amber-50 text-amber-900"
+            conta.le.bate ? "bg-emerald-50 text-emerald-900" : "bg-red-50 text-red-900"
           }`}
         >
           <div className="flex flex-wrap items-baseline justify-between gap-2">
@@ -191,8 +190,7 @@ export function FormDias({
             <p className="font-mono text-lg font-bold tabular-nums">
               {formatarNumero(conta.le.le, 0)} HL{" "}
               <span className="text-xs font-normal">
-                ({conta.le.desvio != null && conta.le.desvio >= 0 ? "+" : ""}
-                {formatarPercento(conta.le.desvio)} da meta)
+                (<b className={classeDaDispersao(conta.le.desvio)}>{rotuloDaDispersao(conta.le.desvio)}</b> da meta)
               </span>
             </p>
           </div>
@@ -214,7 +212,7 @@ export function FormDias({
           <p className="mt-1 text-xs">
             Realizado <b className="font-mono tabular-nums">{formatarNumero(conta.le.realizado, 0)} HL</b> em{" "}
             {conta.le.diasLancados} dia{conta.le.diasLancados === 1 ? "" : "s"} · tendência de{" "}
-            <b className="font-mono tabular-nums">{formatarPercento((conta.le.ritmo ?? 1) - 1)}</b> contra a meta do
+            <b className={`font-mono tabular-nums ${classeDaDispersao((conta.le.ritmo ?? 1) - 1)}`}>{rotuloDaDispersao((conta.le.ritmo ?? 1) - 1)}</b> contra a meta do
             período.
           </p>
         </div>
