@@ -274,7 +274,8 @@ export function FormDias({
                 <tr className="bg-red-50">
                   <td colSpan={5} className="px-2 py-1.5">
                     <p className="mb-1 text-[11px] font-semibold text-red-800">
-                      ⚠️ {l.rotulo}: acima do ANS com Vendas (+{Math.round(LIMITE_ANS_VENDAS * 100)}% do necessário) — justifique
+                      ⚠️ {l.rotulo}: {(l.dispersao ?? 0) > 0 ? "acima" : "abaixo"} do ANS com Vendas (±
+                      {Math.round(LIMITE_ANS_VENDAS * 100)}% do necessário) — justifique
                     </p>
                     <div className="grid grid-cols-1 gap-1 sm:grid-cols-3">
                       <select
@@ -342,7 +343,7 @@ export function FormDias({
         <span className="rounded px-2 py-0.5 font-medium text-emerald-700">▲ acima do necessário</span>
         <span className="rounded px-2 py-0.5 font-medium text-red-700">▼ abaixo do necessário</span>
         <span className="rounded bg-red-50 px-2 py-0.5 font-medium text-red-800">
-          ⚠️ acima de +{Math.round(LIMITE_ANS_VENDAS * 100)}% (ANS com Vendas) pede justificativa
+          ⚠️ fora de ±{Math.round(LIMITE_ANS_VENDAS * 100)}% (ANS com Vendas) pede justificativa
         </span>
       </div>
 

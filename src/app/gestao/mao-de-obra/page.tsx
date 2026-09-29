@@ -652,7 +652,9 @@ export default async function MaoDeObraPage({
             {diasAcimaDoAns.length > 0 && (
               <div className="mt-3 rounded-xl bg-red-50 p-3">
                 <p className="text-xs font-bold uppercase tracking-wide text-red-800">
-                  Dias acima do ANS com Vendas (+{Math.round(LIMITE_ANS_VENDAS * 100)}% do necessário): {diasAcimaDoAns.length}
+                  Dias fora do ANS com Vendas (±{Math.round(LIMITE_ANS_VENDAS * 100)}% do necessário): {diasAcimaDoAns.length}
+                  {" "}(▲ {diasAcimaDoAns.filter((d) => (d.dispersao ?? 0) > 0).length} acima · ▼{" "}
+                  {diasAcimaDoAns.filter((d) => (d.dispersao ?? 0) < 0).length} abaixo)
                   {diasSemJustificativa > 0 && ` · 🔴 ${diasSemJustificativa} sem justificativa`}
                 </p>
                 <ul className="mt-2 space-y-1 text-xs">
@@ -660,7 +662,7 @@ export default async function MaoDeObraPage({
                     <li key={d.dia} className="flex flex-wrap justify-between gap-2 rounded-lg bg-white px-2 py-1.5">
                       <span>
                         <b className="font-mono">{d.rotulo}</b> · necessário {formatarNumero(d.plan, 0)} · realizado{" "}
-                        {formatarNumero(d.realizado, 0)} <b className="text-emerald-700">{rotuloDaDispersao(d.dispersao)}</b>
+                        {formatarNumero(d.realizado, 0)} <b className={classeDaDispersao(d.dispersao)}>{rotuloDaDispersao(d.dispersao)}</b>
                       </span>
                       <span className={d.justificativaMotivo ? "text-slate-600" : "font-semibold text-red-700"}>
                         {d.justificativaMotivo

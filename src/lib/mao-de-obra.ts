@@ -767,24 +767,32 @@ export type LancamentoDoDia = {
 };
 
 /**
- * O ANS COM VENDAS (28/09/2026, pedido do dono): o volume de um dia não
- * passa de 120% do necessário daquele dia. Acima disso a operação não tem
- * gente nem frota dimensionada para entregar -- e o dia pede justificativa.
+ * O ANS COM VENDAS (28/09/2026, pedido do dono): o volume de um dia fica
+ * entre 80% e 120% do necessário daquele dia. Acima, a operação não tem
+ * gente nem frota dimensionada para entregar; abaixo, tem gente e frota
+ * paradas. Fora da faixa, nos dois sentidos, o dia pede justificativa.
  */
 export const LIMITE_ANS_VENDAS = 0.2;
 
 export function excedeAns(dispersao: number | null | undefined): boolean {
-  return dispersao != null && dispersao > LIMITE_ANS_VENDAS;
+  return dispersao != null && Math.abs(dispersao) > LIMITE_ANS_VENDAS;
 }
 
-/** Os motivos de um dia acima do ANS. Lista curta: é o que se agrupa depois. */
+/** Os motivos de um dia fora do ANS. Lista curta: é o que se agrupa depois. */
 export const MOTIVOS_DIA_ACIMA = [
+  // acima
   "Venda acima do combinado (fora do ANS)",
   "Ação comercial / promoção",
   "Pedido grande de cliente (KA)",
   "Reposição de pedido do dia anterior",
   "Véspera de feriado / evento",
   "Dia seguinte a feriado",
+  // abaixo
+  "Venda abaixo do combinado (fora do ANS)",
+  "Chuva / clima",
+  "Falta de produto (ruptura)",
+  "Pedido cancelado ou devolvido",
+  "Cliente fechado / rota sem pedido",
   "Outro",
 ] as const;
 
