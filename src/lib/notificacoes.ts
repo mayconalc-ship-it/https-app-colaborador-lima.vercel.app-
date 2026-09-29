@@ -57,7 +57,10 @@ export type ModuloNotificavel =
   | "material-apoio-contagem"
   // O resumo de segunda-feira para a liderança (16/09/2026): ranking,
   // metas e pendências da semana que fechou.
-  | "resumo-semanal";
+  | "resumo-semanal"
+  // O lembrete mensal do Simulador de Mão de Obra (28/09/2026): revisar e
+  // formalizar o quadro dos próximos meses -- o V.2 do DPO 1.2.
+  | "mao-de-obra";
 
 /**
  * A mesma lista, em forma de array.
@@ -90,6 +93,7 @@ export const MODULOS_NOTIFICAVEIS: ModuloNotificavel[] = [
   "material-apoio",
   "material-apoio-contagem",
   "resumo-semanal",
+  "mao-de-obra",
 ];
 
 export const EMOJI_MODULO: Record<ModuloNotificavel, string> = {
@@ -117,6 +121,7 @@ export const EMOJI_MODULO: Record<ModuloNotificavel, string> = {
   "material-apoio": "🧰",
   "material-apoio-contagem": "🧰",
   "resumo-semanal": "🗓️",
+  "mao-de-obra": "👷",
 };
 
 export const ROTULO_MODULO: Record<ModuloNotificavel, string> = {
@@ -144,6 +149,7 @@ export const ROTULO_MODULO: Record<ModuloNotificavel, string> = {
   "material-apoio": "Material de Apoio",
   "material-apoio-contagem": "Contagem diária do material de apoio",
   "resumo-semanal": "Resumo semanal da liderança",
+  "mao-de-obra": "Planejamento de mão de obra",
 };
 
 /**
@@ -202,6 +208,7 @@ export const ROTULO_BOTAO: Record<ModuloNotificavel, string> = {
   "material-apoio": "Ver o estoque",
   "material-apoio-contagem": "Contar agora",
   "resumo-semanal": "Ver o resumo",
+  "mao-de-obra": "Revisar o planejamento",
 };
 
 /** "há 2 min", "há 3 h", "ontem" — mais legível que data completa. */

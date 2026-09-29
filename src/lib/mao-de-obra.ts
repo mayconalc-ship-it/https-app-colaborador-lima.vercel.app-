@@ -1292,6 +1292,107 @@ export function textoDaFormalizacao(d: {
 }
 
 // ------------------------------------------------------------------
+// HISTÓRICO DE ALTERAÇÕES (migration 151)
+// ------------------------------------------------------------------
+
+export type OndeAlterou = "parametros" | "mes" | "qlp" | "salario";
+
+export const ROTULO_ONDE: Record<OndeAlterou, string> = {
+  parametros: "Parâmetros",
+  mes: "Mês",
+  qlp: "QLP atual",
+  salario: "Custo por função",
+};
+
+/** Os nomes que a tela usa para cada campo do mês. */
+export const ROTULO_CAMPO_MES: Partial<Record<keyof MesMaoDeObra, string>> = {
+  volume_ppr: "Volume PPR (HL)",
+  volume_negociado: "Volume negociado (HL)",
+  marketplace: "Marketplace (R$)",
+  dias_totais: "Dias de operação",
+  sabados: "Sábados no mês",
+  volume_entrega_sabado: "Volume por sábado (HL)",
+  media_carro_hl: "Média por carro (HL)",
+  frota_long_dist: "Frota long distance",
+  frota_reserva: "Frota reserva",
+  frota_ferista: "Frota ferista",
+  frota_spot: "Frota SPOT",
+  frota_fixa_total: "Frota fixa que temos",
+  puxadores: "Motoristas puxadores",
+  ajudante_extra_entrega: "Ajudantes extras da entrega",
+  operador_tarde: "Operadores — tarde",
+  operador_reserva: "Operadores — reserva/ferista",
+  manobristas: "Manobristas",
+  ajudante_noite: "Ajudantes — noite",
+  ajudante_manha: "Ajudantes — manhã",
+  ajudante_tarde: "Ajudantes — tarde",
+  ajudante_reserva: "Ajudantes — reserva/ferista",
+  ajudante_extra: "Ajudantes — extras",
+  conferente_noite: "Conferentes — noite",
+  conferente_manha: "Conferentes — manhã",
+  conferente_tarde: "Conferentes — tarde",
+  volume_realizado: "Volume realizado (HL)",
+  base_meta: "Volume que a grade distribui",
+  qlp_justificativa_motivo: "Justificativa do QLP",
+  qlp_justificativa: "Detalhe da justificativa do QLP",
+  observacao: "Observação da revisão",
+};
+
+export type Alteracao = {
+  onde: OndeAlterou;
+  /** "AAAA-MM", quando é de um mês ou do QLP daquele mês. */
+  competencia: string | null;
+  campo: string;
+  rotulo: string;
+  valorAnterior: string | null;
+  valorNovo: string | null;
+};
+
+/** O valor como texto de tela: número com vírgula, vazio vira null. */
+function comoTexto(v: unknown): string | null {
+  if (v == null || v === "") return null;
+  if (typeof v === "number") return Number.isFinite(v) ? mostrarNumero(v) : null;
+  const s = String(v).trim();
+  return s === "" ? null : s;
+}
+
+/**
+ * O QUE MUDOU entre o antes e o depois, campo a campo.
+ *
+ * Número compara por valor (40 e 40,00 são o mesmo), o resto por texto.
+ * `formatar` deixa o valor como a tela mostra -- 0,4 vira "40%" -- porque é
+ * o texto gravado que o auditor lê depois.
+ */
+export function compararCampos(d: {
+  onde: OndeAlterou;
+  competencia?: string | null;
+  antes: Record<string, unknown> | null;
+  depois: Record<string, unknown>;
+  campos: { campo: string; rotulo: string; formatar?: (v: unknown) => string | null }[];
+}): Alteracao[] {
+  const saida: Alteracao[] = [];
+  for (const c of d.campos) {
+    const a = d.antes ? d.antes[c.campo] : null;
+    const b = d.depois[c.campo];
+    const ambosNumeros = (a == null || typeof a === "number") && (b == null || typeof b === "number");
+    const igual = ambosNumeros
+      ? (a == null && b == null) || (a != null && b != null && Math.abs(Number(a) - Number(b)) < 1e-9)
+      : comoTexto(a) === comoTexto(b);
+    if (igual) continue;
+    const fmt = c.formatar ?? comoTexto;
+    saida.push({
+      onde: d.onde,
+      competencia: d.competencia ?? null,
+      campo: c.campo,
+      rotulo: c.rotulo,
+      valorAnterior: a == null ? null : fmt(a),
+      valorNovo: b == null ? null : fmt(b),
+    });
+  }
+  return saida;
+}
+
+// ------------------------------------------------------------------
 // Plano de ação (o desvio vira tarefa)
 // ------------------------------------------------------------------
 

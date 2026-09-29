@@ -11,6 +11,7 @@ import type { AreaId } from "@/lib/areas";
 import { FIM_TURNO, hojeISO, type Turno } from "@/lib/produtividade-armazem";
 import { lembrarContagensDoDia, varrerMaterialDeApoio } from "@/lib/material-apoio-server";
 import { enviarResumosSemanais } from "@/lib/resumo-semanal-server";
+import { lembrarPlanejamentoMensal } from "@/lib/mao-de-obra-server";
 
 /** De quanto em quanto tempo o próprio app varre a fila. */
 const INTERVALO_MINUTOS = 5;
@@ -55,6 +56,8 @@ export type Varredura = {
   contagensMaterialApoio: number;
   /** Revendas cuja liderança recebeu o resumo de segunda-feira. */
   resumosSemanais: number;
+  /** Revendas lembradas de revisar e formalizar o quadro de mão de obra. */
+  planejamentoMensal: number;
   erro?: string;
 };
 
@@ -114,13 +117,16 @@ export async function varrerLembretes(): Promise<Varredura> {
   // O resumo de segunda: fora da segunda-feira é um `if` e volta; na
   // segunda, depois do primeiro envio, é uma consulta por revenda.
   const resumosSemanais = await enviarResumosSemanais();
+  // O lembrete mensal do Simulador de Mão de Obra: fora do dia 1 e do dia
+  // 5 em diante, uma consulta de revendas e as chaves já existentes.
+  const planejamentoMensal = await lembrarPlanejamentoMensal();
   // O GATILHO DE ANOMALIA FICA POR ÚLTIMO: é a etapa mais cara (lê 90
   // dias de atendimentos por revenda) e a menos urgente -- um desvio do
   // dia esperar 15 minutos não muda nada, e um comunicado agendado
   // esperando na frente dele, sim.
   const anomalias = (await varrerGatilhosDeAnomalia()).abertos;
 
-  return { ...enviados, cincoS, desafios, publicadas, aberturas, empilhadeiras, cincoPorques, tratativas, materialApoio, contagensMaterialApoio, resumosSemanais, anomalias };
+  return { ...enviados, cincoS, desafios, publicadas, aberturas, empilhadeiras, cincoPorques, tratativas, materialApoio, contagensMaterialApoio, resumosSemanais, planejamentoMensal, anomalias };
 }
 
 /**

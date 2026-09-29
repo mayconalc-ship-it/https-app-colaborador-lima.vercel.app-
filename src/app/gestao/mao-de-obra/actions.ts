@@ -7,11 +7,14 @@ import { exigirRevenda } from "@/lib/revendas";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
   lerConfig,
+  lerMes,
   lerMesesDoPeriodo,
+  lerRealizado,
   lerRealizadoDoPeriodo,
   lerSalarios,
   primeiroDia,
   qlpVigente,
+  registrarAlteracoes,
 } from "@/lib/mao-de-obra-server";
 
 /** O dia de hoje em Brasília, "AAAA-MM-DD" -- o servidor roda em UTC. */
@@ -34,6 +37,11 @@ import {
   ehCompetencia,
   lerNumeroDigitado,
   MOTIVOS_DIA_ACIMA,
+  ROTULO_CAMPO_MES,
+  ROTULO_FUNCAO,
+  compararCampos,
+  mostrarNumero,
+  parametroParaTela,
   ehCampoNumericoDoMes,
   mesesDoPlanejamento,
   parametroDaTela,
@@ -96,6 +104,9 @@ export async function salvarMes(formData: FormData) {
     (k) => k !== "competencia" && k !== "volume_justificativa_motivo" && k !== "volume_justificativa",
   );
 
+  // O antes, para o histórico (migration 151).
+  const anterior = await lerMes(revendaId, competencia);
+
   const admin = createAdminClient();
   const { error } = await admin.from("mao_obra_meses").upsert(
     {
@@ -112,6 +123,34 @@ export async function salvarMes(formData: FormData) {
   const base = String(formData.get("base") ?? "");
   const destino = ehCompetencia(base) ? base : competencia;
   if (error) voltar(destino, "erro", `Não foi possível salvar: ${error.message}`);
+
+  // Mês novo vira UMA linha ("Mês lançado"); mês que já existia registra
+  // campo a campo o que mudou -- trinta linhas de "vazio → x" num mês novo
+  // só esconderiam as alterações que importam.
+  await registrarAlteracoes(
+    revendaId,
+    perfil.nome,
+    anterior
+      ? compararCampos({
+          onde: "mes",
+          competencia,
+          antes: anterior as unknown as Record<string, unknown>,
+          depois: mes as unknown as Record<string, unknown>,
+          campos: gravar
+            .filter((k) => ROTULO_CAMPO_MES[k])
+            .map((k) => ({ campo: k, rotulo: ROTULO_CAMPO_MES[k]!, formatar: k === "base_meta" ? (v: unknown) => (v === "ppr" ? "PPR" : "Negociado") : undefined })),
+        })
+      : [
+          {
+            onde: "mes",
+            competencia,
+            campo: "mes",
+            rotulo: "Mês lançado",
+            valorAnterior: null,
+            valorNovo: `PPR ${mes.volume_ppr ?? "—"} HL · negociado ${mes.volume_negociado ?? "—"} HL`,
+          },
+        ],
+  );
 
   atualizarTelas();
   voltar(destino, "sucesso", `${rotuloCompetencia(competencia)} salvo e revisão registrada.`);
@@ -141,6 +180,8 @@ export async function salvarRealizado(formData: FormData) {
     });
   }
 
+  const antesDoQlp = await lerRealizado(revendaId, competencia);
+
   const admin = createAdminClient();
   if (linhas.length > 0) {
     const { error } = await admin
@@ -159,6 +200,18 @@ export async function salvarRealizado(formData: FormData) {
       .eq("competencia", primeiroDia(competencia))
       .in("funcao", apagar);
   }
+
+  await registrarAlteracoes(
+    revendaId,
+    perfil.nome,
+    compararCampos({
+      onde: "qlp",
+      competencia,
+      antes: antesDoQlp,
+      depois: Object.fromEntries(FUNCOES.map((f) => [f.id, linhas.find((l) => l.funcao === f.id)?.quantidade ?? null])),
+      campos: FUNCOES.map((f) => ({ campo: f.id, rotulo: f.rotulo })),
+    }),
+  );
 
   atualizarTelas();
   voltar(competencia, "sucesso", "Quadro atual (QLP) atualizado.");
@@ -200,6 +253,8 @@ export async function salvarParametros(formData: FormData) {
   if (problemaDaCurva) voltar(competencia, "erro", problemaDaCurva, "configurar");
   Object.assign(valores, curva);
 
+  const antesDaConfig = await lerConfig(revendaId);
+
   const admin = createAdminClient();
   const { error } = await admin.from("mao_obra_config").upsert(
     {
@@ -211,6 +266,32 @@ export async function salvarParametros(formData: FormData) {
     { onConflict: "revenda_id" },
   );
   if (error) voltar(competencia, "erro", `Não foi possível salvar: ${error.message}`);
+
+  // Gravado como a tela mostra (40%, 7:20), que é o que o auditor lê.
+  await registrarAlteracoes(
+    revendaId,
+    perfil.nome,
+    compararCampos({
+      onde: "parametros",
+      antes: antesDaConfig as unknown as Record<string, unknown>,
+      depois: valores,
+      campos: [
+        ...PARAMETROS.map((p) => ({
+          campo: p.id,
+          rotulo: p.rotulo,
+          formatar: (v: unknown) => {
+            const t = parametroParaTela(Number(v), p.formato);
+            return p.formato === "percentual" ? `${t}%` : p.formato === "numero" ? `${t} HL` : t;
+          },
+        })),
+        ...DIAS_DO_SELLOUT.map((d) => ({
+          campo: d.id,
+          rotulo: `Curva de venda — ${d.rotulo}`,
+          formatar: (v: unknown) => `${mostrarNumero(Number(v), 3)}%`,
+        })),
+      ],
+    }),
+  );
 
   atualizarTelas();
   voltar(competencia, "sucesso", "Parâmetros salvos.", "configurar");
@@ -232,6 +313,8 @@ export async function salvarSalario(formData: FormData) {
     valores[r.id] = v;
   }
 
+  const antesDoSalario = (await lerSalarios(revendaId))[funcao];
+
   const admin = createAdminClient();
   const { error } = await admin.from("mao_obra_salarios").upsert(
     {
@@ -244,6 +327,21 @@ export async function salvarSalario(formData: FormData) {
     { onConflict: "revenda_id,funcao" },
   );
   if (error) voltar(competencia, "erro", `Não foi possível salvar: ${error.message}`);
+
+  await registrarAlteracoes(
+    revendaId,
+    perfil.nome,
+    compararCampos({
+      onde: "salario",
+      antes: antesDoSalario as unknown as Record<string, unknown>,
+      depois: valores,
+      campos: RUBRICAS.map((r) => ({
+        campo: r.id,
+        rotulo: `${ROTULO_FUNCAO[funcao]} — ${r.rotulo}`,
+        formatar: (v: unknown) => `R$ ${mostrarNumero(Number(v), 2)}`,
+      })),
+    }),
+  );
 
   atualizarTelas();
   voltar(competencia, "sucesso", "Base salarial atualizada.", "configurar");

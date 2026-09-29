@@ -13,6 +13,7 @@ import {
   lerDestinatarios,
   lerDias,
   lerEnvios,
+  lerHistorico,
   lerMesesDoPeriodo,
   lerProjecoes,
   lerRealizadoDoPeriodo,
@@ -28,6 +29,7 @@ import {
   MODULO_MAO_DE_OBRA,
   PARAMETROS,
   REQUISITO_DPO,
+  ROTULO_ONDE,
   ROTULO_SITUACAO,
   ROTULO_STATUS_ACAO,
   RUBRICAS,
@@ -141,6 +143,7 @@ export default async function MaoDeObraPage({
     dias,
     destinatarios,
     envios,
+    historico,
   ] = await Promise.all([
     podeNoModulo(MODULO_MAO_DE_OBRA, "editar"),
     podeNoModulo(MODULO_MAO_DE_OBRA, "excluir"),
@@ -155,6 +158,7 @@ export default async function MaoDeObraPage({
     lerDias(revendaId, competencia),
     lerDestinatarios(revendaId),
     lerEnvios(revendaId),
+    lerHistorico(revendaId),
   ]);
 
   const mes = meses.get(competencia) ?? null;
@@ -394,6 +398,59 @@ export default async function MaoDeObraPage({
               </Bloco>
             </>
           )}
+
+          <Bloco
+            titulo="Histórico de alterações"
+            orientacao="Cada mudança de parâmetro, de volume e estrutura do mês, de QLP ou de custo: o valor antigo, o novo, quem e quando."
+            semPadding
+          >
+            {historico.length === 0 ? (
+              <p className="px-4 pb-4 text-sm text-slate-500">
+                Nenhuma alteração registrada ainda. O registro começa no próximo Salvar de qualquer tela do simulador.
+              </p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[560px] text-sm">
+                  <thead>
+                    <tr className="border-b border-slate-200 text-left text-xs text-slate-500">
+                      <th className="px-4 py-2.5 font-medium">Quando</th>
+                      <th className="px-2 py-2.5 font-medium">Onde</th>
+                      <th className="px-2 py-2.5 font-medium">O que mudou</th>
+                      <th className="px-4 py-2.5 font-medium">De → para</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {historico.map((h) => (
+                      <tr key={h.id} className="align-top">
+                        <td className="whitespace-nowrap px-4 py-2 text-xs text-slate-500">
+                          {new Date(h.alteradoEm).toLocaleString("pt-BR", {
+                            timeZone: "America/Sao_Paulo",
+                            day: "2-digit",
+                            month: "2-digit",
+                            year: "2-digit",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                          <span className="block text-slate-400">{h.alteradoPorNome ?? "—"}</span>
+                        </td>
+                        <td className="whitespace-nowrap px-2 py-2 text-xs text-slate-600">
+                          {ROTULO_ONDE[h.onde]}
+                          {h.competencia && <span className="block text-slate-400">{rotuloCurto(h.competencia)}</span>}
+                        </td>
+                        <td className="px-2 py-2 text-slate-800">{h.rotulo}</td>
+                        <td className="px-4 py-2 font-mono text-xs tabular-nums">
+                          <span className="text-slate-400 line-through decoration-slate-300">{h.valorAnterior ?? "vazio"}</span>
+                          <span className="mx-1.5 text-slate-400">→</span>
+                          <span className="font-semibold text-slate-900">{h.valorNovo ?? "vazio"}</span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </Bloco>
+
           <ProximoPasso texto="Com a configuração em dia, planeje os próximos 3 meses." href={href(competencia, "planejar")} acao="Ir para Planejar" />
         </div>
       )}

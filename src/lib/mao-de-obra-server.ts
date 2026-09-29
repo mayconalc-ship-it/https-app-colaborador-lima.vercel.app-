@@ -1,12 +1,18 @@
 import "server-only";
 
 import { createAdminClient } from "@/lib/supabase/admin";
+import { criarNotificacao } from "@/lib/notificacoes-server";
+import { enviarPushDaRevenda } from "@/lib/push-server";
 import {
   CAMPOS_DE_TEXTO_DO_MES,
   CONFIG_PADRAO,
   EH_FUNCAO,
   FUNCOES,
   MES_VAZIO,
+  MODULO_MAO_DE_OBRA,
+  mesesDoPlanejamento,
+  rotuloCurto,
+  type Alteracao,
   RUBRICAS,
   SALARIO_ZERADO,
   type ConfigMaoDeObra,
@@ -382,6 +388,182 @@ export async function lerProjecoes(revendaId: string, de: string, ate: string): 
     feitaEm: String(p.feita_em),
     feitaPorNome: p.feita_por_nome ?? null,
   }));
+}
+
+// ------------------------------------------------------------------
+// Histórico de alterações (migration 151)
+// ------------------------------------------------------------------
+
+/**
+ * Grava o que mudou. NUNCA derruba o Salvar: a alteração já foi feita, e
+ * perder a linha do histórico é menos grave do que recusar o que a pessoa
+ * acabou de salvar.
+ */
+export async function registrarAlteracoes(revendaId: string, alteradoPorNome: string, alteracoes: Alteracao[]) {
+  if (alteracoes.length === 0) return;
+  try {
+    const admin = createAdminClient();
+    await admin.from("mao_obra_historico").insert(
+      alteracoes.map((a) => ({
+        revenda_id: revendaId,
+        onde: a.onde,
+        competencia: a.competencia ? primeiroDia(a.competencia) : null,
+        campo: a.campo,
+        rotulo: a.rotulo.slice(0, 120),
+        valor_anterior: a.valorAnterior?.slice(0, 500) ?? null,
+        valor_novo: a.valorNovo?.slice(0, 500) ?? null,
+        alterado_por_nome: alteradoPorNome,
+      })),
+    );
+  } catch {
+    // Histórico é acessório ao Salvar -- ver acima.
+  }
+}
+
+export type AlteracaoLida = Alteracao & { id: string; alteradoEm: string; alteradoPorNome: string | null };
+
+export async function lerHistorico(revendaId: string, limite = 80): Promise<AlteracaoLida[]> {
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("mao_obra_historico")
+    .select("id, onde, competencia, campo, rotulo, valor_anterior, valor_novo, alterado_em, alterado_por_nome")
+    .eq("revenda_id", revendaId)
+    .order("alterado_em", { ascending: false })
+    .limit(limite);
+  return (data ?? []).map((h) => ({
+    id: String(h.id),
+    onde: h.onde as Alteracao["onde"],
+    competencia: h.competencia ? String(h.competencia).slice(0, 7) : null,
+    campo: String(h.campo),
+    rotulo: String(h.rotulo),
+    valorAnterior: h.valor_anterior ?? null,
+    valorNovo: h.valor_novo ?? null,
+    alteradoEm: String(h.alterado_em),
+    alteradoPorNome: h.alterado_por_nome ?? null,
+  }));
+}
+
+// ------------------------------------------------------------------
+// O lembrete mensal (28/09/2026, pedido do dono)
+// ------------------------------------------------------------------
+
+/**
+ * O V.2 do DPO pede revisão NO MÍNIMO MENSAL, com a estrutura dos meses
+ * seguintes formalizada para o time de Gente. Mês esquecido é evidência
+ * que falta -- e ninguém percebe até a auditoria.
+ *
+ * Dois toques por revenda, por mês, e só dois:
+ *   DIA 1   a partir das 7h: "hora de revisar e formalizar".
+ *   DIA 5   só se o mês ainda NÃO foi formalizado: vira pendência.
+ *
+ * Quem recebe: o dono e a liderança com "mao-de-obra:editar" na revenda
+ * -- quem pode, de fato, lançar o volume e formalizar.
+ *
+ * Idempotente pela chave (`mao-obra:<revenda>:<AAAA-MM>:dia1|dia5`), como
+ * os lembretes do 5S: a varredura passa a cada 5 minutos, e sem a chave o
+ * dia 1 sozinho geraria centenas de avisos.
+ */
+export async function lembrarPlanejamentoMensal(agora: Date = new Date()): Promise<number> {
+  const partes = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Sao_Paulo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    hour12: false,
+  }).formatToParts(agora);
+  const pega = (t: string) => partes.find((p) => p.type === t)?.value ?? "";
+  const competencia = `${pega("year")}-${pega("month")}`;
+  const dia = Number(pega("day"));
+  const hora = Number(pega("hour"));
+  if (hora < 7) return 0;
+
+  const marco: "dia1" | "dia5" | null = dia >= 5 ? "dia5" : dia >= 1 ? "dia1" : null;
+  if (!marco) return 0;
+
+  const admin = createAdminClient();
+  const { data: ligadas } = await admin
+    .from("revenda_modulos")
+    .select("revenda_id")
+    .eq("modulo", MODULO_MAO_DE_OBRA)
+    .eq("ativo", true);
+
+  const horizonte = mesesDoPlanejamento(competencia).map(rotuloCurto).join(", ");
+  const url = `/gestao/mao-de-obra?mes=${competencia}&aba=planejar`;
+  let enviados = 0;
+
+  for (const l of ligadas ?? []) {
+    const revendaId = String(l.revenda_id);
+
+    // O dia 1 sai uma vez; se passou do dia 5 sem nunca ter saído (app
+    // publicado no meio do mês), vale o do dia 5, que é o que importa.
+    const chave = `mao-obra:${revendaId}:${competencia}:${marco}`;
+    const { data: jaFoi } = await admin
+      .from("notificacoes")
+      .select("id")
+      .eq("modulo", "mao-de-obra")
+      .eq("referencia_id", chave)
+      .limit(1)
+      .maybeSingle();
+    if (jaFoi) continue;
+
+    if (marco === "dia5") {
+      const { data: envio } = await admin
+        .from("mao_obra_envios")
+        .select("id")
+        .eq("revenda_id", revendaId)
+        .eq("competencia", primeiroDia(competencia))
+        .limit(1)
+        .maybeSingle();
+      if (envio) continue;
+    }
+
+    const [{ data: donos }, { data: permitidos }] = await Promise.all([
+      admin.from("profiles").select("id").eq("role", "owner"),
+      admin
+        .from("lideranca_permissoes")
+        .select("colaborador_id")
+        .eq("revenda_id", revendaId)
+        .eq("modulo", MODULO_MAO_DE_OBRA)
+        .eq("acao", "editar"),
+    ]);
+    const destinatarios = [
+      ...new Set([...(donos ?? []).map((d) => String(d.id)), ...(permitidos ?? []).map((p) => String(p.colaborador_id))]),
+    ];
+    if (destinatarios.length === 0) continue;
+
+    const titulo =
+      marco === "dia1" ? "👷 Hora de revisar o quadro de mão de obra" : "⚠️ Planejamento de mão de obra ainda não formalizado";
+    const mensagem =
+      marco === "dia1"
+        ? `Revise o volume e o QLP de ${horizonte} e formalize para o time de Gente.`
+        : `O planejamento de ${horizonte} ainda não foi enviado ao time de Gente. É a evidência mensal do DPO 1.2.`;
+
+    await Promise.all(
+      destinatarios.map((id) =>
+        criarNotificacao({
+          modulo: "mao-de-obra",
+          tipo: marco === "dia1" ? "lembrete" : "pendencia",
+          titulo,
+          mensagem,
+          url,
+          revendaId,
+          destinatarioId: id,
+          referenciaId: chave,
+        }),
+      ),
+    );
+    await enviarPushDaRevenda(revendaId, {
+      modulo: "mao-de-obra",
+      titulo,
+      mensagem,
+      url,
+      apenas: destinatarios,
+      qualquerRevenda: true,
+    });
+    enviados++;
+  }
+  return enviados;
 }
 
 /** Os anos que já têm mês lançado -- para o seletor de ano. */
