@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
 import {
   LIMITE_ANS_VENDAS,
-  MOTIVOS_DIA_ACIMA,
+  motivosDoDia,
   ROTULO_TIPO_DE_DIA,
   classeDaDispersao,
   excedeAns,
@@ -179,7 +179,7 @@ export function FormDias({
         />
       </div>
 
-      {/* O LE: a previsão de fechamento, no ritmo dos dias lançados. */}
+      {/* O LE: a previsão de fechamento, na tendência dos dias lançados. */}
       {conta.lancados > 0 && (
         <div
           className={`rounded-xl p-3 text-sm ${
@@ -197,7 +197,7 @@ export function FormDias({
             </p>
           </div>
           <p className="mt-1">
-            {conta.le.bate ? "✅ No ritmo de hoje, o mês bate a meta de " : "⚠️ No ritmo de hoje, o mês NÃO bate a meta de "}
+            {conta.le.bate ? "✅ Na tendência de hoje, o mês bate a meta de " : "⚠️ Na tendência de hoje, o mês NÃO bate a meta de "}
             <b className="font-mono tabular-nums">{formatarNumero(conta.planDoMes, 0)} HL</b>.{" "}
             {conta.le.precisaPorDia != null && conta.le.diasQueFaltam > 0 && (
               <>
@@ -213,7 +213,7 @@ export function FormDias({
           </p>
           <p className="mt-1 text-xs">
             Realizado <b className="font-mono tabular-nums">{formatarNumero(conta.le.realizado, 0)} HL</b> em{" "}
-            {conta.le.diasLancados} dia{conta.le.diasLancados === 1 ? "" : "s"} · ritmo de{" "}
+            {conta.le.diasLancados} dia{conta.le.diasLancados === 1 ? "" : "s"} · tendência de{" "}
             <b className="font-mono tabular-nums">{formatarPercento((conta.le.ritmo ?? 1) - 1)}</b> contra a meta do
             período.
           </p>
@@ -290,8 +290,16 @@ export function FormDias({
                             justificativas[l.dia]?.motivo ? "border-slate-200" : "border-red-300"
                           }`}
                         >
-                          <option value="">⚠️ Motivo (obrigatório)</option>
-                          {MOTIVOS_DIA_ACIMA.map((m) => (
+                          <option value="">⚠️ Motivo da venda {(l.dispersao ?? 0) > 0 ? "alta" : "baixa"} (obrigatório)</option>
+                          {/* Só os motivos do sentido do dia. Um motivo já gravado que
+                              não é mais deste sentido (o realizado mudou) continua na
+                              lista, para não sumir da tela sem a pessoa ver. */}
+                          {[
+                            ...motivosDoDia(l.dispersao),
+                            ...(justificativas[l.dia]?.motivo && !motivosDoDia(l.dispersao).includes(justificativas[l.dia].motivo)
+                              ? [justificativas[l.dia].motivo]
+                              : []),
+                          ].map((m) => (
                             <option key={m} value={m}>
                               {m}
                             </option>

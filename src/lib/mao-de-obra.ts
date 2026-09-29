@@ -778,23 +778,70 @@ export function excedeAns(dispersao: number | null | undefined): boolean {
   return dispersao != null && Math.abs(dispersao) > LIMITE_ANS_VENDAS;
 }
 
-/** Os motivos de um dia fora do ANS. Lista curta: é o que se agrupa depois. */
-export const MOTIVOS_DIA_ACIMA = [
-  // acima
+/**
+ * OS MOTIVOS DE UM DIA FORA DO ANS, por sentido (28/09/2026, pedido do
+ * dono: "muitas outras justificativas para um dia de baixa e de alta
+ * venda"). O dia ACIMA do necessário só oferece motivos de venda alta; o
+ * ABAIXO, só os de venda baixa -- uma lista só, com os dois misturados,
+ * deixaria alguém justificar venda alta com "chuva".
+ *
+ * Os textos antigos continuam iguais ("Véspera de feriado / evento",
+ * "Chuva / clima"...): justificativa já gravada precisa continuar batendo
+ * com a lista, senão o Salvar do dia a recusaria.
+ */
+export const MOTIVOS_DIA_ALTA = [
   "Venda acima do combinado (fora do ANS)",
   "Ação comercial / promoção",
+  "Campanha de incentivo da força de vendas",
   "Pedido grande de cliente (KA)",
+  "Cliente novo / primeira compra",
   "Reposição de pedido do dia anterior",
+  "Pedido reprogramado de outro dia",
+  "Rota reforçada (cobrindo outra rota)",
   "Véspera de feriado / evento",
   "Dia seguinte a feriado",
-  // abaixo
-  "Venda abaixo do combinado (fora do ANS)",
-  "Chuva / clima",
-  "Falta de produto (ruptura)",
-  "Pedido cancelado ou devolvido",
-  "Cliente fechado / rota sem pedido",
+  "Evento na cidade (festa, show, jogo)",
+  "Festa regional (São João, carnaval, padroeiro)",
+  "Início do mês (dia de pagamento)",
+  "Calor acima do normal",
+  "Compra antecipada antes de aumento de preço",
+  "Lançamento de produto",
+  "Recuperação de venda de dia de chuva",
+  "Pedidos do BEES / marketplace concentrados",
   "Outro",
 ] as const;
+
+export const MOTIVOS_DIA_BAIXA = [
+  "Venda abaixo do combinado (fora do ANS)",
+  "Chuva / clima",
+  "Frio / clima fora da estação",
+  "Falta de produto (ruptura)",
+  "Puxada da fábrica atrasada",
+  "Pedido cancelado ou devolvido",
+  "Cliente fechado / rota sem pedido",
+  "Rota não saiu (falta de motorista ou ajudante)",
+  "Caminhão quebrado / frota indisponível",
+  "Bloqueio de crédito do cliente",
+  "Queda de sistema (Promax, WMS, BEES)",
+  "Falta de energia ou de internet",
+  "Estrada interditada / acesso ao PDV",
+  "Feriado municipal ou ponto facultativo",
+  "Cliente antecipou a compra no dia anterior",
+  "Dia seguinte a venda alta (cliente abastecido)",
+  "Fim do mês (mercado sem dinheiro)",
+  "Aumento de preço (cliente segurou a compra)",
+  "Ação da concorrência",
+  "Pedido transferido para outro dia",
+  "Outro",
+] as const;
+
+/** Todos, para validar no servidor o que chegou do formulário. */
+export const MOTIVOS_DIA_ACIMA: readonly string[] = [...new Set<string>([...MOTIVOS_DIA_ALTA, ...MOTIVOS_DIA_BAIXA])];
+
+/** Os motivos que fazem sentido para o sentido do dia. */
+export function motivosDoDia(dispersao: number | null | undefined): readonly string[] {
+  return (dispersao ?? 0) > 0 ? MOTIVOS_DIA_ALTA : MOTIVOS_DIA_BAIXA;
+}
 
 /**
  * A grade do mês. `lancados` traz o que já foi digitado e quais dias
@@ -1446,7 +1493,7 @@ export const REQUISITO_DPO = [
   {
     id: "V.4",
     texto: "Simulador monitorado diariamente, permitindo ajustes conforme a variação do volume.",
-    ondeEsta: "Aba 3 · Acompanhar o dia: necessário × realizado por dia, justificativa fora do ANS (±20%), previsão do mês e a frota no ritmo de hoje.",
+    ondeEsta: "Aba 3 · Acompanhar o dia: necessário × realizado por dia, justificativa fora do ANS (±20%), previsão do mês e a frota na tendência de hoje.",
   },
   {
     id: "V.5",

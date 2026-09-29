@@ -737,7 +737,7 @@ export default async function MaoDeObraPage({
                   detalhe={mes.base_meta === "ppr" ? "HL · base da meta do dia" : "HL · plano"}
                   tom={mes.base_meta === "ppr" ? "destaque" : "neutro"}
                 />
-                <Indicador titulo="Previsão do mês" valor={formatarNumero(projecao.projetado, 0)} detalhe="HL no ritmo de hoje" />
+                <Indicador titulo="Previsão do mês" valor={formatarNumero(projecao.projetado, 0)} detalhe="HL na tendência de hoje" />
                 <Indicador
                   titulo="Fora do ANS (±20%)"
                   valor={String(diasForaDoAns.length)}
@@ -763,7 +763,7 @@ export default async function MaoDeObraPage({
 
               {projecao.realizadoAteAgora > 0 && (
                 <Bloco
-                  titulo="Flexão — a frota no ritmo de hoje"
+                  titulo="Flexão — a frota na tendência de hoje"
                   orientacao={`Se o mês fechar em ${formatarNumero(projecao.projetado, 0)} HL, a entrega pede. Diferença é hora de ajustar SPOT, hora extra ou férias.`}
                 >
                   <div className="grid grid-cols-3 gap-2 text-center">
