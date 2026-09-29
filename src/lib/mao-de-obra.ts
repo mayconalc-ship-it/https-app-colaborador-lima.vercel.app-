@@ -1330,32 +1330,32 @@ export const REQUISITO_DPO = [
   {
     id: "V.1",
     texto: "Processo, ferramenta ou simulador para antecipar a necessidade de mão de obra e da demanda SPOT, com base na previsão de volume, incluindo Marketplace.",
-    ondeEsta: "Aba 1 · Planejar: o volume PPR, negociado e marketplace de cada mês, com a frota SPOT, vira gente por função.",
+    ondeEsta: "Aba 2 · Planejar: o volume PPR, negociado e marketplace de cada mês, com a frota SPOT, vira gente por função (parâmetros na aba 1 · Configurar).",
   },
   {
     id: "V.2",
     texto: "Processo revisado no mínimo mensalmente, com estrutura planejada para os meses seguintes junto aos operadores e à área de Gente, com evidências.",
-    ondeEsta: "Aba 1 · Planejar: o mês atual e os 2 seguintes; “Formalizar para Gente” registra data, destinatários e o quadro enviado.",
+    ondeEsta: "Aba 2 · Planejar: os 3 meses seguintes; “Formalizar para o time de Gente” registra data, destinatários e o quadro enviado.",
   },
   {
     id: "V.3",
     texto: "Comparação entre o dimensionamento projetado há 2 a 3 meses e o do mês corrente.",
-    ondeEsta: "Aba 3 · Resultado: a fotografia congelada em cada formalização contra o que o mês pede hoje.",
+    ondeEsta: "Aba 4 · Resultado: a fotografia congelada em cada formalização contra o que o mês pede hoje.",
   },
   {
     id: "V.4",
     texto: "Simulador monitorado diariamente, permitindo ajustes conforme a variação do volume.",
-    ondeEsta: "Aba 2 · Acompanhar o dia: necessário × realizado por dia, previsão do mês e a frota no ritmo de hoje.",
+    ondeEsta: "Aba 3 · Acompanhar o dia: necessário × realizado por dia, justificativa fora do ANS (±20%), previsão do mês e a frota no ritmo de hoje.",
   },
   {
     id: "V.5",
     texto: "Acompanhamento da dispersão entre volume dimensionado x realizado e realizado x demanda, com aderência às metas.",
-    ondeEsta: "Aba 3 · Resultado: realizado ÷ PPR e realizado ÷ negociado, em %, com faixa de ±5%.",
+    ondeEsta: "Aba 4 · Resultado: realizado ÷ PPR e realizado ÷ negociado, em %, com faixa de ±5%, e os dias fora do ANS com Vendas.",
   },
   {
     id: "V.6",
     texto: "Processo monitorado quanto à eficácia, com planos de ação ativos para correção de desvios e melhoria dos resultados dos últimos três meses.",
-    ondeEsta: "Aba 3 · Resultado: eficácia dos últimos 3 meses (projetado × realizado) e o plano de ação de cada desvio.",
+    ondeEsta: "Aba 4 · Resultado: eficácia dos últimos 3 meses (projetado × realizado) e o plano de ação de cada desvio.",
   },
 ] as const;
 

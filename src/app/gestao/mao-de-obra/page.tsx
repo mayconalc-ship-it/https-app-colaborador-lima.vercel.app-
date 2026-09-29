@@ -318,7 +318,7 @@ export default async function MaoDeObraPage({
                       </span>
                     </div>
                     <p className="mb-3 text-xs text-slate-500">Quanto da semana sai em cada dia. Distribui a meta da grade do dia.</p>
-                    <div className="grid grid-cols-4 gap-2 sm:grid-cols-7">
+                    <div className="grid grid-cols-3 gap-2 sm:grid-cols-7">
                       {DIAS_DO_SELLOUT.map((d) => (
                         <Campo key={d.id} rotulo={d.rotulo.slice(0, 3)}>
                           <span className="flex items-center gap-1">
@@ -411,13 +411,13 @@ export default async function MaoDeObraPage({
             />
             <Indicador
               titulo="Contratar"
-              valor={proximo.vagas && temQlp ? `+${somaVagas(proximo.vagas, "vagas")}` : "—"}
+              valor={proximo.vagas && temQlp ? comSinal(somaVagas(proximo.vagas, "vagas") ?? 0, "+") : "—"}
               detalhe={rotuloCurto(horizonte[0])}
               tom={(somaVagas(proximo.vagas, "vagas") ?? 0) > 0 ? "atencao" : "neutro"}
             />
             <Indicador
               titulo="Reduzir"
-              valor={proximo.vagas && temQlp ? `−${somaVagas(proximo.vagas, "excedente")}` : "—"}
+              valor={proximo.vagas && temQlp ? comSinal(somaVagas(proximo.vagas, "excedente") ?? 0, "−") : "—"}
               detalhe={rotuloCurto(horizonte[0])}
               tom={(somaVagas(proximo.vagas, "excedente") ?? 0) > 0 ? "erro" : "neutro"}
             />
@@ -1082,6 +1082,11 @@ function ProximoPasso({ texto, href, acao }: { texto: string; href: string; acao
       </Link>
     </div>
   );
+}
+
+/** "+2" / "−1" -- e "0" sem sinal, para não aparecer "−0". */
+function comSinal(n: number, sinal: "+" | "−") {
+  return n === 0 ? "0" : `${sinal}${n}`;
 }
 
 function tomDaDispersao(d: number | null): Tom {

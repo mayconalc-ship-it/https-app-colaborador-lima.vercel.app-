@@ -252,8 +252,8 @@ export function FormMes({
           className="rounded-xl bg-emerald-50 p-3 text-xs text-emerald-800"
         >
           ✅ A meta dos dias soma <b>{formatarNumero(previa.conferencia.planoDoMes, 0)} HL</b> — exatamente o{" "}
-          {ROTULO_BASE_DA_META[previa.conferencia.base].toLowerCase()} informado, dividido em{" "}
-          {previa.conferencia.uteisQueOperam} dias úteis e {previa.conferencia.sabadosQueOperam} sábados.
+          {ROTULO_BASE_DA_META[previa.conferencia.base].toLowerCase()} informado, dividido em {previa.dist.diasUteis} dias
+          úteis e {lerNumeroDigitado(valores.sabados) ?? 0} sábados (os informados acima; feriados se desmarcam na grade do dia).
         </p>
       )}
 
