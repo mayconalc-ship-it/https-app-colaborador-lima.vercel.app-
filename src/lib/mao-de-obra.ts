@@ -1295,36 +1295,43 @@ export type MesDaFormalizacao = {
   justificativa?: string | null;
 };
 
+/** "Out/26, Nov/26 e Dez/26" -- os meses que a formalização cobre. */
+export function mesesPorExtenso(competencias: string[], rotulo: (c: string) => string = rotuloCurto): string {
+  const nomes = competencias.map(rotulo);
+  return nomes.length <= 1 ? (nomes[0] ?? "") : `${nomes.slice(0, -1).join(", ")} e ${nomes[nomes.length - 1]}`;
+}
+
+/**
+ * O E-MAIL DA FORMALIZAÇÃO (29/09/2026, pedido do dono): específico de
+ * cada mês seguinte -- função a função, o necessário contra o que temos
+ * hoje -- e sem data no corpo (a data é a do próprio e-mail).
+ */
 export function textoDaFormalizacao(d: {
   revenda: string;
   meses: MesDaFormalizacao[];
   observacao?: string | null;
   quemEnvia: string;
-  /** "2026-03-05" -- a data do envio, que pode ser retroativa. */
-  data?: string | null;
 }): string {
   const linhas: string[] = [];
   linhas.push(`Planejamento de mão de obra — ${d.revenda}`);
-  if (d.data) linhas.push(`Data: ${d.data.split("-").reverse().join("/")}`);
-  linhas.push(`Horizonte: ${d.meses.map((m) => rotuloCompetencia(m.competencia)).join(", ")}`);
+  linhas.push(`Meses planejados: ${mesesPorExtenso(d.meses.map((m) => m.competencia), rotuloCompetencia)}`);
   for (const m of d.meses) {
     linhas.push("");
     linhas.push(`■ ${rotuloCompetencia(m.competencia).toUpperCase()}`);
     linhas.push(
       `  Volume: PPR ${m.volumePpr == null ? "—" : formatarNumero(m.volumePpr, 0)} HL · negociado ${m.volumeNegociado == null ? "—" : formatarNumero(m.volumeNegociado, 0)} HL`,
     );
+    linhas.push("  Quadro por função (necessário / temos hoje):");
+    for (const v of m.vagas) {
+      const acao = v.vagas > 0 ? ` → contratar ${v.vagas}` : v.excedente > 0 ? ` → ${v.excedente} acima (não repor)` : "";
+      linhas.push(`   - ${v.rotulo}: ${v.dimensionado} / ${v.atual ?? "—"}${acao}`);
+    }
+    const total = m.vagas.reduce((s, v) => s + v.dimensionado, 0);
     const atual = m.vagas.some((v) => v.atual != null) ? m.vagas.reduce((s, v) => s + (v.atual ?? 0), 0) : null;
+    const vagas = m.vagas.reduce((s, v) => s + v.vagas, 0);
     linhas.push(
-      `  QLP dimensionado: ${m.vagas.reduce((s, v) => s + v.dimensionado, 0)} pessoas${atual == null ? "" : ` (QLP atual ${atual})`}`,
+      `  QLP dimensionado: ${total} pessoas${atual == null ? "" : ` · QLP atual ${atual}`} · ${vagas === 0 ? "nenhuma vaga a abrir" : `contratar ${vagas}`}`,
     );
-    const comVaga = m.vagas.filter((v) => v.vagas > 0);
-    const sobra = m.vagas.filter((v) => v.excedente > 0);
-    linhas.push(
-      comVaga.length === 0
-        ? "  Contratar: nenhuma vaga."
-        : `  Contratar: ${comVaga.map((v) => `${v.rotulo} ${v.vagas}`).join(" · ")}`,
-    );
-    if (sobra.length > 0) linhas.push(`  Acima do necessário (não repor): ${sobra.map((v) => `${v.rotulo} ${v.excedente}`).join(" · ")}`);
     if (m.justificativaMotivo || m.justificativa) {
       linhas.push(`  Justificativa: ${[m.justificativaMotivo, m.justificativa].filter(Boolean).join(" — ")}`);
     }

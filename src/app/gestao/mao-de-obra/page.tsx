@@ -9,7 +9,7 @@ import { getPerfil } from "@/lib/sessao";
 import { decodificar } from "@/lib/texto-url";
 import {
   lerAcoesDoPeriodo,
-  lerConfig,
+  lerConfigsDosMeses,
   lerDestinatarios,
   lerDias,
   lerEnvios,
@@ -54,6 +54,7 @@ import {
   linhaDoTempoDaProjecao,
   mesesDeAntecedencia,
   mesesDoPlanejamento,
+  mesesPorExtenso,
   mostrarNumero,
   parametroParaTela,
   projecaoDoMes,
@@ -134,7 +135,7 @@ export default async function MaoDeObraPage({
     podeExcluir,
     revenda,
     perfil,
-    config,
+    configs,
     salarios,
     meses,
     qlpPorMes,
@@ -149,7 +150,8 @@ export default async function MaoDeObraPage({
     podeNoModulo(MODULO_MAO_DE_OBRA, "excluir"),
     getRevendaAtiva(),
     getPerfil(),
-    lerConfig(revendaId),
+    // Cada mês com a SUA configuração congelada (migration 152).
+    lerConfigsDosMeses(revendaId, [tres, competenciaAnterior(competencia), competencia, ...horizonte]),
     lerSalarios(revendaId),
     lerMesesDoPeriodo(revendaId, tres, horizonte[2]),
     lerRealizadoDoPeriodo(revendaId, "2000-01", horizonte[2]),
@@ -161,6 +163,9 @@ export default async function MaoDeObraPage({
     lerHistorico(revendaId),
   ]);
 
+  const configDe = (c: string) => configs.get(c)?.config ?? configs.get(competencia)!.config;
+  const doMes = configs.get(competencia)!;
+  const config = doMes.config;
   const mes = meses.get(competencia) ?? null;
   const mesAtual: MesMaoDeObra = mes ?? { ...MES_VAZIO, competencia };
   const qlpAtual = qlpVigente(qlpPorMes, competencia);
@@ -171,7 +176,7 @@ export default async function MaoDeObraPage({
   const planejamento = horizonte.map((c) => {
     const m = meses.get(c) ?? null;
     if (!m) return { competencia: c, mes: null, vagas: null as VagaDaFuncao[] | null, custo: 0 };
-    const { linhas } = dimensionamentoDoMes(m, config, salarios, qlpVigente(qlpPorMes, c));
+    const { linhas } = dimensionamentoDoMes(m, configDe(c), salarios, qlpVigente(qlpPorMes, c));
     return { competencia: c, mes: m, vagas: vagasDoMes(linhas), custo: linhas.reduce((s, l) => s + l.custoDimensionado, 0) };
   });
   const paraFormalizar = planejamento
@@ -291,9 +296,19 @@ export default async function MaoDeObraPage({
             <p className="rounded-xl bg-slate-50 p-4 text-sm text-slate-500">Só quem pode editar o simulador altera a configuração.</p>
           ) : (
             <>
-              <Bloco titulo="Parâmetros da operação" orientacao="Tempos e percentuais que viram gente no armazém. Percentuais em %, tempos em horas (7:20 = 7h20).">
+              <Bloco
+                titulo={`Parâmetros da operação — ${rotuloCompetencia(competencia)}`}
+                orientacao="Tempos e percentuais que viram gente no armazém. Percentuais em %, tempos em horas (7:20 = 7h20). Cada mês guarda a sua configuração: salvar aqui muda só este mês."
+              >
                 <form action={salvarParametros} className="space-y-5">
                   <input type="hidden" name="competencia" value={competencia} />
+                  <p className="rounded-xl bg-slate-50 px-3 py-2 text-xs text-slate-600">
+                    {doMes.origem === competencia
+                      ? `🔒 Configuração própria de ${rotuloCompetencia(competencia)}${doMes.atualizadoPorNome ? ` · ${doMes.atualizadoPorNome}` : ""}${doMes.atualizadoEm ? `, ${dataBR(doMes.atualizadoEm)}` : ""}.`
+                      : doMes.origem
+                        ? `Este mês ainda usa a configuração de ${rotuloCompetencia(doMes.origem)}. Ao salvar, ${rotuloCompetencia(competencia)} passa a ter a sua.`
+                        : `Este mês ainda usa o padrão da revenda. Ao salvar, ${rotuloCompetencia(competencia)} passa a ter a sua.`}
+                  </p>
                   <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
                     {PARAMETROS.map((p) => (
                       <Campo key={p.id} rotulo={p.rotulo} ajuda={p.ajuda}>
@@ -636,7 +651,7 @@ export default async function MaoDeObraPage({
                     </Link>
                   ))}
                 </div>
-                <FormMes key={editar} competencia={editar} base={competencia} mes={meses.get(editar) ?? null} config={config} />
+                <FormMes key={editar} competencia={editar} base={competencia} mes={meses.get(editar) ?? null} config={configDe(editar)} />
               </div>
             </details>
           )}
@@ -672,8 +687,8 @@ export default async function MaoDeObraPage({
           )}
 
           <Bloco
-            titulo="Formalizar para o time de Gente"
-            orientacao="Uma vez por mês: envia o quadro dos 3 meses para programar a contratação e guarda a fotografia da projeção para o comparativo."
+            titulo={`Formalizar ${mesesPorExtenso(mesesDoPlanejamento(competencia))} para o time de Gente`}
+            orientacao={`Uma vez por mês: envia o quadro de ${mesesPorExtenso(mesesDoPlanejamento(competencia), rotuloCompetencia)}, função a função, para programar a contratação e guarda a fotografia desses meses para o comparativo.`}
           >
             {paraFormalizar.length === 0 ? (
               <p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900">Lance o volume de pelo menos um dos 3 meses.</p>

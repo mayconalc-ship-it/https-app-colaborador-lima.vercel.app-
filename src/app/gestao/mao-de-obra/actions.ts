@@ -6,7 +6,8 @@ import { requireModulo } from "@/lib/require-admin";
 import { exigirRevenda } from "@/lib/revendas";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
-  lerConfig,
+  lerConfigDoMes,
+  lerConfigsDosMeses,
   lerMes,
   lerMesesDoPeriodo,
   lerRealizado,
@@ -44,6 +45,7 @@ import {
   parametroParaTela,
   ehCampoNumericoDoMes,
   mesesDoPlanejamento,
+  mesesPorExtenso,
   parametroDaTela,
   rotuloCompetencia,
   vagasDoMes,
@@ -253,19 +255,51 @@ export async function salvarParametros(formData: FormData) {
   if (problemaDaCurva) voltar(competencia, "erro", problemaDaCurva, "configurar");
   Object.assign(valores, curva);
 
-  const antesDaConfig = await lerConfig(revendaId);
-
+  if (!ehCompetencia(competencia)) voltar("", "erro", "Competência inválida.", "configurar");
+  const antesDaConfig = (await lerConfigDoMes(revendaId, competencia)).config;
   const admin = createAdminClient();
-  const { error } = await admin.from("mao_obra_config").upsert(
+  const agora = new Date().toISOString();
+
+  /*
+    CONGELA OS OUTROS MESES ANTES DE SALVAR (migration 152): o mês lançado
+    depois deste que ainda não tem configuração própria herdava a deste --
+    ganha agora uma cópia do que estava usando, para não mudar junto.
+  */
+  const { data: seguintes } = await admin
+    .from("mao_obra_meses")
+    .select("competencia")
+    .eq("revenda_id", revendaId)
+    .gt("competencia", primeiroDia(competencia));
+  const depois = (seguintes ?? []).map((s) => String(s.competencia).slice(0, 7));
+  if (depois.length > 0) {
+    const vigentes = await lerConfigsDosMeses(revendaId, depois);
+    const herdados = depois.filter((c) => vigentes.get(c)!.origem !== c);
+    if (herdados.length > 0) {
+      const { error: erroCongelar } = await admin.from("mao_obra_config_mes").insert(
+        herdados.map((c) => ({
+          revenda_id: revendaId,
+          competencia: primeiroDia(c),
+          ...vigentes.get(c)!.config,
+          atualizado_em: agora,
+          atualizado_por_nome: `Congelada ao alterar ${rotuloCompetencia(competencia)} (${perfil.nome})`,
+        })),
+      );
+      if (erroCongelar) voltar(competencia, "erro", `Não foi possível congelar os outros meses: ${erroCongelar.message}`, "configurar");
+    }
+  }
+
+  const { error } = await admin.from("mao_obra_config_mes").upsert(
     {
       revenda_id: revendaId,
+      competencia: primeiroDia(competencia),
+      ...antesDaConfig,
       ...valores,
-      atualizado_em: new Date().toISOString(),
+      atualizado_em: agora,
       atualizado_por_nome: perfil.nome,
     },
-    { onConflict: "revenda_id" },
+    { onConflict: "revenda_id,competencia" },
   );
-  if (error) voltar(competencia, "erro", `Não foi possível salvar: ${error.message}`);
+  if (error) voltar(competencia, "erro", `Não foi possível salvar: ${error.message}`, "configurar");
 
   // Gravado como a tela mostra (40%, 7:20), que é o que o auditor lê.
   await registrarAlteracoes(
@@ -273,6 +307,7 @@ export async function salvarParametros(formData: FormData) {
     perfil.nome,
     compararCampos({
       onde: "parametros",
+      competencia,
       antes: antesDaConfig as unknown as Record<string, unknown>,
       depois: valores,
       campos: [
@@ -294,7 +329,7 @@ export async function salvarParametros(formData: FormData) {
   );
 
   atualizarTelas();
-  voltar(competencia, "sucesso", "Parâmetros salvos.", "configurar");
+  voltar(competencia, "sucesso", `Parâmetros de ${rotuloCompetencia(competencia)} salvos. Os outros meses não mudam.`, "configurar");
 }
 
 /** A base salarial de uma função -- o que multiplica o dimensionamento. */
@@ -466,28 +501,24 @@ export async function formalizarPlanejamento(formData: FormData) {
   const observacao = String(formData.get("observacao") ?? "").trim().slice(0, LIMITES_MAO_DE_OBRA.observacaoMax) || null;
 
   /*
-    A DATA DO ENVIO (28/09/2026, pedido do dono): a do dia em que o e-mail
-    saiu, que pode ser passada -- "enviei março (abr, mai, jun); a data
-    conta de março". Tem de cair DENTRO do mês-base (é ele que o envio
-    documenta) e não pode ser no futuro. Quando não é hoje, o registro fica
-    marcado como retroativo, com a data em que foi lançado no app ao lado.
+    SEM DATA DO ENVIO (29/09/2026, pedido do dono): o registro vale o
+    momento do clique, e só dentro do mês-base -- é ele que o envio
+    documenta. A coluna `retroativo` fica no banco (registros antigos), mas
+    nenhum registro novo nasce retroativo.
   */
   const hoje = hojeNaOperacao();
-  const data = String(formData.get("data_envio") ?? "").trim() || hoje;
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(data)) voltar(competencia, "erro", "Data do envio inválida.");
-  if (data.slice(0, 7) !== competencia) {
-    voltar(competencia, "erro", `A data do envio precisa ser em ${rotuloCompetencia(competencia)} — é o mês que você está formalizando.`);
+  if (hoje.slice(0, 7) !== competencia) {
+    voltar(competencia, "erro", `A formalização de ${rotuloCompetencia(competencia)} é registrada dentro do próprio mês.`);
   }
-  if (data > hoje) voltar(competencia, "erro", "A data do envio não pode ser no futuro.");
-  const retroativo = data !== hoje;
-  // Meio-dia de Brasília: a data não escorrega para o dia anterior em UTC.
-  const enviadoEm = retroativo ? `${data}T12:00:00-03:00` : new Date().toISOString();
+  const retroativo = false;
+  const enviadoEm = new Date().toISOString();
 
   const admin = createAdminClient();
   const horizonte = mesesDoPlanejamento(competencia);
 
-  const [config, salarios, meses, qlpPorMes, { data: destinos }] = await Promise.all([
-    lerConfig(revendaId),
+  const [configs, salarios, meses, qlpPorMes, { data: destinos }] = await Promise.all([
+    // Cada mês com a SUA configuração congelada (migration 152).
+    lerConfigsDosMeses(revendaId, horizonte),
     lerSalarios(revendaId),
     lerMesesDoPeriodo(revendaId, horizonte[0], horizonte[2]),
     // O QLP vigente pode ter sido informado meses antes.
@@ -504,7 +535,7 @@ export async function formalizarPlanejamento(formData: FormData) {
 
   const quadros = planejados.map(({ competencia: c, mes }) => {
     const qlp = qlpVigente(qlpPorMes, c);
-    const { linhas } = dimensionamentoDoMes(mes, config, salarios, qlp);
+    const { linhas } = dimensionamentoDoMes(mes, configs.get(c)!.config, salarios, qlp);
     return { competencia: c, mes, qlp, vagas: vagasDoMes(linhas) };
   });
 
@@ -560,7 +591,7 @@ export async function formalizarPlanejamento(formData: FormData) {
   voltar(
     competencia,
     "sucesso",
-    `Planejamento de ${quadros.length} mês(es) formalizado em ${data.split("-").reverse().join("/")} para ${emails.length} destinatário${emails.length === 1 ? "" : "s"}.`,
+    `Planejamento de ${mesesPorExtenso(quadros.map((q) => q.competencia))} formalizado para ${emails.length} destinatário${emails.length === 1 ? "" : "s"}.`,
   );
 }
 

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
-import { diasDaCompetencia, rotuloCompetencia, textoDaFormalizacao, type MesDaFormalizacao } from "@/lib/mao-de-obra";
+import { mesesPorExtenso, rotuloCompetencia, textoDaFormalizacao, type MesDaFormalizacao } from "@/lib/mao-de-obra";
 import { formalizarPlanejamento } from "./actions";
 
 /**
@@ -16,8 +16,8 @@ import { formalizarPlanejamento } from "./actions";
  * reconhece.
  *
  * "Registrar" é separado de "abrir": é ele que vira evidência e congela a
- * projeção para o comparativo (V.3). A DATA DO ENVIO pode ser passada --
- * dentro do mês que se formaliza -- e o registro fica marcado retroativo.
+ * projeção para o comparativo (V.3). SEM DATA DO ENVIO (29/09/2026, pedido
+ * do dono): o registro vale o momento do clique, dentro do próprio mês.
  */
 export function EnviarParaRecrutamento({
   competencia,
@@ -37,18 +37,15 @@ export function EnviarParaRecrutamento({
   /** "AAAA-MM-DD" em Brasília. */
   hoje: string;
 }) {
-  // A data só pode cair no mês que se formaliza, e nunca no futuro.
-  const inicio = `${competencia}-01`;
-  const fimDoMes = `${competencia}-${String(diasDaCompetencia(competencia)).padStart(2, "0")}`;
-  const fim = fimDoMes < hoje ? fimDoMes : hoje;
-  const mesJaComecou = inicio <= hoje;
+  // Registra-se no próprio mês que se formaliza: é ele que o envio documenta.
+  const noMes = hoje.slice(0, 7) === competencia;
+  const quais = mesesPorExtenso(meses.map((m) => m.competencia));
 
   const [observacao, setObservacao] = useState("");
-  const [data, setData] = useState(hoje.slice(0, 7) === competencia ? hoje : inicio);
   const [copiado, setCopiado] = useState(false);
 
-  const texto = textoDaFormalizacao({ revenda, meses, observacao, quemEnvia, data });
-  const assunto = `Planejamento de mão de obra — ${revenda} — ${meses.map((m) => rotuloCompetencia(m.competencia)).join(", ")}`;
+  const texto = textoDaFormalizacao({ revenda, meses, observacao, quemEnvia });
+  const assunto = `Planejamento de mão de obra — ${revenda} — ${quais}`;
   const para = destinatarios.join(";");
   const outlook = `https://outlook.office.com/mail/deeplink/compose?to=${encodeURIComponent(para)}&subject=${encodeURIComponent(assunto)}&body=${encodeURIComponent(texto)}`;
   const mailto = `mailto:${destinatarios.join(",")}?subject=${encodeURIComponent(assunto)}&body=${encodeURIComponent(texto)}`;
@@ -114,29 +111,17 @@ export function EnviarParaRecrutamento({
         <form action={formalizarPlanejamento} className="flex flex-wrap items-end gap-2 rounded-xl border border-emerald-200 bg-emerald-50/50 p-3">
           <input type="hidden" name="competencia" value={competencia} />
           <input type="hidden" name="observacao" value={observacao} />
-          <label className="block">
-            <span className="mb-1 block text-[11px] font-semibold uppercase text-slate-500">Data do envio</span>
-            <input
-              type="date"
-              name="data_envio"
-              value={data}
-              min={inicio}
-              max={fim}
-              onChange={(e) => setData(e.target.value)}
-              disabled={!mesJaComecou}
-              className="rounded-lg border border-slate-300 px-2 py-2 text-sm"
-            />
-          </label>
           <BotaoEnviar
+            disabled={!noMes}
             textoEnviando="Registrando..."
             className="rounded-xl border border-emerald-600 bg-white px-4 py-2.5 text-sm font-semibold text-emerald-700 hover:bg-emerald-50 disabled:opacity-50"
           >
             ✅ 2. Registrar que enviei
           </BotaoEnviar>
           <p className="w-full text-[11px] text-slate-500">
-            {!mesJaComecou
-              ? `${rotuloCompetencia(competencia)} ainda não começou: formalize no próprio mês.`
-              : `Fica registrado como enviado em ${data.split("-").reverse().join("/")} e guarda a fotografia dos 3 meses para o comparativo.`}
+            {noMes
+              ? `Registra o envio do planejamento de ${quais} e guarda a fotografia desses meses para o comparativo.`
+              : `A formalização de ${rotuloCompetencia(competencia)} é registrada dentro do próprio mês.`}
           </p>
         </form>
       )}

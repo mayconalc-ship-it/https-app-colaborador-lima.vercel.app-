@@ -27,6 +27,7 @@ import {
 /** "AAAA-MM" -> "AAAA-MM-01", que é como a competência mora no banco. */
 export const primeiroDia = (competencia: string) => `${competencia}-01`;
 
+/** O padrão da revenda: vale para o mês que não tem configuração antes dele. */
 export async function lerConfig(revendaId: string): Promise<ConfigMaoDeObra> {
   const admin = createAdminClient();
   const { data } = await admin
@@ -34,7 +35,61 @@ export async function lerConfig(revendaId: string): Promise<ConfigMaoDeObra> {
     .select("*")
     .eq("revenda_id", revendaId)
     .maybeSingle();
-  if (!data) return { ...CONFIG_PADRAO };
+  return data ? paraConfig(data) : { ...CONFIG_PADRAO };
+}
+
+/*
+  A CONFIGURAÇÃO CONGELADA POR MÊS (migration 152, pedido do dono em
+  29/09/2026: "caso contrário ela mexe nos outros meses"). Cada mês tem a
+  sua cópia; o mês sem cópia usa a do último mês anterior que tem, e sem
+  nenhuma antes dele, o padrão da revenda.
+*/
+export type ConfigDoMes = {
+  config: ConfigMaoDeObra;
+  /** De que mês veio: o próprio, um anterior ("AAAA-MM"), ou null = padrão da revenda. */
+  origem: string | null;
+  atualizadoEm: string | null;
+  atualizadoPorNome: string | null;
+};
+
+/** A configuração vigente de cada mês pedido, numa leitura só. */
+export async function lerConfigsDosMeses(revendaId: string, competencias: string[]): Promise<Map<string, ConfigDoMes>> {
+  const saida = new Map<string, ConfigDoMes>();
+  if (competencias.length === 0) return saida;
+  const ultima = [...competencias].sort().at(-1)!;
+  const admin = createAdminClient();
+  const [{ data }, padrao] = await Promise.all([
+    admin
+      .from("mao_obra_config_mes")
+      .select("*")
+      .eq("revenda_id", revendaId)
+      .lte("competencia", primeiroDia(ultima))
+      .order("competencia"),
+    lerConfig(revendaId),
+  ]);
+  const linhas = (data ?? []).map((l) => ({ competencia: String(l.competencia).slice(0, 7), linha: l }));
+  for (const c of competencias) {
+    const vigente = linhas.filter((l) => l.competencia <= c).at(-1);
+    saida.set(
+      c,
+      vigente
+        ? {
+            config: paraConfig(vigente.linha),
+            origem: vigente.competencia,
+            atualizadoEm: vigente.linha.atualizado_em ?? null,
+            atualizadoPorNome: vigente.linha.atualizado_por_nome ?? null,
+          }
+        : { config: padrao, origem: null, atualizadoEm: null, atualizadoPorNome: null },
+    );
+  }
+  return saida;
+}
+
+export async function lerConfigDoMes(revendaId: string, competencia: string): Promise<ConfigDoMes> {
+  return (await lerConfigsDosMeses(revendaId, [competencia])).get(competencia)!;
+}
+
+function paraConfig(data: Record<string, unknown>): ConfigMaoDeObra {
   const numero = (v: unknown, padrao: number) => (v == null || Number.isNaN(Number(v)) ? padrao : Number(v));
   return {
     percentual_montagem: numero(data.percentual_montagem, CONFIG_PADRAO.percentual_montagem),
