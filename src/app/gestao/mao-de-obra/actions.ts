@@ -282,47 +282,68 @@ export async function salvarParametros(formData: FormData) {
     }
   }
 
-  const { error } = await admin.from("mao_obra_config_mes").upsert(
-    {
-      revenda_id: revendaId,
-      competencia: primeiroDia(competencia),
-      ...antesDaConfig,
-      ...curva,
-      armazem,
-      atualizado_em: agora,
-      atualizado_por_nome: perfil.nome,
-    },
-    { onConflict: "revenda_id,competencia" },
-  );
-  if (error) voltar(competencia, "erro", `Não foi possível salvar: ${error.message}`, "configurar");
+  /*
+    APLICAR TAMBÉM EM (29/09/2026): o dono ajustou os inputs em setembro e o
+    quadro de out-dez não mudou -- cada mês tem a sua configuração congelada.
+    Agora ele escolhe, ao salvar, em quais meses do planejamento o mesmo
+    ajuste vale. Só os 3 meses seguintes, e só os que ele marcar.
+  */
+  const planejaveis = mesesDoPlanejamento(competencia);
+  const aplicarEm = [...new Set(formData.getAll("aplicar_em").map(String))].filter((c) => planejaveis.includes(c));
+  const antesDosOutros = aplicarEm.length > 0 ? await lerConfigsDosMeses(revendaId, aplicarEm) : new Map();
 
-  // Gravado como a tela mostra (40%, 7:20), que é o que o auditor lê.
-  await registrarAlteracoes(
-    revendaId,
-    perfil.nome,
-    compararCampos({
-      onde: "parametros",
-      competencia,
-      antes: { ...antesDaConfig.armazem, ...antesDaConfig } as unknown as Record<string, unknown>,
-      depois: { ...armazem, ...curva },
-      campos: [
-        ...PARAMETROS_ARMAZEM.map((p) => ({
-          campo: p.id,
-          rotulo: `${p.grupo} — ${p.rotulo}`,
-          formatar: (v: unknown) => (p.unidade === "%" ? `${mostrarNumero(Number(v) * 100, 3)}%` : `${mostrarNumero(Number(v), 4)} ${p.unidade}`),
-        })),        ...DIAS_DO_SELLOUT.map((d) => ({
-          campo: d.id,
-          rotulo: `Curva de venda — ${d.rotulo}`,
-          formatar: (v: unknown) => `${mostrarNumero(Number(v), 3)}%`,
-        })),
-      ],
-    }),
-  );
+  const gravar = async (c: string, antes: typeof antesDaConfig) => {
+    const { error } = await admin.from("mao_obra_config_mes").upsert(
+      {
+        revenda_id: revendaId,
+        competencia: primeiroDia(c),
+        ...antes,
+        ...curva,
+        armazem,
+        atualizado_em: agora,
+        atualizado_por_nome: c === competencia ? perfil.nome : `${perfil.nome} (aplicado a partir de ${rotuloCompetencia(competencia)})`,
+      },
+      { onConflict: "revenda_id,competencia" },
+    );
+    if (error) voltar(competencia, "erro", `Não foi possível salvar ${rotuloCompetencia(c)}: ${error.message}`, "configurar");
+    // Gravado como a tela mostra (40%, 7:20), que é o que o auditor lê.
+    await registrarAlteracoes(
+      revendaId,
+      perfil.nome,
+      compararCampos({
+        onde: "parametros",
+        competencia: c,
+        antes: { ...antes.armazem, ...antes } as unknown as Record<string, unknown>,
+        depois: { ...armazem, ...curva },
+        campos: [
+          ...PARAMETROS_ARMAZEM.map((p) => ({
+            campo: p.id,
+            rotulo: `${p.grupo} — ${p.rotulo}`,
+            formatar: (v: unknown) => (p.unidade === "%" ? `${mostrarNumero(Number(v) * 100, 3)}%` : `${mostrarNumero(Number(v), 4)} ${p.unidade}`),
+          })),
+          ...DIAS_DO_SELLOUT.map((d) => ({
+            campo: d.id,
+            rotulo: `Curva de venda — ${d.rotulo}`,
+            formatar: (v: unknown) => `${mostrarNumero(Number(v), 3)}%`,
+          })),
+        ],
+      }),
+    );
+  };
+
+  await gravar(competencia, antesDaConfig);
+  for (const c of aplicarEm) await gravar(c, antesDosOutros.get(c)!.config);
 
   atualizarTelas();
-  voltar(competencia, "sucesso", `Parâmetros de ${rotuloCompetencia(competencia)} salvos. Os outros meses não mudam.`, "configurar");
+  voltar(
+    competencia,
+    "sucesso",
+    aplicarEm.length > 0
+      ? `Parâmetros salvos em ${mesesPorExtenso([competencia, ...aplicarEm])}. Os outros meses não mudam.`
+      : `Parâmetros de ${rotuloCompetencia(competencia)} salvos. Os outros meses não mudam.`,
+    "configurar",
+  );
 }
-
 /** A base salarial de uma função -- o que multiplica o dimensionamento. */
 export async function salvarSalario(formData: FormData) {
   const perfil = await requireModulo(MODULO_MAO_DE_OBRA, "editar", ROTA);

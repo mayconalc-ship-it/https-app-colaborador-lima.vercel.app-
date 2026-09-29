@@ -359,6 +359,30 @@ export default async function MaoDeObraPage({
                     </div>
                   </div>
 
+                  {/* APLICAR TAMBÉM EM (29/09/2026): o Planejar deste mês mostra
+                      os 3 seguintes, e cada um tem a sua configuração -- sem
+                      marcar aqui, o ajuste não chega neles. */}
+                  <div className="rounded-xl border border-amber-200 bg-amber-50/60 p-3">
+                    <p className="text-sm font-semibold text-amber-900">
+                      Esta configuração vale só para {rotuloCompetencia(competencia)}.
+                    </p>
+                    <p className="mt-0.5 text-xs text-amber-900/80">
+                      O quadro do Planejar ({mesesPorExtenso(mesesDoPlanejamento(competencia))}) usa a configuração de cada um desses meses. Para levar este
+                      ajuste junto, marque:
+                    </p>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {mesesDoPlanejamento(competencia).map((c) => (
+                        <label key={c} className="flex items-center gap-1.5 rounded-lg border border-amber-200 bg-white px-2.5 py-1.5 text-sm text-slate-700">
+                          <input type="checkbox" name="aplicar_em" value={c} className="h-4 w-4" />
+                          Aplicar também em {rotuloCurto(c)}
+                          <span className="text-[11px] text-slate-400">
+                            {configs.get(c)?.origem === c ? "(tem config. própria)" : "(herda)"}
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+
                   <BotaoEnviar textoEnviando="Salvando..." className={botaoPrincipal}>
                     Salvar os parâmetros
                   </BotaoEnviar>
