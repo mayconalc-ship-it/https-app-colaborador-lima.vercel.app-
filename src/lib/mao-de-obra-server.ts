@@ -7,9 +7,8 @@ import {
   CAMPOS_DE_TEXTO_DO_MES,
   CONFIG_PADRAO,
   EH_FUNCAO,
-  EH_FUNCAO_DA_ATIVIDADE,
   FUNCOES,
-  type FuncaoDaAtividade,
+  lerParametrosArmazem,
   MES_VAZIO,
   MODULO_MAO_DE_OBRA,
   mesesDoPlanejamento,
@@ -93,7 +92,6 @@ export async function lerConfigDoMes(revendaId: string, competencia: string): Pr
 
 function paraConfig(data: Record<string, unknown>): ConfigMaoDeObra {
   const numero = (v: unknown, padrao: number) => (v == null || Number.isNaN(Number(v)) ? padrao : Number(v));
-  const atividade = (v: unknown): FuncaoDaAtividade => (EH_FUNCAO_DA_ATIVIDADE(String(v)) ? (String(v) as FuncaoDaAtividade) : "nenhuma");
   return {
     percentual_montagem: numero(data.percentual_montagem, CONFIG_PADRAO.percentual_montagem),
     perc_blitz_carregamento: numero(data.perc_blitz_carregamento, CONFIG_PADRAO.perc_blitz_carregamento),
@@ -113,11 +111,8 @@ function paraConfig(data: Record<string, unknown>): ConfigMaoDeObra {
     sellout_sex: numero(data.sellout_sex, 0),
     sellout_sab: numero(data.sellout_sab, 0),
     sellout_dom: numero(data.sellout_dom, 0),
-    produtividade_montagem: numero(data.produtividade_montagem, 0),
-    atividade_montagem: atividade(data.atividade_montagem),
-    atividade_reposicao: atividade(data.atividade_reposicao),
-    atividade_blitz_refugo: atividade(data.atividade_blitz_refugo),
-    atividade_blitz_puxada: atividade(data.atividade_blitz_puxada),
+    // Os inputs do PPR Plan do Armazém (migration 154), completados pelo padrão.
+    armazem: lerParametrosArmazem(data.armazem),
   };
 }
 

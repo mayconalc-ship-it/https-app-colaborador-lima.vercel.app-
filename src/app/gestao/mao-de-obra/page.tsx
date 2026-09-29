@@ -27,21 +27,19 @@ import {
   LIMITE_ANS_VENDAS,
   MES_VAZIO,
   MODULO_MAO_DE_OBRA,
-  PARAMETROS,
+  GRUPOS_DO_ARMAZEM,
+  PARAMETROS_ARMAZEM,
   REQUISITO_DPO,
   ROTULO_ONDE,
   ROTULO_SITUACAO,
   ROTULO_STATUS_ACAO,
   RUBRICAS,
   STATUS_ACAO,
-  SUFIXO_DO_FORMATO,
+  TURNOS_DO_ARMAZEM,
   classeDaDispersao,
   competenciaAnterior,
   competenciaAtual,
   competenciaSeguinte,
-  ATIVIDADES_DO_ARMAZEM,
-  FUNCOES_DA_ATIVIDADE,
-  ROTULO_FUNCAO_DA_ATIVIDADE,
   conferenciaDoPlano,
   contaArmazem,
   contaDistribuicao,
@@ -60,7 +58,6 @@ import {
   mesesDoPlanejamento,
   mesesPorExtenso,
   mostrarNumero,
-  parametroParaTela,
   projecaoDoMes,
   rotuloCompetencia,
   rotuloCurto,
@@ -70,6 +67,8 @@ import {
   temDesvio,
   vagasDoMes,
   volumePorDia,
+  type ContaArmazem,
+  type FuncaoDoArmazem,
   type MesMaoDeObra,
   type VagaDaFuncao,
 } from "@/lib/mao-de-obra";
@@ -302,8 +301,8 @@ export default async function MaoDeObraPage({
           ) : (
             <>
               <Bloco
-                titulo={`Parâmetros da operação — ${rotuloCompetencia(competencia)}`}
-                orientacao="Tempos e percentuais que viram gente no armazém. Percentuais em %, tempos em horas (7:20 = 7h20). Cada mês guarda a sua configuração: salvar aqui muda só este mês."
+                titulo={`Inputs do armazém (PPR) — ${rotuloCompetencia(competencia)}`}
+                orientacao="Os inputs do PPR Plan do Armazém: o volume vira viagens, as viagens viram minutos de cada atividade por turno, e os minutos viram gente. Cada mês guarda a sua configuração: salvar aqui muda só este mês."
               >
                 <form action={salvarParametros} className="space-y-5">
                   <input type="hidden" name="competencia" value={competencia} />
@@ -314,54 +313,28 @@ export default async function MaoDeObraPage({
                         ? `Este mês ainda usa a configuração de ${rotuloCompetencia(doMes.origem)}. Ao salvar, ${rotuloCompetencia(competencia)} passa a ter a sua.`
                         : `Este mês ainda usa o padrão da revenda. Ao salvar, ${rotuloCompetencia(competencia)} passa a ter a sua.`}
                   </p>
-                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                    {PARAMETROS.map((p) => (
-                      <Campo key={p.id} rotulo={p.rotulo} ajuda={p.ajuda}>
-                        <span className="flex items-center gap-1.5">
-                          <input
-                            name={p.id}
-                            defaultValue={parametroParaTela(config[p.id], p.formato)}
-                            inputMode={p.formato === "horas" ? "text" : "decimal"}
-                            className={entrada}
-                          />
-                          <span className="w-9 shrink-0 text-xs text-slate-400">{SUFIXO_DO_FORMATO[p.formato]}</span>
-                        </span>
-                      </Campo>
-                    ))}
-                  </div>
-
-                  <div className="rounded-xl bg-slate-50 p-3">
-                    <p className="text-sm font-semibold text-slate-800">Atividades do armazém — quem faz</p>
-                    <p className="mb-3 text-xs text-slate-500">
-                      Vezes por dia × tempo = horas; horas ÷ jornada = pessoas. &quot;Não entra na conta&quot; deixa a atividade de fora. Os turnos digitados no mês valem como
-                      mínimo do posto.
-                    </p>
-                    <div className="space-y-2">
-                      {armazemDoMes.atividades.map((a) => (
-                        <div key={a.id} className="grid grid-cols-1 items-center gap-2 rounded-lg bg-white p-2 sm:grid-cols-[1fr_14rem_9rem]">
-                          <span className="min-w-0">
-                            <span className="block text-sm font-medium text-slate-800">{a.rotulo}</span>
-                            <span className="block text-[11px] text-slate-400">{ATIVIDADES_DO_ARMAZEM.find((x) => x.id === a.id)?.comoConta}</span>
-                          </span>
-                          <select name={a.id} defaultValue={a.funcao} className={entrada}>
-                            {FUNCOES_DA_ATIVIDADE.map((f) => (
-                              <option key={f} value={f}>
-                                {ROTULO_FUNCAO_DA_ATIVIDADE[f]}
-                              </option>
-                            ))}
-                          </select>
-                          <span className={`text-right text-xs tabular-nums ${a.funcao === "nenhuma" ? "text-slate-400" : "font-semibold text-slate-700"}`}>
-                            {formatarNumero(a.horas, 1)} h/dia · {formatarNumero(a.pessoas, 2)} pessoa
-                          </span>
-                        </div>
-                      ))}
+                  {/* OS INPUTS DO PPR PLAN DO ARMAZÉM (migration 154): percentual
+                      em %, tempo em minutos, jornada em horas decimais. */}
+                  {GRUPOS_DO_ARMAZEM.map((g) => (
+                    <div key={g}>
+                      <p className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">{g}</p>
+                      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                        {PARAMETROS_ARMAZEM.filter((p) => p.grupo === g).map((p) => (
+                          <Campo key={p.id} rotulo={p.rotulo}>
+                            <span className="flex items-center gap-1.5">
+                              <input
+                                name={`arm_${p.id}`}
+                                defaultValue={mostrarNumero(p.unidade === "%" ? config.armazem[p.id] * 100 : config.armazem[p.id], 4)}
+                                inputMode="decimal"
+                                className={entrada}
+                              />
+                              <span className="w-9 shrink-0 text-xs text-slate-400">{p.unidade}</span>
+                            </span>
+                          </Campo>
+                        ))}
+                      </div>
                     </div>
-                    <p className="mt-2 text-[11px] text-slate-400">
-                      Horas e pessoas com o volume de {rotuloCompetencia(competencia)}
-                      {mes ? ` (PPR ${formatarNumero(mesAtual.volume_ppr, 0)} HL)` : " — mês sem volume lançado"}, pelos parâmetros salvos.
-                    </p>
-                  </div>
-
+                  ))}
                   <div className="rounded-xl bg-slate-50 p-3">
                     <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
                       <p className="text-sm font-semibold text-slate-800">Curva de venda por dia da semana</p>
@@ -390,6 +363,17 @@ export default async function MaoDeObraPage({
                     Salvar os parâmetros
                   </BotaoEnviar>
                 </form>
+              </Bloco>
+
+              <Bloco
+                titulo={`Como o armazém vira gente — ${rotuloCompetencia(competencia)}`}
+                orientacao="A memória de cálculo do PPR: cada atividade em minutos por dia (operador e conferente) ou em pessoas (ajudante e amarração), turno a turno."
+              >
+                {!mes ? (
+                  <p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900">Lance o volume do mês para ver a conta.</p>
+                ) : (
+                  <MemoriaDoArmazem arm={armazemDoMes} jornada={config.armazem.jornada_horas} jornadaConferenteNoite={config.armazem.jornada_conferente_noite} />
+                )}
               </Bloco>
 
               <Bloco titulo="Quem recebe o planejamento" orientacao="O time de Gente, que programa a contratação.">
@@ -1173,6 +1157,83 @@ function Indicador({ titulo, valor, detalhe, tom = "neutro" }: { titulo: string;
 /** Uma pílula de situação. */
 function Selo({ tom, children }: { tom: Tom; children: React.ReactNode }) {
   return <span className={`rounded-lg border px-2.5 py-1 text-xs font-semibold ${TOM_CAIXA[tom]} ${TOM_TEXTO[tom]}`}>{children}</span>;
+}
+
+/*
+  A MEMÓRIA DO ARMAZÉM (PPR): para o auditor e para quem simula ver de onde
+  sai cada pessoa -- atividade por atividade, turno a turno, e o fechamento
+  (arredonda o turno, soma a reserva/ferista).
+*/
+function MemoriaDoArmazem({ arm, jornada, jornadaConferenteNoite }: { arm: ContaArmazem; jornada: number; jornadaConferenteNoite: number }) {
+  const funcoes: { rotulo: string; f: FuncaoDoArmazem; comoFecha: string }[] = [
+    { rotulo: "Operador de empilhadeira", f: arm.operador, comoFecha: `minutos ÷ 60 ÷ ${formatarNumero(jornada, 2)} h, para cima; + reserva/ferista` },
+    {
+      rotulo: "Conferente",
+      f: arm.conferente,
+      comoFecha: `minutos ÷ 60 ÷ ${formatarNumero(jornada, 2)} h (noite ${formatarNumero(jornadaConferenteNoite, 2)} h), para cima com 1 casa; total para cima`,
+    },
+    { rotulo: "Ajudante de armazém", f: arm.ajudante, comoFecha: "pessoas do turno, para cima; + reserva/ferista (ou ajuste de férias) + alta temporada" },
+    { rotulo: "Ajudante de amarração", f: arm.amarracao, comoFecha: "pessoas do turno, para cima; + reserva/ferista" },
+  ];
+  const b = arm.base;
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 gap-x-4 gap-y-1 rounded-xl bg-slate-50 p-3 font-mono text-[12px] tabular-nums text-slate-700 sm:grid-cols-4">
+        <span>Caixas/mês: <b>{formatarNumero(b.caixas, 0)}</b></span>
+        <span>Paletes/mês: <b>{formatarNumero(b.paletes, 0)}</b></span>
+        <span>Viagens rota: <b>{formatarNumero(b.viagensRota, 1)}</b></span>
+        <span>1ª viagem/dia: <b>{formatarNumero(b.viagens1aDia, 2)}</b></span>
+        <span>Recarga/dia: <b>{formatarNumero(b.viagens2aDia, 2)}</b></span>
+        <span>Freteiros/dia: <b>{formatarNumero(b.freteirosDia, 2)}</b></span>
+        <span>Puxada FF/dia: <b>{b.puxadaFFDia}</b></span>
+        <span>Pallets blitz/dia: <b>{formatarNumero(b.palletsBlitzPuxadaDia, 1)}</b></span>
+      </div>
+      {funcoes.map(({ rotulo, f, comoFecha }) => (
+        <details key={rotulo} className="rounded-xl border border-slate-200">
+          <summary className="flex cursor-pointer list-none flex-wrap items-center justify-between gap-2 px-3 py-2.5">
+            <span className="text-sm font-semibold text-slate-800">{rotulo}</span>
+            <span className="font-mono text-xs tabular-nums text-slate-600">
+              {TURNOS_DO_ARMAZEM.map((t) => `${t} ${formatarNumero(f.turnos[t].pessoas, 1)}`).join(" · ")}
+              {f.reserva > 0 && ` · reserva ${f.reserva}`} → <b className="text-slate-900">{f.total}</b>
+            </span>
+          </summary>
+          <div className="overflow-x-auto border-t border-slate-100">
+            <table className="w-full text-xs">
+              <thead className="bg-slate-50 text-slate-500">
+                <tr>
+                  <th className="px-3 py-1.5 text-left font-medium">Atividade</th>
+                  <th className="px-3 py-1.5 text-left font-medium">Turno</th>
+                  <th className="px-3 py-1.5 text-right font-medium">{f.unidade === "minutos" ? "Min/dia" : "Pessoas"}</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {f.atividades
+                  .filter((a) => a.valor > 0)
+                  .map((a, i) => (
+                    <tr key={i}>
+                      <td className="px-3 py-1.5 text-slate-700">{a.rotulo}</td>
+                      <td className="px-3 py-1.5 text-slate-500">{a.turno}</td>
+                      <td className="px-3 py-1.5 text-right font-mono tabular-nums">{formatarNumero(a.valor, 2)}</td>
+                    </tr>
+                  ))}
+                {TURNOS_DO_ARMAZEM.map((t) => (
+                  <tr key={t} className="bg-slate-50/60 font-semibold">
+                    <td className="px-3 py-1.5 text-slate-700">Total {t.toLowerCase()}</td>
+                    <td className="px-3 py-1.5 text-slate-500">{formatarNumero(f.turnos[t].soma, 2)}</td>
+                    <td className="px-3 py-1.5 text-right font-mono tabular-nums">{formatarNumero(f.turnos[t].pessoas, 1)} pessoa(s)</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <p className="px-3 py-2 text-[11px] text-slate-500">
+              Fechamento: {comoFecha}.
+              {f.ajusteFerias != null && ` Ajuste de férias ${f.ajusteFerias} (substitui a reserva ${f.reserva} quando menor), alta temporada ${f.altaTemporada}.`}
+            </p>
+          </div>
+        </details>
+      ))}
+    </div>
+  );
 }
 
 /** Rótulo + campo + ajuda, sempre no mesmo desenho. */

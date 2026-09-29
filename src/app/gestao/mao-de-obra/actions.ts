@@ -29,11 +29,8 @@ import {
   MES_VAZIO,
   MODULO_MAO_DE_OBRA,
   DIAS_DO_SELLOUT,
-  ATIVIDADES_DO_ARMAZEM,
-  EH_FUNCAO_DA_ATIVIDADE,
-  ROTULO_FUNCAO_DA_ATIVIDADE,
-  type FuncaoDaAtividade,
-  PARAMETROS,
+  PARAMETROS_ARMAZEM,
+  type ParametrosArmazem,
   RUBRICAS,
   validarSellout,
   diasDaCompetencia,
@@ -46,11 +43,9 @@ import {
   ROTULO_FUNCAO,
   compararCampos,
   mostrarNumero,
-  parametroParaTela,
   ehCampoNumericoDoMes,
   mesesDoPlanejamento,
   mesesPorExtenso,
-  parametroDaTela,
   rotuloCompetencia,
   vagasDoMes,
   validarAcao,
@@ -223,29 +218,26 @@ export async function salvarRealizado(formData: FormData) {
   voltar(competencia, "sucesso", "Quadro atual (QLP) atualizado.");
 }
 
-/** Os parâmetros da operação (a aba Imputs da planilha). */
+/** Os inputs do PPR Plan do Armazém e a curva de venda, congelados no mês. */
 export async function salvarParametros(formData: FormData) {
   const perfil = await requireModulo(MODULO_MAO_DE_OBRA, "editar", ROTA);
   const revendaId = await exigirRevenda(ROTA);
   const competencia = String(formData.get("competencia") ?? "");
 
-  const valores: Record<string, number> = {};
-  for (const p of PARAMETROS) {
-    // A tela mostra % e h:mm; o banco guarda fração (28/09/2026).
-    const v = parametroDaTela(String(formData.get(p.id) ?? ""), p.formato);
-    if (v == null || v < 0) {
-      voltar(
-        competencia,
-        "erro",
-        `Informe um valor válido em ${p.rotulo} (${p.formato === "horas" ? "ex.: 7:20" : p.formato === "percentual" ? "ex.: 40" : "ex.: 210"}).`,
-        "configurar",
-      );
-    }
-    // O teto da coluna (migration 135): sem isto o banco recusava com
-    // "numeric field overflow", que não diz nada a quem está na tela.
-    if (v > p.limite) voltar(competencia, "erro", `${p.rotulo}: valor alto demais — confira o número.`, "configurar");
-    if (p.id === "jornada" && v <= 0) voltar(competencia, "erro", "A jornada não pode ser zero.", "configurar");
-    valores[p.id] = v;
+  // OS INPUTS DO PPR (migration 154): % na tela vira fração no banco.
+  const armazem = {} as ParametrosArmazem;
+  for (const p of PARAMETROS_ARMAZEM) {
+    const v = numero(formData.get(`arm_${p.id}`));
+    if (v == null || v < 0) voltar(competencia, "erro", `Informe um valor válido em ${p.grupo} — ${p.rotulo}.`, "configurar");
+    if (p.unidade === "%" && v > 100) voltar(competencia, "erro", `${p.rotulo}: percentual acima de 100%.`, "configurar");
+    armazem[p.id] = p.unidade === "%" ? v / 100 : v;
+  }
+  if (armazem.jornada_horas <= 0 || armazem.jornada_conferente_noite <= 0) voltar(competencia, "erro", "A jornada não pode ser zero.", "configurar");
+  if (armazem.hl_por_caixa <= 0 || armazem.caixas_por_palete <= 0 || armazem.paletes_por_viagem <= 0) {
+    voltar(competencia, "erro", "HL por caixa, caixas por palete e paletes por viagem não podem ser zero.", "configurar");
+  }
+  if (armazem.pux_ff_noite + armazem.pux_ff_manha > 1 || armazem.pux_spot_noite + armazem.pux_spot_manha > 1) {
+    voltar(competencia, "erro", "Noite + manhã da puxada não podem passar de 100% (a tarde é o que sobra).", "configurar");
   }
 
   // A CURVA DE SELLOUT: ou está desligada (tudo zero) ou fecha em 100%.
@@ -257,19 +249,6 @@ export async function salvarParametros(formData: FormData) {
   }
   const problemaDaCurva = validarSellout(curva as Parameters<typeof validarSellout>[0]);
   if (problemaDaCurva) voltar(competencia, "erro", problemaDaCurva, "configurar");
-  Object.assign(valores, curva);
-
-  // QUEM FAZ CADA ATIVIDADE (migration 153): "nenhuma" deixa fora da conta.
-  const quemFaz: Record<string, string> = {};
-  for (const a of ATIVIDADES_DO_ARMAZEM) {
-    const f = String(formData.get(a.id) ?? "nenhuma");
-    if (!EH_FUNCAO_DA_ATIVIDADE(f)) voltar(competencia, "erro", `Escolha quem faz a atividade ${a.rotulo}.`, "configurar");
-    quemFaz[a.id] = f;
-  }
-  if (quemFaz.atividade_montagem !== "nenhuma" && !(valores.produtividade_montagem > 0)) {
-    voltar(competencia, "erro", "Para a montagem entrar na conta, informe quantos HL uma pessoa monta por hora.", "configurar");
-  }
-
   if (!ehCompetencia(competencia)) voltar("", "erro", "Competência inválida.", "configurar");
   const antesDaConfig = (await lerConfigDoMes(revendaId, competencia)).config;
   const admin = createAdminClient();
@@ -308,8 +287,8 @@ export async function salvarParametros(formData: FormData) {
       revenda_id: revendaId,
       competencia: primeiroDia(competencia),
       ...antesDaConfig,
-      ...valores,
-      ...quemFaz,
+      ...curva,
+      armazem,
       atualizado_em: agora,
       atualizado_por_nome: perfil.nome,
     },
@@ -324,23 +303,14 @@ export async function salvarParametros(formData: FormData) {
     compararCampos({
       onde: "parametros",
       competencia,
-      antes: antesDaConfig as unknown as Record<string, unknown>,
-      depois: { ...valores, ...quemFaz },
+      antes: { ...antesDaConfig.armazem, ...antesDaConfig } as unknown as Record<string, unknown>,
+      depois: { ...armazem, ...curva },
       campos: [
-        ...PARAMETROS.map((p) => ({
+        ...PARAMETROS_ARMAZEM.map((p) => ({
           campo: p.id,
-          rotulo: p.rotulo,
-          formatar: (v: unknown) => {
-            const t = parametroParaTela(Number(v), p.formato);
-            return p.formato === "percentual" ? `${t}%` : p.id === "produtividade_montagem" ? `${t} HL/h` : p.formato === "numero" ? `${t} HL` : t;
-          },
-        })),
-        ...ATIVIDADES_DO_ARMAZEM.map((a) => ({
-          campo: a.id,
-          rotulo: `Quem faz — ${a.rotulo}`,
-          formatar: (v: unknown) => (EH_FUNCAO_DA_ATIVIDADE(String(v)) ? ROTULO_FUNCAO_DA_ATIVIDADE[String(v) as FuncaoDaAtividade] : String(v)),
-        })),
-        ...DIAS_DO_SELLOUT.map((d) => ({
+          rotulo: `${p.grupo} — ${p.rotulo}`,
+          formatar: (v: unknown) => (p.unidade === "%" ? `${mostrarNumero(Number(v) * 100, 3)}%` : `${mostrarNumero(Number(v), 4)} ${p.unidade}`),
+        })),        ...DIAS_DO_SELLOUT.map((d) => ({
           campo: d.id,
           rotulo: `Curva de venda — ${d.rotulo}`,
           formatar: (v: unknown) => `${mostrarNumero(Number(v), 3)}%`,

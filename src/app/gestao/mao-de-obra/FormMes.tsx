@@ -41,18 +41,20 @@ const DISTRIBUICAO: Campo[] = [
   { id: "ajudante_extra_entrega", rotulo: "Ajudantes extras da entrega", ajuda: "Além de 1 por carro." },
 ];
 
+/*
+  OS INPUTS DO MÊS DO PPR PLAN DO ARMAZÉM (29/09/2026): não há mais turno
+  digitado -- o quadro do armazém sai destes inputs, do volume PPR e dos
+  parâmetros da aba Configurar.
+*/
 const ARMAZEM: Campo[] = [
-  { id: "operador_tarde", rotulo: "Operadores — tarde" },
-  { id: "operador_reserva", rotulo: "Operadores — reserva/ferista" },
-  { id: "manobristas", rotulo: "Manobristas" },
-  { id: "ajudante_noite", rotulo: "Ajudantes — noite" },
-  { id: "ajudante_manha", rotulo: "Ajudantes — manhã" },
-  { id: "ajudante_tarde", rotulo: "Ajudantes — tarde" },
-  { id: "ajudante_reserva", rotulo: "Ajudantes — reserva/ferista" },
-  { id: "ajudante_extra", rotulo: "Ajudantes — extras" },
-  { id: "conferente_noite", rotulo: "Conferentes — noite" },
-  { id: "conferente_manha", rotulo: "Conferentes — manhã" },
-  { id: "conferente_tarde", rotulo: "Conferentes — tarde" },
+  { id: "arm_viagens_puxada_ff", rotulo: "Viagens puxada FF no mês", ajuda: "Carretas da frota fixa da puxada." },
+  { id: "arm_spot_retornavel_dia", rotulo: "Puxada spot retornável/dia", ajuda: "Viagens por dia." },
+  { id: "arm_spot_descartavel_dia", rotulo: "Puxada spot descartável/dia", ajuda: "Viagens por dia." },
+  { id: "arm_pallets_retornaveis", rotulo: "Pallets retornáveis no mês", ajuda: "Base da blitz de puxada." },
+  { id: "arm_mix_retornavel", rotulo: "Mix retornável da puxada (%)", ajuda: "0 a 100." },
+  { id: "arm_alta_temporada", rotulo: "Ajudantes alta temporada" },
+  { id: "arm_ajuste_ferias", rotulo: "Ajuste férias revenda", ajuda: "Se menor que a reserva, a substitui (regra do PPR)." },
+  { id: "manobristas", rotulo: "Manobristas", ajuda: "Informado: o PPR não dimensiona." },
 ];
 
 const ACOMPANHAMENTO: Campo[] = [
@@ -159,10 +161,10 @@ export function FormMes({
 
       <div>
         <p className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">
-          Armazém — turnos que você define
+          Armazém — inputs do PPR Plan
         </p>
         <p className="mb-2 text-[11px] text-slate-500">
-          Operadores da noite e da manhã saem da conta (volume, TMA e jornada). O resto é o desenho da sua operação.
+          O quadro do armazém sai do volume PPR, destes inputs e dos tempos da aba Configurar. Para mudar o quadro, mude um input.
         </p>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">{ARMAZEM.map(campo)}</div>
       </div>
@@ -240,8 +242,11 @@ export function FormMes({
           <span>Linear/dia: <b>{formatarNumero(previa.dist.linear, 0)} HL</b></span>
           <span>Frota: <b>{formatarNumero(previa.dist.frotasReal, 1)}</b></span>
           <span>Frota dimensionada: <b>{previa.dist.frotaDimensionada}</b></span>
-          <span>Mapas/dia: <b>{formatarNumero(previa.arm.mapsPrevistos, 1)}</b></span>
-          <span>Operadores: <b>{formatarNumero(previa.arm.operadores, 1)}</b></span>
+          <span>Viagens rota/dia: <b>{formatarNumero(previa.arm.base.viagens1aDia + previa.arm.base.viagens2aDia, 1)}</b></span>
+          <span>Operadores: <b>{previa.arm.operadores}</b></span>
+          <span>Ajudantes: <b>{previa.arm.ajudantes}</b></span>
+          <span>Amarração: <b>{previa.arm.amarracoes}</b></span>
+          <span>Conferentes: <b>{previa.arm.conferentes}</b></span>
         </div>
       </div>
 

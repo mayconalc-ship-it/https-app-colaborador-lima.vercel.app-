@@ -29,6 +29,7 @@ export const FUNCOES = [
   { id: "puxador", rotulo: "Motorista puxador", area: "Distribuição" },
   { id: "operador", rotulo: "Operador de empilhadeira", area: "Armazém" },
   { id: "ajudante_armazem", rotulo: "Ajudante de armazém", area: "Armazém" },
+  { id: "ajudante_amarracao", rotulo: "Ajudante de amarração", area: "Armazém" },
   { id: "conferente", rotulo: "Conferente", area: "Armazém" },
   { id: "manobrista", rotulo: "Manobrista", area: "Armazém" },
 ] as const;
@@ -105,40 +106,115 @@ export type ConfigMaoDeObra = {
   sellout_sex: number;
   sellout_sab: number;
   sellout_dom: number;
-  /** HL que UMA pessoa monta por hora -- sem ela a montagem não vira gente. */
-  produtividade_montagem: number;
-  /** Quem faz cada atividade (migration 153). "nenhuma" = fora da conta. */
-  atividade_montagem: FuncaoDaAtividade;
-  atividade_reposicao: FuncaoDaAtividade;
-  atividade_blitz_refugo: FuncaoDaAtividade;
-  atividade_blitz_puxada: FuncaoDaAtividade;
+  /** Os inputs do PPR Plan do Armazém (migration 154). */
+  armazem: ParametrosArmazem;
 };
 
 /*
-  AS ATIVIDADES DO ARMAZÉM (29/09/2026, pedido do dono: "o dimensionamento
-  deveria levar em consideração as atividades"). Cada uma vira horas por
-  dia -- quantas vezes acontece × quanto dura -- e as horas, divididas pela
-  jornada, viram gente na função que o dono escolher. O dono simula: toda
-  atividade nasce FORA da conta, e só entra quando ele diz quem a faz.
-*/
-export const FUNCOES_DA_ATIVIDADE = ["nenhuma", "operador", "ajudante_armazem", "conferente"] as const;
-export type FuncaoDaAtividade = (typeof FUNCOES_DA_ATIVIDADE)[number];
-export const ROTULO_FUNCAO_DA_ATIVIDADE: Record<FuncaoDaAtividade, string> = {
-  nenhuma: "Não entra na conta",
-  operador: "Operador de empilhadeira",
-  ajudante_armazem: "Ajudante de armazém",
-  conferente: "Conferente",
-};
-export const EH_FUNCAO_DA_ATIVIDADE = (v: string): v is FuncaoDaAtividade =>
-  (FUNCOES_DA_ATIVIDADE as readonly string[]).includes(v);
+  OS INPUTS DO PPR PLAN DO ARMAZÉM (29/09/2026, pedido do dono: "o
+  simulador do armazém seja realizado pelas atividades dos inputs do PPR
+  plan do armazém; para alterar o QLP planejado do armazém, precisa alterar
+  nos inputs"). É a aba "Inputs Armazem Plan" da planilha da companhia:
+  volume -> viagens de rota, spot e puxada -> minutos de cada atividade por
+  turno -> gente. Percentual em fração (0,1 = 10%), tempo em MINUTOS.
 
-export const ATIVIDADES_DO_ARMAZEM = [
-  { id: "atividade_montagem", rotulo: "Montagem", comoConta: "PPR do dia × % de montagem ÷ HL por hora de uma pessoa" },
-  { id: "atividade_reposicao", rotulo: "Reposição do picking", comoConta: "mapas do dia × tempo de reposição por mapa" },
-  { id: "atividade_blitz_refugo", rotulo: "Blitz de refugo", comoConta: "mapas do dia × % de blitz de refugo × tempo da blitz" },
-  { id: "atividade_blitz_puxada", rotulo: "Blitz de puxada", comoConta: "carretas do dia × % de blitz de puxada × tempo da blitz" },
-] as const;
-export type AtividadeId = (typeof ATIVIDADES_DO_ARMAZEM)[number]["id"];
+  O padrão é o do "PPR armazém 2026.xlsm" de São Félix (coluna "Utilizado").
+*/
+export type UnidadeDoInput = "%" | "min" | "un" | "h" | "HL" | "cx";
+
+export const PARAMETROS_ARMAZEM = [
+  // Rota: o volume vira viagens.
+  { id: "perc_entrega_ff", grupo: "Rota", rotulo: "% entrega frota fixa", unidade: "%", padrao: 0.9 },
+  { id: "hl_por_caixa", grupo: "Rota", rotulo: "HL por caixa", unidade: "HL", padrao: 0.17 },
+  { id: "caixas_por_palete", grupo: "Rota", rotulo: "Caixas por palete", unidade: "cx", padrao: 42 },
+  { id: "paletes_por_viagem", grupo: "Rota", rotulo: "Paletes por viagem", unidade: "un", padrao: 6 },
+  { id: "caixas_viagem_spot", grupo: "Rota", rotulo: "Caixas por viagem spot", unidade: "cx", padrao: 144 },
+  // Comportamento da puxada.
+  { id: "pux_ff_noite", grupo: "Puxada", rotulo: "% puxada FF à noite", unidade: "%", padrao: 0.1 },
+  { id: "pux_ff_manha", grupo: "Puxada", rotulo: "% puxada FF de manhã", unidade: "%", padrao: 0.3 },
+  { id: "pux_spot_noite", grupo: "Puxada", rotulo: "% puxada spot à noite", unidade: "%", padrao: 0.1 },
+  { id: "pux_spot_manha", grupo: "Puxada", rotulo: "% puxada spot de manhã", unidade: "%", padrao: 0.3 },
+  { id: "pallets_blitz_puxada", grupo: "Puxada", rotulo: "% pallets com blitz de puxada", unidade: "%", padrao: 0.5 },
+  { id: "mix_referencia", grupo: "Puxada", rotulo: "% mix retornável de referência (tempo de descarga)", unidade: "%", padrao: 0.465381419886258 },
+  // Comportamento da rota.
+  { id: "ret_ate14", grupo: "Retorno de rota", rotulo: "% carros que voltam até 14h", unidade: "%", padrao: 0.08 },
+  { id: "ret_14a16", grupo: "Retorno de rota", rotulo: "% entre 14h e 16h", unidade: "%", padrao: 0.25 },
+  { id: "ret_16a18", grupo: "Retorno de rota", rotulo: "% entre 16h e 18h", unidade: "%", padrao: 0.31 },
+  { id: "ret_18a20", grupo: "Retorno de rota", rotulo: "% entre 18h e 20h", unidade: "%", padrao: 0.15 },
+  { id: "ret_20a22", grupo: "Retorno de rota", rotulo: "% entre 20h e 22h", unidade: "%", padrao: 0.11 },
+  { id: "ret_apos22", grupo: "Retorno de rota", rotulo: "% após 22h", unidade: "%", padrao: 0.1 },
+  { id: "pallets_mistos", grupo: "Retorno de rota", rotulo: "% pallets mistos rota", unidade: "%", padrao: 0.66 },
+  { id: "carros_batidos", grupo: "Retorno de rota", rotulo: "% carros batidos", unidade: "%", padrao: 0.085 },
+  { id: "devolucao", grupo: "Retorno de rota", rotulo: "% devolução (incorporação)", unidade: "%", padrao: 0.016 },
+  // Comportamento do armazém.
+  { id: "pallets_rebaixados", grupo: "Armazém", rotulo: "% médio de pallets rebaixados/dia", unidade: "%", padrao: 0.15 },
+  { id: "blitz_carregamento", grupo: "Armazém", rotulo: "% blitz de carregamento", unidade: "%", padrao: 0.1 },
+  { id: "blitz_retorno", grupo: "Armazém", rotulo: "% blitz de retorno de rota", unidade: "%", padrao: 0.1 },
+  { id: "rebaixados_manha", grupo: "Armazém", rotulo: "% pallets rebaixados de manhã", unidade: "%", padrao: 0.8 },
+  { id: "molho_noite", grupo: "Armazém", rotulo: "% pallets abastecidos no molho à noite", unidade: "%", padrao: 0.4 },
+  { id: "absenteismo", grupo: "Armazém", rotulo: "% absenteísmo da equipe", unidade: "%", padrao: 0.01 },
+  { id: "fator_dias_ajudante", grupo: "Armazém", rotulo: "Fator de dias do ajudante (turno 3)", unidade: "un", padrao: 1 },
+  // Tempos do operador de empilhadeira.
+  { id: "op_carregamento", grupo: "Tempos do operador", rotulo: "Carregamento frota fixa / freteiro", unidade: "min", padrao: 20 },
+  { id: "op_retorno_1a", grupo: "Tempos do operador", rotulo: "Retorno de rota 1ª viagem", unidade: "min", padrao: 20 },
+  { id: "op_retorno_2a", grupo: "Tempos do operador", rotulo: "Retorno de rota 2ª viagem", unidade: "min", padrao: 20 },
+  { id: "op_retorno_freteiro", grupo: "Tempos do operador", rotulo: "Retorno de freteiros", unidade: "min", padrao: 20 },
+  { id: "op_spot_retornavel", grupo: "Tempos do operador", rotulo: "Descarga/carga spot retornável", unidade: "min", padrao: 50 },
+  { id: "op_spot_descartavel", grupo: "Tempos do operador", rotulo: "Descarga/carga spot descartável", unidade: "min", padrao: 30 },
+  { id: "op_molho", grupo: "Tempos do operador", rotulo: "Reabastecimento do molho por pallet", unidade: "min", padrao: 3 },
+  { id: "op_recarga", grupo: "Tempos do operador", rotulo: "Carregamento de recarga (retorno + carga modelo)", unidade: "min", padrao: 31 },
+  // Tempos do ajudante.
+  { id: "aj_pallets_dia", grupo: "Tempos do ajudante", rotulo: "Produtividade: pallets por ajudante/dia", unidade: "un", padrao: 20 },
+  { id: "aj_rebaixamento", grupo: "Tempos do ajudante", rotulo: "Rebaixamento por pallet", unidade: "min", padrao: 2 },
+  { id: "aj_amarracao_freteiro", grupo: "Tempos do ajudante", rotulo: "Amarração freteiro rota (2 ajud.)", unidade: "min", padrao: 20 },
+  { id: "aj_desamarracao_freteiro", grupo: "Tempos do ajudante", rotulo: "Desamarração freteiro rota (2 ajud.)", unidade: "min", padrao: 12 },
+  { id: "aj_amarracao_spot", grupo: "Tempos do ajudante", rotulo: "Amarração spot puxada (2 ajud.)", unidade: "min", padrao: 45 },
+  { id: "aj_desamarracao_spot", grupo: "Tempos do ajudante", rotulo: "Desamarração spot puxada (2 ajud.)", unidade: "min", padrao: 30 },
+  { id: "aj_blitz_puxada", grupo: "Tempos do ajudante", rotulo: "Blitz de puxada (2 ajud.)", unidade: "min", padrao: 31 },
+  { id: "aj_blitz_retorno", grupo: "Tempos do ajudante", rotulo: "Blitz de retorno de rota (2 ajud.)", unidade: "min", padrao: 25 },
+  { id: "aj_carga_batido", grupo: "Tempos do ajudante", rotulo: "Carregamento de carro batido", unidade: "min", padrao: 20 },
+  { id: "aj_descarga_batido", grupo: "Tempos do ajudante", rotulo: "Descarregamento de carro batido", unidade: "min", padrao: 10 },
+  { id: "aj_sorting", grupo: "Tempos do ajudante", rotulo: "Sorting por pallet", unidade: "min", padrao: 10 },
+  // Tempos do conferente.
+  { id: "cf_carregamento", grupo: "Tempos do conferente", rotulo: "Carregamento frota fixa / freteiro", unidade: "min", padrao: 15 },
+  { id: "cf_retorno_1a", grupo: "Tempos do conferente", rotulo: "Retorno de rota 1ª viagem", unidade: "min", padrao: 12 },
+  { id: "cf_retorno_2a", grupo: "Tempos do conferente", rotulo: "Retorno de rota 2ª viagem", unidade: "min", padrao: 12 },
+  { id: "cf_retorno_freteiro", grupo: "Tempos do conferente", rotulo: "Retorno de freteiros", unidade: "min", padrao: 12 },
+  { id: "cf_spot_retornavel", grupo: "Tempos do conferente", rotulo: "Descarga/carga spot retornável", unidade: "min", padrao: 55 },
+  { id: "cf_spot_descartavel", grupo: "Tempos do conferente", rotulo: "Descarga/carga spot descartável", unidade: "min", padrao: 45 },
+  { id: "cf_balanco", grupo: "Tempos do conferente", rotulo: "Balanço de massa (por vez, 2×/turno)", unidade: "min", padrao: 120 },
+  { id: "cf_contagem", grupo: "Tempos do conferente", rotulo: "Contagem do estoque", unidade: "min", padrao: 120 },
+  { id: "cf_blitz_retorno", grupo: "Tempos do conferente", rotulo: "Blitz de retorno de rota", unidade: "min", padrao: 15 },
+  // QLP extra (validar com EPO): pessoas fixas por turno.
+  { id: "ex_limpeza_manha", grupo: "QLP extra", rotulo: "Ajudantes limpeza — manhã", unidade: "un", padrao: 0 },
+  { id: "ex_picking_manha", grupo: "QLP extra", rotulo: "Organização picking — manhã", unidade: "un", padrao: 0 },
+  { id: "ex_marketing_manha", grupo: "QLP extra", rotulo: "Ajudantes marketing — manhã", unidade: "un", padrao: 0 },
+  { id: "ex_reepack_manha", grupo: "QLP extra", rotulo: "Ajudantes reepack — manhã", unidade: "un", padrao: 1 },
+  { id: "ex_reepack_tarde", grupo: "QLP extra", rotulo: "Ajudantes reepack — tarde", unidade: "un", padrao: 0 },
+  { id: "ex_trocas_manha", grupo: "QLP extra", rotulo: "Ajudantes trocas — manhã", unidade: "un", padrao: 0 },
+  { id: "ex_apoio_noite", grupo: "QLP extra", rotulo: "Ajudante apoio — noite", unidade: "un", padrao: 1 },
+  { id: "ex_apoio_manha", grupo: "QLP extra", rotulo: "Ajudante apoio — manhã", unidade: "un", padrao: 0 },
+  { id: "ex_apoio_tarde", grupo: "QLP extra", rotulo: "Ajudante apoio — tarde", unidade: "un", padrao: 1 },
+  // As jornadas que dividem os minutos (como na aba Dimensionamento Plan).
+  { id: "jornada_horas", grupo: "Jornadas", rotulo: "Jornada útil (horas decimais)", unidade: "h", padrao: 7.33 },
+  { id: "jornada_conferente_noite", grupo: "Jornadas", rotulo: "Jornada do conferente à noite", unidade: "h", padrao: 6.33 },
+] as const satisfies readonly { id: string; grupo: string; rotulo: string; unidade: UnidadeDoInput; padrao: number }[];
+
+export type ParametroArmazemId = (typeof PARAMETROS_ARMAZEM)[number]["id"];
+export type ParametrosArmazem = Record<ParametroArmazemId, number>;
+export const ARMAZEM_PADRAO = Object.fromEntries(PARAMETROS_ARMAZEM.map((p) => [p.id, p.padrao])) as ParametrosArmazem;
+export const GRUPOS_DO_ARMAZEM = [...new Set(PARAMETROS_ARMAZEM.map((p) => p.grupo))];
+
+/** O que veio do banco (jsonb), completado pelo padrão e só com números. */
+export function lerParametrosArmazem(bruto: unknown): ParametrosArmazem {
+  const origem = bruto && typeof bruto === "object" ? (bruto as Record<string, unknown>) : {};
+  const saida = { ...ARMAZEM_PADRAO };
+  for (const p of PARAMETROS_ARMAZEM) {
+    const v = Number(origem[p.id]);
+    if (origem[p.id] != null && origem[p.id] !== "" && Number.isFinite(v)) saida[p.id] = v;
+  }
+  return saida;
+}
 
 /** Os números que vieram da planilha da companhia. Cada revenda ajusta os seus. */
 export const CONFIG_PADRAO: ConfigMaoDeObra = {
@@ -162,11 +238,7 @@ export const CONFIG_PADRAO: ConfigMaoDeObra = {
   sellout_sex: 0,
   sellout_sab: 0,
   sellout_dom: 0,
-  produtividade_montagem: 0,
-  atividade_montagem: "nenhuma",
-  atividade_reposicao: "nenhuma",
-  atividade_blitz_refugo: "nenhuma",
-  atividade_blitz_puxada: "nenhuma",
+  armazem: { ...ARMAZEM_PADRAO },
 };
 
 /** Os dias da semana da curva, na ordem em que a tela mostra. */
@@ -237,7 +309,6 @@ export const PARAMETROS = [
   { id: "tempo_blitz", rotulo: "Tempo de uma blitz", ajuda: "", formato: "horas", limite: 99.999999 },
   { id: "hl_carreta", rotulo: "HL por carreta", ajuda: "O que cabe numa carreta.", formato: "numero", limite: 99999999 },
   { id: "hl_por_mapa", rotulo: "HL por mapa", ajuda: "Divide o volume em mapas.", formato: "numero", limite: 99999999 },
-  { id: "produtividade_montagem", rotulo: "Montagem por pessoa", ajuda: "HL que uma pessoa monta por hora. 0 = não calcula.", formato: "numero", limite: 99999999 },
 ] as const satisfies readonly { id: string; rotulo: string; ajuda: string; formato: FormatoDoParametro; limite: number }[];
 
 /** O valor do banco como a pessoa lê: "40", "7:20", "210". */
@@ -310,6 +381,20 @@ export type MesMaoDeObra = {
   conferente_noite: number | null;
   conferente_manha: number | null;
   conferente_tarde: number | null;
+  // -- Armazém pelo PPR (migration 154): os inputs do mês da aba "Inputs Armazem Plan"
+  /** Viagens de puxada da frota fixa no mês. */
+  arm_viagens_puxada_ff: number | null;
+  /** Viagens de puxada spot por dia, retornável e descartável. */
+  arm_spot_retornavel_dia: number | null;
+  arm_spot_descartavel_dia: number | null;
+  /** Pallets retornáveis transportados no mês (base da blitz de puxada). */
+  arm_pallets_retornaveis: number | null;
+  /** % do mix retornável da puxada (0 a 100). */
+  arm_mix_retornavel: number | null;
+  /** Ajudantes de alta temporada. */
+  arm_alta_temporada: number | null;
+  /** Ajuste de férias da revenda: quando é MENOR que a reserva, a substitui (regra do PPR). */
+  arm_ajuste_ferias: number | null;
   // -- Acompanhamento
   volume_realizado: number | null;
   observacao: string | null;
@@ -402,6 +487,13 @@ export const MES_VAZIO: MesMaoDeObra = {
   conferente_noite: null,
   conferente_manha: null,
   conferente_tarde: null,
+  arm_viagens_puxada_ff: null,
+  arm_spot_retornavel_dia: null,
+  arm_spot_descartavel_dia: null,
+  arm_pallets_retornaveis: null,
+  arm_mix_retornavel: null,
+  arm_alta_temporada: null,
+  arm_ajuste_ferias: null,
   volume_realizado: null,
   observacao: null,
   volume_justificativa_motivo: null,
@@ -490,89 +582,297 @@ export function contaDistribuicao(m: MesMaoDeObra): ContaDistribuicao {
 }
 
 // ------------------------------------------------------------------
-// ARMAZÉM -- a mesma conta da aba "Simulador Armazém"
+// ARMAZÉM -- a conta do PPR Plan do Armazém (migration 154)
 // ------------------------------------------------------------------
 
-/** Uma atividade do armazém, já em horas e em gente. */
-export type ContaDaAtividade = {
-  id: AtividadeId;
+/*
+  A MESMA CONTA DAS ABAS "Inputs Armazem Plan" E "Dimensionamento Plan" DO
+  PPR (29/09/2026). O volume de entrega vira caixas, paletes e viagens;
+  cada atividade vira MINUTOS por turno (operador e conferente) ou PESSOAS
+  por turno (ajudante e amarração, que a planilha já divide por 60 × 7,33);
+  e cada turno arredonda para cima. Não há turno digitado: para mudar o
+  quadro do armazém, muda-se um input.
+
+  O tempo médio de descarga da puxada e o sorting da manhã usam o "mix de
+  referência" -- na planilha é o mix de JANEIRO, fixo ($C$350) para o ano
+  todo; aqui virou input, com o mesmo valor, para a conta bater com o PPR.
+*/
+export type TurnoDoArmazem = "Noite" | "Manhã" | "Tarde";
+export const TURNOS_DO_ARMAZEM: readonly TurnoDoArmazem[] = ["Noite", "Manhã", "Tarde"];
+
+export type AtividadeDoArmazem = {
   rotulo: string;
-  funcao: FuncaoDaAtividade;
-  /** Quantas vezes por dia (mapas, carretas) ou HL por dia, na montagem. */
-  quantidade: number;
-  /** Horas de trabalho por dia. */
-  horas: number;
-  /** horas ÷ jornada. */
-  pessoas: number;
+  turno: TurnoDoArmazem;
+  /** Minutos por dia (operador e conferente) ou pessoas (ajudante e amarração). */
+  valor: number;
+};
+
+export type FuncaoDoArmazem = {
+  unidade: "minutos" | "pessoas";
+  atividades: AtividadeDoArmazem[];
+  /** Por turno: a soma das atividades e as pessoas do turno. */
+  turnos: Record<TurnoDoArmazem, { soma: number; pessoas: number }>;
+  /** Reserva/ferista: absenteísmo + 1/12 de férias. */
+  reserva: number;
+  /** Alta temporada e ajuste de férias (só o ajudante). */
+  altaTemporada: number;
+  ajusteFerias: number | null;
+  total: number;
+};
+
+export type BaseDoArmazem = {
+  dias: number;
+  caixas: number;
+  paletes: number;
+  viagensRota: number;
+  viagens1aDia: number;
+  viagens2aDia: number;
+  freteirosDia: number;
+  caixasPorViagemFF: number;
+  palletsRebaixadosDia: number;
+  puxadaFFDia: number;
+  palletsBlitzPuxadaDia: number;
+  mixRetornavel: number;
+  picoRetorno: number;
 };
 
 export type ContaArmazem = {
-  mapsPrevistos: number;
-  carretasPorDia: number;
-  operadorNoite: number;
-  operadorManha: number;
+  base: BaseDoArmazem;
+  operador: FuncaoDoArmazem;
+  ajudante: FuncaoDoArmazem;
+  amarracao: FuncaoDoArmazem;
+  conferente: FuncaoDoArmazem;
   operadores: number;
   ajudantes: number;
+  amarracoes: number;
   conferentes: number;
   manobristas: number;
-  /** As atividades simuladas -- todas, entrando ou não na conta. */
-  atividades: ContaDaAtividade[];
-  /** O mínimo por posto (os turnos digitados no mês). */
-  pisoAjudantes: number;
-  pisoConferentes: number;
 };
 
+/** Desvio-padrão amostral, como o STDEV do Excel. */
+function desvioPadrao(xs: number[]): number {
+  if (xs.length < 2) return 0;
+  const media = xs.reduce((s, x) => s + x, 0) / xs.length;
+  return Math.sqrt(xs.reduce((s, x) => s + (x - media) ** 2, 0) / (xs.length - 1));
+}
+
+/** ROUNDUP do Excel com casas (o conferente arredonda o turno a 1 casa). */
+function arredondarParaCima(x: number, casas = 0): number {
+  const f = 10 ** casas;
+  return Math.ceil(x * f - 1e-9) / f;
+}
+
+function fecharFuncao(
+  unidade: FuncaoDoArmazem["unidade"],
+  atividades: AtividadeDoArmazem[],
+  pessoasDoTurno: (soma: number, turno: TurnoDoArmazem) => number,
+  reservaDe: ((somaDosTurnos: number) => number) | null,
+): FuncaoDoArmazem {
+  const turnos = Object.fromEntries(
+    TURNOS_DO_ARMAZEM.map((t) => {
+      const soma = atividades.filter((a) => a.turno === t).reduce((s, a) => s + a.valor, 0);
+      return [t, { soma, pessoas: pessoasDoTurno(soma, t) }];
+    }),
+  ) as FuncaoDoArmazem["turnos"];
+  const somaDosTurnos = TURNOS_DO_ARMAZEM.reduce((s, t) => s + turnos[t].pessoas, 0);
+  const reserva = reservaDe ? reservaDe(somaDosTurnos) : 0;
+  return { unidade, atividades, turnos, reserva, altaTemporada: 0, ajusteFerias: null, total: somaDosTurnos + reserva };
+}
+
 export function contaArmazem(m: MesMaoDeObra, c: ConfigMaoDeObra): ContaArmazem {
-  // O armazém trabalha TODOS os dias do mês, inclusive sábado: a planilha
-  // divide pelo "dia TT", não pelos dias úteis da entrega.
+  const A = c.armazem ?? ARMAZEM_PADRAO;
+  const div = (a: number, b: number) => (b > 0 ? a / b : 0);
+
+  // 1. O volume vira viagens (linhas 15 a 35 da aba Inputs).
   const dias = n(m.dias_totais);
-  const jornada = c.jornada > 0 ? c.jornada : 1;
-  const mapsPrevistos = dias > 0 && c.hl_por_mapa > 0 ? n(m.volume_ppr) / dias / c.hl_por_mapa : 0;
-  // A blitz entra nos dois turnos, como na planilha.
-  const blitz = (c.perc_blitz_carregamento * mapsPrevistos * c.tempo_blitz) / jornada;
-  const operadorNoite = (c.tempo_carregamento_caminhao * mapsPrevistos) / jornada + blitz;
-  const carretasPorDia = c.hl_carreta > 0 && dias > 0 ? n(m.volume_ppr) / c.hl_carreta / dias : 0;
-  const operadorManha = (carretasPorDia * c.tma) / jornada / 2 + blitz;
+  const caixas = div(n(m.volume_ppr), A.hl_por_caixa);
+  const paletes = div(caixas, A.caixas_por_palete);
+  const viagensRota = A.perc_entrega_ff * div(paletes, A.paletes_por_viagem);
+  const viagens1a = viagensRota * A.perc_entrega_ff;
+  const viagens2a = viagensRota - viagens1a;
+  const caixasPorViagemFF = div(caixas * A.perc_entrega_ff, viagensRota);
+  const viagensDia = div(viagensRota, dias);
+  const v1 = div(viagens1a, dias);
+  const v2 = div(viagens2a, dias);
+  const v2Noturna = 0;
+  const freteiros = div(viagens2a, dias);
+  const palletsRebaixadosDia = viagensDia * A.pallets_rebaixados * 10;
+  const paletesDaRota = div(viagensDia * caixasPorViagemFF + freteiros * A.caixas_viagem_spot, A.caixas_por_palete);
 
-  // As atividades: vezes por dia × duração = horas (fração do dia, como
-  // os tempos do banco); ÷ jornada = pessoas.
-  const hlDoDia = dias > 0 ? n(m.volume_ppr) / dias : 0;
-  const hlMontado = hlDoDia * c.percentual_montagem;
-  const produtividade = n(c.produtividade_montagem);
-  const horasDe: Record<AtividadeId, { quantidade: number; horas: number }> = {
-    atividade_montagem: { quantidade: hlMontado, horas: produtividade > 0 ? hlMontado / produtividade / 24 : 0 },
-    atividade_reposicao: { quantidade: mapsPrevistos, horas: mapsPrevistos * c.tempo_reposicao_picking },
-    atividade_blitz_refugo: { quantidade: mapsPrevistos * c.perc_blitz_refugo, horas: mapsPrevistos * c.perc_blitz_refugo * c.tempo_blitz },
-    atividade_blitz_puxada: { quantidade: carretasPorDia * c.perc_blitz_puxada, horas: carretasPorDia * c.perc_blitz_puxada * c.tempo_blitz },
+  // 2. A puxada (linhas 342 a 350).
+  const puxadaFF = dias > 0 ? Math.ceil(n(m.arm_viagens_puxada_ff) / dias - 1e-9) : 0;
+  const spotRet = n(m.arm_spot_retornavel_dia);
+  const spotDesc = n(m.arm_spot_descartavel_dia);
+  const palletsBlitz = div(n(m.arm_pallets_retornaveis) * A.pallets_blitz_puxada, dias);
+  const mixRet = Math.min(1, Math.max(0, n(m.arm_mix_retornavel) / 100));
+
+  // 3. Como o dia se distribui nos turnos.
+  const ffN = A.pux_ff_noite, ffM = A.pux_ff_manha, ffT = 1 - ffN - ffM;
+  const sN = A.pux_spot_noite, sM = A.pux_spot_manha, sT = 1 - sN - sM;
+  const r14 = A.ret_ate14, rApos = A.ret_apos22;
+  const pico = desvioPadrao([A.ret_ate14, A.ret_14a16, A.ret_16a18, A.ret_18a20, A.ret_20a22, A.ret_apos22]) * 1.5;
+  const J = A.jornada_horas > 0 ? A.jornada_horas : 7.33;
+  const JConfNoite = A.jornada_conferente_noite > 0 ? A.jornada_conferente_noite : J;
+  const k = 60 * J;
+  const saiRota = v1 + freteiros;
+
+  // 4. OPERADOR DE EMPILHADEIRA -- minutos por turno (linhas 263 a 274).
+  const mixRef = A.mix_referencia;
+  const tPuxOp = A.op_spot_retornavel * mixRef + A.op_spot_descartavel * (1 - mixRef);
+  const molho = paletesDaRota * A.op_molho * 0.65;
+  const puxOp = (f: number, s: number) => puxadaFF * tPuxOp * f + spotRet * A.op_spot_retornavel * s + spotDesc * A.op_spot_descartavel * s;
+  const operador = fecharFuncao(
+    "minutos",
+    [
+      { rotulo: "Reabastecimento do molho (65% do volume)", turno: "Noite", valor: molho },
+      { rotulo: "Carregamento frota fixa + freteiro", turno: "Noite", valor: saiRota * A.op_carregamento },
+      { rotulo: "Descarga/carga da puxada", turno: "Noite", valor: puxOp(ffN, sN) },
+      { rotulo: "Reabastecimento do molho — noite", turno: "Noite", valor: molho * A.molho_noite },
+      { rotulo: "Blitz de carregamento", turno: "Manhã", valor: saiRota * (A.op_carregamento + A.op_retorno_1a) * A.blitz_carregamento },
+      { rotulo: "Carregamento de recargas", turno: "Manhã", valor: v2 * A.op_recarga },
+      { rotulo: "Descarga/carga da puxada", turno: "Manhã", valor: puxOp(ffM, sM) },
+      { rotulo: "Retorno de rota", turno: "Manhã", valor: saiRota * A.op_retorno_1a * r14 },
+      { rotulo: "Reabastecimento do molho — manhã", turno: "Manhã", valor: molho * (1 - A.molho_noite) },
+      {
+        rotulo: "Retorno de rota",
+        turno: "Tarde",
+        valor: (v1 * A.op_retorno_1a + v2 * A.op_retorno_2a + freteiros * A.op_retorno_freteiro + v2Noturna * A.op_retorno_2a) * (1 + pico) * (1 - r14),
+      },
+      { rotulo: "Carregamento rota noturna", turno: "Tarde", valor: v2Noturna * (A.op_retorno_1a + A.op_carregamento) },
+      { rotulo: "Descarga/carga da puxada", turno: "Tarde", valor: puxOp(ffT, sT) },
+    ],
+    (soma) => arredondarParaCima(soma / 60 / J),
+    (s) => arredondarParaCima(s * A.absenteismo + s / 12),
+  );
+
+  // 5. CONFERENTE -- minutos por turno (linhas 283 a 299); o turno arredonda a 1 casa.
+  const tPuxCf = A.cf_spot_retornavel * mixRef + A.cf_spot_descartavel * (1 - mixRef);
+  const puxCf = (f: number, s: number) => puxadaFF * tPuxCf * f + spotRet * A.cf_spot_retornavel * s + spotDesc * A.cf_spot_descartavel * s;
+  const conferenteTurnos = fecharFuncao(
+    "minutos",
+    [
+      { rotulo: "Reabastecimento do molho (65% do volume)", turno: "Noite", valor: molho },
+      { rotulo: "Carregamento frota fixa + freteiro", turno: "Noite", valor: saiRota * A.cf_carregamento },
+      { rotulo: "Descarga/carga da puxada", turno: "Noite", valor: puxCf(ffN, sN) },
+      { rotulo: "Reabastecimento do molho — noite", turno: "Noite", valor: molho * A.molho_noite },
+      { rotulo: "Balanço de massa", turno: "Noite", valor: A.cf_balanco * 2 },
+      { rotulo: "Blitz de carregamento", turno: "Manhã", valor: saiRota * (A.cf_carregamento + A.cf_retorno_1a) * A.blitz_carregamento },
+      { rotulo: "Carregamento de recargas", turno: "Manhã", valor: v2 * (A.cf_carregamento + A.cf_retorno_1a) },
+      { rotulo: "Descarga/carga da puxada", turno: "Manhã", valor: puxCf(ffM, sM) },
+      { rotulo: "Retorno de rota", turno: "Manhã", valor: saiRota * A.cf_retorno_1a * r14 },
+      { rotulo: "Reabastecimento do molho — manhã", turno: "Manhã", valor: molho * (1 - A.molho_noite) * 0.5 },
+      { rotulo: "Contagem do estoque", turno: "Manhã", valor: A.cf_contagem },
+      { rotulo: "Balanço de massa", turno: "Manhã", valor: A.cf_balanco * 2 },
+      {
+        rotulo: "Retorno de rota",
+        turno: "Tarde",
+        valor: (v1 * A.cf_retorno_1a + v2 * A.cf_retorno_2a + freteiros * A.cf_retorno_freteiro + v2Noturna * A.cf_retorno_2a) * (1 + pico) * (1 - r14),
+      },
+      { rotulo: "Carregamento rota noturna", turno: "Tarde", valor: v2 * A.op_recarga },
+      { rotulo: "Descarga/carga da puxada", turno: "Tarde", valor: puxCf(ffT, sT) },
+      { rotulo: "Balanço de massa", turno: "Tarde", valor: A.cf_balanco * 2 },
+      { rotulo: "Blitz de retorno de rota", turno: "Tarde", valor: saiRota * (1 - r14) * A.blitz_retorno * A.cf_blitz_retorno },
+    ],
+    (soma, t) => arredondarParaCima(soma / 60 / (t === "Noite" ? JConfNoite : J), 1),
+    null,
+  );
+  // O total arredonda a soma dos turnos (que já têm uma casa).
+  const conferente = { ...conferenteTurnos, total: arredondarParaCima(conferenteTurnos.total - 1e-9) };
+
+  // 6. AJUDANTE DE ARMAZÉM -- pessoas por turno (linhas 306 a 324).
+  const aj = fecharFuncao(
+    "pessoas",
+    [
+      { rotulo: "Montagem de pallets", turno: "Noite", valor: div(div(paletes, dias * A.fator_dias_ajudante), A.aj_pallets_dia) },
+      { rotulo: "Carregamento de carros batidos", turno: "Noite", valor: (v1 * A.carros_batidos * A.aj_carga_batido) / k },
+      { rotulo: "Blitz de puxada", turno: "Noite", valor: (palletsBlitz * A.aj_blitz_puxada * ffN * 2) / k },
+      { rotulo: "Sorting de pallets retornáveis", turno: "Noite", valor: (paletesDaRota * mixRet * A.aj_sorting * rApos) / k },
+      { rotulo: "Ajudante de apoio (extra)", turno: "Noite", valor: A.ex_apoio_noite },
+      { rotulo: "Blitz de puxada", turno: "Manhã", valor: (palletsBlitz * ffM * A.aj_blitz_puxada * 2) / k },
+      { rotulo: "Descarregamento de carros batidos", turno: "Manhã", valor: (v1 * A.aj_descarga_batido * A.carros_batidos * r14) / k },
+      { rotulo: "Incorporação da devolução ao estoque", turno: "Manhã", valor: div(paletesDaRota * A.devolucao, A.aj_pallets_dia) },
+      { rotulo: "Sorting de pallets retornáveis", turno: "Manhã", valor: (paletesDaRota * mixRef * A.aj_sorting * r14) / k },
+      { rotulo: "Blitz de carregamento", turno: "Manhã", valor: (paletesDaRota * A.blitz_carregamento * A.aj_sorting * 2) / k },
+      { rotulo: "Rebaixamento de pallets", turno: "Manhã", valor: (palletsRebaixadosDia * A.aj_rebaixamento * A.rebaixados_manha) / k },
+      {
+        rotulo: "Extras (limpeza, picking, marketing, reepack, trocas, apoio)",
+        turno: "Manhã",
+        valor: A.ex_limpeza_manha + A.ex_picking_manha + A.ex_marketing_manha + A.ex_reepack_manha + A.ex_trocas_manha + A.ex_apoio_manha,
+      },
+      { rotulo: "Blitz de puxada", turno: "Tarde", valor: (palletsBlitz * ffT * A.aj_blitz_puxada * 2) / k },
+      { rotulo: "Blitz de retorno de rota", turno: "Tarde", valor: ((viagensDia + freteiros) * A.blitz_retorno * A.aj_blitz_retorno * 2 * (1 - r14 - rApos)) / k },
+      { rotulo: "Descarregamento de carros batidos", turno: "Tarde", valor: (v1 * A.aj_descarga_batido * A.carros_batidos * (1 + pico) * (1 - (r14 + rApos))) / k },
+      { rotulo: "Rebaixamento de pallets", turno: "Tarde", valor: (palletsRebaixadosDia * (1 - A.rebaixados_manha) * A.aj_rebaixamento) / k },
+      { rotulo: "Sorting de pallets retornáveis", turno: "Tarde", valor: (paletesDaRota * A.aj_sorting * pico) / k },
+      { rotulo: "Montagem de pallets para noturna e recarga", turno: "Tarde", valor: div(div((v2 + v2Noturna) * caixasPorViagemFF, A.caixas_por_palete) * A.pallets_mistos, A.aj_pallets_dia) },
+      { rotulo: "Extras (reepack e apoio)", turno: "Tarde", valor: A.ex_reepack_tarde + A.ex_apoio_tarde },
+    ],
+    (soma) => arredondarParaCima(soma),
+    (s) => arredondarParaCima(s * A.absenteismo + s / 12),
+  );
+  // O ajuste de férias da revenda, quando MENOR que a reserva, a substitui;
+  // e a alta temporada soma por cima (regra da linha "Total Ajudantes").
+  const altaTemporada = n(m.arm_alta_temporada);
+  const ajusteFerias = n(m.arm_ajuste_ferias);
+  const somaAj = TURNOS_DO_ARMAZEM.reduce((s, t) => s + aj.turnos[t].pessoas, 0);
+  const ajudante: FuncaoDoArmazem = {
+    ...aj,
+    altaTemporada,
+    ajusteFerias,
+    total: ajusteFerias < aj.reserva ? somaAj + ajusteFerias + altaTemporada : somaAj + aj.reserva + altaTemporada,
   };
-  const atividades: ContaDaAtividade[] = ATIVIDADES_DO_ARMAZEM.map((a) => ({
-    id: a.id,
-    rotulo: a.rotulo,
-    funcao: EH_FUNCAO_DA_ATIVIDADE(String(c[a.id])) ? c[a.id] : "nenhuma",
-    quantidade: horasDe[a.id].quantidade,
-    horas: horasDe[a.id].horas * 24,
-    pessoas: horasDe[a.id].horas / jornada,
-  }));
-  const daFuncao = (f: FuncaoDaAtividade) => atividades.filter((a) => a.funcao === f).reduce((s, a) => s + a.pessoas, 0);
 
-  const operadores = operadorNoite + operadorManha + daFuncao("operador") + n(m.operador_tarde) + n(m.operador_reserva);
-  // Os turnos digitados são o MÍNIMO do posto: o quadro é o maior entre
-  // eles e o que as atividades pedem. Sem atividade ligada, fica como era.
-  const pisoAjudantes =
-    n(m.ajudante_noite) + n(m.ajudante_manha) + n(m.ajudante_tarde) + n(m.ajudante_reserva) + n(m.ajudante_extra);
-  const pisoConferentes = n(m.conferente_noite) + n(m.conferente_manha) + n(m.conferente_tarde);
+  // 7. AJUDANTE DE AMARRAÇÃO -- pessoas por turno (linhas 327 a 336).
+  const spotAmarra = (s: number) => [
+    (spotDesc * s * A.aj_desamarracao_spot * 2) / k,
+    (spotRet * s * (A.aj_desamarracao_spot + A.aj_amarracao_spot) * 2) / k,
+  ];
+  const [dN, rN] = spotAmarra(sN);
+  const [dM, rM] = spotAmarra(sM);
+  const [dT, rT] = spotAmarra(sT);
+  const amarracao = fecharFuncao(
+    "pessoas",
+    [
+      { rotulo: "Amarração de freteiros", turno: "Noite", valor: (freteiros * A.aj_amarracao_freteiro * 2) / k },
+      { rotulo: "Desamarração de freteiros", turno: "Noite", valor: (freteiros * rApos * A.aj_desamarracao_freteiro * 2) / k },
+      { rotulo: "Desamarração spot descartável", turno: "Noite", valor: dN },
+      { rotulo: "Amarração e desamarração spot retornável", turno: "Noite", valor: rN },
+      { rotulo: "Desamarração spot descartável", turno: "Manhã", valor: dM },
+      { rotulo: "Amarração e desamarração spot retornável", turno: "Manhã", valor: rM },
+      { rotulo: "Desamarração de freteiros", turno: "Manhã", valor: (freteiros * r14 * A.aj_desamarracao_freteiro * 2) / k },
+      { rotulo: "Desamarração spot descartável", turno: "Tarde", valor: dT },
+      { rotulo: "Amarração e desamarração spot retornável", turno: "Tarde", valor: rT },
+      { rotulo: "Desamarração de freteiros", turno: "Tarde", valor: (freteiros * (1 - r14 - rApos) * A.aj_desamarracao_freteiro * 2) / k },
+    ],
+    (soma) => arredondarParaCima(soma),
+    (s) => arredondarParaCima(s * A.absenteismo + s / 12),
+  );
+
   return {
-    mapsPrevistos,
-    carretasPorDia,
-    operadorNoite,
-    operadorManha,
-    operadores,
-    ajudantes: Math.max(pisoAjudantes, daFuncao("ajudante_armazem")),
-    conferentes: Math.max(pisoConferentes, daFuncao("conferente")),
+    base: {
+      dias,
+      caixas,
+      paletes,
+      viagensRota,
+      viagens1aDia: v1,
+      viagens2aDia: v2,
+      freteirosDia: freteiros,
+      caixasPorViagemFF,
+      palletsRebaixadosDia,
+      puxadaFFDia: puxadaFF,
+      palletsBlitzPuxadaDia: palletsBlitz,
+      mixRetornavel: mixRet,
+      picoRetorno: pico,
+    },
+    operador,
+    ajudante,
+    amarracao,
+    conferente,
+    operadores: operador.total,
+    ajudantes: ajudante.total,
+    amarracoes: amarracao.total,
+    conferentes: conferente.total,
     manobristas: n(m.manobristas),
-    atividades,
-    pisoAjudantes,
-    pisoConferentes,
   };
 }
 
@@ -611,6 +911,7 @@ export function dimensionamentoDoMes(
     puxador: dist.puxadores,
     operador: arm.operadores,
     ajudante_armazem: arm.ajudantes,
+    ajudante_amarracao: arm.amarracoes,
     conferente: arm.conferentes,
     manobrista: arm.manobristas,
   };
@@ -1473,6 +1774,13 @@ export const ROTULO_CAMPO_MES: Partial<Record<keyof MesMaoDeObra, string>> = {
   conferente_noite: "Conferentes — noite",
   conferente_manha: "Conferentes — manhã",
   conferente_tarde: "Conferentes — tarde",
+  arm_viagens_puxada_ff: "Viagens de puxada FF no mês",
+  arm_spot_retornavel_dia: "Viagens de puxada spot retornável por dia",
+  arm_spot_descartavel_dia: "Viagens de puxada spot descartável por dia",
+  arm_pallets_retornaveis: "Pallets retornáveis transportados no mês",
+  arm_mix_retornavel: "% mix retornável da puxada",
+  arm_alta_temporada: "Ajudantes de alta temporada",
+  arm_ajuste_ferias: "Ajuste de férias da revenda",
   volume_realizado: "Volume realizado (HL)",
   base_meta: "Volume que a grade distribui",
   qlp_justificativa_motivo: "Justificativa do QLP",
@@ -1624,6 +1932,7 @@ export function validarMes(m: MesMaoDeObra): string | null {
     if (campo === "competencia" || campo === "observacao") continue;
     if (typeof valor === "number" && valor < 0) return "Nenhum campo pode ser negativo.";
   }
+  if (n(m.arm_mix_retornavel) > 100) return "O mix retornável da puxada vai de 0 a 100%.";
   if ((m.observacao ?? "").length > LIMITES_MAO_DE_OBRA.observacaoMax) return "Observação longa demais.";
   if ((m.qlp_justificativa ?? "").length > LIMITES_MAO_DE_OBRA.observacaoMax) return "Justificativa do QLP longa demais.";
   return null;
