@@ -668,7 +668,8 @@ function desvioPadrao(xs: number[]): number {
 /** ROUNDUP do Excel com casas (o conferente arredonda o turno a 1 casa). */
 function arredondarParaCima(x: number, casas = 0): number {
   const f = 10 ** casas;
-  return Math.ceil(x * f - 1e-9) / f;
+  // + 0 tira o -0 (atividade zerada aparecia como "-0,0" na memória).
+  return Math.max(0, Math.ceil(x * f - 1e-9) / f) + 0;
 }
 
 function fecharFuncao(
@@ -679,7 +680,7 @@ function fecharFuncao(
 ): FuncaoDoArmazem {
   const turnos = Object.fromEntries(
     TURNOS_DO_ARMAZEM.map((t) => {
-      const soma = atividades.filter((a) => a.turno === t).reduce((s, a) => s + a.valor, 0);
+      const soma = Math.max(0, atividades.filter((a) => a.turno === t).reduce((s, a) => s + a.valor, 0)) + 0;
       return [t, { soma, pessoas: pessoasDoTurno(soma, t) }];
     }),
   ) as FuncaoDoArmazem["turnos"];
