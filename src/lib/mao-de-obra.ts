@@ -105,7 +105,40 @@ export type ConfigMaoDeObra = {
   sellout_sex: number;
   sellout_sab: number;
   sellout_dom: number;
+  /** HL que UMA pessoa monta por hora -- sem ela a montagem não vira gente. */
+  produtividade_montagem: number;
+  /** Quem faz cada atividade (migration 153). "nenhuma" = fora da conta. */
+  atividade_montagem: FuncaoDaAtividade;
+  atividade_reposicao: FuncaoDaAtividade;
+  atividade_blitz_refugo: FuncaoDaAtividade;
+  atividade_blitz_puxada: FuncaoDaAtividade;
 };
+
+/*
+  AS ATIVIDADES DO ARMAZÉM (29/09/2026, pedido do dono: "o dimensionamento
+  deveria levar em consideração as atividades"). Cada uma vira horas por
+  dia -- quantas vezes acontece × quanto dura -- e as horas, divididas pela
+  jornada, viram gente na função que o dono escolher. O dono simula: toda
+  atividade nasce FORA da conta, e só entra quando ele diz quem a faz.
+*/
+export const FUNCOES_DA_ATIVIDADE = ["nenhuma", "operador", "ajudante_armazem", "conferente"] as const;
+export type FuncaoDaAtividade = (typeof FUNCOES_DA_ATIVIDADE)[number];
+export const ROTULO_FUNCAO_DA_ATIVIDADE: Record<FuncaoDaAtividade, string> = {
+  nenhuma: "Não entra na conta",
+  operador: "Operador de empilhadeira",
+  ajudante_armazem: "Ajudante de armazém",
+  conferente: "Conferente",
+};
+export const EH_FUNCAO_DA_ATIVIDADE = (v: string): v is FuncaoDaAtividade =>
+  (FUNCOES_DA_ATIVIDADE as readonly string[]).includes(v);
+
+export const ATIVIDADES_DO_ARMAZEM = [
+  { id: "atividade_montagem", rotulo: "Montagem", comoConta: "PPR do dia × % de montagem ÷ HL por hora de uma pessoa" },
+  { id: "atividade_reposicao", rotulo: "Reposição do picking", comoConta: "mapas do dia × tempo de reposição por mapa" },
+  { id: "atividade_blitz_refugo", rotulo: "Blitz de refugo", comoConta: "mapas do dia × % de blitz de refugo × tempo da blitz" },
+  { id: "atividade_blitz_puxada", rotulo: "Blitz de puxada", comoConta: "carretas do dia × % de blitz de puxada × tempo da blitz" },
+] as const;
+export type AtividadeId = (typeof ATIVIDADES_DO_ARMAZEM)[number]["id"];
 
 /** Os números que vieram da planilha da companhia. Cada revenda ajusta os seus. */
 export const CONFIG_PADRAO: ConfigMaoDeObra = {
@@ -129,6 +162,11 @@ export const CONFIG_PADRAO: ConfigMaoDeObra = {
   sellout_sex: 0,
   sellout_sab: 0,
   sellout_dom: 0,
+  produtividade_montagem: 0,
+  atividade_montagem: "nenhuma",
+  atividade_reposicao: "nenhuma",
+  atividade_blitz_refugo: "nenhuma",
+  atividade_blitz_puxada: "nenhuma",
 };
 
 /** Os dias da semana da curva, na ordem em que a tela mostra. */
@@ -199,6 +237,7 @@ export const PARAMETROS = [
   { id: "tempo_blitz", rotulo: "Tempo de uma blitz", ajuda: "", formato: "horas", limite: 99.999999 },
   { id: "hl_carreta", rotulo: "HL por carreta", ajuda: "O que cabe numa carreta.", formato: "numero", limite: 99999999 },
   { id: "hl_por_mapa", rotulo: "HL por mapa", ajuda: "Divide o volume em mapas.", formato: "numero", limite: 99999999 },
+  { id: "produtividade_montagem", rotulo: "Montagem por pessoa", ajuda: "HL que uma pessoa monta por hora. 0 = não calcula.", formato: "numero", limite: 99999999 },
 ] as const satisfies readonly { id: string; rotulo: string; ajuda: string; formato: FormatoDoParametro; limite: number }[];
 
 /** O valor do banco como a pessoa lê: "40", "7:20", "210". */
@@ -454,14 +493,33 @@ export function contaDistribuicao(m: MesMaoDeObra): ContaDistribuicao {
 // ARMAZÉM -- a mesma conta da aba "Simulador Armazém"
 // ------------------------------------------------------------------
 
+/** Uma atividade do armazém, já em horas e em gente. */
+export type ContaDaAtividade = {
+  id: AtividadeId;
+  rotulo: string;
+  funcao: FuncaoDaAtividade;
+  /** Quantas vezes por dia (mapas, carretas) ou HL por dia, na montagem. */
+  quantidade: number;
+  /** Horas de trabalho por dia. */
+  horas: number;
+  /** horas ÷ jornada. */
+  pessoas: number;
+};
+
 export type ContaArmazem = {
   mapsPrevistos: number;
+  carretasPorDia: number;
   operadorNoite: number;
   operadorManha: number;
   operadores: number;
   ajudantes: number;
   conferentes: number;
   manobristas: number;
+  /** As atividades simuladas -- todas, entrando ou não na conta. */
+  atividades: ContaDaAtividade[];
+  /** O mínimo por posto (os turnos digitados no mês). */
+  pisoAjudantes: number;
+  pisoConferentes: number;
 };
 
 export function contaArmazem(m: MesMaoDeObra, c: ConfigMaoDeObra): ContaArmazem {
@@ -475,16 +533,46 @@ export function contaArmazem(m: MesMaoDeObra, c: ConfigMaoDeObra): ContaArmazem 
   const operadorNoite = (c.tempo_carregamento_caminhao * mapsPrevistos) / jornada + blitz;
   const carretasPorDia = c.hl_carreta > 0 && dias > 0 ? n(m.volume_ppr) / c.hl_carreta / dias : 0;
   const operadorManha = (carretasPorDia * c.tma) / jornada / 2 + blitz;
-  const operadores = operadorNoite + operadorManha + n(m.operador_tarde) + n(m.operador_reserva);
+
+  // As atividades: vezes por dia × duração = horas (fração do dia, como
+  // os tempos do banco); ÷ jornada = pessoas.
+  const hlDoDia = dias > 0 ? n(m.volume_ppr) / dias : 0;
+  const hlMontado = hlDoDia * c.percentual_montagem;
+  const produtividade = n(c.produtividade_montagem);
+  const horasDe: Record<AtividadeId, { quantidade: number; horas: number }> = {
+    atividade_montagem: { quantidade: hlMontado, horas: produtividade > 0 ? hlMontado / produtividade / 24 : 0 },
+    atividade_reposicao: { quantidade: mapsPrevistos, horas: mapsPrevistos * c.tempo_reposicao_picking },
+    atividade_blitz_refugo: { quantidade: mapsPrevistos * c.perc_blitz_refugo, horas: mapsPrevistos * c.perc_blitz_refugo * c.tempo_blitz },
+    atividade_blitz_puxada: { quantidade: carretasPorDia * c.perc_blitz_puxada, horas: carretasPorDia * c.perc_blitz_puxada * c.tempo_blitz },
+  };
+  const atividades: ContaDaAtividade[] = ATIVIDADES_DO_ARMAZEM.map((a) => ({
+    id: a.id,
+    rotulo: a.rotulo,
+    funcao: EH_FUNCAO_DA_ATIVIDADE(String(c[a.id])) ? c[a.id] : "nenhuma",
+    quantidade: horasDe[a.id].quantidade,
+    horas: horasDe[a.id].horas * 24,
+    pessoas: horasDe[a.id].horas / jornada,
+  }));
+  const daFuncao = (f: FuncaoDaAtividade) => atividades.filter((a) => a.funcao === f).reduce((s, a) => s + a.pessoas, 0);
+
+  const operadores = operadorNoite + operadorManha + daFuncao("operador") + n(m.operador_tarde) + n(m.operador_reserva);
+  // Os turnos digitados são o MÍNIMO do posto: o quadro é o maior entre
+  // eles e o que as atividades pedem. Sem atividade ligada, fica como era.
+  const pisoAjudantes =
+    n(m.ajudante_noite) + n(m.ajudante_manha) + n(m.ajudante_tarde) + n(m.ajudante_reserva) + n(m.ajudante_extra);
+  const pisoConferentes = n(m.conferente_noite) + n(m.conferente_manha) + n(m.conferente_tarde);
   return {
     mapsPrevistos,
+    carretasPorDia,
     operadorNoite,
     operadorManha,
     operadores,
-    ajudantes:
-      n(m.ajudante_noite) + n(m.ajudante_manha) + n(m.ajudante_tarde) + n(m.ajudante_reserva) + n(m.ajudante_extra),
-    conferentes: n(m.conferente_noite) + n(m.conferente_manha) + n(m.conferente_tarde),
+    ajudantes: Math.max(pisoAjudantes, daFuncao("ajudante_armazem")),
+    conferentes: Math.max(pisoConferentes, daFuncao("conferente")),
     manobristas: n(m.manobristas),
+    atividades,
+    pisoAjudantes,
+    pisoConferentes,
   };
 }
 

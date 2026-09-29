@@ -29,6 +29,10 @@ import {
   MES_VAZIO,
   MODULO_MAO_DE_OBRA,
   DIAS_DO_SELLOUT,
+  ATIVIDADES_DO_ARMAZEM,
+  EH_FUNCAO_DA_ATIVIDADE,
+  ROTULO_FUNCAO_DA_ATIVIDADE,
+  type FuncaoDaAtividade,
   PARAMETROS,
   RUBRICAS,
   validarSellout,
@@ -255,6 +259,17 @@ export async function salvarParametros(formData: FormData) {
   if (problemaDaCurva) voltar(competencia, "erro", problemaDaCurva, "configurar");
   Object.assign(valores, curva);
 
+  // QUEM FAZ CADA ATIVIDADE (migration 153): "nenhuma" deixa fora da conta.
+  const quemFaz: Record<string, string> = {};
+  for (const a of ATIVIDADES_DO_ARMAZEM) {
+    const f = String(formData.get(a.id) ?? "nenhuma");
+    if (!EH_FUNCAO_DA_ATIVIDADE(f)) voltar(competencia, "erro", `Escolha quem faz a atividade ${a.rotulo}.`, "configurar");
+    quemFaz[a.id] = f;
+  }
+  if (quemFaz.atividade_montagem !== "nenhuma" && !(valores.produtividade_montagem > 0)) {
+    voltar(competencia, "erro", "Para a montagem entrar na conta, informe quantos HL uma pessoa monta por hora.", "configurar");
+  }
+
   if (!ehCompetencia(competencia)) voltar("", "erro", "Competência inválida.", "configurar");
   const antesDaConfig = (await lerConfigDoMes(revendaId, competencia)).config;
   const admin = createAdminClient();
@@ -294,6 +309,7 @@ export async function salvarParametros(formData: FormData) {
       competencia: primeiroDia(competencia),
       ...antesDaConfig,
       ...valores,
+      ...quemFaz,
       atualizado_em: agora,
       atualizado_por_nome: perfil.nome,
     },
@@ -309,15 +325,20 @@ export async function salvarParametros(formData: FormData) {
       onde: "parametros",
       competencia,
       antes: antesDaConfig as unknown as Record<string, unknown>,
-      depois: valores,
+      depois: { ...valores, ...quemFaz },
       campos: [
         ...PARAMETROS.map((p) => ({
           campo: p.id,
           rotulo: p.rotulo,
           formatar: (v: unknown) => {
             const t = parametroParaTela(Number(v), p.formato);
-            return p.formato === "percentual" ? `${t}%` : p.formato === "numero" ? `${t} HL` : t;
+            return p.formato === "percentual" ? `${t}%` : p.id === "produtividade_montagem" ? `${t} HL/h` : p.formato === "numero" ? `${t} HL` : t;
           },
+        })),
+        ...ATIVIDADES_DO_ARMAZEM.map((a) => ({
+          campo: a.id,
+          rotulo: `Quem faz — ${a.rotulo}`,
+          formatar: (v: unknown) => (EH_FUNCAO_DA_ATIVIDADE(String(v)) ? ROTULO_FUNCAO_DA_ATIVIDADE[String(v) as FuncaoDaAtividade] : String(v)),
         })),
         ...DIAS_DO_SELLOUT.map((d) => ({
           campo: d.id,

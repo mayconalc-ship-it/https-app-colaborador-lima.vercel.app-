@@ -39,7 +39,11 @@ import {
   competenciaAnterior,
   competenciaAtual,
   competenciaSeguinte,
+  ATIVIDADES_DO_ARMAZEM,
+  FUNCOES_DA_ATIVIDADE,
+  ROTULO_FUNCAO_DA_ATIVIDADE,
   conferenciaDoPlano,
+  contaArmazem,
   contaDistribuicao,
   curvaLigada,
   custoDaPessoa,
@@ -168,6 +172,7 @@ export default async function MaoDeObraPage({
   const config = doMes.config;
   const mes = meses.get(competencia) ?? null;
   const mesAtual: MesMaoDeObra = mes ?? { ...MES_VAZIO, competencia };
+  const armazemDoMes = contaArmazem(mesAtual, config);
   const qlpAtual = qlpVigente(qlpPorMes, competencia);
   const temQlp = Object.keys(qlpAtual).length > 0;
   const totalQlp = Object.values(qlpAtual).reduce((s, v) => s + (v ?? 0), 0);
@@ -323,6 +328,38 @@ export default async function MaoDeObraPage({
                         </span>
                       </Campo>
                     ))}
+                  </div>
+
+                  <div className="rounded-xl bg-slate-50 p-3">
+                    <p className="text-sm font-semibold text-slate-800">Atividades do armazém — quem faz</p>
+                    <p className="mb-3 text-xs text-slate-500">
+                      Vezes por dia × tempo = horas; horas ÷ jornada = pessoas. &quot;Não entra na conta&quot; deixa a atividade de fora. Os turnos digitados no mês valem como
+                      mínimo do posto.
+                    </p>
+                    <div className="space-y-2">
+                      {armazemDoMes.atividades.map((a) => (
+                        <div key={a.id} className="grid grid-cols-1 items-center gap-2 rounded-lg bg-white p-2 sm:grid-cols-[1fr_14rem_9rem]">
+                          <span className="min-w-0">
+                            <span className="block text-sm font-medium text-slate-800">{a.rotulo}</span>
+                            <span className="block text-[11px] text-slate-400">{ATIVIDADES_DO_ARMAZEM.find((x) => x.id === a.id)?.comoConta}</span>
+                          </span>
+                          <select name={a.id} defaultValue={a.funcao} className={entrada}>
+                            {FUNCOES_DA_ATIVIDADE.map((f) => (
+                              <option key={f} value={f}>
+                                {ROTULO_FUNCAO_DA_ATIVIDADE[f]}
+                              </option>
+                            ))}
+                          </select>
+                          <span className={`text-right text-xs tabular-nums ${a.funcao === "nenhuma" ? "text-slate-400" : "font-semibold text-slate-700"}`}>
+                            {formatarNumero(a.horas, 1)} h/dia · {formatarNumero(a.pessoas, 2)} pessoa
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                    <p className="mt-2 text-[11px] text-slate-400">
+                      Horas e pessoas com o volume de {rotuloCompetencia(competencia)}
+                      {mes ? ` (PPR ${formatarNumero(mesAtual.volume_ppr, 0)} HL)` : " — mês sem volume lançado"}, pelos parâmetros salvos.
+                    </p>
                   </div>
 
                   <div className="rounded-xl bg-slate-50 p-3">
