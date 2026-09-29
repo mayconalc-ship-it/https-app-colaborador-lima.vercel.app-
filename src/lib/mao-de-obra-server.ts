@@ -264,7 +264,7 @@ export async function lerDias(
   const admin = createAdminClient();
   const { data } = await admin
     .from("mao_obra_dias")
-    .select("dia, volume_realizado, opera")
+    .select("dia, volume_realizado, opera, justificativa_motivo, justificativa")
     .eq("revenda_id", revendaId)
     .eq("competencia", primeiroDia(competencia))
     .order("dia");
@@ -273,6 +273,8 @@ export async function lerDias(
     saida.set(Number(l.dia), {
       realizado: l.volume_realizado == null ? null : Number(l.volume_realizado),
       opera: l.opera !== false,
+      justificativaMotivo: l.justificativa_motivo ?? null,
+      justificativa: l.justificativa ?? null,
     });
   }
   return saida;

@@ -28,7 +28,8 @@ import {
   MESES_CURTOS,
   MES_VAZIO,
   MODULO_MAO_DE_OBRA,
-  MOTIVOS_VOLUME,
+  LIMITE_ANS_VENDAS,
+  excedeAns,
   PARAMETROS,
   REQUISITO_DPO,
   ROTULO_SITUACAO,
@@ -75,7 +76,6 @@ import {
   excluirAcao,
   mudarStatusDaAcao,
   removerDestinatario,
-  salvarJustificativaVolume,
   salvarParametros,
   salvarRealizado,
   salvarSalario,
@@ -196,6 +196,9 @@ export default async function MaoDeObraPage({
 
   // ---- RESULTADO ----
   const dispersoes = dispersoesDoMes(mesAtual, diasDoMes);
+  // O ANS com Vendas: dia acima de +20% do necessário pede justificativa.
+  const diasAcimaDoAns = diasDoMes.filter((d) => excedeAns(d.dispersao));
+  const diasSemJustificativa = diasAcimaDoAns.filter((d) => !d.justificativaMotivo).length;
   const linhaDoTempo = linhaDoTempoDaProjecao(projecoes, competencia);
   // "Hoje" do V.3 é o que ESTE mês pede agora -- não a primeira coluna do
   // planejamento, que desde 28/09/2026 já é o mês seguinte.
@@ -544,14 +547,8 @@ export default async function MaoDeObraPage({
                         {e.totalVagas === 1 ? "" : "s"}
                       </span>
                       <span className="text-slate-500">
-                        enviado em {new Date(e.enviadoEm).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })} ·{" "}
+                        {new Date(e.enviadoEm).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })} ·{" "}
                         {e.enviadoPorNome ?? "—"}
-                        {e.retroativo && (
-                          <span className="ml-1 rounded bg-amber-100 px-1 text-[10px] text-amber-800">
-                            retroativo · registrado em{" "}
-                            {new Date(e.registradoEm).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}
-                          </span>
-                        )}
                       </span>
                     </li>
                   ))}
@@ -651,39 +648,28 @@ export default async function MaoDeObraPage({
               ▲ verde: acima do volume · ▼ vermelho: abaixo. Fora de ±{formatarNumero(DISPERSAO_ACEITA * 100, 0)}% pede plano de ação.
             </p>
 
-            {/* POR QUE FICOU ACIMA OU ABAIXO DO ACORDADO (V.5) */}
-            {mes && (
-              <div className={`mt-3 rounded-xl p-3 ${temDesvio(dispersoes) && !mes.volume_justificativa_motivo ? "bg-red-50" : "bg-slate-50"}`}>
-                <p className="text-xs font-bold uppercase tracking-wide text-slate-500">
-                  Justificativa do volume {temDesvio(dispersoes) && !mes.volume_justificativa_motivo && "— 🔴 obrigatória, está fora da faixa"}
+            {/* OS DIAS ACIMA DO ANS COM VENDAS (+20% do necessário) */}
+            {diasAcimaDoAns.length > 0 && (
+              <div className="mt-3 rounded-xl bg-red-50 p-3">
+                <p className="text-xs font-bold uppercase tracking-wide text-red-800">
+                  Dias acima do ANS com Vendas (+{Math.round(LIMITE_ANS_VENDAS * 100)}% do necessário): {diasAcimaDoAns.length}
+                  {diasSemJustificativa > 0 && ` · 🔴 ${diasSemJustificativa} sem justificativa`}
                 </p>
-                {podeEditar ? (
-                  <form action={salvarJustificativaVolume} className="mt-2 grid gap-2 sm:grid-cols-3">
-                    <input type="hidden" name="competencia" value={competencia} />
-                    <select name="motivo" defaultValue={mes.volume_justificativa_motivo ?? ""} className="rounded-lg border border-slate-300 px-2 py-2 text-sm">
-                      <option value="">Motivo (escolha)</option>
-                      {MOTIVOS_VOLUME.map((m) => (
-                        <option key={m} value={m}>
-                          {m}
-                        </option>
-                      ))}
-                    </select>
-                    <input
-                      name="detalhe"
-                      defaultValue={mes.volume_justificativa ?? ""}
-                      maxLength={500}
-                      placeholder="Detalhe (ex.: 3 dias de chuva forte na 2ª semana)"
-                      className="rounded-lg border border-slate-300 px-3 py-2 text-sm sm:col-span-2"
-                    />
-                    <BotaoEnviar textoEnviando="Salvando..." className="rounded-lg bg-slate-800 px-3 py-2 text-sm font-semibold text-white sm:col-span-3">
-                      Salvar a justificativa
-                    </BotaoEnviar>
-                  </form>
-                ) : (
-                  <p className="mt-1 text-sm text-slate-700">
-                    {[mes.volume_justificativa_motivo, mes.volume_justificativa].filter(Boolean).join(" — ") || "Sem justificativa."}
-                  </p>
-                )}
+                <ul className="mt-2 space-y-1 text-xs">
+                  {diasAcimaDoAns.map((d) => (
+                    <li key={d.dia} className="flex flex-wrap justify-between gap-2 rounded-lg bg-white px-2 py-1.5">
+                      <span>
+                        <b className="font-mono">{d.rotulo}</b> · necessário {formatarNumero(d.plan, 0)} · realizado{" "}
+                        {formatarNumero(d.realizado, 0)} <b className="text-emerald-700">{rotuloDaDispersao(d.dispersao)}</b>
+                      </span>
+                      <span className={d.justificativaMotivo ? "text-slate-600" : "font-semibold text-red-700"}>
+                        {d.justificativaMotivo
+                          ? `${d.justificativaMotivo}${d.justificativa ? ` — ${d.justificativa}` : ""}`
+                          : "falta justificar (aba 2)"}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
               </div>
             )}
           </section>
@@ -805,11 +791,6 @@ export default async function MaoDeObraPage({
                       </td>
                       <td className="px-2 py-2 text-xs">
                         {ROTULO_SITUACAO[e.situacao]}
-                        {meses.get(e.competencia)?.volume_justificativa_motivo && (
-                          <span className="block text-[10px] text-slate-500">
-                            Motivo: {meses.get(e.competencia)?.volume_justificativa_motivo}
-                          </span>
-                        )}
                         {e.acoes > 0 && (
                           <span className="block text-[10px] text-slate-400">
                             {e.acoesConcluidas}/{e.acoes} ação(ões) concluída(s)

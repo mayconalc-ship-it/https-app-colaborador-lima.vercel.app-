@@ -704,6 +704,9 @@ export type DiaDoVolume = {
   realizado: number | null;
   /** realizado / plan − 1. Null quando não há plano ou lançamento. */
   dispersao: number | null;
+  /** Por que o dia passou do ANS com Vendas (migration 149). */
+  justificativaMotivo: string | null;
+  justificativa: string | null;
 };
 
 const DIAS_DA_SEMANA = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"];
@@ -756,7 +759,34 @@ export function planoDoDia(m: MesMaoDeObra, operacao?: { uteis: number; sabados:
   return planoPorTipoDeDia(m, operacao).util;
 }
 
-export type LancamentoDoDia = { realizado: number | null; opera: boolean };
+export type LancamentoDoDia = {
+  realizado: number | null;
+  opera: boolean;
+  justificativaMotivo?: string | null;
+  justificativa?: string | null;
+};
+
+/**
+ * O ANS COM VENDAS (28/09/2026, pedido do dono): o volume de um dia não
+ * passa de 120% do necessário daquele dia. Acima disso a operação não tem
+ * gente nem frota dimensionada para entregar -- e o dia pede justificativa.
+ */
+export const LIMITE_ANS_VENDAS = 0.2;
+
+export function excedeAns(dispersao: number | null | undefined): boolean {
+  return dispersao != null && dispersao > LIMITE_ANS_VENDAS;
+}
+
+/** Os motivos de um dia acima do ANS. Lista curta: é o que se agrupa depois. */
+export const MOTIVOS_DIA_ACIMA = [
+  "Venda acima do combinado (fora do ANS)",
+  "Ação comercial / promoção",
+  "Pedido grande de cliente (KA)",
+  "Reposição de pedido do dia anterior",
+  "Véspera de feriado / evento",
+  "Dia seguinte a feriado",
+  "Outro",
+] as const;
 
 /**
  * A grade do mês. `lancados` traz o que já foi digitado e quais dias
@@ -768,7 +798,15 @@ export function volumePorDia(
   config?: Pick<ConfigMaoDeObra, ChaveDoSellout>,
 ): DiaDoVolume[] {
   const diasNoMes = diasDaCompetencia(m.competencia);
-  const base: { dia: number; data: string; tipo: TipoDeDia; opera: boolean; realizado: number | null }[] = [];
+  const base: {
+    dia: number;
+    data: string;
+    tipo: TipoDeDia;
+    opera: boolean;
+    realizado: number | null;
+    justificativaMotivo: string | null;
+    justificativa: string | null;
+  }[] = [];
   for (let dia = 1; dia <= diasNoMes; dia++) {
     const data = `${m.competencia}-${String(dia).padStart(2, "0")}`;
     const tipo = tipoDoDia(data);
@@ -779,6 +817,8 @@ export function volumePorDia(
       tipo,
       opera: lancado ? lancado.opera : tipo !== "domingo",
       realizado: lancado?.realizado ?? null,
+      justificativaMotivo: lancado?.justificativaMotivo ?? null,
+      justificativa: lancado?.justificativa ?? null,
     });
   }
 
@@ -819,6 +859,8 @@ export function volumePorDia(
       plan,
       realizado: d.realizado,
       dispersao: d.realizado == null || plan <= 0 ? null : d.realizado / plan - 1,
+      justificativaMotivo: d.justificativaMotivo,
+      justificativa: d.justificativa,
     };
   });
 }

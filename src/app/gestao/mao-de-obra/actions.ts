@@ -33,7 +33,7 @@ import {
   tipoDoDia,
   ehCompetencia,
   lerNumeroDigitado,
-  MOTIVOS_VOLUME,
+  MOTIVOS_DIA_ACIMA,
   ehCampoNumericoDoMes,
   mesesDoPlanejamento,
   parametroDaTela,
@@ -115,43 +115,6 @@ export async function salvarMes(formData: FormData) {
 
   atualizarTelas();
   voltar(destino, "sucesso", `${rotuloCompetencia(competencia)} salvo e revisão registrada.`);
-}
-
-/**
- * POR QUE O VOLUME FICOU ACIMA OU ABAIXO DO ACORDADO (V.5) -- um motivo da
- * lista e o detalhe em texto. Só grava estes dois campos: o resto do mês
- * não é tocado.
- */
-export async function salvarJustificativaVolume(formData: FormData) {
-  const perfil = await requireModulo(MODULO_MAO_DE_OBRA, "editar", ROTA);
-  const revendaId = await exigirRevenda(ROTA);
-
-  const competencia = String(formData.get("competencia") ?? "");
-  if (!ehCompetencia(competencia)) voltar("", "erro", "Competência inválida.", "resultado");
-  const motivo = String(formData.get("motivo") ?? "").trim();
-  const detalhe = String(formData.get("detalhe") ?? "").trim().slice(0, LIMITES_MAO_DE_OBRA.observacaoMax) || null;
-  if (motivo && !(MOTIVOS_VOLUME as readonly string[]).includes(motivo)) {
-    voltar(competencia, "erro", "Motivo inválido.", "resultado");
-  }
-  if (motivo === "Outro" && !detalhe) voltar(competencia, "erro", "Com “Outro”, escreva o motivo.", "resultado");
-
-  const admin = createAdminClient();
-  const { data, error } = await admin
-    .from("mao_obra_meses")
-    .update({
-      volume_justificativa_motivo: motivo || null,
-      volume_justificativa: detalhe,
-      revisado_em: new Date().toISOString(),
-      revisado_por_nome: perfil.nome,
-    })
-    .eq("revenda_id", revendaId)
-    .eq("competencia", primeiroDia(competencia))
-    .select("competencia");
-  if (error) voltar(competencia, "erro", `Não foi possível salvar: ${error.message}`, "resultado");
-  if (!data || data.length === 0) voltar(competencia, "erro", "Lance o volume do mês antes de justificar.", "resultado");
-
-  atualizarTelas();
-  voltar(competencia, "sucesso", "Justificativa do volume salva.", "resultado");
 }
 
 /** O QLP real de cada função -- o outro lado do "dimensionado x realizado". */
@@ -499,7 +462,7 @@ export async function formalizarPlanejamento(formData: FormData) {
   voltar(
     competencia,
     "sucesso",
-    `Planejamento de ${quadros.length} mês(es) formalizado em ${data.split("-").reverse().join("/")}${retroativo ? " (registro retroativo)" : ""} para ${emails.length} destinatário${emails.length === 1 ? "" : "s"}.`,
+    `Planejamento de ${quadros.length} mês(es) formalizado em ${data.split("-").reverse().join("/")} para ${emails.length} destinatário${emails.length === 1 ? "" : "s"}.`,
   );
 }
 
@@ -517,6 +480,8 @@ export async function salvarDias(formData: FormData) {
     dia: number;
     volume_realizado: number | null;
     opera: boolean;
+    justificativa_motivo: string | null;
+    justificativa: string | null;
     atualizado_por_nome: string;
   }[] = [];
   const apagar: number[] = [];
@@ -524,6 +489,13 @@ export async function salvarDias(formData: FormData) {
     const valor = numero(formData.get(`dia_${dia}`));
     // A caixinha só chega marcada; desmarcada não vem no formulário.
     const opera = formData.get(`opera_${dia}`) != null;
+    // A justificativa só vem nos dias acima do ANS com Vendas (+20%): a
+    // tela só mostra o campo neles, e dia que voltou para dentro limpa.
+    const motivo = String(formData.get(`motivo_${dia}`) ?? "").trim();
+    const justificativa = String(formData.get(`justificativa_${dia}`) ?? "").trim().slice(0, 300) || null;
+    if (motivo && !(MOTIVOS_DIA_ACIMA as readonly string[]).includes(motivo)) {
+      voltar(competencia, "erro", `Motivo inválido no dia ${dia}.`, "dia");
+    }
     const padrao = tipoDoDia(`${competencia}-${String(dia).padStart(2, "0")}`) !== "domingo";
     if (valor == null && opera === padrao) {
       // Nada digitado e o dia está como nasce: não precisa de linha.
@@ -539,6 +511,8 @@ export async function salvarDias(formData: FormData) {
       dia,
       volume_realizado: valor,
       opera,
+      justificativa_motivo: motivo || null,
+      justificativa,
       atualizado_por_nome: perfil.nome,
     });
   }

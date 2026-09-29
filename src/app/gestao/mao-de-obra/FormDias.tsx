@@ -1,10 +1,13 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
 import {
+  LIMITE_ANS_VENDAS,
+  MOTIVOS_DIA_ACIMA,
   ROTULO_TIPO_DE_DIA,
   classeDaDispersao,
+  excedeAns,
   formatarNumero,
   formatarPercento,
   leDoMes,
@@ -63,6 +66,12 @@ export function FormDias({
   const [opera, setOpera] = useState<Record<number, boolean>>(() => {
     const base: Record<number, boolean> = {};
     for (const d of dias) base[d.dia] = d.opera;
+    return base;
+  });
+  // A justificativa do dia acima do ANS com Vendas (+20%).
+  const [justificativas, setJustificativas] = useState<Record<number, { motivo: string; texto: string }>>(() => {
+    const base: Record<number, { motivo: string; texto: string }> = {};
+    for (const d of dias) base[d.dia] = { motivo: d.justificativaMotivo ?? "", texto: d.justificativa ?? "" };
     return base;
   });
 
@@ -224,7 +233,8 @@ export function FormDias({
           </thead>
           <tbody className="divide-y divide-slate-100">
             {conta.linhas.map((l) => (
-              <tr key={l.dia} className={faixaDoTipo[l.tipo]}>
+              <Fragment key={l.dia}>
+              <tr className={faixaDoTipo[l.tipo]}>
                 <td className="px-2 py-1">
                   <span className="font-mono text-xs font-semibold tabular-nums text-slate-700">{l.rotulo}</span>
                   <span className="ml-1 text-[11px] uppercase text-slate-400">{l.diaDaSemana}</span>
@@ -259,6 +269,48 @@ export function FormDias({
                   {rotuloDaDispersao(l.dispersao)}
                 </td>
               </tr>
+              {/* ACIMA DO ANS COM VENDAS (+20%): o dia pede motivo. */}
+              {excedeAns(l.dispersao) && (
+                <tr className="bg-red-50">
+                  <td colSpan={5} className="px-2 py-1.5">
+                    <p className="mb-1 text-[11px] font-semibold text-red-800">
+                      ⚠️ {l.rotulo}: acima do ANS com Vendas (+{Math.round(LIMITE_ANS_VENDAS * 100)}% do necessário) — justifique
+                    </p>
+                    <div className="grid grid-cols-1 gap-1 sm:grid-cols-3">
+                      <select
+                        name={`motivo_${l.dia}`}
+                        required
+                        disabled={!podeEditar}
+                        value={justificativas[l.dia]?.motivo ?? ""}
+                        onChange={(e) =>
+                          setJustificativas((j) => ({ ...j, [l.dia]: { motivo: e.target.value, texto: j[l.dia]?.texto ?? "" } }))
+                        }
+                        className="rounded border border-red-200 bg-white px-1.5 py-1 text-xs"
+                      >
+                        <option value="">Motivo (obrigatório)</option>
+                        {MOTIVOS_DIA_ACIMA.map((m) => (
+                          <option key={m} value={m}>
+                            {m}
+                          </option>
+                        ))}
+                      </select>
+                      <input
+                        name={`justificativa_${l.dia}`}
+                        maxLength={300}
+                        required={justificativas[l.dia]?.motivo === "Outro"}
+                        disabled={!podeEditar}
+                        value={justificativas[l.dia]?.texto ?? ""}
+                        onChange={(e) =>
+                          setJustificativas((j) => ({ ...j, [l.dia]: { motivo: j[l.dia]?.motivo ?? "", texto: e.target.value } }))
+                        }
+                        placeholder="Detalhe (ex.: pedido do cliente X combinado com o comercial)"
+                        className="rounded border border-red-200 bg-white px-2 py-1 text-xs sm:col-span-2"
+                      />
+                    </div>
+                  </td>
+                </tr>
+              )}
+              </Fragment>
             ))}
           </tbody>
           <tfoot>
@@ -289,6 +341,9 @@ export function FormDias({
         ))}
         <span className="rounded px-2 py-0.5 font-medium text-emerald-700">▲ acima do necessário</span>
         <span className="rounded px-2 py-0.5 font-medium text-red-700">▼ abaixo do necessário</span>
+        <span className="rounded bg-red-50 px-2 py-0.5 font-medium text-red-800">
+          ⚠️ acima de +{Math.round(LIMITE_ANS_VENDAS * 100)}% (ANS com Vendas) pede justificativa
+        </span>
       </div>
 
       {podeEditar && (

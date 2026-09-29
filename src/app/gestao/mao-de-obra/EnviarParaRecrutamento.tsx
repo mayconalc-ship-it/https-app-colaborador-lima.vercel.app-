@@ -53,7 +53,6 @@ export function EnviarParaRecrutamento({
   const outlook = `https://outlook.office.com/mail/deeplink/compose?to=${encodeURIComponent(para)}&subject=${encodeURIComponent(assunto)}&body=${encodeURIComponent(texto)}`;
   const mailto = `mailto:${destinatarios.join(",")}?subject=${encodeURIComponent(assunto)}&body=${encodeURIComponent(texto)}`;
   const pode = destinatarios.length > 0 && meses.length > 0;
-  const retroativo = data !== hoje;
 
   return (
     <div className="space-y-3">
@@ -137,9 +136,7 @@ export function EnviarParaRecrutamento({
           <p className="w-full text-[11px] text-slate-500">
             {!mesJaComecou
               ? `${rotuloCompetencia(competencia)} ainda não começou: formalize no próprio mês.`
-              : retroativo
-                ? `Registro RETROATIVO: fica gravado como enviado em ${data.split("-").reverse().join("/")}, com a data de hoje como data do registro.`
-                : "Registrar guarda a fotografia dos 3 meses para o comparativo."}
+              : `Fica registrado como enviado em ${data.split("-").reverse().join("/")} e guarda a fotografia dos 3 meses para o comparativo.`}
           </p>
         </form>
       )}
