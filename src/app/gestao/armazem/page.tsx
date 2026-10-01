@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { PageHeader } from "@/components/PageHeader";
 import { ExportarCsv } from "@/components/ExportarCsv";
 import { createClient } from "@/lib/supabase/server";
+import { lerTudo } from "@/lib/ler-tudo";
 import { getRevendaId } from "@/lib/revendas";
 import { requireAcessoArmazem } from "@/lib/produtividade-armazem-server";
 import { podeNoModulo } from "@/lib/require-admin";
@@ -216,6 +217,17 @@ export default async function IndicadoresPage({
   if (!revendaId) redirect(`/?erro=${encodeURIComponent("Você não está em nenhuma revenda.")}`);
 
   const supabase = await createClient();
+
+  /**
+   * TODAS AS LINHAS DO PERÍODO (01/10/2026). O banco devolve no máximo
+   * 1.000 por consulta e não avisa -- com um período largo os totais do
+   * repack, do abastecimento e da carreta saíam menores do que foram, e
+   * as trocas de gás (lidas sem recorte de data) iam parar de chegar as
+   * mais novas. Paginar por `id` deixa a ordem estável entre as páginas.
+   */
+  const tudo = <T,>(montar: (de: number, ate: number) => PromiseLike<{ data: T[] | null; error: unknown }>) =>
+    lerTudo(montar).then((data) => ({ data }));
+
   // Fuso da operação, explícito. Sem o -03:00 o Postgres interpreta a
   // data crua em UTC, e o recorte escorregava 3 horas -- o começo do dia
   // pegava o fim da noite anterior e perdia o fim da noite do próprio dia.
@@ -259,83 +271,111 @@ export default async function IndicadoresPage({
     // somar as duas inflaria "caixas reepackadas" e derrubaria a taxa de
     // cx/h, misturando duas atividades que existem separadas justamente
     // para não serem comparadas com a mesma régua.
-    supabase
-      .from("pa_reepack_lancamentos")
-      // embalagem_id vem gravado no lançamento (vem do produto): é o que
-      // permite acompanhar o Repack por TIPO DE EMBALAGEM, e não só por
-      // produto -- lata 350 e long neck não embalam no mesmo ritmo.
-      .select("produto_id, embalagem_id, colaborador_id, colaborador_nome, turno, quantidade, inicio, fim")
-      .eq("revenda_id", revendaId)
-      .eq("etapa", "repack")
-      .not("fim", "is", null)
-      .gte("inicio", de0)
-      .lte("inicio", ate23),
+    tudo((i, f) =>
+      supabase
+        .from("pa_reepack_lancamentos")
+        // embalagem_id vem gravado no lançamento (vem do produto): é o que
+        // permite acompanhar o Repack por TIPO DE EMBALAGEM, e não só por
+        // produto -- lata 350 e long neck não embalam no mesmo ritmo.
+        .select("produto_id, embalagem_id, colaborador_id, colaborador_nome, turno, quantidade, inicio, fim")
+        .eq("revenda_id", revendaId)
+        .eq("etapa", "repack")
+        .not("fim", "is", null)
+        .gte("inicio", de0)
+        .lte("inicio", ate23)
+        .order("id")
+        .range(i, f),
+    ),
     // Seleção e Triagem: mesma tabela, etapa própria (migration 065).
     // Consulta separada de propósito -- a quantidade dela é em unidades
     // triadas, então somar com as caixas do repack daria um número que
     // não quer dizer nada.
-    supabase
-      .from("pa_reepack_lancamentos")
-      .select("colaborador_id, colaborador_nome, turno, quantidade, inicio, fim")
-      .eq("revenda_id", revendaId)
-      .eq("etapa", "selecao")
-      .not("fim", "is", null)
-      .gte("inicio", de0)
-      .lte("inicio", ate23),
-    supabase
-      .from("pa_despejo_lancamentos")
-      .select("embalagem_despejo_id, colaborador_id, colaborador_nome, turno, litros, inicio, fim")
-      .eq("revenda_id", revendaId)
-      .not("fim", "is", null)
-      .gte("inicio", de0)
-      .lte("inicio", ate23),
+    tudo((i, f) =>
+      supabase
+        .from("pa_reepack_lancamentos")
+        .select("colaborador_id, colaborador_nome, turno, quantidade, inicio, fim")
+        .eq("revenda_id", revendaId)
+        .eq("etapa", "selecao")
+        .not("fim", "is", null)
+        .gte("inicio", de0)
+        .lte("inicio", ate23)
+        .order("id")
+        .range(i, f),
+    ),
+    tudo((i, f) =>
+      supabase
+        .from("pa_despejo_lancamentos")
+        .select("embalagem_despejo_id, colaborador_id, colaborador_nome, turno, litros, inicio, fim")
+        .eq("revenda_id", revendaId)
+        .not("fim", "is", null)
+        .gte("inicio", de0)
+        .lte("inicio", ate23)
+        .order("id")
+        .range(i, f),
+    ),
     // Abastecimento do Picking. Trocou pa_reabastecimentos_picking em
     // 29/08/2026: aquela tabela media "posições", campo opcional que
     // ficou nulo em 100% das sessões -- o picking nunca pontuou de fato.
     // Os itens vêm embutidos para o HL sair na mesma ida ao banco.
-    supabase
-      .from("pa_abastecimentos")
-      .select("id, colaborador_id, colaborador_nome, tipo, turno, inicio, fim, ressuprimento_id, pa_abastecimento_itens(hl_calculado)")
-      .eq("revenda_id", revendaId)
-      .gte("inicio", de0)
-      .lte("inicio", ate23)
-      .not("fim", "is", null),
-    supabase
-      .from("pa_empilhadeira_operacoes")
-      .select(
-        "id, empilhadeira_id, operador_id, operador_nome, horimetro_inicial, foto_inicial_url, inicio, horimetro_final, foto_final_url, fim, encerrado_por_nome, status, pa_empilhadeiras!inner(numero)",
-      )
-      .eq("revenda_id", revendaId)
-      .gte("inicio", de0)
-      .lte("inicio", ate23),
-    supabase
-      // Avaria vem do RECEBIMENTO DE CARRETA, que é o que a operação usa.
-      // Até 28/08/2026 esta consulta lia pa_recebimentos -- o módulo
-      // "Recebimento de Paletes", tirado do menu por estar duplicado.
-      // O indicador ficou congelado em dados velhos daquele módulo e a
-      // carreta conferida no dia nunca aparecia aqui, por estar em outra
-      // tabela. Nenhum filtro de data resolveria.
-      .from("atendimentos_carretas")
-      // Os carimbos de tempo entram aqui para o TMA e as fases saírem na
-      // mesma ida ao banco -- o cálculo mora em lib/carretas.ts.
-      .select(
-        // conferente_* e portaria_* entram para a carreta poder ser
-        // recortada por PESSOA: o TMA de quem atendeu é a pergunta que se
-        // faz de verdade, e sem essas colunas o filtro do bloco não teria
-        // como existir.
-        "id, motorista_nome, pa_transportadoras(nome), atendimento_carretas_itens(quantidade, quantidade_avariada), chegada_em, agendamento_em, carga_agendada, inicio_atendimento_em, inicio_descarga_em, fim_descarga_em, inicio_conferencia_em, fim_conferencia_em, tem_carga, inicio_carga_em, fim_carga_em, finalizacao_em, conferente_colaborador_id, conferente_nome, portaria_colaborador_id, portaria_nome",
-      )
-      .eq("revenda_id", revendaId)
-      .eq("status", "finalizado")
-      .gte("finalizacao_em", de0)
-      .lte("finalizacao_em", ate23),
-    supabase
-      .from("pa_execucoes_5s")
-      .select("id, responsavel_id, responsavel_nome, inicio, fim")
-      .eq("revenda_id", revendaId)
-      .not("fim", "is", null)
-      .gte("inicio", de0)
-      .lte("inicio", ate23),
+    tudo((i, f) =>
+      supabase
+        .from("pa_abastecimentos")
+        .select("id, colaborador_id, colaborador_nome, tipo, turno, inicio, fim, ressuprimento_id, pa_abastecimento_itens(hl_calculado)")
+        .eq("revenda_id", revendaId)
+        .gte("inicio", de0)
+        .lte("inicio", ate23)
+        .not("fim", "is", null)
+        .order("id")
+        .range(i, f),
+    ),
+    tudo((i, f) =>
+      supabase
+        .from("pa_empilhadeira_operacoes")
+        .select(
+          "id, empilhadeira_id, operador_id, operador_nome, horimetro_inicial, foto_inicial_url, inicio, horimetro_final, foto_final_url, fim, encerrado_por_nome, status, pa_empilhadeiras!inner(numero)",
+        )
+        .eq("revenda_id", revendaId)
+        .gte("inicio", de0)
+        .lte("inicio", ate23)
+        .order("id")
+        .range(i, f),
+    ),
+    tudo((i, f) =>
+      supabase
+        // Avaria vem do RECEBIMENTO DE CARRETA, que é o que a operação usa.
+        // Até 28/08/2026 esta consulta lia pa_recebimentos -- o módulo
+        // "Recebimento de Paletes", tirado do menu por estar duplicado.
+        // O indicador ficou congelado em dados velhos daquele módulo e a
+        // carreta conferida no dia nunca aparecia aqui, por estar em outra
+        // tabela. Nenhum filtro de data resolveria.
+        .from("atendimentos_carretas")
+        // Os carimbos de tempo entram aqui para o TMA e as fases saírem na
+        // mesma ida ao banco -- o cálculo mora em lib/carretas.ts.
+        .select(
+          // conferente_* e portaria_* entram para a carreta poder ser
+          // recortada por PESSOA: o TMA de quem atendeu é a pergunta que se
+          // faz de verdade, e sem essas colunas o filtro do bloco não teria
+          // como existir.
+          "id, motorista_nome, pa_transportadoras(nome), atendimento_carretas_itens(quantidade, quantidade_avariada), chegada_em, agendamento_em, carga_agendada, inicio_atendimento_em, inicio_descarga_em, fim_descarga_em, inicio_conferencia_em, fim_conferencia_em, tem_carga, inicio_carga_em, fim_carga_em, finalizacao_em, conferente_colaborador_id, conferente_nome, portaria_colaborador_id, portaria_nome",
+        )
+        .eq("revenda_id", revendaId)
+        .eq("status", "finalizado")
+        .gte("finalizacao_em", de0)
+        .lte("finalizacao_em", ate23)
+        .order("id")
+        .range(i, f),
+    ),
+    tudo((i, f) =>
+      supabase
+        .from("pa_execucoes_5s")
+        .select("id, responsavel_id, responsavel_nome, inicio, fim")
+        .eq("revenda_id", revendaId)
+        .not("fim", "is", null)
+        .gte("inicio", de0)
+        .lte("inicio", ate23)
+        .order("id")
+        .range(i, f),
+    ),
     // A meta de TMA é cadastrada no Admin -- é a régua da operação, não um
     // limiar escrito aqui.
     supabase
@@ -347,11 +387,15 @@ export default async function IndicadoresPage({
     // SEM recorte de data de propósito -- um ciclo vai de uma troca até a
     // seguinte, e cortar no início do período jogaria fora a troca
     // anterior, que é o ponto de partida do primeiro ciclo.
-    supabase
-      .from("pa_empilhadeira_trocas_gas")
-      .select("id, empilhadeira_id, operador_id, operador_nome, horimetro, realizada_em")
-      .eq("revenda_id", revendaId)
-      .order("realizada_em", { ascending: true }),
+    tudo((i, f) =>
+      supabase
+        .from("pa_empilhadeira_trocas_gas")
+        .select("id, empilhadeira_id, operador_id, operador_nome, horimetro, realizada_em")
+        .eq("revenda_id", revendaId)
+        .order("realizada_em", { ascending: true })
+        .order("id")
+        .range(i, f),
+    ),
     supabase
       .from("pa_empilhadeira_config")
       .select("custo_p20")
@@ -365,28 +409,36 @@ export default async function IndicadoresPage({
     // Bate palete: o lote batido e quanto dele estava avariado. O
     // percentual sai da soma dos dois -- nunca da media de percentuais,
     // que trataria um lote de 2 HL igual a um de 200.
-    supabase
-      .from("pa_bate_palete")
-      .select("id, colaborador_id, colaborador_nome, turno, inicio, fim, pa_bate_palete_itens(produto_id, paletes, hl_batido, hl_avariado)")
-      .eq("revenda_id", revendaId)
-      .not("fim", "is", null)
-      .gte("inicio", de0)
-      .lte("inicio", ate23),
+    tudo((i, f) =>
+      supabase
+        .from("pa_bate_palete")
+        .select("id, colaborador_id, colaborador_nome, turno, inicio, fim, pa_bate_palete_itens(produto_id, paletes, hl_batido, hl_avariado)")
+        .eq("revenda_id", revendaId)
+        .not("fim", "is", null)
+        .gte("inicio", de0)
+        .lte("inicio", ate23)
+        .order("id")
+        .range(i, f),
+    ),
     // Ressuprimento: o pedido, o transporte e o abastecimento. O que
     // interessa aqui não é o volume -- esse já está no bloco do
     // Abastecimento -- é o TEMPO ENTRE os três, que é onde a operação
     // espera e onde nada era medido até 02/09/2026.
-    supabase
-      .from("pa_ressuprimentos")
-      .select(
-        // colaborador_id do abastecimento entra para o filtro de AJUDANTE
-        // existir: sem ele só dava para recortar por quem pediu ou por
-        // quem transportou, e o ajudante é o terceiro do trio.
-        "id, criado_em, solicitante_id, solicitante_nome, prioridade, tipo, operador_id, operador_nome, transporte_inicio, cancelado_em, pa_ressuprimento_itens(id, produto_id, unidade, quantidade, hl_calculado, entregue_em), pa_abastecimentos(inicio, fim, colaborador_id, colaborador_nome)",
-      )
-      .eq("revenda_id", revendaId)
-      .gte("criado_em", de0)
-      .lte("criado_em", ate23),
+    tudo((i, f) =>
+      supabase
+        .from("pa_ressuprimentos")
+        .select(
+          // colaborador_id do abastecimento entra para o filtro de AJUDANTE
+          // existir: sem ele só dava para recortar por quem pediu ou por
+          // quem transportou, e o ajudante é o terceiro do trio.
+          "id, criado_em, solicitante_id, solicitante_nome, prioridade, tipo, operador_id, operador_nome, transporte_inicio, cancelado_em, pa_ressuprimento_itens(id, produto_id, unidade, quantidade, hl_calculado, entregue_em), pa_abastecimentos(inicio, fim, colaborador_id, colaborador_nome)",
+        )
+        .eq("revenda_id", revendaId)
+        .gte("criado_em", de0)
+        .lte("criado_em", ate23)
+        .order("id")
+        .range(i, f),
+    ),
     // O último esvaziamento da bombona (migration 110). SEM recorte de
     // data de propósito: a bombona é um recipiente físico, e o que
     // interessa é o último esvaziamento que existe -- pode ser de antes
@@ -420,14 +472,19 @@ export default async function IndicadoresPage({
   const ultimoEsvaziamento = ultimoEsvaziamentoBanco as
     | { id: string; esvaziada_em: string; colaborador_nome: string }
     | null;
-  const consultaBombona = supabase
-    .from("pa_despejo_lancamentos")
-    .select("litros")
-    .eq("revenda_id", revendaId)
-    .not("fim", "is", null);
-  const { data: litrosNaBombonaBanco } = await (ultimoEsvaziamento
-    ? consultaBombona.gte("inicio", ultimoEsvaziamento.esvaziada_em)
-    : consultaBombona);
+  const { data: litrosNaBombonaBanco } = await tudo((i, f) => {
+    const consultaBombona = supabase
+      .from("pa_despejo_lancamentos")
+      .select("litros")
+      .eq("revenda_id", revendaId)
+      .not("fim", "is", null);
+    return (ultimoEsvaziamento
+      ? consultaBombona.gte("inicio", ultimoEsvaziamento.esvaziada_em)
+      : consultaBombona
+    )
+      .order("id")
+      .range(i, f);
+  });
   const litrosNaBombona =
     Math.round(
       ((litrosNaBombonaBanco ?? []) as { litros: number }[]).reduce((s, l) => s + Number(l.litros), 0) * 10,

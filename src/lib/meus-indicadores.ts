@@ -55,7 +55,8 @@ export function paraNumero(bruto: string | null): number | null {
   let normalizado: string;
   if (limpo.includes(",")) {
     normalizado = limpo.replace(/\./g, "").replace(",", ".");
-  } else if (/^-?\d{1,3}(\.\d{3})+$/.test(limpo)) {
+  } else if (/^-?[1-9]\d{0,2}(\.\d{3})+$/.test(limpo)) {
+    // Começar com zero nunca é milhar: "0.025" é 2,5%, não 25.
     normalizado = limpo.replace(/\./g, "");
   } else {
     normalizado = limpo;

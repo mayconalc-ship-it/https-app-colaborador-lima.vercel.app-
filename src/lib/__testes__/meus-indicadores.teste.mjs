@@ -43,6 +43,12 @@ eq("tira o sinal de porcento", paraNumero("1,23%"), 1.23);
 eq("milhar duplo", paraNumero("1.234.567,89"), 1234567.89);
 eq("texto nao numerico vira nulo", paraNumero("abc"), null);
 eq("vazio vira nulo", paraNumero(""), null);
+// O Excel entrega o número cru: 2,5% de devolução vem como 0.025 (ou
+// "0,025" depois de lerXlsx). Nenhum dos dois pode virar 25%.
+eq("zero na frente nunca e milhar", paraNumero("0.025"), 0.025);
+eq("fracao vira percentual", formatarCampo("0.025", "percentual"), "2,50%");
+eq("fracao com virgula (lerXlsx)", formatarCampo("0,025", "percentual"), "2,50%");
+eq("caixas com 3 casas (lerXlsx)", paraNumero("512,125"), 512.125);
 eq("nulo vira nulo", paraNumero(null), null);
 
 console.log("\n== FORMATAR PARA A TELA ==");
