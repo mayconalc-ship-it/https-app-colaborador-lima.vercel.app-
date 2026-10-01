@@ -18,6 +18,7 @@ import {
   type Senso,
   type StatusNC,
 } from "@/lib/cinco-s";
+import { CampoFoto } from "@/components/CampoFoto";
 
 /**
  * Uma ação do plano, com a tratativa embutida.
@@ -302,8 +303,7 @@ export function CartaoAcao({
                 <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-400">
                   Foto da solução
                 </label>
-                <input
-                  type="file"
+                <CampoFoto
                   name="evidencia"
                   accept="image/*"
                   capture="environment"

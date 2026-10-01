@@ -6,6 +6,7 @@ import { SeletorDePessoa } from "@/components/admin/SeletorDePessoa";
 import { ROTULO_TURNO, TURNOS, type Turno } from "@/lib/produtividade-armazem";
 import { ROTULO_UNIDADE_WQI, UNIDADES_WQI, type ItemCatalogoWqi } from "@/lib/wqi";
 import { buscarProdutosWqi, buscarResponsaveisWqi, registrarBaixaWqi } from "./actions";
+import { CampoFoto } from "@/components/CampoFoto";
 
 const campo =
   "w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-base text-slate-900 focus:border-primary focus:outline-none";
@@ -127,7 +128,7 @@ export function FormBaixaWqi({
       <div className={cartao}>
         <div>
           <label className={rotulo} htmlFor="foto">Foto da evidência (opcional)</label>
-          <input id="foto" name="foto" type="file" accept="image/*" capture="environment" className={campo} />
+          <CampoFoto id="foto" name="foto" accept="image/*" capture="environment" className={campo} />
         </div>
         <div>
           <label className={rotulo} htmlFor="observacao">Observação (opcional)</label>

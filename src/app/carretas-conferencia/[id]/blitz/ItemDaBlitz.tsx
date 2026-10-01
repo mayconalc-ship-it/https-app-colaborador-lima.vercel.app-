@@ -4,6 +4,7 @@ import { useTransition } from "react";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
 import { FotoEvidencia } from "@/components/FotoEvidencia";
 import { responderItem } from "./actions";
+import { CampoFoto } from "@/components/CampoFoto";
 
 export type ItemChecklist = {
   id: string;
@@ -136,8 +137,7 @@ export function ItemDaBlitz({
           <label className="block text-xs font-semibold text-red-700">
             Foto da não conformidade {!jaTemFoto && "— obrigatória"}
           </label>
-          <input
-            type="file"
+          <CampoFoto
             name="foto"
             accept="image/*"
             // Abre a câmera direto no celular: a evidência é tirada ali, na

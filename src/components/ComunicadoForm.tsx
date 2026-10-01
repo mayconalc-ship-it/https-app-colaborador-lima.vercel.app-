@@ -9,6 +9,7 @@ import {
   type Editoria,
 } from "@/lib/comunicados";
 import { AREAS } from "@/lib/areas";
+import { CampoFoto } from "@/components/CampoFoto";
 
 type Comunicado = {
   id: number;
@@ -275,10 +276,9 @@ export function ComunicadoForm({
         >
           Foto {comunicado?.imagem_url && "(mantém a atual)"}
         </label>
-        <input
+        <CampoFoto
           id="imagem"
           name="imagem"
-          type="file"
           accept=".png,.jpg,.jpeg"
           className="w-full rounded-xl border border-slate-200 p-2 text-sm"
         />
