@@ -75,5 +75,21 @@ ok("prazo crítico em 30 dias", prazoSugerido("2026-10-02", true) === "2026-11-0
 ok("prazo comum em 90 dias", prazoSugerido("2026-10-02", false) === "2026-12-31");
 ok("cores da nota", tomDaNota(0.93) === "bom" && tomDaNota(0.75) === "atencao" && tomDaNota(0.5) === "ruim" && tomDaNota(null) === "neutro");
 
+console.log("== HISTÓRICO 2025 IMPORTADO (migration 158) ==");
+const sql = readFileSync(new URL("../../../supabase/migrations/158_historico_manutencao_barreiras_2025.sql", import.meta.url), "utf8");
+const doSql = [...sql.matchAll(/^\s+\((\d), '(\d+\.\d+)', (null|\d), (true|false), /gm)].map((m) => ({
+  t: Number(m[1]) - 1, numero: m[2], nota: m[3] === "null" ? null : Number(m[3]), na: m[4] === "true",
+}));
+ok("144 respostas (36 itens x 4)", doSql.length === 144);
+const divergentes = doSql.filter((r) => {
+  const v = itens.find((i) => i.numero === r.numero)?.t[r.t];
+  return r.na ? v !== "N/A" : v !== r.nota;
+});
+ok("cada nota igual à da planilha", divergentes.length === 0, divergentes.slice(0, 3).map((r) => `${r.numero} T${r.t + 1}`).join(", "));
+for (let t = 0; t < 4; t++) {
+  const r = calcularNotas(itens, doSql.filter((x) => x.t === t).map((x) => ({ itemId: x.numero, nota: x.nota, na: x.na })));
+  ok(`2025 T${t + 1}: o app recalcula ${formatarPct(r.total)}`, perto(r.total, alvos.total[t]));
+}
+
 console.log(falhas === 0 ? "\nTudo certo." : `\n${falhas} falha(s).`);
 if (falhas > 0) process.exit(1);
