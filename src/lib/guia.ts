@@ -627,6 +627,48 @@ export const GUIAS: Guia[] = [
     relacionados: ["informar-quebra-fefo"],
   },
   {
+    slug: "fazer-check-manutencao",
+    titulo: "Fazer o Check de Manutenção do trimestre",
+    emoji: "🛠️",
+    categoria: "armazem",
+    resumo: "Para o time da manutenção: avaliar os 36 itens do checklist da Ambev, com fotos, uma vez por trimestre.",
+    exige: [["manutencao", "ver"]],
+    palavras: ["manutenção", "manutencao", "checklist", "dpo", "2.2", "instalações", "instalacoes", "trimestre", "auditoria", "predial"],
+    passos: [
+      {
+        texto: "Na tela inicial, toque em **Check de Manutenção**.",
+        dica: "Não aparece o cartão? O módulo é só do time da manutenção e precisa ser liberado pelo Admin.",
+      },
+      {
+        texto: "No cartão **Trimestre atual**, toque em **▶️ Iniciar a avaliação** (ou em **Continuar a avaliação →** se ela já começou).",
+        dica: "É uma avaliação por trimestre. Dá para fazer em mais de um dia: cada item salva sozinho.",
+      },
+      {
+        texto: "Em cada item, leia **🔎 Como verificar** e escolha a nota: **3**, **1**, **0** ou **N/A** (não se aplica).",
+        dica: "Ao escolher, aparece o critério da planilha da Ambev para aquela nota.",
+      },
+      {
+        texto: "Tire as **📷 Fotos da condição atual** — até 4 por item.",
+        dica: "Compare com a foto do trimestre anterior, que aparece no próprio item. A foto é reduzida sozinha: fica leve e nítida.",
+      },
+      {
+        texto: "Nota **1** ou **0**? Preencha o **📋 Plano de ação**: o que vai ser feito, o **Responsável** e o **Prazo**.",
+        dica: "Item crítico pede reparo em curto prazo ou CAPEX emergencial: o prazo já vem sugerido para 30 dias.",
+      },
+      { texto: "Toque em **Salvar item**. O aviso de salvo aparece no rodapé e a tela não sai do lugar." },
+      {
+        texto: "Use os filtros do topo — **Pendentes** e **Abaixo de 3** — para achar o que falta.",
+      },
+      { texto: "Com os 36 itens respondidos, desça até **Terminou a ronda?** e toque em **✅ Finalizar**." },
+    ],
+    atencao: [
+      "Depois de finalizada, a avaliação fica travada. Para corrigir, a liderança com permissão toca em **↩️ Reabrir para correção**.",
+      "Para mostrar a evolução à auditoria: no painel, a tabela **📈 Evolução por seção** compara os trimestres; em cada item, **📈 Evolução** mostra todas as fotos, trimestre a trimestre.",
+      "Trimestre que passou sem avaliação aparece em vermelho no painel: o DPO cobra no mínimo uma por trimestre.",
+    ],
+    tela: { href: "/manutencao", rotulo: "Abrir o Check de Manutenção" },
+  },
+  {
     slug: "cadastrar-produto-armazem",
     titulo: "Cadastrar produto do armazém",
     emoji: "🏷️",
