@@ -56,7 +56,7 @@ export default async function GuiaPage({ searchParams }: { searchParams: Promise
 
       <div className="space-y-6">
         {porCategoria.map((c) => (
-          <section key={c.id}>
+          <section key={c.id} id={c.id} className="scroll-mt-4">
             <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">
               {c.emoji} {c.titulo}
             </h2>
