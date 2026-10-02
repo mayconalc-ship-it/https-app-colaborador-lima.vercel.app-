@@ -46,7 +46,18 @@ export async function lerXlsx(buffer: ArrayBuffer): Promise<string[][]> {
 function textoDaCelula(valor: ExcelJS.CellValue): string {
   if (valor === null || valor === undefined) return "";
   if (typeof valor === "string") return valor.trim();
-  if (typeof valor === "number" || typeof valor === "boolean") {
+  /*
+    NÚMERO SAI COM VÍRGULA (01/10/2026). String(0.025) dá "0.025", e o
+    leitor de número do app entende "ponto + 3 dígitos" como milhar: a
+    devolução de 2,5% aparecia como 25,00% em Meus Indicadores, e 512,125
+    caixas viravam 512.125. Com a vírgula não há dúvida -- é sempre o
+    decimal, nos dois leitores (formatar e meus-indicadores). Inteiro não
+    muda: o CPF continua só com dígitos.
+  */
+  if (typeof valor === "number") {
+    return String(valor).replace(".", ",");
+  }
+  if (typeof valor === "boolean") {
     return String(valor);
   }
   if (valor instanceof Date) {

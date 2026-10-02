@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { avaliarHorimetro, formatarNumeroBr } from "@/lib/empilhadeira-gas";
+import { CampoFoto } from "@/components/CampoFoto";
 
 const campo =
   "w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-base text-slate-900 focus:border-primary focus:outline-none";
@@ -60,10 +61,9 @@ export function CampoHorimetroComFoto({
         <label className={rotulo} htmlFor={idFoto}>
           {labelFoto}
         </label>
-        <input
+        <CampoFoto
           id={idFoto}
           name={nomeFoto}
-          type="file"
           accept="image/*"
           capture="environment"
           required

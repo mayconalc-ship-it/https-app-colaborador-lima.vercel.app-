@@ -5,6 +5,7 @@ import { exigirTelaDeAcessos } from "@/lib/gestao-de-acessos-server";
 import { MODULO_ACESSOS } from "@/lib/gestao-de-acessos";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { PageHeader } from "@/components/PageHeader";
+import { LinkDoGuia } from "@/components/LinkDoGuia";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
 import { AbasDeAcesso, type AbaDeAcesso } from "@/components/admin/AbasDeAcesso";
 import { FormDoPapel } from "@/components/admin/FormDoPapel";
@@ -729,6 +730,8 @@ export default async function GestaoDeAcessosPage({
           explicando onde cada coisa ficava -- e o dono continuou sem achar
           o que procurava. Explicação some quando a estrutura resolve. */}
       <AbasDeAcesso atual={abaAtual} revendaId={escolhida.id} mostrarPerfis={mostrarPerfis} />
+
+      <LinkDoGuia slug="tornar-lideranca" className="mb-4" />
 
       {/* A revenda que está sendo configurada. Fica no topo porque muda o
           sentido de tudo o que vem abaixo. */}

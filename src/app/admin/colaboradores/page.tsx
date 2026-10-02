@@ -4,6 +4,7 @@ import { getRevendaAtiva } from "@/lib/revendas";
 import { ehOwner } from "@/lib/acessos";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { PageHeader } from "@/components/PageHeader";
+import { LinkDoGuia } from "@/components/LinkDoGuia";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
 import { ColaboradorItem } from "@/components/ColaboradorItem";
 import { CampoComNovaOpcao } from "@/components/CampoComNovaOpcao";
@@ -183,6 +184,11 @@ export default async function AdminColaboradoresPage({
             : `${total} cadastrados no app`
         }
       />
+
+      <div className="mb-4 flex flex-wrap gap-2">
+        <LinkDoGuia slug="cadastrar-colaborador" />
+        <LinkDoGuia slug="tornar-lideranca" />
+      </div>
 
       {erro && (
         <p className="mb-3 rounded-lg bg-red-50 p-3 text-sm text-red-700">

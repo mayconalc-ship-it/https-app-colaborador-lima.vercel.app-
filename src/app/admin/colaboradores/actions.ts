@@ -34,6 +34,50 @@ function voltar(params: Record<string, string>): never {
 
 type Admin = ReturnType<typeof createAdminClient>;
 
+/**
+ * A PESSOA É DESTA REVENDA? (01/10/2026)
+ *
+ * A permissão de liderança vale na revenda ATIVA (requireModulo), mas o
+ * id do colaborador chega do formulário -- e nada conferia de quem ele
+ * era. Uma liderança de Barreiras com "editar" que mandasse o id de
+ * alguém de São Félix editava, excluía e até redefinia a senha dessa
+ * pessoa. E do Admin: senha do Admin na senha padrão é a conta do Admin
+ * na mão de quem pediu.
+ *
+ * O dono passa direto -- ele administra todas as revendas. Para os
+ * demais, o alvo precisa estar vinculado à revenda ativa e nunca pode ser
+ * o Admin. Devolve as revendas do alvo para quem precisa decidir entre
+ * "tirar desta revenda" e "remover do app".
+ */
+async function exigirAlvoDaRevenda(
+  admin: Admin,
+  eu: { role: string },
+  id: string,
+  extra: Record<string, string> = {},
+): Promise<{ role: string; revendas: string[]; revendaId: string }> {
+  const revendaId = await exigirRevenda("/admin/colaboradores");
+
+  const [{ data: alvo }, { data: vinculos }] = await Promise.all([
+    admin.from("profiles").select("role").eq("id", id).maybeSingle(),
+    admin.from("colaborador_revendas").select("revenda_id").eq("colaborador_id", id),
+  ]);
+  if (!alvo) voltar({ erro: "Colaborador não encontrado", ...extra });
+
+  const revendas = (vinculos ?? []).map((v) => v.revenda_id as string);
+  if (ehOwner(eu.role)) return { role: alvo.role, revendas, revendaId };
+
+  if (ehOwner(alvo.role)) {
+    voltar({ erro: "O Admin do app não pode ser alterado aqui", ...extra });
+  }
+  if (!revendas.includes(revendaId)) {
+    voltar({
+      erro: "Essa pessoa não é da revenda em que você está. Troque de revenda no topo da tela para mexer no cadastro dela.",
+      ...extra,
+    });
+  }
+  return { role: alvo.role, revendas, revendaId };
+}
+
 type DadosDoColaborador = {
   nome: string;
   cpf: string;
@@ -434,6 +478,8 @@ export async function atualizarColaborador(formData: FormData) {
   if (!area) voltar({ erro: "A área não pode ficar vazia", ...(busca ? { busca } : {}) });
 
   const admin = createAdminClient();
+  await exigirAlvoDaRevenda(admin, eu, id, busca ? { busca } : {});
+
   const { error } = await admin
     .from("profiles")
     .update({
@@ -488,6 +534,37 @@ export async function excluirColaborador(formData: FormData) {
   }
 
   const admin = createAdminClient();
+  const alvo = await exigirAlvoDaRevenda(admin, usuarioAtual, id, busca ? { busca } : {});
+
+  // QUEM ESTÁ EM OUTRA REVENDA TAMBÉM SAI SÓ DESTA (01/10/2026). A
+  // liderança responde pela revenda em que está; apagar a conta tirava a
+  // pessoa da outra unidade junto, sem ninguém de lá ter decidido isso.
+  // O dono segue removendo do app -- os vínculos ele ajusta na ficha.
+  const outras = alvo.revendas.filter((r) => r !== alvo.revendaId);
+  if (!ehOwner(usuarioAtual.role) && outras.length > 0) {
+    const { data: saindo } = await admin
+      .from("colaborador_revendas")
+      .delete()
+      .eq("colaborador_id", id)
+      .eq("revenda_id", alvo.revendaId)
+      .select("principal");
+    await Promise.all([
+      admin.from("lideranca_permissoes").delete().eq("colaborador_id", id).eq("revenda_id", alvo.revendaId),
+      admin.from("colaborador_modulos_extra").delete().eq("colaborador_id", id).eq("revenda_id", alvo.revendaId),
+    ]);
+    // Era a principal: outra assume, para o login não cair em revenda nenhuma.
+    if (saindo?.some((v) => v.principal)) {
+      await admin
+        .from("colaborador_revendas")
+        .update({ principal: true })
+        .eq("colaborador_id", id)
+        .eq("revenda_id", outras[0]);
+    }
+    voltar({
+      sucesso: `${nome} saiu desta revenda. O acesso às outras unidades continua.`,
+      ...(busca ? { busca } : {}),
+    });
+  }
 
   // Apaga o perfil antes do acesso: se algo falhar no meio, sobra um acesso
   // sem perfil, que o app já trata mostrando "sessão não reconhecida".
@@ -545,6 +622,7 @@ export async function promoverColaborador(formData: FormData) {
   }
 
   const admin = createAdminClient();
+  await exigirAlvoDaRevenda(admin, eu, id, extra);
 
   const { data: alvo } = await admin
     .from("profiles")
@@ -700,7 +778,7 @@ async function aplicarVinculos(dados: {
 }
 
 export async function redefinirSenha(formData: FormData) {
-  await requireModulo("colaboradores", "editar");
+  const eu = await requireModulo("colaboradores", "editar");
 
   const id = formData.get("id") as string;
   const nome = (formData.get("nome") as string) || "Colaborador";
@@ -709,6 +787,9 @@ export async function redefinirSenha(formData: FormData) {
   if (!id) redirect("/admin/colaboradores?erro=Colaborador+invalido");
 
   const admin = createAdminClient();
+  // A senha padrão é conhecida de todos: redefinir a de quem não é desta
+  // revenda -- ou a do Admin -- é entregar a conta a quem pediu.
+  await exigirAlvoDaRevenda(admin, eu, id, busca ? { busca } : {});
 
   // Volta para a senha padrao e desmarca a troca, obrigando o colaborador
   // a definir uma senha nova no proximo acesso.

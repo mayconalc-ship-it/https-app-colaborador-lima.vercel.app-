@@ -21,6 +21,7 @@ import {
   type RespostaSalva,
   type Senso,
 } from "@/lib/cinco-s";
+import { CampoFoto } from "@/components/CampoFoto";
 
 /**
  * O checklist 5S, feito para ser respondido andando pela área com o
@@ -622,8 +623,7 @@ function ItemPergunta({
 
           {!somenteLeitura && (
             <div className="flex items-center gap-2">
-              <input
-                type="file"
+              <CampoFoto
                 name="foto"
                 accept="image/*"
                 // capture abre a câmera direto no celular, em vez da

@@ -14,6 +14,7 @@ import {
   type RuaFefo,
 } from "@/lib/fefo";
 import { buscarProdutosFefo, registrarQuebraFefo } from "./actions";
+import { CampoFoto } from "@/components/CampoFoto";
 
 const campo =
   "w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-base text-slate-900 focus:border-primary focus:outline-none";
@@ -276,7 +277,7 @@ export function FormQuebraFefo({
       <div className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
         <div>
           <label className={rotulo} htmlFor="foto">Foto (opcional)</label>
-          <input id="foto" name="foto" type="file" accept="image/*" capture="environment" className={campo} />
+          <CampoFoto id="foto" name="foto" accept="image/*" capture="environment" className={campo} />
         </div>
         <div>
           <label className={rotulo} htmlFor="observacao">Observação (opcional)</label>

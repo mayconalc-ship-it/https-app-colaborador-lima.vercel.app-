@@ -2,6 +2,7 @@ import Link from "next/link";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
 import { CAMPOS_DA_PRATICA, LIMITES, type DadosDaPratica } from "@/lib/boas-praticas";
 import { editarPratica, enviarPratica } from "./actions";
+import { CampoFoto } from "@/components/CampoFoto";
 
 const campo =
   "w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-base text-slate-900 focus:border-primary focus:outline-none";
@@ -60,7 +61,7 @@ export function FormPratica({ pratica }: { pratica?: DadosDaPratica & { id: stri
           <label className={rotulo} htmlFor="foto">
             Foto (opcional)
           </label>
-          <input id="foto" name="foto" type="file" accept="image/*" capture="environment" className={campo} />
+          <CampoFoto id="foto" name="foto" accept="image/*" capture="environment" className={campo} />
           <p className="mt-1 text-xs text-slate-400">
             {editando
               ? "Envie uma foto só se quiser trocar a atual."

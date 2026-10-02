@@ -90,6 +90,14 @@ export const BLOCOS_DO_MENU = [
     subtitulo: "Desafio, ranking e boas práticas",
     chaves: ["quiz", "ranking", "boas-praticas"],
   },
+  // O guia "Como Fazer" (02/10/2026): por último, porque é a porta de
+  // quem travou -- não é o que a pessoa abre todo dia.
+  {
+    id: "ajuda",
+    titulo: "Ajuda",
+    subtitulo: "O passo a passo de cada tarefa no app",
+    chaves: ["guia"],
+  },
 ] as const;
 
 export type BlocoDoMenu = (typeof BLOCOS_DO_MENU)[number];
@@ -220,6 +228,9 @@ export const MENU_PADRAO: ItemMenu[] = [
   { chave: "meus-indicadores", titulo: "Meus Indicadores", emoji: "📊", href: "/meus-indicadores", ordem: 14, visivel: true },
   // Programa de Boas Práticas (15/09/2026): sugerir e votar.
   { chave: "boas-praticas", titulo: "Boas Práticas", emoji: "💡", href: "/boas-praticas", ordem: 15, visivel: true },
+  // Guia "Como Fazer" (02/10/2026): de todo mundo, sem módulo -- cada
+  // pessoa vê lá dentro só os guias das telas que ela consegue abrir.
+  { chave: "guia", titulo: "Como Fazer", emoji: "❓", href: "/guia", ordem: 18, visivel: true },
   // "Minha Conta" fica oculto: já existe o botão "Conta" no topo de todas as
   // telas, e repetir ocupava espaço da grade sem acrescentar nada.
   { chave: "conta", titulo: "Minha Conta", emoji: "🔒", href: "/minha-conta", ordem: 9, visivel: false },
