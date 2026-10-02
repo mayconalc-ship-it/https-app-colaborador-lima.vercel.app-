@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { PageHeader } from "@/components/PageHeader";
+import { LinkDoGuia } from "@/components/LinkDoGuia";
 import { ExportarCsv } from "@/components/ExportarCsv";
 import { FiltroNoLugar } from "@/components/FiltroNoLugar";
 import { formatarReais } from "@/lib/qr-contingencia";
@@ -199,6 +200,8 @@ export function PainelComprovantes({
         subtitle="A conciliação dos PIX da contingência com o extrato, mapa a mapa."
         fecharHref="/gestao"
       />
+
+      <LinkDoGuia slug="conferir-comprovantes" className="mb-4" />
 
       {/* ---- FILTRO, no padrão das telas da Gestão ---- */}
       <FiltroNoLugar className="mb-5 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">

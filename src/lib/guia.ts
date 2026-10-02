@@ -26,6 +26,7 @@ export type Passo = {
 
 export type CategoriaDoGuia =
   | "primeiros-passos"
+  | "entrega"
   | "armazem"
   | "ativo-giro"
   | "cinco-s"
@@ -35,6 +36,7 @@ export type CategoriaDoGuia =
 
 export const CATEGORIAS_DO_GUIA: { id: CategoriaDoGuia; titulo: string; emoji: string }[] = [
   { id: "primeiros-passos", titulo: "Primeiros passos", emoji: "🚀" },
+  { id: "entrega", titulo: "Rota e entrega", emoji: "🚚" },
   { id: "armazem", titulo: "Produtividade do Armazém", emoji: "🏭" },
   { id: "ativo-giro", titulo: "Ativo de Giro", emoji: "📦" },
   { id: "cinco-s", titulo: "Programa 5S", emoji: "🧹" },
@@ -177,6 +179,168 @@ export const GUIAS: Guia[] = [
     atencao: [
       "Tudo o que você vê e grava depois disso é da revenda escolhida — inclusive as permissões de liderança, que são separadas em cada unidade.",
     ],
+  },
+
+  /* ------------------------------------------------------------------ */
+  /* Rota e entrega                                                      */
+  /* ------------------------------------------------------------------ */
+  {
+    slug: "consultar-minha-rota",
+    titulo: "Consultar a minha rota (pré-rota)",
+    emoji: "🚚",
+    categoria: "entrega",
+    resumo: "Ver veículo, caixas, ocupação, cidades e clientes do mapa antes de sair.",
+    exige: [["rotas", "ver"]],
+    palavras: ["rota", "pré-rota", "pre-rota", "mapa", "motorista", "ajudante", "clientes", "ocupação", "ocupacao", "caixas"],
+    passos: [
+      {
+        texto: "Na tela inicial, toque em **Minha Rota**.",
+        dica: "Não aparece o cartão? O módulo ainda não foi liberado para você. Fale com a sua liderança.",
+      },
+      {
+        texto: "Em **🔢 Número do mapa**, digite o número e toque em **Consultar rota**.",
+        dica: "Pode digitar com ou sem os zeros da frente.",
+      },
+      {
+        texto: "Confira o **Veículo**, o **Motorista** e as **📦 Caixas por viagem**.",
+        dica: "As cores comparam com a meta: 🟢 na meta, 🟡 quase lá (de 85% da meta para cima), 🔴 abaixo.",
+      },
+      {
+        texto: "Em **🏙️ Cidades e clientes**, toque numa cidade para ver os clientes, com bairro, endereço e telefone.",
+        dica: "Do telefone, dá para chamar o cliente direto no **WhatsApp**.",
+      },
+      { texto: "Para mandar a pré-rota para alguém, toque em **📤 Compartilhar Pré-rota**. Para ver outro mapa, toque em **Trocar**." },
+    ],
+    atencao: [
+      "Alguma coisa não bate com o que você vai carregar? Procure a liderança **antes de sair**.",
+      "A consulta precisa de internet. Sem sinal, o app avisa: tente de novo quando voltar.",
+      "Não achou o mapa? Confira o número. Se estiver certo, a pré-rota ainda não foi atualizada: avise a liderança.",
+    ],
+    tela: { href: "/minha-rota", rotulo: "Abrir Minha Rota" },
+    relacionados: ["registrar-comprovante"],
+  },
+  {
+    slug: "registrar-comprovante",
+    titulo: "Registrar o comprovante de um PIX",
+    emoji: "📲",
+    categoria: "entrega",
+    resumo: "Quando o cliente paga pelo PIX da empresa: passar a chave e registrar o comprovante.",
+    exige: [["qr-contingencia", "ver"]],
+    palavras: ["pix", "pagamento", "comprovante", "contingência", "contingencia", "cnpj", "chave", "nota fiscal", "nf", "cliente"],
+    passos: [
+      { texto: "Na tela inicial, toque em **Comprovante de Pagamento**." },
+      { texto: "Em **Qual cliente vai pagar?**, digite o **Número do mapa** e toque em **Buscar**." },
+      {
+        texto: "Ache o cliente na lista ou em **Procurar cliente** (nome, código ou bairro) e toque nele.",
+        dica: "Não está na lista? Use **✍️ Cliente não está na lista? Informar o código**.",
+      },
+      {
+        texto: "Em **PIX pela chave CNPJ**, mostre ao cliente: no app do banco ele escolhe **PIX → Pagar com chave**, tipo **CNPJ**, e digita a chave.",
+        dica: "Toque em **📋 Copiar a chave (CNPJ)** para mandar a chave por mensagem. Peça para o cliente conferir o nome do favorecido antes de confirmar.",
+      },
+      { texto: "Pago? Em **Fotos do comprovante**, toque em **📷 Tirar foto** (ou **🖼️ Da galeria**)." },
+      {
+        texto: "Preencha o **Valor pago** e a **Nota fiscal (NF)** — uma ou mais. Se quiser, escreva uma **Observação**.",
+        dica: "O valor entra como no app do banco: os números vão para os centavos (1-5-2-4-0 = R$ 152,40).",
+      },
+      { texto: "Toque em **Enviar comprovante**. Ele aparece em **Comprovantes de hoje**." },
+    ],
+    atencao: [
+      "Sem internet? O botão vira **Guardar no celular (sem internet)**. O comprovante fica em **⏳ Aguardando envio**: quando o sinal voltar, toque em **Enviar agora**. Não limpe os dados do app antes disso.",
+      "Errou o valor ou a NF? Em **Comprovantes de hoje**, toque em **✏️ Editar** e depois em **Salvar alterações**.",
+      "Motorista e ajudante do mesmo mapa veem os mesmos comprovantes — não registre duas vezes.",
+    ],
+    tela: { href: "/qr-contingencia", rotulo: "Abrir Comprovante de Pagamento" },
+    relacionados: ["consultar-minha-rota", "conferir-comprovantes"],
+  },
+  {
+    slug: "conferir-comprovantes",
+    titulo: "Conferir os comprovantes com o extrato",
+    emoji: "🧾",
+    categoria: "entrega",
+    resumo: "Para a liderança e o financeiro: bater cada PIX com o extrato, mapa a mapa.",
+    exige: [
+      ["qr-contingencia", "criar"],
+      ["qr-contingencia", "editar"],
+    ],
+    palavras: ["conciliação", "conciliacao", "extrato", "pix", "financeiro", "divergência", "divergencia", "comprovantes"],
+    passos: [
+      { texto: "Na tela inicial, no bloco **📊 Gestão**, toque em **🧾 Comprovantes de Pagamento**." },
+      { texto: "Filtre o período em **De** e **Até** e, se quiser, por **Mapa**, **Motorista** ou **Cliente ou NF**." },
+      { texto: "No **Resumo por mapa**, abra o mapa que vai conferir." },
+      {
+        texto: "Em cada comprovante, confira a foto com o extrato: caiu certo? Toque em **✓ Bate**.",
+        dica: "Vários certos de uma vez? Marque-os e toque em **✓ Conferir marcados**.",
+      },
+      {
+        texto: "Caiu diferente ou não caiu? Toque em **≠ Diverge**, informe o **Valor no extrato** (0 se não caiu), escolha o motivo e toque em **Registrar divergência**.",
+      },
+      {
+        texto: "Não é PIX da contingência (boleto, duplicado)? Toque em **⊘ Desconsiderar**, escolha o motivo e confirme.",
+        dica: "O comprovante continua gravado, riscado, mas sai da conta do mapa.",
+      },
+      { texto: "Mapa todo conferido sem divergência aparece como **✓ Fechado**. Para mandar o resumo, use **📋 Copiar resumo**." },
+    ],
+    tela: { href: "/gestao/comprovantes-qr", rotulo: "Abrir Comprovantes de Pagamento" },
+    relacionados: ["registrar-comprovante", "configurar-pix"],
+  },
+  {
+    slug: "configurar-pix",
+    titulo: "Configurar o PIX do Comprovante de Pagamento",
+    emoji: "⚙️",
+    categoria: "entrega",
+    resumo: "Cadastrar o favorecido, o CNPJ e as instruções que o motorista vê.",
+    exige: [["qr-contingencia", "editar"]],
+    palavras: ["pix", "cnpj", "favorecido", "chave", "configurar", "contingência", "contingencia"],
+    passos: [
+      ENTRAR_NO_MODO,
+      ABRIR_BARRA,
+      gaveta("⚙️ Configuração", "📲 Comprovante de Pagamento"),
+      {
+        texto: "Preencha o **Favorecido (nome que aparece no PIX)** e o **CNPJ**.",
+        dica: "O CNPJ é a chave que o motorista mostra ao cliente. Sem ele, a tela do motorista avisa que falta cadastrar.",
+      },
+      {
+        texto: "Se quiser, escreva as **Instruções para o motorista**.",
+        dica: "Exemplo: \"confira o nome do favorecido no celular do cliente antes de ele confirmar\".",
+      },
+      { texto: "Toque em **Salvar o QR Code**." },
+    ],
+    atencao: [
+      "O pagamento é pela chave CNPJ, digitada pelo cliente. O QR Code saiu da tela do motorista porque o PIX por QR gerava tarifa na conta da empresa.",
+    ],
+    tela: { href: "/admin/qr-contingencia", rotulo: "Abrir a configuração" },
+    relacionados: ["registrar-comprovante"],
+  },
+  {
+    slug: "atualizar-pre-rota",
+    titulo: "Atualizar a pré-rota e as metas",
+    emoji: "🗺️",
+    categoria: "entrega",
+    resumo: "Ligar a pasta do Drive que alimenta a Minha Rota e definir as metas de ocupação e caixas.",
+    exige: [["rotas", "criar"]],
+    palavras: ["pré-rota", "pre-rota", "drive", "pasta", "csv", "metas", "ocupação", "ocupacao", "caixas"],
+    passos: [
+      ENTRAR_NO_MODO,
+      ABRIR_BARRA,
+      gaveta("⚙️ Configuração", "🔌 Fontes de Dados"),
+      {
+        texto: "Abra **Minha Rota (pré-rota)**. Em **Link da pasta no Drive**, cole o link da pasta onde o CSV da pré-rota cai todo dia e toque em **Salvar**.",
+      },
+      {
+        texto: "Para trazer a pré-rota mais nova na hora, toque em **↻ Atualizar agora**.",
+        dica: "O app lê o CSV mais recente da pasta. Reimportar não duplica nada.",
+      },
+      {
+        texto: "Para as metas: na gaveta **🗄️ Gestão de Dados**, toque em **🚚 Minha Rota (pré-rota)** e abra **🎯 Metas da operação**.",
+      },
+      {
+        texto: "Defina a **Ocupação (%)** e as **Caixas por viagem** e toque em **Salvar metas**.",
+        dica: "É daqui que sai a cor das barras na tela do motorista: 🟢 na meta, 🟡 quase lá, 🔴 abaixo.",
+      },
+    ],
+    tela: { href: "/admin/fontes-de-dados?aberta=rotas#fonte-rotas", rotulo: "Abrir Fontes de Dados" },
+    relacionados: ["consultar-minha-rota"],
   },
 
   /* ------------------------------------------------------------------ */
