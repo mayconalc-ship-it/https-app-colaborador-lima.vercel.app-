@@ -667,6 +667,97 @@ export const GUIAS: Guia[] = [
       "Trimestre que passou sem avaliação aparece em vermelho no painel: o DPO cobra no mínimo uma por trimestre.",
     ],
     tela: { href: "/manutencao", rotulo: "Abrir o Check de Manutenção" },
+    relacionados: ["atualizar-fornecedores", "revisar-raci-manutencao"],
+  },
+  {
+    slug: "consultar-fornecedores",
+    titulo: "Achar o contato de um fornecedor",
+    emoji: "📇",
+    categoria: "primeiros-passos",
+    resumo: "Ar-condicionado parou, faltou energia, precisa de pousada na rota: o telefone certo, com um toque.",
+    palavras: ["fornecedor", "fornecedores", "contato", "telefone", "whatsapp", "manutenção", "emergência", "pousada", "hotel", "coelba", "embasa"],
+    passos: [
+      { texto: "Na tela inicial, em **Da empresa**, toque em **Fornecedores**." },
+      {
+        texto: "Digite na busca o que precisa: o serviço (**ar-condicionado**, **energia**), o nome ou a cidade.",
+        dica: "Não precisa de acento, e dá para juntar palavras: \"ar barreiras\".",
+      },
+      { texto: "Ou toque numa categoria: **Manutenção e serviços**, **Segurança e emergência** ou **Apoio na rota**." },
+      {
+        texto: "No cartão, toque em **📞** para ligar ou em **WhatsApp** para mandar mensagem.",
+        dica: "O WhatsApp só aparece para número de celular. Polícia, SAMU e Bombeiros ligam direto.",
+      },
+    ],
+    atencao: [
+      "Achou um número errado ou faltando? Avise o time da manutenção: é ele quem atualiza a base.",
+      "Emergência com risco de vida: ligue **192** (SAMU) ou **193** (Bombeiros) antes de qualquer outra coisa.",
+    ],
+    tela: { href: "/fornecedores", rotulo: "Abrir os Fornecedores" },
+  },
+  {
+    slug: "atualizar-fornecedores",
+    titulo: "Incluir fornecedor e revisar o ANS",
+    emoji: "🤝",
+    categoria: "armazem",
+    resumo: "Para o time da manutenção: manter a base de contatos em dia, com ANS e custo, e registrar quando o serviço não foi adequado.",
+    exige: [["manutencao", "ver"]],
+    palavras: ["fornecedor", "ans", "sla", "custo", "contato", "dpo", "2.2", "v.3", "v.4", "serviço ruim"],
+    passos: [
+      { texto: "Abra **Fornecedores** (na tela inicial ou pelo cartão **V.3** do Check de Manutenção)." },
+      {
+        texto: "Para um contato novo, toque em **➕ Incluir fornecedor**, preencha e toque em **Incluir na base**.",
+        dica: "Nome, tipo de serviço e telefone são obrigatórios. ANS é o prazo combinado (\"atende em até 24 h\").",
+      },
+      {
+        texto: "Para corrigir um contato, toque em **✏️ Editar** no cartão dele e em **Salvar**.",
+      },
+      {
+        texto: "Fornecedor que atende item crítico (cobertura, elétrica, água): marque **Atende item crítico** e preencha o **ANS**.",
+        dica: "Crítico sem ANS aparece em **⚠️ Pendências** até ser preenchido.",
+      },
+      {
+        texto: "O serviço não foi adequado? Toque em **👎 O serviço não foi adequado**, conte o que houve e toque em **Marcar ANS para revisar**.",
+      },
+      {
+        texto: "Depois de conversar com o fornecedor, toque em **🤝 Revisei o ANS com o fornecedor**, escreva o ANS combinado e registre.",
+        dica: "A data da revisão fica no cartão: é o que a auditoria do DPO 2.2 (V.4) pede para ver.",
+      },
+    ],
+    tela: { href: "/fornecedores", rotulo: "Abrir os Fornecedores" },
+    relacionados: ["revisar-raci-manutencao", "consultar-fornecedores"],
+  },
+  {
+    slug: "revisar-raci-manutencao",
+    titulo: "Revisar a RACI da manutenção",
+    emoji: "🧭",
+    categoria: "armazem",
+    resumo: "Quem executa, quem aprova, quem é consultado e quem é informado em cada atividade de manutenção, entre as áreas e os fornecedores.",
+    exige: [["manutencao", "ver"]],
+    palavras: ["raci", "matriz", "responsável", "aprovador", "fornecedor", "dpo", "2.2", "v.4", "vigente"],
+    passos: [
+      { texto: "No **Check de Manutenção**, toque no cartão **V.4 · RACI com fornecedores**." },
+      {
+        texto: "Toque na célula para trocar a letra: **–** → **R** → **A** → **C** → **I** → **–**. Salva sozinho.",
+        dica: "R = executa · A = responde pelo resultado · C = opina antes · I = fica sabendo depois.",
+      },
+      {
+        texto: "Cada atividade precisa de **um único A** e de **pelo menos um R**. A que não tem fica em vermelho.",
+      },
+      {
+        texto: "Falta uma atividade ou uma área? Use **➕ Incluir atividade** ou **➕ Incluir área ou fornecedor**, no fim da matriz.",
+        dica: "Marque **Rotina de item crítico** nas atividades de pane, energia, cobertura e incêndio.",
+      },
+      {
+        texto: "Com a matriz conferida com o time e os fornecedores, toque em **✅ Revisamos a RACI hoje**.",
+        dica: "A revisão vale 90 dias: refaça junto com o Check de Manutenção de cada trimestre.",
+      },
+    ],
+    atencao: [
+      "A matriz começa como sugestão. Ela só aparece como **vigente** depois da primeira revisão registrada.",
+      "Com alguma atividade em vermelho, o app não deixa registrar a revisão: acerte as letras antes.",
+    ],
+    tela: { href: "/manutencao/raci", rotulo: "Abrir a RACI" },
+    relacionados: ["atualizar-fornecedores", "fazer-check-manutencao"],
   },
   {
     slug: "cadastrar-produto-armazem",

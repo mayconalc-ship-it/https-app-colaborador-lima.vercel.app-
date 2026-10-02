@@ -15,6 +15,8 @@ import {
   trimestresSemAvaliacao,
 } from "@/lib/manutencao";
 import { MODULO_MANUTENCAO, ModuloNaoInstalado, evolucao } from "@/lib/manutencao-server";
+import { lerFornecedores, lerMatriz } from "@/lib/manutencao-raci-server";
+import { dataBr, pendenciasDoFornecedor, raciVigente, situacaoDaRevisao } from "@/lib/manutencao-raci";
 import { iniciarAvaliacao } from "./actions";
 import { AvisoNaoInstalado } from "./AvisoNaoInstalado";
 
@@ -59,12 +61,15 @@ export default async function ManutencaoPage() {
   await requireAcessoModulo(MODULO_MANUTENCAO);
   const revendaId = await exigirRevenda("/");
 
+  // V.3/V.4 em paralelo com a evolução: são tabelas independentes.
+  const resumo = resumoV3V4(revendaId);
   const dados = await evolucao(revendaId, 4).catch((e) => {
     if (e instanceof ModuloNaoInstalado) return null;
     throw e;
   });
   if (!dados) return <AvisoNaoInstalado />;
   const { itens, avaliacoes, colunas } = dados;
+  const v34 = await resumo;
 
   const hoje = trimestreDe(hojeIso());
   const atual = avaliacoes.find((a) => a.ano === hoje.ano && a.trimestre === hoje.trimestre);
@@ -142,6 +147,44 @@ export default async function ManutencaoPage() {
             ⚠️ Sem avaliação: {faltando.map(rotuloTrimestre).join(", ")}. O DPO cobra no mínimo uma por trimestre.
           </p>
         )}
+      </section>
+
+      {/* ---- Fornecedores (V.3) e RACI (V.4) ---- */}
+      <section className="mb-6 grid gap-3 sm:grid-cols-2">
+        <Link href="/fornecedores" className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm hover:border-primary/40">
+          <p className="text-xs font-bold uppercase tracking-wide text-slate-500">V.3 · Base de fornecedores</p>
+          {v34 ? (
+            <>
+              <p className="mt-1 text-sm font-semibold text-slate-900">📇 {v34.fornecedores} contatos na base</p>
+              <p className={`mt-0.5 text-xs ${v34.pendencias ? "font-semibold text-amber-700" : "text-emerald-700"}`}>
+                {v34.pendencias
+                  ? `⚠️ ${v34.pendencias} com pendência (ANS de crítico ou a revisar)`
+                  : "✅ Críticos com ANS e nada a revisar"}
+              </p>
+            </>
+          ) : (
+            <p className="mt-1 text-xs text-amber-700">Falta rodar a migration 157 no Supabase.</p>
+          )}
+        </Link>
+        <Link href="/manutencao/raci" className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm hover:border-primary/40">
+          <p className="text-xs font-bold uppercase tracking-wide text-slate-500">V.4 · RACI com fornecedores</p>
+          {v34 ? (
+            <>
+              <p className="mt-1 text-sm font-semibold text-slate-900">🧭 {v34.atividades} atividades na matriz</p>
+              <p className={`mt-0.5 text-xs ${v34.vigente ? "text-emerald-700" : "font-semibold text-amber-700"}`}>
+                {v34.vigente
+                  ? `✅ Vigente até ${v34.venceEm}`
+                  : v34.situacao === "nunca"
+                    ? "📝 Ainda não revista: confira e registre a revisão"
+                    : v34.situacao === "vencida"
+                      ? "⏰ Revisão vencida"
+                      : "⚠️ Atividade sem A único ou sem R"}
+              </p>
+            </>
+          ) : (
+            <p className="mt-1 text-xs text-amber-700">Falta rodar a migration 157 no Supabase.</p>
+          )}
+        </Link>
       </section>
 
       {/* ---- Evolução (V.2) ---- */}
@@ -251,6 +294,25 @@ export default async function ManutencaoPage() {
       </section>
     </div>
   );
+}
+
+/** Os cartões de V.3 e V.4. Sem a migration 157, devolve null (o painel segue). */
+async function resumoV3V4(revendaId: string) {
+  try {
+    const [fornecedores, matriz] = await Promise.all([lerFornecedores(revendaId), lerMatriz(revendaId)]);
+    const situacao = situacaoDaRevisao(matriz.revisoes[0]?.revisadaEm ?? null, hojeIso());
+    return {
+      fornecedores: fornecedores.length,
+      pendencias: fornecedores.filter((f) => pendenciasDoFornecedor(f).length > 0).length,
+      atividades: matriz.atividades.length,
+      situacao: situacao.tipo,
+      venceEm: situacao.tipo === "em_dia" ? dataBr(situacao.venceEm) : "",
+      vigente: raciVigente(situacao, Object.keys(matriz.problemas).length),
+    };
+  } catch (e) {
+    if (e instanceof ModuloNaoInstalado) return null;
+    throw e;
+  }
 }
 
 function BlocoDaTabela({
