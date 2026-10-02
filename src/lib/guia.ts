@@ -24,11 +24,19 @@ export type Passo = {
   dica?: string;
 };
 
-export type CategoriaDoGuia = "primeiros-passos" | "armazem" | "cinco-s" | "pessoas" | "comunicacao" | "rv";
+export type CategoriaDoGuia =
+  | "primeiros-passos"
+  | "armazem"
+  | "ativo-giro"
+  | "cinco-s"
+  | "pessoas"
+  | "comunicacao"
+  | "rv";
 
 export const CATEGORIAS_DO_GUIA: { id: CategoriaDoGuia; titulo: string; emoji: string }[] = [
   { id: "primeiros-passos", titulo: "Primeiros passos", emoji: "🚀" },
   { id: "armazem", titulo: "Produtividade do Armazém", emoji: "🏭" },
+  { id: "ativo-giro", titulo: "Ativo de Giro", emoji: "📦" },
   { id: "cinco-s", titulo: "Programa 5S", emoji: "🧹" },
   { id: "pessoas", titulo: "Pessoas e acessos", emoji: "👥" },
   { id: "comunicacao", titulo: "Comunicação com o time", emoji: "📣" },
@@ -399,6 +407,62 @@ export const GUIAS: Guia[] = [
     relacionados: ["fazer-auditoria-5s"],
   },
   {
+    slug: "informar-quebra-fefo",
+    titulo: "Informar uma quebra de FEFO",
+    emoji: "🚨",
+    categoria: "armazem",
+    resumo: "Avisar o controle quando achar produto fora da ordem de validade.",
+    exige: [["fefo", "ver"]],
+    palavras: ["fefo", "validade", "vencimento", "quebra", "palete", "rua", "bloqueio"],
+    passos: [
+      noArmazem("Quebra de FEFO"),
+      { texto: "Na aba **Informar**, em **O que você encontrou?**, toque no motivo." },
+      { texto: "Em **📦 Produto**, digite o código ou a descrição e escolha. Informe a **Quantidade** e a **Unidade**." },
+      {
+        texto: "Em **📅 Validades**, preencha a **Validade do palete encontrado**.",
+        dica: "Sabe a menor validade que existe no estoque? Preencha. Não sabe? Deixe em branco: o controle completa depois.",
+      },
+      { texto: "Em **📍 Onde está**, escolha o **Depósito** e a **Rua**. Se ajudar, descreva o **Ponto exato**." },
+      { texto: "Bloqueou a rua? Marque **🔒 A rua foi bloqueada**." },
+      {
+        texto: "Se quiser, tire uma **Foto** e escreva uma **Observação**. Toque em **🚨 Informar quebra de FEFO**.",
+        dica: "O controle recebe na hora. O que você informou aparece em **O que eu informei**.",
+      },
+    ],
+    atencao: [
+      "Validade em vermelho é validade crítica, perto de vencer. Avise a liderança também.",
+      "Não aparece o motivo, o depósito ou a rua? Eles ainda não foram cadastrados. Peça à liderança.",
+    ],
+    tela: { href: "/fefo", rotulo: "Abrir Quebra de FEFO" },
+    relacionados: ["tratar-quebra-fefo"],
+  },
+  {
+    slug: "tratar-quebra-fefo",
+    titulo: "Tratar uma quebra de FEFO (controle)",
+    emoji: "🛠️",
+    categoria: "armazem",
+    resumo: "Registrar a ação tomada numa quebra informada e encerrar.",
+    exige: [["fefo-controle", "ver"]],
+    palavras: ["fefo", "controle", "tratativa", "validade", "bloqueio", "encerrar"],
+    passos: [
+      noArmazem("Quebra de FEFO"),
+      {
+        texto: "Abra a aba **Controle**. O número ao lado mostra quantas estão em aberto.",
+      },
+      { texto: "Em **Aguardando tratativa**, encontre a quebra. As mais antigas e as de validade crítica pedem pressa." },
+      {
+        texto: "Se souber, preencha a **Menor validade no estoque**.",
+      },
+      {
+        texto: "Em **Qual ação foi tomada?**, descreva o que foi feito e toque em **Registrar ação e encerrar**.",
+        dica: "Exemplo: \"palete bloqueado no físico e no sistema, produto priorizado para saída\".",
+      },
+    ],
+    atencao: ["As encerradas ficam em **Já tratadas**, com a ação registrada."],
+    tela: { href: "/fefo?aba=controle", rotulo: "Abrir o Controle de FEFO" },
+    relacionados: ["informar-quebra-fefo"],
+  },
+  {
     slug: "cadastrar-produto-armazem",
     titulo: "Cadastrar produto do armazém",
     emoji: "🏷️",
@@ -427,6 +491,116 @@ export const GUIAS: Guia[] = [
     ],
     tela: { href: "/admin/produtividade-armazem", rotulo: "Abrir a configuração do Armazém" },
     relacionados: ["lancar-reepack", "lancar-despejo"],
+  },
+
+  /* ------------------------------------------------------------------ */
+  /* Ativo de Giro                                                       */
+  /* ------------------------------------------------------------------ */
+  {
+    slug: "contar-ativo-giro",
+    titulo: "Lançar a contagem do Ativo de Giro",
+    emoji: "📦",
+    categoria: "ativo-giro",
+    resumo: "Registrar o que foi contado no pátio, combinação por combinação.",
+    exige: [["ativo-giro", "ver"]],
+    palavras: ["ativo de giro", "ag", "contagem", "kit", "gfe", "garrafeira", "palete", "lastro", "caixas", "600ml", "300ml"],
+    passos: [
+      {
+        texto: "Na tela inicial, toque em **Ativo de Giro**.",
+        dica: "Não aparece o cartão? O módulo ainda não foi liberado para você. Fale com a sua liderança.",
+      },
+      { texto: "Na aba **Contagem**, confira a **Data** (vem com o dia de hoje)." },
+      {
+        texto: "Escolha o **Tipo** (Kit AG ou GFE sem Garrafa), o **Formato** (600ml, 300ml, 1000ml ou Verde) e o **Status** (Cheio, Vazio, Trânsito Rota ou Trânsito Fábrica).",
+      },
+      {
+        texto: "Informe quantos **Paletes**, **Lastros** e **Caixas** contou e toque em **Registrar contagem**.",
+        dica: "O app converte tudo em caixas sozinho, pelo fator de cada formato.",
+      },
+      { texto: "Repita para cada combinação que existir no pátio. Cada uma vira uma linha em **Minhas contagens**." },
+    ],
+    atencao: [
+      "Errou um número? Em **Minhas contagens**, toque em **✏️ Editar** na linha. Lançou em dobro? Use **🗑️ Excluir**.",
+      "Ficou sem sinal? A contagem aparece em vermelho com **Reenviar**: toque quando a conexão voltar, nada se perde.",
+      "Para mandar o resumo para a liderança, use **Compartilhar contagem de hoje**.",
+    ],
+    tela: { href: "/ativo-de-giro", rotulo: "Abrir Ativo de Giro" },
+    relacionados: ["recontar-ativo-giro"],
+  },
+  {
+    slug: "recontar-ativo-giro",
+    titulo: "Fazer uma recontagem pedida",
+    emoji: "🔁",
+    categoria: "ativo-giro",
+    resumo: "Quando a liderança pede para contar de novo um item que deu diferença.",
+    exige: [["ativo-giro", "ver"]],
+    palavras: ["recontagem", "recontar", "diferença", "diferenca", "ativo de giro"],
+    passos: [
+      { texto: "Na tela inicial, toque em **Ativo de Giro** e fique na aba **Contagem**." },
+      { texto: "No cartão **🔁 Recontagem pedida**, leia o que precisa ser recontado." },
+      {
+        texto: "Vai fazer? Toque em **✔️ Aceitar e recontar**. Não é com você? Toque em **✖️ Recusar**.",
+      },
+      {
+        texto: "Aceitou: o formulário abaixo já vem com o dia da recontagem. Conte de novo, preencha e toque em **Registrar contagem**.",
+        dica: "A contagem nova substitui a antiga daquele item, e a linha aparece marcada com 🔁 recontagem.",
+      },
+    ],
+    tela: { href: "/ativo-de-giro", rotulo: "Abrir Ativo de Giro" },
+    relacionados: ["contar-ativo-giro", "pedir-recontagem-ativo-giro"],
+  },
+  {
+    slug: "conciliar-ativo-giro",
+    titulo: "Conciliar e congelar o dia do Ativo de Giro",
+    emoji: "🧊",
+    categoria: "ativo-giro",
+    resumo: "Comparar o contado com o parque, justificar as diferenças e fechar o dia oficial.",
+    exige: [["ativo-giro", "editar"]],
+    palavras: ["conciliação", "conciliacao", "congelar", "parque", "diferença", "diferenca", "justificativa", "trânsito", "transito", "comodato", "bi"],
+    passos: [
+      { texto: "Na tela inicial, toque em **Ativo de Giro** e abra a aba **Concil.** (Conciliação)" },
+      { texto: "Escolha o **Dia** e de quem é a contagem em **Colaborador** e toque em **Ver**." },
+      {
+        texto: "Em **🚚 Trânsito**, lance o que não estava no pátio: na coluna **Rota** (saiu na entrega) e na **Carreta** (entre unidades). Toque em **Salvar o trânsito**.",
+        dica: "Sem isso, o que estava fora aparece como falta na conciliação.",
+      },
+      {
+        texto: "Confira o **🤝 Comodato** (o emprestado ao cliente). Ele vale até alguém mudar; se mudou, ajuste e toque em **Salvar o comodato**.",
+      },
+      {
+        texto: "Na tabela, confira a diferença de cada item. Escreva a **Justificativa** das que ficaram fora e toque em **Salvar justificativas**.",
+      },
+      {
+        texto: "Tudo certo? Toque em **🧊 Congelar a conciliação** e confirme.",
+        dica: "O dia congelado vira o oficial e vai para o BI. Depois disso, só o Admin reabre.",
+      },
+    ],
+    atencao: [
+      "Diferença grande num item? Antes de congelar, peça uma recontagem.",
+      "Os status **Trânsito Rota** e **Trânsito Fábrica** da contagem são contados no pátio. O trânsito desta tela é o que NÃO estava lá para ser contado.",
+    ],
+    tela: { href: "/ativo-de-giro?aba=conciliacao", rotulo: "Abrir a Conciliação" },
+    relacionados: ["pedir-recontagem-ativo-giro"],
+  },
+  {
+    slug: "pedir-recontagem-ativo-giro",
+    titulo: "Pedir uma recontagem do Ativo de Giro",
+    emoji: "📣",
+    categoria: "ativo-giro",
+    resumo: "Avisar quem contou que um item precisa ser contado de novo.",
+    exige: [["ativo-giro", "editar"]],
+    palavras: ["recontagem", "pedir", "diferença", "diferenca", "ativo de giro"],
+    passos: [
+      { texto: "Na tela inicial, toque em **Ativo de Giro** e abra a aba **Concil.** (Conciliação)" },
+      { texto: "Desça até **Pedir recontagem**." },
+      { texto: "Escolha o dia e escreva em **O que precisa ser recontado** o item e o motivo." },
+      {
+        texto: "Toque em **Solicitar**.",
+        dica: "O aviso vai só para quem contou naquele dia, nesta revenda. Os pedidos em aberto ficam em **Pendentes**.",
+      },
+    ],
+    tela: { href: "/ativo-de-giro?aba=conciliacao", rotulo: "Abrir a Conciliação" },
+    relacionados: ["conciliar-ativo-giro", "recontar-ativo-giro"],
   },
 
   /* ------------------------------------------------------------------ */

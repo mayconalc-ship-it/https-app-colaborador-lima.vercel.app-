@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { PageHeader } from "@/components/PageHeader";
+import { LinkDoGuia } from "@/components/LinkDoGuia";
 import { FiltroNoLugar } from "@/components/FiltroNoLugar";
 import { getPerfil } from "@/lib/sessao";
 import { createClient } from "@/lib/supabase/server";
@@ -614,6 +615,8 @@ export default async function AtivoDeGiroPage({
         title="Ativo de Giro"
         subtitle="Lance a contagem do dia, acompanhe o painel e a conciliação do time."
       />
+
+      <LinkDoGuia categoria="ativo-giro" className="mb-4" />
 
       {sp.erro && (
         <p className="mb-4 rounded-xl bg-red-50 p-3 text-sm font-medium text-red-700">

@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { PageHeader } from "@/components/PageHeader";
+import { LinkDoGuia } from "@/components/LinkDoGuia";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
 import { FotoEvidencia } from "@/components/FotoEvidencia";
 import { createClient } from "@/lib/supabase/server";
@@ -184,6 +185,11 @@ export default async function FefoPage({
         title="🚨 Quebra de FEFO"
         subtitle="Achou produto fora da ordem de validade? Avise aqui — o controle recebe na hora."
         fecharHref="/produtividade-armazem"
+      />
+
+      <LinkDoGuia
+        slug={aba === "controle" ? "tratar-quebra-fefo" : "informar-quebra-fefo"}
+        className="mb-4"
       />
 
       {sp.erro && <p className="mb-4 rounded-xl bg-red-50 p-3 text-sm font-medium text-red-700">{sp.erro}</p>}
