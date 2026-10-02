@@ -49,6 +49,7 @@ import {
   Target,
   Trophy,
   Truck,
+  Wrench,
   Wallet,
   type LucideIcon,
 } from "lucide-react";
@@ -82,6 +83,7 @@ const POR_CHAVE: Record<string, LucideIcon> = {
   feedback: ClipboardList,
   "ativo-giro": Archive,
   "material-apoio": Layers,
+  manutencao: Wrench,
   fefo: Target,
 
   // Da empresa

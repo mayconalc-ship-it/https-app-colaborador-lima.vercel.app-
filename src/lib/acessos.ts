@@ -50,6 +50,7 @@ export type ModuloId =
   | "fefo"
   | "fefo-controle"
   | "wqi"
+  | "manutencao"
   | "rating"
   | "refugo"
   | "refugo-indicadores"
@@ -902,6 +903,23 @@ export const MODULOS: Modulo[] = [
     subGrupoDe: "produtividade-armazem",
   },
   {
+    id: "manutencao",
+    rotulosDeAcao: {
+      ver: "Preencher o Check de Manutenção (o time da manutenção)",
+      editar: "Reabrir uma avaliação de manutenção já finalizada",
+    },
+    rotulo: "Check de Manutenção",
+    emoji: "🛠️",
+    href: "/manutencao",
+    grupo: "Operação",
+    // Checklist Global de Manutenção da Ambev, trimestral (DPO 2.2,
+    // migration 156). NÃO é para todos: o time da manutenção recebe por
+    // liberação individual. A tela é a mesma para quem preenche e para a
+    // liderança -- não há cadastro no Modo Liderança.
+    acoes: ["ver", "editar"],
+    semTelaAdmin: true,
+  },
+  {
     id: "perfis-acesso",
     rotulosDeAcao: {
       ver: "Abrir os Perfis de Acesso",
@@ -1064,6 +1082,8 @@ export const MODULOS_OPCIONAIS: ModuloId[] = [
   "refugo-indicadores",
   "devolucao",
   "meus-indicadores",
+  // Check de Manutenção (156): só o time da manutenção, pessoa a pessoa.
+  "manutencao",
 ];
 
 /**

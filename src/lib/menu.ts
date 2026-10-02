@@ -30,6 +30,7 @@ export const MODULO_DO_ITEM: Record<string, ModuloId> = {
   refugo: "refugo",
   devolucao: "devolucao",
   "meus-indicadores": "meus-indicadores",
+  manutencao: "manutencao",
 };
 
 export type ItemMenu = {
@@ -76,7 +77,7 @@ export const BLOCOS_DO_MENU = [
     subtitulo: "O que você executa e registra",
     // Material de Apoio logo depois do Ativo de Giro (pedido do dono,
     // 16/09/2026): as duas contagens do armazém lado a lado.
-    chaves: ["produtividade-armazem", "feedback", "ativo-giro", "material-apoio"],
+    chaves: ["produtividade-armazem", "feedback", "ativo-giro", "material-apoio", "manutencao"],
   },
   {
     id: "empresa",
@@ -231,6 +232,9 @@ export const MENU_PADRAO: ItemMenu[] = [
   // Guia "Como Fazer" (02/10/2026): de todo mundo, sem módulo -- cada
   // pessoa vê lá dentro só os guias das telas que ela consegue abrir.
   { chave: "guia", titulo: "Como Fazer", emoji: "❓", href: "/guia", ordem: 18, visivel: true },
+  // Check de Manutenção (156): módulo opcional -- só aparece para quem o
+  // Admin liberou (o time da manutenção), por MODULO_DO_ITEM acima.
+  { chave: "manutencao", titulo: "Check de Manutenção", emoji: "🛠️", href: "/manutencao", ordem: 19, visivel: true },
   // "Minha Conta" fica oculto: já existe o botão "Conta" no topo de todas as
   // telas, e repetir ocupava espaço da grade sem acrescentar nada.
   { chave: "conta", titulo: "Minha Conta", emoji: "🔒", href: "/minha-conta", ordem: 9, visivel: false },
