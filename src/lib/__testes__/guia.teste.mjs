@@ -92,8 +92,20 @@ ok("operador do Reepack NÃO vê o despejo", !operadorReepack.includes("lancar-d
 ok("operador do Reepack NÃO vê o cadastro de produto", !operadorReepack.includes("cadastrar-produto-armazem"));
 
 const gestorArmazem = guiasParaQuem((m, a) => m === "produtividade-armazem" && a === "editar").map((g) => g.slug);
-const doArmazem = GUIAS.filter((g) => g.categoria === "armazem").map((g) => g.slug);
-ok("quem administra o armazém vê todos os guias do armazém", doArmazem.every((s) => gestorArmazem.includes(s)));
+// Os guias das telas do operador (Reepack, Despejo...). O FEFO fica de
+// fora de propósito: ele tem permissão própria, e quem administra o
+// armazém sem ela não abre a tela.
+const doArmazem = GUIAS.filter((g) => (g.exige ?? []).some(([m]) => m === "produtividade-armazem")).map((g) => g.slug);
+ok("quem administra o armazém vê todos os guias das telas do armazém", doArmazem.every((s) => gestorArmazem.includes(s)));
+ok("FEFO segue a permissão própria, não a do armazém", !gestorArmazem.includes("tratar-quebra-fefo"));
+
+const informaFefo = guiasParaQuem((m, a) => m === "fefo" && a === "ver").map((g) => g.slug);
+ok("quem informa FEFO vê como informar", informaFefo.includes("informar-quebra-fefo"));
+ok("quem informa FEFO NÃO vê o controle", !informaFefo.includes("tratar-quebra-fefo"));
+
+const contaAg = guiasParaQuem((m, a) => m === "ativo-giro" && a === "ver").map((g) => g.slug);
+ok("quem conta o AG vê contagem e recontagem", contaAg.includes("contar-ativo-giro") && contaAg.includes("recontar-ativo-giro"));
+ok("quem conta o AG NÃO vê conciliar nem pedir recontagem", !contaAg.includes("conciliar-ativo-giro") && !contaAg.includes("pedir-recontagem-ativo-giro"));
 
 const empilhador = guiasParaQuem((m, a) => m === "pa-empilhadeira" && a === "ver").map((g) => g.slug);
 ok("empilhador vê como buscar o pedido", empilhador.includes("buscar-pedido-picking"));
