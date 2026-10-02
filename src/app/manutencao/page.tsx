@@ -251,7 +251,9 @@ export default async function ManutencaoPage() {
                     {r.planoAcao && (
                       <span className="mt-0.5 block text-xs text-slate-500">
                         {item.critico && <strong className="text-red-700">Crítico · </strong>}
-                        {r.planoAcao} · {r.responsavel} · até {r.prazo?.split("-").reverse().join("/")}
+                        {r.planoAcao}
+                        {r.responsavel ? ` · ${r.responsavel}` : ""}
+                        {r.prazo ? ` · até ${r.prazo.split("-").reverse().join("/")}` : ""}
                       </span>
                     )}
                   </span>

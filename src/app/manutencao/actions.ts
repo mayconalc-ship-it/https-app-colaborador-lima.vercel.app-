@@ -95,8 +95,10 @@ export async function iniciarAvaliacao(): Promise<ResultadoAcao> {
 
 /**
  * Salva UM item: nota (ou N/A), observação, plano de ação e as fotos
- * novas. É um botão por item de propósito -- 36 itens num só "salvar"
- * perderiam tudo numa queda de sinal no meio do armazém.
+ * novas. A tela chama sozinha a cada toque na nota, a cada foto e ao
+ * sair de um campo de texto (sem botão por item, pedido do dono em
+ * 02/10/2026) -- e item a item, para uma queda de sinal no meio do
+ * armazém perder no máximo o último toque.
  */
 export async function salvarResposta(fd: FormData): Promise<ResultadoAcao> {
   const ctx = await contexto();
@@ -125,8 +127,11 @@ export async function salvarResposta(fd: FormData): Promise<ResultadoAcao> {
     responsavel: texto(fd, "responsavel", 120),
     prazo: texto(fd, "prazo", 10),
   };
-  const problema = problemaDaResposta(entrada);
-  if (problema) return deuErrado(`Item ${item.numero}: ${problema}`);
+  // Salva a cada toque (sem botão por item): aqui só a nota é exigida.
+  // O plano de ação incompleto não trava o salvar -- trava o FINALIZAR,
+  // que é quando o trimestre precisa estar inteiro.
+  if (!na && entrada.nota === null) return deuErrado(`Item ${item.numero}: escolha a nota (3, 1 ou 0) ou marque N/A.`);
+  const prazoValido = /^\d{4}-\d{2}-\d{2}$/.test(entrada.prazo) ? entrada.prazo : null;
 
   const fotos = fd.getAll("fotos").filter((f): f is File => f instanceof File && f.size > 0);
 
@@ -154,9 +159,9 @@ export async function salvarResposta(fd: FormData): Promise<ResultadoAcao> {
         na,
         observacao: texto(fd, "observacao") || null,
         // Plano só existe abaixo de 3: subiu para 3, o plano antigo sai.
-        plano_acao: abaixo ? entrada.planoAcao : null,
-        responsavel: abaixo ? entrada.responsavel : null,
-        prazo: abaixo ? entrada.prazo : null,
+        plano_acao: abaixo ? entrada.planoAcao || null : null,
+        responsavel: abaixo ? entrada.responsavel || null : null,
+        prazo: abaixo ? prazoValido : null,
         respondido_por: ctx.perfil.id,
         respondido_por_nome: ctx.perfil.nome,
         atualizado_em: new Date().toISOString(),
@@ -192,10 +197,7 @@ export async function salvarResposta(fd: FormData): Promise<ResultadoAcao> {
   }
 
   revalidatePath(`${BASE}/${aberta.avaliacao.id}`);
-  return deuCerto(
-    `Item ${item.numero} salvo${enviadas ? ` com ${enviadas} foto${enviadas > 1 ? "s" : ""}` : ""}.` +
-      (abaixo && item.critico ? " Item crítico: o reparo é de curto prazo." : ""),
-  );
+  return deuCerto(`Item ${item.numero} salvo${enviadas ? ` com ${enviadas} foto${enviadas > 1 ? "s" : ""}` : ""}.`);
 }
 
 /** Tira uma foto enviada por engano (só com a avaliação aberta). */
@@ -248,6 +250,28 @@ export async function finalizarAvaliacao(fd: FormData): Promise<ResultadoAcao> {
         .slice(0, 6)
         .map((i) => i.numero)
         .join(", ")}${faltam.length > 6 ? "…" : ""}.`,
+    );
+  }
+
+  // Abaixo de 3 sem plano completo (o que, quem e até quando) não fecha.
+  const semPlano = itens.filter((i) => {
+    const r = porItem.get(i.id);
+    return (
+      r &&
+      problemaDaResposta({
+        nota: r.nota,
+        na: r.na,
+        planoAcao: r.planoAcao ?? "",
+        responsavel: r.responsavel ?? "",
+        prazo: r.prazo ?? "",
+      })
+    );
+  });
+  if (semPlano.length > 0) {
+    return deuErrado(
+      `Complete o plano de ação (o que, responsável e prazo) ${semPlano.length === 1 ? "do item" : "dos itens"} ${semPlano
+        .map((i) => i.numero)
+        .join(", ")}.`,
     );
   }
 
