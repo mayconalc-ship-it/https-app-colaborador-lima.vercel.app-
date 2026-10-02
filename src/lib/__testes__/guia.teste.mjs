@@ -116,6 +116,14 @@ ok("auditor vê como auditar", auditor.includes("fazer-auditoria-5s"));
 ok("auditor NÃO vê como validar ação", !auditor.includes("validar-acao-5s"));
 ok("auditor NÃO vê a configuração do 5S", !auditor.includes("configurar-5s"));
 
+// O motorista recebe Minha Rota e Comprovante como módulos do app ("ver").
+const motorista = guiasParaQuem((m, a) => (m === "rotas" || m === "qr-contingencia") && a === "ver").map((g) => g.slug);
+ok("motorista vê consultar rota e registrar comprovante", motorista.includes("consultar-minha-rota") && motorista.includes("registrar-comprovante"));
+ok("motorista NÃO vê conferir, configurar PIX nem atualizar pré-rota",
+  !motorista.includes("conferir-comprovantes") && !motorista.includes("configurar-pix") && !motorista.includes("atualizar-pre-rota"));
+const conferente = guiasParaQuem((m, a) => m === "qr-contingencia" && a === "criar").map((g) => g.slug);
+ok("quem confere vê conferir, mas não configurar o PIX", conferente.includes("conferir-comprovantes") && !conferente.includes("configurar-pix"));
+
 console.log("== MENU ==");
 ok("cartão Como Fazer no menu padrão", MENU_PADRAO.some((i) => i.chave === "guia" && i.href === "/guia" && i.visivel));
 ok("cartão Como Fazer está num bloco", BLOCOS_DO_MENU.some((b) => b.chaves.includes("guia")));

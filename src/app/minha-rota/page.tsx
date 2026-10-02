@@ -1,4 +1,5 @@
 import { PageHeader } from "@/components/PageHeader";
+import { LinkDoGuia } from "@/components/LinkDoGuia";
 import { ConsultaRota } from "@/components/ConsultaRota";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getRevendaId } from "@/lib/revendas";
@@ -28,6 +29,7 @@ export default async function MinhaRotaPage() {
   return (
     <div>
       <PageHeader title="🚚 Minha Rota" subtitle="Consulte sua pré-rota" />
+      <LinkDoGuia slug="consultar-minha-rota" className="mb-4" />
       <ConsultaRota metas={metas} />
     </div>
   );

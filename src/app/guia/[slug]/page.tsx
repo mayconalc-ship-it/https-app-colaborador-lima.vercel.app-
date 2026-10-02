@@ -84,7 +84,11 @@ export default async function GuiaDetalhePage({ params }: { params: Promise<{ sl
                 <span className="sr-only">Passo {i + 1}: </span>
                 <Texto texto={p.texto} />
               </p>
-              {p.dica && <p className="mt-1.5 text-xs leading-relaxed text-slate-500">💡 {p.dica}</p>}
+              {p.dica && (
+                <p className="mt-1.5 text-xs leading-relaxed text-slate-500">
+                  💡 <Texto texto={p.dica} />
+                </p>
+              )}
             </div>
           </li>
         ))}

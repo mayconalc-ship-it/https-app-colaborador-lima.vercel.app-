@@ -1,4 +1,5 @@
 import { PageHeader } from "@/components/PageHeader";
+import { LinkDoGuia } from "@/components/LinkDoGuia";
 import { exigirRevenda } from "@/lib/revendas";
 import { requireAcessoModulo } from "@/lib/require-admin";
 import { MODULO_QR } from "@/lib/qr-contingencia";
@@ -27,6 +28,7 @@ export default async function QrContingenciaPage() {
   return (
     <div>
       <PageHeader title="📲 Comprovante de Pagamento" subtitle="QR Code do PIX da empresa e o registro do comprovante" />
+      <LinkDoGuia slug="registrar-comprovante" className="mb-4" />
       <TelaContingencia
         config={{
           qrUrl: config.qrUrl,
