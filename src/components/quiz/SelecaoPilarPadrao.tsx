@@ -34,6 +34,7 @@ export function SelecaoPilarPadrao({
   padraoInicial = "",
   idPilar = "pilar",
   idPadrao = "padrao_id",
+  usadoEm,
 }: {
   pilares: { id: number | string; nome: string }[];
   padroes: Padrao[];
@@ -41,9 +42,21 @@ export function SelecaoPilarPadrao({
   padraoInicial?: string;
   idPilar?: string;
   idPadrao?: string;
+  /**
+   * Quando o padrão já foi tema de desafio nesta área ("Set/2026"), ou
+   * null. Marca a opção e avisa ao escolher -- ver usosDoPadrao.
+   */
+  usadoEm?: (p: Padrao) => string | null;
 }) {
   const [pilar, setPilar] = useState(pilarInicial);
   const [padraoId, setPadraoId] = useState(padraoInicial);
+
+  const rotulo = (p: Padrao) => {
+    const quando = usadoEm?.(p);
+    return quando ? `${p.nome} — já usado em ${quando}` : p.nome;
+  };
+  const escolhido = padroes.find((p) => String(p.id) === padraoId);
+  const usoDoEscolhido = escolhido ? usadoEm?.(escolhido) : null;
 
   const semPilar = padroes.filter((p) => !p.pilar?.trim());
   const doPilar = pilar
@@ -101,7 +114,7 @@ export function SelecaoPilarPadrao({
           <option value="">— nenhum —</option>
           {doPilar.map((p) => (
             <option key={p.id} value={p.id}>
-              {p.nome}
+              {rotulo(p)}
             </option>
           ))}
           {/* Os sem pilar ficam num grupo à parte, e rotulado: assim
@@ -111,12 +124,18 @@ export function SelecaoPilarPadrao({
             <optgroup label="Sem pilar cadastrado">
               {semPilar.map((p) => (
                 <option key={p.id} value={p.id}>
-                  {p.nome}
+                  {rotulo(p)}
                 </option>
               ))}
             </optgroup>
           )}
         </select>
+        {usoDoEscolhido && (
+          <p className="mt-1.5 rounded-lg bg-amber-50 px-2.5 py-1.5 text-xs font-medium text-amber-900">
+            ⚠️ Este padrão já foi tema do desafio desta área em {usoDoEscolhido}. Se for de
+            propósito (reforço), siga; se não, escolha um que ainda não foi cobrado.
+          </p>
+        )}
         <p className="mt-1 text-xs text-slate-500">
           {pilar
             ? doPilar.length === 0

@@ -85,6 +85,25 @@ const soAcessos = guiasParaQuem((m, a) => m === "acessos" && a === "editar").map
 ok("basta UMA das permissões (acessos/editar)", soAcessos.includes("tornar-lideranca"));
 eq("o dono vê todos", guiasParaQuem(() => true).length, GUIAS.length);
 
+// O operador recebe a tela do armazém como módulo do app ("ver").
+const operadorReepack = guiasParaQuem((m, a) => m === "pa-reepack" && a === "ver").map((g) => g.slug);
+ok("operador do Reepack vê como lançar reepack", operadorReepack.includes("lancar-reepack"));
+ok("operador do Reepack NÃO vê o despejo", !operadorReepack.includes("lancar-despejo"));
+ok("operador do Reepack NÃO vê o cadastro de produto", !operadorReepack.includes("cadastrar-produto-armazem"));
+
+const gestorArmazem = guiasParaQuem((m, a) => m === "produtividade-armazem" && a === "editar").map((g) => g.slug);
+const doArmazem = GUIAS.filter((g) => g.categoria === "armazem").map((g) => g.slug);
+ok("quem administra o armazém vê todos os guias do armazém", doArmazem.every((s) => gestorArmazem.includes(s)));
+
+const empilhador = guiasParaQuem((m, a) => m === "pa-empilhadeira" && a === "ver").map((g) => g.slug);
+ok("empilhador vê como buscar o pedido", empilhador.includes("buscar-pedido-picking"));
+ok("empilhador NÃO vê como pedir (é do picking)", !empilhador.includes("pedir-abastecimento"));
+
+const auditor = guiasParaQuem((m, a) => m === "5s" && a === "ver").map((g) => g.slug);
+ok("auditor vê como auditar", auditor.includes("fazer-auditoria-5s"));
+ok("auditor NÃO vê como validar ação", !auditor.includes("validar-acao-5s"));
+ok("auditor NÃO vê a configuração do 5S", !auditor.includes("configurar-5s"));
+
 console.log("== MENU ==");
 ok("cartão Como Fazer no menu padrão", MENU_PADRAO.some((i) => i.chave === "guia" && i.href === "/guia" && i.visivel));
 ok("cartão Como Fazer está num bloco", BLOCOS_DO_MENU.some((b) => b.chaves.includes("guia")));

@@ -2,12 +2,13 @@ import Link from "next/link";
 import { PageHeader } from "@/components/PageHeader";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
 import { MaisOuFechar } from "@/components/BotaoMais";
+import { FormNoLugar } from "@/components/FormNoLugar";
 import { decodificar } from "@/lib/texto-url";
 import { requireModulo, podeNoModulo } from "@/lib/require-admin";
 import { getRevendaId } from "@/lib/revendas";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { listarPilares } from "@/lib/pilares";
-import { AREAS, type AreaId } from "@/lib/areas";
+import { AREAS } from "@/lib/areas";
 import { hojeIso } from "@/lib/pesquisa";
 import {
   getElegiveis,
@@ -15,14 +16,12 @@ import {
   listarRodadas,
 } from "@/lib/quiz-server";
 import {
-  MAX_PERGUNTAS,
-  PERGUNTAS_PADRAO,
   ROTULO_STATUS,
-  nomeDoMes,
+  mesAno,
   periodoCurto,
-  pilarSugerido,
+  type UsoDePadrao,
 } from "@/lib/quiz";
-import { SelecaoPilarPadrao } from "@/components/quiz/SelecaoPilarPadrao";
+import { FormNovaRodada } from "@/components/quiz/FormNovaRodada";
 import { criarRodada, salvarConfig } from "./actions";
 
 export default async function AdminQuizPage({
@@ -56,6 +55,20 @@ export default async function AdminQuizPage({
 
   const hoje = hojeIso();
   const [ano, mes] = hoje.split("-").map(Number);
+
+  // O que o formulário precisa para marcar os padrões já cobrados em cada
+  // área. Rascunho entra também: quem criou e não publicou ainda está
+  // usando aquele padrão.
+  const usos: UsoDePadrao[] = rodadas.map((r) => ({
+    rodadaId: r.id,
+    nome: r.nome,
+    area: r.area,
+    mes: r.mes,
+    temporada: r.temporada,
+    status: r.status,
+    padraoId: r.padraoId,
+    padraoNome: r.padraoNome,
+  }));
 
   return (
     <div>
@@ -99,8 +112,8 @@ export default async function AdminQuizPage({
 
       {/* Configuração da tabela */}
       {podeEditar && (
-        <form
-          action={salvarConfig}
+        <FormNoLugar
+          acao={salvarConfig}
           className="mb-6 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
         >
           <h2 className="font-semibold text-slate-800">
@@ -140,146 +153,43 @@ export default async function AdminQuizPage({
               Salvar
             </BotaoEnviar>
           </div>
-        </form>
+        </FormNoLugar>
       )}
 
       {/* Nova rodada */}
       {podeCriar && (
-        <details className="group mb-6 rounded-2xl border border-slate-200 bg-white shadow-sm">
-          <summary className="flex cursor-pointer list-none items-center gap-2 p-4 font-semibold text-slate-800 marker:content-none [&::-webkit-details-marker]:hidden">
+        <details
+          className="group mb-6 rounded-2xl border border-primary/30 bg-white shadow-sm"
+          // Sem rodada nenhuma, a tela não tem outra coisa a oferecer:
+          // já abre no formulário.
+          open={rodadas.length === 0}
+        >
+          <summary className="flex cursor-pointer list-none items-center gap-2 p-4 font-semibold text-primary-dark marker:content-none [&::-webkit-details-marker]:hidden">
             <MaisOuFechar />
-            <span className="group-open:hidden">Criar nova rodada</span>
+            <span className="group-open:hidden">Criar o desafio do mês</span>
             <span className="hidden group-open:inline">Fechar</span>
           </summary>
-          <form action={criarRodada} className="space-y-3 border-t border-slate-100 p-4">
-            <div className="flex gap-2">
-              <Campo rotulo="Área" className="flex-1">
-                <select
-                  name="area"
-                  required
-                  defaultValue=""
-                  className={ENTRADA}
-                >
-                  <option value="" disabled>
-                    Escolha...
-                  </option>
-                  {AREAS.map((a) => (
-                    <option key={a.id} value={a.id}>
-                      {a.rotulo}
-                    </option>
-                  ))}
-                </select>
-              </Campo>
-              <Campo rotulo="Mês" className="w-28">
-                <select name="mes" defaultValue={mes} className={ENTRADA}>
-                  {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
-                    <option key={m} value={m}>
-                      {nomeDoMes(m)}
-                    </option>
-                  ))}
-                </select>
-              </Campo>
-              <Campo rotulo="Ano" className="w-24">
-                <input
-                  name="temporada"
-                  type="number"
-                  defaultValue={ano}
-                  className={ENTRADA}
-                />
-              </Campo>
-            </div>
-
-            <Campo
-              rotulo="Nome do desafio"
-              ajuda="Deixe vazio para gerar automaticamente."
-            >
-              <input
-                name="nome"
-                placeholder={`Desafio de ${nomeDoMes(mes)} — Armazém`}
-                className={ENTRADA}
-              />
-            </Campo>
-
-            {/* O PILAR FILTRA O PADRÃO (pedido do dono, 05/09/2026).
-                Eram dois campos soltos, e escolher o pilar não mudava
-                nada -- nada impedia rodada de um pilar com padrão de
-                outro. Ver SelecaoPilarPadrao. */}
-            <div className="space-y-3">
-              <SelecaoPilarPadrao pilares={pilares} padroes={padroes ?? []} />
-            </div>
-
-            <Campo
-              rotulo="Perguntas"
-              ajuda="Quantas a rodada vai ter. É este número que a geração vai buscar depois."
-              className="w-40"
-            >
-              <select
-                name="total_perguntas"
-                defaultValue={PERGUNTAS_PADRAO}
-                className={ENTRADA}
-              >
-                {Array.from({ length: MAX_PERGUNTAS }, (_, i) => i + 1).map(
-                  (n) => (
-                    <option key={n} value={n}>
-                      {n}
-                      {n === PERGUNTAS_PADRAO ? " (padrão)" : ""}
-                    </option>
-                  ),
-                )}
-              </select>
-            </Campo>
-
-            <Campo
-              rotulo="Atividade"
-              ajuda="O recorte do padrão que este mês cobra. Ex.: Conferência de carregamento."
-            >
-              <input name="atividade" className={ENTRADA} />
-            </Campo>
-
-            <div className="flex gap-2">
-              <Campo rotulo="Abre em" className="flex-1">
-                <input
-                  name="inicio"
-                  type="date"
-                  required
-                  defaultValue={primeiroDia(ano, mes)}
-                  className={ENTRADA}
-                />
-              </Campo>
-              <Campo rotulo="Fecha em" className="flex-1">
-                <input
-                  name="fim"
-                  type="date"
-                  required
-                  defaultValue={ultimoDia(ano, mes)}
-                  className={ENTRADA}
-                />
-              </Campo>
-            </div>
-
-            <p className="text-xs text-slate-500">
-              A rodada nasce em rascunho. Ela só aparece para o time depois que
-              você cadastrar as perguntas e publicar. Sugestão de pilar:{" "}
-              {AREAS.map((a) => `${a.curto} → ${pilarSugerido(a.id as AreaId)}`).join(
-                " · ",
-              )}
-              .
-            </p>
-
-            <BotaoEnviar
-              textoEnviando="Criando..."
-              className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-white hover:bg-primary-dark"
-            >
-              Criar rascunho
-            </BotaoEnviar>
-          </form>
+          <FormNovaRodada
+            acao={criarRodada}
+            pilares={pilares}
+            padroes={(padroes ?? []) as { id: number; nome: string; pilar: string | null }[]}
+            usos={usos}
+            anoAtual={ano}
+            mesAtual={mes}
+          />
         </details>
       )}
 
-      {/* Rodadas */}
+      {/* ---- Histórico por área ----
+          Pedido do dono (02/10/2026): "coloque no histórico, do armazém e
+          DU, os desafios e quais padrões foram de cada mês". A lista já
+          existia, mas dizia o nome e o período -- e o nome sai sozinho
+          ("Desafio de Agosto — Armazém"), sem o assunto. O que se procura
+          aqui é DO QUE foi cada mês: padrão, pilar e atividade, com o mês
+          na frente. */}
       {rodadas.length === 0 ? (
         <div className="rounded-2xl border border-slate-200 bg-white p-6 text-center text-sm text-slate-500 shadow-sm">
-          Nenhuma rodada ainda. Crie a primeira acima.
+          Nenhum desafio ainda. Crie o primeiro acima.
         </div>
       ) : (
         <div className="space-y-6">
@@ -289,23 +199,32 @@ export default async function AdminQuizPage({
             return (
               <section key={a.id}>
                 <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">
-                  {a.rotulo}
+                  {a.id === "AL" ? "🏭" : "🚚"} Histórico — {a.curto}
+                  <span className="ml-1 font-normal normal-case tracking-normal text-slate-400">
+                    ({daArea.length} desafio{daArea.length === 1 ? "" : "s"})
+                  </span>
                 </h2>
                 <div className="divide-y divide-slate-100 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
                   {daArea.map((r) => (
                     <Link
                       key={r.id}
                       href={`/admin/quiz/${r.id}`}
-                      className="flex items-center gap-3 p-4 hover:bg-slate-50"
+                      className="flex items-start gap-3 p-4 hover:bg-slate-50"
                     >
+                      <span className="w-16 shrink-0 rounded-lg bg-primary-soft py-1.5 text-center text-xs font-bold text-primary-dark">
+                        {mesAno(r.mes, r.temporada)}
+                      </span>
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-semibold text-slate-800">
-                          {r.nome}
+                        <p className="text-sm font-semibold text-slate-800">
+                          📄 {r.padraoNome ?? <span className="font-normal italic text-slate-400">sem padrão definido</span>}
                         </p>
-                        <p className="text-xs text-slate-500">
-                          {nomeDoMes(r.mes)}/{r.temporada} ·{" "}
-                          {periodoCurto(r.inicio, r.fim)} · {r.totalPerguntas}{" "}
-                          perguntas
+                        {(r.pilar || r.atividade) && (
+                          <p className="mt-0.5 text-xs text-slate-600">
+                            {[r.pilar && `Pilar ${r.pilar}`, r.atividade].filter(Boolean).join(" · ")}
+                          </p>
+                        )}
+                        <p className="mt-0.5 text-xs text-slate-400">
+                          {r.nome} · {periodoCurto(r.inicio, r.fim)} · {r.totalPerguntas} perguntas
                         </p>
                       </div>
                       <Etiqueta status={r.status} />
@@ -317,31 +236,6 @@ export default async function AdminQuizPage({
           })}
         </div>
       )}
-    </div>
-  );
-}
-
-const ENTRADA =
-  "w-full rounded-lg border border-slate-200 p-2 text-base focus:border-primary focus:outline-none";
-
-function Campo({
-  rotulo,
-  ajuda,
-  className = "",
-  children,
-}: {
-  rotulo: string;
-  ajuda?: string;
-  className?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className={className}>
-      <label className="mb-1 block text-xs font-medium text-slate-600">
-        {rotulo}
-      </label>
-      {children}
-      {ajuda && <p className="mt-1 text-xs text-slate-400">{ajuda}</p>}
     </div>
   );
 }
@@ -370,15 +264,4 @@ function Cartao({ valor, rotulo }: { valor: number; rotulo: string }) {
       <p className="text-xs text-slate-500">{rotulo}</p>
     </div>
   );
-}
-
-function primeiroDia(ano: number, mes: number) {
-  return `${ano}-${String(mes).padStart(2, "0")}-01`;
-}
-
-function ultimoDia(ano: number, mes: number) {
-  // Dia 0 do mês seguinte = último dia deste. Feito em UTC para não
-  // depender do fuso do servidor.
-  const d = new Date(Date.UTC(ano, mes, 0));
-  return d.toISOString().slice(0, 10);
 }

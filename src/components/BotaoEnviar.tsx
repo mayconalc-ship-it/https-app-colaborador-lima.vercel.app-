@@ -1,6 +1,8 @@
 "use client";
 
+import { useContext } from "react";
 import { useFormStatus } from "react-dom";
+import { EnviandoNoLugar } from "@/components/EnviandoNoLugar";
 
 /**
  * Botão de submit que se desliga sozinho enquanto a ação roda.
@@ -38,7 +40,11 @@ export function BotaoEnviar({
   ariaLabel?: string;
   title?: string;
 }) {
-  const { pending } = useFormStatus();
+  const { pending: pelaAcao } = useFormStatus();
+  // Dentro de um FormNoLugar o envio não passa por `action`, e quem sabe
+  // que ele está rodando é o contexto.
+  const noLugar = useContext(EnviandoNoLugar);
+  const pending = pelaAcao || noLugar;
   return (
     <button
       type="submit"

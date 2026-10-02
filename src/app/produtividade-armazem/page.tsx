@@ -1,5 +1,6 @@
 import { PageHeader } from "@/components/PageHeader";
 import { MenuCard } from "@/components/MenuCard";
+import { LinkDoGuia } from "@/components/LinkDoGuia";
 import { podeNoModulo, getModulosAcessiveis } from "@/lib/require-admin";
 import { requireAcessoArmazem } from "@/lib/produtividade-armazem-server";
 import { ehOwner } from "@/lib/acessos";
@@ -72,6 +73,8 @@ export default async function ProdutividadeArmazemPage() {
         title="Produtividade do Armazém"
         subtitle="Escolha o que você vai lançar."
       />
+
+      <LinkDoGuia categoria="armazem" className="mb-4" />
 
       <div className="grid grid-cols-2 gap-3">
         {funcionalidades.map((f) => (

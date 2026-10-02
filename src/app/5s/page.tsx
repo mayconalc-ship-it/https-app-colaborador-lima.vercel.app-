@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { decodificar } from "@/lib/texto-url";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { PageHeader } from "@/components/PageHeader";
+import { LinkDoGuia } from "@/components/LinkDoGuia";
 import { OQueEh5S } from "@/components/cinco-s/OQueEh5S";
 import { getContexto5S } from "@/lib/cinco-s-server";
 import {
@@ -158,6 +159,8 @@ export default async function CincoSPage({
         title="🧹 Programa 5S"
         subtitle={papelEmTexto(ctx)}
       />
+
+      <LinkDoGuia categoria="cinco-s" className="mb-4" />
 
       {erro && (
         <p className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">

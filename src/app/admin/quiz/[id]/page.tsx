@@ -5,6 +5,8 @@ import { BotaoEnviar } from "@/components/BotaoEnviar";
 import { MaisOuFechar } from "@/components/BotaoMais";
 import { FormularioGerar } from "@/components/quiz/FormularioGerar";
 import { BotaoExcluir } from "@/components/BotaoExcluir";
+import { BotaoNoLugar } from "@/components/BotaoNoLugar";
+import { FormNoLugar } from "@/components/FormNoLugar";
 import { TabelaRodada } from "@/components/TabelaCampeonato";
 import { decodificar } from "@/lib/texto-url";
 import { requireModulo, podeNoModulo } from "@/lib/require-admin";
@@ -179,45 +181,33 @@ export default async function RodadaPage({
           )}
         </p>
 
-        {podeEditar && (
-          <div className="mt-3 flex flex-wrap gap-2">
-            {rascunho && (
-              <form action={publicarRodada}>
-                <input type="hidden" name="id" value={rodada.id} />
-                <BotaoEnviar
-                  textoEnviando="Publicando..."
-                  disabled={faltam !== 0}
-                  className="rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white hover:bg-primary-dark"
-                >
-                  🚀 Publicar para o time
-                </BotaoEnviar>
-              </form>
-            )}
+        {/* PUBLICAR E EXCLUIR FORAM PARA O FIM (02/10/2026, pedido do
+            dono): quem monta o desafio desce a lista conferindo pergunta
+            por pergunta, e a decisão vem depois da conferência -- não
+            antes dela. Aqui em cima fica só o atalho para lá. */}
+        {podeEditar && rascunho && (
+          <a
+            href="#concluir-rodada"
+            className="mt-3 inline-block text-sm font-semibold text-primary hover:underline"
+          >
+            ↓ Revise as perguntas e publique no fim da página
+          </a>
+        )}
 
-            {rodada.status === "publicada" && (
-              <BotaoExcluir
-                action={encerrarRodada}
-                campos={{ id: rodada.id }}
-                confirmacao="Encerrar esta rodada? Ninguém mais consegue participar e os selos de 1º, Top 3 e Top 5 são entregues agora."
-                rotuloConfirmar="Encerrar rodada"
-                perigo={false}
-                textoEnviando="Encerrando..."
-                className="rounded-xl bg-slate-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-slate-800"
-              >
-                🏁 Encerrar rodada
-              </BotaoExcluir>
-            )}
-
-            {rascunho && podeExcluir && (
-              <BotaoExcluir
-                action={excluirRodada}
-                campos={{ id: rodada.id }}
-                confirmacao="Excluir este rascunho? As perguntas continuam no banco."
-                className="rounded-xl border border-red-200 px-4 py-2.5 text-sm font-semibold text-red-600 hover:bg-red-50"
-              >
-                Excluir rascunho
-              </BotaoExcluir>
-            )}
+        {podeEditar && rodada.status === "publicada" && (
+          <div className="mt-3">
+            <BotaoNoLugar
+              acao={encerrarRodada}
+              campos={{ id: rodada.id }}
+              confirmacao="Encerrar esta rodada?"
+              detalhe="Ninguém mais consegue participar e os selos de 1º, Top 3 e Top 5 são entregues agora."
+              rotuloConfirmar="Encerrar rodada"
+              perigo={false}
+              textoEnviando="Encerrando..."
+              className="rounded-xl bg-slate-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-slate-800"
+            >
+              🏁 Encerrar rodada
+            </BotaoNoLugar>
           </div>
         )}
 
@@ -321,8 +311,8 @@ export default async function RodadaPage({
           <summary className="cursor-pointer p-4 font-semibold text-slate-800">
             ✏️ Editar dados da rodada
           </summary>
-          <form
-            action={atualizarRodada}
+          <FormNoLugar
+            acao={atualizarRodada}
             className="space-y-3 border-t border-slate-100 p-4"
           >
             <input type="hidden" name="id" value={rodada.id} />
@@ -412,243 +402,20 @@ export default async function RodadaPage({
             >
               Salvar alterações
             </BotaoEnviar>
-          </form>
+          </FormNoLugar>
         </details>
-      )}
-
-      {/* ---- Perguntas ---- */}
-      <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">
-        Perguntas desta rodada
-      </h2>
-
-      {questoes.length === 0 ? (
-        <p className="rounded-2xl border border-slate-200 bg-white p-6 text-center text-sm text-slate-500 shadow-sm">
-          Nenhuma pergunta ainda. Cadastre abaixo, ou importe uma lista pronta.
-        </p>
-      ) : (
-        <div className="space-y-2">
-          {questoes.map((q, i) => (
-            <div
-              key={q.id}
-              className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
-            >
-              <div className="flex items-start gap-2">
-                <span className="text-sm font-bold text-slate-400">
-                  {i + 1}.
-                </span>
-                <p className="flex-1 text-sm font-semibold text-slate-900">
-                  {q.pergunta}
-                </p>
-              </div>
-
-              <ul className="mt-2 space-y-1 pl-6 text-sm">
-                {q.alternativas.map((a, j) => (
-                  <li
-                    key={a.id}
-                    // O GABARITO só para quem pode editar o Desafio
-                    // (10/09/2026). Quem tem só "ver" pode estar jogando a
-                    // rodada -- e abrir esta tela era ver a resposta.
-                    className={
-                      podeEditar && a.correta
-                        ? "font-semibold text-emerald-700"
-                        : "text-slate-600"
-                    }
-                  >
-                    {letra(j)}) {a.texto} {podeEditar && a.correta && "✔"}
-                  </li>
-                ))}
-              </ul>
-
-              {q.explicacao && (
-                <p className="mt-2 rounded-lg bg-slate-50 p-2.5 pl-3 text-xs text-slate-600">
-                  <span className="font-semibold">Explicação:</span>{" "}
-                  {q.explicacao}
-                </p>
-              )}
-
-              {/* O trecho é a conferência: a resposta acima bate com o que
-                  o padrão diz aqui? Se não bater, a pergunta foi inventada
-                  e deve ser corrigida ou excluída antes de publicar. */}
-              {q.origemTrecho && (
-                <details className="mt-2 rounded-lg border border-amber-200 bg-amber-50 p-2.5 pl-3">
-                  <summary
-                    className="cursor-pointer text-xs font-semibold text-amber-900"
-                    title="Passagem copiada do arquivo do padrão que comprova a resposta certa — confira se ela realmente sustenta o que a pergunta afirma."
-                  >
-                    📄 Trecho do padrão que sustenta a resposta
-                  </summary>
-                  <p className="mt-2 border-l-2 border-amber-300 pl-3 text-xs italic leading-relaxed text-slate-700">
-                    {q.origemTrecho}
-                  </p>
-                </details>
-              )}
-
-              <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
-                <span
-                  className={`rounded-full px-2 py-0.5 font-medium ${corDificuldade(q.dificuldade)}`}
-                >
-                  {rotuloDificuldade(q.dificuldade)}
-                </span>
-                {/* A etiqueta "Desativada" foi para dentro do
-                    BotaoStatusQuestao: ela precisa trocar no mesmo
-                    instante que o botão, e aqui ficaria um render
-                    atrás. */}
-                {q.vezesUsada > 0 && (
-                  <span className="text-slate-500">
-                    {q.acertos} acertos · {q.erros} erros
-                  </span>
-                )}
-
-                {podeEditar && (
-                  <div className="ml-auto flex flex-wrap gap-2">
-                    {/* Sem redirect na ação: a página não volta ao topo a
-                        cada clique, e desativar em série (a 7, a 9, a 12)
-                        deixa de exigir rolar tudo de novo. A cor diz o que
-                        o clique faz: âmbar tira de circulação, verde
-                        devolve -- o cinza de antes não distinguia um do
-                        outro (pedido do dono, 02/09/2026).
-
-                        A resposta é OTIMISTA desde 05/09/2026: sem
-                        redirect, a confirmação dependia do
-                        `revalidatePath` remontar a página inteira, e o
-                        botão ficava na rodinha enquanto isso. Ver
-                        BotaoStatusQuestao. */}
-                    <BotaoStatusQuestao
-                      acao={alternarStatusQuestao}
-                      rodadaId={rodada.id}
-                      questaoId={q.id}
-                      status={q.status}
-                    />
-
-                    {rascunho && (
-                      <BotaoExcluir
-                        action={removerDaRodada}
-                        campos={{ rodada_id: rodada.id, questao_id: q.id }}
-                        confirmacao="Tirar esta pergunta da rodada? Ela continua no banco."
-                        textoEnviando="Tirando..."
-                        title="Remove a pergunta só desta rodada. Ela continua ativa no banco, disponível para outras rodadas."
-                        className="rounded-lg border border-slate-200 px-3 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50"
-                      >
-                        Tirar da rodada
-                      </BotaoExcluir>
-                    )}
-
-                    {podeExcluir && q.vezesUsada === 0 && (
-                      <BotaoExcluir
-                        action={excluirQuestao}
-                        campos={{ rodada_id: rodada.id, questao_id: q.id }}
-                        confirmacao="Excluir esta pergunta do banco? Não dá para desfazer."
-                        title="Apaga a pergunta e suas alternativas em definitivo. Só é possível enquanto ela nunca foi usada em nenhuma rodada."
-                      >
-                        Excluir
-                      </BotaoExcluir>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              {/* Editar só em rascunho: trocar as alternativas apaga e
-                  recria as linhas, e a resposta já dada apontaria para
-                  uma alternativa que deixou de existir. */}
-              {podeEditar && rascunho && (
-                <details className="mt-3 border-t border-slate-100 pt-3">
-                  <summary
-                    className="cursor-pointer text-xs font-semibold text-primary"
-                    title="Abre o formulário para alterar o texto, as alternativas, a dificuldade ou a explicação desta pergunta."
-                  >
-                    ✏️ Editar esta pergunta
-                  </summary>
-                  <form action={editarQuestao} className="mt-3 space-y-3">
-                    <input type="hidden" name="rodada_id" value={rodada.id} />
-                    <input type="hidden" name="questao_id" value={q.id} />
-
-                    <textarea
-                      name="pergunta"
-                      required
-                      rows={2}
-                      defaultValue={q.pergunta}
-                      className={ENTRADA}
-                    />
-
-                    <div className="flex gap-2">
-                      <select
-                        name="tipo"
-                        defaultValue={q.tipo}
-                        className={ENTRADA}
-                      >
-                        {TIPOS_QUESTAO.map((t) => (
-                          <option key={t.id} value={t.id}>
-                            {t.rotulo}
-                          </option>
-                        ))}
-                      </select>
-                      <select
-                        name="dificuldade"
-                        defaultValue={q.dificuldade}
-                        className={ENTRADA}
-                      >
-                        {DIFICULDADES.map((d) => (
-                          <option key={d.id} value={d.id}>
-                            {d.rotulo}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <fieldset>
-                      <legend className="mb-1 text-xs font-medium text-slate-600">
-                        Alternativas — marque a correta
-                      </legend>
-                      {[0, 1, 2, 3].map((i) => (
-                        <div key={i} className="mb-2 flex items-center gap-2">
-                          <input
-                            type="radio"
-                            name="correta"
-                            value={i}
-                            defaultChecked={q.alternativas[i]?.correta ?? false}
-                            aria-label={`Alternativa ${letra(i)} é a correta`}
-                            className="h-4 w-4 shrink-0 border-slate-300 text-primary"
-                          />
-                          <span className="w-4 text-xs font-bold text-slate-500">
-                            {letra(i)}
-                          </span>
-                          <input
-                            name={`alternativa_${i}`}
-                            required={i < 2}
-                            defaultValue={q.alternativas[i]?.texto ?? ""}
-                            className={ENTRADA}
-                          />
-                        </div>
-                      ))}
-                    </fieldset>
-
-                    <textarea
-                      name="explicacao"
-                      required
-                      rows={2}
-                      defaultValue={q.explicacao}
-                      className={ENTRADA}
-                    />
-
-                    <BotaoEnviar
-                      textoEnviando="Salvando..."
-                      className="w-full rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white hover:bg-primary-dark"
-                    >
-                      Salvar pergunta
-                    </BotaoEnviar>
-                  </form>
-                </details>
-              )}
-            </div>
-          ))}
-        </div>
       )}
 
       {/* ---- Cadastro de perguntas ---- */}
       {podeCriar && rascunho && (
-        <>
+        <div className="mb-6">
+          {/* MONTAR VEM ANTES DE CONFERIR (02/10/2026): gerar e incluir
+              perguntas fica acima da lista, e a lista termina no bloco de
+              publicar. Assim a página se lê de cima para baixo na ordem em
+              que a rodada é feita -- e quem confere desce até o fim e já
+              encontra o botão que encerra o trabalho. */}
           {/* Geração a partir do próprio padrão */}
-          <div className="mt-4 rounded-2xl border border-primary bg-primary-soft p-4">
+          <div className="rounded-2xl border border-primary bg-primary-soft p-4">
             <h3 className="font-semibold text-primary-dark">
               ✨ Gerar perguntas a partir do padrão
             </h3>
@@ -697,8 +464,9 @@ export default async function RodadaPage({
               <span className="group-open:hidden">Nova pergunta</span>
               <span className="hidden group-open:inline">Fechar</span>
             </summary>
-            <form
-              action={criarQuestao}
+            <FormNoLugar
+              acao={criarQuestao}
+              limparAoSalvar
               className="space-y-3 border-t border-slate-100 p-4"
             >
               <input type="hidden" name="rodada_id" value={rodada.id} />
@@ -796,7 +564,7 @@ export default async function RodadaPage({
               >
                 Adicionar pergunta
               </BotaoEnviar>
-            </form>
+            </FormNoLugar>
           </details>
 
           {/* Aqui ficava "Importar várias de uma vez", um campo para colar
@@ -874,24 +642,14 @@ export default async function RodadaPage({
                                     </span>
                                   </p>
                                 </div>
-                                <form action={adicionarDoBanco}>
-                                  <input
-                                    type="hidden"
-                                    name="rodada_id"
-                                    value={rodada.id}
-                                  />
-                                  <input
-                                    type="hidden"
-                                    name="questao_id"
-                                    value={q.id}
-                                  />
-                                  <BotaoEnviar
-                                    textoEnviando="..."
-                                    className="shrink-0 rounded-lg bg-primary-soft px-3 py-1.5 text-xs font-semibold text-primary hover:bg-primary hover:text-white"
-                                  >
-                                    Trazer
-                                  </BotaoEnviar>
-                                </form>
+                                <BotaoNoLugar
+                                  acao={adicionarDoBanco}
+                                  campos={{ rodada_id: rodada.id, questao_id: q.id }}
+                                  textoEnviando="..."
+                                  className="shrink-0 rounded-lg bg-primary-soft px-3 py-1.5 text-xs font-semibold text-primary hover:bg-primary hover:text-white"
+                                >
+                                  Trazer
+                                </BotaoNoLugar>
                               </div>
                             ))}
                           </div>
@@ -903,7 +661,295 @@ export default async function RodadaPage({
               </div>
             </details>
           )}
-        </>
+        </div>
+      )}
+
+      {/* ---- Perguntas ---- */}
+      <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">
+        Perguntas desta rodada
+      </h2>
+
+      {questoes.length === 0 ? (
+        <p className="rounded-2xl border border-slate-200 bg-white p-6 text-center text-sm text-slate-500 shadow-sm">
+          Nenhuma pergunta ainda. Gere a partir do padrão, cadastre ou traga do banco — logo acima.
+        </p>
+      ) : (
+        <div className="space-y-2">
+          {questoes.map((q, i) => (
+            <div
+              key={q.id}
+              className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
+            >
+              <div className="flex items-start gap-2">
+                <span className="text-sm font-bold text-slate-400">
+                  {i + 1}.
+                </span>
+                <p className="flex-1 text-sm font-semibold text-slate-900">
+                  {q.pergunta}
+                </p>
+              </div>
+
+              <ul className="mt-2 space-y-1 pl-6 text-sm">
+                {q.alternativas.map((a, j) => (
+                  <li
+                    key={a.id}
+                    // O GABARITO só para quem pode editar o Desafio
+                    // (10/09/2026). Quem tem só "ver" pode estar jogando a
+                    // rodada -- e abrir esta tela era ver a resposta.
+                    className={
+                      podeEditar && a.correta
+                        ? "font-semibold text-emerald-700"
+                        : "text-slate-600"
+                    }
+                  >
+                    {letra(j)}) {a.texto} {podeEditar && a.correta && "✔"}
+                  </li>
+                ))}
+              </ul>
+
+              {q.explicacao && (
+                <p className="mt-2 rounded-lg bg-slate-50 p-2.5 pl-3 text-xs text-slate-600">
+                  <span className="font-semibold">Explicação:</span>{" "}
+                  {q.explicacao}
+                </p>
+              )}
+
+              {/* O trecho é a conferência: a resposta acima bate com o que
+                  o padrão diz aqui? Se não bater, a pergunta foi inventada
+                  e deve ser corrigida ou excluída antes de publicar. */}
+              {q.origemTrecho && (
+                <details className="mt-2 rounded-lg border border-amber-200 bg-amber-50 p-2.5 pl-3">
+                  <summary
+                    className="cursor-pointer text-xs font-semibold text-amber-900"
+                    title="Passagem copiada do arquivo do padrão que comprova a resposta certa — confira se ela realmente sustenta o que a pergunta afirma."
+                  >
+                    📄 Trecho do padrão que sustenta a resposta
+                  </summary>
+                  <p className="mt-2 border-l-2 border-amber-300 pl-3 text-xs italic leading-relaxed text-slate-700">
+                    {q.origemTrecho}
+                  </p>
+                </details>
+              )}
+
+              <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
+                <span
+                  className={`rounded-full px-2 py-0.5 font-medium ${corDificuldade(q.dificuldade)}`}
+                >
+                  {rotuloDificuldade(q.dificuldade)}
+                </span>
+                {/* A etiqueta "Desativada" foi para dentro do
+                    BotaoStatusQuestao: ela precisa trocar no mesmo
+                    instante que o botão, e aqui ficaria um render
+                    atrás. */}
+                {q.vezesUsada > 0 && (
+                  <span className="text-slate-500">
+                    {q.acertos} acertos · {q.erros} erros
+                  </span>
+                )}
+
+                {podeEditar && (
+                  <div className="ml-auto flex flex-wrap gap-2">
+                    {/* Sem redirect na ação: a página não volta ao topo a
+                        cada clique, e desativar em série (a 7, a 9, a 12)
+                        deixa de exigir rolar tudo de novo. A cor diz o que
+                        o clique faz: âmbar tira de circulação, verde
+                        devolve -- o cinza de antes não distinguia um do
+                        outro (pedido do dono, 02/09/2026).
+
+                        A resposta é OTIMISTA desde 05/09/2026: sem
+                        redirect, a confirmação dependia do
+                        `revalidatePath` remontar a página inteira, e o
+                        botão ficava na rodinha enquanto isso. Ver
+                        BotaoStatusQuestao. */}
+                    <BotaoStatusQuestao
+                      acao={alternarStatusQuestao}
+                      rodadaId={rodada.id}
+                      questaoId={q.id}
+                      status={q.status}
+                    />
+
+                    {rascunho && (
+                      <BotaoNoLugar
+                        acao={removerDaRodada}
+                        campos={{ rodada_id: rodada.id, questao_id: q.id }}
+                        confirmacao="Tirar esta pergunta da rodada?"
+                        detalhe="Ela continua no banco, disponível para outras rodadas."
+                        rotuloConfirmar="Tirar da rodada"
+                        perigo={false}
+                        textoEnviando="Tirando..."
+                        title="Remove a pergunta só desta rodada. Ela continua ativa no banco, disponível para outras rodadas."
+                        className="rounded-lg border border-slate-200 px-3 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50"
+                      >
+                        Tirar da rodada
+                      </BotaoNoLugar>
+                    )}
+
+                    {podeExcluir && q.vezesUsada === 0 && (
+                      <BotaoNoLugar
+                        acao={excluirQuestao}
+                        campos={{ rodada_id: rodada.id, questao_id: q.id }}
+                        confirmacao="Excluir esta pergunta do banco?"
+                        detalhe="Não dá para desfazer."
+                        rotuloConfirmar="Excluir"
+                        textoEnviando="Excluindo..."
+                        title="Apaga a pergunta e suas alternativas em definitivo. Só é possível enquanto ela nunca foi usada em nenhuma rodada."
+                      >
+                        Excluir
+                      </BotaoNoLugar>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Editar só em rascunho: trocar as alternativas apaga e
+                  recria as linhas, e a resposta já dada apontaria para
+                  uma alternativa que deixou de existir. */}
+              {podeEditar && rascunho && (
+                <details className="mt-3 border-t border-slate-100 pt-3">
+                  <summary
+                    className="cursor-pointer text-xs font-semibold text-primary"
+                    title="Abre o formulário para alterar o texto, as alternativas, a dificuldade ou a explicação desta pergunta."
+                  >
+                    ✏️ Editar esta pergunta
+                  </summary>
+                  <FormNoLugar acao={editarQuestao} fecharAoSalvar className="mt-3 space-y-3">
+                    <input type="hidden" name="rodada_id" value={rodada.id} />
+                    <input type="hidden" name="questao_id" value={q.id} />
+
+                    <textarea
+                      name="pergunta"
+                      required
+                      rows={2}
+                      defaultValue={q.pergunta}
+                      className={ENTRADA}
+                    />
+
+                    <div className="flex gap-2">
+                      <select
+                        name="tipo"
+                        defaultValue={q.tipo}
+                        className={ENTRADA}
+                      >
+                        {TIPOS_QUESTAO.map((t) => (
+                          <option key={t.id} value={t.id}>
+                            {t.rotulo}
+                          </option>
+                        ))}
+                      </select>
+                      <select
+                        name="dificuldade"
+                        defaultValue={q.dificuldade}
+                        className={ENTRADA}
+                      >
+                        {DIFICULDADES.map((d) => (
+                          <option key={d.id} value={d.id}>
+                            {d.rotulo}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <fieldset>
+                      <legend className="mb-1 text-xs font-medium text-slate-600">
+                        Alternativas — marque a correta
+                      </legend>
+                      {[0, 1, 2, 3].map((i) => (
+                        <div key={i} className="mb-2 flex items-center gap-2">
+                          <input
+                            type="radio"
+                            name="correta"
+                            value={i}
+                            defaultChecked={q.alternativas[i]?.correta ?? false}
+                            aria-label={`Alternativa ${letra(i)} é a correta`}
+                            className="h-4 w-4 shrink-0 border-slate-300 text-primary"
+                          />
+                          <span className="w-4 text-xs font-bold text-slate-500">
+                            {letra(i)}
+                          </span>
+                          <input
+                            name={`alternativa_${i}`}
+                            required={i < 2}
+                            defaultValue={q.alternativas[i]?.texto ?? ""}
+                            className={ENTRADA}
+                          />
+                        </div>
+                      ))}
+                    </fieldset>
+
+                    <textarea
+                      name="explicacao"
+                      required
+                      rows={2}
+                      defaultValue={q.explicacao}
+                      className={ENTRADA}
+                    />
+
+                    <BotaoEnviar
+                      textoEnviando="Salvando..."
+                      className="w-full rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white hover:bg-primary-dark"
+                    >
+                      Salvar pergunta
+                    </BotaoEnviar>
+                  </FormNoLugar>
+                </details>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* ---- Concluir: publicar ou excluir o rascunho ---- */}
+      {podeEditar && rascunho && (
+        <section
+          id="concluir-rodada"
+          className="mt-6 scroll-mt-4 rounded-2xl border-2 border-primary/30 bg-white p-4 shadow-sm"
+        >
+          <h2 className="font-semibold text-slate-800">Conferiu tudo?</h2>
+          <p className="mt-1 text-sm text-slate-600">
+            {questoes.length} de {rodada.totalPerguntas} perguntas cadastradas
+            {faltam > 0 && (
+              <span className="font-semibold text-amber-700"> — faltam {faltam} para publicar</span>
+            )}
+            {faltam < 0 && (
+              <span className="font-semibold text-amber-700">
+                {" "}
+                — sobram {Math.abs(faltam)}: ajuste &quot;Perguntas&quot; em &quot;Editar dados da
+                rodada&quot; para {questoes.length}
+              </span>
+            )}
+            {faltam === 0 && <span className="font-semibold text-emerald-700"> — completa</span>}
+            .
+          </p>
+
+          <div className="mt-3 flex flex-wrap gap-2">
+            <BotaoNoLugar
+              acao={publicarRodada}
+              campos={{ id: rodada.id }}
+              confirmacao="Publicar para o time?"
+              detalhe="O desafio passa a aparecer para a área e as perguntas ficam travadas. Quem é da área recebe o aviso no dia em que ele abrir."
+              rotuloConfirmar="Publicar"
+              perigo={false}
+              textoEnviando="Publicando..."
+              disabled={faltam !== 0}
+              title={faltam !== 0 ? "A rodada só publica com o número de perguntas configurado." : undefined}
+              className="flex-1 rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-white hover:bg-primary-dark"
+            >
+              🚀 Publicar para o time
+            </BotaoNoLugar>
+
+            {podeExcluir && (
+              <BotaoExcluir
+                action={excluirRodada}
+                campos={{ id: rodada.id }}
+                confirmacao="Excluir este rascunho? As perguntas continuam no banco."
+                rotuloConfirmar="Excluir rascunho"
+                className="rounded-xl border border-red-200 px-4 py-3 text-sm font-semibold text-red-600 hover:bg-red-50"
+              >
+                Excluir rascunho
+              </BotaoExcluir>
+            )}
+          </div>
+        </section>
       )}
 
       <p className="mt-6 text-xs text-slate-400">

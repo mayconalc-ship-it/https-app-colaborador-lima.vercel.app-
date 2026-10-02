@@ -23,6 +23,7 @@ import {
   MODELO as MODELO_IA_QUIZ,
 } from "@/lib/quiz-ia";
 import { registrarUsoIA } from "@/lib/ia-uso";
+import { deuCerto, deuErrado, type ResultadoAcao } from "@/lib/resultado-acao";
 import {
   MAX_PERGUNTAS,
   PERGUNTAS_PADRAO,
@@ -76,17 +77,17 @@ async function rodadaDaRevenda(id: number, revendaId: string) {
 // Configuração
 // ---------------------------------------------------------------------
 
-export async function salvarConfig(formData: FormData) {
+export async function salvarConfig(formData: FormData): Promise<ResultadoAcao> {
   await requireModulo("quiz", "editar");
   const revendaId = await contexto();
 
   const posicoes = numero(formData, "posicoes_visiveis");
   if (!Number.isInteger(posicoes) || posicoes < 3 || posicoes > 50) {
-    redirect(`${BASE}?erro=${encodeURIComponent("Escolha de 3 a 50 posições.")}`);
+    return deuErrado("Escolha de 3 a 50 posições.");
   }
 
   const admin = createAdminClient();
-  await admin.from("quiz_config").upsert(
+  const { error } = await admin.from("quiz_config").upsert(
     {
       revenda_id: revendaId,
       posicoes_visiveis: posicoes,
@@ -95,23 +96,23 @@ export async function salvarConfig(formData: FormData) {
     { onConflict: "revenda_id" },
   );
 
+  if (error) return deuErrado(`Não foi possível salvar: ${error.message}`);
+
   revalidatePath("/desafio/classificacao");
-  redirect(`${BASE}?sucesso=${encodeURIComponent("Classificação atualizada.")}`);
+  return deuCerto(`Classificação salva: o time vê o Top ${posicoes}.`);
 }
 
 // ---------------------------------------------------------------------
 // Rodadas
 // ---------------------------------------------------------------------
 
-export async function criarRodada(formData: FormData) {
+export async function criarRodada(formData: FormData): Promise<ResultadoAcao> {
   await requireModulo("quiz", "criar");
   const revendaId = await contexto();
   const perfil = await getPerfil();
 
   const area = texto(formData, "area");
-  if (!ehAreaValida(area)) {
-    redirect(`${BASE}?erro=${encodeURIComponent("Escolha a área do desafio.")}`);
-  }
+  if (!ehAreaValida(area)) return deuErrado("Escolha a área do desafio.");
 
   const mes = numero(formData, "mes");
   const temporada = numero(formData, "temporada");
@@ -122,19 +123,13 @@ export async function criarRodada(formData: FormData) {
   // O teto é conferido aqui, não só no <select>: quem chamar a ação por
   // fora do formulário passaria por cima do limite do campo.
   if (totalPerguntas < 1 || totalPerguntas > MAX_PERGUNTAS) {
-    redirect(
-      `${BASE}?erro=${encodeURIComponent(
-        `A rodada pode ter de 1 a ${MAX_PERGUNTAS} perguntas.`,
-      )}`,
-    );
+    return deuErrado(`A rodada pode ter de 1 a ${MAX_PERGUNTAS} perguntas.`);
   }
 
   if (mes < 1 || mes > 12 || temporada < 2020 || temporada > 2100) {
-    redirect(`${BASE}?erro=${encodeURIComponent("Mês ou ano inválido.")}`);
+    return deuErrado("Mês ou ano inválido.");
   }
-  if (!inicio || !fim || fim < inicio) {
-    redirect(`${BASE}?erro=${encodeURIComponent("O período está invertido ou incompleto.")}`);
-  }
+  if (!inicio || !fim || fim < inicio) return deuErrado("O período está invertido ou incompleto.");
 
   const padraoId = numero(formData, "padrao_id");
   const admin = createAdminClient();
@@ -177,35 +172,27 @@ export async function criarRodada(formData: FormData) {
     .select("id")
     .single();
 
-  if (error || !criada) {
-    redirect(`${BASE}?erro=${encodeURIComponent(error?.message ?? "Não foi possível criar.")}`);
-  }
+  if (error || !criada) return deuErrado(error?.message ?? "Não foi possível criar.");
 
-  redirect(`${BASE}/${criada.id}`);
+  // Vai direto para a rodada: é lá que se geram e revisam as perguntas.
+  return deuCerto("Rodada criada em rascunho. Agora monte as perguntas.", `${BASE}/${criada.id}`);
 }
 
-export async function atualizarRodada(formData: FormData) {
+export async function atualizarRodada(formData: FormData): Promise<ResultadoAcao> {
   await requireModulo("quiz", "editar");
   const revendaId = await contexto();
 
   const id = numero(formData, "id");
   const rodada = await rodadaDaRevenda(id, revendaId);
-  const destino = `${BASE}/${rodada.id}`;
 
   const inicio = texto(formData, "inicio");
   const fim = texto(formData, "fim");
-  if (!inicio || !fim || fim < inicio) {
-    redirect(`${destino}?erro=${encodeURIComponent("O período está invertido.")}`);
-  }
+  if (!inicio || !fim || fim < inicio) return deuErrado("O período está invertido.");
 
   const totalPerguntas =
     numero(formData, "total_perguntas") || rodada.totalPerguntas;
   if (totalPerguntas < 1 || totalPerguntas > MAX_PERGUNTAS) {
-    redirect(
-      `${destino}?erro=${encodeURIComponent(
-        `A rodada pode ter de 1 a ${MAX_PERGUNTAS} perguntas.`,
-      )}`,
-    );
+    return deuErrado(`A rodada pode ter de 1 a ${MAX_PERGUNTAS} perguntas.`);
   }
 
   const admin = createAdminClient();
@@ -229,13 +216,7 @@ export async function atualizarRodada(formData: FormData) {
       .eq("id", padraoId)
       .eq("revenda_id", revendaId)
       .maybeSingle();
-    if (!data) {
-      redirect(
-        `${destino}?erro=${encodeURIComponent(
-          "Esse padrão não está no acervo desta revenda.",
-        )}`,
-      );
-    }
+    if (!data) return deuErrado("Esse padrão não está no acervo desta revenda.");
     padraoNome = data.nome;
   }
 
@@ -254,10 +235,10 @@ export async function atualizarRodada(formData: FormData) {
     .eq("id", rodada.id)
     .eq("revenda_id", revendaId);
 
-  if (error) redirect(`${destino}?erro=${encodeURIComponent(error.message)}`);
+  if (error) return deuErrado(`Não foi possível salvar: ${error.message}`);
 
   revalidatePath("/desafio");
-  redirect(`${destino}?sucesso=${encodeURIComponent("Rodada atualizada.")}`);
+  return deuCerto("Dados da rodada salvos.");
 }
 
 /**
@@ -268,13 +249,12 @@ export async function atualizarRodada(formData: FormData) {
  * na mesma área no mesmo período. A última evita o pior caso possível:
  * duas classificações concorrentes para a mesma gente.
  */
-export async function publicarRodada(formData: FormData) {
+export async function publicarRodada(formData: FormData): Promise<ResultadoAcao> {
   await requireModulo("quiz", "editar");
   const revendaId = await contexto();
 
   const id = numero(formData, "id");
   const rodada = await rodadaDaRevenda(id, revendaId);
-  const destino = `${BASE}/${rodada.id}`;
 
   const admin = createAdminClient();
   const { count } = await admin
@@ -287,12 +267,10 @@ export async function publicarRodada(formData: FormData) {
   // dizendo 10 com 12 já cadastradas) que travou quem estava jogando na
   // pergunta 10, mesmo com a barra de progresso mostrando 12.
   if ((count ?? 0) !== rodada.totalPerguntas) {
-    redirect(
-      `${destino}?erro=${encodeURIComponent(
-        (count ?? 0) < rodada.totalPerguntas
-          ? `A rodada promete ${rodada.totalPerguntas} perguntas e tem ${count ?? 0}. Complete o desafio antes de publicar.`
-          : `A rodada tem ${count ?? 0} perguntas cadastradas, mas o campo "Perguntas" está em ${rodada.totalPerguntas}. Ajuste esse número em "Editar dados da rodada" antes de publicar.`,
-      )}`,
+    return deuErrado(
+      (count ?? 0) < rodada.totalPerguntas
+        ? `A rodada promete ${rodada.totalPerguntas} perguntas e tem ${count ?? 0}. Complete o desafio antes de publicar.`
+        : `A rodada tem ${count ?? 0} perguntas cadastradas, mas o campo "Perguntas" está em ${rodada.totalPerguntas}. Ajuste esse número em "Editar dados da rodada" antes de publicar.`,
     );
   }
 
@@ -307,10 +285,8 @@ export async function publicarRodada(formData: FormData) {
   );
 
   if (concorrentes.length > 0) {
-    redirect(
-      `${destino}?erro=${encodeURIComponent(
-        `O período bate com o da rodada "${concorrentes[0].nome}". Encerre ou mude a data antes.`,
-      )}`,
+    return deuErrado(
+      `O período bate com o da rodada "${concorrentes[0].nome}". Encerre ou mude a data antes.`,
     );
   }
 
@@ -333,7 +309,7 @@ export async function publicarRodada(formData: FormData) {
     .eq("id", rodada.id)
     .eq("revenda_id", revendaId);
 
-  if (error) redirect(`${destino}?erro=${encodeURIComponent(error.message)}`);
+  if (error) return deuErrado(`Não foi possível publicar: ${error.message}`);
 
   const avisados = comecouHoje
     ? await avisarDaArea(revendaId, rodada.area, {
@@ -346,12 +322,10 @@ export async function publicarRodada(formData: FormData) {
 
   revalidatePath("/desafio");
   revalidatePath("/");
-  redirect(
-    `${destino}?sucesso=${encodeURIComponent(
-      comecouHoje
-        ? `Rodada publicada. ${resumoDoAviso(avisados, rodada.area)}`
-        : `Rodada publicada. O time será avisado em ${formatarDiaBr(rodada.inicio)}, quando o desafio abrir.`,
-    )}`,
+  return deuCerto(
+    comecouHoje
+      ? `Rodada publicada. ${resumoDoAviso(avisados, rodada.area)}`
+      : `Rodada publicada. O time será avisado em ${formatarDiaBr(rodada.inicio)}, quando o desafio abrir.`,
   );
 }
 
@@ -362,20 +336,20 @@ export async function publicarRodada(formData: FormData) {
  * está aberta a classificação ainda muda — um selo de 1º lugar dado no
  * dia 3 estaria mentindo no dia 30.
  */
-export async function encerrarRodada(formData: FormData) {
+export async function encerrarRodada(formData: FormData): Promise<ResultadoAcao> {
   await requireModulo("quiz", "editar");
   const revendaId = await contexto();
 
   const id = numero(formData, "id");
   const rodada = await rodadaDaRevenda(id, revendaId);
-  const destino = `${BASE}/${rodada.id}`;
 
   const admin = createAdminClient();
-  await admin
+  const { error } = await admin
     .from("quiz_rodadas")
     .update({ status: "encerrada", encerrada_em: new Date().toISOString() })
     .eq("id", rodada.id)
     .eq("revenda_id", revendaId);
+  if (error) return deuErrado(`Não foi possível encerrar: ${error.message}`);
 
   await premiarPosicoes(rodada.id, revendaId);
 
@@ -385,11 +359,7 @@ export async function encerrarRodada(formData: FormData) {
   });
 
   revalidatePath("/desafio");
-  redirect(
-    `${destino}?sucesso=${encodeURIComponent(
-      `Rodada encerrada e premiada. ${resumoDoAviso(avisados, rodada.area)}`,
-    )}`,
-  );
+  return deuCerto(`Rodada encerrada e premiada. ${resumoDoAviso(avisados, rodada.area)}`);
 }
 
 export async function excluirRodada(formData: FormData) {
@@ -545,14 +515,16 @@ async function gravar(
   return questao.id;
 }
 
-export async function criarQuestao(formData: FormData) {
+export async function criarQuestao(formData: FormData): Promise<ResultadoAcao> {
   await requireModulo("quiz", "criar");
   const revendaId = await contexto();
   const perfil = await getPerfil();
 
   const rodadaId = numero(formData, "rodada_id");
   const rodada = await rodadaDaRevenda(rodadaId, revendaId);
-  const destino = `${BASE}/${rodada.id}`;
+  if (rodada.status !== "rascunho") {
+    return deuErrado("A rodada já está no ar. Só dá para incluir pergunta em rascunho.");
+  }
 
   const alternativas = [0, 1, 2, 3, 4, 5]
     .map((i) => texto(formData, `alternativa_${i}`))
@@ -568,15 +540,16 @@ export async function criarQuestao(formData: FormData) {
   };
 
   const problema = validar(entrada);
-  if (problema) redirect(`${destino}?erro=${encodeURIComponent(problema)}`);
+  if (problema) return deuErrado(problema);
 
   try {
     await gravar(entrada, rodada.id, revendaId, rodada.area, rodada, perfil?.id ?? null);
   } catch (e) {
-    redirect(`${destino}?erro=${encodeURIComponent((e as Error).message)}`);
+    return deuErrado((e as Error).message);
   }
 
-  redirect(`${destino}?sucesso=${encodeURIComponent("Pergunta adicionada.")}`);
+  revalidatePath(`${BASE}/${rodada.id}`);
+  return deuCerto("Pergunta adicionada ao fim da lista.");
 }
 
 /**
@@ -593,36 +566,25 @@ export async function criarQuestao(formData: FormData) {
  * curada por ninguém ainda -- descartar nove boas por causa de uma
  * repetida só faria o Admin clicar de novo e pagar outra geração.
  */
-export async function gerarComIA(formData: FormData) {
+export async function gerarComIA(formData: FormData): Promise<ResultadoAcao> {
   await requireModulo("quiz", "criar");
   const revendaId = await contexto();
   const perfil = await getPerfil();
 
   const rodadaId = numero(formData, "rodada_id");
   const rodada = await rodadaDaRevenda(rodadaId, revendaId);
-  const destino = `${BASE}/${rodada.id}`;
 
   if (!iaConfigurada()) {
-    redirect(
-      `${destino}?erro=${encodeURIComponent(
-        "A geração automática não está configurada: falta a variável ANTHROPIC_API_KEY.",
-      )}`,
-    );
+    return deuErrado("A geração automática não está configurada: falta a variável ANTHROPIC_API_KEY.");
   }
 
   if (rodada.status !== "rascunho") {
-    redirect(
-      `${destino}?erro=${encodeURIComponent(
-        "A rodada já está no ar. Só dá para gerar perguntas em rascunho.",
-      )}`,
-    );
+    return deuErrado("A rodada já está no ar. Só dá para gerar perguntas em rascunho.");
   }
 
   if (!rodada.padraoId) {
-    redirect(
-      `${destino}?erro=${encodeURIComponent(
-        "Esta rodada não tem padrão escolhido — é dele que as perguntas saem. Defina em 'Editar dados da rodada'.",
-      )}`,
+    return deuErrado(
+      "Esta rodada não tem padrão escolhido — é dele que as perguntas saem. Defina em 'Editar dados da rodada'.",
     );
   }
 
@@ -646,13 +608,7 @@ export async function gerarComIA(formData: FormData) {
       .eq("status", "ativa"),
   ]);
 
-  if (!padrao) {
-    redirect(
-      `${destino}?erro=${encodeURIComponent(
-        "O padrão desta rodada não está mais no acervo. Escolha outro.",
-      )}`,
-    );
-  }
+  if (!padrao) return deuErrado("O padrão desta rodada não está mais no acervo. Escolha outro.");
 
   let geradas;
   try {
@@ -674,8 +630,7 @@ export async function gerarComIA(formData: FormData) {
       saida: geradas.custo.saida,
     });
   } catch (e) {
-    redirect(`${destino}?erro=${encodeURIComponent(mensagemDeErro(e))}`);
-    return;
+    return deuErrado(mensagemDeErro(e));
   }
 
   let gravadas = 0;
@@ -716,11 +671,8 @@ export async function gerarComIA(formData: FormData) {
       ? ` ${recusadas.length} descartada(s): ${recusadas[0]}`
       : "";
 
-  redirect(
-    gravadas === 0
-      ? `${destino}?erro=${encodeURIComponent(resumo + sobra)}`
-      : `${destino}?sucesso=${encodeURIComponent(resumo + sobra)}`,
-  );
+  revalidatePath(`${BASE}/${rodada.id}`);
+  return gravadas === 0 ? deuErrado(resumo + sobra) : deuCerto(resumo + sobra);
 }
 
 /**
@@ -731,20 +683,17 @@ export async function gerarComIA(formData: FormData) {
  * para elas. Enquanto a rodada é rascunho não existe resposta nenhuma,
  * então a troca é segura.
  */
-export async function editarQuestao(formData: FormData) {
+export async function editarQuestao(formData: FormData): Promise<ResultadoAcao> {
   await requireModulo("quiz", "editar");
   const revendaId = await contexto();
 
   const rodadaId = numero(formData, "rodada_id");
   const rodada = await rodadaDaRevenda(rodadaId, revendaId);
-  const destino = `${BASE}/${rodada.id}`;
   const questaoId = numero(formData, "questao_id");
 
   if (rodada.status !== "rascunho") {
-    redirect(
-      `${destino}?erro=${encodeURIComponent(
-        "A rodada já está no ar — editar a pergunta agora mudaria o desafio para quem já respondeu.",
-      )}`,
+    return deuErrado(
+      "A rodada já está no ar — editar a pergunta agora mudaria o desafio para quem já respondeu.",
     );
   }
 
@@ -762,7 +711,7 @@ export async function editarQuestao(formData: FormData) {
   };
 
   const problema = validar(entrada);
-  if (problema) redirect(`${destino}?erro=${encodeURIComponent(problema)}`);
+  if (problema) return deuErrado(problema);
 
   const admin = createAdminClient();
 
@@ -779,17 +728,13 @@ export async function editarQuestao(formData: FormData) {
     .eq("revenda_id", revendaId);
 
   if (error) {
-    redirect(
-      `${destino}?erro=${encodeURIComponent(
-        error.code === "23505"
-          ? "Já existe outra pergunta com esse texto nesta área."
-          : error.message,
-      )}`,
+    return deuErrado(
+      error.code === "23505" ? "Já existe outra pergunta com esse texto nesta área." : error.message,
     );
   }
 
   await admin.from("quiz_alternativas").delete().eq("questao_id", questaoId);
-  await admin.from("quiz_alternativas").insert(
+  const { error: erroAlternativas } = await admin.from("quiz_alternativas").insert(
     entrada.alternativas.map((texto, i) => ({
       questao_id: questaoId,
       texto,
@@ -798,7 +743,12 @@ export async function editarQuestao(formData: FormData) {
     })),
   );
 
-  redirect(`${destino}?sucesso=${encodeURIComponent("Pergunta atualizada.")}`);
+  if (erroAlternativas) {
+    return deuErrado(`A pergunta foi salva, mas as alternativas não: ${erroAlternativas.message}`);
+  }
+
+  revalidatePath(`${BASE}/${rodada.id}`);
+  return deuCerto("Pergunta salva.");
 }
 
 /**
@@ -815,7 +765,7 @@ export async function editarQuestao(formData: FormData) {
  * é a própria etiqueta "Desativada" aparecendo na linha que foi clicada,
  * que é uma confirmação melhor por estar do lado do que mudou.
  */
-export async function alternarStatusQuestao(formData: FormData) {
+export async function alternarStatusQuestao(formData: FormData): Promise<ResultadoAcao> {
   await requireModulo("quiz", "editar");
   const revendaId = await contexto();
 
@@ -824,7 +774,7 @@ export async function alternarStatusQuestao(formData: FormData) {
   const ativa = texto(formData, "status") === "ativa";
 
   const admin = createAdminClient();
-  await admin
+  const { error } = await admin
     .from("quiz_questoes")
     .update({
       status: ativa ? "inativa" : "ativa",
@@ -833,7 +783,10 @@ export async function alternarStatusQuestao(formData: FormData) {
     .eq("id", questaoId)
     .eq("revenda_id", revendaId);
 
+  if (error) return deuErrado(`Não foi possível mudar a pergunta: ${error.message}`);
+
   revalidatePath(`${BASE}/${rodadaId}`);
+  return deuCerto(ativa ? "Pergunta desativada." : "Pergunta ativada.");
 }
 
 /**
@@ -844,40 +797,42 @@ export async function alternarStatusQuestao(formData: FormData) {
  * Depois que a rodada foi publicada, mexer nas perguntas fica barrado --
  * mudaria o desafio embaixo de quem já respondeu.
  */
-export async function removerDaRodada(formData: FormData) {
+export async function removerDaRodada(formData: FormData): Promise<ResultadoAcao> {
   await requireModulo("quiz", "editar");
   const revendaId = await contexto();
 
   const rodadaId = numero(formData, "rodada_id");
   const rodada = await rodadaDaRevenda(rodadaId, revendaId);
-  const destino = `${BASE}/${rodada.id}`;
 
   if (rodada.status !== "rascunho") {
-    redirect(
-      `${destino}?erro=${encodeURIComponent(
-        "A rodada já está no ar. Tirar uma pergunta agora mudaria o desafio para quem já respondeu.",
-      )}`,
+    return deuErrado(
+      "A rodada já está no ar. Tirar uma pergunta agora mudaria o desafio para quem já respondeu.",
     );
   }
 
   const admin = createAdminClient();
-  await admin
+  const { error } = await admin
     .from("quiz_rodada_questoes")
     .delete()
     .eq("rodada_id", rodada.id)
     .eq("questao_id", numero(formData, "questao_id"));
 
-  redirect(`${destino}?sucesso=${encodeURIComponent("Pergunta tirada da rodada.")}`);
+  if (error) return deuErrado(`Não foi possível tirar a pergunta: ${error.message}`);
+
+  revalidatePath(`${BASE}/${rodada.id}`);
+  return deuCerto("Pergunta tirada da rodada. Ela continua no banco.");
 }
 
 /** Puxa para a rodada uma questão que já estava no banco. */
-export async function adicionarDoBanco(formData: FormData) {
+export async function adicionarDoBanco(formData: FormData): Promise<ResultadoAcao> {
   await requireModulo("quiz", "editar");
   const revendaId = await contexto();
 
   const rodadaId = numero(formData, "rodada_id");
   const rodada = await rodadaDaRevenda(rodadaId, revendaId);
-  const destino = `${BASE}/${rodada.id}`;
+  if (rodada.status !== "rascunho") {
+    return deuErrado("A rodada já está no ar. Só dá para trazer pergunta em rascunho.");
+  }
 
   const questaoId = numero(formData, "questao_id");
   const admin = createAdminClient();
@@ -893,9 +848,7 @@ export async function adicionarDoBanco(formData: FormData) {
     .eq("area", rodada.area)
     .maybeSingle();
 
-  if (!questao) {
-    redirect(`${destino}?erro=${encodeURIComponent("Pergunta não encontrada nesta área.")}`);
-  }
+  if (!questao) return deuErrado("Pergunta não encontrada nesta área.");
 
   const { data: ultima } = await admin
     .from("quiz_rodada_questoes")
@@ -905,7 +858,7 @@ export async function adicionarDoBanco(formData: FormData) {
     .limit(1)
     .maybeSingle();
 
-  await admin.from("quiz_rodada_questoes").upsert(
+  const { error } = await admin.from("quiz_rodada_questoes").upsert(
     {
       rodada_id: rodada.id,
       questao_id: questaoId,
@@ -914,16 +867,18 @@ export async function adicionarDoBanco(formData: FormData) {
     { onConflict: "rodada_id,questao_id", ignoreDuplicates: true },
   );
 
-  redirect(`${destino}?sucesso=${encodeURIComponent("Pergunta trazida do banco.")}`);
+  if (error) return deuErrado(`Não foi possível trazer a pergunta: ${error.message}`);
+
+  revalidatePath(`${BASE}/${rodada.id}`);
+  return deuCerto("Pergunta trazida do banco para o fim da lista.");
 }
 
-export async function excluirQuestao(formData: FormData) {
+export async function excluirQuestao(formData: FormData): Promise<ResultadoAcao> {
   await requireModulo("quiz", "excluir");
   const revendaId = await contexto();
 
   const rodadaId = numero(formData, "rodada_id");
   const questaoId = numero(formData, "questao_id");
-  const destino = `${BASE}/${rodadaId}`;
 
   const admin = createAdminClient();
 
@@ -935,20 +890,19 @@ export async function excluirQuestao(formData: FormData) {
     .eq("questao_id", questaoId);
 
   if (count && count > 0) {
-    redirect(
-      `${destino}?erro=${encodeURIComponent(
-        "Esta pergunta já foi respondida por alguém. Desative-a em vez de excluir.",
-      )}`,
-    );
+    return deuErrado("Esta pergunta já foi respondida por alguém. Desative-a em vez de excluir.");
   }
 
-  await admin
+  const { error } = await admin
     .from("quiz_questoes")
     .delete()
     .eq("id", questaoId)
     .eq("revenda_id", revendaId);
 
-  redirect(`${destino}?sucesso=${encodeURIComponent("Pergunta excluída.")}`);
+  if (error) return deuErrado(`Não foi possível excluir: ${error.message}`);
+
+  revalidatePath(`${BASE}/${rodadaId}`);
+  return deuCerto("Pergunta excluída do banco.");
 }
 
 // ---------------------------------------------------------------------
