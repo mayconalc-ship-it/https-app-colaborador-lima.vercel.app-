@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { requireGestor } from "@/lib/require-admin";
 import { VoltarAoPainel } from "@/components/VoltarAoPainel";
 import { AdminSidebar, type GrupoNav } from "@/components/admin/AdminSidebar";
@@ -147,9 +148,19 @@ export default async function AdminLayout({
 
       <div className="md:pl-20">
         <div className="mb-4 rounded-2xl border border-primary/25 bg-primary-soft p-3 pl-14 md:pl-3">
-          <span className="text-xs font-bold uppercase tracking-wide text-primary-dark">
-            {dono ? "⚙️ Modo administrador" : "⚙️ Modo liderança"}
-          </span>
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-xs font-bold uppercase tracking-wide text-primary-dark">
+              {dono ? "⚙️ Modo administrador" : "⚙️ Modo liderança"}
+            </span>
+            {/* O guia à mão em toda tela de gestão: é aqui que a pessoa
+                trava ("e agora, onde libero o módulo?"). */}
+            <Link
+              href="/guia"
+              className="shrink-0 rounded-lg bg-white px-2 py-1 text-xs font-semibold text-primary-dark shadow-sm hover:bg-primary-soft"
+            >
+              ❓ Como fazer
+            </Link>
+          </div>
           <VoltarAoPainel dono={dono} />
         </div>
 

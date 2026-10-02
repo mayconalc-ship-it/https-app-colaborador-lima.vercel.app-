@@ -25,6 +25,7 @@ import {
   Archive,
   Award,
   BarChart3,
+  BookOpen,
   Boxes,
   Brain,
   CalendarDays,
@@ -93,6 +94,8 @@ const POR_CHAVE: Record<string, LucideIcon> = {
   quiz: Brain,
   ranking: Trophy,
   "boas-praticas": Lightbulb,
+  // Guia "Como Fazer".
+  guia: BookOpen,
 
   // Indicadores individuais
   rating: Star,
