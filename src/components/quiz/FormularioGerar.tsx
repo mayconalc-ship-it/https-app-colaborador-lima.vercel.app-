@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
-import { useConfirmarEnvio } from "@/components/Confirmacao";
+import { FormNoLugar } from "@/components/FormNoLugar";
+import type { ResultadoAcao } from "@/lib/resultado-acao";
 
 /**
  * "Gerar perguntas a partir do padrão" -- com a conta feita ANTES.
@@ -38,7 +39,7 @@ export function FormularioGerar({
   cadastradas,
   configurado,
 }: {
-  action: (formData: FormData) => void;
+  action: (formData: FormData) => Promise<ResultadoAcao>;
   rodadaId: number;
   /** Quantas a rodada já tem. */
   cadastradas: number;
@@ -64,7 +65,6 @@ export function FormularioGerar({
 
   const total = cadastradas + quantidade;
   const sobra = total - configurado;
-  const confirmarEnvio = useConfirmarEnvio();
 
   const pedido =
     sobra > 0
@@ -90,12 +90,11 @@ export function FormularioGerar({
         : null;
 
   return (
-    <form
-      action={action}
-      // Bate exatamente com o configurado: não há o que perguntar.
-      onSubmit={pedido ? confirmarEnvio(pedido) : undefined}
-      className="mt-3 space-y-2"
-    >
+    // NO LUGAR (02/10/2026): a geração levava a página de volta ao topo e
+    // o resultado aparecia lá em cima. Agora o aviso sai no rodapé e as
+    // perguntas novas entram no fim da lista. Bate exatamente com o
+    // configurado? Então não há o que perguntar (pedido nulo).
+    <FormNoLugar acao={action} confirmacao={pedido ?? undefined} className="mt-3 space-y-2">
       <input type="hidden" name="rodada_id" value={rodadaId} />
 
       {/* A CONTA DA RODADA, dita antes de qualquer campo: é ela que
@@ -181,6 +180,6 @@ export function FormularioGerar({
           </>
         )}
       </p>
-    </form>
+    </FormNoLugar>
   );
 }

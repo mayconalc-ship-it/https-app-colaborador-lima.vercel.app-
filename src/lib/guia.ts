@@ -726,6 +726,44 @@ export const GUIAS: Guia[] = [
     relacionados: ["ativar-avisos"],
   },
   {
+    slug: "criar-desafio-do-mes",
+    titulo: "Criar o Desafio do Mês",
+    emoji: "🧠",
+    categoria: "comunicacao",
+    resumo: "Montar o quiz do mês de uma área a partir de um padrão, revisar e publicar.",
+    exige: [["quiz", "criar"]],
+    palavras: ["desafio", "quiz", "perguntas", "padrão", "padrao", "rodada", "campeonato", "ia"],
+    passos: [
+      ENTRAR_NO_MODO,
+      ABRIR_BARRA,
+      gaveta("🎯 Engajamento", "🧠 Desafio do Mês"),
+      {
+        texto: "Antes de criar, olhe o **Histórico** da área (Armazém ou Distribuição): ele mostra o padrão de cada mês.",
+        dica: "Assim o mesmo padrão não é cobrado de novo sem querer.",
+      },
+      { texto: "Toque em **Criar o desafio do mês**." },
+      {
+        texto: "Passo 1: escolha a área (**Distribuição** ou **Armazém**) e o mês. As datas de abrir e fechar acompanham o mês sozinhas.",
+      },
+      {
+        texto: "Passo 2: escolha o **Pilar** e o **Padrão**.",
+        dica: "Os padrões já usados naquela área aparecem com \"já usado em\" e o mês.",
+      },
+      { texto: "Passo 3: confira o número de **Perguntas** e toque em **Criar e montar as perguntas →**." },
+      { texto: "Na tela da rodada, em **✨ Gerar perguntas a partir do padrão**, toque em **Gerar**. Leva de 30 segundos a 2 minutos." },
+      {
+        texto: "Desça a lista conferindo cada pergunta contra o **📄 Trecho do padrão**. Corrija em **✏️ Editar esta pergunta** ou toque em **✅ Ativa** para desativar.",
+        dica: "Salvar não tira você do lugar: o aviso de salvo ou de erro aparece no rodapé.",
+      },
+      { texto: "No fim da lista, em **Conferiu tudo?**, toque em **🚀 Publicar para o time**." },
+    ],
+    atencao: [
+      "Só publica com o número exato de perguntas configurado. Faltou? Gere mais ou ajuste em **✏️ Editar dados da rodada**.",
+      "Depois de publicada, as perguntas ficam travadas para não mudar o desafio de quem já respondeu.",
+    ],
+    tela: { href: "/admin/quiz", rotulo: "Abrir o Desafio do Mês" },
+  },
+  {
     slug: "atualizar-escala",
     titulo: "Atualizar a escala de trabalho",
     emoji: "🗓️",

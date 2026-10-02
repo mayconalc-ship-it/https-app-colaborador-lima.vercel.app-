@@ -1,37 +1,26 @@
 "use client";
 
 import { useOptimistic, useTransition } from "react";
+import { useToast } from "@/components/Toast";
+import type { ResultadoAcao } from "@/lib/resultado-acao";
 
 /**
- * Ligar/desligar a pergunta -- respondendo NA HORA.
+ * Ligar/desligar a pergunta -- UM BOTÃO SÓ, que mostra o ESTADO.
  *
- * O bug (relatado pelo dono em 05/09/2026): "ao desativar uma pergunta,
- * ela fica rodando 'carregando' e não aparece como desativado; após
- * clicar em tirar da rodada e cancelar ele retorna com o status de
- * desativada".
+ * Pedido do dono (02/10/2026): "ao desativar uma pergunta, deixe que ela
+ * está em um único botão desativada, e para ativar precisa clicar nesse
+ * mesmo botão". Antes eram duas coisas lado a lado: a etiqueta cinza
+ * "Desativada" e um botão "✅ Ativar". O botão falava da AÇÃO e a
+ * etiqueta do ESTADO -- e quem descia a lista conferindo lia "Ativar"
+ * numa pergunta e achava que ela estava ativa.
  *
- * A ação sempre funcionou -- o banco era atualizado no primeiro clique.
- * O que faltava era a tela. Esta é a única ação da página que não
- * termina em `redirect`, e isso é de propósito: desativar é feito em
- * série descendo a lista, e cada redirect jogava a página de volta ao
- * topo. O preço escondido era este: sem redirect, a confirmação depende
- * do `revalidatePath`, que RE-RENDERIZA A PÁGINA INTEIRA -- e esta
- * página monta questões, alternativas, banco, padrões, classificação e
- * indicadores. Enquanto isso tudo volta do servidor, o botão fica na
- * rodinha e a etiqueta "Desativada" não existe ainda. Em produção, com
- * a latência do banco no meio, a espera passa de dez segundos e lê como
- * travado. Cancelar o outro diálogo forçava um novo render, e aí o
- * estado que já tinha chegado aparecia -- o "ele retorna com o status de
- * desativada" do relato.
+ * Agora o botão diz como a pergunta ESTÁ ("✅ Ativa" / "🚫 Desativada"),
+ * com a cor do estado, e o toque troca. É o interruptor de parede: o que
+ * se vê é a posição, e mudar é apertar o mesmo lugar.
  *
- * `useOptimistic` inverte a ordem: a etiqueta e o botão trocam no clique,
- * e o servidor confirma depois, quando puder. Se a ação falhar, o React
- * devolve o valor real sozinho -- a tela nunca mente por mais tempo do
- * que a ação demora.
- *
- * A ETIQUETA "Desativada" MORA AQUI, e não na página, porque é ela que
- * precisa trocar junto com o botão. Renderizada no servidor, ela ficaria
- * um render atrás -- exatamente o defeito que este componente conserta.
+ * A resposta continua OTIMISTA (05/09/2026): o botão troca no toque e o
+ * servidor confirma depois. Se falhar, o React volta o valor real e o
+ * aviso do rodapé diz que não deu.
  */
 export function BotaoStatusQuestao({
   acao,
@@ -39,13 +28,14 @@ export function BotaoStatusQuestao({
   questaoId,
   status,
 }: {
-  acao: (formData: FormData) => Promise<void> | void;
+  acao: (formData: FormData) => Promise<ResultadoAcao>;
   rodadaId: number;
   questaoId: number;
   status: string;
 }) {
   const [mostrado, marcarOtimista] = useOptimistic(status);
   const [pendente, iniciarTransicao] = useTransition();
+  const toast = useToast();
 
   const ativa = mostrado === "ativa";
 
@@ -59,38 +49,38 @@ export function BotaoStatusQuestao({
       // antes, para não haver duas regras de inversão em lugares
       // diferentes.
       dados.set("status", status);
-      await acao(dados);
+      try {
+        const r = await acao(dados);
+        if (r && !r.ok) toast.erro(r.erro);
+        else if (r) toast.sucesso(r.mensagem);
+      } catch {
+        toast.erro("Não foi possível mudar a pergunta agora. Confira a conexão e tente de novo.");
+      }
     });
   }
 
   return (
-    <>
-      {!ativa && (
-        <span className="rounded-full bg-slate-200 px-2 py-0.5 text-xs font-medium text-slate-600">
-          Desativada
-        </span>
-      )}
-      <button
-        type="button"
-        onClick={alternar}
-        // Só o cursor muda enquanto o servidor confirma. Desligar o botão
-        // aqui seria voltar ao problema: quem desativa em série clica na
-        // próxima antes de a anterior terminar, e cada clique é numa
-        // pergunta diferente.
-        aria-busy={pendente}
-        title={
-          ativa
-            ? "Tira a pergunta de circulação em rodadas futuras, sem apagar. Ela continua no banco e pode ser reativada depois."
-            : "Volta a pergunta a ficar disponível para novas rodadas."
-        }
-        className={`rounded-lg border px-3 py-1 text-xs font-semibold transition-colors ${
-          ativa
-            ? "border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100"
-            : "border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100"
-        } ${pendente ? "opacity-70" : ""}`}
-      >
-        {ativa ? "🚫 Desativar" : "✅ Ativar"}
-      </button>
-    </>
+    <button
+      type="button"
+      onClick={alternar}
+      role="switch"
+      aria-checked={ativa}
+      // Só o cursor muda enquanto o servidor confirma. Desligar o botão
+      // aqui seria voltar ao problema: quem desativa em série clica na
+      // próxima antes de a anterior terminar.
+      aria-busy={pendente}
+      title={
+        ativa
+          ? "Pergunta ativa. Toque para desativar: ela sai de circulação nas próximas rodadas, sem ser apagada."
+          : "Pergunta desativada. Toque para ativar de novo."
+      }
+      className={`rounded-lg border px-3 py-1 text-xs font-semibold transition-colors ${
+        ativa
+          ? "border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100"
+          : "border-slate-300 bg-slate-200 text-slate-700 hover:bg-slate-300"
+      } ${pendente ? "opacity-70" : ""}`}
+    >
+      {ativa ? "✅ Ativa" : "🚫 Desativada"}
+    </button>
   );
 }

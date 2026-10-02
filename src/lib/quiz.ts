@@ -328,3 +328,59 @@ export const CONQUISTAS: Record<
 export function conquista(codigo: string) {
   return CONQUISTAS[codigo as CodigoConquista] ?? null;
 }
+
+/**
+ * HISTÓRICO DE PADRÕES POR ÁREA (02/10/2026).
+ *
+ * Pedido do dono: o desafio é um por mês e por área, e quem cria o
+ * próximo precisa saber quais padrões já foram cobrados -- senão o
+ * Armazém faz "Empilhadeira" em agosto e de novo em outubro sem ninguém
+ * perceber. A rodada já guarda o padrão (id e nome); aqui só se cruza.
+ *
+ * Casa pelo id E pelo nome: quando o arquivo do padrão é substituído no
+ * acervo, ele pode ganhar id novo com o mesmo nome -- e continua sendo o
+ * mesmo assunto para quem responde.
+ */
+export type UsoDePadrao = {
+  rodadaId: number;
+  nome: string;
+  area: AreaId;
+  mes: number;
+  temporada: number;
+  status: StatusRodada;
+  padraoId: number | null;
+  padraoNome: string | null;
+};
+
+/** "Set/2026" -- o mês do desafio, curto. */
+export function mesAno(mes: number, temporada: number) {
+  return `${mesCurto(mes)}/${temporada}`;
+}
+
+/**
+ * As vezes em que um padrão já foi usado numa área, da mais recente para
+ * a mais antiga. `ignorarRodadaId` tira a própria rodada da conta (para
+ * a tela de edição não dizer que o padrão "já foi usado" por ela mesma).
+ */
+export function usosDoPadrao(
+  usos: UsoDePadrao[],
+  padrao: { id: number; nome: string },
+  area: AreaId,
+  ignorarRodadaId?: number,
+): UsoDePadrao[] {
+  const nome = normalizarTexto(padrao.nome).trim();
+  return usos
+    .filter(
+      (u) =>
+        u.area === area &&
+        u.rodadaId !== ignorarRodadaId &&
+        (u.padraoId === padrao.id || (!!u.padraoNome && normalizarTexto(u.padraoNome).trim() === nome)),
+    )
+    .sort((a, b) => b.temporada - a.temporada || b.mes - a.mes);
+}
+
+/** "Set/2026, Mai/2026" -- para o rótulo da opção e o aviso. */
+export function quandoFoiUsado(usos: UsoDePadrao[]): string | null {
+  if (usos.length === 0) return null;
+  return usos.map((u) => mesAno(u.mes, u.temporada)).join(", ");
+}
