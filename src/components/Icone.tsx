@@ -26,6 +26,7 @@ import {
   Award,
   BarChart3,
   BookOpen,
+  Contact,
   Boxes,
   Brain,
   CalendarDays,
@@ -91,6 +92,7 @@ const POR_CHAVE: Record<string, LucideIcon> = {
   padroes: ScrollText,
   sonho: Target,
   "5s": SprayCan,
+  fornecedores: Contact,
 
   // Engajamento
   quiz: Brain,

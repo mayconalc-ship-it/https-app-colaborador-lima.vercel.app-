@@ -4,7 +4,7 @@
 //   npx tsx src/lib/__testes__/guia.teste.mjs
 import { GUIAS, CATEGORIAS_DO_GUIA, guiaCombina, guiasParaQuem, guiaPorSlug, pedacosDoTexto } from "../guia.ts";
 import { MODULOS } from "../acessos.ts";
-import { BLOCOS_DO_MENU, MENU_PADRAO } from "../menu.ts";
+import { BLOCOS_DO_MENU, MENU_PADRAO, MODULO_DO_ITEM } from "../menu.ts";
 
 let falhas = 0;
 function ok(nome, cond, detalhe = "") {
@@ -124,8 +124,18 @@ ok("motorista NÃO vê conferir, configurar PIX nem atualizar pré-rota",
 const conferente = guiasParaQuem((m, a) => m === "qr-contingencia" && a === "criar").map((g) => g.slug);
 ok("quem confere vê conferir, mas não configurar o PIX", conferente.includes("conferir-comprovantes") && !conferente.includes("configurar-pix"));
 
+const manut = guiasParaQuem((m, a) => m === "manutencao" && a === "ver").map((g) => g.slug);
+ok("colaborador vê como achar fornecedor (V.3: toda a unidade)", doColaborador.includes("consultar-fornecedores"));
+ok("colaborador NÃO vê atualizar fornecedor nem a RACI",
+  !doColaborador.includes("atualizar-fornecedores") && !doColaborador.includes("revisar-raci-manutencao"));
+ok("time da manutenção vê atualizar fornecedor e a RACI",
+  manut.includes("atualizar-fornecedores") && manut.includes("revisar-raci-manutencao"));
+
 console.log("== MENU ==");
 ok("cartão Como Fazer no menu padrão", MENU_PADRAO.some((i) => i.chave === "guia" && i.href === "/guia" && i.visivel));
+ok("cartão Fornecedores para todos, num bloco",
+  MENU_PADRAO.some((i) => i.chave === "fornecedores" && i.href === "/fornecedores" && i.visivel) &&
+    BLOCOS_DO_MENU.some((b) => b.chaves.includes("fornecedores")) && !("fornecedores" in MODULO_DO_ITEM));
 ok("cartão Como Fazer está num bloco", BLOCOS_DO_MENU.some((b) => b.chaves.includes("guia")));
 
 console.log(falhas === 0 ? "\nTudo certo." : `\n${falhas} falha(s).`);

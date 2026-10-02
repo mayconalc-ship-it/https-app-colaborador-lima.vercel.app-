@@ -83,7 +83,7 @@ export const BLOCOS_DO_MENU = [
     id: "empresa",
     titulo: "Da empresa",
     subtitulo: "Comunicados, padrões e metas da revenda",
-    chaves: ["comunicados", "padroes", "sonho", "5s"],
+    chaves: ["comunicados", "padroes", "sonho", "5s", "fornecedores"],
   },
   {
     id: "engajamento",
@@ -235,6 +235,9 @@ export const MENU_PADRAO: ItemMenu[] = [
   // Check de Manutenção (156): módulo opcional -- só aparece para quem o
   // Admin liberou (o time da manutenção), por MODULO_DO_ITEM acima.
   { chave: "manutencao", titulo: "Check de Manutenção", emoji: "🛠️", href: "/manutencao", ordem: 19, visivel: true },
+  // Base de fornecedores (157): de TODA a unidade, sem módulo -- é o V.3
+  // do DPO 2.2 ("disponível para a unidade consultar").
+  { chave: "fornecedores", titulo: "Fornecedores", emoji: "📇", href: "/fornecedores", ordem: 20, visivel: true },
   // "Minha Conta" fica oculto: já existe o botão "Conta" no topo de todas as
   // telas, e repetir ocupava espaço da grade sem acrescentar nada.
   { chave: "conta", titulo: "Minha Conta", emoji: "🔒", href: "/minha-conta", ordem: 9, visivel: false },
