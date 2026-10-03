@@ -72,6 +72,13 @@ export function catalogoDasMigrations(arquivos: ArquivoDeMigration[]): Catalogo 
         for (const c of resto.matchAll(/drop\s+column\s+(?:if\s+exists\s+)?"?(\w+)"?/gi)) {
           colunas.delete(`${tabela}.${c[1]}`);
         }
+        // Renomear: o nome velho some e o novo nasce NESTA migration (ex.:
+        // a 092 trocou unidade por unidade_avariada -- sem isto a tela
+        // acusava a falta da coluna velha).
+        for (const c of resto.matchAll(/rename\s+column\s+"?(\w+)"?\s+to\s+"?(\w+)"?/gi)) {
+          colunas.delete(`${tabela}.${c[1]}`);
+          colunas.set(`${tabela}.${c[2]}`, { tabela, coluna: c[2], migration: m });
+        }
       }
     }
   }

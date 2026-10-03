@@ -17,10 +17,16 @@ const c = catalogoDasMigrations([
     sql: "-- create table public.so_no_comentario (id int);\ncreate table if not exists public.a (id uuid, velha text);\nalter table a add column velha text;\ncreate table b (id int);",
   },
   { nome: "003_c.sql", sql: "drop table if exists public.b cascade;\nalter table public.comunicados add column destaque boolean;" },
+  {
+    nome: "004_d.sql",
+    sql: "do $$ begin if exists (select 1) then alter table public.a rename column nova to renomeada; end if; end $$;",
+  },
 ]);
 ok("tabela criada entra com o número da migration", c.tabelas.a === "001");
 ok("comentário não cria tabela", !("so_no_comentario" in c.tabelas));
-ok("lidas na ordem do nome, não do array", c.colunas.some((x) => x.coluna === "nova" && x.migration === "002"));
+ok("lidas na ordem do nome, não do array", c.colunas.some((x) => x.coluna === "outra" && x.migration === "002"));
+ok("coluna renomeada: o nome velho sai", !c.colunas.some((x) => x.coluna === "nova"));
+ok("coluna renomeada: o novo entra com a migration do rename", c.colunas.some((x) => x.coluna === "renomeada" && x.migration === "004"));
 ok("duas colunas no mesmo alter", c.colunas.some((x) => x.coluna === "outra"));
 ok("coluna apagada sai", !c.colunas.some((x) => x.coluna === "velha"));
 ok("tabela apagada sai", !("b" in c.tabelas));
@@ -54,6 +60,11 @@ ok(
   JSON.stringify(gravado) === JSON.stringify(atual),
 );
 ok("as tabelas da 157 estão lá", atual.tabelas.manut_fornecedores === "157" && atual.tabelas.manut_raci_celulas === "157");
+ok(
+  "bate palete: unidade (088) virou unidade_avariada (092)",
+  !atual.colunas.some((x) => x.tabela === "pa_bate_palete_itens" && x.coluna === "unidade") &&
+    atual.colunas.some((x) => x.tabela === "pa_bate_palete_itens" && x.coluna === "unidade_avariada"),
+);
 ok("a coluna da 159 está lá", atual.colunas.some((x) => x.tabela === "pa_relatos_anomalia" && x.coluna === "atendimento_id" && x.migration === "159"));
 
 console.log(falhas ? `\n${falhas} FALHA(S)` : "\nTudo certo.");
