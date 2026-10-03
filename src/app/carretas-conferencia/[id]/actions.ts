@@ -1,6 +1,8 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { after } from "next/server";
+import { varrerGatilhosDeAnomalia } from "@/lib/anomalia-varredura";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -21,6 +23,27 @@ function rota(id: string) {
 
 function erro(id: string, mensagem: string): never {
   redirect(`${rota(id)}?erro=${encodeURIComponent(mensagem)}`);
+}
+
+
+/**
+ * O GATILHO DE ANOMALIA NA HORA (03/10/2026).
+ *
+ * TMA e avaria ficam conhecidos aqui: fim da descarga, da conferência, da
+ * carga. Esperar a varredura do agendador do GitHub atrasava o relato de
+ * 1 a 3 horas. `after` roda DEPOIS de a tela responder -- quem clicou não
+ * espera -- e a trava do banco impede relato em dobro se a varredura
+ * agendada passar ao mesmo tempo. Falha aqui não desfaz nada: o agendador
+ * continua como rede de segurança.
+ */
+function vigiarAnomaliasDepois(revendaId: string) {
+  after(async () => {
+    try {
+      await varrerGatilhosDeAnomalia({ revendaId });
+    } catch {
+      // A varredura agendada pega na próxima volta.
+    }
+  });
 }
 
 /**
@@ -163,6 +186,7 @@ export async function finalizarDescarga(formData: FormData) {
 
   revalidatePath(rota(atendimentoId));
   revalidatePath("/carretas-conferencia");
+  vigiarAnomaliasDepois(revendaId);
   redirect(`${rota(atendimentoId)}?sucesso=Descarga+finalizada`);
 }
 
@@ -364,6 +388,7 @@ export async function finalizarConferencia(formData: FormData) {
 
   revalidatePath(rota(atendimentoId));
   revalidatePath("/carretas-conferencia");
+  vigiarAnomaliasDepois(revendaId);
   redirect(`${rota(atendimentoId)}?sucesso=Conferência+finalizada`);
 }
 
@@ -449,6 +474,7 @@ export async function decidirRetorno(formData: FormData) {
 
   revalidatePath(rota(atendimentoId));
   revalidatePath("/carretas-conferencia");
+  vigiarAnomaliasDepois(revendaId);
   redirect(`${rota(atendimentoId)}?sucesso=Retorno+confirmado`);
 }
 
@@ -636,5 +662,6 @@ export async function concluirCarga(formData: FormData) {
 
   revalidatePath(rota(atendimentoId));
   revalidatePath("/carretas-conferencia");
+  vigiarAnomaliasDepois(revendaId);
   redirect(`${rota(atendimentoId)}?sucesso=Atendimento+finalizado`);
 }

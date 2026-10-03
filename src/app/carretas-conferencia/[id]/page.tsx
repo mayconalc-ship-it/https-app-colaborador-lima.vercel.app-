@@ -29,6 +29,9 @@ import { FormCorrigirRetornoAg } from "./FormCorrigirRetornoAg";
 import { concluirCarga, finalizarDescarga, iniciarConferencia, iniciarDescarga } from "./actions";
 
 export const dynamic = "force-dynamic";
+// As ações desta tela disparam o gatilho de anomalia DEPOIS de responder
+// (after, ver actions.ts): o tempo extra é para essa varredura terminar.
+export const maxDuration = 60;
 
 type LinhaAtendimento = {
   id: string;

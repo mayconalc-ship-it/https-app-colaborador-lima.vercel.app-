@@ -10,9 +10,12 @@ import { ontemSP, porAtendimento, seriesDoIndicador } from "@/lib/gatilho-anomal
 /**
  * A VARREDURA DO GATILHO -- de indicador fora da faixa para relato aberto.
  *
- * Roda junto com os outros lembretes (ver varrerLembretes), a cada 15
- * minutos. Não tem cron próprio de propósito: um segundo agendador seria
- * mais uma coisa para alguém lembrar de conferir quando parasse.
+ * Roda junto com os outros lembretes (ver varrerLembretes), que o GitHub
+ * dispara "a cada 15 minutos" -- na prática de 1 a 3 horas. Por isso o
+ * recebimento também chama esta varredura na hora, ao fim de cada
+ * descarga, carga e conferência (ver carretas-conferencia/[id]/actions).
+ * Não tem cron próprio de propósito: um segundo agendador seria mais uma
+ * coisa para alguém lembrar de conferir quando parasse.
  *
  * IDEMPOTENTE POR CONSTRUÇÃO, e em dois níveis:
  *
@@ -30,17 +33,22 @@ import { ontemSP, porAtendimento, seriesDoIndicador } from "@/lib/gatilho-anomal
  * A média muda amanhã; o relato precisa continuar explicando por que
  * nasceu.
  */
-export async function varrerGatilhosDeAnomalia(): Promise<{
+export async function varrerGatilhosDeAnomalia(opcoes: { revendaId?: string } = {}): Promise<{
   avaliados: number;
   abertos: number;
   erro?: string;
 }> {
   const admin = createAdminClient();
 
-  const { data: gatilhos, error } = await admin
+  // Com `revendaId`, só aquela revenda: é a varredura que o RECEBIMENTO
+  // dispara ao fim de cada descarga/carga/conferência (03/10/2026), sem
+  // esperar o agendador do GitHub, que atrasa de 1 a 3 horas.
+  let consulta = admin
     .from("pa_gatilhos_anomalia")
     .select("id, revenda_id, indicador, sigmas, limite_manual, minimo_pontos, responsavel_id")
     .eq("ativo", true);
+  if (opcoes.revendaId) consulta = consulta.eq("revenda_id", opcoes.revendaId);
+  const { data: gatilhos, error } = await consulta;
 
   // Erro não vira "nenhum gatilho": zero aqui significaria processo sem
   // vigilância, e a varredura terminaria dizendo que está tudo bem.

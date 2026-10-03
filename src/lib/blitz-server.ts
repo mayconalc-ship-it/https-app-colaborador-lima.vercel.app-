@@ -2,6 +2,7 @@ import "server-only";
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import { lerTudoEmPaginas } from "@/lib/rating-server";
+import { lerItensDasCarretas, porAtendimento as porAtendimentoDosItens } from "@/lib/itens-carretas-server";
 import { pctAvariaAtendimento } from "@/lib/carretas";
 import { CATALOGO_DE_METAS } from "@/lib/metas";
 import { calcularBase, limiteDoGatilho, SIGMAS_PADRAO } from "@/lib/gatilho-anomalia";
@@ -136,31 +137,21 @@ export async function entregasConferidas(revendaId: string): Promise<EntregaConf
       .eq("revenda_id", revendaId)
       .gte("chegada_em", desde)
       .order("chegada_em")
+      .order("id")
       .range(de, ate),
   );
   if (erro) throw new Error(`Não foi possível ler as carretas: ${erro}`);
   if (atendimentos.length === 0) return [];
 
-  const ids = atendimentos.map((a) => a.id);
-  const { linhas: itens, erro: erroItens } = await lerTudoEmPaginas<{
-    atendimento_id: string;
-    quantidade: number;
-    quantidade_avariada: number | null;
-  }>((de, ate) =>
-    admin
-      .from("atendimento_carretas_itens")
-      .select("atendimento_id, quantidade, quantidade_avariada")
-      .in("atendimento_id", ids)
-      .range(de, ate),
+  // Itens em lotes e paginados -- o MESMO leitor do gatilho de avaria,
+  // para blitz e gatilho usarem a mesma régua (lib/itens-carretas-server).
+  const porAtendimento = porAtendimentoDosItens(
+    await lerItensDasCarretas(
+      atendimentos.map((a) => a.id),
+      {},
+      admin,
+    ),
   );
-  if (erroItens) throw new Error(`Não foi possível ler os itens: ${erroItens}`);
-
-  const porAtendimento = new Map<string, { quantidade: number; quantidadeAvariada: number | null }[]>();
-  for (const i of itens) {
-    const lista = porAtendimento.get(i.atendimento_id) ?? [];
-    lista.push({ quantidade: i.quantidade, quantidadeAvariada: i.quantidade_avariada });
-    porAtendimento.set(i.atendimento_id, lista);
-  }
 
   const entregas: EntregaConferida[] = [];
   for (const a of atendimentos) {
