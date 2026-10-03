@@ -28,6 +28,7 @@ import {
   CalendarX2,
   PackagePlus,
   PhoneCall,
+  Warehouse,
   Award,
   BarChart3,
   BookOpen,
@@ -36,7 +37,6 @@ import {
   Brain,
   CalendarDays,
   ClipboardList,
-  Factory,
   Forklift,
   Gauge,
   Layers,
@@ -77,7 +77,7 @@ const POR_CHAVE: Record<string, LucideIcon> = {
   conta: Lock,
 
   // Minha operação
-  "produtividade-armazem": Factory,
+  "produtividade-armazem": Warehouse,
   reepack: Boxes,
   despejo: Recycle,
   empilhadeira: Forklift,
@@ -180,6 +180,7 @@ function Garrafeira({ size = 24, strokeWidth = 1.75, className }: PropsDoDesenho
  *  - Empilhadeira e descarga: não existe emoji de empilhadeira; o 🏗️ é
  *    um guindaste de obra.
  *  - Ativo de Giro: garrafeira com garrafas (ver Garrafeira).
+ *  - Produtividade do Armazém: galpão. O 🏭 é fábrica.
  */
 const ICONES_PROPRIOS: Record<string, LucideIcon | ComponentType<PropsDoDesenho>> = {
   "pa-picking": PackagePlus,
@@ -191,6 +192,9 @@ const ICONES_PROPRIOS: Record<string, LucideIcon | ComponentType<PropsDoDesenho>
   empilhadeira: Forklift,
   "carretas-descarga": Forklift,
   "ativo-giro": Garrafeira,
+  // Armazém: não existe emoji de armazém; o 🏭 é fábrica (03/10/2026).
+  "produtividade-armazem": Warehouse,
+  armazem: Warehouse,
   // As mesmas telas nos cartões do Como Fazer (chave "guia:<slug>").
   "guia:abastecer-picking": PackagePlus,
   "guia:informar-quebra-fefo": CalendarX2,

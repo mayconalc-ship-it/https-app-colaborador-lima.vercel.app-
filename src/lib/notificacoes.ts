@@ -121,7 +121,7 @@ export const EMOJI_MODULO: Record<ModuloNotificavel, string> = {
   "material-apoio": "🧰",
   "material-apoio-contagem": "🧰",
   "resumo-semanal": "🗓️",
-  "mao-de-obra": "👷",
+  "mao-de-obra": "🧮",
 };
 
 export const ROTULO_MODULO: Record<ModuloNotificavel, string> = {

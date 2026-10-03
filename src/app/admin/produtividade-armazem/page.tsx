@@ -1168,7 +1168,7 @@ export default async function AdminProdutividadeArmazemPage({
                 <span className="mr-1 inline-block text-slate-400 transition-transform group-open:rotate-90">
                   ▸
                 </span>
-                ⛽ Valor do botijão P20
+                🔥 Valor do botijão P20
               </h2>
               <p className="mt-1 pl-4 text-xs text-slate-500">
                 Vira custo por hora no dashboard de consumo de gás. Deixe em branco para não mostrar
@@ -1385,7 +1385,7 @@ export default async function AdminProdutividadeArmazemPage({
           <details className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
             <summary className="cursor-pointer list-none border-b border-slate-100 p-4 marker:content-none [&::-webkit-details-marker]:hidden">
               <h2 className="text-sm font-bold text-slate-900">
-                ⛽ Corrigir ou excluir troca de gás
+                🔥 Corrigir ou excluir troca de gás
                 <span className="ml-2 font-medium text-slate-400">
                   {(trocasGas ?? []).length} registro
                   {(trocasGas ?? []).length === 1 ? "" : "s"} · toque para abrir

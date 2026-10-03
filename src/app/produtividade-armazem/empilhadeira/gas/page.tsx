@@ -260,7 +260,7 @@ export default async function DashboardGasPage({
   return (
     <div>
       <PageHeader
-        title="⛽ Consumo de gás P20"
+        title="🔥 Consumo de gás P20"
         subtitle="Ciclo entre trocas, rateado pelas horas de cada operador."
         fecharHref="/produtividade-armazem/empilhadeira"
       />

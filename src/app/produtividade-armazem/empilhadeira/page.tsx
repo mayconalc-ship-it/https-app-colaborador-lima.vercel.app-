@@ -86,7 +86,7 @@ export default async function EmpilhadeiraIndexPage({
       >
         <span className="flex min-w-0 items-center gap-3">
           <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary-soft text-xl">
-            ⛽
+            🔥
           </span>
           <span className="min-w-0">
             <span className="block text-sm font-bold text-slate-900">Consumo de gás P20</span>

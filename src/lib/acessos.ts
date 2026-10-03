@@ -568,7 +568,7 @@ export const MODULOS: Modulo[] = [
       excluir: "Apagar ação do plano lançada por engano",
     },
     rotulo: "Simulador de Mão de Obra",
-    emoji: "👷",
+    emoji: "🧮",
     href: "/gestao/mao-de-obra",
     grupo: "Configuração",
     acoes: ["ver", "editar", "excluir"],
