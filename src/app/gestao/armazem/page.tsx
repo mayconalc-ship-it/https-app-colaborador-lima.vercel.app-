@@ -2205,7 +2205,7 @@ export default async function IndicadoresPage({
 
         <SecaoDoTopico
           slug={TOPICOS.abastecimento}
-          titulo="🧃 Abastecimento e Ressuprimento"
+          titulo="📥 Abastecimento e Ressuprimento"
           subtitulo="O volume abastecido e o tempo que se perde entre pedir, transportar e abastecer."
           resumo={`${formatarNumeroBr(pickingHlTotal, 1)} HL`}
           recorte={[
@@ -2241,7 +2241,7 @@ export default async function IndicadoresPage({
             />
           }
         >
-          <BlocoAtividade titulo="🧃 Abastecimento do Picking">
+          <BlocoAtividade titulo="📥 Abastecimento do Picking">
             <CartaoHero titulo="Sessões" valor={String(pickings.length)} legenda="encerradas no período" />
             <CartaoHero titulo="HL abastecidos" valor={`${formatarNumeroBr(pickingHlTotal, 1)} HL`} />
             <CartaoHero
@@ -2255,7 +2255,7 @@ export default async function IndicadoresPage({
         {/* ---- ABASTECIMENTO: o painel que morava na tela de lançar ---- */}
         {abastecimentoParaAnalise.length > 0 && (
           <section>
-            <h2 className="mb-2 text-sm font-bold text-slate-900">🧃 Abastecimento — análise</h2>
+            <h2 className="mb-2 text-sm font-bold text-slate-900">📥 Abastecimento — análise</h2>
             <PainelDoAbastecimento sessoes={abastecimentoParaAnalise} />
           </section>
         )}
@@ -2846,7 +2846,7 @@ export default async function IndicadoresPage({
                   <th className="p-3 text-right">🔍 Seleção</th>
                   <th className="p-3 text-right">📦 Reepack</th>
                   <th className="p-3 text-right">🫗 Despejo</th>
-                  <th className="p-3 text-right">🏬 Picking</th>
+                  <th className="p-3 text-right">📥 Picking</th>
                   <th className="p-3 text-right">🤲📦 Bate Palete</th>
                   <th className="p-3 text-right">🧹 5S</th>
                   {/* "Total" de quê? São contagens de LANÇAMENTOS somadas
@@ -2940,7 +2940,7 @@ export default async function IndicadoresPage({
                     <th className="p-3 text-right">🔍 Seleção</th>
                     <th className="p-3 text-right">📦 Reepack</th>
                     <th className="p-3 text-right">🫗 Despejo</th>
-                    <th className="p-3 text-right">🏬 Picking</th>
+                    <th className="p-3 text-right">📥 Picking</th>
                     <th className="p-3 text-right">🤲📦 Bate Palete</th>
                     <th className="p-3 text-right">🧹 5S</th>
                     {/* Dizia "Atividades" e mostrava HORAS -- a célula

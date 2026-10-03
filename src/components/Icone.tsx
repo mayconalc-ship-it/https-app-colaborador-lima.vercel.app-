@@ -21,9 +21,13 @@
  * emoji fazendo papel de ícone.
  */
 
-import { createElement } from "react";
+import { createElement, type ComponentType } from "react";
 import {
   Archive,
+  Building2,
+  CalendarX2,
+  PackagePlus,
+  PhoneCall,
   Award,
   BarChart3,
   BookOpen,
@@ -40,7 +44,6 @@ import {
   Lock,
   Megaphone,
   Newspaper,
-  PackageCheck,
   QrCode,
   Recycle,
   RotateCcw,
@@ -78,7 +81,7 @@ const POR_CHAVE: Record<string, LucideIcon> = {
   reepack: Boxes,
   despejo: Recycle,
   empilhadeira: Forklift,
-  picking: PackageCheck,
+  picking: PackagePlus,
   "cinco-s": SprayCan,
   "carretas-portaria": Truck,
   "carretas-conferencia": Gauge,
@@ -86,14 +89,14 @@ const POR_CHAVE: Record<string, LucideIcon> = {
   "ativo-giro": Archive,
   "material-apoio": Layers,
   manutencao: Wrench,
-  fefo: Target,
+  fefo: CalendarX2,
 
   // Da empresa
   comunicados: Newspaper,
   padroes: ScrollText,
   sonho: Target,
   "5s": SprayCan,
-  fornecedores: Contact,
+  fornecedores: Contact, // desenhado por ICONES_PROPRIOS
 
   // Engajamento
   quiz: Brain,
@@ -110,6 +113,61 @@ const POR_CHAVE: Record<string, LucideIcon> = {
   metas: Award,
 };
 
+type PropsDoDesenho = { "aria-hidden"?: boolean; size?: number; strokeWidth?: number; className?: string };
+
+/**
+ * Fornecedor + telefone: o prédio da empresa com o fone no canto. Nenhum
+ * emoji diz "contato do fornecedor" -- o 📇 é um fichário, e o 📞 sozinho
+ * não diz de quem.
+ */
+function ContatoDoFornecedor({ size = 24, strokeWidth = 1.75, className }: PropsDoDesenho) {
+  const predio = Math.round(size * 0.8);
+  const fone = Math.round(size * 0.6);
+  return (
+    <span aria-hidden className={className} style={{ position: "relative", display: "inline-flex", width: size, height: size }}>
+      <span style={{ position: "absolute", left: 0, top: 0, display: "inline-flex" }}>
+        <Building2 size={predio} strokeWidth={strokeWidth} />
+      </span>
+      <span style={{ position: "absolute", right: -size * 0.12, bottom: -size * 0.12, display: "inline-flex" }}>
+        <PhoneCall size={fone} strokeWidth={2.25} />
+      </span>
+    </span>
+  );
+}
+
+/**
+ * ÍCONES PRÓPRIOS (03/10/2026, pedido do dono): onde NENHUM emoji diz o
+ * que a tela faz, o cartão usa um desenho -- mesmo com o sistema de
+ * ícones desligado (USAR_ICONES, abaixo). Nas outras chaves o emoji do
+ * banco continua.
+ *
+ *  - Abastecimento do Picking: abastecer é repor caixa na posição. O 🛒
+ *    era supermercado, e o 🏬 que o substituiu aparece como um banco no
+ *    WhatsApp. Caixa com "+".
+ *  - Quebra de FEFO: o produto que vence primeiro não saiu primeiro -- a
+ *    DATA não foi respeitada. Calendário com X.
+ *  - Fornecedores: prédio com o telefone (ver ContatoDoFornecedor).
+ *  - Empilhadeira e descarga: não existe emoji de empilhadeira; o 🏗️ é
+ *    um guindaste de obra.
+ */
+const ICONES_PROPRIOS: Record<string, LucideIcon | ComponentType<PropsDoDesenho>> = {
+  "pa-picking": PackagePlus,
+  picking: PackagePlus,
+  fefo: CalendarX2,
+  "fefo-controle": CalendarX2,
+  fornecedores: ContatoDoFornecedor,
+  "pa-empilhadeira": Forklift,
+  empilhadeira: Forklift,
+  "carretas-descarga": Forklift,
+  // As mesmas telas nos cartões do Como Fazer (chave "guia:<slug>").
+  "guia:abastecer-picking": PackagePlus,
+  "guia:informar-quebra-fefo": CalendarX2,
+  "guia:tratar-quebra-fefo": CalendarX2,
+  "guia:consultar-fornecedores": ContatoDoFornecedor,
+  "guia:operar-empilhadeira": Forklift,
+  "guia:buscar-pedido-picking": Forklift,
+};
+
 /**
  * A CHAVE GERAL DO SISTEMA DE ÍCONES.
  *
@@ -124,7 +182,8 @@ const POR_CHAVE: Record<string, LucideIcon> = {
  */
 export const USAR_ICONES = false;
 
-export function iconeDe(chave: string): LucideIcon | null {
+export function iconeDe(chave: string): LucideIcon | ComponentType<PropsDoDesenho> | null {
+  if (ICONES_PROPRIOS[chave]) return ICONES_PROPRIOS[chave];
   if (!USAR_ICONES) return null;
   return POR_CHAVE[chave] ?? null;
 }

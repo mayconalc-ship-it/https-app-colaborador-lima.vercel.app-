@@ -155,7 +155,7 @@ export default async function ManutencaoPage() {
           <p className="text-xs font-bold uppercase tracking-wide text-slate-500">V.3 · Base de fornecedores</p>
           {v34 ? (
             <>
-              <p className="mt-1 text-sm font-semibold text-slate-900">📇 {v34.fornecedores} contatos na base</p>
+              <p className="mt-1 text-sm font-semibold text-slate-900">📞 {v34.fornecedores} contatos na base</p>
               <p className={`mt-0.5 text-xs ${v34.pendencias ? "font-semibold text-amber-700" : "text-emerald-700"}`}>
                 {v34.pendencias
                   ? `⚠️ ${v34.pendencias} com pendência (ANS de crítico ou a revisar)`

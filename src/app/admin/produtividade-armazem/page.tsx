@@ -136,7 +136,7 @@ const ABAS: { id: Aba; rotulo: string; emoji: string }[] = [
   { id: "empilhadeiras", rotulo: "Empilhadeiras", emoji: "🏗️" },
   { id: "recebimento", rotulo: "Recebimento", emoji: "🚛" },
   { id: "cinco-s", rotulo: "5S", emoji: "🧹" },
-  { id: "fefo", rotulo: "FEFO", emoji: "🚨" },
+  { id: "fefo", rotulo: "FEFO", emoji: "⏳" },
   { id: "wqi", rotulo: "WQI", emoji: "💥" },
 ];
 

@@ -114,7 +114,7 @@ export default async function RaciPage() {
 
       <p className="mt-4 text-center text-xs">
         <Link href="/fornecedores" className="font-semibold text-primary">
-          📇 Ver a base de fornecedores →
+          📞 Ver a base de fornecedores →
         </Link>
       </p>
     </div>

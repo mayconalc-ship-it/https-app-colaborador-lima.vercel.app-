@@ -183,7 +183,7 @@ export default async function FefoPage({
   return (
     <div>
       <PageHeader
-        title="🚨 Quebra de FEFO"
+        title="⏳ Quebra de FEFO"
         subtitle="Achou produto fora da ordem de validade? Avise aqui — o controle recebe na hora."
         fecharHref="/produtividade-armazem"
       />

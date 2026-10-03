@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { PageHeader } from "@/components/PageHeader";
+import { Icone } from "@/components/Icone";
 import { CATEGORIAS_DO_GUIA, guiaCombina } from "@/lib/guia";
 import { guiasDaPessoa } from "@/lib/guia-server";
 
@@ -67,8 +68,8 @@ export default async function GuiaPage({ searchParams }: { searchParams: Promise
                     href={`/guia/${g.slug}`}
                     className="flex items-center gap-3 p-4 hover:bg-slate-50"
                   >
-                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary-soft text-xl" aria-hidden>
-                      {g.emoji}
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary-soft text-xl text-primary" aria-hidden>
+                      <Icone chave={`guia:${g.slug}`} emoji={g.emoji} tamanho={18} />
                     </span>
                     <span className="min-w-0 flex-1">
                       <span className="block font-semibold text-slate-800">{g.titulo}</span>

@@ -32,13 +32,13 @@ export default async function FornecedoresPage() {
 
   const dados = await carregar(revendaId);
   if (dados.tipo === "nao-instalado") {
-    return <AvisoNaoInstalado titulo="📇 Fornecedores" migration="157 (Fornecedores e RACI)" />;
+    return <AvisoNaoInstalado titulo="📞 Fornecedores" migration="157 (Fornecedores e RACI)" />;
   }
 
   return (
     <div>
       <PageHeader
-        title="📇 Fornecedores"
+        title="📞 Fornecedores"
         subtitle="Contatos de manutenção, emergência e apoio na rota. Toque para ligar."
       />
       <LinkDoGuia slug="consultar-fornecedores" className="mb-4" />

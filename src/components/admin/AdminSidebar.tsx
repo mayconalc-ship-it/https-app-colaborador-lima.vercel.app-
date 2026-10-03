@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { Icone } from "@/components/Icone";
 
 export type ItemNav = { id: string; href: string; rotulo: string; emoji: string };
 export type GrupoNav = { titulo: string; itens: ItemNav[] };
@@ -231,7 +232,7 @@ ull quando a area nao tem um
                       className={classeItem(item.href, "primary")}
                     >
                       <span className="flex h-6 w-6 shrink-0 items-center justify-center text-lg">
-                        {item.emoji}
+                        <Icone chave={item.id} emoji={item.emoji} tamanho={18} />
                       </span>
                       <span className={classeRotulo}>{item.rotulo}</span>
                     </Link>
@@ -255,7 +256,7 @@ ull quando a area nao tem um
                   className={classeItem(item.href, "gold")}
                 >
                   <span className="flex h-6 w-6 shrink-0 items-center justify-center text-lg">
-                    {item.emoji}
+                    <Icone chave={item.id} emoji={item.emoji} tamanho={18} />
                   </span>
                   <span className={classeRotulo}>{item.rotulo}</span>
                 </Link>

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PageHeader } from "@/components/PageHeader";
+import { Icone } from "@/components/Icone";
 import { guiaPorSlug, pedacosDoTexto } from "@/lib/guia";
 import { guiasDaPessoa } from "@/lib/guia-server";
 
@@ -123,7 +124,7 @@ export default async function GuiaDetalhePage({ params }: { params: Promise<{ sl
             {relacionados.map((g) => (
               <li key={g.slug}>
                 <Link href={`/guia/${g.slug}`} className="flex items-center gap-3 p-3 text-sm hover:bg-slate-50">
-                  <span aria-hidden>{g.emoji}</span>
+                  <Icone chave={`guia:${g.slug}`} emoji={g.emoji} tamanho={14} className="text-primary" />
                   <span className="flex-1 font-medium text-slate-700">{g.titulo}</span>
                   <span className="text-slate-300" aria-hidden>
                     ›
