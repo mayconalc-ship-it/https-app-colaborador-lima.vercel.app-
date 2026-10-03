@@ -6,7 +6,6 @@ import { createClient } from "@/lib/supabase/server";
 import { getRevendaId } from "@/lib/revendas";
 import { requireAcessoModulo } from "@/lib/require-admin";
 import {
-  ROTULO_TURNO,
   ROTULO_TURNO_CURTO,
   diasAtrasISO,
   formatarDataHora,

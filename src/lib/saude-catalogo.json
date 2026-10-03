@@ -1,0 +1,1130 @@
+{
+ "tabelas": {
+  "ag_comodato": "094",
+  "ag_conciliacao_justificativas": "123",
+  "ag_congelamento_itens": "116",
+  "ag_congelamentos": "116",
+  "ag_congelar_liberados": "116",
+  "ag_contagens": "019",
+  "ag_fatores": "019",
+  "ag_parque": "019",
+  "ag_recontagens": "024",
+  "ag_recontagens_dispensas": "028",
+  "ag_transito": "093",
+  "ag_transito_liberados": "093",
+  "ag_valores": "116",
+  "atendimento_carretas_ag_itens": "061",
+  "atendimento_carretas_itens": "057",
+  "atendimento_carretas_notas": "057",
+  "atendimentos_carretas": "057",
+  "auditoria": "014",
+  "boas_praticas": "117",
+  "boas_praticas_config": "118",
+  "boas_praticas_votacoes": "117",
+  "boas_praticas_votos": "117",
+  "cinco_porques_analises": "031",
+  "cinco_s_area_auditores": "035",
+  "cinco_s_area_donos": "035",
+  "cinco_s_areas": "035",
+  "cinco_s_auditores": "035",
+  "cinco_s_auditoria_sensos": "035",
+  "cinco_s_auditorias": "035",
+  "cinco_s_nao_conformidades": "035",
+  "cinco_s_nc_historico": "035",
+  "cinco_s_perguntas": "035",
+  "cinco_s_reconhecimento_fotos": "131",
+  "cinco_s_reconhecimentos": "131",
+  "cinco_s_respostas": "035",
+  "colaborador_modulos_extra": "020",
+  "colaborador_revendas": "021",
+  "comunicado_curtidas": "009",
+  "comunicado_editorias": "047",
+  "cron_varreduras": "045",
+  "devolucao_config": "074",
+  "devolucao_dia": "074",
+  "devolucao_justificativas": "074",
+  "devolucao_motivos": "074",
+  "devolucao_notas": "074",
+  "escala_trabalho": "008",
+  "est_5s_meses": "042",
+  "eventos_acesso": "012",
+  "ia_uso_registros": "033",
+  "indicador_avisos": "083",
+  "lideranca_permissoes": "014",
+  "ma_contagens": "121",
+  "ma_destinatarios": "121",
+  "ma_lembrete_config": "125",
+  "ma_lembrete_destinatarios": "125",
+  "ma_produtos": "121",
+  "manut_avaliacoes": "156",
+  "manut_fornecedores": "157",
+  "manut_fotos": "156",
+  "manut_itens": "156",
+  "manut_raci_atividades": "157",
+  "manut_raci_celulas": "157",
+  "manut_raci_papeis": "157",
+  "manut_raci_revisoes": "157",
+  "manut_respostas": "156",
+  "mao_obra_acoes": "135",
+  "mao_obra_config": "135",
+  "mao_obra_config_mes": "152",
+  "mao_obra_destinatarios": "136",
+  "mao_obra_dias": "136",
+  "mao_obra_envios": "136",
+  "mao_obra_historico": "151",
+  "mao_obra_meses": "135",
+  "mao_obra_projecoes": "143",
+  "mao_obra_realizado": "135",
+  "mao_obra_salarios": "135",
+  "menu_itens": "005",
+  "notificacao_ajustes": "015",
+  "notificacao_config": "015",
+  "notificacao_estado": "015",
+  "notificacoes": "015",
+  "pa_abastecimento_itens": "071",
+  "pa_abastecimentos": "071",
+  "pa_ag_catalogo": "061",
+  "pa_bate_palete": "087",
+  "pa_bate_palete_itens": "087",
+  "pa_blitz": "100",
+  "pa_blitz_itens": "100",
+  "pa_blitz_respostas": "100",
+  "pa_checklist_5s_itens": "049",
+  "pa_despejo_esvaziamentos": "110",
+  "pa_despejo_lancamentos": "049",
+  "pa_embalagens": "049",
+  "pa_embalagens_despejo": "064",
+  "pa_empilhadeira_config": "070",
+  "pa_empilhadeira_lembretes": "049",
+  "pa_empilhadeira_operacoes": "049",
+  "pa_empilhadeira_trocas_gas": "050",
+  "pa_empilhadeiras": "049",
+  "pa_empilhadores": "061",
+  "pa_execucao_5s_itens": "049",
+  "pa_execucoes_5s": "049",
+  "pa_fabricas": "049",
+  "pa_fefo_depositos": "097",
+  "pa_fefo_motivos": "067",
+  "pa_fefo_ocorrencias": "066",
+  "pa_fefo_ruas": "097",
+  "pa_gas_notificados": "077",
+  "pa_gas_pedidos": "077",
+  "pa_gatilhos_anomalia": "099",
+  "pa_metas": "080",
+  "pa_motoristas": "061",
+  "pa_pdv_avisos_enviados": "107",
+  "pa_pdv_categorias": "101",
+  "pa_pdv_clientes": "107",
+  "pa_pdv_config": "107",
+  "pa_pdv_do_mapa": "101",
+  "pa_pdv_particularidades": "101",
+  "pa_produtos": "049",
+  "pa_reabastecimentos_picking": "049",
+  "pa_recebimento_config": "061",
+  "pa_recebimento_itens": "049",
+  "pa_recebimentos": "049",
+  "pa_reepack_lancamentos": "049",
+  "pa_relato_acoes": "099",
+  "pa_relato_catalogos": "105",
+  "pa_relatos_anomalia": "099",
+  "pa_ressuprimento_itens": "085",
+  "pa_ressuprimentos": "085",
+  "pa_transportadoras": "049",
+  "pa_wqi_baixas": "139",
+  "pa_wqi_locais": "139",
+  "pa_wqi_motivos": "139",
+  "padroes": "003",
+  "padroes_pilares": "010",
+  "perfil_modulos_app": "111",
+  "perfil_permissoes": "084",
+  "perfil_pessoas": "091",
+  "perfis_acesso": "084",
+  "pesquisa_config": "013",
+  "pesquisa_respostas": "013",
+  "push_inscricoes": "023",
+  "qr_comprovante_edicoes": "128",
+  "qr_comprovante_fotos": "126",
+  "qr_comprovantes": "126",
+  "qr_contingencia_config": "126",
+  "quiz_alternativas": "029",
+  "quiz_config": "029",
+  "quiz_conquistas": "029",
+  "quiz_participacoes": "029",
+  "quiz_questoes": "029",
+  "quiz_respostas": "029",
+  "quiz_rodada_questoes": "029",
+  "quiz_rodadas": "029",
+  "rating_avaliacoes": "072",
+  "rating_config": "072",
+  "rating_feedbacks": "072",
+  "rating_pessoas": "072",
+  "rating_viagens": "072",
+  "refugo_afericoes": "073",
+  "refugo_config": "073",
+  "refugo_itens": "073",
+  "refugo_justificativas": "078",
+  "revenda_canais": "113",
+  "revenda_modulos": "021",
+  "revendas": "021",
+  "rotas": "016",
+  "rotas_config": "016",
+  "rv_config": "007",
+  "uso_sessoes": "011",
+  "voce_sabia_vistos": "090"
+ },
+ "colunas": [
+  {
+   "tabela": "ag_congelamento_itens",
+   "coluna": "justificativa",
+   "migration": "123"
+  },
+  {
+   "tabela": "ag_contagens",
+   "coluna": "recontagem_id",
+   "migration": "028"
+  },
+  {
+   "tabela": "ag_contagens",
+   "coluna": "substituida_em",
+   "migration": "109"
+  },
+  {
+   "tabela": "ag_contagens",
+   "coluna": "substituida_por",
+   "migration": "109"
+  },
+  {
+   "tabela": "ag_recontagens",
+   "coluna": "descricao",
+   "migration": "028"
+  },
+  {
+   "tabela": "ag_recontagens",
+   "coluna": "dia",
+   "migration": "026"
+  },
+  {
+   "tabela": "ag_transito",
+   "coluna": "transito_carreta",
+   "migration": "094"
+  },
+  {
+   "tabela": "atendimento_carretas_itens",
+   "coluna": "quantidade_avariada",
+   "migration": "063"
+  },
+  {
+   "tabela": "atendimentos_carretas",
+   "coluna": "blitz_exigida",
+   "migration": "100"
+  },
+  {
+   "tabela": "atendimentos_carretas",
+   "coluna": "destino_retorno",
+   "migration": "061"
+  },
+  {
+   "tabela": "atendimentos_carretas",
+   "coluna": "fim_conferencia_em",
+   "migration": "063"
+  },
+  {
+   "tabela": "atendimentos_carretas",
+   "coluna": "inicio_conferencia_em",
+   "migration": "063"
+  },
+  {
+   "tabela": "atendimentos_carretas",
+   "coluna": "inicio_descarga_em",
+   "migration": "063"
+  },
+  {
+   "tabela": "atendimentos_carretas",
+   "coluna": "motorista_id",
+   "migration": "110"
+  },
+  {
+   "tabela": "atendimentos_carretas",
+   "coluna": "retorno_decidido_em",
+   "migration": "063"
+  },
+  {
+   "tabela": "atendimentos_carretas",
+   "coluna": "retorno_edicoes",
+   "migration": "098"
+  },
+  {
+   "tabela": "atendimentos_carretas",
+   "coluna": "retorno_editado_em",
+   "migration": "098"
+  },
+  {
+   "tabela": "atendimentos_carretas",
+   "coluna": "retorno_editado_por_id",
+   "migration": "098"
+  },
+  {
+   "tabela": "atendimentos_carretas",
+   "coluna": "retorno_editado_por_nome",
+   "migration": "098"
+  },
+  {
+   "tabela": "boas_praticas_config",
+   "coluna": "todas_areas",
+   "migration": "120"
+  },
+  {
+   "tabela": "boas_praticas_votacoes",
+   "coluna": "divulgacao_em",
+   "migration": "118"
+  },
+  {
+   "tabela": "boas_praticas_votacoes",
+   "coluna": "premio_1",
+   "migration": "118"
+  },
+  {
+   "tabela": "boas_praticas_votacoes",
+   "coluna": "premio_2",
+   "migration": "118"
+  },
+  {
+   "tabela": "boas_praticas_votacoes",
+   "coluna": "premio_3",
+   "migration": "118"
+  },
+  {
+   "tabela": "boas_praticas_votacoes",
+   "coluna": "segunda_id",
+   "migration": "118"
+  },
+  {
+   "tabela": "boas_praticas_votacoes",
+   "coluna": "terceira_id",
+   "migration": "118"
+  },
+  {
+   "tabela": "boas_praticas_votacoes",
+   "coluna": "token_publico",
+   "migration": "134"
+  },
+  {
+   "tabela": "boas_praticas_votacoes",
+   "coluna": "vencedora_id",
+   "migration": "117"
+  },
+  {
+   "tabela": "boas_praticas_votos",
+   "coluna": "eleitor_chave",
+   "migration": "132"
+  },
+  {
+   "tabela": "boas_praticas_votos",
+   "coluna": "eleitor_doc",
+   "migration": "134"
+  },
+  {
+   "tabela": "boas_praticas_votos",
+   "coluna": "eleitor_nome",
+   "migration": "132"
+  },
+  {
+   "tabela": "boas_praticas_votos",
+   "coluna": "origem",
+   "migration": "134"
+  },
+  {
+   "tabela": "boas_praticas_votos",
+   "coluna": "registrado_por_id",
+   "migration": "132"
+  },
+  {
+   "tabela": "boas_praticas_votos",
+   "coluna": "registrado_por_nome",
+   "migration": "132"
+  },
+  {
+   "tabela": "cinco_porques_analises",
+   "coluna": "motorista_aceitou",
+   "migration": "032"
+  },
+  {
+   "tabela": "cinco_porques_analises",
+   "coluna": "motorista_aceitou_em",
+   "migration": "032"
+  },
+  {
+   "tabela": "cinco_porques_analises",
+   "coluna": "resposta_lideranca_nome",
+   "migration": "056"
+  },
+  {
+   "tabela": "cinco_s_auditorias",
+   "coluna": "estimada",
+   "migration": "039"
+  },
+  {
+   "tabela": "comunicados",
+   "coluna": "autor",
+   "migration": "008"
+  },
+  {
+   "tabela": "comunicados",
+   "coluna": "categoria",
+   "migration": "008"
+  },
+  {
+   "tabela": "comunicados",
+   "coluna": "destaque",
+   "migration": "008"
+  },
+  {
+   "tabela": "comunicados",
+   "coluna": "lembrete_areas",
+   "migration": "034"
+  },
+  {
+   "tabela": "comunicados",
+   "coluna": "lembrete_cargos",
+   "migration": "027"
+  },
+  {
+   "tabela": "comunicados",
+   "coluna": "lembrete_em",
+   "migration": "027"
+  },
+  {
+   "tabela": "comunicados",
+   "coluna": "lembrete_enviado_em",
+   "migration": "027"
+  },
+  {
+   "tabela": "comunicados",
+   "coluna": "lembrete_mensagem",
+   "migration": "027"
+  },
+  {
+   "tabela": "comunicados",
+   "coluna": "publicacao_avisada_em",
+   "migration": "044"
+  },
+  {
+   "tabela": "comunicados",
+   "coluna": "publicar_em",
+   "migration": "044"
+  },
+  {
+   "tabela": "comunicados",
+   "coluna": "resumo",
+   "migration": "008"
+  },
+  {
+   "tabela": "devolucao_dia",
+   "coluna": "pdvs_devolvidos",
+   "migration": "076"
+  },
+  {
+   "tabela": "devolucao_dia",
+   "coluna": "pdvs_entregues",
+   "migration": "076"
+  },
+  {
+   "tabela": "devolucao_motivos",
+   "coluna": "conta_no_indicador",
+   "migration": "075"
+  },
+  {
+   "tabela": "feedback_rota",
+   "coluna": "colaborador_aceitou",
+   "migration": "056"
+  },
+  {
+   "tabela": "feedback_rota",
+   "coluna": "colaborador_aceitou_em",
+   "migration": "056"
+  },
+  {
+   "tabela": "feedback_rota",
+   "coluna": "conta_tmr",
+   "migration": "056"
+  },
+  {
+   "tabela": "feedback_rota",
+   "coluna": "ocorrencias",
+   "migration": "004"
+  },
+  {
+   "tabela": "feedback_rota",
+   "coluna": "resposta_lideranca",
+   "migration": "056"
+  },
+  {
+   "tabela": "feedback_rota",
+   "coluna": "resposta_lideranca_em",
+   "migration": "056"
+  },
+  {
+   "tabela": "feedback_rota",
+   "coluna": "resposta_lideranca_nome",
+   "migration": "056"
+  },
+  {
+   "tabela": "feedback_rota",
+   "coluna": "resposta_lideranca_por",
+   "migration": "056"
+  },
+  {
+   "tabela": "feedback_rota",
+   "coluna": "rota",
+   "migration": "004"
+  },
+  {
+   "tabela": "feedback_rota",
+   "coluna": "tratativa_status",
+   "migration": "056"
+  },
+  {
+   "tabela": "ma_contagens",
+   "coluna": "entrada",
+   "migration": "122"
+  },
+  {
+   "tabela": "ma_produtos",
+   "coluna": "valor_unitario",
+   "migration": "122"
+  },
+  {
+   "tabela": "mao_obra_config",
+   "coluna": "armazem",
+   "migration": "154"
+  },
+  {
+   "tabela": "mao_obra_config",
+   "coluna": "sellout_dom",
+   "migration": "138"
+  },
+  {
+   "tabela": "mao_obra_config",
+   "coluna": "sellout_qua",
+   "migration": "138"
+  },
+  {
+   "tabela": "mao_obra_config",
+   "coluna": "sellout_qui",
+   "migration": "138"
+  },
+  {
+   "tabela": "mao_obra_config",
+   "coluna": "sellout_sab",
+   "migration": "138"
+  },
+  {
+   "tabela": "mao_obra_config",
+   "coluna": "sellout_seg",
+   "migration": "138"
+  },
+  {
+   "tabela": "mao_obra_config",
+   "coluna": "sellout_sex",
+   "migration": "138"
+  },
+  {
+   "tabela": "mao_obra_config",
+   "coluna": "sellout_ter",
+   "migration": "138"
+  },
+  {
+   "tabela": "mao_obra_config_mes",
+   "coluna": "armazem",
+   "migration": "154"
+  },
+  {
+   "tabela": "mao_obra_dias",
+   "coluna": "justificativa",
+   "migration": "149"
+  },
+  {
+   "tabela": "mao_obra_dias",
+   "coluna": "justificativa_motivo",
+   "migration": "149"
+  },
+  {
+   "tabela": "mao_obra_dias",
+   "coluna": "opera",
+   "migration": "137"
+  },
+  {
+   "tabela": "mao_obra_envios",
+   "coluna": "registrado_em",
+   "migration": "148"
+  },
+  {
+   "tabela": "mao_obra_envios",
+   "coluna": "retroativo",
+   "migration": "148"
+  },
+  {
+   "tabela": "mao_obra_meses",
+   "coluna": "ajudante_extra_entrega",
+   "migration": "148"
+  },
+  {
+   "tabela": "mao_obra_meses",
+   "coluna": "arm_ajuste_ferias",
+   "migration": "154"
+  },
+  {
+   "tabela": "mao_obra_meses",
+   "coluna": "arm_alta_temporada",
+   "migration": "154"
+  },
+  {
+   "tabela": "mao_obra_meses",
+   "coluna": "arm_mix_retornavel",
+   "migration": "154"
+  },
+  {
+   "tabela": "mao_obra_meses",
+   "coluna": "arm_pallets_retornaveis",
+   "migration": "154"
+  },
+  {
+   "tabela": "mao_obra_meses",
+   "coluna": "arm_spot_descartavel_dia",
+   "migration": "154"
+  },
+  {
+   "tabela": "mao_obra_meses",
+   "coluna": "arm_spot_retornavel_dia",
+   "migration": "154"
+  },
+  {
+   "tabela": "mao_obra_meses",
+   "coluna": "arm_viagens_puxada_ff",
+   "migration": "154"
+  },
+  {
+   "tabela": "mao_obra_meses",
+   "coluna": "base_meta",
+   "migration": "137"
+  },
+  {
+   "tabela": "mao_obra_meses",
+   "coluna": "frota_ferista",
+   "migration": "147"
+  },
+  {
+   "tabela": "mao_obra_meses",
+   "coluna": "qlp_justificativa",
+   "migration": "148"
+  },
+  {
+   "tabela": "mao_obra_meses",
+   "coluna": "qlp_justificativa_motivo",
+   "migration": "148"
+  },
+  {
+   "tabela": "mao_obra_meses",
+   "coluna": "volume_justificativa",
+   "migration": "148"
+  },
+  {
+   "tabela": "mao_obra_meses",
+   "coluna": "volume_justificativa_motivo",
+   "migration": "148"
+  },
+  {
+   "tabela": "mao_obra_projecoes",
+   "coluna": "retroativa",
+   "migration": "148"
+  },
+  {
+   "tabela": "notificacoes",
+   "coluna": "destinatario_id",
+   "migration": "026"
+  },
+  {
+   "tabela": "pa_abastecimentos",
+   "coluna": "ressuprimento_id",
+   "migration": "085"
+  },
+  {
+   "tabela": "pa_bate_palete_itens",
+   "coluna": "hl_avariado",
+   "migration": "088"
+  },
+  {
+   "tabela": "pa_bate_palete_itens",
+   "coluna": "hl_batido",
+   "migration": "088"
+  },
+  {
+   "tabela": "pa_bate_palete_itens",
+   "coluna": "paletes",
+   "migration": "092"
+  },
+  {
+   "tabela": "pa_bate_palete_itens",
+   "coluna": "unidade",
+   "migration": "088"
+  },
+  {
+   "tabela": "pa_blitz",
+   "coluna": "gatilho_dimensao",
+   "migration": "103"
+  },
+  {
+   "tabela": "pa_blitz",
+   "coluna": "gatilho_nome",
+   "migration": "103"
+  },
+  {
+   "tabela": "pa_blitz_itens",
+   "coluna": "grupo",
+   "migration": "103"
+  },
+  {
+   "tabela": "pa_despejo_lancamentos",
+   "coluna": "embalagem_despejo_id",
+   "migration": "064"
+  },
+  {
+   "tabela": "pa_despejo_lancamentos",
+   "coluna": "produto_id",
+   "migration": "054"
+  },
+  {
+   "tabela": "pa_despejo_lancamentos",
+   "coluna": "quantidade_pacotes",
+   "migration": "051"
+  },
+  {
+   "tabela": "pa_embalagens",
+   "coluna": "litros_por_pacote",
+   "migration": "051"
+  },
+  {
+   "tabela": "pa_embalagens",
+   "coluna": "tempo_padrao_despejo_segundos",
+   "migration": "050"
+  },
+  {
+   "tabela": "pa_embalagens",
+   "coluna": "unidade_reepack",
+   "migration": "051"
+  },
+  {
+   "tabela": "pa_empilhadeira_config",
+   "coluna": "estoque_minimo_p20",
+   "migration": "077"
+  },
+  {
+   "tabela": "pa_empilhadeira_config",
+   "coluna": "fornecedor_nome",
+   "migration": "077"
+  },
+  {
+   "tabela": "pa_empilhadeira_config",
+   "coluna": "fornecedor_telefone",
+   "migration": "077"
+  },
+  {
+   "tabela": "pa_empilhadeira_lembretes",
+   "coluna": "operador_id",
+   "migration": "050"
+  },
+  {
+   "tabela": "pa_empilhadeira_lembretes",
+   "coluna": "operador_nome",
+   "migration": "050"
+  },
+  {
+   "tabela": "pa_empilhadeira_lembretes",
+   "coluna": "turno",
+   "migration": "050"
+  },
+  {
+   "tabela": "pa_empilhadeira_trocas_gas",
+   "coluna": "botijoes_cheios",
+   "migration": "077"
+  },
+  {
+   "tabela": "pa_empilhadeira_trocas_gas",
+   "coluna": "botijoes_vazios",
+   "migration": "077"
+  },
+  {
+   "tabela": "pa_empilhadores",
+   "coluna": "cpf",
+   "migration": "062"
+  },
+  {
+   "tabela": "pa_fefo_ocorrencias",
+   "coluna": "hl_calculado",
+   "migration": "096"
+  },
+  {
+   "tabela": "pa_fefo_ocorrencias",
+   "coluna": "motivo_id",
+   "migration": "067"
+  },
+  {
+   "tabela": "pa_fefo_ocorrencias",
+   "coluna": "unidade",
+   "migration": "068"
+  },
+  {
+   "tabela": "pa_motoristas",
+   "coluna": "cpf",
+   "migration": "062"
+  },
+  {
+   "tabela": "pa_motoristas",
+   "coluna": "criado_por",
+   "migration": "110"
+  },
+  {
+   "tabela": "pa_motoristas",
+   "coluna": "criado_por_nome",
+   "migration": "110"
+  },
+  {
+   "tabela": "pa_pdv_categorias",
+   "coluna": "mensagem_modelo",
+   "migration": "106"
+  },
+  {
+   "tabela": "pa_pdv_clientes",
+   "coluna": "fantasia",
+   "migration": "115"
+  },
+  {
+   "tabela": "pa_pdv_config",
+   "coluna": "ultimo_resultado",
+   "migration": "108"
+  },
+  {
+   "tabela": "pa_pdv_particularidades",
+   "coluna": "janelas",
+   "migration": "104"
+  },
+  {
+   "tabela": "pa_produtos",
+   "coluna": "caixas_pallet",
+   "migration": "060"
+  },
+  {
+   "tabela": "pa_produtos",
+   "coluna": "caixas_por_lastro",
+   "migration": "096"
+  },
+  {
+   "tabela": "pa_produtos",
+   "coluna": "cluster_produto",
+   "migration": "060"
+  },
+  {
+   "tabela": "pa_produtos",
+   "coluna": "embalagem_id",
+   "migration": "054"
+  },
+  {
+   "tabela": "pa_produtos",
+   "coluna": "fator_hecto",
+   "migration": "054"
+  },
+  {
+   "tabela": "pa_produtos",
+   "coluna": "meta_despejo_hora",
+   "migration": "060"
+  },
+  {
+   "tabela": "pa_produtos",
+   "coluna": "meta_reepack_hora",
+   "migration": "060"
+  },
+  {
+   "tabela": "pa_produtos",
+   "coluna": "tipo",
+   "migration": "060"
+  },
+  {
+   "tabela": "pa_produtos",
+   "coluna": "unidades_por_caixa",
+   "migration": "054"
+  },
+  {
+   "tabela": "pa_reepack_lancamentos",
+   "coluna": "etapa",
+   "migration": "065"
+  },
+  {
+   "tabela": "pa_reepack_lancamentos",
+   "coluna": "litros_calculados",
+   "migration": "054"
+  },
+  {
+   "tabela": "pa_reepack_lancamentos",
+   "coluna": "produto_id",
+   "migration": "054"
+  },
+  {
+   "tabela": "pa_relatos_anomalia",
+   "coluna": "assinado_por",
+   "migration": "105"
+  },
+  {
+   "tabela": "pa_relatos_anomalia",
+   "coluna": "assinado_por_nome",
+   "migration": "105"
+  },
+  {
+   "tabela": "pa_relatos_anomalia",
+   "coluna": "atendimento_id",
+   "migration": "159"
+  },
+  {
+   "tabela": "pa_ressuprimentos",
+   "coluna": "tipo",
+   "migration": "086"
+  },
+  {
+   "tabela": "perfis_acesso",
+   "coluna": "tipo",
+   "migration": "111"
+  },
+  {
+   "tabela": "profiles",
+   "coluna": "codigo_rota",
+   "migration": "016"
+  },
+  {
+   "tabela": "qr_comprovante_edicoes",
+   "coluna": "notas_antes",
+   "migration": "130"
+  },
+  {
+   "tabela": "qr_comprovante_edicoes",
+   "coluna": "notas_depois",
+   "migration": "130"
+  },
+  {
+   "tabela": "qr_comprovantes",
+   "coluna": "conferencia_obs",
+   "migration": "129"
+  },
+  {
+   "tabela": "qr_comprovantes",
+   "coluna": "conferencia_situacao",
+   "migration": "129"
+  },
+  {
+   "tabela": "qr_comprovantes",
+   "coluna": "conferido_em",
+   "migration": "128"
+  },
+  {
+   "tabela": "qr_comprovantes",
+   "coluna": "conferido_por_nome",
+   "migration": "128"
+  },
+  {
+   "tabela": "qr_comprovantes",
+   "coluna": "editado_em",
+   "migration": "128"
+  },
+  {
+   "tabela": "qr_comprovantes",
+   "coluna": "envio_id",
+   "migration": "127"
+  },
+  {
+   "tabela": "qr_comprovantes",
+   "coluna": "notas_fiscais",
+   "migration": "130"
+  },
+  {
+   "tabela": "qr_comprovantes",
+   "coluna": "pago_em",
+   "migration": "127"
+  },
+  {
+   "tabela": "qr_comprovantes",
+   "coluna": "valor_extrato",
+   "migration": "129"
+  },
+  {
+   "tabela": "quiz_questoes",
+   "coluna": "origem_trecho",
+   "migration": "030"
+  },
+  {
+   "tabela": "quiz_rodadas",
+   "coluna": "aviso_inicio_em",
+   "migration": "069"
+  },
+  {
+   "tabela": "ranking_matinal",
+   "coluna": "categoria",
+   "migration": "002"
+  },
+  {
+   "tabela": "ranking_matinal",
+   "coluna": "time",
+   "migration": "002"
+  },
+  {
+   "tabela": "revendas",
+   "coluna": "logo_url",
+   "migration": "046"
+  },
+  {
+   "tabela": "rotas_config",
+   "coluna": "meta_caixas",
+   "migration": "017"
+  },
+  {
+   "tabela": "rotas_config",
+   "coluna": "meta_ocupacao",
+   "migration": "017"
+  },
+  {
+   "tabela": "sonho_revenda",
+   "coluna": "ano",
+   "migration": "002"
+  },
+  {
+   "tabela": "sonho_revenda",
+   "coluna": "frase",
+   "migration": "002"
+  },
+  {
+   "tabela": "sonho_revenda",
+   "coluna": "quadro_indicadores_url",
+   "migration": "002"
+  }
+ ],
+ "arquivos": {
+  "100": "100_blitz_de_carreta.sql",
+  "101": "101_particularidades_do_pdv.sql",
+  "103": "103_blitz_conserta_a_100.sql",
+  "104": "104_pdv_ate_quatro_janelas.sql",
+  "105": "105_relato_catalogos_e_assinatura.sql",
+  "106": "106_mensagem_pronta_por_categoria.sql",
+  "107": "107_base_de_clientes_e_ja_avisei.sql",
+  "108": "108_base_de_clientes_vira_fonte_de_dados.sql",
+  "109": "109_recontagem_sobrepoe_a_contagem.sql",
+  "110": "110_bombona_do_despejo.sql",
+  "111": "111_perfil_de_colaborador.sql",
+  "113": "113_canais_do_rodape.sql",
+  "115": "115_fantasia_na_base_de_clientes.sql",
+  "116": "116_ag_valores_e_conciliacao_congelada.sql",
+  "117": "117_boas_praticas.sql",
+  "118": "118_boas_praticas_calendario_podio_areas.sql",
+  "120": "120_boas_praticas_todas_as_areas.sql",
+  "121": "121_material_de_apoio.sql",
+  "122": "122_material_de_apoio_valor_e_saida.sql",
+  "123": "123_ag_justificativa_da_conciliacao.sql",
+  "125": "125_material_de_apoio_lembrete_diario.sql",
+  "126": "126_qr_contingencia.sql",
+  "127": "127_qr_contingencia_sem_internet.sql",
+  "128": "128_qr_comprovante_edicoes.sql",
+  "129": "129_qr_conciliacao.sql",
+  "130": "130_qr_notas_fiscais.sql",
+  "131": "131_cinco_s_reconhecimentos.sql",
+  "132": "132_boas_praticas_voto_da_lideranca.sql",
+  "134": "134_boas_praticas_voto_por_link.sql",
+  "135": "135_mao_de_obra.sql",
+  "136": "136_mao_de_obra_vagas_e_dia.sql",
+  "137": "137_mao_de_obra_meta_do_dia.sql",
+  "138": "138_mao_de_obra_sellout.sql",
+  "139": "139_wqi_baixas.sql",
+  "143": "143_mao_de_obra_projecoes.sql",
+  "147": "147_mao_de_obra_ferista.sql",
+  "148": "148_mao_de_obra_justificativas_e_retroativo.sql",
+  "149": "149_mao_de_obra_justificativa_do_dia.sql",
+  "151": "151_mao_de_obra_historico.sql",
+  "152": "152_mao_de_obra_config_por_mes.sql",
+  "154": "154_mao_de_obra_armazem_ppr.sql",
+  "156": "156_check_manutencao.sql",
+  "157": "157_fornecedores_raci_manutencao.sql",
+  "159": "159_relato_tma_por_dt.sql",
+  "002": "002_sonho_anual_ranking_categorias.sql",
+  "003": "003_padroes_por_pilar.sql",
+  "004": "004_feedback_rota_detalhado.sql",
+  "005": "005_menu_itens.sql",
+  "007": "007_rv_config.sql",
+  "008": "008_escala_e_comunicados.sql",
+  "009": "009_curtidas_comunicados.sql",
+  "010": "010_padroes_envio_direto_e_pilares.sql",
+  "011": "011_lideranca_e_metricas.sql",
+  "012": "012_eventos_tempo_real.sql",
+  "013": "013_pesquisa_satisfacao.sql",
+  "014": "014_permissoes_por_modulo.sql",
+  "015": "015_notificacoes.sql",
+  "016": "016_minha_rota.sql",
+  "017": "017_metas_da_rota.sql",
+  "019": "019_ativo_de_giro.sql",
+  "020": "020_ativo_de_giro_acesso_colaborador.sql",
+  "021": "021_multi_revenda.sql",
+  "023": "023_push_web.sql",
+  "024": "024_recontagem_ativo_giro.sql",
+  "026": "026_recontagem_so_para_quem_contou.sql",
+  "027": "027_lembrete_comunicado.sql",
+  "028": "028_recontagem_simplificada.sql",
+  "029": "029_quiz_conhecimento.sql",
+  "030": "030_quiz_origem_da_questao.sql",
+  "031": "031_cinco_porques.sql",
+  "032": "032_cinco_porques_aceite.sql",
+  "033": "033_ia_uso.sql",
+  "034": "034_lembrete_por_area.sql",
+  "035": "035_cinco_s.sql",
+  "039": "039_cinco_s_auditoria_estimada.sql",
+  "042": "042_cinco_s_estimados_vizinho.sql",
+  "044": "044_comunicado_agendado.sql",
+  "045": "045_varredura_no_app.sql",
+  "046": "046_logo_da_revenda.sql",
+  "047": "047_editorias_do_jornal.sql",
+  "049": "049_produtividade_armazem.sql",
+  "050": "050_produtividade_armazem_ajustes.sql",
+  "051": "051_produtividade_armazem_unidades.sql",
+  "054": "054_produtividade_armazem_por_produto.sql",
+  "056": "056_feedback_regular_tratativa.sql",
+  "057": "057_recebimento_carretas.sql",
+  "060": "060_produtividade_armazem_planilha_produtos.sql",
+  "061": "061_carretas_v2.sql",
+  "062": "062_carretas_cpf_e_renomeio.sql",
+  "063": "063_carretas_descarga_conferencia_paralelas.sql",
+  "064": "064_despejo_embalagem_propria_por_unidade.sql",
+  "065": "065_reepack_etapa_selecao.sql",
+  "066": "066_fefo_ocorrencias.sql",
+  "067": "067_fefo_motivos_cadastraveis.sql",
+  "068": "068_fefo_unidade_e_menor_validade_opcional.sql",
+  "069": "069_desafio_aviso_na_data_de_inicio.sql",
+  "070": "070_empilhadeira_custo_p20.sql",
+  "071": "071_abastecimento_picking.sql",
+  "072": "072_rating_entrega.sql",
+  "073": "073_refugo_vasilhame.sql",
+  "074": "074_devolucao.sql",
+  "075": "075_devolucao_conta_no_indicador.sql",
+  "076": "076_devolucao_pdv_e_clusters.sql",
+  "077": "077_gas_estoque_e_pedido.sql",
+  "078": "078_refugo_justificativas.sql",
+  "080": "080_metas.sql",
+  "083": "083_avisos_de_indicador.sql",
+  "084": "084_perfis_de_acesso.sql",
+  "085": "085_ressuprimento_picking.sql",
+  "086": "086_ressuprimento_dentro_do_abastecimento.sql",
+  "087": "087_bate_palete.sql",
+  "088": "088_bate_palete_batido_e_avariado.sql",
+  "090": "090_voce_sabia.sql",
+  "091": "091_perfil_pessoas.sql",
+  "092": "092_bate_palete_por_palete.sql",
+  "093": "093_ativo_giro_transito.sql",
+  "094": "094_ag_transito_tres_colunas.sql",
+  "096": "096_unidades_palete_lastro_caixa_unidade.sql",
+  "097": "097_fefo_depositos_e_ruas_cadastraveis.sql",
+  "098": "098_carretas_retorno_ag_editavel.sql",
+  "099": "099_relato_de_anomalia.sql"
+ }
+}

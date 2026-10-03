@@ -5,8 +5,7 @@
 //   npx tsx src/lib/__testes__/refugo.teste.mjs
 import {
   lerRelatorioDeRefugo, resumirRefugo, somarDefeitos, alertaDaAfericao,
-  normalizarCodigo, DEFEITO_FALTANTE,
-} from "../refugo.ts";
+  normalizarCodigo, } from "../refugo.ts";
 
 let falhas = 0;
 function ok(nome, cond, detalhe = "") {

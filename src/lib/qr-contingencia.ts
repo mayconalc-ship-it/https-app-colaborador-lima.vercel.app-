@@ -161,20 +161,22 @@ export function clienteCasa(
 }
 
 export type DadosDaConfig = {
-  temQr: boolean;
   favorecido: string;
   cnpj: string;
-  chavePix: string;
   instrucoes: string;
 };
 
-/** A configuração do QR: a imagem é obrigatória; o CNPJ, se vier, com 14 dígitos. */
+/**
+ * A configuração do pagamento (03/10/2026, pedido do dono: no pagamento,
+ * nada de QR Code). O PIX é pela CHAVE CNPJ, que o cliente digita -- o QR,
+ * e o copia e cola que é o mesmo QR em texto, geravam tarifa na conta da
+ * empresa. Por isso o CNPJ passou a ser o obrigatório.
+ */
 export function validarConfigQr(d: DadosDaConfig): string | null {
-  if (!d.temQr) return "Envie a imagem do QR Code — sem ela o motorista não tem o que mostrar ao cliente.";
   const cnpj = d.cnpj.replace(/\D/g, "");
-  if (cnpj && cnpj.length !== 14) return "O CNPJ precisa ter 14 dígitos.";
+  if (!cnpj) return "Informe o CNPJ — é a chave PIX que o motorista mostra ao cliente.";
+  if (cnpj.length !== 14) return "O CNPJ precisa ter 14 dígitos.";
   if (d.favorecido.length > 120) return "O nome do favorecido passa de 120 caracteres.";
-  if (d.chavePix.length > 600) return "O código PIX passa de 600 caracteres.";
   if (d.instrucoes.length > 400) return "As instruções passam de 400 caracteres.";
   return null;
 }

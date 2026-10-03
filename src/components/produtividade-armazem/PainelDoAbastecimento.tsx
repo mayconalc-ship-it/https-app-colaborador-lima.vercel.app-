@@ -7,7 +7,6 @@ import {
   porTipo,
   porTurno,
   resumirAtividade,
-  type LinhaDeGrupo,
   type SessaoAnalise,
 } from "@/lib/abastecimento-analise";
 

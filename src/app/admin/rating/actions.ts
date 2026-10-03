@@ -8,7 +8,6 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { exigirRevenda } from "@/lib/revendas";
 import {
   baixarTextoDoDrive,
-  idDaPasta,
   listarArquivosDaPasta,
   listarSubpastas,
 } from "@/lib/drive-pasta";

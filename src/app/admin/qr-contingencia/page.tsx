@@ -23,7 +23,7 @@ export default async function AdminQrContingenciaPage({
     <div className="space-y-4">
       <PageHeader
         title="📲 Comprovante de Pagamento"
-        subtitle="O QR Code do PIX da empresa que o motorista mostra quando o pagamento do sistema cai"
+        subtitle="A chave PIX (CNPJ) da empresa que o motorista mostra quando o pagamento do sistema cai"
       />
       {sp.erro && <p className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{decodificar(sp.erro)}</p>}
       {sp.sucesso && <p className="rounded-lg bg-green-50 p-3 text-sm text-green-700">{decodificar(sp.sucesso)}</p>}
@@ -31,10 +31,8 @@ export default async function AdminQrContingenciaPage({
       {podeEditar ? (
         <FormConfigQr
           inicial={{
-            qrUrl: config.qrUrl,
             favorecido: config.favorecido ?? "",
             cnpj: config.cnpj ?? "",
-            chavePix: config.chavePix ?? "",
             instrucoes: config.instrucoes ?? "",
           }}
         />
@@ -42,7 +40,7 @@ export default async function AdminQrContingenciaPage({
         <div className="rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-700 shadow-sm">
           <p>{config.favorecido ?? "Favorecido não informado"}</p>
           <p>{config.cnpj ? `CNPJ ${formatarCnpj(config.cnpj)}` : "CNPJ não informado"}</p>
-          <p className="mt-2 text-xs text-slate-500">Você pode ver, mas não alterar o QR.</p>
+          <p className="mt-2 text-xs text-slate-500">Você pode ver, mas não alterar a chave PIX.</p>
         </div>
       )}
 

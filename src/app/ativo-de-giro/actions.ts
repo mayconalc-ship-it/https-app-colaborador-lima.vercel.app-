@@ -380,7 +380,8 @@ export async function editarContagem(formData: FormData): Promise<ResultadoAcao>
     // pedido a linha responde -- o formulário de editar nem manda esse
     // campo, e sem excluí-lo aqui um `update` gravaria `null` por cima do
     // vínculo que já existia.
-    const { recontagem_id: _ignorado, ...campos } = lido.campos;
+    const { recontagem_id, ...campos } = lido.campos;
+    void recontagem_id; // fica de fora do update de propósito (ver acima)
 
     const [gestor, revendaId] = await Promise.all([
       podeNoModulo("ativo-giro", "editar"),
