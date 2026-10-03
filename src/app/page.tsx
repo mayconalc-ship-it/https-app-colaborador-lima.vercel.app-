@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { MenuCard } from "@/components/MenuCard";
 import { createClient } from "@/lib/supabase/server";
 import { getPerfil } from "@/lib/sessao";
@@ -70,11 +71,30 @@ export default async function Home() {
 
   return (
     <div>
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-slate-900">
-          Olá{primeiroNome ? `, ${primeiroNome}` : ""}! 👋
-        </h1>
-        <p className="text-slate-500">Escolha uma opção abaixo</p>
+      <div className="mb-6 flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="text-2xl font-bold text-slate-900">
+            Olá{primeiroNome ? `, ${primeiroNome}` : ""}! 👋
+          </h1>
+          <p className="text-slate-500">Escolha uma opção abaixo</p>
+        </div>
+        {/*
+          SELO "QUALIFIED DPO 2026" (03/10/2026, pedido do dono): as duas
+          revendas, Barreiras e São Félix, são qualificadas no DPO -- o
+          selo fica na home de todo mundo, no espaço vazio ao lado da
+          saudação. O arquivo tem 264x252
+          e aparece com 72px de altura -- ~3,5 pixels de imagem por pixel de tela, nítido até no celular de
+          tela densa (3x). Qualidade 100 para o verde não ganhar borrão.
+        */}
+        <Image
+          src="/selo-dpo-2026.png"
+          alt="Qualified DPO 2026 — AB InBev"
+          width={264}
+          height={252}
+          quality={100}
+          priority
+          className="h-[72px] w-auto shrink-0 drop-shadow-sm"
+        />
       </div>
       {/* Agrupado, não uma grade de 13. Cada bloco responde a uma pergunta
           diferente, e a ordem é a do dia: o que eu consulto sobre mim, o
