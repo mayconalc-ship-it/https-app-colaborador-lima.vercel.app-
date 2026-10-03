@@ -97,7 +97,6 @@ export const MAPA_DE_EMOJIS: Assunto[] = [
     chaves: ["pa-picking", "picking"],
   },
   { id: "bate-palete", nome: "Bate Palete", emoji: "🤲📦", area: "Armazém e recebimento", chaves: ["pa-bate-palete"] },
-  { id: "cinco-s-armazem", nome: "5S do Armazém", emoji: "🧽", area: "Armazém e recebimento", chaves: ["pa-cinco-s"] },
   { id: "portaria", nome: "Recebimento de Carreta (portaria)", emoji: "👮", area: "Armazém e recebimento", chaves: ["carretas-portaria"] },
   { id: "monitor", nome: "Monitor de Recebimento", emoji: "🖥️", area: "Armazém e recebimento", chaves: ["carretas-conferencia"] },
   { id: "carreta", nome: "Carreta (o veículo)", emoji: "🚛", area: "Armazém e recebimento", chaves: ["pa-recebimento"] },
@@ -134,7 +133,7 @@ export const MAPA_DE_EMOJIS: Assunto[] = [
     chaves: ["fornecedores"],
   },
   { id: "raci", nome: "RACI da Manutenção", emoji: "🧭", area: "Operação e manutenção", chaves: [] },
-  { id: "cinco-s", nome: "Programa 5S", emoji: "🧹", area: "Operação e manutenção", chaves: ["5s", "cinco-s"] },
+  { id: "cinco-s", nome: "Programa 5S (e o 5S do Armazém)", emoji: "🧹", area: "Operação e manutenção", chaves: ["5s", "cinco-s", "pa-cinco-s"] },
   { id: "pdv", nome: "Particularidades do PDV", emoji: "📍", area: "Operação e manutenção", chaves: ["pdv-particularidades", "pdv"] },
 
   // ---- Da empresa ----

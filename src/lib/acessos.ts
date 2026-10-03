@@ -760,7 +760,7 @@ export const MODULOS: Modulo[] = [
     id: "pa-cinco-s",
     rotulosDeAcao: { ver: "Apontar o 5S do Armazém no app" },
     rotulo: "5S do Armazém",
-    emoji: "🧽",
+    emoji: "🧹",
     href: "/produtividade-armazem/cinco-s",
     grupo: "Operação",
     acoes: ["ver"],

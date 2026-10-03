@@ -552,7 +552,7 @@ export const GUIAS: Guia[] = [
   {
     slug: "executar-5s-armazem",
     titulo: "Registrar a execução do 5S do armazém",
-    emoji: "🧽",
+    emoji: "🧹",
     categoria: "armazem",
     resumo: "Marcar o início, o checklist e o fim da limpeza e organização do armazém.",
     exige: doArmazem("pa-cinco-s"),
