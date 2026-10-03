@@ -69,6 +69,24 @@ export default async function AdminPage({
         </p>
       )}
 
+      {/* À vista no painel (03/10/2026): só no fim da barra lateral, no
+          bloco "Só do Admin", o dono não achou a tela. */}
+      {dono && (
+        <Link
+          href="/admin/saude"
+          className="mb-4 flex items-center gap-3 rounded-2xl border-2 border-emerald-200 bg-emerald-50 p-4 shadow-sm hover:border-emerald-300"
+        >
+          <span className="text-3xl">🩺</span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm font-bold text-emerald-900">Saúde do sistema</span>
+            <span className="block text-xs text-emerald-800">
+              As migrations rodaram? Confere o banco e diz qual arquivo falta rodar.
+            </span>
+          </span>
+          <span className="text-lg text-emerald-700">›</span>
+        </Link>
+      )}
+
       {liberados.length === 0 && !dono ? (
         <div className="rounded-2xl border border-slate-200 bg-white p-6 text-center text-sm text-slate-500 shadow-sm">
           Você ainda não tem nenhum módulo liberado. Fale com o Admin do app.
