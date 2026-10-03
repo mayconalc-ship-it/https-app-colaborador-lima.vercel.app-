@@ -653,7 +653,7 @@ button:disabled,
   inset: -20%;
   background: linear-gradient(115deg, transparent 38%, rgb(255 255 255 / 0.75) 50%, transparent 62%);
   transform: translateX(-120%);
-  animation: selo-luz 1.8s ease-in-out 0.6s 1 both;
+  animation: selo-luz 0.9s ease-in-out 0.3s 1 both;
   pointer-events: none;
 }
 @keyframes selo-luz {
