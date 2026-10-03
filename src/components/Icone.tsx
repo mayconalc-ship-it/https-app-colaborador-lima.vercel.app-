@@ -28,6 +28,8 @@ import {
   CalendarX2,
   PackagePlus,
   PhoneCall,
+  Calculator,
+  Users,
   Warehouse,
   Award,
   BarChart3,
@@ -116,22 +118,65 @@ const POR_CHAVE: Record<string, LucideIcon> = {
 type PropsDoDesenho = { "aria-hidden"?: boolean; size?: number; strokeWidth?: number; className?: string };
 
 /**
+ * Um desenho com um selo menor no canto -- a forma de juntar duas ideias
+ * num ícone só (fornecedor + telefone, gente + conta).
+ */
+function comSelo(Principal: LucideIcon, Selo: LucideIcon) {
+  function ComSelo({ size = 24, strokeWidth = 1.75, className }: PropsDoDesenho) {
+    const grande = Math.round(size * 0.8);
+    const selo = Math.round(size * 0.6);
+    return (
+      <span aria-hidden className={className} style={{ position: "relative", display: "inline-flex", width: size, height: size }}>
+        <span style={{ position: "absolute", left: 0, top: 0, display: "inline-flex" }}>
+          <Principal size={grande} strokeWidth={strokeWidth} />
+        </span>
+        <span style={{ position: "absolute", right: -size * 0.12, bottom: -size * 0.12, display: "inline-flex" }}>
+          <Selo size={selo} strokeWidth={2.25} />
+        </span>
+      </span>
+    );
+  }
+  return ComSelo;
+}
+
+/**
  * Fornecedor + telefone: o prédio da empresa com o fone no canto. Nenhum
  * emoji diz "contato do fornecedor" -- o 📇 é um fichário, e o 📞 sozinho
  * não diz de quem.
  */
-function ContatoDoFornecedor({ size = 24, strokeWidth = 1.75, className }: PropsDoDesenho) {
-  const predio = Math.round(size * 0.8);
-  const fone = Math.round(size * 0.6);
+const ContatoDoFornecedor = comSelo(Building2, PhoneCall);
+
+/**
+ * Simulador de Mão de Obra: as pessoas e a conta. O 👷 é operário de
+ * obra, e o 🧮 sozinho não diz que a conta é de gente.
+ */
+const MaoDeObra = comSelo(Users, Calculator);
+
+/**
+ * Gás da Empilhadeira: o botijão P20, com a alça e a válvula. O ⛽ é
+ * bomba de gasolina, e a empilhadeira queima GLP do botijão.
+ */
+function Botijao({ size = 24, strokeWidth = 1.75, className }: PropsDoDesenho) {
   return (
-    <span aria-hidden className={className} style={{ position: "relative", display: "inline-flex", width: size, height: size }}>
-      <span style={{ position: "absolute", left: 0, top: 0, display: "inline-flex" }}>
-        <Building2 size={predio} strokeWidth={strokeWidth} />
-      </span>
-      <span style={{ position: "absolute", right: -size * 0.12, bottom: -size * 0.12, display: "inline-flex" }}>
-        <PhoneCall size={fone} strokeWidth={2.25} />
-      </span>
-    </span>
+    <svg
+      aria-hidden
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={strokeWidth}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      <path d="M11 1.5h2v2" />
+      <path d="M8 3.5h8a1 1 0 0 1 1 1V8H7V4.5a1 1 0 0 1 1-1z" />
+      <path d="M10 5.75h4" />
+      <rect x="4" y="8" width="16" height="13" rx="4.5" />
+      <path d="M4 14.5h16" />
+      <path d="M7.5 23h9" />
+    </svg>
   );
 }
 
@@ -181,6 +226,8 @@ function Garrafeira({ size = 24, strokeWidth = 1.75, className }: PropsDoDesenho
  *    um guindaste de obra.
  *  - Ativo de Giro: garrafeira com garrafas (ver Garrafeira).
  *  - Produtividade do Armazém: galpão. O 🏭 é fábrica.
+ *  - Gás da Empilhadeira: botijão P20 (ver Botijao).
+ *  - Simulador de Mão de Obra: pessoas + calculadora (ver MaoDeObra).
  */
 const ICONES_PROPRIOS: Record<string, LucideIcon | ComponentType<PropsDoDesenho>> = {
   "pa-picking": PackagePlus,
@@ -195,6 +242,8 @@ const ICONES_PROPRIOS: Record<string, LucideIcon | ComponentType<PropsDoDesenho>
   // Armazém: não existe emoji de armazém; o 🏭 é fábrica (03/10/2026).
   "produtividade-armazem": Warehouse,
   armazem: Warehouse,
+  gas: Botijao,
+  "mao-de-obra": MaoDeObra,
   // As mesmas telas nos cartões do Como Fazer (chave "guia:<slug>").
   "guia:abastecer-picking": PackagePlus,
   "guia:informar-quebra-fefo": CalendarX2,

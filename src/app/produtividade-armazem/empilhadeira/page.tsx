@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { PageHeader } from "@/components/PageHeader";
+import { Icone } from "@/components/Icone";
 import { createClient } from "@/lib/supabase/server";
 import { getRevendaId } from "@/lib/revendas";
 import { requireAcessoModulo } from "@/lib/require-admin";
@@ -85,8 +86,8 @@ export default async function EmpilhadeiraIndexPage({
         className="mb-4 flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm hover:border-primary"
       >
         <span className="flex min-w-0 items-center gap-3">
-          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary-soft text-xl">
-            🔥
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary-soft text-xl text-primary">
+            <Icone chave="gas" emoji="🔥" tamanho={22} />
           </span>
           <span className="min-w-0">
             <span className="block text-sm font-bold text-slate-900">Consumo de gás P20</span>
