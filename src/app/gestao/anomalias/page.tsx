@@ -15,6 +15,8 @@ import {
 } from "@/lib/relato-anomalia";
 import { ROTULO_DIMENSAO, type Dimensao } from "@/lib/blitz";
 import { atualizarAcaoDoPainel } from "./actions";
+import { AnaliseDasAnomalias } from "./Analise";
+import { analisar } from "@/lib/anomalias-analise";
 
 export const dynamic = "force-dynamic";
 
@@ -29,6 +31,8 @@ type LinhaRelato = {
   status: StatusRelato;
   aberto_em: string;
   responsavel_nome: string | null;
+  assinado_em: string | null;
+  atendimento_id: string | null;
 };
 
 type LinhaBlitz = {
@@ -53,6 +57,20 @@ type LinhaAcao = {
   prazo: string | null;
   status: string;
 };
+
+/** As blitz dos últimos 90 dias, de qualquer status -- para a análise. */
+async function blitzDosUltimos90Dias(admin: ReturnType<typeof createAdminClient>, revendaId: string) {
+  const desde = new Date(Date.now() - 90 * 86_400_000).toISOString();
+  const { data } = await admin
+    .from("pa_blitz")
+    .select("atendimento_id, criado_em")
+    .eq("revenda_id", revendaId)
+    .gte("criado_em", desde);
+  return ((data ?? []) as { atendimento_id: string; criado_em: string }[]).map((b) => ({
+    atendimentoId: b.atendimento_id,
+    criadoEm: b.criado_em,
+  }));
+}
 
 /** "há 3 dias" — o número que cobra, não a data que informa. */
 function diasDesde(iso: string): number {
@@ -113,7 +131,7 @@ export default async function PainelDeAnomaliasPage({
     admin
       .from("pa_relatos_anomalia")
       .select(
-        "id, indicador_rotulo, dia_do_disparo, valor, limite, regra, explicacao, status, aberto_em, responsavel_nome",
+        "id, indicador_rotulo, dia_do_disparo, valor, limite, regra, explicacao, status, aberto_em, responsavel_nome, assinado_em, atendimento_id",
       )
       .eq("revenda_id", revendaId)
       .order("dia_do_disparo", { ascending: false }),
@@ -236,6 +254,45 @@ export default async function PainelDeAnomaliasPage({
 
   const nada = relatos.length === 0 && blitz.length === 0;
 
+  /*
+    A ANÁLISE (03/10/2026): o que aparece quando nenhum cartão está
+    aberto. As blitz entram TODAS dos últimos 90 dias (inclusive as já
+    tratadas), para o ranking de carretas contar o histórico, e a placa
+    vem do atendimento -- de relato de TMA por DT e de blitz.
+  */
+  let analise: ReturnType<typeof analisar> | null = null;
+  if (!gaveta && !nada) {
+    const blitzDaAnalise = await blitzDosUltimos90Dias(admin, revendaId);
+    const ids = [
+      ...new Set([
+        ...relatos.map((r) => r.atendimento_id).filter((x): x is string => !!x),
+        ...blitzDaAnalise.map((b) => b.atendimentoId),
+      ]),
+    ];
+    const { data: placasBanco } = ids.length
+      ? await admin.from("atendimentos_carretas").select("id, placa_carreta").in("id", ids)
+      : { data: [] };
+    const placaDe = new Map(
+      ((placasBanco ?? []) as { id: string; placa_carreta: string | null }[])
+        .filter((c) => c.placa_carreta)
+        .map((c) => [c.id, c.placa_carreta!.toUpperCase()]),
+    );
+    analise = analisar(
+      relatos.map((r) => ({
+        indicadorRotulo: r.indicador_rotulo,
+        dia: r.dia_do_disparo,
+        status: r.status,
+        abertoEm: r.aberto_em,
+        assinadoEm: r.assinado_em,
+        atendimentoId: r.atendimento_id,
+      })),
+      acoes.map((a) => ({ status: a.status, prazo: a.prazo })),
+      blitzDaAnalise,
+      placaDe,
+      hoje,
+    );
+  }
+
   return (
     <div>
       <PageHeader
@@ -328,10 +385,11 @@ export default async function PainelDeAnomaliasPage({
         </div>
       )}
 
-      {!gaveta && !nada && (
-        <p className="rounded-2xl border border-dashed border-slate-300 bg-white p-6 text-center text-sm text-slate-500">
-          Toque num cartão para ver a lista dele.
-        </p>
+      {!gaveta && analise && (
+        <>
+          <p className="-mt-2 mb-4 px-1 text-xs text-slate-400">Toque num cartão acima para ver a lista dele.</p>
+          <AnaliseDasAnomalias a={analise} />
+        </>
       )}
 
       {gaveta === "sem-ninguem" && (
