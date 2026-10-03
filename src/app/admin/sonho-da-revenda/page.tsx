@@ -9,6 +9,7 @@ import {
   excluirSonhoDaRevenda,
   removerQuadroIndicadores,
 } from "./actions";
+import { FormNoLugar } from "@/components/FormNoLugar";
 
 export default async function AdminSonhoRevendaPage({
   searchParams,
@@ -170,8 +171,8 @@ export default async function AdminSonhoRevendaPage({
       )}
 
       {podeCriar && (
-      <form
-        action={enviarSonhoDaRevenda}
+      <FormNoLugar
+        acao={enviarSonhoDaRevenda}
         className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
       >
         <input type="hidden" name="ano" value={ano} />
@@ -231,7 +232,7 @@ export default async function AdminSonhoRevendaPage({
         >
           Salvar
         </BotaoEnviar>
-      </form>
+      </FormNoLugar>
       )}
     </div>
   );

@@ -17,6 +17,7 @@ import {
 import { abrirOperacao, fecharOperacao, registrarTrocaGas } from "../actions";
 import { AlertaGasP20, AvisoGasSolicitado } from "@/components/produtividade-armazem/AlertaGasP20";
 import { lerConfigDeGas, pedidoDeGasAberto, pedidoDeGasConfirmadoRecente } from "@/lib/gas-p20-server";
+import { FormNoLugar } from "@/components/FormNoLugar";
 
 export const dynamic = "force-dynamic";
 
@@ -170,8 +171,8 @@ export default async function EmpilhadeiraDetalhePage({
               )}
             </div>
 
-            <form
-              action={fecharOperacao}
+            <FormNoLugar
+              acao={fecharOperacao}
               className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4"
             >
               <input type="hidden" name="operacao_id" value={aberta.id} />
@@ -196,11 +197,11 @@ export default async function EmpilhadeiraDetalhePage({
                   ? "Encerrar minha operação"
                   : `Fechar operação de ${aberta.operadorNome}`}
               </BotaoEnviar>
-            </form>
+            </FormNoLugar>
           </section>
         ) : (
-          <form
-            action={abrirOperacao}
+          <FormNoLugar
+            acao={abrirOperacao}
             className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4"
           >
             <input type="hidden" name="empilhadeira_id" value={maquina.id} />
@@ -227,7 +228,7 @@ export default async function EmpilhadeiraDetalhePage({
             >
               ▶️ Abrir operação
             </BotaoEnviar>
-          </form>
+          </FormNoLugar>
         ))}
 
       {aba === "gas" && (
@@ -240,7 +241,7 @@ export default async function EmpilhadeiraDetalhePage({
                 {mediaGas !== null && ` Média entre trocas: ${mediaGas}h por garrafa.`}
               </p>
             )}
-            <form action={registrarTrocaGas} className="space-y-3">
+            <FormNoLugar acao={registrarTrocaGas} className="space-y-3" limparAoSalvar>
               <input type="hidden" name="empilhadeira_id" value={maquina.id} />
 
               <CampoHorimetroComFoto
@@ -316,7 +317,7 @@ export default async function EmpilhadeiraDetalhePage({
               >
                 🔥 Registrar troca de gás
               </BotaoEnviar>
-            </form>
+            </FormNoLugar>
           </div>
 
           {trocasGas.length > 0 && (

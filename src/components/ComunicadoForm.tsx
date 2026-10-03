@@ -10,6 +10,8 @@ import {
 } from "@/lib/comunicados";
 import { AREAS } from "@/lib/areas";
 import { CampoFoto } from "@/components/CampoFoto";
+import type { ResultadoAcao } from "@/lib/resultado-acao";
+import { FormNoLugar } from "@/components/FormNoLugar";
 
 type Comunicado = {
   id: number;
@@ -133,19 +135,21 @@ function amanhaCedo() {
   return `${d.getFullYear()}-${dois(d.getMonth() + 1)}-${dois(d.getDate())}T08:00`;
 }
 
-export function ComunicadoForm({
+function ComunicadoFormConteudo({
+  aoSalvarForm,
   action,
   comunicado,
   aoCancelar,
   cargosDisponiveis,
   editorias,
 }: {
-  action: (formData: FormData) => void;
+  action: (formData: FormData) => Promise<ResultadoAcao | void>;
   comunicado?: Comunicado;
   aoCancelar?: () => void;
   cargosDisponiveis: string[];
   /** Cadastro da revenda -- ver /admin/comunicados/editorias. */
   editorias: Editoria[];
+  aoSalvarForm: () => void;
 }) {
   // A matéria que está sendo editada pode estar numa editoria que foi
   // desativada depois. Mantê-la selecionada evita que uma simples correção
@@ -192,7 +196,7 @@ export function ComunicadoForm({
   });
 
   return (
-    <form action={action} className="space-y-4">
+    <FormNoLugar acao={action} aoSalvar={aoSalvarForm} className="space-y-4">
       {comunicado && <input type="hidden" name="id" value={comunicado.id} />}
 
       <div>
@@ -501,6 +505,27 @@ export function ComunicadoForm({
           </button>
         )}
       </div>
-    </form>
+    </FormNoLugar>
+  );
+}
+
+/**
+ * Depois de salvar, o formulário REMONTA (03/10/2026): campos, linhas
+ * extras e escolhas voltam ao começo -- é o que o recarregamento da tela
+ * fazia antes, quando salvar navegava para o topo.
+ */
+export function ComunicadoForm(props: Omit<Parameters<typeof ComunicadoFormConteudo>[0], "aoSalvarForm">) {
+  const [versao, setVersao] = useState(0);
+  // Na edição, salvar também fecha a caixa (aoCancelar); no "novo", o
+  // formulário volta em branco para a próxima matéria.
+  return (
+    <ComunicadoFormConteudo
+      key={versao}
+      {...props}
+      aoSalvarForm={() => {
+        setVersao((v) => v + 1);
+        props.aoCancelar?.();
+      }}
+    />
   );
 }

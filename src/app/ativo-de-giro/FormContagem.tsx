@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { useFormStatus } from "react-dom";
 import { useToast } from "@/components/Toast";
 import {
@@ -68,8 +69,9 @@ function lembrarNoNavegador(combinacao: Combinacao) {
  * agora vale só para a edição: o lançamento não espera resposta nenhuma,
  * então nunca fica "salvando".
  */
-function Salvar({ editando }: { editando: boolean }) {
-  const { pending } = useFormStatus();
+function Salvar({ editando, salvando = false }: { editando: boolean; salvando?: boolean }) {
+  const { pending: pelaAcao } = useFormStatus();
+  const pending = pelaAcao || salvando;
   return (
     <button
       type="submit"
@@ -152,6 +154,36 @@ export function FormContagem(props: Props) {
   const { fatores, contagem, aoCancelar, aoLancar, recontagem } = props;
   const editando = Boolean(contagem);
   const toast = useToast();
+  const router = useRouter();
+  const [salvandoEdicao, iniciarEdicao] = useTransition();
+
+  /*
+    A CORREÇÃO TAMBÉM FICA NO LUGAR (03/10/2026). Antes ela ia pelo
+    `action` e terminava num redirect -- a tela voltava ao topo, longe da
+    linha corrigida. Agora a ação devolve o resultado: o aviso sai no
+    rodapé, a caixa de edição fecha e a lista se atualiza onde está.
+  */
+  const editarNoLugar = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const dados = new FormData(e.currentTarget);
+    iniciarEdicao(async () => {
+      let r;
+      try {
+        r = await editarContagem(dados);
+      } catch {
+        toast.erro("Não foi possível salvar agora. Confira a conexão e tente de novo.");
+        return;
+      }
+      if (!r) return;
+      if (!r.ok) {
+        toast.erro(r.erro);
+        return;
+      }
+      toast.sucesso(r.mensagem);
+      aoCancelar?.();
+      router.refresh();
+    });
+  };
 
   // Inicializador preguiçoso: roda só na montagem.
   const [combo, setCombo] = useState<Combinacao>(() =>
@@ -241,8 +273,7 @@ export function FormContagem(props: Props) {
 
   return (
     <form
-      action={editando ? editarContagem : undefined}
-      onSubmit={editando ? undefined : lancar}
+      onSubmit={editando ? editarNoLugar : lancar}
       // Sem isto o navegador REPÕE as quantidades quando a aba é
       // recarregada ou restaurada -- e a contagem anterior reaparecia num
       // formulário que já devia estar limpo, pronta para ser lançada duas
@@ -406,7 +437,7 @@ export function FormContagem(props: Props) {
         </span>
       </p>
 
-      <Salvar editando={editando} />
+      <Salvar editando={editando} salvando={salvandoEdicao} />
 
       {aoCancelar && (
         <button

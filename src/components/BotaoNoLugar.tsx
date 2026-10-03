@@ -22,7 +22,7 @@ export function BotaoNoLugar({
   title,
   disabled,
 }: {
-  acao: (formData: FormData) => Promise<ResultadoAcao>;
+  acao: (formData: FormData) => Promise<ResultadoAcao | void>;
   campos: Record<string, string | number>;
   /** A pergunta. Sem ela, o botão age direto (o "Trazer" do banco). */
   confirmacao?: string;

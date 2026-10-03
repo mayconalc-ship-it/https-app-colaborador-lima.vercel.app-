@@ -15,6 +15,7 @@ import {
   moverEditoria,
   salvarEditoria,
 } from "./actions";
+import { FormNoLugar } from "@/components/FormNoLugar";
 
 /**
  * Cadastro das editorias do jornal.
@@ -80,7 +81,7 @@ export default async function EditoriasPage({
           <span className="group-open:hidden">Nova editoria</span>
           <span className="hidden group-open:inline">Fechar</span>
         </summary>
-        <form action={criarEditoria} className="border-t border-slate-100 p-4">
+        <FormNoLugar acao={criarEditoria} className="border-t border-slate-100 p-4" limparAoSalvar>
           <CamposDaEditoria />
           <BotaoEnviar
             textoEnviando="Criando..."
@@ -88,7 +89,7 @@ export default async function EditoriasPage({
           >
             Criar editoria
           </BotaoEnviar>
-        </form>
+        </FormNoLugar>
       </details>
 
       <div className="divide-y divide-slate-100 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">

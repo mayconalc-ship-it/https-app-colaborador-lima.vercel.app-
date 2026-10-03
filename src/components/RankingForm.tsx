@@ -4,6 +4,8 @@ import { useState } from "react";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
 import { CampoCategoria } from "@/components/CampoCategoria";
 import { NOMES_TIME, TIMES, type TimeRanking } from "@/lib/ranking-categorias";
+import type { ResultadoAcao } from "@/lib/resultado-acao";
+import { FormNoLugar } from "@/components/FormNoLugar";
 
 export function RankingForm({
   action,
@@ -11,7 +13,7 @@ export function RankingForm({
   timeInicial = "DU",
   mesInicial,
 }: {
-  action: (formData: FormData) => void;
+  action: (formData: FormData) => Promise<ResultadoAcao | void>;
   sugestoes: Record<TimeRanking, string[]>;
   /** Time e mês do último envio, vindos da URL. Ver o comentário abaixo. */
   timeInicial?: TimeRanking;
@@ -35,8 +37,8 @@ export function RankingForm({
   }
 
   return (
-    <form
-      action={action}
+    <FormNoLugar
+      acao={action}
       className="mb-4 space-y-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
     >
       <div>
@@ -124,6 +126,6 @@ export function RankingForm({
       >
         Enviar
       </BotaoEnviar>
-    </form>
+    </FormNoLugar>
   );
 }

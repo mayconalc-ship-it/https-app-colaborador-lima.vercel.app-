@@ -37,11 +37,12 @@ import {
   type Contagem,
 } from "@/lib/ativo-giro";
 import { ehOwner } from "@/lib/acessos";
+import { noLugar, pararComErro, pararComSucesso, type ResultadoAcao } from "@/lib/resultado-acao";
 
 const ROTA = "/ativo-de-giro";
 
 function erro(mensagem: string): never {
-  redirect(`${ROTA}?erro=${encodeURIComponent(mensagem)}`);
+  pararComErro(mensagem);
 }
 
 /**
@@ -365,111 +366,115 @@ export async function registrarContagem(
  * Edita uma contagem. A RLS ja limita cada pessoa a propria linha; quem
  * tem "editar" no modulo passa pelo service role e alcanca qualquer uma.
  */
-export async function editarContagem(formData: FormData) {
-  const perfil = await getPerfil();
-  if (!perfil) redirect("/login");
+export async function editarContagem(formData: FormData): Promise<ResultadoAcao> {
+  return noLugar(async () => {
+    const perfil = await getPerfil();
+    if (!perfil) redirect("/login");
 
-  const id = Number(formData.get("id"));
-  if (!Number.isInteger(id)) erro("Contagem inválida.");
+    const id = Number(formData.get("id"));
+    if (!Number.isInteger(id)) erro("Contagem inválida.");
 
-  const lido = lerCampos(formData);
-  if (!lido.ok) erro(lido.erro);
-  // `recontagem_id` fora: a edição corrige o que foi contado, não a que
-  // pedido a linha responde -- o formulário de editar nem manda esse
-  // campo, e sem excluí-lo aqui um `update` gravaria `null` por cima do
-  // vínculo que já existia.
-  const { recontagem_id: _ignorado, ...campos } = lido.campos;
+    const lido = lerCampos(formData);
+    if (!lido.ok) erro(lido.erro);
+    // `recontagem_id` fora: a edição corrige o que foi contado, não a que
+    // pedido a linha responde -- o formulário de editar nem manda esse
+    // campo, e sem excluí-lo aqui um `update` gravaria `null` por cima do
+    // vínculo que já existia.
+    const { recontagem_id: _ignorado, ...campos } = lido.campos;
 
-  const [gestor, revendaId] = await Promise.all([
-    podeNoModulo("ativo-giro", "editar"),
-    exigirRevendaAG(),
-  ]);
+    const [gestor, revendaId] = await Promise.all([
+      podeNoModulo("ativo-giro", "editar"),
+      exigirRevendaAG(),
+    ]);
 
-  // O dia de ANTES da edição: se a data mudou, os dois dias se refazem.
-  const { data: anterior } = await createAdminClient()
-    .from("ag_contagens")
-    .select("data")
-    .eq("id", id)
-    .eq("revenda_id", revendaId)
-    .maybeSingle();
-
-  if (gestor) {
-    const admin = createAdminClient();
-    // O gestor alcança a contagem de qualquer pessoa, mas só dentro da
-    // revenda em que está -- o service role passa por cima da RLS, então
-    // esse limite precisa estar aqui.
-    const { error } = await admin
+    // O dia de ANTES da edição: se a data mudou, os dois dias se refazem.
+    const { data: anterior } = await createAdminClient()
       .from("ag_contagens")
-      .update(campos)
-      .eq("id", id)
-      .eq("revenda_id", revendaId);
-    if (error) erro(`Não foi possível editar: ${error.message}`);
-  } else {
-    const supabase = await createClient();
-    // A revenda entra aqui pelo mesmo motivo do ramo do gestor: quem tem
-    // vínculo com as duas passa pela RLS nas duas, e corrigir a contagem de
-    // um pátio estando no outro não é uma correção, é uma troca de lugar.
-    const { error } = await supabase
-      .from("ag_contagens")
-      .update(campos)
+      .select("data")
       .eq("id", id)
       .eq("revenda_id", revendaId)
-      .eq("colaborador_id", perfil.id);
-    if (error) erro(`Não foi possível editar: ${error.message}`);
-  }
+      .maybeSingle();
 
-  // Corrigir tipo, formato ou status muda quem a recontagem sobrepõe.
-  for (const dia of new Set([anterior?.data, campos.data].filter(Boolean) as string[])) {
-    await recalcularSubstituicoes(revendaId, dia);
-  }
+    if (gestor) {
+      const admin = createAdminClient();
+      // O gestor alcança a contagem de qualquer pessoa, mas só dentro da
+      // revenda em que está -- o service role passa por cima da RLS, então
+      // esse limite precisa estar aqui.
+      const { error } = await admin
+        .from("ag_contagens")
+        .update(campos)
+        .eq("id", id)
+        .eq("revenda_id", revendaId);
+      if (error) erro(`Não foi possível editar: ${error.message}`);
+    } else {
+      const supabase = await createClient();
+      // A revenda entra aqui pelo mesmo motivo do ramo do gestor: quem tem
+      // vínculo com as duas passa pela RLS nas duas, e corrigir a contagem de
+      // um pátio estando no outro não é uma correção, é uma troca de lugar.
+      const { error } = await supabase
+        .from("ag_contagens")
+        .update(campos)
+        .eq("id", id)
+        .eq("revenda_id", revendaId)
+        .eq("colaborador_id", perfil.id);
+      if (error) erro(`Não foi possível editar: ${error.message}`);
+    }
 
-  revalidatePath(ROTA);
-  revalidatePath("/admin/ativo-de-giro");
-  redirect(`${ROTA}?sucesso=Contagem+atualizada`);
+    // Corrigir tipo, formato ou status muda quem a recontagem sobrepõe.
+    for (const dia of new Set([anterior?.data, campos.data].filter(Boolean) as string[])) {
+      await recalcularSubstituicoes(revendaId, dia);
+    }
+
+    revalidatePath(ROTA);
+    revalidatePath("/admin/ativo-de-giro");
+    pararComSucesso("Contagem atualizada");
+  });
 }
 
-export async function excluirContagem(formData: FormData) {
-  const perfil = await getPerfil();
-  if (!perfil) redirect("/login");
+export async function excluirContagem(formData: FormData): Promise<ResultadoAcao> {
+  return noLugar(async () => {
+    const perfil = await getPerfil();
+    if (!perfil) redirect("/login");
 
-  const id = Number(formData.get("id"));
-  if (!Number.isInteger(id)) erro("Contagem inválida.");
+    const id = Number(formData.get("id"));
+    if (!Number.isInteger(id)) erro("Contagem inválida.");
 
-  const gestor = await podeNoModulo("ativo-giro", "excluir");
-  const revendaId = await exigirRevendaAG();
+    const gestor = await podeNoModulo("ativo-giro", "excluir");
+    const revendaId = await exigirRevendaAG();
 
-  // O dia da linha, lido antes de ela sumir: apagar uma linha de
-  // recontagem muda quem ela sobrepunha.
-  const { data: apagada } = await createAdminClient()
-    .from("ag_contagens")
-    .select("data")
-    .eq("id", id)
-    .eq("revenda_id", revendaId)
-    .maybeSingle();
-
-  if (gestor) {
-    const admin = createAdminClient();
-    await admin
+    // O dia da linha, lido antes de ela sumir: apagar uma linha de
+    // recontagem muda quem ela sobrepunha.
+    const { data: apagada } = await createAdminClient()
       .from("ag_contagens")
-      .delete()
-      .eq("id", id)
-      .eq("revenda_id", revendaId);
-  } else {
-    const supabase = await createClient();
-    const { error } = await supabase
-      .from("ag_contagens")
-      .delete()
+      .select("data")
       .eq("id", id)
       .eq("revenda_id", revendaId)
-      .eq("colaborador_id", perfil.id);
-    if (error) erro("Você só pode excluir as suas próprias contagens.");
-  }
+      .maybeSingle();
 
-  if (apagada?.data) await recalcularSubstituicoes(revendaId, String(apagada.data));
+    if (gestor) {
+      const admin = createAdminClient();
+      await admin
+        .from("ag_contagens")
+        .delete()
+        .eq("id", id)
+        .eq("revenda_id", revendaId);
+    } else {
+      const supabase = await createClient();
+      const { error } = await supabase
+        .from("ag_contagens")
+        .delete()
+        .eq("id", id)
+        .eq("revenda_id", revendaId)
+        .eq("colaborador_id", perfil.id);
+      if (error) erro("Você só pode excluir as suas próprias contagens.");
+    }
 
-  revalidatePath(ROTA);
-  revalidatePath("/admin/ativo-de-giro");
-  redirect(`${ROTA}?sucesso=Contagem+excluída`);
+    if (apagada?.data) await recalcularSubstituicoes(revendaId, String(apagada.data));
+
+    revalidatePath(ROTA);
+    revalidatePath("/admin/ativo-de-giro");
+    pararComSucesso("Contagem excluída");
+  });
 }
 
 /**
@@ -477,53 +482,53 @@ export async function excluirContagem(formData: FormData) {
  * Cada linha entra em nome de quem importou, preservando o nome original
  * de quem contou.
  */
-export async function importarHistorico(formData: FormData) {
-  const perfil = await getPerfil();
-  if (!perfil) redirect("/login");
-  if (!(await podeNoModulo("ativo-giro", "criar"))) {
-    erro("Você não tem permissão para importar o histórico.");
-  }
-
-  let linhas: unknown;
-  try {
-    linhas = JSON.parse(String(formData.get("json") ?? "[]"));
-  } catch {
-    erro("O arquivo enviado não é um JSON válido.");
-  }
-  if (!Array.isArray(linhas)) erro("Formato de arquivo inesperado.");
-
-  const revendaId = await exigirRevendaAG();
-
-  const registros = linhas.map((l) => {
-    const c = l as Partial<Contagem> & { conferente?: string };
-    if (!ehTipo(c.tipo) || !ehFormato(c.formato) || !ehStatus(c.status)) {
-      erro("O arquivo tem uma linha com tipo, formato ou status inválido.");
+export async function importarHistorico(formData: FormData): Promise<ResultadoAcao> {
+  return noLugar(async () => {
+    const perfil = await getPerfil();
+    if (!perfil) redirect("/login");
+    if (!(await podeNoModulo("ativo-giro", "criar"))) {
+      erro("Você não tem permissão para importar o histórico.");
     }
-    return {
-      data: String(c.data),
-      revenda_id: revendaId,
-      colaborador_id: perfil.id,
-      colaborador_nome: String(c.colaborador_nome ?? c.conferente ?? "Importado"),
-      tipo: c.tipo,
-      formato: c.formato,
-      status: c.status,
-      palete: inteiro(c.palete),
-      lastro: inteiro(c.lastro),
-      caixa: inteiro(c.caixa),
-    };
+
+    let linhas: unknown;
+    try {
+      linhas = JSON.parse(String(formData.get("json") ?? "[]"));
+    } catch {
+      erro("O arquivo enviado não é um JSON válido.");
+    }
+    if (!Array.isArray(linhas)) erro("Formato de arquivo inesperado.");
+
+    const revendaId = await exigirRevendaAG();
+
+    const registros = linhas.map((l) => {
+      const c = l as Partial<Contagem> & { conferente?: string };
+      if (!ehTipo(c.tipo) || !ehFormato(c.formato) || !ehStatus(c.status)) {
+        erro("O arquivo tem uma linha com tipo, formato ou status inválido.");
+      }
+      return {
+        data: String(c.data),
+        revenda_id: revendaId,
+        colaborador_id: perfil.id,
+        colaborador_nome: String(c.colaborador_nome ?? c.conferente ?? "Importado"),
+        tipo: c.tipo,
+        formato: c.formato,
+        status: c.status,
+        palete: inteiro(c.palete),
+        lastro: inteiro(c.lastro),
+        caixa: inteiro(c.caixa),
+      };
+    });
+
+    if (registros.length === 0) erro("O arquivo não tinha nenhuma contagem.");
+
+    const admin = createAdminClient();
+    const { error } = await admin.from("ag_contagens").insert(registros);
+    if (error) erro(`Falha ao importar: ${error.message}`);
+
+    revalidatePath(ROTA);
+    revalidatePath("/admin/ativo-de-giro");
+    pararComSucesso(`${registros.length} contagens importadas.`);
   });
-
-  if (registros.length === 0) erro("O arquivo não tinha nenhuma contagem.");
-
-  const admin = createAdminClient();
-  const { error } = await admin.from("ag_contagens").insert(registros);
-  if (error) erro(`Falha ao importar: ${error.message}`);
-
-  revalidatePath(ROTA);
-  revalidatePath("/admin/ativo-de-giro");
-  redirect(
-    `/admin/ativo-de-giro?sucesso=${registros.length}+contagens+importadas`,
-  );
 }
 
 /**
@@ -537,82 +542,84 @@ export async function importarHistorico(formData: FormData) {
  * abriu o Ativo de Giro. É por isso que o pedido carrega o `dia`: é o que
  * permite achar essa lista exata em `ag_contagens`.
  */
-export async function solicitarRecontagem(formData: FormData) {
-  const perfil = await getPerfil();
-  if (!perfil) redirect("/login");
-  if (!(await podeNoModulo("ativo-giro", "editar"))) {
-    erro("Você não tem permissão para pedir recontagem.");
-  }
+export async function solicitarRecontagem(formData: FormData): Promise<ResultadoAcao> {
+  return noLugar(async () => {
+    const perfil = await getPerfil();
+    if (!perfil) redirect("/login");
+    if (!(await podeNoModulo("ativo-giro", "editar"))) {
+      erro("Você não tem permissão para pedir recontagem.");
+    }
 
-  const dia = String(formData.get("dia") ?? "");
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(dia)) erro("Dia inválido.");
+    const dia = String(formData.get("dia") ?? "");
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dia)) erro("Dia inválido.");
 
-  const descricao = String(formData.get("descricao") ?? "").trim().slice(0, 300);
-  if (!descricao) erro("Descreva o que precisa ser recontado.");
+    const descricao = String(formData.get("descricao") ?? "").trim().slice(0, 300);
+    if (!descricao) erro("Descreva o que precisa ser recontado.");
 
-  const revendaId = await exigirRevendaAG();
-  const admin = createAdminClient();
-  const { data: gravada, error } = await admin
-    .from("ag_recontagens")
-    .insert({
-      revenda_id: revendaId,
-      dia,
-      descricao,
-      solicitado_por: perfil.id,
-      solicitado_nome: perfil.nome,
-    })
-    .select("id")
-    .single();
-  if (error || !gravada) {
-    erro(`Não foi possível pedir a recontagem: ${error?.message ?? "resposta vazia do banco"}`);
-  }
+    const revendaId = await exigirRevendaAG();
+    const admin = createAdminClient();
+    const { data: gravada, error } = await admin
+      .from("ag_recontagens")
+      .insert({
+        revenda_id: revendaId,
+        dia,
+        descricao,
+        solicitado_por: perfil.id,
+        solicitado_nome: perfil.nome,
+      })
+      .select("id")
+      .single();
+    if (error || !gravada) {
+      erro(`Não foi possível pedir a recontagem: ${error?.message ?? "resposta vazia do banco"}`);
+    }
 
-  // A audiência: quem tem uma contagem NESTE dia, NESTA revenda. Não é a
-  // revenda inteira, e não é "quem tem acesso ao módulo" -- é quem estava
-  // de fato contando o pátio no dia que gerou a divergência.
-  const { data: quemContou } = await admin
-    .from("ag_contagens")
-    .select("colaborador_id")
-    .eq("revenda_id", revendaId)
-    .eq("data", dia);
+    // A audiência: quem tem uma contagem NESTE dia, NESTA revenda. Não é a
+    // revenda inteira, e não é "quem tem acesso ao módulo" -- é quem estava
+    // de fato contando o pátio no dia que gerou a divergência.
+    const { data: quemContou } = await admin
+      .from("ag_contagens")
+      .select("colaborador_id")
+      .eq("revenda_id", revendaId)
+      .eq("data", dia);
 
-  const alvo = [...new Set((quemContou ?? []).map((c) => c.colaborador_id))].filter(
-    (id) => id !== perfil.id,
-  );
-
-  if (alvo.length > 0) {
-    const titulo = "Recontagem solicitada";
-    const mensagem = descricao;
-
-    // Uma linha por destinatário de propósito -- ao contrário do resto do
-    // sino (uma linha para a revenda inteira), este aviso É dirigido, e
-    // uma linha compartilhada não teria como saber quem já viu o quê.
-    await Promise.all(
-      alvo.map((colaboradorId) =>
-        criarNotificacao({
-          modulo: "ativo-giro",
-          tipo: "pendencia",
-          titulo,
-          mensagem,
-          url: "/ativo-de-giro?aba=contagem",
-          referenciaId: gravada.id,
-          criadoPor: perfil.id,
-          destinatarioId: colaboradorId,
-        }),
-      ),
+    const alvo = [...new Set((quemContou ?? []).map((c) => c.colaborador_id))].filter(
+      (id) => id !== perfil.id,
     );
 
-    await enviarPushDaRevenda(revendaId, {
-      modulo: "ativo-giro",
-      titulo,
-      mensagem,
-      url: "/ativo-de-giro?aba=contagem",
-      apenas: alvo,
-    });
-  }
+    if (alvo.length > 0) {
+      const titulo = "Recontagem solicitada";
+      const mensagem = descricao;
 
-  revalidatePath(ROTA);
-  redirect(`${ROTA}?aba=conciliacao&sucesso=Recontagem+solicitada`);
+      // Uma linha por destinatário de propósito -- ao contrário do resto do
+      // sino (uma linha para a revenda inteira), este aviso É dirigido, e
+      // uma linha compartilhada não teria como saber quem já viu o quê.
+      await Promise.all(
+        alvo.map((colaboradorId) =>
+          criarNotificacao({
+            modulo: "ativo-giro",
+            tipo: "pendencia",
+            titulo,
+            mensagem,
+            url: "/ativo-de-giro?aba=contagem",
+            referenciaId: gravada.id,
+            criadoPor: perfil.id,
+            destinatarioId: colaboradorId,
+          }),
+        ),
+      );
+
+      await enviarPushDaRevenda(revendaId, {
+        modulo: "ativo-giro",
+        titulo,
+        mensagem,
+        url: "/ativo-de-giro?aba=contagem",
+        apenas: alvo,
+      });
+    }
+
+    revalidatePath(ROTA);
+    pararComSucesso("Recontagem solicitada");
+  });
 }
 
 /**
@@ -620,27 +627,29 @@ export async function solicitarRecontagem(formData: FormData) {
  * TODO MUNDO. Mesma permissão de quem pede. Diferente de
  * `dispensarRecontagem`, que é pessoal e não mexe no pedido em si.
  */
-export async function cancelarRecontagem(formData: FormData) {
-  const perfil = await getPerfil();
-  if (!perfil) redirect("/login");
-  if (!(await podeNoModulo("ativo-giro", "editar"))) {
-    erro("Você não tem permissão para cancelar recontagens.");
-  }
+export async function cancelarRecontagem(formData: FormData): Promise<ResultadoAcao> {
+  return noLugar(async () => {
+    const perfil = await getPerfil();
+    if (!perfil) redirect("/login");
+    if (!(await podeNoModulo("ativo-giro", "editar"))) {
+      erro("Você não tem permissão para cancelar recontagens.");
+    }
 
-  const id = Number(formData.get("id"));
-  if (!Number.isInteger(id)) erro("Recontagem inválida.");
+    const id = Number(formData.get("id"));
+    if (!Number.isInteger(id)) erro("Recontagem inválida.");
 
-  const revendaId = await exigirRevendaAG();
-  const admin = createAdminClient();
-  const { error } = await admin
-    .from("ag_recontagens")
-    .update({ cancelada_em: new Date().toISOString() })
-    .eq("id", id)
-    .eq("revenda_id", revendaId);
-  if (error) erro(`Não foi possível cancelar: ${error.message}`);
+    const revendaId = await exigirRevendaAG();
+    const admin = createAdminClient();
+    const { error } = await admin
+      .from("ag_recontagens")
+      .update({ cancelada_em: new Date().toISOString() })
+      .eq("id", id)
+      .eq("revenda_id", revendaId);
+    if (error) erro(`Não foi possível cancelar: ${error.message}`);
 
-  revalidatePath(ROTA);
-  redirect(`${ROTA}?aba=conciliacao&sucesso=Recontagem+cancelada`);
+    revalidatePath(ROTA);
+    pararComSucesso("Recontagem cancelada");
+  });
 }
 
 /**
@@ -716,64 +725,66 @@ export async function podeLancarTransito(): Promise<boolean> {
  * tela: o formulario some para quem nao pode, mas a acao pode ser
  * chamada sem passar por ele.
  */
-export async function salvarTransito(formData: FormData) {
-  const perfil = await getPerfil();
-  if (!perfil) redirect("/login");
+export async function salvarTransito(formData: FormData): Promise<ResultadoAcao> {
+  return noLugar(async () => {
+    const perfil = await getPerfil();
+    if (!perfil) redirect("/login");
 
-  const revendaId = await getRevendaId();
-  if (!revendaId) erro("Voce nao esta em nenhuma revenda.");
+    const revendaId = await getRevendaId();
+    if (!revendaId) erro("Voce nao esta em nenhuma revenda.");
 
-  if (!(await podeLancarTransito())) {
-    erro("Voce nao tem liberacao para lancar o transito. Fale com quem cuida do Ativo de Giro.");
-  }
+    if (!(await podeLancarTransito())) {
+      erro("Voce nao tem liberacao para lancar o transito. Fale com quem cuida do Ativo de Giro.");
+    }
 
-  const data = String(formData.get("data") ?? "").trim();
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(data)) erro("Dia invalido.");
+    const data = String(formData.get("data") ?? "").trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(data)) erro("Dia invalido.");
 
-  // Arrays paralelos: o tipo e o formato vao escondidos ao lado de cada
-  // campo, e o FormData preserva a ordem. Mesmo padrao dos itens do
-  // Recebimento.
-  const tipos = formData.getAll("tipo").map(String);
-  const formatos = formData.getAll("formato").map(String);
-  const rotas = formData.getAll("transito_rota");
-  const carretas = formData.getAll("transito_carreta");
+    // Arrays paralelos: o tipo e o formato vao escondidos ao lado de cada
+    // campo, e o FormData preserva a ordem. Mesmo padrao dos itens do
+    // Recebimento.
+    const tipos = formData.getAll("tipo").map(String);
+    const formatos = formData.getAll("formato").map(String);
+    const rotas = formData.getAll("transito_rota");
+    const carretas = formData.getAll("transito_carreta");
 
-  if (
-    tipos.length !== formatos.length ||
-    tipos.length !== rotas.length ||
-    tipos.length !== carretas.length
-  ) {
-    erro("Formulario incompleto -- recarregue a tela e tente de novo.");
-  }
+    if (
+      tipos.length !== formatos.length ||
+      tipos.length !== rotas.length ||
+      tipos.length !== carretas.length
+    ) {
+      erro("Formulario incompleto -- recarregue a tela e tente de novo.");
+    }
 
-  const linhas = tipos.map((tipo, i) => {
-    const formato = formatos[i];
-    if (!ehTipo(tipo) || !ehFormato(formato)) erro("Item invalido no formulario.");
-    return {
-      revenda_id: revendaId,
-      data,
-      tipo,
-      formato,
-      transito_rota: inteiro(rotas[i], 1_000_000),
-      transito_carreta: inteiro(carretas[i], 1_000_000),
-      atualizado_em: new Date().toISOString(),
-      atualizado_por: perfil.id,
-      atualizado_por_nome: perfil.nome,
-    };
+    const linhas = tipos.map((tipo, i) => {
+      const formato = formatos[i];
+      if (!ehTipo(tipo) || !ehFormato(formato)) erro("Item invalido no formulario.");
+      return {
+        revenda_id: revendaId,
+        data,
+        tipo,
+        formato,
+        transito_rota: inteiro(rotas[i], 1_000_000),
+        transito_carreta: inteiro(carretas[i], 1_000_000),
+        atualizado_em: new Date().toISOString(),
+        atualizado_por: perfil.id,
+        atualizado_por_nome: perfil.nome,
+      };
+    });
+
+    if (linhas.length === 0) erro("Nada para salvar.");
+
+    const admin = createAdminClient();
+    // Um upsert com todas as linhas: ou o dia inteiro entra, ou nada entra.
+    const { error } = await admin
+      .from("ag_transito")
+      .upsert(linhas, { onConflict: "revenda_id,data,tipo,formato" });
+
+    if (error) erro(`Nao foi possivel salvar o transito: ${error.message}`);
+
+    revalidatePath(ROTA);
+    pararComSucesso("Transito do dia salvo");
   });
-
-  if (linhas.length === 0) erro("Nada para salvar.");
-
-  const admin = createAdminClient();
-  // Um upsert com todas as linhas: ou o dia inteiro entra, ou nada entra.
-  const { error } = await admin
-    .from("ag_transito")
-    .upsert(linhas, { onConflict: "revenda_id,data,tipo,formato" });
-
-  if (error) erro(`Nao foi possivel salvar o transito: ${error.message}`);
-
-  revalidatePath(ROTA);
-  redirect(`${ROTA}?aba=conciliacao&data=${data}&sucesso=${encodeURIComponent("Transito do dia salvo")}`);
 }
 
 /**
@@ -790,50 +801,52 @@ export async function salvarTransito(formData: FormData) {
  * janela de semanas que a tela cobre isso e honesto -- e e por isso que
  * o historico nao volta anos.
  */
-export async function salvarComodato(formData: FormData) {
-  const perfil = await getPerfil();
-  if (!perfil) redirect("/login");
+export async function salvarComodato(formData: FormData): Promise<ResultadoAcao> {
+  return noLugar(async () => {
+    const perfil = await getPerfil();
+    if (!perfil) redirect("/login");
 
-  const revendaId = await getRevendaId();
-  if (!revendaId) erro("Voce nao esta em nenhuma revenda.");
+    const revendaId = await getRevendaId();
+    if (!revendaId) erro("Voce nao esta em nenhuma revenda.");
 
-  if (!(await podeLancarTransito())) {
-    erro("Voce nao tem liberacao para mexer no comodato. Fale com quem cuida do Ativo de Giro.");
-  }
+    if (!(await podeLancarTransito())) {
+      erro("Voce nao tem liberacao para mexer no comodato. Fale com quem cuida do Ativo de Giro.");
+    }
 
-  const tipos = formData.getAll("tipo").map(String);
-  const formatos = formData.getAll("formato").map(String);
-  const quantidades = formData.getAll("quantidade");
+    const tipos = formData.getAll("tipo").map(String);
+    const formatos = formData.getAll("formato").map(String);
+    const quantidades = formData.getAll("quantidade");
 
-  if (tipos.length !== formatos.length || tipos.length !== quantidades.length) {
-    erro("Formulario incompleto -- recarregue a tela e tente de novo.");
-  }
+    if (tipos.length !== formatos.length || tipos.length !== quantidades.length) {
+      erro("Formulario incompleto -- recarregue a tela e tente de novo.");
+    }
 
-  const linhas = tipos.map((tipo, i) => {
-    const formato = formatos[i];
-    if (!ehTipo(tipo) || !ehFormato(formato)) erro("Item invalido no formulario.");
-    return {
-      revenda_id: revendaId,
-      tipo,
-      formato,
-      quantidade: inteiro(quantidades[i], 1_000_000),
-      atualizado_em: new Date().toISOString(),
-      atualizado_por: perfil.id,
-      atualizado_por_nome: perfil.nome,
-    };
+    const linhas = tipos.map((tipo, i) => {
+      const formato = formatos[i];
+      if (!ehTipo(tipo) || !ehFormato(formato)) erro("Item invalido no formulario.");
+      return {
+        revenda_id: revendaId,
+        tipo,
+        formato,
+        quantidade: inteiro(quantidades[i], 1_000_000),
+        atualizado_em: new Date().toISOString(),
+        atualizado_por: perfil.id,
+        atualizado_por_nome: perfil.nome,
+      };
+    });
+
+    if (linhas.length === 0) erro("Nada para salvar.");
+
+    const admin = createAdminClient();
+    const { error } = await admin
+      .from("ag_comodato")
+      .upsert(linhas, { onConflict: "revenda_id,tipo,formato" });
+
+    if (error) erro(`Nao foi possivel salvar o comodato: ${error.message}`);
+
+    revalidatePath(ROTA);
+    pararComSucesso("Comodato atualizado");
   });
-
-  if (linhas.length === 0) erro("Nada para salvar.");
-
-  const admin = createAdminClient();
-  const { error } = await admin
-    .from("ag_comodato")
-    .upsert(linhas, { onConflict: "revenda_id,tipo,formato" });
-
-  if (error) erro(`Nao foi possivel salvar o comodato: ${error.message}`);
-
-  revalidatePath(ROTA);
-  redirect(`${ROTA}?aba=conciliacao&sucesso=${encodeURIComponent("Comodato atualizado")}`);
 }
 
 /**
@@ -874,144 +887,146 @@ export async function podeCongelar(): Promise<boolean> {
  *
  * Congelado, fica: nao se congela por cima. Reabrir e so do Admin.
  */
-export async function congelarConciliacao(formData: FormData) {
-  const perfil = await getPerfil();
-  if (!perfil) redirect("/login");
+export async function congelarConciliacao(formData: FormData): Promise<ResultadoAcao> {
+  return noLugar(async () => {
+    const perfil = await getPerfil();
+    if (!perfil) redirect("/login");
 
-  const revendaId = await getRevendaId();
-  if (!revendaId) erro("Voce nao esta em nenhuma revenda.");
+    const revendaId = await getRevendaId();
+    if (!revendaId) erro("Voce nao esta em nenhuma revenda.");
 
-  if (!(await podeCongelar())) {
-    erro("Voce nao tem liberacao para congelar a conciliacao. Fale com quem cuida do Ativo de Giro.");
-  }
+    if (!(await podeCongelar())) {
+      erro("Voce nao tem liberacao para congelar a conciliacao. Fale com quem cuida do Ativo de Giro.");
+    }
 
-  const data = String(formData.get("data") ?? "").trim();
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(data)) erro("Dia invalido.");
-  const colab = String(formData.get("colab") ?? "").trim();
-  const voltar = (chaveMsg: "erro" | "sucesso", msg: string): never =>
-    redirect(
-      `${ROTA}?aba=conciliacao&data=${data}&colab=${encodeURIComponent(colab)}&${chaveMsg}=${encodeURIComponent(msg)}`,
-    );
+    const data = String(formData.get("data") ?? "").trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(data)) erro("Dia invalido.");
+    const colab = String(formData.get("colab") ?? "").trim();
+    // A conciliação já está aberta neste dia e nesta pessoa (o endereço
+    // diz isso): o aviso sai no lugar, sem voltar ao topo.
+    const voltar = (chaveMsg: "erro" | "sucesso", msg: string): never =>
+      chaveMsg === "erro" ? pararComErro(msg) : pararComSucesso(msg);
 
-  const admin = createAdminClient();
-  const { data: ja } = await admin
-    .from("ag_congelamentos")
-    .select("congelado_por_nome")
-    .eq("revenda_id", revendaId)
-    .eq("data", data)
-    .maybeSingle();
-  if (ja) {
-    voltar(
-      "erro",
-      `O dia ${formatarData(data)} ja esta congelado${ja.congelado_por_nome ? ` (por ${ja.congelado_por_nome})` : ""}. Para mudar, o Admin precisa reabrir.`,
-    );
-  }
-
-  const [
-    { data: contagensBanco },
-    { data: fatoresBanco },
-    { data: parqueBanco },
-    { data: transitoBanco },
-    { data: comodatoBanco },
-    { data: valoresBanco },
-  ] = await Promise.all([
-    admin.from("ag_contagens").select(COLUNAS_CONTAGEM).eq("revenda_id", revendaId).eq("data", data),
-    admin.from("ag_fatores").select("formato, palete, lastro").eq("revenda_id", revendaId),
-    admin.from("ag_parque").select("tipo, formato, quantidade").eq("revenda_id", revendaId),
-    admin
-      .from("ag_transito")
-      .select("tipo, formato, transito_rota, transito_carreta")
+    const admin = createAdminClient();
+    const { data: ja } = await admin
+      .from("ag_congelamentos")
+      .select("congelado_por_nome")
       .eq("revenda_id", revendaId)
-      .eq("data", data),
-    admin.from("ag_comodato").select("tipo, formato, quantidade").eq("revenda_id", revendaId),
-    admin.from("ag_valores").select("tipo, formato, valor_caixa").eq("revenda_id", revendaId),
-  ]);
+      .eq("data", data)
+      .maybeSingle();
+    if (ja) {
+      voltar(
+        "erro",
+        `O dia ${formatarData(data)} ja esta congelado${ja.congelado_por_nome ? ` (por ${ja.congelado_por_nome})` : ""}. Para mudar, o Admin precisa reabrir.`,
+      );
+    }
 
-  const doDia = (contagensBanco ?? []) as unknown as Contagem[];
-  const pessoas = [...new Set(doDia.map((c) => c.colaborador_id))];
-  const conferente = colab || (pessoas.length === 1 ? pessoas[0] : "");
-  if (!conferente) {
-    voltar("erro", "Mais de uma pessoa contou neste dia: escolha de quem e a contagem antes de congelar.");
-  }
-  const doConferente = doDia.filter((c) => c.colaborador_id === conferente);
-  if (doConferente.length === 0) voltar("erro", "Essa pessoa nao tem contagem neste dia.");
+    const [
+      { data: contagensBanco },
+      { data: fatoresBanco },
+      { data: parqueBanco },
+      { data: transitoBanco },
+      { data: comodatoBanco },
+      { data: valoresBanco },
+    ] = await Promise.all([
+      admin.from("ag_contagens").select(COLUNAS_CONTAGEM).eq("revenda_id", revendaId).eq("data", data),
+      admin.from("ag_fatores").select("formato, palete, lastro").eq("revenda_id", revendaId),
+      admin.from("ag_parque").select("tipo, formato, quantidade").eq("revenda_id", revendaId),
+      admin
+        .from("ag_transito")
+        .select("tipo, formato, transito_rota, transito_carreta")
+        .eq("revenda_id", revendaId)
+        .eq("data", data),
+      admin.from("ag_comodato").select("tipo, formato, quantidade").eq("revenda_id", revendaId),
+      admin.from("ag_valores").select("tipo, formato, valor_caixa").eq("revenda_id", revendaId),
+    ]);
 
-  const linhas = conciliar(
-    doConferente,
-    parqueDeLinhas(parqueBanco),
-    fatoresDeLinhas(fatoresBanco),
-    juntarParcelas(transitoDeLinhas(transitoBanco), comodatoDeLinhas(comodatoBanco)),
-  );
-  if (linhas.length === 0) voltar("erro", "Nada para congelar neste dia.");
+    const doDia = (contagensBanco ?? []) as unknown as Contagem[];
+    const pessoas = [...new Set(doDia.map((c) => c.colaborador_id))];
+    const conferente = colab || (pessoas.length === 1 ? pessoas[0] : "");
+    if (!conferente) {
+      voltar("erro", "Mais de uma pessoa contou neste dia: escolha de quem e a contagem antes de congelar.");
+    }
+    const doConferente = doDia.filter((c) => c.colaborador_id === conferente);
+    if (doConferente.length === 0) voltar("erro", "Essa pessoa nao tem contagem neste dia.");
 
-  // As justificativas salvas da conciliacao (migration 123) vao junto: o
-  // dia congelado guarda o texto daquele momento, como guarda os numeros.
-  const { data: justificativasBanco } = await admin
-    .from("ag_conciliacao_justificativas")
-    .select("tipo, formato, justificativa")
-    .eq("revenda_id", revendaId)
-    .eq("data", data)
-    .eq("conferente_id", conferente);
-  const justificativaPorItem = new Map(
-    ((justificativasBanco ?? []) as { tipo: string; formato: string; justificativa: string }[]).map((j) => [
-      chave(j.tipo, j.formato),
-      j.justificativa,
-    ]),
-  );
+    const linhas = conciliar(
+      doConferente,
+      parqueDeLinhas(parqueBanco),
+      fatoresDeLinhas(fatoresBanco),
+      juntarParcelas(transitoDeLinhas(transitoBanco), comodatoDeLinhas(comodatoBanco)),
+    );
+    if (linhas.length === 0) voltar("erro", "Nada para congelar neste dia.");
 
-  // Valor zero e "ainda nao precificado": grava nulo, para o BI nao dizer
-  // que o ativo nao vale nada.
-  const valorPorItem = new Map(
-    ((valoresBanco ?? []) as { tipo: string; formato: string; valor_caixa: number }[])
-      .filter((v) => Number(v.valor_caixa) > 0)
-      .map((v) => [chave(v.tipo, v.formato), Number(v.valor_caixa)]),
-  );
+    // As justificativas salvas da conciliacao (migration 123) vao junto: o
+    // dia congelado guarda o texto daquele momento, como guarda os numeros.
+    const { data: justificativasBanco } = await admin
+      .from("ag_conciliacao_justificativas")
+      .select("tipo, formato, justificativa")
+      .eq("revenda_id", revendaId)
+      .eq("data", data)
+      .eq("conferente_id", conferente);
+    const justificativaPorItem = new Map(
+      ((justificativasBanco ?? []) as { tipo: string; formato: string; justificativa: string }[]).map((j) => [
+        chave(j.tipo, j.formato),
+        j.justificativa,
+      ]),
+    );
 
-  const nomeConferente = doConferente[0].colaborador_nome;
-  const { error: erroCabecalho } = await admin.from("ag_congelamentos").insert({
-    revenda_id: revendaId,
-    data,
-    conferente_id: conferente,
-    conferente_nome: nomeConferente,
-    congelado_por: perfil.id,
-    congelado_por_nome: perfil.nome,
-  });
-  if (erroCabecalho) voltar("erro", `Nao foi possivel congelar: ${erroCabecalho.message}`);
+    // Valor zero e "ainda nao precificado": grava nulo, para o BI nao dizer
+    // que o ativo nao vale nada.
+    const valorPorItem = new Map(
+      ((valoresBanco ?? []) as { tipo: string; formato: string; valor_caixa: number }[])
+        .filter((v) => Number(v.valor_caixa) > 0)
+        .map((v) => [chave(v.tipo, v.formato), Number(v.valor_caixa)]),
+    );
 
-  const { error: erroItens } = await admin.from("ag_congelamento_itens").insert(
-    linhas.map((l) => ({
+    const nomeConferente = doConferente[0].colaborador_nome;
+    const { error: erroCabecalho } = await admin.from("ag_congelamentos").insert({
       revenda_id: revendaId,
       data,
-      tipo: l.tipo,
-      formato: l.formato,
-      contado: Math.round(l.contado),
-      transito_rota: l.rota,
-      transito_carreta: l.carreta,
-      comodato: l.comodato,
-      parque: l.parque,
-      valor_caixa: valorPorItem.get(chave(l.tipo, l.formato)) ?? null,
-      justificativa: justificativaPorItem.get(chave(l.tipo, l.formato)) ?? null,
-    })),
-  );
-  if (erroItens) {
-    // Sem os itens o cabecalho sozinho seria um dia "congelado" vazio no
-    // BI. Desfaz e avisa.
-    await admin.from("ag_congelamentos").delete().eq("revenda_id", revendaId).eq("data", data);
-    voltar("erro", `Nao foi possivel congelar: ${erroItens.message}`);
-  }
+      conferente_id: conferente,
+      conferente_nome: nomeConferente,
+      congelado_por: perfil.id,
+      congelado_por_nome: perfil.nome,
+    });
+    if (erroCabecalho) voltar("erro", `Nao foi possivel congelar: ${erroCabecalho.message}`);
 
-  await admin.from("auditoria").insert({
-    ator_id: perfil.id,
-    ator_nome: perfil.nome,
-    acao: "Congelou a conciliacao do AG",
-    alvo_id: conferente,
-    alvo_nome: nomeConferente,
-    detalhes: `Dia ${formatarData(data)} — ${linhas.length} item(ns), contagem de ${nomeConferente}`,
-    revenda_id: revendaId,
+    const { error: erroItens } = await admin.from("ag_congelamento_itens").insert(
+      linhas.map((l) => ({
+        revenda_id: revendaId,
+        data,
+        tipo: l.tipo,
+        formato: l.formato,
+        contado: Math.round(l.contado),
+        transito_rota: l.rota,
+        transito_carreta: l.carreta,
+        comodato: l.comodato,
+        parque: l.parque,
+        valor_caixa: valorPorItem.get(chave(l.tipo, l.formato)) ?? null,
+        justificativa: justificativaPorItem.get(chave(l.tipo, l.formato)) ?? null,
+      })),
+    );
+    if (erroItens) {
+      // Sem os itens o cabecalho sozinho seria um dia "congelado" vazio no
+      // BI. Desfaz e avisa.
+      await admin.from("ag_congelamentos").delete().eq("revenda_id", revendaId).eq("data", data);
+      voltar("erro", `Nao foi possivel congelar: ${erroItens.message}`);
+    }
+
+    await admin.from("auditoria").insert({
+      ator_id: perfil.id,
+      ator_nome: perfil.nome,
+      acao: "Congelou a conciliacao do AG",
+      alvo_id: conferente,
+      alvo_nome: nomeConferente,
+      detalhes: `Dia ${formatarData(data)} — ${linhas.length} item(ns), contagem de ${nomeConferente}`,
+      revenda_id: revendaId,
+    });
+
+    revalidatePath(ROTA);
+    voltar("sucesso", `Conciliacao de ${formatarData(data)} congelada. E ela que vai para o BI.`);
   });
-
-  revalidatePath(ROTA);
-  voltar("sucesso", `Conciliacao de ${formatarData(data)} congelada. E ela que vai para o BI.`);
 }
 
 /**
@@ -1027,125 +1042,127 @@ export async function congelarConciliacao(formData: FormData) {
  * vazia apaga a justificativa que havia. So entram tipo e formato validos
  * -- o nome do campo vem do navegador, e nao se confia nele.
  */
-export async function salvarJustificativas(formData: FormData) {
-  const perfil = await getPerfil();
-  if (!perfil) redirect("/login");
+export async function salvarJustificativas(formData: FormData): Promise<ResultadoAcao> {
+  return noLugar(async () => {
+    const perfil = await getPerfil();
+    if (!perfil) redirect("/login");
 
-  const revendaId = await getRevendaId();
-  if (!revendaId) erro("Voce nao esta em nenhuma revenda.");
+    const revendaId = await getRevendaId();
+    if (!revendaId) erro("Voce nao esta em nenhuma revenda.");
 
-  const data = String(formData.get("data") ?? "").trim();
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(data)) erro("Dia invalido.");
-  const colab = String(formData.get("colab") ?? "").trim();
-  const voltar = (chaveMsg: "erro" | "sucesso", msg: string): never =>
-    redirect(
-      `${ROTA}?aba=conciliacao&data=${data}&colab=${encodeURIComponent(colab)}&${chaveMsg}=${encodeURIComponent(msg)}`,
-    );
+    const data = String(formData.get("data") ?? "").trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(data)) erro("Dia invalido.");
+    const colab = String(formData.get("colab") ?? "").trim();
+    // A conciliação já está aberta neste dia e nesta pessoa (o endereço
+    // diz isso): o aviso sai no lugar, sem voltar ao topo.
+    const voltar = (chaveMsg: "erro" | "sucesso", msg: string): never =>
+      chaveMsg === "erro" ? pararComErro(msg) : pararComSucesso(msg);
 
-  if (!(await podeCongelar())) {
-    voltar("erro", "Voce nao tem liberacao para justificar a conciliacao. Fale com quem cuida do Ativo de Giro.");
-  }
-  if (!colab) voltar("erro", "Escolha de quem e a contagem antes de justificar.");
-
-  const admin = createAdminClient();
-  const [{ data: congelado }, { count: contagensDoConferente }] = await Promise.all([
-    admin.from("ag_congelamentos").select("data").eq("revenda_id", revendaId).eq("data", data).maybeSingle(),
-    admin
-      .from("ag_contagens")
-      .select("id", { count: "exact", head: true })
-      .eq("revenda_id", revendaId)
-      .eq("data", data)
-      .eq("colaborador_id", colab),
-  ]);
-  if (congelado) {
-    voltar("erro", `O dia ${formatarData(data)} ja esta congelado: as justificativas dele nao mudam mais.`);
-  }
-  if (!contagensDoConferente) voltar("erro", "Essa pessoa nao tem contagem neste dia.");
-
-  const gravar: { tipo: string; formato: string; justificativa: string }[] = [];
-  const apagar: { tipo: string; formato: string }[] = [];
-  for (const tipo of TIPOS) {
-    for (const formato of FORMATOS) {
-      const valor = formData.get(campoJustificativa(tipo, formato));
-      if (valor === null) continue; // linha que nao estava na tela
-      const texto = String(valor).trim();
-      if (texto.length > LIMITE_JUSTIFICATIVA) {
-        voltar("erro", `A justificativa de ${tipo} ${formato} passa de ${LIMITE_JUSTIFICATIVA} caracteres.`);
-      }
-      if (texto) gravar.push({ tipo, formato, justificativa: texto });
-      else apagar.push({ tipo, formato });
+    if (!(await podeCongelar())) {
+      voltar("erro", "Voce nao tem liberacao para justificar a conciliacao. Fale com quem cuida do Ativo de Giro.");
     }
-  }
+    if (!colab) voltar("erro", "Escolha de quem e a contagem antes de justificar.");
 
-  if (gravar.length > 0) {
-    const { error } = await admin.from("ag_conciliacao_justificativas").upsert(
-      gravar.map((g) => ({
-        revenda_id: revendaId,
-        data,
-        conferente_id: colab,
-        ...g,
-        atualizado_em: new Date().toISOString(),
-        atualizado_por: perfil.id,
-        atualizado_por_nome: perfil.nome,
-      })),
-      { onConflict: "revenda_id,data,conferente_id,tipo,formato" },
-    );
-    if (error) voltar("erro", `Nao foi possivel salvar: ${error.message}`);
-  }
-  for (const a of apagar) {
-    await admin
-      .from("ag_conciliacao_justificativas")
-      .delete()
-      .eq("revenda_id", revendaId)
-      .eq("data", data)
-      .eq("conferente_id", colab)
-      .eq("tipo", a.tipo)
-      .eq("formato", a.formato);
-  }
+    const admin = createAdminClient();
+    const [{ data: congelado }, { count: contagensDoConferente }] = await Promise.all([
+      admin.from("ag_congelamentos").select("data").eq("revenda_id", revendaId).eq("data", data).maybeSingle(),
+      admin
+        .from("ag_contagens")
+        .select("id", { count: "exact", head: true })
+        .eq("revenda_id", revendaId)
+        .eq("data", data)
+        .eq("colaborador_id", colab),
+    ]);
+    if (congelado) {
+      voltar("erro", `O dia ${formatarData(data)} ja esta congelado: as justificativas dele nao mudam mais.`);
+    }
+    if (!contagensDoConferente) voltar("erro", "Essa pessoa nao tem contagem neste dia.");
 
-  revalidatePath(ROTA);
-  voltar("sucesso", "Justificativas salvas.");
+    const gravar: { tipo: string; formato: string; justificativa: string }[] = [];
+    const apagar: { tipo: string; formato: string }[] = [];
+    for (const tipo of TIPOS) {
+      for (const formato of FORMATOS) {
+        const valor = formData.get(campoJustificativa(tipo, formato));
+        if (valor === null) continue; // linha que nao estava na tela
+        const texto = String(valor).trim();
+        if (texto.length > LIMITE_JUSTIFICATIVA) {
+          voltar("erro", `A justificativa de ${tipo} ${formato} passa de ${LIMITE_JUSTIFICATIVA} caracteres.`);
+        }
+        if (texto) gravar.push({ tipo, formato, justificativa: texto });
+        else apagar.push({ tipo, formato });
+      }
+    }
+
+    if (gravar.length > 0) {
+      const { error } = await admin.from("ag_conciliacao_justificativas").upsert(
+        gravar.map((g) => ({
+          revenda_id: revendaId,
+          data,
+          conferente_id: colab,
+          ...g,
+          atualizado_em: new Date().toISOString(),
+          atualizado_por: perfil.id,
+          atualizado_por_nome: perfil.nome,
+        })),
+        { onConflict: "revenda_id,data,conferente_id,tipo,formato" },
+      );
+      if (error) voltar("erro", `Nao foi possivel salvar: ${error.message}`);
+    }
+    for (const a of apagar) {
+      await admin
+        .from("ag_conciliacao_justificativas")
+        .delete()
+        .eq("revenda_id", revendaId)
+        .eq("data", data)
+        .eq("conferente_id", colab)
+        .eq("tipo", a.tipo)
+        .eq("formato", a.formato);
+    }
+
+    revalidatePath(ROTA);
+    voltar("sucesso", "Justificativas salvas.");
+  });
 }
 
 /** REABRE um dia congelado -- so o Admin (decisao do dono, 12/09/2026). */
-export async function reabrirConciliacao(formData: FormData) {
-  const perfil = await getPerfil();
-  if (!perfil) redirect("/login");
-  if (!ehOwner(perfil.role)) erro("So o Admin reabre um dia congelado.");
+export async function reabrirConciliacao(formData: FormData): Promise<ResultadoAcao> {
+  return noLugar(async () => {
+    const perfil = await getPerfil();
+    if (!perfil) redirect("/login");
+    if (!ehOwner(perfil.role)) erro("So o Admin reabre um dia congelado.");
 
-  const revendaId = await getRevendaId();
-  if (!revendaId) erro("Voce nao esta em nenhuma revenda.");
+    const revendaId = await getRevendaId();
+    if (!revendaId) erro("Voce nao esta em nenhuma revenda.");
 
-  const data = String(formData.get("data") ?? "").trim();
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(data)) erro("Dia invalido.");
+    const data = String(formData.get("data") ?? "").trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(data)) erro("Dia invalido.");
 
-  const admin = createAdminClient();
-  const { data: congelado } = await admin
-    .from("ag_congelamentos")
-    .select("conferente_nome, congelado_por_nome")
-    .eq("revenda_id", revendaId)
-    .eq("data", data)
-    .maybeSingle();
-  if (!congelado) erro("Este dia nao esta congelado.");
+    const admin = createAdminClient();
+    const { data: congelado } = await admin
+      .from("ag_congelamentos")
+      .select("conferente_nome, congelado_por_nome")
+      .eq("revenda_id", revendaId)
+      .eq("data", data)
+      .maybeSingle();
+    if (!congelado) erro("Este dia nao esta congelado.");
 
-  // Os itens vao junto (on delete cascade na migration 116).
-  const { error } = await admin
-    .from("ag_congelamentos")
-    .delete()
-    .eq("revenda_id", revendaId)
-    .eq("data", data);
-  if (error) erro(`Nao foi possivel reabrir: ${error.message}`);
+    // Os itens vao junto (on delete cascade na migration 116).
+    const { error } = await admin
+      .from("ag_congelamentos")
+      .delete()
+      .eq("revenda_id", revendaId)
+      .eq("data", data);
+    if (error) erro(`Nao foi possivel reabrir: ${error.message}`);
 
-  await admin.from("auditoria").insert({
-    ator_id: perfil.id,
-    ator_nome: perfil.nome,
-    acao: "Reabriu a conciliacao do AG",
-    detalhes: `Dia ${formatarData(data)} — era a contagem de ${congelado.conferente_nome}, congelada por ${congelado.congelado_por_nome ?? "?"}`,
-    revenda_id: revendaId,
+    await admin.from("auditoria").insert({
+      ator_id: perfil.id,
+      ator_nome: perfil.nome,
+      acao: "Reabriu a conciliacao do AG",
+      detalhes: `Dia ${formatarData(data)} — era a contagem de ${congelado.conferente_nome}, congelada por ${congelado.congelado_por_nome ?? "?"}`,
+      revenda_id: revendaId,
+    });
+
+    revalidatePath(ROTA);
+    pararComSucesso(`Dia ${formatarData(data)} reaberto. Ele sai do BI ate ser congelado de novo.`);
   });
-
-  revalidatePath(ROTA);
-  redirect(
-    `${ROTA}?aba=conciliacao&data=${data}&sucesso=${encodeURIComponent(`Dia ${formatarData(data)} reaberto. Ele sai do BI ate ser congelado de novo.`)}`,
-  );
 }

@@ -2,6 +2,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { rotuloCategoria } from "@/lib/cinco-porques-problemas";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
 import { salvarTratativa } from "./actions";
+import { FormNoLugar } from "@/components/FormNoLugar";
 
 type Analise = {
   id: number;
@@ -116,7 +117,7 @@ export async function CincoPorquesTab({
                 </p>
               )}
 
-              <form action={salvarTratativa} className="mt-3 space-y-2">
+              <FormNoLugar acao={salvarTratativa} className="mt-3 space-y-2">
                 <input type="hidden" name="analise_id" value={a.id} />
                 <textarea
                   name="resposta_lideranca"
@@ -138,7 +139,7 @@ export async function CincoPorquesTab({
                     Salvar
                   </BotaoEnviar>
                 </div>
-              </form>
+              </FormNoLugar>
             </div>
           );
         })}

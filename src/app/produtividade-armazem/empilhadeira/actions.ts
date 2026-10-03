@@ -1,6 +1,5 @@
 "use server";
 
-import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { exigirContextoModulo, subirFotoHorimetro } from "@/lib/produtividade-armazem-server";
@@ -8,11 +7,12 @@ import { avaliarHorimetro } from "@/lib/empilhadeira-gas";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { avaliarEstoqueDeGas, encerrarAvisoDeGas } from "@/lib/gas-p20-server";
 import { tempoAberto } from "@/lib/gas-p20";
+import { noLugar, pararComErro, pararComSucesso, type ResultadoAcao } from "@/lib/resultado-acao";
 
 const ROTA = "/produtividade-armazem/empilhadeira";
 
 function erro(id: string, mensagem: string): never {
-  redirect(`${ROTA}/${id}?erro=${encodeURIComponent(mensagem)}`);
+  pararComErro(mensagem);
 }
 
 const exigirContexto = () => exigirContextoModulo("pa-empilhadeira", ROTA);
@@ -74,50 +74,52 @@ async function exigirHorimetroPlausivel(
  * falha com violação de unicidade (23505), e é isso que vira a mensagem de
  * conflito. A UI nunca é a única linha de defesa.
  */
-export async function abrirOperacao(formData: FormData) {
-  const { perfil, revendaId } = await exigirContexto();
+export async function abrirOperacao(formData: FormData): Promise<ResultadoAcao> {
+  return noLugar(async () => {
+    const { perfil, revendaId } = await exigirContexto();
 
-  const empilhadeiraId = String(formData.get("empilhadeira_id") ?? "");
-  if (!empilhadeiraId) erro(empilhadeiraId, "Empilhadeira inválida.");
+    const empilhadeiraId = String(formData.get("empilhadeira_id") ?? "");
+    if (!empilhadeiraId) erro(empilhadeiraId, "Empilhadeira inválida.");
 
-  const horimetro = Number(formData.get("horimetro_inicial"));
-  if (!Number.isFinite(horimetro) || horimetro < 0) {
-    erro(empilhadeiraId, "Informe o horímetro inicial.");
-  }
-
-  const foto = formData.get("foto");
-  if (!(foto instanceof File) || foto.size === 0) {
-    erro(empilhadeiraId, "A foto do horímetro é obrigatória para abrir a operação.");
-  }
-
-  await exigirHorimetroPlausivel(empilhadeiraId, revendaId, horimetro);
-
-  const enviada = await subirFotoHorimetro(foto, `${empilhadeiraId}/abertura-${perfil.id}`);
-  if (!enviada.ok) erro(empilhadeiraId, enviada.erro);
-
-  const supabase = await createClient();
-  const { error } = await supabase.from("pa_empilhadeira_operacoes").insert({
-    revenda_id: revendaId,
-    empilhadeira_id: empilhadeiraId,
-    operador_id: perfil.id,
-    operador_nome: perfil.nome,
-    horimetro_inicial: horimetro,
-    foto_inicial_url: enviada.url,
-  });
-
-  if (error) {
-    if (error.code === "23505") {
-      erro(
-        empilhadeiraId,
-        "Já existe uma operação aberta nesta empilhadeira. Atualize a página para ver quem está com ela e feche antes de abrir a sua.",
-      );
+    const horimetro = Number(formData.get("horimetro_inicial"));
+    if (!Number.isFinite(horimetro) || horimetro < 0) {
+      erro(empilhadeiraId, "Informe o horímetro inicial.");
     }
-    erro(empilhadeiraId, `Não foi possível abrir a operação: ${error.message}`);
-  }
 
-  revalidatePath(ROTA);
-  revalidatePath(`${ROTA}/${empilhadeiraId}`);
-  redirect(`${ROTA}/${empilhadeiraId}?sucesso=Operação+aberta`);
+    const foto = formData.get("foto");
+    if (!(foto instanceof File) || foto.size === 0) {
+      erro(empilhadeiraId, "A foto do horímetro é obrigatória para abrir a operação.");
+    }
+
+    await exigirHorimetroPlausivel(empilhadeiraId, revendaId, horimetro);
+
+    const enviada = await subirFotoHorimetro(foto, `${empilhadeiraId}/abertura-${perfil.id}`);
+    if (!enviada.ok) erro(empilhadeiraId, enviada.erro);
+
+    const supabase = await createClient();
+    const { error } = await supabase.from("pa_empilhadeira_operacoes").insert({
+      revenda_id: revendaId,
+      empilhadeira_id: empilhadeiraId,
+      operador_id: perfil.id,
+      operador_nome: perfil.nome,
+      horimetro_inicial: horimetro,
+      foto_inicial_url: enviada.url,
+    });
+
+    if (error) {
+      if (error.code === "23505") {
+        erro(
+          empilhadeiraId,
+          "Já existe uma operação aberta nesta empilhadeira. Atualize a página para ver quem está com ela e feche antes de abrir a sua.",
+        );
+      }
+      erro(empilhadeiraId, `Não foi possível abrir a operação: ${error.message}`);
+    }
+
+    revalidatePath(ROTA);
+    revalidatePath(`${ROTA}/${empilhadeiraId}`);
+    pararComSucesso("Operação aberta");
+  });
 }
 
 /**
@@ -126,61 +128,63 @@ export async function abrirOperacao(formData: FormData) {
  * o update para qualquer colaborador da revenda; aqui é onde se decide se
  * `encerrado_por` entra ou fica nulo.
  */
-export async function fecharOperacao(formData: FormData) {
-  const { perfil, revendaId } = await exigirContexto();
+export async function fecharOperacao(formData: FormData): Promise<ResultadoAcao> {
+  return noLugar(async () => {
+    const { perfil, revendaId } = await exigirContexto();
 
-  const operacaoId = String(formData.get("operacao_id") ?? "");
-  const empilhadeiraId = String(formData.get("empilhadeira_id") ?? "");
-  if (!operacaoId || !empilhadeiraId) erro(empilhadeiraId || "", "Operação inválida.");
+    const operacaoId = String(formData.get("operacao_id") ?? "");
+    const empilhadeiraId = String(formData.get("empilhadeira_id") ?? "");
+    if (!operacaoId || !empilhadeiraId) erro(empilhadeiraId || "", "Operação inválida.");
 
-  const horimetro = Number(formData.get("horimetro_final"));
-  if (!Number.isFinite(horimetro) || horimetro < 0) {
-    erro(empilhadeiraId, "Informe o horímetro final.");
-  }
+    const horimetro = Number(formData.get("horimetro_final"));
+    if (!Number.isFinite(horimetro) || horimetro < 0) {
+      erro(empilhadeiraId, "Informe o horímetro final.");
+    }
 
-  const foto = formData.get("foto");
-  if (!(foto instanceof File) || foto.size === 0) {
-    erro(empilhadeiraId, "A foto do horímetro final é obrigatória.");
-  }
+    const foto = formData.get("foto");
+    if (!(foto instanceof File) || foto.size === 0) {
+      erro(empilhadeiraId, "A foto do horímetro final é obrigatória.");
+    }
 
-  const supabase = await createClient();
-  const { data: op } = await supabase
-    .from("pa_empilhadeira_operacoes")
-    .select("id, operador_id, operador_nome, horimetro_inicial")
-    .eq("id", operacaoId)
-    .eq("revenda_id", revendaId)
-    .eq("status", "aberta")
-    .maybeSingle();
+    const supabase = await createClient();
+    const { data: op } = await supabase
+      .from("pa_empilhadeira_operacoes")
+      .select("id, operador_id, operador_nome, horimetro_inicial")
+      .eq("id", operacaoId)
+      .eq("revenda_id", revendaId)
+      .eq("status", "aberta")
+      .maybeSingle();
 
-  if (!op) erro(empilhadeiraId, "Esta operação já não está mais aberta.");
-  if (horimetro < op.horimetro_inicial) {
-    erro(empilhadeiraId, "O horímetro final não pode ser menor que o inicial.");
-  }
+    if (!op) erro(empilhadeiraId, "Esta operação já não está mais aberta.");
+    if (horimetro < op.horimetro_inicial) {
+      erro(empilhadeiraId, "O horímetro final não pode ser menor que o inicial.");
+    }
 
-  const enviada = await subirFotoHorimetro(foto, `${empilhadeiraId}/fechamento-${perfil.id}`);
-  if (!enviada.ok) erro(empilhadeiraId, enviada.erro);
+    const enviada = await subirFotoHorimetro(foto, `${empilhadeiraId}/fechamento-${perfil.id}`);
+    if (!enviada.ok) erro(empilhadeiraId, enviada.erro);
 
-  const outraPessoa = op.operador_id !== perfil.id;
+    const outraPessoa = op.operador_id !== perfil.id;
 
-  const { error } = await supabase
-    .from("pa_empilhadeira_operacoes")
-    .update({
-      horimetro_final: horimetro,
-      foto_final_url: enviada.url,
-      fim: new Date().toISOString(),
-      status: "encerrada",
-      encerrado_por_id: outraPessoa ? perfil.id : null,
-      encerrado_por_nome: outraPessoa ? perfil.nome : null,
-    })
-    .eq("id", operacaoId)
-    .eq("revenda_id", revendaId)
-    .eq("status", "aberta");
+    const { error } = await supabase
+      .from("pa_empilhadeira_operacoes")
+      .update({
+        horimetro_final: horimetro,
+        foto_final_url: enviada.url,
+        fim: new Date().toISOString(),
+        status: "encerrada",
+        encerrado_por_id: outraPessoa ? perfil.id : null,
+        encerrado_por_nome: outraPessoa ? perfil.nome : null,
+      })
+      .eq("id", operacaoId)
+      .eq("revenda_id", revendaId)
+      .eq("status", "aberta");
 
-  if (error) erro(empilhadeiraId, `Não foi possível fechar a operação: ${error.message}`);
+    if (error) erro(empilhadeiraId, `Não foi possível fechar a operação: ${error.message}`);
 
-  revalidatePath(ROTA);
-  revalidatePath(`${ROTA}/${empilhadeiraId}`);
-  redirect(`${ROTA}/${empilhadeiraId}?sucesso=Operação+encerrada`);
+    revalidatePath(ROTA);
+    revalidatePath(`${ROTA}/${empilhadeiraId}`);
+    pararComSucesso("Operação encerrada");
+  });
 }
 
 /**
@@ -191,91 +195,91 @@ export async function fecharOperacao(formData: FormData) {
  * fábrica; recusar de vez esconderia um horímetro que só foi digitado
  * errado, sem chance de corrigir por aqui).
  */
-export async function registrarTrocaGas(formData: FormData) {
-  const { perfil, revendaId } = await exigirContexto();
+export async function registrarTrocaGas(formData: FormData): Promise<ResultadoAcao> {
+  return noLugar(async () => {
+    const { perfil, revendaId } = await exigirContexto();
 
-  const empilhadeiraId = String(formData.get("empilhadeira_id") ?? "");
-  if (!empilhadeiraId) erro(empilhadeiraId, "Empilhadeira inválida.");
+    const empilhadeiraId = String(formData.get("empilhadeira_id") ?? "");
+    if (!empilhadeiraId) erro(empilhadeiraId, "Empilhadeira inválida.");
 
-  const horimetro = Number(formData.get("horimetro"));
-  if (!Number.isFinite(horimetro) || horimetro < 0) {
-    erro(empilhadeiraId, "Informe o horímetro da troca.");
-  }
+    const horimetro = Number(formData.get("horimetro"));
+    if (!Number.isFinite(horimetro) || horimetro < 0) {
+      erro(empilhadeiraId, "Informe o horímetro da troca.");
+    }
 
-  const foto = formData.get("foto");
-  if (!(foto instanceof File) || foto.size === 0) {
-    erro(empilhadeiraId, "A foto do horímetro é obrigatória para registrar a troca.");
-  }
+    const foto = formData.get("foto");
+    if (!(foto instanceof File) || foto.size === 0) {
+      erro(empilhadeiraId, "A foto do horímetro é obrigatória para registrar a troca.");
+    }
 
-  // A contagem do depósito é obrigatória: é ela que acende o alerta de
-  // reposição, e uma troca sem contagem deixa o estoque cego até a
-  // próxima. Zero é resposta válida -- por isso o teste é de campo vazio,
-  // não de valor falsy.
-  const cheiosBruto = String(formData.get("botijoes_cheios") ?? "").trim();
-  const vaziosBruto = String(formData.get("botijoes_vazios") ?? "").trim();
-  if (!cheiosBruto || !vaziosBruto) {
-    erro(empilhadeiraId, "Informe quantos botijões P20 cheios e vazios há no estoque.");
-  }
-  const cheios = Number(cheiosBruto);
-  const vazios = Number(vaziosBruto);
-  if (!Number.isInteger(cheios) || cheios < 0 || !Number.isInteger(vazios) || vazios < 0) {
-    erro(empilhadeiraId, "A contagem de botijões deve ser um número inteiro igual ou maior que zero.");
-  }
+    // A contagem do depósito é obrigatória: é ela que acende o alerta de
+    // reposição, e uma troca sem contagem deixa o estoque cego até a
+    // próxima. Zero é resposta válida -- por isso o teste é de campo vazio,
+    // não de valor falsy.
+    const cheiosBruto = String(formData.get("botijoes_cheios") ?? "").trim();
+    const vaziosBruto = String(formData.get("botijoes_vazios") ?? "").trim();
+    if (!cheiosBruto || !vaziosBruto) {
+      erro(empilhadeiraId, "Informe quantos botijões P20 cheios e vazios há no estoque.");
+    }
+    const cheios = Number(cheiosBruto);
+    const vazios = Number(vaziosBruto);
+    if (!Number.isInteger(cheios) || cheios < 0 || !Number.isInteger(vazios) || vazios < 0) {
+      erro(empilhadeiraId, "A contagem de botijões deve ser um número inteiro igual ou maior que zero.");
+    }
 
-  await exigirHorimetroPlausivel(empilhadeiraId, revendaId, horimetro);
+    await exigirHorimetroPlausivel(empilhadeiraId, revendaId, horimetro);
 
-  const enviada = await subirFotoHorimetro(foto, `${empilhadeiraId}/troca-gas-${perfil.id}`);
-  if (!enviada.ok) erro(empilhadeiraId, enviada.erro);
+    const enviada = await subirFotoHorimetro(foto, `${empilhadeiraId}/troca-gas-${perfil.id}`);
+    if (!enviada.ok) erro(empilhadeiraId, enviada.erro);
 
-  const supabase = await createClient();
+    const supabase = await createClient();
 
-  const { data: ultima } = await supabase
-    .from("pa_empilhadeira_trocas_gas")
-    .select("horimetro")
-    .eq("empilhadeira_id", empilhadeiraId)
-    .eq("revenda_id", revendaId)
-    .order("realizada_em", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+    const { data: ultima } = await supabase
+      .from("pa_empilhadeira_trocas_gas")
+      .select("horimetro")
+      .eq("empilhadeira_id", empilhadeiraId)
+      .eq("revenda_id", revendaId)
+      .order("realizada_em", { ascending: false })
+      .limit(1)
+      .maybeSingle();
 
-  const { data: gravada, error } = await supabase
-    .from("pa_empilhadeira_trocas_gas")
-    .insert({
-      revenda_id: revendaId,
-      empilhadeira_id: empilhadeiraId,
-      operador_id: perfil.id,
-      operador_nome: perfil.nome,
-      horimetro,
-      foto_url: enviada.url,
-      botijoes_cheios: cheios,
-      botijoes_vazios: vazios,
-    })
-    .select("id")
-    .maybeSingle();
+    const { data: gravada, error } = await supabase
+      .from("pa_empilhadeira_trocas_gas")
+      .insert({
+        revenda_id: revendaId,
+        empilhadeira_id: empilhadeiraId,
+        operador_id: perfil.id,
+        operador_nome: perfil.nome,
+        horimetro,
+        foto_url: enviada.url,
+        botijoes_cheios: cheios,
+        botijoes_vazios: vazios,
+      })
+      .select("id")
+      .maybeSingle();
 
-  if (error) erro(empilhadeiraId, `Não foi possível salvar a troca: ${error.message}`);
+    if (error) erro(empilhadeiraId, `Não foi possível salvar a troca: ${error.message}`);
 
-  // Depois de gravar, nunca antes: um alerta disparado por uma troca que
-  // não salvou mandaria todo mundo pedir gás por causa de um erro de rede.
-  await avaliarEstoqueDeGas({
-    revendaId,
-    trocaId: (gravada?.id as string) ?? null,
-    cheios,
-    vazios,
-    operadorId: perfil.id,
-    operadorNome: perfil.nome,
+    // Depois de gravar, nunca antes: um alerta disparado por uma troca que
+    // não salvou mandaria todo mundo pedir gás por causa de um erro de rede.
+    await avaliarEstoqueDeGas({
+      revendaId,
+      trocaId: (gravada?.id as string) ?? null,
+      cheios,
+      vazios,
+      operadorId: perfil.id,
+      operadorNome: perfil.nome,
+    });
+
+    revalidatePath(`${ROTA}/${empilhadeiraId}`);
+    revalidatePath(ROTA);
+
+    pararComSucesso(
+      ultima && horimetro < ultima.horimetro
+        ? `Troca registrada, mas atenção: o horímetro informado (${horimetro}) é menor que o da última troca (${ultima.horimetro}).`
+        : "Troca de gás registrada.",
+    );
   });
-
-  revalidatePath(`${ROTA}/${empilhadeiraId}`);
-  revalidatePath(ROTA);
-
-  const aviso =
-    ultima && horimetro < ultima.horimetro
-      ? `&sucesso=${encodeURIComponent(
-          `Troca registrada, mas atenção: o horímetro informado (${horimetro}) é menor que o da última troca (${ultima.horimetro}).`,
-        )}`
-      : "&sucesso=Troca+de+gás+registrada";
-  redirect(`${ROTA}/${empilhadeiraId}?${aviso.slice(1)}`);
 }
 
 /**
@@ -292,72 +296,77 @@ export async function registrarTrocaGas(formData: FormData) {
  * confirmou -- tela aberta desde antes -- fica sabendo quem pediu, em vez
  * de um "obrigado" que não diz nada.
  */
-export async function confirmarPedidoDeGas(formData: FormData) {
-  const { perfil, revendaId } = await exigirContexto();
+export async function confirmarPedidoDeGas(formData: FormData): Promise<ResultadoAcao> {
+  return noLugar(async () => {
+    const { perfil, revendaId } = await exigirContexto();
 
-  const pedidoId = String(formData.get("pedido_id") ?? "");
-  const voltarPara = String(formData.get("voltar_para") ?? ROTA);
-  // A tela de uma máquina volta com "?aba=gas" no endereço: a mensagem
-  // entra com "&", senão o endereço ficava com dois "?" e ela não aparecia.
-  const separador = voltarPara.includes("?") ? "&" : "?";
-  // Tipo declarado na variável: é o que faz o TypeScript entender que depois
-  // de `voltar(...)` a função não continua.
-  const voltar: (chave: "erro" | "sucesso", mensagem: string) => never = (chave, mensagem) =>
-    redirect(`${voltarPara}${separador}${chave}=${encodeURIComponent(mensagem)}`);
-  if (!pedidoId) voltar("erro", "Pedido inválido.");
+    const pedidoId = String(formData.get("pedido_id") ?? "");
+    const voltarPara = String(formData.get("voltar_para") ?? ROTA);
+    // A tela de uma máquina volta com "?aba=gas" no endereço: a mensagem
+    // entra com "&", senão o endereço ficava com dois "?" e ela não aparecia.
+    const separador = voltarPara.includes("?") ? "&" : "?";
+    // Tipo declarado na variável: é o que faz o TypeScript entender que depois
+    // de `voltar(...)` a função não continua.
+    // No lugar (03/10/2026): a tela não sai de onde está; voltarPara e o
+    // separador ficam só para quem ainda manda o campo.
+    void separador;
+    const voltar: (chave: "erro" | "sucesso", mensagem: string) => never = (chave, mensagem) =>
+      chave === "erro" ? pararComErro(mensagem) : pararComSucesso(mensagem);
+    if (!pedidoId) voltar("erro", "Pedido inválido.");
 
-  const observacao = String(formData.get("observacao") ?? "").trim().slice(0, 200);
+    const observacao = String(formData.get("observacao") ?? "").trim().slice(0, 200);
 
-  const supabase = await createClient();
-  const { data: confirmados, error } = await supabase
-    .from("pa_gas_pedidos")
-    .update({
-      confirmado_em: new Date().toISOString(),
-      confirmado_por: perfil.id,
-      confirmado_por_nome: perfil.nome,
-      observacao: observacao || null,
-    })
-    .eq("id", pedidoId)
-    .eq("revenda_id", revendaId)
-    .is("confirmado_em", null)
-    .select("id, aberto_em, aberto_por");
-
-  if (error) voltar("erro", `Não foi possível confirmar: ${error.message}`);
-
-  const pedido = confirmados?.[0];
-  if (!pedido) {
-    // Outra pessoa confirmou antes.
-    const { data: ja } = await createAdminClient()
+    const supabase = await createClient();
+    const { data: confirmados, error } = await supabase
       .from("pa_gas_pedidos")
-      .select("confirmado_em, confirmado_por_nome")
+      .update({
+        confirmado_em: new Date().toISOString(),
+        confirmado_por: perfil.id,
+        confirmado_por_nome: perfil.nome,
+        observacao: observacao || null,
+      })
       .eq("id", pedidoId)
       .eq("revenda_id", revendaId)
-      .maybeSingle();
+      .is("confirmado_em", null)
+      .select("id, aberto_em, aberto_por");
+
+    if (error) voltar("erro", `Não foi possível confirmar: ${error.message}`);
+
+    const pedido = confirmados?.[0];
+    if (!pedido) {
+      // Outra pessoa confirmou antes.
+      const { data: ja } = await createAdminClient()
+        .from("pa_gas_pedidos")
+        .select("confirmado_em, confirmado_por_nome")
+        .eq("id", pedidoId)
+        .eq("revenda_id", revendaId)
+        .maybeSingle();
+      revalidatePath(ROTA);
+      revalidatePath(voltarPara);
+      if (ja?.confirmado_em) {
+        voltar(
+          "sucesso",
+          `Este gás já foi solicitado por ${ja.confirmado_por_nome ?? "outra pessoa"} há ${tempoAberto(ja.confirmado_em)}. Não precisa pedir de novo.`,
+        );
+      }
+      voltar("erro", "Pedido de gás não encontrado.");
+    }
+
+    await encerrarAvisoDeGas({
+      revendaId,
+      pedidoId,
+      abertoEm: String(pedido.aberto_em),
+      abertoPor: (pedido.aberto_por as string) ?? null,
+      confirmadoPor: perfil.id,
+      confirmadoPorNome: perfil.nome,
+      observacao: observacao || null,
+    });
+
     revalidatePath(ROTA);
     revalidatePath(voltarPara);
-    if (ja?.confirmado_em) {
-      voltar(
-        "sucesso",
-        `Este gás já foi solicitado por ${ja.confirmado_por_nome ?? "outra pessoa"} há ${tempoAberto(ja.confirmado_em)}. Não precisa pedir de novo.`,
-      );
-    }
-    voltar("erro", "Pedido de gás não encontrado.");
-  }
-
-  await encerrarAvisoDeGas({
-    revendaId,
-    pedidoId,
-    abertoEm: String(pedido.aberto_em),
-    abertoPor: (pedido.aberto_por as string) ?? null,
-    confirmadoPor: perfil.id,
-    confirmadoPorNome: perfil.nome,
-    observacao: observacao || null,
+    voltar(
+      "sucesso",
+      "Solicitação de gás registrada. O aviso saiu do sino, e quem recebeu o alerta foi avisado de que você já pediu.",
+    );
   });
-
-  revalidatePath(ROTA);
-  revalidatePath(voltarPara);
-  voltar(
-    "sucesso",
-    "Solicitação de gás registrada. O aviso saiu do sino, e quem recebeu o alerta foi avisado de que você já pediu.",
-  );
 }

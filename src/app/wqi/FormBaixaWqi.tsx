@@ -7,6 +7,7 @@ import { ROTULO_TURNO, TURNOS, type Turno } from "@/lib/produtividade-armazem";
 import { ROTULO_UNIDADE_WQI, UNIDADES_WQI, type ItemCatalogoWqi } from "@/lib/wqi";
 import { buscarProdutosWqi, buscarResponsaveisWqi, registrarBaixaWqi } from "./actions";
 import { CampoFoto } from "@/components/CampoFoto";
+import { FormNoLugar } from "@/components/FormNoLugar";
 
 const campo =
   "w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-base text-slate-900 focus:border-primary focus:outline-none";
@@ -41,7 +42,7 @@ export function FormBaixaWqi({
   const semCatalogo = motivos.length === 0 || locais.length === 0;
 
   return (
-    <form action={registrarBaixaWqi} className="space-y-4">
+    <FormNoLugar acao={registrarBaixaWqi} className="space-y-4" limparAoSalvar>
       {semCatalogo && (
         <p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-800">
           Faltam motivos ou locais cadastrados. Peça ao Admin para cadastrar em Produtividade do
@@ -142,6 +143,6 @@ export function FormBaixaWqi({
       >
         💥 Registrar baixa WQI
       </BotaoEnviar>
-    </form>
+    </FormNoLugar>
   );
 }

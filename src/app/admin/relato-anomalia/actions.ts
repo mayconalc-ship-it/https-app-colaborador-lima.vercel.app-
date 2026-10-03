@@ -1,17 +1,17 @@
 "use server";
 
-import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { requireModulo } from "@/lib/require-admin";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { exigirRevenda } from "@/lib/revendas";
 import { CATALOGO_DE_METAS } from "@/lib/metas";
 import { MINIMO_DE_PONTOS, SIGMAS_PADRAO } from "@/lib/gatilho-anomalia";
+import { noLugar, pararComErro, pararComSucesso, type ResultadoAcao } from "@/lib/resultado-acao";
 
 const ROTA = "/admin/relato-anomalia";
 
 function erro(mensagem: string): never {
-  redirect(`${ROTA}?erro=${encodeURIComponent(mensagem)}`);
+  pararComErro(mensagem);
 }
 
 /** Vírgula vira ponto: o teclado do celular manda vírgula, e "2,5"
@@ -36,84 +36,82 @@ function numeroOuNulo(v: FormDataEntryValue | null): number | null {
  * vira linha no banco: uma tabela cheia de gatilhos "no padrão" faria
  * parecer que treze indicadores estão vigiados quando nenhum está.
  */
-export async function salvarGatilhos(formData: FormData) {
-  await requireModulo("relato-anomalia", "editar");
-  const revendaId = await exigirRevenda("/admin");
-  const admin = createAdminClient();
+export async function salvarGatilhos(formData: FormData): Promise<ResultadoAcao> {
+  return noLugar(async () => {
+    await requireModulo("relato-anomalia", "editar");
+    const revendaId = await exigirRevenda("/admin");
+    const admin = createAdminClient();
 
-  const paraGravar: {
-    revenda_id: string;
-    indicador: string;
-    ativo: boolean;
-    sigmas: number;
-    limite_manual: number | null;
-    minimo_pontos: number;
-    observacao: string | null;
-    atualizado_em: string;
-  }[] = [];
-  const paraApagar: string[] = [];
+    const paraGravar: {
+      revenda_id: string;
+      indicador: string;
+      ativo: boolean;
+      sigmas: number;
+      limite_manual: number | null;
+      minimo_pontos: number;
+      observacao: string | null;
+      atualizado_em: string;
+    }[] = [];
+    const paraApagar: string[] = [];
 
-  for (const def of CATALOGO_DE_METAS) {
-    if ((def.tipo ?? "meta") !== "meta") continue;
+    for (const def of CATALOGO_DE_METAS) {
+      if ((def.tipo ?? "meta") !== "meta") continue;
 
-    const ativo = formData.get(`ativo__${def.chave}`) === "on";
-    const sigmas = numeroOuNulo(formData.get(`sigmas__${def.chave}`)) ?? SIGMAS_PADRAO;
-    const limiteManual = numeroOuNulo(formData.get(`limite__${def.chave}`));
-    const minimo = numeroOuNulo(formData.get(`minimo__${def.chave}`)) ?? MINIMO_DE_PONTOS;
-    const observacao = String(formData.get(`obs__${def.chave}`) ?? "").trim() || null;
+      const ativo = formData.get(`ativo__${def.chave}`) === "on";
+      const sigmas = numeroOuNulo(formData.get(`sigmas__${def.chave}`)) ?? SIGMAS_PADRAO;
+      const limiteManual = numeroOuNulo(formData.get(`limite__${def.chave}`));
+      const minimo = numeroOuNulo(formData.get(`minimo__${def.chave}`)) ?? MINIMO_DE_PONTOS;
+      const observacao = String(formData.get(`obs__${def.chave}`) ?? "").trim() || null;
 
-    // Desligado e sem nada escrito = não existe gatilho. Apagar em vez de
-    // guardar uma linha inerte mantém a tabela dizendo a verdade sobre o
-    // que está vigiado.
-    if (!ativo && limiteManual === null && !observacao) {
-      paraApagar.push(def.chave);
-      continue;
+      // Desligado e sem nada escrito = não existe gatilho. Apagar em vez de
+      // guardar uma linha inerte mantém a tabela dizendo a verdade sobre o
+      // que está vigiado.
+      if (!ativo && limiteManual === null && !observacao) {
+        paraApagar.push(def.chave);
+        continue;
+      }
+
+      if (sigmas <= 0 || sigmas > 6) {
+        erro(`${def.rotulo}: o multiplicador precisa ficar entre 0,1 e 6 desvios.`);
+      }
+      if (!Number.isInteger(minimo) || minimo < 2) {
+        erro(`${def.rotulo}: o mínimo de medições precisa ser um número inteiro de 2 para cima.`);
+      }
+
+      paraGravar.push({
+        revenda_id: revendaId,
+        indicador: def.chave,
+        ativo,
+        sigmas,
+        limite_manual: limiteManual,
+        minimo_pontos: minimo,
+        observacao,
+        atualizado_em: new Date().toISOString(),
+      });
     }
 
-    if (sigmas <= 0 || sigmas > 6) {
-      erro(`${def.rotulo}: o multiplicador precisa ficar entre 0,1 e 6 desvios.`);
+    if (paraGravar.length > 0) {
+      const { error } = await admin
+        .from("pa_gatilhos_anomalia")
+        .upsert(paraGravar, { onConflict: "revenda_id,indicador" });
+      if (error) erro(`Não foi possível salvar: ${error.message}`);
     }
-    if (!Number.isInteger(minimo) || minimo < 2) {
-      erro(`${def.rotulo}: o mínimo de medições precisa ser um número inteiro de 2 para cima.`);
+
+    if (paraApagar.length > 0) {
+      const { error } = await admin
+        .from("pa_gatilhos_anomalia")
+        .delete()
+        .eq("revenda_id", revendaId)
+        .in("indicador", paraApagar);
+      if (error) erro(`Não foi possível limpar os desligados: ${error.message}`);
     }
 
-    paraGravar.push({
-      revenda_id: revendaId,
-      indicador: def.chave,
-      ativo,
-      sigmas,
-      limite_manual: limiteManual,
-      minimo_pontos: minimo,
-      observacao,
-      atualizado_em: new Date().toISOString(),
-    });
-  }
-
-  if (paraGravar.length > 0) {
-    const { error } = await admin
-      .from("pa_gatilhos_anomalia")
-      .upsert(paraGravar, { onConflict: "revenda_id,indicador" });
-    if (error) erro(`Não foi possível salvar: ${error.message}`);
-  }
-
-  if (paraApagar.length > 0) {
-    const { error } = await admin
-      .from("pa_gatilhos_anomalia")
-      .delete()
-      .eq("revenda_id", revendaId)
-      .in("indicador", paraApagar);
-    if (error) erro(`Não foi possível limpar os desligados: ${error.message}`);
-  }
-
-  revalidatePath(ROTA);
-  const ligados = paraGravar.filter((g) => g.ativo).length;
-  redirect(
-    `${ROTA}?sucesso=${encodeURIComponent(
-      ligados === 0
-        ? "Salvo. Nenhum indicador está com gatilho ligado."
-        : `Salvo. ${ligados} indicador(es) com gatilho ligado.`,
-    )}`,
-  );
+    revalidatePath(ROTA);
+    const ligados = paraGravar.filter((g) => g.ativo).length;
+    pararComSucesso(
+      ligados === 0 ? "Salvo. Nenhum indicador está com gatilho ligado." : `Salvo. ${ligados} indicador(es) com gatilho ligado.`,
+    );
+  });
 }
 
 /**
@@ -130,57 +128,55 @@ export async function salvarGatilhos(formData: FormData) {
  * histórico de qual item existia quando é o que explica por que uma blitz
  * de março tem doze itens e a de hoje tem treze.
  */
-export async function salvarChecklistDaBlitz(formData: FormData) {
-  await requireModulo("relato-anomalia", "editar");
-  const revendaId = await exigirRevenda("/admin");
-  const admin = createAdminClient();
+export async function salvarChecklistDaBlitz(formData: FormData): Promise<ResultadoAcao> {
+  return noLugar(async () => {
+    await requireModulo("relato-anomalia", "editar");
+    const revendaId = await exigirRevenda("/admin");
+    const admin = createAdminClient();
 
-  const ids = formData.getAll("item_id").map(String);
+    const ids = formData.getAll("item_id").map(String);
 
-  for (const id of ids) {
-    const pergunta = String(formData.get(`pergunta__${id}`) ?? "").trim();
-    if (!pergunta) {
-      erro("Pergunta sem texto. Para tirar um item do checklist, desmarque o 'ativo'.");
+    for (const id of ids) {
+      const pergunta = String(formData.get(`pergunta__${id}`) ?? "").trim();
+      if (!pergunta) {
+        erro("Pergunta sem texto. Para tirar um item do checklist, desmarque o 'ativo'.");
+      }
+      const { error } = await admin
+        .from("pa_blitz_itens")
+        .update({
+          pergunta,
+          ajuda: String(formData.get(`ajuda__${id}`) ?? "").trim() || null,
+          grupo: String(formData.get(`grupo__${id}`) ?? "").trim() || null,
+          ordem: numeroOuNulo(formData.get(`ordem__${id}`)) ?? 0,
+          ativo: formData.get(`ativo__item__${id}`) === "on",
+        })
+        .eq("id", id)
+        .eq("revenda_id", revendaId);
+
+      if (error) {
+        if (error.code === "23505") erro(`Já existe uma pergunta com o texto "${pergunta}".`);
+        erro(`Não foi possível salvar: ${error.message}`);
+      }
     }
-    const { error } = await admin
-      .from("pa_blitz_itens")
-      .update({
-        pergunta,
-        ajuda: String(formData.get(`ajuda__${id}`) ?? "").trim() || null,
-        grupo: String(formData.get(`grupo__${id}`) ?? "").trim() || null,
-        ordem: numeroOuNulo(formData.get(`ordem__${id}`)) ?? 0,
-        ativo: formData.get(`ativo__item__${id}`) === "on",
-      })
-      .eq("id", id)
-      .eq("revenda_id", revendaId);
 
-    if (error) {
-      if (error.code === "23505") erro(`Já existe uma pergunta com o texto "${pergunta}".`);
-      erro(`Não foi possível salvar: ${error.message}`);
+    // A pergunta nova vai no MESMO envio: quem está revisando o checklist
+    // costuma corrigir dois textos e acrescentar um item na mesma sentada.
+    const nova = String(formData.get("nova_pergunta") ?? "").trim();
+    if (nova) {
+      const { error } = await admin.from("pa_blitz_itens").insert({
+        revenda_id: revendaId,
+        pergunta: nova,
+        ajuda: String(formData.get("nova_ajuda") ?? "").trim() || null,
+        grupo: String(formData.get("novo_grupo") ?? "").trim() || null,
+        ordem: numeroOuNulo(formData.get("nova_ordem")) ?? 99,
+      });
+      if (error) {
+        if (error.code === "23505") erro(`Já existe uma pergunta com o texto "${nova}".`);
+        erro(`Não foi possível cadastrar a pergunta nova: ${error.message}`);
+      }
     }
-  }
 
-  // A pergunta nova vai no MESMO envio: quem está revisando o checklist
-  // costuma corrigir dois textos e acrescentar um item na mesma sentada.
-  const nova = String(formData.get("nova_pergunta") ?? "").trim();
-  if (nova) {
-    const { error } = await admin.from("pa_blitz_itens").insert({
-      revenda_id: revendaId,
-      pergunta: nova,
-      ajuda: String(formData.get("nova_ajuda") ?? "").trim() || null,
-      grupo: String(formData.get("novo_grupo") ?? "").trim() || null,
-      ordem: numeroOuNulo(formData.get("nova_ordem")) ?? 99,
-    });
-    if (error) {
-      if (error.code === "23505") erro(`Já existe uma pergunta com o texto "${nova}".`);
-      erro(`Não foi possível cadastrar a pergunta nova: ${error.message}`);
-    }
-  }
-
-  revalidatePath(ROTA);
-  redirect(
-    `${ROTA}?sucesso=${encodeURIComponent(
-      nova ? "Checklist salvo, com a pergunta nova." : "Checklist da blitz salvo.",
-    )}`,
-  );
+    revalidatePath(ROTA);
+    pararComSucesso(nova ? "Checklist salvo, com a pergunta nova." : "Checklist da blitz salvo.");
+  });
 }

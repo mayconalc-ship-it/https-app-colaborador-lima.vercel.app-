@@ -7,6 +7,7 @@ import { BotaoExcluir } from "@/components/BotaoExcluir";
 import { AREAS, ehPdf } from "@/lib/areas";
 import { exigirRevenda } from "@/lib/revendas";
 import { salvarEscala, removerEscala } from "./actions";
+import { FormNoLugar } from "@/components/FormNoLugar";
 
 export default async function AdminEscalaPage({
   searchParams,
@@ -105,7 +106,7 @@ export default async function AdminEscalaPage({
               )}
 
               {podeEditar && (
-              <form action={salvarEscala} className="space-y-3">
+              <FormNoLugar acao={salvarEscala} className="space-y-3">
                 <input type="hidden" name="area" value={area.id} />
 
                 <div>
@@ -149,7 +150,7 @@ export default async function AdminEscalaPage({
                 >
                   Salvar escala de {area.curto}
                 </BotaoEnviar>
-              </form>
+              </FormNoLugar>
               )}
             </div>
           );

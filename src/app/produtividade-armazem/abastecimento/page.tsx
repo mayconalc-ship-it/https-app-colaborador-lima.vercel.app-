@@ -63,6 +63,7 @@ import {
   iniciarAbastecimento,
   removerItem,
 } from "./actions";
+import { FormNoLugar } from "@/components/FormNoLugar";
 
 export const dynamic = "force-dynamic";
 
@@ -837,8 +838,8 @@ export default async function AbastecimentoPage({
                 </div>
               </details>
 
-              <form
-                action={iniciarAbastecimento}
+              <FormNoLugar
+                acao={iniciarAbastecimento}
                 className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4"
               >
                 <input type="hidden" name="tipo" value={tipoEscolhido} />
@@ -870,7 +871,7 @@ export default async function AbastecimentoPage({
                 >
                   ▶️ Iniciar {TIPO_ABASTECIMENTO[tipoEscolhido].curto.toLowerCase()}
                 </BotaoEnviar>
-              </form>
+              </FormNoLugar>
               </div>
             </details>
           )}
@@ -1147,7 +1148,7 @@ function SessaoEmAndamento({
           faltou alguma coisa, abra uma nova solicitação — a empilhadeira busca.
         </p>
       ) : (
-      <form action={adicionarItem} className="space-y-3 rounded-xl bg-white p-3">
+      <FormNoLugar acao={adicionarItem} className="space-y-3 rounded-xl bg-white p-3" limparAoSalvar>
         <input type="hidden" name="abastecimento_id" value={sessao.id} />
         <p className="text-xs font-semibold uppercase text-slate-500">Acrescentar produto</p>
 
@@ -1190,7 +1191,7 @@ function SessaoEmAndamento({
         >
           + Adicionar item
         </BotaoEnviar>
-      </form>
+      </FormNoLugar>
       )}
 
       {/* --- Finalizar --- */}

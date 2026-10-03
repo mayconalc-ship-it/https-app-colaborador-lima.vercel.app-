@@ -4,7 +4,6 @@ import { useState } from "react";
 import { BotaoAgenda } from "@/components/BotaoAgenda";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
 import { ComunicadoForm } from "@/components/ComunicadoForm";
-import { useConfirmarEnvio } from "@/components/Confirmacao";
 import {
   editoria,
   ehFuturo,
@@ -12,6 +11,8 @@ import {
   formatarDataHora,
   type Editoria,
 } from "@/lib/comunicados";
+import type { ResultadoAcao } from "@/lib/resultado-acao";
+import { FormNoLugar } from "@/components/FormNoLugar";
 
 type Comunicado = {
   id: number;
@@ -44,8 +45,8 @@ export function ComunicadoItem({
   /** Quem só tem "ver" não recebe botão que o servidor vai recusar. */
   podeEditar?: boolean;
   podeExcluir?: boolean;
-  onSalvar: (formData: FormData) => void;
-  onExcluir: (formData: FormData) => void;
+  onSalvar: (formData: FormData) => Promise<ResultadoAcao | void>;
+  onExcluir: (formData: FormData) => Promise<ResultadoAcao | void>;
   cargosDisponiveis: string[];
   /**
    * TODAS as editorias da revenda, inclusive as desativadas -- é a etiqueta
@@ -57,7 +58,6 @@ export function ComunicadoItem({
   editoriasAtivas: Editoria[];
 }) {
   const [editando, setEditando] = useState(false);
-  const aoExcluir = useConfirmarEnvio();
   const ed = editoria(editorias, comunicado.categoria);
   const naFila = ehFuturo(comunicado.publicar_em);
 
@@ -145,12 +145,12 @@ export function ComunicadoItem({
         </button>
         )}
         {podeExcluir && (
-        <form
-          action={onExcluir}
-          onSubmit={aoExcluir({
+        <FormNoLugar
+          acao={onExcluir}
+          confirmacao={{
             titulo: `Excluir "${comunicado.titulo}"?`,
             detalhe: "O comunicado sai do mural para todo mundo.",
-          })}
+          }}
         >
           <input type="hidden" name="id" value={comunicado.id} />
           <BotaoEnviar
@@ -159,7 +159,7 @@ export function ComunicadoItem({
           >
             Excluir
           </BotaoEnviar>
-        </form>
+        </FormNoLugar>
         )}
       </div>
     </div>

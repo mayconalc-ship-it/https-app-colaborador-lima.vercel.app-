@@ -7,6 +7,7 @@ import {
 } from "@/lib/gas-p20";
 import type { ConfigDeGas, PedidoDeGas, PedidoDeGasConfirmado } from "@/lib/gas-p20-server";
 import { confirmarPedidoDeGas } from "@/app/produtividade-armazem/empilhadeira/actions";
+import { FormNoLugar } from "@/components/FormNoLugar";
 
 /**
  * O alerta de gás acabando.
@@ -81,7 +82,7 @@ export function AlertaGasP20({
         )}
       </div>
 
-      <form action={confirmarPedidoDeGas} className="mt-3 space-y-2">
+      <FormNoLugar acao={confirmarPedidoDeGas} className="mt-3 space-y-2">
         <input type="hidden" name="pedido_id" value={pedido.id} />
         <input type="hidden" name="voltar_para" value={voltarPara} />
         <input
@@ -97,7 +98,7 @@ export function AlertaGasP20({
         >
           ✅ Já solicitei o gás
         </BotaoEnviar>
-      </form>
+      </FormNoLugar>
     </section>
   );
 }

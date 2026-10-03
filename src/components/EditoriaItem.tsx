@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
-import { useConfirmarEnvio } from "@/components/Confirmacao";
 import { CORES_EDITORIA, type Editoria } from "@/lib/comunicados";
+import type { ResultadoAcao } from "@/lib/resultado-acao";
+import { FormNoLugar } from "@/components/FormNoLugar";
 
 /**
  * Os campos que descrevem uma editoria: emoji, nome e cor da etiqueta.
@@ -103,17 +104,16 @@ export function EditoriaItem({
   materias: number;
   primeira: boolean;
   ultima: boolean;
-  onSalvar: (formData: FormData) => void;
-  onMover: (formData: FormData) => void;
-  onAlternar: (formData: FormData) => void;
-  onExcluir: (formData: FormData) => void;
+  onSalvar: (formData: FormData) => Promise<ResultadoAcao | void>;
+  onMover: (formData: FormData) => Promise<ResultadoAcao | void>;
+  onAlternar: (formData: FormData) => Promise<ResultadoAcao | void>;
+  onExcluir: (formData: FormData) => Promise<ResultadoAcao | void>;
 }) {
   const [editando, setEditando] = useState(false);
-  const aoExcluir = useConfirmarEnvio();
 
   if (editando) {
     return (
-      <form action={onSalvar} className="bg-slate-50 p-4">
+      <FormNoLugar acao={onSalvar} aoSalvar={() => setEditando(false)} className="bg-slate-50 p-4">
         <input type="hidden" name="id" value={editoria.id} />
         <CamposDaEditoria
           rotuloInicial={editoria.rotulo}
@@ -135,14 +135,14 @@ export function EditoriaItem({
             Cancelar
           </button>
         </div>
-      </form>
+      </FormNoLugar>
     );
   }
 
   return (
     <div className={`flex items-center gap-3 p-3 ${editoria.ativa ? "" : "bg-slate-50"}`}>
       <div className="flex shrink-0 flex-col">
-        <form action={onMover}>
+        <FormNoLugar acao={onMover}>
           <input type="hidden" name="id" value={editoria.id} />
           <input type="hidden" name="direcao" value="cima" />
           <button
@@ -153,8 +153,8 @@ export function EditoriaItem({
           >
             ▲
           </button>
-        </form>
-        <form action={onMover}>
+        </FormNoLugar>
+        <FormNoLugar acao={onMover}>
           <input type="hidden" name="id" value={editoria.id} />
           <input type="hidden" name="direcao" value="baixo" />
           <button
@@ -165,7 +165,7 @@ export function EditoriaItem({
           >
             ▼
           </button>
-        </form>
+        </FormNoLugar>
       </div>
 
       <div className="min-w-0 flex-1">
@@ -193,7 +193,7 @@ export function EditoriaItem({
           Editar
         </button>
 
-        <form action={onAlternar}>
+        <FormNoLugar acao={onAlternar}>
           <input type="hidden" name="id" value={editoria.id} />
           <input type="hidden" name="ativa" value={String(editoria.ativa)} />
           <BotaoEnviar
@@ -202,20 +202,20 @@ export function EditoriaItem({
           >
             {editoria.ativa ? "Desligar" : "Ligar"}
           </BotaoEnviar>
-        </form>
+        </FormNoLugar>
 
         {/* "Geral" não tem botão de excluir: é para lá que vão as matérias
             de toda editoria excluída. Sem ela não haveria para onde ir. */}
         {editoria.id !== "geral" && (
-          <form
-            action={onExcluir}
-            onSubmit={aoExcluir({
+          <FormNoLugar
+            acao={onExcluir}
+            confirmacao={{
               titulo: `Excluir a editoria "${editoria.rotulo}"?`,
               detalhe:
                 materias === 0
                   ? "Nenhuma matéria usa esta editoria."
                   : `${materias} matéria${materias === 1 ? "" : "s"} vão para a editoria Geral.`,
-            })}
+            }}
           >
             <input type="hidden" name="id" value={editoria.id} />
             <BotaoEnviar
@@ -224,7 +224,7 @@ export function EditoriaItem({
             >
               Excluir
             </BotaoEnviar>
-          </form>
+          </FormNoLugar>
         )}
       </div>
     </div>

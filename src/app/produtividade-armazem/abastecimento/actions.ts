@@ -11,6 +11,7 @@ import { podeNoModulo } from "@/lib/require-admin";
 import { getRevendaId } from "@/lib/revendas";
 import { exigirContextoModulo } from "@/lib/produtividade-armazem-server";
 import { ehTurno } from "@/lib/produtividade-armazem";
+import { noLugar, pararComErro, pararComSucesso, type ResultadoAcao } from "@/lib/resultado-acao";
 import {
   TIPO_ABASTECIMENTO,
   calcularHl,
@@ -22,7 +23,7 @@ import {
 const ROTA = "/produtividade-armazem/abastecimento";
 
 function erro(mensagem: string): never {
-  redirect(`${ROTA}?erro=${encodeURIComponent(mensagem)}`);
+  pararComErro(mensagem);
 }
 
 // Mesma concessão do módulo que ele substitui: quem já abastecia picking
@@ -38,34 +39,36 @@ const exigirContexto = () => exigirContextoModulo("pa-picking", ROTA);
  * A trava contra duas sessões abertas ao mesmo tempo é o índice único
  * parcial (migration 071); aqui só traduzimos a violação em português.
  */
-export async function iniciarAbastecimento(formData: FormData) {
-  const { perfil, revendaId } = await exigirContexto();
+export async function iniciarAbastecimento(formData: FormData): Promise<ResultadoAcao> {
+  return noLugar(async () => {
+    const { perfil, revendaId } = await exigirContexto();
 
-  const tipo = formData.get("tipo");
-  const turno = formData.get("turno");
-  if (!ehTipoAbastecimento(tipo)) erro("Escolha o tipo de abastecimento.");
-  if (!ehTurno(turno)) erro("Escolha o turno.");
+    const tipo = formData.get("tipo");
+    const turno = formData.get("turno");
+    if (!ehTipoAbastecimento(tipo)) erro("Escolha o tipo de abastecimento.");
+    if (!ehTurno(turno)) erro("Escolha o turno.");
 
-  const supabase = await createClient();
-  const { error } = await supabase.from("pa_abastecimentos").insert({
-    revenda_id: revendaId,
-    colaborador_id: perfil.id,
-    colaborador_nome: perfil.nome,
-    tipo,
-    turno,
-    inicio: new Date().toISOString(),
-    status: "em_andamento",
-  });
+    const supabase = await createClient();
+    const { error } = await supabase.from("pa_abastecimentos").insert({
+      revenda_id: revendaId,
+      colaborador_id: perfil.id,
+      colaborador_nome: perfil.nome,
+      tipo,
+      turno,
+      inicio: new Date().toISOString(),
+      status: "em_andamento",
+    });
 
-  if (error) {
-    if (error.code === "23505") {
-      erro("Você já tem um abastecimento em andamento. Finalize antes de iniciar outro.");
+    if (error) {
+      if (error.code === "23505") {
+        erro("Você já tem um abastecimento em andamento. Finalize antes de iniciar outro.");
+      }
+      erro(`Não foi possível iniciar: ${error.message}`);
     }
-    erro(`Não foi possível iniciar: ${error.message}`);
-  }
 
-  revalidatePath(ROTA);
-  redirect(`${ROTA}?sucesso=${encodeURIComponent(`${TIPO_ABASTECIMENTO[tipo].rotulo} iniciado`)}`);
+    revalidatePath(ROTA);
+    pararComSucesso(`${TIPO_ABASTECIMENTO[tipo].rotulo} iniciado`);
+  });
 }
 
 /**
@@ -77,119 +80,123 @@ export async function iniciarAbastecimento(formData: FormData) {
  * Produto sem os fatores necessários é RECUSADO em vez de entrar valendo
  * zero: um item invisível no total é pior do que uma mensagem de erro.
  */
-export async function adicionarItem(formData: FormData) {
-  const { perfil, revendaId } = await exigirContexto();
+export async function adicionarItem(formData: FormData): Promise<ResultadoAcao> {
+  return noLugar(async () => {
+    const { perfil, revendaId } = await exigirContexto();
 
-  const abastecimentoId = String(formData.get("abastecimento_id") ?? "");
-  const produtoId = String(formData.get("produto_id") ?? "");
-  const unidade = formData.get("unidade");
+    const abastecimentoId = String(formData.get("abastecimento_id") ?? "");
+    const produtoId = String(formData.get("produto_id") ?? "");
+    const unidade = formData.get("unidade");
 
-  if (!abastecimentoId) erro("Sessão inválida.");
-  if (!produtoId) erro("Escolha o produto.");
-  if (!ehUnidadeAbastecimento(unidade)) erro("Escolha a unidade do item.");
+    if (!abastecimentoId) erro("Sessão inválida.");
+    if (!produtoId) erro("Escolha o produto.");
+    if (!ehUnidadeAbastecimento(unidade)) erro("Escolha a unidade do item.");
 
-  const quantidade = Number(String(formData.get("quantidade") ?? "").replace(",", "."));
-  if (!Number.isFinite(quantidade) || quantidade <= 0) erro("Informe uma quantidade maior que zero.");
-  if (quantidade > 100_000) erro("Quantidade fora do razoável -- confira o que digitou.");
+    const quantidade = Number(String(formData.get("quantidade") ?? "").replace(",", "."));
+    if (!Number.isFinite(quantidade) || quantidade <= 0) erro("Informe uma quantidade maior que zero.");
+    if (quantidade > 100_000) erro("Quantidade fora do razoável -- confira o que digitou.");
 
-  const supabase = await createClient();
+    const supabase = await createClient();
 
-  // A sessão precisa estar aberta E ser da própria pessoa: sem isso, um
-  // id copiado da URL deixaria lançar item na sessão de outro.
-  const { data: sessao } = await supabase
-    .from("pa_abastecimentos")
-    .select("id, ressuprimento_id")
-    .eq("id", abastecimentoId)
-    .eq("revenda_id", revendaId)
-    .eq("colaborador_id", perfil.id)
-    .is("fim", null)
-    .maybeSingle();
+    // A sessão precisa estar aberta E ser da própria pessoa: sem isso, um
+    // id copiado da URL deixaria lançar item na sessão de outro.
+    const { data: sessao } = await supabase
+      .from("pa_abastecimentos")
+      .select("id, ressuprimento_id")
+      .eq("id", abastecimentoId)
+      .eq("revenda_id", revendaId)
+      .eq("colaborador_id", perfil.id)
+      .is("fim", null)
+      .maybeSingle();
 
-  if (!sessao) erro("Este abastecimento já foi finalizado ou não é seu.");
+    if (!sessao) erro("Este abastecimento já foi finalizado ou não é seu.");
 
-  // Sessão que atende a uma solicitação é fechada: o que se abastece é o
-  // que foi pedido. A tela já não mostra o formulário, mas esconder botão
-  // não é regra -- a regra mora aqui, senão um envio direto continuaria
-  // passando.
-  //
-  // Sem isso, alguém aproveitaria a sessão aberta para lançar mais um
-  // item que ninguém pediu, e o tempo de ciclo passaria a medir dois
-  // trabalhos diferentes como se fossem um.
-  if (sessao.ressuprimento_id) {
-    erro(
-      "Este abastecimento atende a uma solicitação e a lista é a que foi pedida. Para outro produto, abra uma nova solicitação.",
-    );
-  }
+    // Sessão que atende a uma solicitação é fechada: o que se abastece é o
+    // que foi pedido. A tela já não mostra o formulário, mas esconder botão
+    // não é regra -- a regra mora aqui, senão um envio direto continuaria
+    // passando.
+    //
+    // Sem isso, alguém aproveitaria a sessão aberta para lançar mais um
+    // item que ninguém pediu, e o tempo de ciclo passaria a medir dois
+    // trabalhos diferentes como se fossem um.
+    if (sessao.ressuprimento_id) {
+      erro(
+        "Este abastecimento atende a uma solicitação e a lista é a que foi pedida. Para outro produto, abra uma nova solicitação.",
+      );
+    }
 
-  const { data: produto } = await supabase
-    .from("pa_produtos")
-    .select("id, descricao, fator_hecto, caixas_pallet, caixas_por_lastro, unidades_por_caixa")
-    .eq("id", produtoId)
-    .eq("revenda_id", revendaId)
-    .eq("ativo", true)
-    .maybeSingle();
+    const { data: produto } = await supabase
+      .from("pa_produtos")
+      .select("id, descricao, fator_hecto, caixas_pallet, caixas_por_lastro, unidades_por_caixa")
+      .eq("id", produtoId)
+      .eq("revenda_id", revendaId)
+      .eq("ativo", true)
+      .maybeSingle();
 
-  if (!produto) erro("Produto não encontrado.");
+    if (!produto) erro("Produto não encontrado.");
 
-  const fatores = {
-    fatorHecto: produto.fator_hecto,
-    caixasPallet: produto.caixas_pallet,
-    caixasPorLastro: produto.caixas_por_lastro,
-    unidadesPorCaixa: produto.unidades_por_caixa,
-  };
-  const hl = calcularHl(quantidade, unidade, fatores);
+    const fatores = {
+      fatorHecto: produto.fator_hecto,
+      caixasPallet: produto.caixas_pallet,
+      caixasPorLastro: produto.caixas_por_lastro,
+      unidadesPorCaixa: produto.unidades_por_caixa,
+    };
+    const hl = calcularHl(quantidade, unidade, fatores);
 
-  // A mensagem diz QUAL campo falta: com quatro unidades, "cadastro
-  // incompleto" mandaria a pessoa adivinhar entre quatro fatores.
-  if (hl === null) {
-    const falta = faltaNoCadastro(unidade, fatores);
-    erro(
-      `${produto.descricao} não tem "${falta}" no cadastro — lance em outra unidade ou peça ao Admin para completar em Configuração.`,
-    );
-  }
+    // A mensagem diz QUAL campo falta: com quatro unidades, "cadastro
+    // incompleto" mandaria a pessoa adivinhar entre quatro fatores.
+    if (hl === null) {
+      const falta = faltaNoCadastro(unidade, fatores);
+      erro(
+        `${produto.descricao} não tem "${falta}" no cadastro — lance em outra unidade ou peça ao Admin para completar em Configuração.`,
+      );
+    }
 
-  const { error } = await supabase.from("pa_abastecimento_itens").insert({
-    revenda_id: revendaId,
-    abastecimento_id: abastecimentoId,
-    produto_id: produto.id,
-    unidade,
-    quantidade,
-    hl_calculado: hl,
+    const { error } = await supabase.from("pa_abastecimento_itens").insert({
+      revenda_id: revendaId,
+      abastecimento_id: abastecimentoId,
+      produto_id: produto.id,
+      unidade,
+      quantidade,
+      hl_calculado: hl,
+    });
+
+    if (error) erro(`Não foi possível adicionar o item: ${error.message}`);
+
+    revalidatePath(ROTA);
+    pararComSucesso(`${produto.descricao} — ${hl} HL`);
   });
-
-  if (error) erro(`Não foi possível adicionar o item: ${error.message}`);
-
-  revalidatePath(ROTA);
-  redirect(`${ROTA}?sucesso=${encodeURIComponent(`${produto.descricao} — ${hl} HL`)}`);
 }
 
 /** Tira um item lançado errado, enquanto a sessão ainda está aberta. */
-export async function removerItem(formData: FormData) {
-  const { perfil, revendaId } = await exigirContexto();
-  const id = String(formData.get("id") ?? "");
-  if (!id) erro("Item inválido.");
+export async function removerItem(formData: FormData): Promise<ResultadoAcao> {
+  return noLugar(async () => {
+    const { perfil, revendaId } = await exigirContexto();
+    const id = String(formData.get("id") ?? "");
+    if (!id) erro("Item inválido.");
 
-  const supabase = await createClient();
+    const supabase = await createClient();
 
-  // O RLS já barra item de sessão alheia, mas a checagem de sessão ABERTA
-  // é regra de negócio, não de acesso: item de sessão fechada vira
-  // estatística, e apagar isso é exclusão de lançamento, não correção.
-  const { data: item } = await supabase
-    .from("pa_abastecimento_itens")
-    .select("id, abastecimento_id, pa_abastecimentos!inner(colaborador_id, fim)")
-    .eq("id", id)
-    .eq("revenda_id", revendaId)
-    .maybeSingle();
+    // O RLS já barra item de sessão alheia, mas a checagem de sessão ABERTA
+    // é regra de negócio, não de acesso: item de sessão fechada vira
+    // estatística, e apagar isso é exclusão de lançamento, não correção.
+    const { data: item } = await supabase
+      .from("pa_abastecimento_itens")
+      .select("id, abastecimento_id, pa_abastecimentos!inner(colaborador_id, fim)")
+      .eq("id", id)
+      .eq("revenda_id", revendaId)
+      .maybeSingle();
 
-  const sessao = item?.pa_abastecimentos as unknown as { colaborador_id: string; fim: string | null } | undefined;
-  if (!item || !sessao || sessao.colaborador_id !== perfil.id || sessao.fim !== null) {
-    erro("Só dá para remover item de um abastecimento seu que ainda está aberto.");
-  }
+    const sessao = item?.pa_abastecimentos as unknown as { colaborador_id: string; fim: string | null } | undefined;
+    if (!item || !sessao || sessao.colaborador_id !== perfil.id || sessao.fim !== null) {
+      erro("Só dá para remover item de um abastecimento seu que ainda está aberto.");
+    }
 
-  await supabase.from("pa_abastecimento_itens").delete().eq("id", id);
+    await supabase.from("pa_abastecimento_itens").delete().eq("id", id);
 
-  revalidatePath(ROTA);
-  redirect(`${ROTA}?sucesso=Item+removido`);
+    revalidatePath(ROTA);
+    pararComSucesso("Item removido");
+  });
 }
 
 /**
@@ -198,51 +205,53 @@ export async function removerItem(formData: FormData) {
  * porque um total gravado que discorde dos itens é pior do que total
  * nenhum. Ver resumirAbastecimento em lib/abastecimento.ts.
  */
-export async function finalizarAbastecimento(formData: FormData) {
-  const { perfil, revendaId } = await exigirContexto();
+export async function finalizarAbastecimento(formData: FormData): Promise<ResultadoAcao> {
+  return noLugar(async () => {
+    const { perfil, revendaId } = await exigirContexto();
 
-  const id = String(formData.get("id") ?? "");
-  if (!id) erro("Sessão inválida.");
+    const id = String(formData.get("id") ?? "");
+    if (!id) erro("Sessão inválida.");
 
-  const observacao = String(formData.get("observacao") ?? "").trim().slice(0, 300) || null;
+    const observacao = String(formData.get("observacao") ?? "").trim().slice(0, 300) || null;
 
-  const supabase = await createClient();
+    const supabase = await createClient();
 
-  // Sem item, a sessão não mede nada: o tempo existiria sem HL nenhum e
-  // entraria no indicador como produtividade zero.
-  const { count } = await supabase
-    .from("pa_abastecimento_itens")
-    .select("*", { count: "exact", head: true })
-    .eq("abastecimento_id", id);
+    // Sem item, a sessão não mede nada: o tempo existiria sem HL nenhum e
+    // entraria no indicador como produtividade zero.
+    const { count } = await supabase
+      .from("pa_abastecimento_itens")
+      .select("*", { count: "exact", head: true })
+      .eq("abastecimento_id", id);
 
-  if (!count) erro("Informe pelo menos um produto antes de finalizar.");
+    if (!count) erro("Informe pelo menos um produto antes de finalizar.");
 
-  // Menos de 1 minuto entre Iniciar e Finalizar só passa confirmado -- a
-  // tela pergunta, aqui é a trava. Ver lib/duracao-lancamento.ts.
-  const { data: aberta } = await supabase
-    .from("pa_abastecimentos")
-    .select("inicio")
-    .eq("id", id)
-    .eq("revenda_id", revendaId)
-    .eq("colaborador_id", perfil.id)
-    .is("fim", null)
-    .maybeSingle();
-  if (!aberta) erro("Este abastecimento já foi finalizado ou não é seu.");
-  const curto = duracaoCurtaSemConfirmar(aberta.inicio, formData);
-  if (curto !== null) erro(mensagemDuracaoCurta(curto));
+    // Menos de 1 minuto entre Iniciar e Finalizar só passa confirmado -- a
+    // tela pergunta, aqui é a trava. Ver lib/duracao-lancamento.ts.
+    const { data: aberta } = await supabase
+      .from("pa_abastecimentos")
+      .select("inicio")
+      .eq("id", id)
+      .eq("revenda_id", revendaId)
+      .eq("colaborador_id", perfil.id)
+      .is("fim", null)
+      .maybeSingle();
+    if (!aberta) erro("Este abastecimento já foi finalizado ou não é seu.");
+    const curto = duracaoCurtaSemConfirmar(aberta.inicio, formData);
+    if (curto !== null) erro(mensagemDuracaoCurta(curto));
 
-  const { error } = await supabase
-    .from("pa_abastecimentos")
-    .update({ fim: new Date().toISOString(), status: "concluido", observacao })
-    .eq("id", id)
-    .eq("revenda_id", revendaId)
-    .eq("colaborador_id", perfil.id)
-    .is("fim", null);
+    const { error } = await supabase
+      .from("pa_abastecimentos")
+      .update({ fim: new Date().toISOString(), status: "concluido", observacao })
+      .eq("id", id)
+      .eq("revenda_id", revendaId)
+      .eq("colaborador_id", perfil.id)
+      .is("fim", null);
 
-  if (error) erro(`Não foi possível finalizar: ${error.message}`);
+    if (error) erro(`Não foi possível finalizar: ${error.message}`);
 
-  revalidatePath(ROTA);
-  redirect(`${ROTA}?sucesso=Abastecimento+finalizado`);
+    revalidatePath(ROTA);
+    pararComSucesso("Abastecimento finalizado");
+  });
 }
 
 /**
@@ -266,72 +275,74 @@ export async function finalizarAbastecimento(formData: FormData) {
  * trabalho de verdade se FINALIZA, pela própria pessoa; esta ação é para
  * a que travou.
  */
-export async function destravarSessao(formData: FormData) {
-  await exigirContexto();
-  const podeExcluir = await podeNoModulo("produtividade-armazem", "excluir");
-  if (!podeExcluir) {
-    erro("Só a liderança pode destravar o abastecimento de outra pessoa.");
-  }
+export async function destravarSessao(formData: FormData): Promise<ResultadoAcao> {
+  return noLugar(async () => {
+    await exigirContexto();
+    const podeExcluir = await podeNoModulo("produtividade-armazem", "excluir");
+    if (!podeExcluir) {
+      erro("Só a liderança pode destravar o abastecimento de outra pessoa.");
+    }
 
-  const revendaId = await getRevendaId();
-  if (!revendaId) erro("Você não está em nenhuma revenda.");
+    const revendaId = await getRevendaId();
+    if (!revendaId) erro("Você não está em nenhuma revenda.");
 
-  const id = String(formData.get("id") ?? "");
-  if (!id) erro("Sessão inválida.");
+    const id = String(formData.get("id") ?? "");
+    if (!id) erro("Sessão inválida.");
 
-  const admin = createAdminClient();
+    const admin = createAdminClient();
 
-  const { data: sessao } = await admin
-    .from("pa_abastecimentos")
-    .select("id, colaborador_nome, ressuprimento_id")
-    .eq("id", id)
-    .eq("revenda_id", revendaId)
-    .is("fim", null)
-    .maybeSingle();
+    const { data: sessao } = await admin
+      .from("pa_abastecimentos")
+      .select("id, colaborador_nome, ressuprimento_id")
+      .eq("id", id)
+      .eq("revenda_id", revendaId)
+      .is("fim", null)
+      .maybeSingle();
 
-  if (!sessao) erro("Esta sessão já foi finalizada, ou não existe mais.");
+    if (!sessao) erro("Esta sessão já foi finalizada, ou não existe mais.");
 
-  const { error } = await admin
-    .from("pa_abastecimentos")
-    .delete()
-    .eq("id", id)
-    .eq("revenda_id", revendaId)
-    .is("fim", null);
+    const { error } = await admin
+      .from("pa_abastecimentos")
+      .delete()
+      .eq("id", id)
+      .eq("revenda_id", revendaId)
+      .is("fim", null);
 
-  if (error) erro(`Não foi possível destravar: ${error.message}`);
+    if (error) erro(`Não foi possível destravar: ${error.message}`);
 
-  // O PEDIDO NÃO É APAGADO, e isso é diferente do excluir do Histórico.
-  // Ali o dono pediu que a atividade sumisse inteira; aqui o objetivo é
-  // outro -- liberar a pessoa. O pedido volta a aparecer na fila, no
-  // estado em que estava, para outra pessoa abastecer.
-  revalidatePath(ROTA);
-  redirect(
-    `${ROTA}?sucesso=${encodeURIComponent(
+    // O PEDIDO NÃO É APAGADO, e isso é diferente do excluir do Histórico.
+    // Ali o dono pediu que a atividade sumisse inteira; aqui o objetivo é
+    // outro -- liberar a pessoa. O pedido volta a aparecer na fila, no
+    // estado em que estava, para outra pessoa abastecer.
+    revalidatePath(ROTA);
+    pararComSucesso(
       sessao.ressuprimento_id
         ? `Abastecimento de ${sessao.colaborador_nome} destravado. O pedido voltou para a fila.`
         : `Abastecimento de ${sessao.colaborador_nome} destravado.`,
-    )}`,
-  );
+    );
+  });
 }
 
 /** Desiste de uma sessão aberta por engano -- some sem virar estatística.
  *  Os itens vão junto pelo cascade da FK. */
-export async function cancelarAbastecimento(formData: FormData) {
-  const { perfil, revendaId } = await exigirContexto();
-  const id = String(formData.get("id") ?? "");
-  if (!id) erro("Sessão inválida.");
+export async function cancelarAbastecimento(formData: FormData): Promise<ResultadoAcao> {
+  return noLugar(async () => {
+    const { perfil, revendaId } = await exigirContexto();
+    const id = String(formData.get("id") ?? "");
+    if (!id) erro("Sessão inválida.");
 
-  const supabase = await createClient();
-  await supabase
-    .from("pa_abastecimentos")
-    .delete()
-    .eq("id", id)
-    .eq("revenda_id", revendaId)
-    .eq("colaborador_id", perfil.id)
-    .is("fim", null);
+    const supabase = await createClient();
+    await supabase
+      .from("pa_abastecimentos")
+      .delete()
+      .eq("id", id)
+      .eq("revenda_id", revendaId)
+      .eq("colaborador_id", perfil.id)
+      .is("fim", null);
 
-  revalidatePath(ROTA);
-  redirect(`${ROTA}?sucesso=Abastecimento+cancelado`);
+    revalidatePath(ROTA);
+    pararComSucesso("Abastecimento cancelado");
+  });
 }
 
 /**
@@ -350,59 +361,58 @@ export async function cancelarAbastecimento(formData: FormData) {
  * Os dois são as duas metades da mesma coisa: o pedido existe para virar
  * abastecimento. A confirmação da tela diz isso antes.
  */
-export async function excluirAbastecimento(formData: FormData) {
-  const perfil = await getPerfil();
-  if (!perfil) redirect("/login");
+export async function excluirAbastecimento(formData: FormData): Promise<ResultadoAcao> {
+  return noLugar(async () => {
+    const perfil = await getPerfil();
+    if (!perfil) redirect("/login");
 
-  const id = String(formData.get("id") ?? "");
-  if (!id) erro("Sessão inválida.");
+    const id = String(formData.get("id") ?? "");
+    if (!id) erro("Sessão inválida.");
 
-  const revendaId = await getRevendaId();
-  if (!revendaId) erro("Você não está em nenhuma revenda.");
+    const revendaId = await getRevendaId();
+    if (!revendaId) erro("Você não está em nenhuma revenda.");
 
-  const admin = createAdminClient();
+    const admin = createAdminClient();
 
-  // Lido ANTES de apagar: depois não há mais de onde tirar o vínculo.
-  const { data: sessao } = await admin
-    .from("pa_abastecimentos")
-    .select("ressuprimento_id")
-    .eq("id", id)
-    .eq("revenda_id", revendaId)
-    .maybeSingle();
-
-  const gestor = await podeNoModulo("produtividade-armazem", "excluir");
-  if (gestor) {
-    await admin.from("pa_abastecimentos").delete().eq("id", id).eq("revenda_id", revendaId);
-  } else {
-    const supabase = await createClient();
-    const { error } = await supabase
+    // Lido ANTES de apagar: depois não há mais de onde tirar o vínculo.
+    const { data: sessao } = await admin
       .from("pa_abastecimentos")
-      .delete()
+      .select("ressuprimento_id")
       .eq("id", id)
       .eq("revenda_id", revendaId)
-      .eq("colaborador_id", perfil.id);
-    if (error) erro("Você só pode excluir os próprios abastecimentos.");
-  }
+      .maybeSingle();
 
-  // O pedido de origem sai junto. Só depois da sessão: se a ordem fosse a
-  // inversa e a segunda escrita falhasse, sobraria a sessão apontando
-  // para um pedido que já não existe.
-  if (sessao?.ressuprimento_id) {
-    await admin
-      .from("pa_ressuprimentos")
-      .delete()
-      .eq("id", sessao.ressuprimento_id)
-      .eq("revenda_id", revendaId);
-  }
+    const gestor = await podeNoModulo("produtividade-armazem", "excluir");
+    if (gestor) {
+      await admin.from("pa_abastecimentos").delete().eq("id", id).eq("revenda_id", revendaId);
+    } else {
+      const supabase = await createClient();
+      const { error } = await supabase
+        .from("pa_abastecimentos")
+        .delete()
+        .eq("id", id)
+        .eq("revenda_id", revendaId)
+        .eq("colaborador_id", perfil.id);
+      if (error) erro("Você só pode excluir os próprios abastecimentos.");
+    }
 
-  revalidatePath(ROTA);
-  redirect(
-    `${ROTA}?aba=historico&sucesso=${encodeURIComponent(
-      sessao?.ressuprimento_id
-        ? "Abastecimento e o pedido dele excluídos"
-        : "Abastecimento excluído",
-    )}`,
-  );
+    // O pedido de origem sai junto. Só depois da sessão: se a ordem fosse a
+    // inversa e a segunda escrita falhasse, sobraria a sessão apontando
+    // para um pedido que já não existe.
+    if (sessao?.ressuprimento_id) {
+      await admin
+        .from("pa_ressuprimentos")
+        .delete()
+        .eq("id", sessao.ressuprimento_id)
+        .eq("revenda_id", revendaId);
+    }
+
+    revalidatePath(ROTA);
+    // Excluir acontece na aba Histórico: a tela fica nela.
+    pararComSucesso(
+      sessao?.ressuprimento_id ? "Abastecimento e o pedido dele excluídos" : "Abastecimento excluído",
+    );
+  });
 }
 
 /**

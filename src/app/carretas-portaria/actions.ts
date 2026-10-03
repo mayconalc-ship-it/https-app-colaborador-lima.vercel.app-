@@ -1,6 +1,5 @@
 "use server";
 
-import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -10,11 +9,12 @@ import { getRevendaId } from "@/lib/revendas";
 import { getPerfil } from "@/lib/sessao";
 import { datetimeLocalParaUTC } from "@/lib/comunicados";
 import { decidirBlitzDaChegada } from "@/lib/blitz-server";
+import { noLugar, pararComErro, pararComSucesso, type ResultadoAcao } from "@/lib/resultado-acao";
 
 const ROTA = "/carretas-portaria";
 
 function erro(mensagem: string): never {
-  redirect(`${ROTA}?erro=${encodeURIComponent(mensagem)}`);
+  pararComErro(mensagem);
 }
 
 /**
@@ -83,128 +83,128 @@ function notasDoFormulario(formData: FormData, tipo: "produto" | "remessa") {
     .filter((n) => n.numero && n.serie);
 }
 
-export async function registrarAtendimento(formData: FormData) {
-  const { perfil, revendaId } = await exigirContextoCarretas("carretas-portaria", ROTA);
+export async function registrarAtendimento(formData: FormData): Promise<ResultadoAcao> {
+  return noLugar(async () => {
+    const { perfil, revendaId } = await exigirContextoCarretas("carretas-portaria", ROTA);
 
-  const fabricaId = String(formData.get("fabrica_id") ?? "");
-  const transportadoraId = String(formData.get("transportadora_id") ?? "");
-  const numeroDt = String(formData.get("numero_dt") ?? "").trim();
-  const motoristaId = String(formData.get("motorista_id") ?? "").trim();
-  const placaCavalo = String(formData.get("placa_cavalo") ?? "").trim().toUpperCase();
-  const placaCarreta = String(formData.get("placa_carreta") ?? "").trim().toUpperCase();
-  const cargaAgendada = formData.get("carga_agendada") === "on";
-  const agendamentoLocal = String(formData.get("agendamento_em") ?? "");
+    const fabricaId = String(formData.get("fabrica_id") ?? "");
+    const transportadoraId = String(formData.get("transportadora_id") ?? "");
+    const numeroDt = String(formData.get("numero_dt") ?? "").trim();
+    const motoristaId = String(formData.get("motorista_id") ?? "").trim();
+    const placaCavalo = String(formData.get("placa_cavalo") ?? "").trim().toUpperCase();
+    const placaCarreta = String(formData.get("placa_carreta") ?? "").trim().toUpperCase();
+    const cargaAgendada = formData.get("carga_agendada") === "on";
+    const agendamentoLocal = String(formData.get("agendamento_em") ?? "");
 
-  if (!fabricaId) erro("Escolha o fornecedor/fábrica.");
-  if (!transportadoraId) erro("Escolha o transportador.");
-  if (!numeroDt) erro("Informe o número da DT.");
-  if (!motoristaId) {
-    erro("Escolha o motorista da lista. Se ele não estiver lá, cadastre pelo + no campo.");
-  }
-  if (!placaCavalo) erro("Informe a placa do cavalo.");
+    if (!fabricaId) erro("Escolha o fornecedor/fábrica.");
+    if (!transportadoraId) erro("Escolha o transportador.");
+    if (!numeroDt) erro("Informe o número da DT.");
+    if (!motoristaId) {
+      erro("Escolha o motorista da lista. Se ele não estiver lá, cadastre pelo + no campo.");
+    }
+    if (!placaCavalo) erro("Informe a placa do cavalo.");
 
-  /*
-    O MOTORISTA TEM QUE ESTAR NO CADASTRO (10/09/2026, pedido do dono).
+    /*
+      O MOTORISTA TEM QUE ESTAR NO CADASTRO (10/09/2026, pedido do dono).
 
-    Conferido AQUI, no servidor, e não só na tela: a trava do formulário é
-    cortesia, e um envio que chegue sem ela -- aba antiga aberta desde
-    antes da mudança, formulário montado à mão -- não pode gravar nome
-    solto de novo.
+      Conferido AQUI, no servidor, e não só na tela: a trava do formulário é
+      cortesia, e um envio que chegue sem ela -- aba antiga aberta desde
+      antes da mudança, formulário montado à mão -- não pode gravar nome
+      solto de novo.
 
-    Três condições, e cada uma fecha um buraco: o id existe, é DESTA
-    revenda (o motorista de Barreiras não entra numa chegada de São
-    Félix), e está ATIVO (desativar no Modo Liderança tem de tirar a
-    pessoa da portaria de verdade, não só da lista).
+      Três condições, e cada uma fecha um buraco: o id existe, é DESTA
+      revenda (o motorista de Barreiras não entra numa chegada de São
+      Félix), e está ATIVO (desativar no Modo Liderança tem de tirar a
+      pessoa da portaria de verdade, não só da lista).
 
-    O nome gravado é o do CADASTRO, não o que veio do formulário: é o que
-    garante que "Ivan santana" e "IVAN SANTANA" não virem duas pessoas no
-    histórico.
-  */
-  const { data: motorista } = await createAdminClient()
-    .from("pa_motoristas")
-    .select("id, nome")
-    .eq("id", motoristaId)
-    .eq("revenda_id", revendaId)
-    .eq("ativo", true)
-    .maybeSingle();
-  if (!motorista) {
-    erro("Este motorista não está no cadastro (ou foi desativado). Escolha da lista ou cadastre pelo +.");
-  }
-  const motoristaNome = motorista.nome as string;
-  if (!placaCarreta) erro("Informe a placa da carreta.");
+      O nome gravado é o do CADASTRO, não o que veio do formulário: é o que
+      garante que "Ivan santana" e "IVAN SANTANA" não virem duas pessoas no
+      histórico.
+    */
+    const { data: motorista } = await createAdminClient()
+      .from("pa_motoristas")
+      .select("id, nome")
+      .eq("id", motoristaId)
+      .eq("revenda_id", revendaId)
+      .eq("ativo", true)
+      .maybeSingle();
+    if (!motorista) {
+      erro("Este motorista não está no cadastro (ou foi desativado). Escolha da lista ou cadastre pelo +.");
+    }
+    const motoristaNome = motorista.nome as string;
+    if (!placaCarreta) erro("Informe a placa da carreta.");
 
-  // datetime-local não carrega fuso -- new Date(string) sozinho seria
-  // interpretado no fuso do SERVIDOR (UTC na Vercel), não no de quem
-  // digitou, gravando 3h a menos do horário informado. datetimeLocalParaUTC
-  // (lib/comunicados.ts) já resolve isso certo (Brasil fixo em UTC-3).
-  let agendamentoEm: string | null = null;
-  if (cargaAgendada) {
-    if (!agendamentoLocal) erro("Informe a data/hora do agendamento.");
-    const iso = datetimeLocalParaUTC(agendamentoLocal);
-    if (!iso) erro("Data/hora do agendamento inválida.");
-    agendamentoEm = iso;
-  }
+    // datetime-local não carrega fuso -- new Date(string) sozinho seria
+    // interpretado no fuso do SERVIDOR (UTC na Vercel), não no de quem
+    // digitou, gravando 3h a menos do horário informado. datetimeLocalParaUTC
+    // (lib/comunicados.ts) já resolve isso certo (Brasil fixo em UTC-3).
+    let agendamentoEm: string | null = null;
+    if (cargaAgendada) {
+      if (!agendamentoLocal) erro("Informe a data/hora do agendamento.");
+      const iso = datetimeLocalParaUTC(agendamentoLocal);
+      if (!iso) erro("Data/hora do agendamento inválida.");
+      agendamentoEm = iso;
+    }
 
-  const notasProduto = notasDoFormulario(formData, "produto");
-  const notasRemessa = notasDoFormulario(formData, "remessa");
-  if (notasProduto.length === 0) erro("Informe ao menos uma NF produto.");
-  if (notasRemessa.length === 0) erro("Informe ao menos uma NF remessa.");
-  if (notasProduto.some((n) => !/^\d+$/.test(n.numero))) {
-    erro("NF produto aceita só números -- confira o número digitado.");
-  }
-  if (notasRemessa.some((n) => !/^\d+$/.test(n.numero))) {
-    erro("NF remessa aceita só números -- confira o número digitado.");
-  }
+    const notasProduto = notasDoFormulario(formData, "produto");
+    const notasRemessa = notasDoFormulario(formData, "remessa");
+    if (notasProduto.length === 0) erro("Informe ao menos uma NF produto.");
+    if (notasRemessa.length === 0) erro("Informe ao menos uma NF remessa.");
+    if (notasProduto.some((n) => !/^\d+$/.test(n.numero))) {
+      erro("NF produto aceita só números -- confira o número digitado.");
+    }
+    if (notasRemessa.some((n) => !/^\d+$/.test(n.numero))) {
+      erro("NF remessa aceita só números -- confira o número digitado.");
+    }
 
-  const supabase = await createClient();
-  const { data: atendimento, error } = await supabase
-    .from("atendimentos_carretas")
-    .insert({
-      revenda_id: revendaId,
-      fabrica_id: fabricaId,
-      transportadora_id: transportadoraId,
-      numero_dt: numeroDt,
-      motorista_id: motorista.id,
-      motorista_nome: motoristaNome,
-      agendamento_em: agendamentoEm,
-      carga_agendada: cargaAgendada,
-      placa_cavalo: placaCavalo,
-      placa_carreta: placaCarreta,
-      portaria_colaborador_id: perfil.id,
-      portaria_nome: perfil.nome,
-    })
-    .select("id")
-    .single();
+    const supabase = await createClient();
+    const { data: atendimento, error } = await supabase
+      .from("atendimentos_carretas")
+      .insert({
+        revenda_id: revendaId,
+        fabrica_id: fabricaId,
+        transportadora_id: transportadoraId,
+        numero_dt: numeroDt,
+        motorista_id: motorista.id,
+        motorista_nome: motoristaNome,
+        agendamento_em: agendamentoEm,
+        carga_agendada: cargaAgendada,
+        placa_cavalo: placaCavalo,
+        placa_carreta: placaCarreta,
+        portaria_colaborador_id: perfil.id,
+        portaria_nome: perfil.nome,
+      })
+      .select("id")
+      .single();
 
-  if (error || !atendimento) {
-    erro(`Não foi possível registrar a chegada: ${error?.message ?? "resposta vazia do banco"}`);
-  }
+    if (error || !atendimento) {
+      erro(`Não foi possível registrar a chegada: ${error?.message ?? "resposta vazia do banco"}`);
+    }
 
-  const { error: erroNotas } = await supabase.from("atendimento_carretas_notas").insert(
-    [...notasProduto, ...notasRemessa].map((n) => ({
-      revenda_id: revendaId,
-      atendimento_id: atendimento.id,
-      tipo: n.tipo,
-      numero: n.numero,
-      serie: n.serie,
-    })),
-  );
-  if (erroNotas) erro(`Chegada registrada, mas as notas fiscais falharam: ${erroNotas.message}`);
+    const { error: erroNotas } = await supabase.from("atendimento_carretas_notas").insert(
+      [...notasProduto, ...notasRemessa].map((n) => ({
+        revenda_id: revendaId,
+        atendimento_id: atendimento.id,
+        tipo: n.tipo,
+        numero: n.numero,
+        serie: n.serie,
+      })),
+    );
+    if (erroNotas) erro(`Chegada registrada, mas as notas fiscais falharam: ${erroNotas.message}`);
 
-  const blitz = await marcarBlitz(atendimento.id, revendaId, {
-    placaCarreta,
-    motorista: motoristaNome,
-    transportadoraId,
-  });
+    const blitz = await marcarBlitz(atendimento.id, revendaId, {
+      placaCarreta,
+      motorista: motoristaNome,
+      transportadoraId,
+    });
 
-  revalidatePath(ROTA);
-  redirect(
-    `${ROTA}?sucesso=${encodeURIComponent(
+    revalidatePath(ROTA);
+    pararComSucesso(
       blitz
         ? `Chegada registrada. 🚨 BLITZ: ${blitz} O conferente recebe o checklist na tela da carreta.`
-        : "Chegada registrada. A carreta entrou no monitor",
-    )}`,
-  );
+        : "Chegada registrada. A carreta entrou no monitor.",
+    );
+  });
 }
 
 /**

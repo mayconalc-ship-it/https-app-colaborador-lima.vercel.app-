@@ -20,6 +20,7 @@ import {
   alternarVisibilidadePilar,
   excluirPilar,
 } from "./actions";
+import { FormNoLugar } from "@/components/FormNoLugar";
 
 export default async function AdminPadroesPage({
   searchParams,
@@ -142,7 +143,7 @@ export default async function AdminPadroesPage({
               <span className="group-open:hidden">Criar novo pilar</span>
               <span className="hidden group-open:inline">Fechar</span>
             </summary>
-            <form action={criarPilar} className="space-y-3 border-t border-slate-100 p-4">
+            <FormNoLugar acao={criarPilar} className="space-y-3 border-t border-slate-100 p-4" limparAoSalvar>
               <div>
                 <label
                   htmlFor="novo-pilar"
@@ -164,7 +165,7 @@ export default async function AdminPadroesPage({
               >
                 Criar
               </BotaoEnviar>
-            </form>
+            </FormNoLugar>
           </details>
           )}
 

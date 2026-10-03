@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
-import { useConfirmarEnvio } from "@/components/Confirmacao";
 import { iconePorTipo } from "@/lib/padroes-pilares";
+import type { ResultadoAcao } from "@/lib/resultado-acao";
+import { FormNoLugar } from "@/components/FormNoLugar";
 
 type Padrao = {
   id: number;
@@ -26,19 +27,18 @@ export function PadraoItem({
   padrao: Padrao;
   pastas: string[];
   pilares: string[];
-  onAtualizar: (formData: FormData) => void;
-  onExcluir: (formData: FormData) => void;
+  onAtualizar: (formData: FormData) => Promise<ResultadoAcao | void>;
+  onExcluir: (formData: FormData) => Promise<ResultadoAcao | void>;
   /** Quem só tem "ver" não recebe botão que o servidor vai recusar. */
   podeEditar?: boolean;
   podeExcluir?: boolean;
 }) {
   const [editando, setEditando] = useState(false);
-  const aoExcluir = useConfirmarEnvio();
 
   if (editando) {
     return (
-      <form
-        action={onAtualizar}
+      <FormNoLugar
+        acao={onAtualizar} aoSalvar={() => setEditando(false)}
         className="space-y-3 bg-slate-50 p-4"
       >
         <input type="hidden" name="id" value={padrao.id} />
@@ -107,7 +107,7 @@ export function PadraoItem({
             Cancelar
           </button>
         </div>
-      </form>
+      </FormNoLugar>
     );
   }
 
@@ -132,12 +132,12 @@ export function PadraoItem({
       </button>
       )}
       {podeExcluir && (
-      <form
-        action={onExcluir}
-        onSubmit={aoExcluir({
+      <FormNoLugar
+        acao={onExcluir}
+        confirmacao={{
           titulo: `Excluir "${padrao.nome}"?`,
           detalhe: "Essa ação não pode ser desfeita.",
-        })}
+        }}
       >
         <input type="hidden" name="id" value={padrao.id} />
         <input type="hidden" name="pilar" value={padrao.pilar} />
@@ -147,7 +147,7 @@ export function PadraoItem({
         >
           Excluir
         </BotaoEnviar>
-      </form>
+      </FormNoLugar>
       )}
     </div>
   );

@@ -2,9 +2,10 @@
 
 import { useState } from "react";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
-import { useConfirmarEnvio } from "@/components/Confirmacao";
 import { CampoCategoria } from "@/components/CampoCategoria";
 import { TIMES, type TimeRanking } from "@/lib/ranking-categorias";
+import type { ResultadoAcao } from "@/lib/resultado-acao";
+import { FormNoLugar } from "@/components/FormNoLugar";
 
 type Registro = {
   id: number;
@@ -34,19 +35,18 @@ export function RankingItem({
 }: {
   registro: Registro;
   sugestoes: Record<TimeRanking, string[]>;
-  onAtualizar: (formData: FormData) => void;
-  onExcluir: (formData: FormData) => void;
+  onAtualizar: (formData: FormData) => Promise<ResultadoAcao | void>;
+  onExcluir: (formData: FormData) => Promise<ResultadoAcao | void>;
   /** Quem só tem "ver" não recebe botão que o servidor vai recusar. */
   podeEditar?: boolean;
   podeExcluir?: boolean;
 }) {
   const [editando, setEditando] = useState(false);
-  const aoExcluir = useConfirmarEnvio();
   const [time, setTime] = useState<TimeRanking>(registro.time as TimeRanking);
 
   if (editando) {
     return (
-      <form action={onAtualizar} className="space-y-3 bg-slate-50 p-4">
+      <FormNoLugar acao={onAtualizar} aoSalvar={() => setEditando(false)} className="space-y-3 bg-slate-50 p-4">
         <input type="hidden" name="id" value={registro.id} />
 
         <div>
@@ -116,7 +116,7 @@ export function RankingItem({
           Para trocar a foto, envie novamente pelo formulário acima com o mesmo
           mês, time e categoria.
         </p>
-      </form>
+      </FormNoLugar>
     );
   }
 
@@ -144,12 +144,12 @@ export function RankingItem({
       </button>
       )}
       {podeExcluir && (
-      <form
-        action={onExcluir}
-        onSubmit={aoExcluir({
+      <FormNoLugar
+        acao={onExcluir}
+        confirmacao={{
           titulo: `Excluir a foto de "${registro.categoria}"?`,
           detalhe: formatarMes(registro.mes_ano),
-        })}
+        }}
       >
         <input type="hidden" name="id" value={registro.id} />
         <BotaoEnviar
@@ -158,7 +158,7 @@ export function RankingItem({
         >
           Excluir
         </BotaoEnviar>
-      </form>
+      </FormNoLugar>
       )}
     </div>
   );

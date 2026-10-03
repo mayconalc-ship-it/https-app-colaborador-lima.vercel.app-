@@ -10,6 +10,7 @@ import {
   type LinhaConciliacao,
 } from "@/lib/ativo-giro";
 import { salvarJustificativas } from "./actions";
+import { FormNoLugar } from "@/components/FormNoLugar";
 
 /**
  * A TABELA DA CONCILIAÇÃO, com a justificativa de cada linha.
@@ -155,7 +156,7 @@ export function TabelaConciliacao({
   return (
     <>
       {podeJustificar ? (
-        <form action={salvarJustificativas} className="space-y-2">
+        <FormNoLugar acao={salvarJustificativas} className="space-y-2">
           <input type="hidden" name="data" value={data} />
           <input type="hidden" name="colab" value={colab} />
           {tabela}
@@ -173,7 +174,7 @@ export function TabelaConciliacao({
                 : "Justificativas salvas"}
             </BotaoEnviar>
           </div>
-        </form>
+        </FormNoLugar>
       ) : (
         <>
           {tabela}

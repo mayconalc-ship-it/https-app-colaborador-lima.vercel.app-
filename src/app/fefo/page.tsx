@@ -20,6 +20,7 @@ import {
 } from "@/lib/fefo";
 import { FormQuebraFefo } from "./FormQuebraFefo";
 import { tratarQuebraFefo } from "./actions";
+import { FormNoLugar } from "@/components/FormNoLugar";
 
 export const dynamic = "force-dynamic";
 
@@ -360,7 +361,7 @@ function CartaoOcorrencia({
       )}
 
       {podeTratar && aberta && (
-        <form action={tratarQuebraFefo} className="mt-3 space-y-2 rounded-xl bg-white p-3">
+        <FormNoLugar acao={tratarQuebraFefo} className="mt-3 space-y-2 rounded-xl bg-white p-3">
           <input type="hidden" name="id" value={o.id} />
 
           {/* Quem informou nem sempre sabe a menor data do estoque. O
@@ -396,7 +397,7 @@ function CartaoOcorrencia({
           >
             Registrar ação e encerrar
           </BotaoEnviar>
-        </form>
+        </FormNoLugar>
       )}
     </li>
   );

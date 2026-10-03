@@ -12,6 +12,7 @@ import { BotaoEnviar } from "@/components/BotaoEnviar";
 import { ExportarCsv } from "@/components/ExportarCsv";
 import { CincoPorquesTab } from "./CincoPorquesTab";
 import { salvarTratativaFeedback } from "./actions";
+import { FormNoLugar } from "@/components/FormNoLugar";
 
 const PERIODOS = [
   { dias: 7, label: "7 dias" },
@@ -310,7 +311,7 @@ export default async function AdminFeedbacksPage({
                           </p>
                         )}
 
-                        <form action={salvarTratativaFeedback} className="mt-3 space-y-2">
+                        <FormNoLugar acao={salvarTratativaFeedback} className="mt-3 space-y-2">
                           <input type="hidden" name="feedback_id" value={f.id} />
                           <textarea
                             name="resposta_lideranca"
@@ -332,7 +333,7 @@ export default async function AdminFeedbacksPage({
                               Salvar
                             </BotaoEnviar>
                           </div>
-                        </form>
+                        </FormNoLugar>
                       </>
                     )}
                   </div>

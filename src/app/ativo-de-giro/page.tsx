@@ -53,6 +53,7 @@ import {
 import { ehOwner } from "@/lib/acessos";
 import { ExportarContagens } from "./ExportarContagens";
 import { TabelaConciliacao } from "./TabelaConciliacao";
+import { FormNoLugar } from "@/components/FormNoLugar";
 
 export const dynamic = "force-dynamic";
 
@@ -889,7 +890,7 @@ export default async function AtivoDeGiroPage({
                   só -- e o dia fica pela metade se ela desistir no meio,
                   com a conciliação mostrando um número que não é nem o
                   antigo nem o novo. */}
-              <form action={salvarTransito} className="mt-3">
+              <FormNoLugar acao={salvarTransito} className="mt-3">
                 <input type="hidden" name="data" value={dia} />
 
                 <div className="mb-1 flex items-center gap-2 text-[10px] font-bold uppercase tracking-wide text-slate-500">
@@ -940,7 +941,7 @@ export default async function AtivoDeGiroPage({
                 >
                   Salvar o trânsito de {formatarData(dia)}
                 </BotaoEnviar>
-              </form>
+              </FormNoLugar>
             </section>
           )}
 
@@ -966,7 +967,7 @@ export default async function AtivoDeGiroPage({
                 </p>
               )}
 
-              <form action={salvarComodato} className="mt-3">
+              <FormNoLugar acao={salvarComodato} className="mt-3">
                 <div className="space-y-2">
                   {TIPOS.flatMap((tipo) =>
                     FORMATOS.map((formato) => (
@@ -998,7 +999,7 @@ export default async function AtivoDeGiroPage({
                 >
                   Salvar o comodato
                 </BotaoEnviar>
-              </form>
+              </FormNoLugar>
             </section>
           )}
 
@@ -1017,10 +1018,9 @@ export default async function AtivoDeGiroPage({
                 O aviso vai só para quem contou neste dia, nesta revenda --
                 ninguém mais é incomodado.
               </p>
-              <form
-                action={solicitarRecontagem}
-                className="grid grid-cols-1 gap-3 sm:grid-cols-[10rem_1fr_auto] sm:items-end"
-              >
+              <FormNoLugar
+                acao={solicitarRecontagem}
+                className="grid grid-cols-1 gap-3 sm:grid-cols-[10rem_1fr_auto] sm:items-end" limparAoSalvar>
                 <div>
                   <label className={rotulo} htmlFor="rec-dia">
                     Dia
@@ -1055,7 +1055,7 @@ export default async function AtivoDeGiroPage({
                 >
                   Solicitar
                 </BotaoEnviar>
-              </form>
+              </FormNoLugar>
 
               {pendentesRecontagem.length > 0 && (
                 <div className="mt-4 border-t border-slate-100 pt-4">

@@ -29,6 +29,7 @@ import {
 } from "@/lib/produtividade-armazem";
 import { cancelarReepack, editarReepack, excluirReepack, finalizarReepack, iniciarReepack } from "./actions";
 import { FormFinalizarCronometro } from "@/components/FormFinalizarCronometro";
+import { FormNoLugar } from "@/components/FormNoLugar";
 
 export const dynamic = "force-dynamic";
 
@@ -315,8 +316,8 @@ export default async function ReepackPage({
 
               <CartaoGatilho etapa={etapaEscolhida} />
 
-              <form
-                action={iniciarReepack}
+              <FormNoLugar
+                acao={iniciarReepack}
                 className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4"
               >
                 <input type="hidden" name="etapa" value={etapaEscolhida} />
@@ -354,7 +355,7 @@ export default async function ReepackPage({
                 >
                   ▶️ Iniciar {ETAPA_REEPACK[etapaEscolhida].curto.toLowerCase()}
                 </BotaoEnviar>
-              </form>
+              </FormNoLugar>
             </>
           )}
 
@@ -563,17 +564,16 @@ function EditarProdutoReepack({
       <summary className="cursor-pointer list-none rounded-lg border border-slate-200 px-2 py-1 text-xs font-semibold text-slate-600 marker:content-none hover:bg-slate-50 [&::-webkit-details-marker]:hidden">
         ✏️ Editar produto
       </summary>
-      <form
-        action={editarReepack}
-        className="mt-2 space-y-1.5 rounded-lg bg-slate-50 p-2"
-      >
+      <FormNoLugar
+        acao={editarReepack}
+        className="mt-2 space-y-1.5 rounded-lg bg-slate-50 p-2" fecharAoSalvar>
         <input type="hidden" name="id" value={id} />
         <p className="text-[11px] text-slate-500">Produto atual: {produtoAtual}</p>
         <ComboboxProdutoReepack clusters={clusters} tipos={tipos} />
         <BotaoEnviar compacto className="w-full rounded-lg bg-primary px-2 py-1 text-xs font-semibold text-white">
           Salvar
         </BotaoEnviar>
-      </form>
+      </FormNoLugar>
     </details>
   );
 }

@@ -6,6 +6,7 @@ import { getRevendaId } from "@/lib/revendas";
 import { requireAcessoModulo } from "@/lib/require-admin";
 import { formatarDataHora } from "@/lib/produtividade-armazem";
 import { iniciarExecucao5s } from "./actions";
+import { FormNoLugar } from "@/components/FormNoLugar";
 
 export const dynamic = "force-dynamic";
 
@@ -67,14 +68,14 @@ export default async function CincoSPage({
           </span>
         </a>
       ) : (
-        <form action={iniciarExecucao5s}>
+        <FormNoLugar acao={iniciarExecucao5s}>
           <BotaoEnviar
             textoEnviando="Iniciando..."
             className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-white hover:bg-primary-dark"
           >
             🧹 Iniciar execução do 5S
           </BotaoEnviar>
-        </form>
+        </FormNoLugar>
       )}
 
       <div className="mt-8">

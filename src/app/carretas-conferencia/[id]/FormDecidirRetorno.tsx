@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
-import { useConfirmarEnvio } from "@/components/Confirmacao";
+import { FormNoLugar } from "@/components/FormNoLugar";
 import { BotaoAdicionarLinha } from "@/components/BotaoMais";
 import { SelectComCadastroRapido, type OpcaoSelect } from "@/components/SelectComCadastroRapido";
 import type { CampoRapido } from "@/components/CadastroRapido";
@@ -45,7 +45,6 @@ export function FormDecidirRetorno({
   fabricas: Fabrica[];
   podeEditarCatalogo?: boolean;
 }) {
-  const confirmarEnvio = useConfirmarEnvio();
   const [retorno, setRetorno] = useState<"vazia" | "com_ag">("vazia");
   const [itensAg, setItensAg] = useState<string[]>([novaChave()]);
   // AG cadastrado pelo "+" numa linha precisa aparecer em TODAS as linhas,
@@ -57,22 +56,22 @@ export function FormDecidirRetorno({
   ];
 
   return (
-    <form
-      action={decidirRetorno}
+    <FormNoLugar
+      acao={decidirRetorno}
       // Só "vazia" pede confirmação: ela encerra o ciclo quando a descarga
       // terminar, e não há tela para desfazer. "Com AG" abre a fase de
       // carga, que ainda passa pelo empilhador antes de fechar -- pedir
       // confirmação nas duas viraria clique automático, e aí nenhuma das
       // duas seria lida.
-      onSubmit={
+      confirmacao={
         retorno === "vazia"
-          ? confirmarEnvio({
+          ? {
               titulo: "Confirmar que a carreta volta VAZIA?",
               detalhe:
                 "Ela será finalizada assim que a descarga terminar, e não há como desfazer por aqui.",
               confirmar: "Sim, volta vazia",
               perigo: false,
-            })
+            }
           : undefined
       }
       className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
@@ -224,6 +223,6 @@ export function FormDecidirRetorno({
       >
         {retorno === "com_ag" ? "🔄 Confirmar: volta com AG" : "↩️ Confirmar: volta vazia"}
       </BotaoEnviar>
-    </form>
+    </FormNoLugar>
   );
 }

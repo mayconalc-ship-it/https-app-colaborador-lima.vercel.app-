@@ -1,6 +1,5 @@
 "use server";
 
-import { redirect } from "next/navigation";
 import { after } from "next/server";
 import { varrerGatilhosDeAnomalia } from "@/lib/anomalia-varredura";
 import { revalidatePath } from "next/cache";
@@ -9,6 +8,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { exigirContextoCarretas } from "@/lib/carretas-server";
 import { podeNoModulo, temAcessoModulo } from "@/lib/require-admin";
 import { getRevendaId } from "@/lib/revendas";
+import { noLugar, pararComErro, pararComSucesso, type ResultadoAcao } from "@/lib/resultado-acao";
 import {
   MAX_ITENS_CONFERENCIA,
   ehUnidadeItem,
@@ -22,7 +22,7 @@ function rota(id: string) {
 }
 
 function erro(id: string, mensagem: string): never {
-  redirect(`${rota(id)}?erro=${encodeURIComponent(mensagem)}`);
+  pararComErro(mensagem);
 }
 
 
@@ -139,55 +139,59 @@ async function aplicarFimDaDescarga(
 }
 
 /** O empilhador clica ao começar a tirar as caixas do caminhão. */
-export async function iniciarDescarga(formData: FormData) {
-  const { revendaId } = await exigirContextoCarretas("carretas-descarga", "/carretas-conferencia");
-  const atendimentoId = String(formData.get("atendimento_id") ?? "");
-  if (!atendimentoId) erro(atendimentoId, "Atendimento inválido.");
+export async function iniciarDescarga(formData: FormData): Promise<ResultadoAcao> {
+  return noLugar(async () => {
+    const { revendaId } = await exigirContextoCarretas("carretas-descarga", "/carretas-conferencia");
+    const atendimentoId = String(formData.get("atendimento_id") ?? "");
+    if (!atendimentoId) erro(atendimentoId, "Atendimento inválido.");
 
-  const supabase = await createClient();
-  const { data: atualizado, error } = await supabase
-    .from("atendimentos_carretas")
-    .update({ inicio_descarga_em: new Date().toISOString(), status: "em_andamento" })
-    .eq("id", atendimentoId)
-    .eq("revenda_id", revendaId)
-    .is("inicio_descarga_em", null)
-    .in("status", ["aguardando_conferente", "em_andamento"])
-    .select("id");
+    const supabase = await createClient();
+    const { data: atualizado, error } = await supabase
+      .from("atendimentos_carretas")
+      .update({ inicio_descarga_em: new Date().toISOString(), status: "em_andamento" })
+      .eq("id", atendimentoId)
+      .eq("revenda_id", revendaId)
+      .is("inicio_descarga_em", null)
+      .in("status", ["aguardando_conferente", "em_andamento"])
+      .select("id");
 
-  if (error) erro(atendimentoId, `Não foi possível iniciar a descarga: ${error.message}`);
-  if (!atualizado || atualizado.length === 0) erro(atendimentoId, "A descarga já foi iniciada por outra pessoa.");
+    if (error) erro(atendimentoId, `Não foi possível iniciar a descarga: ${error.message}`);
+    if (!atualizado || atualizado.length === 0) erro(atendimentoId, "A descarga já foi iniciada por outra pessoa.");
 
-  revalidatePath(rota(atendimentoId));
-  revalidatePath("/carretas-conferencia");
-  redirect(`${rota(atendimentoId)}?sucesso=Descarga+iniciada`);
+    revalidatePath(rota(atendimentoId));
+    revalidatePath("/carretas-conferencia");
+    pararComSucesso("Descarga iniciada");
+  });
 }
 
 /** O empilhador clica ao terminar de tirar tudo do caminhão. */
-export async function finalizarDescarga(formData: FormData) {
-  const { revendaId } = await exigirContextoCarretas("carretas-descarga", "/carretas-conferencia");
-  const atendimentoId = String(formData.get("atendimento_id") ?? "");
-  if (!atendimentoId) erro(atendimentoId, "Atendimento inválido.");
+export async function finalizarDescarga(formData: FormData): Promise<ResultadoAcao> {
+  return noLugar(async () => {
+    const { revendaId } = await exigirContextoCarretas("carretas-descarga", "/carretas-conferencia");
+    const atendimentoId = String(formData.get("atendimento_id") ?? "");
+    if (!atendimentoId) erro(atendimentoId, "Atendimento inválido.");
 
-  const agora = new Date().toISOString();
-  const supabase = await createClient();
-  const { data: atualizado, error } = await supabase
-    .from("atendimentos_carretas")
-    .update({ fim_descarga_em: agora })
-    .eq("id", atendimentoId)
-    .eq("revenda_id", revendaId)
-    .not("inicio_descarga_em", "is", null)
-    .is("fim_descarga_em", null)
-    .select("id");
+    const agora = new Date().toISOString();
+    const supabase = await createClient();
+    const { data: atualizado, error } = await supabase
+      .from("atendimentos_carretas")
+      .update({ fim_descarga_em: agora })
+      .eq("id", atendimentoId)
+      .eq("revenda_id", revendaId)
+      .not("inicio_descarga_em", "is", null)
+      .is("fim_descarga_em", null)
+      .select("id");
 
-  if (error) erro(atendimentoId, `Não foi possível finalizar a descarga: ${error.message}`);
-  if (!atualizado || atualizado.length === 0) erro(atendimentoId, "A descarga já foi finalizada ou ainda não foi iniciada.");
+    if (error) erro(atendimentoId, `Não foi possível finalizar a descarga: ${error.message}`);
+    if (!atualizado || atualizado.length === 0) erro(atendimentoId, "A descarga já foi finalizada ou ainda não foi iniciada.");
 
-  await aplicarFimDaDescarga(supabase, atendimentoId, agora);
+    await aplicarFimDaDescarga(supabase, atendimentoId, agora);
 
-  revalidatePath(rota(atendimentoId));
-  revalidatePath("/carretas-conferencia");
-  vigiarAnomaliasDepois(revendaId);
-  redirect(`${rota(atendimentoId)}?sucesso=Descarga+finalizada`);
+    revalidatePath(rota(atendimentoId));
+    revalidatePath("/carretas-conferencia");
+    vigiarAnomaliasDepois(revendaId);
+    pararComSucesso("Descarga finalizada");
+  });
 }
 
 /**
@@ -205,39 +209,41 @@ export async function finalizarDescarga(formData: FormData) {
  * finalizada com a conferência por fazer, e sem jeito de lançar o tempo.
  * Por isso não há mais trava por status aqui.
  */
-export async function iniciarConferencia(formData: FormData) {
-  const { perfil, revendaId } = await exigirContextoCarretas("carretas-conferencia", "/carretas-conferencia");
-  const atendimentoId = String(formData.get("atendimento_id") ?? "");
-  if (!atendimentoId) erro(atendimentoId, "Atendimento inválido.");
+export async function iniciarConferencia(formData: FormData): Promise<ResultadoAcao> {
+  return noLugar(async () => {
+    const { perfil, revendaId } = await exigirContextoCarretas("carretas-conferencia", "/carretas-conferencia");
+    const atendimentoId = String(formData.get("atendimento_id") ?? "");
+    if (!atendimentoId) erro(atendimentoId, "Atendimento inválido.");
 
-  const supabase = await createClient();
-  const { data: atualizado, error } = await supabase
-    .from("atendimentos_carretas")
-    .update({
-      inicio_conferencia_em: new Date().toISOString(),
-      conferente_colaborador_id: perfil.id,
-      conferente_nome: perfil.nome,
-    })
-    .eq("id", atendimentoId)
-    .eq("revenda_id", revendaId)
-    .is("inicio_conferencia_em", null)
-    .select("id");
+    const supabase = await createClient();
+    const { data: atualizado, error } = await supabase
+      .from("atendimentos_carretas")
+      .update({
+        inicio_conferencia_em: new Date().toISOString(),
+        conferente_colaborador_id: perfil.id,
+        conferente_nome: perfil.nome,
+      })
+      .eq("id", atendimentoId)
+      .eq("revenda_id", revendaId)
+      .is("inicio_conferencia_em", null)
+      .select("id");
 
-  if (error) erro(atendimentoId, `Não foi possível iniciar a conferência: ${error.message}`);
-  if (!atualizado || atualizado.length === 0) erro(atendimentoId, "A conferência já foi iniciada por outra pessoa.");
+    if (error) erro(atendimentoId, `Não foi possível iniciar a conferência: ${error.message}`);
+    if (!atualizado || atualizado.length === 0) erro(atendimentoId, "A conferência já foi iniciada por outra pessoa.");
 
-  // Sai de "aguardando_conferente" só se ainda estiver lá. Um atendimento
-  // já finalizado NÃO volta para "em_andamento" -- a carreta saiu, e
-  // reabrir o ciclo estragaria o TMA que já foi apurado.
-  await supabase
-    .from("atendimentos_carretas")
-    .update({ status: "em_andamento" })
-    .eq("id", atendimentoId)
-    .eq("status", "aguardando_conferente");
+    // Sai de "aguardando_conferente" só se ainda estiver lá. Um atendimento
+    // já finalizado NÃO volta para "em_andamento" -- a carreta saiu, e
+    // reabrir o ciclo estragaria o TMA que já foi apurado.
+    await supabase
+      .from("atendimentos_carretas")
+      .update({ status: "em_andamento" })
+      .eq("id", atendimentoId)
+      .eq("status", "aguardando_conferente");
 
-  revalidatePath(rota(atendimentoId));
-  revalidatePath("/carretas-conferencia");
-  redirect(`${rota(atendimentoId)}?sucesso=Conferência+iniciada`);
+    revalidatePath(rota(atendimentoId));
+    revalidatePath("/carretas-conferencia");
+    pararComSucesso("Conferência iniciada");
+  });
 }
 
 /**
@@ -246,150 +252,152 @@ export async function iniciarConferencia(formData: FormData) {
  * 063 -- antes só existia "quantidade"), pra dar o % de avaria do
  * atendimento na tela de finalizado.
  */
-export async function finalizarConferencia(formData: FormData) {
-  const { perfil, revendaId } = await exigirContextoCarretas("carretas-conferencia", "/carretas-conferencia");
-  const atendimentoId = String(formData.get("atendimento_id") ?? "");
-  if (!atendimentoId) erro(atendimentoId, "Atendimento inválido.");
+export async function finalizarConferencia(formData: FormData): Promise<ResultadoAcao> {
+  return noLugar(async () => {
+    const { perfil, revendaId } = await exigirContextoCarretas("carretas-conferencia", "/carretas-conferencia");
+    const atendimentoId = String(formData.get("atendimento_id") ?? "");
+    if (!atendimentoId) erro(atendimentoId, "Atendimento inválido.");
 
-  const produtoIds = formData.getAll("produto_id").map(String);
-  const quantidades = formData.getAll("quantidade").map(String);
-  const quantidadesAvariadas = formData.getAll("quantidade_avariada").map(String);
-  const unidades = formData.getAll("unidade").map(String);
-  const lotes = formData.getAll("lote").map(String);
-  const validades = formData.getAll("validade").map(String);
-  const empilhadores = formData.getAll("empilhador").map(String);
+    const produtoIds = formData.getAll("produto_id").map(String);
+    const quantidades = formData.getAll("quantidade").map(String);
+    const quantidadesAvariadas = formData.getAll("quantidade_avariada").map(String);
+    const unidades = formData.getAll("unidade").map(String);
+    const lotes = formData.getAll("lote").map(String);
+    const validades = formData.getAll("validade").map(String);
+    const empilhadores = formData.getAll("empilhador").map(String);
 
-  if (produtoIds.length === 0) {
-    erro(atendimentoId, "Adicione ao menos um item.");
-  }
-  // A mensagem diz QUAL item está sem produto. Antes era "adicione ao
-  // menos um item com o produto escolhido" para qualquer caso -- e numa
-  // conferência de onze itens isso mandava a pessoa procurar sozinha
-  // qual deles ela esqueceu de escolher da lista. Agora o navegador
-  // barra antes de chegar aqui (ver ComboboxProduto), mas a ação pode
-  // ser chamada sem passar pela tela.
-  const semProduto = produtoIds.findIndex((id) => !id);
-  if (semProduto >= 0) {
-    erro(
-      atendimentoId,
-      `O item ${semProduto + 1} está sem produto — é preciso TOCAR no produto na lista, não só digitar.`,
-    );
-  }
-  if (produtoIds.length > MAX_ITENS_CONFERENCIA) {
-    erro(
-      atendimentoId,
-      `Máximo de ${MAX_ITENS_CONFERENCIA} itens por conferência. Finalize esta e abra outra para o restante.`,
-    );
-  }
-
-  const itens = produtoIds.map((produtoId, i) => {
-    let quantidade: number;
-    let quantidadeAvariada: number;
-    try {
-      quantidade = quantidadePositiva(quantidades[i]);
-      quantidadeAvariada = quantidadeNaoNegativa(quantidadesAvariadas[i] || "0");
-    } catch (e) {
-      erro(atendimentoId, e instanceof Error ? e.message : "Quantidade inválida em um dos itens.");
+    if (produtoIds.length === 0) {
+      erro(atendimentoId, "Adicione ao menos um item.");
     }
-    if (quantidadeAvariada > quantidade) {
-      erro(atendimentoId, "A quantidade avariada não pode ser maior que a recebida.");
+    // A mensagem diz QUAL item está sem produto. Antes era "adicione ao
+    // menos um item com o produto escolhido" para qualquer caso -- e numa
+    // conferência de onze itens isso mandava a pessoa procurar sozinha
+    // qual deles ela esqueceu de escolher da lista. Agora o navegador
+    // barra antes de chegar aqui (ver ComboboxProduto), mas a ação pode
+    // ser chamada sem passar pela tela.
+    const semProduto = produtoIds.findIndex((id) => !id);
+    if (semProduto >= 0) {
+      erro(
+        atendimentoId,
+        `O item ${semProduto + 1} está sem produto — é preciso TOCAR no produto na lista, não só digitar.`,
+      );
     }
-    const unidade = unidades[i];
-    if (!ehUnidadeItem(unidade)) erro(atendimentoId, "Escolha a unidade (palete/caixa) de cada item.");
-    // O LOTE continua opcional (03/09/2026): a operação não o usa.
-    //
-    // Vazio vira null, e não string vazia: "não informado" e "informado
-    // como nada" são coisas diferentes na hora de ler o histórico.
-    const lote = (lotes[i] ?? "").trim() || null;
-    const validade = (validades[i] ?? "").trim() || null;
-    const empilhador = (empilhadores[i] ?? "").trim();
-    if (!empilhador) erro(atendimentoId, "Informe o empilhador de cada item.");
-    return { produtoId, quantidade, quantidadeAvariada, unidade, lote, validade, empilhador };
+    if (produtoIds.length > MAX_ITENS_CONFERENCIA) {
+      erro(
+        atendimentoId,
+        `Máximo de ${MAX_ITENS_CONFERENCIA} itens por conferência. Finalize esta e abra outra para o restante.`,
+      );
+    }
+
+    const itens = produtoIds.map((produtoId, i) => {
+      let quantidade: number;
+      let quantidadeAvariada: number;
+      try {
+        quantidade = quantidadePositiva(quantidades[i]);
+        quantidadeAvariada = quantidadeNaoNegativa(quantidadesAvariadas[i] || "0");
+      } catch (e) {
+        erro(atendimentoId, e instanceof Error ? e.message : "Quantidade inválida em um dos itens.");
+      }
+      if (quantidadeAvariada > quantidade) {
+        erro(atendimentoId, "A quantidade avariada não pode ser maior que a recebida.");
+      }
+      const unidade = unidades[i];
+      if (!ehUnidadeItem(unidade)) erro(atendimentoId, "Escolha a unidade (palete/caixa) de cada item.");
+      // O LOTE continua opcional (03/09/2026): a operação não o usa.
+      //
+      // Vazio vira null, e não string vazia: "não informado" e "informado
+      // como nada" são coisas diferentes na hora de ler o histórico.
+      const lote = (lotes[i] ?? "").trim() || null;
+      const validade = (validades[i] ?? "").trim() || null;
+      const empilhador = (empilhadores[i] ?? "").trim();
+      if (!empilhador) erro(atendimentoId, "Informe o empilhador de cada item.");
+      return { produtoId, quantidade, quantidadeAvariada, unidade, lote, validade, empilhador };
+    });
+
+    const supabase = await createClient();
+
+    /*
+      A VALIDADE É OBRIGATÓRIA, MENOS NO MKT PLACE -- e a regra é conferida
+      AQUI, não só no navegador (pedido do dono, 05/09/2026).
+
+      A tela já exige o campo, mas ela decide pelo cluster que veio junto
+      da busca; esta ação pode ser chamada sem passar por tela nenhuma, e é
+      ela que grava. Uma regra que só existe no `required` do HTML não é
+      regra -- é sugestão.
+
+      Uma consulta só para os produtos desta conferência: o cluster não
+      vem no formulário de propósito. Se viesse, bastaria alterá-lo no
+      navegador para tornar a data opcional em qualquer item.
+    */
+    const { data: clustersDosItens, error: erroClusters } = await supabase
+      .from("pa_produtos")
+      .select("id, codigo, descricao, cluster_produto")
+      .eq("revenda_id", revendaId)
+      .in("id", itens.map((i) => i.produtoId));
+    if (erroClusters) {
+      erro(atendimentoId, `Não foi possível conferir os produtos: ${erroClusters.message}`);
+    }
+    const clusterPorId = new Map(
+      (clustersDosItens ?? []).map((p) => [p.id, p] as const),
+    );
+
+    const semData = itens.findIndex(
+      (i) => !i.validade && !produtoSemValidade(clusterPorId.get(i.produtoId)?.cluster_produto),
+    );
+    if (semData >= 0) {
+      const p = clusterPorId.get(itens[semData].produtoId);
+      erro(
+        atendimentoId,
+        `O item ${semData + 1} (${p ? `${p.codigo} — ${p.descricao}` : "produto"}) está sem validade. ` +
+          `Só produto de MKT Place pode ficar sem data.`,
+      );
+    }
+
+    const { error: erroItens } = await supabase.from("atendimento_carretas_itens").insert(
+      itens.map((i) => ({
+        revenda_id: revendaId,
+        atendimento_id: atendimentoId,
+        produto_id: i.produtoId,
+        quantidade: i.quantidade,
+        quantidade_avariada: i.quantidadeAvariada,
+        unidade: i.unidade,
+        lote: i.lote,
+        validade: i.validade,
+        empilhador: i.empilhador,
+      })),
+    );
+    if (erroItens) erro(atendimentoId, `Não foi possível salvar os itens: ${erroItens.message}`);
+
+    const { data: atualizado, error } = await supabase
+      .from("atendimentos_carretas")
+      .update({
+        fim_conferencia_em: new Date().toISOString(),
+        // O conferente do registro é QUEM LANÇOU a contagem, não quem
+        // abriu a tela. Antes o nome era carimbado no "Conferir carga" e
+        // nunca mais mexido: um toque por engano roubava o crédito de quem
+        // fez o trabalho. Aconteceu de verdade -- a DT 740912 saiu no nome
+        // de quem só abriu, e quem contou não aparecia em lugar nenhum.
+        conferente_colaborador_id: perfil.id,
+        conferente_nome: perfil.nome,
+      })
+      .eq("id", atendimentoId)
+      .eq("revenda_id", revendaId)
+      .not("inicio_conferencia_em", "is", null)
+      .is("fim_conferencia_em", null)
+      .select("id");
+
+    if (error) erro(atendimentoId, `Itens salvos, mas não foi possível finalizar a conferência: ${error.message}`);
+    if (!atualizado || atualizado.length === 0) erro(atendimentoId, "A conferência já foi finalizada ou ainda não foi iniciada.");
+
+    // A conferência não mexe mais no destino da carreta -- quem manda nisso
+    // é a descarga. Terminar a contagem depois que o caminhão já saiu é o
+    // caso NORMAL agora, e não pode reabrir um atendimento finalizado.
+
+    revalidatePath(rota(atendimentoId));
+    revalidatePath("/carretas-conferencia");
+    vigiarAnomaliasDepois(revendaId);
+    pararComSucesso("Conferência finalizada");
   });
-
-  const supabase = await createClient();
-
-  /*
-    A VALIDADE É OBRIGATÓRIA, MENOS NO MKT PLACE -- e a regra é conferida
-    AQUI, não só no navegador (pedido do dono, 05/09/2026).
-
-    A tela já exige o campo, mas ela decide pelo cluster que veio junto
-    da busca; esta ação pode ser chamada sem passar por tela nenhuma, e é
-    ela que grava. Uma regra que só existe no `required` do HTML não é
-    regra -- é sugestão.
-
-    Uma consulta só para os produtos desta conferência: o cluster não
-    vem no formulário de propósito. Se viesse, bastaria alterá-lo no
-    navegador para tornar a data opcional em qualquer item.
-  */
-  const { data: clustersDosItens, error: erroClusters } = await supabase
-    .from("pa_produtos")
-    .select("id, codigo, descricao, cluster_produto")
-    .eq("revenda_id", revendaId)
-    .in("id", itens.map((i) => i.produtoId));
-  if (erroClusters) {
-    erro(atendimentoId, `Não foi possível conferir os produtos: ${erroClusters.message}`);
-  }
-  const clusterPorId = new Map(
-    (clustersDosItens ?? []).map((p) => [p.id, p] as const),
-  );
-
-  const semData = itens.findIndex(
-    (i) => !i.validade && !produtoSemValidade(clusterPorId.get(i.produtoId)?.cluster_produto),
-  );
-  if (semData >= 0) {
-    const p = clusterPorId.get(itens[semData].produtoId);
-    erro(
-      atendimentoId,
-      `O item ${semData + 1} (${p ? `${p.codigo} — ${p.descricao}` : "produto"}) está sem validade. ` +
-        `Só produto de MKT Place pode ficar sem data.`,
-    );
-  }
-
-  const { error: erroItens } = await supabase.from("atendimento_carretas_itens").insert(
-    itens.map((i) => ({
-      revenda_id: revendaId,
-      atendimento_id: atendimentoId,
-      produto_id: i.produtoId,
-      quantidade: i.quantidade,
-      quantidade_avariada: i.quantidadeAvariada,
-      unidade: i.unidade,
-      lote: i.lote,
-      validade: i.validade,
-      empilhador: i.empilhador,
-    })),
-  );
-  if (erroItens) erro(atendimentoId, `Não foi possível salvar os itens: ${erroItens.message}`);
-
-  const { data: atualizado, error } = await supabase
-    .from("atendimentos_carretas")
-    .update({
-      fim_conferencia_em: new Date().toISOString(),
-      // O conferente do registro é QUEM LANÇOU a contagem, não quem
-      // abriu a tela. Antes o nome era carimbado no "Conferir carga" e
-      // nunca mais mexido: um toque por engano roubava o crédito de quem
-      // fez o trabalho. Aconteceu de verdade -- a DT 740912 saiu no nome
-      // de quem só abriu, e quem contou não aparecia em lugar nenhum.
-      conferente_colaborador_id: perfil.id,
-      conferente_nome: perfil.nome,
-    })
-    .eq("id", atendimentoId)
-    .eq("revenda_id", revendaId)
-    .not("inicio_conferencia_em", "is", null)
-    .is("fim_conferencia_em", null)
-    .select("id");
-
-  if (error) erro(atendimentoId, `Itens salvos, mas não foi possível finalizar a conferência: ${error.message}`);
-  if (!atualizado || atualizado.length === 0) erro(atendimentoId, "A conferência já foi finalizada ou ainda não foi iniciada.");
-
-  // A conferência não mexe mais no destino da carreta -- quem manda nisso
-  // é a descarga. Terminar a contagem depois que o caminhão já saiu é o
-  // caso NORMAL agora, e não pode reabrir um atendimento finalizado.
-
-  revalidatePath(rota(atendimentoId));
-  revalidatePath("/carretas-conferencia");
-  vigiarAnomaliasDepois(revendaId);
-  redirect(`${rota(atendimentoId)}?sucesso=Conferência+finalizada`);
 }
 
 /**
@@ -406,76 +414,78 @@ export async function finalizarConferencia(formData: FormData) {
  * A exceção é decidir DEPOIS que a descarga já acabou -- aí a transição
  * que ficou pendente acontece agora.
  */
-export async function decidirRetorno(formData: FormData) {
-  const { revendaId } = await exigirContextoCarretas("carretas-conferencia", "/carretas-conferencia");
+export async function decidirRetorno(formData: FormData): Promise<ResultadoAcao> {
+  return noLugar(async () => {
+    const { revendaId } = await exigirContextoCarretas("carretas-conferencia", "/carretas-conferencia");
 
-  const atendimentoId = String(formData.get("atendimento_id") ?? "");
-  if (!atendimentoId) erro(atendimentoId, "Atendimento inválido.");
-  const retornaComAg = formData.get("retorno") === "com_ag";
+    const atendimentoId = String(formData.get("atendimento_id") ?? "");
+    if (!atendimentoId) erro(atendimentoId, "Atendimento inválido.");
+    const retornaComAg = formData.get("retorno") === "com_ag";
 
-  let destinoRetorno: string | null = null;
-  let itensAg: { agId: string; quantidade: number }[] = [];
+    let destinoRetorno: string | null = null;
+    let itensAg: { agId: string; quantidade: number }[] = [];
 
-  if (retornaComAg) {
-    destinoRetorno = String(formData.get("destino_retorno") ?? "").trim();
-    if (!destinoRetorno) erro(atendimentoId, "Informe o destino da carreta.");
+    if (retornaComAg) {
+      destinoRetorno = String(formData.get("destino_retorno") ?? "").trim();
+      if (!destinoRetorno) erro(atendimentoId, "Informe o destino da carreta.");
 
-    const agIds = formData.getAll("ag_id").map(String);
-    const quantidades = formData.getAll("ag_quantidade").map(String);
-    if (agIds.length === 0 || agIds.some((v) => !v)) {
-      erro(atendimentoId, "Escolha o AG de cada item.");
-    }
-    itensAg = agIds.map((agId, i) => {
-      let quantidade: number;
-      try {
-        quantidade = quantidadePositiva(quantidades[i]);
-      } catch {
-        erro(atendimentoId, "Quantidade inválida em um dos itens de AG.");
+      const agIds = formData.getAll("ag_id").map(String);
+      const quantidades = formData.getAll("ag_quantidade").map(String);
+      if (agIds.length === 0 || agIds.some((v) => !v)) {
+        erro(atendimentoId, "Escolha o AG de cada item.");
       }
-      return { agId, quantidade };
-    });
-  }
+      itensAg = agIds.map((agId, i) => {
+        let quantidade: number;
+        try {
+          quantidade = quantidadePositiva(quantidades[i]);
+        } catch {
+          erro(atendimentoId, "Quantidade inválida em um dos itens de AG.");
+        }
+        return { agId, quantidade };
+      });
+    }
 
-  const agora = new Date().toISOString();
-  const supabase = await createClient();
-  // Grava só a DECISÃO. Nada de status/finalização aqui -- quem aplica é
-  // o fim da descarga. Aceita qualquer atendimento ainda em andamento e
-  // que ninguém tenha decidido antes (`tem_carga is null` segura o clique
-  // duplo e a corrida entre dois conferentes).
-  const { data: atualizado, error } = await supabase
-    .from("atendimentos_carretas")
-    .update({ retorno_decidido_em: agora, tem_carga: retornaComAg, destino_retorno: destinoRetorno })
-    .eq("id", atendimentoId)
-    .eq("revenda_id", revendaId)
-    .is("tem_carga", null)
-    .in("status", ["aguardando_conferente", "em_andamento", "aguardando_retorno"])
-    .select("id, fim_descarga_em");
+    const agora = new Date().toISOString();
+    const supabase = await createClient();
+    // Grava só a DECISÃO. Nada de status/finalização aqui -- quem aplica é
+    // o fim da descarga. Aceita qualquer atendimento ainda em andamento e
+    // que ninguém tenha decidido antes (`tem_carga is null` segura o clique
+    // duplo e a corrida entre dois conferentes).
+    const { data: atualizado, error } = await supabase
+      .from("atendimentos_carretas")
+      .update({ retorno_decidido_em: agora, tem_carga: retornaComAg, destino_retorno: destinoRetorno })
+      .eq("id", atendimentoId)
+      .eq("revenda_id", revendaId)
+      .is("tem_carga", null)
+      .in("status", ["aguardando_conferente", "em_andamento", "aguardando_retorno"])
+      .select("id, fim_descarga_em");
 
-  if (error) erro(atendimentoId, `Não foi possível confirmar o retorno: ${error.message}`);
-  if (!atualizado || atualizado.length === 0) erro(atendimentoId, "Este atendimento já foi atualizado por outra pessoa.");
+    if (error) erro(atendimentoId, `Não foi possível confirmar o retorno: ${error.message}`);
+    if (!atualizado || atualizado.length === 0) erro(atendimentoId, "Este atendimento já foi atualizado por outra pessoa.");
 
-  if (itensAg.length > 0) {
-    const { error: erroAg } = await supabase.from("atendimento_carretas_ag_itens").insert(
-      itensAg.map((i) => ({
-        revenda_id: revendaId,
-        atendimento_id: atendimentoId,
-        ag_id: i.agId,
-        quantidade: i.quantidade,
-      })),
-    );
-    if (erroAg) erro(atendimentoId, `Retorno confirmado, mas os itens de AG falharam: ${erroAg.message}`);
-  }
+    if (itensAg.length > 0) {
+      const { error: erroAg } = await supabase.from("atendimento_carretas_ag_itens").insert(
+        itensAg.map((i) => ({
+          revenda_id: revendaId,
+          atendimento_id: atendimentoId,
+          ag_id: i.agId,
+          quantidade: i.quantidade,
+        })),
+      );
+      if (erroAg) erro(atendimentoId, `Retorno confirmado, mas os itens de AG falharam: ${erroAg.message}`);
+    }
 
-  // Decidiu depois que a descarga já tinha acabado: a transição que ficou
-  // pendente naquele momento (aguardando_retorno) acontece agora.
-  if (atualizado[0]?.fim_descarga_em) {
-    await aplicarFimDaDescarga(supabase, atendimentoId, agora);
-  }
+    // Decidiu depois que a descarga já tinha acabado: a transição que ficou
+    // pendente naquele momento (aguardando_retorno) acontece agora.
+    if (atualizado[0]?.fim_descarga_em) {
+      await aplicarFimDaDescarga(supabase, atendimentoId, agora);
+    }
 
-  revalidatePath(rota(atendimentoId));
-  revalidatePath("/carretas-conferencia");
-  vigiarAnomaliasDepois(revendaId);
-  redirect(`${rota(atendimentoId)}?sucesso=Retorno+confirmado`);
+    revalidatePath(rota(atendimentoId));
+    revalidatePath("/carretas-conferencia");
+    vigiarAnomaliasDepois(revendaId);
+    pararComSucesso("Retorno confirmado");
+  });
 }
 
 /**
@@ -504,164 +514,168 @@ export async function decidirRetorno(formData: FormData) {
  *    contador -- duas correções no mesmo atendimento não são a mesma
  *    coisa que uma.
  */
-export async function editarRetornoAg(formData: FormData) {
-  // "excluir" é a ação de liderança do módulo, a mesma que destrava
-  // sessão de abastecimento: corrigir o trabalho declarado por outra
-  // pessoa não pode ficar com quem só tem acesso de execução.
-  const { perfil, revendaId } = await exigirContextoCarretas(
-    "carretas-conferencia",
-    "/carretas-conferencia",
-  );
-  const podeCorrigir = await podeNoModulo("produtividade-armazem", "excluir");
-  if (!podeCorrigir) {
-    erro(
-      String(formData.get("atendimento_id") ?? ""),
-      "Só a liderança pode corrigir o AG do retorno.",
+export async function editarRetornoAg(formData: FormData): Promise<ResultadoAcao> {
+  return noLugar(async () => {
+    // "excluir" é a ação de liderança do módulo, a mesma que destrava
+    // sessão de abastecimento: corrigir o trabalho declarado por outra
+    // pessoa não pode ficar com quem só tem acesso de execução.
+    const { perfil, revendaId } = await exigirContextoCarretas(
+      "carretas-conferencia",
+      "/carretas-conferencia",
     );
-  }
-
-  const atendimentoId = String(formData.get("atendimento_id") ?? "");
-  if (!atendimentoId) erro(atendimentoId, "Atendimento inválido.");
-
-  const destinoRetorno = String(formData.get("destino_retorno") ?? "").trim();
-  if (!destinoRetorno) erro(atendimentoId, "Informe o destino da carreta.");
-
-  const agIds = formData.getAll("ag_id").map(String).filter(Boolean);
-  const quantidades = formData.getAll("ag_quantidade").map(String);
-  if (agIds.length === 0) erro(atendimentoId, "A carreta volta com AG: informe ao menos um item.");
-
-  const itensAg = agIds.map((agId, i) => {
-    let quantidade: number;
-    try {
-      quantidade = quantidadePositiva(quantidades[i]);
-    } catch {
-      erro(atendimentoId, "Quantidade inválida em um dos itens de AG.");
+    const podeCorrigir = await podeNoModulo("produtividade-armazem", "excluir");
+    if (!podeCorrigir) {
+      erro(
+        String(formData.get("atendimento_id") ?? ""),
+        "Só a liderança pode corrigir o AG do retorno.",
+      );
     }
-    return { agId, quantidade };
+
+    const atendimentoId = String(formData.get("atendimento_id") ?? "");
+    if (!atendimentoId) erro(atendimentoId, "Atendimento inválido.");
+
+    const destinoRetorno = String(formData.get("destino_retorno") ?? "").trim();
+    if (!destinoRetorno) erro(atendimentoId, "Informe o destino da carreta.");
+
+    const agIds = formData.getAll("ag_id").map(String).filter(Boolean);
+    const quantidades = formData.getAll("ag_quantidade").map(String);
+    if (agIds.length === 0) erro(atendimentoId, "A carreta volta com AG: informe ao menos um item.");
+
+    const itensAg = agIds.map((agId, i) => {
+      let quantidade: number;
+      try {
+        quantidade = quantidadePositiva(quantidades[i]);
+      } catch {
+        erro(atendimentoId, "Quantidade inválida em um dos itens de AG.");
+      }
+      return { agId, quantidade };
+    });
+
+    /*
+      CLIENTE ADMIN, e não o do usuário -- foi isto que duplicou.
+
+      `atendimento_carretas_ag_itens` nasceu (migration 061) com
+      `grant select, insert to authenticated` e políticas só de SELECT e
+      INSERT: apagar nunca esteve no contrato da tabela, porque até aqui
+      ninguém apagava. Pelo cliente do usuário, o DELETE não removia nada
+      -- e o INSERT logo abaixo, esse sim permitido, ACRESCENTAVA. Salvar
+      a correção duas vezes deixou o atendimento com três cópias da mesma
+      lista, e o empilhador com uma tela impossível de ler.
+
+      Quem autoriza esta ação é o `podeNoModulo(... "excluir")` lá em cima,
+      verificado no servidor. É o mesmo desenho de toda correção de
+      liderança do app (ver destravarSessao, editarProdutoReepack): a
+      permissão mora no código, e o cliente admin executa.
+    */
+    const supabase = createAdminClient();
+
+    // Só atendimento que JÁ foi decidido como "com AG" e que ainda não
+    // acabou. As duas condições vão na consulta, e não num if depois de
+    // ler: entre ler e escrever, o empilhador pode ter finalizado.
+    const { data: atual, error: erroLeitura } = await supabase
+      .from("atendimentos_carretas")
+      .select("id, retorno_edicoes")
+      .eq("id", atendimentoId)
+      .eq("revenda_id", revendaId)
+      .eq("tem_carga", true)
+      .neq("status", "finalizado")
+      .maybeSingle();
+
+    if (erroLeitura) erro(atendimentoId, `Não foi possível ler o atendimento: ${erroLeitura.message}`);
+    if (!atual) {
+      erro(
+        atendimentoId,
+        "Só dá para corrigir um atendimento que volta com AG e ainda não foi finalizado.",
+      );
+    }
+
+    const agora = new Date().toISOString();
+
+    // Quantos itens existem AGORA -- serve de referência para conferir que
+    // a remoção abaixo realmente aconteceu.
+    const contagemAntiga = await supabase
+      .from("atendimento_carretas_ag_itens")
+      .select("id", { count: "exact", head: true })
+      .eq("atendimento_id", atendimentoId)
+      .eq("revenda_id", revendaId);
+    const itensAntigos = contagemAntiga.count ?? 0;
+
+    // A lista NOVA substitui a antiga inteira. Casar item a item exigiria
+    // um id estável por linha que a tela não tem, e "corrigir" aqui quase
+    // sempre é acrescentar o que faltou -- reescrever é o que a pessoa
+    // espera ao salvar o formulário que está vendo.
+    // `.select()` no delete para SABER quantas linhas sairam. Sem isso, um
+    // delete que não apaga nada é indistinguível de um que apagou tudo --
+    // e foi exatamente essa cegueira que produziu as três cópias. Se a
+    // remoção falhar em silêncio de novo, o insert não acontece.
+    const { data: apagados, error: erroApagar } = await supabase
+      .from("atendimento_carretas_ag_itens")
+      .delete()
+      .eq("atendimento_id", atendimentoId)
+      .eq("revenda_id", revendaId)
+      .select("id");
+    if (erroApagar) erro(atendimentoId, `Não foi possível atualizar os itens: ${erroApagar.message}`);
+    if (itensAntigos > 0 && (apagados?.length ?? 0) === 0) {
+      erro(
+        atendimentoId,
+        "A lista antiga não foi removida, então nada foi gravado -- salvar assim duplicaria os itens. Avise o suporte.",
+      );
+    }
+
+    const { error: erroInserir } = await supabase.from("atendimento_carretas_ag_itens").insert(
+      itensAg.map((i) => ({
+        revenda_id: revendaId,
+        atendimento_id: atendimentoId,
+        ag_id: i.agId,
+        quantidade: i.quantidade,
+      })),
+    );
+    if (erroInserir) erro(atendimentoId, `Não foi possível gravar os itens: ${erroInserir.message}`);
+
+    const { error: erroCarimbo } = await supabase
+      .from("atendimentos_carretas")
+      .update({
+        destino_retorno: destinoRetorno,
+        retorno_editado_em: agora,
+        retorno_editado_por_id: perfil.id,
+        // O NOME junto do id: se a pessoa sair da revenda, o histórico
+        // continua dizendo quem mandou carregar aquilo.
+        retorno_editado_por_nome: perfil.nome,
+        retorno_edicoes: (atual.retorno_edicoes ?? 0) + 1,
+      })
+      .eq("id", atendimentoId)
+      .eq("revenda_id", revendaId);
+    if (erroCarimbo) erro(atendimentoId, `Itens salvos, mas o registro da edição falhou: ${erroCarimbo.message}`);
+
+    revalidatePath(rota(atendimentoId));
+    revalidatePath("/carretas-conferencia");
+    pararComSucesso("AG do retorno corrigido");
   });
-
-  /*
-    CLIENTE ADMIN, e não o do usuário -- foi isto que duplicou.
-
-    `atendimento_carretas_ag_itens` nasceu (migration 061) com
-    `grant select, insert to authenticated` e políticas só de SELECT e
-    INSERT: apagar nunca esteve no contrato da tabela, porque até aqui
-    ninguém apagava. Pelo cliente do usuário, o DELETE não removia nada
-    -- e o INSERT logo abaixo, esse sim permitido, ACRESCENTAVA. Salvar
-    a correção duas vezes deixou o atendimento com três cópias da mesma
-    lista, e o empilhador com uma tela impossível de ler.
-
-    Quem autoriza esta ação é o `podeNoModulo(... "excluir")` lá em cima,
-    verificado no servidor. É o mesmo desenho de toda correção de
-    liderança do app (ver destravarSessao, editarProdutoReepack): a
-    permissão mora no código, e o cliente admin executa.
-  */
-  const supabase = createAdminClient();
-
-  // Só atendimento que JÁ foi decidido como "com AG" e que ainda não
-  // acabou. As duas condições vão na consulta, e não num if depois de
-  // ler: entre ler e escrever, o empilhador pode ter finalizado.
-  const { data: atual, error: erroLeitura } = await supabase
-    .from("atendimentos_carretas")
-    .select("id, retorno_edicoes")
-    .eq("id", atendimentoId)
-    .eq("revenda_id", revendaId)
-    .eq("tem_carga", true)
-    .neq("status", "finalizado")
-    .maybeSingle();
-
-  if (erroLeitura) erro(atendimentoId, `Não foi possível ler o atendimento: ${erroLeitura.message}`);
-  if (!atual) {
-    erro(
-      atendimentoId,
-      "Só dá para corrigir um atendimento que volta com AG e ainda não foi finalizado.",
-    );
-  }
-
-  const agora = new Date().toISOString();
-
-  // Quantos itens existem AGORA -- serve de referência para conferir que
-  // a remoção abaixo realmente aconteceu.
-  const contagemAntiga = await supabase
-    .from("atendimento_carretas_ag_itens")
-    .select("id", { count: "exact", head: true })
-    .eq("atendimento_id", atendimentoId)
-    .eq("revenda_id", revendaId);
-  const itensAntigos = contagemAntiga.count ?? 0;
-
-  // A lista NOVA substitui a antiga inteira. Casar item a item exigiria
-  // um id estável por linha que a tela não tem, e "corrigir" aqui quase
-  // sempre é acrescentar o que faltou -- reescrever é o que a pessoa
-  // espera ao salvar o formulário que está vendo.
-  // `.select()` no delete para SABER quantas linhas sairam. Sem isso, um
-  // delete que não apaga nada é indistinguível de um que apagou tudo --
-  // e foi exatamente essa cegueira que produziu as três cópias. Se a
-  // remoção falhar em silêncio de novo, o insert não acontece.
-  const { data: apagados, error: erroApagar } = await supabase
-    .from("atendimento_carretas_ag_itens")
-    .delete()
-    .eq("atendimento_id", atendimentoId)
-    .eq("revenda_id", revendaId)
-    .select("id");
-  if (erroApagar) erro(atendimentoId, `Não foi possível atualizar os itens: ${erroApagar.message}`);
-  if (itensAntigos > 0 && (apagados?.length ?? 0) === 0) {
-    erro(
-      atendimentoId,
-      "A lista antiga não foi removida, então nada foi gravado -- salvar assim duplicaria os itens. Avise o suporte.",
-    );
-  }
-
-  const { error: erroInserir } = await supabase.from("atendimento_carretas_ag_itens").insert(
-    itensAg.map((i) => ({
-      revenda_id: revendaId,
-      atendimento_id: atendimentoId,
-      ag_id: i.agId,
-      quantidade: i.quantidade,
-    })),
-  );
-  if (erroInserir) erro(atendimentoId, `Não foi possível gravar os itens: ${erroInserir.message}`);
-
-  const { error: erroCarimbo } = await supabase
-    .from("atendimentos_carretas")
-    .update({
-      destino_retorno: destinoRetorno,
-      retorno_editado_em: agora,
-      retorno_editado_por_id: perfil.id,
-      // O NOME junto do id: se a pessoa sair da revenda, o histórico
-      // continua dizendo quem mandou carregar aquilo.
-      retorno_editado_por_nome: perfil.nome,
-      retorno_edicoes: (atual.retorno_edicoes ?? 0) + 1,
-    })
-    .eq("id", atendimentoId)
-    .eq("revenda_id", revendaId);
-  if (erroCarimbo) erro(atendimentoId, `Itens salvos, mas o registro da edição falhou: ${erroCarimbo.message}`);
-
-  revalidatePath(rota(atendimentoId));
-  revalidatePath("/carretas-conferencia");
-  redirect(`${rota(atendimentoId)}?sucesso=AG+do+retorno+corrigido`);
 }
 
-export async function concluirCarga(formData: FormData) {
-  const { revendaId } = await exigirContextoCarretas("carretas-descarga", "/carretas-conferencia");
+export async function concluirCarga(formData: FormData): Promise<ResultadoAcao> {
+  return noLugar(async () => {
+    const { revendaId } = await exigirContextoCarretas("carretas-descarga", "/carretas-conferencia");
 
-  const atendimentoId = String(formData.get("atendimento_id") ?? "");
-  if (!atendimentoId) erro(atendimentoId, "Atendimento inválido.");
+    const atendimentoId = String(formData.get("atendimento_id") ?? "");
+    if (!atendimentoId) erro(atendimentoId, "Atendimento inválido.");
 
-  const agora = new Date().toISOString();
-  const supabase = await createClient();
-  const { data: atualizado, error } = await supabase
-    .from("atendimentos_carretas")
-    .update({ fim_carga_em: agora, finalizacao_em: agora, status: "finalizado" })
-    .eq("id", atendimentoId)
-    .eq("revenda_id", revendaId)
-    .eq("status", "em_carga")
-    .select("id");
+    const agora = new Date().toISOString();
+    const supabase = await createClient();
+    const { data: atualizado, error } = await supabase
+      .from("atendimentos_carretas")
+      .update({ fim_carga_em: agora, finalizacao_em: agora, status: "finalizado" })
+      .eq("id", atendimentoId)
+      .eq("revenda_id", revendaId)
+      .eq("status", "em_carga")
+      .select("id");
 
-  if (error) erro(atendimentoId, `Não foi possível concluir a carga: ${error.message}`);
-  if (!atualizado || atualizado.length === 0) erro(atendimentoId, "Este atendimento já foi atualizado por outra pessoa.");
+    if (error) erro(atendimentoId, `Não foi possível concluir a carga: ${error.message}`);
+    if (!atualizado || atualizado.length === 0) erro(atendimentoId, "Este atendimento já foi atualizado por outra pessoa.");
 
-  revalidatePath(rota(atendimentoId));
-  revalidatePath("/carretas-conferencia");
-  vigiarAnomaliasDepois(revendaId);
-  redirect(`${rota(atendimentoId)}?sucesso=Atendimento+finalizado`);
+    revalidatePath(rota(atendimentoId));
+    revalidatePath("/carretas-conferencia");
+    vigiarAnomaliasDepois(revendaId);
+    pararComSucesso("Atendimento finalizado");
+  });
 }

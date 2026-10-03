@@ -13,6 +13,7 @@ import {
   criarTransportadoraRapida,
 } from "@/app/produtividade-armazem/catalogos-rapidos";
 import { criarMotoristaRapido, registrarAtendimento } from "./actions";
+import { FormNoLugar } from "@/components/FormNoLugar";
 
 const campo =
   "w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-base text-slate-900 focus:border-primary focus:outline-none";
@@ -85,7 +86,8 @@ function ListaNotas({
   );
 }
 
-export function FormPortaria({
+function FormPortariaConteudo({
+  aoSalvarForm,
   fabricas,
   transportadoras,
   motoristas = [],
@@ -96,6 +98,7 @@ export function FormPortaria({
   /** Os motoristas ATIVOS desta revenda -- a lista suspensa inteira. */
   motoristas?: { id: string; nome: string }[];
   podeEditarCatalogo?: boolean;
+  aoSalvarForm: () => void;
 }) {
   const [cargaAgendada, setCargaAgendada] = useState(false);
   const [motorista, setMotorista] = useState("");
@@ -103,7 +106,7 @@ export function FormPortaria({
   const [placaCarreta, setPlacaCarreta] = useState("");
 
   return (
-    <form action={registrarAtendimento} className="space-y-4">
+    <FormNoLugar acao={registrarAtendimento} aoSalvar={aoSalvarForm} className="space-y-4" limparAoSalvar>
       <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
         <div className="flex items-center gap-2 text-sm font-bold text-slate-800">
           <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary-soft text-base">🏭</span>
@@ -244,6 +247,16 @@ export function FormPortaria({
       >
         ✅ Registrar chegada
       </BotaoEnviar>
-    </form>
+    </FormNoLugar>
   );
+}
+
+/**
+ * Depois de salvar, o formulário REMONTA (03/10/2026): campos, linhas
+ * extras e escolhas voltam ao começo -- é o que o recarregamento da tela
+ * fazia antes, quando salvar navegava para o topo.
+ */
+export function FormPortaria(props: Omit<Parameters<typeof FormPortariaConteudo>[0], "aoSalvarForm">) {
+  const [versao, setVersao] = useState(0);
+  return <FormPortariaConteudo key={versao} {...props} aoSalvarForm={() => setVersao((v) => v + 1)} />;
 }

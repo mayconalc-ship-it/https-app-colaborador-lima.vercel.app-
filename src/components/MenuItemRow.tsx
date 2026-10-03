@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
 import type { ItemMenu } from "@/lib/menu";
+import type { ResultadoAcao } from "@/lib/resultado-acao";
+import { FormNoLugar } from "@/components/FormNoLugar";
 
 export function MenuItemRow({
   item,
@@ -15,15 +17,15 @@ export function MenuItemRow({
   item: ItemMenu;
   primeiro: boolean;
   ultimo: boolean;
-  onMover: (formData: FormData) => void;
-  onAlternar: (formData: FormData) => void;
-  onRenomear: (formData: FormData) => void;
+  onMover: (formData: FormData) => Promise<ResultadoAcao | void>;
+  onAlternar: (formData: FormData) => Promise<ResultadoAcao | void>;
+  onRenomear: (formData: FormData) => Promise<ResultadoAcao | void>;
 }) {
   const [editando, setEditando] = useState(false);
 
   if (editando) {
     return (
-      <form action={onRenomear} className="space-y-3 bg-slate-50 p-4">
+      <FormNoLugar acao={onRenomear} aoSalvar={() => setEditando(false)} className="space-y-3 bg-slate-50 p-4">
         <input type="hidden" name="chave" value={item.chave} />
         <div className="flex gap-2">
           <div className="w-20">
@@ -64,7 +66,7 @@ export function MenuItemRow({
             Cancelar
           </button>
         </div>
-      </form>
+      </FormNoLugar>
     );
   }
 
@@ -81,7 +83,7 @@ export function MenuItemRow({
         {item.titulo}
       </span>
 
-      <form action={onMover}>
+      <FormNoLugar acao={onMover}>
         <input type="hidden" name="chave" value={item.chave} />
         <input type="hidden" name="direcao" value="cima" />
         <BotaoEnviar
@@ -92,9 +94,9 @@ export function MenuItemRow({
         >
           ↑
         </BotaoEnviar>
-      </form>
+      </FormNoLugar>
 
-      <form action={onMover}>
+      <FormNoLugar acao={onMover}>
         <input type="hidden" name="chave" value={item.chave} />
         <input type="hidden" name="direcao" value="baixo" />
         <BotaoEnviar
@@ -105,7 +107,7 @@ export function MenuItemRow({
         >
           ↓
         </BotaoEnviar>
-      </form>
+      </FormNoLugar>
 
       <button
         type="button"
@@ -115,7 +117,7 @@ export function MenuItemRow({
         Editar
       </button>
 
-      <form action={onAlternar}>
+      <FormNoLugar acao={onAlternar}>
         <input type="hidden" name="chave" value={item.chave} />
         <input type="hidden" name="visivel" value={String(item.visivel)} />
         <BotaoEnviar
@@ -128,7 +130,7 @@ export function MenuItemRow({
         >
           {item.visivel ? "Ocultar" : "Mostrar"}
         </BotaoEnviar>
-      </form>
+      </FormNoLugar>
     </div>
   );
 }

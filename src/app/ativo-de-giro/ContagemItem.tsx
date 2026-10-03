@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
-import { useConfirmarEnvio } from "@/components/Confirmacao";
 import {
   formatarData,
   totalEmCaixas,
@@ -11,6 +10,7 @@ import {
 } from "@/lib/ativo-giro";
 import { FormContagem } from "./FormContagem";
 import { excluirContagem } from "./actions";
+import { FormNoLugar } from "@/components/FormNoLugar";
 
 /**
  * Uma contagem na lista "Minhas contagens", com corrigir e apagar.
@@ -31,7 +31,6 @@ export function ContagemItem({
   fatores: Fatores;
 }) {
   const [editando, setEditando] = useState(false);
-  const aoExcluir = useConfirmarEnvio();
 
   if (editando) {
     return (
@@ -101,12 +100,12 @@ export function ContagemItem({
         >
           ✏️ Editar
         </button>
-        <form
-          action={excluirContagem}
-          onSubmit={aoExcluir({
+        <FormNoLugar
+          acao={excluirContagem}
+          confirmacao={{
             titulo: "Excluir esta contagem?",
             detalhe: `${contagem.tipo} · ${contagem.formato} · ${contagem.status} — ${formatarData(contagem.data)}`,
-          })}
+          }}
         >
           <input type="hidden" name="id" value={contagem.id} />
           <BotaoEnviar
@@ -115,7 +114,7 @@ export function ContagemItem({
           >
             🗑️ Excluir
           </BotaoEnviar>
-        </form>
+        </FormNoLugar>
       </div>
     </li>
   );
