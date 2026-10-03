@@ -8,7 +8,6 @@ import { MarcaApp } from "@/components/MarcaApp";
 import { LogoutButton } from "@/components/LogoutButton";
 import { SessaoInvalida } from "@/components/SessaoInvalida";
 import { RegistroDeUso } from "@/components/RegistroDeUso";
-import { PresencaAoVivo } from "@/components/PresencaAoVivo";
 import { PesquisaSatisfacao } from "@/components/PesquisaSatisfacao";
 import { BotaoLideranca } from "@/components/BotaoLideranca";
 import { Notificacoes } from "@/components/Notificacoes";
@@ -183,12 +182,6 @@ export default async function RootLayout({
           {perfil && (
             <>
               <RegistroDeUso />
-              {/* Sem revenda não há canal: o de presença é um por revenda.
-                  Quem está com o cadastro pela metade já vê o aviso no
-                  lugar do conteúdo, e não tem onde se anunciar. */}
-              {revenda && (
-                <PresencaAoVivo id={perfil.id} revendaId={revenda.id} />
-              )}
               <PesquisaSatisfacao />
               <SincronizarPush />
             </>

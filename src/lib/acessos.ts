@@ -24,7 +24,6 @@ export type ModuloId =
   | "rv"
   | "colaboradores"
   | "feedbacks"
-  | "metricas"
   | "pesquisa"
   | "menu"
   | "rotas"
@@ -966,18 +965,6 @@ export const MODULOS: Modulo[] = [
     // "editar" = responder a tratativa das análises de 5 Porquês. Quem só
     // tem "ver" acompanha a fila, mas não grava resposta para o motorista.
     acoes: ["ver", "editar"],
-  },
-  {
-    id: "metricas",
-    rotulosDeAcao: {
-      ver: "📊 Ver quem entra no app, e em quais telas",
-    },
-    rotulo: "Uso do App",
-    emoji: "📊",
-    href: "/gestao/uso-do-app",
-    grupo: "Gestão de Dados",
-    emGestao: true,
-    acoes: ["ver"],
   },
   {
     id: "pesquisa",

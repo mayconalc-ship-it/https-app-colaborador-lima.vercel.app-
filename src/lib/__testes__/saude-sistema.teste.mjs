@@ -65,6 +65,7 @@ ok(
   !atual.colunas.some((x) => x.tabela === "pa_bate_palete_itens" && x.coluna === "unidade") &&
     atual.colunas.some((x) => x.tabela === "pa_bate_palete_itens" && x.coluna === "unidade_avariada"),
 );
+ok("tirar do tempo real (alter publication ... drop table) não apaga a tabela", atual.tabelas.eventos_acesso === "012");
 ok("a coluna da 159 está lá", atual.colunas.some((x) => x.tabela === "pa_relatos_anomalia" && x.coluna === "atendimento_id" && x.migration === "159"));
 
 console.log(falhas ? `\n${falhas} FALHA(S)` : "\nTudo certo.");
