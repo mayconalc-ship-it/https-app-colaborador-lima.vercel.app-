@@ -24,7 +24,6 @@ import {
 import {
   dispensarSugestao,
   excluirParticularidade,
-  importarClientes,
   reabrirParticularidade,
   resolverParticularidade,
   salvarCategorias,

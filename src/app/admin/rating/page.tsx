@@ -1,6 +1,5 @@
 import { PageHeader } from "@/components/PageHeader";
 import { AtalhoParaAFonte } from "@/components/admin/AtalhoParaAFonte";
-import { BotaoEnviar } from "@/components/BotaoEnviar";
 import { requireModulo } from "@/lib/require-admin";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getRevendaId } from "@/lib/revendas";
@@ -9,9 +8,6 @@ import { diasAtrasISO, formatarDataHora } from "@/lib/produtividade-armazem";
 
 export const dynamic = "force-dynamic";
 
-const campo =
-  "w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-base text-slate-900 focus:border-primary focus:outline-none";
-const rotulo = "mb-1 block text-xs font-semibold uppercase text-slate-500";
 
 export default async function AdminRatingPage({
   searchParams,

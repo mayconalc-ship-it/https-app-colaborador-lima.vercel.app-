@@ -1,0 +1,57 @@
+name: Verificar o app
+
+# Roda em todo PR e em todo push na main (03/10/2026): os testes de
+# src/lib/__testes__, o lint de src e o build. Antes isso só rodava
+# quando alguém lembrava de rodar na mão -- e um PR podia ir para o ar
+# quebrando uma conta que tinha teste pronto para pegar.
+#
+# Se um passo falhar, o PR mostra o X vermelho e o motivo no log. O merge
+# continua possível (não há trava obrigatória configurada), mas o aviso
+# fica na cara de quem vai mergear.
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+concurrency:
+  group: verificar-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verificar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Instalar dependências
+        run: npm ci
+
+      # tsx roda os testes (.mjs que importam .ts). Fica fora do
+      # package.json de propósito: só o robô precisa dele.
+      - name: Instalar o tsx
+        run: npm i -g tsx@4
+
+      - name: Testes
+        run: node scripts/rodar-testes.mjs
+
+      # Só src: bi/ e scripts/ são ferramentas avulsas, fora do app.
+      # Aviso (warning) não reprova; erro reprova.
+      - name: Lint
+        run: npx eslint src
+
+      # Variáveis de mentira: o build só precisa que existam. Nenhuma
+      # chamada ao Supabase acontece no build (as telas são dinâmicas).
+      - name: Build
+        run: npx next build
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://exemplo.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: chave-de-mentira
+          SUPABASE_SERVICE_ROLE_KEY: chave-de-mentira
+          NEXT_TELEMETRY_DISABLED: "1"

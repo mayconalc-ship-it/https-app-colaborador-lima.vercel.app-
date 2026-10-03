@@ -27,7 +27,7 @@ export default async function QrContingenciaPage() {
 
   return (
     <div>
-      <PageHeader title="📲 Comprovante de Pagamento" subtitle="QR Code do PIX da empresa e o registro do comprovante" />
+      <PageHeader title="📲 Comprovante de Pagamento" subtitle="A chave PIX da empresa e o registro do comprovante" />
       <LinkDoGuia slug="registrar-comprovante" className="mb-4" />
       <TelaContingencia
         config={{

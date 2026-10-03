@@ -121,13 +121,6 @@ type CarretaParaCorrigir = {
   status: string;
 };
 
-/** O PostgREST devolve o relacionamento como objeto ou array conforme a
- *  cardinalidade que ele infere -- por isso os dois. */
-type NotificadoGas = {
-  colaborador_id: string;
-  profiles: { nome: string; cargo: string | null } | { nome: string; cargo: string | null }[] | null;
-};
-
 /** "2026-08-29T17:00:00Z" -> "2026-08-29T14:00", que é o formato que o
  *  input datetime-local entende, já no horário de Brasília. */
 function paraDatetimeLocal(iso: string | null): string {

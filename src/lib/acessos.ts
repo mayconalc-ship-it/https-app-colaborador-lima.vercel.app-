@@ -590,9 +590,9 @@ export const MODULOS: Modulo[] = [
     */
     id: "qr-contingencia",
     rotulosDeAcao: {
-      ver: "📊 Ver os comprovantes de pagamento na Gestão (e usar o QR no app)",
+      ver: "📊 Ver os comprovantes de pagamento na Gestão (e usar o pagamento no app)",
       criar: "💰 Conferir os comprovantes (financeiro): conferido, divergência e fechamento do mapa",
-      editar: "Cadastrar o QR Code, o CNPJ e a chave PIX de contingência (e conferir)",
+      editar: "Cadastrar o CNPJ (chave PIX) e o favorecido do pagamento (e conferir)",
       excluir: "Apagar comprovante lançado por engano",
     },
     // Nome trocado a pedido do dono (18/09/2026); o id continua o mesmo.
@@ -1172,6 +1172,13 @@ export const MODULOS_DO_DONO: {
     href: "/admin/creditos-ia",
     rotulo: "Créditos de IA",
     emoji: "💳",
+  },
+  {
+    // As migrations rodaram? (03/10/2026) -- o deploy é automático e a
+    // migration é manual; esta tela diz qual arquivo ficou para trás.
+    href: "/admin/saude",
+    rotulo: "Saúde do sistema",
+    emoji: "🩺",
   },
 ];
 

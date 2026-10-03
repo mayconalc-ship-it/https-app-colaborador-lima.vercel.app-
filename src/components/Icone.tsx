@@ -21,6 +21,7 @@
  * emoji fazendo papel de ícone.
  */
 
+import { createElement } from "react";
 import {
   Archive,
   Award,
@@ -160,5 +161,9 @@ export function Icone({
   // `currentColor` de propósito: o ícone herda a cor de quem o contém, e
   // é isso que deixa o estado (ativo, alerta, desabilitado) ser resolvido
   // no pai, sem uma variante de ícone por estado.
-  return <Desenho aria-hidden size={tamanho} strokeWidth={1.75} className={className} />;
+  //
+  // createElement e não <Desenho />: o ícone sai de uma tabela FIXA
+  // (POR_CHAVE), não é componente criado agora -- mas o lint não tem como
+  // saber, e o JSX com nome vindo de variável parece criação.
+  return createElement(Desenho, { "aria-hidden": true, size: tamanho, strokeWidth: 1.75, className });
 }

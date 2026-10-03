@@ -13,10 +13,6 @@ function eq(nome, obtido, esperado) {
   if (!bom) falhas++;
   console.log(`  ${bom ? "OK " : "FALHOU"}  ${nome}${bom ? "" : `: obtido ${JSON.stringify(obtido)}, esperado ${JSON.stringify(esperado)}`}`);
 }
-function ok(nome, cond, det = "") {
-  if (!cond) falhas++;
-  console.log(`  ${cond ? "OK " : "FALHOU"}  ${nome}${det ? ": " + det : ""}`);
-}
 
 const c = (m, a) => ({ modulo: m, acao: a });
 

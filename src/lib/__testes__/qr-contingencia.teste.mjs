@@ -68,9 +68,9 @@ eq("por pedaços", clienteCasa(cli, "merc coribe"), true);
 eq("não casa", clienteCasa(cli, "padaria"), false);
 
 console.log("\n== CONFIGURAÇÃO ==");
-const cfg = { temQr: true, favorecido: "", cnpj: "54.751.517/0002-22", chavePix: "", instrucoes: "" };
-eq("certa", validarConfigQr(cfg), null);
-eq("sem imagem do QR", validarConfigQr({ ...cfg, temQr: false }) !== null, true);
+const cfg = { favorecido: "", cnpj: "54.751.517/0002-22", instrucoes: "" };
+eq("certa (sem QR nenhum: o PIX é pela chave CNPJ)", validarConfigQr(cfg), null);
+eq("sem CNPJ não salva", validarConfigQr({ ...cfg, cnpj: "" }), "Informe o CNPJ — é a chave PIX que o motorista mostra ao cliente.");
 eq("CNPJ curto", validarConfigQr({ ...cfg, cnpj: "5475151700022" }), "O CNPJ precisa ter 14 dígitos.");
 eq("CNPJ formatado", formatarCnpj("54751517000222"), "54.751.517/0002-22");
 

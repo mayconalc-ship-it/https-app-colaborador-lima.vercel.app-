@@ -304,10 +304,10 @@ export const GUIAS: Guia[] = [
         texto: "Se quiser, escreva as **Instruções para o motorista**.",
         dica: "Exemplo: \"confira o nome do favorecido no celular do cliente antes de ele confirmar\".",
       },
-      { texto: "Toque em **Salvar o QR Code**." },
+      { texto: "Toque em **Salvar a chave PIX**." },
     ],
     atencao: [
-      "O pagamento é pela chave CNPJ, digitada pelo cliente. O QR Code saiu da tela do motorista porque o PIX por QR gerava tarifa na conta da empresa.",
+      "O pagamento é pela chave CNPJ, digitada pelo cliente. O PIX por imagem ou copia e cola gerava tarifa na conta da empresa, por isso não é usado.",
     ],
     tela: { href: "/admin/qr-contingencia", rotulo: "Abrir a configuração" },
     relacionados: ["registrar-comprovante"],

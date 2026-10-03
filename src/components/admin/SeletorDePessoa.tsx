@@ -68,11 +68,15 @@ export function SeletorDePessoa({
   const relogio = useRef<ReturnType<typeof setTimeout> | null>(null);
   const caixa = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
+  // Zera a busca quando a chave muda -- ajustado no desenho (o jeito
+  // recomendado pelo React), e não num efeito que desenhava duas vezes.
+  const [chaveVista, setChaveVista] = useState(chaveDeReset);
+  if (chaveDeReset !== chaveVista) {
+    setChaveVista(chaveDeReset);
     setTermo("");
     setEscolhida(null);
     setResultados([]);
-  }, [chaveDeReset]);
+  }
 
   useEffect(() => {
     function aoClicarFora(e: MouseEvent) {

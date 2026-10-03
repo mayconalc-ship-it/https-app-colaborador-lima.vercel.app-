@@ -27,11 +27,10 @@ export default async function AdminRefugoPage({
   const revendaId = await getRevendaId();
   const admin = createAdminClient();
 
-  const [{ data: cfg }, { data: itensBanco }, { count: afericoes }, { data: ratingCfg }] = await Promise.all([
+  const [{ data: cfg }, { data: itensBanco }, { count: afericoes }] = await Promise.all([
     admin.from("refugo_config").select("pasta_link, ultima_sincronizacao, ultimo_resultado").eq("revenda_id", revendaId).maybeSingle(),
     admin.from("refugo_itens").select("codigo, descricao, valor_unitario").eq("revenda_id", revendaId).order("descricao"),
     admin.from("refugo_afericoes").select("*", { count: "exact", head: true }).eq("revenda_id", revendaId),
-    admin.from("rating_config").select("pasta_link").eq("revenda_id", revendaId).maybeSingle(),
   ]);
 
   const itens = (itensBanco ?? []) as Item[];

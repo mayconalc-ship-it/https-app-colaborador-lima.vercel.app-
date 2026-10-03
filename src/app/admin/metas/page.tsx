@@ -10,7 +10,6 @@ import {
   ROTULO_GRUPO,
   metasDoGrupo,
   type DefinicaoDeMeta,
-  type GrupoDeMetas as IdDeGrupo,
 } from "@/lib/metas";
 import {
   AMOSTRA_MINIMA,

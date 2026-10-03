@@ -32,7 +32,6 @@ import {
   formatarHl,
   formatarMinutos,
   mediaHlPorDia,
-  rankingDeSku,
   resumirAbastecimento,
   avisoDoTipo,
   tipoSugerido,
@@ -51,8 +50,6 @@ import {
 } from "@/lib/ressuprimento";
 import { MontarSolicitacao } from "@/components/produtividade-armazem/MontarSolicitacao";
 import { CartaoDoPedido } from "@/components/produtividade-armazem/PecasDoRessuprimento";
-import { PainelDoAbastecimento } from "@/components/produtividade-armazem/PainelDoAbastecimento";
-import type { SessaoAnalise } from "@/lib/abastecimento-analise";
 import {
   adicionarItem,
   buscarProdutosAbastecimento,
@@ -214,6 +211,12 @@ function paletesDoItem(i: Item, caixasPallet: number | null): number {
   return 0;
 }
 
+/** O instante de N dias atrás (fora do componente: a tela é desenhada
+ *  pura, e o relógio é lido aqui, uma vez por pedido). */
+function diasAtrasIso(dias: number) {
+  return new Date(Date.now() - dias * 86_400_000).toISOString();
+}
+
 export default async function AbastecimentoPage({
   searchParams,
 }: {
@@ -321,7 +324,7 @@ export default async function AbastecimentoPage({
 
   // As solicitações dos últimos dias: alimentam a fila da empilhadeira, a
   // lista do que está esperando na área e o acompanhamento de quem pediu.
-  const desdeRessuprimento = new Date(Date.now() - DIAS_DE_SOLICITACAO * 86_400_000).toISOString();
+  const desdeRessuprimento = diasAtrasIso(DIAS_DE_SOLICITACAO);
   const { data: ressuprimentosBanco } = await supabase
     .from("pa_ressuprimentos")
     .select(
@@ -465,30 +468,6 @@ export default async function AbastecimentoPage({
       })),
     );
   }
-
-  /**
-   * As sessões do período no formato que a análise entende.
-   *
-   * O HL e os paletes saem dos ITENS já carregados, não de uma consulta
-   * nova: o painel e a lista precisam contar a mesma coisa, e dois
-   * caminhos até o mesmo número é como eles começam a divergir.
-   */
-  const paraAnalise: SessaoAnalise[] = doPeriodo.map((s) => {
-    const meus = itensPorSessao.get(s.id) ?? [];
-    return {
-      id: s.id,
-      colaboradorId: s.colaborador_id,
-      colaboradorNome: s.colaborador_nome,
-      tipo: s.tipo,
-      turno: s.turno,
-      inicio: s.inicio,
-      fim: s.fim,
-      deSolicitacao: Boolean(s.ressuprimento_id),
-      hl: meus.reduce((x, i) => x + i.hl_calculado, 0),
-
-      itens: meus.length,
-    };
-  });
 
   const contadores = new Map<string, string>();
   for (const s of doPeriodo) contadores.set(s.colaborador_id, s.colaborador_nome);
@@ -1375,79 +1354,5 @@ function LinhaSessao({
         </div>
       </div>
     </li>
-  );
-}
-
-/** Visão 5: soma de HL por produto no período filtrado. */
-function RankingSku({
-  sessoes,
-  itensPorSessao,
-  produtoPorId,
-}: {
-  sessoes: Sessao[];
-  itensPorSessao: Map<string, Item[]>;
-  produtoPorId: Map<string, ProdutoLinha>;
-}) {
-  const todos = sessoes.flatMap((s) =>
-    (itensPorSessao.get(s.id) ?? []).map((i) => ({
-      produtoId: i.produto_id,
-      abastecimentoId: s.id,
-      hl: i.hl_calculado,
-      paletes: i.unidade === "palete"
-        ? i.quantidade
-        : (() => {
-            const cp = produtoPorId.get(i.produto_id)?.caixas_pallet;
-            return cp && cp > 0 ? i.quantidade / cp : 0;
-          })(),
-    })),
-  );
-
-  const linhas = rankingDeSku(todos);
-  if (linhas.length === 0) {
-    return <p className="rounded-xl bg-slate-50 p-4 text-sm text-slate-500">Nenhum item abastecido no período.</p>;
-  }
-
-  const maior = linhas[0].hl;
-
-  return (
-    <>
-      <p className="mb-3 text-xs text-slate-500">
-        O SKU que mais consome HL puxa o volume; o que aparece em mais sessões puxa o tempo -- esse é o
-        candidato a mudar de endereço no picking, mesmo com HL menor.
-      </p>
-      <ol className="space-y-2">
-        {linhas.map((l, i) => {
-          const p = produtoPorId.get(l.produtoId);
-          return (
-            <li key={l.produtoId} className="rounded-xl border border-slate-200 bg-white p-3">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-semibold text-slate-900">
-                    <span className="mr-1 text-slate-400">{i + 1}º</span>
-                    {p?.descricao ?? "produto removido"}
-                  </p>
-                  <p className="text-xs text-slate-500">
-                    {p?.codigo ? `${p.codigo} · ` : ""}
-                    {l.paletes.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} paletes ·{" "}
-                    {l.sessoes} {l.sessoes === 1 ? "sessão" : "sessões"}
-                  </p>
-                </div>
-                <span className="shrink-0 rounded-lg bg-primary-soft px-2 py-1 text-sm font-bold text-primary-dark">
-                  {formatarHl(l.hl)} HL
-                </span>
-              </div>
-              {/* Barra proporcional ao 1º lugar -- dá a leitura de "quanto
-                  maior que o resto" sem precisar comparar números. */}
-              <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
-                <div
-                  className="h-full rounded-full bg-primary"
-                  style={{ width: `${maior > 0 ? Math.max((l.hl / maior) * 100, 2) : 0}%` }}
-                />
-              </div>
-            </li>
-          );
-        })}
-      </ol>
-    </>
   );
 }

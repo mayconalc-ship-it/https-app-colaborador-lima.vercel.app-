@@ -4,7 +4,6 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { exigirRevenda } from "@/lib/revendas";
 import { PageHeader } from "@/components/PageHeader";
 import { AtalhoParaAFonte } from "@/components/admin/AtalhoParaAFonte";
-import { BotaoEnviar } from "@/components/BotaoEnviar";
 import { formatarDataBr } from "@/lib/rotas";
 import {
   apagarRotasDoDia,

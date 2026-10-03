@@ -204,7 +204,7 @@ export function FormContagem(props: Props) {
     if (!editando) lembrarNoNavegador(novo);
   };
 
-  const [data, setData] = useState(contagem?.data ?? hojeISO());
+  const [data, setData] = useState(contagem?.data ?? recontagem?.dia ?? hojeISO());
   const [palete, setPalete] = useState(contagem ? String(contagem.palete) : "");
   const [lastro, setLastro] = useState(contagem ? String(contagem.lastro) : "");
   const [caixa, setCaixa] = useState(contagem ? String(contagem.caixa) : "");
@@ -216,10 +216,18 @@ export function FormContagem(props: Props) {
   // hoje só porque foi digitado agora. `recontagem?.id` (não o objeto
   // inteiro) é a dependência porque ele nasce de novo a cada render de
   // quem chama; sem isto o efeito repetiria a cada toque em Paletes.
+  //
+  // A Data é ajustada DURANTE o desenho, quando o pedido muda -- o jeito
+  // recomendado pelo React. Num efeito, a tela desenhava duas vezes (uma
+  // com a data velha) a cada pedido aceito.
+  const [recontagemVista, setRecontagemVista] = useState(recontagem?.id ?? null);
+  if ((recontagem?.id ?? null) !== recontagemVista) {
+    setRecontagemVista(recontagem?.id ?? null);
+    if (recontagem) setData(recontagem.dia);
+  }
+  // O foco é efeito de verdade (mexe no DOM): fica no useEffect.
   useEffect(() => {
-    if (!recontagem) return;
-    setData(recontagem.dia);
-    campoPalete.current?.focus();
+    if (recontagem) campoPalete.current?.focus();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [recontagem?.id]);
 
