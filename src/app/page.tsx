@@ -73,9 +73,7 @@ export default async function Home() {
     <div>
       <div className="mb-6 flex items-center justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="text-2xl font-bold text-slate-900">
-            Olá{primeiroNome ? `, ${primeiroNome}` : ""}! 👋
-          </h1>
+          <h1 className="text-2xl font-bold text-slate-900">Olá{primeiroNome ? `, ${primeiroNome}` : ""}! 👋</h1>
           <p className="text-slate-500">Escolha uma opção abaixo</p>
         </div>
         {/*
@@ -86,15 +84,17 @@ export default async function Home() {
           e aparece com 72px de altura -- ~3,5 pixels de imagem por pixel de tela, nítido até no celular de
           tela densa (3x). Qualidade 100 para o verde não ganhar borrão.
         */}
-        <Image
-          src="/selo-dpo-2026.png"
-          alt="Qualified DPO 2026 — AB InBev"
-          width={264}
-          height={252}
-          quality={100}
-          priority
-          className="h-[72px] w-auto shrink-0 drop-shadow-sm"
-        />
+        <span className="selo-brilho">
+          <Image
+            src="/selo-dpo-2026.png"
+            alt="Qualified DPO 2026 — AB InBev"
+            width={264}
+            height={252}
+            quality={100}
+            priority
+            className="h-[72px] w-auto"
+          />
+        </span>
       </div>
       {/* Agrupado, não uma grade de 13. Cada bloco responde a uma pergunta
           diferente, e a ordem é a do dia: o que eu consulto sobre mim, o
@@ -103,9 +103,7 @@ export default async function Home() {
         {agruparItens(itens).map((bloco) => (
           <section key={bloco.id}>
             <div className="mb-2.5">
-              <h2 className="text-sm font-bold uppercase tracking-wide text-slate-500">
-                {bloco.titulo}
-              </h2>
+              <h2 className="text-sm font-bold uppercase tracking-wide text-slate-500">{bloco.titulo}</h2>
               <p className="text-xs text-slate-400">{bloco.subtitulo}</p>
             </div>
             <div className="grid grid-cols-2 gap-3">
@@ -150,9 +148,7 @@ export default async function Home() {
         <section className="mt-7 rounded-2xl border border-primary/25 bg-primary-soft/40 p-4">
           <div className="mb-2.5 flex flex-wrap items-baseline justify-between gap-2">
             <div>
-              <h2 className="text-sm font-bold uppercase tracking-wide text-primary-dark">
-                📊 Gestão
-              </h2>
+              <h2 className="text-sm font-bold uppercase tracking-wide text-primary-dark">📊 Gestão</h2>
               <p className="text-xs text-slate-500">O que os números dizem</p>
             </div>
             <a href="/gestao" className="text-xs font-semibold text-primary hover:underline">
@@ -167,9 +163,7 @@ export default async function Home() {
                 {/* O subtítulo do bloco só aparece quando há mais de um --
                     com um bloco só ele repetiria o título acima. */}
                 {paineis.some((p) => p.bloco !== bloco) && (
-                  <p className="mb-1.5 px-1 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-                    {bloco}
-                  </p>
+                  <p className="mb-1.5 px-1 text-[11px] font-semibold uppercase tracking-wide text-slate-400">{bloco}</p>
                 )}
                 <div className="grid gap-3 sm:grid-cols-2">
                   {doBloco.map((p) => (
@@ -204,9 +198,7 @@ export default async function Home() {
           telas de trabalho ela não tinha o que fazer: ninguém interrompe
           um apontamento de reepack para revisar pergunta de desafio.
           Some sozinha quando não há dica nova -- ver LampadaVoceSabia. */}
-      {perfil && revenda && (
-        <LampadaVoceSabia colaboradorId={perfil.id} revendaId={revenda.id} />
-      )}
+      {perfil && revenda && <LampadaVoceSabia colaboradorId={perfil.id} revendaId={revenda.id} />}
     </div>
   );
 }

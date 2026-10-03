@@ -607,3 +607,72 @@ button:disabled,
     padding-top: 2px;
   }
 }
+
+/* ------------------------------------------------------------------ */
+/* Selo DPO: marca d'água das telas e brilho na home (03/10/2026)      */
+/* ------------------------------------------------------------------ */
+.selo-marca-dagua {
+  position: fixed;
+  right: -9vmin;
+  bottom: -7vmin;
+  width: min(72vmin, 480px);
+  height: auto;
+  z-index: 0;
+  pointer-events: none;
+  user-select: none;
+  opacity: 0.075;
+  filter: blur(1.5px) saturate(0.85);
+  transform: rotate(-12deg);
+  animation: selo-carimba 1.6s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+@keyframes selo-carimba {
+  from {
+    opacity: 0;
+    transform: rotate(-2deg) scale(0.9);
+    filter: blur(6px) saturate(0.85);
+  }
+  to {
+    opacity: 0.075;
+    transform: rotate(-12deg) scale(1);
+    filter: blur(1.5px) saturate(0.85);
+  }
+}
+
+/* A luz que passa pelo selo, uma vez, quando a home abre: medalha
+   pegando luz. Só o brilho anda; o selo fica parado. */
+.selo-brilho {
+  position: relative;
+  display: inline-flex;
+  flex-shrink: 0;
+  border-radius: 9999px;
+  overflow: hidden;
+}
+.selo-brilho::after {
+  content: "";
+  position: absolute;
+  inset: -20%;
+  background: linear-gradient(115deg, transparent 38%, rgb(255 255 255 / 0.75) 50%, transparent 62%);
+  transform: translateX(-120%);
+  animation: selo-luz 1.8s ease-in-out 0.6s 1 both;
+  pointer-events: none;
+}
+@keyframes selo-luz {
+  to {
+    transform: translateX(120%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .selo-marca-dagua,
+  .selo-brilho::after {
+    animation: none;
+  }
+  .selo-brilho::after {
+    display: none;
+  }
+}
+@media print {
+  .selo-marca-dagua {
+    display: none;
+  }
+}
