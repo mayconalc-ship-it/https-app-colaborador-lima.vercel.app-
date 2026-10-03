@@ -56,7 +56,11 @@ export function catalogoDasMigrations(arquivos: ArquivoDeMigration[]): Catalogo 
         if (!tabelas.has(criou[1])) tabelas.set(criou[1], m);
         continue;
       }
-      const apagou = cmd.match(/drop\s+table\s+(?:if\s+exists\s+)?(?:public\.)?"?(\w+)"?/i);
+      // "alter publication ... drop table x" tira x do tempo real, não
+      // apaga a tabela (a 161 faz isso com eventos_acesso).
+      const apagou = /alter\s+publication/i.test(cmd)
+        ? null
+        : cmd.match(/drop\s+table\s+(?:if\s+exists\s+)?(?:public\.)?"?(\w+)"?/i);
       if (apagou) {
         tabelas.delete(apagou[1]);
         for (const k of [...colunas.keys()]) if (k.startsWith(`${apagou[1]}.`)) colunas.delete(k);
