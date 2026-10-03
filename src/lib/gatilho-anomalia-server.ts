@@ -3,6 +3,8 @@ import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { CATALOGO_DE_METAS, type DefinicaoDeMeta } from "@/lib/metas";
 import { calcularTmaMinutos, pctAvariaAtendimento } from "@/lib/carretas";
+import { lerTudoEmPaginas } from "@/lib/rating-server";
+import { lerItensDasCarretas, porAtendimento as itensPorCarreta } from "@/lib/itens-carretas-server";
 import {
   avaliarCadaEvento,
   avaliarSerie,
@@ -89,35 +91,27 @@ async function seriesDoRecebimento(revendaId: string): Promise<Record<string, Po
   const admin = createAdminClient();
   const desde = new Date(Date.now() - DIAS_DE_HISTORICO * 86_400_000).toISOString();
 
-  const { data: atendimentos, error } = await admin
-    .from("atendimentos_carretas")
-    .select(
-      "id, numero_dt, chegada_em, agendamento_em, carga_agendada, fim_descarga_em, fim_carga_em, tem_carga",
-    )
-    .eq("revenda_id", revendaId)
-    .gte("chegada_em", desde)
-    .order("chegada_em");
+  // PAGINADO (03/10/2026): antes vinha numa consulta só e os itens, em
+  // 90 dias, passavam do teto de 1.000 linhas do PostgREST -- a % de
+  // avaria saía de uma amostra cortada. Ver lib/itens-carretas-server.
+  const { linhas, erro } = await lerTudoEmPaginas<LinhaAtendimento>((de, ate) =>
+    admin
+      .from("atendimentos_carretas")
+      .select("id, numero_dt, chegada_em, agendamento_em, carga_agendada, fim_descarga_em, fim_carga_em, tem_carga")
+      .eq("revenda_id", revendaId)
+      .gte("chegada_em", desde)
+      .order("chegada_em")
+      .order("id")
+      .range(de, ate),
+  );
 
   // Erro não vira série vazia: vazio significaria "processo sem
   // medição", e a tela diria "aguardando base" para um indicador que
   // tem base. Ver postgrest-corta-em-mil-linhas.
-  if (error) throw new Error(`Não foi possível ler os atendimentos: ${error.message}`);
-
-  const linhas = (atendimentos ?? []) as LinhaAtendimento[];
+  if (erro) throw new Error(`Não foi possível ler os atendimentos: ${erro}`);
   if (linhas.length === 0) return { avaria_pct: [], tma_alvo_minutos: [] };
 
-  const { data: itens, error: erroItens } = await admin
-    .from("atendimento_carretas_itens")
-    .select("atendimento_id, quantidade, quantidade_avariada")
-    .in("atendimento_id", linhas.map((a) => a.id));
-  if (erroItens) throw new Error(`Não foi possível ler os itens: ${erroItens.message}`);
-
-  const itensPorAtendimento = new Map<string, { quantidade: number; quantidadeAvariada: number | null }[]>();
-  for (const i of itens ?? []) {
-    const arr = itensPorAtendimento.get(i.atendimento_id) ?? [];
-    arr.push({ quantidade: i.quantidade, quantidadeAvariada: i.quantidade_avariada });
-    itensPorAtendimento.set(i.atendimento_id, arr);
-  }
+  const itensPorAtendimento = itensPorCarreta(await lerItensDasCarretas(linhas.map((a) => a.id), {}, admin));
 
   const avariaPorDia = new Map<string, number[]>();
   // TMA: um ponto por atendimento, na ordem de chegada.
@@ -246,20 +240,13 @@ async function montarCarretas(linhas: any[]): Promise<CarretaDoRelato[]> {
   const admin = createAdminClient();
 
   const ids = linhas.map((a) => a.id as string);
-  const [{ data: itens }, { data: blitzes }] = await Promise.all([
-    admin
-      .from("atendimento_carretas_itens")
-      .select("atendimento_id, quantidade, quantidade_avariada")
-      .in("atendimento_id", ids),
+  const [itens, { data: blitzes }] = await Promise.all([
+    // As carretas de um dia têm muitos itens: o mesmo leitor paginado do
+    // gatilho, para o relato não mostrar uma avaria cortada.
+    lerItensDasCarretas(ids, {}, admin).catch(() => []),
     admin.from("pa_blitz").select("id, atendimento_id").in("atendimento_id", ids),
   ]);
-
-  const porAtendimento = new Map<string, { quantidade: number; quantidadeAvariada: number | null }[]>();
-  for (const i of itens ?? []) {
-    const arr = porAtendimento.get(i.atendimento_id as string) ?? [];
-    arr.push({ quantidade: i.quantidade as number, quantidadeAvariada: i.quantidade_avariada as number | null });
-    porAtendimento.set(i.atendimento_id as string, arr);
-  }
+  const porAtendimento = itensPorCarreta(itens);
   const blitzPorAtendimento = new Map(
     (blitzes ?? []).map((b) => [b.atendimento_id as string, b.id as string]),
   );

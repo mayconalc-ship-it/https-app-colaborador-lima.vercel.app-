@@ -2,6 +2,7 @@
 import { PageHeader } from "@/components/PageHeader";
 import { FiltroNoLugar } from "@/components/FiltroNoLugar";
 import { createClient } from "@/lib/supabase/server";
+import { lerItensDasCarretas } from "@/lib/itens-carretas-server";
 import { getRevendaId } from "@/lib/revendas";
 import { temAcessoModulo } from "@/lib/require-admin";
 import { diasAtrasISO, formatarDataHora, hojeISO, LIMITE_AVARIA_ALERTA } from "@/lib/produtividade-armazem";
@@ -189,12 +190,12 @@ export default async function CarretasConferenciaPage({
   // Dash -- os dois conjuntos costumam se sobrepor, e buscar duas vezes
   // seria pagar o dobro pelo mesmo dado.
   const idsFinalizados = [...new Set([...finalizados.map((f) => f.id), ...doPeriodo.map((f) => f.id)])];
-  const { data: itensFinalizadosBanco } = idsFinalizados.length > 0
-    ? await supabase
-        .from("atendimento_carretas_itens")
-        .select("atendimento_id, empilhador, quantidade, quantidade_avariada")
-        .in("atendimento_id", idsFinalizados)
-    : { data: [] as { atendimento_id: string; empilhador: string; quantidade: number; quantidade_avariada: number | null }[] };
+  // EM LOTES E PAGINADO (03/10/2026): uma semana de carretas já passa de
+  // mil itens, e o PostgREST cortava a lista em silêncio -- a avaria do
+  // Dash saía de uma amostra. Ver lib/itens-carretas-server.
+  const itensFinalizadosBanco = (
+    idsFinalizados.length > 0 ? await lerItensDasCarretas(idsFinalizados, { comEmpilhador: true }, supabase).catch(() => []) : []
+  ) as { atendimento_id: string; empilhador: string; quantidade: number; quantidade_avariada: number | null }[];
   const empilhadoresPorAtendimento = new Map<string, string[]>();
   const itensPorAtendimento = new Map<string, { quantidade: number; quantidadeAvariada: number | null }[]>();
   for (const i of itensFinalizadosBanco ?? []) {
