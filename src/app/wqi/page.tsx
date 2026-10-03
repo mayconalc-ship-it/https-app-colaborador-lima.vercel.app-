@@ -59,7 +59,7 @@ export default async function WqiPage({
   return (
     <div>
       <PageHeader
-        title="💥 Baixa WQI"
+        title="💸 Baixa WQI"
         subtitle="Quebra de produto acabado por manuseio dentro do armazém."
         fecharHref="/produtividade-armazem"
       />

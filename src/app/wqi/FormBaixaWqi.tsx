@@ -89,7 +89,7 @@ export function FormBaixaWqi({
       </div>
 
       <div className={cartao}>
-        <Titulo emoji="💥" texto="O que aconteceu" />
+        <Titulo emoji="📝" texto="O que aconteceu" />
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div>
             <label className={rotulo} htmlFor="motivo_id">Motivo</label>
@@ -141,7 +141,7 @@ export function FormBaixaWqi({
         textoEnviando="Enviando..."
         className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-white shadow-sm hover:bg-primary-dark"
       >
-        💥 Registrar baixa WQI
+        💸 Registrar baixa WQI
       </BotaoEnviar>
     </FormNoLugar>
   );

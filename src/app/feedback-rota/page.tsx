@@ -243,7 +243,7 @@ export default function FeedbackRotaPage() {
                 aria-busy={pendente}
                 className="flex w-full flex-col items-center justify-center gap-0.5 rounded-xl border-2 border-primary bg-primary-soft py-3 font-semibold text-primary transition hover:bg-primary/10 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                <span>{pendente ? "Enviando..." : "🧠 Fazer 5 Porquês (obrigatório)"}</span>
+                <span>{pendente ? "Enviando..." : "5️⃣ Porquês: fazer a análise (obrigatório)"}</span>
                 {!pendente && (
                   <span className="text-xs font-normal text-primary/80">
                     Encontre a causa raiz do problema

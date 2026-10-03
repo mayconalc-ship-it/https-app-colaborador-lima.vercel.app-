@@ -124,7 +124,7 @@ export default async function BlitzDaCarretaPage({
   return (
     <div>
       <PageHeader
-        title="🚨 Blitz de carreta"
+        title="🔦 Blitz de carreta"
         subtitle={`${atendimento.placa_carreta} — DT ${atendimento.numero_dt}`}
         fecharHref={`/carretas-conferencia/${id}`}
       />

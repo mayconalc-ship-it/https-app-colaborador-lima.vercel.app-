@@ -37,7 +37,7 @@ export default async function DesafioPage({
   if (!(await revendaTemModulo("quiz"))) {
     return (
       <div>
-        <PageHeader title="🏆 Desafio do Mês" />
+        <PageHeader title="🧠 Desafio do Mês" />
         <Aviso
           titulo="Desafio ainda não liberado aqui"
           texto="Esta revenda ainda não usa o Desafio do Mês. Fale com o Admin do app."
@@ -52,7 +52,7 @@ export default async function DesafioPage({
   if (!ctx.area) {
     return (
       <div>
-        <PageHeader title="🏆 Desafio do Mês" />
+        <PageHeader title="🧠 Desafio do Mês" />
         <Aviso
           titulo="Falta a sua área no cadastro"
           texto="O desafio é separado por área (Distribuição e Armazém), e o seu cadastro ainda não diz de qual delas você faz parte. Peça ao Admin para completar isso — depois é só voltar aqui."
@@ -70,7 +70,7 @@ export default async function DesafioPage({
     const ultima = await getUltimaRodada(ctx.revendaId, ctx.area);
     return (
       <div>
-        <PageHeader title="🏆 Desafio do Mês" subtitle={rotuloArea} />
+        <PageHeader title="🧠 Desafio do Mês" subtitle={rotuloArea} />
         <Aviso
           titulo="Nenhum desafio no ar"
           texto={
@@ -103,7 +103,7 @@ export default async function DesafioPage({
 
   return (
     <div>
-      <PageHeader title="🏆 Desafio do Mês" subtitle={rotuloArea} />
+      <PageHeader title="🧠 Desafio do Mês" subtitle={rotuloArea} />
 
       {erro && (
         <p className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">

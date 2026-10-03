@@ -677,7 +677,7 @@ async function lembretesDaTratativa(admin: ReturnType<typeof createAdminClient>)
     }
     if (lideres.length === 0) continue;
 
-    const titulo = "🧠 5 Porquês esperando resposta";
+    const titulo = "5️⃣ Porquês esperando resposta";
     const problema = (a.problema_label ?? "").trim().slice(0, 70);
     const mensagem =
       `${a.colaborador_nome ?? "Um motorista"} concluiu a análise há mais de 24 h` +

@@ -137,7 +137,7 @@ const ABAS: { id: Aba; rotulo: string; emoji: string }[] = [
   { id: "recebimento", rotulo: "Recebimento", emoji: "🚛" },
   { id: "cinco-s", rotulo: "5S", emoji: "🧹" },
   { id: "fefo", rotulo: "FEFO", emoji: "⏳" },
-  { id: "wqi", rotulo: "WQI", emoji: "💥" },
+  { id: "wqi", rotulo: "WQI", emoji: "💸" },
 ];
 
 type ItemWqiBanco = { id: string; nome: string; ajuda?: string | null; ativo: boolean };
