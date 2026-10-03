@@ -4,8 +4,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { criarNotificacao } from "@/lib/notificacoes-server";
 import { enviarPushDaRevenda } from "@/lib/push-server";
 import { CATALOGO_DE_METAS } from "@/lib/metas";
-import { avaliarSerie } from "@/lib/gatilho-anomalia";
-import { seriesDoIndicador } from "@/lib/gatilho-anomalia-server";
+import { avaliarCadaEvento, avaliarSerie } from "@/lib/gatilho-anomalia";
+import { ontemSP, porAtendimento, seriesDoIndicador } from "@/lib/gatilho-anomalia-server";
 
 /**
  * A VARREDURA DO GATILHO -- de indicador fora da faixa para relato aberto.
@@ -83,6 +83,62 @@ export async function varrerGatilhosDeAnomalia(): Promise<{
 
       avaliados++;
 
+      /*
+        TMA: UM RELATO POR DT (03/10/2026). Cada atendimento de ontem ou
+        de hoje que passou do limite abre o seu relato, apontando a
+        carreta. A trava do banco (pa_relato_por_atendimento_unico,
+        migration 159) garante um relato por DT, para sempre: rodar a
+        cada 15 minutos não duplica, e a DT já tratada não reabre.
+      */
+      if (porAtendimento(g.indicador)) {
+        const porDt = avaliarCadaEvento(
+          pontos,
+          {
+            sentido: def.sentido,
+            sigmas: Number(g.sigmas),
+            limiteManual: g.limite_manual === null ? null : Number(g.limite_manual),
+          },
+          ontemSP(),
+        );
+        for (const d of porDt.disparos) {
+          if (!d.ponto.ref) continue;
+          const { data: criado, error: erroInsert } = await admin
+            .from("pa_relatos_anomalia")
+            .insert({
+              revenda_id: revendaId,
+              gatilho_id: g.id,
+              indicador: def.chave,
+              indicador_rotulo: def.rotulo,
+              atendimento_id: d.ponto.ref,
+              dia_do_disparo: d.ponto.dia,
+              valor: d.ponto.valor,
+              limite: d.limite,
+              media: porDt.base.confiavel ? porDt.base.media : null,
+              desvio: porDt.base.confiavel ? porDt.base.desvio : null,
+              regra: porDt.limiteManual ? "manual" : "pico",
+              explicacao: d.explicacao,
+              status: "aberto",
+            })
+            .select("id")
+            .maybeSingle();
+          // 23505 = esta DT já tem relato: é a trava, não falha.
+          if (erroInsert) {
+            if (erroInsert.code === "23505") continue;
+            return { avaliados, abertos, erro: `Ao abrir o relato da DT: ${erroInsert.message}` };
+          }
+          if (!criado) continue;
+          abertos++;
+          await avisar(
+            revendaId,
+            g.responsavel_id,
+            criado.id,
+            `🚨 ${def.rotulo} fora do limite · DT ${d.ponto.rotulo ?? "sem número"}`,
+            `${d.explicacao} Registre o relato de anomalia.`,
+          );
+        }
+        continue;
+      }
+
       const avaliacao = avaliarSerie(pontos, {
         sentido: def.sentido,
         sigmas: Number(g.sigmas),
@@ -134,33 +190,47 @@ export async function varrerGatilhosDeAnomalia(): Promise<{
       if (!criado) continue;
 
       abertos++;
-
-      const titulo = `🚨 ${def.rotulo} fora do limite`;
-      const mensagem = `${disparo.explicacao} Registre o relato de anomalia.`;
-      const url = `/gestao/anomalias/${criado.id}`;
-
-      await criarNotificacao({
-        modulo: "relato-anomalia",
-        tipo: "lembrete",
-        titulo,
-        mensagem,
-        url,
+      await avisar(
         revendaId,
-        // Com responsável cadastrado, o aviso tem dono; sem ele vai para
-        // a revenda, e o painel é quem distribui. Aviso sem dono é aviso
-        // que todo mundo acha que é de outro.
-        destinatarioId: g.responsavel_id ?? null,
-        referenciaId: `anomalia:${criado.id}`,
-      });
-      await enviarPushDaRevenda(revendaId, {
-        modulo: "relato-anomalia",
-        titulo,
-        mensagem,
-        url,
-        ...(g.responsavel_id ? { apenas: [g.responsavel_id] } : {}),
-      });
+        g.responsavel_id,
+        criado.id,
+        `🚨 ${def.rotulo} fora do limite`,
+        `${disparo.explicacao} Registre o relato de anomalia.`,
+      );
     }
   }
 
   return { avaliados, abertos };
+}
+
+/** O aviso do relato aberto: notificação no app e push. */
+async function avisar(
+  revendaId: string,
+  responsavelId: string | null,
+  relatoId: string,
+  titulo: string,
+  mensagem: string,
+) {
+  const url = `/gestao/anomalias/${relatoId}`;
+
+  await criarNotificacao({
+    modulo: "relato-anomalia",
+    tipo: "lembrete",
+    titulo,
+    mensagem,
+    url,
+    revendaId,
+    // Com responsável cadastrado, o aviso tem dono; sem ele vai para
+    // a revenda, e o painel é quem distribui. Aviso sem dono é aviso
+    // que todo mundo acha que é de outro.
+    destinatarioId: responsavelId ?? null,
+    referenciaId: `anomalia:${relatoId}`,
+  });
+  await enviarPushDaRevenda(revendaId, {
+    modulo: "relato-anomalia",
+    titulo,
+    mensagem,
+    url,
+    ...(responsavelId ? { apenas: [responsavelId] } : {}),
+  });
 }

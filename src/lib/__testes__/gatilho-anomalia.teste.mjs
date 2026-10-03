@@ -9,6 +9,7 @@ import {
   calcularBase,
   limiteDoGatilho,
   avaliarSerie,
+  avaliarCadaEvento,
   foraDoLimite,
   MINIMO_DE_PONTOS,
   SIGMAS_PADRAO,
@@ -160,6 +161,31 @@ console.log("\n== SERIE VAZIA NAO QUEBRA ==");
 const vazia = avaliarSerie([], g1);
 eq("sem disparo", vazia.disparo, null);
 eq("sem pontos", vazia.base.pontos, 0);
+
+console.log("== TMA POR DT: UM DISPARO POR ATENDIMENTO ==");
+{
+  // 20 carretas normais (40 a 59 min) e, nos dois últimos dias, três DTs:
+  // uma normal, uma muito acima e uma acima só do limite manual.
+  const normais = Array.from({ length: 20 }, (_, i) => ({ dia: "2026-09-10", valor: 40 + i, ref: `a${i}`, rotulo: String(1000 + i) }));
+  const recentes = [
+    { dia: "2026-09-25", valor: 50, ref: "ok", rotulo: "2001" },
+    { dia: "2026-09-25", valor: 140, ref: "ruim", rotulo: "2002" },
+    { dia: "2026-09-26", valor: 75, ref: "medio", rotulo: "2003" },
+  ];
+  const gat = { sentido: "menor_melhor", sigmas: 2, limiteManual: null };
+  const r = avaliarCadaEvento([...normais, ...recentes], gat, "2026-09-25");
+  ok("limite calculado entre carretas", r.limite !== null && r.limite > 59 && r.limite < 140);
+  eq("só a DT acima do limite dispara", r.disparos.map((d) => d.ponto.ref).join(), "ruim");
+  ok("explicação cita a DT", r.disparos[0].explicacao.startsWith("DT 2002: 140"));
+  eq("regra é pico (sem deriva entre carretas)", r.disparos[0].regra, "pico");
+  const velho = avaliarCadaEvento([...normais, { dia: "2026-09-01", valor: 500, ref: "x", rotulo: "9" }], gat, "2026-09-25");
+  eq("DT antiga fora da janela não dispara", velho.disparos.length, 0);
+  const manual = avaliarCadaEvento([...normais, ...recentes], { ...gat, limiteManual: 60 }, "2026-09-25");
+  eq("limite manual: as duas DTs acima de 60", manual.disparos.map((d) => d.ponto.ref).join(), "ruim,medio");
+  ok("limite manual dispara mesmo sem base", avaliarCadaEvento(recentes, { ...gat, limiteManual: 60 }, "2026-09-25").disparos.length === 2);
+  eq("sem base e sem manual: nada", avaliarCadaEvento(recentes, gat, "2026-09-25").disparos.length, 0);
+  ok("explicação sem DT cai em 'Atendimento'", avaliarCadaEvento([{ dia: "2026-09-25", valor: 99 }], { ...gat, limiteManual: 60 }, "2026-09-25").disparos[0].explicacao.startsWith("Atendimento: 99"));
+}
 
 console.log(`\n${falhas === 0 ? "TODOS OS CASOS PASSARAM" : falhas + " FALHA(S)"}`);
 process.exit(falhas === 0 ? 0 : 1);

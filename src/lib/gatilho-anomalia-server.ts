@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { CATALOGO_DE_METAS, type DefinicaoDeMeta } from "@/lib/metas";
 import { calcularTmaMinutos, pctAvariaAtendimento } from "@/lib/carretas";
 import {
+  avaliarCadaEvento,
   avaliarSerie,
   calcularBase,
   limiteDoGatilho,
@@ -32,9 +33,23 @@ import {
  * avaria é a porta da blitz. Indicador ainda não ligado aparece na tela
  * dizendo isso -- e não como um gatilho que nunca dispara, que seria
  * pior: pareceria um processo sem anomalia.
+ *
+ * EXCEÇÃO: O TMA É POR DT (03/10/2026). Pedido do dono: o relato de TMA
+ * é de UMA carreta -- o atendimento que passou do limite. Na série do TMA
+ * cada ponto é um atendimento (com o id e a DT), e o gatilho avalia cada
+ * um (ver avaliarCadaEvento). A avaria continua sendo a média do dia.
  */
 export const INDICADORES_COM_SERIE = ["avaria_pct", "tma_alvo_minutos"] as const;
 export type IndicadorComSerie = (typeof INDICADORES_COM_SERIE)[number];
+
+/** Os indicadores avaliados carreta a carreta: um relato por atendimento. */
+export const INDICADORES_POR_ATENDIMENTO: readonly string[] = ["tma_alvo_minutos"];
+export const porAtendimento = (indicador: string) => INDICADORES_POR_ATENDIMENTO.includes(indicador);
+
+/** Ontem em São Paulo: daí em diante a DT ainda é "de agora" e dispara. */
+export function ontemSP() {
+  return new Date(Date.now() - 86_400_000).toLocaleDateString("sv-SE", { timeZone: "America/Sao_Paulo" });
+}
 
 export function temSerie(indicador: string): indicador is IndicadorComSerie {
   return (INDICADORES_COM_SERIE as readonly string[]).includes(indicador);
@@ -50,6 +65,7 @@ const diaSP = (iso: string) =>
 
 type LinhaAtendimento = {
   id: string;
+  numero_dt: string | null;
   chegada_em: string;
   agendamento_em: string | null;
   carga_agendada: boolean;
@@ -76,7 +92,7 @@ async function seriesDoRecebimento(revendaId: string): Promise<Record<string, Po
   const { data: atendimentos, error } = await admin
     .from("atendimentos_carretas")
     .select(
-      "id, chegada_em, agendamento_em, carga_agendada, fim_descarga_em, fim_carga_em, tem_carga",
+      "id, numero_dt, chegada_em, agendamento_em, carga_agendada, fim_descarga_em, fim_carga_em, tem_carga",
     )
     .eq("revenda_id", revendaId)
     .gte("chegada_em", desde)
@@ -104,7 +120,8 @@ async function seriesDoRecebimento(revendaId: string): Promise<Record<string, Po
   }
 
   const avariaPorDia = new Map<string, number[]>();
-  const tmaPorDia = new Map<string, number[]>();
+  // TMA: um ponto por atendimento, na ordem de chegada.
+  const tmaPorAtendimento: Ponto[] = [];
 
   for (const a of linhas) {
     const dia = diaSP(a.chegada_em);
@@ -123,12 +140,14 @@ async function seriesDoRecebimento(revendaId: string): Promise<Record<string, Po
       fimCargaEm: a.fim_carga_em,
       temCarga: a.tem_carga,
     } as Parameters<typeof calcularTmaMinutos>[0]);
-    if (tma !== null) empilhar(tmaPorDia, dia, tma);
+    if (tma !== null) {
+      tmaPorAtendimento.push({ dia, valor: Math.round(tma * 100) / 100, ref: a.id, rotulo: a.numero_dt });
+    }
   }
 
   return {
     avaria_pct: mediaPorDia(avariaPorDia),
-    tma_alvo_minutos: mediaPorDia(tmaPorDia),
+    tma_alvo_minutos: tmaPorAtendimento,
   };
 }
 
@@ -189,16 +208,42 @@ export async function carretasDoDia(
 
   const { data: atendimentos } = await admin
     .from("atendimentos_carretas")
-    .select(
-      "id, numero_dt, placa_carreta, placa_cavalo, motorista_nome, chegada_em, agendamento_em, carga_agendada, fim_descarga_em, fim_carga_em, tem_carga, pa_transportadoras(nome)",
-    )
+    .select(CAMPOS_DA_CARRETA)
     .eq("revenda_id", revendaId)
     .gte("chegada_em", inicio)
     .lte("chegada_em", fim)
     .order("chegada_em");
 
-  const linhas = atendimentos ?? [];
+  const carretas = await montarCarretas(atendimentos ?? []);
+
+  // A pior primeiro: numa lista de doze carretas, a que puxou a média é a
+  // que se trata. Sem avaria medida vai para o fim -- não é zero, é "não
+  // conferida", e ordenar como zero a esconderia no meio das boas.
+  return carretas.sort((a, b) => (b.avariaPct ?? -1) - (a.avariaPct ?? -1));
+}
+
+const CAMPOS_DA_CARRETA =
+  "id, numero_dt, placa_carreta, placa_cavalo, motorista_nome, chegada_em, agendamento_em, carga_agendada, fim_descarga_em, fim_carga_em, tem_carga, pa_transportadoras(nome)";
+
+/**
+ * A CARRETA DE UM RELATO DE TMA (um relato por DT): só ela, e não o dia
+ * inteiro. Nulo se o atendimento foi apagado depois.
+ */
+export async function carretaDoAtendimento(revendaId: string, atendimentoId: string): Promise<CarretaDoRelato | null> {
+  const { data } = await createAdminClient()
+    .from("atendimentos_carretas")
+    .select(CAMPOS_DA_CARRETA)
+    .eq("revenda_id", revendaId)
+    .eq("id", atendimentoId)
+    .maybeSingle();
+  if (!data) return null;
+  return (await montarCarretas([data]))[0] ?? null;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- linha do PostgREST com embed
+async function montarCarretas(linhas: any[]): Promise<CarretaDoRelato[]> {
   if (linhas.length === 0) return [];
+  const admin = createAdminClient();
 
   const ids = linhas.map((a) => a.id as string);
   const [{ data: itens }, { data: blitzes }] = await Promise.all([
@@ -246,11 +291,7 @@ export async function carretasDoDia(
       blitzId: blitzPorAtendimento.get(a.id as string) ?? null,
     };
   });
-
-  // A pior primeiro: numa lista de doze carretas, a que puxou a média é a
-  // que se trata. Sem avaria medida vai para o fim -- não é zero, é "não
-  // conferida", e ordenar como zero a esconderia no meio das boas.
-  return carretas.sort((a, b) => (b.avariaPct ?? -1) - (a.avariaPct ?? -1));
+  return carretas;
 }
 
 function empilhar(mapa: Map<string, number[]>, dia: string, valor: number) {
@@ -321,11 +362,13 @@ export async function carregarConfiguracaoDeGatilhos(
 
     if (!pontos) return { def, gatilho, avaliacao: null, pontos: [] };
 
-    const avaliacao = avaliarSerie(pontos, {
+    const regra = {
       sentido: def.sentido,
       sigmas: gatilho?.sigmas ?? SIGMAS_PADRAO,
       limiteManual: gatilho?.limite_manual ?? null,
-    });
+    };
+    // TMA: a carreta de ontem ou de hoje que passou do limite.
+    const avaliacao = porAtendimento(def.chave) ? avaliarCadaEvento(pontos, regra, ontemSP()) : avaliarSerie(pontos, regra);
     return { def, gatilho, avaliacao, pontos };
   });
 }

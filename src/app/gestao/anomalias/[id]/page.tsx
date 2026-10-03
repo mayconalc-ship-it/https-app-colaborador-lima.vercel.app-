@@ -33,7 +33,7 @@ import {
 } from "@/lib/relato-anomalia";
 import { BotaoExcluir } from "@/components/BotaoExcluir";
 import { podeNoModulo } from "@/lib/require-admin";
-import { carretasDoDia, temSerie } from "@/lib/gatilho-anomalia-server";
+import { carretaDoAtendimento, carretasDoDia, temSerie } from "@/lib/gatilho-anomalia-server";
 import {
   assinarRelato,
   buscarPessoasDoRelato,
@@ -68,6 +68,8 @@ type Relato = {
   indicador: string;
   indicador_rotulo: string;
   dia_do_disparo: string;
+  /** Relato de UMA carreta (TMA por DT, migration 159). Nulo = relato do dia. */
+  atendimento_id?: string | null;
   valor: number;
   limite: number;
   media: number | null;
@@ -171,7 +173,13 @@ export default async function RelatoDeAnomaliaPage({
     disparo. Num relato de Refugo ou de Devolução, a mesma lista de
     carretas seria ruído com cara de evidência.
   */
-  const carretas = temSerie(r.indicador) ? await carretasDoDia(revendaId, r.dia_do_disparo) : [];
+  // TMA por DT (03/10/2026): o relato é de UMA carreta -- só ela aparece.
+  const daDt = r.atendimento_id ? await carretaDoAtendimento(revendaId, r.atendimento_id) : null;
+  const carretas = daDt
+    ? [daDt]
+    : !r.atendimento_id && temSerie(r.indicador)
+      ? await carretasDoDia(revendaId, r.dia_do_disparo)
+      : [];
 
   /*
     A UNIDADE DO INDICADOR vem do catálogo de metas -- é lá que ela já
@@ -216,7 +224,7 @@ export default async function RelatoDeAnomaliaPage({
     assinaturaGestor: r.assinatura_gestor ?? "a assinar agora",
   });
 
-  const titulo = tituloDoRelato(r.indicador_rotulo, r.dia_do_disparo);
+  const titulo = tituloDoRelato(r.indicador_rotulo, r.dia_do_disparo, daDt ? (daDt.numeroDt ?? "sem número") : null);
 
   return (
     <div className="folha mx-auto max-w-4xl">
@@ -399,12 +407,25 @@ export default async function RelatoDeAnomaliaPage({
           */}
           {carretas.length > 0 && (
             <div className="mt-3 rounded-xl border border-slate-300 bg-white p-3">
-              <p className="text-xs font-bold uppercase tracking-wide text-slate-700">
-                🚛 Carretas recebidas em {brasileira(r.dia_do_disparo)} ({carretas.length})
-              </p>
-              <p className="so-na-tela mt-0.5 text-[11px] leading-snug text-slate-500">
-                O indicador do dia é a média destas carretas — a de maior avaria vem primeiro.
-              </p>
+              {daDt ? (
+                <>
+                  <p className="text-xs font-bold uppercase tracking-wide text-slate-700">
+                    🚛 Carreta deste relato · DT {daDt.numeroDt ?? "—"}
+                  </p>
+                  <p className="so-na-tela mt-0.5 text-[11px] leading-snug text-slate-500">
+                    O TMA é avaliado carreta a carreta: este relato trata só este atendimento.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="text-xs font-bold uppercase tracking-wide text-slate-700">
+                    🚛 Carretas recebidas em {brasileira(r.dia_do_disparo)} ({carretas.length})
+                  </p>
+                  <p className="so-na-tela mt-0.5 text-[11px] leading-snug text-slate-500">
+                    O indicador do dia é a média destas carretas — a de maior avaria vem primeiro.
+                  </p>
+                </>
+              )}
               <ul className="mt-2 divide-y divide-slate-100">
                 {carretas.map((c) => (
                   <li key={c.id} className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 py-1.5">
@@ -423,6 +444,15 @@ export default async function RelatoDeAnomaliaPage({
                         }`}
                       >
                         {c.avariaPct.toLocaleString("pt-BR", { maximumFractionDigits: 2 })}% avaria
+                      </span>
+                    )}
+                    {daDt && c.tmaMinutos !== null && (
+                      <span
+                        className={`shrink-0 text-xs font-bold tabular-nums ${
+                          c.tmaMinutos > r.limite ? "text-red-700" : "text-slate-600"
+                        }`}
+                      >
+                        TMA {Math.round(c.tmaMinutos)} min · chegou às {horaDe(c.chegadaEm)}
                       </span>
                     )}
                     {c.blitzId && (

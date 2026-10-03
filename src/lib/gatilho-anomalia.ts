@@ -64,6 +64,12 @@ export type Ponto = {
   /** O dia (ou a competência) daquele valor, em ISO curto. */
   dia: string;
   valor: number;
+  /**
+   * Só na série POR EVENTO (TMA, um ponto por atendimento): o id do
+   * atendimento e a DT, para o relato nascer apontando a carreta.
+   */
+  ref?: string;
+  rotulo?: string | null;
 };
 
 export type BaseEstatistica = {
@@ -259,6 +265,51 @@ export function avaliarSerie(pontos: Ponto[], gatilho: Gatilho): Avaliacao {
 }
 
 /** A que distância da média, em desvios. Zero quando não há desvio. */
+/**
+ * O GATILHO POR EVENTO -- um relato por atendimento (03/10/2026).
+ *
+ * Pedido do dono: "o relato de anomalia para TMA deve ser somente de uma
+ * DT. Caso esse atendimento atinja o gatilho, deverá realizar o relato".
+ * Então, no TMA, cada ponto é UMA carreta, e cada carreta do lado ruim
+ * do limite é um disparo próprio.
+ *
+ * Só a regra do PICO. A deriva ("2 de 3 além de 1σ") é sobre o processo
+ * andando para o lado errado ao longo do tempo; entre carretas
+ * diferentes ela juntaria a DT de agora com duas DTs que não têm nada a
+ * ver com ela, e o relato apontaria uma carreta por culpa das vizinhas.
+ *
+ * A base (média e desvio) vem da série inteira -- é a variação normal
+ * entre carretas --, mas só os pontos a partir de `desdeDia` disparam:
+ * relato é sobre agir agora, não sobre a DT de três semanas atrás.
+ */
+export function avaliarCadaEvento(
+  pontos: Ponto[],
+  gatilho: Gatilho,
+  desdeDia: string,
+): Avaliacao & { disparos: Disparo[] } {
+  const base = calcularBase(pontos.map((p) => p.valor));
+  const limite = limiteDoGatilho(base, gatilho);
+  const limiteManual = gatilho.limiteManual !== null && gatilho.limiteManual !== undefined;
+  if (limite === null) return { base, limite, limiteManual, disparo: null, disparos: [] };
+
+  const disparos: Disparo[] = pontos
+    .filter((p) => p.dia >= desdeDia && foraDoLimite(p.valor, limite, gatilho.sentido))
+    .map((p) => {
+      const quem = p.rotulo ? `DT ${p.rotulo}` : "Atendimento";
+      return {
+        ponto: p,
+        limite,
+        sigmas: distanciaEmSigmas(p.valor, base),
+        regra: "pico" as const,
+        explicacao: limiteManual
+          ? `${quem}: ${formatar(p.valor)} passou do limite definido (${formatar(limite)}).`
+          : `${quem}: ${formatar(p.valor)} passou do limite de ${formatar(limite)} ` +
+            `(média ${formatar(base.media)} ${gatilho.sentido === "menor_melhor" ? "+" : "−"} ${gatilho.sigmas}× o desvio de ${formatar(base.desvio)}).`,
+      };
+    });
+  return { base, limite, limiteManual, disparo: disparos[disparos.length - 1] ?? null, disparos };
+}
+
 export function distanciaEmSigmas(valor: number, base: BaseEstatistica): number {
   if (!base.desvio) return 0;
   return arredondar(Math.abs(valor - base.media) / base.desvio);
