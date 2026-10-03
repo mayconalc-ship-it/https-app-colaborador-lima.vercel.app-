@@ -91,5 +91,19 @@ for (let t = 0; t < 4; t++) {
   ok(`2025 T${t + 1}: o app recalcula ${formatarPct(r.total)}`, perto(r.total, alvos.total[t]));
 }
 
+console.log("== 2025 COM O 7.4 COMO N/A (migration 160) ==");
+const sql160 = readFileSync(new URL("../../../supabase/migrations/160_manutencao_74_na_2025.sql", import.meta.url), "utf8");
+const totais160 = Object.fromEntries([...sql160.matchAll(/\((\d), (0\.\d+)\)/g)].map((m) => [Number(m[1]), Number(m[2])]));
+for (let t = 0; t < 4; t++) {
+  const r = calcularNotas(
+    itens,
+    itens.map((i) => {
+      const v = i.numero === "7.4" ? "N/A" : i.t[t];
+      return { itemId: i.id, na: v === "N/A", nota: typeof v === "number" ? v : null };
+    }),
+  );
+  ok(`2025 T${t + 1}: a 160 grava ${formatarPct(r.total)}`, Math.abs(r.total - totais160[t + 1]) < 0.000005, `${r.total} x ${totais160[t + 1]}`);
+}
+
 console.log(falhas === 0 ? "\nTudo certo." : `\n${falhas} falha(s).`);
 if (falhas > 0) process.exit(1);
