@@ -209,6 +209,11 @@
    "migration": "094"
   },
   {
+   "tabela": "ag_transito",
+   "coluna": "transito_rota",
+   "migration": "094"
+  },
+  {
    "tabela": "atendimento_carretas_itens",
    "coluna": "quantidade_avariada",
    "migration": "063"
@@ -665,8 +670,13 @@
   },
   {
    "tabela": "pa_bate_palete_itens",
-   "coluna": "unidade",
+   "coluna": "quantidade_avariada",
    "migration": "088"
+  },
+  {
+   "tabela": "pa_bate_palete_itens",
+   "coluna": "unidade_avariada",
+   "migration": "092"
   },
   {
    "tabela": "pa_blitz",
@@ -706,6 +716,11 @@
   {
    "tabela": "pa_embalagens",
    "coluna": "tempo_padrao_despejo_segundos",
+   "migration": "050"
+  },
+  {
+   "tabela": "pa_embalagens",
+   "coluna": "tempo_padrao_reepack_segundos",
    "migration": "050"
   },
   {
@@ -797,6 +812,16 @@
    "tabela": "pa_pdv_clientes",
    "coluna": "fantasia",
    "migration": "115"
+  },
+  {
+   "tabela": "pa_pdv_config",
+   "coluna": "pasta_link",
+   "migration": "108"
+  },
+  {
+   "tabela": "pa_pdv_config",
+   "coluna": "ultima_sincronizacao",
+   "migration": "108"
   },
   {
    "tabela": "pa_pdv_config",
