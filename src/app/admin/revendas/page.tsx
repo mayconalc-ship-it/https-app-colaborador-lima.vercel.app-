@@ -9,8 +9,10 @@ import {
   alternarRevenda,
   criarRevenda,
   removerLogoRevenda,
+  removerSeloRevenda,
   renomearRevenda,
   salvarLogoRevenda,
+  salvarSeloRevenda,
   salvarModulos,
 } from "./actions";
 import { ComMarcas } from "@/components/Icone";
@@ -25,12 +27,18 @@ export default async function RevendasPage({
 
   const admin = createAdminClient();
 
-  const [{ data: revendas }, { data: modulos }, { data: vinculos }] =
+  // selo_url nasceu na 164: sem ela rodada, lê sem o selo e a tela avisa.
+  type LinhaRevenda = { id: string; slug: string; nome: string; ativa: boolean; logo_url: string | null; selo_url?: string | null };
+  const lerRevendas = async () => {
+    const com = await admin.from("revendas").select("id, slug, nome, ativa, logo_url, selo_url").order("ordem");
+    if (!com.error) return { data: com.data as LinhaRevenda[], seloInstalado: true };
+    const sem = await admin.from("revendas").select("id, slug, nome, ativa, logo_url").order("ordem");
+    return { data: (sem.data ?? []) as LinhaRevenda[], seloInstalado: false };
+  };
+
+  const [{ data: revendas, seloInstalado }, { data: modulos }, { data: vinculos }] =
     await Promise.all([
-      admin
-        .from("revendas")
-        .select("id, slug, nome, ativa, logo_url")
-        .order("ordem"),
+      lerRevendas(),
       admin.from("revenda_modulos").select("revenda_id, modulo").eq("ativo", true),
       admin.from("colaborador_revendas").select("revenda_id"),
     ]);
@@ -244,6 +252,69 @@ export default async function RevendasPage({
                       Remover e voltar à marca do app
                     </BotaoEnviar>
                   </form>
+                )}
+              </div>
+
+              {/* ---- Selo da revenda (03/10/2026) ---- */}
+              <div className="border-t border-slate-100 p-4">
+                <p className="mb-1 text-sm font-medium text-slate-700">Selo da revenda</p>
+                <p className="mb-3 text-xs text-slate-500">
+                  O selo de qualificação (hoje, o Qualified DPO 2026). Aparece ao lado do &ldquo;Olá&rdquo; na tela inicial e,
+                  esfumaçado, como marca d&rsquo;água nas outras telas. Quando vier o selo do próximo ano, é só trocar aqui.
+                </p>
+                {!seloInstalado ? (
+                  <p className="rounded-xl bg-amber-50 p-3 text-xs text-amber-800">
+                    Falta rodar a migration 164 (selo da revenda) no Supabase.
+                  </p>
+                ) : (
+                  <>
+                    <div className="mb-3 flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
+                      {r.selo_url ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={r.selo_url} alt={`Selo de ${r.nome}`} className="h-16 w-auto" />
+                      ) : (
+                        <span className="flex h-16 w-16 items-center justify-center rounded-full border-2 border-dashed border-slate-300 text-xs text-slate-400">
+                          sem selo
+                        </span>
+                      )}
+                      <span className="text-xs text-slate-500">
+                        {r.selo_url ? "É assim que aparece ao lado do “Olá”." : "Sem selo: nada aparece na home nem nas telas."}
+                      </span>
+                    </div>
+
+                    <form action={salvarSeloRevenda} className="flex flex-col gap-2">
+                      <input type="hidden" name="id" value={r.id} />
+                      <input
+                        type="file"
+                        name="selo"
+                        accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                        required
+                        className="w-full rounded-xl border border-slate-200 p-2.5 text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-primary-soft file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-primary"
+                      />
+                      <BotaoEnviar
+                        textoEnviando="Enviando..."
+                        className="w-full rounded-xl bg-primary py-3 text-sm font-semibold text-white hover:bg-primary-dark"
+                      >
+                        {r.selo_url ? "Trocar selo" : "Enviar selo"}
+                      </BotaoEnviar>
+                      <p className="text-xs text-slate-400">
+                        PNG com fundo transparente e pelo menos 300 pixels de largura, para sair nítido no celular. O arquivo
+                        sobe como veio, sem compressão. Até 2 MB.
+                      </p>
+                    </form>
+
+                    {r.selo_url && (
+                      <form action={removerSeloRevenda} className="mt-2">
+                        <input type="hidden" name="id" value={r.id} />
+                        <BotaoEnviar
+                          textoEnviando="Removendo..."
+                          className="w-full rounded-xl border border-slate-200 py-2.5 text-xs font-medium text-slate-500 hover:bg-slate-50"
+                        >
+                          Remover o selo
+                        </BotaoEnviar>
+                      </form>
+                    )}
+                  </>
                 )}
               </div>
 

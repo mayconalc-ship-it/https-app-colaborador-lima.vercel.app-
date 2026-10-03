@@ -14,6 +14,7 @@ import { Notificacoes } from "@/components/Notificacoes";
 import { SeletorRevenda } from "@/components/SeletorRevenda";
 import { Provedores } from "@/components/Provedores";
 import { SincronizarPush } from "@/components/SincronizarPush";
+import { SeloMarcaDagua } from "@/components/SeloMarcaDagua";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -167,7 +168,8 @@ export default async function RootLayout({
               )}
             </div>
           </header>
-          <main className="mx-auto max-w-3xl px-4 py-6">
+          {perfil && <SeloMarcaDagua src={revenda?.seloUrl ?? null} />}
+          <main className="relative z-[1] mx-auto max-w-3xl px-4 py-6">
             {sessaoOrfa ? (
               <SessaoInvalida />
             ) : semRevenda ? (
