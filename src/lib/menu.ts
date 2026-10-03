@@ -210,7 +210,7 @@ export const MENU_PADRAO: ItemMenu[] = [
   { chave: "qr-contingencia", titulo: "Comprovante de Pagamento", emoji: "📲", href: "/qr-contingencia", ordem: 17, visivel: true },
   { chave: "feedback", titulo: "Feedback da Rota", emoji: "📝", href: "/feedback-rota", ordem: 8, visivel: true },
   // Módulo opcional: só aparece pra quem o Admin liberou (ver temAcessoModulo).
-  { chave: "ativo-giro", titulo: "Ativo de Giro", emoji: "🍺", href: "/ativo-de-giro", ordem: 10, visivel: true },
+  { chave: "ativo-giro", titulo: "Ativo de Giro", emoji: "🔄", href: "/ativo-de-giro", ordem: 10, visivel: true },
   // Módulo opcional, logo depois do Ativo de Giro (16/09/2026).
   { chave: "material-apoio", titulo: "Material de Apoio", emoji: "🧰", href: "/material-de-apoio", ordem: 16, visivel: true },
   { chave: "quiz", titulo: "Desafio do Mês", emoji: "🧠", href: "/desafio", ordem: 11, visivel: true },

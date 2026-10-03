@@ -38,7 +38,7 @@ export const CATEGORIAS_DO_GUIA: { id: CategoriaDoGuia; titulo: string; emoji: s
   { id: "primeiros-passos", titulo: "Primeiros passos", emoji: "🚀" },
   { id: "entrega", titulo: "Rota e entrega", emoji: "🚚" },
   { id: "armazem", titulo: "Produtividade do Armazém", emoji: "🏭" },
-  { id: "ativo-giro", titulo: "Ativo de Giro", emoji: "🍺" },
+  { id: "ativo-giro", titulo: "Ativo de Giro", emoji: "🔄" },
   { id: "cinco-s", titulo: "Programa 5S", emoji: "🧹" },
   { id: "pessoas", titulo: "Pessoas e acessos", emoji: "👥" },
   { id: "comunicacao", titulo: "Comunicação com o time", emoji: "📣" },
@@ -799,7 +799,7 @@ export const GUIAS: Guia[] = [
   {
     slug: "contar-ativo-giro",
     titulo: "Lançar a contagem do Ativo de Giro",
-    emoji: "🍺",
+    emoji: "🔄",
     categoria: "ativo-giro",
     resumo: "Registrar o que foi contado no pátio, combinação por combinação.",
     exige: [["ativo-giro", "ver"]],

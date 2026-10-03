@@ -523,7 +523,7 @@ export const MODULOS: Modulo[] = [
       excluir: "Apagar contagem lançada",
     },
     rotulo: "Ativo de Giro",
-    emoji: "🍺",
+    emoji: "🔄",
     href: "/admin/ativo-de-giro",
     grupo: "Configuração",
     acoes: ["ver", "criar", "editar", "excluir"],
