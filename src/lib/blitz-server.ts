@@ -211,7 +211,7 @@ export async function decidirBlitzDaChegada(
  *
  * E É AQUI QUE O MOTIVO FICA CONGELADO. A portaria grava só a marca (um
  * booleano); o número que sustenta a conversa com o transportador -- a
- * média, o limite, quantas cargas, e qual das três dimensões estourou --
+ * média da placa, o limite e quantas cargas --
  * é gravado agora. Seis meses depois o número de hoje não existe mais, e
  * o relato de ocorrência precisa continuar explicando por que esta
  * carreta foi parada.

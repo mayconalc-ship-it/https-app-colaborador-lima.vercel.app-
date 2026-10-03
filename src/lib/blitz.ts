@@ -6,21 +6,20 @@
  * fotografa cada item NOK; no fim, a liderança trata e manda o relato de
  * ocorrência.
  *
- * A BLITZ OLHA TRÊS COISAS, NESTA ORDEM: A CARRETA, O MOTORISTA E A
- * TRANSPORTADORA -- e basta uma delas estar acima do limite para parar.
+ * A BLITZ É DA PLACA DA CARRETA, E SÓ DELA (03/10/2026).
  *
- * A carreta vem primeiro porque é onde a avaria nasce: asa delta que não
- * fecha, grade faltando, lona bamba. Isso é da PLACA, não da frota inteira
- * -- julgar só pela transportadora esconde a carreta velha no meio de uma
- * frota boa, e é justamente essa que volta a avariar amanhã.
+ * Pedido do dono: "como é algo particular de cada veículo, ela tem que
+ * ser somente da placa da carreta". A blitz é uma inspeção do VEÍCULO --
+ * asa delta que não fecha, grade faltando, lona bamba --, e isso é da
+ * placa. Antes ela também parava a carreta pelo índice do motorista ou da
+ * transportadora: uma carreta boa caía na blitz por causa da média de
+ * outras carretas da mesma frota, e o checklist procurava defeito num
+ * veículo que não tinha histórico de avaria.
  *
- * O motorista entra porque a condução muda o resultado: mesma carreta, mesma
- * carga, freada diferente. Uma placa boa com um índice ruim que segue o
- * motorista é sinal de condução, não de equipamento -- e a conversa é outra.
- *
- * A transportadora fica por último como rede de segurança, e continua sendo
- * PARA QUEM O RELATO DE OCORRÊNCIA É ESCRITO: quem responde pela frota e
- * pelo motorista é ela.
+ * O motorista e a transportadora continuam no RELATO DE OCORRÊNCIA (é
+ * para a transportadora que ele é escrito), só não decidem mais quem
+ * cai na blitz. As três dimensões seguem no tipo porque as blitz antigas
+ * foram gravadas com elas e as telas ainda precisam mostrá-las.
  *
  * Só a regra aqui, sem banco e sem tela.
  */
@@ -36,9 +35,12 @@
  */
 export const MINIMO_DE_CARRETAS = 3;
 
-/** O que a blitz olha, na ordem em que decide. */
+/** As dimensões que já existiram (as blitz antigas foram gravadas com elas). */
 export const DIMENSOES = ["carreta", "motorista", "transportadora"] as const;
 export type Dimensao = (typeof DIMENSOES)[number];
+
+/** O que DECIDE a blitz hoje: só a placa da carreta. */
+export const DIMENSOES_DA_BLITZ: readonly Dimensao[] = ["carreta"];
 
 export const ROTULO_DIMENSAO: Record<Dimensao, string> = {
   carreta: "Carreta",
@@ -131,22 +133,18 @@ export function indices(entregas: EntregaConferida[]): Record<Dimensao, IndiceDa
   };
 }
 
-/** Os três índices desta carreta específica, para a decisão da portaria. */
+/**
+ * O índice desta carreta, para a decisão da portaria: só o da PLACA.
+ * Motorista e transportadora podem vir na chegada, mas não entram.
+ */
 export function indicesDaChegada(
   entregas: EntregaConferida[],
   chegada: { placaCarreta?: string | null; motorista?: string | null; transportadoraNome?: string | null },
 ): Partial<Record<Dimensao, IndiceDaDimensao>> {
-  const todos = indices(entregas);
-  const achar = (d: Dimensao, valor: string | null | undefined) => {
-    const chave = chaveDaDimensao(valor);
-    if (!chave) return undefined;
-    return todos[d].find((i) => chaveDaDimensao(i.nome) === chave);
-  };
-  return {
-    carreta: achar("carreta", chegada.placaCarreta),
-    motorista: achar("motorista", chegada.motorista),
-    transportadora: achar("transportadora", chegada.transportadoraNome),
-  };
+  const chave = chaveDaDimensao(chegada.placaCarreta);
+  if (!chave) return {};
+  const daPlaca = indicePorDimensao(entregas, "carreta").find((i) => chaveDaDimensao(i.nome) === chave);
+  return daPlaca ? { carreta: daPlaca } : {};
 }
 
 export type DecisaoDaBlitz = {
@@ -170,17 +168,15 @@ export type DecisaoDaBlitz = {
  * explicar por que uma carreta abriu relato e a outra, com o mesmo número,
  * não caiu na blitz.
  *
- * BASTA UMA DIMENSÃO ESTOURAR. E quando mais de uma estoura, quem dá o
- * motivo é a PRIMEIRA da ordem -- carreta antes de motorista, motorista
- * antes de transportadora. Não é média nem soma: é o alvo mais específico
- * que a operação consegue tratar. "A carreta PCN-0509 está com 30%" vira
- * ação; "a transportadora está com 30%" vira reunião.
+ * SÓ A PLACA DECIDE: a carreta cai quando a média de avaria das cargas
+ * DELA passa do limite. Índice de motorista ou de transportadora que
+ * venha junto é ignorado aqui.
  */
 export function decidirBlitz(
   dosIndices: Partial<Record<Dimensao, IndiceDaDimensao | undefined>>,
   limitePct: number | null,
 ): DecisaoDaBlitz {
-  const avaliadas = DIMENSOES.map((d) => dosIndices[d]).filter(
+  const avaliadas = DIMENSOES_DA_BLITZ.map((d) => dosIndices[d]).filter(
     (i): i is IndiceDaDimensao => Boolean(i),
   );
 
@@ -192,7 +188,7 @@ export function decidirBlitz(
     };
   }
 
-  for (const d of DIMENSOES) {
+  for (const d of DIMENSOES_DA_BLITZ) {
     const i = dosIndices[d];
     if (!i || !i.confiavel || i.media <= limitePct) continue;
     return {
@@ -207,7 +203,7 @@ export function decidirBlitz(
   }
 
   if (avaliadas.length === 0) {
-    return { cai: false, motivo: "Carreta, motorista e transportadora sem histórico de conferência.", avaliadas };
+    return { cai: false, motivo: "Esta placa ainda não tem carga conferida: sem histórico, a blitz não para.", avaliadas };
   }
   const semBase = avaliadas.filter((i) => !i.confiavel);
   if (semBase.length === avaliadas.length) {
