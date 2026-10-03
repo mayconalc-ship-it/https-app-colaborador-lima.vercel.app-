@@ -15,6 +15,7 @@ import {
   type UsoDePadrao,
 } from "@/lib/quiz";
 import type { ResultadoAcao } from "@/lib/resultado-acao";
+import { Marca } from "@/components/Icone";
 
 const ENTRADA =
   "w-full rounded-lg border border-slate-200 bg-white p-2 text-base focus:border-primary focus:outline-none";
@@ -116,7 +117,7 @@ export function FormNovaRodada({
                   className="sr-only"
                 />
                 <span className="text-2xl" aria-hidden>
-                  {a.id === "AL" ? "🏭" : "🚚"}
+                  {a.id === "AL" ? <Marca desenho="armazem" /> : "🚚"}
                 </span>
                 <span className="mt-1 text-sm font-bold">{a.curto}</span>
               </label>

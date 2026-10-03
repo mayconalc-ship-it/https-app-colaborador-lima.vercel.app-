@@ -13,6 +13,7 @@ import { ExportarCsv } from "@/components/ExportarCsv";
 import { CincoPorquesTab } from "./CincoPorquesTab";
 import { salvarTratativaFeedback } from "./actions";
 import { FormNoLugar } from "@/components/FormNoLugar";
+import { ComMarcas } from "@/components/Icone";
 
 const PERIODOS = [
   { dias: 7, label: "7 dias" },
@@ -208,7 +209,7 @@ export default async function AdminFeedbacksPage({
                 {rankingOcorrencias.map((o) => (
                   <div key={o.id} className="flex items-center gap-2">
                     <span className="w-52 shrink-0 text-sm text-slate-600">
-                      {o.emoji} {o.label}
+                      <ComMarcas texto={o.emoji ?? ""} /> {o.label}
                     </span>
                     <div className="h-2 flex-1 overflow-hidden rounded-full bg-slate-100">
                       <div

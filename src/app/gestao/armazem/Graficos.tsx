@@ -7,6 +7,7 @@
  */
 
 import type { LeituraDaMeta } from "@/lib/metas";
+import { ComMarcas } from "@/components/Icone";
 
 export type ItemBarra = {
   rotulo: string;
@@ -57,7 +58,7 @@ export function BarraRanking({
     // `min-w-0` também aqui: como item de grid, este cartão herda
     // min-width auto e esticaria junto com o conteúdo mais largo.
     <div className="min-w-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-      <h3 className="text-sm font-bold text-slate-900">{titulo}</h3>
+      <h3 className="text-sm font-bold text-slate-900">{typeof titulo === "string" ? <ComMarcas texto={titulo} /> : titulo}</h3>
       {subtitulo && <p className="mb-3 mt-0.5 text-xs text-slate-500">{subtitulo}</p>}
       {itens.length === 0 ? (
         <p className="mt-2 rounded-xl bg-slate-50 p-3 text-center text-xs text-slate-400">{vazio}</p>
@@ -159,7 +160,7 @@ export function Histograma({
 
   return (
     <div className="min-w-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-      <h3 className="text-sm font-bold text-slate-900">{titulo}</h3>
+      <h3 className="text-sm font-bold text-slate-900">{typeof titulo === "string" ? <ComMarcas texto={titulo} /> : titulo}</h3>
       {subtitulo && <p className="mt-0.5 text-xs text-slate-500">{subtitulo}</p>}
 
       {total === 0 ? (
@@ -309,7 +310,7 @@ export function TopoEFundo({
 
   return (
     <div className="min-w-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-      <h3 className="text-sm font-bold text-slate-900">{titulo}</h3>
+      <h3 className="text-sm font-bold text-slate-900">{typeof titulo === "string" ? <ComMarcas texto={titulo} /> : titulo}</h3>
       {subtitulo && <p className="mb-3 mt-0.5 text-xs text-slate-500">{subtitulo}</p>}
 
       <div className="grid gap-4 sm:grid-cols-2">
@@ -344,7 +345,7 @@ export function BlocoAtividade({
 }) {
   return (
     <section>
-      <h2 className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">{titulo}</h2>
+      <h2 className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">{typeof titulo === "string" ? <ComMarcas texto={titulo} /> : titulo}</h2>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">{children}</div>
     </section>
   );
@@ -536,7 +537,7 @@ export function CartaoHero({
         ruim ? "border-red-200 bg-red-50" : bom ? "border-green-200 bg-green-50" : "border-slate-200 bg-white"
       }`}
     >
-      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{titulo}</p>
+      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{typeof titulo === "string" ? <ComMarcas texto={titulo} /> : titulo}</p>
       <p
         className={`mt-1 break-words text-3xl font-extrabold ${
           ruim ? "text-red-700" : bom ? "text-green-700" : "text-slate-900"

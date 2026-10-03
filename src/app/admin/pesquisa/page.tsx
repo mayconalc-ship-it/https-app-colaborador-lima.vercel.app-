@@ -284,7 +284,7 @@ export default async function AdminPesquisaPage({
       {/* ---- Novo ciclo ---- */}
       <details className="mb-4 rounded-2xl border border-slate-200 bg-white shadow-sm">
         <summary className="cursor-pointer p-4 font-semibold text-primary">
-          🔄 Iniciar um novo ciclo
+          🆕 Iniciar um novo ciclo
         </summary>
         <form action={novoCiclo} className="space-y-3 border-t border-slate-100 p-4">
           <p className="text-sm text-slate-600">

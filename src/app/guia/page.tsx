@@ -3,6 +3,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { Icone } from "@/components/Icone";
 import { CATEGORIAS_DO_GUIA, guiaCombina } from "@/lib/guia";
 import { guiasDaPessoa } from "@/lib/guia-server";
+import { ComMarcas } from "@/components/Icone";
 
 /**
  * COMO FAZER: a lista dos passos a passos.
@@ -59,7 +60,7 @@ export default async function GuiaPage({ searchParams }: { searchParams: Promise
         {porCategoria.map((c) => (
           <section key={c.id} id={c.id} className="scroll-mt-4">
             <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">
-              {c.emoji} {c.titulo}
+              <ComMarcas texto={c.emoji ?? ""} /> {c.titulo}
             </h2>
             <ul className="divide-y divide-slate-100 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
               {c.guias.map((g) => (

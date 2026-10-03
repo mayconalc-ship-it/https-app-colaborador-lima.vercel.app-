@@ -17,6 +17,7 @@ import {
   medalha,
   nomeDoMes,
 } from "@/lib/quiz";
+import { ComMarcas } from "@/components/Icone";
 
 /**
  * "Meu Campeonato": a temporada da pessoa, rodada a rodada.
@@ -55,7 +56,7 @@ export default async function MeuCampeonatoPage() {
   return (
     <div>
       <PageHeader
-        title="📈 Meu Campeonato"
+        title="🏅 Meu Campeonato"
         subtitle={`${rotuloArea} — temporada ${temporada}`}
         fecharHref="/desafio"
       />
@@ -139,7 +140,7 @@ export default async function MeuCampeonatoPage() {
                   key={codigo}
                   className="rounded-2xl border border-primary/25 bg-primary-soft p-3"
                 >
-                  <p className="text-2xl">{c.emoji}</p>
+                  <p className="text-2xl"><ComMarcas texto={c.emoji ?? ""} /></p>
                   <p className="mt-1 text-sm font-bold text-primary-dark">
                     {c.rotulo}
                     {vezes > 1 && (
@@ -160,7 +161,7 @@ export default async function MeuCampeonatoPage() {
         href="/desafio/classificacao?visao=campeonato"
         className="mt-4 block rounded-xl bg-primary px-4 py-3 text-center text-sm font-semibold text-white hover:bg-primary-dark"
       >
-        🏆 Ver o campeonato
+        🥇 Ver o campeonato
       </Link>
     </div>
   );

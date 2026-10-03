@@ -31,6 +31,7 @@ import {
   type SessaoUso,
   type TrocaGas,
 } from "@/lib/empilhadeira-gas";
+import { Marca } from "@/components/Icone";
 
 export const dynamic = "force-dynamic";
 
@@ -260,7 +261,7 @@ export default async function DashboardGasPage({
   return (
     <div>
       <PageHeader
-        title="⛽ Consumo de gás P20"
+        title="🛢️ Consumo de gás P20"
         subtitle="Ciclo entre trocas, rateado pelas horas de cada operador."
         fecharHref="/produtividade-armazem/empilhadeira"
       />
@@ -482,7 +483,7 @@ export default async function DashboardGasPage({
           {/* ---- Por empilhadeira (item 11) ---- */}
           <details open={secao === "maquinas"} className="mt-4 rounded-2xl border border-slate-200 bg-white">
             <summary className="cursor-pointer list-none p-4 text-sm font-semibold text-slate-700">
-              🏗️ Por empilhadeira ({porMaquina.length + semCiclo.length})
+              <Marca desenho="empilhadeira" /> Por empilhadeira ({porMaquina.length + semCiclo.length})
             </summary>
             <div className="space-y-3 border-t border-slate-100 p-4">
               {/* As que rodaram mas ainda não fecharam ciclo. Aparecem com
@@ -491,7 +492,7 @@ export default async function DashboardGasPage({
                 <div key={m.id} className="rounded-xl border border-amber-200 bg-amber-50 p-3">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <p className="text-sm font-bold text-amber-900">🏗️ Empilhadeira {m.numero}</p>
+                      <p className="text-sm font-bold text-amber-900"><Marca desenho="empilhadeira" /> Empilhadeira {m.numero}</p>
                       <p className="text-xs text-amber-800">
                         {formatarNumeroBr(Math.round(m.horas * 10) / 10)}h em {m.sessoes} operação(ões)
                         {" · "}
@@ -520,7 +521,7 @@ export default async function DashboardGasPage({
                     <div key={m.empilhadeiraId} className="rounded-xl border border-slate-200 p-3">
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
-                          <p className="text-sm font-bold text-slate-900">🏗️ Empilhadeira {m.numero}</p>
+                          <p className="text-sm font-bold text-slate-900"><Marca desenho="empilhadeira" /> Empilhadeira {m.numero}</p>
                           <p className="text-xs text-slate-500">
                             {formatarNumeroBr(m.horas)}h · {m.p20} P20 · {m.ciclos} ciclo(s) ·{" "}
                             {m.operadores} operador(es)
@@ -630,7 +631,7 @@ export default async function DashboardGasPage({
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <p className="text-sm font-bold text-slate-900">
-                          🏗️ {c.empilhadeiraNumero} · ciclo {c.numero}
+                          <Marca desenho="empilhadeira" /> {c.empilhadeiraNumero} · ciclo {c.numero}
                         </p>
                         <p className="text-xs text-slate-500">
                           {formatarNumeroBr(c.horimetroInicial)} → {formatarNumeroBr(c.horimetroFinal)} h ·{" "}

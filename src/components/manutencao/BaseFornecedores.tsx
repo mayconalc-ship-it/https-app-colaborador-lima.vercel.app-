@@ -21,6 +21,7 @@ import {
   removerFornecedor,
   salvarFornecedor,
 } from "@/app/fornecedores/actions";
+import { ComMarcas } from "@/components/Icone";
 
 const campo = "w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:border-primary focus:outline-none";
 const rotulo = "mb-1 block text-xs font-semibold text-slate-600";
@@ -64,7 +65,7 @@ export function BaseFornecedores({ fornecedores, podeEditar }: { fornecedores: F
         {CATEGORIAS.map((c) =>
           contagem(c.id) > 0 ? (
             <Filtro key={c.id} ativo={categoria === c.id} onClick={() => setCategoria(c.id)}>
-              {c.emoji} {c.rotulo} ({contagem(c.id)})
+              <ComMarcas texto={c.emoji ?? ""} /> {c.rotulo} ({contagem(c.id)})
             </Filtro>
           ) : null,
         )}
@@ -143,7 +144,7 @@ function CartaoFornecedor({ f, podeEditar }: { f: Fornecedor; podeEditar: boolea
     <li className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
       <div className="flex items-start gap-3">
         <span className="mt-0.5 text-xl" aria-hidden>
-          {cat?.emoji}
+          <ComMarcas texto={cat?.emoji ?? ""} />
         </span>
         <div className="min-w-0 flex-1">
           <p className="text-sm font-bold text-slate-900">{f.nome}</p>
@@ -290,7 +291,7 @@ function CamposDoFornecedor({ f }: { f?: Fornecedor }) {
         <select id={`cat-${id}`} name="categoria" defaultValue={f?.categoria ?? "manutencao"} className={campo}>
           {CATEGORIAS.map((c) => (
             <option key={c.id} value={c.id}>
-              {c.emoji} {c.rotulo}
+              <ComMarcas texto={c.emoji ?? ""} /> {c.rotulo}
             </option>
           ))}
         </select>

@@ -408,7 +408,7 @@ export default async function BI5SPage({
         </div>
       )}
 
-      <Bloco titulo="🏆 Pódio do mês">
+      <Bloco titulo="🥇 Pódio do mês">
         <Podios podios={podios} mes={mes} />
       </Bloco>
 

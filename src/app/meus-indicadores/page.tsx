@@ -8,6 +8,7 @@ import { buscarRVdoColaborador } from "@/lib/rv-server";
 import { chaveCompetencia, formatarCompetencia } from "@/lib/rv";
 import { montarResumo, vazio, CAMPOS_DO_RESUMO, type CampoDoResumo } from "@/lib/meus-indicadores";
 import type { ModuloId } from "@/lib/acessos";
+import { ComMarcas } from "@/components/Icone";
 
 export const dynamic = "force-dynamic";
 
@@ -41,7 +42,7 @@ export default async function MeusIndicadoresPage({
   return (
     <div className="space-y-5 pb-8">
       <PageHeader
-        title="📊 Meus Indicadores"
+        title="📈 Meus Indicadores"
         subtitle="O seu mês em números, e o detalhe de cada indicador."
         fecharHref="/"
       />
@@ -171,7 +172,7 @@ function ResumoCarregando() {
         {CAMPOS_DO_RESUMO.map((c) => (
           <div key={c.chave} className="min-w-0 rounded-2xl border border-slate-200 bg-white p-3">
             <p className="text-[11px] font-semibold uppercase text-slate-300">
-              <span className="mr-1">{c.emoji}</span>
+              <span className="mr-1"><ComMarcas texto={c.emoji ?? ""} /></span>
               {c.titulo}
             </p>
             <div className="mt-1 h-6 w-16 animate-pulse rounded bg-slate-100" />
@@ -187,7 +188,7 @@ function Numero({ campo }: { campo: CampoDoResumo }) {
   return (
     <div className="min-w-0 rounded-2xl border border-slate-200 bg-white p-3">
       <p className="text-[11px] font-semibold uppercase text-slate-400">
-        <span className="mr-1">{campo.emoji}</span>
+        <span className="mr-1"><ComMarcas texto={campo.emoji ?? ""} /></span>
         {campo.titulo}
       </p>
       <p className={`truncate text-xl font-bold tabular-nums ${semDado ? "text-slate-300" : "text-slate-900"}`}>

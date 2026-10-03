@@ -591,7 +591,7 @@ export async function lembrarPlanejamentoMensal(agora: Date = new Date()): Promi
     if (destinatarios.length === 0) continue;
 
     const titulo =
-      marco === "dia1" ? "👷 Hora de revisar o quadro de mão de obra" : "⚠️ Planejamento de mão de obra ainda não formalizado";
+      marco === "dia1" ? "🧮 Hora de revisar o quadro de mão de obra" : "⚠️ Planejamento de mão de obra ainda não formalizado";
     const mensagem =
       marco === "dia1"
         ? `Revise o volume e o QLP de ${horizonte} e formalize para o time de Gente.`

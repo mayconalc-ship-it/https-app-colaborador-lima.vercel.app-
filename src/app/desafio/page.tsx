@@ -239,7 +239,7 @@ function LinkClassificacao() {
       href="/desafio/classificacao"
       className="block rounded-xl bg-white px-4 py-3 text-center text-sm font-semibold text-primary ring-1 ring-slate-200 hover:bg-slate-50"
     >
-      🏆 Campeonato do Conhecimento
+      🥇 Campeonato do Conhecimento
     </Link>
   );
 }
@@ -256,7 +256,7 @@ function Linha({ rotulo, valor }: { rotulo: string; valor: string }) {
 function Aviso({ titulo, texto }: { titulo: string; texto: string }) {
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm">
-      <p className="text-4xl">🏆</p>
+      <p className="text-4xl">🥇</p>
       <p className="mt-2 font-semibold text-slate-800">{titulo}</p>
       <p className="mt-1 text-sm text-slate-500">{texto}</p>
     </div>

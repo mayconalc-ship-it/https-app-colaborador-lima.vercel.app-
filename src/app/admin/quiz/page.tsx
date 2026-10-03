@@ -23,6 +23,7 @@ import {
 } from "@/lib/quiz";
 import { FormNovaRodada } from "@/components/quiz/FormNovaRodada";
 import { criarRodada, salvarConfig } from "./actions";
+import { Marca } from "@/components/Icone";
 
 export default async function AdminQuizPage({
   searchParams,
@@ -199,7 +200,7 @@ export default async function AdminQuizPage({
             return (
               <section key={a.id}>
                 <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">
-                  {a.id === "AL" ? "🏭" : "🚚"} Histórico — {a.curto}
+                  {a.id === "AL" ? <Marca desenho="armazem" /> : "🚚"} Histórico — {a.curto}
                   <span className="ml-1 font-normal normal-case tracking-normal text-slate-400">
                     ({daArea.length} desafio{daArea.length === 1 ? "" : "s"})
                   </span>

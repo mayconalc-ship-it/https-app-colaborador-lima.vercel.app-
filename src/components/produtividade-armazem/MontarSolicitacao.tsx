@@ -16,6 +16,7 @@ import {
 } from "@/lib/abastecimento";
 import { ROTULO_PRIORIDADE, PRIORIDADES } from "@/lib/ressuprimento";
 import { ROTULO_TURNO, TURNOS, type Turno } from "@/lib/produtividade-armazem";
+import { ComMarcas } from "@/components/Icone";
 
 const campo =
   "w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-base text-slate-900 focus:border-primary focus:outline-none";
@@ -147,7 +148,7 @@ export function MontarSolicitacao({
                 onChange={() => setTipo(t)}
                 className="sr-only"
               />
-              <span className="text-2xl leading-none">{TIPO_ABASTECIMENTO[t].emoji}</span>
+              <span className="text-2xl leading-none"><ComMarcas texto={TIPO_ABASTECIMENTO[t].emoji ?? ""} /></span>
               <span className="text-sm font-bold">{TIPO_ABASTECIMENTO[t].curto}</span>
             </label>
           ))}
@@ -292,7 +293,7 @@ export function MontarSolicitacao({
                 <select id="prioridade" name="prioridade" defaultValue="normal" className={campo}>
                   {PRIORIDADES.map((p) => (
                     <option key={p} value={p}>
-                      {ROTULO_PRIORIDADE[p].emoji} {ROTULO_PRIORIDADE[p].rotulo}
+                      <ComMarcas texto={ROTULO_PRIORIDADE[p].emoji ?? ""} /> {ROTULO_PRIORIDADE[p].rotulo}
                     </option>
                   ))}
                 </select>

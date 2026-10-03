@@ -202,7 +202,7 @@ export const MENU_PADRAO: ItemMenu[] = [
   { chave: "sonho", titulo: "Sonho da Revenda", emoji: "🌟", href: "/sonho-da-revenda", ordem: 1, visivel: true },
   { chave: "padroes", titulo: "Padrões", emoji: "📋", href: "/padroes", ordem: 2, visivel: true },
   { chave: "ranking", titulo: "Ranking Super Matinal", emoji: "🏆", href: "/ranking", ordem: 3, visivel: true },
-  { chave: "comunicados", titulo: "Comunicados", emoji: "📣", href: "/comunicados", ordem: 4, visivel: true },
+  { chave: "comunicados", titulo: "Comunicados", emoji: "📰", href: "/comunicados", ordem: 4, visivel: true },
   { chave: "escala", titulo: "Escala de Trabalho", emoji: "🗓️", href: "/escala", ordem: 5, visivel: true },
   { chave: "rv", titulo: "Minha RV", emoji: "💰", href: "/rv", ordem: 6, visivel: true },
   { chave: "rota", titulo: "Minha Rota", emoji: "🚚", href: "/minha-rota", ordem: 7, visivel: true },
@@ -226,7 +226,7 @@ export const MENU_PADRAO: ItemMenu[] = [
   // submódulos de Meus Indicadores agora. As rotas continuam de pé e
   // acessíveis, só não têm mais cartão próprio -- três cartões seguidos
   // para o mesmo assunto disputavam espaço sem ajudar ninguém a decidir.
-  { chave: "meus-indicadores", titulo: "Meus Indicadores", emoji: "📊", href: "/meus-indicadores", ordem: 14, visivel: true },
+  { chave: "meus-indicadores", titulo: "Meus Indicadores", emoji: "📈", href: "/meus-indicadores", ordem: 14, visivel: true },
   // Programa de Boas Práticas (15/09/2026): sugerir e votar.
   { chave: "boas-praticas", titulo: "Boas Práticas", emoji: "💡", href: "/boas-praticas", ordem: 15, visivel: true },
   // Guia "Como Fazer" (02/10/2026): de todo mundo, sem módulo -- cada
@@ -237,7 +237,7 @@ export const MENU_PADRAO: ItemMenu[] = [
   { chave: "manutencao", titulo: "Check de Manutenção", emoji: "🛠️", href: "/manutencao", ordem: 19, visivel: true },
   // Base de fornecedores (157): de TODA a unidade, sem módulo -- é o V.3
   // do DPO 2.2 ("disponível para a unidade consultar").
-  { chave: "fornecedores", titulo: "Fornecedores", emoji: "📞", href: "/fornecedores", ordem: 20, visivel: true },
+  { chave: "fornecedores", titulo: "Fornecedores", emoji: "☎️", href: "/fornecedores", ordem: 20, visivel: true },
   // "Minha Conta" fica oculto: já existe o botão "Conta" no topo de todas as
   // telas, e repetir ocupava espaço da grade sem acrescentar nada.
   { chave: "conta", titulo: "Minha Conta", emoji: "🔒", href: "/minha-conta", ordem: 9, visivel: false },

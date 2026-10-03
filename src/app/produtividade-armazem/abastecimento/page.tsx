@@ -61,6 +61,7 @@ import {
   removerItem,
 } from "./actions";
 import { FormNoLugar } from "@/components/FormNoLugar";
+import { ComMarcas } from "@/components/Icone";
 
 export const dynamic = "force-dynamic";
 
@@ -699,7 +700,7 @@ export default async function AbastecimentoPage({
                     className={`overflow-hidden rounded-2xl border ${etapa.moldura}`}
                   >
                     <summary className="flex cursor-pointer list-none items-center gap-2 p-3 marker:content-none [&::-webkit-details-marker]:hidden">
-                      <span className="text-lg leading-none">{ROTULO_ESTADO[etapa.estado].emoji}</span>
+                      <span className="text-lg leading-none"><ComMarcas texto={ROTULO_ESTADO[etapa.estado].emoji ?? ""} /></span>
                       <span className="min-w-0 flex-1 text-sm font-bold text-slate-800">
                         {etapa.titulo}
                       </span>
@@ -790,7 +791,7 @@ export default async function AbastecimentoPage({
                         : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                     }`}
                   >
-                    <span className="text-lg leading-none">{TIPO_ABASTECIMENTO[t].emoji}</span>
+                    <span className="text-lg leading-none"><ComMarcas texto={TIPO_ABASTECIMENTO[t].emoji ?? ""} /></span>
                     {TIPO_ABASTECIMENTO[t].curto}
                   </a>
                 ))}
@@ -1288,7 +1289,7 @@ function LinhaSessao({
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-sm font-semibold text-slate-900">
-            <span className="mr-1">{TIPO_ABASTECIMENTO[tipo].emoji}</span>
+            <span className="mr-1"><ComMarcas texto={TIPO_ABASTECIMENTO[tipo].emoji ?? ""} /></span>
             {formatarHl(resumo.hl)} HL ·{" "}
             {resumo.paletes.toLocaleString("pt-BR", { maximumFractionDigits: 2 })} pl ·{" "}
             {ROTULO_TURNO_CURTO[sessao.turno as keyof typeof ROTULO_TURNO] ?? sessao.turno}

@@ -287,7 +287,7 @@ export const GUIAS: Guia[] = [
   {
     slug: "configurar-pix",
     titulo: "Configurar o PIX do Comprovante de Pagamento",
-    emoji: "⚙️",
+    emoji: "📲",
     categoria: "entrega",
     resumo: "Cadastrar o favorecido, o CNPJ e as instruções que o motorista vê.",
     exige: [["qr-contingencia", "editar"]],
@@ -315,7 +315,7 @@ export const GUIAS: Guia[] = [
   {
     slug: "atualizar-pre-rota",
     titulo: "Atualizar a pré-rota e as metas",
-    emoji: "🗺️",
+    emoji: "🚚",
     categoria: "entrega",
     resumo: "Ligar a pasta do Drive que alimenta a Minha Rota e definir as metas de ocupação e caixas.",
     exige: [["rotas", "criar"]],
@@ -427,7 +427,7 @@ export const GUIAS: Guia[] = [
   {
     slug: "trocar-gas-empilhadeira",
     titulo: "Registrar troca de gás da empilhadeira",
-    emoji: "🔥",
+    emoji: "🛢️",
     categoria: "armazem",
     resumo: "Lançar a troca do botijão P20 com o horímetro e o estoque de botijões.",
     exige: doArmazem("pa-empilhadeira"),
@@ -435,10 +435,10 @@ export const GUIAS: Guia[] = [
     passos: [
       noArmazem("Empilhadeira"),
       { texto: "Toque na máquina em que você trocou o botijão." },
-      { texto: "Abra a aba **🔥 Troca de Gás**." },
+      { texto: "Abra a aba **🛢️ Troca de Gás**." },
       { texto: "Tire a **Foto do horímetro** e digite o **Horímetro no momento da troca**." },
       { texto: "Em **Botijões P20 no estoque**, informe quantos ficaram **🟢 Cheios** e **⚪ Vazios**." },
-      { texto: "Toque em **🔥 Registrar troca de gás**." },
+      { texto: "Toque em **🛢️ Registrar troca de gás**." },
     ],
     atencao: [
       "Troca esquecida deixa o consumo errado: um botijão parece durar o dobro. Registre na hora da troca.",
@@ -450,7 +450,7 @@ export const GUIAS: Guia[] = [
   {
     slug: "pedir-abastecimento",
     titulo: "Pedir produto para o picking",
-    emoji: "📤",
+    emoji: "📥",
     categoria: "armazem",
     resumo: "Avisar a empilhadeira do que precisa descer do estoque para o picking.",
     exige: doArmazem("pa-picking"),
@@ -459,7 +459,7 @@ export const GUIAS: Guia[] = [
       noArmazem("Abastecimento do Picking"),
       { texto: "Toque em **➕ Pedir produto para o picking**." },
       {
-        texto: "Escolha o tipo: **🔄 Completo** (o abastecimento do turno) ou **⚡ Pontual** (um item que zerou no meio da separação).",
+        texto: "Escolha o tipo: **💯 Completo** (o abastecimento do turno) ou **⚡ Pontual** (um item que zerou no meio da separação).",
       },
       { texto: "Escolha o produto, a **Unidade** e a **Quantidade** e toque em **➕ Adicionar ao pedido**. Repita para cada produto." },
       {
@@ -477,7 +477,7 @@ export const GUIAS: Guia[] = [
   {
     slug: "buscar-pedido-picking",
     titulo: "Buscar um pedido no estoque (empilhadeira)",
-    emoji: "🚜",
+    emoji: "🏗️",
     categoria: "armazem",
     resumo: "Pegar o pedido do picking, trazer do estoque e deixar na área.",
     exige: doArmazem("pa-empilhadeira"),
@@ -508,7 +508,7 @@ export const GUIAS: Guia[] = [
     palavras: ["ajudante", "picking", "abastecimento", "hl", "pedido"],
     passos: [
       noArmazem("Abastecimento do Picking"),
-      { texto: "Abra o pedido que está **📍 Na área, esperando alguém levar ao picking**." },
+      { texto: "Abra o pedido que está **📌 Na área, esperando alguém levar ao picking**." },
       { texto: "Toque em **📥 Levar para o picking**. O cronômetro começa e os produtos do pedido já vêm lançados." },
       {
         texto: "Abasteça. Se algum produto não coube ou não foi levado, toque em **Remover** nele.",
@@ -527,7 +527,7 @@ export const GUIAS: Guia[] = [
   {
     slug: "lancar-bate-palete",
     titulo: "Lançar Bate Palete",
-    emoji: "🤲",
+    emoji: "🤲📦",
     categoria: "armazem",
     resumo: "Registrar o que foi batido e quanto disso estava avariado.",
     exige: doArmazem("pa-bate-palete"),
@@ -552,7 +552,7 @@ export const GUIAS: Guia[] = [
   {
     slug: "executar-5s-armazem",
     titulo: "Registrar a execução do 5S do armazém",
-    emoji: "🧽",
+    emoji: "🧹",
     categoria: "armazem",
     resumo: "Marcar o início, o checklist e o fim da limpeza e organização do armazém.",
     exige: doArmazem("pa-cinco-s"),
@@ -573,7 +573,7 @@ export const GUIAS: Guia[] = [
   {
     slug: "informar-quebra-fefo",
     titulo: "Informar uma quebra de FEFO",
-    emoji: "⏳",
+    emoji: "📆",
     categoria: "armazem",
     resumo: "Avisar o controle quando achar produto fora da ordem de validade.",
     exige: [["fefo", "ver"]],
@@ -589,7 +589,7 @@ export const GUIAS: Guia[] = [
       { texto: "Em **📍 Onde está**, escolha o **Depósito** e a **Rua**. Se ajudar, descreva o **Ponto exato**." },
       { texto: "Bloqueou a rua? Marque **🔒 A rua foi bloqueada**." },
       {
-        texto: "Se quiser, tire uma **Foto** e escreva uma **Observação**. Toque em **⏳ Informar quebra de FEFO**.",
+        texto: "Se quiser, tire uma **Foto** e escreva uma **Observação**. Toque em **📆 Informar quebra de FEFO**.",
         dica: "O controle recebe na hora. O que você informou aparece em **O que eu informei**.",
       },
     ],
@@ -603,7 +603,7 @@ export const GUIAS: Guia[] = [
   {
     slug: "tratar-quebra-fefo",
     titulo: "Tratar uma quebra de FEFO (controle)",
-    emoji: "⌛",
+    emoji: "📆",
     categoria: "armazem",
     resumo: "Registrar a ação tomada numa quebra informada e encerrar.",
     exige: [["fefo-controle", "ver"]],
@@ -652,7 +652,7 @@ export const GUIAS: Guia[] = [
         dica: "A câmera abre no próprio app, sem sair da tela: o celular com pouca memória não perde o que já foi feito. Cada foto sobe na hora, já reduzida. Compare com a foto do trimestre anterior, que aparece no item.",
       },
       {
-        texto: "Nota **1** ou **0**? Preencha o **📋 Plano de ação**: o que vai ser feito, o **Responsável** e o **Prazo**.",
+        texto: "Nota **1** ou **0**? Preencha o **🗒️ Plano de ação**: o que vai ser feito, o **Responsável** e o **Prazo**.",
         dica: "Salva sozinho quando você para de digitar. Item crítico já vem com prazo de 30 dias.",
       },
       {
@@ -675,7 +675,7 @@ export const GUIAS: Guia[] = [
   {
     slug: "consultar-fornecedores",
     titulo: "Achar o contato de um fornecedor",
-    emoji: "📞",
+    emoji: "☎️",
     categoria: "primeiros-passos",
     resumo: "Ar-condicionado parou, faltou energia, precisa de pousada na rota: o telefone certo, com um toque.",
     palavras: ["fornecedor", "fornecedores", "contato", "telefone", "whatsapp", "manutenção", "emergência", "pousada", "hotel", "coelba", "embasa"],
@@ -700,7 +700,7 @@ export const GUIAS: Guia[] = [
   {
     slug: "atualizar-fornecedores",
     titulo: "Incluir fornecedor e revisar o ANS",
-    emoji: "🤝",
+    emoji: "☎️",
     categoria: "armazem",
     resumo: "Para o time da manutenção: manter a base de contatos em dia, com ANS e custo, e registrar quando o serviço não foi adequado.",
     exige: [["manutencao", "ver"]],
@@ -765,7 +765,7 @@ export const GUIAS: Guia[] = [
   {
     slug: "cadastrar-produto-armazem",
     titulo: "Cadastrar produto do armazém",
-    emoji: "🏷️",
+    emoji: "🏭",
     categoria: "armazem",
     resumo: "Incluir um produto para aparecer no Reepack, Despejo, Abastecimento e FEFO.",
     exige: [["produtividade-armazem", "editar"]],
@@ -786,7 +786,7 @@ export const GUIAS: Guia[] = [
       { texto: "Toque em **Salvar produto**." },
     ],
     atencao: [
-      "Muitos produtos de uma vez? Use **📥 Importar a base (planilha .xlsx)**: baixe a planilha atual, edite e importe de volta.",
+      "Muitos produtos de uma vez? Use **📑 Importar a base (planilha .xlsx)**: baixe a planilha atual, edite e importe de volta.",
       "As empilhadeiras são cadastradas na aba **🏗️ Empilhadeiras**, na mesma tela.",
     ],
     tela: { href: "/admin/produtividade-armazem", rotulo: "Abrir a configuração do Armazém" },
@@ -830,7 +830,7 @@ export const GUIAS: Guia[] = [
   {
     slug: "recontar-ativo-giro",
     titulo: "Fazer uma recontagem pedida",
-    emoji: "🔁",
+    emoji: "🔄",
     categoria: "ativo-giro",
     resumo: "Quando a liderança pede para contar de novo um item que deu diferença.",
     exige: [["ativo-giro", "ver"]],
@@ -852,7 +852,7 @@ export const GUIAS: Guia[] = [
   {
     slug: "conciliar-ativo-giro",
     titulo: "Conciliar e congelar o dia do Ativo de Giro",
-    emoji: "🧊",
+    emoji: "🔄",
     categoria: "ativo-giro",
     resumo: "Comparar o contado com o parque, justificar as diferenças e fechar o dia oficial.",
     exige: [["ativo-giro", "editar"]],
@@ -885,7 +885,7 @@ export const GUIAS: Guia[] = [
   {
     slug: "pedir-recontagem-ativo-giro",
     titulo: "Pedir uma recontagem do Ativo de Giro",
-    emoji: "📣",
+    emoji: "🔄",
     categoria: "ativo-giro",
     resumo: "Avisar quem contou que um item precisa ser contado de novo.",
     exige: [["ativo-giro", "editar"]],
@@ -909,7 +909,7 @@ export const GUIAS: Guia[] = [
   {
     slug: "fazer-auditoria-5s",
     titulo: "Fazer uma auditoria 5S",
-    emoji: "🔎",
+    emoji: "🧹",
     categoria: "cinco-s",
     resumo: "Para o auditor: responder o checklist de uma área e gerar o plano de ação.",
     exige: [["5s", "ver"]],
@@ -939,7 +939,7 @@ export const GUIAS: Guia[] = [
   {
     slug: "tratar-acao-5s",
     titulo: "Tratar uma ação do 5S",
-    emoji: "🔧",
+    emoji: "🧹",
     categoria: "cinco-s",
     resumo: "Para o dono da área: resolver o que a auditoria apontou e mostrar a solução.",
     exige: [["5s", "ver"]],
@@ -965,7 +965,7 @@ export const GUIAS: Guia[] = [
   {
     slug: "validar-acao-5s",
     titulo: "Validar ou devolver uma ação do 5S",
-    emoji: "✅",
+    emoji: "🧹",
     categoria: "cinco-s",
     resumo: "Para a gestão do 5S: conferir o que o dono da área fez e encerrar a ação.",
     exige: [["5s", "editar"]],
@@ -985,7 +985,7 @@ export const GUIAS: Guia[] = [
   {
     slug: "configurar-5s",
     titulo: "Configurar o Programa 5S (áreas, auditores e agenda)",
-    emoji: "🗂️",
+    emoji: "🧹",
     categoria: "cinco-s",
     resumo: "Cadastrar as áreas e seus donos, habilitar auditores e agendar as auditorias.",
     exige: [
@@ -1021,7 +1021,7 @@ export const GUIAS: Guia[] = [
   {
     slug: "cadastrar-colaborador",
     titulo: "Cadastrar um colaborador",
-    emoji: "➕",
+    emoji: "👥",
     categoria: "pessoas",
     resumo: "Criar o acesso de uma pessoa nova, uma de cada vez.",
     exige: [["colaboradores", "criar"]],
@@ -1048,7 +1048,7 @@ export const GUIAS: Guia[] = [
   {
     slug: "importar-colaboradores",
     titulo: "Importar colaboradores por planilha",
-    emoji: "📊",
+    emoji: "👥",
     categoria: "pessoas",
     resumo: "Cadastrar ou atualizar várias pessoas de uma vez, pelo Excel.",
     exige: [["colaboradores", "criar"]],
@@ -1058,7 +1058,7 @@ export const GUIAS: Guia[] = [
       ENTRAR_NO_MODO,
       ABRIR_BARRA,
       gaveta("👥 Pessoas", "👥 Colaboradores"),
-      { texto: "Toque em **📥 Importar planilha de colaboradores**." },
+      { texto: "Toque em **📑 Importar planilha de colaboradores**." },
       {
         texto: "Toque em **⬇️ Baixar planilha padrão**. Ela já vem com quem está na revenda.",
         dica: "Colunas: Matrícula, Nome, CPF, Cargo e Área. Coluna a mais é ignorada.",
@@ -1080,7 +1080,7 @@ export const GUIAS: Guia[] = [
   {
     slug: "tornar-lideranca",
     titulo: "Tornar uma pessoa liderança",
-    emoji: "⭐",
+    emoji: "👥",
     categoria: "pessoas",
     resumo: "Dar a alguém o acesso ao Modo Liderança — e depois liberar o que ela pode fazer.",
     exige: [
@@ -1123,7 +1123,7 @@ export const GUIAS: Guia[] = [
   {
     slug: "redefinir-senha",
     titulo: "Redefinir a senha de alguém",
-    emoji: "🔁",
+    emoji: "👥",
     categoria: "pessoas",
     resumo: "Quando um colaborador esquece a senha.",
     exige: [["colaboradores", "editar"]],
@@ -1146,7 +1146,7 @@ export const GUIAS: Guia[] = [
   {
     slug: "remover-colaborador",
     titulo: "Remover um colaborador do app",
-    emoji: "🚪",
+    emoji: "👥",
     categoria: "pessoas",
     resumo: "Tirar o acesso de quem saiu da empresa.",
     exige: [["colaboradores", "excluir"]],

@@ -19,6 +19,7 @@ import {
   type AtendimentoCarreta,
 } from "@/lib/carretas";
 import { MonitorCarretas, type CardAtendimento } from "./MonitorCarretas";
+import { Marca } from "@/components/Icone";
 
 export const dynamic = "force-dynamic";
 
@@ -380,7 +381,7 @@ export default async function CarretasConferenciaPage({
                     <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
                       <span>🚪 Porteiro: {f.portaria_nome}</span>
                       <span>🔎 Conferente: {f.conferente_nome ?? "—"}</span>
-                      {empilhadores.length > 0 && <span>🏗️ Empilhador(es): {empilhadores.join(", ")}</span>}
+                      {empilhadores.length > 0 && <span><Marca desenho="empilhadeira" /> Empilhador(es): {empilhadores.join(", ")}</span>}
                     </div>
                     <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-400">
                       <span>Espera portaria: {m.esperaPortaria !== null ? formatarMinutos(m.esperaPortaria) : "—"}</span>

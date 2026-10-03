@@ -5,6 +5,7 @@ import { exigirTelaDeAcessos } from "@/lib/gestao-de-acessos-server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { EMOJI_GRUPO_ADMIN, ROTULO_PAPEL, rotuloDaAcaoNoModulo, type Papel } from "@/lib/acessos";
 import { simularAcesso } from "@/lib/simulacao-acesso";
+import { ComMarcas } from "@/components/Icone";
 
 export const dynamic = "force-dynamic";
 
@@ -121,7 +122,7 @@ export default async function PreviaDeAcessoPage({
                       key={i.chave}
                       className="rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700"
                     >
-                      {i.emoji} {i.titulo}
+                      <ComMarcas texto={i.emoji ?? ""} /> {i.titulo}
                     </span>
                   ))}
                 </div>
@@ -143,7 +144,7 @@ export default async function PreviaDeAcessoPage({
             {s.paineis.map((p) => (
               <li key={p.id} className="text-sm text-slate-700">
                 <strong>
-                  {p.emoji} {p.rotulo}
+                  <ComMarcas texto={p.emoji ?? ""} /> {p.rotulo}
                 </strong>{" "}
                 <span className="text-slate-500">— {p.pergunta.toLowerCase()}</span>
               </li>
@@ -170,7 +171,7 @@ export default async function PreviaDeAcessoPage({
             {s.telas.map(({ modulo, acoes }) => (
               <div key={modulo.id} className="rounded-xl border border-slate-200 bg-white p-3">
                 <p className="text-sm font-semibold text-slate-800">
-                  {modulo.emoji} {modulo.rotulo}
+                  <ComMarcas texto={modulo.emoji ?? ""} /> {modulo.rotulo}
                   <span className="ml-2 text-[10px] font-normal uppercase tracking-wide text-slate-400">
                     {EMOJI_GRUPO_ADMIN[modulo.grupo]} {modulo.grupo}
                   </span>

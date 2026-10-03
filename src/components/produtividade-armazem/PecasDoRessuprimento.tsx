@@ -24,6 +24,7 @@ import {
   excluirSolicitacao,
   iniciarAbastecimentoDaSolicitacao,
 } from "@/app/produtividade-armazem/abastecimento/ressuprimento-actions";
+import { ComMarcas, Marca } from "@/components/Icone";
 
 export type ProdutoDoPedido = { codigo: string; descricao: string };
 
@@ -125,10 +126,10 @@ export function CartaoDoPedido({
                   : "bg-slate-100 text-slate-600"
           }`}
         >
-          {info.emoji} {info.rotulo}
+          <ComMarcas texto={info.emoji ?? ""} /> {info.rotulo}
         </span>
         <span className="rounded-full bg-white/70 px-2.5 py-1 text-xs font-semibold text-slate-600 ring-1 ring-slate-200">
-          {TIPO_ABASTECIMENTO[tipo].emoji} {TIPO_ABASTECIMENTO[tipo].curto}
+          <ComMarcas texto={TIPO_ABASTECIMENTO[tipo].emoji ?? ""} /> {TIPO_ABASTECIMENTO[tipo].curto}
         </span>
         {r.prioridade === "urgente" && !r.canceladoEm && (
           <span className="rounded-full bg-red-100 px-2.5 py-1 text-xs font-bold text-red-800">
@@ -286,7 +287,7 @@ export function CartaoDoPedido({
             <form action={aceitarSolicitacao}>
               <input type="hidden" name="id" value={r.id} />
               <BotaoEnviar className="w-full rounded-xl bg-primary px-4 py-3.5 text-sm font-bold text-white hover:bg-primary-dark">
-                🏗️ Vou buscar este pedido no estoque
+                <Marca desenho="empilhadeira" /> Vou buscar este pedido no estoque
               </BotaoEnviar>
             </form>
           ) : (
@@ -348,7 +349,7 @@ export function CartaoDoPedido({
             </div>
           ) : (
             <p className="text-xs text-slate-600">
-              🏗️ <strong>{r.operadorNome}</strong> está buscando. Aguarde chegar na área.
+              <Marca desenho="empilhadeira" /> <strong>{r.operadorNome}</strong> está buscando. Aguarde chegar na área.
             </p>
           )
         ) : estado === "na_area" ? (
@@ -374,16 +375,16 @@ export function CartaoDoPedido({
                   ))}
                 </select>
                 <BotaoEnviar className="flex-1 rounded-xl bg-primary px-4 py-3.5 text-sm font-bold text-white hover:bg-primary-dark">
-                  📥 Levar para o picking
+                  <Marca desenho="abastecimento" /> Levar para o picking
                 </BotaoEnviar>
               </form>
             )
           ) : (
-            <p className="text-xs text-slate-600">📍 Na área, esperando alguém levar ao picking.</p>
+            <p className="text-xs text-slate-600">📌 Na área, esperando alguém levar ao picking.</p>
           )
         ) : estado === "abastecendo" ? (
           <p className="text-xs font-medium text-green-800">
-            📥 <strong>{r.abastecedorNome}</strong> está abastecendo o picking — cronômetro correndo.
+            <Marca desenho="abastecimento" /> <strong>{r.abastecedorNome}</strong> está abastecendo o picking — cronômetro correndo.
           </p>
         ) : null}
 

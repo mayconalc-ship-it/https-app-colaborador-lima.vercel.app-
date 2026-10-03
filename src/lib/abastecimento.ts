@@ -35,7 +35,8 @@ export const TIPO_ABASTECIMENTO: Record<
   completo: {
     rotulo: "Abastecimento completo",
     curto: "Completo",
-    emoji: "🔄",
+    // 💯 e não 🔄: o 🔄 é do Ativo de Giro no mapa de emojis.
+    emoji: "💯",
     descricao:
       "A varredura da manhã: repor tudo o que está abaixo do nível, área por área, até as 10h. É o abastecimento que prepara o dia.",
   },

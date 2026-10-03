@@ -4,6 +4,7 @@ import { MensagemProPdv } from "@/components/pdv/MensagemProPdv";
 import { rotuloDoPrazo } from "@/lib/pdv-particularidades";
 import type { ClienteDoDia, DiaDasParticularidades } from "@/lib/pdv-particularidades-server";
 import { desmarcarAvisado, marcarAvisado } from "./actions";
+import { ComMarcas } from "@/components/Icone";
 
 const brasileira = (iso: string) => iso.split("-").reverse().join("/");
 
@@ -168,7 +169,7 @@ function Cliente({ cliente: c, data }: { cliente: ClienteDoDia; data: string }) 
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="text-sm font-bold leading-tight text-slate-900">
-            {c.emoji} {c.nomePdv ?? `Cliente ${c.codPdv}`}
+            <ComMarcas texto={c.emoji ?? ""} /> {c.nomePdv ?? `Cliente ${c.codPdv}`}
             <span className="ml-1.5 text-xs font-normal text-slate-400">#{c.codPdv}</span>
           </p>
           <p className="mt-0.5 text-[11px] uppercase tracking-wide text-slate-400">

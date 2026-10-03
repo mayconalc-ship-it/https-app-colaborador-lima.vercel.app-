@@ -50,7 +50,7 @@ export default async function ClassificacaoPage({
   return (
     <div>
       <PageHeader
-        title="🏆 Campeonato do Conhecimento"
+        title="🥇 Campeonato do Conhecimento"
         subtitle={rotuloArea.toUpperCase()}
         fecharHref="/desafio"
       />

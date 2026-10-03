@@ -109,6 +109,7 @@ import { ESTOQUE_MINIMO_PADRAO } from "@/lib/gas-p20";
 import { suspeitaNoHorimetro } from "@/lib/empilhadeira-gas";
 import { FotoEvidencia } from "@/components/FotoEvidencia";
 import { FormNoLugar } from "@/components/FormNoLugar";
+import { ComMarcas, Marca } from "@/components/Icone";
 
 type CarretaParaCorrigir = {
   id: string;
@@ -136,7 +137,7 @@ const ABAS: { id: Aba; rotulo: string; emoji: string }[] = [
   { id: "empilhadeiras", rotulo: "Empilhadeiras", emoji: "🏗️" },
   { id: "recebimento", rotulo: "Recebimento", emoji: "🚛" },
   { id: "cinco-s", rotulo: "5S", emoji: "🧹" },
-  { id: "fefo", rotulo: "FEFO", emoji: "⏳" },
+  { id: "fefo", rotulo: "FEFO", emoji: "📆" },
   { id: "wqi", rotulo: "WQI", emoji: "💸" },
 ];
 
@@ -536,7 +537,7 @@ export default async function AdminProdutividadeArmazemPage({
               a.id === aba ? "bg-primary text-white shadow-sm" : "text-slate-500 hover:bg-slate-100"
             }`}
           >
-            <span className="text-base leading-none">{a.emoji}</span>
+            <span className="text-base leading-none"><ComMarcas texto={a.emoji ?? ""} /></span>
             {a.rotulo}
           </a>
         ))}
@@ -578,7 +579,7 @@ export default async function AdminProdutividadeArmazemPage({
                   >
                     ▸
                   </span>
-                  📥 Importar a base (planilha .xlsx)
+                  📑 Importar a base (planilha .xlsx)
                 </summary>
 
                 <div className="mt-2 space-y-2">
@@ -1168,7 +1169,7 @@ export default async function AdminProdutividadeArmazemPage({
                 <span className="mr-1 inline-block text-slate-400 transition-transform group-open:rotate-90">
                   ▸
                 </span>
-                ⛽ Valor do botijão P20
+                <Marca desenho="gas" /> Valor do botijão P20
               </h2>
               <p className="mt-1 pl-4 text-xs text-slate-500">
                 Vira custo por hora no dashboard de consumo de gás. Deixe em branco para não mostrar
@@ -1205,7 +1206,7 @@ export default async function AdminProdutividadeArmazemPage({
                 <span className="mr-1 inline-block text-slate-400 transition-transform group-open:rotate-90">
                   ▸
                 </span>
-                🔥 Alerta de gás P20 acabando
+                <Marca desenho="gas" /> Alerta de gás P20 acabando
               </h2>
               <p className="mt-1 pl-4 text-xs text-slate-500">
                 Em toda troca o empilhador conta os botijões do depósito. Caindo ao mínimo, o app
@@ -1385,7 +1386,7 @@ export default async function AdminProdutividadeArmazemPage({
           <details className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
             <summary className="cursor-pointer list-none border-b border-slate-100 p-4 marker:content-none [&::-webkit-details-marker]:hidden">
               <h2 className="text-sm font-bold text-slate-900">
-                ⛽ Corrigir ou excluir troca de gás
+                <Marca desenho="gas" /> Corrigir ou excluir troca de gás
                 <span className="ml-2 font-medium text-slate-400">
                   {(trocasGas ?? []).length} registro
                   {(trocasGas ?? []).length === 1 ? "" : "s"} · toque para abrir
@@ -1434,7 +1435,7 @@ export default async function AdminProdutividadeArmazemPage({
                         />
                       )}
 
-                      <p className="min-w-0 flex-1 text-xs text-slate-500">🏗️ {descricao}</p>
+                      <p className="min-w-0 flex-1 text-xs text-slate-500"><Marca desenho="empilhadeira" /> {descricao}</p>
 
                       {/*
                         OS CONTROLES NUMA LINHA SÓ, E TAMBÉM NO CELULAR --
@@ -1557,7 +1558,7 @@ export default async function AdminProdutividadeArmazemPage({
                     <div key={o.id} className="space-y-2 p-3">
                       <div className="flex items-start justify-between gap-2">
                         <p className="min-w-0 flex-1 text-xs text-slate-500">
-                          🏗️ {descricao}
+                          <Marca desenho="empilhadeira" /> {descricao}
                           {o.fim && ` até ${formatarDataHora(o.fim)}`}
                           {!encerrada && " · em aberto"}
                         </p>

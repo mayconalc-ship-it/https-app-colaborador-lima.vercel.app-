@@ -229,7 +229,7 @@ export default async function MaoDeObraPage({
 
   return (
     <div>
-      <PageHeader title="👷 Simulador de Mão de Obra" subtitle="Planeje o quadro, acompanhe o volume do dia e corrija os desvios" fecharHref="/gestao" />
+      <PageHeader title="🧮 Simulador de Mão de Obra" subtitle="Planeje o quadro, acompanhe o volume do dia e corrija os desvios" fecharHref="/gestao" />
 
       {sp.erro && <p className="mb-3 rounded-xl bg-red-50 p-3 text-sm text-red-700">{decodificar(sp.erro)}</p>}
       {sp.sucesso && <p className="mb-3 rounded-xl bg-green-50 p-3 text-sm text-green-700">{decodificar(sp.sucesso)}</p>}

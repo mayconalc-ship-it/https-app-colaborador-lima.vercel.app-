@@ -9,6 +9,7 @@ import type { CampoRapido } from "@/components/CadastroRapido";
 import { ROTULO_UNIDADE_AG, UNIDADES_AG } from "@/lib/carretas";
 import { criarAgRapido, criarFabricaRapida } from "@/app/produtividade-armazem/catalogos-rapidos";
 import { decidirRetorno } from "./actions";
+import { Marca } from "@/components/Icone";
 
 const CAMPOS_AG: CampoRapido[] = [
   { nome: "codigo", rotulo: "Código" },
@@ -78,7 +79,7 @@ export function FormDecidirRetorno({
     >
       <input type="hidden" name="atendimento_id" value={atendimentoId} />
 
-      <p className="text-sm font-bold text-slate-800">🔄 A carreta vai levar AG na volta?</p>
+      <p className="text-sm font-bold text-slate-800"><Marca desenho="ativo-giro" /> A carreta vai levar AG na volta?</p>
 
       {/* Cada opção tem a PRÓPRIA cor, não a mesma cor de "selecionado".
           Com as duas em azul, o conferente confirmava no automático e só
@@ -221,7 +222,7 @@ export function FormDecidirRetorno({
           retorno === "com_ag" ? "bg-purple-600 hover:bg-purple-700" : "bg-slate-800 hover:bg-slate-900"
         }`}
       >
-        {retorno === "com_ag" ? "🔄 Confirmar: volta com AG" : "↩️ Confirmar: volta vazia"}
+        {retorno === "com_ag" ? <><Marca desenho="ativo-giro" /> Confirmar: volta com AG</> : "↩️ Confirmar: volta vazia"}
       </BotaoEnviar>
     </FormNoLugar>
   );

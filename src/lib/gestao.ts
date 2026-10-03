@@ -128,7 +128,7 @@ export const PAINEIS: Painel[] = [
     // do DPO cobra: quanta gente o mês pede, quanta a revenda tem.
     id: "mao-de-obra",
     rotulo: "Simulador de Mão de Obra",
-    emoji: "👷",
+    emoji: "🧮",
     href: "/gestao/mao-de-obra",
     bloco: "Pessoas",
     modulo: "mao-de-obra",
@@ -161,7 +161,7 @@ export const PAINEIS: Painel[] = [
   {
     id: "gas",
     rotulo: "Gás da Empilhadeira",
-    emoji: "⛽",
+    emoji: "🛢️",
     href: "/produtividade-armazem/empilhadeira/gas",
     bloco: "Operação",
     modulo: "pa-empilhadeira",

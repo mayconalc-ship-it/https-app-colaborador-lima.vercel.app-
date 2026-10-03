@@ -183,7 +183,7 @@ export function MonitorCarretas({
                             olhando esta lista, e a que precisa de inspeção
                             tem que ser inspecionada ANTES de descarregar --
                             depois não há mais o que fotografar. */}
-                        {a.blitzExigida && <span title="Caiu na blitz de recebimento">🚨 </span>}
+                        {a.blitzExigida && <span title="Caiu na blitz de recebimento">🔦 </span>}
                         Carreta {a.placaCarreta}
                       </p>
                       <span

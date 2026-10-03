@@ -30,6 +30,7 @@ import {
 import { cancelarReepack, editarReepack, excluirReepack, finalizarReepack, iniciarReepack } from "./actions";
 import { FormFinalizarCronometro } from "@/components/FormFinalizarCronometro";
 import { FormNoLugar } from "@/components/FormNoLugar";
+import { ComMarcas } from "@/components/Icone";
 
 export const dynamic = "force-dynamic";
 
@@ -308,7 +309,7 @@ export default async function ReepackPage({
                         : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                     }`}
                   >
-                    <span className="text-lg leading-none">{ETAPA_REEPACK[e].emoji}</span>
+                    <span className="text-lg leading-none"><ComMarcas texto={ETAPA_REEPACK[e].emoji ?? ""} /></span>
                     {ETAPA_REEPACK[e].rotulo}
                   </a>
                 ))}
@@ -500,7 +501,7 @@ function LinhaReepack({
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-sm font-semibold text-slate-900">
-            <span className="mr-1">{ETAPA_REEPACK[etapa].emoji}</span>
+            <span className="mr-1"><ComMarcas texto={ETAPA_REEPACK[etapa].emoji ?? ""} /></span>
             {produtoRotulo} · {l.quantidade} {etapa === "repack" ? "cx" : "un"} ·{" "}
             {ROTULO_TURNO_CURTO[l.turno as keyof typeof ROTULO_TURNO] ?? l.turno}
           </p>

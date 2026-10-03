@@ -18,6 +18,7 @@ import {
   type ParticularidadeCompleta,
 } from "@/lib/pdv-particularidades-server";
 import { DoDia } from "./DoDia";
+import { ComMarcas } from "@/components/Icone";
 
 export const dynamic = "force-dynamic";
 
@@ -150,7 +151,7 @@ export default async function PainelDePdvPage({
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <div className="min-w-0">
                     <p className="text-sm font-bold text-slate-900">
-                      {categoria.emoji} {p.nomePdv ?? `Cliente ${p.codPdv}`}
+                      <ComMarcas texto={categoria.emoji ?? ""} /> {p.nomePdv ?? `Cliente ${p.codPdv}`}
                       <span className="ml-1.5 text-xs font-normal text-slate-400">#{p.codPdv}</span>
                     </p>
                     <p className="mt-0.5 text-xs text-slate-600">{p.aviso}</p>
@@ -385,7 +386,7 @@ function Linha({
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="text-sm font-bold text-slate-900">
-            {categoria?.emoji} {p.nomePdv ?? `Cliente ${p.codPdv}`}
+            <ComMarcas texto={categoria?.emoji ?? ""} /> {p.nomePdv ?? `Cliente ${p.codPdv}`}
             <span className="ml-1.5 text-xs font-normal text-slate-400">#{p.codPdv}</span>
           </p>
           <p className="mt-0.5 text-[11px] uppercase tracking-wide text-slate-400">

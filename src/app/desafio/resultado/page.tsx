@@ -100,7 +100,7 @@ export default async function ResultadoPage() {
           href="/desafio/classificacao"
           className="rounded-xl bg-primary px-4 py-3 text-center text-sm font-semibold text-white hover:bg-primary-dark"
         >
-          🏆 Ver classificação
+          🥇 Ver classificação
         </Link>
         <Link
           href="/desafio/meu-campeonato"
