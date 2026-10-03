@@ -98,7 +98,7 @@ export const ROTULO_GRUPO: Record<GrupoDeMetas, { emoji: string; titulo: string;
     ajuda: "Litros por hora, por embalagem.",
   },
   picking: {
-    emoji: "🧃",
+    emoji: "📥",
     titulo: "Abastecimento do Picking",
     ajuda: "Hectolitros por hora abastecidos.",
   },

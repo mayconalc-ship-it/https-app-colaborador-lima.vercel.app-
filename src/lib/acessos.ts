@@ -770,13 +770,12 @@ export const MODULOS: Modulo[] = [
     id: "pa-picking",
     rotulosDeAcao: { ver: "Apontar o Abastecimento do Picking no app" },
     rotulo: "Abastecimento do Picking",
-    // 🏬 são as prateleiras -- o picking É a estante de onde o separador
-    // tira o produto, e abastecer é enchê-la. O 🛒 anterior saiu a pedido
-    // do dono (03/09/2026): carrinho de compras é supermercado, não
-    // armazém, e no celular dele o desenho ainda parecia uma caixa de
-    // leite. 📦 estava fora de questão -- já é o Ativo de Giro, e o Bate
-    // Palete usa 🤲📦.
-    emoji: "🏬",
+    // 📥 é ENTRADA: abastecer é pôr produto na posição de picking. O 🛒
+    // saiu em 03/09/2026 (supermercado, e parecia caixa de leite) e o 🏬
+    // em 03/10/2026 (no WhatsApp aparece como um banco). 📦 estava fora
+    // de questão -- já é o Ativo de Giro, e o Bate Palete usa 🤲📦. No
+    // cartão do armazém o desenho é próprio (ver ICONES_PROPRIOS).
+    emoji: "📥",
     // O id continua "pa-picking" de propósito: em 29/08/2026 a tela foi
     // trocada pelo Abastecimento (produto e HL no lugar de "posições",
     // campo que ficou vazio em 100% das sessões antigas). Manter o id
@@ -861,7 +860,7 @@ export const MODULOS: Modulo[] = [
       criar: "Informar uma quebra encontrada",
     },
     rotulo: "Quebra de FEFO (informar)",
-    emoji: "🚨",
+    emoji: "⏳",
     href: "/fefo",
     grupo: "Operação",
     // Quem acha a quebra no armazém avisa por aqui. Separado de
@@ -877,7 +876,7 @@ export const MODULOS: Modulo[] = [
       editar: "Responder qual ação foi tomada e encerrar",
     },
     rotulo: "Quebra de FEFO (controle)",
-    emoji: "🧭",
+    emoji: "⌛",
     href: "/fefo",
     grupo: "Operação",
     // Mesma tela: quem tem isto enxerga as ocorrências de todo mundo e

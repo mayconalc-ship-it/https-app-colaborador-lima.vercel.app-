@@ -501,7 +501,7 @@ export const GUIAS: Guia[] = [
   {
     slug: "abastecer-picking",
     titulo: "Abastecer o picking",
-    emoji: "🏬",
+    emoji: "📥",
     categoria: "armazem",
     resumo: "Levar o produto da área para o picking e finalizar o abastecimento.",
     exige: doArmazem("pa-picking"),
@@ -509,7 +509,7 @@ export const GUIAS: Guia[] = [
     passos: [
       noArmazem("Abastecimento do Picking"),
       { texto: "Abra o pedido que está **📍 Na área, esperando alguém levar ao picking**." },
-      { texto: "Toque em **🏬 Levar para o picking**. O cronômetro começa e os produtos do pedido já vêm lançados." },
+      { texto: "Toque em **📥 Levar para o picking**. O cronômetro começa e os produtos do pedido já vêm lançados." },
       {
         texto: "Abasteça. Se algum produto não coube ou não foi levado, toque em **Remover** nele.",
         dica: "Só o que foi pedido pode ser abastecido aqui.",
@@ -573,7 +573,7 @@ export const GUIAS: Guia[] = [
   {
     slug: "informar-quebra-fefo",
     titulo: "Informar uma quebra de FEFO",
-    emoji: "🚨",
+    emoji: "⏳",
     categoria: "armazem",
     resumo: "Avisar o controle quando achar produto fora da ordem de validade.",
     exige: [["fefo", "ver"]],
@@ -589,7 +589,7 @@ export const GUIAS: Guia[] = [
       { texto: "Em **📍 Onde está**, escolha o **Depósito** e a **Rua**. Se ajudar, descreva o **Ponto exato**." },
       { texto: "Bloqueou a rua? Marque **🔒 A rua foi bloqueada**." },
       {
-        texto: "Se quiser, tire uma **Foto** e escreva uma **Observação**. Toque em **🚨 Informar quebra de FEFO**.",
+        texto: "Se quiser, tire uma **Foto** e escreva uma **Observação**. Toque em **⏳ Informar quebra de FEFO**.",
         dica: "O controle recebe na hora. O que você informou aparece em **O que eu informei**.",
       },
     ],
@@ -603,7 +603,7 @@ export const GUIAS: Guia[] = [
   {
     slug: "tratar-quebra-fefo",
     titulo: "Tratar uma quebra de FEFO (controle)",
-    emoji: "🛠️",
+    emoji: "⌛",
     categoria: "armazem",
     resumo: "Registrar a ação tomada numa quebra informada e encerrar.",
     exige: [["fefo-controle", "ver"]],
@@ -675,7 +675,7 @@ export const GUIAS: Guia[] = [
   {
     slug: "consultar-fornecedores",
     titulo: "Achar o contato de um fornecedor",
-    emoji: "📇",
+    emoji: "📞",
     categoria: "primeiros-passos",
     resumo: "Ar-condicionado parou, faltou energia, precisa de pousada na rota: o telefone certo, com um toque.",
     palavras: ["fornecedor", "fornecedores", "contato", "telefone", "whatsapp", "manutenção", "emergência", "pousada", "hotel", "coelba", "embasa"],
@@ -1048,7 +1048,7 @@ export const GUIAS: Guia[] = [
   {
     slug: "importar-colaboradores",
     titulo: "Importar colaboradores por planilha",
-    emoji: "📥",
+    emoji: "📊",
     categoria: "pessoas",
     resumo: "Cadastrar ou atualizar várias pessoas de uma vez, pelo Excel.",
     exige: [["colaboradores", "criar"]],

@@ -221,7 +221,7 @@ export async function registrarQuebraFefo(formData: FormData): Promise<Resultado
 
       const nomeProduto = produto ? `${produto.codigo} — ${produto.descricao}` : "produto";
       const prazo = rotuloValidade(validade);
-      const titulo = `🚨 Quebra de FEFO — Depósito ${deposito.nome}, rua ${rua.nome}`;
+      const titulo = `⏳ Quebra de FEFO — Depósito ${deposito.nome}, rua ${rua.nome}`;
       const mensagem = `${motivo.nome}. ${nomeProduto}, ${quantidade} ${ROTULO_UNIDADE_FEFO_CURTO[unidade]}. ${prazo.texto}. Informado por ${perfil.nome}.`;
 
       await criarNotificacao({

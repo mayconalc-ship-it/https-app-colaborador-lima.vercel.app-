@@ -151,7 +151,7 @@ function FormQuebraFefoConteudo({
             role="alert"
             className="flex items-start gap-3 rounded-2xl border-2 border-red-500 bg-red-50 p-4"
           >
-            <span className="text-2xl leading-none">🚨</span>
+            <span className="text-2xl leading-none">⏳</span>
             <div className="min-w-0">
               <p className="text-base font-extrabold uppercase text-red-800">{prazo.texto}</p>
               <p className="mt-0.5 text-sm font-medium text-red-700">
@@ -292,7 +292,7 @@ function FormQuebraFefoConteudo({
         textoEnviando="Enviando..."
         className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-white shadow-sm hover:bg-primary-dark"
       >
-        🚨 Informar quebra de FEFO
+        ⏳ Informar quebra de FEFO
       </BotaoEnviar>
     </FormNoLugar>
   );
