@@ -13,8 +13,26 @@ import { lembrarContagensDoDia, varrerMaterialDeApoio } from "@/lib/material-apo
 import { enviarResumosSemanais } from "@/lib/resumo-semanal-server";
 import { lembrarPlanejamentoMensal } from "@/lib/mao-de-obra-server";
 
-/** De quanto em quanto tempo o próprio app varre a fila. */
-const INTERVALO_MINUTOS = 5;
+/**
+ * De quanto em quanto tempo o próprio app varre a fila.
+ *
+ * Era 5 até 03/10/2026. Cada varredura são dezenas de consultas, e cada
+ * consulta vira uma linha de log no Supabase -- a cota de Log Ingestion
+ * do plano gratuito estourou. 15 é o ritmo que o agendador do GitHub já
+ * prometia; nenhum lembrete precisa de precisão maior que essa.
+ */
+const INTERVALO_MINUTOS = 15;
+
+/**
+ * O gatilho de anomalia, dentro da varredura, roda no máximo uma vez por
+ * hora (03/10/2026). Ele é a etapa mais cara: lê 90 dias de carretas e
+ * itens de cada revenda. A pressa dele não mora aqui -- o relato de TMA e
+ * de avaria sai NA HORA, pelo `after()` do fim de cada descarga,
+ * conferência e carga (carretas-conferencia/[id]/actions). Esta passada é
+ * só a rede de segurança.
+ */
+const INTERVALO_ANOMALIAS_MINUTOS = 60;
+let proximaAnomalia = 0;
 
 /**
  * Trava de MEMÓRIA, na frente da trava do banco.
@@ -25,7 +43,7 @@ const INTERVALO_MINUTOS = 5;
  * de idas ao banco para uma resposta que este servidor já sabe.
  *
  * Guardando o horário aqui, uma instância quente atende dezenas de
- * visitas fazendo UMA pergunta ao banco a cada 5 minutos. O resto sai
+ * visitas fazendo UMA pergunta ao banco a cada 15 minutos. O resto sai
  * daqui em nanossegundos, sem rede nenhuma.
  *
  * Isto NÃO é a trava de verdade -- é um filtro barato na frente dela. A
@@ -122,11 +140,41 @@ export async function varrerLembretes(): Promise<Varredura> {
   const planejamentoMensal = await lembrarPlanejamentoMensal();
   // O GATILHO DE ANOMALIA FICA POR ÚLTIMO: é a etapa mais cara (lê 90
   // dias de atendimentos por revenda) e a menos urgente -- um desvio do
-  // dia esperar 15 minutos não muda nada, e um comunicado agendado
-  // esperando na frente dele, sim.
-  const anomalias = (await varrerGatilhosDeAnomalia()).abertos;
+  // dia esperar não muda nada, e um comunicado agendado esperando na
+  // frente dele, sim. E só uma vez por hora (ver INTERVALO_ANOMALIAS_MINUTOS).
+  const anomalias = (await anomaliasVencidas(admin)) ? (await varrerGatilhosDeAnomalia()).abertos : 0;
 
   return { ...enviados, cincoS, desafios, publicadas, aberturas, empilhadeiras, cincoPorques, tratativas, materialApoio, contagensMaterialApoio, resumosSemanais, planejamentoMensal, anomalias };
+}
+
+/**
+ * Passou uma hora desde a última passada do gatilho de anomalia?
+ *
+ * Mesma trava da varredura (UPDATE condicional na linha da chave), com a
+ * mesma trava de memória na frente. A linha 'anomalias' nasce aqui na
+ * primeira vez, sem migration: o upsert com ignoreDuplicates só devolve
+ * a linha quando ELE a criou.
+ */
+async function anomaliasVencidas(admin: ReturnType<typeof createAdminClient>): Promise<boolean> {
+  const agora = Date.now();
+  if (agora < proximaAnomalia) return false;
+  proximaAnomalia = agora + INTERVALO_ANOMALIAS_MINUTOS * 60_000;
+
+  const carimbo = new Date(agora).toISOString();
+  const limite = new Date(agora - INTERVALO_ANOMALIAS_MINUTOS * 60_000).toISOString();
+  const { data: ganhou } = await admin
+    .from("cron_varreduras")
+    .update({ rodou_em: carimbo })
+    .eq("chave", "anomalias")
+    .lt("rodou_em", limite)
+    .select("chave");
+  if (ganhou && ganhou.length > 0) return true;
+
+  const { data: nasceu } = await admin
+    .from("cron_varreduras")
+    .upsert({ chave: "anomalias", rodou_em: carimbo }, { onConflict: "chave", ignoreDuplicates: true })
+    .select("chave");
+  return Boolean(nasceu && nasceu.length > 0);
 }
 
 /**
