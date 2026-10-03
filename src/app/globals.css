@@ -639,7 +639,15 @@ button:disabled,
 }
 
 /* A luz que passa pelo selo, uma vez, quando a home abre: medalha
-   pegando luz. Só o brilho anda; o selo fica parado. */
+   pegando luz. Só o brilho anda; o selo fica parado.
+
+   O trajeto vai de -55% a 55%, que é a faixa de luz encostando na borda
+   do selo dos dois lados. Antes ia de -120% a 120% e só uns 40% do
+   caminho caíam em cima do selo -- com o ease-in-out, justo o trecho mais
+   rápido. A luz só aparecia aos 630ms e cruzava em 240ms: demorava a
+   começar e passava num relance (pedido do dono, 03/10/2026: "mais lento,
+   e que inicie mais rápido"). Medido no selo de 72px: agora entra aos
+   120ms e fica 960ms sobre ele. */
 .selo-brilho {
   position: relative;
   display: inline-flex;
@@ -652,13 +660,13 @@ button:disabled,
   position: absolute;
   inset: -20%;
   background: linear-gradient(115deg, transparent 38%, rgb(255 255 255 / 0.75) 50%, transparent 62%);
-  transform: translateX(-120%);
-  animation: selo-luz 0.9s ease-in-out 0.3s 1 both;
+  transform: translateX(-55%);
+  animation: selo-luz 1s ease-in-out 0.1s 1 both;
   pointer-events: none;
 }
 @keyframes selo-luz {
   to {
-    transform: translateX(120%);
+    transform: translateX(55%);
   }
 }
 
