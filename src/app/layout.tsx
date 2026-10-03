@@ -70,7 +70,7 @@ export default async function RootLayout({
   // custa um milissegundo de tela para ninguém. A trava está no banco
   // (migration 045): a esmagadora maioria das visitas só faz um UPDATE
   // que não casa e volta -- varrer de verdade acontece no máximo uma vez
-  // a cada 5 minutos, não uma vez por visita.
+  // a cada 15 minutos, não uma vez por visita.
   //
   // Só para quem está logado: a tela de login não tem por que mexer na
   // fila, e deixá-la de fora mantém o caminho do primeiro acesso limpo.

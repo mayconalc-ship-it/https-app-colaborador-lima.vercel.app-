@@ -518,7 +518,7 @@ export async function lerHistorico(revendaId: string, limite = 80): Promise<Alte
  * -- quem pode, de fato, lançar o volume e formalizar.
  *
  * Idempotente pela chave (`mao-obra:<revenda>:<AAAA-MM>:dia1|dia5`), como
- * os lembretes do 5S: a varredura passa a cada 5 minutos, e sem a chave o
+ * os lembretes do 5S: a varredura passa a cada 15 minutos, e sem a chave o
  * dia 1 sozinho geraria centenas de avisos.
  */
 export async function lembrarPlanejamentoMensal(agora: Date = new Date()): Promise<number> {
