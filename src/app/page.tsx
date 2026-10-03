@@ -1,4 +1,3 @@
-import Image from "next/image";
 import { MenuCard } from "@/components/MenuCard";
 import { createClient } from "@/lib/supabase/server";
 import { getPerfil } from "@/lib/sessao";
@@ -77,24 +76,20 @@ export default async function Home() {
           <p className="text-slate-500">Escolha uma opção abaixo</p>
         </div>
         {/*
-          SELO "QUALIFIED DPO 2026" (03/10/2026, pedido do dono): as duas
-          revendas, Barreiras e São Félix, são qualificadas no DPO -- o
-          selo fica na home de todo mundo, no espaço vazio ao lado da
-          saudação. O arquivo tem 264x252
-          e aparece com 72px de altura -- ~3,5 pixels de imagem por pixel de tela, nítido até no celular de
-          tela densa (3x). Qualidade 100 para o verde não ganhar borrão.
+          O SELO DA REVENDA (03/10/2026, pedido do dono): hoje o Qualified
+          DPO 2026, de Barreiras e São Félix. Vem de Admin > Revendas
+          (selo_url), para trocar quando vier o do ano seguinte. No espaço
+          vazio ao lado da saudação, com 72px de altura -- o arquivo do DPO
+          tem 264x252, ~3,5 pixels de imagem por pixel de tela, nítido até no
+          celular de tela densa. <img> e não next/image: o selo que o Admin
+          sobe vai como veio (SVG inclusive), sem recompressão.
         */}
-        <span className="selo-brilho">
-          <Image
-            src="/selo-dpo-2026.png"
-            alt="Qualified DPO 2026 — AB InBev"
-            width={264}
-            height={252}
-            quality={100}
-            priority
-            className="h-[72px] w-auto"
-          />
-        </span>
+        {revenda.seloUrl && (
+          <span className="selo-brilho">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={revenda.seloUrl} alt={`Selo de qualificação de ${revenda.nome}`} className="h-[72px] w-auto" />
+          </span>
+        )}
       </div>
       {/* Agrupado, não uma grade de 13. Cada bloco responde a uma pergunta
           diferente, e a ordem é a do dia: o que eu consulto sobre mim, o

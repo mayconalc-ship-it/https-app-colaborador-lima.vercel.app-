@@ -168,7 +168,7 @@ export default async function RootLayout({
               )}
             </div>
           </header>
-          {perfil && <SeloMarcaDagua />}
+          {perfil && <SeloMarcaDagua src={revenda?.seloUrl ?? null} />}
           <main className="relative z-[1] mx-auto max-w-3xl px-4 py-6">
             {sessaoOrfa ? (
               <SessaoInvalida />

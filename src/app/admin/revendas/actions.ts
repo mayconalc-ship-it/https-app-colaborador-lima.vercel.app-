@@ -265,6 +265,87 @@ export async function removerLogoRevenda(formData: FormData) {
  * é bem menos grave do que uma tela de erro depois de a troca ter dado
  * certo.
  */
+/**
+ * Sobe o selo de qualificação da revenda (ex.: Qualified DPO 2026), que
+ * aparece ao lado do "Olá" na home e, esfumaçado, como marca d'água nas
+ * outras telas. Mesmas regras da logo: PNG transparente fica melhor, e o
+ * carimbo de hora no nome faz a troca aparecer na hora.
+ *
+ * O arquivo sobe como veio, sem compressão: o selo é motivo de orgulho e
+ * tem de sair nítido. Por isso o pedido de imagem grande na tela.
+ */
+export async function salvarSeloRevenda(formData: FormData) {
+  const eu = await requireOwner();
+
+  const id = campo(formData, "id");
+  if (!id) voltar("erro", "Revenda inválida.");
+
+  const arquivo = formData.get("selo") as File | null;
+  if (!arquivo || arquivo.size === 0) voltar("erro", "Escolha a imagem do selo.");
+  if (arquivo.size > TAMANHO_MAXIMO_LOGO) voltar("erro", "A imagem passa de 2 MB.");
+  if (arquivo.type && !TIPOS_LOGO.includes(arquivo.type)) voltar("erro", "Envie PNG, JPG, WEBP ou SVG.");
+
+  const admin = createAdminClient();
+  const { data: alvo, error: erroLeitura } = await admin.from("revendas").select("nome, selo_url").eq("id", id).maybeSingle();
+  if (erroLeitura) voltar("erro", "O selo ainda não está instalado: falta rodar a migration 164.");
+  if (!alvo) voltar("erro", "Revenda não encontrada.");
+
+  const extensao = (arquivo.name.split(".").pop() ?? "png").toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 5);
+  const caminho = `${id}/marca/selo-${Date.now()}.${extensao || "png"}`;
+
+  const { error: erroUpload } = await admin.storage.from("conteudo").upload(caminho, arquivo, {
+    contentType: arquivo.type || "image/png",
+    upsert: true,
+    cacheControl: SEGUNDOS_DE_CACHE,
+  });
+  if (erroUpload) voltar("erro", `Falha ao enviar: ${erroUpload.message}`);
+
+  const { data: publica } = admin.storage.from("conteudo").getPublicUrl(caminho);
+  const { error } = await admin.from("revendas").update({ selo_url: publica.publicUrl }).eq("id", id);
+  if (error) voltar("erro", error.message);
+
+  // O selo que veio no app (/selo-dpo-2026.png) não mora no armazenamento
+  // -- apagarLogoAntiga só remove o que está no bucket.
+  await apagarLogoAntiga(alvo.selo_url);
+
+  await admin.from("auditoria").insert({
+    ator_id: eu.id,
+    ator_nome: eu.nome,
+    acao: "Trocou o selo da revenda",
+    detalhes: alvo.nome,
+    revenda_id: id,
+  });
+
+  voltar("sucesso", `Selo de ${alvo.nome} atualizado.`);
+}
+
+/** Tira o selo: a home e as telas ficam sem selo nenhum. */
+export async function removerSeloRevenda(formData: FormData) {
+  const eu = await requireOwner();
+
+  const id = campo(formData, "id");
+  if (!id) voltar("erro", "Revenda inválida.");
+
+  const admin = createAdminClient();
+  const { data: alvo } = await admin.from("revendas").select("nome, selo_url").eq("id", id).maybeSingle();
+  if (!alvo) voltar("erro", "Revenda não encontrada.");
+
+  const { error } = await admin.from("revendas").update({ selo_url: null }).eq("id", id);
+  if (error) voltar("erro", error.message);
+
+  await apagarLogoAntiga(alvo.selo_url);
+
+  await admin.from("auditoria").insert({
+    ator_id: eu.id,
+    ator_nome: eu.nome,
+    acao: "Removeu o selo da revenda",
+    detalhes: alvo.nome,
+    revenda_id: id,
+  });
+
+  voltar("sucesso", `${alvo.nome} ficou sem selo.`);
+}
+
 async function apagarLogoAntiga(url: string | null) {
   if (!url) return;
 

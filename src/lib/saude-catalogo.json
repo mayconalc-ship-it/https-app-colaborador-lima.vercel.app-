@@ -1004,6 +1004,11 @@
    "migration": "046"
   },
   {
+   "tabela": "revendas",
+   "coluna": "selo_url",
+   "migration": "164"
+  },
+  {
    "tabela": "rotas_config",
    "coluna": "meta_caixas",
    "migration": "017"
@@ -1074,6 +1079,7 @@
   "156": "156_check_manutencao.sql",
   "157": "157_fornecedores_raci_manutencao.sql",
   "159": "159_relato_tma_por_dt.sql",
+  "164": "164_selo_da_revenda.sql",
   "002": "002_sonho_anual_ranking_categorias.sql",
   "003": "003_padroes_por_pilar.sql",
   "004": "004_feedback_rota_detalhado.sql",

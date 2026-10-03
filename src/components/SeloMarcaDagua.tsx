@@ -13,13 +13,14 @@ import { usePathname } from "next/navigation";
  * recebe toque e some na impressão.
  *
  * Na home não aparece: lá o selo já está inteiro, ao lado da saudação.
+ * O selo vem da revenda (Admin > Revendas); sem selo, nada aparece.
  * O `key` pelo endereço refaz a entrada suave a cada tela aberta.
  */
-export function SeloMarcaDagua() {
+export function SeloMarcaDagua({ src }: { src: string | null }) {
   const caminho = usePathname();
-  if (!caminho || caminho === "/" || caminho.startsWith("/login") || caminho.startsWith("/votar")) return null;
+  if (!src || !caminho || caminho === "/" || caminho.startsWith("/login") || caminho.startsWith("/votar")) return null;
   return (
     // eslint-disable-next-line @next/next/no-img-element
-    <img key={caminho} src="/selo-dpo-2026.png" alt="" aria-hidden className="selo-marca-dagua" draggable={false} />
+    <img key={caminho} src={src} alt="" aria-hidden className="selo-marca-dagua" draggable={false} />
   );
 }

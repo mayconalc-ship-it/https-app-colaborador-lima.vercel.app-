@@ -17,6 +17,11 @@ export type Revenda = {
    * subiu nada fica com a marca do próprio app.
    */
   logoUrl: string | null;
+  /**
+   * Selo de qualificação (ex.: Qualified DPO 2026): ao lado do "Olá" na
+   * home e, esfumaçado, como marca d'água nas outras telas. Nulo = sem selo.
+   */
+  seloUrl: string | null;
 };
 
 /**
@@ -51,6 +56,7 @@ export const getRevendas = cache(async (): Promise<Revenda[]> => {
     nome: string;
     ativa: boolean;
     logo_url: string | null;
+    selo_url?: string | null;
   };
   const arrumar = (r: Linha, principal: boolean): Revenda => ({
     id: r.id,
@@ -59,27 +65,37 @@ export const getRevendas = cache(async (): Promise<Revenda[]> => {
     ativa: r.ativa,
     principal,
     logoUrl: r.logo_url ?? null,
+    // undefined = a coluna ainda não existe (164 não rodada): mantém o
+    // selo DPO que já estava no app, para ele não sumir no meio da troca.
+    // null = o Admin tirou o selo.
+    seloUrl: r.selo_url === undefined ? "/selo-dpo-2026.png" : r.selo_url,
   });
 
-  if (ehOwner(perfil.role)) {
-    const { data } = await admin
-      .from("revendas")
-      .select("id, slug, nome, ativa, logo_url")
-      .eq("ativa", true)
-      .order("ordem");
+  // selo_url nasceu na 164. Se o app subir antes da migration, a leitura
+  // com a coluna falha -- e sem revenda o app inteiro para. Então tenta
+  // com o selo e, dando erro, lê sem ele: o app segue, só sem selo.
+  const lerDoDono = async (colunas: string) =>
+    admin.from("revendas").select(colunas).eq("ativa", true).order("ordem");
+  const lerVinculos = async (colunas: string) =>
+    admin
+      .from("colaborador_revendas")
+      .select(`principal, revendas!inner(${colunas}, ordem)`)
+      .eq("colaborador_id", perfil.id)
+      .eq("revendas.ativa", true)
+      .order("ordem", { referencedTable: "revendas" });
+  const COM_SELO = "id, slug, nome, ativa, logo_url, selo_url";
+  const SEM_SELO = "id, slug, nome, ativa, logo_url";
 
-    return (data ?? []).map((r) => arrumar(r, false));
+  if (ehOwner(perfil.role)) {
+    let r = await lerDoDono(COM_SELO);
+    if (r.error) r = await lerDoDono(SEM_SELO);
+    return ((r.data ?? []) as unknown as Linha[]).map((l) => arrumar(l, false));
   }
 
-  const { data } = await admin
-    .from("colaborador_revendas")
-    .select("principal, revendas!inner(id, slug, nome, ativa, ordem, logo_url)")
-    .eq("colaborador_id", perfil.id)
-    .eq("revendas.ativa", true)
-    .order("ordem", { referencedTable: "revendas" });
-
-  return (data ?? []).map((v) =>
-    arrumar(v.revendas as unknown as Linha, v.principal),
+  let r = await lerVinculos(COM_SELO);
+  if (r.error) r = await lerVinculos(SEM_SELO);
+  return ((r.data ?? []) as unknown as { principal: boolean; revendas: Linha }[]).map((v) =>
+    arrumar(v.revendas, v.principal),
   );
 });
 
