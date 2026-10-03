@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { LinkVoltar } from "@/components/LinkVoltar";
+import { ComMarcas } from "@/components/Icone";
 
 export function PageHeader({
   title,
@@ -70,7 +71,7 @@ export function PageHeader({
           </LinkVoltar>
         )
       )}
-      <h1 className={`text-2xl font-bold text-slate-900 ${fecharHref ? "pr-12" : ""}`}>{title}</h1>
+      <h1 className={`text-2xl font-bold text-slate-900 ${fecharHref ? "pr-12" : ""}`}><ComMarcas texto={title} /></h1>
       {subtitle && <p className="mt-1 text-slate-500">{subtitle}</p>}
     </div>
   );

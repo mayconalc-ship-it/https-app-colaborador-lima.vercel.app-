@@ -161,7 +161,7 @@ export const PAINEIS: Painel[] = [
   {
     id: "gas",
     rotulo: "Gás da Empilhadeira",
-    emoji: "🔥",
+    emoji: "🛢️",
     href: "/produtividade-armazem/empilhadeira/gas",
     bloco: "Operação",
     modulo: "pa-empilhadeira",

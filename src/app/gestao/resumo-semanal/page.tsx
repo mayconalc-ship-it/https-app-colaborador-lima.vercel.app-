@@ -11,6 +11,7 @@ import {
   somarDias,
 } from "@/lib/resumo-semanal";
 import { formatarDias } from "@/lib/material-apoio";
+import { Marca } from "@/components/Icone";
 
 export const dynamic = "force-dynamic";
 
@@ -150,7 +151,7 @@ export default async function ResumoSemanalPage({
 
       {armazem && (
         <section>
-          <h2 className="mb-2 px-1 text-xs font-semibold uppercase tracking-wide text-slate-400">🏭 Armazém na semana</h2>
+          <h2 className="mb-2 px-1 text-xs font-semibold uppercase tracking-wide text-slate-400"><Marca desenho="armazem" /> Armazém na semana</h2>
 
           <div className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
             <Meta titulo="Reepack" pct={armazem.reepackPctMeta} volume={`${numero(armazem.totalReepacks)} cx`} />

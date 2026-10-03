@@ -29,6 +29,7 @@ import {
   salvarCategorias,
   salvarParticularidade,
 } from "./actions";
+import { ComMarcas } from "@/components/Icone";
 
 export const dynamic = "force-dynamic";
 
@@ -163,7 +164,7 @@ export default async function ParticularidadesDoPdvPage({
                   : "rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600 hover:border-primary hover:text-primary"
               }
             >
-              {a.emoji} {a.rotulo}
+              <ComMarcas texto={a.emoji ?? ""} /> {a.rotulo}
             </Link>
           ))}
         </div>
@@ -210,7 +211,7 @@ export default async function ParticularidadesDoPdvPage({
                     <div className="flex flex-wrap items-start justify-between gap-2">
                       <div className="min-w-0">
                         <p className="text-sm font-bold text-slate-900">
-                          {categoria.emoji} {p.nomePdv ?? `Cliente ${p.codPdv}`}
+                          <ComMarcas texto={categoria.emoji ?? ""} /> {p.nomePdv ?? `Cliente ${p.codPdv}`}
                           <span className="ml-1.5 text-xs font-normal text-slate-400">
                             #{p.codPdv}
                           </span>
@@ -572,7 +573,7 @@ function LinhaParticularidade({
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="text-sm font-bold text-slate-900">
-            {categoria?.emoji} {p.nomePdv ?? `Cliente ${p.codPdv}`}
+            <ComMarcas texto={categoria?.emoji ?? ""} /> {p.nomePdv ?? `Cliente ${p.codPdv}`}
             <span className="ml-1.5 text-xs font-normal text-slate-400">#{p.codPdv}</span>
           </p>
           <p className="mt-0.5 text-xs text-slate-500">

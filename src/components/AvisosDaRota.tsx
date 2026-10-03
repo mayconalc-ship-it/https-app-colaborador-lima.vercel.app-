@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { AvisoNaRota } from "@/lib/pdv-particularidades-server";
+import { ComMarcas } from "@/components/Icone";
 
 /**
  * O TRIÂNGULO DA PRÉ-ROTA -- o que o motorista precisa saber antes de sair.
@@ -103,7 +104,7 @@ export function AvisosDaRota({
               }`}
             >
               <p className="text-sm font-bold text-slate-900">
-                {a.emoji} {a.nomePdv ?? `Cliente ${a.codPdv}`}
+                <ComMarcas texto={a.emoji ?? ""} /> {a.nomePdv ?? `Cliente ${a.codPdv}`}
                 <span className="ml-1.5 text-xs font-normal text-slate-400">#{a.codPdv}</span>
               </p>
               <p className="mt-0.5 text-[11px] uppercase tracking-wide text-slate-400">

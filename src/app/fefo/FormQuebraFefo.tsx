@@ -16,6 +16,7 @@ import {
 import { buscarProdutosFefo, registrarQuebraFefo } from "./actions";
 import { CampoFoto } from "@/components/CampoFoto";
 import { FormNoLugar } from "@/components/FormNoLugar";
+import { Marca } from "@/components/Icone";
 
 const campo =
   "w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-base text-slate-900 focus:border-primary focus:outline-none";
@@ -292,7 +293,7 @@ function FormQuebraFefoConteudo({
         textoEnviando="Enviando..."
         className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-white shadow-sm hover:bg-primary-dark"
       >
-        ⏳ Informar quebra de FEFO
+        <Marca desenho="fefo" /> Informar quebra de FEFO
       </BotaoEnviar>
     </FormNoLugar>
   );

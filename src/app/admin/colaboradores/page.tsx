@@ -214,7 +214,7 @@ export default async function AdminColaboradoresPage({
       {podeCriar && (
         <details className="mb-4 rounded-2xl border border-slate-200 bg-white shadow-sm">
           <summary className="cursor-pointer p-4 font-semibold text-primary">
-            📥 Importar planilha de colaboradores
+            📑 Importar planilha de colaboradores
           </summary>
           <div className="space-y-3 border-t border-slate-100 p-4">
             <div className="rounded-xl bg-slate-50 p-3 text-xs leading-relaxed text-slate-600">

@@ -81,6 +81,7 @@ import {
 import { FiltroDoTopico, FiltroSolto, SecaoDoTopico, type Pessoa } from "./FiltroDoTopico";
 import { desfazerEsvaziamento, esvaziarBombona } from "./actions";
 import { BotaoDesfazerEsvaziamento, BotaoEsvaziarBombona } from "./BotaoEsvaziarBombona";
+import { Marca } from "@/components/Icone";
 
 export const dynamic = "force-dynamic";
 
@@ -174,7 +175,7 @@ export default async function IndicadoresPage({
   ];
   const TIPOS_ABASTECIMENTO_FILTRO = [
     { valor: "", nome: "Completo e pontual" },
-    { valor: "completo", nome: "🔄 Completo" },
+    { valor: "completo", nome: "💯 Completo" },
     { valor: "pontual", nome: "⚡ Pontual" },
   ];
 
@@ -2255,7 +2256,7 @@ export default async function IndicadoresPage({
         {/* ---- ABASTECIMENTO: o painel que morava na tela de lançar ---- */}
         {abastecimentoParaAnalise.length > 0 && (
           <section>
-            <h2 className="mb-2 text-sm font-bold text-slate-900">📥 Abastecimento — análise</h2>
+            <h2 className="mb-2 text-sm font-bold text-slate-900"><Marca desenho="abastecimento" /> Abastecimento — análise</h2>
             <PainelDoAbastecimento sessoes={abastecimentoParaAnalise} />
           </section>
         )}
@@ -2264,7 +2265,7 @@ export default async function IndicadoresPage({
             está no bloco de cima. Só aparece quando houve solicitação no
             período: um bloco de zeros ensinaria a ignorá-lo. */}
         {resumoRessuprimento.total > 0 && (
-          <BlocoAtividade titulo="🧾 Ressuprimento — tempos e movimentos">
+          <BlocoAtividade titulo="📥 Ressuprimento — tempos e movimentos">
             {/* Um ciclo por TIPO, nunca a média dos dois juntos. Uma
                 varredura da manhã de 2h é normal; um chamado pontual de 2h
                 é um problema. Somados, o número não descreve nenhum dos
@@ -2343,7 +2344,7 @@ export default async function IndicadoresPage({
         )}
 
         {solicitantesRessuprimento.length > 0 && (
-          <BlocoAtividade titulo="🧾 Quem pediu">
+          <BlocoAtividade titulo="📥 Quem pediu">
             <div className="col-span-full">
               <BarraRanking
                 titulo="Solicitações no período"
@@ -2788,7 +2789,7 @@ export default async function IndicadoresPage({
             pôs num bloco acima para investigar outra coisa. */}
         <SecaoDoTopico
           slug={TOPICOS.ranking}
-          titulo="🏆 Ranking e atividade por turno"
+          titulo="🥇 Ranking e atividade por turno"
           subtitulo="A comparação entre pessoas e entre turnos, com a pontuação ponderada pelas horas."
           resumo={`${ranking.length} pessoa(s)`}
           recorte={descreverRecorte(turnoRanking, pessoaRanking, pessoasRanking)}
@@ -2846,7 +2847,7 @@ export default async function IndicadoresPage({
                   <th className="p-3 text-right">🔍 Seleção</th>
                   <th className="p-3 text-right">📦 Reepack</th>
                   <th className="p-3 text-right">🫗 Despejo</th>
-                  <th className="p-3 text-right">📥 Picking</th>
+                  <th className="p-3 text-right"><Marca desenho="abastecimento" /> Picking</th>
                   <th className="p-3 text-right">🤲📦 Bate Palete</th>
                   <th className="p-3 text-right">🧹 5S</th>
                   {/* "Total" de quê? São contagens de LANÇAMENTOS somadas
@@ -2940,7 +2941,7 @@ export default async function IndicadoresPage({
                     <th className="p-3 text-right">🔍 Seleção</th>
                     <th className="p-3 text-right">📦 Reepack</th>
                     <th className="p-3 text-right">🫗 Despejo</th>
-                    <th className="p-3 text-right">📥 Picking</th>
+                    <th className="p-3 text-right"><Marca desenho="abastecimento" /> Picking</th>
                     <th className="p-3 text-right">🤲📦 Bate Palete</th>
                     <th className="p-3 text-right">🧹 5S</th>
                     {/* Dizia "Atividades" e mostrava HORAS -- a célula

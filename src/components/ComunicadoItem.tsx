@@ -13,6 +13,7 @@ import {
 } from "@/lib/comunicados";
 import type { ResultadoAcao } from "@/lib/resultado-acao";
 import { FormNoLugar } from "@/components/FormNoLugar";
+import { ComMarcas } from "@/components/Icone";
 
 type Comunicado = {
   id: number;
@@ -95,7 +96,7 @@ export function ComunicadoItem({
       <div className="min-w-0 flex-1">
         <div className="mb-1 flex flex-wrap items-center gap-2">
           <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${ed.classe}`}>
-            {ed.emoji} {ed.rotulo}
+            <ComMarcas texto={ed.emoji ?? ""} /> {ed.rotulo}
           </span>
           {naFila && (
             <span className="rounded-full bg-amber-400 px-2 py-0.5 text-xs font-bold text-amber-950">

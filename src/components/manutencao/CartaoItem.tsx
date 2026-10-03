@@ -414,7 +414,7 @@ export function CartaoItem({
           {abaixo && (
             <div className="space-y-2 rounded-xl border border-amber-200 bg-amber-50 p-3">
               <p className="text-xs font-bold text-amber-900">
-                📋 Plano de ação {item.critico && "· item crítico: reparo em curto prazo ou CAPEX emergencial"}
+                🗒️ Plano de ação {item.critico && "· item crítico: reparo em curto prazo ou CAPEX emergencial"}
               </p>
               <textarea
                 rows={2}

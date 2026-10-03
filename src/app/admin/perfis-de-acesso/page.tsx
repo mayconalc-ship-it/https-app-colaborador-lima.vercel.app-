@@ -27,6 +27,7 @@ import {
   salvarPerfil,
   tirarDoPerfil,
 } from "./actions";
+import { ComMarcas } from "@/components/Icone";
 
 export const dynamic = "force-dynamic";
 
@@ -807,7 +808,7 @@ function GradeDePermissoes({
                         className="h-4 w-4 shrink-0 rounded border-slate-300 text-primary"
                       />
                       <span>
-                        {m?.emoji} {m?.rotulo ?? id}
+                        <ComMarcas texto={m?.emoji ?? ""} /> {m?.rotulo ?? id}
                       </span>
                     </label>
                   );
@@ -826,7 +827,7 @@ function GradeDePermissoes({
                     {doGrupo.map((m) => (
                       <div key={m.id} className="rounded-xl border border-slate-200 p-3">
                         <p className="text-sm font-semibold text-slate-800">
-                          {m.emoji} {m.rotulo}
+                          <ComMarcas texto={m.emoji ?? ""} /> {m.rotulo}
                         </p>
                         {/* A MESMA LÍNGUA DA TELA DE ACESSOS: cada ação diz
                             o que destrava neste módulo, e não "Criar/

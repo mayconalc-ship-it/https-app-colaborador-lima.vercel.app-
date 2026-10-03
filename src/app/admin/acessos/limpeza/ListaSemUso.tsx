@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { ComMarcas } from "@/components/Icone";
 
 export type GrupoSemUso = {
   colaboradorId: string;
@@ -98,7 +99,7 @@ export function ListaSemUso({
                         )}
                         <span className="min-w-0 flex-1">
                           <span className="block text-sm font-medium text-slate-800">
-                            {i.emoji} {i.rotulo}
+                            <ComMarcas texto={i.emoji ?? ""} /> {i.rotulo}
                           </span>
                           <span className="block text-xs text-slate-500">
                             Liberado em {i.liberadoEm} · último uso: {i.ultimoUso}

@@ -22,6 +22,7 @@
  */
 
 import { createElement, type ComponentType } from "react";
+import { assuntoDaChave, DESENHO_DO_EMOJI, partesComDesenho, type DesenhoProprio } from "@/lib/mapa-emojis";
 import {
   Archive,
   Building2,
@@ -98,7 +99,7 @@ const POR_CHAVE: Record<string, LucideIcon> = {
   padroes: ScrollText,
   sonho: Target,
   "5s": SprayCan,
-  fornecedores: Contact, // desenhado por ICONES_PROPRIOS
+  fornecedores: Contact, // desenhado pelo mapa (DESENHOS)
 
   // Engajamento
   quiz: Brain,
@@ -115,23 +116,23 @@ const POR_CHAVE: Record<string, LucideIcon> = {
   metas: Award,
 };
 
-type PropsDoDesenho = { "aria-hidden"?: boolean; size?: number; strokeWidth?: number; className?: string };
+type PropsDoDesenho = { "aria-hidden"?: boolean; size?: number | string; strokeWidth?: number; className?: string };
 
 /**
  * Um desenho com um selo menor no canto -- a forma de juntar duas ideias
  * num ícone só (fornecedor + telefone, gente + conta).
  */
 function comSelo(Principal: LucideIcon, Selo: LucideIcon) {
+  // Em porcentagem: o mesmo desenho serve no cartão (24px) e no meio do
+  // texto (1.15em, ver Marca).
   function ComSelo({ size = 24, strokeWidth = 1.75, className }: PropsDoDesenho) {
-    const grande = Math.round(size * 0.8);
-    const selo = Math.round(size * 0.6);
     return (
       <span aria-hidden className={className} style={{ position: "relative", display: "inline-flex", width: size, height: size }}>
-        <span style={{ position: "absolute", left: 0, top: 0, display: "inline-flex" }}>
-          <Principal size={grande} strokeWidth={strokeWidth} />
+        <span style={{ position: "absolute", left: 0, top: 0, width: "80%", height: "80%", display: "inline-flex" }}>
+          <Principal size="100%" strokeWidth={strokeWidth} />
         </span>
-        <span style={{ position: "absolute", right: -size * 0.12, bottom: -size * 0.12, display: "inline-flex" }}>
-          <Selo size={selo} strokeWidth={2.25} />
+        <span style={{ position: "absolute", right: "-12%", bottom: "-12%", width: "60%", height: "60%", display: "inline-flex" }}>
+          <Selo size="100%" strokeWidth={2.25} />
         </span>
       </span>
     );
@@ -211,50 +212,28 @@ function Garrafeira({ size = 24, strokeWidth = 1.75, className }: PropsDoDesenho
 }
 
 /**
- * ÍCONES PRÓPRIOS (03/10/2026, pedido do dono): onde NENHUM emoji diz o
- * que a tela faz, o cartão usa um desenho -- mesmo com o sistema de
- * ícones desligado (USAR_ICONES, abaixo). Nas outras chaves o emoji do
- * banco continua.
+ * OS DESENHOS PRÓPRIOS -- um por assunto do mapa (lib/mapa-emojis) que
+ * não tem emoji que sirva. Valem sempre, mesmo com o sistema de ícones
+ * desligado (USAR_ICONES, abaixo).
  *
- *  - Abastecimento do Picking: abastecer é repor caixa na posição. O 🛒
- *    era supermercado, e o 🏬 que o substituiu aparece como um banco no
- *    WhatsApp. Caixa com "+".
- *  - Quebra de FEFO: o produto que vence primeiro não saiu primeiro -- a
- *    DATA não foi respeitada. Calendário com X.
- *  - Fornecedores: prédio com o telefone (ver ContatoDoFornecedor).
- *  - Empilhadeira e descarga: não existe emoji de empilhadeira; o 🏗️ é
- *    um guindaste de obra.
- *  - Ativo de Giro: garrafeira com garrafas (ver Garrafeira).
- *  - Produtividade do Armazém: galpão. O 🏭 é fábrica.
- *  - Gás da Empilhadeira: botijão P20 (ver Botijao).
- *  - Simulador de Mão de Obra: pessoas + calculadora (ver MaoDeObra).
+ *  - abastecimento: caixa com "+" -- repor produto na posição.
+ *  - fefo: calendário com X -- a data do produto não foi respeitada.
+ *  - fornecedores: prédio com telefone (ContatoDoFornecedor).
+ *  - empilhadeira: não existe emoji; o 🏗️ é guindaste de obra.
+ *  - ativo-giro: garrafeira com garrafas (Garrafeira).
+ *  - armazem: galpão. O 🏭 é fábrica.
+ *  - gas: botijão P20 (Botijao).
+ *  - mao-de-obra: pessoas + calculadora (MaoDeObra).
  */
-const ICONES_PROPRIOS: Record<string, LucideIcon | ComponentType<PropsDoDesenho>> = {
-  "pa-picking": PackagePlus,
-  picking: PackagePlus,
+const DESENHOS: Record<DesenhoProprio, LucideIcon | ComponentType<PropsDoDesenho>> = {
+  abastecimento: PackagePlus,
   fefo: CalendarX2,
-  "fefo-controle": CalendarX2,
   fornecedores: ContatoDoFornecedor,
-  "pa-empilhadeira": Forklift,
   empilhadeira: Forklift,
-  "carretas-descarga": Forklift,
   "ativo-giro": Garrafeira,
-  // Armazém: não existe emoji de armazém; o 🏭 é fábrica (03/10/2026).
-  "produtividade-armazem": Warehouse,
   armazem: Warehouse,
   gas: Botijao,
   "mao-de-obra": MaoDeObra,
-  // As mesmas telas nos cartões do Como Fazer (chave "guia:<slug>").
-  "guia:abastecer-picking": PackagePlus,
-  "guia:informar-quebra-fefo": CalendarX2,
-  "guia:tratar-quebra-fefo": CalendarX2,
-  "guia:consultar-fornecedores": ContatoDoFornecedor,
-  "guia:operar-empilhadeira": Forklift,
-  "guia:buscar-pedido-picking": Forklift,
-  "guia:contar-ativo-giro": Garrafeira,
-  "guia:recontar-ativo-giro": Garrafeira,
-  "guia:conciliar-ativo-giro": Garrafeira,
-  "guia:pedir-recontagem-ativo-giro": Garrafeira,
 };
 
 /**
@@ -271,10 +250,46 @@ const ICONES_PROPRIOS: Record<string, LucideIcon | ComponentType<PropsDoDesenho>
  */
 export const USAR_ICONES = false;
 
-export function iconeDe(chave: string): LucideIcon | ComponentType<PropsDoDesenho> | null {
-  if (ICONES_PROPRIOS[chave]) return ICONES_PROPRIOS[chave];
+/**
+ * O desenho de uma chave (módulo, menu, painel) -- ou do emoji, quando o
+ * emoji é o de um assunto com desenho (assim o guia, que só tem emoji,
+ * também desenha).
+ */
+export function iconeDe(chave: string, emoji?: string): LucideIcon | ComponentType<PropsDoDesenho> | null {
+  const desenho = assuntoDaChave(chave)?.desenho ?? (emoji ? DESENHO_DO_EMOJI[emoji] : undefined);
+  if (desenho) return DESENHOS[desenho];
   if (!USAR_ICONES) return null;
   return POR_CHAVE[chave] ?? null;
+}
+
+/** O desenho de um assunto, do tamanho do texto em volta (1em). */
+export function Marca({ desenho, className }: { desenho: DesenhoProprio; className?: string }) {
+  // Num span do tamanho de um emoji, alinhado como um emoji: o desenho
+  // senta na linha do texto e não empurra a altura dela.
+  return (
+    <span
+      aria-hidden
+      className={className}
+      style={{ display: "inline-flex", width: "1.15em", height: "1.15em", verticalAlign: "-0.2em", marginRight: "0.05em" }}
+    >
+      {createElement(DESENHOS[desenho], { "aria-hidden": true, size: "100%", strokeWidth: 2 })}
+    </span>
+  );
+}
+
+/**
+ * Mostra um texto trocando os emojis de assunto com desenho pelo desenho
+ * (ver lib/mapa-emojis). É o que deixa o título da tela, a aba e o botão
+ * iguais ao cartão: "🏗️ Empilhadeira 3" sai com a empilhadeira desenhada.
+ */
+export function ComMarcas({ texto }: { texto: string }) {
+  const partes = partesComDesenho(texto);
+  if (partes.length === 1 && "texto" in partes[0]) return <>{texto}</>;
+  return (
+    <>
+      {partes.map((p, i) => ("texto" in p ? <span key={i}>{p.texto}</span> : <Marca key={i} desenho={p.desenho} />))}
+    </>
+  );
 }
 
 /**
@@ -294,7 +309,7 @@ export function Icone({
   tamanho?: number;
   className?: string;
 }) {
-  const Desenho = iconeDe(chave);
+  const Desenho = iconeDe(chave, emoji);
 
   if (!Desenho) {
     // O emoji do banco. `tamanho` vira o corpo da fonte para o cartão

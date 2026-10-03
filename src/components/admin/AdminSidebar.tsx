@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Icone } from "@/components/Icone";
+import { ComMarcas } from "@/components/Icone";
 
 export type ItemNav = { id: string; href: string; rotulo: string; emoji: string };
 export type GrupoNav = { titulo: string; itens: ItemNav[] };
@@ -144,7 +145,7 @@ ull quando a area nao tem um
                 }`}
               >
                 <span className="flex h-6 w-6 shrink-0 items-center justify-center text-lg">
-                  {home.emoji}
+                  <ComMarcas texto={home.emoji ?? ""} />
                 </span>
                 <span className={classeRotulo}>{home.rotulo}</span>
               </Link>
@@ -175,7 +176,7 @@ ull quando a area nao tem um
               className="mb-2 flex items-center gap-3 rounded-xl px-2 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-100 md:border-0 md:group-hover:border md:group-hover:border-slate-200"
             >
               <span className="flex h-6 w-6 shrink-0 items-center justify-center text-lg">
-                {atalho.emoji}
+                <ComMarcas texto={atalho.emoji ?? ""} />
               </span>
               <span className={classeRotulo}>{atalho.rotulo}</span>
             </Link>

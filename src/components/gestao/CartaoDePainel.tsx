@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Painel } from "@/lib/gestao";
 import type { SinalDoPainel } from "@/lib/gestao-server";
+import { ComMarcas } from "@/components/Icone";
 
 /**
  * O cartão de uma análise da Gestão.
@@ -39,7 +40,7 @@ export function CartaoDePainel({
           urgente ? "bg-red-50" : "bg-slate-100 group-hover:bg-primary-soft"
         }`}
       >
-        {painel.emoji}
+        <ComMarcas texto={painel.emoji ?? ""} />
       </span>
 
       <span className="min-w-0 flex-1">

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ComMarcas } from "@/components/Icone";
 
 /**
  * AS ABAS DA GESTÃO DE ACESSO.
@@ -98,7 +99,7 @@ export function AbasDeAcesso({
                 : "rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600 hover:border-primary hover:text-primary"
             }
           >
-            {a.emoji} {a.rotulo}
+            <ComMarcas texto={a.emoji ?? ""} /> {a.rotulo}
           </Link>
         ))}
       </div>

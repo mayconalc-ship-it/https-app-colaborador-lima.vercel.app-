@@ -269,7 +269,7 @@ export const MODULOS: Modulo[] = [
       ver: "Ver a vitrine Meus Indicadores no app",
     },
     rotulo: "Meus Indicadores",
-    emoji: "📊",
+    emoji: "📈",
     // Não tem tela de Admin própria: o que se administra são os três
     // módulos de dentro (Rating, Refugo, Devolução), cada um com a sua.
     // Esta concessão só abre a vitrine.
@@ -458,7 +458,7 @@ export const MODULOS: Modulo[] = [
       ver: "Ver os Indicadores do Refugo da operação (no app)",
     },
     rotulo: "Indicadores do Refugo",
-    emoji: "📈",
+    emoji: "♻️",
     href: "/indicadores-refugo",
     grupo: "Gestão de Dados",
     acoes: ["ver"],
@@ -760,7 +760,7 @@ export const MODULOS: Modulo[] = [
     id: "pa-cinco-s",
     rotulosDeAcao: { ver: "Apontar o 5S do Armazém no app" },
     rotulo: "5S do Armazém",
-    emoji: "🧹",
+    emoji: "🧽",
     href: "/produtividade-armazem/cinco-s",
     grupo: "Operação",
     acoes: ["ver"],
@@ -860,7 +860,7 @@ export const MODULOS: Modulo[] = [
       criar: "Informar uma quebra encontrada",
     },
     rotulo: "Quebra de FEFO (informar)",
-    emoji: "⏳",
+    emoji: "📆",
     href: "/fefo",
     grupo: "Operação",
     // Quem acha a quebra no armazém avisa por aqui. Separado de
@@ -876,7 +876,7 @@ export const MODULOS: Modulo[] = [
       editar: "Responder qual ação foi tomada e encerrar",
     },
     rotulo: "Quebra de FEFO (controle)",
-    emoji: "⌛",
+    emoji: "📆",
     href: "/fefo",
     grupo: "Operação",
     // Mesma tela: quem tem isto enxerga as ocorrências de todo mundo e
@@ -1142,7 +1142,7 @@ export const MODULOS_DO_DONO: {
   {
     href: "/admin/auditoria",
     rotulo: "Log de Auditoria",
-    emoji: "📋",
+    emoji: "📜",
   },
   {
     // Em Configuração, e não no bloco dourado (pedido do dono,
@@ -1165,6 +1165,12 @@ export const MODULOS_DO_DONO: {
     href: "/admin/saude",
     rotulo: "Saúde do sistema",
     emoji: "🩺",
+  },
+  {
+    // Um assunto, um emoji (03/10/2026) -- ver lib/mapa-emojis.
+    href: "/admin/mapa-de-emojis",
+    rotulo: "Mapa de emojis",
+    emoji: "🎨",
   },
 ];
 

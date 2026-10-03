@@ -5,6 +5,7 @@ import { BotaoEnviar } from "@/components/BotaoEnviar";
 import { CORES_EDITORIA, type Editoria } from "@/lib/comunicados";
 import type { ResultadoAcao } from "@/lib/resultado-acao";
 import { FormNoLugar } from "@/components/FormNoLugar";
+import { ComMarcas } from "@/components/Icone";
 
 /**
  * Os campos que descrevem uma editoria: emoji, nome e cor da etiqueta.
@@ -174,7 +175,7 @@ export function EditoriaItem({
             editoria.ativa ? "" : "opacity-50"
           }`}
         >
-          {editoria.emoji} {editoria.rotulo}
+          <ComMarcas texto={editoria.emoji ?? ""} /> {editoria.rotulo}
         </span>
         <p className="mt-1 text-xs text-slate-400">
           {materias === 0

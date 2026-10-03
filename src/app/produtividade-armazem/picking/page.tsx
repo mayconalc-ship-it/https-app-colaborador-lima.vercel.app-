@@ -11,6 +11,7 @@ import {
   formatarDataHora,
   hojeISO,
 } from "@/lib/produtividade-armazem";
+import { Marca } from "@/components/Icone";
 
 export const dynamic = "force-dynamic";
 
@@ -94,7 +95,7 @@ export default async function PickingPage({
           href="/produtividade-armazem/abastecimento"
           className="mt-3 inline-flex w-full items-center justify-center rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-white hover:bg-primary-dark"
         >
-          📥 Ir para o Abastecimento do Picking
+          <Marca desenho="abastecimento" /> Ir para o Abastecimento do Picking
         </Link>
       </div>
 

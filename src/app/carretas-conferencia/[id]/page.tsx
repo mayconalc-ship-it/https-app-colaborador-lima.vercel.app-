@@ -27,6 +27,7 @@ import { FormFinalizarConferencia } from "./FormFinalizarConferencia";
 import { FormDecidirRetorno } from "./FormDecidirRetorno";
 import { FormCorrigirRetornoAg } from "./FormCorrigirRetornoAg";
 import { concluirCarga, finalizarDescarga, iniciarConferencia, iniciarDescarga } from "./actions";
+import { Marca } from "@/components/Icone";
 
 export const dynamic = "force-dynamic";
 // As ações desta tela disparam o gatilho de anomalia DEPOIS de responder
@@ -362,7 +363,7 @@ export default async function DetalheAtendimentoPage({ params }: { params: Promi
           ) : (
             <>
               <p className="text-sm font-bold text-red-900">
-                🚨 Esta carreta caiu na blitz de recebimento.
+                🔦 Esta carreta caiu na blitz de recebimento.
               </p>
               <p className="mt-1 text-xs leading-snug text-red-800">
                 O histórico de avaria desta carreta, deste motorista ou desta transportadora está
@@ -556,7 +557,7 @@ export default async function DetalheAtendimentoPage({ params }: { params: Promi
         <div className="mt-4">
           {a.tem_carga ? (
             <div className="rounded-2xl border border-purple-200 bg-purple-50 p-4">
-              <p className="flex items-center gap-1.5 text-sm font-bold text-purple-900">🔄 Vai retornar com AG</p>
+              <p className="flex items-center gap-1.5 text-sm font-bold text-purple-900"><Marca desenho="ativo-giro" /> Vai retornar com AG</p>
               {a.destino_retorno && <p className="mt-1 text-sm text-purple-800">Destino: {a.destino_retorno}</p>}
               {agItens.length > 0 && (
                 <ul className="mt-2 space-y-1 text-xs text-purple-700">
@@ -696,7 +697,7 @@ export default async function DetalheAtendimentoPage({ params }: { params: Promi
 
           {(a.destino_retorno || agItens.length > 0) && (
             <div className="rounded-2xl border border-purple-200 bg-purple-50 p-4">
-              <p className="flex items-center gap-1.5 text-sm font-bold text-purple-900">🔄 Retorno com AG</p>
+              <p className="flex items-center gap-1.5 text-sm font-bold text-purple-900"><Marca desenho="ativo-giro" /> Retorno com AG</p>
               {a.destino_retorno && <p className="mt-1 text-sm text-purple-800">Destino: {a.destino_retorno}</p>}
               {agItens.length > 0 && (
                 <ul className="mt-2 space-y-1 text-xs text-purple-700">

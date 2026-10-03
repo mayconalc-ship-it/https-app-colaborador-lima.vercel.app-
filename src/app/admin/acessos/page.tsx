@@ -32,6 +32,7 @@ import {
   liberarAnalisesEmLote,
   salvarPermissoes,
 } from "./actions";
+import { ComMarcas } from "@/components/Icone";
 
 /**
  * As marcações de UM módulo, dentro do formulário de uma pessoa.
@@ -939,7 +940,7 @@ export default async function GestaoDeAcessosPage({
                     <tr>
                       {modulosOpcionaisDaRevenda.map((m) => (
                         <th key={m} className="w-16 bg-slate-50 p-2 text-center" title={moduloPorId(m)?.rotulo}>
-                          <span className="block text-base leading-none">{moduloPorId(m)?.emoji}</span>
+                          <span className="block text-base leading-none"><ComMarcas texto={moduloPorId(m)?.emoji ?? ""} /></span>
                           <span className="mt-1 block truncate text-[9px] normal-case leading-tight text-slate-400">
                             {moduloPorId(m)?.rotulo}
                           </span>
@@ -1087,7 +1088,7 @@ export default async function GestaoDeAcessosPage({
                             className="w-20 bg-primary-soft/40 p-2 text-center align-bottom"
                             title={p.pergunta}
                           >
-                            <span className="block text-base leading-none">{p.emoji}</span>
+                            <span className="block text-base leading-none"><ComMarcas texto={p.emoji ?? ""} /></span>
                             <span className="mt-1 block text-[9px] normal-case leading-tight text-slate-500">
                               {p.rotulo}
                             </span>
@@ -1520,7 +1521,7 @@ export default async function GestaoDeAcessosPage({
                                           />
                                           <span>
                                             <strong>
-                                              {p.emoji} {p.rotulo}
+                                              <ComMarcas texto={p.emoji ?? ""} /> {p.rotulo}
                                             </strong>
                                             <span className="ml-1.5 text-[10px] uppercase tracking-wide text-slate-400">
                                               {m.rotulo}
@@ -1532,7 +1533,7 @@ export default async function GestaoDeAcessosPage({
                                         </label>
                                         {administra && (
                                           <p className="ml-6 mt-0.5 text-[11px] leading-snug text-slate-500">
-                                            🔒 Já vê porque administra {m.emoji} {m.rotulo}. Para
+                                            🔒 Já vê porque administra <ComMarcas texto={m.emoji ?? ""} /> {m.rotulo}. Para
                                             tirar, desmarque as ações dele na gaveta{" "}
                                             <strong>
                                               {EMOJI_GRUPO_ADMIN[m.grupo]} {m.grupo}

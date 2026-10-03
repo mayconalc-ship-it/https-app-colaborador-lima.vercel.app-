@@ -173,7 +173,7 @@ export function ItemDaBlitz({
       )}
 
       {gravada?.resposta === "nok" && atual === "nok" && (
-        <p className="mt-2 text-xs font-semibold text-red-700">🚨 NOK registrado com evidência.</p>
+        <p className="mt-2 text-xs font-semibold text-red-700">🔴 NOK registrado com evidência.</p>
       )}
       {/* Lê o `atual`, e não a linha do banco: o "respondido" tem que
           aparecer no mesmo toque em que a cor aparece. */}

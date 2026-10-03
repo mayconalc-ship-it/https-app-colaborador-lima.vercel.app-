@@ -160,7 +160,7 @@ function Retomada({
     <div className="rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm">
       <span className="rodinha mx-auto block text-2xl text-primary" aria-hidden="true" />
       <p className="mt-3 text-sm font-semibold text-slate-700">
-        🧠 Continuando de onde você parou...
+        5️⃣ Continuando de onde você parou...
       </p>
       <p className="mt-1 text-xs text-slate-400">
         Suas respostas anteriores estão guardadas.
@@ -232,7 +232,7 @@ function InicioAutomatico({
     <div className="rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm">
       <span className="rodinha mx-auto block text-2xl text-primary" aria-hidden="true" />
       <p className="mt-3 text-sm font-semibold text-slate-700">
-        🧠 Vamos encontrar a causa raiz...
+        5️⃣ Vamos encontrar a causa raiz...
       </p>
       <p className="mt-1 text-xs text-slate-400">
         Analisando o que você contou no feedback da rota.

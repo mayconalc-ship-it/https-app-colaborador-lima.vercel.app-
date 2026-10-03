@@ -185,7 +185,7 @@ export default async function IndicadoresDoRefugoPage({
   return (
     <div className="space-y-4 pb-8">
       <PageHeader
-        title="📈 Indicadores do Refugo"
+        title="♻️ Indicadores do Refugo"
         subtitle="O refugo da operação inteira: por data, placa, motorista, conferente, item e defeito."
         fecharHref="/meus-indicadores"
       />

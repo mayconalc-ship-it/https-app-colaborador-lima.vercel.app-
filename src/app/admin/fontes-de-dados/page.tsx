@@ -21,6 +21,7 @@ import { importarRefugo } from "@/app/admin/refugo/actions";
 import { importarDevolucao } from "@/app/admin/devolucao/actions";
 import { atualizarRotas } from "@/app/admin/rotas/actions";
 import { importarClientes } from "@/app/admin/pdv-particularidades/actions";
+import { ComMarcas } from "@/components/Icone";
 
 /**
  * O botão "Atualizar agora" chama a MESMA action do módulo, passando
@@ -369,7 +370,7 @@ function OQueColarAqui({ tipo }: { tipo: OQueColar }) {
   return (
     <div className="mt-3 flex gap-2.5 rounded-xl border border-sky-200 bg-sky-50 px-3 py-2.5">
       <span className="shrink-0 text-lg leading-none" aria-hidden="true">
-        {c.emoji}
+        <ComMarcas texto={c.emoji ?? ""} />
       </span>
       <div className="min-w-0 text-[11px] leading-snug text-sky-900">
         <p className="text-xs font-bold">{c.titulo}</p>
@@ -447,7 +448,7 @@ function CartaoDaFonte({
             {/* Com a gaveta fechada já dá para saber o que colar. */}
             <span className="text-slate-400">
               {" · "}
-              {COMO_COLAR[fonte.colar].emoji} {COMO_COLAR[fonte.colar].curto}
+              <ComMarcas texto={COMO_COLAR[fonte.colar].emoji ?? ""} /> {COMO_COLAR[fonte.colar].curto}
             </span>
           </span>
         </span>

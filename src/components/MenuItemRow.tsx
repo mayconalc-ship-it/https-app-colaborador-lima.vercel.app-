@@ -5,6 +5,7 @@ import { BotaoEnviar } from "@/components/BotaoEnviar";
 import type { ItemMenu } from "@/lib/menu";
 import type { ResultadoAcao } from "@/lib/resultado-acao";
 import { FormNoLugar } from "@/components/FormNoLugar";
+import { ComMarcas } from "@/components/Icone";
 
 export function MenuItemRow({
   item,
@@ -74,7 +75,7 @@ export function MenuItemRow({
     <div
       className={`flex items-center gap-2 p-3 ${item.visivel ? "" : "bg-slate-50"}`}
     >
-      <span className="text-xl">{item.emoji}</span>
+      <span className="text-xl"><ComMarcas texto={item.emoji ?? ""} /></span>
       <span
         className={`flex-1 text-sm font-medium ${
           item.visivel ? "text-slate-800" : "text-slate-400 line-through"

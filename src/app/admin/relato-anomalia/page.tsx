@@ -14,6 +14,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { MINIMO_DE_CARRETAS } from "@/lib/blitz";
 import { salvarChecklistDaBlitz, salvarGatilhos } from "./actions";
 import { FormNoLugar } from "@/components/FormNoLugar";
+import { ComMarcas } from "@/components/Icone";
 
 export const dynamic = "force-dynamic";
 
@@ -129,7 +130,7 @@ export default async function ConfiguracaoDeGatilhosPage({
             >
               <div className="border-b border-slate-100 p-4">
                 <h2 className="text-sm font-bold text-slate-900">
-                  {info.emoji} {info.titulo}
+                  <ComMarcas texto={info.emoji ?? ""} /> {info.titulo}
                 </h2>
                 <p className="mt-0.5 text-xs text-slate-500">{info.ajuda}</p>
               </div>

@@ -4,6 +4,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { Icone } from "@/components/Icone";
 import { guiaPorSlug, pedacosDoTexto } from "@/lib/guia";
 import { guiasDaPessoa } from "@/lib/guia-server";
+import { ComMarcas } from "@/components/Icone";
 
 /** `**Salvar**` vira <strong>Salvar</strong>: o nome do botão salta aos olhos. */
 function Texto({ texto }: { texto: string }) {
@@ -12,10 +13,10 @@ function Texto({ texto }: { texto: string }) {
       {pedacosDoTexto(texto).map((p, i) =>
         p.negrito ? (
           <strong key={i} className="font-semibold text-slate-900">
-            {p.texto}
+            <ComMarcas texto={p.texto} />
           </strong>
         ) : (
-          <span key={i}>{p.texto}</span>
+          <span key={i}><ComMarcas texto={p.texto} /></span>
         ),
       )}
     </>

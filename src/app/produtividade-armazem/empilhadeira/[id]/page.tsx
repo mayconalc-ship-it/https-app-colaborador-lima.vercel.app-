@@ -18,13 +18,14 @@ import { abrirOperacao, fecharOperacao, registrarTrocaGas } from "../actions";
 import { AlertaGasP20, AvisoGasSolicitado } from "@/components/produtividade-armazem/AlertaGasP20";
 import { lerConfigDeGas, pedidoDeGasAberto, pedidoDeGasConfirmadoRecente } from "@/lib/gas-p20-server";
 import { FormNoLugar } from "@/components/FormNoLugar";
+import { ComMarcas, Marca } from "@/components/Icone";
 
 export const dynamic = "force-dynamic";
 
 type Aba = "operacao" | "gas" | "historico";
 const ABAS: { id: Aba; rotulo: string; emoji: string }[] = [
   { id: "operacao", rotulo: "Operação", emoji: "🕐" },
-  { id: "gas", rotulo: "Troca de Gás", emoji: "🔥" },
+  { id: "gas", rotulo: "Troca de Gás", emoji: "🛢️" },
   { id: "historico", rotulo: "Histórico", emoji: "📋" },
 ];
 
@@ -146,7 +147,7 @@ export default async function EmpilhadeiraDetalhePage({
               a.id === aba ? "bg-primary text-white shadow-sm" : "text-slate-500 hover:bg-slate-100"
             }`}
           >
-            <span className="text-base leading-none">{a.emoji}</span>
+            <span className="text-base leading-none"><ComMarcas texto={a.emoji ?? ""} /></span>
             {a.rotulo}
           </a>
         ))}
@@ -315,7 +316,7 @@ export default async function EmpilhadeiraDetalhePage({
                 textoEnviando="Registrando..."
                 className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-white hover:bg-primary-dark"
               >
-                🔥 Registrar troca de gás
+                <Marca desenho="gas" /> Registrar troca de gás
               </BotaoEnviar>
             </FormNoLugar>
           </div>

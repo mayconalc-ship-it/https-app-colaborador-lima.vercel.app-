@@ -10,6 +10,7 @@ import {
   notaExigeCincoPorques,
 } from "@/lib/feedback-ocorrencias";
 import { enviarFeedbackRota } from "./actions";
+import { ComMarcas } from "@/components/Icone";
 
 export default function FeedbackRotaPage() {
   const router = useRouter();
@@ -98,7 +99,7 @@ export default function FeedbackRotaPage() {
                     : "border-slate-200 hover:bg-slate-50"
                 }`}
               >
-                <span className="text-2xl">{item.emoji}</span>
+                <span className="text-2xl"><ComMarcas texto={item.emoji ?? ""} /></span>
                 <span className="text-xs font-medium text-slate-600">
                   {item.label}
                 </span>
@@ -154,7 +155,7 @@ export default function FeedbackRotaPage() {
                       : "border-slate-200 text-slate-700"
                   }`}
                 >
-                  {item.emoji} {item.label}
+                  <ComMarcas texto={item.emoji ?? ""} /> {item.label}
                 </button>
               );
             })}
@@ -205,7 +206,7 @@ export default function FeedbackRotaPage() {
             {ehRuim && (
               <div className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm">
                 <p className="font-semibold text-amber-800">
-                  🧠 Essa rota foi Ruim — vamos até a causa raiz?
+                  5️⃣ Essa rota foi Ruim — vamos até a causa raiz?
                 </p>
                 <p className="mt-1 text-xs text-amber-700">
                   Quando a rota é Ruim, o 5 Porquês é obrigatório antes de

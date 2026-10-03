@@ -31,7 +31,7 @@ export default async function AuditoriaPage() {
   return (
     <div>
       <PageHeader
-        title="📋 Log de Auditoria"
+        title="📜 Log de Auditoria"
         subtitle="Quem mexeu em acessos, quando e no quê"
       />
 

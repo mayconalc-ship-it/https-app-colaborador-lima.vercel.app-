@@ -13,6 +13,7 @@ import {
   salvarLogoRevenda,
   salvarModulos,
 } from "./actions";
+import { ComMarcas } from "@/components/Icone";
 
 export default async function RevendasPage({
   searchParams,
@@ -161,7 +162,7 @@ export default async function RevendasPage({
                               defaultChecked={meus.has(m.id)}
                               className="h-4 w-4 rounded border-slate-300 text-primary"
                             />
-                            {m.emoji} {m.rotulo}
+                            <ComMarcas texto={m.emoji ?? ""} /> {m.rotulo}
                           </label>
                         ))}
                       </div>

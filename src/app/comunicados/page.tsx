@@ -20,6 +20,7 @@ import {
   formatarDataCurta,
   tempoDeLeitura,
 } from "@/lib/comunicados";
+import { ComMarcas } from "@/components/Icone";
 
 const POR_PAGINA = 6;
 
@@ -224,7 +225,7 @@ export default async function ComunicadosPage({
                   : "bg-white text-slate-600 ring-1 ring-slate-200"
               }`}
             >
-              {e.emoji} {e.rotulo}
+              <ComMarcas texto={e.emoji ?? ""} /> {e.rotulo}
             </Link>
           ))}
         </div>
@@ -291,7 +292,7 @@ export default async function ComunicadosPage({
                   <span
                     className={`rounded-full px-2 py-1 font-semibold ${editoria(editorias, capa.categoria).classe}`}
                   >
-                    {editoria(editorias, capa.categoria).emoji}{" "}
+                    <ComMarcas texto={editoria(editorias, capa.categoria).emoji ?? ""} />{" "}
                     {editoria(editorias, capa.categoria).rotulo}
                   </span>
                   <span>{tempoDeLeitura(capa.texto)} min de leitura</span>
@@ -374,7 +375,7 @@ export default async function ComunicadosPage({
                           <span
                             className={`rounded-full px-2 py-0.5 text-xs font-semibold ${ed.classe}`}
                           >
-                            {ed.emoji} {ed.rotulo}
+                            <ComMarcas texto={ed.emoji ?? ""} /> {ed.rotulo}
                           </span>
                           <span className="text-xs text-slate-400">
                             {formatarDataCurta(c.data)}

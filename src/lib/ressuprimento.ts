@@ -82,7 +82,7 @@ export type Estado = (typeof ESTADOS)[number];
 export const ROTULO_ESTADO: Record<Estado, { rotulo: string; emoji: string; cor: string }> = {
   aberta: { rotulo: "Aguardando empilhadeira", emoji: "⏳", cor: "amber" },
   em_transporte: { rotulo: "Em transporte", emoji: "🏗️", cor: "blue" },
-  na_area: { rotulo: "Na área, aguardando abastecer", emoji: "📍", cor: "amber" },
+  na_area: { rotulo: "Na área, aguardando abastecer", emoji: "📌", cor: "amber" },
   abastecendo: { rotulo: "Abastecendo", emoji: "📥", cor: "blue" },
   concluida: { rotulo: "Concluída", emoji: "✅", cor: "green" },
   cancelada: { rotulo: "Cancelada", emoji: "🚫", cor: "slate" },

@@ -12,6 +12,7 @@ import { MODULO_MANUTENCAO, ModuloNaoInstalado } from "@/lib/manutencao-server";
 import { lerMatriz } from "@/lib/manutencao-raci-server";
 import { adicionarAtividade, adicionarPapel, definirLetra, registrarRevisao, removerDaMatriz } from "./actions";
 import { AvisoNaoInstalado } from "../AvisoNaoInstalado";
+import { Marca } from "@/components/Icone";
 
 export const dynamic = "force-dynamic";
 
@@ -114,7 +115,7 @@ export default async function RaciPage() {
 
       <p className="mt-4 text-center text-xs">
         <Link href="/fornecedores" className="font-semibold text-primary">
-          📞 Ver a base de fornecedores →
+          <Marca desenho="fornecedores" /> Ver a base de fornecedores →
         </Link>
       </p>
     </div>

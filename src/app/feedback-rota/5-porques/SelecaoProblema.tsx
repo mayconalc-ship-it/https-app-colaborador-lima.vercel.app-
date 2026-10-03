@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { PROBLEMAS } from "@/lib/cinco-porques-problemas";
 import { iniciarAnalise } from "./actions";
 import type { NoDecisao } from "@/lib/cinco-porques-ia";
+import { ComMarcas } from "@/components/Icone";
 
 /**
  * Grade de chips, igual à de OCORRENCIAS em feedback-rota/page.tsx. "Outro"
@@ -77,7 +78,7 @@ export function SelecaoProblema({
                 : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
             }`}
           >
-            <span className="text-2xl">{p.emoji}</span>
+            <span className="text-2xl"><ComMarcas texto={p.emoji ?? ""} /></span>
             {p.label}
           </button>
         ))}

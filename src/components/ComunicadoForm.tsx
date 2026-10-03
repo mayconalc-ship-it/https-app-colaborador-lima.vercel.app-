@@ -12,6 +12,7 @@ import { AREAS } from "@/lib/areas";
 import { CampoFoto } from "@/components/CampoFoto";
 import type { ResultadoAcao } from "@/lib/resultado-acao";
 import { FormNoLugar } from "@/components/FormNoLugar";
+import { ComMarcas } from "@/components/Icone";
 
 type Comunicado = {
   id: number;
@@ -215,7 +216,7 @@ function ComunicadoFormConteudo({
                   : "border-slate-200 text-slate-700"
               }`}
             >
-              {e.emoji} {e.rotulo}
+              <ComMarcas texto={e.emoji ?? ""} /> {e.rotulo}
             </button>
           ))}
         </div>
