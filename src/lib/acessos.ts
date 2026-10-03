@@ -891,7 +891,7 @@ export const MODULOS: Modulo[] = [
       excluir: "Apagar uma baixa WQI lançada errada",
     },
     rotulo: "Baixa WQI (quebra de PA)",
-    emoji: "💥",
+    emoji: "💸",
     href: "/wqi",
     grupo: "Operação",
     // Quebra de produto acabado por manuseio (migration 139), que vivia na

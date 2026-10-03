@@ -176,7 +176,7 @@ export default async function GestaoWqiPage({
 
   return (
     <div>
-      <PageHeader title="💥 Quebras WQI" subtitle="Baixa de PA por manuseio no armazém — o que quebra, onde, quando e com quem." />
+      <PageHeader title="💸 Quebras WQI" subtitle="Baixa de PA por manuseio no armazém — o que quebra, onde, quando e com quem." />
 
       {sp.erro && <p className="mb-4 rounded-xl bg-red-50 p-3 text-sm font-medium text-red-700">{sp.erro}</p>}
       {sp.sucesso && <p className="mb-4 rounded-xl bg-green-50 p-3 text-sm font-medium text-green-700">{sp.sucesso}</p>}

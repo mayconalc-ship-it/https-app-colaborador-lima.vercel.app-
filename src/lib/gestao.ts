@@ -151,7 +151,7 @@ export const PAINEIS: Painel[] = [
     // dinâmicas da planilha "Baixas WQI".
     id: "wqi",
     rotulo: "Quebras WQI",
-    emoji: "💥",
+    emoji: "💸",
     href: "/gestao/wqi",
     bloco: "Operação",
     modulo: "wqi",
