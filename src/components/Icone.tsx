@@ -136,6 +136,36 @@ function ContatoDoFornecedor({ size = 24, strokeWidth = 1.75, className }: Props
 }
 
 /**
+ * Ativo de Giro: a garrafeira com as garrafas -- o vasilhame que gira
+ * entre o CD e o PDV. Desenhado aqui, no mesmo traço dos ícones da
+ * biblioteca (grade 24x24, cantos redondos), porque nenhum emoji é uma
+ * garrafeira: o 📦 é caixa de papelão e o 🍺 é chope.
+ */
+function Garrafeira({ size = 24, strokeWidth = 1.75, className }: PropsDoDesenho) {
+  const garrafa = (cx: number) => `M${cx - 1} 3h2v3l1.5 2v4h-5V8l1.5-2z`;
+  return (
+    <svg
+      aria-hidden
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={strokeWidth}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      <path d={garrafa(6.5)} />
+      <path d={garrafa(12)} />
+      <path d={garrafa(17.5)} />
+      <rect x="3" y="12" width="18" height="9" rx="1.5" />
+      <rect x="9" y="14.5" width="6" height="2" rx="1" />
+    </svg>
+  );
+}
+
+/**
  * ÍCONES PRÓPRIOS (03/10/2026, pedido do dono): onde NENHUM emoji diz o
  * que a tela faz, o cartão usa um desenho -- mesmo com o sistema de
  * ícones desligado (USAR_ICONES, abaixo). Nas outras chaves o emoji do
@@ -149,6 +179,7 @@ function ContatoDoFornecedor({ size = 24, strokeWidth = 1.75, className }: Props
  *  - Fornecedores: prédio com o telefone (ver ContatoDoFornecedor).
  *  - Empilhadeira e descarga: não existe emoji de empilhadeira; o 🏗️ é
  *    um guindaste de obra.
+ *  - Ativo de Giro: garrafeira com garrafas (ver Garrafeira).
  */
 const ICONES_PROPRIOS: Record<string, LucideIcon | ComponentType<PropsDoDesenho>> = {
   "pa-picking": PackagePlus,
@@ -159,6 +190,7 @@ const ICONES_PROPRIOS: Record<string, LucideIcon | ComponentType<PropsDoDesenho>
   "pa-empilhadeira": Forklift,
   empilhadeira: Forklift,
   "carretas-descarga": Forklift,
+  "ativo-giro": Garrafeira,
   // As mesmas telas nos cartões do Como Fazer (chave "guia:<slug>").
   "guia:abastecer-picking": PackagePlus,
   "guia:informar-quebra-fefo": CalendarX2,
@@ -166,6 +198,10 @@ const ICONES_PROPRIOS: Record<string, LucideIcon | ComponentType<PropsDoDesenho>
   "guia:consultar-fornecedores": ContatoDoFornecedor,
   "guia:operar-empilhadeira": Forklift,
   "guia:buscar-pedido-picking": Forklift,
+  "guia:contar-ativo-giro": Garrafeira,
+  "guia:recontar-ativo-giro": Garrafeira,
+  "guia:conciliar-ativo-giro": Garrafeira,
+  "guia:pedir-recontagem-ativo-giro": Garrafeira,
 };
 
 /**
