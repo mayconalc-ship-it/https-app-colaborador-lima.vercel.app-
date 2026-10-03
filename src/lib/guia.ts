@@ -641,28 +641,31 @@ export const GUIAS: Guia[] = [
       },
       {
         texto: "No cartão **Trimestre atual**, toque em **▶️ Iniciar a avaliação** (ou em **Continuar a avaliação →** se ela já começou).",
-        dica: "É uma avaliação por trimestre. Dá para fazer em mais de um dia: cada item salva sozinho.",
+        dica: "É uma avaliação por trimestre. Dá para fazer em mais de um dia: tudo o que você toca já fica salvo.",
       },
       {
-        texto: "Em cada item, leia **🔎 Como verificar** e escolha a nota: **3**, **1**, **0** ou **N/A** (não se aplica).",
-        dica: "Ao escolher, aparece o critério da planilha da Ambev para aquela nota.",
+        texto: "Em cada item, leia **🔎 Como verificar** e toque na nota: **3**, **1**, **0** ou **N/A** (não se aplica).",
+        dica: "Não tem botão de salvar: o toque na nota já salva. O cartão mostra **✓ Salvo** e o topo conta, por exemplo, **5 de 36 respondidas**.",
       },
       {
-        texto: "Tire as **📷 Fotos da condição atual** — até 4 por item.",
-        dica: "Compare com a foto do trimestre anterior, que aparece no próprio item. A foto é reduzida sozinha: fica leve e nítida.",
+        texto: "Toque no quadradinho **📷 Foto** para abrir a câmera dentro do app e tire até 4 fotos.",
+        dica: "A câmera abre no próprio app, sem sair da tela: o celular com pouca memória não perde o que já foi feito. Cada foto sobe na hora, já reduzida. Compare com a foto do trimestre anterior, que aparece no item.",
       },
       {
         texto: "Nota **1** ou **0**? Preencha o **📋 Plano de ação**: o que vai ser feito, o **Responsável** e o **Prazo**.",
-        dica: "Item crítico pede reparo em curto prazo ou CAPEX emergencial: o prazo já vem sugerido para 30 dias.",
+        dica: "Salva sozinho quando você para de digitar. Item crítico já vem com prazo de 30 dias.",
       },
-      { texto: "Toque em **Salvar item**. O aviso de salvo aparece no rodapé e a tela não sai do lugar." },
       {
-        texto: "Use os filtros do topo — **Pendentes** e **Abaixo de 3** — para achar o que falta.",
+        texto: "Precisa anotar algo? Toque em **＋ Observação**. Ela fica escondida até você abrir.",
       },
-      { texto: "Com os 36 itens respondidos, desça até **Terminou a ronda?** e toque em **✅ Finalizar**." },
+      {
+        texto: "Use os filtros do topo — **Faltam** e **Abaixo de 3** — para achar o que falta.",
+      },
+      { texto: "Com os 36 itens respondidos, desça até **Terminou a ronda?** e toque em **✅ Fechar o checklist**." },
     ],
     atencao: [
-      "Depois de finalizada, a avaliação fica travada. Para corrigir, a liderança com permissão toca em **↩️ Reabrir para correção**.",
+      "O checklist só fecha com todos os itens respondidos e com o plano de ação completo nos itens abaixo de 3.",
+      "Depois de fechada, a avaliação fica travada. Para corrigir, a liderança com permissão toca em **↩️ Reabrir para correção**.",
       "Para mostrar a evolução à auditoria: no painel, a tabela **📈 Evolução por seção** compara os trimestres; em cada item, **📈 Evolução** mostra todas as fotos, trimestre a trimestre.",
       "Trimestre que passou sem avaliação aparece em vermelho no painel: o DPO cobra no mínimo uma por trimestre.",
     ],

@@ -99,6 +99,11 @@ export default async function ConfiguracaoDeGatilhosPage({
             • Além do pico, o gatilho pega a <strong>deriva</strong>: 2 das últimas 3 medições
             passando de 1 desvio. É a piora lenta, que nunca cruza o limite e vira rotina.
           </li>
+          <li>
+            • O <strong>TMA é por DT</strong>: cada medição é uma carreta, e cada atendimento que
+            passa do limite abre o <strong>próprio relato</strong>, apontando a carreta. Os outros
+            indicadores do recebimento seguem pela média do dia.
+          </li>
         </ul>
       </div>
 

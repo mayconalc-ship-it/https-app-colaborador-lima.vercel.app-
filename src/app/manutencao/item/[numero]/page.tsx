@@ -140,8 +140,9 @@ export default async function EvolucaoDoItemPage({ params }: { params: Promise<{
                 {resposta.observacao && <p className="mt-2 text-xs text-slate-700">{resposta.observacao}</p>}
                 {resposta.planoAcao && (
                   <p className="mt-2 rounded-lg bg-amber-50 p-2.5 text-xs text-amber-900">
-                    <strong>Plano:</strong> {resposta.planoAcao} · {resposta.responsavel} · até{" "}
-                    {resposta.prazo?.split("-").reverse().join("/")}
+                    <strong>Plano:</strong> {resposta.planoAcao}
+                    {resposta.responsavel ? ` · ${resposta.responsavel}` : ""}
+                    {resposta.prazo ? ` · até ${resposta.prazo.split("-").reverse().join("/")}` : ""}
                   </p>
                 )}
                 <p className="mt-2 text-[11px] text-slate-400">Avaliado por {resposta.respondidoPorNome}</p>

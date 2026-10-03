@@ -222,7 +222,7 @@ export function podeFechar(r: RelatoParaFechar): boolean {
  * Vira o nome do arquivo ao salvar em PDF e o assunto na lista -- por
  * isso começa pelo indicador, que é como a liderança procura.
  */
-export function tituloDoRelato(indicador: string, dia: string): string {
+export function tituloDoRelato(indicador: string, dia: string, dt?: string | null): string {
   const [ano, mes, d] = dia.split("-");
-  return `Relato de Anomalia — ${indicador} — ${d}/${mes}/${ano}`;
+  return `Relato de Anomalia — ${indicador}${dt ? ` — DT ${dt}` : ""} — ${d}/${mes}/${ano}`;
 }
