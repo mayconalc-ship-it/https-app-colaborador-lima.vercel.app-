@@ -36,8 +36,7 @@ export type PainelId =
   | "cinco-s"
   | "feedbacks"
   | "justificativas"
-  | "desafio"
-  | "uso-do-app";
+  | "desafio";
 
 export type BlocoDaGestao = "Operação" | "Pessoas";
 
@@ -219,17 +218,6 @@ export const PAINEIS: Painel[] = [
     modulo: "quiz",
     pergunta: "Quem respondeu, o que o time errou e qual padrão isso manda treinar.",
     mora: true,
-  },
-  {
-    id: "uso-do-app",
-    rotulo: "Uso do App",
-    emoji: "📱",
-    href: "/gestao/uso-do-app",
-    bloco: "Pessoas",
-    modulo: "metricas",
-    pergunta: "Quem entra, com que frequência e em quais telas.",
-    mora: true,
-    antigo: "/admin/metricas",
   },
 ];
 
