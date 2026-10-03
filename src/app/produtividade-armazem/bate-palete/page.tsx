@@ -36,6 +36,7 @@ import {
   registrarPalete,
   removerPalete,
 } from "./actions";
+import { FormNoLugar } from "@/components/FormNoLugar";
 
 export const dynamic = "force-dynamic";
 
@@ -267,7 +268,7 @@ export default async function BatePaletePage({
                 </div>
               </details>
 
-              <form action={iniciarBatePalete} className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4">
+              <FormNoLugar acao={iniciarBatePalete} className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4">
                 <div>
                   <span className={rotulo}>Turno</span>
                   <div className="grid grid-cols-3 gap-2">
@@ -294,7 +295,7 @@ export default async function BatePaletePage({
                 >
                   ▶️ Iniciar bate palete
                 </BotaoEnviar>
-              </form>
+              </FormNoLugar>
             </>
           )}
 
@@ -465,7 +466,7 @@ function SessaoAberta({
       )}
 
       {/* --- Registrar um lote --- */}
-      <form action={registrarPalete} className="space-y-3 rounded-xl bg-white p-3">
+      <FormNoLugar acao={registrarPalete} className="space-y-3 rounded-xl bg-white p-3" limparAoSalvar>
         <input type="hidden" name="bate_palete_id" value={sessao.id} />
         <p className="text-xs font-semibold uppercase text-slate-500">Registrar o que foi batido</p>
 
@@ -544,7 +545,7 @@ function SessaoAberta({
         >
           ➕ Registrar lote
         </BotaoEnviar>
-      </form>
+      </FormNoLugar>
 
       {/* --- Finalizar --- */}
       {/* AQUI FICAVA a "Observação do turno". Saiu a pedido do dono
@@ -556,7 +557,7 @@ function SessaoAberta({
           tombado"), e o que valeria para o turno inteiro ninguém parava
           para escrever. A coluna continua no banco, com o que já foi
           gravado. */}
-      <form action={finalizarBatePalete} className="space-y-3">
+      <FormNoLugar acao={finalizarBatePalete} className="space-y-3">
         <input type="hidden" name="id" value={sessao.id} />
         <BotaoEnviar
           textoEnviando="Finalizando..."
@@ -564,7 +565,7 @@ function SessaoAberta({
         >
           ⏹️ Finalizar bate palete
         </BotaoEnviar>
-      </form>
+      </FormNoLugar>
 
       <BotaoExcluir
         action={cancelarBatePalete}

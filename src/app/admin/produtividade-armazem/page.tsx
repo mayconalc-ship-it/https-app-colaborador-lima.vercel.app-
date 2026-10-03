@@ -108,6 +108,7 @@ export const maxDuration = 60;
 import { ESTOQUE_MINIMO_PADRAO } from "@/lib/gas-p20";
 import { suspeitaNoHorimetro } from "@/lib/empilhadeira-gas";
 import { FotoEvidencia } from "@/components/FotoEvidencia";
+import { FormNoLugar } from "@/components/FormNoLugar";
 
 type CarretaParaCorrigir = {
   id: string;
@@ -629,7 +630,7 @@ export default async function AdminProdutividadeArmazemPage({
                       </span>
                     </span>
                   </a>
-                  <form action={importarPlanilhaProdutos} className="space-y-2">
+                  <FormNoLugar acao={importarPlanilhaProdutos} className="space-y-2">
                     {/*
                       O "Escolher arquivo / Nenhum arquivo escolhido" do
                       navegador é cinza, minúsculo e em inglês em alguns
@@ -661,7 +662,7 @@ export default async function AdminProdutividadeArmazemPage({
                     >
                       2. Importar planilha
                     </BotaoEnviar>
-                  </form>
+                  </FormNoLugar>
                 </div>
               </details>
             </div>
@@ -686,7 +687,7 @@ export default async function AdminProdutividadeArmazemPage({
                   nunca duplicado — a mesma regra da importação.
                 </p>
 
-                <form action={salvarProdutoReepack} className="mt-3 space-y-3">
+                <FormNoLugar acao={salvarProdutoReepack} className="mt-3 space-y-3" limparAoSalvar>
                   <div className="grid gap-3 sm:grid-cols-3">
                     <div>
                       <label className={rotulo} htmlFor="np-codigo">Código Promax *</label>
@@ -786,7 +787,7 @@ export default async function AdminProdutividadeArmazemPage({
                   >
                     Salvar produto
                   </BotaoEnviar>
-                </form>
+                </FormNoLugar>
               </div>
             </div>
           }
@@ -891,7 +892,7 @@ export default async function AdminProdutividadeArmazemPage({
                   aceitar coisas diferentes.
                 */
                 formEditar={
-                  <form action={editarProdutoReepack} className="space-y-3">
+                  <FormNoLugar acao={editarProdutoReepack} className="space-y-3" fecharAoSalvar>
                     <input type="hidden" name="id" value={p.id} />
 
                     <div className="grid gap-3 sm:grid-cols-3">
@@ -995,7 +996,7 @@ export default async function AdminProdutividadeArmazemPage({
                     >
                       Salvar produto
                     </BotaoEnviar>
-                  </form>
+                  </FormNoLugar>
                 }
               />
             );
@@ -1040,7 +1041,7 @@ export default async function AdminProdutividadeArmazemPage({
                     </BotaoIcone>
                   }
                   formEditar={
-                    <form action={editarEmbalagemRepack} className="flex flex-wrap gap-2">
+                    <FormNoLugar acao={editarEmbalagemRepack} className="flex flex-wrap gap-2" fecharAoSalvar>
                       <input type="hidden" name="id" value={e.id} />
                       <input
                         name="meta_reepacks_hora"
@@ -1054,7 +1055,7 @@ export default async function AdminProdutividadeArmazemPage({
                       <BotaoEnviar compacto className="shrink-0 rounded-lg bg-slate-800 px-3 py-1.5 text-xs font-semibold text-white">
                         Salvar
                       </BotaoEnviar>
-                    </form>
+                    </FormNoLugar>
                   }
                 />
               );
@@ -1086,7 +1087,7 @@ export default async function AdminProdutividadeArmazemPage({
                     : "⚠️ sem litro por unidade -- não aparece no lançamento de despejo"
                 }
                 formEditar={
-                  <form action={editarEmbalagemDespejo} className="flex flex-wrap gap-2">
+                  <FormNoLugar acao={editarEmbalagemDespejo} className="flex flex-wrap gap-2" fecharAoSalvar>
                     <input type="hidden" name="id" value={e.id} />
                     <input
                       name="litros_por_unidade"
@@ -1107,7 +1108,7 @@ export default async function AdminProdutividadeArmazemPage({
                     <BotaoEnviar compacto className="shrink-0 rounded-lg bg-slate-800 px-3 py-1.5 text-xs font-semibold text-white">
                       Salvar
                     </BotaoEnviar>
-                  </form>
+                  </FormNoLugar>
                 }
               />
             ))}
@@ -1124,12 +1125,12 @@ export default async function AdminProdutividadeArmazemPage({
             temItens={totalEmpilhadeiras > 0}
             vazio="Nenhuma empilhadeira cadastrada ainda."
             formNovo={
-              <form action={salvarEmpilhadeira} className="flex gap-2">
+              <FormNoLugar acao={salvarEmpilhadeira} className="flex gap-2" limparAoSalvar>
                 <input name="numero" placeholder="Número/identificação" required className={`${campo} flex-1`} />
                 <BotaoEnviar className="shrink-0 rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-white">
                   Adicionar
                 </BotaoEnviar>
-              </form>
+              </FormNoLugar>
             }
           >
             {(empilhadeiras ?? []).map((m) => (
@@ -1153,13 +1154,13 @@ export default async function AdminProdutividadeArmazemPage({
                   </>
                 }
                 formEditar={
-                  <form action={editarEmpilhadeira} className="flex gap-2">
+                  <FormNoLugar acao={editarEmpilhadeira} className="flex gap-2" fecharAoSalvar>
                     <input type="hidden" name="id" value={m.id} />
                     <input name="numero" defaultValue={m.numero} required className={`${campo} flex-1`} />
                     <BotaoEnviar compacto className="shrink-0 rounded-lg bg-slate-800 px-3 py-1.5 text-xs font-semibold text-white">
                       Salvar
                     </BotaoEnviar>
-                  </form>
+                  </FormNoLugar>
                 }
               />
             ))}
@@ -1181,7 +1182,7 @@ export default async function AdminProdutividadeArmazemPage({
                 valores — as horas e o consumo aparecem do mesmo jeito.
               </p>
             </summary>
-            <form action={salvarCustoP20} className="flex flex-wrap items-end gap-2 p-4">
+            <FormNoLugar acao={salvarCustoP20} className="flex flex-wrap items-end gap-2 p-4">
               <div className="flex-1">
                 <label className="mb-1 block text-xs font-semibold uppercase text-slate-500" htmlFor="custo_p20">
                   Valor do P20 (R$)
@@ -1201,7 +1202,7 @@ export default async function AdminProdutividadeArmazemPage({
               <BotaoEnviar className="shrink-0 rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-white">
                 Salvar
               </BotaoEnviar>
-            </form>
+            </FormNoLugar>
           </details>
 
           {/* ---- Alerta de gás acabando ---- */}
@@ -1220,7 +1221,7 @@ export default async function AdminProdutividadeArmazemPage({
               </p>
             </summary>
 
-            <form action={salvarAlertaGas} className="space-y-3 p-4">
+            <FormNoLugar acao={salvarAlertaGas} className="space-y-3 p-4">
               <div className="grid gap-3 sm:grid-cols-2">
                 <div className="min-w-0">
                   <label className={rotulo} htmlFor="fornecedor_nome">Fornecedor</label>
@@ -1272,7 +1273,7 @@ export default async function AdminProdutividadeArmazemPage({
               <p className="text-xs text-slate-400">
                 Sem telefone cadastrado o aviso ainda é enviado — só sem o número para ligar.
               </p>
-            </form>
+            </FormNoLugar>
 
             {/* ---- Quem recebe o aviso ---- */}
             <div className="border-t border-slate-100 p-4">
@@ -1455,10 +1456,9 @@ export default async function AdminProdutividadeArmazemPage({
                         cabe -- inclusive com o 🗑️ no fim.
                       */}
                       <div className="flex shrink-0 items-center gap-2">
-                        <form
-                          action={corrigirHorimetroTrocaGas}
-                          className="flex shrink-0 items-center gap-1.5"
-                        >
+                        <FormNoLugar
+                          acao={corrigirHorimetroTrocaGas}
+                          className="flex shrink-0 items-center gap-1.5" fecharAoSalvar>
                           <input type="hidden" name="id" value={t.id as string} />
                           <label className="shrink-0 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
                             Horímetro
@@ -1476,7 +1476,7 @@ export default async function AdminProdutividadeArmazemPage({
                           <BotaoEnviar compacto className="shrink-0 rounded-lg bg-slate-800 px-3 py-2 text-xs font-semibold text-white">
                             Salvar
                           </BotaoEnviar>
-                        </form>
+                        </FormNoLugar>
 
                         {podeExcluir && (
                           <BotaoExcluir
@@ -1580,10 +1580,9 @@ export default async function AdminProdutividadeArmazemPage({
                         )}
                       </div>
 
-                      <form
-                        action={corrigirHorimetroOperacao}
-                        className="flex flex-col gap-3 lg:flex-row lg:items-end"
-                      >
+                      <FormNoLugar
+                        acao={corrigirHorimetroOperacao}
+                        className="flex flex-col gap-3 lg:flex-row lg:items-end" fecharAoSalvar>
                         <input type="hidden" name="id" value={o.id} />
 
                         {/* INÍCIO: a foto encostada no campo que ela
@@ -1675,7 +1674,7 @@ export default async function AdminProdutividadeArmazemPage({
                         >
                           Salvar
                         </BotaoEnviar>
-                      </form>
+                      </FormNoLugar>
                     </div>
                   );
                 })
@@ -1722,7 +1721,7 @@ export default async function AdminProdutividadeArmazemPage({
                 <p className="p-6 text-center text-sm text-slate-400">Nenhum atendimento registrado ainda.</p>
               ) : (
                 (carretasRecentes ?? []).map((c: CarretaParaCorrigir) => (
-                  <form key={c.id} action={corrigirAgendamentoCarreta} className="space-y-2 p-4">
+                  <FormNoLugar key={c.id} acao={corrigirAgendamentoCarreta} className="space-y-2 p-4" fecharAoSalvar>
                     <input type="hidden" name="id" value={c.id} />
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
@@ -1776,7 +1775,7 @@ export default async function AdminProdutividadeArmazemPage({
                     <p className="text-[11px] text-slate-400">
                       Desmarcando a caixa, o TMA passa a contar da chegada. O horário é ignorado nesse caso.
                     </p>
-                  </form>
+                  </FormNoLugar>
                 ))
               )}
             </div>
@@ -1789,12 +1788,12 @@ export default async function AdminProdutividadeArmazemPage({
               temItens={totalFabricas > 0}
               vazio="Nenhuma fábrica cadastrada."
               formNovo={
-                <form action={salvarFabrica} className="flex gap-2">
+                <FormNoLugar acao={salvarFabrica} className="flex gap-2" limparAoSalvar>
                   <input name="nome" required className={`${campo} flex-1`} />
                   <BotaoEnviar className="shrink-0 rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-white">
                     Adicionar
                   </BotaoEnviar>
-                </form>
+                </FormNoLugar>
               }
             >
               {(fabricas ?? []).map((f) => (
@@ -1818,13 +1817,13 @@ export default async function AdminProdutividadeArmazemPage({
                     </>
                   }
                   formEditar={
-                    <form action={editarFabrica} className="flex gap-2">
+                    <FormNoLugar acao={editarFabrica} className="flex gap-2" fecharAoSalvar>
                       <input type="hidden" name="id" value={f.id} />
                       <input name="nome" defaultValue={f.nome} required className={`${campo} flex-1`} />
                       <BotaoEnviar compacto className="shrink-0 rounded-lg bg-slate-800 px-3 py-1.5 text-xs font-semibold text-white">
                         Salvar
                       </BotaoEnviar>
-                    </form>
+                    </FormNoLugar>
                   }
                 />
               ))}
@@ -1836,12 +1835,12 @@ export default async function AdminProdutividadeArmazemPage({
               temItens={totalTransportadoras > 0}
               vazio="Nenhuma transportadora cadastrada."
               formNovo={
-                <form action={salvarTransportadora} className="flex gap-2">
+                <FormNoLugar acao={salvarTransportadora} className="flex gap-2" limparAoSalvar>
                   <input name="nome" required className={`${campo} flex-1`} />
                   <BotaoEnviar className="shrink-0 rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-white">
                     Adicionar
                   </BotaoEnviar>
-                </form>
+                </FormNoLugar>
               }
             >
               {(transportadoras ?? []).map((t) => (
@@ -1865,13 +1864,13 @@ export default async function AdminProdutividadeArmazemPage({
                     </>
                   }
                   formEditar={
-                    <form action={editarTransportadora} className="flex gap-2">
+                    <FormNoLugar acao={editarTransportadora} className="flex gap-2" fecharAoSalvar>
                       <input type="hidden" name="id" value={t.id} />
                       <input name="nome" defaultValue={t.nome} required className={`${campo} flex-1`} />
                       <BotaoEnviar compacto className="shrink-0 rounded-lg bg-slate-800 px-3 py-1.5 text-xs font-semibold text-white">
                         Salvar
                       </BotaoEnviar>
-                    </form>
+                    </FormNoLugar>
                   }
                 />
               ))}
@@ -1883,13 +1882,13 @@ export default async function AdminProdutividadeArmazemPage({
               temItens={totalMotoristas > 0}
               vazio="Nenhum motorista cadastrado."
               formNovo={
-                <form action={salvarMotorista} className="flex flex-wrap gap-2">
+                <FormNoLugar acao={salvarMotorista} className="flex flex-wrap gap-2" limparAoSalvar>
                   <input name="nome" placeholder="Nome completo" required className={`${campo} flex-1`} />
                   <input name="cpf" placeholder="CPF" inputMode="numeric" maxLength={14} required className={`${campo} w-40`} />
                   <BotaoEnviar className="shrink-0 rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-white">
                     Adicionar
                   </BotaoEnviar>
-                </form>
+                </FormNoLugar>
               }
             >
               {(motoristas ?? []).map((m) => (
@@ -1916,14 +1915,14 @@ export default async function AdminProdutividadeArmazemPage({
                     </>
                   }
                   formEditar={
-                    <form action={editarMotorista} className="flex flex-wrap gap-2">
+                    <FormNoLugar acao={editarMotorista} className="flex flex-wrap gap-2" fecharAoSalvar>
                       <input type="hidden" name="id" value={m.id} />
                       <input name="nome" defaultValue={m.nome} placeholder="Nome completo" required className={`${campo} flex-1`} />
                       <input name="cpf" defaultValue={m.cpf ?? ""} placeholder="CPF" inputMode="numeric" maxLength={14} required className={`${campo} w-40`} />
                       <BotaoEnviar compacto className="shrink-0 rounded-lg bg-slate-800 px-3 py-1.5 text-xs font-semibold text-white">
                         Salvar
                       </BotaoEnviar>
-                    </form>
+                    </FormNoLugar>
                   }
                 />
               ))}
@@ -1935,13 +1934,13 @@ export default async function AdminProdutividadeArmazemPage({
               temItens={totalEmpilhadores > 0}
               vazio="Nenhum empilhador cadastrado."
               formNovo={
-                <form action={salvarEmpilhador} className="flex flex-wrap gap-2">
+                <FormNoLugar acao={salvarEmpilhador} className="flex flex-wrap gap-2" limparAoSalvar>
                   <input name="nome" placeholder="Nome completo" required className={`${campo} flex-1`} />
                   <input name="cpf" placeholder="CPF" inputMode="numeric" maxLength={14} required className={`${campo} w-40`} />
                   <BotaoEnviar className="shrink-0 rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-white">
                     Adicionar
                   </BotaoEnviar>
-                </form>
+                </FormNoLugar>
               }
             >
               {(empilhadores ?? []).map((e) => (
@@ -1966,14 +1965,14 @@ export default async function AdminProdutividadeArmazemPage({
                     </>
                   }
                   formEditar={
-                    <form action={editarEmpilhador} className="flex flex-wrap gap-2">
+                    <FormNoLugar acao={editarEmpilhador} className="flex flex-wrap gap-2" fecharAoSalvar>
                       <input type="hidden" name="id" value={e.id} />
                       <input name="nome" defaultValue={e.nome} placeholder="Nome completo" required className={`${campo} flex-1`} />
                       <input name="cpf" defaultValue={e.cpf ?? ""} placeholder="CPF" inputMode="numeric" maxLength={14} required className={`${campo} w-40`} />
                       <BotaoEnviar compacto className="shrink-0 rounded-lg bg-slate-800 px-3 py-1.5 text-xs font-semibold text-white">
                         Salvar
                       </BotaoEnviar>
-                    </form>
+                    </FormNoLugar>
                   }
                 />
               ))}
@@ -1987,7 +1986,7 @@ export default async function AdminProdutividadeArmazemPage({
               temItens={totalAg > 0}
               vazio="Nenhum AG cadastrado."
               formNovo={
-                <form action={salvarAg} className="flex flex-wrap gap-2">
+                <FormNoLugar acao={salvarAg} className="flex flex-wrap gap-2" limparAoSalvar>
                   <input name="codigo" placeholder="Código" required className={campo} />
                   <input name="descricao" placeholder="Descrição" required className={`${campo} flex-1`} />
                   <select name="unidade" className={campo} defaultValue="palete">
@@ -1998,7 +1997,7 @@ export default async function AdminProdutividadeArmazemPage({
                   <BotaoEnviar className="shrink-0 rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-white">
                     Adicionar
                   </BotaoEnviar>
-                </form>
+                </FormNoLugar>
               }
             >
               {(agCatalogo ?? []).map((a) => (
@@ -2023,7 +2022,7 @@ export default async function AdminProdutividadeArmazemPage({
                     </>
                   }
                   formEditar={
-                    <form action={editarAg} className="flex flex-wrap gap-2">
+                    <FormNoLugar acao={editarAg} className="flex flex-wrap gap-2" fecharAoSalvar>
                       <input type="hidden" name="id" value={a.id} />
                       <input name="codigo" defaultValue={a.codigo} className={`${campo} w-28`} />
                       <input name="descricao" defaultValue={a.descricao} className={`${campo} flex-1`} />
@@ -2035,7 +2034,7 @@ export default async function AdminProdutividadeArmazemPage({
                       <BotaoEnviar compacto className="shrink-0 rounded-lg bg-slate-800 px-3 py-1.5 text-xs font-semibold text-white">
                         Salvar
                       </BotaoEnviar>
-                    </form>
+                    </FormNoLugar>
                   }
                 />
               ))}
@@ -2049,7 +2048,7 @@ export default async function AdminProdutividadeArmazemPage({
                   Dias mínimos de validade alimenta o alerta que o conferente vê ao lançar um item perto de vencer.
                 </p>
               </div>
-              <form action={salvarConfigRecebimento} className="space-y-3 p-4">
+              <FormNoLugar acao={salvarConfigRecebimento} className="space-y-3 p-4">
                 <div>
                   <label className="mb-1 block text-xs font-semibold uppercase text-slate-500" htmlFor="tma_alvo_minutos">
                     TMA alvo (minutos)
@@ -2083,7 +2082,7 @@ export default async function AdminProdutividadeArmazemPage({
                 <BotaoEnviar className="w-full rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-white">
                   Salvar configuração
                 </BotaoEnviar>
-              </form>
+              </FormNoLugar>
             </div>
           </div>
 
@@ -2124,7 +2123,7 @@ export default async function AdminProdutividadeArmazemPage({
                 da opção -- sem ela, duas pessoas classificam a mesma quebra de jeitos diferentes e
                 agrupar por motivo deixa de dizer alguma coisa. A ordem define a posição na lista.
               </p>
-              <form action={salvarMotivoFefo} className="flex flex-wrap gap-2">
+              <FormNoLugar acao={salvarMotivoFefo} className="flex flex-wrap gap-2" limparAoSalvar>
                 <input name="emoji" placeholder="🚨" maxLength={4} className={`${campo} w-16`} />
                 <input name="nome" placeholder="Nome do motivo" required className={`${campo} flex-1`} />
                 <input name="ordem" type="number" placeholder="Ordem" className={`${campo} w-20`} />
@@ -2132,7 +2131,7 @@ export default async function AdminProdutividadeArmazemPage({
                 <BotaoEnviar className="rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-white">
                   Adicionar
                 </BotaoEnviar>
-              </form>
+              </FormNoLugar>
             </div>
           }
         >
@@ -2164,7 +2163,7 @@ export default async function AdminProdutividadeArmazemPage({
                 </>
               }
               formEditar={
-                <form action={editarMotivoFefo} className="flex flex-wrap gap-2">
+                <FormNoLugar acao={editarMotivoFefo} className="flex flex-wrap gap-2" fecharAoSalvar>
                   <input type="hidden" name="id" value={m.id} />
                   <input name="emoji" defaultValue={m.emoji ?? ""} maxLength={4} className={`${campo} w-16`} />
                   <input name="nome" defaultValue={m.nome} required className={`${campo} flex-1`} />
@@ -2173,7 +2172,7 @@ export default async function AdminProdutividadeArmazemPage({
                   <BotaoEnviar compacto className="shrink-0 rounded-lg bg-slate-800 px-3 py-1.5 text-xs font-semibold text-white">
                     Salvar
                   </BotaoEnviar>
-                </form>
+                </FormNoLugar>
               }
             />
           ))}
@@ -2209,7 +2208,7 @@ export default async function AdminProdutividadeArmazemPage({
                 criar, <strong>abra o depósito para cadastrar as ruas dele</strong> -- depósito sem
                 rua não aparece para quem lança.
               </p>
-              <form action={salvarDepositoFefo} className="flex flex-wrap gap-2">
+              <FormNoLugar acao={salvarDepositoFefo} className="flex flex-wrap gap-2" limparAoSalvar>
                 <input
                   name="nome"
                   placeholder="Nome (ex.: A, Câmara fria)"
@@ -2220,7 +2219,7 @@ export default async function AdminProdutividadeArmazemPage({
                 <BotaoEnviar className="rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-white">
                   Adicionar
                 </BotaoEnviar>
-              </form>
+              </FormNoLugar>
             </div>
           }
         >
@@ -2264,7 +2263,7 @@ export default async function AdminProdutividadeArmazemPage({
                       botão dentro do `<summary>` compete com o toque que
                       abre o painel -- no celular, um erra o outro. */}
                   <div className="flex flex-wrap items-end gap-2">
-                    <form action={editarDepositoFefo} className="flex flex-1 flex-wrap items-end gap-2">
+                    <FormNoLugar acao={editarDepositoFefo} className="flex flex-1 flex-wrap items-end gap-2" fecharAoSalvar>
                       <input type="hidden" name="id" value={d.id} />
                       <label className="flex-1">
                         <span className={rotulo}>Nome do depósito</span>
@@ -2282,7 +2281,7 @@ export default async function AdminProdutividadeArmazemPage({
                       >
                         Salvar
                       </BotaoEnviar>
-                    </form>
+                    </FormNoLugar>
                     <div className="flex shrink-0 items-center gap-1 pb-0.5">
                       <BotaoIcone
                         action={alternarDepositoFefoAtivo}
@@ -2345,7 +2344,7 @@ export default async function AdminProdutividadeArmazemPage({
                               </>
                             }
                             formEditar={
-                              <form action={editarRuaFefo} className="flex flex-wrap items-end gap-2">
+                              <FormNoLugar acao={editarRuaFefo} className="flex flex-wrap items-end gap-2" fecharAoSalvar>
                                 <input type="hidden" name="id" value={r.id} />
                                 <label className="flex-1">
                                   <span className={rotulo}>Nome da rua</span>
@@ -2363,7 +2362,7 @@ export default async function AdminProdutividadeArmazemPage({
                                 >
                                   Salvar
                                 </BotaoEnviar>
-                              </form>
+                              </FormNoLugar>
                             }
                           />
                         ))}
@@ -2373,10 +2372,9 @@ export default async function AdminProdutividadeArmazemPage({
                     {/* ACRESCENTAR RUAS -- em leva. Rua a rua seriam dez
                         idas ao servidor para montar um depósito, e
                         depósito nasce inteiro. */}
-                    <form
-                      action={salvarRuaFefo}
-                      className="flex flex-wrap items-end gap-2 border-t border-slate-100 p-3"
-                    >
+                    <FormNoLugar
+                      acao={salvarRuaFefo}
+                      className="flex flex-wrap items-end gap-2 border-t border-slate-100 p-3" limparAoSalvar>
                       <input type="hidden" name="deposito_id" value={d.id} />
                       <label className="min-w-[10rem] flex-1">
                         <span className={rotulo}>Acrescentar ruas</span>
@@ -2395,7 +2393,7 @@ export default async function AdminProdutividadeArmazemPage({
                         inteira · vírgula separa (<code className="rounded bg-slate-100 px-1">11, 12</code>)
                         · repetir o que já existe acrescenta só o que falta.
                       </p>
-                    </form>
+                    </FormNoLugar>
                   </div>
                 </div>
               </details>
@@ -2413,7 +2411,7 @@ export default async function AdminProdutividadeArmazemPage({
             novoRotulo="Novo item"
             temItens
             formNovo={
-              <form action={salvarItemChecklist5s} className="flex flex-wrap gap-2">
+              <FormNoLugar acao={salvarItemChecklist5s} className="flex flex-wrap gap-2" limparAoSalvar>
                 <select name="senso" required className={campo}>
                   {SENSOS.map((s) => (
                     <option key={s} value={s}>{ROTULO_SENSO[s]}</option>
@@ -2423,7 +2421,7 @@ export default async function AdminProdutividadeArmazemPage({
                 <BotaoEnviar className="rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-white">
                   Adicionar
                 </BotaoEnviar>
-              </form>
+              </FormNoLugar>
             }
           >
             {null}
@@ -2462,13 +2460,13 @@ export default async function AdminProdutividadeArmazemPage({
                         </>
                       }
                       formEditar={
-                        <form action={editarItemChecklist5s} className="flex gap-2">
+                        <FormNoLugar acao={editarItemChecklist5s} className="flex gap-2" fecharAoSalvar>
                           <input type="hidden" name="id" value={i.id} />
                           <input name="descricao" defaultValue={i.descricao} className={`${campo} flex-1`} />
                           <BotaoEnviar compacto className="shrink-0 rounded-lg bg-slate-800 px-3 py-1.5 text-xs font-semibold text-white">
                             Salvar
                           </BotaoEnviar>
-                        </form>
+                        </FormNoLugar>
                       }
                     />
                   ))}
@@ -2490,7 +2488,7 @@ export default async function AdminProdutividadeArmazemPage({
               temItens={c.itens.length > 0}
               vazio={`Nenhum ${c.chave} cadastrado -- sem ele ninguém consegue lançar a baixa WQI.`}
               formNovo={
-                <form action={salvarItemWqi} className="flex flex-wrap gap-2">
+                <FormNoLugar acao={salvarItemWqi} className="flex flex-wrap gap-2" limparAoSalvar>
                   <input type="hidden" name="catalogo" value={c.chave} />
                   <input name="nome" placeholder={c.chave === "motivo" ? "Nome do motivo" : "Nome do local"} required className={`${campo} flex-1`} />
                   {c.chave === "motivo" && (
@@ -2499,7 +2497,7 @@ export default async function AdminProdutividadeArmazemPage({
                   <BotaoEnviar className="rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-white">
                     Adicionar
                   </BotaoEnviar>
-                </form>
+                </FormNoLugar>
               }
             >
               {c.itens.map((i) => (
@@ -2530,7 +2528,7 @@ export default async function AdminProdutividadeArmazemPage({
                     </>
                   }
                   formEditar={
-                    <form action={editarItemWqi} className="flex flex-wrap gap-2">
+                    <FormNoLugar acao={editarItemWqi} className="flex flex-wrap gap-2" fecharAoSalvar>
                       <input type="hidden" name="id" value={i.id} />
                       <input type="hidden" name="catalogo" value={c.chave} />
                       <input name="nome" defaultValue={i.nome} required className={`${campo} flex-1`} />
@@ -2540,7 +2538,7 @@ export default async function AdminProdutividadeArmazemPage({
                       <BotaoEnviar compacto className="shrink-0 rounded-lg bg-slate-800 px-3 py-1.5 text-xs font-semibold text-white">
                         Salvar
                       </BotaoEnviar>
-                    </form>
+                    </FormNoLugar>
                   }
                 />
               ))}

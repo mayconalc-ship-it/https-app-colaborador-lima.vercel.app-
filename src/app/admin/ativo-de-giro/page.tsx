@@ -24,6 +24,7 @@ import {
   tirarLiberacaoCongelar,
   tirarLiberacaoTransito,
 } from "./actions";
+import { FormNoLugar } from "@/components/FormNoLugar";
 
 export const dynamic = "force-dynamic";
 
@@ -159,7 +160,7 @@ export default async function AdminAtivoDeGiroPage({
               parque, não uma linha dele -- oito "Salvar" faziam a tela
               recarregar oito vezes e a pessoa perder onde estava a cada
               uma. */}
-          <form action={salvarParque}>
+          <FormNoLugar acao={salvarParque}>
             <div className="space-y-2">
               {TIPOS.flatMap((tipo) =>
                 FORMATOS.map((formato) => (
@@ -187,14 +188,14 @@ export default async function AdminAtivoDeGiroPage({
             >
               Salvar o parque
             </BotaoEnviar>
-          </form>
+          </FormNoLugar>
         </div>
 
         <div className="rounded-2xl border border-slate-200 bg-white p-4">
           <h2 className="mb-3 text-sm font-bold uppercase text-slate-500">
             Fatores de conversão
           </h2>
-          <form action={salvarFator}>
+          <FormNoLugar acao={salvarFator}>
             <div className="space-y-2">
               {FORMATOS.map((formato) => (
                 <div key={formato} className="flex items-center gap-2">
@@ -230,7 +231,7 @@ export default async function AdminAtivoDeGiroPage({
             >
               Salvar os fatores
             </BotaoEnviar>
-          </form>
+          </FormNoLugar>
         </div>
 
         {/* ---- VALOR DO AG EM R$ (12/09/2026) ----
@@ -247,7 +248,7 @@ export default async function AdminAtivoDeGiroPage({
             conciliação em reais no BI. Mudar aqui não muda dia já congelado: cada dia guarda o
             valor do momento em que foi congelado.
           </p>
-          <form action={salvarValores} className="mt-3">
+          <FormNoLugar acao={salvarValores} className="mt-3">
             <div className="space-y-2">
               {TIPOS.flatMap((tipo) =>
                 FORMATOS.map((formato) => (
@@ -287,7 +288,7 @@ export default async function AdminAtivoDeGiroPage({
             >
               Salvar os valores
             </BotaoEnviar>
-          </form>
+          </FormNoLugar>
         </div>
 
         {/* ---- QUEM PODE LANÇAR O TRÂNSITO ----

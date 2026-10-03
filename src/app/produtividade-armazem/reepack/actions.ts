@@ -11,6 +11,7 @@ import { podeNoModulo } from "@/lib/require-admin";
 import { getRevendaId } from "@/lib/revendas";
 import { exigirContextoModulo } from "@/lib/produtividade-armazem-server";
 import { ETAPA_REEPACK, ehEtapaReepack, ehTurno, inteiroNaoNegativo } from "@/lib/produtividade-armazem";
+import { noLugar, pararComErro, pararComSucesso, type ResultadoAcao } from "@/lib/resultado-acao";
 
 const ROTA = "/produtividade-armazem/reepack";
 
@@ -18,10 +19,10 @@ const ROTA = "/produtividade-armazem/reepack";
  *  escolheu justamente quando algo deu errado, que é a pior hora para
  *  fazê-la reescolher. */
 function erro(mensagem: string, etapa?: string): never {
-  const p = new URLSearchParams();
-  if (etapa) p.set("etapa", etapa);
-  p.set("erro", mensagem);
-  redirect(`${ROTA}?${p.toString()}`);
+  // A etapa já está no endereço (a aba escolhida) e a tela não sai do
+  // lugar: basta o aviso.
+  void etapa;
+  pararComErro(mensagem);
 }
 
 const exigirContexto = () => exigirContextoModulo("pa-reepack", ROTA);
@@ -39,59 +40,59 @@ const exigirContexto = () => exigirContextoModulo("pa-reepack", ROTA);
  * único parcial no banco (migration 052); aqui só traduzimos a
  * violação numa mensagem legível.
  */
-export async function iniciarReepack(formData: FormData) {
-  const { perfil, revendaId } = await exigirContexto();
+export async function iniciarReepack(formData: FormData): Promise<ResultadoAcao> {
+  return noLugar(async () => {
+    const { perfil, revendaId } = await exigirContexto();
 
-  const produtoId = String(formData.get("produto_id") ?? "");
-  const turno = formData.get("turno");
-  // Etapa do POP-ARM-001 (migration 065). Sem etapa válida cai em
-  // "repack", que era o único comportamento antes de a Seleção existir.
-  const etapaBruta = formData.get("etapa");
-  const etapa = ehEtapaReepack(etapaBruta) ? etapaBruta : "repack";
-  if (!produtoId) erro("Escolha o produto.", etapa);
-  if (!ehTurno(turno)) erro("Escolha o turno.", etapa);
+    const produtoId = String(formData.get("produto_id") ?? "");
+    const turno = formData.get("turno");
+    // Etapa do POP-ARM-001 (migration 065). Sem etapa válida cai em
+    // "repack", que era o único comportamento antes de a Seleção existir.
+    const etapaBruta = formData.get("etapa");
+    const etapa = ehEtapaReepack(etapaBruta) ? etapaBruta : "repack";
+    if (!produtoId) erro("Escolha o produto.", etapa);
+    if (!ehTurno(turno)) erro("Escolha o turno.", etapa);
 
-  const supabase = await createClient();
+    const supabase = await createClient();
 
-  const { data: produto } = await supabase
-    .from("pa_produtos")
-    .select("id, embalagem_id, fator_hecto")
-    .eq("id", produtoId)
-    .eq("revenda_id", revendaId)
-    .eq("ativo", true)
-    .maybeSingle();
+    const { data: produto } = await supabase
+      .from("pa_produtos")
+      .select("id, embalagem_id, fator_hecto")
+      .eq("id", produtoId)
+      .eq("revenda_id", revendaId)
+      .eq("ativo", true)
+      .maybeSingle();
 
-  if (!produto || !produto.embalagem_id || produto.fator_hecto === null) {
-    erro("Este produto ainda não está pronto para reepack -- peça ao Admin para vincular a embalagem em Configuração.", etapa);
-  }
-
-  const { error } = await supabase.from("pa_reepack_lancamentos").insert({
-    revenda_id: revendaId,
-    embalagem_id: produto.embalagem_id,
-    produto_id: produto.id,
-    colaborador_id: perfil.id,
-    colaborador_nome: perfil.nome,
-    turno,
-    etapa,
-    inicio: new Date().toISOString(),
-  });
-
-  if (error) {
-    // A trava é por pessoa, não por etapa: não dá para triar e reembalar
-    // ao mesmo tempo, então uma atividade aberta bloqueia a outra.
-    if (error.code === "23505") {
-      erro("Você já tem uma atividade em andamento. Finalize antes de iniciar outra.", etapa);
+    if (!produto || !produto.embalagem_id || produto.fator_hecto === null) {
+      erro("Este produto ainda não está pronto para reepack -- peça ao Admin para vincular a embalagem em Configuração.", etapa);
     }
-    erro(`Não foi possível iniciar: ${error.message}`, etapa);
-  }
 
-  revalidatePath(ROTA);
-  // Devolve a etapa na URL: a tela reabre na atividade que a pessoa
-  // acabou de usar, em vez de voltar para o padrão e obrigá-la a
-  // reescolher a cada lançamento.
-  redirect(
-    `${ROTA}?etapa=${etapa}&sucesso=${encodeURIComponent(`${ETAPA_REEPACK[etapa].rotulo} iniciada`)}`,
-  );
+    const { error } = await supabase.from("pa_reepack_lancamentos").insert({
+      revenda_id: revendaId,
+      embalagem_id: produto.embalagem_id,
+      produto_id: produto.id,
+      colaborador_id: perfil.id,
+      colaborador_nome: perfil.nome,
+      turno,
+      etapa,
+      inicio: new Date().toISOString(),
+    });
+
+    if (error) {
+      // A trava é por pessoa, não por etapa: não dá para triar e reembalar
+      // ao mesmo tempo, então uma atividade aberta bloqueia a outra.
+      if (error.code === "23505") {
+        erro("Você já tem uma atividade em andamento. Finalize antes de iniciar outra.", etapa);
+      }
+      erro(`Não foi possível iniciar: ${error.message}`, etapa);
+    }
+
+    revalidatePath(ROTA);
+    // Devolve a etapa na URL: a tela reabre na atividade que a pessoa
+    // acabou de usar, em vez de voltar para o padrão e obrigá-la a
+    // reescolher a cada lançamento.
+    pararComSucesso(`${ETAPA_REEPACK[etapa].rotulo} iniciada`);
+  });
 }
 
 /**
@@ -101,69 +102,69 @@ export async function iniciarReepack(formData: FormData) {
  * (mesmo desenho do litro do despejo, migration 051). Só o próprio
  * dono do lançamento finaliza o dele.
  */
-export async function finalizarReepack(formData: FormData) {
-  const { perfil, revendaId } = await exigirContexto();
+export async function finalizarReepack(formData: FormData): Promise<ResultadoAcao> {
+  return noLugar(async () => {
+    const { perfil, revendaId } = await exigirContexto();
 
-  const id = String(formData.get("id") ?? "");
-  if (!id) erro("Lançamento inválido.");
+    const id = String(formData.get("id") ?? "");
+    if (!id) erro("Lançamento inválido.");
 
-  let quantidade: number;
-  try {
-    quantidade = inteiroNaoNegativo(formData.get("quantidade"));
-  } catch (e) {
-    erro(e instanceof Error ? e.message : "Valor inválido.");
-  }
-  if (quantidade === 0) erro("Informe a quantidade produzida.");
-
-  const observacao = String(formData.get("observacao") ?? "").trim().slice(0, 300) || null;
-
-  const supabase = await createClient();
-
-  const { data: aberto } = await supabase
-    .from("pa_reepack_lancamentos")
-    .select("id, produto_id, etapa, inicio")
-    .eq("id", id)
-    .eq("revenda_id", revendaId)
-    .eq("colaborador_id", perfil.id)
-    .is("fim", null)
-    .maybeSingle();
-
-  if (!aberto) erro("Este lançamento já foi finalizado ou não é seu.");
-
-  // Menos de 1 minuto entre Iniciar e Finalizar só passa confirmado -- a
-  // tela pergunta, aqui é a trava. Ver lib/duracao-lancamento.ts.
-  const curto = duracaoCurtaSemConfirmar(aberto.inicio, formData);
-  if (curto !== null) erro(mensagemDuracaoCurta(curto));
-
-  const etapa = ehEtapaReepack(aberto.etapa) ? aberto.etapa : "repack";
-
-  // Litro só faz sentido no repack: lá a quantidade é em CAIXAS, e o
-  // Fator Hecto converte caixa -> litro. Na seleção a quantidade é em
-  // unidades triadas, então multiplicar pelo mesmo fator daria um litro
-  // inflado por um número de caixas que nunca existiu.
-  let litrosCalculados: number | null = null;
-  if (etapa === "repack" && aberto.produto_id) {
-    const { data: produto } = await supabase
-      .from("pa_produtos")
-      .select("fator_hecto")
-      .eq("id", aberto.produto_id)
-      .maybeSingle();
-    if (produto?.fator_hecto != null) {
-      litrosCalculados = Math.round(quantidade * produto.fator_hecto * 100 * 100) / 100;
+    let quantidade: number;
+    try {
+      quantidade = inteiroNaoNegativo(formData.get("quantidade"));
+    } catch (e) {
+      erro(e instanceof Error ? e.message : "Valor inválido.");
     }
-  }
+    if (quantidade === 0) erro("Informe a quantidade produzida.");
 
-  const { error } = await supabase
-    .from("pa_reepack_lancamentos")
-    .update({ fim: new Date().toISOString(), quantidade, observacao, litros_calculados: litrosCalculados })
-    .eq("id", id);
+    const observacao = String(formData.get("observacao") ?? "").trim().slice(0, 300) || null;
 
-  if (error) erro(`Não foi possível finalizar: ${error.message}`);
+    const supabase = await createClient();
 
-  revalidatePath(ROTA);
-  redirect(
-    `${ROTA}?etapa=${etapa}&sucesso=${encodeURIComponent(`${ETAPA_REEPACK[etapa].rotulo} finalizada`)}`,
-  );
+    const { data: aberto } = await supabase
+      .from("pa_reepack_lancamentos")
+      .select("id, produto_id, etapa, inicio")
+      .eq("id", id)
+      .eq("revenda_id", revendaId)
+      .eq("colaborador_id", perfil.id)
+      .is("fim", null)
+      .maybeSingle();
+
+    if (!aberto) erro("Este lançamento já foi finalizado ou não é seu.");
+
+    // Menos de 1 minuto entre Iniciar e Finalizar só passa confirmado -- a
+    // tela pergunta, aqui é a trava. Ver lib/duracao-lancamento.ts.
+    const curto = duracaoCurtaSemConfirmar(aberto.inicio, formData);
+    if (curto !== null) erro(mensagemDuracaoCurta(curto));
+
+    const etapa = ehEtapaReepack(aberto.etapa) ? aberto.etapa : "repack";
+
+    // Litro só faz sentido no repack: lá a quantidade é em CAIXAS, e o
+    // Fator Hecto converte caixa -> litro. Na seleção a quantidade é em
+    // unidades triadas, então multiplicar pelo mesmo fator daria um litro
+    // inflado por um número de caixas que nunca existiu.
+    let litrosCalculados: number | null = null;
+    if (etapa === "repack" && aberto.produto_id) {
+      const { data: produto } = await supabase
+        .from("pa_produtos")
+        .select("fator_hecto")
+        .eq("id", aberto.produto_id)
+        .maybeSingle();
+      if (produto?.fator_hecto != null) {
+        litrosCalculados = Math.round(quantidade * produto.fator_hecto * 100 * 100) / 100;
+      }
+    }
+
+    const { error } = await supabase
+      .from("pa_reepack_lancamentos")
+      .update({ fim: new Date().toISOString(), quantidade, observacao, litros_calculados: litrosCalculados })
+      .eq("id", id);
+
+    if (error) erro(`Não foi possível finalizar: ${error.message}`);
+
+    revalidatePath(ROTA);
+    pararComSucesso(`${ETAPA_REEPACK[etapa].rotulo} finalizada`);
+  });
 }
 
 /**
@@ -175,104 +176,110 @@ export async function finalizarReepack(formData: FormData) {
  * a taxa. O litro recalcula a partir da quantidade JÁ gravada x o Fator
  * Hecto do produto novo (mesma regra do lançamento original).
  */
-export async function editarReepack(formData: FormData) {
-  const { perfil, revendaId } = await exigirContexto();
+export async function editarReepack(formData: FormData): Promise<ResultadoAcao> {
+  return noLugar(async () => {
+    const { perfil, revendaId } = await exigirContexto();
 
-  const id = String(formData.get("id") ?? "");
-  const produtoId = String(formData.get("produto_id") ?? "");
-  if (!id) erro("Lançamento inválido.");
-  if (!produtoId) erro("Escolha o produto certo.");
+    const id = String(formData.get("id") ?? "");
+    const produtoId = String(formData.get("produto_id") ?? "");
+    if (!id) erro("Lançamento inválido.");
+    if (!produtoId) erro("Escolha o produto certo.");
 
-  const supabase = await createClient();
+    const supabase = await createClient();
 
-  const { data: lancamento } = await supabase
-    .from("pa_reepack_lancamentos")
-    .select("id, quantidade, etapa")
-    .eq("id", id)
-    .eq("revenda_id", revendaId)
-    .eq("colaborador_id", perfil.id)
-    .not("fim", "is", null)
-    .maybeSingle();
+    const { data: lancamento } = await supabase
+      .from("pa_reepack_lancamentos")
+      .select("id, quantidade, etapa")
+      .eq("id", id)
+      .eq("revenda_id", revendaId)
+      .eq("colaborador_id", perfil.id)
+      .not("fim", "is", null)
+      .maybeSingle();
 
-  if (!lancamento) erro("Lançamento não encontrado ou não é seu.");
+    if (!lancamento) erro("Lançamento não encontrado ou não é seu.");
 
-  const { data: produto } = await supabase
-    .from("pa_produtos")
-    .select("id, embalagem_id, fator_hecto")
-    .eq("id", produtoId)
-    .eq("revenda_id", revendaId)
-    .eq("ativo", true)
-    .maybeSingle();
+    const { data: produto } = await supabase
+      .from("pa_produtos")
+      .select("id, embalagem_id, fator_hecto")
+      .eq("id", produtoId)
+      .eq("revenda_id", revendaId)
+      .eq("ativo", true)
+      .maybeSingle();
 
-  if (!produto || !produto.embalagem_id || produto.fator_hecto === null) {
-    erro("Este produto ainda não está pronto para reepack -- peça ao Admin para vincular a embalagem em Configuração.");
-  }
+    if (!produto || !produto.embalagem_id || produto.fator_hecto === null) {
+      erro("Este produto ainda não está pronto para reepack -- peça ao Admin para vincular a embalagem em Configuração.");
+    }
 
-  // Mesma regra do finalizarReepack: litro só existe no repack.
-  const litrosCalculados =
-    lancamento.etapa === "selecao"
-      ? null
-      : Math.round(lancamento.quantidade * produto.fator_hecto * 100 * 100) / 100;
+    // Mesma regra do finalizarReepack: litro só existe no repack.
+    const litrosCalculados =
+      lancamento.etapa === "selecao"
+        ? null
+        : Math.round(lancamento.quantidade * produto.fator_hecto * 100 * 100) / 100;
 
-  const { error } = await supabase
-    .from("pa_reepack_lancamentos")
-    .update({ produto_id: produto.id, embalagem_id: produto.embalagem_id, litros_calculados: litrosCalculados })
-    .eq("id", id);
+    const { error } = await supabase
+      .from("pa_reepack_lancamentos")
+      .update({ produto_id: produto.id, embalagem_id: produto.embalagem_id, litros_calculados: litrosCalculados })
+      .eq("id", id);
 
-  if (error) erro(`Não foi possível editar: ${error.message}`);
+    if (error) erro(`Não foi possível editar: ${error.message}`);
 
-  revalidatePath(ROTA);
-  redirect(`${ROTA}?aba=historico&sucesso=Lançamento+atualizado`);
+    revalidatePath(ROTA);
+    pararComSucesso("Lançamento atualizado");
+  });
 }
 
 /** Desiste de um reepack iniciado por engano -- some sem virar estatística. */
-export async function cancelarReepack(formData: FormData) {
-  const { perfil, revendaId } = await exigirContexto();
-  const id = String(formData.get("id") ?? "");
-  if (!id) erro("Lançamento inválido.");
+export async function cancelarReepack(formData: FormData): Promise<ResultadoAcao> {
+  return noLugar(async () => {
+    const { perfil, revendaId } = await exigirContexto();
+    const id = String(formData.get("id") ?? "");
+    if (!id) erro("Lançamento inválido.");
 
-  const supabase = await createClient();
-  await supabase
-    .from("pa_reepack_lancamentos")
-    .delete()
-    .eq("id", id)
-    .eq("revenda_id", revendaId)
-    .eq("colaborador_id", perfil.id)
-    .is("fim", null);
-
-  revalidatePath(ROTA);
-  redirect(`${ROTA}?sucesso=Reepack+cancelado`);
-}
-
-export async function excluirReepack(formData: FormData) {
-  const perfil = await getPerfil();
-  if (!perfil) redirect("/login");
-
-  const id = String(formData.get("id") ?? "");
-  if (!id) erro("Lançamento inválido.");
-
-  const revendaId = await getRevendaId();
-  if (!revendaId) erro("Você não está em nenhuma revenda.");
-
-  const gestor = await podeNoModulo("produtividade-armazem", "excluir");
-  if (gestor) {
-    const admin = createAdminClient();
-    await admin
-      .from("pa_reepack_lancamentos")
-      .delete()
-      .eq("id", id)
-      .eq("revenda_id", revendaId);
-  } else {
     const supabase = await createClient();
-    const { error } = await supabase
+    await supabase
       .from("pa_reepack_lancamentos")
       .delete()
       .eq("id", id)
       .eq("revenda_id", revendaId)
-      .eq("colaborador_id", perfil.id);
-    if (error) erro("Você só pode excluir os próprios lançamentos.");
-  }
+      .eq("colaborador_id", perfil.id)
+      .is("fim", null);
 
-  revalidatePath(ROTA);
-  redirect(`${ROTA}?aba=historico&sucesso=Lançamento+excluído`);
+    revalidatePath(ROTA);
+    pararComSucesso("Reepack cancelado");
+  });
+}
+
+export async function excluirReepack(formData: FormData): Promise<ResultadoAcao> {
+  return noLugar(async () => {
+    const perfil = await getPerfil();
+    if (!perfil) redirect("/login");
+
+    const id = String(formData.get("id") ?? "");
+    if (!id) erro("Lançamento inválido.");
+
+    const revendaId = await getRevendaId();
+    if (!revendaId) erro("Você não está em nenhuma revenda.");
+
+    const gestor = await podeNoModulo("produtividade-armazem", "excluir");
+    if (gestor) {
+      const admin = createAdminClient();
+      await admin
+        .from("pa_reepack_lancamentos")
+        .delete()
+        .eq("id", id)
+        .eq("revenda_id", revendaId);
+    } else {
+      const supabase = await createClient();
+      const { error } = await supabase
+        .from("pa_reepack_lancamentos")
+        .delete()
+        .eq("id", id)
+        .eq("revenda_id", revendaId)
+        .eq("colaborador_id", perfil.id);
+      if (error) erro("Você só pode excluir os próprios lançamentos.");
+    }
+
+    revalidatePath(ROTA);
+    pararComSucesso("Lançamento excluído");
+  });
 }

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
 import { mesesPorExtenso, rotuloCompetencia, textoDaFormalizacao, type MesDaFormalizacao } from "@/lib/mao-de-obra";
 import { formalizarPlanejamento } from "./actions";
+import { FormNoLugar } from "@/components/FormNoLugar";
 
 /**
  * FORMALIZAR PARA O TIME DE GENTE (V.2) -- os 3 meses do planejamento.
@@ -108,7 +109,7 @@ export function EnviarParaRecrutamento({
       </div>
 
       {podeEditar && (
-        <form action={formalizarPlanejamento} className="flex flex-wrap items-end gap-2 rounded-xl border border-emerald-200 bg-emerald-50/50 p-3">
+        <FormNoLugar acao={formalizarPlanejamento} className="flex flex-wrap items-end gap-2 rounded-xl border border-emerald-200 bg-emerald-50/50 p-3">
           <input type="hidden" name="competencia" value={competencia} />
           <input type="hidden" name="observacao" value={observacao} />
           <BotaoEnviar
@@ -123,7 +124,7 @@ export function EnviarParaRecrutamento({
               ? `Registra o envio do planejamento de ${quais} e guarda a fotografia desses meses para o comparativo.`
               : `A formalização de ${rotuloCompetencia(competencia)} é registrada dentro do próprio mês.`}
           </p>
-        </form>
+        </FormNoLugar>
       )}
       <p className="text-[11px] text-slate-500">
         {destinatarios.length === 0

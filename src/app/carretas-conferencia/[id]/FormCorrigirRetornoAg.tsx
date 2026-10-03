@@ -8,6 +8,7 @@ import type { CampoRapido } from "@/components/CadastroRapido";
 import { ROTULO_UNIDADE_AG, UNIDADES_AG } from "@/lib/carretas";
 import { criarAgRapido, criarFabricaRapida } from "@/app/produtividade-armazem/catalogos-rapidos";
 import { editarRetornoAg } from "./actions";
+import { FormNoLugar } from "@/components/FormNoLugar";
 
 const CAMPOS_AG: CampoRapido[] = [
   { nome: "codigo", rotulo: "Código" },
@@ -111,7 +112,7 @@ export function FormCorrigirRetornoAg({
         ✏️ Corrigir o AG do retorno
       </summary>
 
-      <form action={editarRetornoAg} className="space-y-3 p-4 pt-3">
+      <FormNoLugar acao={editarRetornoAg} className="space-y-3 p-4 pt-3" fecharAoSalvar>
         <p className="text-xs text-amber-800">
           Para quando o conferente informou incompleto. A lista salva aqui{" "}
           <strong>substitui</strong> a atual, e fica registrado quem corrigiu.
@@ -203,7 +204,7 @@ export function FormCorrigirRetornoAg({
         >
           ✏️ Salvar correção
         </BotaoEnviar>
-      </form>
+      </FormNoLugar>
     </details>
   );
 }

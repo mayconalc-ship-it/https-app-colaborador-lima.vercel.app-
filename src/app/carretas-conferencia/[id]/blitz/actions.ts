@@ -6,6 +6,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { exigirContextoCarretas } from "@/lib/carretas-server";
 import { criarNotificacao } from "@/lib/notificacoes-server";
 import { enviarPushDaRevenda } from "@/lib/push-server";
+import { comprimirParaWebp } from "@/lib/produtividade-armazem-server";
 
 const TAMANHO_MAXIMO = 8 * 1024 * 1024;
 const TIPOS = ["image/jpeg", "image/png", "image/webp", "image/heic"];
@@ -35,14 +36,14 @@ async function subirFoto(
   }
 
   const admin = createAdminClient();
-  const extensao = (arquivo.name.split(".").pop() ?? "jpg")
-    .toLowerCase()
-    .replace(/[^a-z0-9]/g, "")
-    .slice(0, 5);
-  const caminho = `blitz/${prefixo}-${Date.now()}.${extensao || "jpg"}`;
+  // Comprimida no servidor (03/10/2026): 1600 px em WebP, como a foto do
+  // horímetro -- o celular já manda reduzida, e aqui cai mais uns 40%.
+  // Menos espaço no bucket e menos tráfego a cada vez que a foto abre.
+  const { dados, contentType, extensao } = await comprimirParaWebp(arquivo);
+  const caminho = `blitz/${prefixo}-${Date.now()}.${extensao}`;
 
-  const { error } = await admin.storage.from("conteudo").upload(caminho, arquivo, {
-    contentType: arquivo.type || "image/jpeg",
+  const { error } = await admin.storage.from("conteudo").upload(caminho, dados, {
+      contentType,
     upsert: true,
   });
   if (error) return { ok: false, erro: `Falha ao enviar a foto: ${error.message}` };

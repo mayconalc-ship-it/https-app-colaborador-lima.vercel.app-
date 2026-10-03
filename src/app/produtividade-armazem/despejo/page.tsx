@@ -21,6 +21,7 @@ import {
 } from "@/lib/produtividade-armazem";
 import { cancelarDespejo, editarDespejo, excluirDespejo, finalizarDespejo, iniciarDespejo } from "./actions";
 import { FormFinalizarCronometro } from "@/components/FormFinalizarCronometro";
+import { FormNoLugar } from "@/components/FormNoLugar";
 
 export const dynamic = "force-dynamic";
 
@@ -212,8 +213,8 @@ export default async function DespejoPage({
               cadastrar o litro por unidade em Configuração &gt; Produtos.
             </p>
           ) : (
-            <form
-              action={iniciarDespejo}
+            <FormNoLugar
+              acao={iniciarDespejo}
               className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4"
             >
               <div>
@@ -253,7 +254,7 @@ export default async function DespejoPage({
               >
                 ▶️ Iniciar despejo
               </BotaoEnviar>
-            </form>
+            </FormNoLugar>
           )}
 
           <div>
@@ -439,10 +440,9 @@ function EditarEmbalagemDespejo({
       <summary className="cursor-pointer list-none rounded-lg border border-slate-200 px-2 py-1 text-xs font-semibold text-slate-600 marker:content-none hover:bg-slate-50 [&::-webkit-details-marker]:hidden">
         ✏️ Editar embalagem
       </summary>
-      <form
-        action={editarDespejo}
-        className="mt-2 space-y-1.5 rounded-lg bg-slate-50 p-2"
-      >
+      <FormNoLugar
+        acao={editarDespejo}
+        className="mt-2 space-y-1.5 rounded-lg bg-slate-50 p-2" fecharAoSalvar>
         <input type="hidden" name="id" value={id} />
         <p className="text-[11px] text-slate-500">Embalagem atual: {embalagemAtual}</p>
         <select name="embalagem_id" required className={campo} defaultValue="">
@@ -454,7 +454,7 @@ function EditarEmbalagemDespejo({
         <BotaoEnviar compacto className="w-full rounded-lg bg-primary px-2 py-1 text-xs font-semibold text-white">
           Salvar
         </BotaoEnviar>
-      </form>
+      </FormNoLugar>
     </details>
   );
 }

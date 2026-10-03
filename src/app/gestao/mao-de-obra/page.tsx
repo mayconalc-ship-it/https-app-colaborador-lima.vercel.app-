@@ -85,6 +85,7 @@ import {
   salvarRealizado,
   salvarSalario,
 } from "./actions";
+import { FormNoLugar } from "@/components/FormNoLugar";
 
 export const dynamic = "force-dynamic";
 
@@ -304,7 +305,7 @@ export default async function MaoDeObraPage({
                 titulo={`Inputs do armazém (PPR) — ${rotuloCompetencia(competencia)}`}
                 orientacao="Os inputs do PPR Plan do Armazém: o volume vira viagens, as viagens viram minutos de cada atividade por turno, e os minutos viram gente. Cada mês guarda a sua configuração: salvar aqui muda só este mês."
               >
-                <form action={salvarParametros} className="space-y-5">
+                <FormNoLugar acao={salvarParametros} className="space-y-5">
                   <input type="hidden" name="competencia" value={competencia} />
                   <p className="rounded-xl bg-slate-50 px-3 py-2 text-xs text-slate-600">
                     {doMes.origem === competencia
@@ -386,7 +387,7 @@ export default async function MaoDeObraPage({
                   <BotaoEnviar textoEnviando="Salvando..." className={botaoPrincipal}>
                     Salvar os parâmetros
                   </BotaoEnviar>
-                </form>
+                </FormNoLugar>
               </Bloco>
 
               <Bloco
@@ -418,14 +419,14 @@ export default async function MaoDeObraPage({
                     ))}
                   </ul>
                 )}
-                <form action={adicionarDestinatario} className="flex flex-wrap gap-2">
+                <FormNoLugar acao={adicionarDestinatario} className="flex flex-wrap gap-2" limparAoSalvar>
                   <input type="hidden" name="competencia" value={competencia} />
                   <input name="nome" placeholder="Nome (opcional)" maxLength={120} className={`${entradaTexto} min-w-0 flex-1`} />
                   <input name="email" required type="email" placeholder="email@limalogistica.com.br" className={`${entradaTexto} min-w-0 flex-1`} />
                   <BotaoEnviar textoEnviando="Salvando..." className={botaoSecundario}>
                     Incluir
                   </BotaoEnviar>
-                </form>
+                </FormNoLugar>
               </Bloco>
 
               <Bloco titulo="Custo mensal de uma pessoa" orientacao="Por função. Multiplica o quadro dimensionado para dar o custo do mês.">
@@ -437,7 +438,7 @@ export default async function MaoDeObraPage({
                           <span className="font-medium text-slate-700">{f.rotulo}</span>
                           <span className="font-mono text-sm tabular-nums text-slate-600">{formatarReais(custoDaPessoa(salarios[f.id]))} ›</span>
                         </summary>
-                        <form action={salvarSalario} className="space-y-3 border-t border-slate-100 bg-slate-50 p-3">
+                        <FormNoLugar acao={salvarSalario} className="space-y-3 border-t border-slate-100 bg-slate-50 p-3">
                           <input type="hidden" name="competencia" value={competencia} />
                           <input type="hidden" name="funcao" value={f.id} />
                           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
@@ -450,7 +451,7 @@ export default async function MaoDeObraPage({
                           <BotaoEnviar textoEnviando="Salvando..." className={botaoSecundario}>
                             Salvar {f.rotulo.toLowerCase()}
                           </BotaoEnviar>
-                        </form>
+                        </FormNoLugar>
                       </details>
                     </li>
                   ))}
@@ -710,7 +711,7 @@ export default async function MaoDeObraPage({
                 </span>
                 <span className="text-slate-400">›</span>
               </summary>
-              <form action={salvarRealizado} className="space-y-4 border-t border-slate-100 p-4">
+              <FormNoLugar acao={salvarRealizado} className="space-y-4 border-t border-slate-100 p-4">
                 <input type="hidden" name="competencia" value={competencia} />
                 {AREAS.map((area) => (
                   <div key={area}>
@@ -727,7 +728,7 @@ export default async function MaoDeObraPage({
                 <BotaoEnviar textoEnviando="Salvando..." className={botaoPrincipal}>
                   Salvar o QLP de {rotuloCompetencia(competencia)}
                 </BotaoEnviar>
-              </form>
+              </FormNoLugar>
             </details>
           )}
 
@@ -1034,7 +1035,7 @@ export default async function MaoDeObraPage({
                     </span>
                     <span className="flex shrink-0 items-center gap-1.5">
                       {podeEditar ? (
-                        <form action={mudarStatusDaAcao} className="flex items-center gap-1">
+                        <FormNoLugar acao={mudarStatusDaAcao} className="flex items-center gap-1">
                           <input type="hidden" name="id" value={a.id} />
                           <input type="hidden" name="competencia" value={competencia} />
                           <select name="status" defaultValue={a.status} className="rounded-lg border border-slate-300 px-2 py-1 text-xs">
@@ -1047,7 +1048,7 @@ export default async function MaoDeObraPage({
                           <BotaoEnviar textoEnviando="..." className="rounded-lg border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700">
                             Salvar
                           </BotaoEnviar>
-                        </form>
+                        </FormNoLugar>
                       ) : (
                         <Selo tom="neutro">{ROTULO_STATUS_ACAO[a.status]}</Selo>
                       )}
@@ -1062,7 +1063,7 @@ export default async function MaoDeObraPage({
               </ul>
             )}
             {podeEditar && (
-              <form action={criarAcao} className="space-y-2 rounded-xl bg-slate-50 p-3">
+              <FormNoLugar acao={criarAcao} className="space-y-2 rounded-xl bg-slate-50 p-3" limparAoSalvar>
                 <input type="hidden" name="competencia" value={competencia} />
                 <input name="o_que" required maxLength={300} placeholder="O que será feito (ex.: rever a média por carro)" className={`${entradaTexto} w-full`} />
                 <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
@@ -1080,7 +1081,7 @@ export default async function MaoDeObraPage({
                 <BotaoEnviar textoEnviando="Salvando..." className={botaoSecundario}>
                   Incluir no plano de {rotuloCurto(competencia)}
                 </BotaoEnviar>
-              </form>
+              </FormNoLugar>
             )}
           </Bloco>
 

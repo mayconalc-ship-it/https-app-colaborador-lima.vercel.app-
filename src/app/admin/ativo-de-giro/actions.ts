@@ -1,16 +1,16 @@
 "use server";
 
-import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { requireModulo } from "@/lib/require-admin";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { exigirRevenda } from "@/lib/revendas";
 import { ehFormato, ehTipo, inteiro } from "@/lib/ativo-giro";
+import { noLugar, pararComErro, pararComSucesso, type ResultadoAcao } from "@/lib/resultado-acao";
 
 const ROTA = "/admin/ativo-de-giro";
 
 function erro(mensagem: string): never {
-  redirect(`${ROTA}?erro=${encodeURIComponent(mensagem)}`);
+  pararComErro(mensagem);
 }
 
 /**
@@ -27,85 +27,89 @@ function erro(mensagem: string): never {
  * Arrays paralelos: tipo e formato vão escondidos ao lado de cada campo,
  * e o FormData preserva a ordem.
  */
-export async function salvarParque(formData: FormData) {
-  await requireModulo("ativo-giro", "editar");
-  const revendaId = await exigirRevenda(ROTA);
+export async function salvarParque(formData: FormData): Promise<ResultadoAcao> {
+  return noLugar(async () => {
+    await requireModulo("ativo-giro", "editar");
+    const revendaId = await exigirRevenda(ROTA);
 
-  const tipos = formData.getAll("tipo").map(String);
-  const formatos = formData.getAll("formato").map(String);
-  const quantidades = formData.getAll("quantidade");
+    const tipos = formData.getAll("tipo").map(String);
+    const formatos = formData.getAll("formato").map(String);
+    const quantidades = formData.getAll("quantidade");
 
-  if (tipos.length !== formatos.length || tipos.length !== quantidades.length) {
-    erro("Formulário incompleto — recarregue a tela e tente de novo.");
-  }
+    if (tipos.length !== formatos.length || tipos.length !== quantidades.length) {
+      erro("Formulário incompleto — recarregue a tela e tente de novo.");
+    }
 
-  const linhas = tipos.map((tipo, i) => {
-    const formato = formatos[i];
-    if (!ehTipo(tipo) || !ehFormato(formato)) erro("Item inválido no formulário.");
-    return {
-      revenda_id: revendaId,
-      tipo,
-      formato,
-      quantidade: inteiro(quantidades[i]),
-      atualizado_em: new Date().toISOString(),
-    };
+    const linhas = tipos.map((tipo, i) => {
+      const formato = formatos[i];
+      if (!ehTipo(tipo) || !ehFormato(formato)) erro("Item inválido no formulário.");
+      return {
+        revenda_id: revendaId,
+        tipo,
+        formato,
+        quantidade: inteiro(quantidades[i]),
+        atualizado_em: new Date().toISOString(),
+      };
+    });
+
+    if (linhas.length === 0) erro("Nada para salvar.");
+
+    const admin = createAdminClient();
+    const { error } = await admin
+      .from("ag_parque")
+      .upsert(linhas, { onConflict: "revenda_id,tipo,formato" });
+
+    if (error) erro(`Não foi possível salvar o parque: ${error.message}`);
+
+    revalidatePath(ROTA);
+    revalidatePath("/ativo-de-giro");
+    pararComSucesso("Parque salvo");
   });
-
-  if (linhas.length === 0) erro("Nada para salvar.");
-
-  const admin = createAdminClient();
-  const { error } = await admin
-    .from("ag_parque")
-    .upsert(linhas, { onConflict: "revenda_id,tipo,formato" });
-
-  if (error) erro(`Não foi possível salvar o parque: ${error.message}`);
-
-  revalidatePath(ROTA);
-  revalidatePath("/ativo-de-giro");
-  redirect(`${ROTA}?sucesso=Parque+salvo`);
 }
 
 /** Caixas por palete e por lastro -- os quatro formatos de uma vez. */
-export async function salvarFator(formData: FormData) {
-  await requireModulo("ativo-giro", "editar");
-  const revendaId = await exigirRevenda(ROTA);
+export async function salvarFator(formData: FormData): Promise<ResultadoAcao> {
+  return noLugar(async () => {
+    await requireModulo("ativo-giro", "editar");
+    const revendaId = await exigirRevenda(ROTA);
 
-  const formatos = formData.getAll("formato").map(String);
-  const paletes = formData.getAll("palete");
-  const lastros = formData.getAll("lastro");
+    const formatos = formData.getAll("formato").map(String);
+    const paletes = formData.getAll("palete");
+    const lastros = formData.getAll("lastro");
 
-  if (formatos.length !== paletes.length || formatos.length !== lastros.length) {
-    erro("Formulário incompleto — recarregue a tela e tente de novo.");
-  }
-
-  const linhas = formatos.map((formato, i) => {
-    if (!ehFormato(formato)) erro("Formato inválido no formulário.");
-    const palete = inteiro(paletes[i], 10_000);
-    const lastro = inteiro(lastros[i], 10_000);
-    // Zero aqui não é "vazio", é uma divisão por zero na conversão: um
-    // fator zerado faria toda contagem daquele formato valer nada.
-    if (palete === 0 || lastro === 0) {
-      erro(`Palete e lastro de ${formato} precisam ser maiores que zero.`);
+    if (formatos.length !== paletes.length || formatos.length !== lastros.length) {
+      erro("Formulário incompleto — recarregue a tela e tente de novo.");
     }
-    return {
-      revenda_id: revendaId,
-      formato,
-      palete,
-      lastro,
-      atualizado_em: new Date().toISOString(),
-    };
+
+    const linhas = formatos.map((formato, i) => {
+      if (!ehFormato(formato)) erro("Formato inválido no formulário.");
+      const palete = inteiro(paletes[i], 10_000);
+      const lastro = inteiro(lastros[i], 10_000);
+      // Zero aqui não é "vazio", é uma divisão por zero na conversão: um
+      // fator zerado faria toda contagem daquele formato valer nada.
+      if (palete === 0 || lastro === 0) {
+        erro(`Palete e lastro de ${formato} precisam ser maiores que zero.`);
+      }
+      return {
+        revenda_id: revendaId,
+        formato,
+        palete,
+        lastro,
+        atualizado_em: new Date().toISOString(),
+      };
+    });
+
+    const admin = createAdminClient();
+    const { error } = await admin
+      .from("ag_fatores")
+      .upsert(linhas, { onConflict: "revenda_id,formato" });
+
+    if (error) erro(`Não foi possível salvar os fatores: ${error.message}`);
+
+    revalidatePath(ROTA);
+    revalidatePath("/ativo-de-giro");
+    pararComSucesso("Fatores salvos");
   });
-
-  const admin = createAdminClient();
-  const { error } = await admin
-    .from("ag_fatores")
-    .upsert(linhas, { onConflict: "revenda_id,formato" });
-
-  if (error) erro(`Não foi possível salvar os fatores: ${error.message}`);
-
-  revalidatePath(ROTA);
-  revalidatePath("/ativo-de-giro");
-  redirect(`${ROTA}?sucesso=Fatores+salvos`);
 }
 
 // -------------------- QUEM PODE LANCAR O TRANSITO --------------------
@@ -123,49 +127,53 @@ export async function salvarFator(formData: FormData) {
  * permissao de mexer no parque: nao ha escalada aqui, so um atalho para
  * quem ja podia.
  */
-export async function liberarTransito(formData: FormData) {
-  const eu = await requireModulo("ativo-giro", "editar");
-  const revendaId = await exigirRevenda(ROTA);
+export async function liberarTransito(formData: FormData): Promise<ResultadoAcao> {
+  return noLugar(async () => {
+    const eu = await requireModulo("ativo-giro", "editar");
+    const revendaId = await exigirRevenda(ROTA);
 
-  const colaboradorId = String(formData.get("colaborador_id") ?? "");
-  if (!colaboradorId) erro("Escolha a pessoa.");
+    const colaboradorId = String(formData.get("colaborador_id") ?? "");
+    if (!colaboradorId) erro("Escolha a pessoa.");
 
-  const admin = createAdminClient();
-  const { error } = await admin.from("ag_transito_liberados").upsert(
-    {
-      revenda_id: revendaId,
-      colaborador_id: colaboradorId,
-      liberado_por: eu.id,
-    },
-    { onConflict: "revenda_id,colaborador_id" },
-  );
+    const admin = createAdminClient();
+    const { error } = await admin.from("ag_transito_liberados").upsert(
+      {
+        revenda_id: revendaId,
+        colaborador_id: colaboradorId,
+        liberado_por: eu.id,
+      },
+      { onConflict: "revenda_id,colaborador_id" },
+    );
 
-  if (error) erro(`Nao foi possivel liberar: ${error.message}`);
+    if (error) erro(`Nao foi possivel liberar: ${error.message}`);
 
-  revalidatePath(ROTA);
-  revalidatePath("/ativo-de-giro");
-  redirect(`${ROTA}?sucesso=${encodeURIComponent("Liberado para lancar o transito")}`);
+    revalidatePath(ROTA);
+    revalidatePath("/ativo-de-giro");
+    pararComSucesso("Liberado para lancar o transito");
+  });
 }
 
-export async function tirarLiberacaoTransito(formData: FormData) {
-  await requireModulo("ativo-giro", "editar");
-  const revendaId = await exigirRevenda(ROTA);
+export async function tirarLiberacaoTransito(formData: FormData): Promise<ResultadoAcao> {
+  return noLugar(async () => {
+    await requireModulo("ativo-giro", "editar");
+    const revendaId = await exigirRevenda(ROTA);
 
-  const colaboradorId = String(formData.get("colaborador_id") ?? "");
-  if (!colaboradorId) erro("Pessoa invalida.");
+    const colaboradorId = String(formData.get("colaborador_id") ?? "");
+    if (!colaboradorId) erro("Pessoa invalida.");
 
-  const admin = createAdminClient();
-  // O que ela ja lancou FICA: o transito de ontem e um fato do dia
-  // dele, e apaga-lo mudaria uma conciliacao ja fechada.
-  await admin
-    .from("ag_transito_liberados")
-    .delete()
-    .eq("revenda_id", revendaId)
-    .eq("colaborador_id", colaboradorId);
+    const admin = createAdminClient();
+    // O que ela ja lancou FICA: o transito de ontem e um fato do dia
+    // dele, e apaga-lo mudaria uma conciliacao ja fechada.
+    await admin
+      .from("ag_transito_liberados")
+      .delete()
+      .eq("revenda_id", revendaId)
+      .eq("colaborador_id", colaboradorId);
 
-  revalidatePath(ROTA);
-  revalidatePath("/ativo-de-giro");
-  redirect(`${ROTA}?sucesso=${encodeURIComponent("Liberacao retirada. O que ja foi lancado continua valendo.")}`);
+    revalidatePath(ROTA);
+    revalidatePath("/ativo-de-giro");
+    pararComSucesso("Liberacao retirada. O que ja foi lancado continua valendo.");
+  });
 }
 
 /** Pessoas da revenda cujo nome ou CPF batem -- alimenta a busca da
@@ -215,44 +223,46 @@ function reais(bruto: FormDataEntryValue | null): number {
  * Mudar o valor NAO muda dia ja congelado: o congelamento guarda o valor
  * daquele momento (migration 116).
  */
-export async function salvarValores(formData: FormData) {
-  const eu = await requireModulo("ativo-giro", "editar");
-  const revendaId = await exigirRevenda(ROTA);
+export async function salvarValores(formData: FormData): Promise<ResultadoAcao> {
+  return noLugar(async () => {
+    const eu = await requireModulo("ativo-giro", "editar");
+    const revendaId = await exigirRevenda(ROTA);
 
-  const tipos = formData.getAll("tipo").map(String);
-  const formatos = formData.getAll("formato").map(String);
-  const valores = formData.getAll("valor_caixa");
+    const tipos = formData.getAll("tipo").map(String);
+    const formatos = formData.getAll("formato").map(String);
+    const valores = formData.getAll("valor_caixa");
 
-  if (tipos.length !== formatos.length || tipos.length !== valores.length) {
-    erro("Formulario incompleto -- recarregue a tela e tente de novo.");
-  }
+    if (tipos.length !== formatos.length || tipos.length !== valores.length) {
+      erro("Formulario incompleto -- recarregue a tela e tente de novo.");
+    }
 
-  const linhas = tipos.map((tipo, i) => {
-    const formato = formatos[i];
-    if (!ehTipo(tipo) || !ehFormato(formato)) erro("Item invalido no formulario.");
-    return {
-      revenda_id: revendaId,
-      tipo,
-      formato,
-      valor_caixa: reais(valores[i]),
-      atualizado_em: new Date().toISOString(),
-      atualizado_por: eu.id,
-      atualizado_por_nome: eu.nome,
-    };
+    const linhas = tipos.map((tipo, i) => {
+      const formato = formatos[i];
+      if (!ehTipo(tipo) || !ehFormato(formato)) erro("Item invalido no formulario.");
+      return {
+        revenda_id: revendaId,
+        tipo,
+        formato,
+        valor_caixa: reais(valores[i]),
+        atualizado_em: new Date().toISOString(),
+        atualizado_por: eu.id,
+        atualizado_por_nome: eu.nome,
+      };
+    });
+
+    if (linhas.length === 0) erro("Nada para salvar.");
+
+    const admin = createAdminClient();
+    const { error } = await admin
+      .from("ag_valores")
+      .upsert(linhas, { onConflict: "revenda_id,tipo,formato" });
+
+    if (error) erro(`Nao foi possivel salvar os valores: ${error.message}`);
+
+    revalidatePath(ROTA);
+    revalidatePath("/ativo-de-giro");
+    pararComSucesso("Valores do AG salvos");
   });
-
-  if (linhas.length === 0) erro("Nada para salvar.");
-
-  const admin = createAdminClient();
-  const { error } = await admin
-    .from("ag_valores")
-    .upsert(linhas, { onConflict: "revenda_id,tipo,formato" });
-
-  if (error) erro(`Nao foi possivel salvar os valores: ${error.message}`);
-
-  revalidatePath(ROTA);
-  revalidatePath("/ativo-de-giro");
-  redirect(`${ROTA}?sucesso=${encodeURIComponent("Valores do AG salvos")}`);
 }
 
 /**
@@ -262,44 +272,48 @@ export async function salvarValores(formData: FormData) {
  * Quem administra o modulo ja pode, sem estar na lista. Reabrir um dia
  * congelado continua so do Admin.
  */
-export async function liberarCongelar(formData: FormData) {
-  const eu = await requireModulo("ativo-giro", "editar");
-  const revendaId = await exigirRevenda(ROTA);
+export async function liberarCongelar(formData: FormData): Promise<ResultadoAcao> {
+  return noLugar(async () => {
+    const eu = await requireModulo("ativo-giro", "editar");
+    const revendaId = await exigirRevenda(ROTA);
 
-  const colaboradorId = String(formData.get("colaborador_id") ?? "");
-  if (!colaboradorId) erro("Escolha a pessoa.");
+    const colaboradorId = String(formData.get("colaborador_id") ?? "");
+    if (!colaboradorId) erro("Escolha a pessoa.");
 
-  const admin = createAdminClient();
-  const { error } = await admin.from("ag_congelar_liberados").upsert(
-    { revenda_id: revendaId, colaborador_id: colaboradorId, liberado_por: eu.id },
-    { onConflict: "revenda_id,colaborador_id" },
-  );
+    const admin = createAdminClient();
+    const { error } = await admin.from("ag_congelar_liberados").upsert(
+      { revenda_id: revendaId, colaborador_id: colaboradorId, liberado_por: eu.id },
+      { onConflict: "revenda_id,colaborador_id" },
+    );
 
-  if (error) erro(`Nao foi possivel liberar: ${error.message}`);
+    if (error) erro(`Nao foi possivel liberar: ${error.message}`);
 
-  revalidatePath(ROTA);
-  revalidatePath("/ativo-de-giro");
-  redirect(`${ROTA}?sucesso=${encodeURIComponent("Liberado para congelar a conciliacao")}`);
+    revalidatePath(ROTA);
+    revalidatePath("/ativo-de-giro");
+    pararComSucesso("Liberado para congelar a conciliacao");
+  });
 }
 
-export async function tirarLiberacaoCongelar(formData: FormData) {
-  await requireModulo("ativo-giro", "editar");
-  const revendaId = await exigirRevenda(ROTA);
+export async function tirarLiberacaoCongelar(formData: FormData): Promise<ResultadoAcao> {
+  return noLugar(async () => {
+    await requireModulo("ativo-giro", "editar");
+    const revendaId = await exigirRevenda(ROTA);
 
-  const colaboradorId = String(formData.get("colaborador_id") ?? "");
-  if (!colaboradorId) erro("Pessoa invalida.");
+    const colaboradorId = String(formData.get("colaborador_id") ?? "");
+    if (!colaboradorId) erro("Pessoa invalida.");
 
-  const admin = createAdminClient();
-  // O que ela ja congelou FICA: e o numero que foi para a reuniao.
-  await admin
-    .from("ag_congelar_liberados")
-    .delete()
-    .eq("revenda_id", revendaId)
-    .eq("colaborador_id", colaboradorId);
+    const admin = createAdminClient();
+    // O que ela ja congelou FICA: e o numero que foi para a reuniao.
+    await admin
+      .from("ag_congelar_liberados")
+      .delete()
+      .eq("revenda_id", revendaId)
+      .eq("colaborador_id", colaboradorId);
 
-  revalidatePath(ROTA);
-  revalidatePath("/ativo-de-giro");
-  redirect(`${ROTA}?sucesso=${encodeURIComponent("Liberacao retirada. O que ja foi congelado continua valendo.")}`);
+    revalidatePath(ROTA);
+    revalidatePath("/ativo-de-giro");
+    pararComSucesso("Liberacao retirada. O que ja foi congelado continua valendo.");
+  });
 }
 
 /** A mesma busca da liberacao do transito. */

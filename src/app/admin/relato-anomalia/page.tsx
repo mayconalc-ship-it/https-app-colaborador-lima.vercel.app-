@@ -13,6 +13,7 @@ import { MINIMO_DE_PONTOS, SIGMAS_PADRAO } from "@/lib/gatilho-anomalia";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { MINIMO_DE_CARRETAS } from "@/lib/blitz";
 import { salvarChecklistDaBlitz, salvarGatilhos } from "./actions";
+import { FormNoLugar } from "@/components/FormNoLugar";
 
 export const dynamic = "force-dynamic";
 
@@ -117,7 +118,7 @@ export default async function ConfiguracaoDeGatilhosPage({
         />
       </div>
 
-      <form action={salvarGatilhos} className="space-y-5">
+      <FormNoLugar acao={salvarGatilhos} className="space-y-5">
         {grupos.map((grupo) => {
           const doGrupo = linhas.filter((l) => l.def.grupo === grupo);
           const info = ROTULO_GRUPO[grupo];
@@ -151,7 +152,7 @@ export default async function ConfiguracaoDeGatilhosPage({
             Salvar gatilhos
           </BotaoEnviar>
         </div>
-      </form>
+      </FormNoLugar>
 
       {/*
         O CHECKLIST DA BLITZ mora NESTA tela, e não numa própria.
@@ -182,7 +183,7 @@ export default async function ConfiguracaoDeGatilhosPage({
           </p>
         ) : null}
 
-        <form action={salvarChecklistDaBlitz} className="mt-3 space-y-3">
+        <FormNoLugar acao={salvarChecklistDaBlitz} className="mt-3 space-y-3">
           {itensDaBlitz.map((item) => (
             <div
               key={item.id}
@@ -292,7 +293,7 @@ export default async function ConfiguracaoDeGatilhosPage({
               Salvar checklist da blitz
             </BotaoEnviar>
           </div>
-        </form>
+        </FormNoLugar>
       </section>
     </div>
   );

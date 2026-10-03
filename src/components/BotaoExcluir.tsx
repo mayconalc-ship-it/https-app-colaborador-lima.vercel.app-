@@ -1,16 +1,13 @@
 "use client";
 
 import { BotaoEnviar } from "@/components/BotaoEnviar";
-import { useConfirmarEnvio } from "@/components/Confirmacao";
+import { FormNoLugar } from "@/components/FormNoLugar";
+import type { ResultadoAcao } from "@/lib/resultado-acao";
 
 /**
- * O botão passa por `BotaoEnviar` para ganhar rodinha e travar sozinho: a
- * exclusão vai ao servidor e volta com um redirect, e sem retorno nenhum
- * quem tocou fica olhando para um botão parado -- e toca de novo.
- *
- * A confirmação não atrapalha o estado de carregando: `useConfirmarEnvio`
- * barra o PRIMEIRO envio e reenvia depois do "sim", e é esse segundo envio,
- * o de verdade, que o `useFormStatus` enxerga.
+ * O botão passa por `BotaoEnviar` para ganhar rodinha e travar sozinho --
+ * sem retorno nenhum, quem tocou fica olhando para um botão parado e toca
+ * de novo. A pergunta de confirmação é a do FormNoLugar.
  */
 export function BotaoExcluir({
   action,
@@ -23,7 +20,8 @@ export function BotaoExcluir({
   perigo = true,
   title,
 }: {
-  action: (formData: FormData) => void;
+  /** Ação antiga (redireciona) ou nova (devolve o resultado e fica no lugar). */
+  action: (formData: FormData) => void | Promise<void | ResultadoAcao>;
   campos: Record<string, string | number>;
   confirmacao: string;
   children: React.ReactNode;
@@ -38,16 +36,12 @@ export function BotaoExcluir({
   perigo?: boolean;
   title?: string;
 }) {
-  const aoEnviar = useConfirmarEnvio();
-
+  // FormNoLugar por dentro (03/10/2026): a ação que devolve o resultado
+  // fica no lugar, com o aviso no rodapé; a antiga continua navegando.
   return (
-    <form
-      action={action}
-      onSubmit={aoEnviar({
-        titulo: confirmacao,
-        confirmar: rotuloConfirmar,
-        perigo,
-      })}
+    <FormNoLugar
+      acao={async (fd) => (await action(fd)) ?? undefined}
+      confirmacao={{ titulo: confirmacao, confirmar: rotuloConfirmar, perigo }}
     >
       {Object.entries(campos).map(([nome, valor]) => (
         <input key={nome} type="hidden" name={nome} value={valor} />
@@ -62,6 +56,6 @@ export function BotaoExcluir({
       >
         {children}
       </BotaoEnviar>
-    </form>
+    </FormNoLugar>
   );
 }

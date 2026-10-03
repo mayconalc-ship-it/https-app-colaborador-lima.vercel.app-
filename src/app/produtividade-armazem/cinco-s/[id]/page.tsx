@@ -6,6 +6,7 @@ import { getRevendaId } from "@/lib/revendas";
 import { requireAcessoModulo } from "@/lib/require-admin";
 import { ROTULO_SENSO, SENSOS, formatarDataHora, type Senso } from "@/lib/produtividade-armazem";
 import { finalizarExecucao5s } from "../actions";
+import { FormNoLugar } from "@/components/FormNoLugar";
 
 export const dynamic = "force-dynamic";
 
@@ -61,7 +62,7 @@ export default async function ExecucaoCincoSPage({
         <p className="mb-4 rounded-xl bg-red-50 p-3 text-sm font-medium text-red-700">{sp.erro}</p>
       )}
 
-      <form action={finalizarExecucao5s} className="space-y-6">
+      <FormNoLugar acao={finalizarExecucao5s} className="space-y-6">
         <input type="hidden" name="execucao_id" value={execucao.id} />
 
         {SENSOS.map((senso) => {
@@ -114,7 +115,7 @@ export default async function ExecucaoCincoSPage({
             Encerrar execução
           </BotaoEnviar>
         )}
-      </form>
+      </FormNoLugar>
     </div>
   );
 }

@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
-import { useConfirmarEnvio } from "@/components/Confirmacao";
 import type { PilarCadastrado } from "@/lib/pilares";
+import type { ResultadoAcao } from "@/lib/resultado-acao";
+import { FormNoLugar } from "@/components/FormNoLugar";
 
 export function PilarItem({
   pilar,
@@ -21,20 +22,19 @@ export function PilarItem({
   quantidadeArquivos: number;
   primeiro: boolean;
   ultimo: boolean;
-  onRenomear: (formData: FormData) => void;
-  onMover: (formData: FormData) => void;
-  onAlternar: (formData: FormData) => void;
-  onExcluir: (formData: FormData) => void;
+  onRenomear: (formData: FormData) => Promise<ResultadoAcao | void>;
+  onMover: (formData: FormData) => Promise<ResultadoAcao | void>;
+  onAlternar: (formData: FormData) => Promise<ResultadoAcao | void>;
+  onExcluir: (formData: FormData) => Promise<ResultadoAcao | void>;
   /** Mover, renomear e ocultar são "editar" no servidor. */
   podeEditar?: boolean;
   podeExcluir?: boolean;
 }) {
   const [editando, setEditando] = useState(false);
-  const aoExcluir = useConfirmarEnvio();
 
   if (editando) {
     return (
-      <form action={onRenomear} className="space-y-3 bg-slate-50 p-4">
+      <FormNoLugar acao={onRenomear} aoSalvar={() => setEditando(false)} className="space-y-3 bg-slate-50 p-4">
         <input type="hidden" name="id" value={pilar.id} />
         <input type="hidden" name="nome_antigo" value={pilar.nome} />
         <div>
@@ -69,7 +69,7 @@ export function PilarItem({
             Cancelar
           </button>
         </div>
-      </form>
+      </FormNoLugar>
     );
   }
 
@@ -93,7 +93,7 @@ export function PilarItem({
 
       {podeEditar && (
       <>
-      <form action={onMover}>
+      <FormNoLugar acao={onMover}>
         <input type="hidden" name="id" value={pilar.id} />
         <input type="hidden" name="direcao" value="cima" />
         <BotaoEnviar
@@ -104,9 +104,9 @@ export function PilarItem({
         >
           ↑
         </BotaoEnviar>
-      </form>
+      </FormNoLugar>
 
-      <form action={onMover}>
+      <FormNoLugar acao={onMover}>
         <input type="hidden" name="id" value={pilar.id} />
         <input type="hidden" name="direcao" value="baixo" />
         <BotaoEnviar
@@ -117,7 +117,7 @@ export function PilarItem({
         >
           ↓
         </BotaoEnviar>
-      </form>
+      </FormNoLugar>
 
       <button
         type="button"
@@ -127,7 +127,7 @@ export function PilarItem({
         Editar
       </button>
 
-      <form action={onAlternar}>
+      <FormNoLugar acao={onAlternar}>
         <input type="hidden" name="id" value={pilar.id} />
         <input type="hidden" name="visivel" value={String(pilar.visivel)} />
         <BotaoEnviar
@@ -140,14 +140,14 @@ export function PilarItem({
         >
           {pilar.visivel ? "Ocultar" : "Mostrar"}
         </BotaoEnviar>
-      </form>
+      </FormNoLugar>
       </>
       )}
 
       {podeExcluir && (
-      <form
-        action={onExcluir}
-        onSubmit={aoExcluir({ titulo: `Excluir o pilar "${pilar.nome}"?` })}
+      <FormNoLugar
+        acao={onExcluir}
+        confirmacao={{ titulo: `Excluir o pilar "${pilar.nome}"?` }}
       >
         <input type="hidden" name="id" value={pilar.id} />
         <input type="hidden" name="nome" value={pilar.nome} />
@@ -157,7 +157,7 @@ export function PilarItem({
         >
           Excluir
         </BotaoEnviar>
-      </form>
+      </FormNoLugar>
       )}
     </div>
   );

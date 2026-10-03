@@ -21,6 +21,7 @@ import {
   type MesMaoDeObra,
 } from "@/lib/mao-de-obra";
 import { salvarMes } from "./actions";
+import { FormNoLugar } from "@/components/FormNoLugar";
 
 type Campo = { id: keyof MesMaoDeObra; rotulo: string; ajuda?: string; passo?: string };
 
@@ -132,7 +133,7 @@ export function FormMes({
   );
 
   return (
-    <form action={salvarMes} className="space-y-4">
+    <FormNoLugar acao={salvarMes} className="space-y-4">
       <input type="hidden" name="competencia" value={competencia} />
       <input type="hidden" name="base" value={base ?? competencia} />
 
@@ -270,6 +271,6 @@ export function FormMes({
       >
         Salvar o mês e registrar a revisão
       </BotaoEnviar>
-    </form>
+    </FormNoLugar>
   );
 }

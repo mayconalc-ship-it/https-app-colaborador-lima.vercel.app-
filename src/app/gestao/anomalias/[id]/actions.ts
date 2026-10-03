@@ -1,6 +1,5 @@
 "use server";
 
-import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { requireModulo } from "@/lib/require-admin";
 import { getPerfil } from "@/lib/sessao";
@@ -17,6 +16,7 @@ import {
   type TopicoAcao,
 } from "@/lib/relato-anomalia";
 import { guardarNoCatalogo } from "@/lib/relato-catalogos-server";
+import { noLugar, pararComErro, pararComSucesso, type ResultadoAcao } from "@/lib/resultado-acao";
 
 const PAINEL = "/gestao/anomalias";
 const rota = (id: string) => `${PAINEL}/${id}`;
@@ -66,7 +66,7 @@ export async function buscarPessoasDoRelato(
 }
 
 function erro(id: string, mensagem: string): never {
-  redirect(`${rota(id)}?erro=${encodeURIComponent(mensagem)}`);
+  pararComErro(mensagem);
 }
 
 /** As linhas do plano, lidas do formulário. Vêm como listas paralelas --
@@ -110,115 +110,117 @@ function acoesDoFormulario(formData: FormData): AcaoDoPlano[] {
  * depois. Exigir tudo para salvar faria a pessoa perder o que já
  * escreveu. Quem cobra o completo é o FECHAMENTO (ver assinarRelato).
  */
-export async function salvarRelato(formData: FormData) {
-  await requireModulo("relato-anomalia", "editar", PAINEL);
-  const revendaId = await exigirRevenda(PAINEL);
-  const admin = createAdminClient();
+export async function salvarRelato(formData: FormData): Promise<ResultadoAcao> {
+  return noLugar(async () => {
+    await requireModulo("relato-anomalia", "editar", PAINEL);
+    const revendaId = await exigirRevenda(PAINEL);
+    const admin = createAdminClient();
 
-  const id = String(formData.get("id") ?? "");
-  if (!id) erro(id, "Relato inválido.");
+    const id = String(formData.get("id") ?? "");
+    if (!id) erro(id, "Relato inválido.");
 
-  const natureza = String(formData.get("natureza") ?? "");
-  const padronizacao: Padronizacao = {};
-  for (const p of PERGUNTAS_PADRONIZACAO) {
-    const v = String(formData.get(`padr__${p.id}`) ?? "");
-    if (v === "sim" || v === "nao") padronizacao[p.id] = v;
-  }
+    const natureza = String(formData.get("natureza") ?? "");
+    const padronizacao: Padronizacao = {};
+    for (const p of PERGUNTAS_PADRONIZACAO) {
+      const v = String(formData.get(`padr__${p.id}`) ?? "");
+      if (v === "sim" || v === "nao") padronizacao[p.id] = v;
+    }
 
-  const porques = Array.from({ length: PORQUES }, (_, i) =>
-    String(formData.get(`porque__${i}`) ?? "").trim(),
-  );
-
-  /*
-    OS PARTICIPANTES VÊM COMO CAMPOS REPETIDOS, um por pessoa (07/09/2026).
-
-    Eram um texto só, repartido por vírgula -- e vírgula é exatamente onde
-    "Silva, Neuilton" vira duas pessoas. O combobox manda um campo por
-    participante; o `split` fica como reserva para relato antigo, gravado
-    quando o campo ainda era texto.
-  */
-  const daLista = formData.getAll("participantes").map(String);
-  const participantes = (
-    daLista.length > 1 ? daLista : (daLista[0] ?? "").split(/[,;\n]/)
-  )
-    .map((p) => p.trim())
-    .filter(Boolean);
-
-  const area = String(formData.get("area") ?? "").trim() || null;
-  const sala = String(formData.get("sala") ?? "").trim() || null;
-  const icIv = String(formData.get("ic_iv") ?? "").trim() || null;
-
-  // O que foi digitado entra no catálogo para o próximo relato. Silencioso
-  // de propósito -- ver guardarNoCatalogo.
-  await guardarNoCatalogo(revendaId, [
-    { tipo: "area", nome: area },
-    { tipo: "sala", nome: sala },
-    { tipo: "ic_iv", nome: icIv },
-  ]);
-
-  const { error } = await admin
-    .from("pa_relatos_anomalia")
-    .update({
-      area,
-      sala,
-      natureza: natureza === "unica" || natureza === "repetitiva" ? natureza : null,
-      ic_iv: icIv,
-      sintoma: String(formData.get("sintoma") ?? "").trim() || null,
-      participantes,
-      porques,
-      padronizacao,
-      responsavel_nome: String(formData.get("responsavel_nome") ?? "").trim() || null,
-      gestor_nome: String(formData.get("gestor_nome") ?? "").trim() || null,
-      // O status anda sozinho conforme o preenchimento: quem está
-      // escrevendo não deveria também ter de escolher em que fase está.
-      status: statusPeloPreenchimento(porques, formData),
-      atualizado_em: new Date().toISOString(),
-    })
-    .eq("id", id)
-    .eq("revenda_id", revendaId)
-    // Relato já assinado não se reescreve: ele virou evidência. Reabrir é
-    // outra ação, e por enquanto não existe -- de propósito.
-    .is("assinado_em", null);
-
-  if (error) erro(id, `Não foi possível salvar: ${error.message}`);
-
-  /*
-    O PLANO É REESCRITO INTEIRO a cada salvamento.
-
-    Casar linha a linha exigiria um id estável por ação que o formulário
-    não tem, e "editar o plano" quase sempre é acrescentar ou trocar o
-    prazo de uma linha -- reescrever é o que a pessoa espera ao salvar o
-    formulário que está vendo. Mesmo desenho do AG do retorno da carreta.
-  */
-  const acoes = acoesDoFormulario(formData);
-  const { error: erroApagar } = await admin
-    .from("pa_relato_acoes")
-    .delete()
-    .eq("relato_id", id)
-    .eq("revenda_id", revendaId);
-  if (erroApagar) erro(id, `Não foi possível atualizar o plano: ${erroApagar.message}`);
-
-  if (acoes.length > 0) {
-    const { error: erroInserir } = await admin.from("pa_relato_acoes").insert(
-      acoes.map((a, i) => ({
-        revenda_id: revendaId,
-        relato_id: id,
-        ordem: i,
-        topico: a.topico,
-        o_que: a.oQue,
-        como: a.como || null,
-        quem: a.quem,
-        prazo: a.prazo,
-        status: a.status,
-        concluida_em: a.status === "concluida" ? new Date().toISOString().slice(0, 10) : null,
-      })),
+    const porques = Array.from({ length: PORQUES }, (_, i) =>
+      String(formData.get(`porque__${i}`) ?? "").trim(),
     );
-    if (erroInserir) erro(id, `Não foi possível gravar o plano: ${erroInserir.message}`);
-  }
 
-  revalidatePath(rota(id));
-  revalidatePath(PAINEL);
-  redirect(`${rota(id)}?sucesso=${encodeURIComponent("Relato salvo.")}`);
+    /*
+      OS PARTICIPANTES VÊM COMO CAMPOS REPETIDOS, um por pessoa (07/09/2026).
+
+      Eram um texto só, repartido por vírgula -- e vírgula é exatamente onde
+      "Silva, Neuilton" vira duas pessoas. O combobox manda um campo por
+      participante; o `split` fica como reserva para relato antigo, gravado
+      quando o campo ainda era texto.
+    */
+    const daLista = formData.getAll("participantes").map(String);
+    const participantes = (
+      daLista.length > 1 ? daLista : (daLista[0] ?? "").split(/[,;\n]/)
+    )
+      .map((p) => p.trim())
+      .filter(Boolean);
+
+    const area = String(formData.get("area") ?? "").trim() || null;
+    const sala = String(formData.get("sala") ?? "").trim() || null;
+    const icIv = String(formData.get("ic_iv") ?? "").trim() || null;
+
+    // O que foi digitado entra no catálogo para o próximo relato. Silencioso
+    // de propósito -- ver guardarNoCatalogo.
+    await guardarNoCatalogo(revendaId, [
+      { tipo: "area", nome: area },
+      { tipo: "sala", nome: sala },
+      { tipo: "ic_iv", nome: icIv },
+    ]);
+
+    const { error } = await admin
+      .from("pa_relatos_anomalia")
+      .update({
+        area,
+        sala,
+        natureza: natureza === "unica" || natureza === "repetitiva" ? natureza : null,
+        ic_iv: icIv,
+        sintoma: String(formData.get("sintoma") ?? "").trim() || null,
+        participantes,
+        porques,
+        padronizacao,
+        responsavel_nome: String(formData.get("responsavel_nome") ?? "").trim() || null,
+        gestor_nome: String(formData.get("gestor_nome") ?? "").trim() || null,
+        // O status anda sozinho conforme o preenchimento: quem está
+        // escrevendo não deveria também ter de escolher em que fase está.
+        status: statusPeloPreenchimento(porques, formData),
+        atualizado_em: new Date().toISOString(),
+      })
+      .eq("id", id)
+      .eq("revenda_id", revendaId)
+      // Relato já assinado não se reescreve: ele virou evidência. Reabrir é
+      // outra ação, e por enquanto não existe -- de propósito.
+      .is("assinado_em", null);
+
+    if (error) erro(id, `Não foi possível salvar: ${error.message}`);
+
+    /*
+      O PLANO É REESCRITO INTEIRO a cada salvamento.
+
+      Casar linha a linha exigiria um id estável por ação que o formulário
+      não tem, e "editar o plano" quase sempre é acrescentar ou trocar o
+      prazo de uma linha -- reescrever é o que a pessoa espera ao salvar o
+      formulário que está vendo. Mesmo desenho do AG do retorno da carreta.
+    */
+    const acoes = acoesDoFormulario(formData);
+    const { error: erroApagar } = await admin
+      .from("pa_relato_acoes")
+      .delete()
+      .eq("relato_id", id)
+      .eq("revenda_id", revendaId);
+    if (erroApagar) erro(id, `Não foi possível atualizar o plano: ${erroApagar.message}`);
+
+    if (acoes.length > 0) {
+      const { error: erroInserir } = await admin.from("pa_relato_acoes").insert(
+        acoes.map((a, i) => ({
+          revenda_id: revendaId,
+          relato_id: id,
+          ordem: i,
+          topico: a.topico,
+          o_que: a.oQue,
+          como: a.como || null,
+          quem: a.quem,
+          prazo: a.prazo,
+          status: a.status,
+          concluida_em: a.status === "concluida" ? new Date().toISOString().slice(0, 10) : null,
+        })),
+      );
+      if (erroInserir) erro(id, `Não foi possível gravar o plano: ${erroInserir.message}`);
+    }
+
+    revalidatePath(rota(id));
+    revalidatePath(PAINEL);
+    pararComSucesso("Relato salvo.");
+  });
 }
 
 /** O status sai do que já foi escrito -- ninguém escolhe a fase à mão. */
@@ -237,95 +239,93 @@ function statusPeloPreenchimento(porques: string[], formData: FormData) {
  * lista do que falta (ver pendenciasDoRelato), porque numa folha de
  * trinta campos "está incompleto" manda a pessoa caçar.
  */
-export async function assinarRelato(formData: FormData) {
-  await requireModulo("relato-anomalia", "editar", PAINEL);
-  const revendaId = await exigirRevenda(PAINEL);
-  const perfil = await getPerfil();
-  const admin = createAdminClient();
+export async function assinarRelato(formData: FormData): Promise<ResultadoAcao> {
+  return noLugar(async () => {
+    await requireModulo("relato-anomalia", "editar", PAINEL);
+    const revendaId = await exigirRevenda(PAINEL);
+    const perfil = await getPerfil();
+    const admin = createAdminClient();
 
-  const id = String(formData.get("id") ?? "");
-  const assinatura = String(formData.get("assinatura_gestor") ?? "").trim();
-  if (!assinatura) erro(id, "Escreva o nome de quem está assinando.");
+    const id = String(formData.get("id") ?? "");
+    const assinatura = String(formData.get("assinatura_gestor") ?? "").trim();
+    if (!assinatura) erro(id, "Escreva o nome de quem está assinando.");
 
-  const { data: relato } = await admin
-    .from("pa_relatos_anomalia")
-    .select("id, porques, padronizacao, assinado_em")
-    .eq("id", id)
-    .eq("revenda_id", revendaId)
-    .maybeSingle();
-  if (!relato) erro(id, "Relato não encontrado.");
-  if (relato.assinado_em) erro(id, "Este relato já foi assinado.");
+    const { data: relato } = await admin
+      .from("pa_relatos_anomalia")
+      .select("id, porques, padronizacao, assinado_em")
+      .eq("id", id)
+      .eq("revenda_id", revendaId)
+      .maybeSingle();
+    if (!relato) erro(id, "Relato não encontrado.");
+    if (relato.assinado_em) erro(id, "Este relato já foi assinado.");
 
-  const { data: acoes } = await admin
-    .from("pa_relato_acoes")
-    .select("topico, o_que, como, quem, prazo, status")
-    .eq("relato_id", id);
+    const { data: acoes } = await admin
+      .from("pa_relato_acoes")
+      .select("topico, o_que, como, quem, prazo, status")
+      .eq("relato_id", id);
 
-  const faltas = pendenciasDoRelato({
-    porques: (relato.porques ?? []) as string[],
-    padronizacao: (relato.padronizacao ?? {}) as Padronizacao,
-    acoes: ((acoes ?? []) as {
-      topico: TopicoAcao;
-      o_que: string;
-      como: string | null;
-      quem: string;
-      prazo: string | null;
-      status: StatusAcao;
-    }[]).map((a) => ({
-      topico: a.topico,
-      oQue: a.o_que,
-      como: a.como ?? "",
-      quem: a.quem,
-      prazo: a.prazo,
-      status: a.status,
-    })),
-    assinaturaGestor: assinatura,
+    const faltas = pendenciasDoRelato({
+      porques: (relato.porques ?? []) as string[],
+      padronizacao: (relato.padronizacao ?? {}) as Padronizacao,
+      acoes: ((acoes ?? []) as {
+        topico: TopicoAcao;
+        o_que: string;
+        como: string | null;
+        quem: string;
+        prazo: string | null;
+        status: StatusAcao;
+      }[]).map((a) => ({
+        topico: a.topico,
+        oQue: a.o_que,
+        como: a.como ?? "",
+        quem: a.quem,
+        prazo: a.prazo,
+        status: a.status,
+      })),
+      assinaturaGestor: assinatura,
+    });
+
+    if (faltas.length > 0) {
+      erro(id, `Ainda falta: ${faltas.join(" · ")}`);
+    }
+
+    /*
+      A ASSINATURA PASSA A TER DONO -- pergunta do dono (07/09/2026): "a
+      assinatura do gestor, ela é auditável? ou só replica o nome dele?".
+
+      Era só pela metade. O horário e o id de quem estava logado já eram
+      gravados, mas o id ia para `criado_por` -- a MESMA coluna que diz quem
+      abriu o relato. Duas informações diferentes na mesma coluna não
+      respondem nenhuma das duas, e quem abriu virava quem assinou.
+
+      Agora `assinado_por` guarda o id e `assinado_por_nome` guarda o nome do
+      CADASTRO de quem estava logado. `assinatura_gestor` continua sendo o
+      nome que sai no papel -- e a tela mostra os dois quando divergem, que é
+      a única forma de o auditor ver que alguém assinou pelo gestor.
+
+      `criado_por` não é mais tocado aqui: ele volta a significar só o que o
+      nome dele diz.
+    */
+    const agora = new Date();
+    const { error } = await admin
+      .from("pa_relatos_anomalia")
+      .update({
+        assinatura_gestor: assinatura,
+        assinado_por: perfil?.id ?? null,
+        assinado_por_nome: perfil?.nome ?? null,
+        assinado_em: agora.toISOString(),
+        finalizado_em: agora.toLocaleDateString("sv-SE", { timeZone: "America/Sao_Paulo" }),
+        status: "concluido",
+        atualizado_em: agora.toISOString(),
+      })
+      .eq("id", id)
+      .eq("revenda_id", revendaId);
+    if (error) erro(id, `Não foi possível assinar: ${error.message}`);
+
+    revalidatePath(rota(id));
+    revalidatePath(PAINEL);
+    pararComSucesso("Relato assinado. Falta verificar a eficácia quando o indicador voltar para dentro do limite.");
   });
-
-  if (faltas.length > 0) {
-    erro(id, `Ainda falta: ${faltas.join(" · ")}`);
-  }
-
-  /*
-    A ASSINATURA PASSA A TER DONO -- pergunta do dono (07/09/2026): "a
-    assinatura do gestor, ela é auditável? ou só replica o nome dele?".
-
-    Era só pela metade. O horário e o id de quem estava logado já eram
-    gravados, mas o id ia para `criado_por` -- a MESMA coluna que diz quem
-    abriu o relato. Duas informações diferentes na mesma coluna não
-    respondem nenhuma das duas, e quem abriu virava quem assinou.
-
-    Agora `assinado_por` guarda o id e `assinado_por_nome` guarda o nome do
-    CADASTRO de quem estava logado. `assinatura_gestor` continua sendo o
-    nome que sai no papel -- e a tela mostra os dois quando divergem, que é
-    a única forma de o auditor ver que alguém assinou pelo gestor.
-
-    `criado_por` não é mais tocado aqui: ele volta a significar só o que o
-    nome dele diz.
-  */
-  const agora = new Date();
-  const { error } = await admin
-    .from("pa_relatos_anomalia")
-    .update({
-      assinatura_gestor: assinatura,
-      assinado_por: perfil?.id ?? null,
-      assinado_por_nome: perfil?.nome ?? null,
-      assinado_em: agora.toISOString(),
-      finalizado_em: agora.toLocaleDateString("sv-SE", { timeZone: "America/Sao_Paulo" }),
-      status: "concluido",
-      atualizado_em: agora.toISOString(),
-    })
-    .eq("id", id)
-    .eq("revenda_id", revendaId);
-  if (error) erro(id, `Não foi possível assinar: ${error.message}`);
-
-  revalidatePath(rota(id));
-  revalidatePath(PAINEL);
-  redirect(
-    `${rota(id)}?sucesso=${encodeURIComponent(
-      "Relato assinado. Falta verificar a eficácia quando o indicador voltar para dentro do limite.",
-    )}`,
-  );
 }
 
 /**
@@ -335,33 +335,35 @@ export async function assinarRelato(formData: FormData) {
  * Fica separada da assinatura porque acontece DEPOIS, e por definição:
  * é preciso o indicador voltar para dentro do limite e ficar.
  */
-export async function verificarEficacia(formData: FormData) {
-  await requireModulo("relato-anomalia", "editar", PAINEL);
-  const revendaId = await exigirRevenda(PAINEL);
-  const admin = createAdminClient();
+export async function verificarEficacia(formData: FormData): Promise<ResultadoAcao> {
+  return noLugar(async () => {
+    await requireModulo("relato-anomalia", "editar", PAINEL);
+    const revendaId = await exigirRevenda(PAINEL);
+    const admin = createAdminClient();
 
-  const id = String(formData.get("id") ?? "");
-  const observacao = String(formData.get("eficacia_observacao") ?? "").trim();
-  if (!observacao) {
-    erro(id, "Escreva o que mostra que a ação funcionou — é isso que o auditor lê.");
-  }
+    const id = String(formData.get("id") ?? "");
+    const observacao = String(formData.get("eficacia_observacao") ?? "").trim();
+    if (!observacao) {
+      erro(id, "Escreva o que mostra que a ação funcionou — é isso que o auditor lê.");
+    }
 
-  const { error } = await admin
-    .from("pa_relatos_anomalia")
-    .update({
-      eficacia_verificada_em: new Date().toISOString(),
-      eficacia_observacao: observacao,
-      status: "eficacia_verificada",
-      atualizado_em: new Date().toISOString(),
-    })
-    .eq("id", id)
-    .eq("revenda_id", revendaId)
-    .not("assinado_em", "is", null);
-  if (error) erro(id, `Não foi possível registrar: ${error.message}`);
+    const { error } = await admin
+      .from("pa_relatos_anomalia")
+      .update({
+        eficacia_verificada_em: new Date().toISOString(),
+        eficacia_observacao: observacao,
+        status: "eficacia_verificada",
+        atualizado_em: new Date().toISOString(),
+      })
+      .eq("id", id)
+      .eq("revenda_id", revendaId)
+      .not("assinado_em", "is", null);
+    if (error) erro(id, `Não foi possível registrar: ${error.message}`);
 
-  revalidatePath(rota(id));
-  revalidatePath(PAINEL);
-  redirect(`${rota(id)}?sucesso=${encodeURIComponent("Eficácia verificada. Ciclo fechado.")}`);
+    revalidatePath(rota(id));
+    revalidatePath(PAINEL);
+    pararComSucesso("Eficácia verificada. Ciclo fechado.");
+  });
 }
 
 /**
@@ -388,26 +390,24 @@ export async function verificarEficacia(formData: FormData) {
  * órfã de um relato apagado apareceria no painel para sempre, sem nenhum
  * lugar para onde clicar.
  */
-export async function excluirRelato(formData: FormData) {
-  await requireModulo("relato-anomalia", "excluir", PAINEL);
-  const revendaId = await exigirRevenda(PAINEL);
-  const admin = createAdminClient();
+export async function excluirRelato(formData: FormData): Promise<ResultadoAcao> {
+  return noLugar(async () => {
+    await requireModulo("relato-anomalia", "excluir", PAINEL);
+    const revendaId = await exigirRevenda(PAINEL);
+    const admin = createAdminClient();
 
-  const id = String(formData.get("id") ?? "");
-  if (!id) erro(id, "Relato inválido.");
+    const id = String(formData.get("id") ?? "");
+    if (!id) erro(id, "Relato inválido.");
 
-  const { error } = await admin
-    .from("pa_relatos_anomalia")
-    .delete()
-    .eq("id", id)
-    .eq("revenda_id", revendaId);
-  if (error) erro(id, `Não foi possível excluir: ${error.message}`);
+    const { error } = await admin
+      .from("pa_relatos_anomalia")
+      .delete()
+      .eq("id", id)
+      .eq("revenda_id", revendaId);
+    if (error) erro(id, `Não foi possível excluir: ${error.message}`);
 
-  revalidatePath(PAINEL);
-  // Volta para o painel: a tela que a pessoa estava vendo não existe mais.
-  redirect(
-    `${PAINEL}?sucesso=${encodeURIComponent(
-      `Relato ${id.slice(0, 8).toUpperCase()} excluído. Não dá para desfazer.`,
-    )}`,
-  );
+    revalidatePath(PAINEL);
+    // Volta para o painel: a tela que a pessoa estava vendo não existe mais.
+    pararComSucesso(`Relato ${id.slice(0, 8).toUpperCase()} excluído. Não dá para desfazer.`, PAINEL);
+  });
 }

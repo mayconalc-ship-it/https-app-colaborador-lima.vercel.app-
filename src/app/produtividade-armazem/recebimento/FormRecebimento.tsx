@@ -11,6 +11,7 @@ import {
 } from "@/app/produtividade-armazem/catalogos-rapidos";
 import { registrarRecebimento } from "./actions";
 import { ComboboxProduto } from "@/components/produtividade-armazem/ComboboxProduto";
+import { FormNoLugar } from "@/components/FormNoLugar";
 
 const campo =
   "w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-base text-slate-900 focus:border-primary focus:outline-none";
@@ -34,7 +35,7 @@ export function FormRecebimento({
   const [itens, setItens] = useState<string[]>([novaChave()]);
 
   return (
-    <form action={registrarRecebimento} className="space-y-4">
+    <FormNoLugar acao={registrarRecebimento} className="space-y-4" limparAoSalvar aoSalvar={() => setItens([novaChave()])}>
       <div className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4">
         <div className="grid grid-cols-2 gap-3">
           <div>
@@ -159,6 +160,6 @@ export function FormRecebimento({
       >
         Registrar recebimento
       </BotaoEnviar>
-    </form>
+    </FormNoLugar>
   );
 }

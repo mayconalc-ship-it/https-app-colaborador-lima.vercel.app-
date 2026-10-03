@@ -1,7 +1,8 @@
 "use client";
 
 import { BotaoEnviar } from "@/components/BotaoEnviar";
-import { useConfirmarEnvio } from "@/components/Confirmacao";
+import { FormNoLugar } from "@/components/FormNoLugar";
+import type { ResultadoAcao } from "@/lib/resultado-acao";
 
 /**
  * O BOTÃO QUE MOVE A CARRETA DE ETAPA.
@@ -47,7 +48,7 @@ export function BotaoDeEtapa({
   tom,
   children,
 }: {
-  action: (formData: FormData) => void | Promise<void>;
+  action: (formData: FormData) => void | Promise<void | ResultadoAcao>;
   /** Os campos escondidos do formulário (atendimento_id, normalmente). */
   campos: Record<string, string>;
   /** A pergunta, curta, no topo da caixa. */
@@ -60,12 +61,11 @@ export function BotaoDeEtapa({
   tom: TomDaEtapa;
   children: React.ReactNode;
 }) {
-  const aoEnviar = useConfirmarEnvio();
-
+  // FormNoLugar (03/10/2026): a etapa avança sem a tela voltar ao topo.
   return (
-    <form
-      action={action}
-      onSubmit={aoEnviar({
+    <FormNoLugar
+      acao={async (fd) => (await action(fd)) ?? undefined}
+      confirmacao={{
         titulo,
         detalhe,
         confirmar,
@@ -73,7 +73,7 @@ export function BotaoDeEtapa({
         // vermelho. Vermelho aqui assustaria à toa e sugeriria perda de
         // dado, que não é o caso: a etapa avança, não apaga.
         perigo: false,
-      })}
+      }}
     >
       {Object.entries(campos).map(([nome, valor]) => (
         <input key={nome} type="hidden" name={nome} value={valor} />
@@ -84,6 +84,6 @@ export function BotaoDeEtapa({
       >
         {children}
       </BotaoEnviar>
-    </form>
+    </FormNoLugar>
   );
 }

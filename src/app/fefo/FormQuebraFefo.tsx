@@ -15,12 +15,14 @@ import {
 } from "@/lib/fefo";
 import { buscarProdutosFefo, registrarQuebraFefo } from "./actions";
 import { CampoFoto } from "@/components/CampoFoto";
+import { FormNoLugar } from "@/components/FormNoLugar";
 
 const campo =
   "w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-base text-slate-900 focus:border-primary focus:outline-none";
 const rotulo = "mb-1 block text-xs font-semibold uppercase text-slate-500";
 
-export function FormQuebraFefo({
+function FormQuebraFefoConteudo({
+  aoSalvarForm,
   clusters,
   tipos,
   motivos,
@@ -32,6 +34,7 @@ export function FormQuebraFefo({
   motivos: MotivoFefo[];
   depositos: DepositoFefo[];
   ruas: RuaFefo[];
+  aoSalvarForm: () => void;
 }) {
   const [motivoId, setMotivoId] = useState(motivos[0]?.id ?? "");
   const [validade, setValidade] = useState("");
@@ -57,7 +60,7 @@ export function FormQuebraFefo({
   const datasInvertidas = Boolean(validade && menorValidade && menorValidade > validade);
 
   return (
-    <form action={registrarQuebraFefo} className="space-y-4">
+    <FormNoLugar acao={registrarQuebraFefo} aoSalvar={aoSalvarForm} className="space-y-4" limparAoSalvar>
       <div className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
         <div>
           <span className={rotulo}>O que você encontrou?</span>
@@ -291,6 +294,16 @@ export function FormQuebraFefo({
       >
         🚨 Informar quebra de FEFO
       </BotaoEnviar>
-    </form>
+    </FormNoLugar>
   );
+}
+
+/**
+ * Depois de salvar, o formulário REMONTA (03/10/2026): campos, linhas
+ * extras e escolhas voltam ao começo -- é o que o recarregamento da tela
+ * fazia antes, quando salvar navegava para o topo.
+ */
+export function FormQuebraFefo(props: Omit<Parameters<typeof FormQuebraFefoConteudo>[0], "aoSalvarForm">) {
+  const [versao, setVersao] = useState(0);
+  return <FormQuebraFefoConteudo key={versao} {...props} aoSalvarForm={() => setVersao((v) => v + 1)} />;
 }

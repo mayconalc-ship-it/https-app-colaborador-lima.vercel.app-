@@ -41,6 +41,7 @@ import {
   salvarRelato,
   verificarEficacia,
 } from "./actions";
+import { FormNoLugar } from "@/components/FormNoLugar";
 
 /** A regra em português -- "pico" e "deriva" são do motor, não do papel. */
 const ROTULO_DA_REGRA: Record<string, string> = {
@@ -258,7 +259,7 @@ export default async function RelatoDeAnomaliaPage({
         </p>
       )}
 
-      <form action={salvarRelato} className="space-y-4">
+      <FormNoLugar acao={salvarRelato} className="space-y-4">
         <input type="hidden" name="id" value={r.id} />
 
         {/* ---------------- CABEÇALHO ---------------- */}
@@ -717,7 +718,7 @@ export default async function RelatoDeAnomaliaPage({
             </p>
           </div>
         )}
-      </form>
+      </FormNoLugar>
 
       {/* ---------------- FECHAMENTO ---------------- */}
       {!assinado && (
@@ -737,7 +738,7 @@ export default async function RelatoDeAnomaliaPage({
               </ul>
             </>
           ) : (
-            <form action={assinarRelato} className="mt-2 flex flex-wrap items-end gap-2">
+            <FormNoLugar acao={assinarRelato} className="mt-2 flex flex-wrap items-end gap-2">
               <input type="hidden" name="id" value={r.id} />
               <div className="min-w-[12rem] flex-1">
                 <label className={rotulo}>Nome de quem assina</label>
@@ -754,7 +755,7 @@ export default async function RelatoDeAnomaliaPage({
               >
                 Assinar
               </BotaoEnviar>
-            </form>
+            </FormNoLugar>
           )}
         </section>
       )}
@@ -775,7 +776,7 @@ export default async function RelatoDeAnomaliaPage({
               </p>
             </>
           ) : (
-            <form action={verificarEficacia} className="mt-2 space-y-2">
+            <FormNoLugar acao={verificarEficacia} className="mt-2 space-y-2">
               <input type="hidden" name="id" value={r.id} />
               <p className="so-na-tela text-xs text-slate-500">
                 O auditor não pergunta se você assinou — pergunta se funcionou. Escreva o que mostra
@@ -794,7 +795,7 @@ export default async function RelatoDeAnomaliaPage({
               >
                 Registrar eficácia e fechar o ciclo
               </BotaoEnviar>
-            </form>
+            </FormNoLugar>
           )}
         </section>
       )}

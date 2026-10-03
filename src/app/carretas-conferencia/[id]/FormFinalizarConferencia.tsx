@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
-import { useConfirmarEnvio } from "@/components/Confirmacao";
+import { FormNoLugar } from "@/components/FormNoLugar";
 import { BotaoAdicionarLinha } from "@/components/BotaoMais";
 import { ComboboxProdutoReepack } from "@/components/produtividade-armazem/ComboboxProdutoReepack";
 import { ComboboxNome } from "@/components/produtividade-armazem/ComboboxNome";
@@ -195,18 +195,17 @@ export function FormFinalizarConferencia({
     conferência é o número que vai para o indicador de avaria, e corrigir
     exige a liderança.
   */
-  const aoEnviar = useConfirmarEnvio();
 
   return (
-    <form
-      action={finalizarConferencia}
+    <FormNoLugar
+      acao={finalizarConferencia}
       className="space-y-4"
-      onSubmit={aoEnviar({
+      confirmacao={{
         titulo: "Finalizar a conferência?",
         detalhe: `Vão ser gravados ${itens.length} ${itens.length === 1 ? "item" : "itens"}. A conferência fecha aqui e alimenta o indicador de avaria — para mudar depois, só com a liderança.`,
         confirmar: "Sim, finalizar",
         perigo: false,
-      })}
+      }}
     >
       <input type="hidden" name="atendimento_id" value={atendimentoId} />
 
@@ -313,6 +312,6 @@ export function FormFinalizarConferencia({
       >
         ✅ Finalizar conferência
       </BotaoEnviar>
-    </form>
+    </FormNoLugar>
   );
 }

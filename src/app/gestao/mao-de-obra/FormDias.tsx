@@ -16,6 +16,7 @@ import {
   type DiaDoVolume,
 } from "@/lib/mao-de-obra";
 import { salvarDias } from "./actions";
+import { FormNoLugar } from "@/components/FormNoLugar";
 
 /**
  * O VOLUME DIA A DIA (V.4 e V.5 do DPO: simulador monitorado diariamente,
@@ -139,7 +140,7 @@ export function FormDias({
   } as const;
 
   return (
-    <form action={salvarDias} className="space-y-3">
+    <FormNoLugar acao={salvarDias} className="space-y-3">
       <input type="hidden" name="competencia" value={competencia} />
 
       {/* A META DO DIA VEM DO MÊS: se a soma não bate com o negociado, é
@@ -378,7 +379,7 @@ export function FormDias({
           : "O sábado entrega o volume cadastrado para sábado; o resto se divide pelos dias úteis marcados."}{" "}
         Dia em branco não entra no acumulado, e dia desmarcado não recebe meta.
       </p>
-    </form>
+    </FormNoLugar>
   );
 }
 

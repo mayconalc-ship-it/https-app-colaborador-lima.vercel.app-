@@ -11,11 +11,12 @@ import { exigirContextoModulo } from "@/lib/produtividade-armazem-server";
 import { ehTurno, inteiroNaoNegativo } from "@/lib/produtividade-armazem";
 import { duracaoCurtaSemConfirmar, mensagemDuracaoCurta } from "@/lib/duracao-lancamento";
 import { avisarSeBombonaEncheu } from "@/lib/bombona-server";
+import { noLugar, pararComErro, pararComSucesso, type ResultadoAcao } from "@/lib/resultado-acao";
 
 const ROTA = "/produtividade-armazem/despejo";
 
 function erro(mensagem: string): never {
-  redirect(`${ROTA}?erro=${encodeURIComponent(mensagem)}`);
+  pararComErro(mensagem);
 }
 
 const exigirContexto = () => exigirContextoModulo("pa-despejo", ROTA);
@@ -31,44 +32,46 @@ const exigirContexto = () => exigirContextoModulo("pa-despejo", ROTA);
  * A embalagem vem do catálogo PRÓPRIO do despejo (pa_embalagens_despejo,
  * migration 064) -- não mais o mesmo catálogo do Repack.
  */
-export async function iniciarDespejo(formData: FormData) {
-  const { perfil, revendaId } = await exigirContexto();
+export async function iniciarDespejo(formData: FormData): Promise<ResultadoAcao> {
+  return noLugar(async () => {
+    const { perfil, revendaId } = await exigirContexto();
 
-  const embalagemId = String(formData.get("embalagem_id") ?? "");
-  const turno = formData.get("turno");
-  if (!embalagemId) erro("Escolha a embalagem.");
-  if (!ehTurno(turno)) erro("Escolha o turno.");
+    const embalagemId = String(formData.get("embalagem_id") ?? "");
+    const turno = formData.get("turno");
+    if (!embalagemId) erro("Escolha a embalagem.");
+    if (!ehTurno(turno)) erro("Escolha o turno.");
 
-  const supabase = await createClient();
+    const supabase = await createClient();
 
-  const { data: embalagem } = await supabase
-    .from("pa_embalagens_despejo")
-    .select("id, litros_por_unidade")
-    .eq("id", embalagemId)
-    .eq("revenda_id", revendaId)
-    .eq("ativo", true)
-    .maybeSingle();
+    const { data: embalagem } = await supabase
+      .from("pa_embalagens_despejo")
+      .select("id, litros_por_unidade")
+      .eq("id", embalagemId)
+      .eq("revenda_id", revendaId)
+      .eq("ativo", true)
+      .maybeSingle();
 
-  if (!embalagem || embalagem.litros_por_unidade === null) {
-    erro("Esta embalagem ainda não está pronta para despejo -- peça ao Admin para cadastrar o litro por unidade em Configuração.");
-  }
+    if (!embalagem || embalagem.litros_por_unidade === null) {
+      erro("Esta embalagem ainda não está pronta para despejo -- peça ao Admin para cadastrar o litro por unidade em Configuração.");
+    }
 
-  const { error } = await supabase.from("pa_despejo_lancamentos").insert({
-    revenda_id: revendaId,
-    embalagem_despejo_id: embalagem.id,
-    colaborador_id: perfil.id,
-    colaborador_nome: perfil.nome,
-    turno,
-    inicio: new Date().toISOString(),
+    const { error } = await supabase.from("pa_despejo_lancamentos").insert({
+      revenda_id: revendaId,
+      embalagem_despejo_id: embalagem.id,
+      colaborador_id: perfil.id,
+      colaborador_nome: perfil.nome,
+      turno,
+      inicio: new Date().toISOString(),
+    });
+
+    if (error) {
+      if (error.code === "23505") erro("Você já tem um despejo em andamento. Finalize antes de iniciar outro.");
+      erro(`Não foi possível iniciar: ${error.message}`);
+    }
+
+    revalidatePath(ROTA);
+    pararComSucesso("Despejo iniciado");
   });
-
-  if (error) {
-    if (error.code === "23505") erro("Você já tem um despejo em andamento. Finalize antes de iniciar outro.");
-    erro(`Não foi possível iniciar: ${error.message}`);
-  }
-
-  revalidatePath(ROTA);
-  redirect(`${ROTA}?sucesso=Despejo+iniciado`);
 }
 
 /**
@@ -78,65 +81,67 @@ export async function iniciarDespejo(formData: FormData) {
  * `quantidade_pacotes` de sempre -- o nome da coluna ficou, só o que ele
  * representa mudou (unidade, não mais caixa/pacote, desde a 064).
  */
-export async function finalizarDespejo(formData: FormData) {
-  const { perfil, revendaId } = await exigirContexto();
+export async function finalizarDespejo(formData: FormData): Promise<ResultadoAcao> {
+  return noLugar(async () => {
+    const { perfil, revendaId } = await exigirContexto();
 
-  const id = String(formData.get("id") ?? "");
-  if (!id) erro("Lançamento inválido.");
+    const id = String(formData.get("id") ?? "");
+    if (!id) erro("Lançamento inválido.");
 
-  let quantidade: number;
-  try {
-    quantidade = inteiroNaoNegativo(formData.get("quantidade_pacotes"));
-  } catch (e) {
-    erro(e instanceof Error ? e.message : "Valor inválido.");
-  }
-  if (quantidade === 0) erro("Informe quantas unidades foram despejadas.");
+    let quantidade: number;
+    try {
+      quantidade = inteiroNaoNegativo(formData.get("quantidade_pacotes"));
+    } catch (e) {
+      erro(e instanceof Error ? e.message : "Valor inválido.");
+    }
+    if (quantidade === 0) erro("Informe quantas unidades foram despejadas.");
 
-  const observacao = String(formData.get("observacao") ?? "").trim().slice(0, 300) || null;
+    const observacao = String(formData.get("observacao") ?? "").trim().slice(0, 300) || null;
 
-  const supabase = await createClient();
+    const supabase = await createClient();
 
-  const { data: aberto } = await supabase
-    .from("pa_despejo_lancamentos")
-    .select("id, embalagem_despejo_id, inicio")
-    .eq("id", id)
-    .eq("revenda_id", revendaId)
-    .eq("colaborador_id", perfil.id)
-    .is("fim", null)
-    .maybeSingle();
+    const { data: aberto } = await supabase
+      .from("pa_despejo_lancamentos")
+      .select("id, embalagem_despejo_id, inicio")
+      .eq("id", id)
+      .eq("revenda_id", revendaId)
+      .eq("colaborador_id", perfil.id)
+      .is("fim", null)
+      .maybeSingle();
 
-  if (!aberto) erro("Este lançamento já foi finalizado ou não é seu.");
+    if (!aberto) erro("Este lançamento já foi finalizado ou não é seu.");
 
-  // Menos de 1 minuto entre Iniciar e Finalizar só passa confirmado -- a
-  // tela pergunta, aqui é a trava. Ver lib/duracao-lancamento.ts.
-  const curto = duracaoCurtaSemConfirmar(aberto.inicio, formData);
-  if (curto !== null) erro(mensagemDuracaoCurta(curto));
+    // Menos de 1 minuto entre Iniciar e Finalizar só passa confirmado -- a
+    // tela pergunta, aqui é a trava. Ver lib/duracao-lancamento.ts.
+    const curto = duracaoCurtaSemConfirmar(aberto.inicio, formData);
+    if (curto !== null) erro(mensagemDuracaoCurta(curto));
 
-  const { data: embalagem } = await supabase
-    .from("pa_embalagens_despejo")
-    .select("litros_por_unidade")
-    .eq("id", aberto.embalagem_despejo_id)
-    .maybeSingle();
+    const { data: embalagem } = await supabase
+      .from("pa_embalagens_despejo")
+      .select("litros_por_unidade")
+      .eq("id", aberto.embalagem_despejo_id)
+      .maybeSingle();
 
-  if (!embalagem?.litros_por_unidade) {
-    erro("Esta embalagem não tem o litro por unidade cadastrado. Peça ao Admin para conferir em Configuração.");
-  }
+    if (!embalagem?.litros_por_unidade) {
+      erro("Esta embalagem não tem o litro por unidade cadastrado. Peça ao Admin para conferir em Configuração.");
+    }
 
-  const litros = Math.round(quantidade * embalagem.litros_por_unidade * 100) / 100;
+    const litros = Math.round(quantidade * embalagem.litros_por_unidade * 100) / 100;
 
-  const { error } = await supabase
-    .from("pa_despejo_lancamentos")
-    .update({ fim: new Date().toISOString(), quantidade_pacotes: quantidade, litros, observacao })
-    .eq("id", id);
+    const { error } = await supabase
+      .from("pa_despejo_lancamentos")
+      .update({ fim: new Date().toISOString(), quantidade_pacotes: quantidade, litros, observacao })
+      .eq("id", id);
 
-  if (error) erro(`Não foi possível finalizar: ${error.message}`);
+    if (error) erro(`Não foi possível finalizar: ${error.message}`);
 
-  // Este despejo pode ter levado a bombona a 90% ou 100% -- avisa a
-  // liderança. Nunca lança erro. Ver lib/bombona-server.ts.
-  await avisarSeBombonaEncheu(revendaId);
+    // Este despejo pode ter levado a bombona a 90% ou 100% -- avisa a
+    // liderança. Nunca lança erro. Ver lib/bombona-server.ts.
+    await avisarSeBombonaEncheu(revendaId);
 
-  revalidatePath(ROTA);
-  redirect(`${ROTA}?sucesso=Despejo+finalizado`);
+    revalidatePath(ROTA);
+    pararComSucesso("Despejo finalizado");
+  });
 }
 
 /**
@@ -149,97 +154,103 @@ export async function finalizarDespejo(formData: FormData) {
  * quantidade JÁ gravada x o litro-por-unidade da embalagem nova (mesma
  * regra do lançamento original).
  */
-export async function editarDespejo(formData: FormData) {
-  const { perfil, revendaId } = await exigirContexto();
+export async function editarDespejo(formData: FormData): Promise<ResultadoAcao> {
+  return noLugar(async () => {
+    const { perfil, revendaId } = await exigirContexto();
 
-  const id = String(formData.get("id") ?? "");
-  const embalagemId = String(formData.get("embalagem_id") ?? "");
-  if (!id) erro("Lançamento inválido.");
-  if (!embalagemId) erro("Escolha a embalagem certa.");
+    const id = String(formData.get("id") ?? "");
+    const embalagemId = String(formData.get("embalagem_id") ?? "");
+    if (!id) erro("Lançamento inválido.");
+    if (!embalagemId) erro("Escolha a embalagem certa.");
 
-  const supabase = await createClient();
+    const supabase = await createClient();
 
-  const { data: lancamento } = await supabase
-    .from("pa_despejo_lancamentos")
-    .select("id, quantidade_pacotes")
-    .eq("id", id)
-    .eq("revenda_id", revendaId)
-    .eq("colaborador_id", perfil.id)
-    .not("fim", "is", null)
-    .maybeSingle();
+    const { data: lancamento } = await supabase
+      .from("pa_despejo_lancamentos")
+      .select("id, quantidade_pacotes")
+      .eq("id", id)
+      .eq("revenda_id", revendaId)
+      .eq("colaborador_id", perfil.id)
+      .not("fim", "is", null)
+      .maybeSingle();
 
-  if (!lancamento) erro("Lançamento não encontrado ou não é seu.");
-  if (!lancamento.quantidade_pacotes) erro("Este lançamento não tem quantidade gravada.");
+    if (!lancamento) erro("Lançamento não encontrado ou não é seu.");
+    if (!lancamento.quantidade_pacotes) erro("Este lançamento não tem quantidade gravada.");
 
-  const { data: embalagem } = await supabase
-    .from("pa_embalagens_despejo")
-    .select("id, litros_por_unidade")
-    .eq("id", embalagemId)
-    .eq("revenda_id", revendaId)
-    .eq("ativo", true)
-    .maybeSingle();
+    const { data: embalagem } = await supabase
+      .from("pa_embalagens_despejo")
+      .select("id, litros_por_unidade")
+      .eq("id", embalagemId)
+      .eq("revenda_id", revendaId)
+      .eq("ativo", true)
+      .maybeSingle();
 
-  if (!embalagem || embalagem.litros_por_unidade === null) {
-    erro("Esta embalagem ainda não está pronta para despejo -- peça ao Admin para cadastrar o litro por unidade em Configuração.");
-  }
+    if (!embalagem || embalagem.litros_por_unidade === null) {
+      erro("Esta embalagem ainda não está pronta para despejo -- peça ao Admin para cadastrar o litro por unidade em Configuração.");
+    }
 
-  const litros = Math.round(lancamento.quantidade_pacotes * embalagem.litros_por_unidade * 100) / 100;
+    const litros = Math.round(lancamento.quantidade_pacotes * embalagem.litros_por_unidade * 100) / 100;
 
-  const { error } = await supabase
-    .from("pa_despejo_lancamentos")
-    .update({ embalagem_despejo_id: embalagem.id, litros })
-    .eq("id", id);
+    const { error } = await supabase
+      .from("pa_despejo_lancamentos")
+      .update({ embalagem_despejo_id: embalagem.id, litros })
+      .eq("id", id);
 
-  if (error) erro(`Não foi possível editar: ${error.message}`);
+    if (error) erro(`Não foi possível editar: ${error.message}`);
 
-  revalidatePath(ROTA);
-  redirect(`${ROTA}?aba=historico&sucesso=Lançamento+atualizado`);
+    revalidatePath(ROTA);
+    pararComSucesso("Lançamento atualizado");
+  });
 }
 
 /** Desiste de um despejo iniciado por engano. */
-export async function cancelarDespejo(formData: FormData) {
-  const { perfil, revendaId } = await exigirContexto();
-  const id = String(formData.get("id") ?? "");
-  if (!id) erro("Lançamento inválido.");
+export async function cancelarDespejo(formData: FormData): Promise<ResultadoAcao> {
+  return noLugar(async () => {
+    const { perfil, revendaId } = await exigirContexto();
+    const id = String(formData.get("id") ?? "");
+    if (!id) erro("Lançamento inválido.");
 
-  const supabase = await createClient();
-  await supabase
-    .from("pa_despejo_lancamentos")
-    .delete()
-    .eq("id", id)
-    .eq("revenda_id", revendaId)
-    .eq("colaborador_id", perfil.id)
-    .is("fim", null);
-
-  revalidatePath(ROTA);
-  redirect(`${ROTA}?sucesso=Despejo+cancelado`);
-}
-
-export async function excluirDespejo(formData: FormData) {
-  const perfil = await getPerfil();
-  if (!perfil) redirect("/login");
-
-  const id = String(formData.get("id") ?? "");
-  if (!id) erro("Lançamento inválido.");
-
-  const revendaId = await getRevendaId();
-  if (!revendaId) erro("Você não está em nenhuma revenda.");
-
-  const gestor = await podeNoModulo("produtividade-armazem", "excluir");
-  if (gestor) {
-    const admin = createAdminClient();
-    await admin.from("pa_despejo_lancamentos").delete().eq("id", id).eq("revenda_id", revendaId);
-  } else {
     const supabase = await createClient();
-    const { error } = await supabase
+    await supabase
       .from("pa_despejo_lancamentos")
       .delete()
       .eq("id", id)
       .eq("revenda_id", revendaId)
-      .eq("colaborador_id", perfil.id);
-    if (error) erro("Você só pode excluir os próprios lançamentos.");
-  }
+      .eq("colaborador_id", perfil.id)
+      .is("fim", null);
 
-  revalidatePath(ROTA);
-  redirect(`${ROTA}?aba=historico&sucesso=Lançamento+excluído`);
+    revalidatePath(ROTA);
+    pararComSucesso("Despejo cancelado");
+  });
+}
+
+export async function excluirDespejo(formData: FormData): Promise<ResultadoAcao> {
+  return noLugar(async () => {
+    const perfil = await getPerfil();
+    if (!perfil) redirect("/login");
+
+    const id = String(formData.get("id") ?? "");
+    if (!id) erro("Lançamento inválido.");
+
+    const revendaId = await getRevendaId();
+    if (!revendaId) erro("Você não está em nenhuma revenda.");
+
+    const gestor = await podeNoModulo("produtividade-armazem", "excluir");
+    if (gestor) {
+      const admin = createAdminClient();
+      await admin.from("pa_despejo_lancamentos").delete().eq("id", id).eq("revenda_id", revendaId);
+    } else {
+      const supabase = await createClient();
+      const { error } = await supabase
+        .from("pa_despejo_lancamentos")
+        .delete()
+        .eq("id", id)
+        .eq("revenda_id", revendaId)
+        .eq("colaborador_id", perfil.id);
+      if (error) erro("Você só pode excluir os próprios lançamentos.");
+    }
+
+    revalidatePath(ROTA);
+    pararComSucesso("Lançamento excluído");
+  });
 }
