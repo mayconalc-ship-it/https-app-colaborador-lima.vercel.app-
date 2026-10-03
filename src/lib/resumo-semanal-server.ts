@@ -342,7 +342,7 @@ export async function enviarResumosSemanais(agora: Date = new Date()): Promise<n
         recontagensAbertas: resumo.ativoGiro?.recontagensAbertas ?? null,
       }),
     ].filter(Boolean);
-    const titulo = `🗓️ Resumo da semana ${rotuloDaSemana(semana)}${onde ? ` — ${onde}` : ""}`;
+    const titulo = `📬 Resumo da semana ${rotuloDaSemana(semana)}${onde ? ` — ${onde}` : ""}`;
     const mensagem = partes.length > 0 ? `${partes.join(" · ")}.` : "Ranking, metas e pendências da semana. Nada pendente.";
     const url = `/gestao/resumo-semanal?semana=${semana.inicio}`;
 

@@ -191,7 +191,7 @@ export async function concluirBlitz(formData: FormData) {
   if (error) erro(atendimentoId, `Não foi possível concluir: ${error.message}`);
 
   const alvo = blitz.gatilho_nome ?? blitz.transportadora_nome ?? "a carreta";
-  const titulo = nok > 0 ? `🚨 Blitz com ${nok} não conformidade(s)` : "✅ Blitz sem não conformidade";
+  const titulo = nok > 0 ? `🔦 Blitz com ${nok} não conformidade(s)` : "✅ Blitz sem não conformidade";
   const mensagem =
     nok > 0
       ? `${alvo}: o conferente registrou ${nok} item(ns) NOK com foto. O relato de ocorrência já está escrito, esperando revisão e envio.`

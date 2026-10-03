@@ -1896,7 +1896,7 @@ export default async function IndicadoresPage({
       <div className="space-y-6">
         <SecaoDoTopico
           slug={TOPICOS.bancada}
-          titulo="🧰 Bancada — Seleção, Triagem e Repack"
+          titulo="🔍📦 Bancada — Seleção, Triagem e Repack"
           subtitulo="As duas etapas do mesmo ciclo, do palete avariado ao produto reembalado."
           resumo={`${formatarHoras(bancadaHoras)} de bancada`}
           recorte={descreverRecorte(turnoBancada, pessoaBancada, pessoasBancada)}
@@ -1911,7 +1911,7 @@ export default async function IndicadoresPage({
         >
         {/* Vem primeiro: é a visão do ciclo inteiro. Os blocos abaixo
             abrem cada etapa. */}
-        <BlocoAtividade titulo="🧰 Tempo de bancada (Seleção + Repack)">
+        <BlocoAtividade titulo="🔍📦 Tempo de bancada (Seleção + Repack)">
           <CartaoHero
             titulo="Tempo total"
             valor={formatarHoras(bancadaHoras)}

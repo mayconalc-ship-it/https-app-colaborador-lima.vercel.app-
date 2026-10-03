@@ -59,7 +59,7 @@ export default async function GestaoDesafioPage({
     return (
       <div>
         <PageHeader
-          title="🏆 Desafio do Mês"
+          title="🧠 Desafio do Mês"
           subtitle="O que o time acertou, o que errou e o que isso manda treinar."
           fecharHref="/gestao"
         />
@@ -248,7 +248,7 @@ export default async function GestaoDesafioPage({
   return (
     <div>
       <PageHeader
-        title="🏆 Desafio do Mês"
+        title="🧠 Desafio do Mês"
         subtitle="O que o time acertou, o que errou e o que isso manda treinar."
         fecharHref="/gestao"
       />

@@ -33,7 +33,7 @@ export default async function CincoPorquesPage({
   if (!feedbackId || !Number.isInteger(id)) {
     return (
       <div>
-        <PageHeader title="🧠 Fazer 5 Porquês" fecharHref="/feedback-rota" />
+        <PageHeader title="5️⃣ Porquês: fazer a análise" fecharHref="/feedback-rota" />
         <BloqueioSemFeedback />
       </div>
     );
@@ -46,7 +46,7 @@ export default async function CincoPorquesPage({
   if (!user) {
     return (
       <div>
-        <PageHeader title="🧠 Fazer 5 Porquês" fecharHref="/feedback-rota" />
+        <PageHeader title="5️⃣ Porquês: fazer a análise" fecharHref="/feedback-rota" />
         <BloqueioSemFeedback />
       </div>
     );
@@ -67,7 +67,7 @@ export default async function CincoPorquesPage({
   if (!feedback) {
     return (
       <div>
-        <PageHeader title="🧠 Fazer 5 Porquês" fecharHref="/feedback-rota" />
+        <PageHeader title="5️⃣ Porquês: fazer a análise" fecharHref="/feedback-rota" />
         <BloqueioSemFeedback />
       </div>
     );
@@ -79,7 +79,7 @@ export default async function CincoPorquesPage({
   if (!notaExigeCincoPorques(feedback.nota)) {
     return (
       <div>
-        <PageHeader title="🧠 Fazer 5 Porquês" fecharHref="/feedback-rota" />
+        <PageHeader title="5️⃣ Porquês: fazer a análise" fecharHref="/feedback-rota" />
         <div className="rounded-2xl border border-slate-200 bg-white p-6 text-center">
           <p className="text-3xl">✅</p>
           <p className="mt-2 font-semibold text-slate-800">
@@ -116,7 +116,7 @@ export default async function CincoPorquesPage({
   return (
     <div>
       <PageHeader
-        title="🧠 Fazer 5 Porquês"
+        title="5️⃣ Porquês: fazer a análise"
         subtitle="Encontre a causa raiz do problema"
         fecharHref="/feedback-rota"
       />

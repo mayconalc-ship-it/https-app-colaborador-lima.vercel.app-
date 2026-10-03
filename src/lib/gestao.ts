@@ -212,7 +212,7 @@ export const PAINEIS: Painel[] = [
     */
     id: "desafio",
     rotulo: "Desafio do Mês",
-    emoji: "🏆",
+    emoji: "🧠",
     href: "/gestao/desafio",
     bloco: "Pessoas",
     modulo: "quiz",

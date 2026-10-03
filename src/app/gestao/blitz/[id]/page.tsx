@@ -122,7 +122,7 @@ export default async function TratativaDaBlitzPage({
   return (
     <div>
       <PageHeader
-        title="🚨 Blitz de carreta"
+        title="🔦 Blitz de carreta"
         subtitle={`${atendimento?.placa_carreta ?? "—"} — DT ${atendimento?.numero_dt ?? "—"}`}
         fecharHref="/gestao/anomalias"
       />

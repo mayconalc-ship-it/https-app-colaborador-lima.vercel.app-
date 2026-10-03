@@ -199,7 +199,7 @@ export function completarComPadrao<T extends ItemMenu>(itensBanco: T[] | null | 
 
 // Usado enquanto a tabela menu_itens nao estiver populada.
 export const MENU_PADRAO: ItemMenu[] = [
-  { chave: "sonho", titulo: "Sonho da Revenda", emoji: "🎯", href: "/sonho-da-revenda", ordem: 1, visivel: true },
+  { chave: "sonho", titulo: "Sonho da Revenda", emoji: "🌟", href: "/sonho-da-revenda", ordem: 1, visivel: true },
   { chave: "padroes", titulo: "Padrões", emoji: "📋", href: "/padroes", ordem: 2, visivel: true },
   { chave: "ranking", titulo: "Ranking Super Matinal", emoji: "🏆", href: "/ranking", ordem: 3, visivel: true },
   { chave: "comunicados", titulo: "Comunicados", emoji: "📣", href: "/comunicados", ordem: 4, visivel: true },
@@ -210,10 +210,10 @@ export const MENU_PADRAO: ItemMenu[] = [
   { chave: "qr-contingencia", titulo: "Comprovante de Pagamento", emoji: "📲", href: "/qr-contingencia", ordem: 17, visivel: true },
   { chave: "feedback", titulo: "Feedback da Rota", emoji: "📝", href: "/feedback-rota", ordem: 8, visivel: true },
   // Módulo opcional: só aparece pra quem o Admin liberou (ver temAcessoModulo).
-  { chave: "ativo-giro", titulo: "Ativo de Giro", emoji: "📦", href: "/ativo-de-giro", ordem: 10, visivel: true },
+  { chave: "ativo-giro", titulo: "Ativo de Giro", emoji: "🍺", href: "/ativo-de-giro", ordem: 10, visivel: true },
   // Módulo opcional, logo depois do Ativo de Giro (16/09/2026).
   { chave: "material-apoio", titulo: "Material de Apoio", emoji: "🧰", href: "/material-de-apoio", ordem: 16, visivel: true },
-  { chave: "quiz", titulo: "Desafio do Mês", emoji: "🏆", href: "/desafio", ordem: 11, visivel: true },
+  { chave: "quiz", titulo: "Desafio do Mês", emoji: "🧠", href: "/desafio", ordem: 11, visivel: true },
   // O cartão aparece para todo mundo, mas a tela só abre para quem é
   // auditor, dono de área ou gestor do 5S -- quem não é vê o convite a
   // procurar o Admin, igual aos demais módulos de acesso restrito.

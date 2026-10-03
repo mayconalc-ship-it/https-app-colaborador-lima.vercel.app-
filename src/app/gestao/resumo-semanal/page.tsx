@@ -42,7 +42,7 @@ export default async function ResumoSemanalPage({
   if (!revenda) {
     return (
       <div>
-        <PageHeader title="🗓️ Resumo da semana" />
+        <PageHeader title="📬 Resumo da semana" />
         <p className="rounded-2xl border border-slate-200 bg-white p-6 text-center text-sm text-slate-500">
           Você não está em nenhuma revenda.
         </p>
@@ -71,7 +71,7 @@ export default async function ResumoSemanalPage({
 
   return (
     <div className="space-y-6">
-      <PageHeader title="🗓️ Resumo da semana" subtitle={`${revenda.nome} — segunda a domingo, ${rotuloDaSemana(semana)}`} />
+      <PageHeader title="📬 Resumo da semana" subtitle={`${revenda.nome} — segunda a domingo, ${rotuloDaSemana(semana)}`} />
 
       <nav className="flex items-center justify-between gap-2">
         <Link

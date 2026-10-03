@@ -21,7 +21,7 @@ export default async function AnaliseCincoPorquesPage({
   if (!Number.isInteger(id)) {
     return (
       <div>
-        <PageHeader title="🧠 5 Porquês" fecharHref="/feedback-rota" />
+        <PageHeader title="5️⃣ Porquês" fecharHref="/feedback-rota" />
         <NaoEncontrada />
       </div>
     );
@@ -34,7 +34,7 @@ export default async function AnaliseCincoPorquesPage({
   if (!user) {
     return (
       <div>
-        <PageHeader title="🧠 5 Porquês" fecharHref="/feedback-rota" />
+        <PageHeader title="5️⃣ Porquês" fecharHref="/feedback-rota" />
         <NaoEncontrada />
       </div>
     );
@@ -57,7 +57,7 @@ export default async function AnaliseCincoPorquesPage({
   if (!analise || analise.status !== "concluida") {
     return (
       <div>
-        <PageHeader title="🧠 5 Porquês" fecharHref="/feedback-rota" />
+        <PageHeader title="5️⃣ Porquês" fecharHref="/feedback-rota" />
         <NaoEncontrada />
       </div>
     );
@@ -65,7 +65,7 @@ export default async function AnaliseCincoPorquesPage({
 
   return (
     <div>
-      <PageHeader title="🧠 5 Porquês" subtitle={analise.problema_label} fecharHref="/feedback-rota" />
+      <PageHeader title="5️⃣ Porquês" subtitle={analise.problema_label} fecharHref="/feedback-rota" />
 
       <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
         <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
