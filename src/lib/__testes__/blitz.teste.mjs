@@ -78,11 +78,11 @@ eq("e quem estourou foi a carreta", paraPcn.dimensao, "carreta");
 eq("com o nome da placa", paraPcn.nome, "PCN-0509");
 eq("a media congelada e a da placa", paraPcn.media, 30.67);
 ok("o motivo tem os dois numeros", paraPcn.motivo.includes("30.67%") && paraPcn.motivo.includes("20%"));
-eq("e as tres avaliadas vao junto", paraPcn.avaliadas.length, 3);
+eq("so a placa e avaliada", paraPcn.avaliadas.length, 1);
 
-console.log("\n== A PLACA BOA COM MOTORISTA RUIM ==");
-// Mesma carreta, conducao diferente: JAYLSON so roda na placa ruim, entao
-// o indice dele acompanha. Aqui a placa esta limpa e o motorista nao.
+console.log("\n== A PLACA BOA COM MOTORISTA RUIM NAO CAI (03/10/2026) ==");
+// Pedido do dono: a blitz e do VEICULO, so da placa. Aqui a placa esta
+// limpa e o motorista nao -- antes caia pelo motorista, agora nao cai.
 const conducao = [
   entrega("BOA-1111", "CARLOS", "BERSEBA", 30),
   entrega("BOA-2222", "CARLOS", "BERSEBA", 35),
@@ -98,9 +98,24 @@ const daPlacaBoa = indicesDaChegada(conducao, {
 });
 ok("cenario: a placa sozinha esta dentro do limite", daPlacaBoa.carreta.media <= 20);
 const porConducao = decidirBlitz(daPlacaBoa, 20);
-ok("cai", porConducao.cai);
-eq("e o alvo e o motorista", porConducao.dimensao, "motorista");
-eq("nomeado", porConducao.nome, "CARLOS");
+ok("nao cai: motorista nao decide a blitz", !porConducao.cai);
+ok("o motorista nem entra na avaliacao", !daPlacaBoa.motorista && porConducao.avaliadas.every((i) => i.dimensao === "carreta"));
+
+console.log("\n== A FROTA RUIM NAO DERRUBA A PLACA BOA ==");
+const frotaRuim = [
+  entrega("RUIM-001", "A", "FROTA X", 40),
+  entrega("RUIM-001", "B", "FROTA X", 45),
+  entrega("RUIM-001", "C", "FROTA X", 50),
+  entrega("LIMPA-01", "D", "FROTA X", 1),
+  entrega("LIMPA-01", "E", "FROTA X", 0),
+  entrega("LIMPA-01", "F", "FROTA X", 2),
+];
+const placaLimpa = decidirBlitz(indicesDaChegada(frotaRuim, { placaCarreta: "LIMPA-01", motorista: "A", transportadoraNome: "FROTA X" }), 20);
+ok("placa limpa de frota ruim nao cai", !placaLimpa.cai);
+const placaRuim = decidirBlitz(indicesDaChegada(frotaRuim, { placaCarreta: "ruim 001", motorista: "D", transportadoraNome: "FROTA X" }), 20);
+ok("a placa ruim cai, qualquer que seja o motorista", placaRuim.cai && placaRuim.dimensao === "carreta" && placaRuim.nome === "RUIM-001");
+const semPlaca = decidirBlitz(indicesDaChegada(frotaRuim, { placaCarreta: "", motorista: "A", transportadoraNome: "FROTA X" }), 20);
+ok("sem placa nao cai (nem pela frota)", !semPlaca.cai);
 
 console.log("\n== SEM HISTORICO, NAO PARA A CARRETA ==");
 // Uma carga com 90% nao condena ninguem -- pode ter sido a carga daquele
