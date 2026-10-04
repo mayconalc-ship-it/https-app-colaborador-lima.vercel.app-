@@ -8,6 +8,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getPerfil } from "@/lib/sessao";
 import { requireAcessoModulo } from "@/lib/require-admin";
+import { exigirRevenda } from "@/lib/revendas";
 import { areaDoColaborador } from "@/lib/quiz";
 import { editoriasDoJornal } from "@/lib/editorias";
 import { nomeCurto } from "@/lib/nomes";
@@ -30,8 +31,15 @@ export default async function ComunicadosPage({
   searchParams: Promise<{ editoria?: string; pagina?: string }>;
 }) {
   await requireAcessoModulo("comunicados");
+  // O JORNAL É O DA REVENDA EM QUE A PESSOA ESTÁ (pedido do dono,
+  // 04/10/2026). A política de leitura libera as matérias de TODAS as
+  // revendas a que ela tem vínculo -- e o dono lê todas --, então quem
+  // está em Barreiras e São Félix via as duas misturadas. A política está
+  // certa (é ela que impede ler a revenda alheia); o recorte pela revenda
+  // ATIVA é escolha de tela, e mora aqui.
+  const revendaId = await exigirRevenda("/");
   const { editoria: filtro, pagina: paginaParam } = await searchParams;
-  const editorias = await editoriasDoJornal();
+  const editorias = await editoriasDoJornal(revendaId);
   const filtroValido =
     filtro && ehEditoriaValida(editorias, filtro) ? filtro : null;
   const pagina = Math.max(1, Number(paginaParam) || 1);
@@ -44,6 +52,7 @@ export default async function ComunicadosPage({
       "id, titulo, resumo, texto, categoria, autor, destaque, data, imagem_url, lembrete_em, lembrete_areas, lembrete_cargos",
       { count: "exact" },
     )
+    .eq("revenda_id", revendaId)
     // Matéria agendada ainda não existe para o colaborador. A política de
     // leitura já garante isso no banco (migration 044) -- este filtro é o
     // mesmo em voz alta, para quem lê o código não precisar ir ao SQL

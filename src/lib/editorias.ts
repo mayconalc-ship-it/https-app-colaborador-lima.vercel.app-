@@ -27,9 +27,9 @@ type Linha = {
 function montar(linhas: Linha[]): Editoria[] {
   const vistos = new Set<string>();
   const lista: Editoria[] = [];
-  // Quem está em duas revendas lê o jornal das duas (é a regra da RLS, não
-  // uma escolha desta função). Sem a deduplicação, "Segurança" apareceria
-  // duas vezes na barra de editorias.
+  // Rede de segurança: as duas leituras abaixo já recortam por revenda, e
+  // dentro de uma revenda o id da editoria não se repete. Sem o recorte,
+  // quem está em duas revendas veria "Segurança" duas vezes na barra.
   for (const l of linhas) {
     if (vistos.has(l.id)) continue;
     vistos.add(l.id);
@@ -44,12 +44,17 @@ function montar(linhas: Linha[]): Editoria[] {
   return lista;
 }
 
-/** As editorias que o colaborador vê no jornal (só as ativas). */
-export async function editoriasDoJornal(): Promise<Editoria[]> {
+/**
+ * As editorias que o colaborador vê no jornal (só as ativas) -- as da
+ * revenda em que ele está agora, como as matérias. A política de leitura
+ * devolve as de todas as revendas dele.
+ */
+export async function editoriasDoJornal(revendaId: string): Promise<Editoria[]> {
   const supabase = await createClient();
   const { data } = await supabase
     .from("comunicado_editorias")
     .select("id, rotulo, emoji, cor, ordem")
+    .eq("revenda_id", revendaId)
     .eq("ativa", true)
     .order("ordem")
     .order("rotulo");

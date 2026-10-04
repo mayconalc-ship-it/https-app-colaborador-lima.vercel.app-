@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { getRevendaId } from "@/lib/revendas";
 
 /** A editoria do jornal onde as parcerias são publicadas. */
 export const EDITORIA_PARCERIAS = "parcerias";
@@ -33,12 +34,16 @@ const NOMES_NA_FAIXA = 3;
  */
 export async function FaixaParcerias() {
   const supabase = await createClient();
+  const revendaId = await getRevendaId();
+  if (!revendaId) return null;
 
-  // A editoria precisa existir e estar ativa NESTA revenda. O RLS já
-  // recorta por revenda -- aqui só perguntamos se ela está ligada.
+  // A editoria precisa existir e estar ativa NESTA revenda -- a ativa. O
+  // RLS recorta pelas revendas da pessoa, não pela que ela está usando:
+  // sem o filtro, quem está em Barreiras veria a faixa de São Félix.
   const { data: editoria } = await supabase
     .from("comunicado_editorias")
     .select("id, rotulo, emoji")
+    .eq("revenda_id", revendaId)
     .eq("id", EDITORIA_PARCERIAS)
     .eq("ativa", true)
     .limit(1)
@@ -49,6 +54,7 @@ export async function FaixaParcerias() {
   const { data: materias, count } = await supabase
     .from("comunicados")
     .select("id, titulo, data", { count: "exact" })
+    .eq("revenda_id", revendaId)
     .eq("categoria", EDITORIA_PARCERIAS)
     // MESMO filtro do jornal (ver comunicados/page.tsx): matéria agendada
     // ainda não existe para o colaborador.
