@@ -34,7 +34,7 @@ export default async function AdminChamadosPage() {
     if (!(e instanceof ChamadosNaoInstalado)) throw e;
     return (
       <div>
-        <PageHeader title="🔧 Chamados de Manutenção" />
+        <PageHeader title="🔧 Chamados para Manutenção" />
         <p className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
           Falta rodar a <strong>migration 165</strong> no Supabase.
         </p>
@@ -49,7 +49,7 @@ export default async function AdminChamadosPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="🔧 Chamados de Manutenção"
+        title="🔧 Chamados para Manutenção"
         subtitle="O QR Code que vai para a parede, as áreas da lista e o prazo de cada prioridade"
       />
       <LinkDoGuia slug="configurar-chamados-qr" />
@@ -69,7 +69,7 @@ export default async function AdminChamadosPage() {
           quem escaneia escolhe a área na lista.
         </p>
         <div className="mt-3 flex flex-wrap items-center gap-4">
-          <QrDoLink url={urlDoQr} rotulo="QR Code dos chamados de manutenção" nivel="Q" className="h-28 w-28 shrink-0 rounded-lg border border-slate-200" />
+          <QrDoLink url={urlDoQr} rotulo="QR Code dos chamados para manutenção" nivel="Q" className="h-28 w-28 shrink-0 rounded-lg border border-slate-200" />
           <div className="min-w-0 flex-1 space-y-2">
             <p className="break-all rounded-lg bg-slate-50 px-2 py-1.5 font-mono text-xs text-slate-600">{urlDoQr}</p>
             <div className="flex flex-wrap gap-2">

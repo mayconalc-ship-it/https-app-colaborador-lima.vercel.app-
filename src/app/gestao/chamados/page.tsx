@@ -76,7 +76,7 @@ export default async function GestaoChamadosPage({ searchParams }: { searchParam
 
   return (
     <div className="space-y-6">
-      <PageHeader title="🔧 Chamados de Manutenção" subtitle="Prazo, reabertos e a nota de quem pediu — o DPO 8.2, 9.1 e 9.2" />
+      <PageHeader title="🔧 Chamados para Manutenção" subtitle="Prazo, reabertos e a nota de quem pediu — o DPO 8.2, 9.1 e 9.2" />
 
       <div className="flex flex-wrap items-center justify-between gap-2">
         <nav className="flex gap-1 rounded-xl bg-slate-100 p-1" aria-label="Período">

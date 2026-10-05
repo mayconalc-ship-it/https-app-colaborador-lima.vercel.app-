@@ -61,7 +61,7 @@ export type ModuloNotificavel =
   // O lembrete mensal do Simulador de Mão de Obra (28/09/2026): revisar e
   // formalizar o quadro dos próximos meses -- o V.2 do DPO 1.2.
   | "mao-de-obra"
-  // Chamados de Manutenção (05/10/2026): o chamado novo (ou reaberto)
+  // Chamados para Manutenção (05/10/2026): o chamado novo (ou reaberto)
   // para o TIME DA MANUTENÇÃO...
   | "chamados"
   // ...e o andamento para QUEM ABRIU. Próprio pelo mesmo motivo do
@@ -160,7 +160,7 @@ export const ROTULO_MODULO: Record<ModuloNotificavel, string> = {
   "material-apoio-contagem": "Contagem diária do material de apoio",
   "resumo-semanal": "Resumo semanal da liderança",
   "mao-de-obra": "Planejamento de mão de obra",
-  chamados: "Chamado de manutenção para atender",
+  chamados: "Chamado para manutenção para atender",
   "chamados-retorno": "Andamento do meu chamado",
 };
 

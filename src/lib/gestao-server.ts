@@ -65,7 +65,7 @@ export async function sinaisDosPaineis(
   const sinais: Record<string, SinalDoPainel> = {};
   const admin = createAdminClient();
 
-  // Chamado de manutenção com o prazo estourado (05/10/2026). Só o
+  // Chamado para manutenção com o prazo estourado (05/10/2026). Só o
   // atrasado: chamado aberto no prazo é a fila andando, não pendência.
   if (paineis.some((p) => p.id === "chamados")) {
     try {

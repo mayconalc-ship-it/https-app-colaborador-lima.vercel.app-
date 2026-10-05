@@ -8,7 +8,7 @@ import { abrirPeloQr } from "../actions";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Chamado de Manutenção",
+  title: "Chamado para Manutenção",
   // Página de QR colado na parede: não tem por que aparecer em busca.
   robots: { index: false, follow: false },
 };
@@ -52,7 +52,7 @@ export default async function AbrirPeloQrPage({ params }: { params: Promise<{ co
   return (
     <div className="space-y-4">
       <div className="rounded-2xl bg-gradient-to-br from-primary to-primary-dark p-5 text-white shadow-md">
-        <p className="text-xs font-bold uppercase tracking-wide text-white/80">🔧 Chamado de Manutenção</p>
+        <p className="text-xs font-bold uppercase tracking-wide text-white/80">🔧 Chamado para Manutenção</p>
         <h1 className="mt-1 text-xl font-bold leading-tight">Viu algo quebrado ou sem funcionar?</h1>
         <p className="mt-1.5 text-sm text-white/85">
           Conte o que é e, se puder, mande uma foto. Leva menos de um minuto, e você recebe o número do chamado para

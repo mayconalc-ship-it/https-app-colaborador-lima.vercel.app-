@@ -73,7 +73,7 @@ export async function contextoChamados(): Promise<ContextoChamados | { ok: false
   const revendaId = await getRevendaId();
   if (!revendaId) return { ok: false, erro: "Você não está em nenhuma revenda." };
   if (!(await revendaTemModulo(MODULO_CHAMADOS))) {
-    return { ok: false, erro: "Os chamados de manutenção não estão ativos nesta revenda." };
+    return { ok: false, erro: "Os chamados para manutenção não estão ativos nesta revenda." };
   }
   const [podeAtender, podeVerPainel, podeExcluir] = await Promise.all([
     temAcessoModulo(MODULO_CHAMADOS_ATENDER),

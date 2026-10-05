@@ -21,7 +21,7 @@ export const dynamic = "force-dynamic";
 type Aba = "abrir" | "meus" | "fila";
 
 /**
- * CHAMADO DE MANUTENÇÃO -- a tela do app.
+ * CHAMADO PARA MANUTENÇÃO -- a tela do app.
  *
  * Três abas, e a terceira é só do time da manutenção:
  *   Abrir   o formulário (o mesmo do QR Code);
@@ -53,7 +53,7 @@ export default async function ChamadosPage({
     if (!(e instanceof ChamadosNaoInstalado)) throw e;
     return (
       <div>
-        <PageHeader title="🔧 Chamado de Manutenção" />
+        <PageHeader title="🔧 Chamado para Manutenção" />
         <p className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
           O módulo ainda não foi instalado no banco. Falta rodar a <strong>migration 165</strong> no Supabase.
         </p>
@@ -68,7 +68,7 @@ export default async function ChamadosPage({
   return (
     <div>
       <PageHeader
-        title="🔧 Chamado de Manutenção"
+        title="🔧 Chamado para Manutenção"
         subtitle="Viu algo quebrado, vazando ou sem funcionar? Abra o chamado e acompanhe por aqui."
       />
       <LinkDoGuia slug={ctx.podeAtender ? "atender-chamado-manutencao" : "abrir-chamado-manutencao"} className="mb-4" />

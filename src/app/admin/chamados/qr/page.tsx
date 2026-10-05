@@ -42,14 +42,14 @@ export default async function CartazQrPage() {
         >
           <div>
             <p style={{ fontSize: "34pt" }} className="font-extrabold leading-tight text-[#0b4da2]">
-              🔧 Chamado de Manutenção
+              🔧 Chamado para Manutenção
             </p>
             <p style={{ fontSize: "18pt" }} className="mt-3 font-semibold text-slate-700">
               Viu algo quebrado, vazando ou sem funcionar?
             </p>
           </div>
 
-          <QrDoLink url={url} rotulo="QR Code dos chamados de manutenção" nivel="Q" className="h-[110mm] w-[110mm]" />
+          <QrDoLink url={url} rotulo="QR Code dos chamados para manutenção" nivel="Q" className="h-[110mm] w-[110mm]" />
 
           <div>
             <p style={{ fontSize: "20pt" }} className="font-bold text-slate-900">

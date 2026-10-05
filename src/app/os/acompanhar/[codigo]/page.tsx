@@ -73,7 +73,7 @@ export default async function AcompanharChamadoPage({
           href={`/chamados/${chamado.id}`}
           className="block rounded-2xl border border-primary/30 bg-primary-soft/50 p-3 text-center text-sm font-semibold text-primary-dark"
         >
-          Este chamado está no seu app, em Chamado de Manutenção › Meus →
+          Este chamado está no seu app, em Chamado para Manutenção › Meus →
         </Link>
       )}
 

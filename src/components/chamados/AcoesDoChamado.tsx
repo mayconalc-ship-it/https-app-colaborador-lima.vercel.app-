@@ -299,7 +299,7 @@ export function CompartilharAcompanhamento({ protocolo, local }: { protocolo: st
 
   async function compartilhar() {
     const url = endereco();
-    const texto = `Chamado de manutenção ${protocolo} (${local}). Acompanhe aqui: ${url}`;
+    const texto = `Chamado para manutenção ${protocolo} (${local}). Acompanhe aqui: ${url}`;
     // No celular abre a folha de compartilhar do aparelho (WhatsApp,
     // e-mail, o que a pessoa usar); sem ela, o WhatsApp direto.
     if (navigator.share) {

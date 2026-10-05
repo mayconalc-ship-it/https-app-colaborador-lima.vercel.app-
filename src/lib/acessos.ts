@@ -921,7 +921,7 @@ export const MODULOS: Modulo[] = [
   },
   {
     /*
-      CHAMADOS DE MANUTENÇÃO (05/10/2026, pedido do dono): o formulário do
+      CHAMADOS PARA MANUTENÇÃO (05/10/2026, pedido do dono): o formulário do
       Microsoft Forms trazido para o app, aberto também pelo QR Code da
       unidade -- um só por revenda, como o Forms (migration 165).
 
@@ -936,11 +936,11 @@ export const MODULOS: Modulo[] = [
     */
     id: "chamados",
     rotulosDeAcao: {
-      ver: "📊 Abrir o painel de Chamados de Manutenção na Gestão (prazo, reabertos, nota)",
+      ver: "📊 Abrir o painel de Chamados para Manutenção na Gestão (prazo, reabertos, nota)",
       editar: "Imprimir o QR Code, cadastrar as áreas e ajustar os prazos",
       excluir: "Apagar chamado aberto por engano ou de teste",
     },
-    rotulo: "Chamados de Manutenção",
+    rotulo: "Chamados para Manutenção",
     emoji: "🔧",
     href: "/admin/chamados",
     grupo: "Configuração",
@@ -953,9 +953,9 @@ export const MODULOS: Modulo[] = [
     // "fefo" e "fefo-controle": quem aponta não é quem fecha.
     id: "chamados-atender",
     rotulosDeAcao: {
-      ver: "Atender os chamados de manutenção no app (o time da manutenção)",
+      ver: "Atender os chamados para manutenção no app (o time da manutenção)",
     },
-    rotulo: "Chamados de Manutenção (atender)",
+    rotulo: "Chamados para Manutenção (atender)",
     emoji: "🔧",
     href: "/chamados?aba=fila",
     grupo: "Operação",

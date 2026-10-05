@@ -6,7 +6,7 @@ import QRCode from "qrcode";
  * com ele.
  *
  * Nasceu no rodapé (canal de ouvidoria) e saiu de lá em 05/10/2026 para
- * servir também aos cartazes dos Chamados de Manutenção.
+ * servir também aos cartazes dos Chamados para Manutenção.
  *
  * O desenho: uma linha de traço por sequência de módulos pretos, com a
  * margem de 4 módulos que o leitor precisa.

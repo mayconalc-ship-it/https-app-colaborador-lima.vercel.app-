@@ -1,4 +1,4 @@
-// Os Chamados de Manutenção: prazo, situação, indicadores do painel e a
+// Os Chamados para Manutenção: prazo, situação, indicadores do painel e a
 // validação do formulário (que é a palavra final na página pública do QR).
 //   npx tsx src/lib/__testes__/chamados.teste.mjs
 import {

@@ -160,11 +160,11 @@ export const PAINEIS: Painel[] = [
     mora: true,
   },
   {
-    // Os chamados de manutenção (05/10/2026): o que o DPO 8.2 e 9.2
+    // Os chamados para manutenção (05/10/2026): o que o DPO 8.2 e 9.2
     // perguntam -- o que está aberto, o que estourou o prazo, quanto
     // reabriu e a nota de quem pediu.
     id: "chamados",
-    rotulo: "Chamados de Manutenção",
+    rotulo: "Chamados para Manutenção",
     emoji: "🔧",
     href: "/gestao/chamados",
     bloco: "Operação",

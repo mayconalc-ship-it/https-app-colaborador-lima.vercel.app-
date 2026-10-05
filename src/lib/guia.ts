@@ -674,14 +674,14 @@ export const GUIAS: Guia[] = [
   },
   {
     slug: "abrir-chamado-manutencao",
-    titulo: "Abrir um chamado de manutenção",
+    titulo: "Abrir um chamado para manutenção",
     emoji: "🔧",
     categoria: "primeiros-passos",
     resumo: "Lâmpada queimada, vazamento, porta emperrada: peça o conserto pelo app ou pelo QR Code da área.",
     palavras: ["manutenção", "manutencao", "chamado", "os", "ordem de serviço", "conserto", "quebrado", "vazamento", "qr", "forms"],
     passos: [
       {
-        texto: "Na tela inicial, toque em **Chamado de Manutenção** (ou aponte a câmera para o QR Code do cartaz de manutenção).",
+        texto: "Na tela inicial, toque em **Chamado para Manutenção** (ou aponte a câmera para o QR Code do cartaz de manutenção).",
         dica: "Pelo QR não precisa de login: serve para quem não tem o app.",
       },
       { texto: "Em **1 · Onde é o problema?**, escolha a área." },
@@ -706,7 +706,7 @@ export const GUIAS: Guia[] = [
   },
   {
     slug: "atender-chamado-manutencao",
-    titulo: "Atender os chamados de manutenção",
+    titulo: "Atender os chamados para manutenção",
     emoji: "🔧",
     categoria: "armazem",
     resumo: "Para o time da manutenção: a fila, assumir, pausar por material e concluir com foto.",
@@ -714,7 +714,7 @@ export const GUIAS: Guia[] = [
     palavras: ["manutenção", "manutencao", "chamado", "fila", "os", "ordem de serviço", "atender", "concluir"],
     passos: [
       {
-        texto: "Na tela inicial, toque em **Chamado de Manutenção**. Você cai na aba **Fila**.",
+        texto: "Na tela inicial, toque em **Chamado para Manutenção**. Você cai na aba **Fila**.",
         dica: "Chamado novo também chega no sino e no celular. Risco à segurança chega como importante.",
       },
       { texto: "Os **⏰ Atrasados** ficam no topo; dentro de cada grupo, risco e urgente vêm primeiro. Toque no chamado." },
@@ -746,7 +746,7 @@ export const GUIAS: Guia[] = [
     passos: [
       ENTRAR_NO_MODO,
       ABRIR_BARRA,
-      gaveta("Configuração", "Chamados de Manutenção"),
+      gaveta("Configuração", "Chamados para Manutenção"),
       {
         texto: "Em **O QR Code da unidade**, toque em **🖨️ Imprimir o cartaz** e depois em **⬇️ Baixar em PDF**.",
         dica: "É um QR só para a unidade inteira. Imprima quantas cópias quiser e cole onde a equipe circula.",
@@ -760,7 +760,7 @@ export const GUIAS: Guia[] = [
     atencao: [
       "Imprima pelo app publicado: o QR leva o endereço de onde você está.",
       "O QR vazou para fora da empresa? **🔄 Gerar QR novo** invalida o antigo — e aí é preciso trocar todos os cartazes.",
-      "O painel com prazo, reabertos e nota fica na **Gestão**, em **Chamados de Manutenção**.",
+      "O painel com prazo, reabertos e nota fica na **Gestão**, em **Chamados para Manutenção**.",
     ],
     tela: { href: "/admin/chamados", rotulo: "Abrir o cadastro dos chamados" },
     relacionados: ["atender-chamado-manutencao"],
