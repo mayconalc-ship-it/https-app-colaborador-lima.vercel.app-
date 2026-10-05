@@ -595,6 +595,7 @@ export default async function PerfisDeAcessoPage({
                       perfilId={p.id}
                       perfilNome={p.nome}
                       pessoas={pessoas}
+                      jaNoPerfil={[...idsDoPerfil]}
                       tipo={p.tipo}
                       papelDe={papelDe}
                       doPerfil={
@@ -872,16 +873,38 @@ function GradeDePermissoes({
           {/* O ALCANCE DO SALVAR, ANTES DE SALVAR. Quem mexe no molde
               precisa saber que o clique alcança gente -- e quem. Dizer isso
               só na mensagem de sucesso é avisar depois do fato, e desde
-              que salvar também RETIRA, o depois do fato é tarde. */}
+              que salvar também RETIRA, o depois do fato é tarde.
+
+              COM NOME, e não só a contagem (05/10/2026, dúvida do dono):
+              logo abaixo do Salvar vem a caixa "Aplicar a", e com só um
+              número aqui não dava para saber se quem já tinha o perfil
+              precisava ser aplicado de novo. Não precisa -- e a tela agora
+              diz isso, com os nomes de quem o salvar alcança. */}
+          {emEdicao && noPerfil.length === 0 && (
+            <p className="rounded-xl bg-slate-50 px-3 py-2 text-xs leading-snug text-slate-600">
+              Ninguém está neste perfil ainda. Salvar muda só o molde — para alguém receber, use{" "}
+              <strong>Aplicar a</strong>, logo abaixo.
+            </p>
+          )}
           {emEdicao && noPerfil.length > 0 && (
             <div className="space-y-1.5 rounded-xl bg-amber-50 px-3 py-2 text-xs leading-snug text-amber-900">
               <p>
-                ⚡ Salvar deixa as{" "}
+                ⚡ Salvar já atualiza{" "}
                 <strong>
-                  {noPerfil.length} pessoa{noPerfil.length > 1 ? "s" : ""}
+                  {noPerfil.length === 1 ? "a pessoa" : `as ${noPerfil.length} pessoas`}
                 </strong>{" "}
-                deste perfil <strong>iguais ao molde</strong>: o que você marcar entra, e o que
-                estiver desmarcado sai. Salvar nunca muda o papel de ninguém.
+                deste perfil — <strong>não precisa aplicar de novo</strong>:
+              </p>
+              <ul className="flex flex-wrap gap-1.5">
+                {noPerfil.map((p, i) => (
+                  <li key={i} className="rounded-lg bg-white/80 px-2 py-0.5 font-semibold">
+                    {p.nome}
+                  </li>
+                ))}
+              </ul>
+              <p>
+                Ficam <strong>iguais ao molde</strong>: o que você marcar entra, e o que estiver
+                desmarcado sai. Salvar nunca muda o papel de ninguém.
               </p>
               {perdendo.length > 0 && (
                 <details className="rounded-lg bg-white/70 px-2 py-1.5">

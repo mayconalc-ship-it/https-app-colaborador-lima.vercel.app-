@@ -30,6 +30,7 @@ export function AplicarPerfil({
   perfilId,
   perfilNome,
   pessoas,
+  jaNoPerfil = [],
   doPerfil,
   jaTem,
   rotulos,
@@ -41,6 +42,10 @@ export function AplicarPerfil({
   perfilId: string;
   perfilNome: string;
   pessoas: PessoaParaPerfil[];
+  /** Quem já está neste perfil. O "Salvar alterações" já alcança essas
+   *  pessoas -- a caixa diz isso com os nomes, para ninguém reaplicar
+   *  achando que é preciso (dúvida do dono, 05/10/2026). */
+  jaNoPerfil?: string[];
   /** O que o perfil dá: "modulo:acao" (liderança) ou "modulo" (colaborador). */
   doPerfil: string[];
   /** O que cada pessoa já tem NESTA revenda, no mesmo formato. */
@@ -64,6 +69,10 @@ export function AplicarPerfil({
   const sairiam = atuais.filter((c) => !noPerfil.has(c));
   const entrariam = doPerfil.filter((c) => !atuais.includes(c));
   const pessoa = pessoas.find((p) => p.id === pessoaId);
+  const noPerfilJa = new Set(jaNoPerfil);
+  const quemJaTem = pessoas.filter((p) => noPerfilJa.has(p.id));
+  const quemNaoTem = pessoas.filter((p) => !noPerfilJa.has(p.id));
+  const escolhidaJaEsta = !!pessoaId && noPerfilJa.has(pessoaId);
   const nomeDaConcessao = (c: string) => rotulos[c] ?? c;
   const unidade = tipo === "colaborador" ? "módulo(s) do app" : "permissão(ões)";
 
@@ -124,10 +133,25 @@ export function AplicarPerfil({
           : "⚙️ Perfil de liderança: dá acesso ao Modo Liderança. Para um colaborador, só com a confirmação abaixo."}
       </p>
 
+      {/* QUEM JÁ ESTÁ, COM NOME, antes da escolha. Sem isto, "Aplicar a"
+          logo depois do "Salvar alterações" deixava a dúvida: reaplicar a
+          quem já tem, ou só salvar? Só salvar. */}
+      {quemJaTem.length > 0 && (
+        <div className="rounded-lg bg-white px-2.5 py-1.5 text-[11px] leading-snug text-slate-600">
+          <p>
+            <strong>Já estão neste perfil</strong> — ao salvar alterações no perfil, elas recebem
+            na hora, sem aplicar de novo:
+          </p>
+          <p className="mt-0.5 font-semibold text-slate-800">
+            {quemJaTem.map((p) => p.nome).join(", ")}
+          </p>
+        </div>
+      )}
+
       <div className="flex flex-wrap items-end gap-2">
         <div className="min-w-0 flex-1">
           <label className="mb-1 block text-xs font-medium text-slate-600" htmlFor={`pessoa-${perfilId}`}>
-            Aplicar a
+            {quemJaTem.length > 0 ? "Aplicar a mais alguém" : "Aplicar a"}
           </label>
           <select
             id={`pessoa-${perfilId}`}
@@ -141,12 +165,22 @@ export function AplicarPerfil({
             className="w-full rounded-lg border border-slate-200 p-2 text-base focus:border-primary focus:outline-none"
           >
             <option value="">Escolha a pessoa</option>
-            {pessoas.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.nome}
-                {p.cargo ? ` — ${p.cargo}` : ""}
-              </option>
-            ))}
+            {quemJaTem.length === 0 ? (
+              quemNaoTem.map((p) => <OpcaoPessoa key={p.id} p={p} />)
+            ) : (
+              <>
+                <optgroup label="Ainda não estão neste perfil">
+                  {quemNaoTem.map((p) => (
+                    <OpcaoPessoa key={p.id} p={p} />
+                  ))}
+                </optgroup>
+                <optgroup label="Já estão neste perfil">
+                  {quemJaTem.map((p) => (
+                    <OpcaoPessoa key={p.id} p={p} />
+                  ))}
+                </optgroup>
+              </>
+            )}
           </select>
         </div>
         <BotaoEnviar
@@ -207,6 +241,13 @@ export function AplicarPerfil({
             espelhar && sairiam.length > 0 ? "bg-red-50 text-red-800" : "bg-slate-50 text-slate-600"
           }`}
         >
+          {escolhidaJaEsta && (
+            <p className="mb-1">
+              <strong>{pessoa?.nome} já está neste perfil</strong> e já recebe o que for salvo
+              nele. Aplicar de novo só serve para refazer um acesso que alguém mudou à mão em
+              Acessos por Pessoa.
+            </p>
+          )}
           {entrariam.length > 0 ? (
             <p>
               <strong>Entram {entrariam.length}</strong> {unidade}.
@@ -232,6 +273,15 @@ export function AplicarPerfil({
         </div>
       )}
     </form>
+  );
+}
+
+function OpcaoPessoa({ p }: { p: PessoaParaPerfil }) {
+  return (
+    <option value={p.id}>
+      {p.nome}
+      {p.cargo ? ` — ${p.cargo}` : ""}
+    </option>
   );
 }
 
