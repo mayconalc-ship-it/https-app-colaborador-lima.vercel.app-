@@ -220,6 +220,13 @@ export type EntradaAbertura = {
 export const FOTOS_POR_CHAMADO = 4;
 
 /**
+ * A foto sai do celular com 1280 px e JPEG 70 (05/10/2026): ~105 KB em vez
+ * de ~195 KB, medido em fotos reais do app. Quatro fotos cabem com folga
+ * no limite de envio da Vercel (4,5 MB), mesmo em aparelho que não reduz.
+ */
+export const FOTO_DO_CHAMADO = { ladoMaior: 1280, qualidade: 0.7 };
+
+/**
  * O que falta para abrir. O formulário também confere no navegador, mas
  * a página do QR é pública: a palavra final é esta.
  */

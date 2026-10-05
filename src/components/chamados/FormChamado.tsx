@@ -6,7 +6,7 @@ import { FormNoLugar } from "@/components/FormNoLugar";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
 import { CampoFoto } from "@/components/CampoFoto";
 import { IconeTipo } from "@/components/chamados/Selos";
-import { PRIORIDADES, TIPOS, formatarTelefone } from "@/lib/chamados";
+import { FOTO_DO_CHAMADO, PRIORIDADES, TIPOS, formatarTelefone } from "@/lib/chamados";
 import type { ResultadoAcao } from "@/lib/resultado-acao";
 
 type GrupoDeLocais = { titulo: string; itens: { id: string; nome: string }[] };
@@ -72,6 +72,11 @@ export function FormChamado({
   publico?: boolean;
 }) {
   const [descricao, setDescricao] = useState("");
+  // O setor aberto: o da área que já veio marcada, ou o único que houver.
+  const [grupo, setGrupo] = useState(
+    () => locais.find((g) => g.itens.some((l) => l.id === localInicial))?.titulo ?? (locais.length === 1 ? locais[0].titulo : ""),
+  );
+  const doGrupo = locais.find((g) => g.titulo === grupo);
   const nome = useRef<HTMLInputElement>(null);
   const telefone = useRef<HTMLInputElement>(null);
 
@@ -113,20 +118,70 @@ export function FormChamado({
           <span className="text-xs font-bold uppercase tracking-wide text-slate-500">1 · Onde é o problema?</span>
           <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-semibold text-slate-600">🏢 {unidade}</span>
         </div>
-        <select name="local_id" required defaultValue={localInicial} className={campo}>
-          <option value="" disabled>
-            Escolha a área…
-          </option>
-          {locais.map((g) => (
-            <optgroup key={g.titulo} label={g.titulo}>
-              {g.itens.map((l) => (
-                <option key={l.id} value={l.id}>
-                  {l.nome}
-                </option>
-              ))}
-            </optgroup>
-          ))}
-        </select>
+        {/* O SETOR PRIMEIRO, DEPOIS A ÁREA (05/10/2026, pedido do dono): a
+            lista única tinha 30 nomes; o filtro deixa só as do setor. */}
+        {locais.length > 1 && (
+          <div className="mb-3 flex flex-wrap gap-2" role="group" aria-label="Setor">
+            {locais.map((g) => {
+              const ativo = g.titulo === grupo;
+              return (
+                <button
+                  key={g.titulo}
+                  type="button"
+                  aria-pressed={ativo}
+                  onClick={() => setGrupo(g.titulo)}
+                  className={`flex items-center gap-1.5 rounded-xl border-2 px-3 py-2 text-sm font-semibold transition ${
+                    ativo ? "border-primary bg-primary text-white" : "border-slate-200 bg-white text-slate-700 hover:border-primary/40"
+                  }`}
+                >
+                  {g.titulo}
+                  <span className={`rounded-full px-1.5 text-[11px] tabular-nums ${ativo ? "bg-white/25" : "bg-slate-100 text-slate-500"}`}>
+                    {g.itens.length}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {doGrupo ? (
+          <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label={`Áreas de ${doGrupo.titulo}`}>
+            {doGrupo.itens.map((l) => (
+              <label
+                key={l.id}
+                className="flex min-h-11 cursor-pointer items-center rounded-xl border-2 border-slate-200 px-3 py-2 text-sm font-medium leading-tight text-slate-700 transition has-[:checked]:border-primary has-[:checked]:bg-primary-soft has-[:checked]:font-bold has-[:checked]:text-primary-dark has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-primary/40"
+              >
+                <input
+                  type="radio"
+                  name="local_id"
+                  value={l.id}
+                  required
+                  defaultChecked={l.id === localInicial}
+                  onInvalid={(e) => e.currentTarget.setCustomValidity("Escolha a área do problema.")}
+                  onChange={(e) => e.currentTarget.setCustomValidity("")}
+                  className="sr-only"
+                />
+                {l.nome}
+              </label>
+            ))}
+          </div>
+        ) : (
+          <p className="rounded-xl bg-slate-50 px-3 py-3 text-center text-sm text-slate-500">
+            Toque no setor para ver as áreas dele.
+            {/* Sem setor escolhido não há área para marcar: este campo
+                invisível é o que segura o envio com o aviso certo. */}
+            <input
+              type="radio"
+              name="local_id"
+              value=""
+              required
+              tabIndex={-1}
+              aria-hidden="true"
+              onInvalid={(e) => e.currentTarget.setCustomValidity("Escolha o setor e depois a área do problema.")}
+              className="sr-only"
+            />
+          </p>
+        )}
       </section>
 
       {/* ---- 2. O quê ---- */}
@@ -171,7 +226,7 @@ export function FormChamado({
 
         <div className="mt-4">
           <span className={rotulo}>Fotos (opcional, até 4)</span>
-          <CampoFoto name="fotos" accept="image/*" capture="environment" multiple />
+          <CampoFoto name="fotos" accept="image/*" capture="environment" multiple {...FOTO_DO_CHAMADO} />
           <p className="mt-1.5 text-[11px] text-slate-400">Uma foto mostra em um segundo o que levaria um parágrafo.</p>
         </div>
       </section>

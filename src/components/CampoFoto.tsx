@@ -7,10 +7,22 @@ import { reduzir } from "@/lib/reduzir-foto";
 
 /** Abaixo disto a foto já passa folgada no limite e não é mexida. */
 const REDUZIR_ACIMA_DE = 1024 * 1024;
+/** Campo que pede foto menor que o padrão reduz a partir daqui. */
+const REDUZIR_ACIMA_DE_MENOR = 300 * 1024;
 
-const precisaReduzir = (a: File) => a.type.startsWith("image/") && a.size > REDUZIR_ACIMA_DE;
+type Tamanho = {
+  /** Lado maior da foto, em pixels (padrão 1600). */
+  ladoMaior?: number;
+  /** Qualidade do JPEG, de 0 a 1 (padrão 0,8). */
+  qualidade?: number;
+};
 
-type Props = Omit<InputHTMLAttributes<HTMLInputElement>, "type">;
+function precisaReduzir(a: File, t: Tamanho) {
+  const limite = t.ladoMaior && t.ladoMaior < 1600 ? REDUZIR_ACIMA_DE_MENOR : REDUZIR_ACIMA_DE;
+  return a.type.startsWith("image/") && a.size > limite;
+}
+
+type Props = Omit<InputHTMLAttributes<HTMLInputElement>, "type"> & Tamanho;
 
 /**
  * CAMPO DE FOTO QUE JÁ ENVIA REDUZIDA (01/10/2026).
@@ -37,11 +49,11 @@ export function CampoFoto(props: Props) {
 }
 
 /** O campo simples (galeria/arquivo), com a redução no celular. */
-function CampoArquivo({ onChange, ...props }: Props) {
-  return <input {...props} type="file" onChange={(e) => reduzirNoCampo(e, onChange)} />;
+function CampoArquivo({ onChange, ladoMaior, qualidade, ...props }: Props) {
+  return <input {...props} type="file" onChange={(e) => reduzirNoCampo(e, onChange, { ladoMaior, qualidade })} />;
 }
 
-async function reduzirNoCampo(e: ChangeEvent<HTMLInputElement>, onChange?: Props["onChange"]) {
+async function reduzirNoCampo(e: ChangeEvent<HTMLInputElement>, onChange: Props["onChange"], t: Tamanho) {
   onChange?.(e);
 
   const campo = e.currentTarget;
@@ -53,12 +65,14 @@ async function reduzirNoCampo(e: ChangeEvent<HTMLInputElement>, onChange?: Props
   campo.dataset.preparo = vez;
   campo.setCustomValidity("");
 
-  if (typeof DataTransfer === "undefined" || !escolhidos.some(precisaReduzir)) return;
+  if (typeof DataTransfer === "undefined" || !escolhidos.some((a) => precisaReduzir(a, t))) return;
 
   campo.setCustomValidity("Preparando a foto, aguarde um instante...");
   try {
     const prontos = await Promise.all(
-      escolhidos.map((a) => (precisaReduzir(a) ? reduzir(a, `${a.name.replace(/\.[^.]+$/, "") || "foto"}.jpg`) : a)),
+      escolhidos.map((a) =>
+        precisaReduzir(a, t) ? reduzir(a, `${a.name.replace(/\.[^.]+$/, "") || "foto"}.jpg`, t.ladoMaior, t.qualidade) : a,
+      ),
     );
     if (campo.dataset.preparo !== vez) return;
     const dt = new DataTransfer();
@@ -77,7 +91,7 @@ async function reduzirNoCampo(e: ChangeEvent<HTMLInputElement>, onChange?: Props
  * continua no formulário (escondido) -- é dele que o envio lê a foto, e é
  * ele que o `required` do navegador confere.
  */
-function CampoFotoComCamera({ onChange, className, multiple, capture, ...props }: Props) {
+function CampoFotoComCamera({ onChange, className, multiple, capture, ladoMaior, qualidade, ...props }: Props) {
   void className;
   void capture;
   const campo = useRef<HTMLInputElement>(null);
@@ -137,7 +151,7 @@ function CampoFotoComCamera({ onChange, className, multiple, capture, ...props }
         // navegador ainda conseguir apontar o "campo obrigatório".
         className="sr-only"
         tabIndex={-1}
-        onChange={(e) => reduzirNoCampo(e, onChange)}
+        onChange={(e) => reduzirNoCampo(e, onChange, { ladoMaior, qualidade })}
       />
       {previas.map((p, i) => (
         <div key={p.url} className="relative h-20 w-20">
@@ -172,6 +186,8 @@ function CampoFotoComCamera({ onChange, className, multiple, capture, ...props }
       )}
       {camera && (
         <CameraNoApp
+          ladoMaior={ladoMaior}
+          qualidade={qualidade}
           restantes={multiple ? restantes : 1}
           aoTirar={multiple ? tirou : (f) => colocarNoCampo([f])}
           aoFechar={() => setCamera(false)}

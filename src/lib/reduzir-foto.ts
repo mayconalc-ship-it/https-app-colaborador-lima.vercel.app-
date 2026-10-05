@@ -9,11 +9,15 @@
  *
  * Se o aparelho não conseguir reduzir, vai o original -- o servidor avisa
  * se passar do limite.
+ *
+ * `ladoMaior` e `qualidade` existem para quem não precisa de 1600 px: a
+ * foto do chamado de manutenção mostra o problema, não é evidência de
+ * auditoria, e sobe menor (05/10/2026).
  */
-export async function reduzir(arquivo: File, nome = "foto.jpg"): Promise<File> {
+export async function reduzir(arquivo: File, nome = "foto.jpg", ladoMaior = 1600, qualidade = 0.8): Promise<File> {
   try {
     const bitmap = await createImageBitmap(arquivo);
-    const escala = Math.min(1, 1600 / Math.max(bitmap.width, bitmap.height));
+    const escala = Math.min(1, ladoMaior / Math.max(bitmap.width, bitmap.height));
     const canvas = document.createElement("canvas");
     canvas.width = Math.round(bitmap.width * escala);
     canvas.height = Math.round(bitmap.height * escala);
@@ -24,7 +28,7 @@ export async function reduzir(arquivo: File, nome = "foto.jpg"): Promise<File> {
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
     bitmap.close();
-    const blob: Blob | null = await new Promise((ok) => canvas.toBlob(ok, "image/jpeg", 0.8));
+    const blob: Blob | null = await new Promise((ok) => canvas.toBlob(ok, "image/jpeg", qualidade));
     // Reduzir que não diminuiu (imagem já pequena e bem comprimida) não ajuda.
     if (!blob || blob.size >= arquivo.size) return arquivo;
     return new File([blob], nome, { type: "image/jpeg" });

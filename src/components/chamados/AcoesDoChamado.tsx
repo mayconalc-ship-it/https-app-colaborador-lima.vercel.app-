@@ -6,7 +6,7 @@ import { FormNoLugar } from "@/components/FormNoLugar";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
 import { BotaoNoLugar } from "@/components/BotaoNoLugar";
 import { CampoFoto } from "@/components/CampoFoto";
-import { PRIORIDADES } from "@/lib/chamados";
+import { FOTO_DO_CHAMADO, PRIORIDADES } from "@/lib/chamados";
 import type { ResultadoAcao } from "@/lib/resultado-acao";
 
 type Acao = (formData: FormData) => Promise<ResultadoAcao | void>;
@@ -80,7 +80,7 @@ export function AcoesDoAtendente({
           </label>
           <div>
             <span className="mb-1 block text-[11px] font-semibold uppercase text-slate-500">Foto do serviço pronto (opcional)</span>
-            <CampoFoto name="fotos" accept="image/*" capture="environment" multiple />
+            <CampoFoto name="fotos" accept="image/*" capture="environment" multiple {...FOTO_DO_CHAMADO} />
           </div>
           <BotaoEnviar
             textoEnviando="Concluindo..."

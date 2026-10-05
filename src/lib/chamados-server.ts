@@ -29,6 +29,12 @@ import {
 const BUCKET = "chamados";
 /** Link da foto vale 1 hora: o bastante para olhar o chamado. */
 const SEGUNDOS_DO_LINK = 60 * 60;
+/**
+ * A foto guardada: WebP de 1280 px. Medido em fotos reais do app (câmera
+ * de 4080x3072, ~2,3 MB): ~50 KB cada, contra ~80 KB no padrão de 1600 px
+ * -- o problema continua à vista, e o 1 GB do plano gratuito dura mais.
+ */
+const TAMANHO_DA_FOTO = { lado: 1280, qualidade: 65 };
 
 type Admin = ReturnType<typeof createAdminClient>;
 
@@ -363,7 +369,7 @@ export async function guardarFotos(
         falhas++;
         continue;
       }
-      const foto = await prepararFoto(arquivo);
+      const foto = await prepararFoto(arquivo, TAMANHO_DA_FOTO);
       // O sharp não leu e o navegador não disse que é imagem: não é foto.
       // A página do QR é aberta -- o bucket não guarda arquivo qualquer.
       if (foto.largura === null && !arquivo.type.startsWith("image/")) {

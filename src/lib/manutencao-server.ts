@@ -248,14 +248,19 @@ export async function evolucao(revendaId: string, quantas = 4, admin: Admin = cr
  *
  * Se o sharp falhar, guarda o original: perder a evidência é pior do que
  * guardar um arquivo maior.
+ *
+ * `lado` e `qualidade` são para quem não é evidência de auditoria: a foto
+ * do chamado de manutenção sai com 1280 px (05/10/2026) -- medida em
+ * fotos reais do app, cai de ~80 KB para ~50 KB, e o problema continua
+ * à vista.
  */
-export async function prepararFoto(arquivo: File) {
+export async function prepararFoto(arquivo: File, { lado = 1600, qualidade = 72 }: { lado?: number; qualidade?: number } = {}) {
   const bruto = Buffer.from(await arquivo.arrayBuffer());
   try {
     const { data, info } = await sharp(bruto)
       .rotate()
-      .resize({ width: 1600, height: 1600, fit: "inside", withoutEnlargement: true })
-      .webp({ quality: 72, effort: 6, smartSubsample: true })
+      .resize({ width: lado, height: lado, fit: "inside", withoutEnlargement: true })
+      .webp({ quality: qualidade, effort: 6, smartSubsample: true })
       .toBuffer({ resolveWithObject: true });
     return { dados: data, contentType: "image/webp", extensao: "webp", largura: info.width, altura: info.height };
   } catch {
