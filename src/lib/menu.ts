@@ -31,6 +31,8 @@ export const MODULO_DO_ITEM: Record<string, ModuloId> = {
   devolucao: "devolucao",
   "meus-indicadores": "meus-indicadores",
   manutencao: "manutencao",
+  // Não é opcional: a revenda ligou, todo mundo abre chamado (ver acessos.ts).
+  chamados: "chamados",
 };
 
 export type ItemMenu = {
@@ -77,7 +79,9 @@ export const BLOCOS_DO_MENU = [
     subtitulo: "O que você executa e registra",
     // Material de Apoio logo depois do Ativo de Giro (pedido do dono,
     // 16/09/2026): as duas contagens do armazém lado a lado.
-    chaves: ["produtividade-armazem", "feedback", "ativo-giro", "material-apoio", "manutencao"],
+    // Chamado de Manutenção (05/10/2026) ao lado do Check: os dois assuntos
+    // da manutenção juntos -- e quem não é do time só vê o primeiro.
+    chaves: ["produtividade-armazem", "feedback", "ativo-giro", "material-apoio", "chamados", "manutencao"],
   },
   {
     id: "empresa",
@@ -238,6 +242,9 @@ export const MENU_PADRAO: ItemMenu[] = [
   // Base de fornecedores (157): de TODA a unidade, sem módulo -- é o V.3
   // do DPO 2.2 ("disponível para a unidade consultar").
   { chave: "fornecedores", titulo: "Fornecedores", emoji: "☎️", href: "/fornecedores", ordem: 20, visivel: true },
+  // Chamado de Manutenção (165): de TODA a revenda, como era o Forms. Quem
+  // é do time da manutenção acha a fila dentro dele.
+  { chave: "chamados", titulo: "Chamado de Manutenção", emoji: "🔧", href: "/chamados", ordem: 21, visivel: true },
   // "Minha Conta" fica oculto: já existe o botão "Conta" no topo de todas as
   // telas, e repetir ocupava espaço da grade sem acrescentar nada.
   { chave: "conta", titulo: "Minha Conta", emoji: "🔒", href: "/minha-conta", ordem: 9, visivel: false },

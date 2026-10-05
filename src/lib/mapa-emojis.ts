@@ -125,6 +125,13 @@ export const MAPA_DE_EMOJIS: Assunto[] = [
   { id: "material-apoio", nome: "Material de Apoio", emoji: "🧰", area: "Operação e manutenção", chaves: ["material-apoio"] },
   { id: "manutencao", nome: "Check de Manutenção", emoji: "🛠️", area: "Operação e manutenção", chaves: ["manutencao"] },
   {
+    id: "chamados",
+    nome: "Chamados de Manutenção",
+    emoji: "🔧",
+    area: "Operação e manutenção",
+    chaves: ["chamados", "chamados-atender"],
+  },
+  {
     id: "fornecedores",
     nome: "Fornecedores",
     emoji: "☎️",

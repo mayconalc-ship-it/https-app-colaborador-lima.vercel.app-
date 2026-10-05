@@ -60,7 +60,13 @@ export type ModuloNotificavel =
   | "resumo-semanal"
   // O lembrete mensal do Simulador de Mão de Obra (28/09/2026): revisar e
   // formalizar o quadro dos próximos meses -- o V.2 do DPO 1.2.
-  | "mao-de-obra";
+  | "mao-de-obra"
+  // Chamados de Manutenção (05/10/2026): o chamado novo (ou reaberto)
+  // para o TIME DA MANUTENÇÃO...
+  | "chamados"
+  // ...e o andamento para QUEM ABRIU. Próprio pelo mesmo motivo do
+  // "boas-praticas-avaliar": o aviso e o botão são de outra pessoa.
+  | "chamados-retorno";
 
 /**
  * A mesma lista, em forma de array.
@@ -94,6 +100,8 @@ export const MODULOS_NOTIFICAVEIS: ModuloNotificavel[] = [
   "material-apoio-contagem",
   "resumo-semanal",
   "mao-de-obra",
+  "chamados",
+  "chamados-retorno",
 ];
 
 export const EMOJI_MODULO: Record<ModuloNotificavel, string> = {
@@ -122,6 +130,8 @@ export const EMOJI_MODULO: Record<ModuloNotificavel, string> = {
   "material-apoio-contagem": "🧰",
   "resumo-semanal": "🗓️",
   "mao-de-obra": "🧮",
+  chamados: "🔧",
+  "chamados-retorno": "🔧",
 };
 
 export const ROTULO_MODULO: Record<ModuloNotificavel, string> = {
@@ -150,6 +160,8 @@ export const ROTULO_MODULO: Record<ModuloNotificavel, string> = {
   "material-apoio-contagem": "Contagem diária do material de apoio",
   "resumo-semanal": "Resumo semanal da liderança",
   "mao-de-obra": "Planejamento de mão de obra",
+  chamados: "Chamado de manutenção para atender",
+  "chamados-retorno": "Andamento do meu chamado",
 };
 
 /**
@@ -209,6 +221,8 @@ export const ROTULO_BOTAO: Record<ModuloNotificavel, string> = {
   "material-apoio-contagem": "Contar agora",
   "resumo-semanal": "Ver o resumo",
   "mao-de-obra": "Revisar o planejamento",
+  chamados: "Atender agora",
+  "chamados-retorno": "Ver o chamado",
 };
 
 /** "há 2 min", "há 3 h", "ontem" — mais legível que data completa. */

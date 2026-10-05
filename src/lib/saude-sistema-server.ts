@@ -12,6 +12,7 @@ const BUCKETS = [
   { id: "comprovantes", para: "comprovantes de pagamento" },
   { id: "reconhecimentos", para: "reconhecimentos do 5S" },
   { id: "manutencao", para: "fotos do Check de Manutenção" },
+  { id: "chamados", para: "fotos dos Chamados de Manutenção" },
 ];
 
 /** Quantas conferências vão ao banco ao mesmo tempo -- sem afogar o PostgREST. */

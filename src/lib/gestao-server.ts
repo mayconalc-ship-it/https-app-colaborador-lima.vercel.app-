@@ -63,9 +63,26 @@ export async function sinaisDosPaineis(
   revendaId: string,
 ): Promise<Record<string, SinalDoPainel>> {
   const sinais: Record<string, SinalDoPainel> = {};
+  const admin = createAdminClient();
+
+  // Chamado de manutenção com o prazo estourado (05/10/2026). Só o
+  // atrasado: chamado aberto no prazo é a fila andando, não pendência.
+  if (paineis.some((p) => p.id === "chamados")) {
+    try {
+      const { count } = await admin
+        .from("chamados")
+        .select("id", { count: "exact", head: true })
+        .eq("revenda_id", revendaId)
+        .in("status", ["aberto", "em_atendimento", "aguardando"])
+        .lt("prazo_em", new Date().toISOString());
+      if (count) sinais.chamados = { valor: count, rotulo: count === 1 ? "chamado atrasado" : "chamados atrasados" };
+    } catch {
+      // idem ao de baixo: sem contagem, o cartão só perde o número.
+    }
+  }
+
   if (!paineis.some((p) => p.id === "anomalias")) return sinais;
 
-  const admin = createAdminClient();
   try {
     const [relatos, blitz] = await Promise.all([
       admin

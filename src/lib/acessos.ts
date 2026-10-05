@@ -50,6 +50,8 @@ export type ModuloId =
   | "fefo-controle"
   | "wqi"
   | "manutencao"
+  | "chamados"
+  | "chamados-atender"
   | "rating"
   | "refugo"
   | "refugo-indicadores"
@@ -918,6 +920,49 @@ export const MODULOS: Modulo[] = [
     semTelaAdmin: true,
   },
   {
+    /*
+      CHAMADOS DE MANUTENÇÃO (05/10/2026, pedido do dono): o formulário do
+      Microsoft Forms trazido para o app, aberto também pelo QR Code da
+      área (migration 165).
+
+      ABRIR CHAMADO É DE TODO MUNDO -- como no Forms, que qualquer um
+      abria. Por isso este módulo fica FORA de MODULOS_OPCIONAIS: a
+      revenda ligou, o cartão aparece. Estas concessões são só da
+      liderança: "ver" lê o painel na Gestão, "editar" cuida dos locais,
+      dos QR Codes e dos prazos, "excluir" apaga chamado de teste.
+
+      Quem ATENDE é outro módulo, logo abaixo -- o time da manutenção não
+      é necessariamente liderança, e quem lê o painel não precisa atender.
+    */
+    id: "chamados",
+    rotulosDeAcao: {
+      ver: "📊 Abrir o painel de Chamados de Manutenção na Gestão (prazo, reabertos, nota)",
+      editar: "Cadastrar as áreas, imprimir os QR Codes e ajustar os prazos",
+      excluir: "Apagar chamado aberto por engano ou de teste",
+    },
+    rotulo: "Chamados de Manutenção",
+    emoji: "🔧",
+    href: "/admin/chamados",
+    grupo: "Configuração",
+    acoes: ["ver", "editar", "excluir"],
+    exigeEditarNoAdmin: true,
+  },
+  {
+    // O time da manutenção: vê a fila, assume, pausa e conclui o chamado.
+    // Pessoa a pessoa, como o Check de Manutenção -- mesmo desenho de
+    // "fefo" e "fefo-controle": quem aponta não é quem fecha.
+    id: "chamados-atender",
+    rotulosDeAcao: {
+      ver: "Atender os chamados de manutenção no app (o time da manutenção)",
+    },
+    rotulo: "Chamados de Manutenção (atender)",
+    emoji: "🔧",
+    href: "/chamados?aba=fila",
+    grupo: "Operação",
+    acoes: ["ver"],
+    semTelaAdmin: true,
+  },
+  {
     id: "perfis-acesso",
     rotulosDeAcao: {
       ver: "Abrir os Perfis de Acesso",
@@ -1070,6 +1115,9 @@ export const MODULOS_OPCIONAIS: ModuloId[] = [
   "meus-indicadores",
   // Check de Manutenção (156): só o time da manutenção, pessoa a pessoa.
   "manutencao",
+  // Chamados (165): ABRIR é de todos ("chamados" fica fora daqui); ATENDER
+  // é do time da manutenção, pessoa a pessoa.
+  "chamados-atender",
 ];
 
 /**

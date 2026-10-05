@@ -1,5 +1,5 @@
-import QRCode from "qrcode";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { QrDoLink } from "@/components/QrDoLink";
 import { getRevendaId } from "@/lib/revendas";
 import { linkDeCanalValido } from "@/lib/fontes-de-dados";
 
@@ -47,59 +47,6 @@ async function canaisDaRevenda(revendaId: string): Promise<Canais> {
     epi: linkDeCanalValido(data?.epi_url ?? ""),
     ouvidoria: linkDeCanalValido(data?.ouvidoria_url ?? ""),
   };
-}
-
-/**
- * O QR, gerado a partir do link salvo.
- *
- * Era um SVG fixo desenhado para o link de São Félix. Com um link por
- * revenda ele precisa nascer do endereço -- no servidor, na hora de montar
- * a tela, sem serviço externo: um QR que dependesse de outro site cairia
- * junto com ele.
- *
- * O desenho é o mesmo de antes: uma linha de traço por sequência de
- * módulos pretos, com a margem de 4 módulos que o leitor precisa.
- */
-function QrDoLink({ url, className, rotulo }: { url: string; className?: string; rotulo: string }) {
-  let tamanho = 0;
-  let caminho = "";
-  try {
-    const qr = QRCode.create(url, { errorCorrectionLevel: "M" });
-    tamanho = qr.modules.size;
-    const preto = (linha: number, coluna: number) => qr.modules.data[linha * tamanho + coluna] === 1;
-    const trechos: string[] = [];
-    for (let y = 0; y < tamanho; y++) {
-      let x = 0;
-      while (x < tamanho) {
-        if (!preto(y, x)) {
-          x++;
-          continue;
-        }
-        const inicio = x;
-        while (x < tamanho && preto(y, x)) x++;
-        trechos.push(`M${inicio + 4} ${y + 4.5}h${x - inicio}`);
-      }
-    }
-    caminho = trechos.join("");
-  } catch {
-    // Link longo demais para um QR, ou qualquer falha da biblioteca: fica
-    // só o botão, que é o caminho de quem está com o app aberto.
-    return null;
-  }
-
-  const total = tamanho + 8;
-  return (
-    <svg
-      viewBox={`0 0 ${total} ${total}`}
-      shapeRendering="crispEdges"
-      className={className}
-      role="img"
-      aria-label={rotulo}
-    >
-      <path fill="#ffffff" d={`M0 0h${total}v${total}H0z`} />
-      <path stroke="#0f172a" d={caminho} />
-    </svg>
-  );
 }
 
 /**

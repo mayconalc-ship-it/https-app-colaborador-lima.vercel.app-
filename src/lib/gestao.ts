@@ -32,6 +32,7 @@ export type PainelId =
   | "mao-de-obra"
   | "armazem"
   | "wqi"
+  | "chamados"
   | "gas"
   | "cinco-s"
   | "feedbacks"
@@ -156,6 +157,19 @@ export const PAINEIS: Painel[] = [
     bloco: "Operação",
     modulo: "wqi",
     pergunta: "Quanto PA quebrou no manuseio, por motivo, local, turno e colaborador.",
+    mora: true,
+  },
+  {
+    // Os chamados de manutenção (05/10/2026): o que o DPO 8.2 e 9.2
+    // perguntam -- o que está aberto, o que estourou o prazo, quanto
+    // reabriu e a nota de quem pediu.
+    id: "chamados",
+    rotulo: "Chamados de Manutenção",
+    emoji: "🔧",
+    href: "/gestao/chamados",
+    bloco: "Operação",
+    modulo: "chamados",
+    pergunta: "O que está aberto, o que estourou o prazo e quanto a manutenção leva para resolver.",
     mora: true,
   },
   {

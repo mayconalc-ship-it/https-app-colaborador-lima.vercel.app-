@@ -6,7 +6,12 @@ import { CABECALHO_USUARIO } from "@/lib/sessao-headers";
 // /votar é a votação das Boas Práticas por link (23/09/2026): o endereço
 // vai para o grupo de WhatsApp e quem abre não tem conta no app. A trava
 // dela é o token secreto do endereço, conferido na própria tela.
-const PUBLIC_PATHS = ["/login", "/votar"];
+//
+// /os/ é o QR Code do Chamado de Manutenção (05/10/2026), colado nas
+// áreas: abre sem login, como o Forms que ele substitui. Mesma trava -- o
+// código do endereço, conferido no servidor. Com a barra no fim de
+// propósito: "/os" sozinho casaria qualquer rota futura que comece assim.
+const PUBLIC_PATHS = ["/login", "/votar", "/os/"];
 const ROTA_DEFINIR_SENHA = "/definir-senha";
 
 export async function proxy(request: NextRequest) {
