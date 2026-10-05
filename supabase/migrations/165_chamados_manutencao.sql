@@ -7,11 +7,13 @@
 -- Code colado nas areas. Os campos sao os mesmos do Forms: unidade, area,
 -- solicitante, telefone, tipo de O.S. e a descricao.
 --
+-- UM QR CODE SO POR REVENDA, como o Forms (pedido do dono, 05/10/2026:
+-- "precisa ser somente 1 QR CODE. Nao quero varios"). O mesmo cartaz vai
+-- em quantos lugares quiser; a area e escolhida na lista do formulario.
+--
 -- O que muda em relacao ao Forms:
 --   * a unidade sai do proprio QR (e do vinculo, no app): ninguem escolhe
 --     a revenda errada;
---   * cada AREA pode ter o seu QR: quem escaneia ja chega com a area
---     preenchida (o Forms tinha um QR so, e a pessoa rolava 29 opcoes);
 --   * o chamado tem NUMERO, PRAZO e ANDAMENTO -- quem abriu acompanha e,
 --     no fim, confirma se resolveu e da uma nota.
 --
@@ -23,8 +25,8 @@
 --   9.3 feedback de chamados (o aviso a quem abriu).
 --
 -- Tabelas:
---   chamados_config  prazos por prioridade e o token do QR geral da revenda
---   chamados_locais  as areas do Forms, cada uma com o codigo do seu QR
+--   chamados_config  prazos por prioridade e o token do QR da revenda
+--   chamados_locais  as areas do Forms (a lista do formulario)
 --   chamados         o chamado (numero sequencial por revenda)
 --   chamados_eventos a linha do tempo (mudanca de status, comentario...)
 --   chamados_fotos   fotos da abertura e da conclusao (bucket PRIVADO)
@@ -36,9 +38,10 @@
 --   "chamados-atender"  o time da manutencao, pessoa a pessoa (Acessos
 --                       por Pessoa): a fila e o atendimento.
 --
--- A PAGINA DO QR E ABERTA (sem login), como o Forms: /os/<codigo>. A
--- trava e o codigo do endereco, conferido no servidor -- e o mesmo
--- desenho da votacao por link (/votar, migration 132).
+-- A PAGINA DO QR E ABERTA (sem login), como o Forms: /os/<token>. A
+-- trava e o token do endereco, conferido no servidor -- e o mesmo
+-- desenho da votacao por link (/votar, migration 132). Trocar o token
+-- (Admin > Chamados) invalida o cartaz antigo.
 -- ==================================================================
 
 insert into storage.buckets (id, name, public)
@@ -50,7 +53,7 @@ on conflict (id) do update set public = false;
 -- ------------------------------------------------------------------
 create table if not exists public.chamados_config (
   revenda_id uuid primary key references public.revendas(id) on delete cascade,
-  -- O QR GERAL da unidade (sem area): /os/<token_publico>.
+  -- O QR da unidade: /os/<token_publico>. Um so por revenda.
   token_publico text not null unique default substr(md5(gen_random_uuid()::text), 1, 10),
   -- Prazo de atendimento por prioridade, em horas corridas. Valores de
   -- partida; quem ajusta e a lideranca em Admin > Chamados.
@@ -71,9 +74,6 @@ create table if not exists public.chamados_locais (
   grupo text not null default '' check (char_length(grupo) <= 60),
   nome text not null check (char_length(nome) between 1 and 80),
   ordem smallint not null default 0,
-  -- O codigo do QR desta area: /os/<codigo>. Trocar o codigo invalida o
-  -- QR impresso (e o caminho para quando um cartaz vaza para fora).
-  codigo text not null unique default substr(md5(gen_random_uuid()::text), 1, 10),
   ativo boolean not null default true,
   criado_em timestamptz not null default now(),
   constraint chamados_local_unico unique (revenda_id, grupo, nome)
@@ -190,12 +190,21 @@ alter table public.chamados_fotos enable row level security;
 --    (o Forms era um so para todas as unidades; area que nao existir
 --    numa revenda e desligada em Admin > Chamados)
 -- ------------------------------------------------------------------
-insert into public.chamados_config (revenda_id)
-select r.id from public.revendas r
-where r.id in (
-  '7afe4da5-e846-4b02-947f-96843a2791fe', -- Sao Felix (Samavi)
-  'fc365d16-ccbd-4322-ae02-e992a36861e8'  -- Barreiras
-)
+-- O token do QR vem FIXO aqui, e nao do default aleatorio: os cartazes
+-- foram impressos ANTES desta migration rodar (pedido do dono,
+-- 05/10/2026), com estes enderecos dentro:
+--   Sao Felix  https://app-colaborador-lima.vercel.app/os/43dd35ba98
+--   Barreiras  https://app-colaborador-lima.vercel.app/os/e27e697d89
+-- Trocar um token aqui (ou pelo "Gerar QR novo" do Admin) invalida o
+-- cartaz impresso daquela unidade.
+insert into public.chamados_config (revenda_id, token_publico)
+select r.id, t.token
+from public.revendas r
+join (
+  values
+    ('7afe4da5-e846-4b02-947f-96843a2791fe'::uuid, '43dd35ba98'), -- Sao Felix (Samavi)
+    ('fc365d16-ccbd-4322-ae02-e992a36861e8'::uuid, 'e27e697d89')  -- Barreiras
+) as t(revenda_id, token) on t.revenda_id = r.id
 on conflict (revenda_id) do nothing;
 
 insert into public.chamados_locais (revenda_id, grupo, nome, ordem)
@@ -255,14 +264,15 @@ on conflict (revenda_id, modulo) do update set ativo = true;
 
 notify pgrst, 'reload schema';
 
--- Confira: bucket privado, 29 locais por revenda, config e os dois modulos.
+-- Confira: bucket privado, 29 locais por revenda, o endereco do QR de cada
+-- revenda (tem de ser o do cartaz impresso) e os dois modulos.
 select 'bucket chamados publico?' as item, public::text as valor from storage.buckets where id = 'chamados'
 union all
 select 'locais em ' || r.nome, count(*)::text
 from public.chamados_locais l join public.revendas r on r.id = l.revenda_id
 group by r.nome
 union all
-select 'config em ' || r.nome, 'ok'
+select 'QR de ' || r.nome, 'https://app-colaborador-lima.vercel.app/os/' || c.token_publico
 from public.chamados_config c join public.revendas r on r.id = c.revenda_id
 union all
 select rm.modulo || ' em ' || r.nome, rm.ativo::text

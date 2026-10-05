@@ -10,11 +10,10 @@ import { MODULO_CHAMADOS } from "@/lib/chamados";
 const ROTA = "/admin/chamados";
 
 /**
- * O CADASTRO DOS CHAMADOS: áreas, QR Codes e prazos.
+ * O CADASTRO DOS CHAMADOS: áreas, o QR Code (um só por revenda) e prazos.
  *
- * Área não se apaga: desliga. Ela pode estar em chamados antigos, e o QR
- * dela pode estar colado na parede -- desligar faz o QR parar de abrir
- * chamado e tira a área da lista, sem mexer no histórico.
+ * Área não se apaga: desliga. Ela pode estar em chamados antigos --
+ * desligar tira a área da lista sem mexer no histórico.
  */
 
 const texto = (fd: FormData, campo: string) => String(fd.get(campo) ?? "").trim().replace(/\s+/g, " ");
@@ -79,11 +78,11 @@ export async function criarLocal(fd: FormData): Promise<ResultadoAcao> {
       .maybeSingle();
     const { error } = await admin
       .from("chamados_locais")
-      .insert({ revenda_id: revendaId, grupo, nome, ordem: (ultima?.ordem ?? 0) + 1, codigo: novoCodigo() });
+      .insert({ revenda_id: revendaId, grupo, nome, ordem: (ultima?.ordem ?? 0) + 1 });
     if (error?.code === "23505") pararComErro("Já existe uma área com esse nome nesse grupo.");
     if (error) pararComErro(`Não foi possível criar: ${error.message}`);
     revalidar();
-    return deuCerto(`Área "${grupo ? `${grupo} · ` : ""}${nome}" criada, já com o QR dela.`);
+    return deuCerto(`Área "${grupo ? `${grupo} · ` : ""}${nome}" criada. Já aparece na lista do formulário.`);
   });
 }
 
@@ -119,26 +118,12 @@ export async function alternarLocal(fd: FormData): Promise<ResultadoAcao> {
       .eq("revenda_id", revendaId);
     if (error) pararComErro(`Não foi possível salvar: ${error.message}`);
     revalidar();
-    return deuCerto(ativo ? "Área ligada: volta à lista e o QR dela abre chamado." : "Área desligada: some da lista e o QR dela para de abrir chamado.");
+    return deuCerto(ativo ? "Área ligada: volta à lista do formulário." : "Área desligada: some da lista do formulário.");
   });
 }
 
-/** Troca o código do QR de uma área: o cartaz antigo para de funcionar. */
-export async function novoQrDoLocal(fd: FormData): Promise<ResultadoAcao> {
-  return noLugar(async () => {
-    const { revendaId, admin } = await porta();
-    const { error } = await admin
-      .from("chamados_locais")
-      .update({ codigo: novoCodigo() })
-      .eq("id", texto(fd, "id"))
-      .eq("revenda_id", revendaId);
-    if (error) pararComErro(`Não foi possível trocar: ${error.message}`);
-    revalidar();
-    return deuCerto("QR novo gerado. Imprima e troque o cartaz: o antigo não abre mais chamado.");
-  });
-}
-
-export async function novoQrGeral(): Promise<ResultadoAcao> {
+/** Troca o QR da revenda: o cartaz antigo para de abrir chamado. */
+export async function novoQr(): Promise<ResultadoAcao> {
   return noLugar(async () => {
     const { perfil, revendaId, admin } = await porta();
     const { error } = await admin.from("chamados_config").upsert(
@@ -147,6 +132,6 @@ export async function novoQrGeral(): Promise<ResultadoAcao> {
     );
     if (error) pararComErro(`Não foi possível trocar: ${error.message}`);
     revalidar();
-    return deuCerto("QR geral novo gerado. O antigo não abre mais chamado.");
+    return deuCerto("QR novo gerado. Imprima e troque os cartazes: o antigo não abre mais chamado.");
   });
 }

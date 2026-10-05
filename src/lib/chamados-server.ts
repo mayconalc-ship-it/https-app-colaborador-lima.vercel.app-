@@ -124,7 +124,7 @@ export async function lerConfig(revendaId: string, admin: Admin = createAdminCli
     };
   }
   // Revenda nova, que não estava na semente da 165: nasce aqui, com os
-  // prazos de partida, para o QR geral existir desde o primeiro acesso.
+  // prazos de partida, para o QR existir desde o primeiro acesso.
   const { data: criada, error: e2 } = await admin
     .from("chamados_config")
     .upsert({ revenda_id: revendaId }, { onConflict: "revenda_id" })
@@ -149,7 +149,7 @@ export async function origemDoSite() {
 export async function lerLocais(revendaId: string, soAtivos = true, admin: Admin = createAdminClient()): Promise<Local[]> {
   let q = admin
     .from("chamados_locais")
-    .select("id, grupo, nome, ordem, codigo, ativo")
+    .select("id, grupo, nome, ordem, ativo")
     .eq("revenda_id", revendaId)
     .order("ordem")
     .order("nome");
@@ -160,34 +160,24 @@ export async function lerLocais(revendaId: string, soAtivos = true, admin: Admin
 }
 
 /**
- * O CÓDIGO DO QR -> a revenda (e a área, se o QR é de uma área).
+ * O TOKEN DO QR -> a revenda. Um QR só por revenda (pedido do dono): a
+ * área é escolhida no formulário.
  *
- * Primeiro procura uma área com esse código; senão, o QR geral da
- * revenda. Área desligada ou módulo desligado na revenda = QR que não
- * abre mais nada (o cartaz ficou para trás).
+ * Token trocado (Admin > Chamados) ou módulo desligado na revenda = QR
+ * que não abre mais nada (o cartaz ficou para trás).
  */
 export async function resolverCodigo(codigo: string, admin: Admin = createAdminClient()) {
   const limpo = (codigo ?? "").trim().toLowerCase();
   if (!/^[0-9a-f]{6,32}$/.test(limpo)) return null;
 
-  const { data: local, error } = await admin
-    .from("chamados_locais")
-    .select("id, revenda_id, grupo, nome, ordem, codigo, ativo")
-    .eq("codigo", limpo)
+  const { data: config, error } = await admin
+    .from("chamados_config")
+    .select("revenda_id")
+    .eq("token_publico", limpo)
     .maybeSingle();
   conferir(error);
-
-  let revendaId: string | null = null;
-  let doQr: Local | null = null;
-  if (local) {
-    if (!local.ativo) return null;
-    revendaId = local.revenda_id as string;
-    doQr = local as Local;
-  } else {
-    const { data: config } = await admin.from("chamados_config").select("revenda_id").eq("token_publico", limpo).maybeSingle();
-    if (!config) return null;
-    revendaId = config.revenda_id as string;
-  }
+  if (!config) return null;
+  const revendaId = config.revenda_id as string;
 
   const [{ data: revenda }, { data: ligado }] = await Promise.all([
     admin.from("revendas").select("id, nome, ativa").eq("id", revendaId).maybeSingle(),
@@ -200,7 +190,7 @@ export async function resolverCodigo(codigo: string, admin: Admin = createAdminC
   ]);
   if (!revenda || revenda.ativa === false || !ligado?.ativo) return null;
 
-  return { revendaId: revendaId!, revendaNome: revenda.nome as string, local: doQr };
+  return { revendaId, revendaNome: revenda.nome as string };
 }
 
 // ---------------------------------------------------------------------

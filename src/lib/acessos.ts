@@ -923,7 +923,7 @@ export const MODULOS: Modulo[] = [
     /*
       CHAMADOS DE MANUTENÇÃO (05/10/2026, pedido do dono): o formulário do
       Microsoft Forms trazido para o app, aberto também pelo QR Code da
-      área (migration 165).
+      unidade -- um só por revenda, como o Forms (migration 165).
 
       ABRIR CHAMADO É DE TODO MUNDO -- como no Forms, que qualquer um
       abria. Por isso este módulo fica FORA de MODULOS_OPCIONAIS: a
@@ -937,7 +937,7 @@ export const MODULOS: Modulo[] = [
     id: "chamados",
     rotulosDeAcao: {
       ver: "📊 Abrir o painel de Chamados de Manutenção na Gestão (prazo, reabertos, nota)",
-      editar: "Cadastrar as áreas, imprimir os QR Codes e ajustar os prazos",
+      editar: "Imprimir o QR Code, cadastrar as áreas e ajustar os prazos",
       excluir: "Apagar chamado aberto por engano ou de teste",
     },
     rotulo: "Chamados de Manutenção",

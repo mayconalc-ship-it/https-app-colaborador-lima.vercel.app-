@@ -681,8 +681,8 @@ export const GUIAS: Guia[] = [
     palavras: ["manutenção", "manutencao", "chamado", "os", "ordem de serviço", "conserto", "quebrado", "vazamento", "qr", "forms"],
     passos: [
       {
-        texto: "Na tela inicial, toque em **Chamado de Manutenção** (ou aponte a câmera para o QR Code colado na área).",
-        dica: "Pelo QR não precisa de login: a área já vem marcada.",
+        texto: "Na tela inicial, toque em **Chamado de Manutenção** (ou aponte a câmera para o QR Code do cartaz de manutenção).",
+        dica: "Pelo QR não precisa de login: serve para quem não tem o app.",
       },
       { texto: "Em **1 · Onde é o problema?**, escolha a área." },
       { texto: "Em **2 · Que tipo de serviço?**, toque no desenho: Alvenaria, Elétrica, Hidráulica, Jardinagem, Limpeza, Mobiliário ou Outros." },
@@ -737,10 +737,10 @@ export const GUIAS: Guia[] = [
   },
   {
     slug: "configurar-chamados-qr",
-    titulo: "Cadastrar áreas e imprimir os QR Codes dos chamados",
+    titulo: "Imprimir o QR Code e cadastrar as áreas dos chamados",
     emoji: "🔧",
     categoria: "armazem",
-    resumo: "As áreas da lista, o QR de cada uma para colar na parede e o prazo de cada prioridade.",
+    resumo: "O cartaz do QR Code (um só para a unidade), as áreas da lista e o prazo de cada prioridade.",
     exige: [["chamados", "editar"]],
     palavras: ["qr", "qrcode", "cartaz", "imprimir", "área", "area", "prazo", "sla", "chamado", "manutenção"],
     passos: [
@@ -748,18 +748,18 @@ export const GUIAS: Guia[] = [
       ABRIR_BARRA,
       gaveta("Configuração", "Chamados de Manutenção"),
       {
-        texto: "Em **📍 Áreas**, toque em **＋ Nova área** para incluir, ou toque numa área e em **Editar** para mudar nome, grupo e ordem.",
-        dica: "Área que não existe mais: **⏻ Desligar**. Ela sai da lista e o QR dela para de abrir chamado, sem apagar o histórico.",
+        texto: "Em **O QR Code da unidade**, toque em **🖨️ Imprimir o cartaz** e depois em **⬇️ Baixar em PDF**.",
+        dica: "É um QR só para a unidade inteira. Imprima quantas cópias quiser e cole onde a equipe circula.",
       },
       {
-        texto: "Toque em **🖨️ Imprimir os QR de todas as áreas** (ou **🖨️ Imprimir este QR**, numa área) e depois em **⬇️ Baixar em PDF**.",
-        dica: "Sai dois cartazes por folha A4. Cole cada um na área do nome dele.",
+        texto: "Em **📍 Áreas**, toque em **＋ Nova área** para incluir, ou toque numa área e em **Editar** para mudar nome, grupo e ordem.",
+        dica: "Área que não existe mais: **⏻ Desligar**. Ela sai da lista do formulário, sem apagar o histórico.",
       },
       { texto: "Em **⏱️ Prazo de atendimento**, ajuste as horas de **Risco**, **Urgente** e **Normal** e toque em **Salvar**." },
     ],
     atencao: [
       "Imprima pelo app publicado: o QR leva o endereço de onde você está.",
-      "Cartaz vazou ou estragou? **🔄 QR novo** invalida o antigo — e aí é preciso colar o novo.",
+      "O QR vazou para fora da empresa? **🔄 Gerar QR novo** invalida o antigo — e aí é preciso trocar todos os cartazes.",
       "O painel com prazo, reabertos e nota fica na **Gestão**, em **Chamados de Manutenção**.",
     ],
     tela: { href: "/admin/chamados", rotulo: "Abrir o cadastro dos chamados" },

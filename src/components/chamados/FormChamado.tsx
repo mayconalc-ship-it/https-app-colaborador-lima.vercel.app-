@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { MapPin, Mic } from "lucide-react";
+import { Mic } from "lucide-react";
 import { FormNoLugar } from "@/components/FormNoLugar";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
 import { CampoFoto } from "@/components/CampoFoto";
@@ -44,7 +44,7 @@ const campo =
  * que o Forms não tinha.
  *
  * Feito para sair em menos de um minuto:
- *  - pelo QR da área, a área já vem marcada;
+ *  - a unidade vem do QR (um só por revenda) ou do vínculo, no app;
  *  - o tipo é um toque num desenho, não uma lista;
  *  - nome e telefone ficam lembrados no aparelho;
  *  - a descrição pode ser ditada pelo microfone do teclado.
@@ -54,7 +54,6 @@ export function FormChamado({
   unidade,
   locais,
   localInicial = "",
-  localDoQr,
   nomeInicial = "",
   nomeTravado = false,
   ocultos = {},
@@ -65,8 +64,6 @@ export function FormChamado({
   unidade: string;
   locais: GrupoDeLocais[];
   localInicial?: string;
-  /** O QR é desta área: ela vem marcada, com a opção de trocar. */
-  localDoQr?: { id: string; nome: string };
   nomeInicial?: string;
   /** No app o nome vem do cadastro e não se digita. */
   nomeTravado?: boolean;
@@ -74,7 +71,6 @@ export function FormChamado({
   /** Página aberta (QR): ganha a armadilha de robô e lembra o nome. */
   publico?: boolean;
 }) {
-  const [trocandoArea, setTrocandoArea] = useState(!localDoQr);
   const [descricao, setDescricao] = useState("");
   const nome = useRef<HTMLInputElement>(null);
   const telefone = useRef<HTMLInputElement>(null);
@@ -117,38 +113,20 @@ export function FormChamado({
           <span className="text-xs font-bold uppercase tracking-wide text-slate-500">1 · Onde é o problema?</span>
           <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-semibold text-slate-600">🏢 {unidade}</span>
         </div>
-        {!trocandoArea && localDoQr ? (
-          <div className="flex items-center gap-3 rounded-xl border-2 border-primary/30 bg-primary-soft/50 p-3">
-            <MapPin size={22} className="shrink-0 text-primary" aria-hidden />
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-bold text-slate-900">{localDoQr.nome}</p>
-              <p className="text-xs text-slate-500">Área do QR Code que você escaneou</p>
-            </div>
-            <input type="hidden" name="local_id" value={localDoQr.id} />
-            <button
-              type="button"
-              onClick={() => setTrocandoArea(true)}
-              className="shrink-0 rounded-lg px-2 py-1 text-xs font-semibold text-primary hover:bg-white"
-            >
-              Trocar
-            </button>
-          </div>
-        ) : (
-          <select name="local_id" required defaultValue={localDoQr?.id ?? localInicial} className={campo}>
-            <option value="" disabled>
-              Escolha a área…
-            </option>
-            {locais.map((g) => (
-              <optgroup key={g.titulo} label={g.titulo}>
-                {g.itens.map((l) => (
-                  <option key={l.id} value={l.id}>
-                    {l.nome}
-                  </option>
-                ))}
-              </optgroup>
-            ))}
-          </select>
-        )}
+        <select name="local_id" required defaultValue={localInicial} className={campo}>
+          <option value="" disabled>
+            Escolha a área…
+          </option>
+          {locais.map((g) => (
+            <optgroup key={g.titulo} label={g.titulo}>
+              {g.itens.map((l) => (
+                <option key={l.id} value={l.id}>
+                  {l.nome}
+                </option>
+              ))}
+            </optgroup>
+          ))}
+        </select>
       </section>
 
       {/* ---- 2. O quê ---- */}

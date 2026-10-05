@@ -3,7 +3,8 @@
  *
  * O formulário "CHAMADO DE MANUTENÇÃO" do Microsoft Forms, trazido para
  * o app: os mesmos campos (unidade, área, solicitante, telefone, tipo de
- * O.S. e a descrição), aberto pelo app ou pelo QR Code colado na área.
+ * O.S. e a descrição), aberto pelo app ou pelo QR Code da unidade -- UM
+ * só por revenda, como o Forms (pedido do dono, 05/10/2026).
  *
  * O que o Forms não tinha e o app passa a ter -- é o que o DPO cobra da
  * manutenção no Checklist Global (ver lib/manutencao.ts):
@@ -251,7 +252,7 @@ export function chaveDoTexto(t: string) {
 // Locais
 // ---------------------------------------------------------------------
 
-export type Local = { id: string; grupo: string; nome: string; ordem: number; codigo: string; ativo: boolean };
+export type Local = { id: string; grupo: string; nome: string; ordem: number; ativo: boolean };
 
 /** "Armazém · Picking" -- o nome que fica gravado no chamado. */
 export function nomeDoLocal(l: { grupo: string; nome: string }) {

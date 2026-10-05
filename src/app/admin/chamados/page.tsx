@@ -9,7 +9,7 @@ import { requireModulo } from "@/lib/require-admin";
 import { exigirRevenda } from "@/lib/revendas";
 import { MODULO_CHAMADOS, agruparLocais, dataHora } from "@/lib/chamados";
 import { ChamadosNaoInstalado, lerConfig, lerLocais, origemDoSite } from "@/lib/chamados-server";
-import { alternarLocal, criarLocal, editarLocal, novoQrDoLocal, novoQrGeral, salvarPrazos } from "./actions";
+import { alternarLocal, criarLocal, editarLocal, novoQr, salvarPrazos } from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -19,8 +19,9 @@ const rotulo = "mb-1 block text-[11px] font-semibold uppercase text-slate-500";
 
 /**
  * CHAMADOS NO MODO LIDERANÇA -- o cadastro, não a leitura (que é na
- * Gestão): as áreas, os QR Codes que vão para a parede e o prazo de cada
- * prioridade. É o 8.1 do DPO: "gestão e conservação dos QR Codes".
+ * Gestão): as áreas, o QR Code que vai para a parede (UM só por revenda,
+ * pedido do dono) e o prazo de cada prioridade. É o 8.1 do DPO: "gestão e
+ * conservação dos QR Codes".
  */
 export default async function AdminChamadosPage() {
   await requireModulo(MODULO_CHAMADOS, "editar");
@@ -43,46 +44,47 @@ export default async function AdminChamadosPage() {
   const [config, locais, site] = dados;
   const ativos = locais.filter((l) => l.ativo).length;
   const grupos = [...new Set(locais.map((l) => l.grupo).filter(Boolean))];
-  const urlGeral = `${site.origem}/os/${config.tokenPublico}`;
+  const urlDoQr = `${site.origem}/os/${config.tokenPublico}`;
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="🔧 Chamados de Manutenção"
-        subtitle="As áreas, os QR Codes que vão para a parede e o prazo de cada prioridade"
+        subtitle="O QR Code que vai para a parede, as áreas da lista e o prazo de cada prioridade"
       />
       <LinkDoGuia slug="configurar-chamados-qr" />
 
       {site.local && (
         <p className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
-          ⚠️ Você está no endereço de teste ({site.origem}). Os QR Codes daqui apontam para ele e não abrem no celular de
+          ⚠️ Você está no endereço de teste ({site.origem}). O QR Code daqui aponta para ele e não abre no celular de
           ninguém. Imprima pelo app publicado.
         </p>
       )}
 
-      {/* ---- QR geral ---- */}
+      {/* ---- O QR (um só) ---- */}
       <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-        <h2 className="text-sm font-bold text-slate-900">QR Code geral da unidade</h2>
+        <h2 className="text-sm font-bold text-slate-900">O QR Code da unidade</h2>
         <p className="mt-0.5 text-xs text-slate-500">
-          Para a recepção, o refeitório ou o grupo de WhatsApp: quem escaneia escolhe a área na lista.
+          Um só para a unidade inteira, como era o Forms. Imprima quantas cópias quiser e cole onde a equipe circula:
+          quem escaneia escolhe a área na lista.
         </p>
         <div className="mt-3 flex flex-wrap items-center gap-4">
-          <QrDoLink url={urlGeral} rotulo="QR Code geral dos chamados" nivel="Q" className="h-28 w-28 shrink-0 rounded-lg border border-slate-200" />
+          <QrDoLink url={urlDoQr} rotulo="QR Code dos chamados de manutenção" nivel="Q" className="h-28 w-28 shrink-0 rounded-lg border border-slate-200" />
           <div className="min-w-0 flex-1 space-y-2">
-            <p className="break-all rounded-lg bg-slate-50 px-2 py-1.5 font-mono text-xs text-slate-600">{urlGeral}</p>
+            <p className="break-all rounded-lg bg-slate-50 px-2 py-1.5 font-mono text-xs text-slate-600">{urlDoQr}</p>
             <div className="flex flex-wrap gap-2">
               <Link
-                href="/admin/chamados/qr?geral=1"
+                href="/admin/chamados/qr"
                 target="_blank"
                 className="rounded-xl bg-primary px-3 py-2 text-sm font-semibold text-white hover:bg-primary-dark"
               >
                 🖨️ Imprimir o cartaz
               </Link>
               <BotaoNoLugar
-                acao={novoQrGeral}
+                acao={novoQr}
                 campos={{}}
-                confirmacao="Gerar um QR geral novo?"
-                detalhe="O cartaz que já está colado para de abrir chamado. Use quando o QR vazou ou o cartaz estragou."
+                confirmacao="Gerar um QR Code novo?"
+                detalhe="TODOS os cartazes já colados param de abrir chamado e precisam ser trocados. Use só quando o QR vazou para fora da empresa."
                 rotuloConfirmar="Gerar novo"
                 className="rounded-xl border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50"
               >
@@ -95,20 +97,11 @@ export default async function AdminChamadosPage() {
 
       {/* ---- Áreas ---- */}
       <section>
-        <div className="mb-2 flex flex-wrap items-end justify-between gap-2">
-          <div>
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
-              📍 Áreas <span className="text-slate-400">({ativos} ligadas)</span>
-            </h2>
-            <p className="text-xs text-slate-400">Cada área tem o seu QR: quem escaneia já chega com ela marcada.</p>
-          </div>
-          <Link
-            href="/admin/chamados/qr"
-            target="_blank"
-            className="rounded-xl bg-primary px-3 py-2 text-sm font-semibold text-white hover:bg-primary-dark"
-          >
-            🖨️ Imprimir os QR de todas as áreas
-          </Link>
+        <div className="mb-2">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
+            📍 Áreas <span className="text-slate-400">({ativos} ligadas)</span>
+          </h2>
+          <p className="text-xs text-slate-400">A lista que aparece no formulário, no app e no QR.</p>
         </div>
 
         <details className="mb-3 rounded-2xl border border-dashed border-primary/40 bg-primary-soft/30">
@@ -142,18 +135,11 @@ export default async function AdminChamadosPage() {
                   <li key={l.id} className={l.ativo ? "" : "bg-slate-50"}>
                     <details className="group">
                       <summary className="flex cursor-pointer list-none items-center gap-3 p-3 [&::-webkit-details-marker]:hidden">
-                        <QrDoLink
-                          url={`${site.origem}/os/${l.codigo}`}
-                          rotulo={`QR Code da área ${l.nome}`}
-                          className={`h-12 w-12 shrink-0 rounded border border-slate-200 ${l.ativo ? "" : "opacity-30"}`}
-                        />
                         <span className="min-w-0 flex-1">
                           <span className={`block truncate text-sm font-semibold ${l.ativo ? "text-slate-900" : "text-slate-400 line-through"}`}>
                             {l.nome}
                           </span>
-                          <span className="block text-[11px] text-slate-400">
-                            {l.ativo ? `/os/${l.codigo}` : "Desligada: fora da lista e o QR não abre"}
-                          </span>
+                          {!l.ativo && <span className="block text-[11px] text-slate-400">Desligada: fora da lista do formulário</span>}
                         </span>
                         <span className="shrink-0 text-xs font-semibold text-primary group-open:hidden">Editar</span>
                         <span className="hidden shrink-0 text-xs font-semibold text-slate-400 group-open:inline">Fechar</span>
@@ -179,38 +165,17 @@ export default async function AdminChamadosPage() {
                           </BotaoEnviar>
                         </FormNoLugar>
                         <div className="flex flex-wrap gap-2">
-                          {l.ativo && (
-                            <Link
-                              href={`/admin/chamados/qr?local=${l.id}`}
-                              target="_blank"
-                              className="rounded-lg border border-primary/40 bg-white px-3 py-1.5 text-xs font-semibold text-primary hover:bg-primary-soft"
-                            >
-                              🖨️ Imprimir este QR
-                            </Link>
-                          )}
                           <BotaoNoLugar
                             acao={alternarLocal}
                             campos={{ id: l.id, ativo: l.ativo ? "0" : "1" }}
                             perigo={l.ativo}
                             confirmacao={l.ativo ? `Desligar "${l.nome}"?` : undefined}
-                            detalhe="A área sai da lista e o QR dela para de abrir chamado. Os chamados antigos continuam."
+                            detalhe="A área sai da lista do formulário. Os chamados antigos continuam."
                             rotuloConfirmar="Desligar"
                             className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50"
                           >
                             {l.ativo ? "⏻ Desligar" : "⏻ Ligar de novo"}
                           </BotaoNoLugar>
-                          {l.ativo && (
-                            <BotaoNoLugar
-                              acao={novoQrDoLocal}
-                              campos={{ id: l.id }}
-                              confirmacao={`Gerar QR novo para "${l.nome}"?`}
-                              detalhe="O cartaz que já está colado nesta área para de abrir chamado."
-                              rotuloConfirmar="Gerar novo"
-                              className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50"
-                            >
-                              🔄 QR novo
-                            </BotaoNoLugar>
-                          )}
                         </div>
                       </div>
                     </details>
