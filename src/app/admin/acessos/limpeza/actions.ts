@@ -6,9 +6,10 @@ import { exigirGestaoDeAcessos, gerenciaAcessos } from "@/lib/gestao-de-acessos-
 import { lerLimpezaDeAcessos } from "@/lib/limpeza-de-acessos-server";
 import { moduloPorId } from "@/lib/acessos";
 
-function voltar(chave: "erro" | "sucesso", mensagem: string, revenda: string): never {
+// A revenda não vai na URL desde 05/10/2026: a tela usa a revenda do app
+// (ver exigirTelaDeAcessos).
+function voltar(chave: "erro" | "sucesso", mensagem: string): never {
   const params = new URLSearchParams({ [chave]: mensagem });
-  if (revenda) params.set("revenda", revenda);
   redirect(`/admin/acessos/limpeza?${params.toString()}`);
 }
 
@@ -27,10 +28,10 @@ function voltar(chave: "erro" | "sucesso", mensagem: string, revenda: string): n
  */
 export async function retirarAcessosSemUso(formData: FormData) {
   const revendaId = String(formData.get("revenda") ?? "");
-  const { eu, dono } = await exigirGestaoDeAcessos(revendaId, "editar", (m) => voltar("erro", m, revendaId));
+  const { eu, dono } = await exigirGestaoDeAcessos(revendaId, "editar", (m) => voltar("erro", m));
 
   const marcados = new Set(formData.getAll("marcado").map(String));
-  if (marcados.size === 0) voltar("erro", "Marque pelo menos uma liberação para retirar.", revendaId);
+  if (marcados.size === 0) voltar("erro", "Marque pelo menos uma liberação para retirar.");
 
   const { semUso, pessoas } = await lerLimpezaDeAcessos(revendaId);
   const validos = semUso.filter((l) => marcados.has(`${l.colaboradorId}:${l.modulo}`) && l.colaboradorId !== eu.id);
@@ -41,7 +42,7 @@ export async function retirarAcessosSemUso(formData: FormData) {
     porPessoa.set(l.colaboradorId, [...(porPessoa.get(l.colaboradorId) ?? []), l.modulo]);
   }
   if (porPessoa.size === 0) {
-    voltar("erro", "Nenhuma das liberações marcadas pode ser retirada — elas foram usadas ou estão fora do que você gerencia.", revendaId);
+    voltar("erro", "Nenhuma das liberações marcadas pode ser retirada — elas foram usadas ou estão fora do que você gerencia.");
   }
 
   const admin = createAdminClient();
@@ -55,7 +56,7 @@ export async function retirarAcessosSemUso(formData: FormData) {
       .eq("colaborador_id", colaboradorId)
       .eq("revenda_id", revendaId)
       .in("modulo", modulos);
-    if (error) voltar("erro", `Não foi possível retirar: ${error.message}`, revendaId);
+    if (error) voltar("erro", `Não foi possível retirar: ${error.message}`);
     total += modulos.length;
 
     // Toda mudança de acesso fica registrada. Sem exceção.
@@ -77,6 +78,5 @@ export async function retirarAcessosSemUso(formData: FormData) {
     "sucesso",
     `${total} liberação(ões) retirada(s) de ${porPessoa.size} pessoa(s).` +
       (ignorados > 0 ? ` ${ignorados} ficaram como estavam (foram usadas ou estão fora do que você gerencia).` : ""),
-    revendaId,
   );
 }

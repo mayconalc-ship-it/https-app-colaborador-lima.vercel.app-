@@ -1196,18 +1196,20 @@ export const GUIAS: Guia[] = [
         dica: "Pronto: a pessoa ganha o botão dourado Liderança — mas ainda sem nenhuma tela liberada.",
       },
       {
-        texto: "Agora libere o que ela pode fazer: no menu lateral, abra **🔐 Acessos por Pessoa** (o Admin encontra no topo da barra; a liderança, na gaveta 👥 Pessoas).",
+        texto: "Agora libere o que ela pode fazer: no menu lateral, abra **🔐 Gestão de Acessos** (o Admin encontra no topo da barra; a liderança, na gaveta 👥 Pessoas).",
       },
-      { texto: "Na aba **Por pessoa**, em **Lideranças em (revenda)**, toque no nome da pessoa." },
       {
-        texto: "Marque o que ela pode fazer em cada módulo — **Visualizar**, **Criar**, **Editar**, **Excluir** — ou use **Somar este perfil** para aplicar um perfil pronto.",
+        texto: "Confira na faixa colorida do topo se é a revenda certa, e na aba **👥 Pessoas** toque no nome da pessoa.",
       },
-      { texto: "Toque em **Salvar permissões em (revenda)**." },
+      {
+        texto: "Em **🎫 Perfis**, coloque a pessoa no perfil do cargo — ou, em **⚙️ No Modo Liderança**, ligue um a um o que ela pode fazer.",
+      },
+      { texto: "Toque em **Salvar em (revenda)**, no rodapé, e confira a lista do que entra e do que sai." },
     ],
     atencao: [
-      "Promover dá o crachá, não as chaves: sem o passo de Acessos por Pessoa, a pessoa entra no Modo Liderança e não vê nada.",
-      "Outro caminho para promover: em **🔐 Acessos por Pessoa**, aba **Por pessoa**, toque em **+ Tornar alguém liderança** e busque o nome.",
-      "Quem trabalha em duas unidades precisa das permissões liberadas em cada uma delas — troque a revenda no 🏢 e repita.",
+      "Promover dá o crachá, não as chaves: sem o passo da Gestão de Acessos, a pessoa entra no Modo Liderança e não vê nada.",
+      "Outro caminho para promover: em **🔐 Gestão de Acessos**, aba **👥 Pessoas**, abra a ficha da pessoa e toque em **Tornar liderança…**, no Papel.",
+      "Quem trabalha em duas unidades precisa das permissões liberadas em cada uma delas — troque a revenda na faixa do topo e repita.",
       "Para desfazer, abra a mesma ficha em Colaboradores e toque em **Tirar liderança**: a pessoa continua usando o app, mas perde todas as permissões.",
     ],
     tela: { href: "/admin/colaboradores", rotulo: "Abrir Colaboradores" },

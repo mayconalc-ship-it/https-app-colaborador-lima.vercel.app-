@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { PageHeader } from "@/components/PageHeader";
 import { AbasDeAcesso } from "@/components/admin/AbasDeAcesso";
+import { BarraDaRevenda } from "@/components/admin/BarraDaRevenda";
 import { exigirTelaDeAcessos } from "@/lib/gestao-de-acessos-server";
 import { MODULO_ACESSOS } from "@/lib/gestao-de-acessos";
 import { lerLimpezaDeAcessos } from "@/lib/limpeza-de-acessos-server";
@@ -28,10 +29,10 @@ const dataBr = (iso: string) =>
 export default async function LimpezaDeAcessosPage({
   searchParams,
 }: {
-  searchParams: Promise<{ revenda?: string; erro?: string; sucesso?: string }>;
+  searchParams: Promise<{ erro?: string; sucesso?: string }>;
 }) {
-  const { revenda: revendaParam, erro, sucesso } = await searchParams;
-  const { eu, dono, podeEditar, revendas, escolhida } = await exigirTelaDeAcessos(revendaParam);
+  const { erro, sucesso } = await searchParams;
+  const { eu, dono, podeEditar, revendas, escolhida, revendaDoApp } = await exigirTelaDeAcessos();
 
   const [{ semUso, liderancasAusentes, semEntrar, pessoas }, mostrarPerfis, { data: gestores }] = await Promise.all([
     lerLimpezaDeAcessos(escolhida.id),
@@ -71,29 +72,14 @@ export default async function LimpezaDeAcessosPage({
 
   return (
     <div>
-      <PageHeader
-        title="🔐 Acessos por Pessoa"
-        subtitle="Quem entra no Modo Liderança e o que cada um pode fazer. É aqui, e só aqui, que se TIRA acesso."
+      <BarraDaRevenda
+        atual={escolhida}
+        revendas={revendas}
+        volta="/admin/acessos/limpeza"
+        aviso={revendaDoApp ? `O resto do app está em ${revendaDoApp} — aqui você gerencia ${escolhida.nome}.` : undefined}
       />
-      <AbasDeAcesso atual="limpeza" revendaId={escolhida.id} mostrarPerfis={mostrarPerfis} />
-
-      {revendas.length > 1 && (
-        <div className="mb-4 flex flex-wrap gap-2">
-          {revendas.map((r) => (
-            <Link
-              key={r.id}
-              href={`/admin/acessos/limpeza?revenda=${r.id}`}
-              className={
-                r.id === escolhida.id
-                  ? "rounded-xl bg-primary px-3 py-2 text-sm font-semibold text-white"
-                  : "rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600 hover:border-primary"
-              }
-            >
-              {r.nome}
-            </Link>
-          ))}
-        </div>
-      )}
+      <PageHeader title="🔐 Gestão de Acessos" subtitle="Quem pode o quê no app e no Modo Liderança." />
+      <AbasDeAcesso atual="limpeza" mostrarPerfis={mostrarPerfis} />
 
       {erro && <p className="mb-3 rounded-lg bg-red-50 p-3 text-sm text-red-700">{erro}</p>}
       {sucesso && <p className="mb-3 rounded-lg bg-green-50 p-3 text-sm text-green-700">{sucesso}</p>}
@@ -159,7 +145,7 @@ export default async function LimpezaDeAcessosPage({
                   </p>
                 </div>
                 <Link
-                  href={`/admin/acessos/${p.id}?revenda=${escolhida.id}`}
+                  href={`/admin/acessos/${p.id}`}
                   className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:border-primary hover:text-primary"
                 >
                   Abrir a ficha

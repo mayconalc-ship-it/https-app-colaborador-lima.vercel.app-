@@ -319,7 +319,9 @@ export const MODULOS: Modulo[] = [
       ver: "Consultar as fichas de acesso desta revenda (sem alterar nada)",
       editar: "Alterar os acessos desta revenda — só dentro do que a própria pessoa tem",
     },
-    rotulo: "Acessos por Pessoa",
+    // "Gestão de Acessos" desde 05/10/2026: a tela virou pessoas + perfis +
+    // grades + revisão em abas, e é assim que o dono a chama.
+    rotulo: "Gestão de Acessos",
     emoji: "🔐",
     href: "/admin/acessos",
     grupo: "Pessoas",
@@ -1183,8 +1185,12 @@ export const MODULOS_DO_DONO: {
     // "acessos" (ver a entrada dele em MODULOS). Este item continua sendo o
     // caminho do Admin -- a barra tira o item do módulo para ele, para não
     // aparecer duas vezes.
+    //
+    // 05/10/2026: "Gestão de Acessos", o nome que o dono usa. As abas de
+    // dentro (Pessoas, Perfis, Em massa, Revisão) fazem a separação que o
+    // "por Pessoa" fazia no nome.
     href: "/admin/acessos",
-    rotulo: "Acessos por Pessoa",
+    rotulo: "Gestão de Acessos",
     emoji: "🔐",
   },
   {

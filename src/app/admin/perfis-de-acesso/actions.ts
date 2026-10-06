@@ -370,7 +370,7 @@ export async function tirarDoPerfil(formData: FormData) {
   revalidatePath(ROTA);
   voltar(
     "sucesso",
-    "Tirado do perfil. As permissões da pessoa continuam as mesmas — para removê-las, use Acessos por Pessoa.",
+    "Tirado do perfil. Os acessos da pessoa continuam, agora como individuais — para tirá-los, abra a ficha dela na aba Pessoas.",
     `&perfil=${perfilId}`,
   );
 }

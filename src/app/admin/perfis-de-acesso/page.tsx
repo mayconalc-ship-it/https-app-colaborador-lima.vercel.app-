@@ -5,7 +5,8 @@ import { BotaoEnviar } from "@/components/BotaoEnviar";
 import { BotaoExcluir } from "@/components/BotaoExcluir";
 import { AplicarPerfil } from "@/components/admin/AplicarPerfil";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getRevendaId } from "@/lib/revendas";
+import { getRevendaAtiva, getRevendas } from "@/lib/revendas";
+import { BarraDaRevenda } from "@/components/admin/BarraDaRevenda";
 import { requireModulo, podeNoModulo } from "@/lib/require-admin";
 import { getPerfil } from "@/lib/sessao";
 import { ehOwner } from "@/lib/acessos";
@@ -73,9 +74,13 @@ export default async function PerfisDeAcessoPage({
   await requireModulo("perfis-acesso", "ver");
   const sp = await searchParams;
 
-  const revendaId = await getRevendaId();
-  if (!revendaId) {
-    return <PageHeader title="🎫 Perfis de Acesso" subtitle="Você não está em nenhuma revenda." />;
+  // A REVENDA É A DO APP, a mesma das outras abas e do 🏢 do cabeçalho --
+  // e agora aparece, na faixa colorida do topo (05/10/2026). Esta aba não
+  // mostrava revenda nenhuma.
+  const [revendaAtiva, minhasRevendas] = await Promise.all([getRevendaAtiva(), getRevendas()]);
+  const revendaId = revendaAtiva?.id ?? null;
+  if (!revendaAtiva || !revendaId) {
+    return <PageHeader title="🔐 Gestão de Acessos" subtitle="Você não está em nenhuma revenda." />;
   }
 
   const admin = createAdminClient();
@@ -244,63 +249,69 @@ export default async function PerfisDeAcessoPage({
 
   return (
     <div className="space-y-4">
-      <PageHeader
-        title="🎫 Perfis de Acesso"
-        subtitle="O molde de um cargo, com nome: monta-se uma vez e aplica-se a quantas pessoas precisar."
-        fecharHref="/admin"
+      {/* A FAIXA DA REVENDA (05/10/2026): esta aba grava na revenda do
+          app, e não dizia qual era. */}
+      <BarraDaRevenda
+        atual={revendaAtiva}
+        revendas={minhasRevendas}
+        volta="/admin/perfis-de-acesso"
       />
 
-      {/* A MESMA BARRA DA TELA DE ACESSOS (06/09/2026). As duas rotas
-          continuam duas -- as portas de entrada são diferentes, ver o
-          comentário em AbasDeAcesso --, mas se comportam como uma tela:
-          o mesmo lugar para cada coisa, sempre. */}
-      <AbasDeAcesso atual="perfil" revendaId={revendaId} />
+      {/* O MESMO TÍTULO E AS MESMAS ABAS DA GESTÃO DE ACESSOS. As duas
+          rotas continuam duas -- as portas de entrada são diferentes, ver
+          o comentário em AbasDeAcesso --, mas se comportam como uma tela. */}
+      <div>
+        <PageHeader title="🔐 Gestão de Acessos" subtitle="Quem pode o quê no app e no Modo Liderança." />
+        <AbasDeAcesso atual="perfil" />
+      </div>
 
       {sp.erro && <p className="rounded-xl bg-red-50 p-3 text-sm font-medium text-red-700">{sp.erro}</p>}
       {sp.sucesso && (
         <p className="rounded-xl bg-green-50 p-3 text-sm font-medium text-green-700">✅ {sp.sucesso}</p>
       )}
 
-      {/* Por que existem duas telas de acesso -- respondido na própria
-          tela, porque de fora elas pareciam o mesmo módulo (pergunta do
-          dono, 02/09/2026). O contraste é objeto e sentido: pessoa x
-          molde, soma x soma-e-tira. */}
-      <div className="rounded-2xl bg-slate-50 p-4 text-xs leading-relaxed text-slate-600">
-        <p>
-          <strong>Um perfil é um molde, não uma pessoa.</strong> Ele guarda um
-          conjunto de acessos com nome — &quot;Analista de Rota&quot; — para
-          não remontar tudo à mão a cada contratação. Aplicá-lo grava
-          exatamente as mesmas marcações que você faria em{" "}
-          <Link
-            href="/admin/acessos"
-            className="font-semibold text-primary hover:underline"
-          >
-            Acessos por Pessoa
-          </Link>
-          : não é um segundo sistema de permissão, é um atalho para o mesmo.
-        </p>
-        <p className="mt-2">
-          <strong>Existem dois tipos, e eles não se misturam.</strong>{" "}
-          <span className="font-semibold text-emerald-800">📱 Colaborador</span> diz quais
-          módulos a pessoa vê no app (Comunicados, Escala, Ranking…) — ela continua
-          colaborador e <strong>nunca</strong> entra no Modo Liderança.{" "}
-          <span className="font-semibold text-amber-800">⚙️ Liderança</span> diz o que a pessoa
-          pode <strong>ver, criar, editar e excluir</strong> no Modo Liderança; aplicá-lo a um
-          colaborador só acontece com uma confirmação em vermelho.
-        </p>
-        <p className="mt-2">
-          Ao aplicar você escolhe entre <strong>Somar</strong>, que acrescenta o
-          que falta e não tira nada, e <strong>Espelhar</strong>, que deixa a
-          pessoa igual ao perfil — inclusive tirando o que sobra. O Espelhar
-          mostra, nome por nome, o que vai sair antes de você confirmar. Ele
-          nunca mexe nas permissões da pessoa em outra revenda.
-        </p>
-        <p className="mt-2">
-          Excluir um perfil daqui não desfaz nada: quem já recebeu continua com
-          as permissões, e ajustar pessoa a pessoa em Acessos por Pessoa continua
-          possível.
-        </p>
-      </div>
+      {/* Por que existem perfis -- respondido na própria tela, porque de
+          fora as duas telas pareciam o mesmo módulo (pergunta do dono,
+          02/09/2026). FECHADO desde 05/10/2026: lido uma vez, o texto
+          virava um muro entre o título e os perfis, e o dono achava o
+          módulo "complexo de entender". */}
+      <details className="rounded-2xl bg-slate-50 p-4 text-xs leading-relaxed text-slate-600">
+        <summary className="cursor-pointer text-sm font-semibold text-slate-700">
+          Como funcionam os perfis
+        </summary>
+        <ul className="mt-2 list-disc space-y-1.5 pl-4">
+          <li>
+            <strong>Um perfil é o pacote de acessos de um cargo</strong> — &quot;Analista de Rota&quot; —
+            para não remontar tudo à mão a cada contratação. Ele grava as mesmas marcações da ficha
+            de cada pessoa, na aba{" "}
+            <Link href="/admin/acessos" className="font-semibold text-primary hover:underline">
+              Pessoas
+            </Link>
+            : não é um segundo sistema de permissão.
+          </li>
+          <li>
+            <strong>Salvar um perfil já atualiza todo mundo que está nele</strong> — não precisa
+            aplicar de novo. Na ficha da pessoa, o que vem do perfil aparece com 🎫 e o nome dele; o
+            que foi liberado à mão aparece como <em>individual</em>.
+          </li>
+          <li>
+            <strong>Dois tipos, que não se misturam.</strong>{" "}
+            <span className="font-semibold text-emerald-800">📱 Colaborador</span> diz quais módulos a
+            pessoa vê no app — ela continua colaborador.{" "}
+            <span className="font-semibold text-amber-800">⚙️ Liderança</span> diz o que ela pode ver,
+            criar, editar e excluir no Modo Liderança; num colaborador, só com a confirmação em
+            vermelho.
+          </li>
+          <li>
+            Ao aplicar a alguém: <strong>Somar</strong> acrescenta o que falta e não tira nada;{" "}
+            <strong>Espelhar</strong> deixa a pessoa igual ao perfil, tirando o que sobra — e mostra
+            antes, nome por nome, o que sai. Nunca mexe em outra revenda.
+          </li>
+          <li>
+            Excluir um perfil não desfaz nada: quem já recebeu continua com os acessos.
+          </li>
+        </ul>
+      </details>
 
       {/* ---------- LISTA ---------- */}
       {perfis.length === 0 && !criandoNovo && !emEdicao ? (
@@ -485,14 +496,24 @@ export default async function PerfisDeAcessoPage({
                               key={pessoa.id}
                               className="flex items-center gap-1 rounded-lg bg-primary-soft py-1 pl-2 pr-1 text-[11px] font-medium text-primary-dark"
                             >
-                              <span>
-                                {pessoa.nome}
-                                {pessoa.cargo && (
-                                  <span className="ml-1 font-normal text-primary">
-                                    {pessoa.cargo}
-                                  </span>
-                                )}
-                              </span>
+                              {/* O nome abre a ficha da pessoa -- é lá que se
+                                  vê o que vem deste perfil e o que é dela
+                                  (05/10/2026). Só para quem entra lá. */}
+                              {dono ? (
+                                <Link href={`/admin/acessos/${pessoa.id}`} className="hover:underline">
+                                  {pessoa.nome}
+                                  {pessoa.cargo && (
+                                    <span className="ml-1 font-normal text-primary">{pessoa.cargo}</span>
+                                  )}
+                                </Link>
+                              ) : (
+                                <span>
+                                  {pessoa.nome}
+                                  {pessoa.cargo && (
+                                    <span className="ml-1 font-normal text-primary">{pessoa.cargo}</span>
+                                  )}
+                                </span>
+                              )}
                               {podeEditar && (
                                 <BotaoExcluir
                                   action={tirarDoPerfil}
@@ -511,9 +532,9 @@ export default async function PerfisDeAcessoPage({
                           ))}
                         </ul>
                         <p className="mt-1.5 text-[11px] text-slate-400">
-                          Tirar daqui desfaz só o vínculo — as permissões da
-                          pessoa continuam. Para removê-las, use Acessos por
-                          Pessoa.
+                          Tirar daqui desfaz só o vínculo — os acessos da
+                          pessoa continuam, como individuais. Para tirá-los,
+                          abra a ficha dela na aba Pessoas.
                         </p>
                       </>
                     )}

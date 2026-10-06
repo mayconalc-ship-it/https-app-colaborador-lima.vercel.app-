@@ -3,6 +3,7 @@ import "server-only";
 import { redirect } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getPerfil, type Perfil } from "@/lib/sessao";
+import { getRevendaAtiva } from "@/lib/revendas";
 import { ehOwner } from "@/lib/acessos";
 import { MODULO_ACESSOS, alcanceDe } from "@/lib/gestao-de-acessos";
 
@@ -87,10 +88,10 @@ export async function exigirGestaoDeAcessos(
   return gestor;
 }
 
-/** As revendas em que a pessoa entra em Acessos por Pessoa. */
-export async function revendasQueGerencio(eu: Perfil): Promise<{ id: string; nome: string }[]> {
+/** As revendas em que a pessoa entra na Gestão de Acessos. */
+export async function revendasQueGerencio(eu: Perfil): Promise<{ id: string; nome: string; slug: string }[]> {
   const admin = createAdminClient();
-  const { data: ativas } = await admin.from("revendas").select("id, nome").eq("ativa", true).order("ordem");
+  const { data: ativas } = await admin.from("revendas").select("id, nome, slug").eq("ativa", true).order("ordem");
   if (ehOwner(eu.role)) return ativas ?? [];
   if (eu.role !== "lideranca") return [];
 
@@ -113,22 +114,32 @@ export async function revendasQueGerencio(eu: Perfil): Promise<{ id: string; nom
 /**
  * A tranca da TELA: quem entra, em quais revendas, e o que pode na que
  * está aberta. Sem nenhuma revenda, volta para o painel com o motivo.
+ *
+ * A REVENDA É A DO APP (05/10/2026) -- a mesma do 🏢 do cabeçalho e da aba
+ * Perfis. Antes vinha da URL e, sem ela, caía na primeira da lista: dava
+ * para estar em Barreiras numa aba e em São Félix na outra, que é o "acho
+ * que estou mexendo em um ambiente e é outro" relatado pelo dono. A troca
+ * se faz na faixa do topo (BarraDaRevenda), que muda a revenda do app.
+ *
+ * Só quando a revenda do app é uma que a pessoa NÃO gerencia a tela abre
+ * outra -- e `revendaDoApp` vem preenchido para a faixa dizer isso.
  */
-export async function exigirTelaDeAcessos(revendaParam?: string) {
+export async function exigirTelaDeAcessos() {
   const eu = await getPerfil();
   if (!eu) redirect("/login");
 
-  const revendas = await revendasQueGerencio(eu);
+  const [revendas, ativa] = await Promise.all([revendasQueGerencio(eu), getRevendaAtiva()]);
   if (revendas.length === 0) {
-    redirect(`/admin?erro=${encodeURIComponent("Você não tem acesso a Acessos por Pessoa.")}`);
+    redirect(`/admin?erro=${encodeURIComponent("Você não tem acesso à Gestão de Acessos.")}`);
   }
-  const escolhida = revendas.find((r) => r.id === revendaParam) ?? revendas[0];
+  const escolhida = revendas.find((r) => r.id === ativa?.id) ?? revendas[0];
+  const revendaDoApp = ativa && ativa.id !== escolhida.id ? ativa.nome : null;
 
   const gestor = await avaliar(eu, escolhida.id);
   if (!gestor) {
     redirect(`/admin?erro=${encodeURIComponent("Você não gerencia os acessos desta revenda.")}`);
   }
-  return { ...gestor, revendas, escolhida };
+  return { ...gestor, revendas, escolhida, revendaDoApp };
 }
 
 /**

@@ -169,7 +169,7 @@ export const MAPA_DE_EMOJIS: Assunto[] = [
   { id: "resumo-semanal", nome: "Resumo da semana", emoji: "📬", area: "Gestão", chaves: [] },
 
   // ---- Administração ----
-  { id: "acessos", nome: "Acessos por Pessoa", emoji: "🔐", area: "Administração", chaves: ["acessos"] },
+  { id: "acessos", nome: "Gestão de Acessos", emoji: "🔐", area: "Administração", chaves: ["acessos"] },
   { id: "perfis", nome: "Perfis de Acesso", emoji: "🎫", area: "Administração", chaves: ["perfis-acesso"] },
   { id: "colaboradores", nome: "Colaboradores", emoji: "👥", area: "Administração", chaves: ["colaboradores"] },
   { id: "revendas", nome: "Revendas", emoji: "🏢", area: "Administração", chaves: [] },

@@ -5,31 +5,35 @@ import { exigirGestaoDeAcessos, gerenciaAcessos, permissoesNaRevenda } from "@/l
 import { mesclarNoAlcance } from "@/lib/gestao-de-acessos";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
+  ROTULO_ACAO,
   ehAcaoValida,
   ehModuloValido,
+  ehOwner,
   moduloPorId,
-  MODULOS,
   MODULOS_OPCIONAIS,
+  type Acao,
   type ModuloId,
 } from "@/lib/acessos";
 import { MODULOS_COM_ANALISE, PAINEIS } from "@/lib/gestao";
 import { aplicarPerfilA } from "@/lib/perfis-acesso-server";
 
-function voltar(
-  chave: "erro" | "sucesso",
-  mensagem: string,
-  revenda?: string,
-  aba?: "modulos",
-): never {
+/**
+ * Para onde cada ação volta. A revenda NÃO vai na URL desde 05/10/2026: a
+ * tela usa a revenda do app (ver exigirTelaDeAcessos), e a revenda gravada
+ * é a que veio no formulário -- conferida contra quem envia.
+ */
+type Destino = {
+  /** Volta para a ficha desta pessoa, em vez da lista. */
+  ficha?: string;
+  /** Volta para a aba das grades: quem liberou numa grade quer conferi-la. */
+  aba?: "modulos";
+};
+
+function voltar(chave: "erro" | "sucesso", mensagem: string, destino: Destino = {}): never {
   const params = new URLSearchParams({ [chave]: mensagem });
-  // Volta para a mesma revenda que estava sendo configurada. Sem isso, a
-  // tela pularia para outra unidade depois de salvar e a próxima alteração
-  // sairia no lugar errado.
-  if (revenda) params.set("revenda", revenda);
-  // E para a mesma ABA (06/09/2026): quem liberou numa grade quer conferir
-  // a grade, não ser jogado na lista de fichas.
-  if (aba) params.set("aba", aba);
-  redirect(`/admin/acessos?${params.toString()}`);
+  if (destino.aba) params.set("aba", destino.aba);
+  const base = destino.ficha ? `/admin/acessos/${destino.ficha}` : "/admin/acessos";
+  redirect(`${base}?${params.toString()}`);
 }
 
 /** Toda mudança de acesso fica registrada. Sem exceção. */
@@ -64,6 +68,12 @@ async function nomeDe(id: string) {
   return data;
 }
 
+async function nomeDaRevenda(id: string) {
+  const admin = createAdminClient();
+  const { data } = await admin.from("revendas").select("nome").eq("id", id).maybeSingle();
+  return (data?.nome as string | undefined) ?? "Revenda";
+}
+
 /**
  * Promove a liderança ou devolve para colaborador.
  *
@@ -76,32 +86,34 @@ export async function definirPapel(formData: FormData) {
   const id = (formData.get("id") as string) || "";
   const papel = (formData.get("papel") as string) || "";
   const revendaId = (formData.get("revenda") as string) || "";
-  const { eu, dono } = await exigirGestaoDeAcessos(revendaId, "editar", (m) => voltar("erro", m, revendaId));
+  // Da ficha, volta para a ficha (05/10/2026): é lá que se libera o resto.
+  const destino: Destino = formData.get("volta") === "ficha" && id ? { ficha: id } : {};
+  const { eu, dono } = await exigirGestaoDeAcessos(revendaId, "editar", (m) => voltar("erro", m, destino));
 
-  if (!id) voltar("erro", "Colaborador inválido.", revendaId);
+  if (!id) voltar("erro", "Colaborador inválido.", destino);
   if (papel !== "lideranca" && papel !== "colaborador") {
-    voltar("erro", "Só é possível definir Liderança ou Colaborador aqui.", revendaId);
+    voltar("erro", "Só é possível definir Liderança ou Colaborador aqui.", destino);
   }
   if (id === eu.id) {
-    voltar("erro", "Você não pode alterar o seu próprio nível de acesso.", revendaId);
+    voltar("erro", "Você não pode alterar o seu próprio nível de acesso.", destino);
   }
   // A CONFIRMAÇÃO, cobrada aqui também (11/09/2026): a Lais virou liderança
   // num toque. Promover exige a caixa vermelha -- a mesma regra dos Perfis
   // --, e tirar exige ter passado pela pergunta.
   if (papel === "lideranca" && formData.get("tornar_lideranca") !== "on") {
-    voltar("erro", "Para tornar alguém liderança, marque a caixa vermelha de confirmação.", revendaId);
+    voltar("erro", "Para tornar alguém liderança, marque a caixa vermelha de confirmação.", destino);
   }
   if (papel === "colaborador" && formData.get("confirmado") !== "sim") {
-    voltar("erro", "Confirme antes de tirar a liderança.", revendaId);
+    voltar("erro", "Confirme antes de tirar a liderança.", destino);
   }
 
   const alvo = await nomeDe(id);
-  if (!alvo) voltar("erro", "Colaborador não encontrado.", revendaId);
+  if (!alvo) voltar("erro", "Colaborador não encontrado.", destino);
   if (papel === alvo.role) {
-    voltar("erro", `${alvo.nome} já é ${papel === "lideranca" ? "liderança" : "colaborador"}.`, revendaId);
+    voltar("erro", `${alvo.nome} já é ${papel === "lideranca" ? "liderança" : "colaborador"}.`, destino);
   }
   if (alvo.role === "owner") {
-    voltar("erro", "O dono do app não pode ser rebaixado por aqui.", revendaId);
+    voltar("erro", "O dono do app não pode ser rebaixado por aqui.", destino);
   }
 
   if (!dono) {
@@ -113,10 +125,10 @@ export async function definirPapel(formData: FormData) {
       .eq("colaborador_id", id)
       .eq("revenda_id", revendaId)
       .maybeSingle();
-    if (!vinculo) voltar("erro", `${alvo.nome} não está vinculado a esta revenda.`, revendaId);
+    if (!vinculo) voltar("erro", `${alvo.nome} não está vinculado a esta revenda.`, destino);
     // 2. Quem gerencia não mexe em quem gerencia.
     if (await gerenciaAcessos(id)) {
-      voltar("erro", `${alvo.nome} também gerencia acessos: só o Admin muda o papel dessa pessoa.`, revendaId);
+      voltar("erro", `${alvo.nome} também gerencia acessos: só o Admin muda o papel dessa pessoa.`, destino);
     }
     // 3. Rebaixar tira as permissões de TODAS as revendas -- e a liderança
     //    só responde por esta.
@@ -130,7 +142,7 @@ export async function definirPapel(formData: FormData) {
         voltar(
           "erro",
           `${alvo.nome} tem permissões em outra revenda, e rebaixar tiraria todas elas. Só o Admin faz isso.`,
-          revendaId,
+          destino,
         );
       }
     }
@@ -142,7 +154,7 @@ export async function definirPapel(formData: FormData) {
     .update({ role: papel })
     .eq("id", id);
 
-  if (error) voltar("erro", error.message, revendaId);
+  if (error) voltar("erro", error.message, destino);
 
   // Ao rebaixar, as permissões vão junto -- de TODAS as revendas, não só da
   // que está aberta: quem deixa de ser liderança deixa de ser em todo lugar.
@@ -162,9 +174,9 @@ export async function definirPapel(formData: FormData) {
   voltar(
     "sucesso",
     papel === "lideranca"
-      ? `${alvo.nome} agora é liderança. Libere os módulos abaixo.`
-      : `${alvo.nome} voltou a ser colaborador e perdeu as permissões de todas as revendas.`,
-    revendaId,
+      ? `${alvo.nome} agora é liderança. Libere abaixo o que ele pode fazer no Modo Liderança.`
+      : `${alvo.nome} voltou a ser colaborador e perdeu as permissões de liderança de todas as revendas.`,
+    destino,
   );
 }
 
@@ -187,9 +199,8 @@ export async function definirPapel(formData: FormData) {
  */
 export async function liberarAcessosEmLote(formData: FormData) {
   const revendaId = (formData.get("revenda") as string) || "";
-  const { eu, dono } = await exigirGestaoDeAcessos(revendaId, "editar", (m) =>
-    voltar("erro", m, revendaId, "modulos"),
-  );
+  const grade: Destino = { aba: "modulos" };
+  const { eu, dono } = await exigirGestaoDeAcessos(revendaId, "editar", (m) => voltar("erro", m, grade));
 
   const universoPorPessoa = new Map<string, Set<string>>();
   for (const par of formData.getAll("universo").map(String)) {
@@ -213,7 +224,7 @@ export async function liberarAcessosEmLote(formData: FormData) {
     for (const id of [...universoPorPessoa.keys()]) if (!daqui.has(id)) universoPorPessoa.delete(id);
   }
   if (universoPorPessoa.size === 0) {
-    voltar("erro", "Nenhuma alteração para aplicar.", revendaId, "modulos");
+    voltar("erro", "Nenhuma alteração para aplicar.", grade);
   }
 
   const marcados = new Set(formData.getAll("marcado").map(String));
@@ -254,7 +265,7 @@ export async function liberarAcessosEmLote(formData: FormData) {
   }
 
   if (mudancaPorPessoa.size === 0) {
-    voltar("sucesso", "Nenhuma mudança em relação ao que já estava liberado.", revendaId, "modulos");
+    voltar("sucesso", "Nenhuma mudança em relação ao que já estava liberado.", grade);
   }
 
   for (const [colaboradorId, modulos] of paraApagarPorPessoa) {
@@ -264,17 +275,17 @@ export async function liberarAcessosEmLote(formData: FormData) {
       .eq("colaborador_id", colaboradorId)
       .eq("revenda_id", revendaId)
       .in("modulo", modulos);
-    if (error) voltar("erro", `Não foi possível revogar: ${error.message}`, revendaId, "modulos");
+    if (error) voltar("erro", `Não foi possível revogar: ${error.message}`, grade);
   }
 
   if (paraInserir.length > 0) {
     const { error } = await admin
       .from("colaborador_modulos_extra")
       .upsert(paraInserir, { onConflict: "colaborador_id,revenda_id,modulo" });
-    if (error) voltar("erro", `Não foi possível liberar: ${error.message}`, revendaId, "modulos");
+    if (error) voltar("erro", `Não foi possível liberar: ${error.message}`, grade);
   }
 
-  const { data: revenda } = await admin.from("revendas").select("nome").eq("id", revendaId).maybeSingle();
+  const revenda = await nomeDaRevenda(revendaId);
   const { data: pessoas } = await admin.from("profiles").select("id, nome").in("id", [...mudancaPorPessoa.keys()]);
   const nomePorId = new Map((pessoas ?? []).map((p) => [p.id, p.nome]));
 
@@ -288,35 +299,23 @@ export async function liberarAcessosEmLote(formData: FormData) {
       acao: "Alterou acessos em lote",
       alvoId: id,
       alvoNome: nomePorId.get(id) ?? id,
-      detalhes: `${revenda?.nome ?? "Revenda"} — ${partes.join(" · ")}`,
+      detalhes: `${revenda} — ${partes.join(" · ")}`,
       revendaId,
     });
   }
 
-  voltar(
-    "sucesso",
-    `Acessos atualizados para ${mudancaPorPessoa.size} pessoa(s).`,
-    revendaId,
-    "modulos",
-  );
+  voltar("sucesso", `Acessos atualizados em ${revenda} para ${mudancaPorPessoa.size} pessoa(s).`, grade);
 }
 
 /**
  * O PERFIL, APLICADO DE DENTRO DA FICHA DA PESSOA.
  *
  * Ponto 2 do diagnóstico (06/09/2026): a tela pergunta "quem tem o módulo
- * X?" e quem administra pensa "o que o conferente precisa?". Perfis de
- * Acesso já respondia a segunda -- e estava subusado: quatro perfis, nove
- * pessoas aplicadas, e as duas lideranças mais carregadas montadas à mão,
- * com 49 concessões cada.
- *
- * Parte da causa era o caminho: para usar um perfil era preciso SAIR
- * daqui, ir para a outra tela, achar a pessoa e aplicar. Agora o perfil se
+ * X?" e quem administra pensa "o que o conferente precisa?". O perfil se
  * aplica na ficha, que é onde a pergunta nasce.
  *
  * A OPERAÇÃO É A MESMA, literalmente: `aplicarPerfilA`, a função que a
- * tela de Perfis usa. O que muda é para onde se volta e de onde vem a
- * revenda -- aqui, a que está aberta na tela; lá, a da sessão.
+ * tela de Perfis usa. O que muda é para onde se volta.
  *
  * O ESPELHAR TIRA PERMISSÃO, então tem de ser pedido por escrito. Campo
  * ausente, valor estranho ou requisição montada à mão caem no somar, que
@@ -324,23 +323,20 @@ export async function liberarAcessosEmLote(formData: FormData) {
  */
 export async function aplicarPerfilNaFicha(formData: FormData) {
   const revendaId = (formData.get("revenda") as string) || "";
-  const { eu, dono, alcance } = await exigirGestaoDeAcessos(revendaId, "editar", (m) =>
-    voltar("erro", m, revendaId),
-  );
   const perfilId = (formData.get("perfil_id") as string) || "";
   const colaboradorId = (formData.get("colaborador_id") as string) || "";
   const espelhar = String(formData.get("modo") ?? "") === "espelhar";
+  const aqui: Destino = colaboradorId ? { ficha: colaboradorId } : {};
+  const { eu, dono, alcance } = await exigirGestaoDeAcessos(revendaId, "editar", (m) => voltar("erro", m, aqui));
 
-  if (!revendaId) voltar("erro", "Revenda inválida.");
-  if (!perfilId || !colaboradorId) voltar("erro", "Escolha o perfil e a pessoa.", revendaId);
+  if (!perfilId || !colaboradorId) voltar("erro", "Escolha o perfil e a pessoa.", aqui);
   if (colaboradorId === eu.id) {
-    voltar("erro", "Você não pode alterar as suas próprias permissões.", revendaId);
+    voltar("erro", "Você não pode alterar as suas próprias permissões.", aqui);
   }
 
   const admin = createAdminClient();
-  // Permissão só existe dentro de vínculo -- a mesma conferência de
-  // salvarPermissoes. Sem ela daria para aplicar um perfil de Barreiras a
-  // quem não é de Barreiras.
+  // Permissão só existe dentro de vínculo. Sem esta conferência daria para
+  // aplicar um perfil de Barreiras a quem não é de Barreiras.
   const { data: vinculo } = await admin
     .from("colaborador_revendas")
     .select("revenda_id")
@@ -348,28 +344,30 @@ export async function aplicarPerfilNaFicha(formData: FormData) {
     .eq("revenda_id", revendaId)
     .maybeSingle();
   if (!vinculo) {
-    voltar("erro", "A pessoa não está vinculada a esta revenda.", revendaId);
+    voltar("erro", "A pessoa não está vinculada a esta revenda.", aqui);
+  }
+
+  // O perfil tem de ser DESTA revenda -- para todo mundo, o Admin
+  // inclusive: um perfil de São Félix aplicado com a revenda de Barreiras
+  // gravaria as permissões de um cargo no lugar errado.
+  const { data: perfilDaRevenda } = await admin
+    .from("perfis_acesso")
+    .select("revenda_id")
+    .eq("id", perfilId)
+    .maybeSingle();
+  if (perfilDaRevenda?.revenda_id !== revendaId) {
+    voltar("erro", "Este perfil não é desta revenda.", aqui);
   }
 
   // As travas de quem não é o Admin (11/09/2026).
   if (!dono) {
     if (espelhar) {
-      voltar(
-        "erro",
-        "Deixar igual ao perfil retira acessos, e isso só o Admin faz. Use “Só somar o que falta”.",
-        revendaId,
-      );
+      voltar("erro", "Deixar igual ao perfil retira acessos, e isso só o Admin faz.", aqui);
     }
     if (await gerenciaAcessos(colaboradorId)) {
-      voltar("erro", "Essa pessoa também gerencia acessos: só o Admin altera os acessos dela.", revendaId);
+      voltar("erro", "Essa pessoa também gerencia acessos: só o Admin altera os acessos dela.", aqui);
     }
-    const [{ data: doPerfil }, { data: perfilDaRevenda }] = await Promise.all([
-      admin.from("perfil_permissoes").select("modulo, acao").eq("perfil_id", perfilId),
-      admin.from("perfis_acesso").select("revenda_id").eq("id", perfilId).maybeSingle(),
-    ]);
-    if (perfilDaRevenda?.revenda_id !== revendaId) {
-      voltar("erro", "Este perfil não é desta revenda.", revendaId);
-    }
+    const { data: doPerfil } = await admin.from("perfil_permissoes").select("modulo, acao").eq("perfil_id", perfilId);
     // Perfil de liderança só se aplica se tudo o que ele dá está no
     // alcance de quem aplica. Perfil de colaborador não tem permissão de
     // liderança nenhuma e passa direto.
@@ -380,7 +378,7 @@ export async function aplicarPerfilNaFicha(formData: FormData) {
       voltar(
         "erro",
         `Este perfil dá ${fora.length} permissão(ões) que você mesmo não tem nesta revenda (ex.: ${fora[0]}). Só o Admin aplica.`,
-        revendaId,
+        aqui,
       );
     }
   }
@@ -396,18 +394,10 @@ export async function aplicarPerfilNaFicha(formData: FormData) {
     // de gravar -- e o recado diz por quê.
     tornarLideranca: formData.get("tornar_lideranca") === "on",
   });
-  if (!r.ok) voltar("erro", r.erro, revendaId);
+  if (!r.ok) voltar("erro", r.erro, aqui);
 
-  const { data: perfil } = await admin
-    .from("perfis_acesso")
-    .select("nome")
-    .eq("id", perfilId)
-    .maybeSingle();
-  const { data: revenda } = await admin
-    .from("revendas")
-    .select("nome")
-    .eq("id", revendaId)
-    .maybeSingle();
+  const { data: perfil } = await admin.from("perfis_acesso").select("nome").eq("id", perfilId).maybeSingle();
+  const revenda = await nomeDaRevenda(revendaId);
 
   const unidade = r.tipo === "colaborador" ? "módulo(s) do app" : "permissão(ões)";
   const papel =
@@ -426,7 +416,7 @@ export async function aplicarPerfilNaFicha(formData: FormData) {
     // A promoção vai escrita na auditoria: é o fato que o defeito de
     // 10/09/2026 escondeu.
     detalhes:
-      `${revenda?.nome ?? "Revenda"} — perfil ${perfil?.nome ?? perfilId}: ${r.concessoes} ${unidade}` +
+      `${revenda} — perfil ${perfil?.nome ?? perfilId}: ${r.concessoes} ${unidade}` +
       (r.retiradas > 0 ? `, ${r.retiradas} retirada(s)` : "") +
       (r.promovido ? " — PROMOVIDO a liderança, com confirmação" : ""),
     revendaId,
@@ -435,12 +425,63 @@ export async function aplicarPerfilNaFicha(formData: FormData) {
   voltar(
     "sucesso",
     (espelhar
-      ? `${r.nome} ficou igual ao perfil ${perfil?.nome ?? ""}: ${r.concessoes} ${unidade}` +
-        (r.retiradas > 0
-          ? `, e ${r.retiradas} fora do molde foram retirada(s).`
-          : " — não havia nada fora do molde.")
-      : `Perfil ${perfil?.nome ?? ""} somado a ${r.nome}: ${r.concessoes} ${unidade}. Nada foi retirado.`) + papel,
+      ? `${r.nome} ficou igual ao perfil ${perfil?.nome ?? ""} em ${revenda}` +
+        (r.retiradas > 0 ? `: ${r.retiradas} acesso(s) individual(is) retirado(s).` : ".")
+      : `${r.nome} entrou no perfil ${perfil?.nome ?? ""} em ${revenda}. Nada foi retirado.`) + papel,
+    aqui,
+  );
+}
+
+/**
+ * TIRAR A PESSOA DE UM PERFIL, DE DENTRO DA FICHA (05/10/2026).
+ *
+ * Só o vínculo -- os acessos ficam, e passam a aparecer como
+ * "individuais" na ficha, prontos para tirar um a um se for o caso. É a
+ * mesma escolha do dono para a tela de Perfis (03/09/2026): quem é
+ * conferente E administra o Jornal perderia o Jornal se ele estivesse nos
+ * dois perfis, sem que ninguém tivesse pedido isso.
+ */
+export async function tirarDoPerfilNaFicha(formData: FormData) {
+  const revendaId = (formData.get("revenda") as string) || "";
+  const perfilId = (formData.get("perfil_id") as string) || "";
+  const colaboradorId = (formData.get("colaborador_id") as string) || "";
+  const aqui: Destino = colaboradorId ? { ficha: colaboradorId } : {};
+  const { eu, dono } = await exigirGestaoDeAcessos(revendaId, "editar", (m) => voltar("erro", m, aqui));
+
+  if (!perfilId || !colaboradorId) voltar("erro", "Vínculo inválido.", aqui);
+  if (colaboradorId === eu.id) voltar("erro", "Você não pode alterar os seus próprios acessos.", aqui);
+  if (!dono && (await gerenciaAcessos(colaboradorId))) {
+    voltar("erro", "Essa pessoa também gerencia acessos: só o Admin altera os acessos dela.", aqui);
+  }
+
+  const admin = createAdminClient();
+  const [{ data: perfil }, alvo] = await Promise.all([
+    admin.from("perfis_acesso").select("nome").eq("id", perfilId).maybeSingle(),
+    nomeDe(colaboradorId),
+  ]);
+  const { error } = await admin
+    .from("perfil_pessoas")
+    .delete()
+    .eq("perfil_id", perfilId)
+    .eq("colaborador_id", colaboradorId)
+    .eq("revenda_id", revendaId);
+  if (error) voltar("erro", `Não foi possível tirar do perfil: ${error.message}`, aqui);
+
+  const revenda = await nomeDaRevenda(revendaId);
+  await registrar({
+    atorId: eu.id,
+    atorNome: eu.nome,
+    acao: "Tirou do perfil",
+    alvoId: colaboradorId,
+    alvoNome: alvo?.nome ?? colaboradorId,
+    detalhes: `${revenda} — perfil ${perfil?.nome ?? perfilId}; os acessos foram mantidos como individuais`,
     revendaId,
+  });
+
+  voltar(
+    "sucesso",
+    `${alvo?.nome ?? "A pessoa"} saiu do perfil ${perfil?.nome ?? ""}. Os acessos continuam — agora aparecem como individuais.`,
+    aqui,
   );
 }
 
@@ -453,11 +494,10 @@ export async function aplicarPerfilNaFicha(formData: FormData) {
  *
  * GRAVA NAS MESMAS LINHAS DA FICHA -- `lideranca_permissoes`, ação "ver".
  * Não existe chave nova, nem tabela nova, nem uma segunda porta para o
- * mesmo cômodo: marcar aqui é idêntico a marcar "Visualizar" na ficha da
- * pessoa, e as duas telas leem o mesmo estado. Uma permissão com dois
- * lugares de origem seria uma que ninguém consegue auditar.
+ * mesmo cômodo: marcar aqui é idêntico a marcar a análise na ficha da
+ * pessoa, e as duas telas leem o mesmo estado.
  *
- * SÓ MEXE NO "VER", e só de quem já é liderança. Analista continua sendo
+ * SÓ MEXE NO "VER", e só de quem já é liderança. Análise continua sendo
  * uma tela de gestão -- decisão do dono ao escolher entre as três opções
  * (05/09/2026). E, dentro disso, o módulo que a pessoa administra (tem
  * criar/editar/excluir) não é tocado nem oferecido: tirar o "ver" de quem
@@ -465,13 +505,11 @@ export async function aplicarPerfilNaFicha(formData: FormData) {
  *
  * `universo` carrega toda célula desenhada, marcada ou não -- é o que
  * separa "não veio porque desmarcou" de "não veio porque nem apareceu".
- * Mesmo desenho de liberarAcessosEmLote, pelo mesmo motivo.
  */
 export async function liberarAnalisesEmLote(formData: FormData) {
   const revendaId = (formData.get("revenda") as string) || "";
-  const { eu, dono, alcance } = await exigirGestaoDeAcessos(revendaId, "editar", (m) =>
-    voltar("erro", m, revendaId, "modulos"),
-  );
+  const grade: Destino = { aba: "modulos" };
+  const { eu, dono, alcance } = await exigirGestaoDeAcessos(revendaId, "editar", (m) => voltar("erro", m, grade));
 
   const universoPorPessoa = new Map<string, Set<string>>();
   for (const par of formData.getAll("universo").map(String)) {
@@ -487,7 +525,7 @@ export async function liberarAnalisesEmLote(formData: FormData) {
     universoPorPessoa.get(id)!.add(modulo);
   }
   if (universoPorPessoa.size === 0) {
-    voltar("erro", "Nenhuma alteração para aplicar.", revendaId, "modulos");
+    voltar("erro", "Nenhuma alteração para aplicar.", grade);
   }
 
   const marcados = new Set(formData.getAll("marcado").map(String));
@@ -582,7 +620,7 @@ export async function liberarAnalisesEmLote(formData: FormData) {
   }
 
   if (mudancaPorPessoa.size === 0) {
-    voltar("sucesso", "Nenhuma mudança em relação ao que já estava liberado.", revendaId, "modulos");
+    voltar("sucesso", "Nenhuma mudança em relação ao que já estava liberado.", grade);
   }
 
   for (const [colaboradorId, modulos] of paraApagarPorPessoa) {
@@ -593,20 +631,15 @@ export async function liberarAnalisesEmLote(formData: FormData) {
       .eq("revenda_id", revendaId)
       .eq("acao", "ver")
       .in("modulo", modulos);
-    if (error) voltar("erro", `Não foi possível revogar: ${error.message}`, revendaId, "modulos");
+    if (error) voltar("erro", `Não foi possível revogar: ${error.message}`, grade);
   }
 
   if (paraInserir.length > 0) {
     const { error } = await admin.from("lideranca_permissoes").insert(paraInserir);
-    if (error) voltar("erro", `Não foi possível liberar: ${error.message}`, revendaId, "modulos");
+    if (error) voltar("erro", `Não foi possível liberar: ${error.message}`, grade);
   }
 
-  const { data: revenda } = await admin
-    .from("revendas")
-    .select("nome")
-    .eq("id", revendaId)
-    .maybeSingle();
-
+  const revenda = await nomeDaRevenda(revendaId);
   const nomeDaAnalise = (modulo: string) =>
     PAINEIS.find((p) => p.modulo === modulo)?.rotulo ?? moduloPorId(modulo)?.rotulo ?? modulo;
 
@@ -620,159 +653,203 @@ export async function liberarAnalisesEmLote(formData: FormData) {
       acao: "Alterou análises da Gestão",
       alvoId: id,
       alvoNome: perfilPorId.get(id)?.nome ?? id,
-      detalhes: `${revenda?.nome ?? "Revenda"} — ${partes.join(" · ")}`,
+      detalhes: `${revenda} — ${partes.join(" · ")}`,
       revendaId,
     });
   }
 
-  voltar(
-    "sucesso",
-    `Análises atualizadas para ${mudancaPorPessoa.size} liderança(s).`,
-    revendaId,
-    "modulos",
-  );
+  voltar("sucesso", `Análises atualizadas em ${revenda} para ${mudancaPorPessoa.size} liderança(s).`, grade);
+}
+
+/** "Jornal (Criar)" -- curto, para a auditoria e para o recado. */
+function rotuloCurto(chave: string) {
+  const corte = chave.lastIndexOf(":");
+  const m = moduloPorId(chave.slice(0, corte));
+  const acao = chave.slice(corte + 1) as Acao;
+  return `${m?.rotulo ?? chave.slice(0, corte)} (${ROTULO_ACAO[acao] ?? acao})`;
 }
 
 /**
- * Salva a matriz de permissões de uma liderança de uma vez.
+ * SALVA A FICHA DA PESSOA -- os módulos do app E as permissões de Modo
+ * Liderança, num botão só (05/10/2026).
  *
- * Apaga tudo e regrava: é mais simples de raciocinar do que calcular
- * diferenças, e o volume é minúsculo (dezenas de linhas por pessoa).
+ * Eram dois lugares: os módulos do app só na grade (uma coluna por
+ * módulo, uma linha por pessoa) e as permissões só na sanfona de cada
+ * liderança. Quem queria responder "o que Fulano pode?" tinha de olhar os
+ * dois -- e o colaborador nem tinha ficha.
+ *
+ * GRAVA SÓ O QUE MUDOU, em vez de apagar tudo e regravar: é o que deixa a
+ * auditoria dizer "entrou X, saiu Y" em vez de despejar a lista inteira, e
+ * o que preserva quem concedeu cada linha que ficou como estava.
+ *
+ * As travas são as de sempre: a revenda é a do formulário, conferida
+ * contra quem envia; ninguém mexe em si mesmo; só gente vinculada à
+ * revenda; quem não é o Admin não mexe em quem também gerencia acessos e
+ * só concede/retira dentro do próprio alcance (o resto fica como estava,
+ * ver mesclarNoAlcance). Quem pode criar/editar/excluir ganha o "ver".
  */
-export async function salvarPermissoes(formData: FormData) {
+export async function salvarFicha(formData: FormData) {
   const id = (formData.get("id") as string) || "";
   const revendaId = (formData.get("revenda") as string) || "";
+  if (!id) voltar("erro", "Pessoa inválida.");
+  const aqui: Destino = { ficha: id };
 
-  if (!id) voltar("erro", "Colaborador inválido.");
-  const { eu, dono, alcance } = await exigirGestaoDeAcessos(revendaId, "editar", (m) =>
-    voltar("erro", m, revendaId),
-  );
-  if (id === eu.id) {
-    voltar("erro", "Você não pode alterar as suas próprias permissões.", revendaId);
-  }
+  const { eu, dono, alcance } = await exigirGestaoDeAcessos(revendaId, "editar", (m) => voltar("erro", m, aqui));
+  if (id === eu.id) voltar("erro", "Você não pode alterar os seus próprios acessos.", aqui);
 
   const alvo = await nomeDe(id);
-  if (!alvo) voltar("erro", "Colaborador não encontrado.", revendaId);
-  if (alvo.role !== "lideranca") {
-    voltar(
-      "erro",
-      `${alvo.nome} precisa ser liderança antes de receber permissões.`,
-      revendaId,
-    );
-  }
+  if (!alvo) voltar("erro", "Pessoa não encontrada.", aqui);
+  if (ehOwner(alvo.role)) voltar("erro", "O Admin já pode tudo — não há o que liberar.", aqui);
 
   const admin = createAdminClient();
-
   // Permissão só existe dentro de vínculo. Sem esta conferência daria para
-  // liberar comunicados de Barreiras para alguém que não é de Barreiras --
-  // que é exatamente o que a separação de revendas existe para impedir.
+  // liberar comunicados de Barreiras para alguém que não é de Barreiras.
   const { data: vinculo } = await admin
     .from("colaborador_revendas")
     .select("revenda_id")
     .eq("colaborador_id", id)
     .eq("revenda_id", revendaId)
     .maybeSingle();
-
   if (!vinculo) {
-    voltar(
-      "erro",
-      `${alvo.nome} não está vinculado a esta revenda. Vincule primeiro na tela de Colaboradores.`,
-      revendaId,
-    );
+    voltar("erro", `${alvo.nome} não está vinculado a esta revenda. Vincule primeiro em Colaboradores.`, aqui);
   }
-
   if (!dono && (await gerenciaAcessos(id))) {
-    voltar(
-      "erro",
-      `${alvo.nome} também gerencia acessos: só o Admin altera as permissões dessa pessoa.`,
-      revendaId,
-    );
+    voltar("erro", `${alvo.nome} também gerencia acessos: só o Admin altera os acessos dessa pessoa.`, aqui);
   }
 
-  const enviadas = formData
-    .getAll("permissao")
-    .map(String)
-    .filter((v) => {
-      const [m, a] = v.split(":");
-      return ehModuloValido(m) && ehAcaoValida(a);
-    });
-
-  // O ALCANCE (11/09/2026): quem não é o Admin só concede e só retira o
-  // que ele mesmo tem nesta revenda -- e nunca a gestão de acessos. O resto
-  // da ficha fica exatamente como estava (ver mesclarNoAlcance). Para o
-  // Admin, vale o que foi marcado, como sempre.
-  const existentes = dono ? [] : [...(await permissoesNaRevenda(id, revendaId))];
-  const marcadas = mesclarNoAlcance(existentes, enviadas, alcance).map((v) => v.split(":"));
-
-  // Coerência: quem pode criar/editar/excluir precisa poder ver. Sem isso a
-  // pessoa teria permissão de mexer numa tela que nem consegue abrir.
-  const porModulo = new Map<string, Set<string>>();
-  for (const [m, a] of marcadas) {
-    if (!porModulo.has(m)) porModulo.set(m, new Set());
-    porModulo.get(m)!.add(a);
-  }
-  for (const acoes of porModulo.values()) {
-    if (acoes.size > 0) acoes.add("ver");
-  }
-
-  const linhas: {
-    colaborador_id: string;
-    revenda_id: string;
-    modulo: string;
-    acao: string;
-    concedido_por: string;
-  }[] = [];
-  for (const [modulo, acoes] of porModulo) {
-    for (const acao of acoes) {
-      linhas.push({
-        colaborador_id: id,
-        revenda_id: revendaId,
-        modulo,
-        acao,
-        concedido_por: eu.id,
-      });
-    }
-  }
-
-  // O apaga-e-regrava é restrito a ESTA revenda: salvar São Félix não pode
-  // zerar o que a mesma pessoa tem em Barreiras.
-  await admin
-    .from("lideranca_permissoes")
-    .delete()
+  // ---- 1. OS MÓDULOS DO APP ----
+  // `app_universo` traz todo módulo desenhado na ficha, marcado ou não: é
+  // o que separa "desmarcou" de "nem apareceu" (mesmo desenho da grade).
+  const opcionais = new Set<string>(MODULOS_OPCIONAIS);
+  const universo = new Set(formData.getAll("app_universo").map(String).filter((m) => opcionais.has(m)));
+  const queridos = new Set(formData.getAll("app").map(String).filter((m) => universo.has(m)));
+  const { data: appAtuais } = await admin
+    .from("colaborador_modulos_extra")
+    .select("modulo")
     .eq("colaborador_id", id)
     .eq("revenda_id", revendaId);
+  const appTinha = new Set((appAtuais ?? []).map((a) => a.modulo as string));
+  const appEntram = [...queridos].filter((m) => !appTinha.has(m));
+  const appSaem = [...universo].filter((m) => appTinha.has(m) && !queridos.has(m));
 
-  if (linhas.length > 0) {
-    const { error } = await admin.from("lideranca_permissoes").insert(linhas);
-    if (error) voltar("erro", error.message, revendaId);
+  // ---- 2. O MODO LIDERANÇA ----
+  // Só de liderança, e só se a seção veio no formulário -- a ficha de um
+  // colaborador não manda caixa nenhuma, e "não veio nada" não pode virar
+  // "tire tudo".
+  let perEntram: string[] = [];
+  let perSaem: string[] = [];
+  if (alvo.role === "lideranca" && formData.get("secao_lideranca") === "1") {
+    const antes = await permissoesNaRevenda(id, revendaId);
+    const enviadas = formData
+      .getAll("permissao")
+      .map(String)
+      .filter((v) => {
+        const corte = v.lastIndexOf(":");
+        return ehModuloValido(v.slice(0, corte)) && ehAcaoValida(v.slice(corte + 1));
+      });
+    // O ALCANCE (11/09/2026): quem não é o Admin só concede e só retira o
+    // que ele mesmo tem nesta revenda -- e nunca a gestão de acessos.
+    const marcadas = mesclarNoAlcance(dono ? [] : [...antes], enviadas, alcance);
+
+    // Coerência: quem pode criar/editar/excluir precisa poder ver.
+    const porModulo = new Map<string, Set<string>>();
+    for (const c of marcadas) {
+      const corte = c.lastIndexOf(":");
+      const m = c.slice(0, corte);
+      if (!porModulo.has(m)) porModulo.set(m, new Set());
+      porModulo.get(m)!.add(c.slice(corte + 1));
+    }
+    const depois = new Set<string>();
+    for (const [m, acoes] of porModulo) {
+      if (acoes.size > 0) acoes.add("ver");
+      for (const a of acoes) depois.add(`${m}:${a}`);
+    }
+    perEntram = [...depois].filter((c) => !antes.has(c));
+    perSaem = [...antes].filter((c) => !depois.has(c));
   }
 
-  const resumo = Array.from(porModulo.entries())
-    .map(([m, a]) => {
-      const rotulo = MODULOS.find((x) => x.id === m)?.rotulo ?? m;
-      return `${rotulo} (${Array.from(a).sort().join(", ")})`;
-    })
-    .join(" · ");
+  const revenda = await nomeDaRevenda(revendaId);
+  const entram = appEntram.length + perEntram.length;
+  const saem = appSaem.length + perSaem.length;
+  if (entram + saem === 0) {
+    voltar("sucesso", `Nada mudou em ${revenda} — os acessos de ${alvo.nome} já estavam assim.`, aqui);
+  }
 
-  const { data: revenda } = await admin
-    .from("revendas")
-    .select("nome")
-    .eq("id", revendaId)
-    .maybeSingle();
+  // A retirada vem DEPOIS de gravar o que entra, nunca antes: falhando no
+  // meio, sobra acesso a mais por um instante, e não a menos.
+  if (appEntram.length > 0) {
+    const { error } = await admin.from("colaborador_modulos_extra").upsert(
+      appEntram.map((modulo) => ({ colaborador_id: id, revenda_id: revendaId, modulo, liberado_por: eu.id })),
+      { onConflict: "colaborador_id,revenda_id,modulo" },
+    );
+    if (error) voltar("erro", `Não foi possível liberar: ${error.message}`, aqui);
+  }
+  if (perEntram.length > 0) {
+    const { error } = await admin.from("lideranca_permissoes").upsert(
+      perEntram.map((c) => {
+        const corte = c.lastIndexOf(":");
+        return {
+          colaborador_id: id,
+          revenda_id: revendaId,
+          modulo: c.slice(0, corte),
+          acao: c.slice(corte + 1),
+          concedido_por: eu.id,
+        };
+      }),
+      { onConflict: "colaborador_id,revenda_id,modulo,acao" },
+    );
+    if (error) voltar("erro", `Não foi possível liberar: ${error.message}`, aqui);
+  }
+  if (appSaem.length > 0) {
+    const { error } = await admin
+      .from("colaborador_modulos_extra")
+      .delete()
+      .eq("colaborador_id", id)
+      .eq("revenda_id", revendaId)
+      .in("modulo", appSaem);
+    if (error) voltar("erro", `Não foi possível retirar: ${error.message}`, aqui);
+  }
+  if (perSaem.length > 0) {
+    // O apaga é restrito a ESTA revenda: salvar São Félix não pode tocar
+    // no que a mesma pessoa tem em Barreiras.
+    const { error } = await admin
+      .from("lideranca_permissoes")
+      .delete()
+      .eq("colaborador_id", id)
+      .eq("revenda_id", revendaId)
+      .or(
+        perSaem
+          .map((c) => {
+            const corte = c.lastIndexOf(":");
+            return `and(modulo.eq.${c.slice(0, corte)},acao.eq.${c.slice(corte + 1)})`;
+          })
+          .join(","),
+      );
+    if (error) voltar("erro", `Não foi possível retirar: ${error.message}`, aqui);
+  }
+
+  const nomeDoApp = (m: string) => `${moduloPorId(m)?.rotulo ?? m} (no app)`;
+  const partes: string[] = [];
+  const doQueEntrou = [...appEntram.map(nomeDoApp), ...perEntram.map(rotuloCurto)];
+  const doQueSaiu = [...appSaem.map(nomeDoApp), ...perSaem.map(rotuloCurto)];
+  if (doQueEntrou.length > 0) partes.push(`entrou ${doQueEntrou.join(", ")}`);
+  if (doQueSaiu.length > 0) partes.push(`saiu ${doQueSaiu.join(", ")}`);
 
   await registrar({
     atorId: eu.id,
     atorNome: eu.nome,
-    acao: "Alterou permissões",
+    acao: "Alterou acessos",
     alvoId: id,
     alvoNome: alvo.nome,
-    detalhes: `${revenda?.nome ?? "Revenda"} — ${resumo || "nenhuma permissão"}`,
+    detalhes: `${revenda} — ${partes.join(" · ")}`,
     revendaId,
   });
 
-  voltar(
-    "sucesso",
-    `Permissões de ${alvo.nome} em ${revenda?.nome ?? "revenda"} atualizadas.`,
-    revendaId,
-  );
+  const recado = [
+    entram > 0 ? `${entram} acesso(s) liberado(s)` : "",
+    saem > 0 ? `${saem} retirado(s)` : "",
+  ]
+    .filter(Boolean)
+    .join(" e ");
+  voltar("sucesso", `Salvo em ${revenda}: ${recado} para ${alvo.nome}.`, aqui);
 }

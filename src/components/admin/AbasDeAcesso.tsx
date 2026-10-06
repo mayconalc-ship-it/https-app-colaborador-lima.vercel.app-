@@ -19,64 +19,62 @@ import { ComMarcas } from "@/components/Icone";
  * que não faz nada --, ou abrir Acessos a quem tem Perfis, que é
  * exatamente o caminho para alguém ampliar o próprio acesso.
  *
- * Hoje ninguém tem `perfis-acesso` concedido (conferido na base,
- * 06/09/2026): só o dono chega às duas. Mas "ninguém usa hoje" não é
- * motivo para tirar a possibilidade -- seria trocar uma tela confusa por
- * uma decisão de segurança tomada de lado.
+ * Então elas continuam duas rotas e se comportam como uma tela: a mesma
+ * barra em cima, sempre com o mesmo lugar para cada coisa.
  *
- * Então elas continuam duas rotas e passam a se comportar como uma tela:
- * a mesma barra em cima, sempre com o mesmo lugar para cada coisa.
+ * PESSOAS VEM PRIMEIRO (05/10/2026, redesenho da Gestão de Acessos). A
+ * pergunta mais frequente é "o que Fulano pode?", e é a única que a tela
+ * responde por alguém em particular. Os perfis são a segunda: "o que o
+ * conferente precisa?". As abas não levam mais a revenda na URL -- a
+ * revenda é a do app, a mesma em todas (ver BarraDaRevenda).
  */
-export type AbaDeAcesso = "perfil" | "pessoa" | "modulos" | "limpeza";
+export type AbaDeAcesso = "pessoa" | "perfil" | "modulos" | "limpeza";
 
 const ABAS: {
   id: AbaDeAcesso;
   rotulo: string;
   emoji: string;
   ajuda: string;
-  href: (revendaId?: string) => string;
+  href: string;
 }[] = [
   {
-    id: "perfil",
-    rotulo: "Por perfil",
-    emoji: "🎫",
-    ajuda: "O molde de um cargo, com nome. É por aqui que se começa.",
-    href: () => "/admin/perfis-de-acesso",
+    id: "pessoa",
+    rotulo: "Pessoas",
+    emoji: "👥",
+    ajuda: "Toque numa pessoa para ver tudo o que ela pode — e de onde vem cada acesso.",
+    href: "/admin/acessos",
   },
   {
-    id: "pessoa",
-    rotulo: "Por pessoa",
-    emoji: "👤",
-    ajuda: "A ficha de cada liderança: o perfil dela e as exceções.",
-    href: (r) => (r ? `/admin/acessos?revenda=${r}` : "/admin/acessos"),
+    id: "perfil",
+    rotulo: "Perfis",
+    emoji: "🎫",
+    ajuda: "O pacote de acessos de um cargo. Mudou o perfil, mudou para todo mundo que está nele.",
+    href: "/admin/perfis-de-acesso",
   },
   {
     id: "modulos",
-    rotulo: "Módulos e análises",
+    rotulo: "Em massa",
     emoji: "🔓",
-    ajuda: "As duas grades: o cartão no app, e os relatórios da Gestão.",
-    href: (r) =>
-      r ? `/admin/acessos?aba=modulos&revenda=${r}` : "/admin/acessos?aba=modulos",
+    ajuda: "Várias pessoas de uma vez, numa grade: módulos do app e análises da Gestão.",
+    href: "/admin/acessos?aba=modulos",
   },
   {
     // 16/09/2026: o que está liberado e ninguém usa, e quem não entra mais.
     id: "limpeza",
-    rotulo: "Limpeza",
+    rotulo: "Revisão",
     emoji: "🧹",
     ajuda: "O que está liberado e ninguém usa, e quem não entra mais no app.",
-    href: (r) => (r ? `/admin/acessos/limpeza?revenda=${r}` : "/admin/acessos/limpeza"),
+    href: "/admin/acessos/limpeza",
   },
 ];
 
 export function AbasDeAcesso({
   atual,
-  revendaId,
   mostrarPerfis = true,
 }: {
   atual: AbaDeAcesso;
-  revendaId?: string;
   /**
-   * Desde 11/09/2026 Acessos por Pessoa também abre para a liderança que
+   * Desde 11/09/2026 a Gestão de Acessos também abre para a liderança que
    * tem o módulo "acessos" -- e ela pode não ter `perfis-acesso`. A aba
    * some para quem não pode abri-la, em vez de levar a um "sem permissão".
    */
@@ -87,22 +85,27 @@ export function AbasDeAcesso({
 
   return (
     <div className="mb-4">
-      <div className="flex flex-wrap gap-2">
+      {/* Abas de verdade, numa linha só que rola de lado no celular --
+          quatro botões soltos quebravam em duas linhas e pareciam filtros. */}
+      <nav
+        aria-label="Seções da Gestão de Acessos"
+        className="-mx-4 flex gap-1 overflow-x-auto border-b border-slate-200 px-4 [scrollbar-width:none] sm:mx-0 sm:px-0 [&::-webkit-scrollbar]:hidden"
+      >
         {abas.map((a) => (
           <Link
             key={a.id}
-            href={a.href(revendaId)}
+            href={a.href}
             aria-current={a.id === atual ? "page" : undefined}
-            className={
+            className={`-mb-px shrink-0 whitespace-nowrap border-b-2 px-3 py-2.5 text-sm ${
               a.id === atual
-                ? "rounded-xl bg-primary px-3 py-2 text-sm font-semibold text-white"
-                : "rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600 hover:border-primary hover:text-primary"
-            }
+                ? "border-primary font-bold text-primary-dark"
+                : "border-transparent font-medium text-slate-500 hover:border-slate-300 hover:text-slate-800"
+            }`}
           >
             <ComMarcas texto={a.emoji ?? ""} /> {a.rotulo}
           </Link>
         ))}
-      </div>
+      </nav>
       {/* A frase da aba ABERTA, e só dela. Explicar as três de uma vez foi
           o que já se tentou com três cartões no topo -- e o dono continuou
           sem achar o que procurava. Uma aba por vez, uma frase por vez. */}

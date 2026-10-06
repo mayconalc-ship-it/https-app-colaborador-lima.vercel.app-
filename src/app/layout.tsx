@@ -105,7 +105,9 @@ export default async function RootLayout({
               cheia (foto ampliada e pesquisa em z-50, toast em z-60,
               confirmação em z-70) -- modal cobrindo o cabeçalho é o certo.
               A lista do sino é filha daqui e sobe junto. */}
-          <header className="sticky top-0 z-30 bg-primary text-white shadow-md">
+          {/* O id é medido pela faixa da revenda da Gestão de Acessos, que
+              gruda logo abaixo daqui (ver BarraDaRevenda). */}
+          <header id="cabecalho-app" className="sticky top-0 z-30 bg-primary text-white shadow-md">
             {/* A marca não encolhe: espremida virava uma tira de 12px,
                 pior que ausente. Abaixo de 360px ela sai de cena --
                 nessa largura a escolha é entre a marca e o botão Sair, e

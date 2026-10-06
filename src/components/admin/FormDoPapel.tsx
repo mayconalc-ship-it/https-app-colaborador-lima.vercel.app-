@@ -24,6 +24,7 @@ export function FormDoPapel({
   papel,
   revendaId,
   className,
+  daFicha = false,
 }: {
   action: (formData: FormData) => void;
   id: string;
@@ -32,6 +33,8 @@ export function FormDoPapel({
   papel: "lideranca" | "colaborador";
   revendaId: string;
   className?: string;
+  /** Usado na ficha da pessoa: depois de mudar, volta para ela. */
+  daFicha?: boolean;
 }) {
   const [marcou, setMarcou] = useState(false);
   const confirmarEnvio = useConfirmarEnvio();
@@ -45,7 +48,7 @@ export function FormDoPapel({
         tornar
           ? {
               titulo: `Tornar ${nome} liderança?`,
-              detalhe: `${primeiroNome} passa a entrar no Modo Liderança. Entra sem nenhuma permissão: o que ele vê e faz lá dentro você libera na ficha, logo depois.`,
+              detalhe: `${primeiroNome} passa a entrar no Modo Liderança. Entra sem nenhuma permissão: o que vê e faz lá dentro você libera na ficha, logo depois.`,
               confirmar: "Tornar liderança",
             }
           : {
@@ -60,6 +63,7 @@ export function FormDoPapel({
       <input type="hidden" name="papel" value={papel} />
       <input type="hidden" name="revenda" value={revendaId} />
       <input type="hidden" name="confirmado" value="sim" />
+      {daFicha && <input type="hidden" name="volta" value="ficha" />}
 
       {tornar ? (
         <div className="space-y-1.5">
@@ -73,7 +77,8 @@ export function FormDoPapel({
             />
             <span>
               Confirmo que {primeiroNome} passa a <strong>entrar no Modo Liderança</strong>. Se a
-              ideia era só liberar um módulo do app, use a aba Módulos ou um perfil 📱 Colaborador.
+              ideia era só liberar um módulo do app, use a parte 📱 No app da ficha ou um perfil 📱
+              Colaborador.
             </span>
           </label>
           <BotaoEnviar

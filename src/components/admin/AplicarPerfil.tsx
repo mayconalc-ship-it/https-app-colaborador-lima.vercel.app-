@@ -244,8 +244,8 @@ export function AplicarPerfil({
           {escolhidaJaEsta && (
             <p className="mb-1">
               <strong>{pessoa?.nome} já está neste perfil</strong> e já recebe o que for salvo
-              nele. Aplicar de novo só serve para refazer um acesso que alguém mudou à mão em
-              Acessos por Pessoa.
+              nele. Aplicar de novo só serve para refazer um acesso que alguém mudou à mão na
+              ficha da pessoa.
             </p>
           )}
           {entrariam.length > 0 ? (
