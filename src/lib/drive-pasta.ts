@@ -12,13 +12,63 @@ export function idDaPasta(link: string) {
   return null;
 }
 
+type ItemDaPasta = ArquivoDaPasta & { ehPasta: boolean };
+
+const desescapar = (s: string) =>
+  s
+    .replace(/&amp;/g, "&")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .trim();
+
+/**
+ * A pasta pela VISÃO EMBUTIDA do Drive (`embeddedfolderview`) -- a página
+ * que o Google oferece para colocar a pasta dentro de um site.
+ *
+ * Por que ela vem primeiro (06/10/2026): a página normal da pasta só traz
+ * os 50 PRIMEIROS itens no HTML; o resto o navegador carrega depois, por
+ * script. A pasta da pré-rota de São Félix passou de 50 CSVs e os três de
+ * 06/10 ficaram de fora -- o "Atualizar" rodava, dizia que leu, e o mapa
+ * 16277 não existia nem na pré-rota nem no QR. A visão embutida traz a
+ * lista inteira, com id e nome em marcação simples.
+ *
+ * Nulo = não deu para ler por aqui; quem chama cai na página normal.
+ */
+async function itensPelaVisaoEmbutida(pastaId: string): Promise<ItemDaPasta[] | null> {
+  let html: string;
+  try {
+    const r = await fetch(`https://drive.google.com/embeddedfolderview?id=${pastaId}`, {
+      headers: { "user-agent": "Mozilla/5.0" },
+      cache: "no-store",
+    });
+    if (!r.ok) return null;
+    html = await r.text();
+  } catch {
+    return null;
+  }
+
+  const itens: ItemDaPasta[] = [];
+  const re = /id="entry-([a-zA-Z0-9_-]{15,})"[\s\S]*?<a href="([^"]*)"[\s\S]*?class="flip-entry-title">([^<]+)</g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(html)) !== null) {
+    const [, id, href, nome] = m;
+    if (itens.some((i) => i.id === id)) continue;
+    itens.push({ id, nome: desescapar(nome), ehPasta: href.includes("/folders/") });
+  }
+  return itens.length > 0 ? itens : null;
+}
+
 /**
  * Lista os arquivos de uma pasta PÚBLICA do Drive.
  *
  * Sem credencial e sem API: o app abre a página da pasta como um navegador
- * abriria e lê a listagem de dentro do HTML. Para cada arquivo o Drive
- * escreve um `ssk='...:ID-0-16'` logo antes de um `aria-label="NOME.csv"`,
- * e é esse par que extraímos.
+ * abriria e lê a listagem de dentro do HTML. Primeiro pela visão embutida
+ * (lista inteira); se ela falhar, pela página normal, onde para cada
+ * arquivo o Drive escreve um `ssk='...:ID-0-16'` logo depois de um
+ * `aria-label="NOME.csv"` -- e é esse par que extraímos. Essa segunda só
+ * enxerga os 50 primeiros itens.
  *
  * ⚠️ Fragilidade conhecida: isso depende do formato da página do Google,
  * que não é documentado e pode mudar sem aviso. Se um dia parar de achar
@@ -27,6 +77,12 @@ export function idDaPasta(link: string) {
 export async function listarArquivosDaPasta(
   pastaId: string,
 ): Promise<{ arquivos: ArquivoDaPasta[]; erro?: string }> {
+  const embutida = await itensPelaVisaoEmbutida(pastaId);
+  const daEmbutida = (embutida ?? [])
+    .filter((i) => !i.ehPasta && /\.(?:csv|xlsx|xls)$/i.test(i.nome))
+    .map(({ id, nome }) => ({ id, nome }));
+  if (daEmbutida.length > 0) return { arquivos: daEmbutida };
+
   let html: string;
 
   try {
@@ -119,12 +175,17 @@ export async function baixarTextoDoDrive(id: string) {
  * Admin seria cinco chances de colar o errado -- cadastra-se a pasta mãe
  * e o app acha as filhas pelo nome.
  *
- * Mesmo desenho (e mesma fragilidade) de `listarArquivosDaPasta`: o
- * Drive marca pasta com "Shared folder" no rótulo.
+ * Mesmo desenho (e mesma fragilidade) de `listarArquivosDaPasta`: visão
+ * embutida primeiro; na página normal, o Drive marca pasta com "Shared
+ * folder" no rótulo.
  */
 export async function listarSubpastas(
   pastaId: string,
 ): Promise<{ pastas: ArquivoDaPasta[]; erro?: string }> {
+  const embutida = await itensPelaVisaoEmbutida(pastaId);
+  const daEmbutida = (embutida ?? []).filter((i) => i.ehPasta).map(({ id, nome }) => ({ id, nome }));
+  if (daEmbutida.length > 0) return { pastas: daEmbutida };
+
   let html: string;
   try {
     const r = await fetch(`https://drive.google.com/drive/folders/${pastaId}`, {
