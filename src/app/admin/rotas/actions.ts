@@ -64,16 +64,29 @@ export async function salvarMetasDeRota(formData: FormData) {
   );
 }
 
+/** Quantos dias para trás o "Atualizar" lê sem a caixa "tudo" marcada. */
+const DIAS_RECENTES = 7;
+
+/** "PW00943S_CSV_20261006_05361918.csv" -> "2026-10-06". Nulo se o nome não traz data. */
+function dataDoNome(nome: string) {
+  const m = nome.match(/(?:^|_)(20\d{2})(\d{2})(\d{2})_/);
+  return m ? `${m[1]}-${m[2]}-${m[3]}` : null;
+}
+
 /**
- * Lê a pasta inteira e importa todos os arquivos de rota que encontrar.
+ * Lê a pasta e importa os arquivos de rota que encontrar.
  *
- * Reimporta tudo a cada vez, de propósito: são poucos arquivos de poucos KB,
- * e o mês corrente muda todo dia conforme a roteirização avança. Tentar
- * adivinhar o que mudou economizaria segundos e criaria o risco de deixar
- * dado velho na tela.
+ * Até 06/10/2026 reimportava a pasta INTEIRA a cada clique, na premissa de
+ * "poucos arquivos de poucos KB". Deixou de valer: o roteirizador solta um
+ * CSV por dia, ACUMULADO no mês (o de 30/09 já traz as 299 rotas de
+ * setembro), e com 50+ arquivos cada clique regravava o mesmo mês dezenas
+ * de vezes e levava minutos. Agora lê só os dos últimos DIAS_RECENTES dias
+ * pela data do nome -- o mês corrente continua sendo relido todo dia. Nome
+ * sem data (o "PCD 01 a 05 - Barreiras.csv") entra sempre. A caixa "tudo"
+ * volta ao comportamento antigo, para a primeira carga ou uma correção.
  *
  * A data de cada rota vem de DENTRO do arquivo, não do nome. O nome só
- * aparece no relatório da tela, para você conferir o que foi lido.
+ * escolhe QUAIS arquivos ler e aparece no relatório da tela.
  */
 export async function atualizarRotas(formData: FormData) {
   // Quem chamou: a tela do modulo (padrao) ou Fontes de Dados. E o
@@ -85,6 +98,7 @@ export async function atualizarRotas(formData: FormData) {
 
   const eu = await requireModulo("rotas", "criar");
   const avisar = formData.get("avisar") === "on";
+  const tudo = formData.get("tudo") === "on";
 
   const admin = createAdminClient();
   const revendaId = await exigirRevenda("/admin/rotas");
@@ -99,7 +113,7 @@ export async function atualizarRotas(formData: FormData) {
     voltarAqui("erro", "Cadastre primeiro o link da pasta do Drive.");
   }
 
-  const { arquivos, erro } = await listarArquivosDaPasta(config.pasta_id);
+  const { arquivos: daPasta, erro } = await listarArquivosDaPasta(config.pasta_id);
   if (erro) voltarAqui("erro", `Não consegui ler a pasta: ${erro}.`);
 
   const relatorio: string[] = [];
@@ -107,6 +121,22 @@ export async function atualizarRotas(formData: FormData) {
   let totalClientes = 0;
   const hojeSP = () =>
     new Date().toLocaleDateString("sv-SE", { timeZone: "America/Sao_Paulo" });
+
+  const corte = new Date(`${hojeSP()}T12:00:00Z`);
+  corte.setUTCDate(corte.getUTCDate() - DIAS_RECENTES);
+  const desde = corte.toISOString().slice(0, 10);
+  const arquivos = tudo
+    ? daPasta
+    : daPasta.filter((a) => {
+        const d = dataDoNome(a.nome);
+        return !d || d >= desde;
+      });
+  if (arquivos.length === 0) {
+    voltarAqui(
+      "erro",
+      `Nenhum arquivo dos últimos ${DIAS_RECENTES} dias na pasta (${daPasta.length} mais antigos). Marque "Importar todos os arquivos" para reler tudo.`,
+    );
+  }
 
   for (const arquivo of arquivos) {
     const texto = await baixarTextoDoDrive(arquivo.id);

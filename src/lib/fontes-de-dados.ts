@@ -214,12 +214,17 @@ export const FONTES: Fonte[] = [
     colar: "pasta",
     telaDoModulo: "/admin/rotas",
     modulo: "rotas",
-    aoAtualizar: "Lê o CSV mais recente da pasta. Reimportar não duplica nada.",
+    aoAtualizar: "Lê os CSVs dos últimos 7 dias da pasta. Reimportar não duplica nada.",
     opcoes: [
       {
         nome: "avisar",
         rotulo: "Avisar o time que a pré-rota está disponível",
         marcado: true,
+      },
+      {
+        nome: "tudo",
+        rotulo: "Importar todos os arquivos",
+        ajuda: "Sem marcar, lê só os CSVs dos últimos 7 dias — os anteriores já estão no app. Marque na primeira carga ou para corrigir um mês antigo. Demora alguns minutos.",
       },
     ],
     ajuda: "Aponte para a pasta onde o CSV da pré-rota é depositado todo dia.",
