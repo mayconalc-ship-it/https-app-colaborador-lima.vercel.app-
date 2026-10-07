@@ -8,7 +8,7 @@ import { exigirRevenda, getRevendaId } from "@/lib/revendas";
 import { subirFotoHorimetro } from "@/lib/produtividade-armazem-server";
 import { ehTurno, hojeISO } from "@/lib/produtividade-armazem";
 import { calcularHl } from "@/lib/unidades-produto";
-import { ehUnidadeWqi, unidadesEquivalentes } from "@/lib/wqi";
+import { SEM_COLABORADOR_WQI, ehUnidadeWqi, unidadesEquivalentes } from "@/lib/wqi";
 import { noLugar, pararComErro, pararComSucesso, type ResultadoAcao } from "@/lib/resultado-acao";
 
 const ROTA = "/wqi";
@@ -79,7 +79,17 @@ export async function registrarBaixaWqi(formData: FormData): Promise<ResultadoAc
     const notaFiscal = String(formData.get("nota_fiscal") ?? "").trim().slice(0, 40) || null;
     const observacao = String(formData.get("observacao") ?? "").trim().slice(0, 500) || null;
     const responsavelId = String(formData.get("responsavel_id") ?? "") || null;
+    const semColaborador = formData.get("sem_colaborador") === "1";
 
+    // O COLABORADOR É OBRIGATÓRIO (06/10/2026, pedido do dono): uma pessoa
+    // da revenda, ou "não tem colaborador" marcado de propósito. Em branco
+    // não passa mais.
+    if (!responsavelId && !semColaborador) {
+      erro('Informe o colaborador — ou marque "Não tem colaborador".');
+    }
+    if (responsavelId && semColaborador) {
+      erro('Escolha um colaborador OU marque "Não tem colaborador" — não os dois.');
+    }
     if (!produtoId) erro("Escolha o produto.");
     if (!Number.isInteger(quantidade) || quantidade <= 0) erro("Informe a quantidade quebrada.");
     if (!ehUnidadeWqi(unidade)) erro("Escolha a unidade.");
@@ -158,7 +168,7 @@ export async function registrarBaixaWqi(formData: FormData): Promise<ResultadoAc
       local: local.nome,
       nota_fiscal: notaFiscal,
       responsavel_id: responsavel?.id ?? null,
-      responsavel_nome: responsavel?.nome ?? null,
+      responsavel_nome: semColaborador ? SEM_COLABORADOR_WQI : (responsavel?.nome ?? null),
       responsavel_funcao: responsavel?.cargo ?? null,
       foto_url: fotoUrl,
       observacao,

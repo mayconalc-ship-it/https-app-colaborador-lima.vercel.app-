@@ -14,6 +14,7 @@ import {
   dataBR,
   ehUnidadeWqi,
   rotuloMes,
+  temPessoaResponsavel,
   totaisWqi,
   type Agrupado,
   type BaixaWqi,
@@ -126,7 +127,8 @@ export default async function GestaoWqiPage({
   const porTurno = agruparWqi(baixas, (b) => b.turno);
   const porProduto = agruparWqi(baixas, (b) => `${b.produto_codigo} — ${b.produto_descricao}`);
   const porResponsavel = agruparWqi(
-    baixas.filter((b) => b.responsavel_nome),
+    // Só pessoas: "Sem colaborador" não entra no ranking de quem manuseava.
+    baixas.filter(temPessoaResponsavel),
     (b) => `${b.responsavel_nome}${b.responsavel_funcao ? ` (${b.responsavel_funcao})` : ""}`,
   );
 
@@ -277,7 +279,9 @@ export default async function GestaoWqiPage({
         <CartaoHero
           titulo="Com responsável"
           valor={t.lancamentos ? `${fmt((t.comResponsavel / t.lancamentos) * 100)}%` : "—"}
-          legenda={`${t.comResponsavel} de ${t.lancamentos} com quem manuseava`}
+          legenda={`${t.comResponsavel} de ${t.lancamentos} com quem manuseava${
+            t.semColaborador ? ` · ${t.semColaborador} sem colaborador` : ""
+          }`}
         />
       </div>
       {t.semConversao > 0 && (

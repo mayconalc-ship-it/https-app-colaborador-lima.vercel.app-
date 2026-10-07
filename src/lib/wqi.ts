@@ -83,18 +83,36 @@ export function agruparWqi(baixas: BaixaWqi[], chave: (b: BaixaWqi) => string): 
   return [...mapa.values()].sort((x, y) => y.unidades - x.unidades || y.lancamentos - x.lancamentos);
 }
 
+/**
+ * "NÃO TEM COLABORADOR", DITO DE PROPÓSITO (06/10/2026, pedido do dono).
+ *
+ * O colaborador virou obrigatório no lançamento. Quando não há quem
+ * manuseava (ou ninguém foi identificado), quem lança marca isso no
+ * próprio campo -- e a baixa grava este texto em `responsavel_nome`, sem
+ * `responsavel_id`. Assim "informou que não tinha" se separa do vazio do
+ * histórico da planilha, e nenhum dos dois conta como pessoa no ranking.
+ */
+export const SEM_COLABORADOR_WQI = "Sem colaborador";
+
+/** Tem uma PESSOA de verdade como responsável? */
+export function temPessoaResponsavel(b: Pick<BaixaWqi, "responsavel_nome">) {
+  return Boolean(b.responsavel_nome) && b.responsavel_nome !== SEM_COLABORADOR_WQI;
+}
+
 export function totaisWqi(baixas: BaixaWqi[]) {
   let unidades = 0;
   let hl = 0;
   let semConversao = 0;
   let comResponsavel = 0;
+  let semColaborador = 0;
   for (const b of baixas) {
     if (b.unidades_equivalentes === null) semConversao += 1;
     unidades += b.unidades_equivalentes ?? 0;
     hl += b.hl_calculado ?? 0;
-    if (b.responsavel_nome) comResponsavel += 1;
+    if (temPessoaResponsavel(b)) comResponsavel += 1;
+    else if (b.responsavel_nome === SEM_COLABORADOR_WQI) semColaborador += 1;
   }
-  return { lancamentos: baixas.length, unidades, hl, semConversao, comResponsavel };
+  return { lancamentos: baixas.length, unidades, hl, semConversao, comResponsavel, semColaborador };
 }
 
 export const ROTULO_TURNO_WQI = ROTULO_TURNO_CURTO;
