@@ -192,17 +192,19 @@ export function CartaoItem({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- só os valores
   }, [escolha, planoOk, fotosPendentes]);
 
-  // Foto que já voltou do servidor: sai da lista local (e do celular, se
-  // ainda estava lá -- a confirmação do envio pode ter se perdido).
+  // Foto que já voltou do servidor: a tela já não a mostra (`locais`);
+  // aqui só a arrumação -- nunca reenviar, soltar a memória da prévia e
+  // tirar do celular, se ainda estava lá (a confirmação pode ter se perdido).
   const chavesDoServidor = [...noServidor].sort().join(",");
+  const arrumadas = useRef(new Set<string>());
   useEffect(() => {
-    const voltaram = pendentes.filter((p) => noServidor.has(p.id));
-    if (voltaram.length === 0) return;
-    voltaram.forEach((p) => {
+    for (const p of pendentes) {
+      if (!noServidor.has(p.id) || arrumadas.current.has(p.id)) continue;
+      arrumadas.current.add(p.id);
       enviadas.current.add(p.id);
+      URL.revokeObjectURL(p.url);
       void (noCelular.current.get(p.id) ?? Promise.resolve(true)).then(() => removerFotoPendente(p.id));
-    });
-    setPendentes((ps) => ps.filter((p) => !noServidor.has(p.id)));
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- a lista muda junto com a chave
   }, [chavesDoServidor, pendentes.length]);
   // Prévia que saiu da lista devolve a memória (celular com pouca RAM).
