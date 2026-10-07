@@ -195,8 +195,8 @@ type Area5S = { id: string; nome: string; ordem: number; ativa: boolean };
  * A lista SEGUE o 5S: cada leitura confere se o 5S tem área que o chamado
  * ainda não conhece, e a cria aqui. Área com o mesmo nome dos dois lados
  * (Picking, Refeitório, Sala ADM) vira uma só, para o painel não dividir os
- * chamados de um lugar em dois. A que nasce do 5S acompanha o nome e o
- * liga/desliga de lá.
+ * chamados de um lugar em dois. A que nasce do 5S acompanha o nome de lá
+ * e sai da lista se for desligada lá; desligar só aqui também vale.
  *
  * Sem a migration 167 (deploy antes da migração), devolve a lista de
  * antes, sem o 5S.
@@ -241,10 +241,14 @@ async function sincronizarCom5S(revendaId: string, locais: Local[], areas: Area5
 
   for (const a of [...areas].sort((x, y) => x.ordem - y.ordem)) {
     if (ligadas.has(a.id)) {
-      // Nasceu do 5S: o nome e o liga/desliga são os de lá.
+      // Nasceu do 5S: o nome é o de lá, e desligada no 5S sai daqui também.
+      // O contrário não vale (07/10/2026): desligar SÓ no chamado é escolha
+      // da liderança (o "Estac. Caminhões", que o dono quis fora da lista)
+      // e não volta sozinho -- religa-se em Admin › Chamados.
       const l = locais.find((x) => x.cinco_s_area_id === a.id);
-      if (l?.veio_do_5s && (l.nome !== a.nome.slice(0, 80) || l.ativo !== a.ativa)) {
-        await admin.from("chamados_locais").update({ nome: a.nome.slice(0, 80), ativo: a.ativa }).eq("id", l.id);
+      const ativo = !!l?.ativo && a.ativa;
+      if (l?.veio_do_5s && (l.nome !== a.nome.slice(0, 80) || l.ativo !== ativo)) {
+        await admin.from("chamados_locais").update({ nome: a.nome.slice(0, 80), ativo }).eq("id", l.id);
         mudou = true;
       }
       continue;

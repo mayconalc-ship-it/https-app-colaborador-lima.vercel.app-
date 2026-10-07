@@ -118,7 +118,7 @@ export function LinhaDaArea({
               Salvar
             </BotaoEnviar>
           </FormNoLugar>
-          {!l.veio_do_5s && (
+          {(!l.veio_do_5s || l.area5s?.ativa !== false) && (
             <BotaoNoLugar
               acao={alternar}
               campos={{ id: l.id, ativo: l.ativo ? "0" : "1" }}
