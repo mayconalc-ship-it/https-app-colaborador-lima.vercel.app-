@@ -840,7 +840,12 @@ function GradeDePermissoes({
           ) : (
           <div className="space-y-4">
             {GRUPOS_DO_ADMIN.map((grupo) => {
-              const doGrupo = MODULOS.filter((m) => m.grupo === grupo && !m.subGrupoDe);
+              // OS SUB-MÓDULOS TAMBÉM (06/10/2026): o filtro `!subGrupoDe`
+              // veio da barra lateral e escondia daqui Baixa WQI, FEFO,
+              // Carretas e as funcionalidades do armazém -- o perfil
+              // "Conferente" não tinha como liberar o WQI. O servidor sempre
+              // aceitou essas permissões; só a grade não as oferecia.
+              const doGrupo = MODULOS.filter((m) => m.grupo === grupo);
               if (doGrupo.length === 0) return null;
               return (
                 <div key={grupo}>
