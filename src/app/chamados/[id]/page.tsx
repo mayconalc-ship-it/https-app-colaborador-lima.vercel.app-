@@ -6,7 +6,7 @@ import { DetalheDoChamado } from "@/components/chamados/DetalheDoChamado";
 import { FolhaDoChamado } from "@/components/chamados/FolhaDoChamado";
 import { EnviarPorEmail } from "@/components/chamados/EnviarPorEmail";
 import { AcoesDoAtendente, Comentar, ConfirmarAtendimento } from "@/components/chamados/AcoesDoChamado";
-import { assuntoDoEmail, emAberto, protocolo, textoDoEmail } from "@/lib/chamados";
+import { emAberto, protocolo } from "@/lib/chamados";
 import {
   ChamadosNaoInstalado,
   contextoChamados,
@@ -27,6 +27,7 @@ import {
   confirmarNoApp,
   excluirChamado,
   mudarPrioridade,
+  registrarPedidoPorEmail,
 } from "../actions";
 
 export const dynamic = "force-dynamic";
@@ -36,8 +37,9 @@ export const dynamic = "force-dynamic";
  * fazer agora -- o time da manutenção atende, quem pediu confirma.
  *
  * PDF e e-mail (07/10/2026, pedido do dono): "⬇️ Baixar em PDF" imprime a
- * FolhaDoChamado (a O.S. em A4, escondida na tela) e "✉️ Enviar por
- * e-mail" abre o Outlook com os e-mails cadastrados em Admin › Chamados.
+ * FolhaDoChamado (a O.S. em A4, escondida na tela) e "✉️ Pedir por
+ * e-mail" (compra de peça ou autorização do gestor) abre o Outlook com a
+ * lista cadastrada em Admin › Chamados e anota o pedido no andamento.
  */
 export default async function ChamadoPage({
   params,
@@ -101,13 +103,20 @@ export default async function ChamadoPage({
 
         <div className="mb-4 flex flex-wrap items-start gap-2">
           <BotaoImprimir className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50" />
-          <div className="min-w-0 flex-1">
-            <EnviarPorEmail
-              destinatarios={config.emails}
-              assunto={assuntoDoEmail(chamado, unidade)}
-              texto={textoDoEmail(chamado, unidade, `${site.origem}/chamados/${chamado.id}`)}
-            />
-          </div>
+          {/* Compra de peça e autorização do gestor: coisa da manutenção e da liderança. */}
+          {mostrarTelefone && (
+            <div className="min-w-0 flex-1">
+              <EnviarPorEmail
+                chamadoId={chamado.id}
+                chamado={chamado}
+                unidade={unidade}
+                link={`${site.origem}/chamados/${chamado.id}`}
+                quemPede={ctx.perfil.nome}
+                listas={{ compra: config.emailsCompras, autorizacao: config.emailsGestor }}
+                registrar={registrarPedidoPorEmail}
+              />
+            </div>
+          )}
         </div>
 
         <DetalheDoChamado chamado={chamado} eventos={eventos} fotos={fotos} mostrarTelefone={mostrarTelefone}>

@@ -283,30 +283,83 @@ export type ChamadoParaEmail = {
   solucao: string | null;
 };
 
-export function assuntoDoEmail(c: ChamadoParaEmail, unidade: string) {
-  const peso = c.prioridade === "normal" ? "" : ` [${rotuloPrioridade(c.prioridade)}]`;
-  return `Chamado para Manutenção ${protocolo(c.numero)}${peso} — ${rotuloTipo(c.tipo)} em ${c.local_nome} — ${unidade}`;
+/**
+ * PARA QUE SERVE O E-MAIL (dono, 07/10/2026): "para os casos de
+ * necessidade de solicitação para a compra de peça ou autorização do
+ * gestor". Cada motivo tem a sua lista de destinatários (Admin ›
+ * Chamados) e o seu texto.
+ */
+export const MOTIVOS_EMAIL = [
+  {
+    id: "compra",
+    rotulo: "Compra de peça",
+    emoji: "🛒",
+    destino: "Compras",
+    pergunta: "O que precisa ser comprado?",
+    exemplo: "Ex.: 2 reatores para lâmpada tubular 2x32W e 4 lâmpadas LED T8 18W.",
+  },
+  {
+    id: "autorizacao",
+    rotulo: "Autorização do gestor",
+    emoji: "✅",
+    destino: "Gestor",
+    pergunta: "O que precisa ser autorizado?",
+    exemplo: "Ex.: chamar eletricista terceirizado para trocar o quadro de distribuição.",
+  },
+] as const;
+
+export type MotivoEmail = (typeof MOTIVOS_EMAIL)[number]["id"];
+
+export function ehMotivoEmail(v: unknown): v is MotivoEmail {
+  return MOTIVOS_EMAIL.some((m) => m.id === v);
 }
 
-/** O corpo do e-mail: o chamado inteiro em texto puro, que é o que o Outlook recebe pelo link. */
-export function textoDoEmail(c: ChamadoParaEmail, unidade: string, link: string) {
-  const linhas = [
-    `CHAMADO PARA MANUTENÇÃO ${protocolo(c.numero)}`,
+export function motivoEmail(m: MotivoEmail) {
+  return MOTIVOS_EMAIL.find((x) => x.id === m)!;
+}
+
+export type PedidoPorEmail = { motivo: MotivoEmail; oQue: string; valor: string; quemPede: string };
+
+export function assuntoDoPedido(c: ChamadoParaEmail, unidade: string, p: Pick<PedidoPorEmail, "motivo">) {
+  const titulo = p.motivo === "compra" ? "Pedido de compra de peça" : "Pedido de autorização";
+  const peso = c.prioridade === "normal" ? "" : ` [${rotuloPrioridade(c.prioridade)}]`;
+  return `${titulo}${peso} — Chamado ${protocolo(c.numero)} — ${c.local_nome} — ${unidade}`;
+}
+
+/** O corpo do e-mail, em texto puro (é o que o Outlook recebe pelo link). */
+export function textoDoPedido(c: ChamadoParaEmail, unidade: string, link: string, p: PedidoPorEmail) {
+  const oQue = p.oQue.trim() || "(descreva aqui)";
+  const valor = p.valor.trim();
+  const linhas =
+    p.motivo === "compra"
+      ? ["Olá,", "", `Para resolver o chamado para manutenção ${protocolo(c.numero)}, precisamos comprar:`, "", oQue]
+      : ["Olá,", "", `Para seguir com o chamado para manutenção ${protocolo(c.numero)}, preciso da sua autorização para:`, "", oQue];
+  if (valor) linhas.push("", `Valor estimado: R$ ${valor.replace(/^R\$\s*/i, "")}`);
+  linhas.push(
     "",
+    "— O chamado —",
     `Unidade: ${unidade}`,
     `Área: ${c.local_nome}`,
     `Tipo de serviço: ${rotuloTipo(c.tipo)}`,
-    `Prioridade: ${rotuloPrioridade(c.prioridade)}`,
-    `Situação: ${rotuloStatus(c.status)}`,
-    `Aberto em: ${dataHoraCompleta(c.aberto_em)}`,
-    `Prazo: ${dataHoraCompleta(c.prazo_em)}`,
-    `Pedido por: ${c.solicitante_nome} · ${c.solicitante_telefone}`,
-  ];
-  if (c.responsavel_nome) linhas.push(`Quem está cuidando: ${c.responsavel_nome}`);
-  linhas.push("", "Descrição:", c.descricao);
-  if (c.status === "concluido" && c.solucao) linhas.push("", "O que foi feito:", c.solucao);
-  linhas.push("", `Ver no App do Colaborador: ${link}`);
+    `Prioridade: ${rotuloPrioridade(c.prioridade)} · prazo ${dataHoraCompleta(c.prazo_em)}`,
+    `Aberto em ${dataHoraCompleta(c.aberto_em)} por ${c.solicitante_nome}`,
+    `Problema: ${c.descricao}`,
+    "",
+    `Ver o chamado no App do Colaborador: ${link}`,
+    "",
+    "Obrigado,",
+    p.quemPede,
+    "Manutenção",
+  );
   return linhas.join("\n");
+}
+
+/** A linha que fica no andamento do chamado (a evidência do pedido). */
+export function registroDoPedido(p: PedidoPorEmail, destinatarios: string[]) {
+  const m = motivoEmail(p.motivo);
+  const valor = p.valor.trim() ? ` (valor estimado R$ ${p.valor.trim().replace(/^R\$\s*/i, "")})` : "";
+  const para = destinatarios.length ? ` para ${destinatarios.join(", ")}` : "";
+  return `${m.emoji} Pedido de ${m.rotulo.toLowerCase()} por e-mail${para}: ${p.oQue.trim()}${valor}`.slice(0, 2000);
 }
 
 /** Texto comparável: duplicata é o mesmo pedido, com outra caixa ou espaço. */

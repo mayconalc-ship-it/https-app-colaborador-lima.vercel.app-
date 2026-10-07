@@ -7,8 +7,8 @@ import { BotaoNoLugar } from "@/components/BotaoNoLugar";
 import { QrDoLink } from "@/components/QrDoLink";
 import { requireModulo } from "@/lib/require-admin";
 import { exigirRevenda } from "@/lib/revendas";
-import { MODULO_CHAMADOS, agruparLocais, dataHora } from "@/lib/chamados";
-import { ChamadosNaoInstalado, lerConfig, lerLocais, origemDoSite } from "@/lib/chamados-server";
+import { MODULO_CHAMADOS, MOTIVOS_EMAIL, agruparLocais, dataHora } from "@/lib/chamados";
+import { ChamadosNaoInstalado, destinatariosDe, lerConfig, lerLocais, origemDoSite } from "@/lib/chamados-server";
 import { LinhaDaArea } from "@/components/chamados/LinhaDaArea";
 import {
   adicionarEmail,
@@ -202,44 +202,63 @@ export default async function AdminChamadosPage() {
         </p>
       </section>
 
-      {/* ---- E-mails ---- */}
+      {/* ---- E-mails: compra de peça e autorização do gestor ---- */}
       <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-        <h2 className="text-sm font-bold text-slate-900">✉️ Quem recebe o chamado por e-mail</h2>
+        <h2 className="text-sm font-bold text-slate-900">✉️ Pedidos por e-mail</h2>
         <p className="mt-0.5 text-xs text-slate-500">
-          Cada chamado tem o botão <strong>Enviar por e-mail</strong>, que abre o Outlook de quem tocou já com estes
-          destinatários, o assunto e o chamado inteiro no texto. O e-mail sai da conta da própria pessoa.
+          Quando o chamado precisa de <strong>compra de peça</strong> ou de <strong>autorização do gestor</strong>, a
+          manutenção toca em <strong>Pedir por e-mail</strong> no chamado: o Outlook abre com a lista certa, o assunto e o
+          pedido escrito, e o pedido fica anotado no andamento. O e-mail sai da conta de quem pediu.
         </p>
-        {config.emails.length > 0 ? (
-          <ul className="mt-3 flex flex-wrap gap-2">
-            {config.emails.map((e) => (
-              <li key={e} className="flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 py-1 pl-3 pr-1 text-sm text-slate-700">
-                {e}
-                <BotaoNoLugar
-                  acao={removerEmail}
-                  campos={{ email: e }}
-                  confirmacao={`Tirar ${e} da lista?`}
-                  rotuloConfirmar="Tirar"
-                  className="rounded-full px-2 py-0.5 text-xs font-bold text-slate-400 hover:bg-slate-200 hover:text-slate-700"
-                >
-                  ✕
-                </BotaoNoLugar>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="mt-3 rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-900">
-            Nenhum e-mail cadastrado. Sem eles, o botão abre o e-mail sem destinatário.
-          </p>
-        )}
-        <FormNoLugar acao={adicionarEmail} limparAoSalvar className="mt-3 flex flex-wrap items-end gap-2">
-          <label className="min-w-[14rem] flex-1">
-            <span className={rotulo}>Novo e-mail</span>
-            <input name="email" type="email" required maxLength={160} placeholder="manutencao@limalogistica.com.br" className={campo} />
-          </label>
-          <BotaoEnviar textoEnviando="Salvando..." className="rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary-dark">
-            Adicionar
-          </BotaoEnviar>
-        </FormNoLugar>
+        <div className="mt-3 grid gap-4 sm:grid-cols-2">
+          {MOTIVOS_EMAIL.map((m) => {
+            const lista = destinatariosDe(config, m.id);
+            return (
+              <div key={m.id} className="rounded-xl border border-slate-200 p-3">
+                <p className="text-sm font-semibold text-slate-900">
+                  {m.emoji} {m.rotulo} <span className="font-normal text-slate-400">· vai para {m.destino}</span>
+                </p>
+                {lista.length > 0 ? (
+                  <ul className="mt-2 flex flex-wrap gap-1.5">
+                    {lista.map((e) => (
+                      <li key={e} className="flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 py-0.5 pl-2.5 pr-0.5 text-xs text-slate-700">
+                        {e}
+                        <BotaoNoLugar
+                          acao={removerEmail}
+                          campos={{ lista: m.id, email: e }}
+                          confirmacao={`Tirar ${e} da lista de ${m.rotulo.toLowerCase()}?`}
+                          rotuloConfirmar="Tirar"
+                          className="rounded-full px-1.5 py-0.5 text-xs font-bold text-slate-400 hover:bg-slate-200 hover:text-slate-700"
+                        >
+                          ✕
+                        </BotaoNoLugar>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="mt-2 rounded-lg bg-amber-50 px-2.5 py-1.5 text-[11px] text-amber-900">
+                    Nenhum e-mail ainda: o Outlook abre sem destinatário.
+                  </p>
+                )}
+                <FormNoLugar acao={adicionarEmail} limparAoSalvar className="mt-2 flex gap-2">
+                  <input type="hidden" name="lista" value={m.id} />
+                  <input
+                    name="email"
+                    type="email"
+                    required
+                    maxLength={160}
+                    aria-label={`Novo e-mail para ${m.rotulo.toLowerCase()}`}
+                    placeholder={m.id === "compra" ? "compras@limalogistica.com.br" : "gestor@limalogistica.com.br"}
+                    className={campo}
+                  />
+                  <BotaoEnviar textoEnviando="..." className="shrink-0 rounded-xl bg-primary px-3 py-2 text-sm font-semibold text-white hover:bg-primary-dark">
+                    Adicionar
+                  </BotaoEnviar>
+                </FormNoLugar>
+              </div>
+            );
+          })}
+        </div>
       </section>
 
       {/* ---- Prazos ---- */}

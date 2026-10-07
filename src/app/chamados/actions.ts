@@ -11,6 +11,7 @@ import {
   avisarSolicitante,
   confirmarAtendimento,
   contextoChamados,
+  destinatariosDe,
   fotosDoFormulario,
   guardarFotos,
   lerChamado,
@@ -23,8 +24,10 @@ import {
   type ContextoChamados,
 } from "@/lib/chamados-server";
 import {
+  ehMotivoEmail,
   ehPrioridade,
   emAberto,
+  registroDoPedido,
   prazoDe,
   problemaDaAbertura,
   protocolo,
@@ -323,6 +326,35 @@ export async function comentarChamado(fd: FormData) {
     }
     revalidar(c.id);
     return deuCerto("Recado enviado.");
+  });
+}
+
+/**
+ * O pedido de compra de peça ou de autorização do gestor (07/10/2026). O
+ * e-mail sai do Outlook de quem pede; aqui ele fica ANOTADO no andamento
+ * -- a evidência de que foi pedido, quando e para quem. Os destinatários
+ * são lidos de novo daqui, não da tela.
+ */
+export async function registrarPedidoPorEmail(fd: FormData) {
+  return acao(async () => {
+    const ctx = await contexto();
+    const c = await chamadoDoFormulario(fd, ctx, "ver");
+    if (!podeAtenderChamado(ctx, c) && !ctx.podeVerPainel) pararComErro("Só a manutenção e a liderança pedem compra ou autorização.");
+    const motivo = texto(fd, "motivo");
+    if (!ehMotivoEmail(motivo)) pararComErro("Escolha: compra de peça ou autorização do gestor.");
+    const oQue = texto(fd, "o_que").slice(0, 1000);
+    if (oQue.length < 3) pararComErro(motivo === "compra" ? "Diga o que precisa ser comprado." : "Diga o que precisa ser autorizado.");
+    const valor = texto(fd, "valor").slice(0, 20);
+
+    const para = destinatariosDe(await lerConfig(c.revenda_id), motivo);
+    await registrarEvento(c, {
+      tipo: "comentario",
+      texto: registroDoPedido({ motivo, oQue, valor, quemPede: ctx.perfil.nome }, para),
+      autorNome: ctx.perfil.nome,
+      autorId: ctx.perfil.id,
+    });
+    revalidar(c.id);
+    return deuCerto("Pedido anotado no andamento. Confira e envie o e-mail no Outlook.");
   });
 }
 

@@ -21,6 +21,7 @@ import {
   rotuloPrioridade,
   rotuloTipo,
   type Local,
+  type MotivoEmail,
   type Prazos,
   type Prioridade,
   type Tipo,
@@ -112,9 +113,18 @@ export type ConfigChamados = {
   prazos: Prazos;
   atualizadoEm: string | null;
   atualizadoPorNome: string | null;
-  /** Quem recebe o chamado pelo botão "Enviar por e-mail" (migration 167). */
-  emails: string[];
+  /** Quem recebe o pedido de COMPRA de peça (coluna `emails`, migration 167). */
+  emailsCompras: string[];
+  /** Quem AUTORIZA: o gestor (coluna `emails_gestor`, migration 169). */
+  emailsGestor: string[];
 };
+
+/** A coluna de cada lista de e-mails, por motivo do pedido. */
+export const COLUNA_DOS_EMAILS = { compra: "emails", autorizacao: "emails_gestor" } as const;
+
+export function destinatariosDe(config: ConfigChamados, motivo: MotivoEmail) {
+  return motivo === "compra" ? config.emailsCompras : config.emailsGestor;
+}
 
 /**
  * Coluna nova que ainda não existe: o deploy chegou antes da migration
@@ -128,7 +138,9 @@ const CAMPOS_CONFIG = "token_publico, prazo_risco_horas, prazo_urgente_horas, pr
 
 export async function lerConfig(revendaId: string, admin: Admin = createAdminClient()): Promise<ConfigChamados> {
   const consulta = (campos: string) => admin.from("chamados_config").select(campos).eq("revenda_id", revendaId).maybeSingle();
-  let { data, error } = await consulta(`${CAMPOS_CONFIG}, emails`);
+  // Do mais novo para o mais antigo: 169 (gestor), 167 (compras), 165.
+  let { data, error } = await consulta(`${CAMPOS_CONFIG}, emails, emails_gestor`);
+  if (colunaFaltando(error)) ({ data, error } = await consulta(`${CAMPOS_CONFIG}, emails`));
   if (colunaFaltando(error)) ({ data, error } = await consulta(CAMPOS_CONFIG));
   conferir(error);
   if (data) {
@@ -140,13 +152,15 @@ export async function lerConfig(revendaId: string, admin: Admin = createAdminCli
       atualizado_em: string | null;
       atualizado_por_nome: string | null;
       emails?: string[] | null;
+      emails_gestor?: string[] | null;
     };
     return {
       tokenPublico: d.token_publico,
       prazos: { risco: d.prazo_risco_horas, urgente: d.prazo_urgente_horas, normal: d.prazo_normal_horas },
       atualizadoEm: d.atualizado_em,
       atualizadoPorNome: d.atualizado_por_nome,
-      emails: d.emails ?? [],
+      emailsCompras: d.emails ?? [],
+      emailsGestor: d.emails_gestor ?? [],
     };
   }
   // Revenda nova, que não estava na semente da 165: nasce aqui, com os
@@ -157,7 +171,7 @@ export async function lerConfig(revendaId: string, admin: Admin = createAdminCli
     .select("token_publico")
     .single();
   conferir(e2);
-  return { tokenPublico: criada!.token_publico, prazos: PRAZOS_PADRAO, atualizadoEm: null, atualizadoPorNome: null, emails: [] };
+  return { tokenPublico: criada!.token_publico, prazos: PRAZOS_PADRAO, atualizadoEm: null, atualizadoPorNome: null, emailsCompras: [], emailsGestor: [] };
 }
 
 /**
