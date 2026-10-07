@@ -2214,13 +2214,16 @@ MEASURE '_Medidas'[Em aberto há (h)] =
 // O 9.2 do DPO: "% de chamados reabertos". Dos concluídos, quantos já
 // voltaram alguma vez porque quem pediu respondeu "Não resolveu" — o
 // "chamado fechado indevidamente" do 8.2.
+//
+// O "+ 0" faz NENHUM reaberto sair 0%, e não vazio ("--" no cartão, visto
+// no Desktop em 07/10/2026). Sem concluído, o DIVIDE continua vazio.
 MEASURE '_Medidas'[% chamados reabertos] =
     DIVIDE (
         CALCULATE (
             COUNTROWS ( fato_chamado ),
             fato_chamado[concluido] = TRUE (),
             fato_chamado[foi_reaberto] = TRUE ()
-        ),
+        ) + 0,
         [Chamados concluídos]
     )
 

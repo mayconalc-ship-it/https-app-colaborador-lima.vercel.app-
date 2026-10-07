@@ -580,8 +580,11 @@ function gerarModelo(medidas) {
     settings: {},
   }));
 
+  // 1606, e nao 1567 (07/10/2026): maxParallelismPerRefresh (model.tmdl)
+  // exige 1568 ou mais, e o Desktop recusa abrir o projeto com 1567. 1606
+  // e o que o proprio Desktop gravou ao salvar o projeto nesse dia.
   escrever(path.join(DEST, 'definition', 'database.tmdl'),
-    'database\n\tcompatibilityLevel: 1567\n');
+    'database\n\tcompatibilityLevel: 1606\n');
 
   // Servidor e Banco como parametros: trocar de revenda, de projeto ou do
   // Direct Connection para o Session Pooler vira edicao de um campo, e
@@ -626,6 +629,12 @@ function gerarModelo(medidas) {
     '\tdefaultPowerBIDataSourceVersion: powerBI_V3',
     '\tdiscourageImplicitMeasures',
     '\tsourceQueryCulture: pt-BR',
+    // UMA TABELA POR VEZ na atualizacao (07/10/2026). O pool do Supabase
+    // aceita 15 conexoes; com 55 tabelas em paralelo a atualizacao cai em
+    // "EMAXCONNSESSION max clients reached". Era desligado a mao em
+    // Opcoes > Arquivo atual > Carregamento de dados, e cada geracao
+    // apagava a escolha. Forma LIDA do model.tmdl que o Desktop salvou.
+    '\tmaxParallelismPerRefresh: 1',
     '\tdataAccessOptions',
     '\t\tlegacyRedirects',
     '\t\treturnErrorValuesAsNull',

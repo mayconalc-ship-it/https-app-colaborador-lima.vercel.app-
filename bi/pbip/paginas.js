@@ -2922,7 +2922,7 @@ const paginas = [
         'painel do app. Os cancelados ficam fora do TMR, do prazo e dos reabertos.'],
       // A UNIDADE ACOMPANHA O NUMERO: "9 min", "6,4 h" ou "2,1 d" -- a
       // medida e texto justamente para isso (ver 07-medidas.dax).
-      ['⏱️ TMR — abertura à conclusão', '@TMR do chamado',
+      ['⏱️ TMR (resolução)', '@TMR do chamado',
         'Tempo Médio de Resolução: da abertura do chamado até a manutenção dar como concluído, ' +
         'média dos concluídos do período. Em aberto e cancelado não entram. É o "Tempo médio de ' +
         'solução" do painel do app.'],
@@ -3057,7 +3057,7 @@ const paginas = [
       ['⏳ Até assumir', '@Tempo até assumir',
         'Tempo médio da abertura até alguém da manutenção ASSUMIR o chamado — a espera na fila. ' +
         'Cancelados ficam fora.'],
-      ['🙋 Aguardando quem pediu', '@Aguardando confirmação',
+      ['🙋 Sem confirmação', '@Aguardando confirmação',
         'Concluídos pela manutenção que quem pediu ainda não confirmou. Sem a confirmação não há ' +
         'nota — é a fila da pesquisa do NPS.'],
       ['📝 Avaliações recebidas', '@Avaliações do atendimento',
