@@ -13,6 +13,7 @@ import {
   lerItens,
   lerRespostas,
   listarAvaliacoes,
+  pessoasDaRevenda,
 } from "@/lib/manutencao-server";
 import { finalizarAvaliacao, reabrirAvaliacao, removerFoto, salvarResposta } from "../actions";
 import { AvisoNaoInstalado } from "../AvisoNaoInstalado";
@@ -24,11 +25,12 @@ export const maxDuration = 60;
 /** Os dados da tela, ou o motivo de não haver tela. */
 async function carregar(id: string, revendaId: string) {
   try {
-    const [avaliacao, itens, avaliacoes, podeReabrir] = await Promise.all([
+    const [avaliacao, itens, avaliacoes, podeReabrir, pessoas] = await Promise.all([
       lerAvaliacao(id, revendaId),
       lerItens(revendaId),
       listarAvaliacoes(revendaId),
       podeNoModulo(MODULO_MANUTENCAO, "editar"),
+      pessoasDaRevenda(revendaId),
     ]);
     if (!avaliacao) return { tipo: "nao-achou" as const };
 
@@ -62,7 +64,7 @@ async function carregar(id: string, revendaId: string) {
         };
       }
     }
-    return { tipo: "ok" as const, avaliacao, itens, minhas, anteriores, podeReabrir };
+    return { tipo: "ok" as const, avaliacao, itens, minhas, anteriores, podeReabrir, pessoas };
   } catch (e) {
     if (e instanceof ModuloNaoInstalado) return { tipo: "nao-instalado" as const };
     throw e;
@@ -77,7 +79,7 @@ export default async function AvaliacaoManutencaoPage({ params }: { params: Prom
   const dados = await carregar(id, revendaId);
   if (dados.tipo === "nao-instalado") return <AvisoNaoInstalado />;
   if (dados.tipo === "nao-achou") notFound();
-  const { avaliacao, itens, minhas, anteriores, podeReabrir } = dados;
+  const { avaliacao, itens, minhas, anteriores, podeReabrir, pessoas } = dados;
 
   const rotulo = rotuloTrimestre(avaliacao);
   return (
@@ -99,6 +101,7 @@ export default async function AvaliacaoManutencaoPage({ params }: { params: Prom
         anteriores={anteriores}
         aberta={avaliacao.status === "em_andamento"}
         podeReabrir={podeReabrir}
+        pessoas={pessoas}
         hojeIso={hojeIso()}
         acoes={{ salvar: salvarResposta, removerFoto, finalizar: finalizarAvaliacao, reabrir: reabrirAvaliacao }}
       />

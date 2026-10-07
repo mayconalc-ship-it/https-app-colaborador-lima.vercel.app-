@@ -133,16 +133,26 @@ export async function salvarResposta(fd: FormData): Promise<ResultadoAcao> {
   if (!na && entrada.nota === null) return deuErrado(`Item ${item.numero}: escolha a nota (3, 1 ou 0) ou marque N/A.`);
   const prazoValido = /^\d{4}-\d{2}-\d{2}$/.test(entrada.prazo) ? entrada.prazo : null;
 
-  const fotos = fd.getAll("fotos").filter((f): f is File => f instanceof File && f.size > 0);
+  // Cada foto vem com o id que o celular deu a ela (`foto_ids`, na mesma
+  // ordem). Ele vira o nome do arquivo: se o sinal cair DEPOIS de o
+  // servidor gravar, o celular reenvia e a foto não entra duas vezes.
+  const ids = fd.getAll("foto_ids").map(String);
+  const pasta = `${ctx.revendaId}/${aberta.avaliacao.ano}-T${aberta.avaliacao.trimestre}/${item.numero}`;
+  const recebidas = fd
+    .getAll("fotos")
+    .map((f, i) => ({ arquivo: f, id: /^[a-z0-9-]{8,64}$/i.test(ids[i] ?? "") ? ids[i] : undefined }))
+    .filter((f): f is { arquivo: File; id: string | undefined } => f.arquivo instanceof File && f.arquivo.size > 0);
 
   // Quantas o item já tem nesta avaliação: o teto é por item, não por envio.
   const { data: anterior } = await admin
     .from("manut_respostas")
-    .select("id, manut_fotos(id)")
+    .select("id, manut_fotos(id, caminho)")
     .eq("avaliacao_id", aberta.avaliacao.id)
     .eq("item_id", item.id)
     .maybeSingle();
-  const jaTem = (anterior?.manut_fotos as { id: string }[] | null)?.length ?? 0;
+  const jaGuardadas = (anterior?.manut_fotos as { id: string; caminho: string }[] | null) ?? [];
+  const jaTem = jaGuardadas.length;
+  const fotos = recebidas.filter((f) => !f.id || !jaGuardadas.some((g) => g.caminho.startsWith(`${pasta}/${f.id}.`)));
   if (jaTem + fotos.length > FOTOS_POR_ITEM) {
     return deuErrado(`Cada item aceita até ${FOTOS_POR_ITEM} fotos. Este já tem ${jaTem}.`);
   }
@@ -174,10 +184,9 @@ export async function salvarResposta(fd: FormData): Promise<ResultadoAcao> {
 
   // As fotos depois da resposta: uma foto que falha não pode desfazer a
   // nota já dada -- avisa e deixa tentar a foto de novo.
-  const pasta = `${ctx.revendaId}/${aberta.avaliacao.ano}-T${aberta.avaliacao.trimestre}/${item.numero}`;
   let enviadas = 0;
   for (const foto of fotos) {
-    const guardada = await guardarFoto(foto, pasta, admin);
+    const guardada = await guardarFoto(foto.arquivo, pasta, admin, foto.id);
     if (!guardada.ok) return deuErrado(`Item ${item.numero} salvo, mas ${guardada.erro.toLowerCase()}`);
     const { error: erroFoto } = await admin.from("manut_fotos").insert({
       resposta_id: resposta.id,

@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { ChevronDown } from "lucide-react";
 import { BotaoNoLugar } from "@/components/BotaoNoLugar";
 import {
   CartaoItem,
@@ -8,7 +9,8 @@ import {
   type RespostaDoCartao,
   type SituacaoDoItem,
 } from "@/components/manutencao/CartaoItem";
-import { BLOCOS, calcularNotas, formatarPct, tomDaNota, type ItemManut } from "@/lib/manutencao";
+import type { PessoaDaLista } from "@/components/manutencao/SeletorResponsavel";
+import { BLOCOS, calcularNotas, formatarPct, tomDaNota, type Bloco, type ItemManut } from "@/lib/manutencao";
 import type { ResultadoAcao } from "@/lib/resultado-acao";
 
 type Filtro = "todos" | "pendentes" | "abaixo";
@@ -26,6 +28,13 @@ const TOM: Record<ReturnType<typeof tomDaNota>, string> = {
  * as duas perguntas de quem está no meio da ronda -- quanto falta e como
  * está a nota -- e os filtros levam direto ao que ainda não foi visto ou
  * ao que ficou abaixo de 3.
+ *
+ * OS BLOCOS EM SANFONA (07/10/2026, pedido do dono): Fundamentos,
+ * Gerenciar para manter e Gerenciar para melhorar viram três faixas que
+ * abrem e fecham, cada uma dizendo quanto falta e a nota dela. Abre
+ * sozinho o primeiro bloco que ainda tem item pendente; no fim de cada
+ * bloco, um toque leva ao próximo. Com filtro ligado, abrem os blocos que
+ * têm o que o filtro mostra.
  */
 export function ChecklistManutencao({
   avaliacaoId,
@@ -35,6 +44,7 @@ export function ChecklistManutencao({
   anteriores,
   aberta,
   podeReabrir,
+  pessoas,
   hojeIso,
   acoes,
 }: {
@@ -45,6 +55,7 @@ export function ChecklistManutencao({
   anteriores: Record<string, AnteriorDoCartao>;
   aberta: boolean;
   podeReabrir: boolean;
+  pessoas: PessoaDaLista[];
   hojeIso: string;
   acoes: {
     salvar: (fd: FormData) => Promise<ResultadoAcao>;
@@ -69,8 +80,8 @@ export function ChecklistManutencao({
     if (situacoes[i.id]) return situacoes[i.id];
     const r = respostas[i.id];
     return r
-      ? { respondido: true, nota: r.nota, na: r.na, planoOk: true }
-      : { respondido: false, nota: null, na: false, planoOk: true };
+      ? { respondido: true, nota: r.nota, na: r.na, planoOk: true, fotosPendentes: 0 }
+      : { respondido: false, nota: null, na: false, planoOk: true, fotosPendentes: 0 };
   };
   const lista = itens
     .map((i) => ({ itemId: i.id, ...situacao(i) }))
@@ -82,17 +93,49 @@ export function ChecklistManutencao({
   const abaixo = itens.filter((i) => ehAbaixo(situacao(i))).length;
   const semPlano = itens.filter((i) => ehAbaixo(situacao(i)) && !situacao(i).planoOk);
   const comFoto = itens.filter((i) => (respostas[i.id]?.fotos.length ?? 0) > 0).length;
+  const fotosNoCelular = itens.reduce((n, i) => n + situacao(i).fotosPendentes, 0);
   const pct = itens.length ? feitos / itens.length : 0;
 
+  // Sanfona: abre o primeiro bloco com item pendente (ou o primeiro).
+  const [abertos, setAbertos] = useState<Set<Bloco>>(() => {
+    const comPendente = BLOCOS.find((b) => itens.some((i) => i.bloco === b.id && !respostas[i.id]));
+    return new Set([comPendente?.id ?? BLOCOS[0].id]);
+  });
+  function alternar(b: Bloco) {
+    setAbertos((s) => {
+      const n = new Set(s);
+      if (n.has(b)) n.delete(b);
+      else n.add(b);
+      return n;
+    });
+  }
+  function irPara(b: Bloco) {
+    setAbertos(new Set([b]));
+    // Depois de o bloco abrir: a faixa dele vai para o topo.
+    requestAnimationFrame(() => document.getElementById(`bloco-${b}`)?.scrollIntoView({ behavior: "smooth", block: "start" }));
+  }
+
+  // Foto ainda não confirmada pelo servidor: sair da página pergunta antes.
+  // (Mesmo saindo, ela está guardada no celular e sobe na volta.)
+  useEffect(() => {
+    if (fotosNoCelular === 0 && enviando === 0) return;
+    const segurar = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", segurar);
+    return () => window.removeEventListener("beforeunload", segurar);
+  }, [fotosNoCelular, enviando]);
+
   function filtrar(f: Filtro) {
-    setFiltro(f);
-    setFixos(
-      new Set(
-        itens
-          .filter((i) => (f === "pendentes" ? !situacao(i).respondido : f === "abaixo" ? ehAbaixo(situacao(i)) : true))
-          .map((i) => i.id),
-      ),
+    const ids = new Set(
+      itens
+        .filter((i) => (f === "pendentes" ? !situacao(i).respondido : f === "abaixo" ? ehAbaixo(situacao(i)) : true))
+        .map((i) => i.id),
     );
+    setFiltro(f);
+    setFixos(ids);
+    if (f !== "todos") setAbertos(new Set(itens.filter((i) => ids.has(i.id)).map((i) => i.bloco)));
   }
   const visivel = (i: ItemManut) => filtro === "todos" || fixos.has(i.id);
 
@@ -143,19 +186,43 @@ export function ChecklistManutencao({
       </div>
 
       {/* ---- Bloco > Seção > Item ---- */}
-      <div className="space-y-8">
-        {BLOCOS.map((b) => {
+      <div className="space-y-3">
+        {BLOCOS.map((b, posicao) => {
           const secoes = notas.secoes.filter((s) => s.bloco === b.id);
-          // Os cartões ficam SEMPRE montados; o filtro só esconde. Desmontar
-          // perderia a foto na fila ou o texto ainda não salvo do cartão.
+          // Os cartões ficam SEMPRE montados; o filtro e a sanfona só
+          // escondem. Desmontar perderia a foto na fila ou o texto ainda
+          // não salvo do cartão.
           const itensDoBloco = itens.filter((i) => i.bloco === b.id);
+          const feitosDoBloco = itensDoBloco.filter((i) => situacao(i).respondido).length;
+          const completo = feitosDoBloco === itensDoBloco.length;
+          const aberto = abertos.has(b.id);
+          const proximo = BLOCOS[posicao + 1];
           return (
-            <section key={b.id} className={itensDoBloco.some(visivel) ? "" : "hidden"}>
-              <h2 className="mb-3 flex items-center justify-between rounded-xl bg-primary px-4 py-2.5 text-sm font-bold uppercase tracking-wide text-white">
-                <span>{b.titulo}</span>
-                <span className="rounded-full bg-white/20 px-2 py-0.5 text-xs">{formatarPct(notas.blocos[b.id])}</span>
+            <section key={b.id} id={`bloco-${b.id}`} className={`scroll-mt-40 ${itensDoBloco.some(visivel) ? "" : "hidden"}`}>
+              <h2>
+                <button
+                  type="button"
+                  onClick={() => alternar(b.id)}
+                  aria-expanded={aberto}
+                  className={`flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-white shadow-sm transition-colors ${
+                    aberto ? "bg-primary-dark" : "bg-primary hover:bg-primary-dark"
+                  }`}
+                >
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-sm font-bold uppercase tracking-wide">{b.titulo}</span>
+                    <span className="block text-xs font-medium text-white/80">
+                      {completo ? "✓ " : ""}
+                      {feitosDoBloco} de {itensDoBloco.length} respondidas · {secoes.length}{" "}
+                      {secoes.length === 1 ? "seção" : "seções"}
+                    </span>
+                  </span>
+                  <span className="shrink-0 rounded-full bg-white/20 px-2 py-0.5 text-xs font-bold">
+                    {formatarPct(notas.blocos[b.id])}
+                  </span>
+                  <ChevronDown size={20} aria-hidden className={`shrink-0 transition-transform ${aberto ? "rotate-180" : ""}`} />
+                </button>
               </h2>
-              <div className="space-y-6">
+              <div className={`mt-3 space-y-6 ${aberto ? "" : "hidden"}`}>
                 {secoes.map((s) => {
                   const doItem = itensDoBloco.filter((i) => i.secao === s.secao);
                   return (
@@ -176,6 +243,7 @@ export function ChecklistManutencao({
                               anterior={anteriores[i.id] ?? null}
                               aberta={aberta}
                               hojeIso={hojeIso}
+                              pessoas={pessoas}
                               salvar={acoes.salvar}
                               removerFoto={acoes.removerFoto}
                               aoMudar={aoMudar}
@@ -187,6 +255,15 @@ export function ChecklistManutencao({
                     </div>
                   );
                 })}
+                {filtro === "todos" && (
+                  <button
+                    type="button"
+                    onClick={() => (proximo ? irPara(proximo.id) : alternar(b.id))}
+                    className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-primary/30 bg-white px-4 py-3 text-sm font-semibold text-primary-dark hover:bg-primary-soft"
+                  >
+                    {proximo ? `Ir para ${proximo.titulo} ›` : `Fechar ${b.titulo} ▲`}
+                  </button>
+                )}
               </div>
             </section>
           );
@@ -211,7 +288,9 @@ export function ChecklistManutencao({
                 ? `Faltam ${itens.length - feitos} de ${itens.length} itens para fechar o ${rotulo}.`
                 : semPlano.length > 0
                   ? `Complete o plano de ação (o que, responsável e prazo) ${semPlano.length === 1 ? "do item" : "dos itens"} ${semPlano.map((i) => i.numero).join(", ")}.`
-                  : enviando > 0
+                  : fotosNoCelular > 0
+                    ? `${fotosNoCelular === 1 ? "1 foto ainda não subiu" : `${fotosNoCelular} fotos ainda não subiram`} (estão guardadas no celular). Espere o sinal para fechar.`
+                    : enviando > 0
                     ? "Salvando o último item..."
                     : `Os ${itens.length} itens estão respondidos. Fechar congela a nota do ${rotulo} e coloca o trimestre na evolução.`}
             </p>
@@ -224,7 +303,7 @@ export function ChecklistManutencao({
                 rotuloConfirmar="Finalizar"
                 perigo={false}
                 textoEnviando="Finalizando..."
-                disabled={feitos < itens.length || semPlano.length > 0 || enviando > 0}
+                disabled={feitos < itens.length || semPlano.length > 0 || fotosNoCelular > 0 || enviando > 0}
                 className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-white hover:bg-primary-dark"
               >
                 ✅ Fechar o checklist do {rotulo}

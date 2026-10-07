@@ -7,6 +7,13 @@ import { Camera, Check, LoaderCircle } from "lucide-react";
 import { BotaoNoLugar } from "@/components/BotaoNoLugar";
 import { CameraNoApp } from "@/components/CameraNoApp";
 import { useToast } from "@/components/Toast";
+import { SeletorResponsavel, type PessoaDaLista } from "@/components/manutencao/SeletorResponsavel";
+import {
+  fotosGuardadasDaAvaliacao,
+  guardarFotoPendente,
+  novoIdDeFoto,
+  removerFotoPendente,
+} from "@/lib/manutencao-fotos-offline";
 import {
   FOTOS_POR_ITEM,
   prazoSugerido,
@@ -36,7 +43,14 @@ export type AnteriorDoCartao = {
 };
 
 /** O que o cartão conta para o checklist: a barra de andamento e o "Finalizar". */
-export type SituacaoDoItem = { respondido: boolean; nota: Nota | null; na: boolean; planoOk: boolean };
+export type SituacaoDoItem = {
+  respondido: boolean;
+  nota: Nota | null;
+  na: boolean;
+  planoOk: boolean;
+  /** Fotos tiradas que o servidor ainda não confirmou: o "Finalizar" espera. */
+  fotosPendentes: number;
+};
 
 const OPCOES: { valor: "3" | "1" | "0" | "na"; rotulo: string; cor: string; ativo: string }[] = [
   { valor: "3", rotulo: "3", cor: "border-emerald-200 text-emerald-700", ativo: "border-emerald-600 bg-emerald-600 text-white" },
@@ -70,7 +84,10 @@ const lerNota = (escolha: string) => ({
   nota: escolha === "" || escolha === "na" ? null : (Number(escolha) as Nota),
 });
 
-type Pendente = { id: string; arquivo: File; url: string; estado: "aguardando" | "enviando" | "enviada" };
+type Pendente = { id: string; arquivo: Blob; url: string; estado: "aguardando" | "enviando" | "enviada" };
+
+/** Com foto parada (sem sinal, servidor recusou), tenta de novo neste ritmo. */
+const REENVIO_MS = 20_000;
 
 /**
  * UM ITEM DO CHECK DE MANUTENÇÃO -- SEM BOTÃO DE SALVAR (02/10/2026).
@@ -88,6 +105,14 @@ type Pendente = { id: string; arquivo: File; url: string; estado: "aguardando" |
  *
  * Foto tirada antes da nota espera a nota (a resposta precisa existir
  * para a foto ter onde ficar) e sobe logo depois dela.
+ *
+ * FOTO NÃO SE PERDE (07/10/2026): na primeira ronda real, fotos tiradas
+ * sumiram sem deixar rastro no servidor. Agora cada foto vai para o
+ * IndexedDB do celular no instante em que é aceita e só sai de lá quando
+ * o servidor confirma (manutencao-fotos-offline). A página morreu, o
+ * Android recarregou a aba, alguém apertou "voltar": ao abrir de novo, o
+ * cartão traz a foto de volta e envia. Foto parada tenta de novo sozinha
+ * quando o sinal volta e a cada 20 s.
  */
 export function CartaoItem({
   item,
@@ -96,6 +121,7 @@ export function CartaoItem({
   anterior,
   aberta,
   hojeIso,
+  pessoas,
   salvar,
   removerFoto,
   aoMudar,
@@ -107,6 +133,8 @@ export function CartaoItem({
   anterior: AnteriorDoCartao | null;
   aberta: boolean;
   hojeIso: string;
+  /** A lista suspensa do responsável pelo plano de ação. */
+  pessoas: PessoaDaLista[];
   salvar: (fd: FormData) => Promise<ResultadoAcao>;
   removerFoto: (fd: FormData) => Promise<ResultadoAcao>;
   aoMudar?: (itemId: string, s: SituacaoDoItem) => void;
@@ -130,11 +158,17 @@ export function CartaoItem({
   // Os valores mais novos, para quem roda depois (fila, temporizador).
   // (Atualizados nos próprios handlers, junto com o estado.)
   const atual = useRef({ escolha, observacao, plano, responsavel, prazo });
-  const seq = useRef(0);
   const fila = useRef<Promise<unknown>>(Promise.resolve());
   const emAndamento = useRef(0);
   const espera = useRef<ReturnType<typeof setTimeout> | null>(null);
   const sujo = useRef(false);
+  // Fotos já na fila (ou já enviadas): o mesmo toque, o reenvio de 20 s e
+  // a nota nova não podem mandar a mesma foto duas vezes.
+  const naFila = useRef(new Set<string>());
+  const enviadas = useRef(new Set<string>());
+  // A gravação no celular de cada foto: só se apaga de lá depois dela.
+  const noCelular = useRef(new Map<string, Promise<boolean>>());
+  const avisouErro = useRef(false);
 
   const criterios = separarCriterios(item.criterios);
   const { nota, na } = lerNota(escolha);
@@ -143,12 +177,13 @@ export function CartaoItem({
   const fotos = resposta?.fotos ?? [];
   // A prévia local fica até o servidor devolver a foto (sem piscar vazio).
   const cabemMais = FOTOS_POR_ITEM - fotos.length - pendentes.length;
+  const fotosPendentes = pendentes.filter((p) => p.estado !== "enviada").length;
 
   // Conta para o checklist a cada mudança (a barra de andamento é ao vivo).
   useEffect(() => {
-    aoMudar?.(item.id, { respondido: escolha !== "", nota, na, planoOk });
+    aoMudar?.(item.id, { respondido: escolha !== "", nota, na, planoOk, fotosPendentes });
     // eslint-disable-next-line react-hooks/exhaustive-deps -- só os valores
-  }, [escolha, planoOk]);
+  }, [escolha, planoOk, fotosPendentes]);
 
   // Foto que já subiu e já voltou do servidor: sai da lista local.
   const [contagemVista, setContagemVista] = useState(fotos.length);
@@ -157,24 +192,59 @@ export function CartaoItem({
     setPendentes((ps) => (ps.some((p) => p.estado === "enviada") ? ps.filter((p) => p.estado !== "enviada") : ps));
   }
   // Prévia que saiu da lista devolve a memória (celular com pouca RAM).
-  const anteriores = useRef<Pendente[]>([]);
+  // O ref também é a lista "de agora" para quem roda fora do desenho
+  // (o reenvio pelo relógio e pelo sinal que voltou).
+  const pendentesAgora = useRef<Pendente[]>([]);
   useEffect(() => {
     const ficam = new Set(pendentes.map((p) => p.id));
-    anteriores.current.filter((p) => !ficam.has(p.id)).forEach((p) => URL.revokeObjectURL(p.url));
-    anteriores.current = pendentes;
+    pendentesAgora.current.filter((p) => !ficam.has(p.id)).forEach((p) => URL.revokeObjectURL(p.url));
+    pendentesAgora.current = pendentes;
   }, [pendentes]);
 
   useEffect(() => () => {
     if (espera.current) clearTimeout(espera.current);
   }, []);
 
+  // Fotos que ficaram guardadas no celular (a página morreu antes de
+  // enviar): voltam para o cartão e sobem, se o item já tem nota.
+  useEffect(() => {
+    if (!aberta) return;
+    let vivo = true;
+    fotosGuardadasDaAvaliacao(avaliacaoId).then((todas) => {
+      if (!vivo) return;
+      const doItem = todas.filter((f) => f.itemId === item.id && !pendentesAgora.current.some((p) => p.id === f.id));
+      if (doItem.length === 0) return;
+      const voltaram: Pendente[] = doItem.map((f) => ({
+        id: f.id,
+        arquivo: f.foto,
+        url: URL.createObjectURL(f.foto),
+        estado: "aguardando",
+      }));
+      voltaram.forEach((p) => noCelular.current.set(p.id, Promise.resolve(true)));
+      setPendentes((ps) => [...ps, ...voltaram]);
+      if (atual.current.escolha) voltaram.forEach((p) => enfileirar(p));
+    });
+    return () => {
+      vivo = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- só ao abrir
+  }, []);
+
   function enfileirar(foto?: Pendente) {
+    if (foto) {
+      if (naFila.current.has(foto.id) || enviadas.current.has(foto.id)) return;
+      naFila.current.add(foto.id);
+    }
     emAndamento.current++;
     aoEnviando?.(1);
     setStatus("salvando");
     const vez = fila.current.then(async () => {
       const v = atual.current;
-      if (!v.escolha) return; // sem nota não há resposta onde guardar
+      if (!v.escolha) {
+        // sem nota não há resposta onde guardar: a foto espera a nota
+        if (foto) naFila.current.delete(foto.id);
+        return;
+      }
       const fd = new FormData();
       fd.set("avaliacao_id", avaliacaoId);
       fd.set("item_id", item.id);
@@ -184,24 +254,34 @@ export function CartaoItem({
       fd.set("responsavel", v.responsavel);
       fd.set("prazo", v.prazo);
       if (foto) {
-        fd.append("fotos", foto.arquivo);
+        fd.append("fotos", new File([foto.arquivo], `${foto.id}.jpg`, { type: foto.arquivo.type || "image/jpeg" }));
+        fd.append("foto_ids", foto.id);
         setPendentes((ps) => ps.map((p) => (p.id === foto.id ? { ...p, estado: "enviando" } : p)));
       }
       let r: ResultadoAcao | undefined;
       try {
         r = await salvar(fd);
       } catch {
-        r = { ok: false, erro: "Sem conexão: não salvou. Toque de novo quando o sinal voltar." };
+        r = { ok: false, erro: "Sem sinal: não salvou ainda. As fotos ficam guardadas no celular e sobem quando o sinal voltar." };
       }
+      if (foto) naFila.current.delete(foto.id);
       if (r && !r.ok) {
         setErro(r.erro);
         setStatus("erro");
-        toast.erro(r.erro);
+        // Um aviso só: o reenvio de 20 s não pode encher a tela de avisos.
+        if (!avisouErro.current) toast.erro(r.erro);
+        avisouErro.current = true;
         if (foto) setPendentes((ps) => ps.map((p) => (p.id === foto.id ? { ...p, estado: "aguardando" } : p)));
         return;
       }
       setErro("");
-      if (foto) setPendentes((ps) => ps.map((p) => (p.id === foto.id ? { ...p, estado: "enviada" } : p)));
+      avisouErro.current = false;
+      if (foto) {
+        enviadas.current.add(foto.id);
+        setPendentes((ps) => ps.map((p) => (p.id === foto.id ? { ...p, estado: "enviada" } : p)));
+        // Só agora sai do celular -- e depois de ter terminado de entrar.
+        void (noCelular.current.get(foto.id) ?? Promise.resolve(true)).then(() => removerFotoPendente(foto.id));
+      }
     });
     fila.current = vez.finally(() => {
       emAndamento.current--;
@@ -245,13 +325,52 @@ export function CartaoItem({
   }
 
   function novaFoto(arquivo: File) {
-    const p: Pendente = { id: `foto-${++seq.current}`, arquivo, url: URL.createObjectURL(arquivo), estado: "aguardando" };
+    const p: Pendente = { id: novoIdDeFoto(), arquivo, url: URL.createObjectURL(arquivo), estado: "aguardando" };
+    // Primeiro no celular, depois na tela e na fila: se a página morrer
+    // daqui a um segundo, a foto já está guardada.
+    noCelular.current.set(
+      p.id,
+      guardarFotoPendente({ id: p.id, avaliacaoId, itemId: item.id, foto: arquivo, criadaEm: new Date().toISOString() }),
+    );
     setPendentes((ps) => [...ps, p]);
     if (atual.current.escolha) enfileirar(p);
   }
 
   function descartar(p: Pendente) {
     setPendentes((ps) => ps.filter((x) => x.id !== p.id));
+    void (noCelular.current.get(p.id) ?? Promise.resolve(true)).then(() => removerFotoPendente(p.id));
+  }
+
+  /** Tenta de novo o que ficou parado: a resposta (se deu erro) e as fotos. */
+  function reenviar() {
+    if (!atual.current.escolha) return;
+    if (status === "erro") enfileirar();
+    pendentesAgora.current.filter((p) => p.estado === "aguardando").forEach((p) => enfileirar(p));
+  }
+  const reenviarAgora = useRef(reenviar);
+  useEffect(() => {
+    reenviarAgora.current = reenviar;
+  });
+
+  // Foto parada ou resposta com erro: tenta quando o sinal volta e a cada
+  // 20 s -- quem está na ronda não precisa lembrar de apertar nada.
+  const parado = status === "erro" || (escolha !== "" && pendentes.some((p) => p.estado === "aguardando"));
+  useEffect(() => {
+    if (!parado) return;
+    const tentar = () => {
+      if (navigator.onLine !== false) reenviarAgora.current();
+    };
+    window.addEventListener("online", tentar);
+    const relogio = setInterval(tentar, REENVIO_MS);
+    return () => {
+      window.removeEventListener("online", tentar);
+      clearInterval(relogio);
+    };
+  }, [parado]);
+
+  function escolherResponsavel(nome: string) {
+    mudar("responsavel", nome, setResponsavel);
+    descarregar();
   }
 
   const respondido = escolha !== "";
@@ -374,7 +493,7 @@ export function CartaoItem({
                   {/* eslint-disable-next-line @next/next/no-img-element -- prévia local (blob:) */}
                   <img src={p.url} alt="Foto nova" className="aspect-square w-full rounded-xl border border-slate-200 object-cover" />
                   <span className="absolute inset-x-1 bottom-1 flex items-center justify-center gap-1 rounded-lg bg-black/60 py-0.5 text-[10px] font-semibold text-white">
-                    {p.estado === "aguardando" ? (respondido ? "na fila" : "dê a nota") : p.estado === "enviando" ? (
+                    {p.estado === "aguardando" ? (respondido ? (status === "erro" ? "sem sinal" : "na fila") : "dê a nota") : p.estado === "enviando" ? (
                       <>
                         <LoaderCircle size={11} className="animate-spin" aria-hidden /> enviando
                       </>
@@ -408,6 +527,12 @@ export function CartaoItem({
                 </button>
               )}
             </div>
+            {fotosPendentes > 0 && (
+              <p className="mt-1.5 text-[11px] font-medium text-slate-500">
+                📱 {fotosPendentes === 1 ? "1 foto guardada" : `${fotosPendentes} fotos guardadas`} neste celular
+                {respondido ? ": sobe sozinha, mesmo se o sinal cair." : ": dê a nota para enviar."}
+              </p>
+            )}
           </div>
 
           {/* ---- Plano de ação: só abaixo de 3 ---- */}
@@ -427,14 +552,11 @@ export function CartaoItem({
                 className={`${campo} border-amber-200 bg-white focus:border-amber-500`}
               />
               <div className="flex flex-wrap gap-2">
-                <input
-                  maxLength={120}
-                  value={responsavel}
-                  onChange={(e) => mudar("responsavel", e.target.value, setResponsavel)}
-                  onBlur={descarregar}
-                  placeholder="Responsável"
-                  aria-label="Responsável"
-                  className={`${campo} min-w-0 flex-1 border-amber-200 bg-white focus:border-amber-500`}
+                <SeletorResponsavel
+                  valor={responsavel}
+                  pessoas={pessoas}
+                  aoEscolher={escolherResponsavel}
+                  className="min-w-[12rem] flex-1"
                 />
                 <input
                   type="date"
@@ -480,7 +602,7 @@ export function CartaoItem({
           {status === "erro" && erro && (
             <p className="rounded-lg bg-red-50 px-3 py-2 text-xs font-medium text-red-800">
               ⚠️ {erro}{" "}
-              <button type="button" onClick={() => enfileirar()} className="font-bold underline">
+              <button type="button" onClick={reenviar} className="font-bold underline">
                 Tentar de novo
               </button>
             </p>

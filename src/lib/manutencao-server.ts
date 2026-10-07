@@ -229,6 +229,24 @@ export async function evolucao(revendaId: string, quantas = 4, admin: Admin = cr
   };
 }
 
+/**
+ * Quem pode ser responsável por um plano de ação: as pessoas da revenda,
+ * em ordem alfabética. É a lista suspensa do campo "Responsável" (pedido
+ * do dono, 07/10/2026) -- antes era texto livre, e o mesmo responsável
+ * aparecia escrito de três jeitos.
+ */
+export async function pessoasDaRevenda(revendaId: string, admin: Admin = createAdminClient()) {
+  const { data: vinculos } = await admin.from("colaborador_revendas").select("colaborador_id").eq("revenda_id", revendaId);
+  const ids = (vinculos ?? []).map((v) => v.colaborador_id as string);
+  const pessoas: { nome: string; cargo: string | null }[] = [];
+  // Em lotes: centenas de ids num `in` só estouram o tamanho da URL.
+  for (let i = 0; i < ids.length; i += 200) {
+    const { data } = await admin.from("profiles").select("nome, cargo").in("id", ids.slice(i, i + 200));
+    for (const p of data ?? []) if (p.nome) pessoas.push({ nome: String(p.nome).trim(), cargo: p.cargo ?? null });
+  }
+  return pessoas.sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
+}
+
 // ---------------------------------------------------------------------
 // Fotos
 // ---------------------------------------------------------------------
@@ -269,10 +287,14 @@ export async function prepararFoto(arquivo: File, { lado = 1600, qualidade = 72 
   }
 }
 
-/** Sobe no bucket privado; devolve o caminho (não existe link público). */
-export async function guardarFoto(arquivo: File, pasta: string, admin: Admin = createAdminClient()) {
+/**
+ * Sobe no bucket privado; devolve o caminho (não existe link público).
+ * `nome` é o id que o celular deu à foto: com ele no caminho, a mesma foto
+ * reenviada (sinal que caiu depois de o servidor gravar) é reconhecida.
+ */
+export async function guardarFoto(arquivo: File, pasta: string, admin: Admin = createAdminClient(), nome?: string) {
   const foto = await prepararFoto(arquivo);
-  const caminho = `${pasta}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${foto.extensao}`;
+  const caminho = `${pasta}/${nome ?? `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`}.${foto.extensao}`;
   const { error } = await admin.storage.from(BUCKET).upload(caminho, foto.dados, { contentType: foto.contentType });
   if (error) return { ok: false as const, erro: `Falha ao enviar a foto: ${error.message}` };
   return { ok: true as const, caminho, bytes: foto.dados.length, largura: foto.largura, altura: foto.altura };
