@@ -8,7 +8,7 @@ import { exigirRevenda, getRevendaId } from "@/lib/revendas";
 import { subirFotoHorimetro } from "@/lib/produtividade-armazem-server";
 import { ehTurno, hojeISO } from "@/lib/produtividade-armazem";
 import { calcularHl } from "@/lib/unidades-produto";
-import { SEM_COLABORADOR_WQI, ehUnidadeWqi, unidadesEquivalentes } from "@/lib/wqi";
+import { NF_DIGITOS_MAX, SEM_COLABORADOR_WQI, ehUnidadeWqi, unidadesEquivalentes } from "@/lib/wqi";
 import { noLugar, pararComErro, pararComSucesso, type ResultadoAcao } from "@/lib/resultado-acao";
 
 const ROTA = "/wqi";
@@ -76,7 +76,7 @@ export async function registrarBaixaWqi(formData: FormData): Promise<ResultadoAc
     const unidade = String(formData.get("unidade") ?? "");
     const quantidade = Number(formData.get("quantidade"));
     const dataOcorrido = String(formData.get("data_ocorrido") ?? "").trim();
-    const notaFiscal = String(formData.get("nota_fiscal") ?? "").trim().slice(0, 40) || null;
+    const notaFiscal = String(formData.get("nota_fiscal") ?? "").trim() || null;
     const observacao = String(formData.get("observacao") ?? "").trim().slice(0, 500) || null;
     const responsavelId = String(formData.get("responsavel_id") ?? "") || null;
     const semColaborador = formData.get("sem_colaborador") === "1";
@@ -89,6 +89,11 @@ export async function registrarBaixaWqi(formData: FormData): Promise<ResultadoAc
     }
     if (responsavelId && semColaborador) {
       erro('Escolha um colaborador OU marque "Não tem colaborador" — não os dois.');
+    }
+    // Recusa em vez de limpar: se letra chegou aqui, a tela falhou, e
+    // gravar um número "consertado" seria gravar uma NF que ninguém digitou.
+    if (notaFiscal && !new RegExp(`^\\d{1,${NF_DIGITOS_MAX}}$`).test(notaFiscal)) {
+      erro(`A nota fiscal aceita só números (até ${NF_DIGITOS_MAX} dígitos).`);
     }
     if (!produtoId) erro("Escolha o produto.");
     if (!Number.isInteger(quantidade) || quantidade <= 0) erro("Informe a quantidade quebrada.");

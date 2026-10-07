@@ -5,7 +5,7 @@ import { BotaoEnviar } from "@/components/BotaoEnviar";
 import { ComboboxProdutoReepack } from "@/components/produtividade-armazem/ComboboxProdutoReepack";
 import { SeletorDePessoa, type PessoaEncontrada } from "@/components/admin/SeletorDePessoa";
 import { ROTULO_TURNO, TURNOS, type Turno } from "@/lib/produtividade-armazem";
-import { ROTULO_UNIDADE_WQI, UNIDADES_WQI, type ItemCatalogoWqi } from "@/lib/wqi";
+import { NF_DIGITOS_MAX, ROTULO_UNIDADE_WQI, UNIDADES_WQI, type ItemCatalogoWqi } from "@/lib/wqi";
 import { buscarProdutosWqi, buscarResponsaveisWqi, registrarBaixaWqi } from "./actions";
 import { CampoFoto } from "@/components/CampoFoto";
 import { FormNoLugar } from "@/components/FormNoLugar";
@@ -51,6 +51,7 @@ export function FormBaixaWqi({
   // Muda a cada baixa salva: zera a busca. O form.reset() não alcança o
   // estado do seletor, e a próxima baixa sairia com a pessoa da anterior.
   const [envio, setEnvio] = useState(0);
+  const [notaFiscal, setNotaFiscal] = useState("");
 
   return (
     <FormNoLugar
@@ -66,6 +67,7 @@ export function FormBaixaWqi({
       aoSalvar={() => {
         setPessoa(null);
         setSemColaborador(false);
+        setNotaFiscal("");
         setEnvio((n) => n + 1);
       }}
     >
@@ -184,7 +186,20 @@ export function FormBaixaWqi({
           <label className={rotulo} htmlFor="nota_fiscal">
             Nota fiscal <span className="normal-case text-slate-400">(opcional)</span>
           </label>
-          <input id="nota_fiscal" name="nota_fiscal" maxLength={40} inputMode="numeric" className={campo} />
+          {/* SÓ DÍGITOS (06/10/2026): `inputMode` muda o teclado do
+              celular, mas não impede letra -- no computador passava
+              qualquer coisa. Letra some ao digitar, como no QR e nas
+              Carretas; o servidor recusa o que escapar. */}
+          <input
+            id="nota_fiscal"
+            name="nota_fiscal"
+            value={notaFiscal}
+            onChange={(e) => setNotaFiscal(e.target.value.replace(/\D/g, "").slice(0, NF_DIGITOS_MAX))}
+            inputMode="numeric"
+            pattern="[0-9]*"
+            placeholder="Só números"
+            className={campo}
+          />
         </div>
       </div>
 

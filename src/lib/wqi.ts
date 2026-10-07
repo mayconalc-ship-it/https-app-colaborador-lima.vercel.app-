@@ -94,6 +94,9 @@ export function agruparWqi(baixas: BaixaWqi[], chave: (b: BaixaWqi) => string): 
  */
 export const SEM_COLABORADOR_WQI = "Sem colaborador";
 
+/** Nota fiscal: só dígitos, até 12 -- o mesmo teto do QR de contingência. */
+export const NF_DIGITOS_MAX = 12;
+
 /** Tem uma PESSOA de verdade como responsável? */
 export function temPessoaResponsavel(b: Pick<BaixaWqi, "responsavel_nome">) {
   return Boolean(b.responsavel_nome) && b.responsavel_nome !== SEM_COLABORADOR_WQI;
