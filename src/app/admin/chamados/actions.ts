@@ -123,6 +123,86 @@ export async function alternarLocal(fd: FormData): Promise<ResultadoAcao> {
   });
 }
 
+// ---------------------------------------------------------------------
+// Organizar (07/10/2026, pedido do dono): trocar o setor numa lista e
+// subir/descer a área, sem digitar número de ordem.
+// ---------------------------------------------------------------------
+
+type LinhaDeOrdem = { id: string; grupo: string; nome: string; ordem: number };
+
+async function linhasDaRevenda(admin: ReturnType<typeof createAdminClient>, revendaId: string) {
+  const { data, error } = await admin.from("chamados_locais").select("id, grupo, nome, ordem").eq("revenda_id", revendaId);
+  if (error) pararComErro(`Não foi possível ler as áreas: ${error.message}`);
+  return (data ?? []) as LinhaDeOrdem[];
+}
+
+/** Leva a área para outro setor -- ela entra no fim da lista dele. */
+export async function moverLocal(fd: FormData): Promise<ResultadoAcao> {
+  return noLugar(async () => {
+    const { revendaId, admin } = await porta();
+    const id = texto(fd, "id");
+    const grupo = texto(fd, "grupo").slice(0, 60);
+    const linhas = await linhasDaRevenda(admin, revendaId);
+    const area = linhas.find((l) => l.id === id);
+    if (!area) pararComErro("Área não encontrada.");
+    if (area.grupo === grupo) return deuCerto("A área já está nesse setor.");
+    const doSetor = linhas.filter((l) => l.grupo === grupo).map((l) => l.ordem);
+    // Setor vazio: vai para o fim de tudo (o setor aparece por último).
+    const ordem = Math.min(999, Math.max(0, ...(doSetor.length ? doSetor : linhas.map((l) => l.ordem))) + 1);
+    const { error } = await admin.from("chamados_locais").update({ grupo, ordem }).eq("id", id).eq("revenda_id", revendaId);
+    if (error?.code === "23505") pararComErro(`Já existe "${area.nome}" em ${grupo || "Demais áreas"}.`);
+    if (error) pararComErro(`Não foi possível mover: ${error.message}`);
+    revalidar();
+    return deuCerto(`"${area.nome}" foi para ${grupo || "Demais áreas"}.`);
+  });
+}
+
+/** Sobe ou desce a área um lugar dentro do setor. */
+export async function ordenarLocal(fd: FormData): Promise<ResultadoAcao> {
+  return noLugar(async () => {
+    const { revendaId, admin } = await porta();
+    const id = texto(fd, "id");
+    const subir = texto(fd, "direcao") === "subir";
+    const linhas = await linhasDaRevenda(admin, revendaId);
+    const area = linhas.find((l) => l.id === id);
+    if (!area) pararComErro("Área não encontrada.");
+    const setor = linhas
+      .filter((l) => l.grupo === area.grupo)
+      .sort((a, b) => a.ordem - b.ordem || a.nome.localeCompare(b.nome, "pt-BR"));
+    const i = setor.findIndex((l) => l.id === id);
+    const j = subir ? i - 1 : i + 1;
+    if (j < 0 || j >= setor.length) return deuCerto(subir ? "Já é a primeira do setor." : "Já é a última do setor.");
+    [setor[i], setor[j]] = [setor[j], setor[i]];
+    // Renumera o setor a partir do primeiro número dele: a posição do
+    // setor no formulário (que segue a área de menor número) não muda.
+    const base = Math.min(...setor.map((l) => l.ordem));
+    const mudancas = setor.map((l, k) => ({ l, ordem: base + k })).filter(({ l, ordem }) => l.ordem !== ordem);
+    for (const { l, ordem } of mudancas) {
+      const { error } = await admin.from("chamados_locais").update({ ordem }).eq("id", l.id).eq("revenda_id", revendaId);
+      if (error) pararComErro(`Não foi possível reordenar: ${error.message}`);
+    }
+    revalidar();
+    return deuCerto(`"${area.nome}" ${subir ? "subiu" : "desceu"}.`);
+  });
+}
+
+/** Troca o nome de um setor em todas as áreas dele. */
+export async function renomearSetor(fd: FormData): Promise<ResultadoAcao> {
+  return noLugar(async () => {
+    const { revendaId, admin } = await porta();
+    const de = texto(fd, "de");
+    const para = texto(fd, "para").slice(0, 60);
+    if (!de) pararComErro("Setor inválido.");
+    if (!para) pararComErro("Escreva o novo nome do setor.");
+    if (para === de) return deuCerto("O nome é o mesmo.");
+    const { error } = await admin.from("chamados_locais").update({ grupo: para }).eq("revenda_id", revendaId).eq("grupo", de);
+    if (error?.code === "23505") pararComErro(`"${para}" já tem uma área com o mesmo nome de uma de "${de}".`);
+    if (error) pararComErro(`Não foi possível renomear: ${error.message}`);
+    revalidar();
+    return deuCerto(`Setor "${de}" agora se chama "${para}". Os chamados antigos continuam com o nome da época.`);
+  });
+}
+
 /**
  * Quem recebe o chamado por e-mail (07/10/2026, pedido do dono). O app não
  * envia sozinho: a lista vai pronta no botão "Enviar por e-mail" de cada

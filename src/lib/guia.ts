@@ -753,8 +753,8 @@ export const GUIAS: Guia[] = [
         dica: "É um QR só para a unidade inteira. Imprima quantas cópias quiser e cole onde a equipe circula.",
       },
       {
-        texto: "Em **📍 Áreas**, toque em **＋ Nova área** para incluir, ou toque numa área e em **Editar** para mudar nome, setor e ordem.",
-        dica: "Área que não existe mais: **⏻ Desligar**. Ela sai da lista do formulário, sem apagar o histórico.",
+        texto: "Em **📍 Áreas**, troque o **setor** na lista ao lado da área e use as **setas ↑↓** para mudar a ordem. **＋ Nova área** inclui uma área.",
+        dica: "O **lápis** muda o nome ou desliga a área (ela sai do formulário, sem apagar o histórico). **Renomear setor** fica no título de cada setor.",
       },
       {
         texto: "Em **✉️ Quem recebe o chamado por e-mail**, digite o e-mail e toque em **Adicionar**.",

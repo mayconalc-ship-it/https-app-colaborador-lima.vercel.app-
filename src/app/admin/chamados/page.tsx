@@ -9,7 +9,19 @@ import { requireModulo } from "@/lib/require-admin";
 import { exigirRevenda } from "@/lib/revendas";
 import { MODULO_CHAMADOS, agruparLocais, dataHora } from "@/lib/chamados";
 import { ChamadosNaoInstalado, lerConfig, lerLocais, origemDoSite } from "@/lib/chamados-server";
-import { adicionarEmail, alternarLocal, criarLocal, editarLocal, novoQr, removerEmail, salvarPrazos } from "./actions";
+import { LinhaDaArea } from "@/components/chamados/LinhaDaArea";
+import {
+  adicionarEmail,
+  alternarLocal,
+  criarLocal,
+  editarLocal,
+  moverLocal,
+  novoQr,
+  ordenarLocal,
+  removerEmail,
+  renomearSetor,
+  salvarPrazos,
+} from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -101,7 +113,10 @@ export default async function AdminChamadosPage() {
           <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
             📍 Áreas <span className="text-slate-400">({ativos} ligadas)</span>
           </h2>
-          <p className="text-xs text-slate-400">A lista que aparece no formulário, no app e no QR.</p>
+          <p className="text-xs text-slate-400">
+            A lista do formulário, no app e no QR, na mesma ordem. Troque o setor na lista ao lado da área e use as setas
+            para subir ou descer; o lápis muda o nome ou desliga.
+          </p>
         </div>
 
         <details className="mb-3 rounded-2xl border border-dashed border-primary/40 bg-primary-soft/30">
@@ -126,78 +141,55 @@ export default async function AdminChamadosPage() {
           ))}
         </datalist>
 
+        {/* O ORGANIZADOR (07/10/2026, pedido do dono): o setor numa lista
+            que salva ao escolher, e as setas para subir/descer. A ordem aqui
+            é a ordem do formulário. */}
         <div className="space-y-4">
-          {agruparLocais(locais).map((g) => (
-            <div key={g.titulo}>
-              <p className="mb-1.5 px-1 text-[11px] font-semibold uppercase tracking-wide text-slate-400">{g.titulo}</p>
-              <ul className="divide-y divide-slate-100 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-                {g.itens.map((l) => (
-                  <li key={l.id} className={l.ativo ? "" : "bg-slate-50"}>
-                    <details className="group">
-                      <summary className="flex cursor-pointer list-none items-center gap-3 p-3 [&::-webkit-details-marker]:hidden">
-                        <span className="min-w-0 flex-1">
-                          <span className={`block truncate text-sm font-semibold ${l.ativo ? "text-slate-900" : "text-slate-400 line-through"}`}>
-                            {l.nome}
-                            {l.area5s && (
-                              <span className="ml-1.5 rounded-full bg-emerald-50 px-1.5 py-0.5 align-middle text-[10px] font-semibold text-emerald-700">
-                                {l.veio_do_5s ? "do 5S" : "também no 5S"}
-                              </span>
-                            )}
-                          </span>
-                          {!l.ativo && <span className="block text-[11px] text-slate-400">Desligada: fora da lista do formulário</span>}
-                        </span>
-                        <span className="shrink-0 text-xs font-semibold text-primary group-open:hidden">Editar</span>
-                        <span className="hidden shrink-0 text-xs font-semibold text-slate-400 group-open:inline">Fechar</span>
+          {agruparLocais(locais).map((g) => {
+            const setor = g.itens[0]?.grupo ?? "";
+            return (
+              <div key={g.titulo}>
+                <div className="mb-1.5 flex items-center justify-between gap-2 px-1">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                    {g.titulo} <span className="text-slate-400">({g.itens.length})</span>
+                  </p>
+                  {setor && (
+                    <details className="relative">
+                      <summary className="cursor-pointer list-none text-[11px] font-semibold text-primary [&::-webkit-details-marker]:hidden">
+                        Renomear setor
                       </summary>
-
-                      <div className="space-y-3 border-t border-slate-100 bg-slate-50/60 p-3">
-                        <FormNoLugar acao={editarLocal} className="grid gap-2 sm:grid-cols-[1fr_1.5fr_5rem_auto] sm:items-end">
-                          <input type="hidden" name="id" value={l.id} />
-                          <label>
-                            <span className={rotulo}>Setor</span>
-                            <input name="grupo" list="grupos-de-area" defaultValue={l.grupo} maxLength={60} className={campo} />
-                          </label>
-                          <label>
-                            <span className={rotulo}>Nome{l.veio_do_5s ? " (do cadastro do 5S)" : ""}</span>
-                            <input
-                              name="nome"
-                              required
-                              defaultValue={l.nome}
-                              maxLength={80}
-                              readOnly={l.veio_do_5s}
-                              className={`${campo} ${l.veio_do_5s ? "bg-slate-50 text-slate-500" : ""}`}
-                            />
-                          </label>
-                          <label>
-                            <span className={rotulo}>Ordem</span>
-                            <input name="ordem" type="number" min={0} max={999} defaultValue={l.ordem} className={campo} />
-                          </label>
-                          <BotaoEnviar textoEnviando="Salvando..." className="rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary-dark">
-                            Salvar
-                          </BotaoEnviar>
-                        </FormNoLugar>
-                        {!l.veio_do_5s && (
-                          <div className="flex flex-wrap gap-2">
-                            <BotaoNoLugar
-                              acao={alternarLocal}
-                              campos={{ id: l.id, ativo: l.ativo ? "0" : "1" }}
-                              perigo={l.ativo}
-                              confirmacao={l.ativo ? `Desligar "${l.nome}"?` : undefined}
-                              detalhe="A área sai da lista do formulário. Os chamados antigos continuam."
-                              rotuloConfirmar="Desligar"
-                              className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50"
-                            >
-                              {l.ativo ? "⏻ Desligar" : "⏻ Ligar de novo"}
-                            </BotaoNoLugar>
-                          </div>
-                        )}
-                      </div>
+                      <FormNoLugar
+                        acao={renomearSetor}
+                        fecharAoSalvar
+                        className="absolute right-0 z-10 mt-1 flex w-64 gap-2 rounded-xl border border-slate-200 bg-white p-2 shadow-lg"
+                      >
+                        <input type="hidden" name="de" value={setor} />
+                        <input name="para" required maxLength={60} defaultValue={setor} aria-label="Novo nome do setor" className={campo} />
+                        <BotaoEnviar textoEnviando="..." className="rounded-xl bg-primary px-3 py-2 text-sm font-semibold text-white hover:bg-primary-dark">
+                          OK
+                        </BotaoEnviar>
+                      </FormNoLugar>
                     </details>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
+                  )}
+                </div>
+                <ul className="divide-y divide-slate-100 rounded-2xl border border-slate-200 bg-white shadow-sm">
+                  {g.itens.map((l, i) => (
+                    <LinhaDaArea
+                      key={l.id}
+                      local={l}
+                      setores={grupos}
+                      primeira={i === 0}
+                      ultima={i === g.itens.length - 1}
+                      mover={moverLocal}
+                      ordenar={ordenarLocal}
+                      editar={editarLocal}
+                      alternar={alternarLocal}
+                    />
+                  ))}
+                </ul>
+              </div>
+            );
+          })}
         </div>
 
         {/* As áreas do 5S entram sozinhas, sem setor: alguém escolhe o setor aqui. */}
