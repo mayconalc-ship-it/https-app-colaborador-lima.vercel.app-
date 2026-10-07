@@ -5,15 +5,20 @@ import { exigirRevenda } from "@/lib/revendas";
 import { PageHeader } from "@/components/PageHeader";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
 import {
+  avisoDoPeriodo,
+  dataBR,
   dentroDoPeriodo,
+  fimDoCiclo,
   grupoDaNota,
   hojeIso,
   ciclosSugeridos,
   rotuloCiclo,
   rotuloMotivo,
+  situacaoDoPeriodo,
   type ConfigPesquisa,
 } from "@/lib/pesquisa";
 import {
+  abrirHoje,
   alternarPesquisa,
   novoCiclo,
   salvarConfigPesquisa,
@@ -32,15 +37,15 @@ type Resposta = {
 export default async function AdminPesquisaPage({
   searchParams,
 }: {
-  searchParams: Promise<{ erro?: string; sucesso?: string; ciclo?: string }>;
+  searchParams: Promise<{ erro?: string; sucesso?: string; aviso?: string; ciclo?: string }>;
 }) {
   await requireModulo("pesquisa", "ver");
-  const { erro, sucesso, ciclo: cicloParam } = await searchParams;
+  const { erro, sucesso, aviso, ciclo: cicloParam } = await searchParams;
 
   const admin = createAdminClient();
   const revendaId = await exigirRevenda("/admin");
 
-  const [{ data: config }, { data: todas }, { count: totalPessoas }] =
+  const [{ data: config }, { data: todas }, { data: vinculos }] =
     await Promise.all([
       admin
         .from("pesquisa_config")
@@ -56,9 +61,11 @@ export default async function AdminPesquisaPage({
       // time desta revenda, não o do app inteiro.
       admin
         .from("colaborador_revendas")
-        .select("*", { count: "exact", head: true })
+        .select("colaborador_id")
         .eq("revenda_id", revendaId),
     ]);
+  const doTime = new Set((vinculos ?? []).map((v) => String(v.colaborador_id)));
+  const totalPessoas = doTime.size;
 
   const cfg: ConfigPesquisa = config ?? {
     ativa: false,
@@ -116,13 +123,25 @@ export default async function AdminPesquisaPage({
     (a, b) => b[1] - a[1],
   );
 
-  // Quem ainda não respondeu neste ciclo.
+  // Quem ainda não respondeu neste ciclo -- do time DESTA revenda, o mesmo
+  // denominador do "X de Y". Listava o app inteiro: "0 de 71" em cima e
+  // "Ainda não responderam (176)" embaixo, com Barreiras dentro.
   const responderam = new Set(doCiclo.map((r) => r.colaborador_id));
   const { data: pessoas } = await admin
     .from("profiles")
     .select("id, nome, cargo")
     .order("nome", { ascending: true });
-  const faltam = (pessoas ?? []).filter((p) => !responderam.has(p.id));
+  const faltam = (pessoas ?? []).filter(
+    (p) => doTime.has(String(p.id)) && !responderam.has(p.id),
+  );
+
+  const situacao = situacaoDoPeriodo(cfg, hojeIso());
+  const avisoPeriodo = avisoDoPeriodo(cfg, hojeIso());
+  // O período que o "Iniciar um novo ciclo" sugere: de hoje ao fim do mês
+  // do ciclo sugerido. Herdar as datas do ciclo anterior era o defeito.
+  const cicloSugerido = sugestoes.find((c) => !c.atual)?.ciclo ?? "";
+  const fimSugerido = fimDoCiclo(cicloSugerido);
+  const fimPadrao = fimSugerido && fimSugerido >= hojeIso() ? fimSugerido : "";
 
   // Média por ciclo, para acompanhar a evolução.
   const historico = ciclos
@@ -157,6 +176,11 @@ export default async function AdminPesquisaPage({
           {decodificar(sucesso)}
         </p>
       )}
+      {aviso && (
+        <p className="mb-3 rounded-lg bg-amber-50 p-3 text-sm font-medium text-amber-900 ring-1 ring-amber-200">
+          ⚠️ {decodificar(aviso)}
+        </p>
+      )}
 
       {/* ---- Status e liga/desliga ---- */}
       <div className="mb-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -168,7 +192,7 @@ export default async function AdminPesquisaPage({
             <p className="text-xs text-slate-500">
               Ciclo atual: <strong>{rotuloCiclo(cfg.ciclo)}</strong>
               {cfg.inicio || cfg.fim
-                ? ` · ${cfg.inicio ?? "sem início"} até ${cfg.fim ?? "sem fim"}`
+                ? ` · ${cfg.inicio ? dataBR(cfg.inicio) : "sem início"} até ${cfg.fim ? dataBR(cfg.fim) : "sem fim"}`
                 : " · sem período definido"}
             </p>
           </div>
@@ -188,11 +212,28 @@ export default async function AdminPesquisaPage({
           </form>
         </div>
 
-        {cfg.ativa && !noAr && (
-          <p className="mt-3 rounded-lg bg-gold-soft p-3 text-xs text-primary-dark">
-            A pesquisa está ligada, mas hoje ({hojeIso()}) está fora do período
-            configurado — por isso ninguém a está vendo.
-          </p>
+        {/* O AVISO DIZ A DATA E O CONSERTO (06/10/2026): "fora do
+            período" sozinho não dizia se faltava começar ou se já tinha
+            acabado, nem onde mexer. */}
+        {avisoPeriodo && (
+          <div className="mt-3 rounded-lg bg-amber-50 p-3 text-sm text-amber-900 ring-1 ring-amber-200">
+            <p>⚠️ {avisoPeriodo}</p>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              {situacao === "antes" && (
+                <form action={abrirHoje}>
+                  <BotaoEnviar
+                    textoEnviando="Abrindo..."
+                    className="rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-white hover:bg-primary-dark"
+                  >
+                    ▶️ Abrir hoje ({dataBR(hojeIso())})
+                  </BotaoEnviar>
+                </form>
+              )}
+              <span className="text-xs text-amber-800">
+                Ou ajuste as datas em ⚙️ Configurar período e ciclo, logo abaixo.
+              </span>
+            </div>
+          </div>
         )}
       </div>
 
@@ -314,7 +355,7 @@ export default async function AdminPesquisaPage({
             id="novo_ciclo"
             name="novo_ciclo"
             required
-            defaultValue={sugestoes.find((c) => !c.atual)?.ciclo ?? ""}
+            defaultValue={cicloSugerido}
             className="w-full rounded-xl border border-slate-200 p-3 text-base focus:border-primary focus:outline-none"
           >
             {sugestoes.map((c) => (
@@ -324,6 +365,39 @@ export default async function AdminPesquisaPage({
               </option>
             ))}
           </select>
+          {/* O PERÍODO DO CICLO NOVO, aqui mesmo (06/10/2026). Iniciar o
+              ciclo herdava as datas do anterior, e a pesquisa nascia ligada
+              e fora do período. */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label htmlFor="novo_inicio" className="mb-1 block text-sm font-medium text-slate-700">
+                Aberta de
+              </label>
+              <input
+                id="novo_inicio"
+                name="novo_inicio"
+                type="date"
+                defaultValue={hojeIso()}
+                className="w-full rounded-xl border border-slate-200 p-3 text-base focus:border-primary focus:outline-none"
+              />
+            </div>
+            <div>
+              <label htmlFor="novo_fim" className="mb-1 block text-sm font-medium text-slate-700">
+                até
+              </label>
+              <input
+                id="novo_fim"
+                name="novo_fim"
+                type="date"
+                min={hojeIso()}
+                defaultValue={fimPadrao}
+                className="w-full rounded-xl border border-slate-200 p-3 text-base focus:border-primary focus:outline-none"
+              />
+            </div>
+          </div>
+          <p className="text-xs text-slate-400">
+            Começando depois de hoje, ninguém vê a pesquisa até lá — a tela avisa. Em branco = sem limite.
+          </p>
           <BotaoEnviar
             textoEnviando="Iniciando..."
             className="w-full rounded-xl border-2 border-primary py-3 font-semibold text-primary hover:bg-primary-soft"

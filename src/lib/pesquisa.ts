@@ -57,6 +57,61 @@ export function dentroDoPeriodo(config: ConfigPesquisa, hojeIso: string) {
   return true;
 }
 
+export type SituacaoDoPeriodo = "inativa" | "no-ar" | "antes" | "depois";
+
+/** Por que a pesquisa está (ou não) no ar -- o que o "dentroDoPeriodo" só diz com sim/não. */
+export function situacaoDoPeriodo(config: ConfigPesquisa, hojeIso: string): SituacaoDoPeriodo {
+  if (!config.ativa) return "inativa";
+  if (config.inicio && hojeIso < config.inicio) return "antes";
+  if (config.fim && hojeIso > config.fim) return "depois";
+  return "no-ar";
+}
+
+/** "2026-10-07" vira "07/10/2026". */
+export function dataBR(iso: string) {
+  const [a, m, d] = iso.split("-");
+  return a && m && d ? `${d}/${m}/${a}` : iso;
+}
+
+function diasAte(de: string, ate: string) {
+  return Math.round((Date.parse(`${ate}T00:00:00Z`) - Date.parse(`${de}T00:00:00Z`)) / 86_400_000);
+}
+
+/**
+ * O AVISO DE "LIGADA, MAS NINGUÉM VÊ" (06/10/2026).
+ *
+ * O dono salvou o período de 07/10 a 30/10 no dia 06/10, recebeu
+ * "Configuração salva." e foi ver o resultado: zero respostas e um aviso
+ * genérico de "fora do período", sem dizer qual data estava errada. Agora
+ * o aviso diz a data, quantos dias faltam (ou desde quando acabou) e onde
+ * mexer -- e as ações de salvar, ligar e iniciar ciclo devolvem este mesmo
+ * texto em vez do "deu certo".
+ *
+ * Nulo quando não há o que avisar: no ar, ou desligada de propósito.
+ */
+export function avisoDoPeriodo(config: ConfigPesquisa, hojeIso: string): string | null {
+  const s = situacaoDoPeriodo(config, hojeIso);
+  if (s === "antes" && config.inicio) {
+    const faltam = diasAte(hojeIso, config.inicio);
+    const quando = faltam === 1 ? "amanhã" : `daqui a ${faltam} dias`;
+    return `A pesquisa só começa em ${dataBR(config.inicio)} (${quando}) — até lá ninguém a vê. Se era para abrir hoje, mude a data inicial.`;
+  }
+  if (s === "depois" && config.fim) {
+    return `O período terminou em ${dataBR(config.fim)} — ninguém vê a pesquisa. Para reabrir, mude a data final ou inicie um novo ciclo.`;
+  }
+  return null;
+}
+
+/** O último dia do mês de um ciclo: "2026-10" vira "2026-10-31". */
+export function fimDoCiclo(ciclo: string) {
+  const n = emMeses(ciclo);
+  if (n === null) return null;
+  const ano = Math.floor(n / 12);
+  const mes = (n % 12) + 1;
+  const ultimo = new Date(Date.UTC(ano, mes, 0)).getUTCDate();
+  return `${ciclo}-${String(ultimo).padStart(2, "0")}`;
+}
+
 /** Data de hoje em "AAAA-MM-DD", no fuso da operação. */
 export function hojeIso() {
   return new Date().toLocaleDateString("en-CA", {
