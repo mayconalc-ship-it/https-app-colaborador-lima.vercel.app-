@@ -58,13 +58,7 @@ export function LinhaDaArea({
 
         <span className="min-w-0 flex-1">
           <span className={`block truncate text-sm font-semibold ${l.ativo ? "text-slate-900" : "text-slate-400 line-through"}`}>{l.nome}</span>
-          {(l.area5s || !l.ativo) && (
-            <span className="block text-[11px] text-slate-400">
-              {l.area5s && <span className="font-semibold text-emerald-700">{l.veio_do_5s ? "do 5S" : "também no 5S"}</span>}
-              {l.area5s && !l.ativo && " · "}
-              {!l.ativo && "desligada: fora do formulário"}
-            </span>
-          )}
+          {!l.ativo && <span className="block text-[11px] text-slate-400">desligada: fora do formulário</span>}
         </span>
 
         <FormNoLugar acao={mover} className="shrink-0">
@@ -105,13 +99,14 @@ export function LinhaDaArea({
               <input name="grupo" list="grupos-de-area" defaultValue={l.grupo} maxLength={60} className={campo} />
             </label>
             <label>
-              <span className={rotulo}>Nome{l.veio_do_5s ? " (do cadastro do 5S)" : ""}</span>
+              <span className={rotulo}>Nome</span>
               <input
                 name="nome"
                 required
                 defaultValue={l.nome}
                 maxLength={80}
                 readOnly={l.veio_do_5s}
+                title={l.veio_do_5s ? "O nome desta área vem do cadastro do 5S." : undefined}
                 className={`${campo} ${l.veio_do_5s ? "bg-slate-50 text-slate-500" : ""}`}
               />
             </label>
@@ -123,9 +118,7 @@ export function LinhaDaArea({
               Salvar
             </BotaoEnviar>
           </FormNoLugar>
-          {l.veio_do_5s ? (
-            <p className="text-[11px] text-slate-500">Nome e liga/desliga desta área vêm do cadastro do 5S (Admin › 5S).</p>
-          ) : (
+          {!l.veio_do_5s && (
             <BotaoNoLugar
               acao={alternar}
               campos={{ id: l.id, ativo: l.ativo ? "0" : "1" }}

@@ -754,8 +754,8 @@ export const GUIAS: Guia[] = [
         dica: "É um QR só para a unidade inteira. Imprima quantas cópias quiser e cole onde a equipe circula.",
       },
       {
-        texto: "Em **📍 Áreas**, troque o **setor** na lista ao lado da área e use as **setas ↑↓** para mudar a ordem. **＋ Nova área** inclui uma área.",
-        dica: "O **lápis** muda o nome ou desliga a área (ela sai do formulário, sem apagar o histórico). **Renomear setor** fica no título de cada setor.",
+        texto: "Em **📍 Áreas**, toque no setor (**Armazém**, **ADM**, **Externo**) para abrir. Troque o **setor** na lista ao lado da área e use as **setas ↑↓** para mudar a ordem.",
+        dica: "O **lápis** muda o nome ou desliga a área (ela sai do formulário, sem apagar o histórico). **Renomear o setor** fica no fim de cada setor; **＋ Nova área** inclui uma área.",
       },
       {
         texto: "Em **✉️ Pedidos por e-mail**, cadastre quem recebe a **🛒 Compra de peça** (Compras) e quem dá a **✅ Autorização do gestor**.",
@@ -764,7 +764,7 @@ export const GUIAS: Guia[] = [
       { texto: "Em **⏱️ Prazo de atendimento**, ajuste as horas de **Risco**, **Urgente** e **Normal** e toque em **Salvar**." },
     ],
     atencao: [
-      "As áreas do **5S** entram sozinhas na lista, marcadas **do 5S**. Escolha o setor delas aqui; para incluir, renomear ou desligar, use o cadastro do 5S.",
+      "As áreas do **5S** entram sozinhas na lista. Escolha o setor delas aqui; para incluir, renomear ou desligar, use o cadastro do 5S.",
       "Imprima pelo app publicado: o QR leva o endereço de onde você está.",
       "O QR vazou para fora da empresa? **🔄 Gerar QR novo** invalida o antigo — e aí é preciso trocar todos os cartazes.",
       "O painel com prazo, reabertos e nota fica na **Gestão**, em **Chamados para Manutenção**.",

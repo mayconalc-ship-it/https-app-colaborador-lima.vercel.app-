@@ -141,38 +141,29 @@ export default async function AdminChamadosPage() {
           ))}
         </datalist>
 
-        {/* O ORGANIZADOR (07/10/2026, pedido do dono): o setor numa lista
-            que salva ao escolher, e as setas para subir/descer. A ordem aqui
-            é a ordem do formulário. */}
-        <div className="space-y-4">
+        {/* O ORGANIZADOR (07/10/2026, pedido do dono): cada setor é uma
+            sanfona, fechada de início -- com 40 áreas a lista aberta não
+            cabia na tela. Dentro, o setor numa lista que salva ao escolher e
+            as setas para subir/descer. A ordem aqui é a do formulário. */}
+        <div className="space-y-2">
           {agruparLocais(locais).map((g) => {
             const setor = g.itens[0]?.grupo ?? "";
+            const ligadas = g.itens.filter((l) => l.ativo).length;
             return (
-              <div key={g.titulo}>
-                <div className="mb-1.5 flex items-center justify-between gap-2 px-1">
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                    {g.titulo} <span className="text-slate-400">({g.itens.length})</span>
-                  </p>
-                  {setor && (
-                    <details className="relative">
-                      <summary className="cursor-pointer list-none text-[11px] font-semibold text-primary [&::-webkit-details-marker]:hidden">
-                        Renomear setor
-                      </summary>
-                      <FormNoLugar
-                        acao={renomearSetor}
-                        fecharAoSalvar
-                        className="absolute right-0 z-10 mt-1 flex w-64 gap-2 rounded-xl border border-slate-200 bg-white p-2 shadow-lg"
-                      >
-                        <input type="hidden" name="de" value={setor} />
-                        <input name="para" required maxLength={60} defaultValue={setor} aria-label="Novo nome do setor" className={campo} />
-                        <BotaoEnviar textoEnviando="..." className="rounded-xl bg-primary px-3 py-2 text-sm font-semibold text-white hover:bg-primary-dark">
-                          OK
-                        </BotaoEnviar>
-                      </FormNoLugar>
-                    </details>
-                  )}
-                </div>
-                <ul className="divide-y divide-slate-100 rounded-2xl border border-slate-200 bg-white shadow-sm">
+              <details key={g.titulo} className="group overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+                <summary className="flex cursor-pointer list-none items-center gap-2 px-4 py-3 [&::-webkit-details-marker]:hidden">
+                  <span className="flex-1 text-sm font-bold text-slate-900">{g.titulo}</span>
+                  <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-slate-600">
+                    {ligadas === g.itens.length
+                      ? `${g.itens.length} ${g.itens.length === 1 ? "área" : "áreas"}`
+                      : `${ligadas} de ${g.itens.length} ligadas`}
+                  </span>
+                  <span className="text-slate-400 transition group-open:rotate-180" aria-hidden>
+                    ▾
+                  </span>
+                </summary>
+
+                <ul className="divide-y divide-slate-100 border-t border-slate-100">
                   {g.itens.map((l, i) => (
                     <LinhaDaArea
                       key={l.id}
@@ -187,19 +178,23 @@ export default async function AdminChamadosPage() {
                     />
                   ))}
                 </ul>
-              </div>
+
+                {setor && (
+                  <FormNoLugar acao={renomearSetor} className="flex items-end gap-2 border-t border-slate-100 bg-slate-50/60 px-3 py-2.5">
+                    <input type="hidden" name="de" value={setor} />
+                    <label className="min-w-0 flex-1">
+                      <span className={rotulo}>Renomear o setor</span>
+                      <input name="para" required maxLength={60} defaultValue={setor} className={campo} />
+                    </label>
+                    <BotaoEnviar textoEnviando="..." className="shrink-0 rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:border-primary">
+                      Renomear
+                    </BotaoEnviar>
+                  </FormNoLugar>
+                )}
+              </details>
             );
           })}
         </div>
-
-        {/* As áreas do 5S entram sozinhas, sem setor: alguém escolhe o setor aqui. */}
-        <p className="mt-2 px-1 text-[11px] text-slate-400">
-          As áreas marcadas <strong>do 5S</strong> vêm do cadastro do 5S: nome e liga/desliga são de lá (
-          <Link href="/admin/5s" className="font-semibold text-primary underline">
-            Admin › 5S
-          </Link>
-          ). Área nova do 5S aparece em &quot;Demais áreas&quot; até você escolher o setor dela.
-        </p>
       </section>
 
       {/* ---- E-mails: compra de peça e autorização do gestor ---- */}
