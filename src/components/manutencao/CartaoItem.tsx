@@ -32,7 +32,8 @@ export type RespostaDoCartao = {
   responsavel: string | null;
   prazo: string | null;
   respondidoPorNome: string;
-  fotos: { id: string; url: string | null }[];
+  /** `chave` = o id que o celular deu à foto (nome do arquivo no bucket). */
+  fotos: { id: string; url: string | null; chave?: string }[];
 };
 
 export type AnteriorDoCartao = {
@@ -176,8 +177,14 @@ export function CartaoItem({
   const planoOk = !problemaDaResposta({ nota, na, planoAcao: plano, responsavel, prazo }) || escolha === "";
   const fotos = resposta?.fotos ?? [];
   // A prévia local fica até o servidor devolver a foto (sem piscar vazio).
-  const cabemMais = FOTOS_POR_ITEM - fotos.length - pendentes.length;
-  const fotosPendentes = pendentes.filter((p) => p.estado !== "enviada").length;
+  // Quem já voltou do servidor é reconhecida pelo id que o celular deu a
+  // ela (está no nome do arquivo) -- e não por contagem: com duas fotos
+  // seguidas, a tela nova do servidor e o "enviada" do cartão chegam em
+  // qualquer ordem, e a contagem deixava foto repetida ou sem o selo.
+  const noServidor = new Set(fotos.map((f) => f.chave).filter(Boolean));
+  const locais = pendentes.filter((p) => !noServidor.has(p.id));
+  const cabemMais = FOTOS_POR_ITEM - fotos.length - locais.length;
+  const fotosPendentes = locais.filter((p) => p.estado !== "enviada").length;
 
   // Conta para o checklist a cada mudança (a barra de andamento é ao vivo).
   useEffect(() => {
@@ -185,12 +192,19 @@ export function CartaoItem({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- só os valores
   }, [escolha, planoOk, fotosPendentes]);
 
-  // Foto que já subiu e já voltou do servidor: sai da lista local.
-  const [contagemVista, setContagemVista] = useState(fotos.length);
-  if (fotos.length !== contagemVista) {
-    setContagemVista(fotos.length);
-    setPendentes((ps) => (ps.some((p) => p.estado === "enviada") ? ps.filter((p) => p.estado !== "enviada") : ps));
-  }
+  // Foto que já voltou do servidor: sai da lista local (e do celular, se
+  // ainda estava lá -- a confirmação do envio pode ter se perdido).
+  const chavesDoServidor = [...noServidor].sort().join(",");
+  useEffect(() => {
+    const voltaram = pendentes.filter((p) => noServidor.has(p.id));
+    if (voltaram.length === 0) return;
+    voltaram.forEach((p) => {
+      enviadas.current.add(p.id);
+      void (noCelular.current.get(p.id) ?? Promise.resolve(true)).then(() => removerFotoPendente(p.id));
+    });
+    setPendentes((ps) => ps.filter((p) => !noServidor.has(p.id)));
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- a lista muda junto com a chave
+  }, [chavesDoServidor, pendentes.length]);
   // Prévia que saiu da lista devolve a memória (celular com pouca RAM).
   // O ref também é a lista "de agora" para quem roda fora do desenho
   // (o reenvio pelo relógio e pelo sinal que voltou).
@@ -467,12 +481,16 @@ export function CartaoItem({
           {/* ---- Fotos: quadradinhos, o último é o de tirar ---- */}
           <div>
             <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">
-              Fotos <span className="font-normal normal-case text-slate-400">({fotos.length + pendentes.length} de {FOTOS_POR_ITEM})</span>
+              Fotos <span className="font-normal normal-case text-slate-400">({fotos.length + locais.length} de {FOTOS_POR_ITEM})</span>
             </p>
             <div className="grid grid-cols-4 gap-2">
               {fotos.map((f, i) => (
                 <div key={f.id} className="relative">
                   <Miniatura url={f.url} alt={`Foto ${i + 1} do item ${item.numero}`} />
+                  {/* Guardada no servidor: o selo fica, para ninguém tirar de novo. */}
+                  <span className="pointer-events-none absolute inset-x-1 bottom-1 flex items-center justify-center gap-1 rounded-lg bg-emerald-600/90 py-0.5 text-[10px] font-semibold text-white">
+                    <Check size={11} strokeWidth={3} aria-hidden /> enviada
+                  </span>
                   <div className="absolute right-1 top-1">
                     <BotaoNoLugar
                       acao={removerFoto}
@@ -488,7 +506,7 @@ export function CartaoItem({
                   </div>
                 </div>
               ))}
-              {pendentes.map((p) => (
+              {locais.map((p) => (
                 <div key={p.id} className="relative">
                   {/* eslint-disable-next-line @next/next/no-img-element -- prévia local (blob:) */}
                   <img src={p.url} alt="Foto nova" className="aspect-square w-full rounded-xl border border-slate-200 object-cover" />

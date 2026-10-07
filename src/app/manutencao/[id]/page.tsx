@@ -53,7 +53,9 @@ async function carregar(id: string, revendaId: string) {
         responsavel: r.responsavel,
         prazo: r.prazo,
         respondidoPorNome: r.respondidoPorNome,
-        fotos: r.fotos.map((f) => ({ id: f.id, url: f.url })),
+        // A chave é o nome do arquivo sem extensão: o id que o celular deu
+        // à foto. É por ela que o cartão sabe que a foto local já chegou.
+        fotos: r.fotos.map((f) => ({ id: f.id, url: f.url, chave: f.caminho.split("/").pop()?.replace(/\.[^.]+$/, "") })),
       };
     }
     const anteriores: Record<string, AnteriorDoCartao> = {};
