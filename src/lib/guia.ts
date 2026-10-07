@@ -731,6 +731,7 @@ export const GUIAS: Guia[] = [
       "Quem pediu confirma se resolveu. Se disser que não, o chamado volta para a fila como **reaberto** — e conta no painel.",
       "Precisa falar com quem pediu? No chamado tem o telefone e o botão do WhatsApp. Recados ficam no **Andamento**.",
       "Chamado repetido ou que não procede: **✖️ Cancelar**, com o motivo. Quem pediu recebe o motivo.",
+      "Precisa da O.S. no papel ou anexada? No chamado, **⬇️ Baixar em PDF**. Para mandar aos e-mails cadastrados, **✉️ Enviar por e-mail**.",
     ],
     tela: { href: "/chamados?aba=fila", rotulo: "Abrir a fila" },
     relacionados: ["abrir-chamado-manutencao", "configurar-chamados-qr"],
@@ -755,9 +756,14 @@ export const GUIAS: Guia[] = [
         texto: "Em **📍 Áreas**, toque em **＋ Nova área** para incluir, ou toque numa área e em **Editar** para mudar nome, grupo e ordem.",
         dica: "Área que não existe mais: **⏻ Desligar**. Ela sai da lista do formulário, sem apagar o histórico.",
       },
+      {
+        texto: "Em **✉️ Quem recebe o chamado por e-mail**, digite o e-mail e toque em **Adicionar**.",
+        dica: "Cada chamado tem o botão **✉️ Enviar por e-mail**, que abre o Outlook já com esses destinatários e o chamado no texto.",
+      },
       { texto: "Em **⏱️ Prazo de atendimento**, ajuste as horas de **Risco**, **Urgente** e **Normal** e toque em **Salvar**." },
     ],
     atencao: [
+      "As áreas do **5S** entram sozinhas na aba **Áreas do 5S** do formulário. Para incluir, renomear ou desligar uma delas, use o cadastro do 5S.",
       "Imprima pelo app publicado: o QR leva o endereço de onde você está.",
       "O QR vazou para fora da empresa? **🔄 Gerar QR novo** invalida o antigo — e aí é preciso trocar todos os cartazes.",
       "O painel com prazo, reabertos e nota fica na **Gestão**, em **Chamados para Manutenção**.",

@@ -15,13 +15,13 @@
  * primeiro -- e o dia em que os dois divergissem seria o dia da
  * auditoria.
  */
-export function BotaoImprimir() {
+export function BotaoImprimir({
+  className = "rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50",
+}: {
+  className?: string;
+}) {
   return (
-    <button
-      type="button"
-      onClick={() => window.print()}
-      className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
-    >
+    <button type="button" onClick={() => window.print()} className={className}>
       ⬇️ Baixar em PDF
     </button>
   );

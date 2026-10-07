@@ -4,7 +4,9 @@ import { DetalheDoChamado } from "@/components/chamados/DetalheDoChamado";
 import { CompartilharAcompanhamento, ConfirmarAtendimento } from "@/components/chamados/AcoesDoChamado";
 import { getPerfil } from "@/lib/sessao";
 import { protocolo } from "@/lib/chamados";
-import { ChamadosNaoInstalado, lerChamadoPorCodigo, lerHistorico } from "@/lib/chamados-server";
+import { ChamadosNaoInstalado, lerChamadoPorCodigo, lerHistorico, nomeDaRevenda } from "@/lib/chamados-server";
+import { FolhaDoChamado } from "@/components/chamados/FolhaDoChamado";
+import { BotaoImprimir } from "@/components/anomalia/BotaoImprimir";
 import { confirmarPeloLink } from "../../actions";
 
 export const dynamic = "force-dynamic";
@@ -48,38 +50,48 @@ export default async function AcompanharChamadoPage({
     );
   }
 
-  const [{ eventos, fotos }, perfil] = await Promise.all([lerHistorico(chamado.id), getPerfil()]);
+  const [{ eventos, fotos }, perfil, unidade] = await Promise.all([
+    lerHistorico(chamado.id),
+    getPerfil(),
+    nomeDaRevenda(chamado.revenda_id),
+  ]);
   const esperandoConfirmacao = chamado.status === "concluido" && !chamado.confirmacao;
 
   return (
-    <div className="space-y-4">
-      {sp.novo ? (
-        <div className="rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-700 p-5 text-center text-white shadow-md">
-          <p className="text-4xl" aria-hidden>
-            ✅
-          </p>
-          <p className="mt-1 text-sm font-semibold text-white/90">Chamado aberto! Anote o número:</p>
-          <p className="mt-1 font-mono text-4xl font-extrabold tracking-wider">{protocolo(chamado.numero)}</p>
-          <p className="mt-2 text-sm text-white/90">A equipe de manutenção já foi avisada.</p>
-        </div>
-      ) : (
-        <h1 className="text-2xl font-bold text-slate-900">🔧 Chamado {protocolo(chamado.numero)}</h1>
-      )}
+    <>
+      {/* O PDF (07/10/2026): a mesma O.S. do app, sem o telefone -- o link pode ser repassado. */}
+      <FolhaDoChamado chamado={chamado} unidade={unidade} eventos={eventos} fotos={fotos} />
+      <div className="so-na-tela space-y-4">
+        {sp.novo ? (
+          <div className="rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-700 p-5 text-center text-white shadow-md">
+            <p className="text-4xl" aria-hidden>
+              ✅
+            </p>
+            <p className="mt-1 text-sm font-semibold text-white/90">Chamado aberto! Anote o número:</p>
+            <p className="mt-1 font-mono text-4xl font-extrabold tracking-wider">{protocolo(chamado.numero)}</p>
+            <p className="mt-2 text-sm text-white/90">A equipe de manutenção já foi avisada.</p>
+          </div>
+        ) : (
+          <h1 className="text-2xl font-bold text-slate-900">🔧 Chamado {protocolo(chamado.numero)}</h1>
+        )}
 
-      {!chamado.solicitante_id && <CompartilharAcompanhamento protocolo={protocolo(chamado.numero)} local={chamado.local_nome} />}
+        {!chamado.solicitante_id && <CompartilharAcompanhamento protocolo={protocolo(chamado.numero)} local={chamado.local_nome} />}
 
-      {chamado.solicitante_id && perfil?.id === chamado.solicitante_id && (
-        <Link
-          href={`/chamados/${chamado.id}`}
-          className="block rounded-2xl border border-primary/30 bg-primary-soft/50 p-3 text-center text-sm font-semibold text-primary-dark"
-        >
-          Este chamado está no seu app, em Chamado para Manutenção › Meus →
-        </Link>
-      )}
+        {chamado.solicitante_id && perfil?.id === chamado.solicitante_id && (
+          <Link
+            href={`/chamados/${chamado.id}`}
+            className="block rounded-2xl border border-primary/30 bg-primary-soft/50 p-3 text-center text-sm font-semibold text-primary-dark"
+          >
+            Este chamado está no seu app, em Chamado para Manutenção › Meus →
+          </Link>
+        )}
 
-      <DetalheDoChamado chamado={chamado} eventos={eventos} fotos={fotos}>
-        {esperandoConfirmacao && <ConfirmarAtendimento acao={confirmarPeloLink} ocultos={{ codigo: chamado.codigo }} />}
-      </DetalheDoChamado>
-    </div>
+        <BotaoImprimir className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50" />
+
+        <DetalheDoChamado chamado={chamado} eventos={eventos} fotos={fotos}>
+          {esperandoConfirmacao && <ConfirmarAtendimento acao={confirmarPeloLink} ocultos={{ codigo: chamado.codigo }} />}
+        </DetalheDoChamado>
+      </div>
+    </>
   );
 }

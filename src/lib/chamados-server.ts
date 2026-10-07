@@ -112,21 +112,41 @@ export type ConfigChamados = {
   prazos: Prazos;
   atualizadoEm: string | null;
   atualizadoPorNome: string | null;
+  /** Quem recebe o chamado pelo botão "Enviar por e-mail" (migration 167). */
+  emails: string[];
 };
 
+/**
+ * Coluna nova que ainda não existe: o deploy chegou antes da migration
+ * 167. A tela segue como antes em vez de dizer que o módulo sumiu.
+ */
+function colunaFaltando(error: { code?: string; message: string } | null) {
+  return !!error && (error.code === "42703" || /column .* does not exist/i.test(error.message));
+}
+
+const CAMPOS_CONFIG = "token_publico, prazo_risco_horas, prazo_urgente_horas, prazo_normal_horas, atualizado_em, atualizado_por_nome";
+
 export async function lerConfig(revendaId: string, admin: Admin = createAdminClient()): Promise<ConfigChamados> {
-  const { data, error } = await admin
-    .from("chamados_config")
-    .select("token_publico, prazo_risco_horas, prazo_urgente_horas, prazo_normal_horas, atualizado_em, atualizado_por_nome")
-    .eq("revenda_id", revendaId)
-    .maybeSingle();
+  const consulta = (campos: string) => admin.from("chamados_config").select(campos).eq("revenda_id", revendaId).maybeSingle();
+  let { data, error } = await consulta(`${CAMPOS_CONFIG}, emails`);
+  if (colunaFaltando(error)) ({ data, error } = await consulta(CAMPOS_CONFIG));
   conferir(error);
   if (data) {
+    const d = data as unknown as {
+      token_publico: string;
+      prazo_risco_horas: number;
+      prazo_urgente_horas: number;
+      prazo_normal_horas: number;
+      atualizado_em: string | null;
+      atualizado_por_nome: string | null;
+      emails?: string[] | null;
+    };
     return {
-      tokenPublico: data.token_publico,
-      prazos: { risco: data.prazo_risco_horas, urgente: data.prazo_urgente_horas, normal: data.prazo_normal_horas },
-      atualizadoEm: data.atualizado_em,
-      atualizadoPorNome: data.atualizado_por_nome,
+      tokenPublico: d.token_publico,
+      prazos: { risco: d.prazo_risco_horas, urgente: d.prazo_urgente_horas, normal: d.prazo_normal_horas },
+      atualizadoEm: d.atualizado_em,
+      atualizadoPorNome: d.atualizado_por_nome,
+      emails: d.emails ?? [],
     };
   }
   // Revenda nova, que não estava na semente da 165: nasce aqui, com os
@@ -137,7 +157,7 @@ export async function lerConfig(revendaId: string, admin: Admin = createAdminCli
     .select("token_publico")
     .single();
   conferir(e2);
-  return { tokenPublico: criada!.token_publico, prazos: PRAZOS_PADRAO, atualizadoEm: null, atualizadoPorNome: null };
+  return { tokenPublico: criada!.token_publico, prazos: PRAZOS_PADRAO, atualizadoEm: null, atualizadoPorNome: null, emails: [] };
 }
 
 /**
@@ -152,17 +172,91 @@ export async function origemDoSite() {
   return { origem: `${esquema}://${host}`, local: /^(localhost|127\.|\[::1\])/.test(host) };
 }
 
+type Area5S = { id: string; nome: string; ordem: number; ativa: boolean };
+
+/**
+ * As áreas do chamado, já com as do 5S (07/10/2026, pedido do dono:
+ * "utilize as mesmas áreas do módulo 5S" -- somadas às que já havia).
+ *
+ * A lista SEGUE o 5S: cada leitura confere se o 5S tem área que o chamado
+ * ainda não conhece, e a cria aqui. Área com o mesmo nome dos dois lados
+ * (Picking, Refeitório, Sala ADM) vira uma só, para o painel não dividir os
+ * chamados de um lugar em dois. A que nasce do 5S acompanha o nome e o
+ * liga/desliga de lá.
+ *
+ * Sem a migration 167 (deploy antes da migração), devolve a lista de
+ * antes, sem o 5S.
+ */
 export async function lerLocais(revendaId: string, soAtivos = true, admin: Admin = createAdminClient()): Promise<Local[]> {
-  let q = admin
-    .from("chamados_locais")
-    .select("id, grupo, nome, ordem, ativo")
-    .eq("revenda_id", revendaId)
-    .order("ordem")
-    .order("nome");
-  if (soAtivos) q = q.eq("ativo", true);
-  const { data, error } = await q;
+  const consulta = (campos: string) =>
+    admin.from("chamados_locais").select(campos).eq("revenda_id", revendaId).order("ordem").order("nome");
+
+  const [{ data, error }, { data: areas }] = await Promise.all([
+    consulta("id, grupo, nome, ordem, ativo, cinco_s_area_id, veio_do_5s"),
+    admin.from("cinco_s_areas").select("id, nome, ordem, ativa").eq("revenda_id", revendaId),
+  ]);
+  if (colunaFaltando(error)) {
+    const antes = await consulta("id, grupo, nome, ordem, ativo");
+    conferir(antes.error);
+    const lista = (antes.data ?? []) as unknown as Local[];
+    return soAtivos ? lista.filter((l) => l.ativo) : lista;
+  }
   conferir(error);
-  return (data ?? []) as Local[];
+
+  let locais = (data ?? []) as unknown as Local[];
+  const do5s = (areas ?? []) as Area5S[];
+  if (await sincronizarCom5S(revendaId, locais, do5s, admin)) {
+    const deNovo = await consulta("id, grupo, nome, ordem, ativo, cinco_s_area_id, veio_do_5s");
+    conferir(deNovo.error);
+    locais = (deNovo.data ?? []) as unknown as Local[];
+  }
+
+  const porId = new Map(do5s.map((a) => [a.id, a]));
+  const lista = locais.map((l) => {
+    const a = l.cinco_s_area_id ? porId.get(l.cinco_s_area_id) : undefined;
+    return { ...l, area5s: a ? { nome: a.nome, ordem: a.ordem, ativa: a.ativa } : null };
+  });
+  return soAtivos ? lista.filter((l) => l.ativo) : lista;
+}
+
+/** Põe em dia as áreas que vêm do 5S. Devolve se mudou alguma coisa. */
+async function sincronizarCom5S(revendaId: string, locais: Local[], areas: Area5S[], admin: Admin) {
+  let mudou = false;
+  const ligadas = new Set(locais.map((l) => l.cinco_s_area_id).filter(Boolean));
+  let proxima = Math.max(0, ...locais.map((l) => l.ordem)) + 1;
+
+  for (const a of [...areas].sort((x, y) => x.ordem - y.ordem)) {
+    if (ligadas.has(a.id)) {
+      // Nasceu do 5S: o nome e o liga/desliga são os de lá.
+      const l = locais.find((x) => x.cinco_s_area_id === a.id);
+      if (l?.veio_do_5s && (l.nome !== a.nome.slice(0, 80) || l.ativo !== a.ativa)) {
+        await admin.from("chamados_locais").update({ nome: a.nome.slice(0, 80), ativo: a.ativa }).eq("id", l.id);
+        mudou = true;
+      }
+      continue;
+    }
+    if (!a.ativa) continue;
+
+    // O mesmo lugar já está na lista do chamado: passa a ser a mesma área.
+    const chave = chaveDoTexto(a.nome);
+    const igual = locais.find((l) => !l.cinco_s_area_id && chaveDoTexto(l.nome) === chave);
+    if (igual) {
+      await admin.from("chamados_locais").update({ cinco_s_area_id: a.id }).eq("id", igual.id).is("cinco_s_area_id", null);
+      igual.cinco_s_area_id = a.id;
+    } else {
+      // 23505 = outra tela criou no mesmo instante; a área já existe.
+      await admin.from("chamados_locais").insert({
+        revenda_id: revendaId,
+        grupo: "",
+        nome: a.nome.slice(0, 80),
+        ordem: proxima++,
+        cinco_s_area_id: a.id,
+        veio_do_5s: true,
+      });
+    }
+    mudou = true;
+  }
+  return mudou;
 }
 
 /**
@@ -235,6 +329,12 @@ export type Chamado = {
   reaberturas: number;
   atualizado_em: string;
 };
+
+/** O nome da revenda DO CHAMADO (pode não ser a ativa de quem olha). */
+export async function nomeDaRevenda(revendaId: string, admin: Admin = createAdminClient()) {
+  const { data } = await admin.from("revendas").select("nome").eq("id", revendaId).maybeSingle();
+  return (data?.nome as string | undefined) ?? "";
+}
 
 export async function lerChamado(id: string, admin: Admin = createAdminClient()): Promise<Chamado | null> {
   if (!/^[0-9a-f-]{36}$/i.test(id)) return null;

@@ -175,6 +175,18 @@ export function dataHora(iso: string) {
   });
 }
 
+/** "05/10/2026 14:32" -- com o ano, para o que sai do app (PDF e e-mail). */
+export function dataHoraCompleta(iso: string) {
+  return new Date(iso).toLocaleString("pt-BR", {
+    timeZone: "America/Bahia",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 // ---------------------------------------------------------------------
 // Protocolo e telefone
 // ---------------------------------------------------------------------
@@ -245,6 +257,58 @@ export function problemaDaAbertura(e: EntradaAbertura): string | null {
   return null;
 }
 
+// ---------------------------------------------------------------------
+// E-mail (07/10/2026, pedido do dono)
+// ---------------------------------------------------------------------
+
+/** Um e-mail plausível. O teste de verdade é o Outlook de quem envia. */
+export function problemaDoEmail(email: string): string | null {
+  const e = email.trim();
+  if (e.length < 5 || e.length > 160 || !/^[^\s@,;]+@[^\s@,;]+\.[^\s@,;]{2,}$/.test(e)) return "E-mail inválido.";
+  return null;
+}
+
+export type ChamadoParaEmail = {
+  numero: number;
+  local_nome: string;
+  tipo: string;
+  prioridade: string;
+  status: string;
+  descricao: string;
+  solicitante_nome: string;
+  solicitante_telefone: string;
+  aberto_em: string;
+  prazo_em: string;
+  responsavel_nome: string | null;
+  solucao: string | null;
+};
+
+export function assuntoDoEmail(c: ChamadoParaEmail, unidade: string) {
+  const peso = c.prioridade === "normal" ? "" : ` [${rotuloPrioridade(c.prioridade)}]`;
+  return `Chamado para Manutenção ${protocolo(c.numero)}${peso} — ${rotuloTipo(c.tipo)} em ${c.local_nome} — ${unidade}`;
+}
+
+/** O corpo do e-mail: o chamado inteiro em texto puro, que é o que o Outlook recebe pelo link. */
+export function textoDoEmail(c: ChamadoParaEmail, unidade: string, link: string) {
+  const linhas = [
+    `CHAMADO PARA MANUTENÇÃO ${protocolo(c.numero)}`,
+    "",
+    `Unidade: ${unidade}`,
+    `Área: ${c.local_nome}`,
+    `Tipo de serviço: ${rotuloTipo(c.tipo)}`,
+    `Prioridade: ${rotuloPrioridade(c.prioridade)}`,
+    `Situação: ${rotuloStatus(c.status)}`,
+    `Aberto em: ${dataHoraCompleta(c.aberto_em)}`,
+    `Prazo: ${dataHoraCompleta(c.prazo_em)}`,
+    `Pedido por: ${c.solicitante_nome} · ${c.solicitante_telefone}`,
+  ];
+  if (c.responsavel_nome) linhas.push(`Quem está cuidando: ${c.responsavel_nome}`);
+  linhas.push("", "Descrição:", c.descricao);
+  if (c.status === "concluido" && c.solucao) linhas.push("", "O que foi feito:", c.solucao);
+  linhas.push("", `Ver no App do Colaborador: ${link}`);
+  return linhas.join("\n");
+}
+
 /** Texto comparável: duplicata é o mesmo pedido, com outra caixa ou espaço. */
 export function chaveDoTexto(t: string) {
   return (t ?? "")
@@ -259,7 +323,41 @@ export function chaveDoTexto(t: string) {
 // Locais
 // ---------------------------------------------------------------------
 
-export type Local = { id: string; grupo: string; nome: string; ordem: number; ativo: boolean };
+export type Local = {
+  id: string;
+  grupo: string;
+  nome: string;
+  ordem: number;
+  ativo: boolean;
+  /** A área do 5S que esta área é (migration 167). Nulo = só do chamado. */
+  cinco_s_area_id?: string | null;
+  /** Nasceu do 5S: nome e liga/desliga são os do cadastro do 5S. */
+  veio_do_5s?: boolean;
+  /** Como a área está no 5S hoje -- é o que a aba "Áreas do 5S" mostra. */
+  area5s?: { nome: string; ordem: number; ativa: boolean } | null;
+};
+
+export const TITULO_ABA_5S = "Áreas do 5S";
+
+/**
+ * As abas do formulário (07/10/2026, pedido do dono: "utilize as mesmas
+ * áreas do módulo 5S"). As abas de antes continuam, sem as áreas que
+ * nasceram do 5S; e a aba "Áreas do 5S" mostra a lista do 5S inteira, na
+ * ordem e com os nomes de lá. Uma área que existe nos dois (Picking) é a
+ * MESMA nas duas abas -- o chamado conta uma vez só no painel.
+ */
+export function gruposDoFormulario(locais: Local[]): { titulo: string; itens: { id: string; nome: string }[] }[] {
+  const grupos = agruparLocais(locais.filter((l) => !l.veio_do_5s)).map((g) => ({
+    titulo: g.titulo,
+    itens: g.itens.map((l) => ({ id: l.id, nome: l.nome })),
+  }));
+  const do5s = locais
+    .filter((l) => l.area5s?.ativa)
+    .sort((a, b) => a.area5s!.ordem - b.area5s!.ordem || a.area5s!.nome.localeCompare(b.area5s!.nome, "pt-BR"))
+    .map((l) => ({ id: l.id, nome: l.area5s!.nome }));
+  if (do5s.length > 0) grupos.push({ titulo: TITULO_ABA_5S, itens: do5s });
+  return grupos;
+}
 
 /** "Armazém · Picking" -- o nome que fica gravado no chamado. */
 export function nomeDoLocal(l: { grupo: string; nome: string }) {

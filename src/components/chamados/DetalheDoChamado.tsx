@@ -218,7 +218,7 @@ function corDoEvento(e: Evento) {
   return "bg-primary";
 }
 
-function frasesDoEvento(e: Evento): React.ReactNode {
+export function frasesDoEvento(e: Evento): React.ReactNode {
   const quem = <strong className="font-semibold">{e.autor_nome}</strong>;
   switch (e.tipo) {
     case "aberto":

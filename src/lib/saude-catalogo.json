@@ -354,6 +354,21 @@
    "migration": "132"
   },
   {
+   "tabela": "chamados_config",
+   "coluna": "emails",
+   "migration": "167"
+  },
+  {
+   "tabela": "chamados_locais",
+   "coluna": "cinco_s_area_id",
+   "migration": "167"
+  },
+  {
+   "tabela": "chamados_locais",
+   "coluna": "veio_do_5s",
+   "migration": "167"
+  },
+  {
    "tabela": "cinco_porques_analises",
    "coluna": "motorista_aceitou",
    "migration": "032"
@@ -1086,6 +1101,7 @@
   "159": "159_relato_tma_por_dt.sql",
   "164": "164_selo_da_revenda.sql",
   "165": "165_chamados_manutencao.sql",
+  "167": "167_chamados_areas_5s_e_emails.sql",
   "002": "002_sonho_anual_ranking_categorias.sql",
   "003": "003_padroes_por_pilar.sql",
   "004": "004_feedback_rota_detalhado.sql",

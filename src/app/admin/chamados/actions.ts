@@ -5,7 +5,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { requireModulo } from "@/lib/require-admin";
 import { exigirRevenda } from "@/lib/revendas";
 import { deuCerto, noLugar, pararComErro, type ResultadoAcao } from "@/lib/resultado-acao";
-import { MODULO_CHAMADOS } from "@/lib/chamados";
+import { MODULO_CHAMADOS, problemaDoEmail } from "@/lib/chamados";
+import { lerConfig } from "@/lib/chamados-server";
 
 const ROTA = "/admin/chamados";
 
@@ -119,6 +120,45 @@ export async function alternarLocal(fd: FormData): Promise<ResultadoAcao> {
     if (error) pararComErro(`Não foi possível salvar: ${error.message}`);
     revalidar();
     return deuCerto(ativo ? "Área ligada: volta à lista do formulário." : "Área desligada: some da lista do formulário.");
+  });
+}
+
+/**
+ * Quem recebe o chamado por e-mail (07/10/2026, pedido do dono). O app não
+ * envia sozinho: a lista vai pronta no botão "Enviar por e-mail" de cada
+ * chamado, que abre o Outlook de quem toca.
+ */
+export async function adicionarEmail(fd: FormData): Promise<ResultadoAcao> {
+  return noLugar(async () => {
+    const { perfil, revendaId, admin } = await porta();
+    const email = texto(fd, "email").toLowerCase();
+    const problema = problemaDoEmail(email);
+    if (problema) pararComErro(problema);
+    const config = await lerConfig(revendaId, admin);
+    if (config.emails.includes(email)) pararComErro("Este e-mail já está cadastrado.");
+    if (config.emails.length >= 30) pararComErro("Já são 30 e-mails. Prefira o e-mail de um grupo (ex.: manutencao@...).");
+    const { error } = await admin
+      .from("chamados_config")
+      .update({ emails: [...config.emails, email], atualizado_em: new Date().toISOString(), atualizado_por_nome: perfil.nome })
+      .eq("revenda_id", revendaId);
+    if (error) pararComErro(`Não foi possível salvar: ${error.message}. Falta rodar a migration 167?`);
+    revalidar();
+    return deuCerto(`${email} vai na lista do "Enviar por e-mail".`);
+  });
+}
+
+export async function removerEmail(fd: FormData): Promise<ResultadoAcao> {
+  return noLugar(async () => {
+    const { perfil, revendaId, admin } = await porta();
+    const email = texto(fd, "email").toLowerCase();
+    const config = await lerConfig(revendaId, admin);
+    const { error } = await admin
+      .from("chamados_config")
+      .update({ emails: config.emails.filter((e) => e !== email), atualizado_em: new Date().toISOString(), atualizado_por_nome: perfil.nome })
+      .eq("revenda_id", revendaId);
+    if (error) pararComErro(`Não foi possível remover: ${error.message}`);
+    revalidar();
+    return deuCerto(`${email} saiu da lista.`);
   });
 }
 

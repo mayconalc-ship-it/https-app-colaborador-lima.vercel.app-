@@ -5,7 +5,7 @@ import { LinkDoGuia } from "@/components/LinkDoGuia";
 import { FormChamado } from "@/components/chamados/FormChamado";
 import { CartaoChamado } from "@/components/chamados/CartaoChamado";
 import { getRevendaAtiva } from "@/lib/revendas";
-import { agruparLocais, emAberto, situacaoDoPrazo } from "@/lib/chamados";
+import { emAberto, gruposDoFormulario, situacaoDoPrazo } from "@/lib/chamados";
 import {
   ChamadosNaoInstalado,
   contextoChamados,
@@ -96,7 +96,7 @@ export default async function ChamadosPage({
           <FormChamado
             acao={abrirChamadoNoApp}
             unidade={revenda?.nome ?? ""}
-            locais={agruparLocais(locais).map((g) => ({ titulo: g.titulo, itens: g.itens.map((l) => ({ id: l.id, nome: l.nome })) }))}
+            locais={gruposDoFormulario(locais)}
             localInicial={locais.some((l) => l.id === sp.local) ? sp.local : ""}
             nomeInicial={ctx.perfil.nome}
             nomeTravado

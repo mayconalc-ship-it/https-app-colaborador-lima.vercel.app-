@@ -9,7 +9,7 @@ import { requireModulo } from "@/lib/require-admin";
 import { exigirRevenda } from "@/lib/revendas";
 import { MODULO_CHAMADOS, agruparLocais, dataHora } from "@/lib/chamados";
 import { ChamadosNaoInstalado, lerConfig, lerLocais, origemDoSite } from "@/lib/chamados-server";
-import { alternarLocal, criarLocal, editarLocal, novoQr, salvarPrazos } from "./actions";
+import { adicionarEmail, alternarLocal, criarLocal, editarLocal, novoQr, removerEmail, salvarPrazos } from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -41,8 +41,13 @@ export default async function AdminChamadosPage() {
       </div>
     );
   }
-  const [config, locais, site] = dados;
-  const ativos = locais.filter((l) => l.ativo).length;
+  const [config, todos, site] = dados;
+  // As que nasceram do 5S têm o cadastro de lá: ficam numa lista à parte.
+  const locais = todos.filter((l) => !l.veio_do_5s);
+  const do5s = todos
+    .filter((l) => l.area5s)
+    .sort((a, b) => a.area5s!.ordem - b.area5s!.ordem || a.area5s!.nome.localeCompare(b.area5s!.nome, "pt-BR"));
+  const ativos = todos.filter((l) => l.ativo).length;
   const grupos = [...new Set(locais.map((l) => l.grupo).filter(Boolean))];
   const urlDoQr = `${site.origem}/os/${config.tokenPublico}`;
 
@@ -138,6 +143,11 @@ export default async function AdminChamadosPage() {
                         <span className="min-w-0 flex-1">
                           <span className={`block truncate text-sm font-semibold ${l.ativo ? "text-slate-900" : "text-slate-400 line-through"}`}>
                             {l.nome}
+                            {l.area5s && (
+                              <span className="ml-1.5 rounded-full bg-emerald-50 px-1.5 py-0.5 align-middle text-[10px] font-semibold text-emerald-700">
+                                também no 5S
+                              </span>
+                            )}
                           </span>
                           {!l.ativo && <span className="block text-[11px] text-slate-400">Desligada: fora da lista do formulário</span>}
                         </span>
@@ -185,6 +195,76 @@ export default async function AdminChamadosPage() {
             </div>
           ))}
         </div>
+
+        {/* AS ÁREAS DO 5S (07/10/2026, pedido do dono): o formulário ganha a
+            aba "Áreas do 5S" com a lista de lá. O cadastro delas é o do 5S --
+            aqui é só leitura, para ninguém manter a mesma área em dois lugares. */}
+        {do5s.length > 0 && (
+          <div className="mt-5">
+            <p className="mb-1.5 px-1 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+              Áreas do 5S <span className="normal-case text-slate-400">· aba própria no formulário</span>
+            </p>
+            <ul className="divide-y divide-slate-100 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+              {do5s.map((l) => (
+                <li key={l.id} className="flex items-center gap-3 p-3">
+                  <span className={`min-w-0 flex-1 truncate text-sm font-semibold ${l.area5s!.ativa && l.ativo ? "text-slate-900" : "text-slate-400 line-through"}`}>
+                    {l.area5s!.nome}
+                  </span>
+                  <span className="shrink-0 text-[11px] text-slate-400">
+                    {l.veio_do_5s ? "só no 5S" : `= ${l.grupo ? `${l.grupo} · ` : ""}${l.nome}`}
+                  </span>
+                </li>
+              ))}
+            </ul>
+            <p className="mt-1.5 px-1 text-[11px] text-slate-400">
+              Para incluir, renomear ou desligar uma destas, use o cadastro do 5S:{" "}
+              <Link href="/admin/5s" className="font-semibold text-primary underline">
+                Admin › 5S
+              </Link>
+              . O chamado acompanha sozinho.
+            </p>
+          </div>
+        )}
+      </section>
+
+      {/* ---- E-mails ---- */}
+      <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+        <h2 className="text-sm font-bold text-slate-900">✉️ Quem recebe o chamado por e-mail</h2>
+        <p className="mt-0.5 text-xs text-slate-500">
+          Cada chamado tem o botão <strong>Enviar por e-mail</strong>, que abre o Outlook de quem tocou já com estes
+          destinatários, o assunto e o chamado inteiro no texto. O e-mail sai da conta da própria pessoa.
+        </p>
+        {config.emails.length > 0 ? (
+          <ul className="mt-3 flex flex-wrap gap-2">
+            {config.emails.map((e) => (
+              <li key={e} className="flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 py-1 pl-3 pr-1 text-sm text-slate-700">
+                {e}
+                <BotaoNoLugar
+                  acao={removerEmail}
+                  campos={{ email: e }}
+                  confirmacao={`Tirar ${e} da lista?`}
+                  rotuloConfirmar="Tirar"
+                  className="rounded-full px-2 py-0.5 text-xs font-bold text-slate-400 hover:bg-slate-200 hover:text-slate-700"
+                >
+                  ✕
+                </BotaoNoLugar>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="mt-3 rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-900">
+            Nenhum e-mail cadastrado. Sem eles, o botão abre o e-mail sem destinatário.
+          </p>
+        )}
+        <FormNoLugar acao={adicionarEmail} limparAoSalvar className="mt-3 flex flex-wrap items-end gap-2">
+          <label className="min-w-[14rem] flex-1">
+            <span className={rotulo}>Novo e-mail</span>
+            <input name="email" type="email" required maxLength={160} placeholder="manutencao@limalogistica.com.br" className={campo} />
+          </label>
+          <BotaoEnviar textoEnviando="Salvando..." className="rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary-dark">
+            Adicionar
+          </BotaoEnviar>
+        </FormNoLugar>
       </section>
 
       {/* ---- Prazos ---- */}

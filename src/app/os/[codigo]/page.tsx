@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { FormChamado } from "@/components/chamados/FormChamado";
 import { getPerfil } from "@/lib/sessao";
-import { agruparLocais, type Local } from "@/lib/chamados";
+import { gruposDoFormulario, type Local } from "@/lib/chamados";
 import { ChamadosNaoInstalado, lerLocais, resolverCodigo } from "@/lib/chamados-server";
 import { abrirPeloQr } from "../actions";
 
@@ -63,7 +63,7 @@ export default async function AbrirPeloQrPage({ params }: { params: Promise<{ co
       <FormChamado
         acao={abrirPeloQr}
         unidade={alvo.revendaNome}
-        locais={agruparLocais(locais).map((g) => ({ titulo: g.titulo, itens: g.itens.map((l) => ({ id: l.id, nome: l.nome })) }))}
+        locais={gruposDoFormulario(locais)}
         nomeInicial={perfil?.nome ?? ""}
         ocultos={{ codigo }}
         publico
