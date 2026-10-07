@@ -83,7 +83,7 @@ export default async function AvaliacaoManutencaoPage({ params }: { params: Prom
   return (
     <div>
       <PageHeader
-        title={`🛠️ Check de Manutenção · ${rotulo}`}
+        title={`☑️ Check de Manutenção · ${rotulo}`}
         subtitle={`${mesesDoTrimestre(avaliacao)} · iniciado por ${avaliacao.iniciadaPorNome.split(" ")[0]}${
           avaliacao.status === "finalizada" && avaliacao.finalizadaPorNome
             ? ` · finalizado por ${avaliacao.finalizadaPorNome.split(" ")[0]}`

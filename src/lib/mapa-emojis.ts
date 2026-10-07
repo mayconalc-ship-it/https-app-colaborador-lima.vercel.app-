@@ -32,7 +32,8 @@ export type DesenhoProprio =
   | "ativo-giro"
   | "armazem"
   | "gas"
-  | "mao-de-obra";
+  | "mao-de-obra"
+  | "checklist";
 
 export type Assunto = {
   id: string;
@@ -123,7 +124,17 @@ export const MAPA_DE_EMOJIS: Assunto[] = [
     chaves: ["ativo-giro"],
   },
   { id: "material-apoio", nome: "Material de Apoio", emoji: "🧰", area: "Operação e manutenção", chaves: ["material-apoio"] },
-  { id: "manutencao", nome: "Check de Manutenção", emoji: "🛠️", area: "Operação e manutenção", chaves: ["manutencao"] },
+  // Checklist (06/10/2026, pedido do dono): o 🛠️ dizia "ferramenta", e o
+  // módulo é a lista de itens da Ambev. O 📋 é de Padrões, então o desenho
+  // é próprio (prancheta com itens marcados) e o ☑️ fica para o texto.
+  {
+    id: "manutencao",
+    nome: "Check de Manutenção",
+    emoji: "☑️",
+    desenho: "checklist",
+    area: "Operação e manutenção",
+    chaves: ["manutencao"],
+  },
   {
     id: "chamados",
     nome: "Chamados para Manutenção",

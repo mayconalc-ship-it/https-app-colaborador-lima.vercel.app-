@@ -238,7 +238,7 @@ export const MENU_PADRAO: ItemMenu[] = [
   { chave: "guia", titulo: "Como Fazer", emoji: "❓", href: "/guia", ordem: 18, visivel: true },
   // Check de Manutenção (156): módulo opcional -- só aparece para quem o
   // Admin liberou (o time da manutenção), por MODULO_DO_ITEM acima.
-  { chave: "manutencao", titulo: "Check de Manutenção", emoji: "🛠️", href: "/manutencao", ordem: 19, visivel: true },
+  { chave: "manutencao", titulo: "Check de Manutenção", emoji: "☑️", href: "/manutencao", ordem: 19, visivel: true },
   // Base de fornecedores (157): de TODA a unidade, sem módulo -- é o V.3
   // do DPO 2.2 ("disponível para a unidade consultar").
   { chave: "fornecedores", titulo: "Fornecedores", emoji: "☎️", href: "/fornecedores", ordem: 20, visivel: true },

@@ -90,7 +90,7 @@ export default async function ManutencaoPage() {
   return (
     <div>
       <PageHeader
-        title="🛠️ Check de Manutenção"
+        title="☑️ Check de Manutenção"
         subtitle="Checklist Global de Manutenção · DPO 2.2 · uma avaliação por trimestre"
       />
       <LinkDoGuia slug="fazer-check-manutencao" className="mb-4" />

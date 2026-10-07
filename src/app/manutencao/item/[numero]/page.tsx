@@ -63,7 +63,7 @@ export default async function EvolucaoDoItemPage({ params }: { params: Promise<{
 
   return (
     <div>
-      <PageHeader title={`🛠️ Item ${item.numero}`} subtitle={`${item.secao}. ${item.secaoNome}`} fecharHref="/manutencao" />
+      <PageHeader title={`☑️ Item ${item.numero}`} subtitle={`${item.secao}. ${item.secaoNome}`} fecharHref="/manutencao" />
 
       <section className="mb-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
         <p className="text-sm font-semibold leading-snug text-slate-900">{item.pergunta}</p>

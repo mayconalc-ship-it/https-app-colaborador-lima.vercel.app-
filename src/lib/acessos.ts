@@ -911,7 +911,7 @@ export const MODULOS: Modulo[] = [
       editar: "Reabrir uma avaliação de manutenção já finalizada",
     },
     rotulo: "Check de Manutenção",
-    emoji: "🛠️",
+    emoji: "☑️",
     href: "/manutencao",
     grupo: "Operação",
     // Checklist Global de Manutenção da Ambev, trimestral (DPO 2.2,

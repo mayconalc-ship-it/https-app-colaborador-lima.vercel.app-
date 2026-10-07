@@ -212,6 +212,35 @@ function Garrafeira({ size = 24, strokeWidth = 1.75, className }: PropsDoDesenho
 }
 
 /**
+ * Check de Manutenção: a prancheta com dois itens marcados -- o checklist
+ * da Ambev. O 📋 já é de Padrões, e o ☑️ sozinho é uma caixinha de
+ * formulário, não uma lista.
+ */
+function Checklist({ size = 24, strokeWidth = 1.75, className }: PropsDoDesenho) {
+  return (
+    <svg
+      aria-hidden
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={strokeWidth}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      <rect x="8" y="2" width="8" height="4" rx="1" />
+      <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
+      <path d="m7.5 11 1.5 1.5 2.5-2.5" />
+      <path d="M13.5 11.5h3" />
+      <path d="m7.5 16.5 1.5 1.5 2.5-2.5" />
+      <path d="M13.5 17h3" />
+    </svg>
+  );
+}
+
+/**
  * OS DESENHOS PRÓPRIOS -- um por assunto do mapa (lib/mapa-emojis) que
  * não tem emoji que sirva. Valem sempre, mesmo com o sistema de ícones
  * desligado (USAR_ICONES, abaixo).
@@ -224,6 +253,7 @@ function Garrafeira({ size = 24, strokeWidth = 1.75, className }: PropsDoDesenho
  *  - armazem: galpão. O 🏭 é fábrica.
  *  - gas: botijão P20 (Botijao).
  *  - mao-de-obra: pessoas + calculadora (MaoDeObra).
+ *  - checklist: prancheta com itens marcados (Checklist).
  */
 const DESENHOS: Record<DesenhoProprio, LucideIcon | ComponentType<PropsDoDesenho>> = {
   abastecimento: PackagePlus,
@@ -234,6 +264,7 @@ const DESENHOS: Record<DesenhoProprio, LucideIcon | ComponentType<PropsDoDesenho
   armazem: Warehouse,
   gas: Botijao,
   "mao-de-obra": MaoDeObra,
+  checklist: Checklist,
 };
 
 /**

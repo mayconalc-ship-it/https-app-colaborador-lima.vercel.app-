@@ -629,7 +629,7 @@ export const GUIAS: Guia[] = [
   {
     slug: "fazer-check-manutencao",
     titulo: "Fazer o Check de Manutenção do trimestre",
-    emoji: "🛠️",
+    emoji: "☑️",
     categoria: "armazem",
     resumo: "Para o time da manutenção: avaliar os 36 itens do checklist da Ambev, com fotos, uma vez por trimestre.",
     exige: [["manutencao", "ver"]],
