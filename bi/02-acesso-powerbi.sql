@@ -75,7 +75,8 @@ alter default privileges in schema bi
 -- (Eram 26 ate 22/08/2026 e 35 ate 08/09/2026. As 17 ultimas sao a
 -- Produtividade do Armazem -- ver 15-armazem-e-desafio-no-bi.sql. Se
 -- este numero vier MENOR, faltou rodar o 01 ate o fim, ou faltou o
--- recorte 15 depois dele.)
+-- recorte 15 depois dele.) O 17 (chamados, 07/10/2026) acrescenta 2:
+-- bi.fato_chamado e bi.chamado_de_teste.
 -- As colunas de linhas sao o volume real do app -- zero ali significa que
 -- ainda nao ha lancamento, e nao falta de permissao.
 --

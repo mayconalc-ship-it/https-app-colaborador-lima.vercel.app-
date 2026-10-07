@@ -2112,5 +2112,173 @@ MEASURE '_Medidas'[Padrão mais crítico] =
             fato_quiz_resposta[origem], ", "
         )
 
+// ==================================================================
+// CHAMADOS PARA MANUTENÇÃO — TMR e NPS (07/10/2026)
+// ==================================================================
+// A regra de cada número espelha calcularIndicadores() em
+// src/lib/chamados.ts, que é o que o painel /gestao/chamados mostra. O
+// chamado é datado pela ABERTURA, como lá. Ver 17-chamados-no-bi.sql.
+
+// O total INCLUI os cancelados, como o painel: um "cancelado" alto
+// também diz alguma coisa. Eles saem de tudo que mede o atendimento.
+MEASURE '_Medidas'[Chamados] =
+    COUNTROWS ( fato_chamado )
+
+MEASURE '_Medidas'[Chamados cancelados] =
+    CALCULATE ( COUNTROWS ( fato_chamado ), fato_chamado[cancelado] = TRUE () )
+
+MEASURE '_Medidas'[Chamados em aberto] =
+    CALCULATE ( COUNTROWS ( fato_chamado ), fato_chamado[em_aberto] = TRUE () )
+
+// Em aberto com o prazo vencido NO INSTANTE DA ATUALIZAÇÃO do BI — e não
+// da hora em que se abre o arquivo. O cartão "Dados atualizados em" da
+// capa diz de quando é.
+MEASURE '_Medidas'[Chamados atrasados] =
+    CALCULATE ( COUNTROWS ( fato_chamado ), fato_chamado[atrasado] = TRUE () )
+
+MEASURE '_Medidas'[Chamados concluídos] =
+    CALCULATE ( COUNTROWS ( fato_chamado ), fato_chamado[concluido] = TRUE () )
+
+MEASURE '_Medidas'[Concluídos no prazo] =
+    CALCULATE ( COUNTROWS ( fato_chamado ), fato_chamado[no_prazo] = TRUE () )
+
+// Pela SUBTRAÇÃO, e não por no_prazo = FALSE(): em DAX, BLANK() = FALSE()
+// é verdadeiro, e o chamado ainda em aberto (no_prazo NULO — não
+// estourou nada, só não terminou) entraria como "fora do prazo".
+MEASURE '_Medidas'[Concluídos fora do prazo] =
+    [Chamados concluídos] - [Concluídos no prazo]
+
+// O 9.2 do DPO: "chamados fechados no prazo". Dos CONCLUÍDOS — o que
+// está em aberto ainda não cumpriu nem estourou.
+MEASURE '_Medidas'[% chamados no prazo] =
+    DIVIDE ( [Concluídos no prazo], [Chamados concluídos] )
+
+/*
+    TMR — TEMPO MÉDIO DE RESOLUÇÃO, da abertura à conclusão.
+
+    É o "Tempo médio de solução" do painel do app (o MTTR). Só os
+    concluídos: em aberto não tem fim, e cancelado não foi atendido. O
+    chamado reaberto conta até a conclusão que VALEU — reabrir zera o
+    concluido_em no app.
+
+    O tempo até alguém ASSUMIR é outra pergunta (a fila), e vem em
+    [Tempo até assumir (h)].
+*/
+MEASURE '_Medidas'[TMR (h)] =
+    AVERAGE ( fato_chamado[horas_resolucao] )
+
+// O mesmo TMR na unidade em que se pensa: "9 min", "6,4 h", "2,1 d". O
+// conserto de uma torneira e a troca de um telhado vivem em escalas
+// diferentes, e "0,2 h" ninguém lê como nove minutos. TEXTO de propósito
+// (está em MEDIDAS_TEXTO no gerador) — para ordenar e comparar, use
+// [TMR (h)].
+MEASURE '_Medidas'[TMR do chamado] =
+    VAR H = [TMR (h)]
+    RETURN
+        IF (
+            ISBLANK ( H ),
+            BLANK (),
+            IF (
+                H < 1,
+                FORMAT ( H * 60, "0" ) & " min",
+                IF ( H < 24, FORMAT ( H, "0.0" ) & " h", FORMAT ( H / 24, "0.0" ) & " d" )
+            )
+        )
+
+MEASURE '_Medidas'[Tempo até assumir (h)] =
+    AVERAGE ( fato_chamado[horas_ate_assumir] )
+
+MEASURE '_Medidas'[Tempo até assumir] =
+    VAR H = [Tempo até assumir (h)]
+    RETURN
+        IF (
+            ISBLANK ( H ),
+            BLANK (),
+            IF (
+                H < 1,
+                FORMAT ( H * 60, "0" ) & " min",
+                IF ( H < 24, FORMAT ( H, "0.0" ) & " h", FORMAT ( H / 24, "0.0" ) & " d" )
+            )
+        )
+
+// A régua: o prazo da prioridade (Risco 4 h, Urgente 24 h, Normal 48 h
+// em 07/10/2026), como foi gravado na ABERTURA de cada chamado. Ao lado
+// do TMR, diz se a média cabe no prazo daquela prioridade.
+MEASURE '_Medidas'[Prazo (h)] =
+    AVERAGE ( fato_chamado[prazo_horas] )
+
+// Há quanto tempo os que ainda estão em aberto esperam, na atualização.
+MEASURE '_Medidas'[Em aberto há (h)] =
+    AVERAGE ( fato_chamado[horas_em_aberto] )
+
+// O 9.2 do DPO: "% de chamados reabertos". Dos concluídos, quantos já
+// voltaram alguma vez porque quem pediu respondeu "Não resolveu" — o
+// "chamado fechado indevidamente" do 8.2.
+MEASURE '_Medidas'[% chamados reabertos] =
+    DIVIDE (
+        CALCULATE (
+            COUNTROWS ( fato_chamado ),
+            fato_chamado[concluido] = TRUE (),
+            fato_chamado[foi_reaberto] = TRUE ()
+        ),
+        [Chamados concluídos]
+    )
+
+// Concluídos que quem pediu ainda não confirmou. É a fila da pesquisa:
+// sem confirmação não há nota, e o NPS fica sem base.
+MEASURE '_Medidas'[Aguardando confirmação] =
+    CALCULATE ( COUNTROWS ( fato_chamado ), fato_chamado[aguardando_confirmacao] = TRUE () )
+
+/*
+    O NPS DO ATENDIMENTO.
+
+    O app pergunta uma nota de 1 a 5 a quem abriu, junto do "Resolveu?
+    Sim" — não a escala de 0 a 10 do NPS clássico. A conversão é a usual
+    para escala de 5 pontos: 5 = promotor, 4 = neutro, 1 a 3 = detrator.
+    NPS = % promotores − % detratores, de −100 a +100.
+
+    Vazio sem nenhuma avaliação, e não zero: NPS zero é "tantos
+    promotores quanto detratores", que é uma resposta — sem nota não há
+    resposta nenhuma.
+
+    Leia sempre com [Avaliações do atendimento] ao lado: NPS de duas
+    notas vai de −100 a +100 com um voto.
+*/
+MEASURE '_Medidas'[Avaliações do atendimento] =
+    CALCULATE ( COUNTROWS ( fato_chamado ), fato_chamado[avaliado] = TRUE () )
+
+MEASURE '_Medidas'[Promotores] =
+    SUM ( fato_chamado[eh_promotor] )
+
+MEASURE '_Medidas'[Neutros] =
+    SUM ( fato_chamado[eh_neutro] )
+
+MEASURE '_Medidas'[Detratores] =
+    SUM ( fato_chamado[eh_detrator] )
+
+MEASURE '_Medidas'[% promotores] =
+    DIVIDE ( [Promotores], [Avaliações do atendimento] )
+
+MEASURE '_Medidas'[% neutros] =
+    DIVIDE ( [Neutros], [Avaliações do atendimento] )
+
+MEASURE '_Medidas'[% detratores] =
+    DIVIDE ( [Detratores], [Avaliações do atendimento] )
+
+MEASURE '_Medidas'[NPS do atendimento] =
+    IF (
+        [Avaliações do atendimento] > 0,
+        ( [% promotores] - [% detratores] ) * 100
+    )
+
+// A nota média de 1 a 5, a mesma do painel do app ("4,5 ★").
+MEASURE '_Medidas'[Nota média do atendimento] =
+    AVERAGE ( fato_chamado[avaliacao] )
+
+// A taxa de resposta da pesquisa: dos concluídos, quantos foram
+// avaliados. NPS alto com 10% de resposta é a opinião de quem gostou.
+MEASURE '_Medidas'[% chamados avaliados] =
+    DIVIDE ( [Avaliações do atendimento], [Chamados concluídos] )
+
 EVALUATE
     { "Medidas aplicadas. Pode apagar esta consulta." }

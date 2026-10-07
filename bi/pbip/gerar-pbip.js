@@ -320,6 +320,9 @@ const MEDIDAS_TEXTO = new Set([
   'Pico da bancada',
   // O gabarito na matriz de perguntas do Desafio (12/09/2026).
   'Resposta certa',
+  // Os tempos dos chamados em "9 min", "6,4 h" ou "2,1 d" (07/10/2026).
+  'TMR do chamado',
+  'Tempo até assumir',
 ]);
 
 // UMA CASA (12/09/2026, pedido do dono: "nos cartoes deixe uma casa
@@ -334,6 +337,9 @@ const MEDIDAS_UMA_CASA = new Set([
   'Meta min/caixa (repack)', 'Meta bancada h/dia',
   // A meta do despejo por embalagem (16/09/2026): 83,9 L/h sairia "84".
   'Meta despejo L/h (embalagem)',
+  // Os tempos dos chamados (07/10/2026): "(h)" nao cai na regra de
+  // "Horas", e o TMR de 0,2 h sairia "0" no #,0.
+  'TMR (h)', 'Tempo até assumir (h)', 'Prazo (h)', 'Em aberto há (h)',
 ]);
 // O custo do gas com UMA casa, como os demais cartoes da Empilhadeira.
 const MEDIDAS_REAIS_UMA_CASA = new Set(['Custo do gás (R$)']);
@@ -350,6 +356,9 @@ const MEDIDAS_DUAS_CASAS = new Set(['Nota média', 'Nota média por cidade', 'No
 
 function formatoDe(nome) {
   if (MEDIDAS_TEXTO.has(nome)) return null;
+  // NPS com o sinal (07/10/2026): "+40" e "-20" se leem de longe; "40"
+  // sem sinal deixa a duvida se o detrator ja foi descontado.
+  if (nome.startsWith('NPS')) return '+#,0;-#,0;0';
   if (MEDIDAS_DUAS_CASAS.has(nome)) return '0.00';
   if (MEDIDAS_UMA_CASA.has(nome)) return '0.0';
   if (MEDIDAS_REAIS_UMA_CASA.has(nome)) return 'R$ #,0.0';

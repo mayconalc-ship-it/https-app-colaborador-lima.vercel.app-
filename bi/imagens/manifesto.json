@@ -16,12 +16,12 @@
     "h": 34
   },
   "secao-du.svg": {
-    "w": 306,
-    "h": 222
+    "w": 404,
+    "h": 148
   },
   "secao-du.png": {
-    "w": 306,
-    "h": 222
+    "w": 404,
+    "h": 148
   },
   "chip-du.svg": {
     "w": 188,
@@ -80,12 +80,12 @@
     "h": 36
   },
   "secao-ag.svg": {
-    "w": 306,
-    "h": 222
+    "w": 404,
+    "h": 148
   },
   "secao-ag.png": {
-    "w": 306,
-    "h": 222
+    "w": 404,
+    "h": 148
   },
   "chip-ag.svg": {
     "w": 145,
@@ -128,12 +128,12 @@
     "h": 36
   },
   "secao-armazem.svg": {
-    "w": 306,
-    "h": 222
+    "w": 404,
+    "h": 148
   },
   "secao-armazem.png": {
-    "w": 306,
-    "h": 222
+    "w": 404,
+    "h": 148
   },
   "chip-armazem.svg": {
     "w": 217,
@@ -256,12 +256,12 @@
     "h": 36
   },
   "secao-tma.svg": {
-    "w": 306,
-    "h": 222
+    "w": 404,
+    "h": 148
   },
   "secao-tma.png": {
-    "w": 306,
-    "h": 222
+    "w": 404,
+    "h": 148
   },
   "chip-tma.svg": {
     "w": 186,
@@ -304,12 +304,12 @@
     "h": 36
   },
   "secao-frota.svg": {
-    "w": 306,
-    "h": 222
+    "w": 404,
+    "h": 148
   },
   "secao-frota.png": {
-    "w": 306,
-    "h": 222
+    "w": 404,
+    "h": 148
   },
   "chip-frota.svg": {
     "w": 91,
@@ -335,13 +335,61 @@
     "w": 126,
     "h": 36
   },
+  "secao-manutencao.svg": {
+    "w": 404,
+    "h": 148
+  },
+  "secao-manutencao.png": {
+    "w": 404,
+    "h": 148
+  },
+  "chip-manutencao.svg": {
+    "w": 139,
+    "h": 36
+  },
+  "chip-manutencao.png": {
+    "w": 139,
+    "h": 36
+  },
+  "aba-manutencao-0-on.svg": {
+    "w": 109,
+    "h": 36
+  },
+  "aba-manutencao-0-on.png": {
+    "w": 109,
+    "h": 36
+  },
+  "aba-manutencao-0-off.svg": {
+    "w": 109,
+    "h": 36
+  },
+  "aba-manutencao-0-off.png": {
+    "w": 109,
+    "h": 36
+  },
+  "aba-manutencao-1-on.svg": {
+    "w": 178,
+    "h": 36
+  },
+  "aba-manutencao-1-on.png": {
+    "w": 178,
+    "h": 36
+  },
+  "aba-manutencao-1-off.svg": {
+    "w": 178,
+    "h": 36
+  },
+  "aba-manutencao-1-off.png": {
+    "w": 178,
+    "h": 36
+  },
   "secao-gente.svg": {
-    "w": 306,
-    "h": 222
+    "w": 404,
+    "h": 148
   },
   "secao-gente.png": {
-    "w": 306,
-    "h": 222
+    "w": 404,
+    "h": 148
   },
   "chip-gente.svg": {
     "w": 97,
@@ -400,12 +448,12 @@
     "h": 36
   },
   "secao-5s.svg": {
-    "w": 306,
-    "h": 222
+    "w": 404,
+    "h": 148
   },
   "secao-5s.png": {
-    "w": 306,
-    "h": 222
+    "w": 404,
+    "h": 148
   },
   "chip-5s.svg": {
     "w": 141,
@@ -432,12 +480,12 @@
     "h": 36
   },
   "secao-quiz.svg": {
-    "w": 306,
-    "h": 222
+    "w": 404,
+    "h": 148
   },
   "secao-quiz.png": {
-    "w": 306,
-    "h": 222
+    "w": 404,
+    "h": 148
   },
   "chip-quiz.svg": {
     "w": 152,

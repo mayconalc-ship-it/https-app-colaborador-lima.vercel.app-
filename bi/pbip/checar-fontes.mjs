@@ -19,6 +19,8 @@ const TIPOS = new Set([
   "cardVisual", "clusteredBarChart", "clusteredColumnChart", "columnChart",
   "lineChart", "pivotTable", "tableEx", "slicer", "textbox", "shape",
   "actionButton", "image", "pageNavigator",
+  // A rosca da Bancada, como em validar.js (TIPOS_CONHECIDOS).
+  "donutChart",
 ]);
 
 let erros = 0;

@@ -800,6 +800,49 @@ const tabelas = [
     revendaDireta: true,
     data: 'data',
   },
+
+  // ================================================================
+  // CHAMADOS PARA MANUTENCAO  (17-chamados-no-bi.sql, 07/10/2026)
+  // ================================================================
+  {
+    // LIGADO DIRETO NA REVENDA, e nao pela chave composta.
+    //
+    // O chamado pode ser aberto pelo QR Code SEM login: nao tem
+    // solicitante_id. Pela chave composta, essas linhas ficariam com
+    // "revenda|" e nao casariam com dim_colaborador -- e ao escolher uma
+    // revenda no filtro, SUMIRIAM do relatorio. Quem pediu e quem atendeu
+    // viram atributos com filtro proprio na pagina (como o Conferente da
+    // Conciliacao do AG); os filtros globais de Area e Colaborador nao
+    // entram nas paginas dos chamados.
+    nome: 'fato_chamado',
+    view: 'fato_chamado',
+    descricao:
+      'Um chamado para manutencao, datado pela ABERTURA. TMR = abertura -> conclusao; NPS: 5 promotor, 4 neutro, 1-3 detrator.',
+    colunas:
+      'chamado_id:s revenda_id:s numero:i protocolo:s setor:s area:s local_no_dia:s ' +
+      'tipo:s tipo_rotulo:s prioridade:s prioridade_rotulo:s prioridade_ordem:i ' +
+      'status:s status_rotulo:s status_ordem:i origem:s origem_rotulo:s ' +
+      'solicitante:s solicitante_id:s responsavel:s responsavel_id:s ' +
+      'aberto_em:t aberto_rotulo:s data:t prazo_em:t prazo_rotulo:s prazo_horas:n ' +
+      'atendimento_em:t concluido_em:t concluido_rotulo:s data_conclusao:t ' +
+      'cancelado:b em_aberto:b concluido:b atrasado:b no_prazo:b situacao_prazo:s ' +
+      'horas_ate_assumir:n horas_resolucao:n horas_em_aberto:n ' +
+      'reaberturas:i foi_reaberto:b aguardando_confirmacao:b confirmacao_rotulo:s ' +
+      'avaliacao:i avaliado:b nota_rotulo:s nps_grupo:s nps_ordem:i ' +
+      'eh_promotor:i eh_neutro:i eh_detrator:i avaliacao_comentario:s ' +
+      'descricao:s solucao:s fotos:i',
+    revendaDireta: true,
+    data: 'data',
+    // Escalas ordinais: sem isto o grafico ordena "Normal, Risco,
+    // Urgente" e "Detrator, Neutro, Promotor" -- alfabetico. Os pares sao
+    // 1:1 (um rotulo por valor), que e o que o Power BI exige.
+    ordenarPor: {
+      prioridade_rotulo: 'prioridade_ordem',
+      status_rotulo: 'status_ordem',
+      nps_grupo: 'nps_ordem',
+      nota_rotulo: 'avaliacao',
+    },
+  },
 ];
 
 // Colunas que so servem de chave tecnica e poluem a lista de campos.
@@ -819,6 +862,8 @@ const ocultas = new Set([
   'carreta_id', 'item_id', 'operacao_id', 'troca_id', 'esvaziamento_id',
   'produto_id', 'embalagem_id', 'embalagem_despejo_id', 'empilhadeira_id',
   'transportadora_id', 'portaria_colaborador_id', 'operador_id',
+  // Chamados (07/10/2026).
+  'chamado_id', 'solicitante_id',
 ]);
 
 module.exports = { tabelas, ocultas };

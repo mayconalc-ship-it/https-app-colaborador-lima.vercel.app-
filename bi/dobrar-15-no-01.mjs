@@ -1,39 +1,56 @@
-// Dobra o bloco do armazem (15) dentro do 01, que e a fonte da verdade.
+// Dobra os recortes de colagem (15, 17...) dentro do 01, que e a
+// fonte da verdade.
 //
 // O 01 comeca com "drop schema if exists bi cascade", entao quem recria
-// o esquema do zero rodando so ele PERDERIA a camada do armazem se ela
-// morasse apenas no 15. O 15 continua existindo como recorte de colagem
-// para quem ja tem o esquema no ar -- mesmo padrao do 09.
+// o esquema do zero rodando so ele PERDERIA o que morasse apenas num
+// recorte. Os recortes continuam existindo para quem ja tem o esquema no
+// ar -- mesmo padrao do 09.
 //
-// O conteudo e copiado byte a byte do 15, e nao reescrito, justamente
-// para os dois nao divergirem na primeira correcao.
+// O conteudo e copiado byte a byte de cada recorte, e nao reescrito,
+// justamente para os dois nao divergirem na primeira correcao. A ORDEM da
+// lista e a ordem de execucao: o 17 recria fato_atividade em cima das
+// views do 15.
+//
+// O 16 (5S datado pela realizacao, 17/09/2026) NAO entra: ele foi
+// aplicado direto nas views do 5S dentro do 01, no lugar delas.
 import { readFileSync, writeFileSync } from "node:fs";
 
 const base = "C:/Projetos/app-colaborador-lima/bi/";
-const MARCA = "-- >>> INICIO DO BLOCO DOBRADO DE 15-armazem-e-desafio-no-bi.sql";
+const RECORTES = [
+  "15-armazem-e-desafio-no-bi.sql",
+  "17-chamados-no-bi.sql",
+];
+// A marca do primeiro recorte e o ponto de corte: tudo dali para baixo e
+// refeito a cada rodada.
+const marca = (arquivo) => `-- >>> INICIO DO BLOCO DOBRADO DE ${arquivo}`;
 
 const um = readFileSync(base + "01-camada-semantica.sql", "utf8");
-const quinze = readFileSync(base + "15-armazem-e-desafio-no-bi.sql", "utf8");
 
-// Idempotente: rodar de novo substitui o bloco em vez de empilhar copias.
-const semBloco = um.includes(MARCA) ? um.slice(0, um.indexOf(MARCA)) : um;
+// Idempotente: rodar de novo substitui os blocos em vez de empilhar copias.
+const corte = um.indexOf(marca(RECORTES[0]));
+const semBlocos = corte >= 0 ? um.slice(0, corte) : um;
 
-const bloco = [
-  MARCA,
-  "--",
-  "-- Copia literal do 15-armazem-e-desafio-no-bi.sql. NAO EDITE AQUI:",
-  "-- mexa no 15 e rode `node bi/dobrar-15-no-01.mjs`. Duas verdades",
-  "-- sobre a mesma view e pior que uma so imperfeita.",
-  "--",
-  "-- Cinco views sao criadas duas vezes neste arquivo, e e intencional:",
-  "-- fato_quiz_resposta, fato_atividade, fato_ag_contagem,",
-  "-- fato_ag_dia_colaborador e fato_ag_conciliacao. A versao de cima e a",
-  "-- original; a daqui a substitui (ver os comentarios de cada uma no 15).",
-  "-- Numa execucao unica do arquivo, a ultima e a que fica.",
-  "",
-  quinze.trimStart(),
-  "",
-].join("\n");
+const blocos = RECORTES.map((arquivo) =>
+  [
+    marca(arquivo),
+    "--",
+    `-- Copia literal do ${arquivo}. NAO EDITE AQUI:`,
+    "-- mexa no recorte e rode `node bi/dobrar-15-no-01.mjs`. Duas verdades",
+    "-- sobre a mesma view e pior que uma so imperfeita.",
+    "--",
+    "-- Algumas views sao criadas mais de uma vez neste arquivo, e e",
+    "-- intencional: a versao de baixo substitui a de cima (ver os",
+    "-- comentarios de cada uma no recorte). Numa execucao unica do arquivo,",
+    "-- a ultima e a que fica.",
+    "",
+    readFileSync(base + arquivo, "utf8").trimStart(),
+    "",
+  ].join("\n"),
+);
 
-writeFileSync(base + "01-camada-semantica.sql", semBloco.trimEnd() + "\n\n" + bloco, "utf8");
-console.log("bloco dobrado no 01");
+writeFileSync(
+  base + "01-camada-semantica.sql",
+  semBlocos.trimEnd() + "\n\n" + blocos.join("\n"),
+  "utf8",
+);
+console.log(`blocos dobrados no 01: ${RECORTES.join(", ")}`);

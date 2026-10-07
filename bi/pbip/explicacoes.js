@@ -218,6 +218,23 @@ module.exports = {
   'fato_empilhadeira_ciclo_gas.horimetro_inicio#soma': ['Horímetro no início', 'horímetro da máquina na troca que abriu o ciclo.'],
   'fato_empilhadeira_ciclo_gas.horimetro_fim#soma': ['Horímetro no fim', 'horímetro da máquina na troca que fechou o ciclo.'],
 
+  // --- Chamados para Manutencao (07/10/2026) -------------------------------
+  'Chamados': 'chamados abertos no período (pelo app ou pelo QR Code), contando os cancelados. O chamado é datado pela abertura.',
+  'Chamados em aberto': 'chamados nos status Aberto, Em atendimento ou Aguardando — ainda trabalho da manutenção.',
+  'Chamados atrasados': 'chamados em aberto cujo prazo já tinha vencido no momento da última atualização do BI.',
+  'Chamados concluídos': 'chamados que a manutenção deu como concluídos (status Concluído).',
+  'TMR do chamado': 'Tempo Médio de Resolução: média do tempo da abertura até a conclusão, só dos concluídos — em minutos, horas ou dias, conforme o tamanho.',
+  'TMR (h)': 'o mesmo TMR em horas: média de (concluído em − aberto em) dos chamados concluídos.',
+  'Tempo até assumir': 'média do tempo da abertura até alguém da manutenção assumir o chamado (a espera na fila); cancelados fora.',
+  'Tempo até assumir (h)': 'o mesmo tempo até assumir, em horas.',
+  'Prazo (h)': 'o prazo da prioridade gravado na abertura, em horas corridas (Risco 4, Urgente 24, Normal 48 em 07/10/2026).',
+  '% chamados no prazo': 'concluídos até o prazo ÷ chamados concluídos.',
+  '% chamados reabertos': 'concluídos que já foram reabertos alguma vez (quem pediu respondeu "Não resolveu") ÷ chamados concluídos.',
+  'Aguardando confirmação': 'chamados concluídos pela manutenção que quem pediu ainda não confirmou — sem confirmação não há nota.',
+  'Avaliações do atendimento': 'chamados com nota de 1 a 5 de quem pediu, dada ao confirmar que resolveu.',
+  'NPS do atendimento': '% de notas 5 (promotores) − % de notas 1 a 3 (detratores), × 100; a nota 4 é neutra. De −100 a +100; vazio sem avaliação.',
+  'Nota média do atendimento': 'média das notas de 1 a 5 dadas por quem pediu.',
+
   // --- Mapa do App --------------------------------------------------------
   'dim_menu_app.chave#contagem': ['Itens do menu', 'quantidade de itens do menu do app.'],
 };

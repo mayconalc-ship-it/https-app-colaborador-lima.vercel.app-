@@ -45,7 +45,17 @@ const ICONES = {
   brilho: '<path d="M11 3l2 5.5 5.5 2-5.5 2L11 18l-2-5.5-5.5-2 5.5-2z"/><path d="M18.5 15.5l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"/>',
   pergunta: '<circle cx="12" cy="12" r="9"/><path d="M9.3 9.2a2.8 2.8 0 1 1 4 2.5c-.8.4-1.3 1-1.3 1.9v.4"/><path d="M12 17h.01"/>',
   casa: '<path d="M3 11l9-7.5 9 7.5"/><path d="M5.5 9.5V20h13V9.5"/><path d="M10 20v-5.5h4V20"/>',
+  // A chave inglesa da Manutencao (07/10/2026).
+  chave: '<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.8-3.8a6 6 0 0 1-7.9 7.9l-6.9 6.9a2.1 2.1 0 0 1-3-3l6.9-6.9a6 6 0 0 1 7.9-7.9z"/>',
 };
+
+// A GRADE DA CAPA (07/10/2026). Eram 4 x 2 cartoes em pe para as oito
+// areas; a nona (Manutencao) cairia numa terceira linha, abaixo do fim da
+// pagina. Cinco colunas estreitas foram tentadas e cortaram o resumo de
+// sete dos nove cartoes. Acima de oito areas: 3 x 3 cartoes DEITADOS
+// (icone a esquerda, texto a direita), que cabem na mesma altura. A
+// posicao mora em navegacao.js, que le o tamanho do manifesto.
+const CAPA_DEITADA = blocos.length > 8;
 const icone = (nome, x, y, tam, cor, esp = 2) =>
   `<g transform="translate(${x} ${y}) scale(${tam / 24})" fill="none" stroke="${cor}" ` +
   `stroke-width="${esp}" stroke-linecap="round" stroke-linejoin="round">${ICONES[nome]}</g>`;
@@ -161,6 +171,7 @@ async function topo() {
 
 // --- o cartao de cada area, na capa -------------------------------------
 async function cartao(b) {
+  if (CAPA_DEITADA) return cartaoDeitado(b);
   const W = 306, H = 222, M = 8, IW = W - 2 * M, IH = H - 2 * M;
   const qtd = b.paginas.length;
   const selo = `${qtd} ${qtd === 1 ? 'página' : 'páginas'}`;
@@ -183,6 +194,39 @@ async function cartao(b) {
     texto(M + 18, M + 104, b.nome, pxTitulo, 700, COR.texto) +
     resumo.map((l, i) => texto(M + 18, M + 128 + i * 18, l, 13.5, 400, COR.cinza)).join('') +
     paginas.map((l, i) => texto(M + 18, M + 154 + i * 17, l, 12.5, 600, COR.azul)).join('') +
+    texto(W - M - 18, M + IH - 14, 'Abrir →', 13, 700, COR.azul, 'text-anchor="end"'));
+}
+
+// O cartao DEITADO da grade 3 x 3 (07/10/2026): as mesmas pecas do cartao
+// em pe -- faixa dourada, icone, selo, nome, resumo, paginas, "Abrir" --,
+// com o texto ao lado do icone. 404 x 148: tres por linha em 1236 px e
+// tres linhas entre o topo (214) e o rodape (676).
+async function cartaoDeitado(b) {
+  const W = 404, H = 148, M = 8, IW = W - 2 * M, IH = H - 2 * M;
+  const XT = M + 86; // onde o texto comeca, depois do icone
+  const qtd = b.paginas.length;
+  const selo = `${qtd} ${qtd === 1 ? 'página' : 'páginas'}`;
+  const wSelo = (await largura(selo, 12, 600)) + 22;
+  let pxTitulo = 20;
+  while ((await largura(b.nome, pxTitulo, 700)) > W - M - 18 - wSelo - 12 - XT && pxTitulo > 15) pxTitulo--;
+  const resumo = await quebrar(b.resumo, 13.5, 400, W - M - 18 - XT, 1);
+  const lista = b.paginas.map(([, r]) => r).filter((r) => !r.includes('·')).join(' · ');
+  // A lista de paginas sobe para a linha do icone para baixo, e para antes
+  // do "Abrir →" do canto.
+  const paginas = await quebrar(lista, 12.5, 600, W - M - 18 - XT - 64, 2);
+  await salvar(`secao-${b.chave}.png`, W, H,
+    '<defs><filter id="s" x="-20%" y="-20%" width="140%" height="150%"><feGaussianBlur stdDeviation="5"/></filter>' +
+    `<clipPath id="c"><rect x="${M}" y="${M}" width="${IW}" height="${IH}" rx="18"/></clipPath></defs>` +
+    `<rect x="${M + 2}" y="${M + 5}" width="${IW - 4}" height="${IH - 2}" rx="18" fill="${COR.texto}" opacity="0.10" filter="url(#s)"/>` +
+    `<rect x="${M}" y="${M}" width="${IW}" height="${IH}" rx="18" fill="#FFFFFF" stroke="${COR.linha}"/>` +
+    `<rect x="${M}" y="${M}" width="${IW}" height="5" fill="${COR.ouro}" clip-path="url(#c)"/>` +
+    `<rect x="${M + 18}" y="${M + 22}" width="52" height="52" rx="14" fill="${COR.azulSuave}"/>` +
+    icone(b.icone, M + 31, M + 35, 26, COR.azul, 2) +
+    `<rect x="${W - M - 18 - wSelo}" y="${M + 20}" width="${wSelo}" height="26" rx="13" fill="${COR.ouroSuave}"/>` +
+    texto(W - M - 18 - wSelo / 2, M + 37, selo, 12, 600, COR.ouroTexto, 'text-anchor="middle"') +
+    texto(XT, M + 40, b.nome, pxTitulo, 700, COR.texto) +
+    resumo.map((l, i) => texto(XT, M + 64 + i * 18, l, 13.5, 400, COR.cinza)).join('') +
+    paginas.map((l, i) => texto(XT, M + 90 + i * 17, l, 12.5, 600, COR.azul)).join('') +
     texto(W - M - 18, M + IH - 14, 'Abrir →', 13, 700, COR.azul, 'text-anchor="end"'));
 }
 

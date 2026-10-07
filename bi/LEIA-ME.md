@@ -1,5 +1,28 @@
 # BI do App do Colaborador
 
+> **Rodada de 07/10/2026 — a Manutenção entra no BI (Chamados: TMR e NPS).**
+> Área nova na capa, **🔧 Manutenção**, com duas páginas: **Chamados —
+> TMR e NPS** (os cartões, TMR por prioridade contra o prazo, setores,
+> distribuição das notas, evolução do NPS e a matriz setor › área) e
+> **Chamados — cada chamado** (quem atendeu › chamado, a fila em aberto e
+> os comentários de quem avaliou). A capa passou para 3 × 3 cartões
+> deitados — com nove áreas, a grade 4 × 2 não cabia.
+>
+> Três regras que valem antes de ler o número:
+>
+> 1. **TMR = Tempo Médio de Resolução**, da abertura à conclusão, só dos
+>    concluídos — o "Tempo médio de solução" do painel do app. O chamado
+>    conta no dia em que foi **aberto**, como lá.
+> 2. **NPS adaptado à nota de 1 a 5 do app**: 5 = promotor, 4 = neutro,
+>    1 a 3 = detrator; NPS = % promotores − % detratores (−100 a +100).
+> 3. **Os chamados de teste #0001 e #0002 de São Félix ficam fora**
+>    (`bi.chamado_de_teste`). O #0002 tem a única nota do sistema — um 5
+>    de teste que daria NPS +100. Apague os dois no app e a lista fica
+>    inofensiva.
+>
+> **O banco precisa ser atualizado:** rode `17-chamados-no-bi.sql` e **em
+> seguida `02-acesso-powerbi.sql`**. O 17 já está dobrado no 01.
+
 > **Rodada de 09/09/2026 — a Produtividade do Armazém entra no BI.**
 > A área inteira estava de fora: bancada, despejo, abastecimento,
 > ressuprimento, bate palete, recebimento de carretas e empilhadeira não
@@ -77,7 +100,8 @@ escolhas, não como caminho obrigatório.
 | 5 | `09-atualizacao-23-08-2026.sql` | **Recorte do 01 com o que mudou em 23/08/2026.** Uma colagem em vez de dez. |
 | 6 | `10-conferir-acentos.sql` | **Confere se algum rótulo entrou quebrado no banco.** Três selects, não altera nada. |
 | 7 | `15-armazem-e-desafio-no-bi.sql` | **Produtividade do Armazém, carretas, empilhadeira e o gabarito do Desafio.** Recorte de colagem do 09/09/2026. |
-| — | `dobrar-15-no-01.mjs` | Copia o 15 para dentro do 01 (fonte da verdade). Rode depois de mexer no 15. |
+| 8 | `17-chamados-no-bi.sql` | **Chamados para Manutenção: TMR, prazo, reabertos e NPS.** Recorte de colagem do 07/10/2026. |
+| — | `dobrar-15-no-01.mjs` | Copia o 15 e o 17 para dentro do 01 (fonte da verdade). Rode depois de mexer neles. |
 | — | `pbip/gerar-pbip.js` | Regera o projeto a partir de `modelo.js` + `paginas.js` + `07-medidas.dax`. |
 | — | `pbip/validar.js` | Confere os campos das 19 páginas contra o modelo antes de abrir. |
 | — | `07-medidas.dax` | As 195 medidas. **Fonte da verdade** — o gerador lê daqui. |

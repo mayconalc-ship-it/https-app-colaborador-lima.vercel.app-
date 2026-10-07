@@ -87,10 +87,14 @@ function criar({ lit, idPagina, blocos }) {
         + 'e roda pelo gateway do escritório.',
       roles: { Data: ['@Atualizado em'] },
     });
+    // Acima de oito areas, 3 x 3 cartoes deitados (07/10/2026) -- a mesma
+    // conta de CAPA_DEITADA em gerar-imagens.js, que desenha o cartao.
+    const colunas = blocos.length > 8 ? 3 : 4;
+    const folga = blocos.length > 8 ? 12 : 4;
     blocos.forEach((b, i) => {
       const { w, h } = tam(`secao-${b.chave}.png`);
-      const x = 22 + (i % 4) * (w + 4);
-      const y = 214 + Math.floor(i / 4) * (h + 6);
+      const x = 22 + (i % colunas) * (w + folga);
+      const y = 214 + Math.floor(i / colunas) * (h + 6);
       lista.push(imagem(`inicio:secao:${b.chave}`, `secao-${b.chave}.png`, x, y, idPagina(b.paginas[0][0])));
     });
     lista.push({

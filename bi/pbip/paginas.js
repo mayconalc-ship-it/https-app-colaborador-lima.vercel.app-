@@ -151,7 +151,7 @@ const paginas = [
     // escolhi um que nao colide com os existentes.
     nome: '🏠 Visão Geral',
     sobre: {
-      mostra: 'O uso do app pela revenda: quantos colaboradores, a adesão desde o lançamento e as interações por mês e por módulo — são 13 módulos, incluindo os do armazém.',
+      mostra: 'O uso do app pela revenda: quantos colaboradores, a adesão desde o lançamento e as interações por mês e por módulo — são 14 módulos, incluindo os do armazém e os chamados para manutenção.',
       origem: 'Cada ação registrada no app — um lançamento, um feedback, uma curtida, uma resposta do quiz — conta como uma interação.',
       leitura: 'Mede ADESÃO, não desempenho: muita interação não quer dizer trabalho bem feito. O cartão "Dados atualizados em" diz de quando é o número.',
     },
@@ -224,7 +224,9 @@ const paginas = [
       'Desde 10/09/2026 os gráficos de módulo incluem o ARMAZÉM — bancada, despejo, ' +
       'abastecimento, ressuprimento, bate palete, recebimento de carretas e empilhadeira —, ' +
       'somando 13 módulos. Na carreta contam as duas pontas (portaria e conferente); no bate ' +
-      'palete conta o LOTE, não cada produto do lote. ' +
+      'palete conta o LOTE, não cada produto do lote. Desde 07/10/2026 entram os CHAMADOS PARA ' +
+      'MANUTENÇÃO, com as duas pontas: quem abriu pelo app e quem assumiu (aberto pelo QR sem login ' +
+      'não tem pessoa). ' +
       'fato_atividade conta INTERAÇÕES, não qualidade. Um colaborador com 40 ' +
       'lançamentos de AG e nenhum feedback aparece aqui como "muito ativo". ' +
       'Adesão e desempenho são perguntas diferentes e moram em páginas diferentes.',
@@ -2884,6 +2886,259 @@ const paginas = [
 
   // ================================================================
   {
+    /*
+      CHAMADOS PARA MANUTENCAO -- TMR E NPS (07/10/2026, pedido do dono:
+      "o BI de Chamados, medindo o TMR e a NPS do atendimento da
+      manutencao").
+
+      A pagina responde as tres perguntas do DPO que o modulo sustenta:
+      9.2 (fechados no prazo e % de reabertos), 9.1 (a pesquisa de nivel
+      de servico, aqui o NPS, e a EVOLUCAO dela mes a mes) e o tempo de
+      atendimento que a liderança cobra (o TMR).
+
+      FILTROS: os globais de Area e Colaborador saem -- o chamado liga
+      direto na revenda (ver modelo.js), entao eles nao filtrariam nada.
+      No lugar, o que separa o chamado: setor, tipo de servico,
+      prioridade e quem atendeu.
+    */
+    nome: '🔧 Chamados — TMR e NPS',
+    sobre: {
+      mostra: 'O atendimento da manutenção: quantos chamados, o tempo médio até resolver (TMR) contra o prazo de cada prioridade, o % resolvido no prazo, os reabertos e o NPS de quem pediu.',
+      origem: 'Os Chamados para Manutenção do app, abertos pelo app ou pelo QR Code da unidade, com a nota de 1 a 5 que quem pediu dá ao confirmar que resolveu.',
+      leitura: 'O chamado conta no dia em que foi ABERTO. TMR vai da abertura à conclusão. NPS: nota 5 é promotor, 4 neutro, 1 a 3 detrator — leia junto do número de avaliações.',
+    },
+    filtros: [
+      filtros.find((f) => f.campo === 'dim_revenda.revenda'),
+      filtros.find((f) => f.campo === 'dim_calendario.data'),
+      filtros.find((f) => f.campo === 'dim_calendario.ano_mes'),
+      { campo: 'fato_chamado.setor', titulo: '🏢 Setor' },
+      { campo: 'fato_chamado.tipo_rotulo', titulo: '🔧 Tipo de serviço' },
+      { campo: 'fato_chamado.prioridade_rotulo', titulo: '🚨 Prioridade' },
+      { campo: 'fato_chamado.responsavel', titulo: '👷 Quem atendeu' },
+    ],
+    kpis: [
+      ['📨 Chamados abertos', '@Chamados',
+        'Chamados abertos no período, pelo app ou pelo QR Code — inclusive os cancelados, como no ' +
+        'painel do app. Os cancelados ficam fora do TMR, do prazo e dos reabertos.'],
+      // A UNIDADE ACOMPANHA O NUMERO: "9 min", "6,4 h" ou "2,1 d" -- a
+      // medida e texto justamente para isso (ver 07-medidas.dax).
+      ['⏱️ TMR — abertura à conclusão', '@TMR do chamado',
+        'Tempo Médio de Resolução: da abertura do chamado até a manutenção dar como concluído, ' +
+        'média dos concluídos do período. Em aberto e cancelado não entram. É o "Tempo médio de ' +
+        'solução" do painel do app.'],
+      ['✅ % resolvidos no prazo', '@% chamados no prazo',
+        'Dos chamados concluídos, quantos terminaram dentro do prazo da prioridade (Risco 4 h, ' +
+        'Urgente 24 h, Normal 48 h, em horas corridas). O DPO 9.2.'],
+      ['↩️ % reabertos', '@% chamados reabertos',
+        'Dos concluídos, quantos voltaram pelo menos uma vez porque quem pediu respondeu "Não ' +
+        'resolveu". É o "chamado fechado indevidamente" do DPO 8.2 e o % de reabertos do 9.2.'],
+      ['⭐ NPS do atendimento', '@NPS do atendimento',
+        'Net Promoter Score adaptado à nota de 1 a 5 do app: % de notas 5 (promotores) menos % de ' +
+        'notas 1 a 3 (detratores); a nota 4 é neutra. Vai de −100 a +100. Vazio enquanto ninguém ' +
+        'avaliou. Leia junto do número de avaliações: com poucas notas, um voto muda tudo.'],
+      ['🔴 Em aberto e atrasados', '@Chamados atrasados',
+        'Chamados ainda em aberto cujo prazo já venceu no momento da última atualização do BI ' +
+        '(o cartão "Dados atualizados em", na capa).'],
+    ],
+    visuais: [
+      {
+        // A REGUA AO LADO: o TMR de cada prioridade contra o prazo dela.
+        // Media geral de 20 h nao diz nada se os chamados de risco (4 h)
+        // estao levando 10 -- separado por prioridade, diz.
+        t: 'clusteredColumnChart', x: 16, y: Y.meio, w: 430, h: H.meio,
+        titulo: '⏱️ TMR por prioridade (h) — contra o prazo',
+        roles: {
+          Category: ['fato_chamado.prioridade_rotulo'],
+          Y: ['@TMR (h)', '@Prazo (h)', '@Tempo até assumir (h)'],
+        },
+        // Risco, Urgente, Normal -- pela prioridade_ordem (sortByColumn),
+        // e nao pela altura da barra.
+        ordem: { campo: 'fato_chamado.prioridade_rotulo', dir: 'Ascending' },
+      },
+      {
+        // Coluna EMPILHADA (columnChart): a altura e o volume do setor e as
+        // faixas dizem quanto dele estourou o prazo.
+        t: 'columnChart', x: 458, y: Y.meio, w: 430, h: H.meio,
+        titulo: '🏢 Chamados por setor e situação do prazo',
+        roles: {
+          Category: ['fato_chamado.setor'],
+          Y: ['@Chamados'],
+          Series: ['fato_chamado.situacao_prazo'],
+        },
+        ordem: { campo: '@Chamados', dir: 'Descending' },
+      },
+      {
+        // A DISTRIBUICAO DAS NOTAS, com a cor do grupo do NPS: e ela que
+        // explica o numero. NPS +20 com metade de nota 5 e metade de nota
+        // 1 e uma operacao muito diferente de +20 com tudo 4 e 5.
+        t: 'columnChart', x: 900, y: Y.meio, w: 364, h: H.meio,
+        titulo: '⭐ Notas de quem pediu — promotores, neutros e detratores',
+        roles: {
+          Category: ['fato_chamado.nota_rotulo'],
+          Y: ['@Avaliações do atendimento'],
+          Series: ['fato_chamado.nps_grupo'],
+        },
+        ordem: { campo: 'fato_chamado.nota_rotulo', dir: 'Ascending' },
+      },
+      {
+        // O 9.1 do DPO pede EVOLUCAO entre uma pesquisa e outra. Por mes,
+        // e nao por dia: com o volume de chamados de uma revenda, NPS de
+        // um dia e a nota de uma pessoa. So o NPS: o % no prazo (0 a 100%)
+        // no mesmo eixo de um NPS (-100 a +100) achataria as duas linhas.
+        t: 'lineChart', x: 16, y: Y.base, w: 500, h: H.base, reta: true,
+        titulo: '📈 Evolução do NPS do atendimento, por mês',
+        drill: 'mes',
+        roles: {
+          Category: ['dim_calendario.inicio_mes'],
+          Y: ['@NPS do atendimento'],
+        },
+      },
+      {
+        // A ESTRATIFICACAO que o 9.2 pede: setor › area, com o "+" abrindo
+        // as areas do setor.
+        t: 'pivotTable', x: 528, y: Y.base, w: 736, h: H.base,
+        botaoMais: true,
+        titulo: '🏢 Setor › área — volume, TMR, prazo, reabertos e NPS',
+        roles: {
+          Rows: ['fato_chamado.setor', 'fato_chamado.area'],
+          Values: [
+            '@Chamados',
+            '@Chamados em aberto',
+            '@TMR (h)',
+            '@% chamados no prazo',
+            '@% chamados reabertos',
+            '@Avaliações do atendimento',
+            '@NPS do atendimento',
+          ],
+        },
+      },
+    ],
+    nota:
+      'O chamado conta no dia em que foi ABERTO, como no painel do app: aberto em 30/09 e concluído '
+      + 'em 02/10 é de setembro. TMR = Tempo Médio de Resolução, da abertura até a manutenção dar como '
+      + 'concluído, só dos concluídos (em aberto e cancelado ficam fora); o tempo até alguém ASSUMIR '
+      + 'vem separado. O prazo é o da prioridade gravado na abertura e não é refeito se o chamado '
+      + 'reabrir. NPS: o app pede nota de 1 a 5 (não de 0 a 10) a quem confirma que resolveu; 5 é '
+      + 'promotor, 4 neutro, 1 a 3 detrator, e NPS = % promotores − % detratores. Quem responde "Não '
+      + 'resolveu" não dá nota — o chamado reabre. A ÁREA é a do cadastro de HOJE (as áreas foram '
+      + 'reorganizadas em setores em 07/10/2026); o nome gravado no dia está em "local no dia", na '
+      + 'página seguinte. Os chamados de teste do lançamento (São Félix #0001 e #0002) ficam fora.',
+  },
+
+  // ================================================================
+  {
+    /*
+      CADA CHAMADO -- a pagina de tabelas, como a do Recebimento.
+
+      Matriz por QUEM ATENDEU, com o "+" abrindo chamado por chamado: e a
+      conversa individual com o time da manutencao. Embaixo, a fila do que
+      esta em aberto, do mais antigo -- e o comentario de quem avaliou, que
+      e a materia-prima do plano de acao que o 9.1 cobra.
+    */
+    nome: '📋 Chamados — cada chamado',
+    sobre: {
+      mostra: 'O atendimento aberto por quem atendeu, até cada chamado, com os tempos, o prazo e a nota; e a fila do que está em aberto, do mais antigo.',
+      origem: 'Os mesmos Chamados para Manutenção do app.',
+      leitura: 'Clique no + para abrir os chamados de cada pessoa. Na linha de cima, os tempos são a média dos chamados dela.',
+    },
+    filtros: [
+      filtros.find((f) => f.campo === 'dim_revenda.revenda'),
+      filtros.find((f) => f.campo === 'dim_calendario.data'),
+      filtros.find((f) => f.campo === 'dim_calendario.ano_mes'),
+      { campo: 'fato_chamado.setor', titulo: '🏢 Setor' },
+      { campo: 'fato_chamado.tipo_rotulo', titulo: '🔧 Tipo de serviço' },
+      { campo: 'fato_chamado.prioridade_rotulo', titulo: '🚨 Prioridade' },
+      { campo: 'fato_chamado.responsavel', titulo: '👷 Quem atendeu' },
+    ],
+    kpis: [
+      ['📨 Chamados abertos', '@Chamados'],
+      ['🛠️ Em aberto', '@Chamados em aberto'],
+      ['🔴 Em aberto e atrasados', '@Chamados atrasados'],
+      ['⏳ Até assumir', '@Tempo até assumir',
+        'Tempo médio da abertura até alguém da manutenção ASSUMIR o chamado — a espera na fila. ' +
+        'Cancelados ficam fora.'],
+      ['🙋 Aguardando quem pediu', '@Aguardando confirmação',
+        'Concluídos pela manutenção que quem pediu ainda não confirmou. Sem a confirmação não há ' +
+        'nota — é a fila da pesquisa do NPS.'],
+      ['📝 Avaliações recebidas', '@Avaliações do atendimento',
+        'Quantos chamados receberam nota de quem pediu. A nota média está na matriz abaixo.'],
+    ],
+    visuais: [
+      {
+        t: 'pivotTable', x: 16, y: Y.meio, w: 1248, h: H.meio,
+        botaoMais: true,
+        titulo: '👷 Quem atendeu › chamado — clique no + para abrir os chamados',
+        roles: {
+          Rows: ['fato_chamado.responsavel', 'fato_chamado.protocolo'],
+          Values: [
+            '@Chamados',
+            '@Chamados concluídos',
+            '@Tempo até assumir (h)',
+            '@TMR (h)',
+            '@Prazo (h)',
+            '@% chamados no prazo',
+            '@% chamados reabertos',
+            '@Nota média do atendimento',
+            '@NPS do atendimento',
+          ],
+        },
+      },
+      {
+        // A FILA, do mais antigo. So o que ainda e trabalho da
+        // manutencao: os tres status em aberto.
+        t: 'tableEx', x: 16, y: Y.base, w: 760, h: H.base,
+        quebraTexto: 140,
+        titulo: '🛠️ A fila — chamados em aberto, do mais antigo',
+        roles: {
+          Values: [
+            'fato_chamado.protocolo',
+            'fato_chamado.aberto_rotulo',
+            'fato_chamado.area',
+            'fato_chamado.prioridade_rotulo',
+            'fato_chamado.status_rotulo',
+            'fato_chamado.prazo_rotulo',
+            'fato_chamado.situacao_prazo',
+            'fato_chamado.descricao',
+          ],
+        },
+        // Pelo PROTOCOLO, e nao pelo rotulo de data: "02/10" e texto e
+        // viria antes de "30/09". O numero e sequencial por revenda e tem
+        // zeros a esquerda (#0042), entao o texto ordena certo.
+        ordem: { campo: 'fato_chamado.protocolo', dir: 'Ascending' },
+        filtroVisual: {
+          campo: 'fato_chamado.status_rotulo',
+          valores: ['Aberto', 'Em atendimento', 'Aguardando'],
+        },
+      },
+      {
+        t: 'tableEx', x: 788, y: Y.base, w: 476, h: H.base,
+        quebraTexto: 140,
+        titulo: '💬 O que quem pediu disse — nota e comentário',
+        roles: {
+          Values: [
+            'fato_chamado.protocolo',
+            'fato_chamado.nota_rotulo',
+            'fato_chamado.nps_grupo',
+            'fato_chamado.avaliacao_comentario',
+          ],
+        },
+        ordem: { campo: 'fato_chamado.nota_rotulo', dir: 'Ascending' },
+        filtroVisual: {
+          campo: 'fato_chamado.nps_grupo',
+          valores: ['Promotor', 'Neutro', 'Detrator'],
+        },
+      },
+    ],
+    nota:
+      'Na matriz, o "+" abre os chamados de cada pessoa; na linha da pessoa, os tempos são a média '
+      + 'dos chamados dela. "Ninguém assumiu" junta os chamados ainda sem responsável. Tempos em HORAS '
+      + '(0,2 h = 12 min). A fila mostra só Aberto, Em atendimento e Aguardando, do mais antigo para o '
+      + 'mais novo; "atrasado" é o prazo vencido no momento da última atualização do BI. Os comentários '
+      + 'são o que o 9.1 do DPO pede para o plano de ação: as notas mais baixas aparecem primeiro.',
+  },
+
+  // ================================================================
+  {
     // Indice do relatorio e do app na mesma pagina. Serve a duas coisas:
     // orienta quem abre o BI pela primeira vez, e mostra a lideranca o
     // que existe no app -- inclusive o que esta oculto no menu, que e
@@ -3071,6 +3326,16 @@ const blocos = [
     sigla: 'Frota', chave: 'frota', nome: 'Frota', icone: 'empilhadeira',
     resumo: 'Horas de motor e gás das máquinas',
     paginas: [['🏗️ Empilhadeira', 'Empilhadeira']],
+  },
+  {
+    // MANUTENCAO (07/10/2026): os dois modulos novos -- Chamados agora, o
+    // Check de Manutencao (DPO 2.2) entra aqui quando ganhar pagina.
+    sigla: 'Manutenção', chave: 'manutencao', nome: 'Manutenção', icone: 'chave',
+    resumo: 'Chamados: tempo, prazo e NPS',
+    paginas: [
+      ['🔧 Chamados — TMR e NPS', 'Chamados'],
+      ['📋 Chamados — cada chamado', 'Chamados · cada um'],
+    ],
   },
   {
     sigla: 'Gente', chave: 'gente', nome: 'Gente', icone: 'pessoas',
