@@ -753,7 +753,7 @@ export const GUIAS: Guia[] = [
         dica: "É um QR só para a unidade inteira. Imprima quantas cópias quiser e cole onde a equipe circula.",
       },
       {
-        texto: "Em **📍 Áreas**, toque em **＋ Nova área** para incluir, ou toque numa área e em **Editar** para mudar nome, grupo e ordem.",
+        texto: "Em **📍 Áreas**, toque em **＋ Nova área** para incluir, ou toque numa área e em **Editar** para mudar nome, setor e ordem.",
         dica: "Área que não existe mais: **⏻ Desligar**. Ela sai da lista do formulário, sem apagar o histórico.",
       },
       {
@@ -763,7 +763,7 @@ export const GUIAS: Guia[] = [
       { texto: "Em **⏱️ Prazo de atendimento**, ajuste as horas de **Risco**, **Urgente** e **Normal** e toque em **Salvar**." },
     ],
     atencao: [
-      "As áreas do **5S** entram sozinhas na aba **Áreas do 5S** do formulário. Para incluir, renomear ou desligar uma delas, use o cadastro do 5S.",
+      "As áreas do **5S** entram sozinhas na lista, marcadas **do 5S**. Escolha o setor delas aqui; para incluir, renomear ou desligar, use o cadastro do 5S.",
       "Imprima pelo app publicado: o QR leva o endereço de onde você está.",
       "O QR vazou para fora da empresa? **🔄 Gerar QR novo** invalida o antigo — e aí é preciso trocar todos os cartazes.",
       "O painel com prazo, reabertos e nota fica na **Gestão**, em **Chamados para Manutenção**.",

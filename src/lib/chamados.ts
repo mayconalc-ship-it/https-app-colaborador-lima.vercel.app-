@@ -337,26 +337,18 @@ export type Local = {
   area5s?: { nome: string; ordem: number; ativa: boolean } | null;
 };
 
-export const TITULO_ABA_5S = "Áreas do 5S";
-
 /**
- * As abas do formulário (07/10/2026, pedido do dono: "utilize as mesmas
- * áreas do módulo 5S"). As abas de antes continuam, sem as áreas que
- * nasceram do 5S; e a aba "Áreas do 5S" mostra a lista do 5S inteira, na
- * ordem e com os nomes de lá. Uma área que existe nos dois (Picking) é a
- * MESMA nas duas abas -- o chamado conta uma vez só no painel.
+ * As abas do formulário: os SETORES (07/10/2026, pedido do dono: "não
+ * quero botão de área do 5S; organizar em Armazém, Externo, ADM"). As
+ * áreas que vieram do 5S entram no setor delas como qualquer outra -- o
+ * setor de cada uma é escolhido em Admin › Chamados. Área nova do 5S
+ * ainda sem setor cai em "Demais áreas" até alguém escolher.
  */
 export function gruposDoFormulario(locais: Local[]): { titulo: string; itens: { id: string; nome: string }[] }[] {
-  const grupos = agruparLocais(locais.filter((l) => !l.veio_do_5s)).map((g) => ({
+  return agruparLocais(locais).map((g) => ({
     titulo: g.titulo,
     itens: g.itens.map((l) => ({ id: l.id, nome: l.nome })),
   }));
-  const do5s = locais
-    .filter((l) => l.area5s?.ativa)
-    .sort((a, b) => a.area5s!.ordem - b.area5s!.ordem || a.area5s!.nome.localeCompare(b.area5s!.nome, "pt-BR"))
-    .map((l) => ({ id: l.id, nome: l.area5s!.nome }));
-  if (do5s.length > 0) grupos.push({ titulo: TITULO_ABA_5S, itens: do5s });
-  return grupos;
 }
 
 /** "Armazém · Picking" -- o nome que fica gravado no chamado. */

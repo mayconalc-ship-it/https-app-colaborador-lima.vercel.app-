@@ -41,13 +41,8 @@ export default async function AdminChamadosPage() {
       </div>
     );
   }
-  const [config, todos, site] = dados;
-  // As que nasceram do 5S têm o cadastro de lá: ficam numa lista à parte.
-  const locais = todos.filter((l) => !l.veio_do_5s);
-  const do5s = todos
-    .filter((l) => l.area5s)
-    .sort((a, b) => a.area5s!.ordem - b.area5s!.ordem || a.area5s!.nome.localeCompare(b.area5s!.nome, "pt-BR"));
-  const ativos = todos.filter((l) => l.ativo).length;
+  const [config, locais, site] = dados;
+  const ativos = locais.filter((l) => l.ativo).length;
   const grupos = [...new Set(locais.map((l) => l.grupo).filter(Boolean))];
   const urlDoQr = `${site.origem}/os/${config.tokenPublico}`;
 
@@ -113,7 +108,7 @@ export default async function AdminChamadosPage() {
           <summary className="cursor-pointer px-4 py-3 text-sm font-semibold text-primary-dark">＋ Nova área</summary>
           <FormNoLugar acao={criarLocal} limparAoSalvar className="grid gap-3 px-4 pb-4 sm:grid-cols-[1fr_1.5fr_auto] sm:items-end">
             <label>
-              <span className={rotulo}>Grupo (opcional)</span>
+              <span className={rotulo}>Setor</span>
               <input name="grupo" list="grupos-de-area" maxLength={60} placeholder="Ex.: Armazém" className={campo} />
             </label>
             <label>
@@ -145,7 +140,7 @@ export default async function AdminChamadosPage() {
                             {l.nome}
                             {l.area5s && (
                               <span className="ml-1.5 rounded-full bg-emerald-50 px-1.5 py-0.5 align-middle text-[10px] font-semibold text-emerald-700">
-                                também no 5S
+                                {l.veio_do_5s ? "do 5S" : "também no 5S"}
                               </span>
                             )}
                           </span>
@@ -159,12 +154,19 @@ export default async function AdminChamadosPage() {
                         <FormNoLugar acao={editarLocal} className="grid gap-2 sm:grid-cols-[1fr_1.5fr_5rem_auto] sm:items-end">
                           <input type="hidden" name="id" value={l.id} />
                           <label>
-                            <span className={rotulo}>Grupo</span>
+                            <span className={rotulo}>Setor</span>
                             <input name="grupo" list="grupos-de-area" defaultValue={l.grupo} maxLength={60} className={campo} />
                           </label>
                           <label>
-                            <span className={rotulo}>Nome</span>
-                            <input name="nome" required defaultValue={l.nome} maxLength={80} className={campo} />
+                            <span className={rotulo}>Nome{l.veio_do_5s ? " (do cadastro do 5S)" : ""}</span>
+                            <input
+                              name="nome"
+                              required
+                              defaultValue={l.nome}
+                              maxLength={80}
+                              readOnly={l.veio_do_5s}
+                              className={`${campo} ${l.veio_do_5s ? "bg-slate-50 text-slate-500" : ""}`}
+                            />
                           </label>
                           <label>
                             <span className={rotulo}>Ordem</span>
@@ -174,19 +176,21 @@ export default async function AdminChamadosPage() {
                             Salvar
                           </BotaoEnviar>
                         </FormNoLugar>
-                        <div className="flex flex-wrap gap-2">
-                          <BotaoNoLugar
-                            acao={alternarLocal}
-                            campos={{ id: l.id, ativo: l.ativo ? "0" : "1" }}
-                            perigo={l.ativo}
-                            confirmacao={l.ativo ? `Desligar "${l.nome}"?` : undefined}
-                            detalhe="A área sai da lista do formulário. Os chamados antigos continuam."
-                            rotuloConfirmar="Desligar"
-                            className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50"
-                          >
-                            {l.ativo ? "⏻ Desligar" : "⏻ Ligar de novo"}
-                          </BotaoNoLugar>
-                        </div>
+                        {!l.veio_do_5s && (
+                          <div className="flex flex-wrap gap-2">
+                            <BotaoNoLugar
+                              acao={alternarLocal}
+                              campos={{ id: l.id, ativo: l.ativo ? "0" : "1" }}
+                              perigo={l.ativo}
+                              confirmacao={l.ativo ? `Desligar "${l.nome}"?` : undefined}
+                              detalhe="A área sai da lista do formulário. Os chamados antigos continuam."
+                              rotuloConfirmar="Desligar"
+                              className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+                            >
+                              {l.ativo ? "⏻ Desligar" : "⏻ Ligar de novo"}
+                            </BotaoNoLugar>
+                          </div>
+                        )}
                       </div>
                     </details>
                   </li>
@@ -196,35 +200,14 @@ export default async function AdminChamadosPage() {
           ))}
         </div>
 
-        {/* AS ÁREAS DO 5S (07/10/2026, pedido do dono): o formulário ganha a
-            aba "Áreas do 5S" com a lista de lá. O cadastro delas é o do 5S --
-            aqui é só leitura, para ninguém manter a mesma área em dois lugares. */}
-        {do5s.length > 0 && (
-          <div className="mt-5">
-            <p className="mb-1.5 px-1 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-              Áreas do 5S <span className="normal-case text-slate-400">· aba própria no formulário</span>
-            </p>
-            <ul className="divide-y divide-slate-100 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-              {do5s.map((l) => (
-                <li key={l.id} className="flex items-center gap-3 p-3">
-                  <span className={`min-w-0 flex-1 truncate text-sm font-semibold ${l.area5s!.ativa && l.ativo ? "text-slate-900" : "text-slate-400 line-through"}`}>
-                    {l.area5s!.nome}
-                  </span>
-                  <span className="shrink-0 text-[11px] text-slate-400">
-                    {l.veio_do_5s ? "só no 5S" : `= ${l.grupo ? `${l.grupo} · ` : ""}${l.nome}`}
-                  </span>
-                </li>
-              ))}
-            </ul>
-            <p className="mt-1.5 px-1 text-[11px] text-slate-400">
-              Para incluir, renomear ou desligar uma destas, use o cadastro do 5S:{" "}
-              <Link href="/admin/5s" className="font-semibold text-primary underline">
-                Admin › 5S
-              </Link>
-              . O chamado acompanha sozinho.
-            </p>
-          </div>
-        )}
+        {/* As áreas do 5S entram sozinhas, sem setor: alguém escolhe o setor aqui. */}
+        <p className="mt-2 px-1 text-[11px] text-slate-400">
+          As áreas marcadas <strong>do 5S</strong> vêm do cadastro do 5S: nome e liga/desliga são de lá (
+          <Link href="/admin/5s" className="font-semibold text-primary underline">
+            Admin › 5S
+          </Link>
+          ). Área nova do 5S aparece em &quot;Demais áreas&quot; até você escolher o setor dela.
+        </p>
       </section>
 
       {/* ---- E-mails ---- */}
