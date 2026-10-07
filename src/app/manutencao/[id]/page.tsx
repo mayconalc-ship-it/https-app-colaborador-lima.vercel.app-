@@ -41,7 +41,10 @@ async function carregar(id: string, revendaId: string) {
     const respostas = await lerRespostas([avaliacao.id, ...(anteriorAval ? [anteriorAval.id] : [])]);
 
     const minhas: Record<string, RespostaDoCartao> = {};
+    // A última pergunta mexida: é dela que a ronda continua ao voltar.
+    let ultimo: { itemId: string; em: string } | null = null;
     for (const r of respostas.get(avaliacao.id) ?? []) {
+      if (!ultimo || r.atualizadoEm > ultimo.em) ultimo = { itemId: r.itemId, em: r.atualizadoEm };
       minhas[r.itemId] = {
         nota: r.nota,
         na: r.na,
@@ -64,7 +67,7 @@ async function carregar(id: string, revendaId: string) {
         };
       }
     }
-    return { tipo: "ok" as const, avaliacao, itens, minhas, anteriores, podeReabrir, pessoas };
+    return { tipo: "ok" as const, avaliacao, itens, minhas, anteriores, podeReabrir, pessoas, ultimoItemId: ultimo?.itemId ?? null };
   } catch (e) {
     if (e instanceof ModuloNaoInstalado) return { tipo: "nao-instalado" as const };
     throw e;
@@ -79,7 +82,7 @@ export default async function AvaliacaoManutencaoPage({ params }: { params: Prom
   const dados = await carregar(id, revendaId);
   if (dados.tipo === "nao-instalado") return <AvisoNaoInstalado />;
   if (dados.tipo === "nao-achou") notFound();
-  const { avaliacao, itens, minhas, anteriores, podeReabrir, pessoas } = dados;
+  const { avaliacao, itens, minhas, anteriores, podeReabrir, pessoas, ultimoItemId } = dados;
 
   const rotulo = rotuloTrimestre(avaliacao);
   return (
@@ -102,6 +105,7 @@ export default async function AvaliacaoManutencaoPage({ params }: { params: Prom
         aberta={avaliacao.status === "em_andamento"}
         podeReabrir={podeReabrir}
         pessoas={pessoas}
+        ultimoItemId={avaliacao.status === "em_andamento" ? ultimoItemId : null}
         hojeIso={hojeIso()}
         acoes={{ salvar: salvarResposta, removerFoto, finalizar: finalizarAvaliacao, reabrir: reabrirAvaliacao }}
       />

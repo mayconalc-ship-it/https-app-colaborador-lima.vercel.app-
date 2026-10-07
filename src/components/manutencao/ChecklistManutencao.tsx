@@ -45,6 +45,7 @@ export function ChecklistManutencao({
   aberta,
   podeReabrir,
   pessoas,
+  ultimoItemId = null,
   hojeIso,
   acoes,
 }: {
@@ -56,6 +57,8 @@ export function ChecklistManutencao({
   aberta: boolean;
   podeReabrir: boolean;
   pessoas: PessoaDaLista[];
+  /** A última pergunta respondida (avaliação aberta): a tela começa nela. */
+  ultimoItemId?: string | null;
   hojeIso: string;
   acoes: {
     salvar: (fd: FormData) => Promise<ResultadoAcao>;
@@ -97,10 +100,31 @@ export function ChecklistManutencao({
   const pct = itens.length ? feitos / itens.length : 0;
 
   // Sanfona: abre o primeiro bloco com item pendente (ou o primeiro).
+  // Voltando para uma ronda já começada, abre o bloco da última pergunta
+  // respondida (pedido do dono, 07/10/2026: "iniciar de onde parou").
+  const ultimoItem = ultimoItemId ? itens.find((i) => i.id === ultimoItemId) : undefined;
   const [abertos, setAbertos] = useState<Set<Bloco>>(() => {
+    if (ultimoItem) return new Set([ultimoItem.bloco]);
     const comPendente = BLOCOS.find((b) => itens.some((i) => i.bloco === b.id && !respostas[i.id]));
     return new Set([comPendente?.id ?? BLOCOS[0].id]);
   });
+  // ...e leva a tela até ela, marcada por uns segundos para o olho achar.
+  const [destaque, setDestaque] = useState<string | null>(ultimoItem?.id ?? null);
+  useEffect(() => {
+    if (!ultimoItem) return;
+    // Depois de o Next terminar a própria rolagem da navegação.
+    const ir = setTimeout(
+      // Pulo direto (sem animação): ao entrar, a pessoa quer já estar lá.
+      () => document.getElementById("onde-parou")?.scrollIntoView({ block: "start" }),
+      250,
+    );
+    const apagar = setTimeout(() => setDestaque(null), 4000);
+    return () => {
+      clearTimeout(ir);
+      clearTimeout(apagar);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- só ao entrar
+  }, []);
   function alternar(b: Bloco) {
     setAbertos((s) => {
       const n = new Set(s);
@@ -235,7 +259,16 @@ export function ChecklistManutencao({
                       </h3>
                       <div className="space-y-3">
                         {doItem.map((i) => (
-                          <div key={i.id} className={visivel(i) ? "" : "hidden"}>
+                          <div
+                            key={i.id}
+                            id={destaque === i.id ? "onde-parou" : undefined}
+                            className={`${visivel(i) ? "" : "hidden"} scroll-mt-48 rounded-2xl transition-shadow duration-700 ${
+                              destaque === i.id ? "ring-4 ring-primary/50" : ""
+                            }`}
+                          >
+                            {destaque === i.id && (
+                              <p className="px-2 pb-1 pt-2 text-xs font-bold text-primary-dark">↓ Você parou aqui</p>
+                            )}
                             <CartaoItem
                               item={i}
                               avaliacaoId={avaliacaoId}
