@@ -1092,7 +1092,7 @@ export const GUIAS: Guia[] = [
       ["5s", "editar"],
       ["5s", "criar"],
     ],
-    palavras: ["área", "area", "dono", "auditor", "agendar", "planejamento", "cronograma", "configurar"],
+    palavras: ["área", "area", "dono", "auditor", "agendar", "planejamento", "cronograma", "configurar", "data", "prazo", "remarcar"],
     passos: [
       ENTRAR_NO_MODO,
       ABRIR_BARRA,
@@ -1105,6 +1105,10 @@ export const GUIAS: Guia[] = [
       {
         texto: "Aba **Planejamento**: abra **Agendar uma auditoria**, escolha **Área**, **Auditor** e **Data prevista** e toque em **Agendar e avisar o auditor**.",
         dica: "Para planejar de uma vez, use **Agendar o mês inteiro** ou **Agendar o ano inteiro**.",
+      },
+      {
+        texto: "Para mudar a data limite do que já está agendado, escolha o mês e abra **Mudar a data limite do mês** — ou, para uma só, toque em **mudar a data ou o auditor desta** na lista.",
+        dica: "Agendar o mês ou o ano de novo não muda a data: eles só criam auditoria onde ainda não existe.",
       },
     ],
     atencao: [

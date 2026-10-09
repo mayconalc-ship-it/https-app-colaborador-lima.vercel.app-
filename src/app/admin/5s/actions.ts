@@ -934,6 +934,161 @@ export async function trocarAuditor(formData: FormData) {
   ok("Auditor trocado.", "planejamento");
 }
 
+/** A remarcação volta para o mês de onde partiu, não para o mês corrente. */
+function voltarAoMes(
+  competencia: string,
+  chave: "sucesso" | "erro",
+  mensagem: string,
+): never {
+  const q = new URLSearchParams({
+    aba: "planejamento",
+    mes: competencia,
+    [chave]: mensagem,
+  });
+  redirect(`${ROTA}?${q}`);
+}
+
+/**
+ * Muda a data limite de auditorias que já estão agendadas.
+ *
+ * O plano do mês e o do ano só PREENCHEM lacunas -- área que já tem
+ * auditoria no mês é pulada --, então rodá-los de novo com outro dia
+ * não muda nada e responde "Nada a agendar". Sem esta ação, mudar o
+ * prazo do mês era cancelar as dezenove e agendar tudo de novo.
+ *
+ * Com `id`, muda só aquela; sem, todas as abertas do mês. As
+ * finalizadas ficam como estão: a data delas é história.
+ *
+ * A data nova fica dentro do mesmo mês. A competência é derivada da
+ * data no banco, então levar uma auditoria de outubro para novembro
+ * mudaria o mês em que ela conta no BI e esbarraria na trava de uma
+ * auditoria por área no mês. Para outro mês: cancelar e agendar lá.
+ */
+export async function remarcarAuditorias(formData: FormData) {
+  await requireModulo("5s", "editar");
+  const revendaId = await exigirRevenda(ROTA);
+  const admin = createAdminClient();
+
+  const id = texto(formData.get("id"));
+  const competencia = texto(formData.get("competencia"));
+  const data = texto(formData.get("planejada_para"));
+
+  if (!competencia || !/^\d{4}-\d{2}$/.test(competencia)) {
+    erro("Mês não informado.", "planejamento");
+  }
+  if (!data || !/^\d{4}-\d{2}-\d{2}$/.test(data)) {
+    voltarAoMes(competencia, "erro", "Informe a nova data.");
+  }
+  if (data.slice(0, 7) !== competencia) {
+    voltarAoMes(
+      competencia,
+      "erro",
+      `A nova data precisa ser em ${rotuloDoMes(competencia)}. Para levar a auditoria para outro mês, cancele e agende no mês novo.`,
+    );
+  }
+
+  let consulta = admin
+    .from("cinco_s_auditorias")
+    .select("id, auditor_id, planejada_para, cinco_s_areas!inner(nome)")
+    .eq("revenda_id", revendaId)
+    .eq("competencia", `${competencia}-01`)
+    .in("status", ["planejada", "em_andamento"]);
+  if (id) consulta = consulta.eq("id", id);
+
+  const { data: abertas } = await consulta;
+  const alvo = (abertas ?? []).filter((a) => a.planejada_para !== data);
+  const quando = data.split("-").reverse().join("/");
+
+  if (alvo.length === 0) {
+    voltarAoMes(
+      competencia,
+      "erro",
+      (abertas ?? []).length > 0
+        ? `Nada a mudar: já ${id ? "está" : "estão todas"} em ${quando}.`
+        : id
+          ? "Auditoria não encontrada ou já finalizada."
+          : `Nenhuma auditoria aberta em ${rotuloDoMes(competencia)} para remarcar.`,
+    );
+  }
+
+  const ids = alvo.map((a) => a.id);
+
+  const { error } = await admin
+    .from("cinco_s_auditorias")
+    .update({ planejada_para: data })
+    .in("id", ids);
+
+  if (error) {
+    voltarAoMes(competencia, "erro", `Não foi possível remarcar: ${error.message}`);
+  }
+
+  // Os lembretes de véspera, do dia e de atraso têm chave por auditoria
+  // e só saem uma vez. Sem soltar as chaves, quem já recebeu "atrasada"
+  // na data antiga não seria avisado de novo quando a data nova vencer.
+  // O aviso antigo continua no sino; só deixa de bloquear o próximo.
+  await admin
+    .from("notificacoes")
+    .update({ referencia_id: null })
+    .eq("modulo", "5s")
+    .in(
+      "referencia_id",
+      ids.flatMap((x) => ["vespera", "dia", "atraso"].map((m) => `5s-aud:${x}:${m}`)),
+    );
+
+  // Um aviso por auditor, com as áreas dele dentro.
+  const porAuditor = new Map<string, string[]>();
+  for (const a of alvo) {
+    if (!a.auditor_id) continue;
+    const area = (
+      Array.isArray(a.cinco_s_areas) ? a.cinco_s_areas[0] : a.cinco_s_areas
+    ) as { nome: string };
+    porAuditor.set(a.auditor_id, [
+      ...(porAuditor.get(a.auditor_id) ?? []),
+      area?.nome ?? "área",
+    ]);
+  }
+
+  await Promise.all(
+    Array.from(porAuditor.entries()).map(([auditorId, areas]) =>
+      criarNotificacao({
+        modulo: "5s",
+        tipo: "novo",
+        titulo: "🧹 Auditoria 5S com nova data",
+        mensagem:
+          areas.length === 1
+            ? `${areas[0]} — agora até ${quando}.`
+            : `${areas.length} auditorias (${listar(areas)}) — agora até ${quando}.`,
+        url: id ? `/5s/auditoria/${id}` : "/5s",
+        revendaId,
+        destinatarioId: auditorId,
+      }),
+    ),
+  );
+
+  await enviarPushDaRevenda(revendaId, {
+    modulo: "5s",
+    titulo: "🧹 Auditoria 5S com nova data",
+    mensagem: `O prazo da sua auditoria 5S mudou para ${quando}.`,
+    url: id ? `/5s/auditoria/${id}` : "/5s",
+    apenas: Array.from(porAuditor.keys()),
+  });
+
+  revalidar();
+
+  const avisados =
+    porAuditor.size === 0
+      ? ""
+      : porAuditor.size === 1
+        ? " O auditor foi avisado."
+        : ` ${porAuditor.size} auditores foram avisados.`;
+
+  voltarAoMes(
+    competencia,
+    "sucesso",
+    `${alvo.length} auditoria${alvo.length === 1 ? "" : "s"} ${alvo.length === 1 ? "remarcada" : "remarcadas"} para ${quando}.${avisados}`,
+  );
+}
+
 /**
  * Passa a área INTEIRA para outro auditor.
  *

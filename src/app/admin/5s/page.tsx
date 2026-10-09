@@ -25,6 +25,7 @@ import {
   planejarAno,
   planejarAuditoria,
   planejarMes,
+  remarcarAuditorias,
   salvarArea,
   salvarAuditor,
   salvarPergunta,
@@ -223,6 +224,16 @@ async function AbaPlanejamento({
   // planejada e em andamento juntas: quem cobra não distingue a área que
   // nem começou da que parou no meio, as duas continuam devendo o mês.
   const pendentesDoMes = lista.filter((a) => a.status !== "finalizada");
+
+  // A remarcação não sai do mês aberto (ver `remarcarAuditorias`), e o
+  // seletor de data já nasce preso a ele.
+  const [anoDoMes, numeroDoMes] = mes.split("-").map(Number);
+  const primeiroDia = `${mes}-01`;
+  const ultimoDia = `${mes}-${String(new Date(anoDoMes, numeroDoMes, 0).getDate()).padStart(2, "0")}`;
+  const dataAtualDoMes = pendentesDoMes.reduce(
+    (maior, a) => (a.planejada_para > maior ? a.planejada_para : maior),
+    primeiroDia,
+  );
 
   const visiveis =
     visao === "pendentes"
@@ -433,6 +444,50 @@ async function AbaPlanejamento({
         </form>
       </details>
 
+      {/* ---- Mudar a data do mês ----
+
+          Os três blocos acima só criam auditoria onde não há. Mudar o
+          prazo do que já foi agendado é aqui, ou uma a uma na lista. */}
+      {pendentesDoMes.length > 0 && (
+        <details className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <summary className="cursor-pointer list-none p-4 text-sm font-semibold text-slate-800">
+            Mudar a data limite do mês
+          </summary>
+          <form
+            action={remarcarAuditorias}
+            className="space-y-3 border-t border-slate-100 p-4"
+          >
+            <input type="hidden" name="competencia" value={mes} />
+            <p className="text-xs text-slate-500">
+              Muda a data das {pendentesDoMes.length} auditoria
+              {pendentesDoMes.length === 1 ? "" : "s"} ainda não finalizada
+              {pendentesDoMes.length === 1 ? "" : "s"} de{" "}
+              {rotuloCompetencia(mes)}. As já realizadas não mudam. Para
+              mudar uma só, use <strong>mudar a data ou o auditor</strong> na
+              lista abaixo.
+            </p>
+            <label className="block text-xs font-semibold text-slate-600">
+              Nova data limite
+              <input
+                type="date"
+                name="planejada_para"
+                required
+                min={primeiroDia}
+                max={ultimoDia}
+                defaultValue={dataAtualDoMes}
+                className="mt-1 w-full rounded-xl border border-slate-200 p-3 text-base focus:border-primary focus:outline-none"
+              />
+            </label>
+            <BotaoEnviar textoEnviando="Remarcando..." className="w-full rounded-xl bg-primary py-3 text-sm font-semibold text-white active:bg-primary-dark">Remarcar e avisar os auditores</BotaoEnviar>
+            <p className="text-xs text-slate-400">
+              Cada auditor recebe um aviso só, com a data nova, e os
+              lembretes de véspera e do dia passam a valer para ela. Para
+              levar a auditoria para outro mês, cancele e agende no mês novo.
+            </p>
+          </form>
+        </details>
+      )}
+
       {/* ---- A grade do mês ---- */}
       <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
         <h2 className="p-4 pb-2 text-sm font-semibold text-slate-800">
@@ -563,39 +618,66 @@ async function AbaPlanejamento({
                     </div>
                   </div>
 
-                  {/* Trocar só esta. O caso do rodízio inteiro -- "de
+                  {/* Mexer só nesta. O caso do rodízio inteiro -- "de
                       agora em diante quem audita esta área é outro" --
-                      é na aba Áreas; aqui é a substituição de um mês,
-                      por férias ou folga. */}
-                  {a.status !== "finalizada" && auditores.length > 0 && (
+                      é na aba Áreas, e o prazo do mês todo é no bloco
+                      "Mudar a data limite do mês"; aqui é o ajuste de
+                      uma, por férias, folga ou imprevisto na área. */}
+                  {a.status !== "finalizada" && (
                     <details className="mt-1">
                       <summary className="cursor-pointer list-none text-xs text-slate-400 underline">
-                        trocar o auditor desta
+                        mudar a data ou o auditor desta
                       </summary>
                       <form
-                        action={trocarAuditor}
+                        action={remarcarAuditorias}
                         className="mt-2 flex items-center gap-2"
                       >
                         <input type="hidden" name="id" value={a.id} />
-                        <select
-                          name="auditor_id"
+                        <input type="hidden" name="competencia" value={mes} />
+                        <input
+                          type="date"
+                          name="planejada_para"
                           required
-                          defaultValue={a.auditor_id ?? ""}
+                          min={primeiroDia}
+                          max={ultimoDia}
+                          defaultValue={a.planejada_para}
+                          aria-label="Nova data limite"
                           className="min-w-0 flex-1 rounded-lg border border-slate-200 p-2 text-sm focus:border-primary focus:outline-none"
-                        >
-                          {auditores.map((x) => (
-                            <option key={x.id} value={x.id}>
-                              {x.nome}
-                            </option>
-                          ))}
-                        </select>
+                        />
                         <BotaoEnviar
-                          textoEnviando="trocando..."
+                          textoEnviando="mudando..."
                           className="shrink-0 rounded-lg bg-slate-700 px-3 py-2 text-xs font-semibold text-white"
                         >
-                          Trocar
+                          Mudar data
                         </BotaoEnviar>
                       </form>
+                      {auditores.length > 0 && (
+                        <form
+                          action={trocarAuditor}
+                          className="mt-2 flex items-center gap-2"
+                        >
+                          <input type="hidden" name="id" value={a.id} />
+                          <select
+                            name="auditor_id"
+                            required
+                            defaultValue={a.auditor_id ?? ""}
+                            aria-label="Auditor"
+                            className="min-w-0 flex-1 rounded-lg border border-slate-200 p-2 text-sm focus:border-primary focus:outline-none"
+                          >
+                            {auditores.map((x) => (
+                              <option key={x.id} value={x.id}>
+                                {x.nome}
+                              </option>
+                            ))}
+                          </select>
+                          <BotaoEnviar
+                            textoEnviando="trocando..."
+                            className="shrink-0 rounded-lg bg-slate-700 px-3 py-2 text-xs font-semibold text-white"
+                          >
+                            Trocar
+                          </BotaoEnviar>
+                        </form>
+                      )}
                     </details>
                   )}
                 </li>
