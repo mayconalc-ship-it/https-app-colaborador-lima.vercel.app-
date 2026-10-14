@@ -81,14 +81,16 @@ function apenasValidas(concessoes: Concessao[]): Concessao[] {
  * da tela achando que tinha alcançado. Era preciso reaplicar o perfil a
  * cada um, um por um, sabendo de cor quem já o tinha.
  *
- * A propagação ESPELHA: entra o que foi marcado, sai o que foi desmarcado.
- * Enquanto ela só acrescentava, desmarcar era um gesto sem efeito -- o
- * molde dizia uma coisa e as pessoas continuavam com outra.
+ * A propagação leva a DIFERENÇA do molde (14/10/2026): o que foi ligado
+ * entra para todos, o que foi desligado sai de todos. Enquanto ela só
+ * acrescentava, desligar era um gesto sem efeito; e enquanto ela
+ * espelhava, cada salvar levava junto o que a pessoa tinha liberado à mão
+ * na ficha. A regra do dono: mudou o perfil, muda para quem está nele;
+ * mudou na ficha, muda só para aquela pessoa.
  *
  * O que a retirada NUNCA alcança é o que os OUTROS perfis da pessoa
  * concedem: salvar um molde não pode derrubar em silêncio o que outro
- * molde sustenta. Sai só a concessão solta, marcada à mão em Acessos por
- * Pessoa, e a grade lista nominalmente quem perde o quê antes do clique.
+ * molde sustenta.
  */
 export async function salvarPerfil(formData: FormData) {
   await requireModulo("perfis-acesso", "editar");
@@ -131,6 +133,19 @@ export async function salvarPerfil(formData: FormData) {
   // `meuAlcance`, e não `alcance`: este nome já é o resultado da
   // propagação, mais abaixo.
   const { eu, dono, alcance: meuAlcance } = await alcanceDeQuemEdita(revendaId);
+
+  // O MOLDE COMO ESTAVA, lido antes de regravar: é a diferença entre ele
+  // e o novo que alcança as pessoas do perfil (ver propagarPerfil).
+  let concessoesAntes: Concessao[] = [];
+  let modulosAntes: string[] = [];
+  if (id && tipo === "lideranca") {
+    const { data } = await admin.from("perfil_permissoes").select("modulo, acao").eq("perfil_id", id);
+    concessoesAntes = (data ?? []) as Concessao[];
+  } else if (id) {
+    const { data } = await admin.from("perfil_modulos_app").select("modulo").eq("perfil_id", id);
+    modulosAntes = (data ?? []).map((m) => m.modulo as string);
+  }
+
   let concessoes = doFormulario;
   if (!dono && tipo === "lideranca") {
     if (id) {
@@ -145,11 +160,8 @@ export async function salvarPerfil(formData: FormData) {
         }
       }
     }
-    const { data: atuais } = id
-      ? await admin.from("perfil_permissoes").select("modulo, acao").eq("perfil_id", id)
-      : { data: [] as Concessao[] };
     concessoes = mesclarNoAlcance(
-      ((atuais ?? []) as Concessao[]).map(chave),
+      concessoesAntes.map(chave),
       doFormulario.map(chave),
       meuAlcance,
     ).map(daChave);
@@ -205,6 +217,8 @@ export async function salvarPerfil(formData: FormData) {
     perfilId: perfilId as string,
     revendaId,
     tipo,
+    concessoesAntes,
+    modulosAntes,
     concessoes,
     modulosApp,
     quemAplicaId: perfil?.id ?? null,
@@ -214,11 +228,11 @@ export async function salvarPerfil(formData: FormData) {
   const total = tipo === "colaborador" ? modulosApp.length : concessoes.length;
   let recado = `Perfil "${nome}" salvo com ${total} ${unidade}.`;
   if (alcance.pessoas === 0) {
-    recado += " Ninguém está neste perfil ainda — aplique-o a alguém para o molde valer.";
+    recado += " Ninguém está neste perfil ainda — coloque alguém nele para o perfil valer.";
   } else if (alcance.acrescentadas === 0 && alcance.retiradas === 0) {
-    recado += ` As ${alcance.pessoas} pessoa(s) deste perfil já estavam iguais ao molde.`;
+    recado += ` Nenhum acesso mudou para as ${alcance.pessoas} pessoa(s) do perfil.`;
   } else {
-    recado += ` ${alcance.pessoas} pessoa(s) deste perfil agora estão iguais ao molde:`;
+    recado += ` Valeu para as ${alcance.pessoas} pessoa(s) do perfil:`;
     if (alcance.acrescentadas > 0) recado += ` entraram ${alcance.acrescentadas} ${unidade}`;
     if (alcance.acrescentadas > 0 && alcance.retiradas > 0) recado += " e";
     if (alcance.retiradas > 0) {
@@ -365,82 +379,71 @@ export async function tirarDoPerfil(formData: FormData) {
     .eq("colaborador_id", colaboradorId)
     .eq("revenda_id", revendaId);
 
-  if (error) voltar("erro", `Não foi possível tirar do perfil: ${error.message}`);
+  if (error) voltar("erro", `Não foi possível tirar do perfil: ${error.message}`, `&aberto=${perfilId}`);
 
   revalidatePath(ROTA);
   voltar(
     "sucesso",
     "Tirado do perfil. Os acessos da pessoa continuam, agora como individuais — para tirá-los, abra a ficha dela na aba Pessoas.",
-    `&perfil=${perfilId}`,
+    `&aberto=${perfilId}`,
   );
 }
 
 /**
- * Aplica um perfil a uma pessoa, de um de dois jeitos.
+ * Coloca uma pessoa num perfil.
  *
- * SOMAR acrescenta e não tira nada. ESPELHAR deixa a pessoa igual ao
- * perfil: acrescenta o que falta e retira o que sobra.
+ * SEM MODOS (14/10/2026, pedido do dono). Aqui havia "Aplicar a mais
+ * alguém" com dois modos, Somar e Espelhar, logo abaixo da grade do
+ * perfil -- e quem editava o perfil lia aquilo como "agora aplique a
+ * mudança", quando salvar já alcança todo mundo que está nele. Sobrou a
+ * única pergunta que esta tela precisa responder: quem está no perfil.
  *
- * Por muito tempo só existiu o somar, com um motivo bom: uma tela que
- * tira acesso sem ninguém pedir queima a confiança de quem usa. Só que a
- * pergunta do dono (02/09/2026) expôs o outro lado -- ele chamou a
- * operação de "espelhar" antes mesmo de existir o modo, porque é isso que
- * a palavra "perfil" promete. Aplicar "Analista de Rota" e a pessoa
- * continuar com sobras de outro cargo não é aplicar um perfil, é somar
- * duas listas.
- *
- * Os dois modos existem porque nenhum serve sempre: quem acumula funções
- * (o supervisor que também administra o Jornal) precisa do somar, e é
- * justamente essa pessoa que o espelhar prejudicaria em silêncio. Por
- * isso o espelhar não é silencioso -- a tela lista, nome por nome, o que
- * vai sair, e a confirmação é sobre essa lista.
- *
- * O que o espelhar NUNCA toca: as permissões das outras revendas (o
- * `revenda_id` está nos dois lados da conta) e o papel de quem é owner.
+ * Entrar no perfil dá à pessoa o que o perfil dá e não tira nada: o que
+ * ela tem liberado à mão na ficha é exceção dela, e continua. (O antigo
+ * espelhar, que também tirava isso, mora agora só na ficha da pessoa, como
+ * "Deixar igual ao perfil" -- do Admin, e para uma pessoa por vez.)
  *
  * PAPEL (10/09/2026, depois do defeito grave do perfil "Motorista"):
  * perfil de COLABORADOR nunca muda o papel. Perfil de LIDERANÇA só promove
  * um colaborador se a caixa "tornar_lideranca" vier marcada -- sem ela, a
  * operação é recusada antes de gravar qualquer coisa (ver aplicarPerfilA).
  */
-export async function aplicarPerfil(formData: FormData) {
+export async function colocarNoPerfil(formData: FormData) {
   await requireModulo("perfis-acesso", "editar");
   const revendaId = await exigirRevenda(ROTA);
   const quemAplica = await getPerfil();
+  const admin = createAdminClient();
 
   const perfilId = String(formData.get("perfil_id") ?? "");
   const colaboradorId = String(formData.get("colaborador_id") ?? "");
-  // Espelhar é o modo que TIRA, então ele precisa ser pedido por escrito.
-  // Qualquer outra coisa que chegue aqui -- campo ausente, valor
-  // estranho, requisição montada à mão -- cai no somar, que não desfaz
-  // nada.
-  const espelhar = String(formData.get("modo") ?? "") === "espelhar";
-  if (!perfilId || !colaboradorId) voltar("erro", "Escolha o perfil e a pessoa.");
+  if (!perfilId || !colaboradorId) voltar("erro", "Escolha a pessoa.");
+  // Volta com o perfil aberto, mas sem a grade: quem coloca uma pessoa
+  // costuma colocar a próxima.
+  const volta = `&aberto=${perfilId}`;
 
-  // AS TRAVAS DE QUEM NÃO É O ADMIN (11/09/2026) -- as mesmas de aplicar
-  // um perfil pela ficha, em Acessos por Pessoa.
+  // Para todo mundo, o Admin inclusive -- a mesma conferência da ficha:
+  // permissão só existe dentro de vínculo, e o perfil tem de ser desta
+  // revenda.
+  const [{ data: vinculo }, { data: perfilDaRevenda }] = await Promise.all([
+    admin
+      .from("colaborador_revendas")
+      .select("revenda_id")
+      .eq("colaborador_id", colaboradorId)
+      .eq("revenda_id", revendaId)
+      .maybeSingle(),
+    admin.from("perfis_acesso").select("revenda_id").eq("id", perfilId).maybeSingle(),
+  ]);
+  if (!vinculo) voltar("erro", "A pessoa não está vinculada a esta revenda.", volta);
+  if (perfilDaRevenda?.revenda_id !== revendaId) voltar("erro", "Este perfil não é desta revenda.", volta);
+
+  // AS TRAVAS DE QUEM NÃO É O ADMIN (11/09/2026) -- as mesmas de colocar
+  // num perfil pela ficha da pessoa.
   const { eu, dono, alcance } = await alcanceDeQuemEdita(revendaId);
   if (!dono) {
-    const volta = `&perfil=${perfilId}`;
     if (colaboradorId === eu.id) {
-      voltar("erro", "Você não pode aplicar um perfil em si mesmo: só o Admin altera os seus acessos.", volta);
+      voltar("erro", "Você não pode se colocar num perfil: só o Admin altera os seus acessos.", volta);
     }
-    if (espelhar) {
-      voltar("erro", "Espelhar retira acessos, e isso só o Admin faz. Use Somar.", volta);
-    }
-    const admin = createAdminClient();
-    const [{ data: vinculo }, { data: doPerfil }, { data: perfilDaRevenda }] = await Promise.all([
-      admin
-        .from("colaborador_revendas")
-        .select("revenda_id")
-        .eq("colaborador_id", colaboradorId)
-        .eq("revenda_id", revendaId)
-        .maybeSingle(),
-      admin.from("perfil_permissoes").select("modulo, acao").eq("perfil_id", perfilId),
-      admin.from("perfis_acesso").select("revenda_id").eq("id", perfilId).maybeSingle(),
-    ]);
-    if (!vinculo) voltar("erro", "A pessoa não está vinculada a esta revenda.", volta);
-    if (perfilDaRevenda?.revenda_id !== revendaId) voltar("erro", "Este perfil não é desta revenda.", volta);
+    const { data: doPerfil } = await admin.from("perfil_permissoes").select("modulo, acao").eq("perfil_id", perfilId);
     if (await gerenciaAcessos(colaboradorId)) {
       voltar("erro", "Essa pessoa também gerencia acessos: só o Admin altera os acessos dela.", volta);
     }
@@ -449,7 +452,7 @@ export async function aplicarPerfil(formData: FormData) {
     if (fora.length > 0) {
       voltar(
         "erro",
-        `Este perfil dá ${fora.length} permissão(ões) que você mesmo não tem nesta revenda (ex.: ${chave(fora[0])}). Só o Admin aplica.`,
+        `Este perfil dá ${fora.length} permissão(ões) que você mesmo não tem nesta revenda (ex.: ${chave(fora[0])}). Só o Admin coloca alguém nele.`,
         volta,
       );
     }
@@ -462,18 +465,18 @@ export async function aplicarPerfil(formData: FormData) {
     perfilId,
     colaboradorId,
     revendaId,
-    espelhar,
+    espelhar: false,
     quemAplicaId: quemAplica?.id ?? null,
     // Só vale marcada: qualquer outra coisa -- campo ausente, valor
     // estranho -- é "não promover".
     tornarLideranca: formData.get("tornar_lideranca") === "on",
   });
-  if (!r.ok) voltar("erro", r.erro, `&perfil=${perfilId}`);
+  if (!r.ok) voltar("erro", r.erro, volta);
 
   const unidade = r.tipo === "colaborador" ? "módulo(s) do app" : "permissão(ões)";
   const papel =
     r.tipo === "colaborador"
-      ? " O papel não mudou: continua colaborador."
+      ? " O papel não mudou."
       : r.promovido
         ? " Agora entra no Modo Liderança."
         : "";
@@ -482,13 +485,10 @@ export async function aplicarPerfil(formData: FormData) {
   revalidatePath("/admin/acessos");
   voltar(
     "sucesso",
-    (espelhar
-      ? `${r.nome} agora está igual ao perfil: ${r.concessoes} ${unidade}` +
-        (r.retiradas > 0
-          ? `, e ${r.retiradas} que sobrava(m) foram retirada(s).`
-          : " — não havia nada sobrando para retirar.")
-      : `Perfil somado a ${r.nome}: ${r.concessoes} ${unidade}. Nada foi retirado.`) + papel,
-    `&perfil=${perfilId}`,
+    `${r.nome} entrou no perfil e recebe os ${r.concessoes} ${unidade} dele. ` +
+      "Os acessos individuais continuam." +
+      papel,
+    volta,
   );
 }
 

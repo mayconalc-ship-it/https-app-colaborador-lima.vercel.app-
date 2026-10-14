@@ -24,6 +24,10 @@ export type PerfilNaFicha = {
  * Sair do perfil NÃO tira acesso: os acessos ficam e viram "individuais"
  * na lista de baixo, onde se tira um a um. É a mesma regra da tela de
  * Perfis.
+ *
+ * O que se muda na lista de baixo vale só para esta pessoa, inclusive
+ * desligar um acesso que vem do perfil (14/10/2026): salvar o perfil leva
+ * só a diferença do molde e não desfaz a exceção. "Completar" devolve.
  */
 export function PerfisDaFicha({
   pessoaId,
@@ -67,7 +71,9 @@ export function PerfisDaFicha({
     <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h2 className="text-base font-bold text-slate-900">🎫 Perfis</h2>
-        <p className="text-xs text-slate-500">O pacote de acessos do cargo. Mudou o perfil, muda para ela.</p>
+        <p className="text-xs text-slate-500">
+          O pacote de acessos do cargo. Mudou o perfil, muda para ela; mudou aqui na ficha, muda só para ela.
+        </p>
       </div>
 
       {meus.length === 0 ? (

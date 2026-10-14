@@ -3,7 +3,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { AbasDeAcesso } from "@/components/admin/AbasDeAcesso";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
 import { BotaoExcluir } from "@/components/BotaoExcluir";
-import { AplicarPerfil } from "@/components/admin/AplicarPerfil";
+import { ColocarNoPerfil } from "@/components/admin/ColocarNoPerfil";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getRevendaAtiva, getRevendas } from "@/lib/revendas";
 import { BarraDaRevenda } from "@/components/admin/BarraDaRevenda";
@@ -22,7 +22,7 @@ import {
 } from "@/lib/acessos";
 import { agruparPorModulo, type Concessao } from "@/lib/perfis-acesso";
 import {
-  aplicarPerfil,
+  colocarNoPerfil,
   criarPerfilDePessoa,
   excluirPerfil,
   salvarPerfil,
@@ -67,6 +67,9 @@ export default async function PerfisDeAcessoPage({
     erro?: string;
     sucesso?: string;
     perfil?: string;
+    /** O perfil aberto SEM a grade -- é para onde se volta depois de
+     *  colocar ou tirar alguém, para dar sequência na lista. */
+    aberto?: string;
     /** "colaborador" ou "lideranca" -- o tipo do perfil que está nascendo. */
     novo?: string;
   }>;
@@ -101,6 +104,7 @@ export default async function PerfisDeAcessoPage({
     { data: modulosDePerfilBanco },
     { data: extrasBanco },
     { data: ativosBanco },
+    { data: daRevendaBanco },
   ] = await Promise.all([
     admin
       .from("perfis_acesso")
@@ -134,6 +138,8 @@ export default async function PerfisDeAcessoPage({
     // Só se oferece módulo que a revenda tem ligado: liberar um módulo
     // desligado prometeria uma tela que não aparece.
     admin.from("revenda_modulos").select("modulo").eq("revenda_id", revendaId).eq("ativo", true),
+    // Quem é desta revenda: só essas pessoas podem entrar num perfil dela.
+    admin.from("colaborador_revendas").select("colaborador_id").eq("revenda_id", revendaId),
   ]);
 
   const perfis = ((perfisBanco ?? []) as Perfil[]).map((p) => ({
@@ -180,37 +186,13 @@ export default async function PerfisDeAcessoPage({
     doPerfil.set(v.perfil_id, lista);
   }
 
-  // O caminho inverso do vínculo, para responder "o que os OUTROS perfis
-  // desta pessoa sustentam?" -- a mesma conta que a propagação faz antes
-  // de retirar qualquer coisa (ver concessoesDosOutrosPerfis). O aviso da
-  // grade tem que enxergar o mesmo escudo, senão anuncia perdas que não
-  // vão acontecer.
-  const perfisDaPessoa = new Map<string, string[]>();
-  for (const v of (vinculosBanco ?? []) as { perfil_id: string; colaborador_id: string }[]) {
-    const lista = perfisDaPessoa.get(v.colaborador_id) ?? [];
-    lista.push(v.perfil_id);
-    perfisDaPessoa.set(v.colaborador_id, lista);
-  }
-  const protegidoPor = (colaboradorId: string, perfilIgnorado: string) => {
-    const escudo = new Set<string>();
-    for (const outro of perfisDaPessoa.get(colaboradorId) ?? []) {
-      if (outro === perfilIgnorado) continue;
-      for (const c of permsDoPerfil.get(outro) ?? []) escudo.add(`${c.modulo}:${c.acao}`);
-    }
-    return escudo;
-  };
-  // O mesmo escudo para os módulos do app (ver modulosDosOutrosPerfis).
-  const modulosProtegidos = (colaboradorId: string, perfilIgnorado: string) => {
-    const escudo = new Set<string>();
-    for (const outro of perfisDaPessoa.get(colaboradorId) ?? []) {
-      if (outro === perfilIgnorado) continue;
-      for (const m of modulosDoPerfil.get(outro) ?? []) escudo.add(m);
-    }
-    return escudo;
-  };
-
   const papelDe: Record<string, string> = {};
   for (const p of pessoas) papelDe[p.id] = p.role;
+
+  // Quem pode entrar num perfil: vinculado a esta revenda, e não o Admin
+  // (que pode tudo por definição -- não há o que dar a ele).
+  const daRevenda = new Set((daRevendaBanco ?? []).map((v) => v.colaborador_id as string));
+  const elegiveis = pessoas.filter((p) => daRevenda.has(p.id) && !ehOwner(p.role));
 
   const emEdicao = sp.perfil ? perfis.find((p) => p.id === sp.perfil) ?? null : null;
   const tipoNovo: TipoDePerfil | null =
@@ -226,25 +208,17 @@ export default async function PerfisDeAcessoPage({
   const nomeDoModulo = new Map<string, string>(MODULOS.map((m) => [m.id as string, m.rotulo]));
 
   /**
-   * O material que a caixa de aplicar precisa para fazer a conta do que
-   * SAI antes de enviar (ver AplicarPerfil).
+   * O que cada pessoa já tem, para a caixa de colocar no perfil dizer
+   * quanto ENTRA antes de enviar (ver ColocarNoPerfil).
    *
-   * Só entram as pessoas que já têm alguma concessão: quem não tem nada
-   * não perde nada, e mandar o mapa inteiro seria carregar 67 listas
-   * vazias para o navegador.
+   * Só entram as pessoas que já têm alguma concessão: mandar o mapa
+   * inteiro seria carregar 67 listas vazias para o navegador.
    */
   const jaTem: Record<string, string[]> = {};
   for (const p of comPermissao) {
     jaTem[p.id] = (concessoesDaPessoa.get(p.id) ?? []).map(
       (c) => `${c.modulo}:${c.acao}`,
     );
-  }
-
-  const rotulosDeConcessao: Record<string, string> = {};
-  for (const m of MODULOS) {
-    for (const a of m.acoes) {
-      rotulosDeConcessao[`${m.id}:${a}`] = `${m.rotulo} · ${rotuloDaAcaoNoModulo(m, a)}`;
-    }
   }
 
   return (
@@ -290,9 +264,14 @@ export default async function PerfisDeAcessoPage({
             : não é um segundo sistema de permissão.
           </li>
           <li>
-            <strong>Salvar um perfil já atualiza todo mundo que está nele</strong> — não precisa
-            aplicar de novo. Na ficha da pessoa, o que vem do perfil aparece com 🎫 e o nome dele; o
-            que foi liberado à mão aparece como <em>individual</em>.
+            <strong>Mudou o perfil, muda para todo mundo que está nele</strong>: o que você ligar
+            entra, o que desligar sai. Não existe &quot;aplicar de novo&quot; — salvar já basta.
+          </li>
+          <li>
+            <strong>Mudou na ficha da pessoa, muda só para ela</strong> (aba Pessoas): liberar ou
+            tirar ali é exceção dela, e salvar o perfil depois não desfaz. Na ficha, o que vem do
+            perfil aparece com 🎫 e o nome dele; o que foi liberado à mão aparece como{" "}
+            <em>individual</em>.
           </li>
           <li>
             <strong>Dois tipos, que não se misturam.</strong>{" "}
@@ -303,9 +282,9 @@ export default async function PerfisDeAcessoPage({
             vermelho.
           </li>
           <li>
-            Ao aplicar a alguém: <strong>Somar</strong> acrescenta o que falta e não tira nada;{" "}
-            <strong>Espelhar</strong> deixa a pessoa igual ao perfil, tirando o que sobra — e mostra
-            antes, nome por nome, o que sai. Nunca mexe em outra revenda.
+            Colocar alguém num perfil dá a ela o que o perfil dá e não tira nada. Tirar do perfil
+            também não tira acesso: o que ela tinha fica, como individual. Nunca mexe em outra
+            revenda.
           </li>
           <li>
             Excluir um perfil não desfaz nada: quem já recebeu continua com os acessos.
@@ -331,6 +310,7 @@ export default async function PerfisDeAcessoPage({
             const idsDoPerfil = new Set(doPerfil.get(p.id) ?? []);
             const quantos = idsDoPerfil.size;
             const porModulo = agruparPorModulo(perms);
+            const editando = emEdicao?.id === p.id;
 
             const quem = pessoas.filter((pessoa) => idsDoPerfil.has(pessoa.id));
 
@@ -345,7 +325,7 @@ export default async function PerfisDeAcessoPage({
                  ele. */
               <details
                 key={p.id}
-                open={sp.perfil === p.id}
+                open={sp.perfil === p.id || sp.aberto === p.id}
                 className="group overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"
               >
                 <summary className="flex cursor-pointer list-none flex-wrap items-center justify-between gap-2 p-4 marker:content-none [&::-webkit-details-marker]:hidden">
@@ -485,9 +465,7 @@ export default async function PerfisDeAcessoPage({
                       Quem tem este perfil
                     </p>
                     {quem.length === 0 ? (
-                      <p className="mt-1 text-xs text-slate-500">
-                        Ninguém ainda — aplique a alguém abaixo.
-                      </p>
+                      <p className="mt-1 text-xs text-slate-500">Ninguém ainda.</p>
                     ) : (
                       <>
                         <ul className="mt-1 flex flex-wrap gap-1.5">
@@ -538,21 +516,38 @@ export default async function PerfisDeAcessoPage({
                         </p>
                       </>
                     )}
+
+                    {/* ENTRAR NO PERFIL, aqui na lista de quem está nele
+                        (14/10/2026). Era a caixa "Aplicar a mais alguém",
+                        com Somar e Espelhar, embaixo da grade -- e quem
+                        editava o perfil lia aquilo como "aplique a mudança".
+                        Some enquanto a grade está aberta: editando, a
+                        pergunta é o que o perfil dá, não quem entra. */}
+                    {podeEditar && !editando && (
+                      <ColocarNoPerfil
+                        action={colocarNoPerfil}
+                        perfilId={p.id}
+                        perfilNome={p.nome}
+                        pessoas={elegiveis.filter((pessoa) => !idsDoPerfil.has(pessoa.id))}
+                        tipo={p.tipo}
+                        papelDe={papelDe}
+                        doPerfil={ehColaborador ? modulosApp : perms.map((c) => `${c.modulo}:${c.acao}`)}
+                        jaTem={ehColaborador ? modulosDaPessoa : jaTem}
+                      />
+                    )}
                   </div>
 
                   {podeEditar && (
                     <div className="mt-3 flex flex-wrap items-center gap-3">
                       <Link
                         href={
-                          emEdicao?.id === p.id
+                          editando
                             ? "/admin/perfis-de-acesso"
                             : `/admin/perfis-de-acesso?perfil=${p.id}`
                         }
                         className="text-xs font-semibold text-primary hover:underline"
                       >
-                        {emEdicao?.id === p.id
-                          ? "↑ Fechar as permissões"
-                          : "Editar permissões →"}
+                        {editando ? "↑ Fechar as permissões" : "Editar permissões →"}
                       </Link>
                       <BotaoExcluir
                         action={excluirPerfil}
@@ -572,7 +567,7 @@ export default async function PerfisDeAcessoPage({
                       pelo dono em 03/09/2026). Duas coisas ligadas em
                       lugares distantes, e nada dizendo que uma era da
                       outra. */}
-                  {podeEditar && emEdicao?.id === p.id && (
+                  {podeEditar && editando && (
                     <div className="mt-3 border-t border-slate-100 pt-3">
                       <GradeDePermissoes
                         perfil={p}
@@ -581,54 +576,11 @@ export default async function PerfisDeAcessoPage({
                         marcadas={marcadas}
                         modulosMarcados={modulosMarcados}
                         modulosApp={modulosAppDaRevenda}
-                        noPerfil={(doPerfil.get(p.id) ?? []).map((id) => {
-                          const nome = pessoas.find((x) => x.id === id)?.nome ?? "sem nome";
-                          // O que essa pessoa perderia num salvar de
-                          // AGORA, sem mexer em nada: o que ela tem, o
-                          // molde salvo não tem e nenhum outro perfil
-                          // dela sustenta.
-                          if (ehColaborador) {
-                            const escudo = modulosProtegidos(id, p.id);
-                            return {
-                              nome,
-                              perderia: (modulosDaPessoa[id] ?? [])
-                                .filter((m) => !modulosMarcados.has(m) && !escudo.has(m))
-                                .map((m) => rotulosDeModuloApp[m] ?? m),
-                            };
-                          }
-                          const escudo = protegidoPor(id, p.id);
-                          return {
-                            nome,
-                            perderia: (jaTem[id] ?? [])
-                              .filter((c) => !marcadas.has(c) && !escudo.has(c))
-                              .map((c) => rotulosDeConcessao[c] ?? c),
-                          };
-                        })}
+                        noPerfil={quem.map((pessoa) => pessoa.nome)}
                       />
                     </div>
                   )}
                 </div>
-
-                {podeEditar && (
-                  <div className="border-t border-slate-100 bg-slate-50/60">
-                    <AplicarPerfil
-                      action={aplicarPerfil}
-                      perfilId={p.id}
-                      perfilNome={p.nome}
-                      pessoas={pessoas}
-                      jaNoPerfil={[...idsDoPerfil]}
-                      tipo={p.tipo}
-                      papelDe={papelDe}
-                      doPerfil={
-                        ehColaborador ? modulosApp : perms.map((c) => `${c.modulo}:${c.acao}`)
-                      }
-                      jaTem={ehColaborador ? modulosDaPessoa : jaTem}
-                      rotulos={ehColaborador ? rotulosDeModuloApp : rotulosDeConcessao}
-                      // Espelhar retira acessos: só o Admin (11/09/2026).
-                      podeEspelhar={dono}
-                    />
-                  </div>
-                )}
               </details>
             );
           })}
@@ -744,11 +696,10 @@ function GradeDePermissoes({
   modulosMarcados: Set<string>;
   /** Os módulos do app que esta revenda tem ligados. */
   modulosApp: string[];
-  /** Quem está neste perfil e o que cada um perderia num salvar de agora. */
-  noPerfil?: { nome: string; perderia: string[] }[];
+  /** O nome de quem está neste perfil -- é quem o salvar alcança. */
+  noPerfil?: string[];
 }) {
   const emEdicao = perfil ?? null;
-  const perdendo = noPerfil.filter((p) => p.perderia.length > 0);
   const ehColaborador = tipo === "colaborador";
 
   return (
@@ -898,60 +849,39 @@ function GradeDePermissoes({
 
           {/* O ALCANCE DO SALVAR, ANTES DE SALVAR. Quem mexe no molde
               precisa saber que o clique alcança gente -- e quem. Dizer isso
-              só na mensagem de sucesso é avisar depois do fato, e desde
-              que salvar também RETIRA, o depois do fato é tarde.
+              só na mensagem de sucesso é avisar depois do fato.
 
-              COM NOME, e não só a contagem (05/10/2026, dúvida do dono):
-              logo abaixo do Salvar vem a caixa "Aplicar a", e com só um
-              número aqui não dava para saber se quem já tinha o perfil
-              precisava ser aplicado de novo. Não precisa -- e a tela agora
-              diz isso, com os nomes de quem o salvar alcança. */}
+              COM NOME, e não só a contagem (05/10/2026, dúvida do dono).
+              E SEM "QUEM PERDE O QUÊ" (14/10/2026): desde que salvar leva só
+              a diferença do molde, o que cada um tem liberado na própria
+              ficha não sai -- não há perda escondida para listar. */}
           {emEdicao && noPerfil.length === 0 && (
             <p className="rounded-xl bg-slate-50 px-3 py-2 text-xs leading-snug text-slate-600">
-              Ninguém está neste perfil ainda. Salvar muda só o molde — para alguém receber, use{" "}
-              <strong>Aplicar a</strong>, logo abaixo.
+              Ninguém está neste perfil ainda. Salvar muda só o perfil — depois, coloque as pessoas
+              nele em <strong>Quem tem este perfil</strong>.
             </p>
           )}
           {emEdicao && noPerfil.length > 0 && (
             <div className="space-y-1.5 rounded-xl bg-amber-50 px-3 py-2 text-xs leading-snug text-amber-900">
               <p>
-                ⚡ Salvar já atualiza{" "}
+                ⚡ Salvar já vale para{" "}
                 <strong>
                   {noPerfil.length === 1 ? "a pessoa" : `as ${noPerfil.length} pessoas`}
                 </strong>{" "}
-                deste perfil — <strong>não precisa aplicar de novo</strong>:
+                deste perfil:
               </p>
               <ul className="flex flex-wrap gap-1.5">
-                {noPerfil.map((p, i) => (
+                {noPerfil.map((nome, i) => (
                   <li key={i} className="rounded-lg bg-white/80 px-2 py-0.5 font-semibold">
-                    {p.nome}
+                    {nome}
                   </li>
                 ))}
               </ul>
               <p>
-                Ficam <strong>iguais ao molde</strong>: o que você marcar entra, e o que estiver
-                desmarcado sai. Salvar nunca muda o papel de ninguém.
+                O que você ligar <strong>entra para todas</strong>; o que desligar{" "}
+                <strong>sai de todas</strong>. O que cada uma tem liberado à parte, na própria
+                ficha, não muda. Salvar nunca muda o papel de ninguém.
               </p>
-              {perdendo.length > 0 && (
-                <details className="rounded-lg bg-white/70 px-2 py-1.5">
-                  <summary className="cursor-pointer font-semibold">
-                    ⚠️ {perdendo.length} pessoa{perdendo.length > 1 ? "s" : ""} tem acesso fora
-                    deste molde — ver o que sairia
-                  </summary>
-                  <ul className="mt-1 space-y-1 pl-1">
-                    {perdendo.map((p) => (
-                      <li key={p.nome}>
-                        <strong>{p.nome}</strong> perde: {p.perderia.slice(0, 6).join("; ")}
-                        {p.perderia.length > 6 && ` e mais ${p.perderia.length - 6}`}
-                      </li>
-                    ))}
-                  </ul>
-                  <p className="mt-1.5">
-                    Quem acumula função deve estar em <strong>dois perfis</strong> — o que sobra
-                    num está no outro, e nada some.
-                  </p>
-                </details>
-              )}
             </div>
           )}
 

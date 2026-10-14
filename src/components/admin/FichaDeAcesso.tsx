@@ -47,7 +47,7 @@ export type ParteDaFicha = {
   grupos: GrupoDeAcesso[];
 };
 
-type Estado = "do-perfil" | "alcance" | "junto" | "livre";
+type Estado = "alcance" | "junto" | "livre";
 
 /**
  * A FICHA DE ACESSO DE UMA PESSOA (05/10/2026).
@@ -59,9 +59,8 @@ type Estado = "do-perfil" | "alcance" | "junto" | "livre";
  *
  *   - UMA LINHA POR MÓDULO, fechada, com o resumo do que está liberado
  *     ("2 de 4", "Tudo", "Sem acesso") -- dá para varrer sem abrir nada;
- *   - A ORIGEM DE CADA ACESSO ao lado dele: "do perfil X" (travado -- quem
- *     manda é o perfil), "individual" (a exceção) ou "falta" (o perfil dá e
- *     ela não tem);
+ *   - A ORIGEM DE CADA ACESSO ao lado dele: "do perfil X", "individual" (a
+ *     exceção) ou "falta" (o perfil dá e ela não tem);
  *   - INTERRUPTOR em vez de caixinha, e busca por nome;
  *   - NADA GRAVA ATÉ O BOTÃO, que fica preso no rodapé com a cor e o nome
  *     da revenda e conta as alterações -- e a confirmação lista o que entra
@@ -69,6 +68,12 @@ type Estado = "do-perfil" | "alcance" | "junto" | "livre";
  *
  * Coerência mantida: quem cria, edita ou exclui num módulo também abre a
  * tela dele -- o "ver" liga sozinho e trava, e o servidor faz o mesmo.
+ *
+ * O QUE VEM DO PERFIL NÃO TRAVA MAIS (14/10/2026, pedido do dono: "se for
+ * alterado dentro do cadastro do usuário, fica apenas para o colaborador
+ * editado"). Travava porque salvar o perfil espelhava e devolveria o que
+ * se tirasse à mão; desde que o salvar leva só a diferença do molde (ver
+ * propagarPerfil), tirar aqui é uma exceção desta pessoa e sobrevive.
  */
 export function FichaDeAcesso({
   action,
@@ -116,7 +121,6 @@ export function FichaDeAcesso({
   }, [todos, marcados]);
 
   const estadoDe = (i: ItemDeAcesso): Estado => {
-    if (i.tem && i.doPerfil.length > 0) return "do-perfil";
     if (i.foraDoAlcance) return "alcance";
     if (i.campo === "permissao" && i.acao === "ver" && outrasLigadas.has(i.modulo)) return "junto";
     return "livre";
@@ -337,9 +341,8 @@ export function FichaDeAcesso({
 }
 
 function ligadoBase(i: ItemDeAcesso, marcados: Set<string>) {
-  // O que vem do perfil, ou está fora do alcance de quem edita, fica como
-  // está -- não importa o que se clique.
-  if (i.tem && i.doPerfil.length > 0) return true;
+  // O que está fora do alcance de quem edita fica como está -- não importa
+  // o que se clique.
   if (i.foraDoAlcance) return i.tem;
   return marcados.has(i.chave);
 }
@@ -491,10 +494,10 @@ function Linha({
           <span className="mt-0.5 block text-xs leading-snug text-slate-500">{nota ?? item.nota}</span>
         )}
         <span className="mt-1 flex flex-wrap gap-1">
-          {estado === "do-perfil" && (
+          {item.tem && ativo && item.doPerfil.length > 0 && (
             <Selo
               cor="bg-slate-100 text-slate-600"
-              titulo="Vem do perfil. Para tirar, tire a pessoa do perfil (no topo da ficha) ou mude o perfil."
+              titulo="Vem do perfil. Desligar aqui tira só desta pessoa — o perfil e quem mais está nele não mudam."
             >
               🎫 {item.doPerfil.join(" + ")}
             </Selo>
@@ -509,13 +512,16 @@ function Linha({
               🔒 fora do seu alcance
             </Selo>
           )}
-          {estado === "livre" && item.tem && ativo && (
+          {estado === "livre" && item.tem && ativo && item.doPerfil.length === 0 && (
             <Selo cor="bg-amber-50 text-amber-800" titulo="Liberado à mão, fora de qualquer perfil.">
               individual
             </Selo>
           )}
           {!ativo && item.doPerfil.length > 0 && (
-            <Selo cor="bg-rose-50 text-rose-700" titulo="O perfil dá este acesso, e a pessoa não tem.">
+            <Selo
+              cor="bg-rose-50 text-rose-700"
+              titulo="O perfil dá este acesso, e a pessoa não tem — é exceção só dela. Ligar aqui (ou “completar”, nos Perfis acima) devolve."
+            >
               falta · está no perfil {item.doPerfil.join(" + ")}
             </Selo>
           )}

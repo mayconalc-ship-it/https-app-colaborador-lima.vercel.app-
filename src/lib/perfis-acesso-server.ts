@@ -138,26 +138,39 @@ export type AlcanceDoPerfil = {
  *
  * Pedido do dono (07/09/2026): salvar libera o que entrou e retira o que
  * saiu, para as pessoas que já estão no perfil. Os outros perfis da pessoa
- * são intocáveis (o escudo), e sai só a concessão solta.
+ * são intocáveis (o escudo).
+ *
+ * SÓ A DIFERENÇA DO MOLDE (14/10/2026, pedido do dono). Até aqui a
+ * propagação ESPELHAVA: cada salvar deixava todo mundo igual ao molde e
+ * levava junto o que a pessoa tinha liberado à mão na própria ficha -- e
+ * a grade avisava "fulano perde X" num salvar que só ligava a Baixa WQI.
+ * A regra agora é a do dono: mudou o perfil, muda para quem está nele;
+ * mudou na ficha da pessoa, muda só para ela. Então entra para todos o
+ * que entrou no molde e sai de todos o que saiu dele -- e nada mais. O que
+ * a pessoa tem fora do perfil, ou o que tiraram só dela, sobrevive ao
+ * salvar.
  *
  * SALVAR NUNCA PROMOVE (10/09/2026). A versão anterior promovia a
  * liderança todo mundo da lista que ainda não fosse -- e isso transformava
  * editar um molde num jeito de dar Modo Liderança a alguém sem ninguém
  * ver. Quem está num perfil de liderança e é colaborador recebe as
  * permissões gravadas, mas elas ficam inertes até alguém promover a pessoa
- * DE PROPÓSITO, aplicando o perfil com a confirmação.
+ * DE PROPÓSITO, colocando-a no perfil com a confirmação.
  */
 export async function propagarPerfil(dados: {
   perfilId: string;
   revendaId: string;
   tipo: TipoDePerfil;
+  /** O molde como estava ANTES do salvar -- a conta é contra ele. */
+  concessoesAntes: Concessao[];
+  modulosAntes: string[];
   concessoes: Concessao[];
   modulosApp: string[];
   quemAplicaId: string | null;
 }): Promise<AlcanceDoPerfil> {
   return dados.tipo === "colaborador"
-    ? propagarModulos(dados.perfilId, dados.revendaId, dados.modulosApp, dados.quemAplicaId)
-    : propagarConcessoes(dados.perfilId, dados.revendaId, dados.concessoes, dados.quemAplicaId);
+    ? propagarModulos(dados.perfilId, dados.revendaId, dados.modulosAntes, dados.modulosApp, dados.quemAplicaId)
+    : propagarConcessoes(dados.perfilId, dados.revendaId, dados.concessoesAntes, dados.concessoes, dados.quemAplicaId);
 }
 
 async function idsDoPerfil(perfilId: string, revendaId: string): Promise<string[]> {
@@ -180,13 +193,22 @@ async function nomesDe(ids: string[]): Promise<Map<string, string>> {
 async function propagarConcessoes(
   perfilId: string,
   revendaId: string,
+  antes: Concessao[],
   concessoes: Concessao[],
   quemAplicaId: string | null,
 ): Promise<AlcanceDoPerfil> {
   const admin = createAdminClient();
   const vazio: AlcanceDoPerfil = { pessoas: 0, acrescentadas: 0, retiradas: 0, perderam: [] };
   const ids = await idsDoPerfil(perfilId, revendaId);
-  if (ids.length === 0 || concessoes.length === 0) return vazio;
+  if (ids.length === 0) return vazio;
+
+  // A DIFERENÇA DO MOLDE, e só ela (14/10/2026).
+  const chaveDe = (c: Concessao) => chaveDaConcessao(c.modulo, c.acao);
+  const eraDoPerfil = new Set(antes.map(chaveDe));
+  const doPerfil = new Set(concessoes.map(chaveDe));
+  const entraram = concessoes.filter((c) => !eraDoPerfil.has(chaveDe(c)));
+  const sairam = [...eraDoPerfil].filter((ch) => !doPerfil.has(ch));
+  if (entraram.length === 0 && sairam.length === 0) return { ...vazio, pessoas: ids.length };
 
   // Uma consulta para todo mundo, não uma por pessoa.
   const { data: jaTem } = await admin
@@ -195,7 +217,6 @@ async function propagarConcessoes(
     .in("colaborador_id", ids)
     .eq("revenda_id", revendaId);
 
-  const doPerfil = new Set(concessoes.map((c) => chaveDaConcessao(c.modulo, c.acao)));
   const porPessoa = new Map<string, Set<string>>(ids.map((id) => [id, new Set<string>()]));
   for (const p of jaTem ?? []) {
     porPessoa.get(p.colaborador_id as string)?.add(chaveDaConcessao(p.modulo, p.acao));
@@ -204,7 +225,7 @@ async function propagarConcessoes(
   let acrescentadas = 0;
   const linhas = ids.flatMap((id) => {
     const tem = porPessoa.get(id) ?? new Set<string>();
-    const faltando = concessoes.filter((c) => !tem.has(chaveDaConcessao(c.modulo, c.acao)));
+    const faltando = entraram.filter((c) => !tem.has(chaveDe(c)));
     acrescentadas += faltando.length;
     return faltando.map((c) => ({
       colaborador_id: id,
@@ -215,11 +236,12 @@ async function propagarConcessoes(
     }));
   });
 
-  const protegido = await concessoesDosOutrosPerfis(ids, revendaId, perfilId);
+  const protegido = sairam.length > 0 ? await concessoesDosOutrosPerfis(ids, revendaId, perfilId) : new Map();
   const sobrando = new Map<string, string[]>();
   for (const id of ids) {
-    const escudo = protegido.get(id) ?? new Set<string>();
-    const fora = [...(porPessoa.get(id) ?? [])].filter((ch) => !doPerfil.has(ch) && !escudo.has(ch));
+    const escudo: Set<string> = protegido.get(id) ?? new Set<string>();
+    const tem = porPessoa.get(id) ?? new Set<string>();
+    const fora = sairam.filter((ch) => tem.has(ch) && !escudo.has(ch));
     if (fora.length > 0) sobrando.set(id, fora);
   }
   const retiradas = [...sobrando.values()].reduce((s, l) => s + l.length, 0);
@@ -262,14 +284,21 @@ async function propagarConcessoes(
 async function propagarModulos(
   perfilId: string,
   revendaId: string,
+  antes: string[],
   modulosApp: string[],
   quemAplicaId: string | null,
 ): Promise<AlcanceDoPerfil> {
   const admin = createAdminClient();
   const vazio: AlcanceDoPerfil = { pessoas: 0, acrescentadas: 0, retiradas: 0, perderam: [] };
-  const modulos = modulosApp.filter(ehModuloDoApp);
   const ids = await idsDoPerfil(perfilId, revendaId);
-  if (ids.length === 0 || modulos.length === 0) return vazio;
+  if (ids.length === 0) return vazio;
+
+  // A DIFERENÇA DO MOLDE, e só ela (14/10/2026) -- ver propagarPerfil.
+  const eraDoPerfil = new Set(antes.filter(ehModuloDoApp));
+  const doPerfil = new Set(modulosApp.filter(ehModuloDoApp));
+  const entraram = [...doPerfil].filter((m) => !eraDoPerfil.has(m));
+  const sairam = [...eraDoPerfil].filter((m) => !doPerfil.has(m));
+  if (entraram.length === 0 && sairam.length === 0) return { ...vazio, pessoas: ids.length };
 
   const { data: jaTem } = await admin
     .from("colaborador_modulos_extra")
@@ -280,10 +309,9 @@ async function propagarModulos(
   const porPessoa = new Map<string, Set<string>>(ids.map((id) => [id, new Set<string>()]));
   for (const m of jaTem ?? []) porPessoa.get(m.colaborador_id as string)?.add(m.modulo as string);
 
-  const doPerfil = new Set(modulos);
   let acrescentadas = 0;
   const linhas = ids.flatMap((id) => {
-    const faltando = modulos.filter((m) => !(porPessoa.get(id) ?? new Set()).has(m));
+    const faltando = entraram.filter((m) => !(porPessoa.get(id) ?? new Set()).has(m));
     acrescentadas += faltando.length;
     return faltando.map((modulo) => ({
       colaborador_id: id,
@@ -293,11 +321,12 @@ async function propagarModulos(
     }));
   });
 
-  const escudos = await modulosDosOutrosPerfis(ids, revendaId, perfilId);
+  const escudos = sairam.length > 0 ? await modulosDosOutrosPerfis(ids, revendaId, perfilId) : new Map();
   const sobrando = new Map<string, string[]>();
   for (const id of ids) {
-    const escudo = escudos.get(id) ?? new Set<string>();
-    const fora = [...(porPessoa.get(id) ?? [])].filter((m) => !doPerfil.has(m) && !escudo.has(m));
+    const escudo: Set<string> = escudos.get(id) ?? new Set<string>();
+    const tem = porPessoa.get(id) ?? new Set<string>();
+    const fora = sairam.filter((m) => tem.has(m) && !escudo.has(m));
     if (fora.length > 0) sobrando.set(id, fora);
   }
   const retiradas = [...sobrando.values()].reduce((s, l) => s + l.length, 0);
@@ -345,12 +374,15 @@ export type ResultadoAplicar =
 /**
  * APLICAR UM PERFIL A UMA PESSOA -- a operação, num lugar só.
  *
- * Usada pela tela de Perfis e pela ficha em Acessos por Pessoa ("voltar ao
- * molde"): a parte que REMOVE acesso não pode existir em duas cópias.
+ * Usada pela tela de Perfis ("Colocar alguém neste perfil") e pela ficha da
+ * pessoa: a parte que REMOVE acesso não pode existir em duas cópias.
  *
- * SOMAR acrescenta e não tira nada. ESPELHAR deixa a pessoa igual ao
- * perfil. O espelhar nunca toca outras revendas, nem o que os outros
- * perfis da pessoa sustentam.
+ * Sem `espelhar`, acrescenta o que o perfil dá e não tira nada -- é o que
+ * entrar num perfil faz, nas duas telas, desde que os modos Somar/Espelhar
+ * saíram da tela de Perfis (14/10/2026). O `espelhar` sobrou só para o
+ * "Deixar igual ao perfil" da ficha, que é do Admin e mexe numa pessoa só;
+ * ele nunca toca outras revendas, nem o que os outros perfis da pessoa
+ * sustentam.
  *
  * O PAPEL SÓ MUDA COM CONFIRMAÇÃO (10/09/2026). Perfil de colaborador
  * nunca mexe no papel. Perfil de liderança aplicado a um colaborador é
