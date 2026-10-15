@@ -161,6 +161,112 @@ export async function salvarResposta(formData: FormData): Promise<Resultado> {
 }
 
 /**
+ * A foto do item, sozinha (15/10/2026).
+ *
+ * Antes a foto só subia junto com um "Salvar" no detalhe do item -- e,
+ * salva, sumia da tela: o formulário se limpava e o cartão não sabia o
+ * endereço novo, então o auditor achava que ela não tinha ido e tirava de
+ * novo. Agora a foto sobe no instante em que é tirada, e a resposta
+ * devolve a URL para o cartão mostrar com o "Excluir".
+ *
+ * Só mexe na foto. A resposta e a descrição seguem pelo `salvarResposta`:
+ * uma foto lenta no 4G do armazém não pode gravar por cima do texto que o
+ * auditor escreveu enquanto ela subia.
+ */
+export async function salvarFotoResposta(
+  formData: FormData,
+): Promise<{ ok: true; url: string } | { ok: false; erro: string }> {
+  const auditoriaId = String(formData.get("auditoria_id") ?? "");
+  const perguntaId = String(formData.get("pergunta_id") ?? "");
+  const valor = formData.get("valor");
+  const foto = formData.get("foto");
+
+  if (!auditoriaId || !perguntaId) return { ok: false, erro: "Dados incompletos." };
+  if (!ehResposta(valor)) return { ok: false, erro: "Responda o item antes da foto." };
+  if (!(foto instanceof File) || foto.size === 0) {
+    return { ok: false, erro: "A foto não chegou. Tente de novo." };
+  }
+
+  const { ctx, auditoria, admin } = await auditoriaPermitida(auditoriaId);
+  if (!auditoria) return { ok: false, erro: "Auditoria não encontrada." };
+  if (!podeResponder(ctx, auditoria)) {
+    return { ok: false, erro: "Esta auditoria não está aberta para você." };
+  }
+
+  const { data: atual } = await admin
+    .from("cinco_s_respostas")
+    .select("foto_url")
+    .eq("auditoria_id", auditoriaId)
+    .eq("pergunta_id", perguntaId)
+    .maybeSingle();
+
+  const enviada = await subirEvidencia(foto, `${auditoriaId}/${perguntaId}`);
+  if (!enviada.ok) return enviada;
+
+  // A resposta quase sempre já existe -- a foto só aparece depois do
+  // toque no OK/NOK. O caso sem linha é o toque que ainda não chegou;
+  // aí a foto cria a resposta com o valor que a tela mostra.
+  const { error } = atual
+    ? await admin
+        .from("cinco_s_respostas")
+        .update({ foto_url: enviada.url })
+        .eq("auditoria_id", auditoriaId)
+        .eq("pergunta_id", perguntaId)
+    : await admin.from("cinco_s_respostas").upsert(
+        {
+          auditoria_id: auditoriaId,
+          pergunta_id: perguntaId,
+          valor,
+          foto_url: enviada.url,
+          respondida_em: new Date().toISOString(),
+        },
+        { onConflict: "auditoria_id,pergunta_id" },
+      );
+
+  if (error) {
+    await apagarEvidenciaSolta(enviada.url);
+    return { ok: false, erro: `Não foi possível salvar a foto: ${error.message}` };
+  }
+
+  if (atual?.foto_url) await apagarEvidenciaSolta(atual.foto_url);
+
+  return { ok: true, url: enviada.url };
+}
+
+/** Tira a foto do item -- o "Excluir" do cartão. */
+export async function removerFotoResposta(formData: FormData): Promise<Resultado> {
+  const auditoriaId = String(formData.get("auditoria_id") ?? "");
+  const perguntaId = String(formData.get("pergunta_id") ?? "");
+  if (!auditoriaId || !perguntaId) return falha("Dados incompletos.");
+
+  const { ctx, auditoria, admin } = await auditoriaPermitida(auditoriaId);
+  if (!auditoria) return falha("Auditoria não encontrada.");
+  if (!podeResponder(ctx, auditoria)) {
+    return falha("Esta auditoria não está aberta para você.");
+  }
+
+  const { data: atual } = await admin
+    .from("cinco_s_respostas")
+    .select("foto_url")
+    .eq("auditoria_id", auditoriaId)
+    .eq("pergunta_id", perguntaId)
+    .maybeSingle();
+
+  if (!atual?.foto_url) return { ok: true };
+
+  const { error } = await admin
+    .from("cinco_s_respostas")
+    .update({ foto_url: null })
+    .eq("auditoria_id", auditoriaId)
+    .eq("pergunta_id", perguntaId);
+
+  if (error) return falha(`Não foi possível excluir a foto: ${error.message}`);
+
+  await apagarEvidenciaSolta(atual.foto_url);
+  return { ok: true };
+}
+
+/**
  * Fecha a auditoria: consolida, abre as não conformidades e avisa quem
  * precisa agir.
  *
@@ -594,6 +700,37 @@ async function subirEvidencia(
 
   const { data } = admin.storage.from("conteudo").getPublicUrl(caminho);
   return { ok: true, url: data.publicUrl };
+}
+
+/**
+ * Apaga do bucket a foto que o item deixou de usar.
+ *
+ * Só se nenhuma ação do plano apontar para ela: a auditoria reaberta já
+ * tem NCs com essa mesma URL como evidência, e apagar o arquivo deixaria
+ * a ação com a foto quebrada. Falhar aqui não desfaz nada -- sobra um
+ * arquivo órfão, que não vale um erro na tela do auditor.
+ */
+async function apagarEvidenciaSolta(url: string) {
+  const marca = "/object/public/conteudo/";
+  if (!url.includes(marca)) return;
+  const caminho = decodeURIComponent(
+    url.slice(url.indexOf(marca) + marca.length).split("?")[0],
+  );
+  if (!caminho.startsWith("5s/")) return;
+
+  const admin = createAdminClient();
+  const usos = await Promise.all(
+    (["evidencia_url", "evidencia_conclusao_url"] as const).map((coluna) =>
+      admin
+        .from("cinco_s_nao_conformidades")
+        .select("id", { count: "exact", head: true })
+        .eq(coluna, url),
+    ),
+  );
+  // Na dúvida (consulta falhou), o arquivo fica.
+  if (usos.some((u) => u.error || (u.count ?? 0) > 0)) return;
+
+  await admin.storage.from("conteudo").remove([caminho]);
 }
 
 /* ================================================================== */

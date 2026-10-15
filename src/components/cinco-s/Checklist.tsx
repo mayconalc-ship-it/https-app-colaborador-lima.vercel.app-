@@ -1,11 +1,18 @@
 "use client";
 
-import { useMemo, useRef, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { Camera, Check, LoaderCircle, RotateCcw, Trash2, X } from "lucide-react";
 import { useToast } from "@/components/Toast";
-import { BotaoEnviar } from "@/components/BotaoEnviar";
+import { useConfirmacao } from "@/components/Confirmacao";
+import { CameraNoApp } from "@/components/CameraNoApp";
 import { FotoEvidencia } from "@/components/FotoEvidencia";
-import { finalizarAuditoria, salvarResposta } from "@/app/5s/actions";
+import {
+  finalizarAuditoria,
+  removerFotoResposta,
+  salvarFotoResposta,
+  salvarResposta,
+} from "@/app/5s/actions";
 import {
   BOTAO_RESPOSTA,
   EMOJI_SENSO,
@@ -21,7 +28,6 @@ import {
   type RespostaSalva,
   type Senso,
 } from "@/lib/cinco-s";
-import { CampoFoto } from "@/components/CampoFoto";
 
 /**
  * O checklist 5S, feito para ser respondido andando pela área com o
@@ -47,7 +53,19 @@ import { CampoFoto } from "@/components/CampoFoto";
  *    -- e não a pergunta do checklist -- que chega ao dono da área como
  *    a ação a executar. O campo grava sozinho ao sair dele: exigir um
  *    "Salvar" extra é como o texto se perdia antes.
+ *
+ * 5) A FOTO SOBE SOZINHA (15/10/2026). Tirou, ela já vai para o
+ *    servidor; no item fica a foto com "Excluir", e só. Antes havia um
+ *    "Salvar" no item, e a foto salva sumia da tela -- o auditor achava
+ *    que não tinha ido e tirava outra.
  */
+
+/** A foto tirada que ainda não está no servidor. */
+type FotoLocal = {
+  url: string;
+  arquivo: File;
+  estado: "enviando" | "falhou";
+};
 
 type Props = {
   auditoriaId: string;
@@ -67,6 +85,7 @@ export function Checklist({
 }: Props) {
   const router = useRouter();
   const toast = useToast();
+  const confirmar = useConfirmacao();
   const [salvando, iniciarSalvamento] = useTransition();
 
   const [respostas, setRespostas] = useState(() => {
@@ -182,34 +201,150 @@ export function Checklist({
     });
   }
 
-  function salvarDetalhe(pergunta: Pergunta, formData: FormData) {
+  /**
+   * As fotos tiradas que ainda não estão no servidor, por pergunta.
+   *
+   * Moram aqui, e não no item, para continuarem subindo quando o auditor
+   * passa para o próximo senso -- e para a revisão final saber que ainda
+   * há foto a caminho. O ref é a lista "de agora" (quem roda fora do
+   * desenho, como o reenvio quando o sinal volta); o estado só desenha.
+   */
+  const [fotosLocais, setFotosLocais] = useState(() => new Map<string, FotoLocal>());
+  const fotosAgora = useRef(fotosLocais);
+
+  function mudarFotoLocal(perguntaId: string, foto: FotoLocal | null) {
+    const novo = new Map(fotosAgora.current);
+    const velha = novo.get(perguntaId);
+    // A prévia que sai da tela devolve a memória (celular com pouca RAM).
+    if (velha && velha.url !== foto?.url) URL.revokeObjectURL(velha.url);
+    if (foto) novo.set(perguntaId, foto);
+    else novo.delete(perguntaId);
+    fotosAgora.current = novo;
+    setFotosLocais(novo);
+  }
+
+  useEffect(
+    () => () => fotosAgora.current.forEach((f) => URL.revokeObjectURL(f.url)),
+    [],
+  );
+
+  /** Tirou a foto: ela sobe na hora, sem botão de salvar. */
+  async function enviarFoto(pergunta: Pergunta, arquivo: File) {
     if (somenteLeitura) return;
     const atual = respostas.get(pergunta.id);
     if (!atual) {
-      toast.erro("Responda o item antes de detalhar.");
+      toast.erro("Responda o item antes da foto.");
       return;
     }
 
-    formData.set("auditoria_id", auditoriaId);
-    formData.set("pergunta_id", pergunta.id);
-    formData.set("valor", atual.valor);
+    const anterior = fotosAgora.current.get(pergunta.id);
+    const local: FotoLocal = {
+      // No reenvio a prévia é a mesma; só a foto nova ganha endereço novo.
+      url: anterior?.arquivo === arquivo ? anterior.url : URL.createObjectURL(arquivo),
+      arquivo,
+      estado: "enviando",
+    };
+    mudarFotoLocal(pergunta.id, local);
 
-    const observacao = String(formData.get("observacao") ?? "").trim();
+    const dados = new FormData();
+    dados.set("auditoria_id", auditoriaId);
+    dados.set("pergunta_id", pergunta.id);
+    dados.set("valor", atual.valor);
+    dados.set("foto", arquivo);
 
-    iniciarSalvamento(async () => {
-      const r = await salvarResposta(formData);
-      if (r.ok) {
-        salvas.current.set(pergunta.id, observacao);
-        setRespostas((m) => {
-          const novo = new Map(m);
-          novo.set(pergunta.id, { ...atual, observacao: observacao || null });
-          return novo;
-        });
-        toast.sucesso("Detalhe salvo.");
-      } else {
-        toast.erro(r.erro);
+    let r: Awaited<ReturnType<typeof salvarFotoResposta>>;
+    try {
+      r = await salvarFotoResposta(dados);
+    } catch {
+      r = {
+        ok: false,
+        erro: "Sem sinal: a foto não subiu. Ela fica no item e sobe quando o sinal voltar.",
+      };
+    }
+
+    if (r.ok) {
+      const url = r.url;
+      setRespostas((m) => {
+        const a = m.get(pergunta.id);
+        if (!a) return m;
+        const novo = new Map(m);
+        novo.set(pergunta.id, { ...a, foto_url: url });
+        return novo;
+      });
+      mudarFotoLocal(pergunta.id, null);
+    } else {
+      mudarFotoLocal(pergunta.id, { ...local, estado: "falhou" });
+      toast.erro(r.erro);
+    }
+  }
+
+  // Foto que não subiu tenta de novo quando o sinal volta -- quem está
+  // andando pela área não precisa lembrar de apertar nada.
+  const enviarFotoAgora = useRef(enviarFoto);
+  useEffect(() => {
+    enviarFotoAgora.current = enviarFoto;
+  });
+  const temFotoParada = [...fotosLocais.values()].some((f) => f.estado === "falhou");
+  useEffect(() => {
+    if (!temFotoParada) return;
+    function tentar() {
+      for (const [id, f] of fotosAgora.current) {
+        const p = perguntas.find((x) => x.id === id);
+        if (p && f.estado === "falhou") void enviarFotoAgora.current(p, f.arquivo);
       }
+    }
+    window.addEventListener("online", tentar);
+    return () => window.removeEventListener("online", tentar);
+  }, [temFotoParada, perguntas]);
+
+  /** O "Excluir" da foto: a que não subiu sai na hora; a do servidor, com pergunta. */
+  async function excluirFoto(pergunta: Pergunta) {
+    if (somenteLeitura) return;
+
+    const local = fotosAgora.current.get(pergunta.id);
+    if (local) {
+      // Subindo não dá para desistir no meio: a resposta do servidor
+      // chegaria depois e traria a foto de volta.
+      if (local.estado === "falhou") mudarFotoLocal(pergunta.id, null);
+      return;
+    }
+
+    const url = respostas.get(pergunta.id)?.foto_url;
+    if (!url) return;
+
+    const sim = await confirmar({
+      titulo: "Excluir esta foto?",
+      detalhe: "Ela sai do item. Se precisar, tire outra.",
+      confirmar: "Excluir",
     });
+    if (!sim) return;
+
+    const trocarFoto = (de: string | null, para: string | null) =>
+      setRespostas((m) => {
+        const a = m.get(pergunta.id);
+        if (!a || a.foto_url !== de) return m;
+        const novo = new Map(m);
+        novo.set(pergunta.id, { ...a, foto_url: para });
+        return novo;
+      });
+
+    // Otimista: a foto some na hora; volta se o servidor recusar.
+    trocarFoto(url, null);
+
+    const dados = new FormData();
+    dados.set("auditoria_id", auditoriaId);
+    dados.set("pergunta_id", pergunta.id);
+
+    let r: Awaited<ReturnType<typeof removerFotoResposta>>;
+    try {
+      r = await removerFotoResposta(dados);
+    } catch {
+      r = { ok: false, erro: "Sem sinal: a foto não foi excluída. Tente de novo." };
+    }
+    if (!r.ok) {
+      trocarFoto(null, url);
+      toast.erro(r.erro);
+    }
   }
 
   /** Digitação: fica só na tela, para o campo não travar a cada tecla. */
@@ -372,6 +507,12 @@ export function Checklist({
           respondidas={respondidas}
           somenteLeitura={somenteLeitura}
           salvando={salvando}
+          fotosEnviando={
+            [...fotosLocais.values()].filter((f) => f.estado === "enviando").length
+          }
+          fotosParadas={
+            [...fotosLocais.values()].filter((f) => f.estado === "falhou").length
+          }
           onVoltar={() => irParaEtapa(porSenso.length - 1)}
           onFinalizar={finalizar}
           onIrPara={(s) => {
@@ -387,6 +528,9 @@ export function Checklist({
               const r = respostas.get(p.id);
               return r ? nokSemDescricao(r) : false;
             }).length,
+            fotosParadas: g.perguntas.filter(
+              (p) => fotosLocais.get(p.id)?.estado === "falhou",
+            ).length,
           }))}
         />
       ) : (
@@ -419,7 +563,9 @@ export function Checklist({
                   destacarPendentes && semDescricaoDoSenso.includes(p)
                 }
                 onResponder={(v) => responder(p, v)}
-                onDetalhe={(fd) => salvarDetalhe(p, fd)}
+                fotoLocal={fotosLocais.get(p.id)}
+                onFoto={(f) => void enviarFoto(p, f)}
+                onExcluirFoto={() => void excluirFoto(p)}
                 onObservacao={(t) => alterarObservacao(p, t)}
                 onSalvarObservacao={() => salvarObservacao(p)}
               />
@@ -479,7 +625,9 @@ function ItemPergunta({
   faltaDescricao,
   cobrarDescricao,
   onResponder,
-  onDetalhe,
+  fotoLocal,
+  onFoto,
+  onExcluirFoto,
   onObservacao,
   onSalvarObservacao,
 }: {
@@ -493,7 +641,11 @@ function ItemPergunta({
   /** ... e a pessoa já tentou avançar assim. */
   cobrarDescricao: boolean;
   onResponder: (v: Resposta) => void;
-  onDetalhe: (fd: FormData) => void;
+  /** A foto tirada que ainda não chegou ao servidor. */
+  fotoLocal?: FotoLocal;
+  /** Foto tirada (ou o "tentar de novo"): sobe na hora. */
+  onFoto: (foto: File) => void;
+  onExcluirFoto: () => void;
   onObservacao: (texto: string) => void;
   onSalvarObservacao: () => void;
 }) {
@@ -501,6 +653,7 @@ function ItemPergunta({
   // não é opcional escondido atrás de um clique, é o próximo passo --
   // é dessa descrição que nasce a ação no colo do dono da área.
   const [aberto, setAberto] = useState(false);
+  const [camera, setCamera] = useState(false);
   const ehNok = resposta?.valor === "nao";
   const mostrarDetalhe = aberto || ehNok;
 
@@ -563,10 +716,7 @@ function ItemPergunta({
       )}
 
       {mostrarDetalhe && (
-        <form
-          action={onDetalhe}
-          className="mt-3 space-y-2 border-t border-slate-100 pt-3"
-        >
+        <div className="mt-3 space-y-2 border-t border-slate-100 pt-3">
           {ehNok && (
             <label
               htmlFor={`obs-${pergunta.id}`}
@@ -613,33 +763,92 @@ function ItemPergunta({
             </p>
           )}
 
-          {resposta?.foto_url && (
-            <FotoEvidencia
-              src={resposta.foto_url}
-              alt="Evidência registrada"
-              classeCaixa="h-24 w-full"
-            />
+          {/* ---- A foto: sobe sozinha; no item fica só o "Excluir" ---- */}
+          {fotoLocal ? (
+            <div className="relative h-24 w-full overflow-hidden rounded-xl bg-slate-100">
+              {/* eslint-disable-next-line @next/next/no-img-element -- prévia local (blob:) */}
+              <img
+                src={fotoLocal.url}
+                alt="Foto tirada agora"
+                className="h-full w-full object-cover"
+              />
+              <span
+                className={`absolute bottom-1 left-1 flex items-center gap-1 rounded-lg px-2 py-0.5 text-[11px] font-semibold text-white ${
+                  fotoLocal.estado === "falhou" ? "bg-red-600/90" : "bg-black/60"
+                }`}
+              >
+                {fotoLocal.estado === "enviando" ? (
+                  <>
+                    <LoaderCircle size={12} className="animate-spin" aria-hidden />
+                    enviando
+                  </>
+                ) : (
+                  "não subiu"
+                )}
+              </span>
+              {fotoLocal.estado === "falhou" && (
+                <div className="absolute right-1 top-1 flex gap-1">
+                  <button
+                    type="button"
+                    onClick={() => onFoto(fotoLocal.arquivo)}
+                    className="flex items-center gap-1 rounded-lg bg-white/95 px-2 py-1 text-xs font-semibold text-slate-800 shadow"
+                  >
+                    <RotateCcw size={13} aria-hidden /> Tentar de novo
+                  </button>
+                  <button
+                    type="button"
+                    onClick={onExcluirFoto}
+                    aria-label="Descartar esta foto"
+                    className="flex h-7 w-7 items-center justify-center rounded-lg bg-black/60 text-white"
+                  >
+                    <X size={14} aria-hidden />
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : resposta?.foto_url ? (
+            <div className="relative">
+              <FotoEvidencia
+                src={resposta.foto_url}
+                alt="Evidência registrada"
+                classeCaixa="h-24 w-full"
+              />
+              {/* Guardada no servidor: o selo fica, para ninguém tirar de novo. */}
+              <span className="pointer-events-none absolute bottom-1 left-1 flex items-center gap-1 rounded-lg bg-emerald-600/90 px-2 py-0.5 text-[11px] font-semibold text-white">
+                <Check size={12} strokeWidth={3} aria-hidden /> enviada
+              </span>
+              {!somenteLeitura && (
+                <button
+                  type="button"
+                  onClick={onExcluirFoto}
+                  className="absolute right-1 top-1 flex items-center gap-1 rounded-lg bg-white/95 px-2 py-1 text-xs font-semibold text-red-600 shadow"
+                >
+                  <Trash2 size={13} aria-hidden /> Excluir
+                </button>
+              )}
+            </div>
+          ) : (
+            !somenteLeitura && (
+              <button
+                type="button"
+                onClick={() => setCamera(true)}
+                className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-primary/40 bg-primary-soft/40 py-3 text-sm font-semibold text-primary-dark active:scale-[0.98]"
+              >
+                <Camera size={18} strokeWidth={1.8} aria-hidden /> Tirar foto
+              </button>
+            )
           )}
 
-          {!somenteLeitura && (
-            <div className="flex items-center gap-2">
-              <CampoFoto
-                name="foto"
-                accept="image/*"
-                // capture abre a câmera direto no celular, em vez da
-                // galeria: a evidência do 5S é tirada na hora, ali.
-                capture="environment"
-                className="min-w-0 flex-1 text-xs text-slate-500 file:mr-2 file:rounded-lg file:border-0 file:bg-slate-100 file:px-3 file:py-2 file:text-xs file:font-semibold file:text-slate-700"
-              />
-              <BotaoEnviar
-                textoEnviando="Salvando..."
-                className="shrink-0 rounded-xl bg-slate-700 px-4 py-2 text-xs font-semibold text-white active:bg-slate-800"
-              >
-                Salvar
-              </BotaoEnviar>
-            </div>
+          {camera && (
+            // A câmera do app, e não a do aparelho: no Android com pouca
+            // memória a do aparelho fazia o sistema fechar o navegador.
+            <CameraNoApp
+              restantes={1}
+              aoTirar={onFoto}
+              aoFechar={() => setCamera(false)}
+            />
           )}
-        </form>
+        </div>
       )}
     </li>
   );
@@ -654,6 +863,8 @@ function Resumo({
   somenteLeitura,
   salvando,
   porSenso,
+  fotosEnviando,
+  fotosParadas,
   onVoltar,
   onFinalizar,
   onIrPara,
@@ -668,7 +879,12 @@ function Resumo({
     faltam: number;
     nok: number;
     semDescricao: number;
+    fotosParadas: number;
   }[];
+  /** Fotos tiradas ainda subindo. */
+  fotosEnviando: number;
+  /** Fotos que não subiram (sem sinal). */
+  fotosParadas: number;
   onVoltar: () => void;
   onFinalizar: () => void;
   onIrPara: (s: Senso) => void;
@@ -679,7 +895,10 @@ function Resumo({
   // A revisão final é a última chance de barrar o NOK mudo -- daqui em
   // diante ele viraria uma linha do plano de ação sem dizer o que fazer.
   const semDescricao = porSenso.reduce((s, g) => s + g.semDescricao, 0);
-  const travado = faltam > 0 || semDescricao > 0;
+  // Foto a caminho também segura: finalizar antes faria a ação nascer
+  // sem a evidência que o auditor tirou.
+  const fotosPendentes = fotosEnviando + fotosParadas;
+  const travado = faltam > 0 || semDescricao > 0 || fotosPendentes > 0;
 
   return (
     <div className="space-y-4">
@@ -717,6 +936,10 @@ function Resumo({
                   <span className="font-semibold text-red-600">
                     {s.semDescricao} sem descrição
                   </span>
+                ) : s.fotosParadas > 0 ? (
+                  <span className="font-semibold text-red-600">
+                    {s.fotosParadas === 1 ? "foto não subiu" : `${s.fotosParadas} fotos não subiram`}
+                  </span>
                 ) : s.nok > 0 ? (
                   <span className="font-semibold text-red-600">
                     {s.nok} NOK
@@ -738,6 +961,16 @@ function Resumo({
           ainda não {semDescricao === 1 ? "diz" : "dizem"} o que precisa ser
           feito. Toque no senso acima e escreva — é esse texto que o dono da
           área recebe.
+        </p>
+      )}
+
+      {fotosParadas > 0 && !somenteLeitura && (
+        <p className="rounded-2xl bg-red-50 p-3 text-sm text-red-900">
+          <strong>
+            {fotosParadas === 1 ? "1 foto não subiu" : `${fotosParadas} fotos não subiram`}
+          </strong>{" "}
+          por falta de sinal. Elas tentam de novo sozinhas quando o sinal
+          volta — ou toque no senso acima e em &quot;Tentar de novo&quot;.
         </p>
       )}
 
@@ -774,6 +1007,13 @@ function Resumo({
               `Faltam ${faltam} ${faltam === 1 ? "pergunta" : "perguntas"}`
             ) : semDescricao > 0 ? (
               `Descreva ${semDescricao} ${semDescricao === 1 ? "item NOK" : "itens NOK"}`
+            ) : fotosParadas > 0 ? (
+              fotosParadas === 1 ? "1 foto não subiu" : `${fotosParadas} fotos não subiram`
+            ) : fotosEnviando > 0 ? (
+              <span className="inline-flex items-center justify-center gap-2">
+                <span className="rodinha" aria-hidden="true" />
+                {fotosEnviando === 1 ? "Enviando a foto..." : `Enviando ${fotosEnviando} fotos...`}
+              </span>
             ) : (
               "Finalizar auditoria"
             )}
