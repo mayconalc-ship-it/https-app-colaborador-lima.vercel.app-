@@ -54,7 +54,7 @@ export type ComprovanteDaTela = {
   clienteNome: string | null;
   valor: number | null;
   hora: string;
-  fotos: { id: string; url: string | null }[];
+  fotos: { id: string; url: string; mini: string }[];
   /** As notas fiscais (21/09/2026). */
   notas: string[];
   /** Feito depois da NF obrigatória -- a edição também exige NF. */
@@ -907,18 +907,16 @@ export function TelaContingencia({
                           <p className="truncate text-[11px] tabular-nums text-slate-600">NF {c.notas.join(", ")}</p>
                         )}
                         <div className="mt-1 flex gap-1.5 overflow-x-auto">
-                          {c.fotos.map((f, i) =>
-                            f.url ? (
-                              <a key={f.id} href={f.url} target="_blank" rel="noopener noreferrer" className="shrink-0">
-                                {/* eslint-disable-next-line @next/next/no-img-element -- link assinado e temporário */}
-                                <img
-                                  src={f.url}
-                                  alt={`Foto ${i + 1}`}
-                                  className="h-10 w-8 rounded border border-slate-200 object-cover"
-                                />
-                              </a>
-                            ) : null,
-                          )}
+                          {c.fotos.map((f, i) => (
+                            <a key={f.id} href={f.url} target="_blank" rel="noopener noreferrer" className="shrink-0">
+                              {/* eslint-disable-next-line @next/next/no-img-element -- foto privada, sai pela rota do app */}
+                              <img
+                                src={f.mini}
+                                alt={`Foto ${i + 1}`}
+                                className="h-10 w-8 rounded border border-slate-200 object-cover"
+                              />
+                            </a>
+                          ))}
                         </div>
                       </div>
                       <div className="flex shrink-0 flex-col items-end gap-1">

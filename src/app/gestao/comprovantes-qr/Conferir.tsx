@@ -30,7 +30,7 @@ export type LancamentoDoLivro = {
   colaboradorNome: string | null; // só quando o mapa tem mais de uma pessoa
   valor: number | null;
   notas: string[];
-  fotos: { id: string; url: string | null }[];
+  fotos: { id: string; url: string; mini: string }[];
   observacao: string | null;
   avisos: string[]; // "cliente com mais de um comprovante…", "feito sem internet…"
   edicoes: string[]; // "Editado às 10:32 por João · valor R$ 80,00 → R$ 85,00"
@@ -258,35 +258,29 @@ export function LivroDoMapa({
 
               <div className="mt-2 flex flex-wrap items-end justify-between gap-2">
                 <div className="flex min-w-0 max-w-full items-center gap-1.5 overflow-x-auto">
-                  {l.fotos.map((f, i) =>
-                    f.url ? (
-                      <a
-                        key={f.id}
-                        href={f.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        title={`Abrir a foto ${i + 1}`}
-                        className="shrink-0 overflow-hidden rounded-lg border border-slate-200 hover:border-primary"
-                      >
-                        {/* eslint-disable-next-line @next/next/no-img-element -- link assinado e temporário */}
-                        <img
-                          src={f.url}
-                          alt={`Comprovante, foto ${i + 1}`}
-                          // PREGUIÇOSA de propósito (24/09/2026): a semana
-                          // inteira dá ~750 fotos, e baixar todas de uma vez
-                          // travava o navegador do financeiro. Assim só baixa
-                          // a do mapa que a pessoa abriu e está olhando.
-                          loading="lazy"
-                          decoding="async"
-                          className="h-14 w-11 object-cover"
-                        />
-                      </a>
-                    ) : (
-                      <span key={f.id} className="flex h-14 w-11 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-[10px] text-slate-400">
-                        sem foto
-                      </span>
-                    ),
-                  )}
+                  {l.fotos.map((f, i) => (
+                    <a
+                      key={f.id}
+                      href={f.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      title={`Abrir a foto ${i + 1}`}
+                      className="shrink-0 overflow-hidden rounded-lg border border-slate-200 hover:border-primary"
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element -- foto privada, sai pela rota do app */}
+                      <img
+                        src={f.mini}
+                        alt={`Comprovante, foto ${i + 1}`}
+                        // PREGUIÇOSA de propósito (24/09/2026): a semana
+                        // inteira dá ~750 fotos, e baixar todas de uma vez
+                        // travava o navegador do financeiro. Assim só baixa
+                        // a do mapa que a pessoa abriu e está olhando.
+                        loading="lazy"
+                        decoding="async"
+                        className="h-14 w-11 object-cover"
+                      />
+                    </a>
+                  ))}
                 </div>
                 <div className="ml-auto shrink-0 text-right">
                   {l.situacao ? (

@@ -151,12 +151,8 @@ export function EditarComprovante({
             const saindo = removidas.has(f.id);
             return (
               <li key={f.id} className="relative">
-                {f.url ? (
-                  // eslint-disable-next-line @next/next/no-img-element -- link assinado e temporário
-                  <img src={f.url} alt={`Foto ${i + 1}`} className={`${miniatura} ${saindo ? "opacity-30" : ""}`} />
-                ) : (
-                  <div className={`${miniatura} bg-slate-100`} />
-                )}
+                {/* eslint-disable-next-line @next/next/no-img-element -- foto privada, sai pela rota do app */}
+                <img src={f.mini} alt={`Foto ${i + 1}`} className={`${miniatura} ${saindo ? "opacity-30" : ""}`} />
                 <button
                   type="button"
                   onClick={() => alternar(f.id)}

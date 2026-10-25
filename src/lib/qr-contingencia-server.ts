@@ -101,21 +101,87 @@ export async function guardarNoBucket(
 export async function apagarDoBucket(caminhos: string[]) {
   if (caminhos.length === 0) return;
   try {
-    await createAdminClient().storage.from(BUCKET_COMPROVANTES).remove(caminhos);
+    // A miniatura vai junto. Se ela nunca foi gerada, o remove ignora.
+    await createAdminClient()
+      .storage.from(BUCKET_COMPROVANTES)
+      .remove([...caminhos, ...caminhos.map(caminhoDaMiniatura)]);
   } catch {
     // Arquivo que sobrou não quebra nada; comprovante sem foto, sim.
   }
 }
 
-/** Links assinados para uma lista de caminhos, na mesma ordem. */
-export async function linksAssinados(caminhos: string[]): Promise<Map<string, string>> {
-  const mapa = new Map<string, string>();
-  if (caminhos.length === 0) return mapa;
-  const { data } = await createAdminClient()
-    .storage.from(BUCKET_COMPROVANTES)
-    .createSignedUrls(caminhos, SEGUNDOS_DO_LINK);
-  for (const l of data ?? []) if (l.path && l.signedUrl) mapa.set(l.path, l.signedUrl);
-  return mapa;
+/*
+ * AS FOTOS SAEM PELO PRÓPRIO APP, E NÃO POR LINK ASSINADO (25/10/2026).
+ *
+ * O Supabase bloqueou o projeto por estourar o tráfego do plano gratuito
+ * (7 GB de 5 GB no ciclo), e 80% era o armazenamento -- quase tudo foto
+ * de comprovante, baixada de 10 a 16 vezes cada uma. Duas causas juntas:
+ *
+ *   - link assinado muda a cada vez que a tela é montada, e endereço novo
+ *     é cache vazio. Cada comprovante lançado ou conferido refazia a tela,
+ *     e o celular baixava de novo TODAS as fotos do dia do mapa;
+ *   - a miniatura de 40 px era a foto inteira, de até 2000 px (~100 KB).
+ *
+ * Agora o endereço é fixo por foto (a foto nunca muda: editar troca a
+ * linha, não o arquivo), o navegador guarda para sempre, e a lista usa
+ * uma miniatura de poucos KB. A foto inteira só desce quando alguém toca.
+ */
+export function enderecoDaFoto(id: string) {
+  return { url: `/api/qr/foto/${id}`, mini: `/api/qr/foto/${id}?tam=mini` };
+}
+
+/** Onde mora a miniatura de uma foto: fora da pasta das originais. */
+function caminhoDaMiniatura(caminho: string) {
+  return `mini/${caminho.replace(/\.[a-z0-9]+$/i, "")}.webp`;
+}
+
+/**
+ * A foto (ou a miniatura) de um comprovante, conferida contra a revenda.
+ *
+ * A miniatura é gerada na primeira vez que alguém pede e fica guardada no
+ * bucket: o motorista, o ajudante e o financeiro baixam ~8 KB cada, e não
+ * a original inteira.
+ */
+export async function lerFotoDoComprovante(
+  id: string,
+  revendaId: string,
+  mini: boolean,
+): Promise<{ dados: Buffer; contentType: string } | null> {
+  const admin = createAdminClient();
+  const { data: foto } = await admin
+    .from("qr_comprovante_fotos")
+    .select("caminho")
+    .eq("id", id)
+    .eq("revenda_id", revendaId)
+    .maybeSingle();
+  if (!foto?.caminho) return null;
+  const bucket = admin.storage.from(BUCKET_COMPROVANTES);
+  const caminho = String(foto.caminho);
+
+  if (mini) {
+    const { data: guardada } = await bucket.download(caminhoDaMiniatura(caminho));
+    if (guardada) return { dados: Buffer.from(await guardada.arrayBuffer()), contentType: "image/webp" };
+  }
+
+  const { data: original } = await bucket.download(caminho);
+  if (!original) return null;
+  const dados = Buffer.from(await original.arrayBuffer());
+  if (!mini) return { dados, contentType: original.type || "image/jpeg" };
+
+  try {
+    // 240 px dá conta da miniatura maior (a da edição, ~70 px de largura)
+    // em tela de densidade 3.
+    const pequena = await sharp(dados)
+      .rotate()
+      .resize({ width: 240, height: 240, fit: "inside", withoutEnlargement: true })
+      .webp({ quality: 60 })
+      .toBuffer();
+    await bucket.upload(caminhoDaMiniatura(caminho), pequena, { contentType: "image/webp", upsert: true });
+    return { dados: pequena, contentType: "image/webp" };
+  } catch {
+    // Sem miniatura, a original serve -- só pesa mais.
+    return { dados, contentType: original.type || "image/jpeg" };
+  }
 }
 
 const DIA_SP = new Intl.DateTimeFormat("en-CA", {
@@ -146,7 +212,8 @@ export type ComprovanteComFotos = {
   pagoEm: string;
   /** Chegou ao servidor mais de 15 min depois de feito -- veio da fila sem internet. */
   enviadoDepois: boolean;
-  fotos: { id: string; url: string | null }[];
+  /** `url` é a foto inteira; `mini`, a miniatura das listas (ver enderecoDaFoto). */
+  fotos: { id: string; url: string; mini: string }[];
   /** As edições do motorista (migration 128), da mais antiga à mais nova. */
   edicoes: EdicaoDoComprovante[];
   /** A conferência do financeiro (migration 128). Cai se o motorista editar. */
@@ -172,7 +239,7 @@ export type EdicaoDoComprovante = {
   notasDepois: string[] | null;
 };
 
-/** Lê comprovantes (já filtrados pela consulta de quem chama) com as fotos assinadas. */
+/** Lê comprovantes (já filtrados pela consulta de quem chama) com os endereços das fotos. */
 export async function comFotos(
   linhas: {
     id: string;
@@ -199,11 +266,11 @@ export async function comFotos(
   if (linhas.length === 0) return [];
   const admin = createAdminClient();
   const ids = linhas.map((l) => l.id);
-  const fotos: { id: string; comprovante_id: string; caminho: string }[] = [];
+  const fotos: { id: string; comprovante_id: string }[] = [];
   for (let i = 0; i < ids.length; i += 150) {
     const { data } = await admin
       .from("qr_comprovante_fotos")
-      .select("id, comprovante_id, caminho")
+      .select("id, comprovante_id")
       .in("comprovante_id", ids.slice(i, i + 150))
       .order("criado_em");
     fotos.push(...((data ?? []) as typeof fotos));
@@ -233,7 +300,6 @@ export async function comFotos(
       });
     }
   }
-  const links = await linksAssinados(fotos.map((f) => f.caminho));
   return linhas.map((l) => ({
     id: l.id,
     data: l.data,
@@ -251,7 +317,7 @@ export async function comFotos(
       Boolean(l.pago_em) && new Date(l.criado_em).getTime() - new Date(l.pago_em!).getTime() > 15 * 60_000,
     fotos: fotos
       .filter((f) => f.comprovante_id === l.id)
-      .map((f) => ({ id: f.id, url: links.get(f.caminho) ?? null })),
+      .map((f) => ({ id: f.id, ...enderecoDaFoto(f.id) })),
     edicoes: edicoes
       .filter((e) => e.comprovanteId === l.id)
       .map((e) => ({
