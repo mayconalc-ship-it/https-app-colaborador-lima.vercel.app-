@@ -45,7 +45,7 @@ const fechado = (c) =>
   c.conferencia_situacao === "desconsiderado" ||
   (!c.conferencia_situacao && c.conferido_em);
 
-// A mesma regra de caminhoDaMiniatura em src/lib/qr-contingencia-server.ts.
+// A mesma regra de caminhoDaMiniatura em src/lib/foto-privada-server.ts.
 const miniatura = (caminho) => `mini/${caminho.replace(/\.[a-z0-9]+$/i, "")}.webp`;
 
 const comprovantes = [];

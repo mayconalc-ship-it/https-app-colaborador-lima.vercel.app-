@@ -55,7 +55,7 @@ async function carregar(id: string, revendaId: string) {
         respondidoPorNome: r.respondidoPorNome,
         // A chave é o nome do arquivo sem extensão: o id que o celular deu
         // à foto. É por ela que o cartão sabe que a foto local já chegou.
-        fotos: r.fotos.map((f) => ({ id: f.id, url: f.url, chave: f.caminho.split("/").pop()?.replace(/\.[^.]+$/, "") })),
+        fotos: r.fotos.map((f) => ({ id: f.id, url: f.url, mini: f.mini, chave: f.caminho.split("/").pop()?.replace(/\.[^.]+$/, "") })),
       };
     }
     const anteriores: Record<string, AnteriorDoCartao> = {};
@@ -65,7 +65,7 @@ async function carregar(id: string, revendaId: string) {
           rotulo: rotuloTrimestre(anteriorAval),
           nota: r.nota,
           na: r.na,
-          fotos: r.fotos.map((f) => ({ id: f.id, url: f.url })),
+          fotos: r.fotos.map((f) => ({ id: f.id, url: f.url, mini: f.mini })),
         };
       }
     }

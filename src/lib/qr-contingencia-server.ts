@@ -2,6 +2,7 @@ import "server-only";
 
 import sharp from "sharp";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { comMiniaturas, enderecosDaFoto, lerFotoDoBucket } from "@/lib/foto-privada-server";
 import { MODULO_QR, NF_OBRIGATORIA_DESDE, type SituacaoConferencia } from "@/lib/qr-contingencia";
 import { podeNoModulo } from "@/lib/require-admin";
 
@@ -102,51 +103,19 @@ export async function apagarDoBucket(caminhos: string[]) {
   if (caminhos.length === 0) return;
   try {
     // A miniatura vai junto. Se ela nunca foi gerada, o remove ignora.
-    await createAdminClient()
-      .storage.from(BUCKET_COMPROVANTES)
-      .remove([...caminhos, ...caminhos.map(caminhoDaMiniatura)]);
+    await createAdminClient().storage.from(BUCKET_COMPROVANTES).remove(comMiniaturas(caminhos));
   } catch {
     // Arquivo que sobrou não quebra nada; comprovante sem foto, sim.
   }
 }
 
-/*
- * AS FOTOS SAEM PELO PRÓPRIO APP, E NÃO POR LINK ASSINADO (25/10/2026).
- *
- * O Supabase bloqueou o projeto por estourar o tráfego do plano gratuito
- * (7 GB de 5 GB no ciclo), e 80% era o armazenamento -- quase tudo foto
- * de comprovante, baixada de 10 a 16 vezes cada uma. Duas causas juntas:
- *
- *   - link assinado muda a cada vez que a tela é montada, e endereço novo
- *     é cache vazio. Cada comprovante lançado ou conferido refazia a tela,
- *     e o celular baixava de novo TODAS as fotos do dia do mapa;
- *   - a miniatura de 40 px era a foto inteira, de até 2000 px (~100 KB).
- *
- * Agora o endereço é fixo por foto (a foto nunca muda: editar troca a
- * linha, não o arquivo), o navegador guarda para sempre, e a lista usa
- * uma miniatura de poucos KB. A foto inteira só desce quando alguém toca.
- */
+/** Os endereços fixos de uma foto de comprovante (ver lib/foto-privada-server). */
 export function enderecoDaFoto(id: string) {
-  return { url: `/api/qr/foto/${id}`, mini: `/api/qr/foto/${id}?tam=mini` };
+  return enderecosDaFoto("/api/qr/foto", id);
 }
 
-/** Onde mora a miniatura de uma foto: fora da pasta das originais. */
-function caminhoDaMiniatura(caminho: string) {
-  return `mini/${caminho.replace(/\.[a-z0-9]+$/i, "")}.webp`;
-}
-
-/**
- * A foto (ou a miniatura) de um comprovante, conferida contra a revenda.
- *
- * A miniatura é gerada na primeira vez que alguém pede e fica guardada no
- * bucket: o motorista, o ajudante e o financeiro baixam ~8 KB cada, e não
- * a original inteira.
- */
-export async function lerFotoDoComprovante(
-  id: string,
-  revendaId: string,
-  mini: boolean,
-): Promise<{ dados: Buffer; contentType: string } | null> {
+/** A foto (ou a miniatura) de um comprovante, conferida contra a revenda. */
+export async function lerFotoDoComprovante(id: string, revendaId: string, mini: boolean) {
   const admin = createAdminClient();
   const { data: foto } = await admin
     .from("qr_comprovante_fotos")
@@ -155,33 +124,7 @@ export async function lerFotoDoComprovante(
     .eq("revenda_id", revendaId)
     .maybeSingle();
   if (!foto?.caminho) return null;
-  const bucket = admin.storage.from(BUCKET_COMPROVANTES);
-  const caminho = String(foto.caminho);
-
-  if (mini) {
-    const { data: guardada } = await bucket.download(caminhoDaMiniatura(caminho));
-    if (guardada) return { dados: Buffer.from(await guardada.arrayBuffer()), contentType: "image/webp" };
-  }
-
-  const { data: original } = await bucket.download(caminho);
-  if (!original) return null;
-  const dados = Buffer.from(await original.arrayBuffer());
-  if (!mini) return { dados, contentType: original.type || "image/jpeg" };
-
-  try {
-    // 240 px dá conta da miniatura maior (a da edição, ~70 px de largura)
-    // em tela de densidade 3.
-    const pequena = await sharp(dados)
-      .rotate()
-      .resize({ width: 240, height: 240, fit: "inside", withoutEnlargement: true })
-      .webp({ quality: 60 })
-      .toBuffer();
-    await bucket.upload(caminhoDaMiniatura(caminho), pequena, { contentType: "image/webp", upsert: true });
-    return { dados: pequena, contentType: "image/webp" };
-  } catch {
-    // Sem miniatura, a original serve -- só pesa mais.
-    return { dados, contentType: original.type || "image/jpeg" };
-  }
+  return lerFotoDoBucket(BUCKET_COMPROVANTES, String(foto.caminho), mini, admin);
 }
 
 const DIA_SP = new Intl.DateTimeFormat("en-CA", {

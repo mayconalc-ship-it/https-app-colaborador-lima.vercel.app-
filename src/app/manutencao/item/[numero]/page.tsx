@@ -120,19 +120,17 @@ export default async function EvolucaoDoItemPage({ params }: { params: Promise<{
               <>
                 {resposta.fotos.length > 0 ? (
                   <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
-                    {resposta.fotos.map((f, i) =>
-                      f.url ? (
-                        <a key={f.id} href={f.url} target="_blank" rel="noreferrer" title="Abrir a foto inteira">
-                          {/* eslint-disable-next-line @next/next/no-img-element -- link assinado do bucket privado */}
-                          <img
-                            src={f.url}
-                            alt={`${rotuloTrimestre(avaliacao)}, foto ${i + 1} do item ${item.numero}`}
-                            loading="lazy"
-                            className="aspect-[4/3] w-full rounded-lg border border-slate-200 object-cover"
-                          />
-                        </a>
-                      ) : null,
-                    )}
+                    {resposta.fotos.map((f, i) => (
+                      <a key={f.id} href={f.url} target="_blank" rel="noreferrer" title="Abrir a foto inteira">
+                        {/* eslint-disable-next-line @next/next/no-img-element -- foto do bucket privado, sai pela rota do app */}
+                        <img
+                          src={f.mini}
+                          alt={`${rotuloTrimestre(avaliacao)}, foto ${i + 1} do item ${item.numero}`}
+                          loading="lazy"
+                          className="aspect-[4/3] w-full rounded-lg border border-slate-200 object-cover"
+                        />
+                      </a>
+                    ))}
                   </div>
                 ) : (
                   <p className="mt-2 text-xs text-slate-400">Sem foto neste trimestre.</p>

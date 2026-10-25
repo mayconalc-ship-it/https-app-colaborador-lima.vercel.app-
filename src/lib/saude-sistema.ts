@@ -116,6 +116,26 @@ export function faltasPorMigration(faltas: Falta[]): { migration: string; faltas
     .map(([migration, lista]) => ({ migration, faltas: lista }));
 }
 
+// ---------------------------------------------------------------------
+// O espaço no Supabase (25/10/2026)
+// ---------------------------------------------------------------------
+
+/**
+ * Os limites do plano gratuito do Supabase: passou deles, o projeto é
+ * bloqueado inteiro, login inclusive. Em 25/10/2026 o Storage estava em
+ * 929 MB de 1 GB sem ninguém saber. Passando para o Pro, trocar aqui
+ * (100 GB de Storage, 8 GB de banco).
+ */
+export const LIMITES_DO_PLANO = { storage: 1e9, banco: 5e8 };
+
+/** Verde até 70%, amarelo até 90%, vermelho daí para cima. */
+export function nivelDoEspaco(usado: number, limite: number): "ok" | "atencao" | "critico" {
+  const fracao = usado / limite;
+  if (fracao >= 0.9) return "critico";
+  if (fracao >= 0.7) return "atencao";
+  return "ok";
+}
+
 /** O erro do PostgREST diz o que falta: a tabela inteira ou uma coluna. */
 export function tipoDoErro(erro: { code?: string; message?: string } | null): "ok" | "tabela" | "coluna" | "outro" {
   if (!erro) return "ok";

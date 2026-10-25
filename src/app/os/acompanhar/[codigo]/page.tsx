@@ -51,7 +51,7 @@ export default async function AcompanharChamadoPage({
   }
 
   const [{ eventos, fotos }, perfil, unidade] = await Promise.all([
-    lerHistorico(chamado.id),
+    lerHistorico(chamado.id, chamado.codigo),
     getPerfil(),
     nomeDaRevenda(chamado.revenda_id),
   ]);

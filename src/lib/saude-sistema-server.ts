@@ -24,9 +24,34 @@ export type Saude = {
   /** Erros que não dizem "falta" (rede, permissão): mostrados à parte. */
   outros: { tabela: string; erro: string }[];
   buckets: { id: string; para: string; existe: boolean }[];
+  /** O espaço usado no Supabase (migration 172). */
+  espaco:
+    | { ok: true; bancoBytes: number; buckets: { bucket: string; para: string; bytes: number; arquivos: number }[] }
+    | { ok: false; faltaMigration: boolean; erro: string };
   ultimaVarredura: string | null;
   duracaoMs: number;
 };
+
+type EspacoBanco = { banco_bytes: number; buckets: { bucket: string; bytes: number; arquivos: number }[] };
+
+async function lerEspaco(admin: Admin): Promise<Saude["espaco"]> {
+  const { data, error } = await admin.rpc("saude_espaco");
+  if (error || !data) {
+    const msg = error?.message ?? "resposta vazia";
+    return { ok: false, faltaMigration: error?.code === "PGRST202" || /Could not find the function/i.test(msg), erro: msg };
+  }
+  const e = data as EspacoBanco;
+  return {
+    ok: true,
+    bancoBytes: Number(e.banco_bytes),
+    buckets: e.buckets.map((b) => ({
+      bucket: b.bucket,
+      para: BUCKETS.find((x) => x.id === b.bucket)?.para ?? "",
+      bytes: Number(b.bytes),
+      arquivos: Number(b.arquivos),
+    })),
+  };
+}
 
 async function emLotes<T, R>(itens: T[], tamanho: number, fazer: (item: T) => Promise<R>): Promise<R[]> {
   const saida: R[] = [];
@@ -80,7 +105,7 @@ export async function conferirSaude(admin: Admin = createAdminClient()): Promise
     outros.push({ tabela, erro: error?.message ?? "erro desconhecido" });
   });
 
-  const [buckets, varredura] = await Promise.all([
+  const [buckets, varredura, espaco] = await Promise.all([
     Promise.all(
       BUCKETS.map(async (b) => {
         const { data } = await admin.storage.getBucket(b.id);
@@ -88,6 +113,7 @@ export async function conferirSaude(admin: Admin = createAdminClient()): Promise
       }),
     ),
     admin.from("cron_varreduras").select("rodou_em").eq("chave", "lembretes").maybeSingle(),
+    lerEspaco(admin),
   ]);
 
   return {
@@ -95,6 +121,7 @@ export async function conferirSaude(admin: Admin = createAdminClient()): Promise
     faltas: faltasPorMigration(faltas),
     outros,
     buckets,
+    espaco,
     ultimaVarredura: (varredura.data as { rodou_em: string } | null)?.rodou_em ?? null,
     duracaoMs: Date.now() - inicio,
   };

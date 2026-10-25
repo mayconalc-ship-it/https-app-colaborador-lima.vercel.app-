@@ -2,6 +2,7 @@ import "server-only";
 
 import sharp from "sharp";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { comMiniaturas, enderecosDaFoto, lerFotoDoBucket } from "@/lib/foto-privada-server";
 import {
   calcularNotas,
   compararTrimestre,
@@ -14,8 +15,6 @@ import {
 
 export const MODULO_MANUTENCAO = "manutencao" as const;
 const BUCKET = "manutencao";
-/** Link da foto vale 1 hora: o bastante para a auditoria olhar a tela. */
-const SEGUNDOS_DO_LINK = 60 * 60;
 
 type Admin = ReturnType<typeof createAdminClient>;
 
@@ -139,7 +138,8 @@ export async function lerAvaliacao(id: string, revendaId: string, admin: Admin =
   return data ? paraAvaliacao(data as AvaliacaoBanco) : null;
 }
 
-export type FotoManut = { id: string; caminho: string; url: string | null };
+/** `url` é a foto inteira; `mini`, a das listas (ver lib/foto-privada-server). */
+export type FotoManut = { id: string; caminho: string; url: string; mini: string };
 
 export type RespostaCompleta = RespostaManut & {
   id: string;
@@ -167,10 +167,7 @@ type RespostaBanco = {
   manut_fotos: { id: string; caminho: string; criado_em: string }[] | null;
 };
 
-/**
- * As respostas de várias avaliações de uma vez, com as fotos já em link
- * assinado. Uma ida ao banco e uma ao storage, em vez de uma por item.
- */
+/** As respostas de várias avaliações de uma vez, com os endereços das fotos. */
 export async function lerRespostas(
   avaliacaoIds: string[],
   admin: Admin = createAdminClient(),
@@ -187,7 +184,6 @@ export async function lerRespostas(
   conferir(error);
 
   const linhas = (data ?? []) as RespostaBanco[];
-  const links = await linksAssinados(linhas.flatMap((r) => (r.manut_fotos ?? []).map((f) => f.caminho)), admin);
 
   for (const r of linhas) {
     const lista = saida.get(r.avaliacao_id) ?? [];
@@ -204,7 +200,7 @@ export async function lerRespostas(
       atualizadoEm: r.atualizado_em,
       fotos: (r.manut_fotos ?? [])
         .sort((a, b) => a.criado_em.localeCompare(b.criado_em))
-        .map((f) => ({ id: f.id, caminho: f.caminho, url: links.get(f.caminho) ?? null })),
+        .map((f) => ({ id: f.id, caminho: f.caminho, ...enderecosDaFoto("/api/manutencao/foto", f.id) })),
     });
     saida.set(r.avaliacao_id, lista);
   }
@@ -303,16 +299,16 @@ export async function guardarFoto(arquivo: File, pasta: string, admin: Admin = c
 export async function apagarFotos(caminhos: string[], admin: Admin = createAdminClient()) {
   if (caminhos.length === 0) return;
   try {
-    await admin.storage.from(BUCKET).remove(caminhos);
+    await admin.storage.from(BUCKET).remove(comMiniaturas(caminhos));
   } catch {
     // Arquivo que sobrou no bucket não quebra nada.
   }
 }
 
-export async function linksAssinados(caminhos: string[], admin: Admin = createAdminClient()) {
-  const mapa = new Map<string, string>();
-  if (caminhos.length === 0) return mapa;
-  const { data } = await admin.storage.from(BUCKET).createSignedUrls(caminhos, SEGUNDOS_DO_LINK);
-  for (const l of data ?? []) if (l.path && l.signedUrl) mapa.set(l.path, l.signedUrl);
-  return mapa;
+/** A foto (ou a miniatura) de um item do check, conferida contra a revenda. */
+export async function lerFotoDaManutencao(id: string, revendaId: string, mini: boolean) {
+  const admin = createAdminClient();
+  const { data: foto } = await admin.from("manut_fotos").select("caminho").eq("id", id).eq("revenda_id", revendaId).maybeSingle();
+  if (!foto?.caminho) return null;
+  return lerFotoDoBucket(BUCKET, String(foto.caminho), mini, admin);
 }

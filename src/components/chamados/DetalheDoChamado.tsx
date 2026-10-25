@@ -190,19 +190,17 @@ function Fotos({ titulo, fotos }: { titulo: string; fotos: FotoChamado[] }) {
     <div className="mt-3">
       <p className="mb-1.5 text-[11px] font-semibold uppercase text-slate-400">{titulo}</p>
       <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
-        {fotos.map((f, i) =>
-          f.url ? (
-            <a key={f.id} href={f.url} target="_blank" rel="noreferrer" title="Abrir a foto inteira">
-              {/* eslint-disable-next-line @next/next/no-img-element -- link assinado do bucket privado, fora do otimizador */}
-              <img
-                src={f.url}
-                alt={`${titulo} ${i + 1}`}
-                loading="lazy"
-                className="aspect-square w-full rounded-xl border border-slate-200 object-cover"
-              />
-            </a>
-          ) : null,
-        )}
+        {fotos.map((f, i) => (
+          <a key={f.id} href={f.url} target="_blank" rel="noreferrer" title="Abrir a foto inteira">
+            {/* eslint-disable-next-line @next/next/no-img-element -- foto do bucket privado, sai pela rota do app */}
+            <img
+              src={f.mini}
+              alt={`${titulo} ${i + 1}`}
+              loading="lazy"
+              className="aspect-square w-full rounded-xl border border-slate-200 object-cover"
+            />
+          </a>
+        ))}
       </div>
     </div>
   );

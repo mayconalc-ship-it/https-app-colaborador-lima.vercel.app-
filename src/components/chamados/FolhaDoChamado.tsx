@@ -37,8 +37,8 @@ export function FolhaDoChamado({
   /** O telefone de quem abriu: só na folha de quem pode vê-lo na tela. */
   mostrarTelefone?: boolean;
 }) {
-  const daAbertura = fotos.filter((f) => f.etapa === "abertura" && f.url);
-  const daConclusao = fotos.filter((f) => f.etapa === "conclusao" && f.url);
+  const daAbertura = fotos.filter((f) => f.etapa === "abertura");
+  const daConclusao = fotos.filter((f) => f.etapa === "conclusao");
   const prazo = textoDoPrazo(situacaoDoPrazo(c));
   const emitidoEm = dataHoraCompleta(new Date().toISOString());
 
@@ -132,10 +132,13 @@ function Fotos({ fotos, titulo }: { fotos: FotoChamado[]; titulo: string }) {
   return (
     <div className="mt-2 grid grid-cols-4 gap-2">
       {fotos.map((f, i) => (
-        // eslint-disable-next-line @next/next/no-img-element -- link assinado do bucket privado, fora do otimizador
+        // A miniatura, e não a foto inteira: a folha fica escondida na tela,
+        // mas o navegador baixa a imagem assim mesmo -- e num quarto de A4
+        // os 360 px imprimem bem.
+        // eslint-disable-next-line @next/next/no-img-element -- foto do bucket privado, sai pela rota do app
         <img
           key={f.id}
-          src={f.url!}
+          src={f.mini}
           alt={`${titulo} ${i + 1}`}
           className="aspect-square w-full rounded border border-slate-300 object-cover"
         />

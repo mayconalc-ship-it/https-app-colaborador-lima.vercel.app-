@@ -33,14 +33,14 @@ export type RespostaDoCartao = {
   prazo: string | null;
   respondidoPorNome: string;
   /** `chave` = o id que o celular deu à foto (nome do arquivo no bucket). */
-  fotos: { id: string; url: string | null; chave?: string }[];
+  fotos: { id: string; url: string; mini: string; chave?: string }[];
 };
 
 export type AnteriorDoCartao = {
   rotulo: string;
   nota: Nota | null;
   na: boolean;
-  fotos: { id: string; url: string | null }[];
+  fotos: { id: string; url: string; mini: string }[];
 };
 
 /** O que o cartão conta para o checklist: a barra de andamento e o "Finalizar". */
@@ -68,14 +68,11 @@ function corDaNota(nota: Nota | null, na: boolean) {
   return "bg-slate-100 text-slate-500";
 }
 
-function Miniatura({ url, alt }: { url: string | null; alt: string }) {
-  if (!url) {
-    return <span className="flex aspect-square items-center justify-center rounded-xl bg-slate-100 text-xs text-slate-400">sem link</span>;
-  }
+function Miniatura({ foto, alt }: { foto: { url: string; mini: string }; alt: string }) {
   return (
-    <a href={url} target="_blank" rel="noreferrer" className="block" title="Abrir a foto inteira">
-      {/* eslint-disable-next-line @next/next/no-img-element -- link assinado do bucket privado, fora do otimizador */}
-      <img src={url} alt={alt} loading="lazy" className="aspect-square w-full rounded-xl border border-slate-200 object-cover" />
+    <a href={foto.url} target="_blank" rel="noreferrer" className="block" title="Abrir a foto inteira">
+      {/* eslint-disable-next-line @next/next/no-img-element -- foto do bucket privado, sai pela rota do app */}
+      <img src={foto.mini} alt={alt} loading="lazy" className="aspect-square w-full rounded-xl border border-slate-200 object-cover" />
     </a>
   );
 }
@@ -443,7 +440,7 @@ export function CartaoItem({
           {anterior.fotos.length > 0 ? (
             <div className="mt-2 grid grid-cols-4 gap-2">
               {anterior.fotos.map((f, i) => (
-                <Miniatura key={f.id} url={f.url} alt={`${anterior.rotulo}, foto ${i + 1} do item ${item.numero}`} />
+                <Miniatura key={f.id} foto={f} alt={`${anterior.rotulo}, foto ${i + 1} do item ${item.numero}`} />
               ))}
             </div>
           ) : (
@@ -488,7 +485,7 @@ export function CartaoItem({
             <div className="grid grid-cols-4 gap-2">
               {fotos.map((f, i) => (
                 <div key={f.id} className="relative">
-                  <Miniatura url={f.url} alt={`Foto ${i + 1} do item ${item.numero}`} />
+                  <Miniatura foto={f} alt={`Foto ${i + 1} do item ${item.numero}`} />
                   {/* Guardada no servidor: o selo fica, para ninguém tirar de novo. */}
                   <span className="pointer-events-none absolute inset-x-1 bottom-1 flex items-center justify-center gap-1 rounded-lg bg-emerald-600/90 py-0.5 text-[10px] font-semibold text-white">
                     <Check size={11} strokeWidth={3} aria-hidden /> enviada
@@ -635,7 +632,7 @@ export function CartaoItem({
             {fotos.length > 0 && (
               <div className="grid grid-cols-4 gap-2">
                 {fotos.map((f, i) => (
-                  <Miniatura key={f.id} url={f.url} alt={`Foto ${i + 1} do item ${item.numero}`} />
+                  <Miniatura key={f.id} foto={f} alt={`Foto ${i + 1} do item ${item.numero}`} />
                 ))}
               </div>
             )}

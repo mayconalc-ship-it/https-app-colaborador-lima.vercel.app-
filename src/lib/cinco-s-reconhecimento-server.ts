@@ -2,10 +2,10 @@ import "server-only";
 
 import sharp from "sharp";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { comMiniaturas, enderecosDaFoto, lerFotoDoBucket } from "@/lib/foto-privada-server";
 
 /** O bucket PRIVADO da migration 131: print de WhatsApp mostra nome e telefone. */
 const BUCKET = "reconhecimentos";
-const SEGUNDOS_DO_LINK = 60 * 60;
 
 /** Reduz (2000 px, webp) e guarda; devolve o caminho. */
 export async function guardarFotoReconhecimento(
@@ -36,10 +36,23 @@ export async function guardarFotoReconhecimento(
 export async function apagarFotosReconhecimento(caminhos: string[]) {
   if (caminhos.length === 0) return;
   try {
-    await createAdminClient().storage.from(BUCKET).remove(caminhos);
+    await createAdminClient().storage.from(BUCKET).remove(comMiniaturas(caminhos));
   } catch {
     // Arquivo que sobrou não quebra nada.
   }
+}
+
+/** A foto (ou a miniatura) de um reconhecimento, conferida contra a revenda. */
+export async function lerFotoDoReconhecimento(id: string, revendaId: string, mini: boolean) {
+  const admin = createAdminClient();
+  const { data: foto } = await admin
+    .from("cinco_s_reconhecimento_fotos")
+    .select("caminho")
+    .eq("id", id)
+    .eq("revenda_id", revendaId)
+    .maybeSingle();
+  if (!foto?.caminho) return null;
+  return lerFotoDoBucket(BUCKET, String(foto.caminho), mini, admin);
 }
 
 export type Reconhecimento = {
@@ -49,10 +62,11 @@ export type Reconhecimento = {
   texto: string | null;
   criadoPorNome: string;
   criadoEm: string;
-  fotos: { id: string; url: string | null }[];
+  /** `url` é a foto inteira; `mini`, a da lista (ver lib/foto-privada-server). */
+  fotos: { id: string; url: string; mini: string }[];
 };
 
-/** Os reconhecimentos de um mês (ou todos, com `competencia` null), com as fotos assinadas. */
+/** Os reconhecimentos de um mês (ou todos, com `competencia` null), com os endereços das fotos. */
 export async function lerReconhecimentos(revendaId: string, competencia: string | null): Promise<Reconhecimento[]> {
   const admin = createAdminClient();
   let consulta = admin
@@ -70,18 +84,12 @@ export async function lerReconhecimentos(revendaId: string, competencia: string 
   const ids = linhas.map((l) => l.id as string);
   const areaIds = [...new Set(linhas.flatMap((l) => (l.area_ids as string[]) ?? []))];
   const [{ data: fotos }, { data: areas }] = await Promise.all([
-    admin.from("cinco_s_reconhecimento_fotos").select("id, reconhecimento_id, caminho").in("reconhecimento_id", ids).order("criado_em"),
+    admin.from("cinco_s_reconhecimento_fotos").select("id, reconhecimento_id").in("reconhecimento_id", ids).order("criado_em"),
     areaIds.length
       ? admin.from("cinco_s_areas").select("id, nome").in("id", areaIds)
       : Promise.resolve({ data: [] as { id: string; nome: string }[] }),
   ]);
   const nomeDaArea = new Map((areas ?? []).map((a) => [a.id as string, a.nome as string]));
-  const caminhos = (fotos ?? []).map((f) => f.caminho as string);
-  const links = new Map<string, string>();
-  if (caminhos.length) {
-    const { data: assinados } = await admin.storage.from(BUCKET).createSignedUrls(caminhos, SEGUNDOS_DO_LINK);
-    for (const l of assinados ?? []) if (l.path && l.signedUrl) links.set(l.path, l.signedUrl);
-  }
   return linhas.map((l) => ({
     id: l.id as string,
     competencia: String(l.competencia).slice(0, 7),
@@ -91,7 +99,7 @@ export async function lerReconhecimentos(revendaId: string, competencia: string 
     criadoEm: l.criado_em as string,
     fotos: (fotos ?? [])
       .filter((f) => f.reconhecimento_id === l.id)
-      .map((f) => ({ id: f.id as string, url: links.get(f.caminho as string) ?? null })),
+      .map((f) => ({ id: f.id as string, ...enderecosDaFoto("/api/5s/reconhecimento/foto", f.id as string) })),
   }));
 }
 

@@ -296,14 +296,12 @@ export function Reconhecimentos({
                 )}
               </div>
               <div className="mt-2 flex gap-2 overflow-x-auto">
-                {r.fotos.map((f, i) =>
-                  f.url ? (
-                    <a key={f.id} href={f.url} target="_blank" rel="noopener noreferrer" className="shrink-0">
-                      {/* eslint-disable-next-line @next/next/no-img-element -- link assinado e temporário */}
-                      <img src={f.url} alt={`Foto ${i + 1} do reconhecimento`} className="h-24 w-24 rounded-lg border border-slate-200 object-cover" />
-                    </a>
-                  ) : null,
-                )}
+                {r.fotos.map((f, i) => (
+                  <a key={f.id} href={f.url} target="_blank" rel="noopener noreferrer" className="shrink-0">
+                    {/* eslint-disable-next-line @next/next/no-img-element -- foto do bucket privado, sai pela rota do app */}
+                    <img src={f.mini} alt={`Foto ${i + 1} do reconhecimento`} className="h-24 w-24 rounded-lg border border-slate-200 object-cover" />
+                  </a>
+                ))}
               </div>
             </li>
           ))}

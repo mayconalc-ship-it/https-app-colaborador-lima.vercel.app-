@@ -6,6 +6,7 @@ import { getPerfil, type Perfil } from "@/lib/sessao";
 import { getRevendaId, revendaTemModulo } from "@/lib/revendas";
 import { podeNoModulo, temAcessoModulo } from "@/lib/require-admin";
 import { prepararFoto } from "@/lib/manutencao-server";
+import { comMiniaturas, enderecosDaFoto, lerFotoDoBucket } from "@/lib/foto-privada-server";
 import { criarNotificacao } from "@/lib/notificacoes-server";
 import { enviarPushDaRevenda } from "@/lib/push-server";
 import {
@@ -28,8 +29,6 @@ import {
 } from "@/lib/chamados";
 
 const BUCKET = "chamados";
-/** Link da foto vale 1 hora: o bastante para olhar o chamado. */
-const SEGUNDOS_DO_LINK = 60 * 60;
 /**
  * A foto guardada: WebP de 1280 px. Medido em fotos reais do app (câmera
  * de 4080x3072, ~2,3 MB): ~50 KB cada, contra ~80 KB no padrão de 1600 px
@@ -417,10 +416,16 @@ export type Evento = {
   criado_em: string;
 };
 
-export type FotoChamado = { id: string; etapa: "abertura" | "conclusao"; caminho: string; url: string | null };
+/** `url` é a foto inteira (a do PDF); `mini`, a da tela (ver lib/foto-privada-server). */
+export type FotoChamado = { id: string; etapa: "abertura" | "conclusao"; caminho: string; url: string; mini: string };
 
-/** A linha do tempo e as fotos (em link assinado), de uma vez. */
-export async function lerHistorico(chamadoId: string, admin: Admin = createAdminClient()) {
+/**
+ * A linha do tempo e as fotos, de uma vez.
+ *
+ * `codigo` é para a página de acompanhar sem login: vai no endereço da
+ * foto, e é ele que abre a foto para quem não tem sessão (ver /os/foto).
+ */
+export async function lerHistorico(chamadoId: string, codigo?: string, admin: Admin = createAdminClient()) {
   const [eventos, fotos] = await Promise.all([
     admin
       .from("chamados_eventos")
@@ -432,14 +437,28 @@ export async function lerHistorico(chamadoId: string, admin: Admin = createAdmin
   conferir(eventos.error);
   conferir(fotos.error);
   const linhas = (fotos.data ?? []) as { id: string; etapa: FotoChamado["etapa"]; caminho: string }[];
-  const links = await linksAssinados(
-    linhas.map((f) => f.caminho),
-    admin,
-  );
   return {
     eventos: (eventos.data ?? []) as Evento[],
-    fotos: linhas.map((f) => ({ ...f, url: links.get(f.caminho) ?? null })) as FotoChamado[],
+    fotos: linhas.map((f) => ({ ...f, ...enderecosDaFoto("/os/foto", f.id, codigo ? { c: codigo } : {}) })) as FotoChamado[],
   };
+}
+
+/**
+ * A foto (ou a miniatura) de um chamado. Abre com o código do chamado
+ * (quem acompanha pelo link, sem login) ou com a sessão de quem pode ver
+ * o chamado no app -- a mesma regra da tela (podeVerChamado).
+ */
+export async function lerFotoDoChamado(id: string, codigo: string | null, mini: boolean) {
+  const admin = createAdminClient();
+  const { data: foto } = await admin.from("chamados_fotos").select("caminho, chamado_id").eq("id", id).maybeSingle();
+  if (!foto?.caminho) return null;
+  const chamado = await lerChamado(String(foto.chamado_id), admin);
+  if (!chamado) return null;
+  if (!codigo || codigo.trim().toLowerCase() !== chamado.codigo) {
+    const ctx = await contextoChamados();
+    if (!ctx.ok || !podeVerChamado(ctx, chamado)) return null;
+  }
+  return lerFotoDoBucket(BUCKET, String(foto.caminho), mini, admin);
 }
 
 export async function registrarEvento(
@@ -520,18 +539,10 @@ export async function apagarFotosDoChamado(chamadoId: string, admin: Admin = cre
   const caminhos = (data ?? []).map((f) => f.caminho as string);
   if (caminhos.length === 0) return;
   try {
-    await admin.storage.from(BUCKET).remove(caminhos);
+    await admin.storage.from(BUCKET).remove(comMiniaturas(caminhos));
   } catch {
     // Arquivo que sobrou no bucket não quebra nada.
   }
-}
-
-async function linksAssinados(caminhos: string[], admin: Admin) {
-  const mapa = new Map<string, string>();
-  if (caminhos.length === 0) return mapa;
-  const { data } = await admin.storage.from(BUCKET).createSignedUrls(caminhos, SEGUNDOS_DO_LINK);
-  for (const l of data ?? []) if (l.path && l.signedUrl) mapa.set(l.path, l.signedUrl);
-  return mapa;
 }
 
 // ---------------------------------------------------------------------
