@@ -28,6 +28,7 @@ import type { ModuloId } from "./acessos";
 export type PainelId =
   | "anomalias"
   | "pdv"
+  | "prioridades"
   | "comprovantes-qr"
   | "mao-de-obra"
   | "armazem"
@@ -110,6 +111,18 @@ export const PAINEIS: Painel[] = [
     bloco: "Operação",
     modulo: "pdv-particularidades",
     pergunta: "Que cliente está bloqueado, e o que cada rota precisa saber antes de sair.",
+    mora: true,
+  },
+  {
+    // As prioridades que os GVs mandam pelo link (03/11/2026): também é
+    // tarefa do dia -- a lista tem de entrar na roteirização.
+    id: "prioridades",
+    rotulo: "Prioridades dos GVs",
+    emoji: "🚩",
+    href: "/gestao/prioridades",
+    bloco: "Operação",
+    modulo: "prioridades",
+    pergunta: "Que PDVs os GVs pediram para sair primeiro, e por quê.",
     mora: true,
   },
   {

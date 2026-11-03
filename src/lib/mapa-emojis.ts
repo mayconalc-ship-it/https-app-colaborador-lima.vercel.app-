@@ -169,6 +169,7 @@ export const MAPA_DE_EMOJIS: Assunto[] = [
   { id: "gestao", nome: "Painel de Gestão", emoji: "📊", area: "Gestão", chaves: [] },
   { id: "anomalias", nome: "Anomalias e relatos", emoji: "🚨", area: "Gestão", chaves: ["anomalias", "relato-anomalia"] },
   { id: "comprovantes", nome: "Comprovantes de Pagamento (conferência)", emoji: "🧾", area: "Gestão", chaves: ["comprovantes-qr"] },
+  { id: "prioridades", nome: "Prioridades dos GVs", emoji: "🚩", area: "Gestão", chaves: ["prioridades"] },
   {
     id: "mao-de-obra",
     nome: "Simulador de Mão de Obra",

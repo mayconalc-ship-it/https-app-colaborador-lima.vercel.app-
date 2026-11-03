@@ -11,7 +11,11 @@ import { CABECALHO_USUARIO } from "@/lib/sessao-headers";
 // áreas: abre sem login, como o Forms que ele substitui. Mesma trava -- o
 // código do endereço, conferido no servidor. Com a barra no fim de
 // propósito: "/os" sozinho casaria qualquer rota futura que comece assim.
-const PUBLIC_PATHS = ["/login", "/votar", "/os/"];
+//
+// /prioridade/ é o link das prioridades do dia (03/11/2026), que vai para
+// os GVs: eles não têm conta no app. Mesma trava -- o token do endereço,
+// conferido no servidor a cada envio.
+const PUBLIC_PATHS = ["/login", "/votar", "/os/", "/prioridade/"];
 const ROTA_DEFINIR_SENHA = "/definir-senha";
 
 export async function proxy(request: NextRequest) {

@@ -60,6 +60,7 @@ export type ModuloId =
   | "justificativas"
   | "relato-anomalia"
   | "pdv-particularidades"
+  | "prioridades"
   | "metas"
   | "fontes-dados"
   | "perfis-acesso"
@@ -418,6 +419,25 @@ export const MODULOS: Modulo[] = [
     // mexido por quem foi explicado deixa de ser a versão de quem
     // escreveu.
     acoes: ["ver"],
+  },
+  {
+    /*
+      PRIORIDADES DOS GVs (03/11/2026, pedido do dono): os GVs lançam as
+      prioridades do dia por um link público (/prioridade/<token>, sem
+      login); a logística lê, baixa o .csv para o Gestor LOG e cuida do
+      link e da lista de GVs na Gestão.
+    */
+    id: "prioridades",
+    rotulosDeAcao: {
+      ver: "📊 Ver as prioridades que os GVs enviaram e baixar a lista",
+      editar: "Copiar ou trocar o link dos GVs, montar a lista de GVs e tirar prioridade lançada por engano",
+    },
+    rotulo: "Prioridades dos GVs",
+    emoji: "🚩",
+    href: "/gestao/prioridades",
+    grupo: "Gestão de Dados",
+    emGestao: true,
+    acoes: ["ver", "editar"],
   },
   {
     id: "devolucao",
