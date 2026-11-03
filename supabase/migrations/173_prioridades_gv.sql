@@ -24,6 +24,10 @@ create table if not exists public.prioridades_config (
   -- Os GVs da lista do formulário, na ordem: [{ "codigo": "1", "nome": "..." }].
   -- O código é o "Cód. gerente vendas" do Promax, o mesmo do Gestor LOG.
   gvs jsonb not null default '[]'::jsonb,
+  -- Os motivos da lista suspensa, na ordem: ["Cliente sem estoque", ...].
+  -- Vazio = a lista padrão do app (lib/prioridades.ts). "Outro" a tela
+  -- sempre oferece, com campo para escrever.
+  motivos jsonb not null default '[]'::jsonb,
   atualizado_em timestamptz not null default now(),
   atualizado_por_nome text
 );
@@ -46,6 +50,9 @@ create table if not exists public.prioridades (
   -- não duplica, e o GV fica sabendo que já estava na lista.
   unique (revenda_id, data_entrega, cod_pdv)
 );
+
+-- Quem rodou uma versão anterior desta migration (sem a lista de motivos).
+alter table public.prioridades_config add column if not exists motivos jsonb not null default '[]'::jsonb;
 
 create index if not exists prioridades_revenda_data on public.prioridades (revenda_id, data_entrega);
 

@@ -47,7 +47,7 @@ export default async function PrioridadesDoGvPage({ params }: { params: Promise<
         <p className="text-xs font-bold uppercase tracking-wide text-white/80">Prioridades do dia · {alvo.revendaNome}</p>
         <h1 className="mt-1 text-xl font-bold leading-tight">Quais PDVs precisam sair primeiro?</h1>
         <p className="mt-1.5 text-sm text-white/85">
-          Digite o código e o motivo, inclua quantos precisar e envie tudo de uma vez. A lista fica guardada neste
+          Digite o código, escolha o motivo, inclua quantos precisar e envie tudo de uma vez. A lista fica guardada neste
           aparelho até você enviar.
         </p>
       </div>
@@ -56,6 +56,7 @@ export default async function PrioridadesDoGvPage({ params }: { params: Promise<
         token={token}
         revendaNome={alvo.revendaNome}
         gvs={alvo.gvs}
+        motivos={alvo.motivos}
         hoje={hoje}
         entregaPadrao={proximaEntrega(hoje)}
       />

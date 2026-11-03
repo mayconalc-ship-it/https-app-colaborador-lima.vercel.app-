@@ -5,7 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { requireModulo } from "@/lib/require-admin";
 import { exigirRevenda } from "@/lib/revendas";
 import { deuCerto, noLugar, pararComErro, type ResultadoAcao } from "@/lib/resultado-acao";
-import { MODULO_PRIORIDADES, type Gv } from "@/lib/prioridades";
+import { MODULO_PRIORIDADES, MOTIVO_MIN, MOTIVOS_NA_LISTA_MAX, type Gv } from "@/lib/prioridades";
 import { lerConfig } from "@/lib/prioridades-server";
 
 const ROTA = "/gestao/prioridades";
@@ -53,6 +53,43 @@ export async function removerGv(fd: FormData): Promise<ResultadoAcao> {
     const { gvs } = await lerConfig(revendaId);
     await gravarGvs(gvs.filter((g) => g.nome !== nome));
     return deuCerto(`${nome} saiu da lista. O que ele já enviou continua no painel.`);
+  });
+}
+
+async function gravarMotivos(motivos: string[]) {
+  const { perfil, revendaId, admin } = await porta();
+  const { error } = await admin
+    .from("prioridades_config")
+    .update({ motivos, atualizado_em: new Date().toISOString(), atualizado_por_nome: perfil.nome })
+    .eq("revenda_id", revendaId);
+  if (error) pararComErro(`Não foi possível salvar: ${error.message}`);
+  revalidatePath(ROTA);
+}
+
+export async function adicionarMotivo(fd: FormData): Promise<ResultadoAcao> {
+  return noLugar(async () => {
+    const { revendaId } = await porta();
+    const motivo = texto(fd, "motivo").slice(0, 60);
+    if (motivo.length < MOTIVO_MIN) pararComErro("Escreva o motivo.");
+    const { motivos } = await lerConfig(revendaId);
+    if (motivos.some((m) => m.toLowerCase() === motivo.toLowerCase())) pararComErro("Esse motivo já está na lista.");
+    if (motivos.length >= MOTIVOS_NA_LISTA_MAX) pararComErro(`A lista vai até ${MOTIVOS_NA_LISTA_MAX} motivos: tire um antes.`);
+    await gravarMotivos([...motivos, motivo]);
+    return deuCerto(`"${motivo}" entrou na lista.`);
+  });
+}
+
+export async function removerMotivo(fd: FormData): Promise<ResultadoAcao> {
+  return noLugar(async () => {
+    const { revendaId } = await porta();
+    const motivo = texto(fd, "motivo");
+    const { motivos } = await lerConfig(revendaId);
+    const sobra = motivos.filter((m) => m !== motivo);
+    // Lista vazia no banco = a lista padrão de volta; tirar o último não
+    // deixaria o GV sem motivo, mas traria motivos que alguém tirou.
+    if (sobra.length === 0) pararComErro("Deixe pelo menos um motivo na lista.");
+    await gravarMotivos(sobra);
+    return deuCerto(`"${motivo}" saiu da lista. O que já foi enviado com ele continua no painel.`);
   });
 }
 

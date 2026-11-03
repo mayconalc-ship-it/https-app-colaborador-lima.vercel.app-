@@ -14,8 +14,9 @@ import {
   somarDias,
   type Gv,
   type ItemDoRascunho,
+  type PdvAchado,
 } from "@/lib/prioridades";
-import { conferirPdv, enviadasDoGv, enviarPrioridades, type Enviada } from "../actions";
+import { buscarPdvs, enviadasDoGv, enviarPrioridades, type Enviada } from "../actions";
 
 /**
  * O FORMULÁRIO DO GV -- feito para o celular e para a pressa.
@@ -26,15 +27,22 @@ import { conferirPdv, enviadasDoGv, enviarPrioridades, type Enviada } from "../a
  * lista. "Enviar" manda tudo de uma vez; só o que o servidor confirmou sai
  * da lista do aparelho.
  *
- * O nome do PDV aparece enquanto o código é digitado, para o GV ver na
- * hora que errou um número -- o erro mais comum, e o que mais custa: a
- * prioridade vai para o cliente errado e ninguém percebe.
+ * O CÓDIGO funciona como os filtros de produto do app: ao digitar, abre a
+ * lista dos PDVs que começam com aqueles números, com nome e cidade, e o
+ * GV toca no certo. É também o que mostra na hora que ele errou um número
+ * -- o erro mais comum, e o que mais custa: a prioridade vai para o
+ * cliente errado e ninguém percebe.
+ *
+ * O MOTIVO é lista suspensa (pedido do dono, 03/11/2026), com "Outro"
+ * para o caso que a lista não cobre. O motivo escolhido FICA depois de
+ * incluir: numa leva de PDVs pelo mesmo motivo, é só trocar o código.
  */
 
 type Rascunho = { data: string; itens: ItemDoRascunho[] };
-/** O código consultado e o que a base respondeu (`falhou` = não deu para consultar). */
-type Conferido = { cod: string; nome: string | null; cidade: string | null; falhou?: boolean } | null;
+/** O código buscado e o que a base respondeu (`falhou` = não deu para consultar). */
+type Busca = { cod: string; achados: PdvAchado[]; falhou?: boolean } | null;
 
+const OUTRO = "__outro__";
 const chave = (token: string, o: string) => `prioridades:${o}:${token}`;
 
 function ler<T>(k: string): T | null {
@@ -62,12 +70,14 @@ export function LancarPrioridades({
   token,
   revendaNome,
   gvs,
+  motivos,
   hoje,
   entregaPadrao,
 }: {
   token: string;
   revendaNome: string;
   gvs: Gv[];
+  motivos: string[];
   hoje: string;
   entregaPadrao: string;
 }) {
@@ -77,16 +87,20 @@ export function LancarPrioridades({
   const [itens, setItens] = useState<ItemDoRascunho[]>([]);
   const [guardou, setGuardou] = useState(true);
   const [cod, setCod] = useState("");
-  const [motivo, setMotivo] = useState("");
-  const [motivosUsados, setMotivosUsados] = useState<string[]>([]);
-  const [conferido, setConferido] = useState<Conferido>(null);
+  const [busca, setBusca] = useState<Busca>(null);
+  const [escolhido, setEscolhido] = useState<PdvAchado | null>(null);
+  const [aberto, setAberto] = useState(false);
+  const [motivoSel, setMotivoSel] = useState("");
+  const [motivoLivre, setMotivoLivre] = useState("");
   const [aviso, setAviso] = useState<{ tipo: "ok" | "erro"; texto: string } | null>(null);
   const [enviando, setEnviando] = useState(false);
   const [enviadas, setEnviadas] = useState<{ gv: string; data: string; lista: Enviada[] } | null>(null);
   const [recarga, setRecarga] = useState(0);
   const [empresa, setEmpresa] = useState("");
   const codRef = useRef<HTMLInputElement>(null);
-  const motivoRef = useRef<HTMLInputElement>(null);
+  const motivoRef = useRef<HTMLSelectElement>(null);
+  const livreRef = useRef<HTMLInputElement>(null);
+  const caixaRef = useRef<HTMLDivElement>(null);
 
   // O que estava guardado no aparelho. Data de entrega que já passou volta
   // para a padrão: a lista continua, a data é que estava velha.
@@ -99,10 +113,21 @@ export function LancarPrioridades({
       setItens(lerRascunho(r.itens));
       if (typeof r.data === "string" && r.data >= hoje) setData(r.data);
     }
-    const m = ler<string[]>(chave(token, "motivos"));
-    if (Array.isArray(m)) setMotivosUsados(m.filter((x) => typeof x === "string").slice(0, 12));
     setPronto(true);
   }, [token, gvs, hoje]);
+
+  // Tocar fora da lista de PDVs fecha a lista.
+  useEffect(() => {
+    function fora(e: MouseEvent | TouchEvent) {
+      if (caixaRef.current && !caixaRef.current.contains(e.target as Node)) setAberto(false);
+    }
+    document.addEventListener("mousedown", fora);
+    document.addEventListener("touchstart", fora);
+    return () => {
+      document.removeEventListener("mousedown", fora);
+      document.removeEventListener("touchstart", fora);
+    };
+  }, []);
 
   const guardar = useCallback(
     (novosItens: ItemDoRascunho[], novaData: string) => {
@@ -126,17 +151,20 @@ export function LancarPrioridades({
     };
   }, [pronto, gv, data, token, recarga]);
 
-  // O nome do PDV enquanto digita (espera o dedo parar). O resultado guarda
-  // o código consultado: a tela só mostra o nome se ele for o do campo.
+  // Os PDVs que começam com o código (espera o dedo parar). O resultado
+  // guarda o código buscado: a tela só usa a lista se ela for a do campo.
   useEffect(() => {
     const c = codigoDoPdv(cod);
     if (!c || c.length < 2) return;
     let vale = true;
     const t = setTimeout(async () => {
-      const r = await conferirPdv(token, c);
-      if (!vale) return;
-      setConferido(r.ok ? { cod: c, nome: r.nome, cidade: r.cidade } : { cod: c, nome: null, cidade: null, falhou: true });
-    }, 350);
+      try {
+        const r = await buscarPdvs(token, c);
+        if (vale) setBusca(r.ok ? { cod: c, achados: r.achados } : { cod: c, achados: [], falhou: true });
+      } catch {
+        if (vale) setBusca({ cod: c, achados: [], falhou: true });
+      }
+    }, 300);
     return () => {
       vale = false;
       clearTimeout(t);
@@ -154,32 +182,57 @@ export function LancarPrioridades({
     guardar(itens, nova);
   }
 
+  function digitarCodigo(valor: string) {
+    setCod(valor.replace(/\D/g, "").slice(0, 12));
+    setAberto(true);
+  }
+
+  function escolherPdv(p: PdvAchado) {
+    setCod(p.cod);
+    setEscolhido(p);
+    setAberto(false);
+    motivoRef.current?.focus();
+  }
+
+  function escolherMotivo(valor: string) {
+    setMotivoSel(valor);
+    if (valor === OUTRO) requestAnimationFrame(() => livreRef.current?.focus());
+  }
+
+  const codValido = codigoDoPdv(cod);
+  const buscaDoCampo = codValido && codValido.length >= 2 ? (busca?.cod === codValido ? busca : "procurando") : null;
+  const achados = buscaDoCampo && buscaDoCampo !== "procurando" ? buscaDoCampo.achados : [];
+  // O PDV do código digitado: o tocado na lista, ou o de código exato.
+  const pdvDoCampo =
+    escolhido && escolhido.cod === codValido ? escolhido : (achados.find((a) => a.cod === codValido) ?? null);
+  const motivo = motivoSel === OUTRO ? motivoLivre : motivoSel;
+
   function incluir(e?: React.FormEvent) {
     e?.preventDefault();
-    const problema = problemaDoItem(cod, motivo);
+    const problema = !motivoSel && codValido ? "Escolha o motivo da prioridade." : problemaDoItem(cod, motivo);
     if (problema) {
       setAviso({ tipo: "erro", texto: problema });
-      (codigoDoPdv(cod) ? motivoRef : codRef).current?.focus();
+      if (!codValido) codRef.current?.focus();
+      else if (motivoSel === OUTRO) livreRef.current?.focus();
+      else motivoRef.current?.focus();
       return;
     }
-    const c = codigoDoPdv(cod)!;
+    const c = codValido!;
     const m = motivoLimpo(motivo);
-    const nome = conferido?.cod === c ? conferido.nome : null;
-    const naBase = conferido?.cod === c && !conferido.falhou && !conferido.nome;
-    const { lista, substituiu } = incluirNoRascunho(itens, { cod: c, motivo: m, nome });
+    const foraDaBase = buscaDoCampo !== "procurando" && buscaDoCampo !== null && !buscaDoCampo.falhou && !pdvDoCampo;
+    const { lista, substituiu } = incluirNoRascunho(itens, { cod: c, motivo: m, nome: pdvDoCampo?.nome ?? null });
     setItens(lista);
     guardar(lista, data);
-    const usados = [m, ...motivosUsados.filter((x) => x.toLowerCase() !== m.toLowerCase())].slice(0, 12);
-    setMotivosUsados(usados);
-    gravar(chave(token, "motivos"), usados);
     setAviso({
       tipo: "ok",
       texto:
         (substituiu ? `PDV ${c} já estava na lista: motivo trocado.` : `PDV ${c} incluído.`) +
-        (naBase ? " Atenção: esse código não está na base de clientes." : ""),
+        (foraDaBase ? " Atenção: esse código não está na base de clientes." : ""),
     });
     setCod("");
-    setMotivo("");
+    setEscolhido(null);
+    setAberto(false);
+    if (motivoSel === OUTRO) setMotivoLivre("");
     codRef.current?.focus();
   }
 
@@ -232,9 +285,8 @@ export function LancarPrioridades({
     );
   }
 
-  const codValido = codigoDoPdv(cod);
-  const consultaDoCampo = codValido && codValido.length >= 2 ? (conferido?.cod === codValido ? conferido : "procurando") : null;
   const enviadasDaTela = enviadas && enviadas.gv === gv && enviadas.data === data ? enviadas.lista : null;
+  const listaAberta = aberto && buscaDoCampo !== null && !(escolhido && escolhido.cod === codValido);
 
   return (
     <div className="space-y-4 pb-28">
@@ -271,61 +323,104 @@ export function LancarPrioridades({
 
       {/* ---- Incluir ---- */}
       <form onSubmit={incluir} className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-        <div>
+        <div ref={caixaRef} className="relative">
           <label className={rotulo} htmlFor="pr-cod">
             Código do PDV
           </label>
           <input
             id="pr-cod"
             ref={codRef}
-            className={campo}
+            className={`${campo} tabular-nums ${pdvDoCampo ? "border-emerald-400 bg-emerald-50/40" : ""}`}
             inputMode="numeric"
             autoComplete="off"
             enterKeyHint="next"
-            placeholder="Ex.: 4510"
+            placeholder="Digite o código"
             value={cod}
-            onChange={(e) => setCod(e.target.value.replace(/\D/g, ""))}
+            onChange={(e) => digitarCodigo(e.target.value)}
+            onFocus={() => setAberto(true)}
             onKeyDown={(e) => {
+              if (e.key === "Escape") setAberto(false);
               if (e.key === "Enter") {
+                // Enter escolhe o PDV de código exato (ou o único da lista)
+                // e segue para o motivo; nunca inclui pela metade.
                 e.preventDefault();
-                motivoRef.current?.focus();
+                const unico = pdvDoCampo ?? (achados.length === 1 ? achados[0] : null);
+                if (unico) escolherPdv(unico);
+                else motivoRef.current?.focus();
               }
             }}
           />
+
+          {listaAberta && (
+            <div className="absolute z-30 mt-1 max-h-72 w-full overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-lg">
+              {buscaDoCampo === "procurando" ? (
+                <p className="p-3 text-sm text-slate-400">Buscando...</p>
+              ) : buscaDoCampo.falhou ? (
+                <p className="p-3 text-sm text-slate-500">Não deu para buscar agora. Pode incluir pelo código mesmo.</p>
+              ) : achados.length === 0 ? (
+                <p className="p-3 text-sm text-amber-800">Nenhum PDV com esse código na base de clientes. Confira o número.</p>
+              ) : (
+                achados.map((p) => (
+                  <button
+                    key={p.cod}
+                    type="button"
+                    onClick={() => escolherPdv(p)}
+                    className="block w-full border-b border-slate-100 px-3 py-2.5 text-left last:border-b-0 hover:bg-primary-soft"
+                  >
+                    <span className="font-semibold tabular-nums text-slate-900">{p.cod}</span>{" "}
+                    <span className="text-slate-700">— {p.nome ?? "sem nome"}</span>
+                    {p.cidade ? <span className="block text-xs text-slate-400">{p.cidade}</span> : null}
+                  </button>
+                ))
+              )}
+            </div>
+          )}
+
           <p className="mt-1 min-h-[1.25rem] text-sm">
-            {consultaDoCampo === "procurando" ? (
-              <span className="text-slate-400">Procurando…</span>
-            ) : consultaDoCampo?.nome ? (
+            {pdvDoCampo ? (
               <span className="font-semibold text-emerald-700">
-                {consultaDoCampo.nome}
-                {consultaDoCampo.cidade ? <span className="font-normal text-slate-500"> · {consultaDoCampo.cidade}</span> : null}
+                {pdvDoCampo.nome ?? "PDV sem nome na base"}
+                {pdvDoCampo.cidade ? <span className="font-normal text-slate-500"> · {pdvDoCampo.cidade}</span> : null}
               </span>
-            ) : consultaDoCampo && !consultaDoCampo.falhou ? (
-              <span className="text-amber-700">Não achei esse código na base de clientes. Confira o número.</span>
+            ) : codValido && codValido.length >= 2 && !aberto && buscaDoCampo !== "procurando" && !buscaDoCampo?.falhou ? (
+              <span className="text-amber-700">Esse código não está na base de clientes. Confira o número.</span>
             ) : null}
           </p>
         </div>
+
         <div>
           <label className={rotulo} htmlFor="pr-motivo">
             Motivo da prioridade
           </label>
-          <input
+          <select
             id="pr-motivo"
             ref={motivoRef}
-            className={campo}
-            list="pr-motivos"
-            maxLength={MOTIVO_MAX}
-            autoComplete="off"
-            enterKeyHint="done"
-            placeholder="Por que esse PDV precisa sair primeiro"
-            value={motivo}
-            onChange={(e) => setMotivo(e.target.value)}
-          />
-          <datalist id="pr-motivos">
-            {motivosUsados.map((m) => (
-              <option key={m} value={m} />
+            className={`${campo} ${motivoSel ? "" : "text-slate-400"}`}
+            value={motivoSel}
+            onChange={(e) => escolherMotivo(e.target.value)}
+          >
+            <option value="">Escolha o motivo</option>
+            {motivos.map((m) => (
+              <option key={m} value={m} className="text-slate-900">
+                {m}
+              </option>
             ))}
-          </datalist>
+            <option value={OUTRO} className="text-slate-900">
+              Outro motivo (escrever)
+            </option>
+          </select>
+          {motivoSel === OUTRO && (
+            <input
+              ref={livreRef}
+              className={`${campo} mt-2`}
+              maxLength={MOTIVO_MAX}
+              autoComplete="off"
+              enterKeyHint="done"
+              placeholder="Escreva o motivo"
+              value={motivoLivre}
+              onChange={(e) => setMotivoLivre(e.target.value)}
+            />
+          )}
         </div>
         {/* Armadilha de robô: invisível para gente, preenchida por script. */}
         <input

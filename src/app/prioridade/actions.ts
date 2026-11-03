@@ -11,7 +11,14 @@ import {
   motivoLimpo,
   problemaDoItem,
 } from "@/lib/prioridades";
-import { PrioridadesNaoInstalado, conferir, nomesDosPdvs, resolverToken } from "@/lib/prioridades-server";
+import {
+  PrioridadesNaoInstalado,
+  conferir,
+  nomesDosPdvs,
+  procurarPdvsPorCodigo,
+  resolverToken,
+} from "@/lib/prioridades-server";
+import type { PdvAchado } from "@/lib/prioridades";
 
 /**
  * AS AÇÕES DO LINK DOS GVs -- abertas, sem login, como o QR do chamado.
@@ -28,17 +35,22 @@ const TETO_EM_10_MIN = 400;
 
 const EM_MANUTENCAO = "O envio de prioridades está em manutenção. A sua lista continua guardada neste aparelho: tente mais tarde.";
 
-export type PdvConferido = { ok: true; nome: string | null; cidade: string | null } | { ok: false; erro: string };
+/** Quantos PDVs a lista debaixo do campo mostra. */
+const ACHADOS_MAX = 8;
 
-/** O nome do PDV digitado, para o GV ver se acertou o código. */
-export async function conferirPdv(token: string, cod: string): Promise<PdvConferido> {
+export type PdvsAchados = { ok: true; achados: PdvAchado[] } | { ok: false; erro: string };
+
+/**
+ * Os PDVs que começam com o código digitado, com nome e cidade -- para o
+ * GV tocar no certo, ou ver na hora que errou um número.
+ */
+export async function buscarPdvs(token: string, cod: string): Promise<PdvsAchados> {
   try {
     const alvo = await resolverToken(token);
     if (!alvo) return { ok: false, erro: "Este link não vale mais. Peça o novo à logística." };
     const codigo = codigoDoPdv(cod);
-    if (!codigo) return { ok: false, erro: "Código inválido." };
-    const achado = (await nomesDosPdvs(alvo.revendaId, [codigo])).get(codigo);
-    return { ok: true, nome: achado?.nome ?? null, cidade: achado?.cidade ?? null };
+    if (!codigo || codigo.length < 2) return { ok: true, achados: [] };
+    return { ok: true, achados: await procurarPdvsPorCodigo(alvo.revendaId, codigo, ACHADOS_MAX) };
   } catch (e) {
     if (e instanceof PrioridadesNaoInstalado) return { ok: false, erro: EM_MANUTENCAO };
     throw e;

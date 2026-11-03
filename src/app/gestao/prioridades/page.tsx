@@ -15,7 +15,7 @@ import {
   somarDias,
 } from "@/lib/prioridades";
 import { PrioridadesNaoInstalado, diasComPrioridade, lerConfig, prioridadesDoDia } from "@/lib/prioridades-server";
-import { adicionarGv, novoLink, removerGv, removerPrioridade } from "./actions";
+import { adicionarGv, adicionarMotivo, novoLink, removerGv, removerMotivo, removerPrioridade } from "./actions";
 import { LinkDosGvs } from "./LinkDosGvs";
 
 export const dynamic = "force-dynamic";
@@ -235,6 +235,41 @@ export default async function PrioridadesDosGvsPage({ searchParams }: { searchPa
               <label>
                 <span className={rotulo}>Nome</span>
                 <input name="nome" required className={campo} placeholder="Nome do GV" />
+              </label>
+              <BotaoEnviar className="rounded-xl bg-primary px-3 py-2 text-sm font-semibold text-white hover:bg-primary-dark">
+                Incluir
+              </BotaoEnviar>
+            </FormNoLugar>
+          </div>
+
+          <div className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:col-span-2">
+            <div>
+              <h2 className="text-sm font-bold text-slate-900">Motivos da lista</h2>
+              <p className="mt-0.5 text-xs text-slate-500">
+                O que o GV escolhe na lista suspensa, nesta ordem. &quot;Outro motivo (escrever)&quot; aparece sempre, no fim.
+              </p>
+            </div>
+            <ul className="divide-y divide-slate-100 rounded-xl border border-slate-200">
+              {config.motivos.map((m) => (
+                <li key={m} className="flex items-center justify-between gap-2 px-3 py-2 text-sm">
+                  <span className="text-slate-800">{m}</span>
+                  <BotaoNoLugar
+                    acao={removerMotivo}
+                    campos={{ motivo: m }}
+                    confirmacao={`Tirar "${m}" da lista?`}
+                    detalhe="O que já foi enviado com esse motivo continua no painel."
+                    rotuloConfirmar="Tirar"
+                    className="rounded-lg border border-slate-300 px-2.5 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+                  >
+                    Tirar
+                  </BotaoNoLugar>
+                </li>
+              ))}
+            </ul>
+            <FormNoLugar acao={adicionarMotivo} limparAoSalvar className="grid grid-cols-[1fr_auto] items-end gap-2">
+              <label>
+                <span className={rotulo}>Novo motivo</span>
+                <input name="motivo" required maxLength={60} className={campo} placeholder="Ex.: Cliente fecha para reforma" />
               </label>
               <BotaoEnviar className="rounded-xl bg-primary px-3 py-2 text-sm font-semibold text-white hover:bg-primary-dark">
                 Incluir

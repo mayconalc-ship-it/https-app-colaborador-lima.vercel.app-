@@ -2,8 +2,8 @@
 // o rascunho que fica no aparelho até o envio.
 //   npx tsx src/lib/__testes__/prioridades.teste.mjs
 import {
-  codigoDoPdv, dataCurta, dataDeEntregaValida, hojeEmSaoPaulo, incluirNoRascunho, lerGvs, lerRascunho, motivoLimpo,
-  problemaDoItem, proximaEntrega, rotuloDoGv, somarDias, MOTIVO_MAX,
+  codigoDoPdv, dataCurta, dataDeEntregaValida, hojeEmSaoPaulo, incluirNoRascunho, lerGvs, lerMotivos, lerRascunho, motivoLimpo,
+  ordenarAchados, problemaDoItem, proximaEntrega, rotuloDoGv, somarDias, MOTIVO_MAX, MOTIVOS_PADRAO,
 } from "../prioridades.ts";
 
 let falhas = 0;
@@ -49,6 +49,16 @@ eq("nome vazio sai, código vazio vira nulo", lerGvs([{ codigo: "1", nome: " Ken
 ]);
 eq("rótulo com código", rotuloDoGv({ codigo: "1", nome: "Kenio" }), "GV 1 · Kenio");
 eq("rótulo sem código", rotuloDoGv({ codigo: null, nome: "Kenio" }), "Kenio");
+
+console.log("== MOTIVOS E BUSCA ==");
+eq("sem lista no banco: a padrão", lerMotivos([]), MOTIVOS_PADRAO);
+eq("lista torta: a padrão", lerMotivos(null), MOTIVOS_PADRAO);
+eq("repetido e curto saem", lerMotivos([" Cliente  sem estoque", "cliente sem estoque", "ok", "Evento"]), ["Cliente sem estoque", "Evento"]);
+eq(
+  "o código exato primeiro, depois os mais curtos",
+  ordenarAchados([{ cod: "45100" }, { cod: "4519" }, { cod: "451" }, { cod: "4510" }], 3).map((a) => a.cod),
+  ["451", "4510", "4519"],
+);
 
 console.log("== RASCUNHO ==");
 let r = incluirNoRascunho([], { cod: "4510", motivo: "sem estoque", nome: "Bar A" });

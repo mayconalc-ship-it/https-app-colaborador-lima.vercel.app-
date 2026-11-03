@@ -1,6 +1,6 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { MODULO_PRIORIDADES, lerGvs, type Gv } from "@/lib/prioridades";
+import { MODULO_PRIORIDADES, lerGvs, lerMotivos, ordenarAchados, type Gv, type PdvAchado } from "@/lib/prioridades";
 
 /**
  * PRIORIDADES DOS GVs -- o lado do banco. A regra está em lib/prioridades.ts.
@@ -48,7 +48,7 @@ export async function resolverToken(token: string, admin: Admin = createAdminCli
 
   const { data: config, error } = await admin
     .from("prioridades_config")
-    .select("revenda_id, gvs")
+    .select("revenda_id, gvs, motivos")
     .eq("token_publico", limpo)
     .maybeSingle();
   conferir(error);
@@ -66,26 +66,65 @@ export async function resolverToken(token: string, admin: Admin = createAdminCli
   ]);
   if (!revenda || revenda.ativa === false || !ligado?.ativo) return null;
 
-  return { revendaId, revendaNome: revenda.nome as string, gvs: lerGvs(config.gvs) };
+  return { revendaId, revendaNome: revenda.nome as string, gvs: lerGvs(config.gvs), motivos: lerMotivos(config.motivos) };
 }
 
-/** O link e a lista de GVs da revenda (cria a linha se não existir). */
-export async function lerConfig(revendaId: string, admin: Admin = createAdminClient()): Promise<{ tokenPublico: string; gvs: Gv[] }> {
+type Config = { tokenPublico: string; gvs: Gv[]; motivos: string[] };
+
+/** O link, os GVs e os motivos da revenda (cria a linha se não existir). */
+export async function lerConfig(revendaId: string, admin: Admin = createAdminClient()): Promise<Config> {
   const { data, error } = await admin
     .from("prioridades_config")
-    .select("token_publico, gvs")
+    .select("token_publico, gvs, motivos")
     .eq("revenda_id", revendaId)
     .maybeSingle();
   conferir(error);
-  if (data) return { tokenPublico: data.token_publico as string, gvs: lerGvs(data.gvs) };
+  const ler = (l: { token_publico: unknown; gvs: unknown; motivos: unknown }): Config => ({
+    tokenPublico: l.token_publico as string,
+    gvs: lerGvs(l.gvs),
+    motivos: lerMotivos(l.motivos),
+  });
+  if (data) return ler(data);
 
   const { data: nova, error: e2 } = await admin
     .from("prioridades_config")
     .insert({ revenda_id: revendaId })
-    .select("token_publico, gvs")
+    .select("token_publico, gvs, motivos")
     .single();
   conferir(e2);
-  return { tokenPublico: nova!.token_publico as string, gvs: lerGvs(nova!.gvs) };
+  return ler(nova!);
+}
+
+/**
+ * Os PDVs cujo código começa com o que o GV digitou -- a lista que abre
+ * debaixo do campo, como nos filtros de produto do app. Só por código:
+ * buscar por nome numa página aberta seria entregar a carteira inteira a
+ * quem tivesse o link.
+ */
+export async function procurarPdvsPorCodigo(revendaId: string, prefixo: string, max: number, admin: Admin = createAdminClient()) {
+  // O exato à parte: com milhares de códigos começando igual, o corte da
+  // busca por prefixo podia deixá-lo de fora -- e ele é o que o GV quer.
+  const [exato, { data, error }] = await Promise.all([
+    nomesDosPdvs(revendaId, [prefixo], admin),
+    admin
+      .from("pa_pdv_clientes")
+      .select("cod_pdv, nome, fantasia, cidade")
+      .eq("revenda_id", revendaId)
+      .like("cod_pdv", `${prefixo}%`)
+      .order("cod_pdv")
+      .limit(60),
+  ]);
+  if (error) throw new Error(error.message);
+  const achados: PdvAchado[] = (data ?? [])
+    .filter((c) => c.cod_pdv !== prefixo)
+    .map((c) => ({
+      cod: c.cod_pdv as string,
+      nome: ((c.fantasia as string | null) || (c.nome as string | null)) ?? null,
+      cidade: (c.cidade as string | null) ?? null,
+    }));
+  const e = exato.get(prefixo);
+  if (e) achados.push({ cod: prefixo, ...e });
+  return ordenarAchados(achados, max);
 }
 
 /**

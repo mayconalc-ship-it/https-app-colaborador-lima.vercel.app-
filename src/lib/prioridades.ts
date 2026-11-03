@@ -59,6 +59,48 @@ export function lerGvs(json: unknown): Gv[] {
   return gvs;
 }
 
+/**
+ * Os motivos da lista suspensa, quando a revenda ainda não montou a dela.
+ * É ponto de partida, não regra: a logística troca no painel. "Outro"
+ * não entra aqui -- a tela sempre oferece, e abre o campo para escrever.
+ */
+export const MOTIVOS_PADRAO = [
+  "Cliente sem estoque",
+  "Pedido que ficou de ontem",
+  "Cliente só recebe cedo",
+  "Evento ou festa no PDV",
+  "Cliente reclamou de atraso",
+  "Negociação especial",
+  "Cliente novo (primeira compra)",
+];
+export const MOTIVOS_NA_LISTA_MAX = 15;
+
+/** A lista de motivos gravada no banco; vazia ou torta = a padrão. */
+export function lerMotivos(json: unknown): string[] {
+  if (!Array.isArray(json)) return MOTIVOS_PADRAO;
+  const vistos = new Set<string>();
+  const lista: string[] = [];
+  for (const m of json) {
+    const limpo = motivoLimpo(m).slice(0, 60);
+    if (limpo.length < MOTIVO_MIN || vistos.has(limpo.toLowerCase())) continue;
+    vistos.add(limpo.toLowerCase());
+    lista.push(limpo);
+  }
+  return lista.length ? lista.slice(0, MOTIVOS_NA_LISTA_MAX) : MOTIVOS_PADRAO;
+}
+
+/** Um PDV da lista que abre debaixo do campo do código. */
+export type PdvAchado = { cod: string; nome: string | null; cidade: string | null };
+
+/**
+ * Os PDVs que a busca mostra: os códigos que começam com o que foi
+ * digitado, o mais curto primeiro (o código exato, se existir, é o
+ * primeiro da lista), depois em ordem numérica.
+ */
+export function ordenarAchados<T extends { cod: string }>(achados: T[], max: number): T[] {
+  return [...achados].sort((a, b) => a.cod.length - b.cod.length || a.cod.localeCompare(b.cod)).slice(0, max);
+}
+
 /** "GV 1 · Kenio Saimon", ou só o nome sem código. */
 export function rotuloDoGv(g: Gv): string {
   return g.codigo ? `GV ${g.codigo} · ${g.nome}` : g.nome;
