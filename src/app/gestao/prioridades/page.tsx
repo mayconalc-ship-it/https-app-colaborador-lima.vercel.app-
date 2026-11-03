@@ -1,28 +1,14 @@
 import Link from "next/link";
 import { PageHeader } from "@/components/PageHeader";
 import { ExportarCsv } from "@/components/ExportarCsv";
-import { FormNoLugar } from "@/components/FormNoLugar";
-import { BotaoEnviar } from "@/components/BotaoEnviar";
 import { BotaoNoLugar } from "@/components/BotaoNoLugar";
 import { requireModulo, podeNoModulo } from "@/lib/require-admin";
-import { exigirRevenda, getRevendaAtiva } from "@/lib/revendas";
-import {
-  MODULO_PRIORIDADES,
-  dataCurta,
-  hojeEmSaoPaulo,
-  proximaEntrega,
-  rotuloDoGv,
-  somarDias,
-} from "@/lib/prioridades";
+import { exigirRevenda } from "@/lib/revendas";
+import { MODULO_PRIORIDADES, dataCurta, hojeEmSaoPaulo, proximaEntrega, somarDias } from "@/lib/prioridades";
 import { PrioridadesNaoInstalado, diasComPrioridade, lerConfig, prioridadesDoDia } from "@/lib/prioridades-server";
-import { adicionarGv, adicionarMotivo, novoLink, removerGv, removerMotivo, removerPrioridade } from "./actions";
-import { LinkDosGvs } from "./LinkDosGvs";
+import { removerPrioridade } from "./actions";
 
 export const dynamic = "force-dynamic";
-
-const campo =
-  "w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-primary focus:outline-none";
-const rotulo = "mb-1 block text-[11px] font-semibold uppercase text-slate-500";
 
 const hora = (iso: string) =>
   new Date(iso).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
@@ -51,7 +37,6 @@ export default async function PrioridadesDosGvsPage({ searchParams }: { searchPa
       lerConfig(revendaId),
       prioridadesDoDia(revendaId, dia),
       diasComPrioridade(revendaId, somarDias(hoje, -30)),
-      getRevendaAtiva(),
     ]);
   } catch (e) {
     if (!(e instanceof PrioridadesNaoInstalado)) throw e;
@@ -64,7 +49,7 @@ export default async function PrioridadesDosGvsPage({ searchParams }: { searchPa
       </div>
     );
   }
-  const [config, lista, dias, revenda] = dados;
+  const [config, lista, dias] = dados;
 
   // Os atalhos de dia: hoje, a próxima entrega e os dias que têm lista.
   const atalhos = [...new Set([padrao, hoje, ...dias.map((x) => x.dia)])].sort().reverse().slice(0, 10);
@@ -176,107 +161,14 @@ export default async function PrioridadesDosGvsPage({ searchParams }: { searchPa
         )}
       </section>
 
-      {/* ---- O link e os GVs ---- */}
+      {/* O link, os GVs e os motivos: cadastro, em Configuração. */}
       {podeEditar && (
-        <section className="grid gap-4 md:grid-cols-2">
-          <div className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-            <div>
-              <h2 className="text-sm font-bold text-slate-900">O link dos GVs</h2>
-              <p className="mt-0.5 text-xs text-slate-500">
-                Abre sem login. O GV escolhe o nome uma vez, lança código e motivo, e envia tudo de uma vez.
-              </p>
-            </div>
-            <LinkDosGvs token={config.tokenPublico} revendaNome={revenda?.nome ?? "revenda"} />
-            <BotaoNoLugar
-              acao={novoLink}
-              campos={{}}
-              confirmacao="Gerar um link novo?"
-              detalhe="O link que já está com os GVs para de aceitar prioridades na hora. Use só se ele vazou para fora da empresa."
-              rotuloConfirmar="Gerar novo"
-              className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-500 hover:bg-slate-50"
-            >
-              Gerar link novo
-            </BotaoNoLugar>
-          </div>
-
-          <div className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-            <div>
-              <h2 className="text-sm font-bold text-slate-900">GVs da lista</h2>
-              <p className="mt-0.5 text-xs text-slate-500">
-                Quem aparece para escolher no link. O código é o do Promax (Cód. gerente vendas), o mesmo do Gestor LOG.
-              </p>
-            </div>
-            {config.gvs.length === 0 ? (
-              <p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900">Nenhum GV ainda: o link não abre sem a lista.</p>
-            ) : (
-              <ul className="divide-y divide-slate-100 rounded-xl border border-slate-200">
-                {config.gvs.map((g) => (
-                  <li key={g.nome} className="flex items-center justify-between gap-2 px-3 py-2 text-sm">
-                    <span className="text-slate-800">{rotuloDoGv(g)}</span>
-                    <BotaoNoLugar
-                      acao={removerGv}
-                      campos={{ nome: g.nome }}
-                      confirmacao={`Tirar ${g.nome} da lista do link?`}
-                      detalhe="O que ele já enviou continua no painel."
-                      rotuloConfirmar="Tirar"
-                      className="rounded-lg border border-slate-300 px-2.5 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-50"
-                    >
-                      Tirar
-                    </BotaoNoLugar>
-                  </li>
-                ))}
-              </ul>
-            )}
-            <FormNoLugar acao={adicionarGv} limparAoSalvar className="grid grid-cols-[5rem_1fr_auto] items-end gap-2">
-              <label>
-                <span className={rotulo}>Código</span>
-                <input name="codigo" inputMode="numeric" className={campo} placeholder="1" />
-              </label>
-              <label>
-                <span className={rotulo}>Nome</span>
-                <input name="nome" required className={campo} placeholder="Nome do GV" />
-              </label>
-              <BotaoEnviar className="rounded-xl bg-primary px-3 py-2 text-sm font-semibold text-white hover:bg-primary-dark">
-                Incluir
-              </BotaoEnviar>
-            </FormNoLugar>
-          </div>
-
-          <div className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:col-span-2">
-            <div>
-              <h2 className="text-sm font-bold text-slate-900">Motivos da lista</h2>
-              <p className="mt-0.5 text-xs text-slate-500">
-                O que o GV escolhe na lista suspensa, nesta ordem. &quot;Outro motivo (escrever)&quot; aparece sempre, no fim.
-              </p>
-            </div>
-            <ul className="divide-y divide-slate-100 rounded-xl border border-slate-200">
-              {config.motivos.map((m) => (
-                <li key={m} className="flex items-center justify-between gap-2 px-3 py-2 text-sm">
-                  <span className="text-slate-800">{m}</span>
-                  <BotaoNoLugar
-                    acao={removerMotivo}
-                    campos={{ motivo: m }}
-                    confirmacao={`Tirar "${m}" da lista?`}
-                    detalhe="O que já foi enviado com esse motivo continua no painel."
-                    rotuloConfirmar="Tirar"
-                    className="rounded-lg border border-slate-300 px-2.5 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-50"
-                  >
-                    Tirar
-                  </BotaoNoLugar>
-                </li>
-              ))}
-            </ul>
-            <FormNoLugar acao={adicionarMotivo} limparAoSalvar className="grid grid-cols-[1fr_auto] items-end gap-2">
-              <label>
-                <span className={rotulo}>Novo motivo</span>
-                <input name="motivo" required maxLength={60} className={campo} placeholder="Ex.: Cliente fecha para reforma" />
-              </label>
-              <BotaoEnviar className="rounded-xl bg-primary px-3 py-2 text-sm font-semibold text-white hover:bg-primary-dark">
-                Incluir
-              </BotaoEnviar>
-            </FormNoLugar>
-          </div>
-        </section>
+        <p className="text-sm text-slate-500">
+          {config.gvs.length === 0 && <span className="font-semibold text-amber-800">Nenhum GV cadastrado: o link não abre sem a lista. </span>}
+          <Link href="/admin/prioridades" className="font-semibold text-primary underline">
+            Link dos GVs, lista de GVs e motivos em Configuração →
+          </Link>
+        </p>
       )}
     </div>
   );

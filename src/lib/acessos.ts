@@ -424,20 +424,21 @@ export const MODULOS: Modulo[] = [
     /*
       PRIORIDADES DOS GVs (03/11/2026, pedido do dono): os GVs lançam as
       prioridades do dia por um link público (/prioridade/<token>, sem
-      login); a logística lê, baixa o .csv para o Gestor LOG e cuida do
-      link e da lista de GVs na Gestão.
+      login); a logística lê e baixa o .csv para o Gestor LOG na Gestão.
+      O cadastro (link, GVs e motivos) fica em Configuração, como o de
+      Chamados (pedido do dono, mesmo dia).
     */
     id: "prioridades",
     rotulosDeAcao: {
       ver: "📊 Ver as prioridades que os GVs enviaram e baixar a lista",
-      editar: "Copiar ou trocar o link dos GVs, montar a lista de GVs e tirar prioridade lançada por engano",
+      editar: "Copiar ou trocar o link dos GVs, cadastrar os GVs e os motivos e tirar prioridade lançada por engano",
     },
     rotulo: "Prioridades dos GVs",
     emoji: "🚩",
-    href: "/gestao/prioridades",
-    grupo: "Gestão de Dados",
-    emGestao: true,
+    href: "/admin/prioridades",
+    grupo: "Configuração",
     acoes: ["ver", "editar"],
+    exigeEditarNoAdmin: true,
   },
   {
     id: "devolucao",
