@@ -13,19 +13,37 @@ import { createClient } from "@supabase/supabase-js";
  *
  * --so-conferidos deixa de fora o comprovante que o financeiro ainda não
  * conferiu (ou marcou divergente): esse ainda pode precisar da foto.
+ *
+ * --mais-de 15 (03/11/2026) troca o --de/--ate por "tudo com mais de 15
+ * dias", contado no fuso da operação -- para rodar de tempos em tempos:
+ *
+ *   node --env-file=.env.local scripts/apagar-fotos-qr.mjs --mais-de 15
  */
 
 const argumento = (nome) => {
   const i = process.argv.indexOf(nome);
   return i === -1 ? null : process.argv[i + 1];
 };
-const de = argumento("--de");
-const ate = argumento("--ate");
+let de = argumento("--de");
+let ate = argumento("--ate");
+const maisDe = argumento("--mais-de");
 const APAGAR = process.argv.includes("--apagar");
 const SO_CONFERIDOS = process.argv.includes("--so-conferidos");
 
+if (maisDe !== null) {
+  const dias = Number(maisDe);
+  if (!Number.isInteger(dias) || dias < 1) {
+    console.error("Use: --mais-de N (dias inteiros, 1 ou mais)");
+    process.exit(1);
+  }
+  // Mais de 15 dias: hoje menos 16 é o último dia que sai.
+  const limite = new Date(Date.now() - (dias + 1) * 86_400_000);
+  ate = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(limite);
+  de = "2000-01-01";
+}
+
 if (!/^\d{4}-\d{2}-\d{2}$/.test(de ?? "") || !/^\d{4}-\d{2}-\d{2}$/.test(ate ?? "") || de > ate) {
-  console.error("Use: --de AAAA-MM-DD --ate AAAA-MM-DD (o dia do comprovante, ponta a ponta)");
+  console.error("Use: --de AAAA-MM-DD --ate AAAA-MM-DD (o dia do comprovante, ponta a ponta) ou --mais-de N");
   process.exit(1);
 }
 if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
