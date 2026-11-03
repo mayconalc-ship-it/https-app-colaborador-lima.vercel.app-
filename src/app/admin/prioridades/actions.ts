@@ -32,17 +32,38 @@ async function gravar(mudanca: { gvs?: Gv[]; motivos?: string[]; token_publico?:
   revalidatePath(ROTA);
 }
 
+function lerGv(fd: FormData): Gv {
+  const nome = texto(fd, "nome").slice(0, 60);
+  const codigo = texto(fd, "codigo").replace(/\D/g, "").slice(0, 6) || null;
+  if (nome.length < 2) pararComErro("Escreva o nome do GV.");
+  return { codigo, nome };
+}
+
+const porCodigo = (gvs: Gv[]) =>
+  [...gvs].sort((a, b) => (a.codigo ?? "999").localeCompare(b.codigo ?? "999", "pt-BR", { numeric: true }));
+
 export async function adicionarGv(fd: FormData): Promise<ResultadoAcao> {
   return noLugar(async () => {
     const { revendaId } = await porta();
-    const nome = texto(fd, "nome").slice(0, 60);
-    const codigo = texto(fd, "codigo").replace(/\D/g, "").slice(0, 6) || null;
-    if (nome.length < 2) pararComErro("Escreva o nome do GV.");
+    const gv = lerGv(fd);
     const { gvs } = await lerConfig(revendaId);
-    if (gvs.some((g) => g.nome.toLowerCase() === nome.toLowerCase())) pararComErro("Esse GV já está na lista.");
-    const lista = [...gvs, { codigo, nome }].sort((a, b) => (a.codigo ?? "999").localeCompare(b.codigo ?? "999", "pt-BR", { numeric: true }));
-    await gravar({ gvs: lista });
-    return deuCerto(`${nome} entrou na lista do link.`);
+    if (gvs.some((g) => g.nome.toLowerCase() === gv.nome.toLowerCase())) pararComErro("Esse GV já está na lista.");
+    await gravar({ gvs: porCodigo([...gvs, gv]) });
+    return deuCerto(`${gv.nome} entrou na lista do link.`);
+  });
+}
+
+/** Corrige código ou nome. O que o GV já enviou guarda o nome da época. */
+export async function editarGv(fd: FormData): Promise<ResultadoAcao> {
+  return noLugar(async () => {
+    const { revendaId } = await porta();
+    const antigo = texto(fd, "antigo");
+    const gv = lerGv(fd);
+    const { gvs } = await lerConfig(revendaId);
+    if (!gvs.some((g) => g.nome === antigo)) pararComErro("Esse GV já não está na lista.");
+    if (gvs.some((g) => g.nome !== antigo && g.nome.toLowerCase() === gv.nome.toLowerCase())) pararComErro("Já existe outro GV com esse nome.");
+    await gravar({ gvs: porCodigo(gvs.map((g) => (g.nome === antigo ? gv : g))) });
+    return deuCerto(`${gv.nome} salvo.`);
   });
 }
 
@@ -66,6 +87,21 @@ export async function adicionarMotivo(fd: FormData): Promise<ResultadoAcao> {
     if (motivos.length >= MOTIVOS_NA_LISTA_MAX) pararComErro(`A lista vai até ${MOTIVOS_NA_LISTA_MAX} motivos: tire um antes.`);
     await gravar({ motivos: [...motivos, motivo] });
     return deuCerto(`"${motivo}" entrou na lista.`);
+  });
+}
+
+/** Reescreve um motivo no mesmo lugar da lista. */
+export async function editarMotivo(fd: FormData): Promise<ResultadoAcao> {
+  return noLugar(async () => {
+    const { revendaId } = await porta();
+    const antigo = texto(fd, "antigo");
+    const motivo = texto(fd, "motivo").slice(0, 60);
+    if (motivo.length < MOTIVO_MIN) pararComErro("Escreva o motivo.");
+    const { motivos } = await lerConfig(revendaId);
+    if (!motivos.includes(antigo)) pararComErro("Esse motivo já não está na lista.");
+    if (motivos.some((m) => m !== antigo && m.toLowerCase() === motivo.toLowerCase())) pararComErro("Esse motivo já está na lista.");
+    await gravar({ motivos: motivos.map((m) => (m === antigo ? motivo : m)) });
+    return deuCerto(`"${motivo}" salvo. O que já foi enviado continua com o texto antigo.`);
   });
 }
 

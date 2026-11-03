@@ -5,10 +5,11 @@ import { BotaoEnviar } from "@/components/BotaoEnviar";
 import { BotaoNoLugar } from "@/components/BotaoNoLugar";
 import { requireModulo } from "@/lib/require-admin";
 import { exigirRevenda, getRevendaAtiva } from "@/lib/revendas";
-import { MODULO_PRIORIDADES, rotuloDoGv } from "@/lib/prioridades";
+import { MODULO_PRIORIDADES } from "@/lib/prioridades";
 import { PrioridadesNaoInstalado, lerConfig } from "@/lib/prioridades-server";
-import { adicionarGv, adicionarMotivo, novoLink, removerGv, removerMotivo } from "./actions";
+import { adicionarGv, adicionarMotivo, editarGv, editarMotivo, novoLink, removerGv, removerMotivo } from "./actions";
 import { LinkDosGvs } from "./LinkDosGvs";
+import { LinhaDoGv, LinhaDoMotivo } from "./LinhaDoCadastro";
 
 export const dynamic = "force-dynamic";
 
@@ -78,19 +79,7 @@ export default async function AdminPrioridadesPage() {
           ) : (
             <ul className="divide-y divide-slate-100 rounded-xl border border-slate-200">
               {config.gvs.map((g) => (
-                <li key={g.nome} className="flex items-center justify-between gap-2 px-3 py-2 text-sm">
-                  <span className="text-slate-800">{rotuloDoGv(g)}</span>
-                  <BotaoNoLugar
-                    acao={removerGv}
-                    campos={{ nome: g.nome }}
-                    confirmacao={`Tirar ${g.nome} da lista do link?`}
-                    detalhe="O que ele já enviou continua no painel."
-                    rotuloConfirmar="Tirar"
-                    className="rounded-lg border border-slate-300 px-2.5 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-50"
-                  >
-                    Tirar
-                  </BotaoNoLugar>
-                </li>
+                <LinhaDoGv key={g.nome} gv={g} editar={editarGv} remover={removerGv} />
               ))}
             </ul>
           )}
@@ -118,19 +107,7 @@ export default async function AdminPrioridadesPage() {
           </div>
           <ul className="divide-y divide-slate-100 rounded-xl border border-slate-200">
             {config.motivos.map((m) => (
-              <li key={m} className="flex items-center justify-between gap-2 px-3 py-2 text-sm">
-                <span className="text-slate-800">{m}</span>
-                <BotaoNoLugar
-                  acao={removerMotivo}
-                  campos={{ motivo: m }}
-                  confirmacao={`Tirar "${m}" da lista?`}
-                  detalhe="O que já foi enviado com esse motivo continua no painel."
-                  rotuloConfirmar="Tirar"
-                  className="rounded-lg border border-slate-300 px-2.5 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-50"
-                >
-                  Tirar
-                </BotaoNoLugar>
-              </li>
+              <LinhaDoMotivo key={m} motivo={m} editar={editarMotivo} remover={removerMotivo} />
             ))}
           </ul>
           <FormNoLugar acao={adicionarMotivo} limparAoSalvar className="grid grid-cols-[1fr_auto] items-end gap-2">
