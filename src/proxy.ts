@@ -15,7 +15,10 @@ import { CABECALHO_USUARIO } from "@/lib/sessao-headers";
 // /prioridade/ é o link das prioridades do dia (03/11/2026), que vai para
 // os GVs: eles não têm conta no app. Mesma trava -- o token do endereço,
 // conferido no servidor a cada envio.
-const PUBLIC_PATHS = ["/login", "/votar", "/os/", "/prioridade/"];
+//
+// /api/prioridades/ é o que o Gestor LOG busca (04/11/2026): arquivo aberto
+// no computador, sem sessão do app. A trava é a chave de leitura do endereço.
+const PUBLIC_PATHS = ["/login", "/votar", "/os/", "/prioridade/", "/api/prioridades/"];
 const ROTA_DEFINIR_SENHA = "/definir-senha";
 
 export async function proxy(request: NextRequest) {

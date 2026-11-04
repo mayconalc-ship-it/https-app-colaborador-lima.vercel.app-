@@ -1,4 +1,5 @@
 import "server-only";
+import { createHmac, timingSafeEqual } from "node:crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { MODULO_PRIORIDADES, lerGvs, lerMotivos, ordenarAchados, type Gv, type PdvAchado } from "@/lib/prioridades";
 
@@ -163,6 +164,46 @@ export async function prioridadesDoDia(revendaId: string, data: string, admin: A
     .limit(1000);
   conferir(error);
   return (linhas ?? []) as Prioridade[];
+}
+
+/*
+ * O ENDEREÇO DO GESTOR LOG (04/11/2026, pedido do dono): o Gestor LOG é um
+ * arquivo aberto no computador da logística e busca sozinho o que os GVs
+ * lançaram. Ele não usa o link do grupo -- quem tem o link do grupo LANÇA,
+ * não lê a lista dos outros. A chave de leitura sai do token do link com
+ * um segredo do servidor: não precisa de coluna nova, e gerar link novo
+ * troca as duas chaves juntas.
+ */
+export function chaveGestorLog(tokenPublico: string) {
+  return createHmac("sha256", process.env.SUPABASE_SERVICE_ROLE_KEY!).update(`prioridades-gestor-log:${tokenPublico}`).digest("hex").slice(0, 24);
+}
+
+/** A chave do Gestor LOG -> a revenda (nulo se não bate ou o módulo foi desligado). */
+export async function resolverChaveGestorLog(chave: string, admin: Admin = createAdminClient()) {
+  const limpa = (chave ?? "").trim().toLowerCase();
+  if (!/^[0-9a-f]{24}$/.test(limpa)) return null;
+  const { data, error } = await admin.from("prioridades_config").select("token_publico");
+  conferir(error);
+  const pedida = Buffer.from(limpa);
+  const linha = (data ?? []).find((l) => {
+    const c = Buffer.from(chaveGestorLog(l.token_publico as string));
+    return c.length === pedida.length && timingSafeEqual(c, pedida);
+  });
+  return linha ? resolverToken(linha.token_publico as string, admin) : null;
+}
+
+/** As prioridades das entregas entre duas datas (aaaa-mm-dd), na ordem de envio. */
+export async function prioridadesEntre(revendaId: string, de: string, ate: string, admin: Admin = createAdminClient()): Promise<Prioridade[]> {
+  const { data, error } = await admin
+    .from("prioridades")
+    .select(CAMPOS_PRIORIDADE)
+    .eq("revenda_id", revendaId)
+    .gte("data_entrega", de)
+    .lte("data_entrega", ate)
+    .order("enviado_em", { ascending: true })
+    .limit(5000);
+  conferir(error);
+  return (data ?? []) as Prioridade[];
 }
 
 /** Os dias de entrega com alguma prioridade, dos mais novos para trás. */

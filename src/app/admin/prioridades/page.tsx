@@ -6,9 +6,9 @@ import { BotaoNoLugar } from "@/components/BotaoNoLugar";
 import { requireModulo } from "@/lib/require-admin";
 import { exigirRevenda, getRevendaAtiva } from "@/lib/revendas";
 import { MODULO_PRIORIDADES } from "@/lib/prioridades";
-import { PrioridadesNaoInstalado, lerConfig } from "@/lib/prioridades-server";
+import { PrioridadesNaoInstalado, chaveGestorLog, lerConfig } from "@/lib/prioridades-server";
 import { adicionarGv, adicionarMotivo, editarGv, editarMotivo, novoLink, removerGv, removerMotivo } from "./actions";
-import { LinkDosGvs } from "./LinkDosGvs";
+import { EnderecoGestorLog, LinkDosGvs } from "./LinkDosGvs";
 import { LinhaDoGv, LinhaDoMotivo } from "./LinhaDoCadastro";
 
 export const dynamic = "force-dynamic";
@@ -119,6 +119,17 @@ export default async function AdminPrioridadesPage() {
               Incluir
             </BotaoEnviar>
           </FormNoLugar>
+        </div>
+
+        <div className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:col-span-2">
+          <div>
+            <h2 className="text-sm font-bold text-slate-900">Ligar ao Gestor LOG</h2>
+            <p className="mt-0.5 text-xs text-slate-500">
+              Cole este endereço uma vez no Gestor LOG (Pré-roteirização › Prioridades › Ligar ao link dos GVs). Daí em diante, o que os GVs
+              lançam chega sozinho lá. Não mande no grupo: ele mostra a lista de todos. Gerar link novo troca este endereço também.
+            </p>
+          </div>
+          <EnderecoGestorLog chave={chaveGestorLog(config.tokenPublico)} />
         </div>
       </section>
 
