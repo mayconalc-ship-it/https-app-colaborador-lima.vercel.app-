@@ -152,6 +152,51 @@ export function dataCurta(iso: string): string {
 }
 
 // ---------------------------------------------------------------------
+// A prioridade no mapa do motorista (05/11/2026, pedido do dono).
+// ---------------------------------------------------------------------
+
+/**
+ * Quantos dias a prioridade vale, contando o dia de entrega pedido: o
+ * pedido pode ter ficado no buffer, ainda não ter sido digitado ou ter sido
+ * cancelado e refeito. 7 = da sexta pedida até a quinta seguinte, que
+ * cobre o buffer de fim de semana.
+ */
+export const DIAS_DA_PRIORIDADE = 7;
+
+export type PrioridadeLancada = { cod: string; dataEntrega: string; motivo: string; gv: string };
+export type PrioridadeNoMapa = { motivos: string[]; gvs: string[]; pedidaPara: string };
+
+/**
+ * Quais PDVs do mapa de `dataRota` saem como prioridade.
+ *
+ * Vale a prioridade pedida para até DIAS_DA_PRIORIDADE-1 dias antes do
+ * mapa e que AINDA NÃO SAIU: se o PDV já esteve num mapa entre a data
+ * pedida e o dia anterior a este, a prioridade foi atendida ali -- não é
+ * para a vida toda, é para o pedido daquela semana. Dois mapas no mesmo
+ * dia (carga dividida) marcam os dois.
+ *
+ * `saidas` = cada PDV e os dias em que ele esteve em algum mapa.
+ */
+export function prioridadesQueValem(
+  lancadas: PrioridadeLancada[],
+  saidas: Map<string, string[]>,
+  dataRota: string,
+): Map<string, PrioridadeNoMapa> {
+  const inicio = somarDias(dataRota, -(DIAS_DA_PRIORIDADE - 1));
+  const out = new Map<string, PrioridadeNoMapa>();
+  for (const p of [...lancadas].sort((a, b) => a.dataEntrega.localeCompare(b.dataEntrega))) {
+    if (p.dataEntrega < inicio || p.dataEntrega > dataRota) continue;
+    const jaSaiu = (saidas.get(p.cod) ?? []).some((d) => d >= p.dataEntrega && d < dataRota);
+    if (jaSaiu) continue;
+    const o = out.get(p.cod) ?? { motivos: [], gvs: [], pedidaPara: p.dataEntrega };
+    if (p.motivo && !o.motivos.includes(p.motivo)) o.motivos.push(p.motivo);
+    if (p.gv && !o.gvs.includes(p.gv)) o.gvs.push(p.gv);
+    out.set(p.cod, o);
+  }
+  return out;
+}
+
+// ---------------------------------------------------------------------
 // O rascunho -- a lista que o GV monta antes de enviar.
 // ---------------------------------------------------------------------
 

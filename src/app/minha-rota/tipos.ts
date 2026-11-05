@@ -10,8 +10,9 @@
 import type { CidadeEntregas } from "@/lib/rotas";
 import type { AvisoNaRota } from "@/lib/pdv-particularidades-server";
 import type { ClienteDaRota } from "@/lib/clientes-do-mapa-server";
+import type { PrioridadeNoMapa } from "@/lib/prioridades";
 
-export type { ClienteDaRota };
+export type { ClienteDaRota, PrioridadeNoMapa };
 
 export type RotaEncontrada = {
   data: string;
@@ -38,6 +39,11 @@ export type RotaEncontrada = {
    * -- e aí a tela volta ao bloco de cidades de sempre.
    */
   clientes: ClienteDaRota[];
+  /**
+   * OS PDVs DE PRIORIDADE NESTE MAPA, pelo código (05/11/2026, pedido do
+   * dono): o que os GVs lançaram no link e ainda não saiu na semana.
+   */
+  prioridades: Record<string, PrioridadeNoMapa>;
 };
 
 export type ResultadoConsulta =

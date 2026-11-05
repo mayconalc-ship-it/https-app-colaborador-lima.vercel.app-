@@ -3,7 +3,7 @@
 //   npx tsx src/lib/__testes__/prioridades.teste.mjs
 import {
   codigoDoPdv, dataCurta, dataDeEntregaValida, hojeEmSaoPaulo, incluirNoRascunho, lerGvs, lerMotivos, lerRascunho, motivoLimpo,
-  ordenarAchados, problemaDoItem, proximaEntrega, rotuloDoGv, somarDias, MOTIVO_MAX, MOTIVOS_PADRAO,
+  ordenarAchados, prioridadesQueValem, problemaDoItem, proximaEntrega, rotuloDoGv, somarDias, DIAS_DA_PRIORIDADE, MOTIVO_MAX, MOTIVOS_PADRAO,
 } from "../prioridades.ts";
 
 let falhas = 0;
@@ -59,6 +59,29 @@ eq(
   ordenarAchados([{ cod: "45100" }, { cod: "4519" }, { cod: "451" }, { cod: "4510" }], 3).map((a) => a.cod),
   ["451", "4510", "4519"],
 );
+
+console.log("== PRIORIDADE NO MAPA DO MOTORISTA ==");
+{
+  const lanc = [
+    { cod: "4510", dataEntrega: "2026-11-06", motivo: "Cliente sem estoque", gv: "GV 1" },
+    { cod: "4825", dataEntrega: "2026-11-06", motivo: "Evento", gv: "GV 2" },
+    { cod: "130", dataEntrega: "2026-10-30", motivo: "Antiga", gv: "GV 1" },
+    { cod: "777", dataEntrega: "2026-11-09", motivo: "Ficou para a próxima", gv: "GV 3" },
+    { cod: "4510", dataEntrega: "2026-11-07", motivo: "Cliente sem estoque", gv: "GV 2" },
+  ];
+  // sexta 06/11 pedida; o 4825 saiu no sábado 07; o 4510 ficou no buffer e sai na segunda 09
+  const saidas = new Map([["4825", ["2026-11-07"]], ["130", ["2026-10-31"]]]);
+  const seg = prioridadesQueValem(lanc, saidas, "2026-11-09");
+  ok("buffer do fim de semana: segunda ainda é prioridade", seg.has("4510"));
+  eq("motivo repetido entra uma vez, GVs somam", seg.get("4510"), { motivos: ["Cliente sem estoque"], gvs: ["GV 1", "GV 2"], pedidaPara: "2026-11-06" });
+  ok("já saiu no sábado: na segunda não é mais", !seg.has("4825"));
+  ok("pedida para mais de 6 dias antes: venceu", !seg.has("130"));
+  ok("pedida para o próprio dia vale", seg.has("777"));
+  ok("pedida para depois do mapa não vale ainda", !prioridadesQueValem(lanc, saidas, "2026-11-08").has("777"));
+  ok("o mapa do dia em que saiu marca (carga dividida também)", prioridadesQueValem(lanc, saidas, "2026-11-07").has("4825"));
+  ok("último dia que vale: 6 dias depois", prioridadesQueValem(lanc, new Map(), "2026-11-12").has("4825") && !prioridadesQueValem(lanc, new Map(), "2026-11-13").has("4825"));
+  eq("validade da prioridade", DIAS_DA_PRIORIDADE, 7);
+}
 
 console.log("== RASCUNHO ==");
 let r = incluirNoRascunho([], { cod: "4510", motivo: "sem estoque", nome: "Bar A" });

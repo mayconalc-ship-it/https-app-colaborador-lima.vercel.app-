@@ -12,7 +12,7 @@ import {
   type Metas,
 } from "@/lib/rotas";
 import { consultarRota } from "@/app/minha-rota/actions";
-import type { ClienteDaRota, RotaEncontrada } from "@/app/minha-rota/tipos";
+import type { ClienteDaRota, PrioridadeNoMapa, RotaEncontrada } from "@/app/minha-rota/tipos";
 import { linkDoWhatsApp } from "@/lib/clientes-base";
 import { gerarImagemPreRota } from "@/lib/imagem-rota";
 import { AvisosDaRota } from "@/components/AvisosDaRota";
@@ -186,6 +186,44 @@ function telefoneLegivel(t: string) {
 }
 
 /**
+ * AS ENTREGAS DE PRIORIDADE DO MAPA (05/11/2026, pedido do dono): o que os
+ * GVs lançaram no link e ainda não saiu na semana. Aberto, antes da
+ * pré-rota, como os avisos: é instrução, não consulta. Os mesmos PDVs
+ * ganham a etiqueta "Prioridade" na lista de clientes.
+ */
+function PrioridadesDaRota({ clientes, prioridades }: { clientes: ClienteDaRota[]; prioridades: Record<string, PrioridadeNoMapa> }) {
+  const lista = clientes.filter((c) => prioridades[c.codPdv]);
+  if (lista.length === 0) return null;
+  return (
+    <div className="mb-3 overflow-hidden rounded-2xl border-2 border-red-600 bg-white shadow">
+      <p className="bg-red-600 px-4 py-2 text-sm font-bold text-white">
+        🚩 {lista.length} entrega{lista.length === 1 ? "" : "s"} de prioridade neste mapa
+      </p>
+      <ul className="divide-y divide-slate-100">
+        {lista.map((c) => {
+          const p = prioridades[c.codPdv];
+          return (
+            <li key={c.codPdv} className="px-4 py-2">
+              <p className="text-sm">
+                <span className="mr-1.5 rounded bg-slate-200/70 px-1.5 py-0.5 text-[11px] font-bold tabular-nums text-slate-600">{c.codPdv}</span>
+                <span className="font-semibold text-slate-900">{c.nome ?? "Sem cadastro na base"}</span>
+                {c.cidade && <span className="text-slate-500"> · {c.cidade}</span>}
+              </p>
+              <p className="mt-0.5 text-xs text-red-700">
+                Motivo: <strong>{p.motivos.join(" / ")}</strong>
+              </p>
+            </li>
+          );
+        })}
+      </ul>
+      <p className="border-t border-slate-100 bg-red-50 px-4 py-1.5 text-[11px] text-red-800">
+        Marcado como prioridade pelo comercial. Qualquer problema na entrega, avise a liderança.
+      </p>
+    </div>
+  );
+}
+
+/**
  * OS CLIENTES DA ROTA, em três níveis (11/09/2026, pedido do dono):
  * cidade → código + Fantasia → bairro, endereço e telefone.
  *
@@ -194,7 +232,15 @@ function telefoneLegivel(t: string) {
  * cliente diz quem é, e o endereço só aparece quando o motorista vai
  * atrás dele -- a lista inteira aberta seria uma parede de texto.
  */
-function ClientesDaRota({ clientes, entregas }: { clientes: ClienteDaRota[]; entregas: number | null }) {
+function ClientesDaRota({
+  clientes,
+  entregas,
+  prioridades,
+}: {
+  clientes: ClienteDaRota[];
+  entregas: number | null;
+  prioridades: Record<string, PrioridadeNoMapa>;
+}) {
   const porCidade = new Map<string, ClienteDaRota[]>();
   for (const c of clientes) {
     const cidade = c.cidade ?? "Cidade não informada";
@@ -214,7 +260,7 @@ function ClientesDaRota({ clientes, entregas }: { clientes: ClienteDaRota[]; ent
       </div>
       <ul className="space-y-1.5">
         {cidades.map(([cidade, lista]) => (
-          <CidadeDaRota key={cidade} cidade={cidade} clientes={lista} maior={maior} />
+          <CidadeDaRota key={cidade} cidade={cidade} clientes={lista} maior={maior} prioridades={prioridades} />
         ))}
       </ul>
       <div className="mt-2 flex items-center justify-between rounded-lg bg-primary-soft px-3 py-2">
@@ -238,8 +284,19 @@ function ClientesDaRota({ clientes, entregas }: { clientes: ClienteDaRota[]; ent
   );
 }
 
-function CidadeDaRota({ cidade, clientes, maior }: { cidade: string; clientes: ClienteDaRota[]; maior: number }) {
+function CidadeDaRota({
+  cidade,
+  clientes,
+  maior,
+  prioridades,
+}: {
+  cidade: string;
+  clientes: ClienteDaRota[];
+  maior: number;
+  prioridades: Record<string, PrioridadeNoMapa>;
+}) {
   const [aberta, setAberta] = useState(false);
+  const nPrioridade = clientes.filter((c) => prioridades[c.codPdv]).length;
   return (
     <li className="overflow-hidden rounded-lg bg-white">
       <button
@@ -253,6 +310,11 @@ function CidadeDaRota({ cidade, clientes, maior }: { cidade: string; clientes: C
             ▸
           </span>
           <span className="min-w-0 truncate text-base font-medium text-slate-800">{cidade}</span>
+          {nPrioridade > 0 && (
+            <span className="shrink-0 rounded bg-red-600 px-1.5 py-0.5 text-[10px] font-bold uppercase text-white">
+              {nPrioridade} prioridade{nPrioridade === 1 ? "" : "s"}
+            </span>
+          )}
         </span>
         <span className="shrink-0 text-lg font-bold tabular-nums text-primary">{clientes.length}</span>
       </button>
@@ -260,7 +322,7 @@ function CidadeDaRota({ cidade, clientes, maior }: { cidade: string; clientes: C
       {aberta && (
         <ul className="divide-y divide-slate-100 border-t border-slate-100 bg-slate-50/60">
           {clientes.map((c) => (
-            <ClienteDaLinha key={c.codPdv} cliente={c} />
+            <ClienteDaLinha key={c.codPdv} cliente={c} prioridade={prioridades[c.codPdv] ?? null} />
           ))}
         </ul>
       )}
@@ -268,7 +330,7 @@ function CidadeDaRota({ cidade, clientes, maior }: { cidade: string; clientes: C
   );
 }
 
-function ClienteDaLinha({ cliente: c }: { cliente: ClienteDaRota }) {
+function ClienteDaLinha({ cliente: c, prioridade: p }: { cliente: ClienteDaRota; prioridade: PrioridadeNoMapa | null }) {
   const [aberto, setAberto] = useState(false);
   const whats = c.telefone ? linkDoWhatsApp(c.telefone, "") : "";
   return (
@@ -288,7 +350,13 @@ function ClienteDaLinha({ cliente: c }: { cliente: ClienteDaRota }) {
         <span className={`min-w-0 truncate text-sm ${c.nome ? "font-medium text-slate-800" : "italic text-slate-400"}`}>
           {c.nome ?? "Sem cadastro na base"}
         </span>
+        {p && <span className="ml-auto shrink-0 rounded bg-red-600 px-1.5 py-0.5 text-[10px] font-bold uppercase text-white">Prioridade</span>}
       </button>
+      {p && (
+        <p className="px-4 pb-2 pl-9 text-xs text-red-700">
+          Motivo: <strong>{p.motivos.join(" / ")}</strong>
+        </p>
+      )}
       {aberto && (
         <dl className="space-y-1 px-4 pb-3 pl-9 text-xs text-slate-600">
           <div className="flex gap-2">
@@ -458,6 +526,7 @@ export function ConsultaRota({ metas }: { metas: Metas }) {
             km, caixas, ocupação. Isto é instrução, e instrução que aparece
             depois do que se veio ver é instrução que se lê na volta. */}
         <AvisosDaRota avisos={rota.avisos} precisao={rota.precisaoDosAvisos} />
+        <PrioridadesDaRota clientes={rota.clientes} prioridades={rota.prioridades} />
 
         <div className="overflow-hidden rounded-2xl border-2 border-primary bg-white shadow-lg">
           <div className="flex items-center justify-between gap-2 bg-primary px-4 py-2">
@@ -559,7 +628,7 @@ export function ConsultaRota({ metas }: { metas: Metas }) {
           {/* Com a lista de clientes do dia: cidade → cliente → endereço.
               Sem ela: Região + entregas, recolhida por padrão, como era. */}
           {rota.clientes.length > 0 ? (
-            <ClientesDaRota clientes={rota.clientes} entregas={rota.entregas} />
+            <ClientesDaRota clientes={rota.clientes} entregas={rota.entregas} prioridades={rota.prioridades} />
           ) : rota.cidades.length > 0 && (
             <div className="border-t border-slate-100 bg-slate-50/60 px-4 py-3">
               <div className="mb-2 flex items-baseline justify-between">

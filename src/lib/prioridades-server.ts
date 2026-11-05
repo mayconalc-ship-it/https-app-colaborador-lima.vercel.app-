@@ -1,7 +1,19 @@
 import "server-only";
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { MODULO_PRIORIDADES, lerGvs, lerMotivos, ordenarAchados, type Gv, type PdvAchado } from "@/lib/prioridades";
+import {
+  DIAS_DA_PRIORIDADE,
+  MODULO_PRIORIDADES,
+  lerGvs,
+  lerMotivos,
+  ordenarAchados,
+  prioridadesQueValem,
+  somarDias,
+  type Gv,
+  type PdvAchado,
+  type PrioridadeNoMapa,
+} from "@/lib/prioridades";
+import { codigoDaBase } from "@/lib/clientes-base";
 
 /**
  * PRIORIDADES DOS GVs -- o lado do banco. A regra está em lib/prioridades.ts.
@@ -204,6 +216,68 @@ export async function prioridadesEntre(revendaId: string, de: string, ate: strin
     .limit(5000);
   conferir(error);
   return (data ?? []) as Prioridade[];
+}
+
+/**
+ * OS PDVs DE PRIORIDADE NUM MAPA -- o que a Minha Rota mostra ao motorista
+ * (05/11/2026, pedido do dono). A regra está em prioridadesQueValem: vale
+ * a semana a partir da data pedida, até o PDV sair num mapa.
+ *
+ * Os clientes do mapa vêm de pa_pdv_do_mapa (a lista da pré-rota do dia);
+ * o código de lá pode vir com zeros à frente, o das prioridades não.
+ * Revenda sem a migration 173 ou sem lista de clientes: mapa sem prioridade.
+ */
+export async function prioridadesDoMapa(
+  revendaId: string,
+  mapa: string,
+  data: string,
+  admin: Admin = createAdminClient(),
+): Promise<Map<string, PrioridadeNoMapa>> {
+  const vazio = new Map<string, PrioridadeNoMapa>();
+  const { data: doMapa } = await admin.from("pa_pdv_do_mapa").select("cod_pdv").eq("revenda_id", revendaId).eq("mapa", mapa).eq("data", data).limit(1000);
+  const codigos = [...new Set((doMapa ?? []).map((l) => codigoDaBase(l.cod_pdv)).filter((c): c is string => !!c))];
+  if (codigos.length === 0) return vazio;
+
+  const inicio = somarDias(data, -(DIAS_DA_PRIORIDADE - 1));
+  const { data: lancadas, error } = await admin
+    .from("prioridades")
+    .select("cod_pdv, data_entrega, motivo, gv_nome")
+    .eq("revenda_id", revendaId)
+    .in("cod_pdv", codigos)
+    .gte("data_entrega", inicio)
+    .lte("data_entrega", data)
+    .limit(2000);
+  try {
+    conferir(error);
+  } catch (e) {
+    if (e instanceof PrioridadesNaoInstalado) return vazio;
+    throw e;
+  }
+  if (!lancadas?.length) return vazio;
+
+  // Onde esses PDVs já estiveram nos dias anteriores (a prioridade atendida
+  // ali não vale mais). O código cru do mapa, nas grafias deste mapa.
+  const comPrioridade = new Set(lancadas.map((l) => l.cod_pdv as string));
+  const crus = [...new Set((doMapa ?? []).map((l) => l.cod_pdv as string).filter((c) => comPrioridade.has(codigoDaBase(c) ?? "")))];
+  const { data: antes } = await admin
+    .from("pa_pdv_do_mapa")
+    .select("cod_pdv, data")
+    .eq("revenda_id", revendaId)
+    .in("cod_pdv", crus)
+    .gte("data", inicio)
+    .lt("data", data)
+    .limit(5000);
+  const saidas = new Map<string, string[]>();
+  for (const l of antes ?? []) {
+    const c = codigoDaBase(l.cod_pdv);
+    if (c) saidas.set(c, [...(saidas.get(c) ?? []), l.data as string]);
+  }
+
+  return prioridadesQueValem(
+    lancadas.map((l) => ({ cod: l.cod_pdv as string, dataEntrega: l.data_entrega as string, motivo: l.motivo as string, gv: l.gv_nome as string })),
+    saidas,
+    data,
+  );
 }
 
 /** Os dias de entrega com alguma prioridade, dos mais novos para trás. */
