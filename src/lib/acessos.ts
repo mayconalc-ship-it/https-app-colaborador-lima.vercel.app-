@@ -50,6 +50,7 @@ export type ModuloId =
   | "fefo-controle"
   | "wqi"
   | "manutencao"
+  | "manutencao-preventiva"
   | "chamados"
   | "chamados-atender"
   | "rating"
@@ -944,6 +945,30 @@ export const MODULOS: Modulo[] = [
   },
   {
     /*
+      MANUTENÇÃO PREVENTIVA (05/11/2026, pedido do dono): substitui o
+      Microsoft Forms que o time preenchia toda semana, começando pelo
+      Gerador (migration 174). Outros equipamentos entram como novos
+      modelos de checklist, sem mexer em tela.
+
+      PERMISSÃO SEPARADA do Check de Manutenção de propósito: aquele é
+      trimestral e de liderança (DPO 2.2), este é semanal e de quem põe a
+      mão na máquina. Quem preenche o Forms hoje (Auxiliar de Manutenção)
+      não tem o Check Global -- juntar os dois obrigaria a dar o
+      trimestral para quem só faz a preventiva.
+    */
+    id: "manutencao-preventiva",
+    rotulosDeAcao: {
+      ver: "Preencher a preventiva dos equipamentos (o time da manutenção)",
+    },
+    rotulo: "Manutenção Preventiva",
+    emoji: "🛠️",
+    href: "/manutencao-preventiva",
+    grupo: "Operação",
+    acoes: ["ver"],
+    semTelaAdmin: true,
+  },
+  {
+    /*
       CHAMADOS PARA MANUTENÇÃO (05/10/2026, pedido do dono): o formulário do
       Microsoft Forms trazido para o app, aberto também pelo QR Code da
       unidade -- um só por revenda, como o Forms (migration 165).
@@ -1138,6 +1163,8 @@ export const MODULOS_OPCIONAIS: ModuloId[] = [
   "meus-indicadores",
   // Check de Manutenção (156): só o time da manutenção, pessoa a pessoa.
   "manutencao",
+  // Preventiva (174): semanal, de quem põe a mão na máquina.
+  "manutencao-preventiva",
   // Chamados (165): ABRIR é de todos ("chamados" fica fora daqui); ATENDER
   // é do time da manutenção, pessoa a pessoa.
   "chamados-atender",

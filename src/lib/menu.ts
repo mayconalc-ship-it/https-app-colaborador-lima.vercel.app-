@@ -31,6 +31,7 @@ export const MODULO_DO_ITEM: Record<string, ModuloId> = {
   devolucao: "devolucao",
   "meus-indicadores": "meus-indicadores",
   manutencao: "manutencao",
+  "manutencao-preventiva": "manutencao-preventiva",
   // Não é opcional: a revenda ligou, todo mundo abre chamado (ver acessos.ts).
   chamados: "chamados",
 };
@@ -239,6 +240,16 @@ export const MENU_PADRAO: ItemMenu[] = [
   // Check de Manutenção (156): módulo opcional -- só aparece para quem o
   // Admin liberou (o time da manutenção), por MODULO_DO_ITEM acima.
   { chave: "manutencao", titulo: "Check de Manutenção", emoji: "☑️", href: "/manutencao", ordem: 19, visivel: true },
+  // Preventiva (174): semanal, por equipamento. Módulo opcional à parte do
+  // Check Global -- quem faz a preventiva não é quem responde o trimestral.
+  {
+    chave: "manutencao-preventiva",
+    titulo: "Manutenção Preventiva",
+    emoji: "🛠️",
+    href: "/manutencao-preventiva",
+    ordem: 19.5,
+    visivel: true,
+  },
   // Base de fornecedores (157): de TODA a unidade, sem módulo -- é o V.3
   // do DPO 2.2 ("disponível para a unidade consultar").
   { chave: "fornecedores", titulo: "Fornecedores", emoji: "☎️", href: "/fornecedores", ordem: 20, visivel: true },
