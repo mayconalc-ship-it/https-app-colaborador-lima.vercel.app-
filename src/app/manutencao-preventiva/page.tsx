@@ -52,7 +52,7 @@ export default async function ManutencaoPreventivaPage({
   return (
     <div>
       <PageHeader
-        title="🛠️ Manutenção Preventiva"
+        title="🔩 Manutenção Preventiva"
         subtitle="Checklist por equipamento, na frequência combinada."
         fecharHref="/"
       />

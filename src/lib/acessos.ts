@@ -961,7 +961,7 @@ export const MODULOS: Modulo[] = [
       ver: "Preencher a preventiva dos equipamentos (o time da manutenção)",
     },
     rotulo: "Manutenção Preventiva",
-    emoji: "🛠️",
+    emoji: "🔩",
     href: "/manutencao-preventiva",
     grupo: "Operação",
     acoes: ["ver"],

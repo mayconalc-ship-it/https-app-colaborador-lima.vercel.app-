@@ -30,6 +30,8 @@ import {
   PackagePlus,
   PhoneCall,
   Calculator,
+  CalendarCheck,
+  Cog,
   Users,
   Warehouse,
   Award,
@@ -154,6 +156,12 @@ const ContatoDoFornecedor = comSelo(Building2, PhoneCall);
 const MaoDeObra = comSelo(Users, Calculator);
 
 /**
+ * Manutenção Preventiva: a engrenagem (a máquina) com o calendário no
+ * canto (a rotina semanal). O 🛠️ repetia a ferramenta do 🔧 dos Chamados.
+ */
+const Preventiva = comSelo(Cog, CalendarCheck);
+
+/**
  * Gás da Empilhadeira: o botijão P20, com a alça e a válvula. O ⛽ é
  * bomba de gasolina, e a empilhadeira queima GLP do botijão.
  */
@@ -265,6 +273,7 @@ const DESENHOS: Record<DesenhoProprio, LucideIcon | ComponentType<PropsDoDesenho
   gas: Botijao,
   "mao-de-obra": MaoDeObra,
   checklist: Checklist,
+  preventiva: Preventiva,
 };
 
 /**

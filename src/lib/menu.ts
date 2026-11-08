@@ -82,7 +82,11 @@ export const BLOCOS_DO_MENU = [
     // 16/09/2026): as duas contagens do armazém lado a lado.
     // Chamado para Manutenção (05/10/2026) ao lado do Check: os dois assuntos
     // da manutenção juntos -- e quem não é do time só vê o primeiro.
-    chaves: ["produtividade-armazem", "feedback", "ativo-giro", "material-apoio", "chamados", "manutencao"],
+    // Manutenção Preventiva (08/11/2026, pedido do dono: "organize o módulo
+    // de manutenção"): estava fora de todo bloco e caía em Minha rotina. Os
+    // três da manutenção juntos, no fim: chamado (de todos), check e
+    // preventiva (só do time).
+    chaves: ["produtividade-armazem", "feedback", "ativo-giro", "material-apoio", "chamados", "manutencao", "manutencao-preventiva"],
   },
   {
     id: "empresa",
@@ -245,7 +249,7 @@ export const MENU_PADRAO: ItemMenu[] = [
   {
     chave: "manutencao-preventiva",
     titulo: "Manutenção Preventiva",
-    emoji: "🛠️",
+    emoji: "🔩",
     href: "/manutencao-preventiva",
     ordem: 19.5,
     visivel: true,

@@ -33,7 +33,8 @@ export type DesenhoProprio =
   | "armazem"
   | "gas"
   | "mao-de-obra"
-  | "checklist";
+  | "checklist"
+  | "preventiva";
 
 export type Assunto = {
   id: string;
@@ -134,6 +135,18 @@ export const MAPA_DE_EMOJIS: Assunto[] = [
     desenho: "checklist",
     area: "Operação e manutenção",
     chaves: ["manutencao"],
+  },
+  // Preventiva (08/11/2026, pedido do dono: "mude o ícone para um formato
+  // mais moderno, está repetido"): o 🛠️ repetia a ferramenta do 🔧 dos
+  // Chamados. Desenho próprio: engrenagem com o calendário no canto -- a
+  // máquina e a rotina semanal. O 🔩 fica exclusivo para o texto.
+  {
+    id: "manutencao-preventiva",
+    nome: "Manutenção Preventiva",
+    emoji: "🔩",
+    desenho: "preventiva",
+    area: "Operação e manutenção",
+    chaves: ["manutencao-preventiva"],
   },
   {
     id: "chamados",
