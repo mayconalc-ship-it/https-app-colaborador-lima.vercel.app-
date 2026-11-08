@@ -8,7 +8,8 @@ import { avisosDoMapa, type AvisosDoMapa } from "@/lib/pdv-particularidades-serv
 import { clientesDoMapa, type ClienteDaRota } from "@/lib/clientes-do-mapa-server";
 import { prioridadesDoMapa } from "@/lib/prioridades-server";
 // Os tipos ficam em tipos.ts: arquivo "use server" só exporta ação.
-import type { PrioridadeNoMapa, ResultadoConsulta } from "./tipos";
+import { vipsEntre } from "@/lib/vips-server";
+import type { PdvVip, PrioridadeNoMapa, ResultadoConsulta } from "./tipos";
 
 /**
  * Consulta a pré-rota só pelo número do mapa.
@@ -125,6 +126,14 @@ async function buscarRota(mapaDigitado: string): Promise<ResultadoConsulta> {
     prioridades = {};
   }
 
+  // Os PDVs VIP (08/11/2026): mesma regra.
+  let vips: Record<string, PdvVip> = {};
+  try {
+    if (clientes.length) vips = Object.fromEntries(await vipsEntre(revendaId, clientes.map((c) => c.codPdv)));
+  } catch {
+    vips = {};
+  }
+
   return {
     ok: true,
     rota: {
@@ -147,6 +156,7 @@ async function buscarRota(mapaDigitado: string): Promise<ResultadoConsulta> {
       cidades: (rota.cidades ?? []) as CidadeEntregas[],
       clientes,
       prioridades,
+      vips,
     },
   };
 }

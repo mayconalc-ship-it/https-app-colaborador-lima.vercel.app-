@@ -105,6 +105,67 @@ function lerCsv(texto: string): { cabecalho: string[]; linhas: string[][] } {
   return { cabecalho: partir(linhas[0]), linhas: linhas.slice(1).map(partir) };
 }
 
+/**
+ * O ARQUIVO DO LINK, baixado: texto (CSV ou planilha do Google) ou bytes
+ * (xlsx). Separado do import da base em 08/11/2026 para a lista de PDVs VIP
+ * usar o MESMO caminho -- três formas de link, a pasta frágil e as
+ * mensagens de erro que já dizem o que fazer.
+ */
+export async function baixarPlanilhaDoLink(link: string): Promise<{ texto?: string; bytes?: Buffer; erro?: string }> {
+  const { arquivo, planilhaGoogle, pasta } = idDoArquivo(link);
+  let arquivoId = arquivo ?? null;
+
+  if (!arquivoId && !planilhaGoogle && pasta) {
+    const { arquivos, erro } = await listarArquivosDaPasta(pasta);
+    if (erro) {
+      return {
+        erro:
+          `não consegui ler a pasta (${erro}). ` +
+          "Cole o link do PRÓPRIO ARQUIVO em vez do da pasta: abra a planilha no Drive, " +
+          "Compartilhar › Copiar link.",
+      };
+    }
+    const escolhido = arquivos[0];
+    if (!escolhido) return { erro: "a pasta está vazia" };
+    arquivoId = escolhido.id;
+  }
+  if (!arquivoId && !planilhaGoogle) {
+    return { erro: "não reconheci o link. Cole o link do arquivo ou da pasta no Drive." };
+  }
+  if (planilhaGoogle) {
+    const texto = await baixarPlanilhaGoogle(planilhaGoogle);
+    return texto
+      ? { texto }
+      : { erro: "não consegui baixar a planilha do Google. Em Compartilhar, deixe como 'Qualquer pessoa com o link'." };
+  }
+  const bytes = await baixarBytesDoDrive(arquivoId!);
+  if (bytes) return { bytes };
+  const texto = await baixarTextoDoDrive(arquivoId!);
+  return texto
+    ? { texto }
+    : { erro: "não consegui baixar o arquivo. Em Compartilhar, deixe como 'Qualquer pessoa com o link'." };
+}
+
+/** Todas as linhas da primeira aba (com o cabeçalho), para planilhas pequenas como a de VIPs. */
+export async function linhasDaPlanilha(baixado: { texto?: string; bytes?: Buffer }): Promise<string[][]> {
+  if (baixado.texto !== undefined) {
+    const { cabecalho, linhas } = lerCsv(baixado.texto);
+    return cabecalho.length ? [cabecalho, ...linhas] : [];
+  }
+  const leitor = new ExcelJS.stream.xlsx.WorkbookReader(Readable.from(baixado.bytes!), {
+    worksheets: "emit",
+    sharedStrings: "cache",
+    styles: "ignore",
+    entries: "ignore",
+  });
+  const saida: string[][] = [];
+  for await (const planilha of leitor) {
+    for await (const linha of planilha) saida.push((linha.values as unknown[]).slice(1).map(celula));
+    break;
+  }
+  return saida;
+}
+
 export async function importarBaseDeClientes(
   revendaId: string,
   link: string,

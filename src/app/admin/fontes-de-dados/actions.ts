@@ -9,6 +9,7 @@ import { idDaPasta } from "@/lib/drive-pasta";
 import { fonteDe, linkDeCanalValido, tipoDoLink } from "@/lib/fontes-de-dados";
 import { voltarCom } from "@/lib/url-de-volta";
 import { getPerfil } from "@/lib/sessao";
+import { importarVips } from "@/lib/vips-server";
 
 const ROTA = "/admin/fontes-de-dados";
 
@@ -87,6 +88,27 @@ export async function salvarFonte(formData: FormData) {
   revalidatePath(ROTA);
   revalidatePath(fonte.telaDoModulo);
   voltar("sucesso", `Fonte de ${fonte.rotulo} atualizada.`, chave);
+}
+
+/**
+ * A LISTA DE PDVs VIP (08/11/2026): colar o link já importa, como a base de
+ * clientes. Cada importação troca a lista da revenda inteira.
+ */
+export async function importarListaVip(formData: FormData) {
+  const chave = "vips";
+  if (!(await podeNoModulo("pdv-particularidades", "editar"))) {
+    voltar("erro", "Você não tem permissão para trocar a lista de PDVs VIP.", chave);
+  }
+  const revendaId = await getRevendaId();
+  if (!revendaId) voltar("erro", "Você não está em nenhuma revenda.", chave);
+  const link = String(formData.get("link") ?? "").trim();
+  if (!link) voltar("erro", "Cole o link da planilha de PDVs VIP no Drive.", chave);
+
+  const r = await importarVips(revendaId, link);
+  if (!r.ok) voltar("erro", `Não deu para importar: ${r.erro ?? "motivo desconhecido"}`, chave);
+
+  revalidatePath(ROTA);
+  voltar("sucesso", r.resumo ?? "Lista importada.", chave);
 }
 
 /**

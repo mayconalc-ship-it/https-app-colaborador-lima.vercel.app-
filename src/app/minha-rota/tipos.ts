@@ -11,8 +11,9 @@ import type { CidadeEntregas } from "@/lib/rotas";
 import type { AvisoNaRota } from "@/lib/pdv-particularidades-server";
 import type { ClienteDaRota } from "@/lib/clientes-do-mapa-server";
 import type { PrioridadeNoMapa } from "@/lib/prioridades";
+import type { PdvVip } from "@/lib/vips";
 
-export type { ClienteDaRota, PrioridadeNoMapa };
+export type { ClienteDaRota, PdvVip, PrioridadeNoMapa };
 
 export type RotaEncontrada = {
   data: string;
@@ -44,6 +45,8 @@ export type RotaEncontrada = {
    * dono): o que os GVs lançaram no link e ainda não saiu na semana.
    */
   prioridades: Record<string, PrioridadeNoMapa>;
+  /** OS PDVs VIP NESTE MAPA, pelo código (08/11/2026): a lista de Fontes de Dados. */
+  vips: Record<string, PdvVip>;
 };
 
 export type ResultadoConsulta =

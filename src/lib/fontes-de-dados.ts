@@ -262,6 +262,23 @@ export const FONTES: Fonte[] = [
       "Prefira o link do PRÓPRIO ARQUIVO (abra a planilha no Drive → Compartilhar → Copiar link); pasta também funciona, mas depende de o app ler a listagem do Drive, que é a parte que mais falha. Vale para .csv, .xlsx e planilha do Google. As colunas são achadas pelo nome (Código Cliente, Razão Social, Celular, Município...), então mudar o layout da exportação não quebra o import. Acima de uns 15 MB, exporte em CSV: o XLSX descompacta para várias vezes o próprio tamanho no servidor.",
   },
   {
+    // 08/11/2026, pedido do dono: o mapa com PDV desta lista avisa o
+    // motorista na Minha Rota, como as prioridades dos GVs.
+    chave: "vips",
+    rotulo: "PDVs VIP",
+    alimenta: "O aviso de PDV VIP na Minha Rota, quando o mapa do motorista tem um cliente desta lista",
+    tipo: "pasta-drive",
+    tabela: "pa_vip_config",
+    colar: "arquivo-ou-pasta",
+    telaDoModulo: "/minha-rota",
+    modulo: "pdv-particularidades",
+    acaoParaEditar: "editar",
+    salvaNoImport: true,
+    aoAtualizar: "Lê a planilha e TROCA a lista da revenda: PDV que saiu da planilha deixa de ser VIP. Rápido.",
+    ajuda:
+      "A planilha precisa de uma coluna de código do PDV (Cód, Código Cliente...). Segmento (VIP, CONTRATO...), Nome PDV, Setor, Cidade e GV são opcionais e aparecem no aviso; sem Segmento, todo PDV da lista é VIP. Vale .xlsx, .csv e planilha do Google; “#N/A” do Excel é ignorado.",
+  },
+  {
     // 11/09/2026, implantação de Barreiras: os links moravam fixos no
     // código e valiam para todas as revendas (ver RodapeCanais).
     chave: "canais",

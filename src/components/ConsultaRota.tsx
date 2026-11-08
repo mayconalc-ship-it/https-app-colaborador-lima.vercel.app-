@@ -12,7 +12,7 @@ import {
   type Metas,
 } from "@/lib/rotas";
 import { consultarRota } from "@/app/minha-rota/actions";
-import type { ClienteDaRota, PrioridadeNoMapa, RotaEncontrada } from "@/app/minha-rota/tipos";
+import type { ClienteDaRota, PdvVip, PrioridadeNoMapa, RotaEncontrada } from "@/app/minha-rota/tipos";
 import { linkDoWhatsApp } from "@/lib/clientes-base";
 import { gerarImagemPreRota } from "@/lib/imagem-rota";
 import { AvisosDaRota } from "@/components/AvisosDaRota";
@@ -224,6 +224,44 @@ function PrioridadesDaRota({ clientes, prioridades }: { clientes: ClienteDaRota[
 }
 
 /**
+ * OS PDVs VIP DO MAPA (08/11/2026, pedido do dono): os clientes da lista de
+ * VIPs (Fontes de Dados) que estão neste mapa, no mesmo formato do quadro
+ * das prioridades -- em dourado, para não se confundir com ele.
+ */
+function VipsDaRota({ clientes, vips }: { clientes: ClienteDaRota[]; vips: Record<string, PdvVip> }) {
+  const lista = clientes.filter((c) => vips[c.codPdv]);
+  if (lista.length === 0) return null;
+  return (
+    <div className="mb-3 overflow-hidden rounded-2xl border-2 border-amber-500 bg-white shadow">
+      <p className="bg-amber-500 px-4 py-2 text-sm font-bold text-slate-900">
+        ⭐ {lista.length} PDV{lista.length === 1 ? "" : "s"} VIP neste mapa
+      </p>
+      <ul className="divide-y divide-slate-100">
+        {lista.map((c) => {
+          const v = vips[c.codPdv];
+          return (
+            <li key={c.codPdv} className="px-4 py-2">
+              <p className="text-sm">
+                <span className="mr-1.5 rounded bg-slate-200/70 px-1.5 py-0.5 text-[11px] font-bold tabular-nums text-slate-600">{c.codPdv}</span>
+                <span className="font-semibold text-slate-900">{c.nome ?? v.nome ?? "Sem cadastro na base"}</span>
+                {(c.cidade ?? v.cidade) && <span className="text-slate-500"> · {c.cidade ?? v.cidade}</span>}
+              </p>
+              <p className="mt-0.5 text-xs text-amber-800">
+                Segmento: <strong>{v.segmento}</strong>
+                {v.gv ? ` · GV ${v.gv}` : ""}
+              </p>
+            </li>
+          );
+        })}
+      </ul>
+      <p className="border-t border-slate-100 bg-amber-50 px-4 py-1.5 text-[11px] text-amber-900">
+        Cliente VIP da revenda. Qualquer problema na entrega, avise a liderança.
+      </p>
+    </div>
+  );
+}
+
+/**
  * OS CLIENTES DA ROTA, em três níveis (11/09/2026, pedido do dono):
  * cidade → código + Fantasia → bairro, endereço e telefone.
  *
@@ -236,10 +274,12 @@ function ClientesDaRota({
   clientes,
   entregas,
   prioridades,
+  vips,
 }: {
   clientes: ClienteDaRota[];
   entregas: number | null;
   prioridades: Record<string, PrioridadeNoMapa>;
+  vips: Record<string, PdvVip>;
 }) {
   const porCidade = new Map<string, ClienteDaRota[]>();
   for (const c of clientes) {
@@ -260,7 +300,7 @@ function ClientesDaRota({
       </div>
       <ul className="space-y-1.5">
         {cidades.map(([cidade, lista]) => (
-          <CidadeDaRota key={cidade} cidade={cidade} clientes={lista} maior={maior} prioridades={prioridades} />
+          <CidadeDaRota key={cidade} cidade={cidade} clientes={lista} maior={maior} prioridades={prioridades} vips={vips} />
         ))}
       </ul>
       <div className="mt-2 flex items-center justify-between rounded-lg bg-primary-soft px-3 py-2">
@@ -289,14 +329,17 @@ function CidadeDaRota({
   clientes,
   maior,
   prioridades,
+  vips,
 }: {
   cidade: string;
   clientes: ClienteDaRota[];
   maior: number;
   prioridades: Record<string, PrioridadeNoMapa>;
+  vips: Record<string, PdvVip>;
 }) {
   const [aberta, setAberta] = useState(false);
   const nPrioridade = clientes.filter((c) => prioridades[c.codPdv]).length;
+  const nVip = clientes.filter((c) => vips[c.codPdv]).length;
   return (
     <li className="overflow-hidden rounded-lg bg-white">
       <button
@@ -315,6 +358,11 @@ function CidadeDaRota({
               {nPrioridade} prioridade{nPrioridade === 1 ? "" : "s"}
             </span>
           )}
+          {nVip > 0 && (
+            <span className="shrink-0 rounded bg-amber-500 px-1.5 py-0.5 text-[10px] font-bold uppercase text-slate-900">
+              {nVip} VIP
+            </span>
+          )}
         </span>
         <span className="shrink-0 text-lg font-bold tabular-nums text-primary">{clientes.length}</span>
       </button>
@@ -322,7 +370,7 @@ function CidadeDaRota({
       {aberta && (
         <ul className="divide-y divide-slate-100 border-t border-slate-100 bg-slate-50/60">
           {clientes.map((c) => (
-            <ClienteDaLinha key={c.codPdv} cliente={c} prioridade={prioridades[c.codPdv] ?? null} />
+            <ClienteDaLinha key={c.codPdv} cliente={c} prioridade={prioridades[c.codPdv] ?? null} vip={vips[c.codPdv] ?? null} />
           ))}
         </ul>
       )}
@@ -330,7 +378,15 @@ function CidadeDaRota({
   );
 }
 
-function ClienteDaLinha({ cliente: c, prioridade: p }: { cliente: ClienteDaRota; prioridade: PrioridadeNoMapa | null }) {
+function ClienteDaLinha({
+  cliente: c,
+  prioridade: p,
+  vip: v,
+}: {
+  cliente: ClienteDaRota;
+  prioridade: PrioridadeNoMapa | null;
+  vip: PdvVip | null;
+}) {
   const [aberto, setAberto] = useState(false);
   const whats = c.telefone ? linkDoWhatsApp(c.telefone, "") : "";
   return (
@@ -350,7 +406,12 @@ function ClienteDaLinha({ cliente: c, prioridade: p }: { cliente: ClienteDaRota;
         <span className={`min-w-0 truncate text-sm ${c.nome ? "font-medium text-slate-800" : "italic text-slate-400"}`}>
           {c.nome ?? "Sem cadastro na base"}
         </span>
-        {p && <span className="ml-auto shrink-0 rounded bg-red-600 px-1.5 py-0.5 text-[10px] font-bold uppercase text-white">Prioridade</span>}
+        {(p || v) && (
+          <span className="ml-auto flex shrink-0 gap-1">
+            {v && <span className="rounded bg-amber-500 px-1.5 py-0.5 text-[10px] font-bold uppercase text-slate-900">{v.segmento}</span>}
+            {p && <span className="rounded bg-red-600 px-1.5 py-0.5 text-[10px] font-bold uppercase text-white">Prioridade</span>}
+          </span>
+        )}
       </button>
       {p && (
         <p className="px-4 pb-2 pl-9 text-xs text-red-700">
@@ -527,6 +588,7 @@ export function ConsultaRota({ metas }: { metas: Metas }) {
             depois do que se veio ver é instrução que se lê na volta. */}
         <AvisosDaRota avisos={rota.avisos} precisao={rota.precisaoDosAvisos} />
         <PrioridadesDaRota clientes={rota.clientes} prioridades={rota.prioridades} />
+        <VipsDaRota clientes={rota.clientes} vips={rota.vips} />
 
         <div className="overflow-hidden rounded-2xl border-2 border-primary bg-white shadow-lg">
           <div className="flex items-center justify-between gap-2 bg-primary px-4 py-2">
@@ -628,7 +690,7 @@ export function ConsultaRota({ metas }: { metas: Metas }) {
           {/* Com a lista de clientes do dia: cidade → cliente → endereço.
               Sem ela: Região + entregas, recolhida por padrão, como era. */}
           {rota.clientes.length > 0 ? (
-            <ClientesDaRota clientes={rota.clientes} entregas={rota.entregas} prioridades={rota.prioridades} />
+            <ClientesDaRota clientes={rota.clientes} entregas={rota.entregas} prioridades={rota.prioridades} vips={rota.vips} />
           ) : rota.cidades.length > 0 && (
             <div className="border-t border-slate-100 bg-slate-50/60 px-4 py-3">
               <div className="mb-2 flex items-baseline justify-between">

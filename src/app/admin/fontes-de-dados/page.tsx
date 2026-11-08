@@ -13,7 +13,7 @@ import {
   type Fonte,
   type OQueColar,
 } from "@/lib/fontes-de-dados";
-import { salvarCanais, salvarFonte } from "./actions";
+import { importarListaVip, salvarCanais, salvarFonte } from "./actions";
 import { avisarRVAtualizada, salvarConfigRV } from "@/app/admin/rv/actions";
 import { RolarAteAFonte } from "@/components/admin/RolarAteAFonte";
 import { importarRating } from "@/app/admin/rating/actions";
@@ -41,6 +41,7 @@ const IMPORTAR: Record<string, ((f: FormData) => Promise<void>) | undefined> = {
   // errado: é uma fonte igual às outras -- link do Drive, botão de
   // atualizar, data da última entrada.
   clientes: importarClientes,
+  vips: importarListaVip,
 };
 
 export const dynamic = "force-dynamic";
