@@ -1,6 +1,12 @@
 import "server-only";
 
-export type ArquivoDaPasta = { id: string; nome: string };
+import { dataDaPastaDoDrive, maisNovoPrimeiro } from "@/lib/drive-data";
+
+/**
+ * `modificado` = "aaaa-mm-dd[ hh:mm]" que a visão embutida mostra (nulo
+ * quando a lista veio da página normal, que não traz data).
+ */
+export type ArquivoDaPasta = { id: string; nome: string; modificado?: string | null };
 
 /** Aceita link de pasta ou o id cru. */
 export function idDaPasta(link: string) {
@@ -50,12 +56,18 @@ async function itensPelaVisaoEmbutida(pastaId: string): Promise<ItemDaPasta[] | 
   }
 
   const itens: ItemDaPasta[] = [];
+  const hoje = new Date().toLocaleDateString("sv-SE", { timeZone: "America/Sao_Paulo" });
+  // A data vem no fim de cada item: <div class="flip-entry-last-modified"><div>Nov 8</div>.
   const re = /id="entry-([a-zA-Z0-9_-]{15,})"[\s\S]*?<a href="([^"]*)"[\s\S]*?class="flip-entry-title">([^<]+)</g;
   let m: RegExpExecArray | null;
   while ((m = re.exec(html)) !== null) {
     const [, id, href, nome] = m;
+    // A data só vale se vier antes do próximo item.
+    const resto = html.slice(re.lastIndex, re.lastIndex + 600);
+    const proximo = resto.indexOf('id="entry-');
+    const quando = (proximo < 0 ? resto : resto.slice(0, proximo)).match(/class="flip-entry-last-modified"><div>([^<]*)</)?.[1];
     if (itens.some((i) => i.id === id)) continue;
-    itens.push({ id, nome: desescapar(nome), ehPasta: href.includes("/folders/") });
+    itens.push({ id, nome: desescapar(nome), ehPasta: href.includes("/folders/"), modificado: quando ? dataDaPastaDoDrive(desescapar(quando), hoje) : null });
   }
   return itens.length > 0 ? itens : null;
 }
@@ -80,7 +92,7 @@ export async function listarArquivosDaPasta(
   const embutida = await itensPelaVisaoEmbutida(pastaId);
   const daEmbutida = (embutida ?? [])
     .filter((i) => !i.ehPasta && /\.(?:csv|xlsx|xls)$/i.test(i.nome))
-    .map(({ id, nome }) => ({ id, nome }));
+    .map(({ id, nome, modificado }) => ({ id, nome, modificado }));
   if (daEmbutida.length > 0) return { arquivos: daEmbutida };
 
   let html: string;
@@ -134,6 +146,19 @@ export async function listarArquivosDaPasta(
   }
 
   return { arquivos };
+}
+
+/**
+ * O ARQUIVO MAIS NOVO DA PASTA -- para fonte que é UMA planilha só (base de
+ * clientes, PDVs VIP), ligada à pasta para quem atualiza só largar o
+ * arquivo novo lá (10/11/2026, pedido do dono). Antes valia o primeiro da
+ * lista do Drive, que pode ser o velho.
+ */
+export async function arquivoMaisNovoDaPasta(pastaId: string): Promise<{ arquivo?: ArquivoDaPasta; erro?: string }> {
+  const { arquivos, erro } = await listarArquivosDaPasta(pastaId);
+  if (erro) return { erro };
+  const [arquivo] = maisNovoPrimeiro(arquivos);
+  return arquivo ? { arquivo } : { erro: "a pasta está vazia" };
 }
 
 /** Baixa um arquivo do Drive e devolve o texto já com os acentos certos. */

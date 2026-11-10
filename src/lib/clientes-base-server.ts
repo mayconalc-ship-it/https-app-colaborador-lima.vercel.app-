@@ -3,7 +3,7 @@ import "server-only";
 import { Readable } from "node:stream";
 import ExcelJS from "exceljs";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { baixarBytesDoDrive, baixarTextoDoDrive, listarArquivosDaPasta } from "@/lib/drive-pasta";
+import { arquivoMaisNovoDaPasta, baixarBytesDoDrive, baixarTextoDoDrive } from "@/lib/drive-pasta";
 import {
   acharColunas,
   idDoLinkDoDrive,
@@ -116,7 +116,7 @@ export async function baixarPlanilhaDoLink(link: string): Promise<{ texto?: stri
   let arquivoId = arquivo ?? null;
 
   if (!arquivoId && !planilhaGoogle && pasta) {
-    const { arquivos, erro } = await listarArquivosDaPasta(pasta);
+    const { arquivo: maisNovo, erro } = await arquivoMaisNovoDaPasta(pasta);
     if (erro) {
       return {
         erro:
@@ -125,9 +125,7 @@ export async function baixarPlanilhaDoLink(link: string): Promise<{ texto?: stri
           "Compartilhar › Copiar link.",
       };
     }
-    const escolhido = arquivos[0];
-    if (!escolhido) return { erro: "a pasta está vazia" };
-    arquivoId = escolhido.id;
+    arquivoId = maisNovo!.id;
   }
   if (!arquivoId && !planilhaGoogle) {
     return { erro: "não reconheci o link. Cole o link do arquivo ou da pasta no Drive." };
@@ -183,7 +181,7 @@ export async function importarBaseDeClientes(
   let arquivoId = arquivo ?? null;
 
   if (!arquivoId && !planilhaGoogle && pasta) {
-    const { arquivos, erro } = await listarArquivosDaPasta(pasta);
+    const { arquivo: maisNovo, erro } = await arquivoMaisNovoDaPasta(pasta);
     /*
       A LEITURA DE PASTA É O CAMINHO FRÁGIL, e o erro precisa dizer isso.
 
@@ -205,9 +203,9 @@ export async function importarBaseDeClientes(
           "Compartilhar › Copiar link.",
       };
     }
-    const escolhido = arquivos[0];
-    if (!escolhido) return { ...vazio, erro: "a pasta está vazia" };
-    arquivoId = escolhido.id;
+    // O MAIS NOVO da pasta (10/11/2026): a pasta pode guardar as bases
+    // antigas, e o primeiro da lista do Drive não é o último enviado.
+    arquivoId = maisNovo!.id;
   }
   if (!arquivoId && !planilhaGoogle) {
     return { ...vazio, erro: "não reconheci o link. Cole o link do arquivo ou da pasta no Drive." };
