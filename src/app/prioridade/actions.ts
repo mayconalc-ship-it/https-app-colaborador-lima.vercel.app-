@@ -7,6 +7,7 @@ import {
   codigoDoPdv,
   dataDeEntregaValida,
   dataCurta,
+  gvDoPdv,
   hojeEmSaoPaulo,
   motivoLimpo,
   nomeLimpo,
@@ -51,7 +52,7 @@ export async function buscarPdvs(token: string, cod: string): Promise<PdvsAchado
     if (!alvo) return { ok: false, erro: "Este link não vale mais. Peça o novo à logística." };
     const codigo = codigoDoPdv(cod);
     if (!codigo || codigo.length < 2) return { ok: true, achados: [] };
-    return { ok: true, achados: await procurarPdvsPorCodigo(alvo.revendaId, codigo, ACHADOS_MAX) };
+    return { ok: true, achados: await procurarPdvsPorCodigo(alvo.revendaId, codigo, ACHADOS_MAX, alvo.gvs) };
   } catch (e) {
     if (e instanceof PrioridadesNaoInstalado) return { ok: false, erro: EM_MANUTENCAO };
     throw e;
@@ -60,7 +61,8 @@ export async function buscarPdvs(token: string, cod: string): Promise<PdvsAchado
 
 export type Envio = {
   token: string;
-  gv: string;
+  /** Não é mais usado (10/11/2026): o GV sai da base, pelo código do PDV. Aba velha ainda manda. */
+  gv?: string;
   data: string;
   /** `novo` = o GV marcou PDV novo; `nome` só vale nesse caso (o que ele escreveu). */
   itens: { cod: string; motivo: string; novo?: boolean; nome?: string | null }[];
@@ -86,9 +88,6 @@ export async function enviarPrioridades(envio: Envio): Promise<ResultadoDoEnvio>
 
     const alvo = await resolverToken(envio?.token ?? "");
     if (!alvo) return { ok: false, erro: "Este link não vale mais. Peça o novo à logística. A sua lista continua guardada neste aparelho." };
-
-    const gv = alvo.gvs.find((g) => g.nome === envio.gv);
-    if (!gv) return { ok: false, erro: "Escolha o seu nome na lista de GVs." };
 
     const hoje = hojeEmSaoPaulo();
     if (!dataDeEntregaValida(envio.data, hoje)) return { ok: false, erro: "Escolha a data de entrega (de hoje até duas semanas à frente)." };
@@ -146,6 +145,8 @@ export async function enviarPrioridades(envio: Envio): Promise<ResultadoDoEnvio>
             // e tudo), e não é novo -- a base chegou antes do envio.
             const daBase = nomes.get(cod);
             const novo = novosPdvs.has(cod) && !daBase;
+            // O GV é o da carteira do PDV na base (10/11/2026): ninguém escolhe.
+            const gv = gvDoPdv(daBase?.gvCodigo, alvo.gvs);
             return {
               revenda_id: alvo.revendaId,
               data_entrega: envio.data,
@@ -178,20 +179,23 @@ export async function enviarPrioridades(envio: Envio): Promise<ResultadoDoEnvio>
   }
 }
 
-export type Enviada = { cod: string; nome: string | null; motivo: string; enviadoEm: string; novo: boolean };
+export type Enviada = { cod: string; nome: string | null; motivo: string; enviadoEm: string; novo: boolean; gv: string };
 
-/** O que este GV já enviou para o dia -- a prova de que chegou. */
-export async function enviadasDoGv(token: string, gvNome: string, data: string): Promise<Enviada[] | null> {
+/**
+ * O que já chegou para o dia -- a prova de que o envio entrou. Desde que o
+ * GV saiu do link (10/11/2026) a lista é a do DIA, de todos os GVs, com o
+ * GV de cada PDV: também evita mandar de novo o que outro já mandou.
+ */
+export async function enviadasDoDia(token: string, data: string): Promise<Enviada[] | null> {
   try {
     const alvo = await resolverToken(token);
-    if (!alvo || !alvo.gvs.some((g) => g.nome === gvNome)) return null;
+    if (!alvo) return null;
     if (!/^\d{4}-\d{2}-\d{2}$/.test(data)) return null;
     const { data: linhas, error } = await createAdminClient()
       .from("prioridades")
-      .select("cod_pdv, nome_pdv, motivo, enviado_em, pdv_novo")
+      .select("cod_pdv, nome_pdv, motivo, enviado_em, pdv_novo, gv_nome")
       .eq("revenda_id", alvo.revendaId)
       .eq("data_entrega", data)
-      .eq("gv_nome", gvNome)
       .order("enviado_em", { ascending: false })
       .limit(500);
     conferir(error);
@@ -201,6 +205,7 @@ export async function enviadasDoGv(token: string, gvNome: string, data: string):
       motivo: l.motivo as string,
       enviadoEm: l.enviado_em as string,
       novo: l.pdv_novo === true,
+      gv: l.gv_nome as string,
     }));
   } catch (e) {
     if (e instanceof PrioridadesNaoInstalado) return null;

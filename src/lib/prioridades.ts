@@ -25,7 +25,7 @@ export type Gv = { codigo: string | null; nome: string };
  * ainda não chegou à base de clientes. Aí o código fora da base é o
  * esperado, não erro de digitação, e o nome é o que o GV escreveu.
  */
-export type ItemDoRascunho = { cod: string; motivo: string; nome: string | null; novo?: true };
+export type ItemDoRascunho = { cod: string; motivo: string; nome: string | null; novo?: true; gv?: string | null };
 
 /** O nome que o GV escreve para o PDV novo. */
 export const NOME_NOVO_MAX = 80;
@@ -103,8 +103,23 @@ export function lerMotivos(json: unknown): string[] {
   return lista.length ? lista.slice(0, MOTIVOS_NA_LISTA_MAX) : MOTIVOS_PADRAO;
 }
 
-/** Um PDV da lista que abre debaixo do campo do código. */
-export type PdvAchado = { cod: string; nome: string | null; cidade: string | null };
+/** Um PDV da lista que abre debaixo do campo do código. `gv` = o nome do GV da carteira. */
+export type PdvAchado = { cod: string; nome: string | null; cidade: string | null; gv: string | null };
+
+/** O que fica no lugar do GV quando a base não diz de quem é o PDV. */
+export const SEM_GV = "Sem GV na base";
+
+/**
+ * O GV DO PDV, PELA BASE DE CLIENTES (10/11/2026, pedido do dono: "no link
+ * não preciso do campo de GV, o sistema pega pelo código do PDV"). O nome
+ * vem da lista de GVs de Configuração; código fora da lista (o 9 da
+ * carteira sem GV, por exemplo) fica "GV 9". PDV fora da base: SEM_GV.
+ */
+export function gvDoPdv(gvCodigo: string | null | undefined, gvs: Gv[]): Gv {
+  if (!gvCodigo) return { codigo: null, nome: SEM_GV };
+  const daLista = gvs.find((g) => g.codigo != null && codigoDoPdv(g.codigo) === gvCodigo);
+  return { codigo: gvCodigo, nome: daLista?.nome ?? `GV ${gvCodigo}` };
+}
 
 /**
  * Os PDVs que a busca mostra: os códigos que começam com o que foi
@@ -274,6 +289,8 @@ export function lerRascunho(json: unknown): ItemDoRascunho[] {
     const nome = nomeLimpo((x as ItemDoRascunho)?.nome);
     const item: ItemDoRascunho = { cod, motivo, nome };
     if ((x as ItemDoRascunho)?.novo === true) item.novo = true;
+    const gv = (x as ItemDoRascunho)?.gv;
+    if (typeof gv === "string" && gv) item.gv = gv;
     lista.push(item);
   }
   return lista;

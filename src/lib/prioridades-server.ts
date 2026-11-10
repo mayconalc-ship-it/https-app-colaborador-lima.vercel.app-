@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import {
   DIAS_DA_PRIORIDADE,
   MODULO_PRIORIDADES,
+  gvDoPdv,
   lerGvs,
   lerMotivos,
   ordenarAchados,
@@ -119,54 +120,62 @@ export async function lerConfig(revendaId: string, admin: Admin = createAdminCli
  * buscar por nome numa página aberta seria entregar a carteira inteira a
  * quem tivesse o link.
  */
-export async function procurarPdvsPorCodigo(revendaId: string, prefixo: string, max: number, admin: Admin = createAdminClient()) {
+export async function procurarPdvsPorCodigo(
+  revendaId: string,
+  prefixo: string,
+  max: number,
+  gvs: Gv[],
+  admin: Admin = createAdminClient(),
+) {
   // O exato à parte: com milhares de códigos começando igual, o corte da
   // busca por prefixo podia deixá-lo de fora -- e ele é o que o GV quer.
   const [exato, { data, error }] = await Promise.all([
     nomesDosPdvs(revendaId, [prefixo], admin),
     admin
       .from("pa_pdv_clientes")
-      .select("cod_pdv, nome, fantasia, cidade")
+      .select(CAMPOS_CLIENTE)
       .eq("revenda_id", revendaId)
       .like("cod_pdv", `${prefixo}%`)
       .order("cod_pdv")
       .limit(60),
   ]);
   if (error) throw new Error(error.message);
-  const achados: PdvAchado[] = (data ?? [])
+  const rotulo = (gvCodigo: string | null) => (gvCodigo ? gvDoPdv(gvCodigo, gvs).nome : null);
+  const achados: PdvAchado[] = ((data ?? []) as LinhaCliente[])
     .filter((c) => c.cod_pdv !== prefixo)
-    .map((c) => ({
-      cod: c.cod_pdv as string,
-      nome: ((c.fantasia as string | null) || (c.nome as string | null)) ?? null,
-      cidade: (c.cidade as string | null) ?? null,
-    }));
+    .map((c) => {
+      const l = lerCliente(c);
+      return { cod: c.cod_pdv, nome: l.nome, cidade: l.cidade, gv: rotulo(l.gvCodigo) };
+    });
   const e = exato.get(prefixo);
-  if (e) achados.push({ cod: prefixo, ...e });
+  if (e) achados.push({ cod: prefixo, nome: e.nome, cidade: e.cidade, gv: rotulo(e.gvCodigo) });
   return ordenarAchados(achados, max);
 }
 
+type LinhaCliente = { cod_pdv: string; nome: string | null; fantasia: string | null; cidade: string | null; gv_codigo?: string | null };
+type ClienteResumido = { nome: string | null; cidade: string | null; gvCodigo: string | null };
+const CAMPOS_CLIENTE = "cod_pdv, nome, fantasia, cidade, gv_codigo";
+
+const lerCliente = (c: LinhaCliente): ClienteResumido => ({
+  nome: (c.fantasia || c.nome) ?? null,
+  cidade: c.cidade ?? null,
+  gvCodigo: c.gv_codigo ?? null,
+});
+
 /**
- * O nome de cada PDV na base de clientes (Fontes de Dados). O fantasia
- * primeiro: é como o GV e o motorista conhecem o cliente.
+ * O nome de cada PDV na base de clientes (Fontes de Dados), com a cidade e
+ * o GV da carteira. O fantasia primeiro: é como o GV e o motorista
+ * conhecem o cliente.
  */
 export async function nomesDosPdvs(
   revendaId: string,
   codigos: string[],
   admin: Admin = createAdminClient(),
-): Promise<Map<string, { nome: string | null; cidade: string | null }>> {
-  const mapa = new Map<string, { nome: string | null; cidade: string | null }>();
+): Promise<Map<string, ClienteResumido>> {
+  const mapa = new Map<string, ClienteResumido>();
   if (codigos.length === 0) return mapa;
-  const { data } = await admin
-    .from("pa_pdv_clientes")
-    .select("cod_pdv, nome, fantasia, cidade")
-    .eq("revenda_id", revendaId)
-    .in("cod_pdv", codigos);
-  for (const c of data ?? []) {
-    mapa.set(c.cod_pdv as string, {
-      nome: ((c.fantasia as string | null) || (c.nome as string | null)) ?? null,
-      cidade: (c.cidade as string | null) ?? null,
-    });
-  }
+  const { data } = await admin.from("pa_pdv_clientes").select(CAMPOS_CLIENTE).eq("revenda_id", revendaId).in("cod_pdv", codigos);
+  for (const c of (data ?? []) as LinhaCliente[]) mapa.set(c.cod_pdv, lerCliente(c));
   return mapa;
 }
 

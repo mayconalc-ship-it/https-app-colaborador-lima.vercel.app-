@@ -203,7 +203,7 @@ export default async function PrioridadesDosGvsPage({ searchParams }: { searchPa
       {/* O link, os GVs e os motivos: cadastro, em Configuração. */}
       {podeEditar && (
         <p className="text-sm text-slate-500">
-          {config.gvs.length === 0 && <span className="font-semibold text-amber-800">Nenhum GV cadastrado: o link não abre sem a lista. </span>}
+          {config.gvs.length === 0 && <span className="font-semibold text-amber-800">Nenhum GV cadastrado: as prioridades saem como GV 1, GV 2... em vez do nome. </span>}
           <Link href="/admin/prioridades" className="font-semibold text-primary underline">
             Link dos GVs, lista de GVs e motivos em Configuração →
           </Link>

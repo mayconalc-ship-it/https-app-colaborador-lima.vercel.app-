@@ -60,8 +60,16 @@ console.log("\nLINHA");
 const colunas = { codPdv: 0, nome: 1, telefone: 2, cidade: 3, bairro: 4, endereco: 5 };
 eq("linha completa", lerLinhaDeCliente(["0002178", "BAR DO JAIR", "(77) 99999-8888", "Sao Felix", "Centro", "Rua A, 10"], colunas), {
   codPdv: "2178", nome: "BAR DO JAIR", fantasia: null, telefone: "5577999998888",
-  cidade: "Sao Felix", bairro: "Centro", endereco: "Rua A, 10",
+  cidade: "Sao Felix", bairro: "Centro", endereco: "Rua A, 10", gvCodigo: null,
 });
+
+// O GV da carteira (10/11/2026): a base do Promax traz GV VDE e GV VDI; vale o VDE.
+const cabGv = ["Empresa", "Filial", "Cód PDV", "Nome Fantasia", "Setor VDE", "Área VDE", "GV VDE", "Setor VDI", "GV VDI"];
+const colGv = acharColunas(cabGv);
+eq("GV VDE e nao o VDI", colGv.gvCodigo, 6);
+eq("GV sem zeros a frente", lerLinhaDeCliente(["338", "0002", "   9125", "CANTINHO", "00208", "00021", "002", "", "000"], colGv).gvCodigo, "2");
+eq("GV 000 vira null", lerLinhaDeCliente(["338", "0002", "9126", "X", "", "", "000", "", ""], colGv).gvCodigo, null);
+eq("codigo do PDV continua o Cod PDV", colGv.codPdv, 2);
 
 // A planilha real das duas revendas traz Razao Social E Nome Fantasia
 // (11/09/2026): cada uma vai para o seu campo.

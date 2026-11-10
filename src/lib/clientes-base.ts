@@ -24,6 +24,12 @@ export type ClienteDaBase = {
   cidade: string | null;
   bairro: string | null;
   endereco: string | null;
+  /**
+   * O GV do PDV na carteira (coluna "GV VDE" da base, 10/11/2026): é por
+   * ele que o link das prioridades sabe de quem é o PDV, sem o GV escolher
+   * o nome. Sem zeros à frente ("002" -> "2"); vazio ou zero = null.
+   */
+  gvCodigo: string | null;
 };
 
 /** Tira acento e caixa, para casar cabeçalho sem depender de como veio. */
@@ -68,6 +74,8 @@ const SINONIMOS: Record<keyof Omit<ClienteDaBase, "codPdv"> | "codPdv", string[]
   // só com a Fantasia, o nome fica com ela e aqui não sobra nada -- e a
   // tela, que prefere a Fantasia, cai no nome, que é a mesma coisa.
   fantasia: ["nomefantasia", "fantasia"],
+  // O GV de VENDA DIRETA (VDE), que é o dono da carteira; o VDI é outro time.
+  gvCodigo: ["gvvde", "codgerentevendas", "codigogerentevendas", "gerentevendas", "gv"],
 };
 
 /**
@@ -150,6 +158,12 @@ export function codigoDaBase(bruto: unknown): string | null {
  * particularidade e ao Rating. Linha sem código é rodapé, total ou
  * cabeçalho repetido no meio do arquivo.
  */
+/** "002" -> "2"; vazio, zero ou texto sem número = null. */
+export function gvDaBase(bruto: unknown): string | null {
+  const cod = codigoDaBase(bruto);
+  return cod && cod !== "0" ? cod : null;
+}
+
 export function lerLinhaDeCliente(
   linha: unknown[],
   colunas: Partial<Record<keyof ClienteDaBase, number>>,
@@ -170,6 +184,7 @@ export function lerLinhaDeCliente(
     cidade: em("cidade"),
     bairro: em("bairro"),
     endereco: em("endereco"),
+    gvCodigo: gvDaBase(colunas.gvCodigo === undefined ? null : linha[colunas.gvCodigo]),
   };
 }
 

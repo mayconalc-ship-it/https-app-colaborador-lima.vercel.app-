@@ -51,7 +51,7 @@ export default async function AdminPrioridadesPage() {
           <div>
             <h2 className="text-sm font-bold text-slate-900">O link dos GVs</h2>
             <p className="mt-0.5 text-xs text-slate-500">
-              Abre sem login. O GV escolhe o nome uma vez, lança código e motivo, e envia tudo de uma vez.
+              Abre sem login. O GV lança código e motivo e envia tudo de uma vez; o GV de cada PDV sai da base de clientes (coluna GV VDE).
             </p>
           </div>
           <LinkDosGvs token={config.tokenPublico} revendaNome={revenda?.nome ?? "revenda"} />
@@ -75,7 +75,7 @@ export default async function AdminPrioridadesPage() {
             </p>
           </div>
           {config.gvs.length === 0 ? (
-            <p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900">Nenhum GV ainda: o link não abre sem a lista.</p>
+            <p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900">Nenhum GV ainda: o link funciona, mas as prioridades aparecem como GV 1, GV 2... em vez do nome.</p>
           ) : (
             <ul className="divide-y divide-slate-100 rounded-xl border border-slate-200">
               {config.gvs.map((g) => (

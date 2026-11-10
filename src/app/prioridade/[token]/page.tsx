@@ -15,8 +15,8 @@ export const metadata: Metadata = {
  * O LINK DOS GVs -- onde as prioridades do dia são lançadas.
  *
  * Aberta, sem login (o proxy deixa /prioridade/ passar): os GVs não têm
- * conta no app. O token do endereço diz a revenda; o GV escolhe o nome
- * uma vez e o aparelho lembra. Quem lê a lista é a logística, em
+ * conta no app. O token do endereço diz a revenda; o GV de cada
+ * prioridade sai da base de clientes, pelo código do PDV (10/11/2026). Quem lê a lista é a logística, em
  * /gestao/prioridades.
  */
 export default async function PrioridadesDoGvPage({ params }: { params: Promise<{ token: string }> }) {
@@ -54,8 +54,6 @@ export default async function PrioridadesDoGvPage({ params }: { params: Promise<
 
       <LancarPrioridades
         token={token}
-        revendaNome={alvo.revendaNome}
-        gvs={alvo.gvs}
         motivos={alvo.motivos}
         hoje={hoje}
         entregaPadrao={proximaEntrega(hoje)}

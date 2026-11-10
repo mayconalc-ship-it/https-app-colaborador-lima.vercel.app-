@@ -65,6 +65,10 @@
   "manut_fornecedores": "157",
   "manut_fotos": "156",
   "manut_itens": "156",
+  "manut_prev_execucoes": "174",
+  "manut_prev_itens": "174",
+  "manut_prev_modelos": "174",
+  "manut_prev_respostas": "174",
   "manut_raci_atividades": "157",
   "manut_raci_celulas": "157",
   "manut_raci_papeis": "157",
@@ -123,6 +127,7 @@
   "pa_pdv_config": "107",
   "pa_pdv_do_mapa": "101",
   "pa_pdv_particularidades": "101",
+  "pa_pdv_vips": "175",
   "pa_produtos": "049",
   "pa_reabastecimentos_picking": "049",
   "pa_recebimento_config": "061",
@@ -135,6 +140,7 @@
   "pa_ressuprimento_itens": "085",
   "pa_ressuprimentos": "085",
   "pa_transportadoras": "049",
+  "pa_vip_config": "175",
   "pa_wqi_baixas": "139",
   "pa_wqi_locais": "139",
   "pa_wqi_motivos": "139",
@@ -146,6 +152,8 @@
   "perfis_acesso": "084",
   "pesquisa_config": "013",
   "pesquisa_respostas": "013",
+  "prioridades": "173",
+  "prioridades_config": "173",
   "push_inscricoes": "023",
   "qr_comprovante_edicoes": "128",
   "qr_comprovante_fotos": "126",
@@ -839,6 +847,11 @@
    "migration": "115"
   },
   {
+   "tabela": "pa_pdv_clientes",
+   "coluna": "gv_codigo",
+   "migration": "177"
+  },
+  {
    "tabela": "pa_pdv_config",
    "coluna": "pasta_link",
    "migration": "108"
@@ -942,6 +955,21 @@
    "tabela": "perfis_acesso",
    "coluna": "tipo",
    "migration": "111"
+  },
+  {
+   "tabela": "prioridades",
+   "coluna": "ordem",
+   "migration": "176"
+  },
+  {
+   "tabela": "prioridades",
+   "coluna": "pdv_novo",
+   "migration": "176"
+  },
+  {
+   "tabela": "prioridades_config",
+   "coluna": "motivos",
+   "migration": "173"
   },
   {
    "tabela": "profiles",
@@ -1108,6 +1136,11 @@
   "165": "165_chamados_manutencao.sql",
   "167": "167_chamados_areas_5s_e_emails.sql",
   "169": "169_chamados_emails_gestor.sql",
+  "173": "173_prioridades_gv.sql",
+  "174": "174_manutencao_preventiva.sql",
+  "175": "175_pdvs_vip.sql",
+  "176": "176_prioridades_pdv_novo.sql",
+  "177": "177_clientes_gv.sql",
   "002": "002_sonho_anual_ranking_categorias.sql",
   "003": "003_padroes_por_pilar.sql",
   "004": "004_feedback_rota_detalhado.sql",

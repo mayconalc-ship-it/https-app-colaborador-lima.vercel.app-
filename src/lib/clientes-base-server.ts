@@ -346,6 +346,7 @@ export async function importarBaseDeClientes(
         cidade: c.cidade,
         bairro: c.bairro,
         endereco: c.endereco,
+        gv_codigo: c.gvCodigo,
         atualizado_em: agora,
       })),
       { onConflict: "revenda_id,cod_pdv" },

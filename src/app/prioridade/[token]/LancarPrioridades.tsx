@@ -11,14 +11,13 @@ import {
   lerRascunho,
   motivoLimpo,
   nomeLimpo,
+  SEM_GV,
   problemaDoItem,
-  rotuloDoGv,
   somarDias,
-  type Gv,
   type ItemDoRascunho,
   type PdvAchado,
 } from "@/lib/prioridades";
-import { buscarPdvs, enviadasDoGv, enviarPrioridades, type Enviada } from "../actions";
+import { buscarPdvs, enviadasDoDia, enviarPrioridades, type Enviada } from "../actions";
 
 /**
  * O FORMULÁRIO DO GV -- feito para o celular e para a pressa.
@@ -74,21 +73,16 @@ const rotulo = "mb-1 block text-xs font-semibold uppercase tracking-wide text-sl
 
 export function LancarPrioridades({
   token,
-  revendaNome,
-  gvs,
   motivos,
   hoje,
   entregaPadrao,
 }: {
   token: string;
-  revendaNome: string;
-  gvs: Gv[];
   motivos: string[];
   hoje: string;
   entregaPadrao: string;
 }) {
   const [pronto, setPronto] = useState(false);
-  const [gv, setGv] = useState("");
   const [data, setData] = useState(entregaPadrao);
   const [itens, setItens] = useState<ItemDoRascunho[]>([]);
   const [guardou, setGuardou] = useState(true);
@@ -102,7 +96,7 @@ export function LancarPrioridades({
   const [nomeNovo, setNomeNovo] = useState("");
   const [aviso, setAviso] = useState<{ tipo: "ok" | "erro"; texto: string } | null>(null);
   const [enviando, setEnviando] = useState(false);
-  const [enviadas, setEnviadas] = useState<{ gv: string; data: string; lista: Enviada[] } | null>(null);
+  const [enviadas, setEnviadas] = useState<{ data: string; lista: Enviada[] } | null>(null);
   const [recarga, setRecarga] = useState(0);
   const [empresa, setEmpresa] = useState("");
   const codRef = useRef<HTMLInputElement>(null);
@@ -113,16 +107,14 @@ export function LancarPrioridades({
   // O que estava guardado no aparelho. Data de entrega que já passou volta
   // para a padrão: a lista continua, a data é que estava velha.
   useEffect(() => {
-    const salvoGv = ler<string>(chave(token, "gv"));
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- leitura única do aparelho, depois da hidratação
-    if (salvoGv && gvs.some((g) => g.nome === salvoGv)) setGv(salvoGv);
     const r = ler<Rascunho>(chave(token, "rascunho"));
     if (r) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- leitura única do aparelho, depois da hidratação
       setItens(lerRascunho(r.itens));
       if (typeof r.data === "string" && r.data >= hoje) setData(r.data);
     }
     setPronto(true);
-  }, [token, gvs, hoje]);
+  }, [token, hoje]);
 
   // Tocar fora da lista de PDVs fecha a lista.
   useEffect(() => {
@@ -144,20 +136,21 @@ export function LancarPrioridades({
     [token],
   );
 
-  // O que este GV já mandou para a data -- a prova de que chegou. Guarda
-  // de quem e de que dia é a lista, para trocar o GV ou a data não mostrar
-  // a lista anterior enquanto a nova chega.
-  // `recarga` sobe depois de cada envio, para a lista ser lida de novo.
+  // O que já chegou para a data, de todos os GVs -- a prova de que o envio
+  // entrou. Guarda de que dia é a lista, para trocar a data não mostrar a
+  // anterior enquanto a nova chega. `recarga` sobe depois de cada envio.
   useEffect(() => {
-    if (!pronto || !gv) return;
+    if (!pronto) return;
     let vale = true;
-    void enviadasDoGv(token, gv, data).then((lista) => {
-      if (vale) setEnviadas({ gv, data, lista: lista ?? [] });
-    });
+    void enviadasDoDia(token, data)
+      .then((lista) => {
+        if (vale) setEnviadas({ data, lista: lista ?? [] });
+      })
+      .catch(() => {});
     return () => {
       vale = false;
     };
-  }, [pronto, gv, data, token, recarga]);
+  }, [pronto, data, token, recarga]);
 
   // Os PDVs que começam com o código (espera o dedo parar). O resultado
   // guarda o código buscado: a tela só usa a lista se ela for a do campo.
@@ -178,11 +171,6 @@ export function LancarPrioridades({
       clearTimeout(t);
     };
   }, [cod, token]);
-
-  function escolherGv(nome: string) {
-    setGv(nome);
-    gravar(chave(token, "gv"), nome);
-  }
 
   function mudarData(nova: string) {
     if (!nova) return;
@@ -234,7 +222,7 @@ export function LancarPrioridades({
     const foraDaBase = !ehNovo && buscaDoCampo !== "procurando" && buscaDoCampo !== null && !buscaDoCampo.falhou && !pdvDoCampo;
     const item: ItemDoRascunho = ehNovo
       ? { cod: c, motivo: m, nome: nomeLimpo(nomeNovo), novo: true }
-      : { cod: c, motivo: m, nome: pdvDoCampo?.nome ?? null };
+      : { cod: c, motivo: m, nome: pdvDoCampo?.nome ?? null, gv: pdvDoCampo?.gv ?? null };
     const { lista, substituiu } = incluirNoRascunho(itens, item);
     setItens(lista);
     guardar(lista, data);
@@ -260,17 +248,12 @@ export function LancarPrioridades({
   }
 
   async function enviar() {
-    if (!gv) {
-      setAviso({ tipo: "erro", texto: "Escolha o seu nome na lista de GVs." });
-      return;
-    }
     if (itens.length === 0) return;
     setEnviando(true);
     setAviso(null);
     try {
       const r = await enviarPrioridades({
         token,
-        gv,
         data,
         itens: itens.map(({ cod, motivo, nome, novo }) => (novo ? { cod, motivo, novo: true, nome } : { cod, motivo })),
         empresa,
@@ -285,12 +268,11 @@ export function LancarPrioridades({
       const sobra = itens.filter((i) => !resolvidos.has(i.cod));
       setItens(sobra);
       guardar(sobra, data);
-      const outros = r.jaEstavam.filter((j) => j.gv !== gv);
       setAviso({
         tipo: "ok",
         texto:
           r.mensagem +
-          (outros.length ? ` Já lançados por outro GV: ${outros.map((o) => `${o.cod} (${o.gv})`).join(", ")}.` : ""),
+          (r.jaEstavam.length ? ` Já estavam: ${r.jaEstavam.map((o) => `${o.cod} (${o.gv})`).join(", ")}.` : ""),
       });
       setRecarga((n) => n + 1);
     } catch {
@@ -300,15 +282,7 @@ export function LancarPrioridades({
     }
   }
 
-  if (gvs.length === 0) {
-    return (
-      <p className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-        A lista de GVs da {revendaNome} ainda não foi cadastrada. Avise a logística.
-      </p>
-    );
-  }
-
-  const enviadasDaTela = enviadas && enviadas.gv === gv && enviadas.data === data ? enviadas.lista : null;
+  const enviadasDaTela = enviadas && enviadas.data === data ? enviadas.lista : null;
   // Sem nenhum PDV para mostrar, a lista não abre: o aviso fica debaixo do
   // campo, junto da caixa "PDV novo", sem nada por cima dela.
   const semAchados = buscaDoCampo !== null && buscaDoCampo !== "procurando" && !buscaDoCampo.falhou && achados.length === 0;
@@ -316,21 +290,8 @@ export function LancarPrioridades({
 
   return (
     <div className="space-y-4 pb-28">
-      {/* ---- Quem e para quando ---- */}
+      {/* ---- Para quando (o GV sai da base, pelo código do PDV) ---- */}
       <section className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-        <div>
-          <label className={rotulo} htmlFor="pr-gv">
-            Quem está lançando
-          </label>
-          <select id="pr-gv" className={campo} value={gv} onChange={(e) => escolherGv(e.target.value)}>
-            <option value="">Escolha o seu nome</option>
-            {gvs.map((g) => (
-              <option key={g.nome} value={g.nome}>
-                {rotuloDoGv(g)}
-              </option>
-            ))}
-          </select>
-        </div>
         <div>
           <label className={rotulo} htmlFor="pr-data">
             Entrega em <span className="font-normal normal-case text-slate-400">({dataCurta(data)})</span>
@@ -395,7 +356,9 @@ export function LancarPrioridades({
                   >
                     <span className="font-semibold tabular-nums text-slate-900">{p.cod}</span>{" "}
                     <span className="text-slate-700">— {p.nome ?? "sem nome"}</span>
-                    {p.cidade ? <span className="block text-xs text-slate-400">{p.cidade}</span> : null}
+                    {p.cidade || p.gv ? (
+                      <span className="block text-xs text-slate-400">{[p.cidade, p.gv].filter(Boolean).join(" · ")}</span>
+                    ) : null}
                   </button>
                 ))
               )}
@@ -407,6 +370,7 @@ export function LancarPrioridades({
               <span className="font-semibold text-emerald-700">
                 {pdvDoCampo.nome ?? "PDV sem nome na base"}
                 {pdvDoCampo.cidade ? <span className="font-normal text-slate-500"> · {pdvDoCampo.cidade}</span> : null}
+                <span className="block font-normal text-slate-500">GV: {pdvDoCampo.gv ?? SEM_GV}</span>
               </span>
             ) : ehNovo ? (
               <span className="font-semibold text-sky-700">PDV novo: entra mesmo sem estar na base de clientes.</span>
@@ -529,6 +493,7 @@ export function LancarPrioridades({
                     {i.novo ? <SeloNovo /> : null}
                   </p>
                   <p className="text-sm text-slate-600">{i.motivo}</p>
+                  <p className="text-xs text-slate-400">{i.gv ?? SEM_GV}</p>
                 </div>
                 <button
                   type="button"
@@ -544,7 +509,7 @@ export function LancarPrioridades({
       </section>
 
       {/* ---- Já enviadas ---- */}
-      {gv && enviadasDaTela && enviadasDaTela.length > 0 && (
+      {enviadasDaTela && enviadasDaTela.length > 0 && (
         <section>
           <h2 className="mb-2 px-1 text-sm font-bold uppercase tracking-wide text-slate-600">
             Já enviadas para {dataCurta(data)} <span className="text-slate-400">({enviadasDaTela.length})</span>
@@ -561,6 +526,7 @@ export function LancarPrioridades({
                   </span>
                 </p>
                 <p className="text-sm text-slate-600">{e.motivo}</p>
+                <p className="text-xs text-slate-400">{e.gv}</p>
               </li>
             ))}
           </ul>
