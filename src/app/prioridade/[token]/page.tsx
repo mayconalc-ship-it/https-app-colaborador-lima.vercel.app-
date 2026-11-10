@@ -43,14 +43,11 @@ export default async function PrioridadesDoGvPage({ params }: { params: Promise<
 
   return (
     <div className="space-y-4">
-      <div className="rounded-2xl bg-gradient-to-br from-primary to-primary-dark p-5 text-white shadow-md">
-        <p className="text-xs font-bold uppercase tracking-wide text-white/80">Prioridades do dia · {alvo.revendaNome}</p>
-        <h1 className="mt-1 text-xl font-bold leading-tight">Quais PDVs precisam sair primeiro?</h1>
-        <p className="mt-1.5 text-sm text-white/85">
-          Digite o código, escolha o motivo, inclua quantos precisar e envie tudo de uma vez. A lista fica guardada neste
-          aparelho até você enviar.
-        </p>
-      </div>
+      {/* Layout enxuto (10/11/2026, pedido do dono): título direto, sem explicação. */}
+      <header className="px-1 pt-1">
+        <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{alvo.revendaNome}</p>
+        <h1 className="text-2xl font-bold leading-tight text-slate-900">Quais as prioridades do dia?</h1>
+      </header>
 
       <LancarPrioridades
         token={token}

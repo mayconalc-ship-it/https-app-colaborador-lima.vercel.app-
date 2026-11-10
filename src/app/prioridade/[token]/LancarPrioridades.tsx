@@ -230,7 +230,7 @@ export function LancarPrioridades({
       tipo: "ok",
       texto:
         (substituiu ? `PDV ${c} já estava na lista: motivo trocado.` : `PDV ${c} incluído${ehNovo ? " como PDV novo" : ""}.`) +
-        (foraDaBase ? " Atenção: esse código não está na base de clientes. Se for PDV novo, tire e inclua de novo marcando PDV novo." : ""),
+        (foraDaBase ? " Código fora da base." : ""),
     });
     setCod("");
     setEscolhido(null);
@@ -290,11 +290,11 @@ export function LancarPrioridades({
 
   return (
     <div className="space-y-4 pb-28">
-      {/* ---- Para quando (o GV sai da base, pelo código do PDV) ---- */}
-      <section className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      {/* ---- Um cartão só: entrega, código, motivo (o GV sai da base, pelo código do PDV) ---- */}
+      <form onSubmit={incluir} className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
         <div>
           <label className={rotulo} htmlFor="pr-data">
-            Entrega em <span className="font-normal normal-case text-slate-400">({dataCurta(data)})</span>
+            Entrega <span className="font-normal normal-case text-slate-400">· {dataCurta(data)}</span>
           </label>
           <input
             id="pr-data"
@@ -306,10 +306,7 @@ export function LancarPrioridades({
             onChange={(e) => mudarData(e.target.value)}
           />
         </div>
-      </section>
 
-      {/* ---- Incluir ---- */}
-      <form onSubmit={incluir} className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
         <div ref={caixaRef} className="relative">
           <label className={rotulo} htmlFor="pr-cod">
             Código do PDV
@@ -321,7 +318,7 @@ export function LancarPrioridades({
             inputMode="numeric"
             autoComplete="off"
             enterKeyHint="next"
-            placeholder="Digite o código"
+            placeholder="Código"
             value={cod}
             onChange={(e) => digitarCodigo(e.target.value)}
             onFocus={() => setAberto(true)}
@@ -343,9 +340,9 @@ export function LancarPrioridades({
               {buscaDoCampo === "procurando" ? (
                 <p className="p-3 text-sm text-slate-400">Buscando...</p>
               ) : buscaDoCampo.falhou ? (
-                <p className="p-3 text-sm text-slate-500">Não deu para buscar agora. Pode incluir pelo código mesmo.</p>
+                <p className="p-3 text-sm text-slate-500">Busca indisponível. Pode incluir assim mesmo.</p>
               ) : achados.length === 0 ? (
-                <p className="p-3 text-sm text-amber-800">Nenhum PDV com esse código na base de clientes. Confira o número.</p>
+                <p className="p-3 text-sm text-amber-800">Código não encontrado.</p>
               ) : (
                 achados.map((p) => (
                   <button
@@ -365,7 +362,7 @@ export function LancarPrioridades({
             </div>
           )}
 
-          <p className="mt-1 min-h-[1.25rem] text-sm">
+          <p className="mt-1 text-sm empty:hidden">
             {pdvDoCampo ? (
               <span className="font-semibold text-emerald-700">
                 {pdvDoCampo.nome ?? "PDV sem nome na base"}
@@ -373,9 +370,9 @@ export function LancarPrioridades({
                 <span className="block font-normal text-slate-500">GV: {pdvDoCampo.gv ?? SEM_GV}</span>
               </span>
             ) : ehNovo ? (
-              <span className="font-semibold text-sky-700">PDV novo: entra mesmo sem estar na base de clientes.</span>
+              <span className="font-semibold text-sky-700">PDV novo</span>
             ) : codValido && codValido.length >= 2 && (!aberto || semAchados) && buscaDoCampo !== "procurando" && !buscaDoCampo?.falhou ? (
-              <span className="text-amber-700">Esse código não está na base de clientes. Confira o número ou, se for PDV novo, marque abaixo.</span>
+              <span className="text-amber-700">Código não encontrado na base.</span>
             ) : null}
           </p>
         </div>
@@ -389,7 +386,7 @@ export function LancarPrioridades({
                 checked={novo}
                 onChange={(e) => setNovo(e.target.checked)}
               />
-              É PDV novo (ainda não está na base)
+              PDV novo
             </label>
             {novo && (
               <input
@@ -397,7 +394,7 @@ export function LancarPrioridades({
                 maxLength={NOME_NOVO_MAX}
                 autoComplete="off"
                 enterKeyHint="next"
-                placeholder="Nome do PDV (se souber)"
+                placeholder="Nome do PDV (opcional)"
                 value={nomeNovo}
                 onChange={(e) => setNomeNovo(e.target.value)}
               />
@@ -407,7 +404,7 @@ export function LancarPrioridades({
 
         <div>
           <label className={rotulo} htmlFor="pr-motivo">
-            Motivo da prioridade
+            Motivo
           </label>
           <select
             id="pr-motivo"
@@ -423,7 +420,7 @@ export function LancarPrioridades({
               </option>
             ))}
             <option value={OUTRO} className="text-slate-900">
-              Outro motivo (escrever)
+              Outro…
             </option>
           </select>
           {motivoSel === OUTRO && (
@@ -474,13 +471,13 @@ export function LancarPrioridades({
           </h2>
           {pronto && itens.length > 0 && (
             <span className={`text-xs ${guardou ? "text-slate-400" : "font-semibold text-red-700"}`}>
-              {guardou ? "Guardado neste aparelho" : "Este navegador não deixou guardar: envie antes de fechar"}
+              {guardou ? "Salvo no aparelho" : "Não salvou no aparelho: envie antes de fechar"}
             </span>
           )}
         </div>
         {itens.length === 0 ? (
           <p className="rounded-2xl border border-dashed border-slate-300 bg-white p-4 text-center text-sm text-slate-500">
-            Nenhuma prioridade na lista. Inclua acima e envie tudo de uma vez.
+            Nenhuma prioridade incluída.
           </p>
         ) : (
           <ul className="divide-y divide-slate-100 rounded-2xl border border-slate-200 bg-white shadow-sm">
