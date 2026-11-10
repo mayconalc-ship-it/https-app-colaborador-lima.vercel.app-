@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { hojeEmSaoPaulo, somarDias } from "@/lib/prioridades";
-import { PrioridadesNaoInstalado, prioridadesEntre, resolverChaveGestorLog } from "@/lib/prioridades-server";
+import { hojeEmSaoPaulo, ordenarPrioridades, somarDias } from "@/lib/prioridades";
+import { PrioridadesNaoInstalado, prioridadesEntre, resolverChaveGestorLog, type Prioridade } from "@/lib/prioridades-server";
 
 export const dynamic = "force-dynamic";
 
@@ -24,7 +24,10 @@ export async function GET(req: Request, { params }: { params: Promise<{ chave: s
     const url = new URL(req.url), hoje = hojeEmSaoPaulo();
     const de = DATA.test(url.searchParams.get("de") ?? "") ? url.searchParams.get("de")! : somarDias(hoje, -7);
     const ate = DATA.test(url.searchParams.get("ate") ?? "") ? url.searchParams.get("ate")! : somarDias(hoje, 14);
-    const lista = await prioridadesEntre(alvo.revendaId, de, ate);
+    // Cada dia na ordem da liderança (Gestão › Prioridades dos GVs); `ordem` = posição no dia.
+    const porDia = new Map<string, Prioridade[]>();
+    for (const p of await prioridadesEntre(alvo.revendaId, de, ate)) porDia.set(p.data_entrega, [...(porDia.get(p.data_entrega) ?? []), p]);
+    const lista = [...porDia.keys()].sort().flatMap((d) => ordenarPrioridades(porDia.get(d)!).map((p, i) => ({ ...p, posicao: i + 1 })));
     return NextResponse.json(
       {
         revenda: alvo.revendaNome,
@@ -39,6 +42,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ chave: s
           gv: p.gv_nome,
           gvCodigo: p.gv_codigo,
           enviadoEm: p.enviado_em,
+          novo: p.pdv_novo === true,
+          ordem: p.posicao,
         })),
       },
       { headers: CORS },

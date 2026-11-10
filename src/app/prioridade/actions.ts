@@ -9,6 +9,7 @@ import {
   dataCurta,
   hojeEmSaoPaulo,
   motivoLimpo,
+  nomeLimpo,
   problemaDoItem,
 } from "@/lib/prioridades";
 import {
@@ -61,7 +62,8 @@ export type Envio = {
   token: string;
   gv: string;
   data: string;
-  itens: { cod: string; motivo: string }[];
+  /** `novo` = o GV marcou PDV novo; `nome` só vale nesse caso (o que ele escreveu). */
+  itens: { cod: string; motivo: string; novo?: boolean; nome?: string | null }[];
   /** A armadilha de robô: campo invisível que só script preenche. */
   empresa?: string;
 };
@@ -95,10 +97,15 @@ export async function enviarPrioridades(envio: Envio): Promise<ResultadoDoEnvio>
     if (itens.length > MAX_POR_ENVIO) return { ok: false, erro: `Envie no máximo ${MAX_POR_ENVIO} de uma vez.` };
 
     const limpos = new Map<string, string>();
+    /** Os PDVs novos e o nome que o GV escreveu (pode ser nulo). */
+    const novosPdvs = new Map<string, string | null>();
     for (const i of itens) {
       const problema = problemaDoItem(i.cod, i.motivo);
       if (problema) return { ok: false, erro: `PDV ${String(i.cod)}: ${problema}` };
-      limpos.set(codigoDoPdv(i.cod)!, motivoLimpo(i.motivo));
+      const cod = codigoDoPdv(i.cod)!;
+      limpos.set(cod, motivoLimpo(i.motivo));
+      if (i.novo === true) novosPdvs.set(cod, nomeLimpo(i.nome));
+      else novosPdvs.delete(cod);
     }
 
     const admin = createAdminClient();
@@ -134,16 +141,23 @@ export async function enviarPrioridades(envio: Envio): Promise<ResultadoDoEnvio>
       const { data: inseridas, error } = await admin
         .from("prioridades")
         .upsert(
-          novos.map((cod) => ({
-            revenda_id: alvo.revendaId,
-            data_entrega: envio.data,
-            cod_pdv: cod,
-            nome_pdv: nomes.get(cod)?.nome ?? null,
-            motivo: limpos.get(cod)!,
-            gv_codigo: gv.codigo,
-            gv_nome: gv.nome,
-            lote,
-          })),
+          novos.map((cod) => {
+            // Marcou PDV novo mas o código já está na base: vale a base (nome
+            // e tudo), e não é novo -- a base chegou antes do envio.
+            const daBase = nomes.get(cod);
+            const novo = novosPdvs.has(cod) && !daBase;
+            return {
+              revenda_id: alvo.revendaId,
+              data_entrega: envio.data,
+              cod_pdv: cod,
+              nome_pdv: daBase?.nome ?? (novo ? novosPdvs.get(cod)! : null),
+              motivo: limpos.get(cod)!,
+              gv_codigo: gv.codigo,
+              gv_nome: gv.nome,
+              lote,
+              pdv_novo: novo,
+            };
+          }),
           { onConflict: "revenda_id,data_entrega,cod_pdv", ignoreDuplicates: true },
         )
         .select("cod_pdv");
@@ -164,7 +178,7 @@ export async function enviarPrioridades(envio: Envio): Promise<ResultadoDoEnvio>
   }
 }
 
-export type Enviada = { cod: string; nome: string | null; motivo: string; enviadoEm: string };
+export type Enviada = { cod: string; nome: string | null; motivo: string; enviadoEm: string; novo: boolean };
 
 /** O que este GV já enviou para o dia -- a prova de que chegou. */
 export async function enviadasDoGv(token: string, gvNome: string, data: string): Promise<Enviada[] | null> {
@@ -174,7 +188,7 @@ export async function enviadasDoGv(token: string, gvNome: string, data: string):
     if (!/^\d{4}-\d{2}-\d{2}$/.test(data)) return null;
     const { data: linhas, error } = await createAdminClient()
       .from("prioridades")
-      .select("cod_pdv, nome_pdv, motivo, enviado_em")
+      .select("cod_pdv, nome_pdv, motivo, enviado_em, pdv_novo")
       .eq("revenda_id", alvo.revendaId)
       .eq("data_entrega", data)
       .eq("gv_nome", gvNome)
@@ -186,6 +200,7 @@ export async function enviadasDoGv(token: string, gvNome: string, data: string):
       nome: (l.nome_pdv as string | null) ?? null,
       motivo: l.motivo as string,
       enviadoEm: l.enviado_em as string,
+      novo: l.pdv_novo === true,
     }));
   } catch (e) {
     if (e instanceof PrioridadesNaoInstalado) return null;

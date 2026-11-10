@@ -18,8 +18,22 @@ export const MODULO_PRIORIDADES = "prioridades" as const;
 /** Um GV da lista do formulário. O código é o "Cód. gerente vendas" do Promax. */
 export type Gv = { codigo: string | null; nome: string };
 
-/** Uma prioridade antes do envio -- o que fica no aparelho do GV. */
-export type ItemDoRascunho = { cod: string; motivo: string; nome: string | null };
+/**
+ * Uma prioridade antes do envio -- o que fica no aparelho do GV.
+ *
+ * `novo` (10/11/2026, pedido do dono): o GV marcou que é PDV NOVO, que
+ * ainda não chegou à base de clientes. Aí o código fora da base é o
+ * esperado, não erro de digitação, e o nome é o que o GV escreveu.
+ */
+export type ItemDoRascunho = { cod: string; motivo: string; nome: string | null; novo?: true };
+
+/** O nome que o GV escreve para o PDV novo. */
+export const NOME_NOVO_MAX = 80;
+
+export function nomeLimpo(bruto: unknown): string | null {
+  const n = String(bruto ?? "").replace(/\s+/g, " ").trim().slice(0, NOME_NOVO_MAX);
+  return n || null;
+}
 
 export const MOTIVO_MIN = 3;
 export const MOTIVO_MAX = 160;
@@ -152,6 +166,37 @@ export function dataCurta(iso: string): string {
 }
 
 // ---------------------------------------------------------------------
+// A ordem das prioridades do dia (10/11/2026, pedido do dono: "no modo
+// liderança, deixar organizar a ordem das prioridades").
+// ---------------------------------------------------------------------
+
+type Ordenavel = { ordem: number | null; enviado_em: string };
+
+/**
+ * A lista do dia na ordem da liderança: primeiro as que já têm posição,
+ * depois as que ninguém mexeu, na ordem em que chegaram (a que chega
+ * depois de a liderança organizar entra no fim).
+ */
+export function ordenarPrioridades<T extends Ordenavel>(lista: T[]): T[] {
+  return [...lista].sort((a, b) => {
+    if (a.ordem != null && b.ordem != null && a.ordem !== b.ordem) return a.ordem - b.ordem;
+    if (a.ordem != null && b.ordem == null) return -1;
+    if (a.ordem == null && b.ordem != null) return 1;
+    return a.enviado_em.localeCompare(b.enviado_em);
+  });
+}
+
+/** Os ids na ordem nova, com `id` uma posição acima (-1) ou abaixo (+1). */
+export function moverNaOrdem(ids: string[], id: string, passo: -1 | 1): string[] {
+  const i = ids.indexOf(id);
+  const j = i + passo;
+  if (i < 0 || j < 0 || j >= ids.length) return ids;
+  const nova = ids.slice();
+  [nova[i], nova[j]] = [nova[j], nova[i]];
+  return nova;
+}
+
+// ---------------------------------------------------------------------
 // A prioridade no mapa do motorista (05/11/2026, pedido do dono).
 // ---------------------------------------------------------------------
 
@@ -226,8 +271,10 @@ export function lerRascunho(json: unknown): ItemDoRascunho[] {
     const motivo = motivoLimpo((x as ItemDoRascunho)?.motivo);
     if (!cod || motivo.length < MOTIVO_MIN || vistos.has(cod)) continue;
     vistos.add(cod);
-    const nome = (x as ItemDoRascunho)?.nome;
-    lista.push({ cod, motivo, nome: typeof nome === "string" && nome ? nome : null });
+    const nome = nomeLimpo((x as ItemDoRascunho)?.nome);
+    const item: ItemDoRascunho = { cod, motivo, nome };
+    if ((x as ItemDoRascunho)?.novo === true) item.novo = true;
+    lista.push(item);
   }
   return lista;
 }

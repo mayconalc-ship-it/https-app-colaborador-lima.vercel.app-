@@ -7,6 +7,7 @@ import {
   lerGvs,
   lerMotivos,
   ordenarAchados,
+  ordenarPrioridades,
   prioridadesQueValem,
   somarDias,
   type Gv,
@@ -46,9 +47,13 @@ export type Prioridade = {
   gv_nome: string;
   lote: string;
   enviado_em: string;
+  /** O GV marcou PDV novo (migration 176): fora da base é o esperado. */
+  pdv_novo: boolean;
+  /** A posição que a liderança deu no dia (migration 176); nula = ordem de envio. */
+  ordem: number | null;
 };
 
-export const CAMPOS_PRIORIDADE = "id, data_entrega, cod_pdv, nome_pdv, motivo, gv_codigo, gv_nome, lote, enviado_em";
+export const CAMPOS_PRIORIDADE = "id, data_entrega, cod_pdv, nome_pdv, motivo, gv_codigo, gv_nome, lote, enviado_em, pdv_novo, ordem";
 
 /**
  * O token do link -> a revenda. Nulo quando o token não existe, a revenda
@@ -165,17 +170,16 @@ export async function nomesDosPdvs(
   return mapa;
 }
 
-/** As prioridades de um dia de entrega, as mais novas primeiro. */
+/** As prioridades de um dia de entrega, na ordem da liderança (ordenarPrioridades). */
 export async function prioridadesDoDia(revendaId: string, data: string, admin: Admin = createAdminClient()): Promise<Prioridade[]> {
   const { data: linhas, error } = await admin
     .from("prioridades")
     .select(CAMPOS_PRIORIDADE)
     .eq("revenda_id", revendaId)
     .eq("data_entrega", data)
-    .order("enviado_em", { ascending: false })
     .limit(1000);
   conferir(error);
-  return (linhas ?? []) as Prioridade[];
+  return ordenarPrioridades((linhas ?? []) as Prioridade[]);
 }
 
 /*

@@ -3,7 +3,7 @@
 //   npx tsx src/lib/__testes__/prioridades.teste.mjs
 import {
   codigoDoPdv, dataCurta, dataDeEntregaValida, hojeEmSaoPaulo, incluirNoRascunho, lerGvs, lerMotivos, lerRascunho, motivoLimpo,
-  ordenarAchados, prioridadesQueValem, problemaDoItem, proximaEntrega, rotuloDoGv, somarDias, DIAS_DA_PRIORIDADE, MOTIVO_MAX, MOTIVOS_PADRAO,
+  moverNaOrdem, ordenarAchados, ordenarPrioridades, prioridadesQueValem, problemaDoItem, proximaEntrega, rotuloDoGv, somarDias, DIAS_DA_PRIORIDADE, MOTIVO_MAX, MOTIVOS_PADRAO,
 } from "../prioridades.ts";
 
 let falhas = 0;
@@ -93,6 +93,24 @@ eq("rascunho guardado torto é limpo", lerRascunho([{ cod: "0130", motivo: "ok o
   { cod: "130", motivo: "ok ok", nome: null },
 ]);
 eq("rascunho que não é lista", lerRascunho({}), []);
+eq("PDV novo continua marcado no aparelho", lerRascunho([{ cod: "99001", motivo: "primeira compra", nome: "  Bar  do Zé ", novo: true }]), [
+  { cod: "99001", motivo: "primeira compra", nome: "Bar do Zé", novo: true },
+]);
+console.log("== ORDEM DA LIDERANÇA ==");
+const dia = [
+  { id: "a", ordem: null, enviado_em: "2026-11-10T09:00:00Z" },
+  { id: "b", ordem: 2, enviado_em: "2026-11-10T08:00:00Z" },
+  { id: "c", ordem: 1, enviado_em: "2026-11-10T10:00:00Z" },
+  { id: "d", ordem: null, enviado_em: "2026-11-10T07:00:00Z" },
+];
+eq("com posição primeiro, sem posição no fim por ordem de envio", ordenarPrioridades(dia).map((p) => p.id), ["c", "b", "d", "a"]);
+eq("subir troca com o de cima", moverNaOrdem(["c", "b", "d"], "d", -1), ["c", "d", "b"]);
+eq("descer troca com o de baixo", moverNaOrdem(["c", "b", "d"], "c", 1), ["b", "c", "d"]);
+eq("o primeiro não sobe", moverNaOrdem(["c", "b"], "c", -1), ["c", "b"]);
+eq("o último não desce", moverNaOrdem(["c", "b"], "b", 1), ["c", "b"]);
+eq("marca torta não vira PDV novo", lerRascunho([{ cod: "99001", motivo: "primeira compra", novo: "sim" }]), [
+  { cod: "99001", motivo: "primeira compra", nome: null },
+]);
 
 console.log(falhas === 0 ? "\nTudo certo." : `\n${falhas} falha(s).`);
 if (falhas > 0) process.exit(1);

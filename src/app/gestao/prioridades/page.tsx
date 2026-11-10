@@ -6,7 +6,10 @@ import { requireModulo, podeNoModulo } from "@/lib/require-admin";
 import { exigirRevenda } from "@/lib/revendas";
 import { MODULO_PRIORIDADES, dataCurta, hojeEmSaoPaulo, proximaEntrega, somarDias } from "@/lib/prioridades";
 import { PrioridadesNaoInstalado, diasComPrioridade, lerConfig, prioridadesDoDia } from "@/lib/prioridades-server";
-import { removerPrioridade } from "./actions";
+import { moverPrioridade, removerPrioridade } from "./actions";
+
+const botaoOrdem =
+  "rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50 disabled:cursor-default disabled:opacity-30 disabled:hover:bg-transparent";
 
 export const dynamic = "force-dynamic";
 
@@ -17,7 +20,9 @@ const hora = (iso: string) =>
  * AS PRIORIDADES DOS GVs -- o que chegou pelo link, por dia de entrega.
  *
  * Abre na PRÓXIMA ENTREGA, que é a lista que a roteirização precisa
- * agora. O .csv é o que o Gestor LOG lê na sub-aba Prioridades (a coluna
+ * agora. A lista sai na ORDEM DA LIDERANÇA (Subir/Descer, 10/11/2026);
+ * sem ninguém mexer, na ordem em que os GVs enviaram. O .csv e o Gestor
+ * LOG recebem nessa mesma ordem. O .csv é o que o Gestor LOG lê na sub-aba Prioridades (a coluna
  * "Cód. PDV" é a que ele procura, e "prioridades" no nome do arquivo o
  * faz reconhecer o tipo).
  */
@@ -58,7 +63,9 @@ export default async function PrioridadesDosGvsPage({ searchParams }: { searchPa
   const porGv = new Map<string, number>();
   for (const p of lista) porGv.set(p.gv_nome, (porGv.get(p.gv_nome) ?? 0) + 1);
   const gvsDoDia = [...porGv].sort((a, b) => b[1] - a[1]);
-  const semNome = lista.filter((p) => !p.nome_pdv).length;
+  // PDV novo fora da base é o esperado: não entra no aviso de código errado.
+  const semNome = lista.filter((p) => !p.nome_pdv && !p.pdv_novo).length;
+  const pdvsNovos = lista.filter((p) => p.pdv_novo).length;
 
   return (
     <div className="space-y-6">
@@ -106,8 +113,8 @@ export default async function PrioridadesDosGvsPage({ searchParams }: { searchPa
             nome="prioridades"
             complemento={dia}
             rotulo="Baixar .csv para o Gestor LOG"
-            cabecalho={["Cód. PDV", "PDV", "Motivo", "GV", "Cód. GV", "Entrega", "Enviado em"]}
-            linhas={[...lista].reverse().map((p) => [
+            cabecalho={["Cód. PDV", "PDV", "Motivo", "GV", "Cód. GV", "Entrega", "Enviado em", "PDV novo"]}
+            linhas={lista.map((p) => [
               p.cod_pdv,
               p.nome_pdv ?? "",
               p.motivo,
@@ -115,6 +122,7 @@ export default async function PrioridadesDosGvsPage({ searchParams }: { searchPa
               p.gv_codigo ?? "",
               dia.split("-").reverse().join("/"),
               hora(p.enviado_em),
+              p.pdv_novo ? "Sim" : "",
             ])}
           />
         </div>
@@ -122,15 +130,19 @@ export default async function PrioridadesDosGvsPage({ searchParams }: { searchPa
           <p className="p-6 text-center text-sm text-slate-500">Nenhuma prioridade para {dataCurta(dia)}.</p>
         ) : (
           <ul className="divide-y divide-slate-100">
-            {lista.map((p) => (
+            {lista.map((p, i) => (
               <li key={p.id} className="flex items-start gap-3 px-4 py-2.5">
+                <span className="w-7 shrink-0 pt-0.5 text-right text-sm font-bold tabular-nums text-slate-400">{i + 1}º</span>
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-bold text-slate-900">
                     {p.cod_pdv}
                     {p.nome_pdv ? (
                       <span className="font-normal text-slate-600"> · {p.nome_pdv}</span>
-                    ) : (
+                    ) : p.pdv_novo ? null : (
                       <span className="font-normal text-amber-700"> · fora da base de clientes</span>
+                    )}
+                    {p.pdv_novo && (
+                      <span className="ml-2 rounded-md bg-sky-100 px-1.5 py-0.5 align-middle text-[11px] font-bold uppercase text-sky-800">PDV novo</span>
                     )}
                   </p>
                   <p className="text-sm text-slate-600">{p.motivo}</p>
@@ -138,6 +150,28 @@ export default async function PrioridadesDosGvsPage({ searchParams }: { searchPa
                     {p.gv_nome} · {hora(p.enviado_em)}
                   </p>
                 </div>
+                {podeEditar && lista.length > 1 && (
+                  <div className="flex shrink-0 gap-1">
+                    <BotaoNoLugar
+                      acao={moverPrioridade}
+                      campos={{ id: p.id, passo: "subir" }}
+                      disabled={i === 0}
+                      textoEnviando="..."
+                      className={botaoOrdem}
+                    >
+                      Subir
+                    </BotaoNoLugar>
+                    <BotaoNoLugar
+                      acao={moverPrioridade}
+                      campos={{ id: p.id, passo: "descer" }}
+                      disabled={i === lista.length - 1}
+                      textoEnviando="..."
+                      className={botaoOrdem}
+                    >
+                      Descer
+                    </BotaoNoLugar>
+                  </div>
+                )}
                 {podeEditar && (
                   <BotaoNoLugar
                     acao={removerPrioridade}
@@ -157,6 +191,11 @@ export default async function PrioridadesDosGvsPage({ searchParams }: { searchPa
         {semNome > 0 && (
           <p className="border-t border-slate-100 px-4 py-2 text-xs text-amber-800">
             {semNome} {semNome === 1 ? "código não está" : "códigos não estão"} na base de clientes (Fontes de Dados): confira se o GV digitou certo.
+          </p>
+        )}
+        {pdvsNovos > 0 && (
+          <p className="border-t border-slate-100 px-4 py-2 text-xs text-sky-800">
+            {pdvsNovos} {pdvsNovos === 1 ? "marcado" : "marcados"} pelo GV como PDV novo: ainda não {pdvsNovos === 1 ? "está" : "estão"} na base de clientes.
           </p>
         )}
       </section>

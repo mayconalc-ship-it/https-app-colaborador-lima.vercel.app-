@@ -4,11 +4,13 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   DIAS_A_FRENTE,
   MOTIVO_MAX,
+  NOME_NOVO_MAX,
   codigoDoPdv,
   dataCurta,
   incluirNoRascunho,
   lerRascunho,
   motivoLimpo,
+  nomeLimpo,
   problemaDoItem,
   rotuloDoGv,
   somarDias,
@@ -62,6 +64,10 @@ function gravar(k: string, v: unknown) {
   }
 }
 
+function SeloNovo() {
+  return <span className="ml-2 rounded-md bg-sky-100 px-1.5 py-0.5 align-middle text-[11px] font-bold uppercase text-sky-800">PDV novo</span>;
+}
+
 const campo =
   "w-full rounded-xl border border-slate-300 bg-white px-3 py-3 text-base text-slate-900 focus:border-primary focus:outline-none";
 const rotulo = "mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500";
@@ -92,6 +98,8 @@ export function LancarPrioridades({
   const [aberto, setAberto] = useState(false);
   const [motivoSel, setMotivoSel] = useState("");
   const [motivoLivre, setMotivoLivre] = useState("");
+  const [novo, setNovo] = useState(false);
+  const [nomeNovo, setNomeNovo] = useState("");
   const [aviso, setAviso] = useState<{ tipo: "ok" | "erro"; texto: string } | null>(null);
   const [enviando, setEnviando] = useState(false);
   const [enviadas, setEnviadas] = useState<{ gv: string; data: string; lista: Enviada[] } | null>(null);
@@ -206,6 +214,10 @@ export function LancarPrioridades({
   const pdvDoCampo =
     escolhido && escolhido.cod === codValido ? escolhido : (achados.find((a) => a.cod === codValido) ?? null);
   const motivo = motivoSel === OUTRO ? motivoLivre : motivoSel;
+  // Código que não achou ninguém na base (ou a busca falhou): aí aparece a
+  // caixa "PDV novo". Achou o PDV = não é novo, mesmo que a caixa ficou marcada.
+  const semPdvNaBase = !!codValido && codValido.length >= 2 && buscaDoCampo !== "procurando" && !pdvDoCampo;
+  const ehNovo = novo && semPdvNaBase;
 
   function incluir(e?: React.FormEvent) {
     e?.preventDefault();
@@ -219,19 +231,24 @@ export function LancarPrioridades({
     }
     const c = codValido!;
     const m = motivoLimpo(motivo);
-    const foraDaBase = buscaDoCampo !== "procurando" && buscaDoCampo !== null && !buscaDoCampo.falhou && !pdvDoCampo;
-    const { lista, substituiu } = incluirNoRascunho(itens, { cod: c, motivo: m, nome: pdvDoCampo?.nome ?? null });
+    const foraDaBase = !ehNovo && buscaDoCampo !== "procurando" && buscaDoCampo !== null && !buscaDoCampo.falhou && !pdvDoCampo;
+    const item: ItemDoRascunho = ehNovo
+      ? { cod: c, motivo: m, nome: nomeLimpo(nomeNovo), novo: true }
+      : { cod: c, motivo: m, nome: pdvDoCampo?.nome ?? null };
+    const { lista, substituiu } = incluirNoRascunho(itens, item);
     setItens(lista);
     guardar(lista, data);
     setAviso({
       tipo: "ok",
       texto:
-        (substituiu ? `PDV ${c} já estava na lista: motivo trocado.` : `PDV ${c} incluído.`) +
-        (foraDaBase ? " Atenção: esse código não está na base de clientes." : ""),
+        (substituiu ? `PDV ${c} já estava na lista: motivo trocado.` : `PDV ${c} incluído${ehNovo ? " como PDV novo" : ""}.`) +
+        (foraDaBase ? " Atenção: esse código não está na base de clientes. Se for PDV novo, tire e inclua de novo marcando PDV novo." : ""),
     });
     setCod("");
     setEscolhido(null);
     setAberto(false);
+    setNovo(false);
+    setNomeNovo("");
     if (motivoSel === OUTRO) setMotivoLivre("");
     codRef.current?.focus();
   }
@@ -251,7 +268,13 @@ export function LancarPrioridades({
     setEnviando(true);
     setAviso(null);
     try {
-      const r = await enviarPrioridades({ token, gv, data, itens: itens.map(({ cod, motivo }) => ({ cod, motivo })), empresa });
+      const r = await enviarPrioridades({
+        token,
+        gv,
+        data,
+        itens: itens.map(({ cod, motivo, nome, novo }) => (novo ? { cod, motivo, novo: true, nome } : { cod, motivo })),
+        empresa,
+      });
       if (!r.ok) {
         setAviso({ tipo: "erro", texto: r.erro });
         return;
@@ -286,7 +309,10 @@ export function LancarPrioridades({
   }
 
   const enviadasDaTela = enviadas && enviadas.gv === gv && enviadas.data === data ? enviadas.lista : null;
-  const listaAberta = aberto && buscaDoCampo !== null && !(escolhido && escolhido.cod === codValido);
+  // Sem nenhum PDV para mostrar, a lista não abre: o aviso fica debaixo do
+  // campo, junto da caixa "PDV novo", sem nada por cima dela.
+  const semAchados = buscaDoCampo !== null && buscaDoCampo !== "procurando" && !buscaDoCampo.falhou && achados.length === 0;
+  const listaAberta = aberto && buscaDoCampo !== null && !semAchados && !(escolhido && escolhido.cod === codValido);
 
   return (
     <div className="space-y-4 pb-28">
@@ -382,11 +408,38 @@ export function LancarPrioridades({
                 {pdvDoCampo.nome ?? "PDV sem nome na base"}
                 {pdvDoCampo.cidade ? <span className="font-normal text-slate-500"> · {pdvDoCampo.cidade}</span> : null}
               </span>
-            ) : codValido && codValido.length >= 2 && !aberto && buscaDoCampo !== "procurando" && !buscaDoCampo?.falhou ? (
-              <span className="text-amber-700">Esse código não está na base de clientes. Confira o número.</span>
+            ) : ehNovo ? (
+              <span className="font-semibold text-sky-700">PDV novo: entra mesmo sem estar na base de clientes.</span>
+            ) : codValido && codValido.length >= 2 && (!aberto || semAchados) && buscaDoCampo !== "procurando" && !buscaDoCampo?.falhou ? (
+              <span className="text-amber-700">Esse código não está na base de clientes. Confira o número ou, se for PDV novo, marque abaixo.</span>
             ) : null}
           </p>
         </div>
+
+        {semPdvNaBase && (
+          <div className={`rounded-xl border p-3 ${novo ? "border-sky-300 bg-sky-50" : "border-slate-200 bg-slate-50"}`}>
+            <label className="flex cursor-pointer items-center gap-3 text-base font-semibold text-slate-800">
+              <input
+                type="checkbox"
+                className="h-5 w-5 shrink-0 accent-sky-600"
+                checked={novo}
+                onChange={(e) => setNovo(e.target.checked)}
+              />
+              É PDV novo (ainda não está na base)
+            </label>
+            {novo && (
+              <input
+                className={`${campo} mt-2`}
+                maxLength={NOME_NOVO_MAX}
+                autoComplete="off"
+                enterKeyHint="next"
+                placeholder="Nome do PDV (se souber)"
+                value={nomeNovo}
+                onChange={(e) => setNomeNovo(e.target.value)}
+              />
+            )}
+          </div>
+        )}
 
         <div>
           <label className={rotulo} htmlFor="pr-motivo">
@@ -473,6 +526,7 @@ export function LancarPrioridades({
                   <p className="text-sm font-bold text-slate-900">
                     {i.cod}
                     {i.nome ? <span className="font-normal text-slate-600"> · {i.nome}</span> : null}
+                    {i.novo ? <SeloNovo /> : null}
                   </p>
                   <p className="text-sm text-slate-600">{i.motivo}</p>
                 </div>
@@ -501,6 +555,7 @@ export function LancarPrioridades({
                 <p className="text-sm font-semibold text-slate-900">
                   {e.cod}
                   {e.nome ? <span className="font-normal text-slate-600"> · {e.nome}</span> : null}
+                  {e.novo ? <SeloNovo /> : null}
                   <span className="float-right text-xs font-normal text-slate-400">
                     {new Date(e.enviadoEm).toLocaleTimeString("pt-BR", { timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit" })}
                   </span>
