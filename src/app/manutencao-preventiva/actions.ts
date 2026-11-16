@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { requireAcessoModulo } from "@/lib/require-admin";
+import { podeNoModulo, requireAcessoModulo } from "@/lib/require-admin";
 import { exigirRevenda } from "@/lib/revendas";
 import { FOTOS_POR_ITEM, guardarFotosDoItem, itensDoModelo } from "@/lib/manutencao-preventiva-server";
 import {
@@ -55,7 +55,63 @@ export async function iniciarPreventiva(formData: FormData) {
     if (!equip) erro("Este aparelho não está mais cadastrado.");
   }
   const equipamento = modelo.usa_equipamentos ? equipamentoId : null;
+  await abrirExecucao(admin, perfil, revendaId, modeloId, equipamento);
+}
 
+/**
+ * O + da tela (16/11/2026): o aparelho na frente do técnico ainda não está
+ * no cadastro. Quem tem a permissão de cadastro (Liderança "editar")
+ * cadastra e já abre a preventiva dele, sem ir ao Modo Liderança.
+ */
+export async function cadastrarEIniciar(formData: FormData) {
+  const perfil = await requireAcessoModulo("manutencao-preventiva", "/");
+  const revendaId = await exigirRevenda(ROTA);
+  if (!(await podeNoModulo("manutencao-preventiva", "editar"))) {
+    erro("Só a liderança cadastra aparelho. Peça para incluir no Modo Liderança.");
+  }
+
+  const limpo = (c: string, max: number) =>
+    String(formData.get(c) ?? "").trim().replace(/\s+/g, " ").slice(0, max);
+  const modeloId = limpo("modelo_id", 40);
+  const codigo = limpo("codigo", 30).toUpperCase();
+  const local = limpo("local", 80);
+  if (!codigo) erro("Informe o código do aparelho (a etiqueta, ex.: AC-03).");
+
+  const admin = createAdminClient();
+  const { data: modelo } = await admin
+    .from("manut_prev_modelos")
+    .select("id")
+    .eq("id", modeloId)
+    .eq("revenda_id", revendaId)
+    .eq("ativo", true)
+    .eq("usa_equipamentos", true)
+    .maybeSingle();
+  if (!modelo) erro("Checklist não encontrado.");
+
+  const { data: criado, error } = await admin
+    .from("manut_prev_equipamentos")
+    .insert({ revenda_id: revendaId, modelo_id: modeloId, codigo, local })
+    .select("id")
+    .single();
+  if (error) {
+    erro(
+      error.code === "23505"
+        ? `Já existe um aparelho com o código ${codigo}. Escolha ele na lista.`
+        : `Não foi possível cadastrar: ${error.message}`,
+    );
+  }
+  revalidatePath("/admin/manutencao-preventiva");
+  await abrirExecucao(admin, perfil, revendaId, modeloId, criado.id);
+}
+
+/** Continua a aberta da pessoa para este alvo, ou abre uma nova. */
+async function abrirExecucao(
+  admin: ReturnType<typeof createAdminClient>,
+  perfil: { id: string; nome: string },
+  revendaId: string,
+  modeloId: string,
+  equipamento: string | null,
+): Promise<never> {
   // Já tem uma aberta sua deste alvo? Continua nela em vez de criar outra.
   let busca = admin
     .from("manut_prev_execucoes")

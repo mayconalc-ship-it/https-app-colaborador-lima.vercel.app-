@@ -132,7 +132,11 @@ export function ListaDePreventivas({
                     tipo === t ? "border-primary bg-primary-soft text-primary-dark" : "border-slate-200 text-slate-600"
                   }`}
                 >
-                  {emoji} {t}
+                  {emoji} {t}{" "}
+                  <span className="font-normal opacity-70">
+                    {linhas.filter((l) => l.tipo === t && l.prazo.estado === "em_dia").length}/
+                    {linhas.filter((l) => l.tipo === t).length} em dia
+                  </span>
                 </button>
               ))}
             </>

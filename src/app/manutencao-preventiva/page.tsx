@@ -8,6 +8,7 @@ import { formatarDataHora } from "@/lib/produtividade-armazem";
 import { painelDaRevenda, PreventivaNaoAtualizada } from "@/lib/manutencao-preventiva-server";
 import { nomeDoEquipamento } from "@/lib/manutencao-preventiva";
 import { ListaDePreventivas, type LinhaDaLista } from "./ListaDePreventivas";
+import { NovaPreventiva, type OpcaoDeModelo } from "./NovaPreventiva";
 
 export const dynamic = "force-dynamic";
 
@@ -72,6 +73,34 @@ export default async function ManutencaoPreventivaPage({
     prazo: a.prazo,
     abertaId: abertaPorAlvo.get(a.chave) ?? null,
   }));
+
+  // As opções do "+": cada tipo, com os aparelhos e o prazo de cada um.
+  const opcoes = new Map<string, OpcaoDeModelo>();
+  const opcaoDe = (m: (typeof painel.semCadastro)[number]) => {
+    if (!opcoes.has(m.id)) {
+      opcoes.set(m.id, {
+        id: m.id,
+        nome: m.nome,
+        emoji: m.emoji ?? "🔩",
+        equipamento: m.equipamento,
+        usaEquipamentos: m.usaEquipamentos,
+        aparelhos: [],
+        abertaId: null,
+      });
+    }
+    return opcoes.get(m.id)!;
+  };
+  for (const a of painel.alvos) {
+    const o = opcaoDe(a.modelo);
+    if (a.equipamento) {
+      o.aparelhos.push({ id: a.equipamento.id, titulo: nomeDoEquipamento(a.equipamento), prazo: a.prazo, abertaId: abertaPorAlvo.get(a.chave) ?? null });
+    } else {
+      o.abertaId = abertaPorAlvo.get(a.chave) ?? null;
+    }
+  }
+  for (const m of painel.semCadastro) opcaoDe(m);
+  const modelosDoMais = [...opcoes.values()].sort((x, y) => x.nome.localeCompare(y.nome, "pt-BR"));
+  for (const o of modelosDoMais) o.aparelhos.sort((x, y) => x.titulo.localeCompare(y.titulo, "pt-BR", { numeric: true }));
 
   // Nome de cada alvo, para o histórico (inclusive aparelho já desativado).
   const nomes = new Map(linhas.map((l) => [l.chave, { emoji: l.emoji, texto: l.equipamentoId ? `${l.tipo} ${l.titulo}` : l.titulo }]));
@@ -164,6 +193,11 @@ export default async function ManutencaoPreventivaPage({
           )}
         </div>
       </details>
+
+      {modelosDoMais.length > 0 && <NovaPreventiva modelos={modelosDoMais} podeCadastrar={podeCadastrar} />}
+
+      {/* Espaço para o "+" flutuante não cobrir o fim da tela. */}
+      <div className="h-16" aria-hidden />
 
       {podeCadastrar && (
         <Link
