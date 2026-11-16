@@ -66,7 +66,10 @@ export type ModuloNotificavel =
   | "chamados"
   // ...e o andamento para QUEM ABRIU. Próprio pelo mesmo motivo do
   // "boas-praticas-avaliar": o aviso e o botão são de outra pessoa.
-  | "chamados-retorno";
+  | "chamados-retorno"
+  // Preventiva vencida (16/11/2026): um aviso por dia, para quem faz e
+  // para quem cadastra, com a lista do que passou do prazo.
+  | "manutencao-preventiva";
 
 /**
  * A mesma lista, em forma de array.
@@ -102,6 +105,7 @@ export const MODULOS_NOTIFICAVEIS: ModuloNotificavel[] = [
   "mao-de-obra",
   "chamados",
   "chamados-retorno",
+  "manutencao-preventiva",
 ];
 
 export const EMOJI_MODULO: Record<ModuloNotificavel, string> = {
@@ -132,6 +136,7 @@ export const EMOJI_MODULO: Record<ModuloNotificavel, string> = {
   "mao-de-obra": "🧮",
   chamados: "🔧",
   "chamados-retorno": "🔧",
+  "manutencao-preventiva": "🔩",
 };
 
 export const ROTULO_MODULO: Record<ModuloNotificavel, string> = {
@@ -162,6 +167,7 @@ export const ROTULO_MODULO: Record<ModuloNotificavel, string> = {
   "mao-de-obra": "Planejamento de mão de obra",
   chamados: "Chamado para manutenção para atender",
   "chamados-retorno": "Andamento do meu chamado",
+  "manutencao-preventiva": "Preventiva vencida",
 };
 
 /**
@@ -223,6 +229,7 @@ export const ROTULO_BOTAO: Record<ModuloNotificavel, string> = {
   "mao-de-obra": "Revisar o planejamento",
   chamados: "Atender agora",
   "chamados-retorno": "Ver o chamado",
+  "manutencao-preventiva": "Ver as preventivas",
 };
 
 /** "há 2 min", "há 3 h", "ontem" — mais legível que data completa. */

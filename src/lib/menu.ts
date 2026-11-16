@@ -36,6 +36,17 @@ export const MODULO_DO_ITEM: Record<string, ModuloId> = {
   chamados: "chamados",
 };
 
+/**
+ * A VITRINE DA MANUTENÇÃO (16/11/2026, pedido do dono: "como o
+ * Produtividade do Armazém, só que com a manutenção").
+ *
+ * Chamado, Check e Preventiva saem da home e entram num cartão só,
+ * "Manutenção". As concessões não mudam: o cartão aparece para quem vê
+ * pelo menos um dos três (e lá dentro, só os que a pessoa abre).
+ */
+export const DENTRO_DA_MANUTENCAO = ["chamados", "manutencao", "manutencao-preventiva"] as const;
+export const CHAVE_MANUTENCAO = "manutencao-central";
+
 export type ItemMenu = {
   chave: string;
   titulo: string;
@@ -86,7 +97,9 @@ export const BLOCOS_DO_MENU = [
     // de manutenção"): estava fora de todo bloco e caía em Minha rotina. Os
     // três da manutenção juntos, no fim: chamado (de todos), check e
     // preventiva (só do time).
-    chaves: ["produtividade-armazem", "feedback", "ativo-giro", "material-apoio", "chamados", "manutencao", "manutencao-preventiva"],
+    // Manutenção (16/11/2026): Chamado, Check e Preventiva viraram UM
+    // cartão, a vitrine "Manutenção" (ver DENTRO_DA_MANUTENCAO).
+    chaves: ["produtividade-armazem", "manutencao-central", "feedback", "ativo-giro", "material-apoio", "chamados", "manutencao", "manutencao-preventiva"],
   },
   {
     id: "empresa",
@@ -156,7 +169,8 @@ export function cartoesVisiveis<T extends { chave: string; visivel: boolean }>(
    *  Práticas para quem não é das áreas que participam. */
   ocultos: Set<string> = new Set(),
 ): T[] {
-  return itens.filter((item) => {
+  const passam = itens.filter((item) => {
+    if (item.chave === CHAVE_MANUTENCAO) return true; // decidido abaixo
     if (!item.visivel) return false;
     if (ocultos.has(item.chave)) return false;
     const modulo = MODULO_DO_ITEM[item.chave];
@@ -164,6 +178,16 @@ export function cartoesVisiveis<T extends { chave: string; visivel: boolean }>(
     if (modulo && (MODULOS_OPCIONAIS as readonly string[]).includes(modulo)) {
       return modulosAcessiveis.has(modulo);
     }
+    return true;
+  });
+
+  // A vitrine da manutenção fica no lugar dos três cartões -- e só existe
+  // se a pessoa enxerga pelo menos um deles.
+  const dentro = new Set<string>(DENTRO_DA_MANUTENCAO);
+  const algumDentro = passam.some((i) => dentro.has(i.chave));
+  return passam.filter((i) => {
+    if (dentro.has(i.chave)) return false;
+    if (i.chave === CHAVE_MANUTENCAO) return algumDentro && i.visivel;
     return true;
   });
 }
@@ -260,6 +284,9 @@ export const MENU_PADRAO: ItemMenu[] = [
   // Chamado para Manutenção (165): de TODA a revenda, como era o Forms. Quem
   // é do time da manutenção acha a fila dentro dele.
   { chave: "chamados", titulo: "Chamado para Manutenção", emoji: "🔧", href: "/chamados", ordem: 21, visivel: true },
+  // A vitrine (16/11/2026): os três de cima entram por aqui. Ver
+  // DENTRO_DA_MANUTENCAO e cartoesVisiveis.
+  { chave: "manutencao-central", titulo: "Manutenção", emoji: "🛠️", href: "/manutencao-central", ordem: 13.5, visivel: true },
   // "Minha Conta" fica oculto: já existe o botão "Conta" no topo de todas as
   // telas, e repetir ocupava espaço da grade sem acrescentar nada.
   { chave: "conta", titulo: "Minha Conta", emoji: "🔒", href: "/minha-conta", ordem: 9, visivel: false },

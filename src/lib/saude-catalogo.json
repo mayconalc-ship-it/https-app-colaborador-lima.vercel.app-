@@ -65,7 +65,9 @@
   "manut_fornecedores": "157",
   "manut_fotos": "156",
   "manut_itens": "156",
+  "manut_prev_equipamentos": "178",
   "manut_prev_execucoes": "174",
+  "manut_prev_fotos": "178",
   "manut_prev_itens": "174",
   "manut_prev_modelos": "174",
   "manut_prev_respostas": "174",
@@ -530,6 +532,56 @@
    "tabela": "ma_produtos",
    "coluna": "valor_unitario",
    "migration": "122"
+  },
+  {
+   "tabela": "manut_prev_execucoes",
+   "coluna": "alertas",
+   "migration": "178"
+  },
+  {
+   "tabela": "manut_prev_execucoes",
+   "coluna": "equipamento_id",
+   "migration": "178"
+  },
+  {
+   "tabela": "manut_prev_itens",
+   "coluna": "aceita_foto",
+   "migration": "178"
+  },
+  {
+   "tabela": "manut_prev_itens",
+   "coluna": "alerta_valores",
+   "migration": "178"
+  },
+  {
+   "tabela": "manut_prev_itens",
+   "coluna": "bloco",
+   "migration": "178"
+  },
+  {
+   "tabela": "manut_prev_itens",
+   "coluna": "maximo",
+   "migration": "178"
+  },
+  {
+   "tabela": "manut_prev_itens",
+   "coluna": "minimo",
+   "migration": "178"
+  },
+  {
+   "tabela": "manut_prev_modelos",
+   "coluna": "descricao",
+   "migration": "178"
+  },
+  {
+   "tabela": "manut_prev_modelos",
+   "coluna": "usa_equipamentos",
+   "migration": "178"
+  },
+  {
+   "tabela": "manut_prev_respostas",
+   "coluna": "alerta",
+   "migration": "178"
   },
   {
    "tabela": "mao_obra_config",
@@ -1141,6 +1193,7 @@
   "175": "175_pdvs_vip.sql",
   "176": "176_prioridades_pdv_novo.sql",
   "177": "177_clientes_gv.sql",
+  "178": "178_manutencao_central.sql",
   "002": "002_sonho_anual_ranking_categorias.sql",
   "003": "003_padroes_por_pilar.sql",
   "004": "004_feedback_rota_detalhado.sql",

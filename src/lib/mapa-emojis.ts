@@ -148,6 +148,15 @@ export const MAPA_DE_EMOJIS: Assunto[] = [
     area: "Operação e manutenção",
     chaves: ["manutencao-preventiva"],
   },
+  // A vitrine "Manutenção" (16/11/2026): Chamado, Check e Preventiva
+  // num cartão só, como o Armazém. A caixa de ferramentas é o conjunto.
+  {
+    id: "manutencao-central",
+    nome: "Manutenção (vitrine)",
+    emoji: "🛠️",
+    area: "Operação e manutenção",
+    chaves: ["manutencao-central"],
+  },
   {
     id: "chamados",
     nome: "Chamados para Manutenção",

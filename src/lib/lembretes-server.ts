@@ -12,6 +12,7 @@ import { FIM_TURNO, hojeISO, type Turno } from "@/lib/produtividade-armazem";
 import { lembrarContagensDoDia, varrerMaterialDeApoio } from "@/lib/material-apoio-server";
 import { enviarResumosSemanais } from "@/lib/resumo-semanal-server";
 import { lembrarPlanejamentoMensal } from "@/lib/mao-de-obra-server";
+import { lembrarPreventivasVencidas } from "@/lib/manutencao-preventiva-server";
 
 /**
  * De quanto em quanto tempo o próprio app varre a fila.
@@ -76,6 +77,8 @@ export type Varredura = {
   resumosSemanais: number;
   /** Revendas lembradas de revisar e formalizar o quadro de mão de obra. */
   planejamentoMensal: number;
+  /** Revendas avisadas de preventiva vencida (uma vez por dia). */
+  preventivas: number;
   erro?: string;
 };
 
@@ -138,13 +141,15 @@ export async function varrerLembretes(): Promise<Varredura> {
   // O lembrete mensal do Simulador de Mão de Obra: fora do dia 1 e do dia
   // 5 em diante, uma consulta de revendas e as chaves já existentes.
   const planejamentoMensal = await lembrarPlanejamentoMensal();
+  // Preventiva vencida: um aviso por revenda por dia, a partir das 7 h.
+  const preventivas = await lembrarPreventivasVencidas();
   // O GATILHO DE ANOMALIA FICA POR ÚLTIMO: é a etapa mais cara (lê 90
   // dias de atendimentos por revenda) e a menos urgente -- um desvio do
   // dia esperar não muda nada, e um comunicado agendado esperando na
   // frente dele, sim. E só uma vez por hora (ver INTERVALO_ANOMALIAS_MINUTOS).
   const anomalias = (await anomaliasVencidas(admin)) ? (await varrerGatilhosDeAnomalia()).abertos : 0;
 
-  return { ...enviados, cincoS, desafios, publicadas, aberturas, empilhadeiras, cincoPorques, tratativas, materialApoio, contagensMaterialApoio, resumosSemanais, planejamentoMensal, anomalias };
+  return { ...enviados, cincoS, desafios, publicadas, aberturas, empilhadeiras, cincoPorques, tratativas, materialApoio, contagensMaterialApoio, resumosSemanais, planejamentoMensal, preventivas, anomalias };
 }
 
 /**

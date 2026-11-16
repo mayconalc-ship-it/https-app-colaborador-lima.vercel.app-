@@ -5,8 +5,9 @@ import { revalidatePath } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAcessoModulo } from "@/lib/require-admin";
 import { exigirRevenda } from "@/lib/revendas";
-import { itensDoModelo } from "@/lib/manutencao-preventiva-server";
+import { FOTOS_POR_ITEM, guardarFotosDoItem, itensDoModelo } from "@/lib/manutencao-preventiva-server";
 import {
+  emAlerta,
   erroDaResposta,
   itemVisivel,
   paraNumero,
@@ -19,32 +20,51 @@ function erro(mensagem: string, destino = ROTA): never {
   redirect(`${destino}?erro=${encodeURIComponent(mensagem)}`);
 }
 
-/** Abre uma preventiva. O índice parcial no banco segura o clique duplo. */
+/**
+ * Abre uma preventiva -- de um modelo, ou de UM aparelho dele (16/11/2026).
+ * O índice parcial no banco segura o clique duplo.
+ */
 export async function iniciarPreventiva(formData: FormData) {
   const perfil = await requireAcessoModulo("manutencao-preventiva", "/");
   const revendaId = await exigirRevenda(ROTA);
 
   const modeloId = String(formData.get("modelo_id") ?? "");
+  const equipamentoId = String(formData.get("equipamento_id") ?? "") || null;
   if (!modeloId) erro("Escolha o equipamento.");
 
   const admin = createAdminClient();
   const { data: modelo } = await admin
     .from("manut_prev_modelos")
-    .select("id")
+    .select("id, usa_equipamentos")
     .eq("id", modeloId)
     .eq("revenda_id", revendaId)
     .eq("ativo", true)
     .maybeSingle();
   if (!modelo) erro("Este checklist não está disponível.");
 
-  // Já tem uma aberta sua? Continua nela em vez de criar outra.
-  const { data: aberta } = await admin
+  if (modelo.usa_equipamentos) {
+    if (!equipamentoId) erro("Escolha qual aparelho.");
+    const { data: equip } = await admin
+      .from("manut_prev_equipamentos")
+      .select("id")
+      .eq("id", equipamentoId)
+      .eq("modelo_id", modeloId)
+      .eq("revenda_id", revendaId)
+      .eq("ativo", true)
+      .maybeSingle();
+    if (!equip) erro("Este aparelho não está mais cadastrado.");
+  }
+  const equipamento = modelo.usa_equipamentos ? equipamentoId : null;
+
+  // Já tem uma aberta sua deste alvo? Continua nela em vez de criar outra.
+  let busca = admin
     .from("manut_prev_execucoes")
     .select("id")
     .eq("modelo_id", modeloId)
     .eq("iniciada_por", perfil.id)
-    .eq("status", "em_andamento")
-    .maybeSingle();
+    .eq("status", "em_andamento");
+  busca = equipamento ? busca.eq("equipamento_id", equipamento) : busca.is("equipamento_id", null);
+  const { data: aberta } = await busca.maybeSingle();
   if (aberta) redirect(`${ROTA}/${aberta.id}`);
 
   const { data: criada, error } = await admin
@@ -52,6 +72,7 @@ export async function iniciarPreventiva(formData: FormData) {
     .insert({
       revenda_id: revendaId,
       modelo_id: modeloId,
+      equipamento_id: equipamento,
       iniciada_por: perfil.id,
       iniciada_por_nome: perfil.nome,
     })
@@ -65,11 +86,13 @@ export async function iniciarPreventiva(formData: FormData) {
 }
 
 /**
- * Salva as respostas e finaliza. Tudo de uma vez, com um Salvar só no
- * fim -- é uma grade de campos do mesmo assunto, não vinte formulários.
+ * Salva as respostas, as fotos e finaliza. Tudo de uma vez, com um Salvar
+ * só no fim -- é uma grade de campos do mesmo assunto, não vinte
+ * formulários.
  *
  * A validação roda aqui DE NOVO, item a item: a tela já valida, mas
- * esconder o campo nunca foi validação.
+ * esconder o campo nunca foi validação. O alerta também é recalculado
+ * aqui: o número que o painel conta não pode depender da tela.
  */
 export async function finalizarPreventiva(formData: FormData) {
   const perfil = await requireAcessoModulo("manutencao-preventiva", "/");
@@ -82,7 +105,7 @@ export async function finalizarPreventiva(formData: FormData) {
   const admin = createAdminClient();
   const { data: execucao } = await admin
     .from("manut_prev_execucoes")
-    .select("id, modelo_id, iniciada_por, status")
+    .select("id, revenda_id, modelo_id, iniciada_por, status")
     .eq("id", execucaoId)
     .eq("revenda_id", revendaId)
     .maybeSingle();
@@ -140,21 +163,40 @@ export async function finalizarPreventiva(formData: FormData) {
     if (problema) erro(`"${item.pergunta}": ${problema}`, destino);
   }
 
-  const linhas = [...respostas.values()].map((r) => ({
-    execucao_id: execucaoId,
-    item_id: r.itemId,
-    revenda_id: revendaId,
-    valor_bool: r.valorBool,
-    valor_numero: r.valorNumero,
-    valor_numeros: r.valorNumeros,
-    valor_texto: r.valorTexto,
-    observacao: r.observacao,
-  }));
+  const porId = new Map(itens.map((i) => [i.id, i]));
+  let alertas = 0;
+  const linhas = [...respostas.values()].map((r) => {
+    const alerta = emAlerta(porId.get(r.itemId)!, r);
+    if (alerta) alertas++;
+    return {
+      execucao_id: execucaoId,
+      item_id: r.itemId,
+      revenda_id: revendaId,
+      valor_bool: r.valorBool,
+      valor_numero: r.valorNumero,
+      valor_numeros: r.valorNumeros,
+      valor_texto: r.valorTexto,
+      observacao: r.observacao,
+      alerta,
+    };
+  });
 
   const { error: erroResp } = await admin
     .from("manut_prev_respostas")
     .upsert(linhas, { onConflict: "execucao_id,item_id" });
   if (erroResp) erro(`Não foi possível salvar as respostas: ${erroResp.message}`, destino);
+
+  // Fotos: chegam já reduzidas pelo celular; o servidor ainda passa para
+  // WebP de 1280 px. Uma que falhe não segura a preventiva.
+  let falhasDeFoto = 0;
+  for (const item of itens) {
+    if (!item.aceitaFoto || !respostas.has(item.id)) continue;
+    const arquivos = formData
+      .getAll(`foto_${item.id}`)
+      .filter((f): f is File => f instanceof File && f.size > 0)
+      .slice(0, FOTOS_POR_ITEM);
+    if (arquivos.length > 0) falhasDeFoto += await guardarFotosDoItem(execucao, item.id, arquivos, admin);
+  }
 
   const observacao = String(formData.get("observacao") ?? "").trim().slice(0, 1000) || null;
   const { error: erroFim } = await admin
@@ -165,13 +207,20 @@ export async function finalizarPreventiva(formData: FormData) {
       finalizada_por_nome: perfil.nome,
       finalizada_em: new Date().toISOString(),
       observacao,
+      alertas,
     })
     .eq("id", execucaoId)
     .eq("status", "em_andamento");
   if (erroFim) erro(`Respostas salvas, mas não foi possível finalizar: ${erroFim.message}`, destino);
 
   revalidatePath(ROTA);
-  redirect(`${ROTA}?sucesso=${encodeURIComponent("Preventiva registrada.")}`);
+  revalidatePath("/manutencao-central");
+  const partes = ["Preventiva registrada."];
+  if (alertas > 0) partes.push(`${alertas} ${alertas === 1 ? "item ficou" : "itens ficaram"} em alerta.`);
+  if (falhasDeFoto > 0) partes.push(`${falhasDeFoto} foto(s) não subiram.`);
+  const params = new URLSearchParams({ sucesso: partes.join(" ") });
+  if (alertas > 0) params.set("alertas", execucaoId);
+  redirect(`${ROTA}?${params.toString()}`);
 }
 
 /** Desiste de uma preventiva aberta por engano -- some sem virar histórico. */

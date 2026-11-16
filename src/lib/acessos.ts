@@ -959,13 +959,17 @@ export const MODULOS: Modulo[] = [
     id: "manutencao-preventiva",
     rotulosDeAcao: {
       ver: "Preencher a preventiva dos equipamentos (o time da manutenção)",
+      // 16/11/2026: o cadastro dos aparelhos (cada ar-condicionado, cada
+      // câmara fria) e a frequência de cada preventiva moram no Modo
+      // Liderança -- é dele que sai o lembrete do que venceu.
+      editar: "Cadastrar os aparelhos e ajustar a frequência e as faixas das preventivas",
     },
     rotulo: "Manutenção Preventiva",
     emoji: "🔩",
-    href: "/manutencao-preventiva",
-    grupo: "Operação",
-    acoes: ["ver"],
-    semTelaAdmin: true,
+    href: "/admin/manutencao-preventiva",
+    grupo: "Configuração",
+    acoes: ["ver", "editar"],
+    exigeEditarNoAdmin: true,
   },
   {
     /*

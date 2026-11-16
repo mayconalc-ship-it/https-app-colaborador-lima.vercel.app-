@@ -70,6 +70,7 @@ export default async function ChamadosPage({
       <PageHeader
         title="🔧 Chamado para Manutenção"
         subtitle="Viu algo quebrado, vazando ou sem funcionar? Abra o chamado e acompanhe por aqui."
+        fecharHref="/manutencao-central"
       />
       <LinkDoGuia slug={ctx.podeAtender ? "atender-chamado-manutencao" : "abrir-chamado-manutencao"} className="mb-4" />
 
