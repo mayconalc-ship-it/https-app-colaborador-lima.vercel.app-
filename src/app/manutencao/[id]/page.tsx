@@ -15,7 +15,9 @@ import {
   listarAvaliacoes,
   pessoasDaRevenda,
 } from "@/lib/manutencao-server";
-import { finalizarAvaliacao, reabrirAvaliacao, removerFoto, salvarResposta } from "../actions";
+import { cancelarAvaliacao, finalizarAvaliacao, reabrirAvaliacao, removerFoto, salvarResposta } from "../actions";
+import { BotaoNoLugar } from "@/components/BotaoNoLugar";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { AvisoNaoInstalado } from "../AvisoNaoInstalado";
 
 export const dynamic = "force-dynamic";
@@ -77,7 +79,7 @@ async function carregar(id: string, revendaId: string) {
 }
 
 export default async function AvaliacaoManutencaoPage({ params }: { params: Promise<{ id: string }> }) {
-  await requireAcessoModulo(MODULO_MANUTENCAO);
+  const perfil = await requireAcessoModulo(MODULO_MANUTENCAO);
   const revendaId = await exigirRevenda("/");
   const { id } = await params;
 
@@ -87,6 +89,20 @@ export default async function AvaliacaoManutencaoPage({ params }: { params: Prom
   const { avaliacao, itens, minhas, anteriores, podeReabrir, pessoas, ultimoItemId } = dados;
 
   const rotulo = rotuloTrimestre(avaliacao);
+
+  // Cancelar (16/11/2026): só a aberta, e só quem iniciou ou a liderança
+  // com editar -- a mesma régua da ação, para não oferecer o que será negado.
+  let podeCancelar = false;
+  if (avaliacao.status === "em_andamento") {
+    const { data: dona } = await createAdminClient()
+      .from("manut_avaliacoes")
+      .select("iniciada_por")
+      .eq("id", avaliacao.id)
+      .maybeSingle();
+    podeCancelar = podeReabrir || dona?.iniciada_por === perfil.id;
+  }
+  const nRespostas = Object.keys(minhas).length;
+  const nFotos = Object.values(minhas).reduce((t, r) => t + r.fotos.length, 0);
   return (
     <div>
       <PageHeader
@@ -98,6 +114,25 @@ export default async function AvaliacaoManutencaoPage({ params }: { params: Prom
         }`}
         fecharHref="/manutencao"
       />
+      {podeCancelar && (
+        <div className="-mt-2 mb-3 flex justify-end">
+          <BotaoNoLugar
+            acao={cancelarAvaliacao}
+            campos={{ avaliacao_id: avaliacao.id }}
+            confirmacao={`Cancelar a avaliação do ${rotulo}?`}
+            detalhe={
+              nRespostas > 0
+                ? `Apaga ${nRespostas} resposta${nRespostas === 1 ? "" : "s"}${nFotos ? ` e ${nFotos} foto${nFotos === 1 ? "" : "s"}` : ""}. Não dá para desfazer.`
+                : "Ainda não há resposta. O trimestre fica livre para começar de novo."
+            }
+            rotuloConfirmar="Cancelar avaliação"
+            textoEnviando="Cancelando..."
+            className="rounded-full border border-red-200 px-3 py-1 text-xs font-semibold text-red-700 hover:bg-red-50"
+          >
+            ✕ Cancelar avaliação
+          </BotaoNoLugar>
+        </div>
+      )}
       <ChecklistManutencao
         avaliacaoId={avaliacao.id}
         rotulo={rotulo}

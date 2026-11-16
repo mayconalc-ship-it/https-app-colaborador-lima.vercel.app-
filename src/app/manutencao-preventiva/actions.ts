@@ -286,14 +286,18 @@ export async function cancelarPreventiva(formData: FormData) {
   const execucaoId = String(formData.get("execucao_id") ?? "");
   if (!execucaoId) erro("Preventiva inválida.");
 
+  // Quem iniciou cancela a sua; a liderança com "editar" cancela também a
+  // que alguém abriu e largou (16/11/2026).
   const admin = createAdminClient();
-  await admin
+  let apagar = admin
     .from("manut_prev_execucoes")
     .delete()
     .eq("id", execucaoId)
     .eq("revenda_id", revendaId)
-    .eq("iniciada_por", perfil.id)
     .eq("status", "em_andamento");
+  if (!(await podeNoModulo("manutencao-preventiva", "editar"))) apagar = apagar.eq("iniciada_por", perfil.id);
+  const { error } = await apagar;
+  if (error) erro(`Não foi possível cancelar: ${error.message}`);
 
   revalidatePath(ROTA);
   redirect(`${ROTA}?sucesso=${encodeURIComponent("Preventiva cancelada.")}`);

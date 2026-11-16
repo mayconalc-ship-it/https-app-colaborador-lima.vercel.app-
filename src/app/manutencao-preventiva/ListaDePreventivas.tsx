@@ -5,7 +5,8 @@ import { useEffect, useMemo, useState } from "react";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
 import { BarraDoPrazo, SeloDoPrazo } from "@/components/manutencao/PrazoDaPreventiva";
 import type { Prazo } from "@/lib/manutencao-preventiva";
-import { iniciarPreventiva } from "./actions";
+import { BotaoExcluir } from "@/components/BotaoExcluir";
+import { cancelarPreventiva, iniciarPreventiva } from "./actions";
 
 export type LinhaDaLista = {
   chave: string;
@@ -197,12 +198,23 @@ export function ListaDePreventivas({
               </div>
 
               {l.abertaId ? (
-                <Link
-                  href={`/manutencao-preventiva/${l.abertaId}`}
-                  className="mt-2.5 block w-full rounded-xl bg-amber-500 px-4 py-2.5 text-center text-sm font-semibold text-white hover:bg-amber-600"
-                >
-                  ▶️ Continuar a que você começou
-                </Link>
+                <div className="mt-2.5 flex gap-2">
+                  <Link
+                    href={`/manutencao-preventiva/${l.abertaId}`}
+                    className="flex-1 rounded-xl bg-amber-500 px-4 py-2.5 text-center text-sm font-semibold text-white hover:bg-amber-600"
+                  >
+                    ▶️ Continuar
+                  </Link>
+                  <BotaoExcluir
+                    action={cancelarPreventiva}
+                    campos={{ execucao_id: l.abertaId }}
+                    confirmacao="Cancelar esta preventiva? Ela é apagada e não entra no histórico."
+                    rotuloConfirmar="Cancelar preventiva"
+                    className="rounded-xl border border-red-200 px-3 py-2.5 text-sm font-semibold text-red-700 hover:bg-red-50"
+                  >
+                    ✕ Cancelar
+                  </BotaoExcluir>
+                </div>
               ) : (
                 <form action={iniciarPreventiva} className="mt-2.5">
                   <input type="hidden" name="modelo_id" value={l.modeloId} />

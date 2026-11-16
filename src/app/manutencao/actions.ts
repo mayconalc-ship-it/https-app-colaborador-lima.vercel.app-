@@ -329,3 +329,49 @@ export async function reabrirAvaliacao(fd: FormData): Promise<ResultadoAcao> {
   revalidatePath(`${BASE}/${id}`);
   return deuCerto(`${rotuloTrimestre(avaliacao)} reaberto para correção.`);
 }
+
+/**
+ * CANCELAR UMA AVALIAÇÃO ABERTA (16/11/2026, pedido do dono: "iniciou
+ * errado, poder cancelar").
+ *
+ * Só a EM ANDAMENTO -- a finalizada é histórico do DPO e só se reabre.
+ * Pode quem iniciou ou a liderança com "editar". Apaga as respostas e as
+ * fotos (do banco e do bucket) e libera o trimestre para começar de novo.
+ */
+export async function cancelarAvaliacao(fd: FormData): Promise<ResultadoAcao> {
+  const ctx = await contexto();
+  if (!ctx.ok) return deuErrado(ctx.erro);
+
+  const aberta = await avaliacaoAberta(texto(fd, "avaliacao_id", 64), ctx.revendaId);
+  if (!aberta.ok) return deuErrado(aberta.erro);
+
+  const admin = createAdminClient();
+  const { data: dona } = await admin
+    .from("manut_avaliacoes")
+    .select("iniciada_por")
+    .eq("id", aberta.avaliacao.id)
+    .maybeSingle();
+  if (dona?.iniciada_por !== ctx.perfil.id && !(await podeNoModulo(MODULO_MANUTENCAO, "editar"))) {
+    return deuErrado("Só quem iniciou ou a liderança com permissão de editar pode cancelar esta avaliação.");
+  }
+
+  // As fotos saem do bucket antes: depois do delete em cascata, o caminho
+  // delas se perde e o arquivo ficaria órfão ocupando espaço.
+  const { data: fotos } = await admin
+    .from("manut_fotos")
+    .select("caminho, manut_respostas!inner(avaliacao_id)")
+    .eq("manut_respostas.avaliacao_id", aberta.avaliacao.id);
+  await apagarFotos((fotos ?? []).map((f) => f.caminho as string), admin);
+
+  const { error } = await admin
+    .from("manut_avaliacoes")
+    .delete()
+    .eq("id", aberta.avaliacao.id)
+    .eq("revenda_id", ctx.revendaId)
+    .eq("status", "em_andamento");
+  if (error) return deuErrado(`Não foi possível cancelar: ${error.message}`);
+
+  revalidatePath(BASE);
+  revalidatePath("/manutencao-central");
+  return deuCerto(`Avaliação do ${rotuloTrimestre(aberta.avaliacao)} cancelada. Dá para iniciar de novo.`, BASE);
+}

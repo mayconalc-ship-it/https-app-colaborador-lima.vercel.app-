@@ -3,7 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { PageHeader } from "@/components/PageHeader";
 import { BotaoExcluir } from "@/components/BotaoExcluir";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { requireAcessoModulo } from "@/lib/require-admin";
+import { podeNoModulo, requireAcessoModulo } from "@/lib/require-admin";
 import { getRevendaId } from "@/lib/revendas";
 import { formatarDataHora } from "@/lib/produtividade-armazem";
 import {
@@ -66,6 +66,7 @@ export default async function PreventivaPage({
 
   const emAndamento = execucao.status === "em_andamento";
   const minha = execucao.iniciada_por === perfil.id;
+  const podeCancelarDosOutros = emAndamento && !minha && (await podeNoModulo("manutencao-preventiva", "editar"));
   const titulo = equipamento ? `${modelo.emoji ?? ""} ${modelo.equipamento} ${equipamento.codigo}`.trim() : `${modelo.emoji ? `${modelo.emoji} ` : ""}${modelo.nome}`;
 
   return (
@@ -82,6 +83,26 @@ export default async function PreventivaPage({
         fecharHref="/manutencao-preventiva"
       />
 
+      {/* Cancelar no TOPO (16/11/2026): no fim do formulário ficava
+          escondido atrás do rodapé fixo e ninguém achava. */}
+      {emAndamento && (minha || podeCancelarDosOutros) && (
+        <div className="-mt-2 mb-3 flex justify-end">
+          <BotaoExcluir
+            action={cancelarPreventiva}
+            campos={{ execucao_id: execucao.id }}
+            confirmacao={
+              minha
+                ? "Cancelar esta preventiva? Ela é apagada e não entra no histórico."
+                : `Cancelar a preventiva que ${execucao.iniciada_por_nome} abriu? Ela é apagada e não entra no histórico.`
+            }
+            rotuloConfirmar="Cancelar preventiva"
+            className="rounded-full border border-red-200 px-3 py-1 text-xs font-semibold text-red-700 hover:bg-red-50"
+          >
+            ✕ Cancelar preventiva
+          </BotaoExcluir>
+        </div>
+      )}
+
       {equipamento && (
         <div className="mb-4 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600">
           <p className="text-sm font-bold text-slate-900">{nomeDoEquipamento(equipamento)}</p>
@@ -93,18 +114,7 @@ export default async function PreventivaPage({
 
       {emAndamento ? (
         minha ? (
-          <div className="space-y-4">
-            <FormPreventiva execucaoId={execucao.id} itens={itens} />
-            <BotaoExcluir
-              action={cancelarPreventiva}
-              campos={{ execucao_id: execucao.id }}
-              confirmacao="Cancelar esta preventiva? Ela será apagada e não entra no histórico."
-              rotuloConfirmar="Cancelar"
-              className="w-full rounded-xl border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50"
-            >
-              Cancelar (abri por engano)
-            </BotaoExcluir>
-          </div>
+          <FormPreventiva execucaoId={execucao.id} itens={itens} />
         ) : (
           <p className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
             {execucao.iniciada_por_nome} está preenchendo esta preventiva. Só quem iniciou pode finalizar.
@@ -149,6 +159,18 @@ async function Respostas({
     const lista = fotosPorItem.get(f.item_id ?? "") ?? [];
     lista.push(enderecosDaFoto("/api/manutencao-preventiva/foto", f.id));
     fotosPorItem.set(f.item_id ?? "", lista);
+  }
+
+  // Preventiva registrada sem checklist (ex.: a feita antes do app, vinda
+  // da lista): não há o que mostrar item a item, nem "tudo normal" a dizer.
+  if (respostas.size === 0) {
+    return (
+      <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
+        <p className="font-semibold text-slate-900">Registrada sem checklist preenchido.</p>
+        {observacao && <p className="mt-1">{observacao}</p>}
+        <p className="mt-2 text-xs text-slate-500">Conta só para o prazo. A próxima já sai pelo checklist do app.</p>
+      </div>
+    );
   }
 
   // Pergunta condicional que não se aplicou naquele dia não aparece.
