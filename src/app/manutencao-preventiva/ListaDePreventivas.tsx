@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
 import { BotaoExcluir } from "@/components/BotaoExcluir";
 import { BarraDoPrazo, SeloDoPrazo } from "@/components/manutencao/PrazoDaPreventiva";
-import type { Prazo } from "@/lib/manutencao-preventiva";
+import { SECOES, type Prazo, type SecaoPreventiva } from "@/lib/manutencao-preventiva";
 import { cancelarPreventiva, iniciarPreventiva } from "./actions";
 
 export type LinhaDaLista = {
@@ -55,10 +55,12 @@ export function ListaDePreventivas({
   linhas,
   filtroInicial,
   destaque,
+  secao = "preventiva",
 }: {
   linhas: LinhaDaLista[];
   filtroInicial: string | null;
   destaque: string | null;
+  secao?: SecaoPreventiva;
 }) {
   const [filtro, setFiltro] = useState<Filtro>(
     FILTROS.some((f) => f.id === filtroInicial) ? (filtroInicial as Filtro) : "todas",
@@ -94,7 +96,7 @@ export function ListaDePreventivas({
   }, [destaque]);
 
   if (linhas.length === 0) {
-    return <p className="rounded-xl bg-slate-50 p-4 text-sm text-slate-500">Nenhuma preventiva cadastrada nesta revenda ainda.</p>;
+    return <p className="rounded-xl bg-slate-50 p-4 text-sm text-slate-500">{SECOES[secao].vazio}</p>;
   }
 
   return (
@@ -133,7 +135,11 @@ export function ListaDePreventivas({
 
       {visiveis.length === 0 ? (
         <p className="mt-4 rounded-xl bg-slate-50 p-4 text-center text-sm text-slate-500">
-          {filtro === "vencidas" ? "🎉 Nenhuma preventiva vencida." : "Nada neste filtro."}
+          {filtro !== "vencidas"
+            ? "Nada neste filtro."
+            : secao === "ferramental"
+              ? "🎉 Nenhum check vencido."
+              : "🎉 Nenhuma preventiva vencida."}
         </p>
       ) : (
         <div className="mt-3 space-y-2.5">
@@ -238,8 +244,8 @@ function LinhaDoAparelho({ l, destacada }: { l: LinhaDaLista; destacada: boolean
             <BotaoExcluir
               action={cancelarPreventiva}
               campos={{ execucao_id: l.abertaId }}
-              confirmacao="Cancelar esta preventiva? Ela é apagada e não entra no histórico."
-              rotuloConfirmar="Cancelar preventiva"
+              confirmacao="Cancelar? O que foi preenchido é apagado e não entra no histórico."
+              rotuloConfirmar="Cancelar"
               className="w-full rounded-lg border border-red-200 px-3 py-1 text-xs font-semibold text-red-700 hover:bg-red-50"
             >
               ✕ Cancelar

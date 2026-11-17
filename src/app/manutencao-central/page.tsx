@@ -7,8 +7,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getModulosAcessiveis, podeNoModulo } from "@/lib/require-admin";
 import { getPerfil } from "@/lib/sessao";
 import { getModulosDaRevenda, getRevendaId } from "@/lib/revendas";
-import { painelDaRevenda, PreventivaNaoAtualizada, type PainelPreventiva } from "@/lib/manutencao-preventiva-server";
-import { nomeDoEquipamento } from "@/lib/manutencao-preventiva";
+import { daSecao, painelDaRevenda, PreventivaNaoAtualizada, type PainelPreventiva } from "@/lib/manutencao-preventiva-server";
+import { nomeDoEquipamento, SECOES } from "@/lib/manutencao-preventiva";
 import { listarAvaliacoes } from "@/lib/manutencao-server";
 import { rotuloTrimestre, trimestreDe } from "@/lib/manutencao";
 
@@ -52,7 +52,7 @@ export default async function ManutencaoCentralPage() {
   const admin = createAdminClient();
   const agora = new Date();
 
-  const [painel, chamados, avaliacoes] = await Promise.all([
+  const [painelTodo, chamados, avaliacoes] = await Promise.all([
     vePreventiva || podeCadastrar
       ? painelDaRevenda(revendaId, admin).catch((e) => {
           if (e instanceof PreventivaNaoAtualizada) return null;
@@ -71,18 +71,24 @@ export default async function ManutencaoCentralPage() {
   ]);
 
   // ---- o que cada cartão diz ----
-  const vencidas = painel?.alvos.filter((a) => a.prazo.estado === "atrasada" || a.prazo.estado === "vence_hoje") ?? [];
-  const logo = painel?.alvos.filter((a) => a.prazo.estado === "proxima") ?? [];
+  // O Check Ferramental tem cartão próprio (17/11/2026): fora da Preventiva.
+  const painel = painelTodo ? daSecao(painelTodo, "preventiva") : null;
+  const ferramental = painelTodo ? daSecao(painelTodo, "ferramental") : null;
+  const pedeAtencao = (a: PainelPreventiva["alvos"][number]) =>
+    a.prazo.estado === "atrasada" || a.prazo.estado === "vence_hoje";
+  const vencidas = painelTodo?.alvos.filter(pedeAtencao) ?? [];
+  const logo = painelTodo?.alvos.filter((a) => a.prazo.estado === "proxima") ?? [];
 
-  const statusPreventiva: { texto: string; tom: Tom } | null = !painel
-    ? null
-    : vencidas.length > 0
-      ? { texto: `${vencidas.length} vencida${vencidas.length === 1 ? "" : "s"}`, tom: "ruim" }
-      : logo.length > 0
-        ? { texto: `${logo.length} vence${logo.length === 1 ? "" : "m"} logo`, tom: "atencao" }
-        : painel.alvos.length > 0
-          ? { texto: "Tudo em dia", tom: "bom" }
-          : { texto: "Nada cadastrado", tom: "neutro" };
+  const statusDo = (p: PainelPreventiva | null): { texto: string; tom: Tom } | null => {
+    if (!p) return null;
+    const v = p.alvos.filter(pedeAtencao).length;
+    const l = p.alvos.filter((a) => a.prazo.estado === "proxima").length;
+    if (v > 0) return { texto: `${v} vencida${v === 1 ? "" : "s"}`, tom: "ruim" };
+    if (l > 0) return { texto: `${l} vence${l === 1 ? "" : "m"} logo`, tom: "atencao" };
+    return p.alvos.length > 0 ? { texto: "Tudo em dia", tom: "bom" } : { texto: "Nada cadastrado", tom: "neutro" };
+  };
+  const statusPreventiva = statusDo(painel);
+  const statusFerramental = statusDo(ferramental);
 
   const atrasadosChamado = chamados?.filter((c) => new Date(c.prazo_em) < agora).length ?? 0;
   const statusChamado: { texto: string; tom: Tom } | null =
@@ -112,6 +118,15 @@ export default async function ManutencaoCentralPage() {
       href: "/manutencao-preventiva",
       status: statusPreventiva,
     },
+    vePreventiva &&
+      ferramental &&
+      ferramental.alvos.length > 0 && {
+        chave: "manutencao-ferramental",
+        emoji: "🧰",
+        titulo: "Check Ferramental",
+        href: SECOES.ferramental.href,
+        status: statusFerramental,
+      },
     veChamado && {
       chave: "chamados",
       emoji: "🔧",
@@ -135,7 +150,7 @@ export default async function ManutencaoCentralPage() {
 
   return (
     <div>
-      <PageHeader title="🛠️ Manutenção" subtitle="Preventiva, chamados e check num lugar só." />
+      <PageHeader title="🛠️ Manutenção" subtitle="Preventiva, chamados e checks num lugar só." />
 
       <div className="grid grid-cols-2 gap-3">
         {cartoes.map((c, i) => (
@@ -160,9 +175,9 @@ export default async function ManutencaoCentralPage() {
         ))}
       </div>
 
-      {vePreventiva && painel === null && (
+      {vePreventiva && painelTodo === null && (
         <p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
-          A preventiva está sendo atualizada. Falta rodar a migration 178 no Supabase.
+          A preventiva está sendo atualizada. Falta rodar a migration 181 no Supabase.
         </p>
       )}
 
@@ -173,7 +188,7 @@ export default async function ManutencaoCentralPage() {
             {agoraFazer.map((a) => (
               <li key={a.chave}>
                 <Link
-                  href={`/manutencao-preventiva?alvo=${encodeURIComponent(a.chave)}`}
+                  href={`${SECOES[a.modelo.secao].href}?alvo=${encodeURIComponent(a.chave)}`}
                   prefetch={false}
                   className="flex items-center gap-3 px-3.5 py-3 hover:bg-slate-50"
                 >

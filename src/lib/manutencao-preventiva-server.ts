@@ -7,7 +7,9 @@ import { criarNotificacao } from "@/lib/notificacoes-server";
 import { enviarPushDaRevenda } from "@/lib/push-server";
 import {
   cobrar,
+  ehSecao,
   ehTipoItem,
+  SECOES,
   ordemDeUrgencia,
   prazoDa,
   type EquipamentoPreventiva,
@@ -15,6 +17,7 @@ import {
   type ModeloPreventiva,
   type Prazo,
   type RespostaPreventiva,
+  type SecaoPreventiva,
 } from "@/lib/manutencao-preventiva";
 
 type Admin = ReturnType<typeof createAdminClient>;
@@ -91,6 +94,7 @@ export function modeloDeLinha(l: {
   periodicidade_dias: number;
   usa_equipamentos?: boolean | null;
   descricao?: string | null;
+  secao?: string | null;
 }): ModeloPreventiva {
   return {
     id: l.id,
@@ -100,6 +104,7 @@ export function modeloDeLinha(l: {
     periodicidadeDias: l.periodicidade_dias,
     usaEquipamentos: Boolean(l.usa_equipamentos),
     descricao: l.descricao ?? null,
+    secao: ehSecao(l.secao) ? l.secao : "preventiva",
   };
 }
 
@@ -148,7 +153,17 @@ export function respostaDeLinha(l: {
 }
 
 export const COLUNAS_MODELO =
-  "id, nome, equipamento, emoji, periodicidade_dias, usa_equipamentos, descricao, criado_em, ativo, ordem";
+  "id, nome, equipamento, emoji, periodicidade_dias, usa_equipamentos, descricao, secao, criado_em, ativo, ordem";
+
+/** A tela de volta de um modelo: a Preventiva ou o Check Ferramental. */
+export async function secaoDoModelo(modeloId: string, admin: Admin = createAdminClient()): Promise<SecaoPreventiva> {
+  const { data } = await admin.from("manut_prev_modelos").select("secao").eq("id", modeloId).maybeSingle();
+  return ehSecao(data?.secao) ? data.secao : "preventiva";
+}
+
+export function rotaDaSecao(secao: SecaoPreventiva) {
+  return SECOES[secao].href;
+}
 export const COLUNAS_EQUIPAMENTO =
   "id, modelo_id, codigo, local, marca, capacidade, observacao, periodicidade_dias, ativo, criado_em";
 export const COLUNAS_ITEM =
@@ -177,6 +192,14 @@ export type PainelPreventiva = {
   /** Modelo que pede cadastro de aparelho e ainda não tem nenhum. */
   semCadastro: ModeloPreventiva[];
 };
+
+/** Painel só de uma seção (Preventiva ou Check Ferramental). */
+export function daSecao(painel: PainelPreventiva, secao: SecaoPreventiva): PainelPreventiva {
+  return {
+    alvos: painel.alvos.filter((a) => a.modelo.secao === secao),
+    semCadastro: painel.semCadastro.filter((m) => m.secao === secao),
+  };
+}
 
 export async function painelDaRevenda(revendaId: string, admin: Admin = createAdminClient()): Promise<PainelPreventiva> {
   const [modelos, equipamentos, ultimas] = await Promise.all([
@@ -420,9 +443,15 @@ export async function lembrarPreventivasVencidas(agora: Date = new Date()): Prom
       return `${quem} (${a.prazo.estado === "vence_hoje" ? "hoje" : `${-a.prazo.diasParaVencer} d de atraso`})`;
     });
     const resto = vencidas.length > 4 ? ` e mais ${vencidas.length - 4}` : "";
-    const titulo = vencidas.length === 1 ? "🔩 1 preventiva vencida" : `🔩 ${vencidas.length} preventivas vencidas`;
+    // Só o Check Ferramental vencido: o aviso leva para a tela dele.
+    const soFerramental = vencidas.every((a) => a.modelo.secao === "ferramental");
+    const titulo = soFerramental
+      ? "🧰 Check ferramental vencido"
+      : vencidas.length === 1
+        ? "🔩 1 preventiva vencida"
+        : `🔩 ${vencidas.length} preventivas vencidas`;
     const mensagem = `${nomes.join(", ")}${resto}.`;
-    const url = "/manutencao-preventiva?ver=vencidas";
+    const url = `${rotaDaSecao(soFerramental ? "ferramental" : "preventiva")}?ver=vencidas`;
 
     await Promise.all(
       destinatarios.map((id) =>

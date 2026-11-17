@@ -5,7 +5,13 @@ import { revalidatePath } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { podeNoModulo, requireAcessoModulo } from "@/lib/require-admin";
 import { exigirRevenda } from "@/lib/revendas";
-import { FOTOS_POR_ITEM, guardarFotosDoItem, itensDoModelo } from "@/lib/manutencao-preventiva-server";
+import {
+  FOTOS_POR_ITEM,
+  guardarFotosDoItem,
+  itensDoModelo,
+  rotaDaSecao,
+  secaoDoModelo,
+} from "@/lib/manutencao-preventiva-server";
 import {
   emAlerta,
   erroDaResposta,
@@ -269,14 +275,17 @@ export async function finalizarPreventiva(formData: FormData) {
     .eq("status", "em_andamento");
   if (erroFim) erro(`Respostas salvas, mas não foi possível finalizar: ${erroFim.message}`, destino);
 
-  revalidatePath(ROTA);
+  // Volta para a tela de onde veio: Preventiva ou Check Ferramental.
+  const secao = await secaoDoModelo(execucao.modelo_id, admin);
+  const volta = rotaDaSecao(secao);
+  revalidatePath(volta);
   revalidatePath("/manutencao-central");
-  const partes = ["Preventiva registrada."];
+  const partes = [secao === "ferramental" ? "Check registrado." : "Preventiva registrada."];
   if (alertas > 0) partes.push(`${alertas} ${alertas === 1 ? "item ficou" : "itens ficaram"} em alerta.`);
   if (falhasDeFoto > 0) partes.push(`${falhasDeFoto} foto(s) não subiram.`);
   const params = new URLSearchParams({ sucesso: partes.join(" ") });
   if (alertas > 0) params.set("alertas", execucaoId);
-  redirect(`${ROTA}?${params.toString()}`);
+  redirect(`${volta}?${params.toString()}`);
 }
 
 /** Desiste de uma preventiva aberta por engano -- some sem virar histórico. */
@@ -296,9 +305,12 @@ export async function cancelarPreventiva(formData: FormData) {
     .eq("revenda_id", revendaId)
     .eq("status", "em_andamento");
   if (!(await podeNoModulo("manutencao-preventiva", "editar"))) apagar = apagar.eq("iniciada_por", perfil.id);
-  const { error } = await apagar;
+  const { data: apagadas, error } = await apagar.select("modelo_id");
   if (error) erro(`Não foi possível cancelar: ${error.message}`);
 
-  revalidatePath(ROTA);
-  redirect(`${ROTA}?sucesso=${encodeURIComponent("Preventiva cancelada.")}`);
+  const secao = apagadas?.[0] ? await secaoDoModelo(apagadas[0].modelo_id, admin) : "preventiva";
+  const volta = rotaDaSecao(secao);
+  revalidatePath(volta);
+  revalidatePath("/manutencao-central");
+  redirect(`${volta}?sucesso=${encodeURIComponent(secao === "ferramental" ? "Check cancelado." : "Preventiva cancelada.")}`);
 }

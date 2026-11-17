@@ -27,7 +27,15 @@ export type OpcaoDeModelo = {
  * resolve o AC-02. Quem pode cadastrar inclui o aparelho que faltar ali
  * mesmo e já começa a preventiva dele.
  */
-export function NovaPreventiva({ modelos, podeCadastrar }: { modelos: OpcaoDeModelo[]; podeCadastrar: boolean }) {
+export function NovaPreventiva({
+  modelos,
+  podeCadastrar,
+  titulo = "Nova preventiva",
+}: {
+  modelos: OpcaoDeModelo[];
+  podeCadastrar: boolean;
+  titulo?: string;
+}) {
   const [aberto, setAberto] = useState(false);
   const [modeloId, setModeloId] = useState<string | null>(null);
   const [busca, setBusca] = useState("");
@@ -48,7 +56,7 @@ export function NovaPreventiva({ modelos, podeCadastrar }: { modelos: OpcaoDeMod
       <button
         type="button"
         onClick={() => setAberto(true)}
-        aria-label="Nova preventiva"
+        aria-label={titulo}
         className="fixed bottom-5 right-5 z-30 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-white shadow-lg shadow-primary/30 transition hover:bg-primary-dark active:scale-95"
       >
         <Plus size={28} strokeWidth={2.5} aria-hidden />
@@ -59,7 +67,7 @@ export function NovaPreventiva({ modelos, podeCadastrar }: { modelos: OpcaoDeMod
           <div
             role="dialog"
             aria-modal="true"
-            aria-label="Nova preventiva"
+            aria-label={titulo}
             onClick={(e) => e.stopPropagation()}
             className="max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-t-3xl bg-white p-4 shadow-xl sm:rounded-3xl"
           >
@@ -71,7 +79,7 @@ export function NovaPreventiva({ modelos, podeCadastrar }: { modelos: OpcaoDeMod
                   </button>
                 )}
                 <h2 className="truncate text-base font-bold text-slate-900">
-                  {modelo ? `${modelo.emoji} Qual ${modelo.equipamento.toLowerCase()}?` : "Nova preventiva"}
+                  {modelo ? `${modelo.emoji} Qual ${modelo.equipamento.toLowerCase()}?` : titulo}
                 </h2>
                 {modelo && modelo.aparelhos.length > 0 && (
                   <p className="text-xs text-slate-500">

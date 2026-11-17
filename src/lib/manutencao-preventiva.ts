@@ -68,7 +68,41 @@ export type ModeloPreventiva = {
   periodicidadeDias: number;
   usaEquipamentos: boolean;
   descricao: string | null;
+  secao: SecaoPreventiva;
 };
+
+/**
+ * Onde o checklist aparece (migration 181, 17/11/2026): o Check
+ * Ferramental usa o mesmo motor da Preventiva, mas o dono quis ele FORA
+ * dela -- cartão e tela próprios na vitrine da Manutenção.
+ */
+export type SecaoPreventiva = "preventiva" | "ferramental";
+
+export const SECOES: Record<
+  SecaoPreventiva,
+  { titulo: string; emoji: string; href: string; subtitulo: string; nome: string; vazio: string }
+> = {
+  preventiva: {
+    titulo: "Manutenção Preventiva",
+    emoji: "🔩",
+    href: "/manutencao-preventiva",
+    subtitulo: "Cada equipamento na frequência combinada.",
+    nome: "preventiva",
+    vazio: "Nenhuma preventiva cadastrada nesta revenda ainda.",
+  },
+  ferramental: {
+    titulo: "Check Ferramental",
+    emoji: "🧰",
+    href: "/manutencao-ferramental",
+    subtitulo: "Cada ferramenta no lugar e funcionando.",
+    nome: "check",
+    vazio: "Nenhum check ferramental cadastrado nesta revenda.",
+  },
+};
+
+export function ehSecao(v: unknown): v is SecaoPreventiva {
+  return v === "preventiva" || v === "ferramental";
+}
 
 /** Um aparelho cadastrado na Liderança (cada ar-condicionado, cada câmara). */
 export type EquipamentoPreventiva = {

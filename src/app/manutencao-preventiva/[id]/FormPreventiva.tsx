@@ -83,7 +83,15 @@ function paraResposta(item: ItemPreventiva, d: Rascunho): RespostaPreventiva {
  *   arquivo, e o navegador não deixa guardar).
  * - As perguntas condicionais somem e aparecem enquanto se responde.
  */
-export function FormPreventiva({ execucaoId, itens }: { execucaoId: string; itens: ItemPreventiva[] }) {
+export function FormPreventiva({
+  execucaoId,
+  itens,
+  rotuloFinalizar = "Finalizar preventiva",
+}: {
+  execucaoId: string;
+  itens: ItemPreventiva[];
+  rotuloFinalizar?: string;
+}) {
   const chave = `${PREFIXO}${execucaoId}`;
   const [rascunhos, setRascunhos] = useState<Record<string, Rascunho>>({});
   const [geral, setGeral] = useState("");
@@ -393,7 +401,7 @@ export function FormPreventiva({ execucaoId, itens }: { execucaoId: string; iten
           textoEnviando="Salvando..."
           className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-white shadow-sm hover:bg-primary-dark"
         >
-          ✅ Finalizar preventiva
+          ✅ {rotuloFinalizar}
         </BotaoEnviar>
       </div>
     </form>
