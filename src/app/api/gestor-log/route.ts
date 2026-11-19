@@ -123,6 +123,7 @@ export async function POST(request: Request) {
       tamanho: x.tamanho,
       modificado: x.modificado,
       recebido: x.recebido_em,
+      gz: x.caminho.endsWith(".gz"),
       url: porCaminho.get(x.caminho) ?? null,
     }));
     return NextResponse.json({ itens, ultimo: ultimo?.recebido_em ?? null });
