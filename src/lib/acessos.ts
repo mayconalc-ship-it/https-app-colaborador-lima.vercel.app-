@@ -62,6 +62,7 @@ export type ModuloId =
   | "relato-anomalia"
   | "pdv-particularidades"
   | "prioridades"
+  | "gestor-log"
   | "metas"
   | "fontes-dados"
   | "perfis-acesso"
@@ -440,6 +441,26 @@ export const MODULOS: Modulo[] = [
     grupo: "Configuração",
     acoes: ["ver", "editar"],
     exigeEditarNoAdmin: true,
+  },
+  {
+    /*
+      GESTOR LOG ONLINE (19/11/2026, pedido do dono): o mesmo programa do
+      arquivo Gestor LOG.html, servido em /gestor-log, com a base no
+      Supabase em vez de em cada computador (migration 182). "Ver" abre e
+      lê a base; "Editar" importa relatórios e grava -- quem só vê usa a
+      base que os outros atualizaram.
+    */
+    id: "gestor-log",
+    rotulosDeAcao: {
+      ver: "📊 Abrir o Gestor LOG e consultar a base compartilhada",
+      editar: "Importar relatórios e gravar na base compartilhada (vale para todos)",
+    },
+    rotulo: "Gestor LOG",
+    emoji: "🗺️",
+    href: "/gestor-log",
+    grupo: "Gestão de Dados",
+    emGestao: true,
+    acoes: ["ver", "editar"],
   },
   {
     id: "devolucao",

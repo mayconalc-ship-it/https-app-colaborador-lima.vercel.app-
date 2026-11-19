@@ -29,6 +29,7 @@ export type PainelId =
   | "anomalias"
   | "pdv"
   | "prioridades"
+  | "gestor-log"
   | "comprovantes-qr"
   | "mao-de-obra"
   | "armazem"
@@ -112,6 +113,19 @@ export const PAINEIS: Painel[] = [
     modulo: "pdv-particularidades",
     pergunta: "Que cliente está bloqueado, e o que cada rota precisa saber antes de sair.",
     mora: true,
+  },
+  {
+    // O Gestor LOG online (19/11/2026): planner, pré-roteirização,
+    // reposição e disponibilidade da frota, com a base compartilhada.
+    // Atalho -- o programa abre em tela cheia, fora do layout do app.
+    id: "gestor-log",
+    rotulo: "Gestor LOG",
+    emoji: "🗺️",
+    href: "/gestor-log",
+    bloco: "Operação",
+    modulo: "gestor-log",
+    pergunta: "Rotas, pré-roteirização, reposição e frota, com a base de todos.",
+    mora: false,
   },
   {
     // As prioridades que os GVs mandam pelo link (03/11/2026): também é

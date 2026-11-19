@@ -50,6 +50,11 @@ const nextConfig: NextConfig = {
     // grosso do que passa por aqui. Quem não suporta cai no WebP.
     formats: ["image/avif", "image/webp"],
   },
+  // O HTML do Gestor LOG é lido do disco pela rota /gestor-log: sem isto a
+  // Vercel não leva o arquivo junto com a função (só leva o que é importado).
+  outputFileTracingIncludes: {
+    "/gestor-log": ["./gestor-log/gestor-log.html"],
+  },
   experimental: {
     serverActions: {
       bodySizeLimit: "25mb",
