@@ -2,6 +2,8 @@ import { timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { BUCKET_GESTOR_LOG, chaveDoCarteiro, nomeParaStorage } from "@/lib/gestor-log-server";
+import { getPerfil } from "@/lib/sessao";
+import { ehOwner } from "@/lib/acessos";
 
 export const dynamic = "force-dynamic";
 
@@ -22,6 +24,20 @@ const REVS = new Set(["SF", "BAR"]);
 const EXT = /\.(csv|txt|xlsx|xls|xlsm)$/i;
 
 const erro = (msg: string, status = 400) => NextResponse.json({ erro: msg }, { status });
+
+/**
+ * A chave do carteiro, só para o dono logado (abrir o endereço no
+ * navegador). Ela é derivada da chave de serviço que está NA VERCEL, que
+ * não é a mesma do .env.local -- por isso não dá para calcular fora daqui.
+ */
+export async function GET() {
+  const perfil = await getPerfil();
+  if (!perfil || !ehOwner(perfil.role)) return erro("Só o dono do app vê a chave do carteiro.", 403);
+  return new NextResponse(
+    `Chave do carteiro do Gestor LOG:\n\n${await chaveDoCarteiro()}\n\nCole em "chave" no C:\\Projetos\\gestor-log-carteiro\\config.json.\n`,
+    { headers: { "content-type": "text/plain; charset=utf-8", "cache-control": "no-store" } },
+  );
+}
 
 export async function POST(request: Request) {
   const recebida = request.headers.get("x-chave") ?? "";
