@@ -18,7 +18,11 @@ import { CABECALHO_USUARIO } from "@/lib/sessao-headers";
 //
 // /api/prioridades/ é o que o Gestor LOG busca (04/11/2026): arquivo aberto
 // no computador, sem sessão do app. A trava é a chave de leitura do endereço.
-const PUBLIC_PATHS = ["/login", "/votar", "/os/", "/prioridade/", "/api/prioridades/"];
+//
+// /api/gestor-log/carteiro é o programa que manda os relatórios da pasta do
+// servidor para o Gestor LOG online (19/11/2026): sem sessão, a trava é a
+// chave no cabeçalho x-chave, conferida na rota.
+const PUBLIC_PATHS = ["/login", "/votar", "/os/", "/prioridade/", "/api/prioridades/", "/api/gestor-log/carteiro"];
 const ROTA_DEFINIR_SENHA = "/definir-senha";
 
 export async function proxy(request: NextRequest) {

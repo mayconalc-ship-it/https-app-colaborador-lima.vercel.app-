@@ -72,6 +72,32 @@ export async function contextoGestorLog(): Promise<ContextoGestorLog | null> {
   return { perfilId: perfil.id, nome: perfil.nome, podeEditar, revendas: codigos };
 }
 
+/**
+ * Chave do carteiro (etapa 2, migration 183): o programa que olha a pasta
+ * do servidor e manda os relatórios para a caixa de entrada. Não tem
+ * sessão do app; prova quem é com esta chave, derivada da chave de
+ * serviço (sem variável nova na Vercel, mesmo desenho da chave das
+ * Prioridades). Trocar a chave de serviço invalida o carteiro.
+ */
+export async function chaveDoCarteiro() {
+  const { createHmac } = await import("node:crypto");
+  return createHmac("sha256", process.env.SUPABASE_SERVICE_ROLE_KEY!)
+    .update("gestor-log-carteiro")
+    .digest("hex")
+    .slice(0, 32);
+}
+
+/** Nome do arquivo seguro para o Storage (sem acento, espaço nem "+"). */
+export function nomeParaStorage(nome: string) {
+  return (
+    nome
+      .normalize("NFD")
+      .replace(/[̀-ͯ]/g, "")
+      .replace(/[^A-Za-z0-9._-]+/g, "_")
+      .slice(-120) || "arquivo"
+  );
+}
+
 /** A pessoa pode ler/gravar esta chave? (a permissão de gravar é conferida à parte) */
 export function chaveDaPessoa(ctx: ContextoGestorLog, chave: string) {
   const rev = revendaDaChave(chave);

@@ -93,6 +93,62 @@ export async function POST(request: Request) {
     return NextResponse.json({ urls });
   }
 
+  // caixa de entrada do carteiro (migration 183): só quem grava processa
+  if (p.acao === "entrada") {
+    const { data: ultimo } = await admin
+      .from("gestor_log_entrada")
+      .select("recebido_em")
+      .order("recebido_em", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (!ctx.podeEditar) return NextResponse.json({ itens: [], ultimo: ultimo?.recebido_em ?? null });
+    const { data, error } = await admin
+      .from("gestor_log_entrada")
+      .select("id, rev, nome, caminho, tamanho, modificado, recebido_em")
+      .is("processado_em", null)
+      .order("recebido_em");
+    if (error) return erro(error.message, 500);
+    const minhas = (data ?? []).filter((x) => ctx.revendas.has(x.rev));
+    let links: { path: string | null; signedUrl: string | null }[] = [];
+    if (minhas.length) {
+      const r = await storage.createSignedUrls(minhas.map((x) => x.caminho), 600);
+      if (r.error) return erro(r.error.message, 500);
+      links = r.data ?? [];
+    }
+    const porCaminho = new Map(links.map((l) => [l.path, l.signedUrl]));
+    const itens = minhas.map((x) => ({
+      id: x.id,
+      rev: x.rev,
+      nome: x.nome,
+      tamanho: x.tamanho,
+      modificado: x.modificado,
+      recebido: x.recebido_em,
+      url: porCaminho.get(x.caminho) ?? null,
+    }));
+    return NextResponse.json({ itens, ultimo: ultimo?.recebido_em ?? null });
+  }
+
+  if (p.acao === "entradaFeita") {
+    if (!ctx.podeEditar) return erro("Sem permissão para gravar.", 403);
+    const ids = Array.isArray(p.chaves) ? p.chaves.map(Number).filter(Number.isFinite) : [];
+    if (!ids.length) return NextResponse.json({ ok: true });
+    const { data } = await admin
+      .from("gestor_log_entrada")
+      .select("id, rev, caminho")
+      .in("id", ids)
+      .is("processado_em", null);
+    const feitas = (data ?? []).filter((x) => ctx.revendas.has(x.rev));
+    if (feitas.length) {
+      const { error } = await admin
+        .from("gestor_log_entrada")
+        .update({ processado_em: new Date().toISOString(), processado_por_nome: ctx.nome })
+        .in("id", feitas.map((x) => x.id));
+      if (error) return erro(error.message, 500);
+      await storage.remove(feitas.map((x) => x.caminho));
+    }
+    return NextResponse.json({ ok: true, feitas: feitas.length });
+  }
+
   // daqui para baixo grava: precisa de "editar" e de ser da revenda da chave
   if (!ctx.podeEditar) return erro("Você só pode consultar o Gestor LOG (sem permissão para gravar).", 403);
   if (!chaveValida(p.chave)) return erro("Chave inválida.");
