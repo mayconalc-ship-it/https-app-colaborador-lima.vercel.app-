@@ -1178,6 +1178,10 @@ export const MODULOS_OPCIONAIS: ModuloId[] = [
   "carretas-portaria",
   "carretas-conferencia",
   "carretas-descarga",
+  // Gestor LOG online (19/11/2026): o dono libera pessoa a pessoa em
+  // Acessos (quem recebe abre E atualiza a base, que é o objetivo: não
+  // depender de uma pessoa só). Cartão na tela inicial só para quem tem.
+  "gestor-log",
   "fefo",
   "fefo-controle",
   "wqi",

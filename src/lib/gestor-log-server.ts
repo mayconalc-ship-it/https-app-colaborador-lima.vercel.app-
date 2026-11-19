@@ -1,6 +1,6 @@
 import { getPerfil } from "@/lib/sessao";
 import { getRevendas } from "@/lib/revendas";
-import { podeNoModulo } from "@/lib/require-admin";
+import { podeNoModulo, temAcessoModulo } from "@/lib/require-admin";
 
 /**
  * Gestor LOG online (19/11/2026, migration 182).
@@ -58,11 +58,17 @@ export type ContextoGestorLog = {
 export async function contextoGestorLog(): Promise<ContextoGestorLog | null> {
   const perfil = await getPerfil();
   if (!perfil) return null;
-  if (!(await podeNoModulo("gestor-log", "ver"))) return null;
-  const [podeEditar, revendas] = await Promise.all([
+  // Abre: dono, liderança com "ver" ou quem o dono liberou em Acessos
+  // (módulo opcional). Atualiza a base: "editar" OU a liberação pessoa a
+  // pessoa -- liberar é justamente para a pessoa poder atualizar.
+  if (!(await temAcessoModulo("gestor-log"))) return null;
+  const [editar, ver, revendas] = await Promise.all([
     podeNoModulo("gestor-log", "editar"),
+    podeNoModulo("gestor-log", "ver"),
     getRevendas(),
   ]);
+  // liberado só pela ficha (sem concessão de liderança): também atualiza
+  const podeEditar = editar || !ver;
   const ids = new Set(revendas.map((r) => r.id));
   const codigos = new Set(
     Object.entries(REVENDA_DO_CODIGO)

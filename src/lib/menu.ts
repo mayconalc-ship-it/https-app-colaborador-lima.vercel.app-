@@ -34,6 +34,8 @@ export const MODULO_DO_ITEM: Record<string, ModuloId> = {
   "manutencao-preventiva": "manutencao-preventiva",
   // Não é opcional: a revenda ligou, todo mundo abre chamado (ver acessos.ts).
   chamados: "chamados",
+  // Opcional: só quem o dono liberou vê o cartão (ver acessos.ts).
+  "gestor-log": "gestor-log",
 };
 
 /**
@@ -99,7 +101,7 @@ export const BLOCOS_DO_MENU = [
     // preventiva (só do time).
     // Manutenção (16/11/2026): Chamado, Check e Preventiva viraram UM
     // cartão, a vitrine "Manutenção" (ver DENTRO_DA_MANUTENCAO).
-    chaves: ["produtividade-armazem", "manutencao-central", "feedback", "ativo-giro", "material-apoio", "chamados", "manutencao", "manutencao-preventiva"],
+    chaves: ["produtividade-armazem", "manutencao-central", "gestor-log", "feedback", "ativo-giro", "material-apoio", "chamados", "manutencao", "manutencao-preventiva"],
   },
   {
     id: "empresa",
@@ -287,6 +289,7 @@ export const MENU_PADRAO: ItemMenu[] = [
   // A vitrine (16/11/2026): os três de cima entram por aqui. Ver
   // DENTRO_DA_MANUTENCAO e cartoesVisiveis.
   { chave: "manutencao-central", titulo: "Manutenção", emoji: "🛠️", href: "/manutencao-central", ordem: 13.5, visivel: true },
+  { chave: "gestor-log", titulo: "Gestor LOG", emoji: "🗺️", href: "/gestor-log", ordem: 13.7, visivel: true },
   // "Minha Conta" fica oculto: já existe o botão "Conta" no topo de todas as
   // telas, e repetir ocupava espaço da grade sem acrescentar nada.
   { chave: "conta", titulo: "Minha Conta", emoji: "🔒", href: "/minha-conta", ordem: 9, visivel: false },
