@@ -46,7 +46,7 @@ export async function POST(request: Request) {
     return erro("Chave do carteiro inválida.", 401);
   }
 
-  let p: { acao?: string; rev?: string; nome?: string; caminho?: string; tamanho?: number; modificado?: number; gz?: boolean };
+  let p: { acao?: string; rev?: string; nome?: string; caminho?: string; tamanho?: number; modificado?: number; gz?: boolean; tipo?: string };
   try {
     p = await request.json();
   } catch {
@@ -61,7 +61,9 @@ export async function POST(request: Request) {
 
   if (p.acao === "subir") {
     // gz: o carteiro manda compactado (o Pré-roteirização cai de 24 MB para 1,7 MB: sobe e desce em segundos)
-    const caminho = `entrada/${rev}/${Date.now()}-${nomeParaStorage(nome)}${p.gz ? ".gz" : ""}`;
+    // tipo "dispo" (20/11): planilha diária de disponibilidade da frota (pasta do Teams), vai para a aba Disponibilidade
+    const sub = p.tipo === "dispo" ? "dispo/" : "";
+    const caminho = `entrada/${rev}/${sub}${Date.now()}-${nomeParaStorage(nome)}${p.gz ? ".gz" : ""}`;
     const { data, error } = await storage.createSignedUploadUrl(caminho);
     if (error || !data) return erro(error?.message ?? "Não foi possível preparar o envio.", 500);
     return NextResponse.json({ url: data.signedUrl, caminho });

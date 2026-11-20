@@ -124,6 +124,7 @@ export async function POST(request: Request) {
       modificado: x.modificado,
       recebido: x.recebido_em,
       gz: x.caminho.endsWith(".gz"),
+      dispo: x.caminho.includes("/dispo/"),
       url: porCaminho.get(x.caminho) ?? null,
     }));
     return NextResponse.json({ itens, ultimo: ultimo?.recebido_em ?? null });
