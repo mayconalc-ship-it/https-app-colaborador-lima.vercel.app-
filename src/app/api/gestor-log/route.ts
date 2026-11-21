@@ -126,6 +126,7 @@ export async function POST(request: Request) {
       gz: x.caminho.endsWith(".gz"),
       dispo: x.caminho.includes("/dispo/"),
       otif: x.caminho.includes("/otif/"),
+      estoque: x.caminho.includes("/estoque/"),
       url: porCaminho.get(x.caminho) ?? null,
     }));
     return NextResponse.json({ itens, ultimo: ultimo?.recebido_em ?? null });
