@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { Painel } from "@/lib/gestao";
 import type { SinalDoPainel } from "@/lib/gestao-server";
 import { ComMarcas } from "@/components/Icone";
+import { propsDeNovaGuia } from "@/lib/nova-guia";
 
 /**
  * O cartão de uma análise da Gestão.
@@ -29,6 +30,7 @@ export function CartaoDePainel({
   return (
     <Link
       href={painel.href}
+      {...propsDeNovaGuia(painel.href)}
       className={`group flex min-w-0 items-start gap-3 rounded-2xl border bg-white p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md ${
         urgente
           ? "border-red-200 hover:border-red-400"

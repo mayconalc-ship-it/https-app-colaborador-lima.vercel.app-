@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { DicaLink } from "@/components/DicaLink";
 import { Icone } from "@/components/Icone";
+import { propsDeNovaGuia } from "@/lib/nova-guia";
 
 export function MenuCard({
   href,
@@ -25,6 +26,7 @@ export function MenuCard({
     return (
       <Link
         href={href}
+        {...propsDeNovaGuia(href)}
         prefetch={false}
         className="group col-span-2 flex min-w-0 items-center gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:border-primary hover:shadow-md"
       >
@@ -47,6 +49,7 @@ export function MenuCard({
   return (
     <Link
       href={href}
+      {...propsDeNovaGuia(href)}
       prefetch={false}
       className="group flex min-w-0 flex-col items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white p-4 text-center shadow-sm transition hover:border-primary hover:shadow-md"
     >
