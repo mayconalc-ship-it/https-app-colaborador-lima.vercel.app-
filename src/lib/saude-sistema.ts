@@ -121,12 +121,11 @@ export function faltasPorMigration(faltas: Falta[]): { migration: string; faltas
 // ---------------------------------------------------------------------
 
 /**
- * Os limites do plano gratuito do Supabase: passou deles, o projeto é
- * bloqueado inteiro, login inclusive. Em 25/10/2026 o Storage estava em
- * 929 MB de 1 GB sem ninguém saber. Passando para o Pro, trocar aqui
- * (100 GB de Storage, 8 GB de banco).
+ * Os limites do plano Pro do Supabase (desde 03/11/2026): 100 GB de
+ * Storage e 8 GB de banco. No Free eram 1 GB e 500 MB, e em 25/10/2026 o
+ * Storage chegou a 929 MB de 1 GB sem ninguém saber.
  */
-export const LIMITES_DO_PLANO = { storage: 1e9, banco: 5e8 };
+export const LIMITES_DO_PLANO = { storage: 100e9, banco: 8e9 };
 
 /** Verde até 70%, amarelo até 90%, vermelho daí para cima. */
 export function nivelDoEspaco(usado: number, limite: number): "ok" | "atencao" | "critico" {

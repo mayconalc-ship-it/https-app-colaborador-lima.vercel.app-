@@ -72,8 +72,8 @@ function Espaco({ espaco }: { espaco: Saude["espaco"] }) {
       </p>
       <p className="mt-0.5 text-sm text-slate-700">
         {nivel === "ok"
-          ? "Plano gratuito do Supabase."
-          : "Ao passar do limite, o Supabase bloqueia o app inteiro. Apague fotos antigas de comprovante ou passe para o plano Pro."}
+          ? "Plano Pro do Supabase."
+          : "Ao passar do limite, o Supabase bloqueia o app inteiro. Veja o que cresceu no painel do Supabase."}
       </p>
       <div className="mt-3 space-y-3">
         <Barra rotulo="Arquivos e fotos (Storage)" usado={storage} limite={LIMITES_DO_PLANO.storage} />
@@ -93,7 +93,7 @@ function Espaco({ espaco }: { espaco: Saude["espaco"] }) {
         ))}
       </ul>
       <p className="mt-2 text-[11px] text-slate-500">
-        O tráfego do mês (5 GB no plano gratuito) não aparece aqui: só no painel do Supabase, em Usage.
+        O tráfego do mês (250 GB no plano Pro) não aparece aqui: só no painel do Supabase, em Usage.
       </p>
     </section>
   );

@@ -7,6 +7,7 @@ import { exigirContextoCarretas } from "@/lib/carretas-server";
 import { criarNotificacao } from "@/lib/notificacoes-server";
 import { enviarPushDaRevenda } from "@/lib/push-server";
 import { comprimirParaWebp } from "@/lib/produtividade-armazem-server";
+import { SEGUNDOS_DE_CACHE } from "@/lib/storage";
 
 const TAMANHO_MAXIMO = 8 * 1024 * 1024;
 const TIPOS = ["image/jpeg", "image/png", "image/webp", "image/heic"];
@@ -43,8 +44,10 @@ async function subirFoto(
   const caminho = `blitz/${prefixo}-${Date.now()}.${extensao}`;
 
   const { error } = await admin.storage.from("conteudo").upload(caminho, dados, {
-      contentType,
+    contentType,
     upsert: true,
+    // caminho com Date.now(): o arquivo nunca muda, o celular guarda para sempre
+    cacheControl: SEGUNDOS_DE_CACHE,
   });
   if (error) return { ok: false, erro: `Falha ao enviar a foto: ${error.message}` };
 
