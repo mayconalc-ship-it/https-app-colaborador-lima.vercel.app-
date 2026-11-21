@@ -62,7 +62,8 @@ export async function POST(request: Request) {
   if (p.acao === "subir") {
     // gz: o carteiro manda compactado (o Pré-roteirização cai de 24 MB para 1,7 MB: sobe e desce em segundos)
     // tipo "dispo" (20/11): planilha diária de disponibilidade da frota (pasta do Teams), vai para a aba Disponibilidade
-    const sub = p.tipo === "dispo" ? "dispo/" : "";
+    // tipo "otif" (21/11): CSV do mês com as entregas do BI Revendas Bees (extrator do PC), vai para a aba OTIF
+    const sub = p.tipo === "dispo" ? "dispo/" : p.tipo === "otif" ? "otif/" : "";
     const caminho = `entrada/${rev}/${sub}${Date.now()}-${nomeParaStorage(nome)}${p.gz ? ".gz" : ""}`;
     const { data, error } = await storage.createSignedUploadUrl(caminho);
     if (error || !data) return erro(error?.message ?? "Não foi possível preparar o envio.", 500);
