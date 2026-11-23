@@ -47,6 +47,12 @@ export async function GET(request: Request) {
     });
   }
 
+  // ?versao (23/11/2026): só a versão publicada, para o programa aberto avisar que saiu uma nova (sem baixar o HTML todo)
+  if (new URL(request.url).searchParams.has("versao")) {
+    const versao = html.match(/<meta name="versao" content="([^"]*)"/)?.[1] ?? null;
+    return NextResponse.json({ versao }, { headers: { "cache-control": "private, no-store" } });
+  }
+
   const cfg = {
     api: "/api/gestor-log",
     usuario: ctx.nome,
