@@ -64,7 +64,8 @@ export async function POST(request: Request) {
     // tipo "dispo" (20/11): planilha diária de disponibilidade da frota (pasta do Teams), vai para a aba Disponibilidade
     // tipo "otif" (21/11): CSV do mês com as entregas do BI Revendas Bees (extrator do PC), vai para a aba OTIF
     // tipo "estoque" (21/11): CSVs do BI Estoque Revenda da GEO (extrator do PC), vão para a aba Estoque
-    const sub = p.tipo === "dispo" ? "dispo/" : p.tipo === "otif" ? "otif/" : p.tipo === "estoque" ? "estoque/" : "";
+    // tipo "frota" (25/11): planilha "1.1 Lista Requerimento Frota Pesada.xlsx" da pasta Frota do servidor, vai para a aba Frota
+    const sub = p.tipo === "dispo" ? "dispo/" : p.tipo === "otif" ? "otif/" : p.tipo === "estoque" ? "estoque/" : p.tipo === "frota" ? "frota/" : "";
     const caminho = `entrada/${rev}/${sub}${Date.now()}-${nomeParaStorage(nome)}${p.gz ? ".gz" : ""}`;
     const { data, error } = await storage.createSignedUploadUrl(caminho);
     if (error || !data) return erro(error?.message ?? "Não foi possível preparar o envio.", 500);

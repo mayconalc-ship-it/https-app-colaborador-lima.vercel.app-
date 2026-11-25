@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="versao" content="24/11/2026 21:31">
-<title>Gestor LOG · versão 24/11/2026 21:31</title>
+<meta name="versao" content="25/11/2026 12:52">
+<title>Gestor LOG · versão 25/11/2026 12:52</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.css">
 <style>
@@ -1759,13 +1759,165 @@ td.po-nf { font-size: 12px; max-width: 170px; }
 .tab tr.ag-dif td { background: rgba(181,23,79,.05); }
 .tab tr.ag-mes-ini td { border-top: 2px solid #CBD5E1; }
 .tab tr.ag-grupo td { background: rgba(20,32,47,.05); border-top: 2px solid #CBD5E1; }
+ /* ---------- aba Frota (25/11/2026) */
+#aba-frota.on { display: flex; flex-direction: column; gap: 12px; }
+.fo-topo { padding-bottom: 0; }
+.fo-topo .dp-fonte { margin-bottom: 4px; }
+.fo-rev { color: var(--tx-3); font-weight: 600; }
+.fo-subabas { margin: 4px 0 0; border-bottom: 0; overflow-x: auto; scrollbar-width: none; }
+.fo-subabas .badge { background: var(--azul-3); color: var(--navy); border-radius: 9px; padding: 0 6px; font-size: 11px; font-weight: 700; }
+.fo-subabas .badge.alerta { background: var(--rv); color: #fff; }
+.fo-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 8px; margin: 0; }
+.fo-kpis .kpi { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.fo-kpis .kpi .d { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fo-grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+@media (max-width: 1100px) { .fo-grid2 { grid-template-columns: 1fr; } }
+.fo-graf { width: 100%; height: auto; display: block; max-height: 220px; }
+.fo-graf .fo-grade { stroke: var(--linha); stroke-width: 1; }
+.fo-graf .fo-eixo { font-size: 10.5px; fill: var(--tx-3); }
+.fo-graf .fo-eixo.forte { fill: var(--rv); font-weight: 700; }
+.fo-graf .fo-val { font-size: 10.5px; fill: var(--tx-2); font-weight: 600; }
+.fo-graf .fo-bar.clic { cursor: pointer; }
+.fo-graf .fo-bar.clic:hover rect:first-child { fill: rgba(47,90,135,.06); }
+.fo-leg { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 11.5px; color: var(--tx-2); margin: 4px 0 6px; }
+.fo-leg i { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
+.fo-farol { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
+.fo-farol-l { display: grid; grid-template-columns: 150px 1fr; align-items: center; gap: 8px; font-size: 12.5px; }
+.fo-farol-l small { color: var(--tx-3); }
+.fo-b100 { display: flex; height: 20px; border-radius: 5px; overflow: hidden; background: var(--linha); }
+.fo-b100 i { display: flex; align-items: center; justify-content: center; color: #fff; font-style: normal; font-size: 11px; font-weight: 700; cursor: pointer; min-width: 3px; border-right: 1px solid rgba(255,255,255,.5); }
+.fo-b100 i:hover { filter: brightness(1.12); }
+.fo-chip { display: inline-block; border-radius: 10px; padding: 0 7px; font-size: 11.5px; font-weight: 600; line-height: 18px; white-space: nowrap; color: var(--c); background: color-mix(in srgb, var(--c) 13%, #fff); border: 1px solid color-mix(in srgb, var(--c) 35%, #fff); }
+.fo-dias { display: block; color: var(--tx-3); font-size: 10.5px; margin-top: 1px; }
+.fo-na { color: var(--linha-2); }
+.fo-sub { color: var(--tx-3); font-size: 11.5px; }
+.fo-terc { display: inline-block; font-size: 10.5px; font-weight: 600; color: #7B4FB5; background: #F3EEFB; border-radius: 8px; padding: 0 6px; }
+.fo-velho { color: var(--rv); font-weight: 700; }
+.fo-bola { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 6px; flex: none; }
+.fo-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.fo-chips .chip { cursor: pointer; }
+.fo-chips .chip i { width: 9px; height: 9px; border-radius: 50%; background: var(--c); display: inline-block; }
+.fo-chips .chip small { color: inherit; opacity: .75; font-variant-numeric: tabular-nums; }
+.fo-filtros { margin-bottom: 8px; }
+.fo-filtros .fo-busca { width: 220px !important; flex: none; }
+.fo-wrap { max-height: calc(100vh - 300px); min-height: 200px; }
+.fo-tab td { vertical-align: middle; }
+.fo-tab td.fo-doc { min-width: 92px; }
+.fo-tab th .info-i { font-weight: 400; }
+.fo-tab-mini { font-size: 12px; }
+.fo-tab-mini td, .fo-tab-mini th { padding: 4px 8px; }
+.fo-rodape { display: block; color: var(--tx-3); font-size: 11.5px; margin-top: 6px; }
+.fo-oc-tag { display: inline-block; font-size: 11px; font-weight: 600; color: #fff; background: var(--c); border-radius: 9px; padding: 0 7px; line-height: 18px; white-space: nowrap; }
+.fo-lista-acao { list-style: none; margin: 4px 0 0; padding: 0; max-height: 300px; overflow: auto; }
+.fo-lista-acao li { display: flex; align-items: baseline; gap: 4px; padding: 5px 4px; border-bottom: 1px solid var(--linha); font-size: 12.5px; cursor: pointer; }
+.fo-lista-acao li:hover { background: #F5F8FD; }
+.fo-lista-acao li b { white-space: nowrap; }
+.fo-lista-acao li span { color: var(--tx-2); }
+.fo-mais { color: var(--tx-3); font-size: 11.5px; }
+.fo-seg { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.fo-seg-it { font-size: 12px; background: var(--sup-2); border: 1px solid var(--linha); border-radius: 6px; padding: 3px 8px; }
+.fo-seg-it b { color: var(--rv); }
+.fo-seg-it.nok { border-color: #F1B8B3; background: var(--rv-bg); }
+/* ficha */
+.dlg.fo-ficha { max-width: 780px; padding: 0; max-height: calc(100vh - 32px); display: flex; flex-direction: column; }
+.fo-ficha-cab { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; padding: 14px 18px 10px; border-bottom: 1px solid var(--linha); }
+.fo-ficha-cab h3 { margin: 0; font-size: 17px; }
+.fo-ficha-cab small { color: var(--tx-3); }
+.fo-ficha-corpo { padding: 4px 18px 16px; overflow: auto; }
+.fo-ficha-corpo h4 { margin: 14px 0 6px; font-size: 12px; text-transform: uppercase; letter-spacing: .4px; color: var(--tx-3); }
+.fo-ficha-doc { display: grid; grid-template-columns: 1.2fr 1fr 1.4fr; gap: 8px; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--linha); }
+.fo-ficha-doc small { display: block; color: var(--tx-3); font-size: 11px; }
+.fo-ficha-bts { display: flex; gap: 6px; justify-content: flex-end; flex-wrap: wrap; align-items: center; }
+.fo-ficha-dados { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px 14px; }
+.fo-ficha-dados div { display: flex; flex-direction: column; font-size: 12.5px; min-width: 0; }
+.fo-ficha-dados span { color: var(--tx-3); font-size: 11px; }
+.fo-ficha-dados b { font-weight: 600; overflow-wrap: anywhere; }
+.fo-ficha-oc { font-size: 12px; padding: 4px 0; color: var(--tx-2); }
+.fo-disp { display: flex; flex-wrap: wrap; gap: 4px; }
+.fo-disp span { font-size: 11px; color: var(--tx-2); display: inline-flex; align-items: center; gap: 4px; border: 1px solid var(--linha); border-radius: 6px; padding: 1px 6px; }
+.fo-disp i { width: 9px; height: 9px; border-radius: 2px; background: var(--c); display: inline-block; }
+/* tratativas */
+.fo-oc { border: 1px solid var(--linha); border-left: 4px solid var(--c); border-radius: 8px; padding: 10px 12px; margin-top: 10px; background: var(--sup); }
+.fo-oc.fechada { opacity: .75; }
+.fo-oc-cab { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.fo-oc-cab b.clic { cursor: pointer; text-decoration: underline dotted; }
+.fo-oc-cab .esp { flex: 1; }
+.fo-oc-cab small { color: var(--tx-3); }
+.fo-passos { list-style: none; margin: 10px 0 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 6px; }
+.fo-passos li { display: flex; gap: 8px; align-items: flex-start; font-size: 12px; border: 1px solid var(--linha); border-radius: 7px; padding: 6px 8px; background: var(--sup-2); color: var(--tx-3); }
+.fo-passos li i { flex: none; width: 20px; height: 20px; border-radius: 50%; background: var(--linha); color: var(--tx-2); display: inline-flex; align-items: center; justify-content: center; font-style: normal; font-weight: 700; font-size: 11px; }
+.fo-passos li span { display: block; color: var(--tx-2); line-height: 1.3; }
+.fo-passos li small { display: block; font-size: 10.5px; margin-top: 2px; }
+.fo-passos li.feito { background: var(--ok-bg); border-color: #BFE3CC; }
+.fo-passos li.feito i { background: var(--ok); color: #fff; }
+.fo-passos li.atual { border-color: var(--c); background: #fff; box-shadow: 0 0 0 1px var(--c) inset; }
+.fo-passos li.atual i { background: var(--c); color: #fff; }
+.fo-passos li.atual span { color: var(--tx); font-weight: 600; }
+.fo-oc-acao { display: flex; gap: 8px; margin-top: 8px; align-items: center; flex-wrap: wrap; }
+.fo-oc-acao input { flex: 1; min-width: 220px; }
+.fo-hist summary { cursor: pointer; }
+/* calendário */
+.fo-meses { display: flex; gap: 4px; margin-bottom: 10px; overflow-x: auto; }
+.fo-mes { flex: 1; min-width: 58px; border: 1px solid var(--linha); background: var(--sup); border-radius: 7px; padding: 4px 4px 2px; display: flex; flex-direction: column; align-items: center; gap: 1px; position: relative; height: 60px; justify-content: flex-start; }
+.fo-mes span { font-size: 11px; color: var(--tx-3); }
+.fo-mes b { font-size: 15px; font-variant-numeric: tabular-nums; min-height: 18px; }
+.fo-mes i { position: absolute; bottom: 3px; width: 60%; background: var(--azul-2); border-radius: 2px 2px 0 0; }
+.fo-mes.on { border-color: var(--navy); box-shadow: 0 0 0 1px var(--navy) inset; }
+.fo-mes.on i { background: var(--navy); }
+.fo-mes.atras { border-color: #F1B8B3; background: var(--rv-bg); }
+.fo-mes.atras b { color: var(--rv); }
+.fo-cal-wrap { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 12px; align-items: start; }
+@media (max-width: 1100px) { .fo-cal-wrap { grid-template-columns: 1fr; } }
+.fo-cal-wrap > .fo-cal-lista:only-child { grid-column: 1 / -1; }
+.fo-cal-sem, .fo-cal-dias { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 3px; }
+.fo-cal-sem b { font-size: 11px; color: var(--tx-3); text-align: center; padding-bottom: 2px; }
+.fo-dia { min-height: 44px; border: 1px solid var(--linha); border-radius: 6px; padding: 2px 4px; background: var(--sup); display: flex; flex-direction: column; gap: 2px; overflow: hidden; }
+.fo-dia.vazio { background: transparent; border-color: transparent; }
+.fo-dia > span { font-size: 11px; color: var(--tx-3); }
+.fo-dia.hoje { border-color: var(--azul); box-shadow: 0 0 0 1px var(--azul) inset; }
+.fo-dia.tem { background: var(--sup-2); }
+.fo-dia em { font-style: normal; font-size: 10.5px; font-weight: 600; color: #fff; background: var(--c); border-radius: 4px; padding: 0 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
+.fo-dia small { font-size: 10px; color: var(--tx-3); }
+.fo-cal-lista { max-height: 430px; }
+.fo-go td:first-child, .fo-go th:first-child { white-space: nowrap; }
+/* fluxo e RACI */
+.fo-fluxo-card { border-top: 3px solid var(--c); }
+.fo-fluxo-card h3 small { color: var(--tx-3); font-weight: 400; }
+.fo-fluxo { display: flex; align-items: stretch; gap: 4px; margin: 10px 0 12px; overflow-x: auto; padding-bottom: 2px; }
+.fo-passo { flex: 1; min-width: 130px; border: 1px solid var(--linha-2); border-radius: 8px; padding: 6px 8px; background: var(--sup-2); display: flex; flex-direction: column; gap: 3px; font-size: 12px; }
+.fo-passo i { font-style: normal; width: 20px; height: 20px; border-radius: 50%; background: var(--c); color: #fff; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; }
+.fo-passo small { color: var(--azul); font-weight: 600; font-size: 11px; margin-top: auto; }
+.fo-passo.fim { flex: 0 0 auto; min-width: 56px; background: var(--navy); color: #fff; align-items: center; justify-content: center; font-weight: 700; border-color: var(--navy); }
+.fo-seta { align-self: center; color: var(--tx-3); }
+.fo-raci th.c, .fo-raci td.c { text-align: center; width: 120px; }
+.fo-r { display: inline-block; min-width: 24px; border-radius: 5px; font-weight: 700; font-size: 11.5px; padding: 1px 5px; }
+.fo-r-R { background: var(--navy); color: #fff; }
+.fo-r-A { background: #E8890C; color: #fff; }
+.fo-r-AR { background: linear-gradient(90deg, #E8890C 50%, var(--navy) 50%); color: #fff; }
+.fo-r-C { background: var(--azul-3); color: var(--navy); }
+.fo-r-I { background: var(--linha); color: var(--tx-2); }
+.fo-mudou { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 8px 16px; margin-top: 6px; }
+.fo-mudou div { display: flex; flex-direction: column; gap: 2px; font-size: 12.5px; border-left: 3px solid var(--azul-2); padding: 2px 0 2px 10px; }
+.fo-mudou span { color: var(--tx-2); }
+.fo-leg-raci div { border-left: 0; padding-left: 0; }
+/* qualidade */
+.fo-qual { list-style: none; margin: 6px 0 0; padding: 0; }
+.fo-qual li { display: flex; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--linha); align-items: flex-start; }
+.fo-qual li > b { min-width: 40px; text-align: right; font-size: 17px; color: var(--av); font-variant-numeric: tabular-nums; }
+.fo-qual li div { display: flex; flex-direction: column; gap: 2px; font-size: 12.5px; }
+.fo-qual small { color: var(--tx-3); }
+.fo-qual .fo-placas { font-family: ui-monospace, Consolas, monospace; font-size: 11px; }
+.fo-farol-l.parado { opacity: .6; }
+.fo-farol-l em { display: block; font-style: normal; font-size: 10.5px; color: var(--av); }
+.fo-th-parado { color: var(--tx-3) !important; }
+.fo-tab th small { display: block; font-weight: 400; font-size: 10px; color: var(--av); }
 
 </style>
 </head>
 <body>
 <div id="abertura" class="abertura"><img src="data:image/png;base64,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" alt="Cervejaria Ambev Lima"><div class="spin claro"></div><span>Abrindo o Gestor LOG…</span></div>
 <header id="topo">
-  <div class="marca"><img class="logo" src="data:image/png;base64,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" alt="Cervejaria Ambev Lima"><b>Gestor LOG</b><span>Rotas · Pedidos · Reposição</span><small class="versao" aria-label="Versão do sistema: 24/11/2026 21:31">versão<br>24/11 21:31</small></div>
+  <div class="marca"><img class="logo" src="data:image/png;base64,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" alt="Cervejaria Ambev Lima"><b>Gestor LOG</b><span>Rotas · Pedidos · Reposição</span><small class="versao" aria-label="Versão do sistema: 25/11/2026 12:52">versão<br>25/11 12:52</small></div>
   <select class="sel-rev" id="sel-revenda" aria-label="Revenda em análise"></select>
   <div class="seg-ctl" id="sel-visao" title="Planner exibido">
     <button data-v="atual" class="on">Planner atual</button>
@@ -1777,6 +1929,7 @@ td.po-nf { font-size: 12px; max-width: 170px; }
     <button data-aba="prerota">Pré-roteirização</button>
     <button data-aba="otif">OTIF</button>
     <button data-aba="estoque">Estoque</button>
+    <button data-aba="frota">Frota</button>
     <button data-aba="painel">Painel</button>
     <button data-aba="pdvs">PDVs</button>
     <button data-aba="simulacao">Simulação</button>
@@ -1836,6 +1989,7 @@ td.po-nf { font-size: 12px; max-width: 170px; }
     <section class="aba pad" id="aba-prerota"></section>
     <section class="aba pad" id="aba-otif"></section>
     <section class="aba pad" id="aba-estoque"></section>
+    <section class="aba pad" id="aba-frota"></section>
     <section class="aba pad" id="aba-painel"></section>
     <section class="aba pad" id="aba-pdvs"></section>
     <section class="aba pad" id="aba-simulacao"></section>
@@ -5171,6 +5325,7 @@ function render(ajustarMapa) {
     case 'reposicao': renderReposicao(); break;
     case 'otif': renderOtif(); break;
     case 'estoque': renderEstoque(); break;
+    case 'frota': renderFrota(); break;
     case 'qualidade': renderQualidade(); break;
     case 'atualizar': renderAtualizar(); break;
     case 'parametros': renderParametros(); break;
@@ -5199,7 +5354,7 @@ const NUVEM = {
   avisouNova: false,
 };
 NUVEM.ativo = !!(NUVEM.cfg && NUVEM.cfg.api);
-const NUVEM_CHAVE = /^(?:(?:fontes|fontesMeta|pedidos|frotaRot|reposicao|grade|tempos|histMapas|histBuf|antGrade|dispo|otif|estoque):(?:SF|BAR)|ids|produtos|senha)$/;
+const NUVEM_CHAVE = /^(?:(?:fontes|fontesMeta|pedidos|frotaRot|reposicao|grade|tempos|histMapas|histBuf|antGrade|dispo|otif|estoque|frota|frotaOc):(?:SF|BAR)|ids|produtos|senha)$/;
 // chave de revenda que não é da pessoa (arquivo com as duas revendas processado por quem é de uma só): fica só neste
 // navegador, não vai para o servidor (que recusaria)
 const nuvemCompartilha = k => typeof k === 'string' && NUVEM_CHAVE.test(k) && (!/:(SF|BAR)$/.test(k) || revMinha(k.split(':')[1]));
@@ -5334,15 +5489,16 @@ async function nuvemEntrada(forcar) {
         const resp = await fetch(x.url); if (!resp.ok) throw new Error('falhou ao baixar ' + x.nome + ' (' + resp.status + ')');
         // o carteiro manda compactado (.gz): descompacta aqui
         const b = x.gz ? await new Response(resp.body.pipeThrough(new DecompressionStream('gzip'))).blob() : await resp.blob();
-        lista.push({ file: new File([b], x.nome, { lastModified: Number(x.modificado) || Date.now() }), rev: x.rev, caminho: x.nome, nome: rotRev(x.rev) + ' › ' + x.nome, entradaId: x.id, dispo: !!x.dispo, otif: !!x.otif || otEhArquivo(x.nome), estoque: !!x.estoque || esEhArquivo(x.nome) });
+        lista.push({ file: new File([b], x.nome, { lastModified: Number(x.modificado) || Date.now() }), rev: x.rev, caminho: x.nome, nome: rotRev(x.rev) + ' › ' + x.nome, entradaId: x.id, dispo: !!x.dispo, otif: !!x.otif || otEhArquivo(x.nome), estoque: !!x.estoque || esEhArquivo(x.nome), frota: !!x.frota || frEhArquivo(x.nome) });
       }
     } finally { pronto(); }
     // planilhas DISPO (pasta DISPONIBILIDADE do Teams, 20/11) vão para a aba Disponibilidade; os CSVs do OTIF (21/11), para a
     // aba OTIF; o resto, para a base do planner
-    const dispo = lista.filter(x => x.dispo), otif = lista.filter(x => x.otif && !x.dispo), estq = lista.filter(x => x.estoque && !x.dispo && !x.otif), resto = lista.filter(x => !x.dispo && !x.otif && !x.estoque);
+    const dispo = lista.filter(x => x.dispo), otif = lista.filter(x => x.otif && !x.dispo), estq = lista.filter(x => x.estoque && !x.dispo && !x.otif), frt = lista.filter(x => x.frota && !x.dispo && !x.otif && !x.estoque), resto = lista.filter(x => !x.dispo && !x.otif && !x.estoque && !x.frota);
     if (dispo.length) await nuvemEntradaDispo(dispo);
     if (otif.length) await nuvemEntradaOtif(otif);
     if (estq.length) await nuvemEntradaEstoque(estq);
+    if (frt.length) await nuvemEntradaFrota(frt);
     if (resto.length) await processarPasta(false, resto, { auto: true });
   } catch (e) { console.warn('nuvem/entrada:', e); toast('Não foi possível ler os relatórios recebidos do servidor: ' + e.message, 8000); }
   finally { NUVEM.entrada.lendo = false; }
@@ -5382,13 +5538,14 @@ function nuvemEnviarArquivos() {
     inp.accept = '.csv,.txt,.xlsx,.xls,.xlsm'; document.body.appendChild(inp);
     inp.onchange = async () => {
       const files = [...inp.files]; inp.value = ''; if (!files.length) return;
-      const lista = files.map(f => ({ file: f, rev: S.rev, caminho: f.name, nome: rotRev(S.rev) + ' › ' + f.name, otif: otEhArquivo(f.name), estoque: esEhArquivo(f.name) }));
+      const lista = files.map(f => ({ file: f, rev: S.rev, caminho: f.name, nome: rotRev(S.rev) + ' › ' + f.name, otif: otEhArquivo(f.name), estoque: esEhArquivo(f.name), frota: frEhArquivo(f.name) }));
       // planilhas DISPO (pasta DISPONIBILIDADE do Teams, 20/11) vão para a aba Disponibilidade; os CSVs do OTIF (21/11), para a
       // aba OTIF; o resto, para a base do planner
-    const dispo = lista.filter(x => x.dispo), otif = lista.filter(x => x.otif && !x.dispo), estq = lista.filter(x => x.estoque && !x.dispo && !x.otif), resto = lista.filter(x => !x.dispo && !x.otif && !x.estoque);
+    const dispo = lista.filter(x => x.dispo), otif = lista.filter(x => x.otif && !x.dispo), estq = lista.filter(x => x.estoque && !x.dispo && !x.otif), frt = lista.filter(x => x.frota && !x.dispo && !x.otif && !x.estoque), resto = lista.filter(x => !x.dispo && !x.otif && !x.estoque && !x.frota);
     if (dispo.length) await nuvemEntradaDispo(dispo);
     if (otif.length) await nuvemEntradaOtif(otif);
     if (estq.length) await nuvemEntradaEstoque(estq);
+    if (frt.length) await nuvemEntradaFrota(frt);
     if (resto.length) await processarPasta(false, resto, { auto: true });
     };
   }
@@ -13283,6 +13440,666 @@ function esFtImagemAbrir() {
     ftH > 0 ? `Falta teórica de hoje: uns ${fmtI(ftH)} HL.` : '', temCdr ? esImgAutTxt(P.map(o => o.x), pr) : ''].filter(Boolean).join('\n');
   esImgAbrir(Q, 'Falta teórica para enviar', 'Os cartões e a tabela Produtos em OUT ou com falta teórica com os filtros da tela (período, cesta, categoria, busca, Só em OUT hoje, Onde puxar e fábricas).',
     `Falta_teorica_${nomeArq(rotRev(rev))}_${E.fmtDia(X.dEst).slice(0, 5).replace('/', '-')}`, texto);
+}
+
+/* Gestor LOG — aba FROTA (25/11/2026): gestão da frota (caminhões, vans e empilhadeiras) das duas revendas */
+// Fonte: "1.1 Lista Requerimento Frota Pesada.xlsx" (\\192.168.4.250\Frota\DPO - Revenda Lima Bahia 2026\1.0 Conformidade\
+// 1.1 Documentos - Autorizações\Planilha Requerimento Equipamentos), abas Frota Caminhões, Frota Vans e Frota Empilhadeiras.
+// A planilha tem as duas revendas: cada veículo vai para a revenda da coluna Operação (Barreiras / São Félix do Coribe).
+// Colunas achadas pelo título (a planilha tem títulos com "I" no lugar de "l": ModeIo, VeícuIo, VaIor).
+// Documentos controlados: IPVA/CRLV (Data Limite de Pagamento), ANTT (situação APTO), cronotacógrafo (Data Vencimento),
+// extintor (Data Vencimento), vigilância sanitária e análise de opacidade (colunas existem, mas vazias na planilha).
+// Faróis: vencido (< hoje), vence em até 15, 30 e 60 dias, em dia (> 60) e sem data. Tratativas (o fluxo redesenhado) ficam na
+// base compartilhada 'frotaOc:<rev>'; o cadastro lido, em 'frota:<rev>'.
+const FR = { dados: {}, oc: {}, sub: 'painel', esc: 'rev', st: '', doc: '', cls: '', q: '', mes: null, calDoc: 'crlv', ord: null, ordDesc: false, dispo: {} };
+FR.sub = (() => { try { return localStorage.getItem('gestor-log-fo-sub') || 'painel'; } catch { return 'painel'; } })();
+// a pasta do servidor também tem a "Lista Requerimento Frota Leve" (motos, carros, paleteiras): o carteiro manda as duas e só a Pesada é lida
+const FR_ARQ = /lista\s*requerimento\s*frota\s*pesada/i;
+const frEhArquivo = nome => FR_ARQ.test(String(nome || '').split(/[\\/]/).pop()) && /\.xls[xm]?$/i.test(String(nome || ''));
+const FR_CLS = { cam: 'Caminhões', van: 'Vans', emp: 'Empilhadeiras' };
+const FR_CLS1 = { cam: 'Caminhão', van: 'Van', emp: 'Empilhadeira' };
+const FR_DOCS = [
+  { k: 'crlv', rot: 'IPVA / CRLV', curto: 'IPVA/CRLV', cor: '#2F5A87', cls: ['cam', 'van'], info: 'Licenciamento anual (CRLV-e) com o IPVA do exercício quitado. Data = "Data Limite de Pagamento" da planilha. Sem CRLV válido o veículo não pode circular (CTB art. 230, V: infração gravíssima e remoção).' },
+  { k: 'antt', rot: 'ANTT (RNTRC)', curto: 'ANTT', cor: '#7B4FB5', cls: ['cam'], info: 'Registro Nacional de Transportadores Rodoviários de Cargas. A planilha guarda só a situação (APTO), sem data: APTO = em dia; vazio = sem registro.' },
+  { k: 'crono', rot: 'Cronotacógrafo', curto: 'Cronotac.', cor: '#0E8F7E', cls: ['cam'], info: 'Certificado de verificação do cronotacógrafo (Inmetro). Obrigatório para veículo de carga acima de 4.536 kg de PBT. Data = "Data Vencimento Cronotacógrafo".' },
+  { k: 'ext', rot: 'Extintor', curto: 'Extintor', cor: '#C2410C', cls: ['cam', 'emp'], info: 'Validade da carga do extintor (selo do Inmetro). Data = "Data Vencimento Extintor".' },
+  { k: 'vs', rot: 'Vigilância sanitária', curto: 'Vig. sanit.', cor: '#8FA3C8', cls: ['cam'], info: 'Licença sanitária do veículo que transporta bebida/alimento (colunas Registro, Data Registro e Vencimento Vigilância Sanitária).' },
+  { k: 'opac', rot: 'Análise de opacidade', curto: 'Opacidade', cor: '#5B6B80', cls: ['cam'], info: 'Inspeção de fumaça preta do motor diesel (colunas Data da Avaliação e Data Vencimento Análise de Opacidade).' },
+];
+const FR_DOC = Object.fromEntries(FR_DOCS.map(d => [d.k, d]));
+// documentos sem nenhuma data na planilha inteira ficam fora dos faróis (aparecem em Qualidade da base)
+const frDocsAtivos = () => FR_DOCS.filter(d => frTodos().some(a => a.docs[d.k] && (a.docs[d.k].venc != null || a.docs[d.k].sit)));
+// controle parado (achado 25/11): vigilância sanitária e opacidade têm datas em colunas escondidas da planilha, todas de 2023/2024.
+// Documento cuja data mais nova já passou há mais de 180 dias = ninguém atualiza: aparece (com o aviso), mas fica fora da
+// conformidade, dos vencidos e da lista Precisa de ação, para não misturar controle abandonado com documento vencido de verdade
+function frDocParado(k) {
+  let mx = -Infinity; for (const a of frTodos()) { const x = (a.docs || {})[k]; if (x && x.venc != null && x.venc > mx) mx = x.venc; }
+  return Number.isFinite(mx) && mx < hojeDia() - 180 ? mx : null;
+}
+const frDocsVivos = () => frDocsAtivos().filter(d => frDocParado(d.k) == null);
+const FR_ST = [
+  { k: 'venc', rot: 'Vencido', cor: '#B42318' },
+  { k: 'r15', rot: 'Vence em até 15 dias', curto: 'Até 15 d', cor: '#D9480F' },
+  { k: 'r30', rot: 'Vence em 16 a 30 dias', curto: '16–30 d', cor: '#E8890C' },
+  { k: 'r60', rot: 'Vence em 31 a 60 dias', curto: '31–60 d', cor: '#D4A72C' },
+  { k: 'ok', rot: 'Em dia (mais de 60 dias)', curto: 'Em dia', cor: '#2F7D4F' },
+  { k: 'sem', rot: 'Sem data na planilha', curto: 'Sem data', cor: '#AAB4C0' },
+];
+const FR_STC = Object.fromEntries(FR_ST.map(s => [s.k, s]));
+const FR_ORDEM_ST = { venc: 0, r15: 1, r30: 2, r60: 3, sem: 4, ok: 5, na: 6 };
+// fluxos redesenhados (ver sub-aba Fluxo e RACI). papel = quem executa (R) a etapa
+const FR_PAP = { god: 'GOD', coord: 'Coordenador de Frota', tec: 'Técnico de Frota', mot: 'Motorista' };
+const FR_FLUXOS = {
+  renov: { rot: 'Renovação programada', cor: '#2F5A87', meta: 'concluir até 15 dias antes do vencimento', etapas: [
+    ['prog', 'Programar a renovação (boleto lançado, agendamento ou vistoria marcada)', 'tec', { god: 'I', coord: 'A', tec: 'R', mot: '' }],
+    ['pago', 'Pagamento ou serviço realizado', 'tec', { god: '', coord: 'A', tec: 'R', mot: '' }],
+    ['doc', 'Documento novo no veículo e cópia digital na pasta da placa', 'tec', { god: '', coord: 'A', tec: 'R', mot: 'I' }],
+    ['plan', 'Planilha atualizada com o novo vencimento (o Gestor LOG confere sozinho)', 'tec', { god: 'I', coord: 'A', tec: 'R', mot: '' }],
+  ] },
+  venc: { rot: 'Documento vencido', cor: '#B42318', meta: 'bloquear no mesmo dia; liberar em até 2 dias', etapas: [
+    ['bloq', 'Bloquear o veículo: placa de bloqueio, chave recolhida e PARADO FROTA na disponibilidade', 'tec', { god: 'I', coord: 'A', tec: 'R', mot: 'I' }],
+    ['reg', 'Regularizar o documento (pagar, agendar ou renovar)', 'tec', { god: 'I', coord: 'A', tec: 'R', mot: '' }],
+    ['doc', 'Imprimir o documento novo e guardar a cópia digital na pasta da placa', 'tec', { god: '', coord: 'A', tec: 'R', mot: '' }],
+    ['ent', 'Entregar ao motorista e conferir no checklist de saída', 'tec', { god: '', coord: 'A', tec: 'R', mot: 'C' }],
+    ['lib', 'Liberar o veículo e voltar para DISPONÍVEL na disponibilidade', 'tec', { god: 'I', coord: 'A', tec: 'R', mot: 'I' }],
+  ] },
+  extr: { rot: 'Documento extraviado', cor: '#7B4FB5', meta: '2ª via e liberação no mesmo dia', etapas: [
+    ['rel', 'Relatar o extravio no checklist de saída ou retorno', 'mot', { god: 'I', coord: 'I', tec: 'A', mot: 'R' }],
+    ['bloq', 'Bloquear a saída do veículo', 'coord', { god: 'I', coord: 'A/R', tec: 'C', mot: 'I' }],
+    ['via', '2ª via: CRLV-e = imprimir do app/gov.br; demais = cópia da pasta digital; roubo ou furto = B.O.', 'tec', { god: '', coord: 'A', tec: 'R', mot: '' }],
+    ['ent', 'Entregar ao motorista', 'tec', { god: '', coord: 'A', tec: 'R', mot: 'C' }],
+    ['lib', 'Liberar o veículo para a operação', 'tec', { god: 'I', coord: 'A', tec: 'R', mot: 'I' }],
+  ] },
+};
+// calendário do IPVA/licenciamento de Goiás 2026 (imagem da aba Calendário IPVA da planilha; placas de Rio Verde/Jataí - GO)
+const FR_IPVA_GO26 = {
+  unica: '15/01', parcelas: ['15/01', '19/02', '16/03', '15/04', '15/05', '15/06', '15/07', '17/08', '15/09', '15/10'],
+  limite: { 1: '15/09', 2: '15/09', 3: '15/10', 4: '15/10', 5: '15/10', 6: '15/10', 7: '15/10', 8: '15/10', 9: '15/10', 0: '15/10' },
+};
+
+// ---------------------------------------------------------------- leitura da planilha
+const frN = s => E.semAcento(String(s == null ? '' : s)).replace(/[º°ª]/g, '').trim().replace(/\s+/g, ' ').toUpperCase();
+function frData(v) {
+  if (v == null || v === '') return null;
+  if (typeof v === 'number') return v > 20000 && v < 80000 ? Math.floor(v) - 25569 : null;   // série do Excel
+  const m = String(v).trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})/); if (!m) return null;
+  const a = +m[3] < 100 ? 2000 + +m[3] : +m[3]; return E.diaDe(a, +m[2], +m[1]);
+}
+const frNum = v => { if (typeof v === 'number') return v; const x = E.numBR(String(v == null ? '' : v).replace(/[^\d.,-]/g, '')); return Number.isFinite(x) ? x : null; };
+const frTxt = v => String(v == null ? '' : v).trim().replace(/\s+/g, ' ');
+const frRev = op => { const n = frN(op); return /BARREIRAS/.test(n) ? 'BAR' : /FELIX|CORIBE/.test(n) ? 'SF' : ''; };
+const FR_UF_CID = { RECIFE: 'PE', OLINDA: 'PE', CAPANEMA: 'PA', JATAI: 'GO', 'RIO VERDE': 'GO' };
+const frUf = mun => { const n = frN(mun), m = n.match(/\b([A-Z]{2})$/); if (m && n.length > 2) return m[1]; if (/^[A-Z]{2}$/.test(n)) return n; return FR_UF_CID[n] || ''; };
+const FR_SEG = ['CHAVE DE RODA', 'CABO DE FORCA', 'PINO CAMBAO', 'TRIANGULO', 'EXTINTOR', 'CONE', 'TACOGRAFO', 'STEP', 'PNEUS', 'PLATAFORMA', 'PASSA FIO', 'ESTRIBO', 'KIT ERGONOMICO', 'MACACO', 'SENSOR DE CINTO'];
+const FR_SEG_ROT = ['Chave de roda', 'Cabo de força', 'Pino cambão', 'Triângulo', 'Extintor', 'Cone', 'Tacógrafo', 'Estepe', 'Pneus', 'Plataforma', 'Passa fio', 'Estribo', 'Kit ergonômico', 'Macaco', 'Sensor de cinto'];
+
+function frCab(L, precisa) {
+  for (let i = 0; i < Math.min(40, L.length); i++) { const c = (L[i] || []).map(frN); if (precisa.every(re => c.some(x => re.test(x)))) return { i, c }; }
+  return null;
+}
+// veículos (caminhões e vans): uma linha por placa
+function frLerVeiculos(L, cls, avisos) {
+  const h = frCab(L, [/^PLACA$/, /^RENAVAM/]); if (!h) { avisos.push(`aba ${FR_CLS[cls]}: sem as colunas Placa e Renavam`); return []; }
+  const c = h.c, col = (re, de = 0) => { for (let j = de; j < c.length; j++) if (re.test(c[j])) return j; return -1; };
+  const I = {
+    placa: col(/^PLACA$/), frota: col(/^NUMERO DA FROTA/), tel: col(/^TELEMETRIA/), marca: col(/^MARCA/), modelo: col(/^MODE[IL]O/), pneus: col(/^QTDE PNEUS/),
+    anoMod: col(/^ANO\/MODELO/), mun: col(/^MUNICIPIO/), fadiga: col(/FADIGA/), pbt: col(/^PBT/), tara: col(/^TARA/), capKg: col(/^CAPACIDADE LIQUIDA/), capCx: col(/^CAPACIDADE CAIXAS/),
+    capPal: col(/^CAPACIDADE PALLETS/), op: col(/^OPERACAO/), tipo: col(/^TIPO VEICU/), bau: col(/^BAU\/CARROCERIA/), carroc: col(/^TIPO CARROCERIA/), dono: col(/^DONO/), cnpj: col(/^CNPJ$/),
+    chassi: col(/^CHASSI/), tanque: col(/^CAPACIDADE TANQUE/), renavam: col(/^RENAVAM/), logo: col(/^LOGOMARCA/), anoFab: col(/^ANO FABRICACAO/), anoM: col(/^ANO MODELO/),
+    exerc: col(/^ANO EXERCICIO/), ipva: col(/^DATA LIMITE DE PAGAMENTO/), boleto: col(/^BOLETO LANCADO/), pago: col(/^PAGAMENTO REALIZADO/), fipeN: col(/^VA[IL]OR NOVO FIPE/), fipeA: col(/^VA[IL]OR ATUALIZADO FIPE/),
+    anttReg: col(/^REGISTRO ANTT/), anttV: col(/^VENCIMENTO ANTT/), cronoReg: col(/^REGISTRO CRONOTACOGRAFO/), cronoTipo: col(/^TIPO DOCUMENTO/), cronoEm: col(/^DATA DE EMISSAO/), cronoV: col(/^DATA VENCIMENTO CRONOTACOGRAFO/),
+    extLacre: col(/LACRE/), extV: col(/^DATA VENCIMENTO EXTINTOR/), vsReg: col(/^REGISTRO VIGILANCIA/), vsV: col(/^VENCIMENTO VIGILANCIA/), opV: col(/^DATA VENCIMENTO ANALISE DE OPACIDADE/),
+  };
+  const iSeg0 = col(/^CHAVE DE RODA$/), seg = iSeg0 < 0 ? [] : FR_SEG.map(n => col(new RegExp('^' + n + '$'), iSeg0));
+  const v = (r, i) => (i >= 0 ? r[i] : ''), t = (r, i) => frTxt(v(r, i));
+  const out = [], vistos = new Set();
+  for (let li = h.i + 1; li < L.length; li++) {
+    const r = L[li] || [], placa = dpPlaca(v(r, I.placa)); if (!dpEhPlaca(placa)) continue;
+    if (vistos.has(placa)) { avisos.push(`${FR_CLS1[cls]} ${placa} aparece mais de uma vez (ficou a primeira linha)`); continue; }
+    vistos.add(placa);
+    const dono = t(r, I.dono), anoFab = frNum(v(r, I.anoFab)), anoM = frNum(v(r, I.anoM));
+    const am = t(r, I.anoMod).match(/(\d{4})(?:\D+(\d{2,4}))?/);
+    const anoMod = anoM || (am ? (am[2] ? (am[2].length === 2 ? 2000 + +am[2] : +am[2]) : +am[1]) : null), anoF = anoFab || (am ? +am[1] : null);
+    const anttTxt = frN(v(r, I.anttV)), anttD = frData(v(r, I.anttV));
+    const ext = frData(v(r, I.extV));
+    const a = {
+      id: placa, cls, placa, linha: li + 1, frota: t(r, I.frota).replace(/^N\/[AT]$/i, ''), marca: t(r, I.marca), modelo: t(r, I.modelo), anoFab: anoF, anoMod, mun: t(r, I.mun), uf: frUf(t(r, I.mun)),
+      tipo: frN(v(r, I.tipo)), bau: t(r, I.bau), carroc: t(r, I.carroc), pbt: frNum(v(r, I.pbt)), tara: frNum(v(r, I.tara)), capKg: frNum(v(r, I.capKg)), capCx: frNum(v(r, I.capCx)),
+      capPal: frNum(String(v(r, I.capPal)).replace(/pallets?/i, '')), dono, cnpj: t(r, I.cnpj), terceiro: !!dono && !/LIMA/i.test(dono), chassi: t(r, I.chassi), renavam: t(r, I.renavam), tanque: t(r, I.tanque),
+      logo: t(r, I.logo), tel: t(r, I.tel), pneus: t(r, I.pneus), fadiga: t(r, I.fadiga), fipeN: frNum(v(r, I.fipeN)), fipeA: frNum(v(r, I.fipeA)), rev: frRev(v(r, I.op)), opTxt: t(r, I.op),
+      final: +placa.slice(-1),
+      docs: {
+        crlv: { venc: frData(v(r, I.ipva)), exerc: t(r, I.exerc), boleto: t(r, I.boleto), pago: t(r, I.pago) },
+        antt: { venc: anttD, reg: t(r, I.anttReg), sit: anttD == null ? anttTxt : '' },
+        crono: { venc: frData(v(r, I.cronoV)), reg: t(r, I.cronoReg), tipo: t(r, I.cronoTipo), em: frData(v(r, I.cronoEm)) },
+        ext: { venc: ext, lacre: t(r, I.extLacre) },
+        vs: { venc: frData(v(r, I.vsV)), reg: t(r, I.vsReg) },
+        opac: { venc: frData(v(r, I.opV)) },
+      },
+      seg: seg.some(i => i >= 0 && frTxt(r[i])) ? Object.fromEntries(FR_SEG.map((n, k) => [k, frTxt(v(r, seg[k]))])) : null,
+    };
+    out.push(a);
+  }
+  return out;
+}
+// empilhadeiras: uma linha por equipamento (número da frota)
+function frLerEmpilhadeiras(L, avisos) {
+  const h = frCab(L, [/^MARCA/, /^CHASSI/, /^OPERACAO/]); if (!h) { avisos.push('aba Empilhadeiras: sem as colunas Marca, Chassi e Operação'); return []; }
+  const c = h.c, col = re => c.findIndex(x => re.test(x));
+  const I = { cod: col(/^CODIGO FROTA/), num: col(/^NUMERO$/), marca: col(/^MARCA/), modelo: col(/^MODE[IL]O/), chassi: col(/^CHASSI/), ano: col(/^ANO\/MODELO/), cap: col(/^CAPACIDADE LEVANTAMENTO/),
+    op: col(/^OPERACAO/), dono: col(/^DONO/), loc: col(/^LOCACAO/), hor: col(/^HORIMETRO ATUAL/), horL: col(/^HORIMETRO LIMITE/), horD: col(/^HORIMETRO DINAMICO/),
+    extD: col(/^EXTINTOR \(DIAS/), extL: col(/LACRE/), extV: col(/^VENCIMENTO EXTINTOR/), garfo: col(/^GARFO/), torre: col(/^ALTURA MAXIMA/), tanque: col(/^CAPACIDADE TANQUE/) };
+  const v = (r, i) => (i >= 0 ? r[i] : ''), t = (r, i) => frTxt(v(r, i));
+  const out = []; let trocadas = 0;
+  for (let li = h.i + 1; li < L.length; li++) {
+    const r = L[li] || []; if (!t(r, I.marca) || !t(r, I.chassi)) continue;
+    const num = t(r, I.num) || t(r, I.cod) || String(out.length + 1);
+    // achado 25/11: a data do extintor está na coluna "Extintor (Dias para vencimento)" e os dias em "Vencimento Extintor" (títulos trocados)
+    let ext = frData(v(r, I.extV)); if (ext == null) { ext = frData(v(r, I.extD)); if (ext != null) trocadas++; }
+    const ano = frNum(v(r, I.ano)), dono = t(r, I.dono);
+    out.push({ id: 'EMP-' + num, cls: 'emp', placa: '', num, linha: li + 1, frota: num, marca: t(r, I.marca), modelo: t(r, I.modelo), chassi: t(r, I.chassi), anoFab: ano, anoMod: ano,
+      capKg: frNum(v(r, I.cap)), rev: frRev(v(r, I.op)), opTxt: t(r, I.op), dono, terceiro: !!dono && !/LIMA/i.test(dono), loc: t(r, I.loc), tanque: t(r, I.tanque),
+      hor: frNum(v(r, I.hor)), horL: frNum(v(r, I.horL)), docs: { ext: { venc: ext, lacre: t(r, I.extL) } }, seg: null });
+  }
+  if (trocadas) avisos.push(`Empilhadeiras: em ${trocadas} linha(s) a data do extintor está na coluna "Extintor (Dias para vencimento)" e os dias em "Vencimento Extintor" (títulos trocados) — lida a data certa`);
+  return out;
+}
+async function frLerArquivo(file) {
+  await carregarSheetJS();
+  const buf = new Uint8Array(await file.arrayBuffer());
+  const nomes = XLSX.read(buf, { type: 'array', bookSheets: true }).SheetNames;
+  const ach = re => nomes.find(n => re.test(frN(n)));
+  const aC = ach(/^FROTA CAMINHOES$/), aV = ach(/^FROTA VANS$/), aE = ach(/^FROTA EMPILHADEIRAS$/);
+  if (!aC && !aV && !aE) throw new Error('sem as abas Frota Caminhões, Frota Vans ou Frota Empilhadeiras');
+  const wb = XLSX.read(buf, { type: 'array', dense: true, sheets: [aC, aV, aE].filter(Boolean) });
+  const lin = n => XLSX.utils.sheet_to_json(wb.Sheets[n], { header: 1, raw: true, defval: '' });
+  const avisos = [], ativos = [];
+  if (aC) ativos.push(...frLerVeiculos(lin(aC), 'cam', avisos));
+  if (aV) ativos.push(...frLerVeiculos(lin(aV), 'van', avisos));
+  if (aE) ativos.push(...frLerEmpilhadeiras(lin(aE), avisos));
+  return { ativos, avisos };
+}
+async function frProcessar(itens) {
+  const msgs = [], mudou = new Set();
+  for (const it of itens.sort((a, b) => a.file.lastModified - b.file.lastModified)) {
+    if (it.auto && !frEhArquivo(it.file.name)) continue;   // outra planilha da pasta da frota (a Leve): ignora sem aviso
+    let r; try { r = await frLerArquivo(it.file); } catch (e) { msgs.push(`${it.file.name}: ${e.message}`); continue; }
+    const quando = it.file.lastModified || Date.now();
+    const semRev = r.ativos.filter(a => !a.rev);
+    for (const rev of Object.keys(E.REVENDAS)) {
+      if (!revMinha(rev)) continue;
+      const D = await frDadosAbrir(rev); if ((D.mod || 0) > quando) continue;
+      const lista = r.ativos.filter(a => a.rev === rev);
+      if (!lista.length) continue;
+      Object.assign(D, { v: 1, arquivo: it.file.name, mod: quando, lidoEm: Date.now(), ativos: lista, avisos: r.avisos.concat(semRev.length ? [`${semRev.length} linha(s) sem Operação Barreiras/São Félix: ${semRev.map(a => a.placa || a.id).join(', ')}`] : []) });
+      mudou.add(rev);
+      msgs.push(`${rotRev(rev)}: ${lista.filter(a => a.cls === 'cam').length} caminhões, ${lista.filter(a => a.cls === 'van').length} vans, ${lista.filter(a => a.cls === 'emp').length} empilhadeiras`);
+    }
+  }
+  for (const rev of mudou) { await DB.put('frota:' + rev, FR.dados[rev]); await frFecharPelaPlanilha(rev); }
+  return { msgs, n: mudou.size };
+}
+async function frCarregarArquivos(files) {
+  const itens = [...files].filter(f => /\.xls[xm]?$/i.test(f.name)).map(file => ({ file }));
+  if (!itens.length) { toast('Escolha a planilha "1.1 Lista Requerimento Frota Pesada.xlsx".', 6000); return; }
+  await carregando('Lendo a planilha da frota…');
+  let r; try { r = await frProcessar(itens); } finally { pronto(); }
+  toast(r.msgs.join(' · ') || 'Nada novo (a planilha já lida é a mais recente).', 8000);
+  if (S.aba === 'frota') renderFrota();
+}
+// planilha que chega pela caixa do carteiro (pasta do servidor) ou pelo "Enviar relatórios"
+async function nuvemEntradaFrota(itens) {
+  await carregando('Lendo a planilha da frota recebida…');
+  let r; try { r = await frProcessar(itens.map(x => ({ file: x.file, auto: true }))); await nuvemEntradaFeita(itens); } finally { pronto(); }
+  toast('Frota: ' + (r.msgs.join(' · ') || 'nada novo'), 7000);
+  if (S.aba === 'frota') renderFrota();
+}
+
+// ---------------------------------------------------------------- dados guardados
+async function frDadosAbrir(rev) {
+  if (!FR.dados[rev]) { const r = await DB.get('frota:' + rev); FR.dados[rev] = r && r.ativos ? r : { ativos: [], avisos: [] }; }
+  return FR.dados[rev];
+}
+async function frOcAbrir(rev) {
+  if (!FR.oc[rev]) { const r = await DB.get('frotaOc:' + rev); FR.oc[rev] = r && r.lista ? r : { lista: [] }; }
+  return FR.oc[rev];
+}
+const frOcGuardar = rev => DB.put('frotaOc:' + rev, FR.oc[rev]);
+async function frDispoAbrir(rev) {
+  if (FR.dispo[rev] === undefined) { const r = (typeof DP !== 'undefined' && DP.dados[rev]) || await DB.get('dispo:' + rev); FR.dispo[rev] = r && r.dias ? r : null; }
+  return FR.dispo[rev];
+}
+const frRevsVer = () => FR.esc === 'todas' ? revsMinhas() : [S.rev];
+const frTodos = () => frRevsVer().flatMap(r => ((FR.dados[r] || {}).ativos || []));
+const frOcs = () => frRevsVer().flatMap(r => ((FR.oc[r] || {}).lista || []).map(o => Object.assign(o, { rev: o.rev || r })));
+
+// ---------------------------------------------------------------- situação dos documentos
+function frAplica(a, k) {
+  const d = FR_DOC[k]; if (!d.cls.includes(a.cls)) return false;
+  if (k === 'crono' && a.pbt != null && a.pbt > 0 && a.pbt <= 4536) return false;   // abaixo de 4.536 kg de PBT não exige cronotacógrafo
+  return true;
+}
+function frStDoc(a, k, hoje = hojeDia()) {
+  if (!frAplica(a, k)) return { st: 'na' };
+  const x = (a.docs || {})[k] || {};
+  if (x.venc != null) { const dias = x.venc - hoje; return { st: dias < 0 ? 'venc' : dias <= 15 ? 'r15' : dias <= 30 ? 'r30' : dias <= 60 ? 'r60' : 'ok', dias, venc: x.venc }; }
+  if (k === 'antt' && x.sit) return /^APTO/.test(x.sit) ? { st: 'ok', sit: x.sit } : { st: 'venc', sit: x.sit };
+  return { st: 'sem' };
+}
+// situação do veículo = o pior documento entre os controlados (sem data não conta como vencido)
+function frStVeic(a, docs) {
+  let pior = 'ok', nV = 0;
+  for (const d of docs) { const s = frStDoc(a, d.k).st; if (s === 'na') continue; if (s === 'venc') nV++; if (FR_ORDEM_ST[s] < FR_ORDEM_ST[pior] && s !== 'sem') pior = s; }
+  return { st: pior, nV };
+}
+const frChip = (s, txt) => `<span class="fo-chip" style="--c:${(FR_STC[s] || { cor: '#AAB4C0' }).cor}">${txt}</span>`;
+function frCelDoc(a, k) {
+  const s = frStDoc(a, k);
+  if (s.st === 'na') return '<span class="fo-na">—</span>';
+  if (s.st === 'sem') return frChip('sem', 'sem data');
+  if (s.sit) return frChip(s.st, esc(s.sit));
+  const txt = s.dias < 0 ? `venceu há ${fmtI(-s.dias)} d` : s.dias === 0 ? 'vence hoje' : `${fmtI(s.dias)} d`;
+  return `${frChip(s.st, E.fmtDia(s.venc))}<small class="fo-dias">${txt}</small>`;
+}
+const frNome = a => a.cls === 'emp' ? `Empilhadeira ${esc(a.num)}` : esc(a.placa);
+const frDesc = a => [a.tipo && a.cls !== 'emp' ? a.tipo : '', a.marca, a.modelo].filter(Boolean).map(esc).join(' · ');
+const frIdade = a => a.anoFab ? new Date(hojeDia() * 864e5).getUTCFullYear() - a.anoFab : null;
+const frOcAberta = (o) => !o.fechada && !o.cancelada;
+const frOcDe = (a, k) => frOcs().filter(o => o.ativo === a.id && (!k || o.doc === k) && frOcAberta(o));
+
+// tratativa de renovação/vencido que a planilha já mostra em dia: a etapa "planilha atualizada" fecha sozinha
+async function frFecharPelaPlanilha(rev) {
+  const O = await frOcAbrir(rev), D = FR.dados[rev]; if (!D) return;
+  const porId = Object.fromEntries(D.ativos.map(a => [a.id, a])); let mudou = false;
+  for (const o of O.lista) {
+    if (!frOcAberta(o) || o.fluxo !== 'renov') continue;
+    const a = porId[o.ativo]; if (!a) continue;
+    const s = frStDoc(a, o.doc);
+    if ((s.venc != null && o.vencAb != null && s.venc > o.vencAb) || (s.st === 'ok' && o.vencAb == null)) {
+      for (const [k] of FR_FLUXOS.renov.etapas) if (!o.etapas[k]) o.etapas[k] = { em: Date.now(), por: 'Gestor LOG (planilha)', auto: true };
+      o.fechada = Date.now(); o.fechadaPor = 'Gestor LOG: a planilha mostra o vencimento novo (' + E.fmtDia(s.venc) + ')'; mudou = true;
+    }
+  }
+  if (mudou) await frOcGuardar(rev);
+}
+
+// ---------------------------------------------------------------- tela
+async function renderFrota() {
+  const el = $('#aba-frota'); if (!el) return;
+  const revs = revsMinhas();
+  if (revs.some(r => !FR.dados[r] || !FR.oc[r] || FR.dispo[r] === undefined)) { el.innerHTML = '<div class="card"><p class="vazio">Abrindo…</p></div>'; for (const r of revs) { await frDadosAbrir(r); await frOcAbrir(r); await frDispoAbrir(r); } }
+  if (S.aba !== 'frota') return;
+  const sc = el.scrollTop;
+  el.innerHTML = frHtml();
+  frLigar(el);
+  el.scrollTop = sc;
+}
+function frHtml() {
+  const todos = frTodos(), docs = frDocsVivos();
+  const D = frRevsVer().map(r => FR.dados[r]).filter(x => x && x.arquivo).sort((a, b) => b.mod - a.mod)[0];
+  const fonteTxt = 'Planilha "1.1 Lista Requerimento Frota Pesada.xlsx" da pasta Frota do servidor (\\\\192.168.4.250\\Frota\\DPO - Revenda Lima Bahia 2026\\1.0 Conformidade\\1.1 Documentos - Autorizações\\Planilha Requerimento Equipamentos), abas Frota Caminhões, Frota Vans e Frota Empilhadeiras. Cada veículo entra na revenda da coluna Operação. Quando o técnico salva a planilha, o carteiro manda e o Gestor LOG lê sozinho; sem o carteiro, use Carregar planilha….';
+  const escSel = revsMinhas().length > 1 ? selPer('data-fo-esc', [['rev', 'Esta revenda'], ['todas', 'As duas revendas']], FR.esc, 'Ver') : '';
+  const fonte = `<div class="barra-acoes dp-fonte"><span>${D ? `Planilha <b>${esc(D.arquivo)}</b> · salva em <b>${esc(prDataHora(D.mod))}</b>` : 'Planilha da frota ainda não lida'} <span class="info-i" data-tt="${esc(fonteTxt)}">ⓘ</span></span>${escSel}<span class="esp"></span><button class="btn peq" id="fo-arq-bt">Carregar planilha…</button><input type="file" id="fo-arq" accept=".xlsx,.xlsm,.xls" hidden></div>`;
+  const nV = todos.filter(a => frStVeic(a, docs).nV).length, nOc = frOcs().filter(frOcAberta).length, nQ = frQualidade().filter(x => x.n).length;
+  const subs = [['painel', 'Painel'], ['docs', 'Documentos', nV || null, true], ['oc', 'Tratativas', nOc || null], ['cam', 'Caminhões'], ['van', 'Vans'], ['emp', 'Empilhadeiras'], ['ipva', 'Calendário IPVA'], ['fluxo', 'Fluxo e RACI'], ['qual', 'Qualidade da base', nQ || null]];
+  const subAbas = `<div class="pr-subabas fo-subabas">${subs.map(([k, t, n, al]) => `<button data-frsub="${k}" class="${FR.sub === k ? 'on' : ''}">${t}${n ? ` <span class="badge${al ? ' alerta' : ''}">${n}</span>` : ''}</button>`).join('')}</div>`;
+  const cab = `<div class="card ot-card fo-topo"><div class="barra-acoes fo-cab"><h3 style="margin:0">Frota</h3><small class="fo-rev">${esc(frRevsVer().map(rotRev).join(' + '))}</small></div>${fonte}${subAbas}</div>`;
+  if (!todos.length && !['fluxo'].includes(FR.sub)) return cab + `<div class="card"><p class="vazio">Nenhum veículo de ${esc(frRevsVer().map(rotRev).join(' e '))} ainda. Use <b>Carregar planilha…</b> e escolha a "1.1 Lista Requerimento Frota Pesada.xlsx" (ou ela chega sozinha pelo carteiro).</p></div>`;
+  const corpo = { painel: frPainelHtml, docs: frDocsHtml, oc: frOcHtml, cam: () => frClsHtml('cam'), van: () => frClsHtml('van'), emp: () => frClsHtml('emp'), ipva: frIpvaHtml, fluxo: frFluxoHtml, qual: frQualHtml }[FR.sub] || frPainelHtml;
+  return cab + corpo();
+}
+
+// ---- gráficos (SVG simples; passar o mouse mostra o valor)
+function frBarrasEmp(cats, series, { alt = 170, clique = '', marcado = null } = {}) {
+  const W = 640, H = alt, pe = 22, topo = 14, esq = 26, n = cats.length, bw = (W - esq - 8) / n;
+  const tot = cats.map((_, i) => series.reduce((s, x) => s + (x.v[i] || 0), 0)), mx = Math.max(1, ...tot);
+  const y = v => topo + (H - pe - topo) * (1 - v / mx);
+  let g = '';
+  for (let k = 0; k <= 2; k++) { const v = Math.round(mx * k / 2), yy = y(v); g += `<line x1="${esq}" x2="${W}" y1="${yy}" y2="${yy}" class="fo-grade"/><text x="${esq - 4}" y="${yy + 3}" class="fo-eixo" text-anchor="end">${v}</text>`; }
+  cats.forEach((c, i) => {
+    let acc = 0; const x = esq + i * bw + bw * 0.16, w = bw * 0.68;
+    const det = series.filter(s => s.v[i]).map(s => `${esc(s.rot)}: <b>${fmtI(s.v[i])}</b>`).join('<br>');
+    g += `<g class="fo-bar${clique ? ' clic' : ''}${marcado === i ? ' on' : ''}" ${clique ? `data-${clique}="${i}"` : ''} data-frtt="${esc(`<b>${esc(c.rot)}</b><br>${det || 'nada'}`)}"><rect x="${esq + i * bw}" y="${topo}" width="${bw}" height="${H - pe - topo}" fill="transparent"/>`;
+    for (const s of series) { const v = s.v[i] || 0; if (!v) continue; const y1 = y(acc + v), y0 = y(acc); g += `<rect x="${x}" y="${y1}" width="${w}" height="${Math.max(0, y0 - y1 - 1)}" rx="2" fill="${s.cor}"/>`; acc += v; }
+    if (tot[i]) g += `<text x="${x + w / 2}" y="${y(tot[i]) - 3}" class="fo-val" text-anchor="middle">${tot[i]}</text>`;
+    g += `<text x="${x + w / 2}" y="${H - 6}" class="fo-eixo${c.forte ? ' forte' : ''}" text-anchor="middle">${esc(c.rot)}</text></g>`;
+  });
+  return `<svg viewBox="0 0 ${W} ${H}" class="fo-graf" preserveAspectRatio="xMidYMid meet">${g}</svg>`;
+}
+const frLeg = series => `<div class="fo-leg">${series.map(s => `<span><i style="background:${s.cor}"></i>${esc(s.rot)}</span>`).join('')}</div>`;
+// barra horizontal 100% empilhada (farol por documento)
+function frBarra100(partes, attr) {
+  const tot = partes.reduce((s, p) => s + p.n, 0); if (!tot) return '<div class="fo-b100 vazia"></div>';
+  return `<div class="fo-b100">${partes.filter(p => p.n).map(p => `<i style="flex:${p.n};background:${p.cor}" ${attr ? attr(p) : ''} data-frtt="${esc(`${esc(p.rot)}: <b>${p.n}</b> (${pctTxt(p.n, tot)})`)}">${p.n / tot >= 0.07 ? p.n : ''}</i>`).join('')}</div>`;
+}
+
+// ---------------------------------------------------------------- Painel
+function frPainelHtml() {
+  const L = frTodos(), docs = frDocsVivos(), docsT = frDocsAtivos(), hoje = hojeDia();
+  const veic = L.filter(a => a.cls !== 'emp');
+  const sv = L.map(a => ({ a, ...frStVeic(a, docs) }));
+  const conf = sv.filter(x => !x.nV).length;
+  const itensDoc = L.flatMap(a => docs.map(d => ({ a, d, s: frStDoc(a, d.k) }))).filter(x => x.s.st !== 'na');
+  const nVenc = itensDoc.filter(x => x.s.st === 'venc').length, n30 = itensDoc.filter(x => ['r15', 'r30'].includes(x.s.st)).length;
+  const idades = veic.map(frIdade).filter(Number.isFinite), idMed = idades.length ? idades.reduce((a, b) => a + b, 0) / idades.length : null;
+  const velhos = veic.filter(a => frIdade(a) >= 10).length, terc = L.filter(a => a.terceiro).length;
+  const fipe = veic.reduce((s, a) => s + (a.fipeA || a.fipeN || 0), 0), pal = L.filter(a => a.cls === 'cam').reduce((s, a) => s + (a.capPal || 0), 0);
+  const ocA = frOcs().filter(frOcAberta);
+  const kpi = (r, v, d, alvo, cor) => `<button class="kpi" ${alvo ? `data-frir="${alvo}"` : ''}><span class="r">${r}</span><span class="v"${cor ? ` style="color:${cor}"` : ''}>${v}</span><span class="d">${d}</span></button>`;
+  const kpis = `<div class="pr-kpis fo-kpis">
+    ${kpi('Frota', fmtI(L.length), `${L.filter(a => a.cls === 'cam').length} caminhões · ${L.filter(a => a.cls === 'van').length} vans · ${L.filter(a => a.cls === 'emp').length} empilh.`, 'cam')}
+    ${kpi('Conformidade documental', pctTxt(conf, L.length), `${conf} de ${L.length} sem documento vencido`, 'docs', conf === L.length ? 'var(--ok)' : conf / L.length < 0.9 ? 'var(--rv)' : 'var(--av)')}
+    ${kpi('Documentos vencidos', fmtI(nVenc), `${n30} vencem em até 30 dias`, 'docs', nVenc ? 'var(--rv)' : 'var(--ok)')}
+    ${kpi('Tratativas abertas', fmtI(ocA.length), ocA.length ? `${ocA.filter(o => o.fluxo === 'venc').length} vencido · ${ocA.filter(o => o.fluxo === 'extr').length} extraviado · ${ocA.filter(o => o.fluxo === 'renov').length} renovação` : 'nenhuma', 'oc')}
+    ${kpi('Idade média (cam. e vans)', idMed == null ? '—' : fmt(idMed, 1) + ' <small>anos</small>', `${velhos} com 10 anos ou mais`, 'cam', velhos ? 'var(--av)' : '')}
+    ${kpi('Valor FIPE da frota', fipe ? 'R$ ' + fmt(fipe / 1e6, 1) + ' <small>mi</small>' : '—', `${fmtI(pal)} paletes de capacidade · ${terc} de terceiros`, 'cam')}
+  </div>`;
+  // vencimentos: atrasados + próximos 12 meses, por documento
+  const m0 = new Date(hoje * 864e5), meses = [];
+  for (let k = 0; k < 12; k++) { const d = new Date(Date.UTC(m0.getUTCFullYear(), m0.getUTCMonth() + k, 1)); meses.push({ a: d.getUTCFullYear(), m: d.getUTCMonth() }); }
+  const idxMes = d => { const x = new Date(d * 864e5); return meses.findIndex(z => z.a === x.getUTCFullYear() && z.m === x.getUTCMonth()); };
+  const cats = [{ rot: 'Vencidos', forte: true }, ...meses.map(z => ({ rot: ES_MES_ABR[z.m] + '/' + String(z.a).slice(2) }))];
+  const series = docs.filter(d => d.k !== 'antt').map(d => {
+    const v = cats.map(() => 0);
+    for (const a of L) { const s = frStDoc(a, d.k); if (s.venc == null) continue; if (s.st === 'venc') v[0]++; else { const i = idxMes(s.venc); if (i >= 0) v[i + 1]++; } }
+    return { rot: d.rot, cor: d.cor, v };
+  });
+  const gVenc = `<div class="card"><h3>${h3i('Vencimentos de documentos: atrasados e próximos 12 meses', 'Quantos documentos vencem em cada mês (pela data da planilha). A primeira barra são os que já venceram. Clique numa barra para ver a lista no Calendário.')}</h3>${frLeg(series)}${frBarrasEmp(cats, series, { clique: 'frmes' })}</div>`;
+  // farol por documento
+  const farol = `<div class="card"><h3>${h3i('Farol por documento', 'Situação de cada documento em todos os veículos em que ele se aplica. Clique numa cor para abrir a lista em Documentos.')}</h3>${frLeg(FR_ST.map(s => ({ rot: s.curto || s.rot, cor: s.cor })))}<div class="fo-farol">${docsT.map(d => {
+    const its = L.map(a => frStDoc(a, d.k)).filter(s => s.st !== 'na');
+    const par = frDocParado(d.k);
+    return `<div class="fo-farol-l${par != null ? ' parado' : ''}"><span>${esc(d.rot)} <small>${its.length}</small>${par != null ? `<em>controle parado desde ${esc(E.fmtDia(par).slice(3))}</em>` : ''}</span>${frBarra100(FR_ST.map(s => ({ k: s.k, rot: s.rot, cor: s.cor, n: its.filter(x => x.st === s.k).length })), p => `data-frfarol="${d.k}|${p.k}"`)}</div>`;
+  }).join('')}</div></div>`;
+  // idade da frota por ano de fabricação e tipo
+  const anoAt = new Date(hoje * 864e5).getUTCFullYear();
+  const anos = [...new Set(veic.map(a => a.anoFab).filter(Boolean))].sort((a, b) => a - b);
+  const tipos = [...new Set(veic.map(a => a.cls === 'van' ? 'VAN' : a.tipo || 'OUTRO'))];
+  const corTipo = { TRUCK: '#2F5A87', TOCO: '#0E8F7E', VUC: '#E8890C', VAN: '#7B4FB5', CARRETA: '#5B6B80', CAVALO: '#B5174F', CARGA: '#8FA3C8' };
+  const sId = tipos.map(t => ({ rot: t === 'VAN' ? 'Van' : t.charAt(0) + t.slice(1).toLowerCase(), cor: corTipo[t] || '#AAB4C0', v: anos.map(an => veic.filter(a => a.anoFab === an && (a.cls === 'van' ? 'VAN' : a.tipo || 'OUTRO') === t).length) }));
+  const gIdade = `<div class="card"><h3>${h3i('Idade da frota (ano de fabricação)', 'Caminhões e vans por ano de fabricação e tipo. Em vermelho no eixo: 10 anos ou mais (o prazo de renovação da planilha é 10 anos).')}</h3>${frLeg(sId)}${frBarrasEmp(anos.map(a => ({ rot: String(a), forte: anoAt - a >= 10 })), sId, { alt: 150 })}</div>`;
+  // composição por tipo e revenda (capacidade)
+  const porTipo = tipos.map(t => { const xs = veic.filter(a => (a.cls === 'van' ? 'VAN' : a.tipo || 'OUTRO') === t); return { t, n: xs.length, pal: xs.reduce((s, a) => s + (a.capPal || 0), 0), cx: xs.reduce((s, a) => s + (a.capCx || 0), 0), terc: xs.filter(a => a.terceiro).length }; }).sort((a, b) => b.n - a.n);
+  const comp = `<div class="card"><h3>${h3i('Composição e capacidade', 'Veículos por tipo, com a capacidade somada em paletes e caixas (colunas Capacidade Pallets e Capacidade Caixas). Terceiros = Dono/Propriedade diferente da Lima.')}</h3><table class="tab fo-tab-mini"><thead><tr><th>Tipo</th><th class="n">Veículos</th><th class="n">Paletes</th><th class="n">Caixas</th><th class="n">Terceiros</th></tr></thead><tbody>${porTipo.map(x => `<tr><td><i class="fo-bola" style="background:${corTipo[x.t] || '#AAB4C0'}"></i>${esc(x.t === 'VAN' ? 'Van' : x.t)}</td><td class="n">${x.n}</td><td class="n">${fmtI(x.pal)}</td><td class="n">${fmtI(x.cx)}</td><td class="n">${x.terc || ''}</td></tr>`).join('')}</tbody></table></div>`;
+  // precisa de ação hoje
+  const acoes = frAcoesHoje(L, docs);
+  const acao = `<div class="card fo-acoes"><h3>${h3i('Precisa de ação', 'Veículo com documento vencido sem tratativa aberta; veículo escalado ou disponível na planilha de disponibilidade mais recente com documento vencido; documento que vence em até 15 dias sem renovação programada; tratativa parada há mais de 2 dias.')}</h3>${acoes.length ? `<ul class="fo-lista-acao">${acoes.slice(0, 12).map(x => `<li class="clic" data-frficha="${esc(x.a.id)}"><i class="fo-bola" style="background:${x.cor}"></i><b>${frNome(x.a)}</b> <span>${x.txt}</span></li>`).join('')}</ul>${acoes.length > 12 ? `<small class="fo-mais">e mais ${acoes.length - 12} em Documentos e Tratativas</small>` : ''}` : '<p class="vazio">Nada pendente. Toda a frota com documentos em dia ou com tratativa andando.</p>'}</div>`;
+  // itens de segurança
+  const comSeg = L.filter(a => a.seg);
+  const seg = comSeg.length ? `<div class="card"><h3>${h3i('Itens de segurança (NOK)', `Itens marcados NOK na planilha, em ${comSeg.length} de ${L.filter(a => a.cls !== 'emp').length} veículos com o bloco preenchido.`)}</h3><div class="fo-seg">${FR_SEG_ROT.map((n, k) => { const nok = comSeg.filter(a => frN(a.seg[k]) === 'NOK').length; return nok ? `<span class="fo-seg-it"><b>${nok}</b> ${esc(n)}</span>` : ''; }).join('') || '<span>Nenhum NOK</span>'}</div></div>` : '';
+  return kpis + `<div class="fo-grid2">${acao}${farol}</div><div class="fo-grid2">${gVenc}${gIdade}</div><div class="fo-grid2">${comp}${seg}</div>`;
+}
+function frAcoesHoje(L, docs) {
+  const out = [], hoje = hojeDia();
+  // disponibilidade mais recente: placas DISPONÍVEIS ou roteirizadas
+  const rodando = new Map();
+  for (const r of frRevsVer()) { const D = FR.dispo[r]; if (!D || !D.dias) continue; const ult = Math.max(...Object.keys(D.dias).map(Number)); if (!Number.isFinite(ult) || hoje - ult > 3) continue; for (const p of D.dias[ult].placas) if (['rot', 'sem', 'pend'].includes(p.cat)) rodando.set(p.p, { d: ult, cat: p.cat }); }
+  for (const a of L) for (const d of docs) {
+    const s = frStDoc(a, d.k); if (!['venc', 'r15'].includes(s.st)) continue;
+    const oc = frOcDe(a, d.k);
+    const rod = s.st === 'venc' && a.placa && rodando.get(a.placa);
+    if (rod) out.push({ a, ord: 0, cor: '#B42318', txt: `${esc(d.rot)} vencido e ${rod.cat === 'rot' ? 'na escala' : 'DISPONÍVEL'} na disponibilidade de ${esc(E.fmtDia(rod.d).slice(0, 5))}` });
+    else if (s.st === 'venc' && !oc.length) out.push({ a, ord: 1, cor: '#B42318', txt: `${esc(d.rot)} ${s.dias != null ? `vencido há ${fmtI(-s.dias)} d` : esc(s.sit || 'irregular')}, sem tratativa` });
+    else if (s.st === 'r15' && !oc.length) out.push({ a, ord: 2, cor: '#D9480F', txt: `${esc(d.rot)} vence em ${fmtI(s.dias)} d (${esc(E.fmtDia(s.venc))}), sem renovação programada` });
+  }
+  for (const o of frOcs().filter(frOcAberta)) {
+    const ult = Math.max(o.aberta, ...Object.values(o.etapas || {}).map(e => e.em || 0)), dias = Math.floor((Date.now() - ult) / 864e5);
+    const a = L.find(x => x.id === o.ativo); if (a && dias > 2) out.push({ a, ord: 3, cor: '#7B4FB5', txt: `tratativa "${esc(FR_FLUXOS[o.fluxo].rot)}" (${esc(FR_DOC[o.doc].rot)}) parada há ${dias} dias` });
+  }
+  return out.sort((x, y) => x.ord - y.ord || frNome(x.a).localeCompare(frNome(y.a)));
+}
+
+// ---------------------------------------------------------------- Documentos (matriz veículo × documento)
+function frDocsFiltrados() {
+  const docs = frDocsVivos(), q = E.semAcento(FR.q).toLowerCase();
+  return frTodos().filter(a => {
+    if (FR.cls && a.cls !== FR.cls) return false;
+    if (q && !E.semAcento([a.placa, a.frota, a.num, a.marca, a.modelo, a.tipo].join(' ')).toLowerCase().includes(q)) return false;
+    if (FR.st) { const ks = FR.doc ? [FR.doc] : docs.map(d => d.k); if (!ks.some(k => frStDoc(a, k).st === FR.st)) return false; }
+    else if (FR.doc && frStDoc(a, FR.doc).st === 'na') return false;
+    return true;
+  });
+}
+function frDocsHtml() {
+  const docs = frDocsAtivos(), vivos = frDocsVivos(), L = frDocsFiltrados();
+  const base = frTodos().filter(a => !FR.cls || a.cls === FR.cls);
+  const ks = FR.doc ? [FR.doc] : vivos.map(d => d.k);
+  const cont = s => base.filter(a => ks.some(k => frStDoc(a, k).st === s)).length;
+  const chips = `<div class="fo-chips">${[['', 'Todos', base.length], ...FR_ST.map(s => [s.k, s.curto || s.rot, cont(s.k)])].map(([k, t, n]) => `<button class="chip${FR.st === k ? ' on' : ''}" data-frst="${k}" ${k ? `style="--c:${FR_STC[k].cor}"` : ''}>${k ? '<i></i>' : ''}${esc(t)} <small>${n}</small></button>`).join('')}</div>`;
+  const filtros = `<div class="barra-acoes fo-filtros">${selPer('data-fo-doc', [['', 'Todos'], ...docs.map(d => [d.k, d.rot])], FR.doc, 'Documento')}${selPer('data-fo-cls', [['', 'Todas'], ...Object.entries(FR_CLS)], FR.cls, 'Frota')}<input type="search" class="campo fo-busca" id="fo-q" placeholder="Placa, frota, modelo…" value="${esc(FR.q)}"><span class="esp"></span><button class="btn peq" id="fo-csv">Baixar CSV</button></div>`;
+  const ord = [...L].sort((a, b) => {
+    const pa = Math.min(...ks.map(k => FR_ORDEM_ST[frStDoc(a, k).st])), pb = Math.min(...ks.map(k => FR_ORDEM_ST[frStDoc(b, k).st]));
+    if (pa !== pb) return pa - pb;
+    const da = Math.min(...ks.map(k => frStDoc(a, k).venc ?? 1e9)), db = Math.min(...ks.map(k => frStDoc(b, k).venc ?? 1e9));
+    return da - db;
+  });
+  const linhas = ord.map(a => {
+    const oc = frOcDe(a);
+    return `<tr class="clic" data-frficha="${esc(a.id)}"><td><b>${frNome(a)}</b>${a.frota && a.cls !== 'emp' ? ` <small class="fo-sub">${esc(a.frota)}</small>` : ''}${a.terceiro ? ' <span class="fo-terc">terceiro</span>' : ''}<div class="fo-sub">${frDesc(a)}</div></td>${FR.esc === 'todas' ? `<td>${esc(rotRev(a.rev))}</td>` : ''}${docs.map(d => `<td class="fo-doc">${frCelDoc(a, d.k)}</td>`).join('')}<td>${oc.length ? oc.map(o => `<span class="fo-oc-tag" style="--c:${FR_FLUXOS[o.fluxo].cor}">${esc(FR_FLUXOS[o.fluxo].rot)}</span>`).join(' ') : ''}</td></tr>`;
+  }).join('');
+  return `<div class="card">${chips}${filtros}<div class="tab-wrap fo-wrap"><table class="tab fo-tab"><thead><tr><th>Veículo</th>${FR.esc === 'todas' ? '<th>Revenda</th>' : ''}${docs.map(d => `<th${frDocParado(d.k) != null ? ' class="fo-th-parado"' : ''}>${h3i(esc(d.curto) + (frDocParado(d.k) != null ? '<small>controle parado</small>' : ''), d.info + (frDocParado(d.k) != null ? ' Controle parado: a data mais nova da planilha é ' + E.fmtDia(frDocParado(d.k)) + '; fica fora da conformidade e dos vencidos.' : ''))}</th>`).join('')}<th>Tratativa</th></tr></thead><tbody>${linhas || `<tr><td colspan="${docs.length + 3}" class="vazio">Nenhum veículo neste filtro.</td></tr>`}</tbody></table></div><small class="fo-rodape">${L.length} de ${frTodos().length} veículos · clique num veículo para a ficha e para abrir tratativa</small></div>`;
+}
+function frDocsCsv() {
+  const docs = frDocsAtivos(), L = frDocsFiltrados();
+  const cab = ['Revenda', 'Frota', 'Placa/Nº', 'Número da frota', 'Tipo', 'Marca', 'Modelo', 'Ano fab.', 'Dono', ...docs.flatMap(d => [d.rot + ' vencimento', d.rot + ' situação'])];
+  baixarCSV(`Frota_documentos_${nomeArq(frRevsVer().map(rotRev).join('_'))}.csv`, cab, L.map(a => [rotRev(a.rev), FR_CLS1[a.cls], a.placa || a.num, a.frota, a.tipo, a.marca, a.modelo, a.anoFab, a.dono, ...docs.flatMap(d => { const s = frStDoc(a, d.k); return [s.venc != null ? E.fmtDia(s.venc) : s.sit || '', s.st === 'na' ? 'não se aplica' : FR_STC[s.st].rot]; })]));
+}
+
+// ---------------------------------------------------------------- frota por classe
+function frClsHtml(cls) {
+  const L = frTodos().filter(a => a.cls === cls), docs = frDocsAtivos().filter(d => d.cls.includes(cls)), vivosC = frDocsVivos().filter(d => d.cls.includes(cls));
+  if (!L.length) return `<div class="card"><p class="vazio">Nenhum(a) ${esc(FR_CLS1[cls].toLowerCase())} em ${esc(frRevsVer().map(rotRev).join(' e '))} na planilha.</p></div>`;
+  const id = L.map(frIdade).filter(Number.isFinite), idM = id.length ? id.reduce((a, b) => a + b, 0) / id.length : null;
+  const kpi = (r, v, d) => `<div class="kpi"><span class="r">${r}</span><span class="v">${v}</span><span class="d">${d || ''}</span></div>`;
+  const venc = L.filter(a => frStVeic(a, vivosC).nV).length;
+  const kpis = `<div class="pr-kpis fo-kpis">${kpi(FR_CLS[cls], L.length, FR.esc === 'todas' ? revsMinhas().map(r => `${rotRev(r)} ${L.filter(a => a.rev === r).length}`).join(' · ') : '')}${kpi('Idade média', idM == null ? '—' : fmt(idM, 1) + ' <small>anos</small>', `${L.filter(a => frIdade(a) >= 10).length} com 10 anos ou mais`)}${cls === 'emp' ? kpi('Capacidade', fmtI(L.reduce((s, a) => s + (a.capKg || 0), 0)) + ' <small>kg</small>', 'soma da capacidade de levantamento') : kpi('Capacidade', fmtI(L.reduce((s, a) => s + (a.capPal || 0), 0)) + ' <small>paletes</small>', fmtI(L.reduce((s, a) => s + (a.capCx || 0), 0)) + ' caixas')}${kpi('Com documento vencido', venc, `${L.length - venc} em dia`)}${kpi('De terceiros', L.filter(a => a.terceiro).length, [...new Set(L.filter(a => a.terceiro).map(a => a.dono))].slice(0, 2).join(' · '))}</div>`;
+  const cols = cls === 'emp'
+    ? [['Nº', a => esc(a.num), a => +a.num || 0], ['Marca / modelo', a => esc(a.marca + ' ' + a.modelo), a => a.marca + a.modelo], ['Chassi', a => esc(a.chassi), a => a.chassi], ['Ano', a => a.anoFab || '—', a => a.anoFab || 0, 1], ['Idade', a => frIdade(a) == null ? '—' : frIdade(a) + ' a', a => frIdade(a) || 0, 1], ['Capac. (kg)', a => fmtI(a.capKg), a => a.capKg || 0, 1], ['Operação', a => esc(rotRev(a.rev)), a => a.rev], ['Locação', a => esc(a.loc), a => a.loc]]
+    : [['Placa', a => `<b>${esc(a.placa)}</b>`, a => a.placa], ['Frota', a => esc(a.frota), a => a.frota], ['Tipo', a => esc(a.tipo), a => a.tipo], ['Marca / modelo', a => esc(a.marca + ' ' + a.modelo), a => a.marca + a.modelo], ['Ano', a => a.anoFab ? `${a.anoFab}/${String(a.anoMod || a.anoFab).slice(2)}` : '—', a => a.anoFab || 0, 1], ['Idade', a => { const i = frIdade(a); return i == null ? '—' : `<span${i >= 10 ? ' class="fo-velho"' : ''}>${i} a</span>`; }, a => frIdade(a) || 0, 1], ['Paletes', a => a.capPal == null ? '—' : fmtI(a.capPal), a => a.capPal || 0, 1], ['Caixas', a => a.capCx == null ? '—' : fmtI(a.capCx), a => a.capCx || 0, 1], ['PBT (kg)', a => fmtI(a.pbt), a => a.pbt || 0, 1], ['Marca na carroceria', a => esc(a.logo), a => a.logo], ['Dono', a => a.terceiro ? `<span class="fo-terc">${esc(a.dono)}</span>` : 'Lima', a => a.dono], ['FIPE', a => a.fipeA || a.fipeN ? 'R$ ' + fmt((a.fipeA || a.fipeN) / 1000, 0) + ' mil' : '—', a => a.fipeA || a.fipeN || 0, 1]];
+  if (FR.esc === 'todas' && cls !== 'emp') cols.splice(2, 0, ['Revenda', a => esc(rotRev(a.rev)), a => a.rev]);
+  let L2 = [...L];
+  const oi = FR.ord && FR.ord.cls === cls ? FR.ord.i : null;
+  if (oi != null && cols[oi]) { const f = cols[oi][2]; L2.sort((a, b) => { const x = f(a), y = f(b); return (typeof x === 'number' ? x - y : String(x).localeCompare(String(y))) * (FR.ordDesc ? -1 : 1); }); }
+  else L2.sort((a, b) => (+a.frota.replace(/\D/g, '') || 999) - (+b.frota.replace(/\D/g, '') || 999) || String(a.placa || a.num).localeCompare(String(b.placa || b.num)));
+  const tab = `<div class="tab-wrap fo-wrap"><table class="tab fo-tab"><thead><tr>${cols.map((c, i) => `<th class="ord${c[3] ? ' n' : ''}" data-frord="${cls}|${i}">${c[0]}${oi === i ? (FR.ordDesc ? ' ▼' : ' ▲') : ''}</th>`).join('')}${docs.map(d => `<th>${esc(d.curto)}</th>`).join('')}</tr></thead><tbody>${L2.map(a => `<tr class="clic" data-frficha="${esc(a.id)}">${cols.map(c => `<td${c[3] ? ' class="n"' : ''}>${c[1](a)}</td>`).join('')}${docs.map(d => `<td class="fo-doc">${frCelDoc(a, d.k)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+  return kpis + `<div class="card">${tab}<small class="fo-rodape">Clique no título para ordenar · clique na linha para a ficha completa</small></div>`;
+}
+
+// ---------------------------------------------------------------- Ficha do veículo (janela)
+function frFicha(id) {
+  const a = frTodos().find(x => x.id === id) || Object.values(FR.dados).flatMap(d => d.ativos || []).find(x => x.id === id); if (!a) return;
+  const docs = FR_DOCS.filter(d => frAplica(a, d.k));
+  const campo = (r, v) => v == null || v === '' ? '' : `<div><span>${r}</span><b>${v}</b></div>`;
+  const dados = a.cls === 'emp'
+    ? [campo('Marca / modelo', esc(a.marca + ' ' + a.modelo)), campo('Chassi', esc(a.chassi)), campo('Ano', a.anoFab), campo('Idade', frIdade(a) + ' anos'), campo('Capacidade', fmtI(a.capKg) + ' kg'), campo('Tanque', esc(a.tanque)), campo('Operação', esc(rotRev(a.rev))), campo('Dono', esc(a.dono)), campo('Locação', esc(a.loc)), campo('Horímetro', a.hor ? fmtI(a.hor) + ' h' : '')]
+    : [campo('Número da frota', esc(a.frota)), campo('Tipo', esc(a.tipo)), campo('Marca / modelo', esc(a.marca + ' ' + a.modelo)), campo('Ano fab./modelo', a.anoFab ? `${a.anoFab}/${a.anoMod}` : ''), campo('Idade', frIdade(a) != null ? frIdade(a) + ' anos' + (frIdade(a) >= 10 ? ' (renovar)' : '') : ''), campo('Carroceria', esc([a.bau, a.carroc].filter(Boolean).join(' · '))), campo('PBT / tara', a.pbt ? `${fmtI(a.pbt)} / ${fmtI(a.tara)} kg` : ''), campo('Capacidade', [a.capKg ? fmtI(a.capKg) + ' kg' : '', a.capPal ? a.capPal + ' paletes' : '', a.capCx ? fmtI(a.capCx) + ' cx' : ''].filter(Boolean).join(' · ')), campo('Pneus', esc(a.pneus)), campo('Tanque', esc(a.tanque)), campo('Placa de', esc(a.mun)), campo('Renavam', esc(a.renavam)), campo('Chassi', esc(a.chassi)), campo('Marca na carroceria', esc(a.logo)), campo('Telemetria', esc(a.tel)), campo('Dono', esc(a.dono) + (a.cnpj ? ` <small>${esc(a.cnpj)}</small>` : '')), campo('FIPE', a.fipeA || a.fipeN ? 'R$ ' + fmtI(a.fipeA || a.fipeN) : ''), campo('Operação', esc(rotRev(a.rev)))];
+  const docHtml = docs.map(d => {
+    const s = frStDoc(a, d.k), x = a.docs[d.k] || {}, oc = frOcDe(a, d.k);
+    const extra = d.k === 'crlv' ? [x.exerc && 'exercício ' + x.exerc, x.boleto && 'boleto: ' + x.boleto, x.pago && 'pago: ' + x.pago] : d.k === 'antt' ? [x.reg && 'RNTRC ' + x.reg] : d.k === 'crono' ? [x.reg && 'nº ' + x.reg, x.tipo, x.em != null && 'emitido ' + E.fmtDia(x.em)] : d.k === 'ext' ? [x.lacre && 'lacre ' + x.lacre] : [];
+    const bts = oc.length ? `<span class="fo-oc-tag" style="--c:${FR_FLUXOS[oc[0].fluxo].cor}">${esc(FR_FLUXOS[oc[0].fluxo].rot)} aberta</span>`
+      : `${['r15', 'r30', 'r60'].includes(s.st) ? `<button class="btn peq" data-frabre="renov|${esc(a.id)}|${d.k}">Programar renovação</button>` : ''}${s.st === 'venc' ? `<button class="btn peq perigo" data-frabre="venc|${esc(a.id)}|${d.k}">Tratar vencido</button>` : ''}<button class="link" data-frabre="extr|${esc(a.id)}|${d.k}">Extraviado</button>`;
+    return `<div class="fo-ficha-doc"><div><b>${esc(d.rot)}</b><small>${extra.filter(Boolean).map(esc).join(' · ')}</small></div><div>${frCelDoc(a, d.k)}</div><div class="fo-ficha-bts">${bts}</div></div>`;
+  }).join('');
+  const seg = a.seg ? `<h4>Itens de segurança</h4><div class="fo-seg">${FR_SEG_ROT.map((n, k) => a.seg[k] ? `<span class="fo-seg-it ${frN(a.seg[k]) === 'NOK' ? 'nok' : ''}">${esc(n)}: <b>${esc(a.seg[k])}</b></span>` : '').join('')}</div>` : '';
+  const hist = frOcs().filter(o => o.ativo === a.id).sort((x, y) => y.aberta - x.aberta);
+  const histHtml = hist.length ? `<h4>Tratativas</h4>${hist.map(o => `<div class="fo-ficha-oc"><span class="fo-oc-tag" style="--c:${FR_FLUXOS[o.fluxo].cor}">${esc(FR_FLUXOS[o.fluxo].rot)}</span> ${esc(FR_DOC[o.doc].rot)} · aberta ${esc(prDataHora(o.aberta))} por ${esc(o.por)} · ${o.fechada ? 'concluída ' + esc(prDataHora(o.fechada)) : o.cancelada ? 'cancelada' : `<b>${Object.keys(o.etapas).length} de ${FR_FLUXOS[o.fluxo].etapas.length} etapas</b>`}</div>`).join('')}` : '';
+  // disponibilidade dos últimos dias (planilhas DISPO)
+  let disp = '';
+  const DD = FR.dispo[a.rev];
+  if (a.placa && DD && DD.dias) {
+    const dias = Object.keys(DD.dias).map(Number).sort((x, y) => y - x).slice(0, 10).reverse();
+    const sit = dias.map(d => { const p = DD.dias[d].placas.find(x => x.p === a.placa); return { d, cat: p ? p.cat : null }; });
+    if (sit.some(x => x.cat)) disp = `<h4>Disponibilidade (últimos ${dias.length} dias)</h4><div class="fo-disp">${sit.map(x => `<span style="--c:${x.cat ? DP_COR[x.cat] : '#E2E6EC'}" data-frtt="${esc(`${E.fmtDia(x.d)}: <b>${x.cat ? DP_ROT[x.cat] : 'fora da planilha'}</b>`)}"><i></i>${E.fmtDia(x.d).slice(0, 5)}</span>`).join('')}</div>`;
+  }
+  const f = document.createElement('div'); f.className = 'dlg-fundo';
+  f.innerHTML = `<div class="dlg fo-ficha" role="dialog" aria-modal="true"><div class="fo-ficha-cab"><div><h3>${frNome(a)}</h3><small>${frDesc(a)}${a.terceiro ? ' · <span class="fo-terc">terceiro</span>' : ''}</small></div><button class="link" data-frfechar>Fechar ✕</button></div><div class="fo-ficha-corpo"><h4>Documentos</h4>${docHtml || '<p class="vazio">Nenhum documento controlado para este equipamento.</p>'}${histHtml}${disp}<h4>Cadastro</h4><div class="fo-ficha-dados">${dados.join('')}</div>${seg}<small class="fo-rodape">Linha ${a.linha} da aba ${a.cls === 'emp' ? 'Frota Empilhadeiras' : a.cls === 'van' ? 'Frota Vans' : 'Frota Caminhões'} da planilha</small></div></div>`;
+  const fim = () => { document.removeEventListener('keydown', tecla, true); f.remove(); esconderTT(); };
+  const tecla = e => { if (e.key === 'Escape') { e.stopPropagation(); fim(); } };
+  f.addEventListener('click', async e => {
+    if (e.target === f || e.target.closest('[data-frfechar]')) return fim();
+    const b = e.target.closest('[data-frabre]'); if (b) { const [fl, idA, k] = b.dataset.frabre.split('|'); fim(); await frAbrirOc(fl, idA, k); }
+  });
+  frLigarTT(f);
+  document.addEventListener('keydown', tecla, true);
+  document.body.appendChild(f);
+}
+
+// ---------------------------------------------------------------- Tratativas (fluxo vivo)
+const frUsuario = () => (typeof NUVEM !== 'undefined' && NUVEM.cfg && NUVEM.cfg.usuario) || 'neste computador';
+async function frAbrirOc(fluxo, idA, doc) {
+  const a = frTodos().find(x => x.id === idA); if (!a) return;
+  const rev = a.rev, O = await frOcAbrir(rev);
+  if (O.lista.some(o => o.ativo === idA && o.doc === doc && frOcAberta(o))) { toast('Já existe uma tratativa aberta para este documento.'); return; }
+  if (!(await confirmar(`${FR_FLUXOS[fluxo].rot}: ${a.placa || 'empilhadeira ' + a.num} · ${FR_DOC[doc].rot}.\nA tratativa fica visível para todos no Gestor LOG, com as etapas do fluxo e quem é o responsável por cada uma.`, { titulo: 'Abrir tratativa', ok: 'Abrir', perigo: fluxo !== 'renov' }))) return;
+  const s = frStDoc(a, doc);
+  const o = { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), rev, ativo: idA, placa: a.placa || 'EMP ' + a.num, doc, fluxo, aberta: Date.now(), por: frUsuario(), vencAb: s.venc ?? null, etapas: {}, obs: [] };
+  O.lista.push(o); await frOcGuardar(rev);
+  FR.sub = 'oc'; try { localStorage.setItem('gestor-log-fo-sub', 'oc'); } catch { }
+  renderFrota(); toast('Tratativa aberta.');
+}
+async function frOcEtapa(idOc, etapa, desfazer) {
+  for (const r of revsMinhas()) {
+    const O = await frOcAbrir(r), o = O.lista.find(x => x.id === idOc); if (!o) continue;
+    const obs = ($(`[data-frobs="${idOc}"]`) || {}).value || '';
+    if (desfazer) { delete o.etapas[etapa]; o.fechada = null; }
+    else { o.etapas[etapa] = { em: Date.now(), por: frUsuario(), obs: obs.trim() }; if (FR_FLUXOS[o.fluxo].etapas.every(([k]) => o.etapas[k])) { o.fechada = Date.now(); o.fechadaPor = frUsuario(); } }
+    await frOcGuardar(r); renderFrota(); return;
+  }
+}
+async function frOcCancelar(idOc) {
+  if (!(await confirmar('Cancelar esta tratativa? Ela sai da lista de abertas e fica no histórico como cancelada.', { titulo: 'Cancelar tratativa', ok: 'Cancelar tratativa' }))) return;
+  for (const r of revsMinhas()) { const O = await frOcAbrir(r), o = O.lista.find(x => x.id === idOc); if (!o) continue; o.cancelada = Date.now(); o.canceladaPor = frUsuario(); await frOcGuardar(r); renderFrota(); return; }
+}
+function frOcHtml() {
+  const L = frOcs(), todos = frTodos(), ab = L.filter(frOcAberta).sort((x, y) => (x.fluxo === 'venc' ? 0 : x.fluxo === 'extr' ? 1 : 2) - (y.fluxo === 'venc' ? 0 : y.fluxo === 'extr' ? 1 : 2) || x.aberta - y.aberta);
+  const fe = L.filter(o => !frOcAberta(o)).sort((x, y) => (y.fechada || y.cancelada) - (x.fechada || x.cancelada));
+  const durs = fe.filter(o => o.fechada).map(o => (o.fechada - o.aberta) / 864e5);
+  const pode = typeof NUVEM === 'undefined' || !NUVEM.ativo || NUVEM.cfg.podeEditar;
+  const kpi = (r, v, d) => `<div class="kpi"><span class="r">${r}</span><span class="v">${v}</span><span class="d">${d || ''}</span></div>`;
+  const kpis = `<div class="pr-kpis fo-kpis">${Object.entries(FR_FLUXOS).map(([k, f]) => kpi(f.rot, ab.filter(o => o.fluxo === k).length, 'abertas · meta: ' + f.meta)).join('')}${kpi('Tempo médio até concluir', durs.length ? fmt(durs.reduce((a, b) => a + b, 0) / durs.length, 1) + ' <small>dias</small>' : '—', `${durs.length} concluídas`)}</div>`;
+  const card = o => {
+    const f = FR_FLUXOS[o.fluxo], a = todos.find(x => x.id === o.ativo), prox = f.etapas.find(([k]) => !o.etapas[k]);
+    const idade = Math.floor((Date.now() - o.aberta) / 864e5);
+    const passos = f.etapas.map(([k, t, p], i) => { const e = o.etapas[k]; return `<li class="${e ? 'feito' : prox && prox[0] === k ? 'atual' : ''}"><i>${e ? '✓' : i + 1}</i><div><span>${esc(t)}</span><small>${e ? `${esc(prDataHora(e.em))} · ${esc(e.por)}${e.obs ? ' · “' + esc(e.obs) + '”' : ''}${e.auto ? '' : pode && frOcAberta(o) ? ` <button class="link" data-frdesf="${o.id}|${k}">desfazer</button>` : ''}` : `Responsável: ${esc(FR_PAP[p])}`}</small></div></li>`; }).join('');
+    const s = a ? frStDoc(a, o.doc) : null;
+    return `<div class="fo-oc ${frOcAberta(o) ? '' : 'fechada'}" style="--c:${f.cor}"><div class="fo-oc-cab"><span class="fo-oc-tag" style="--c:${f.cor}">${esc(f.rot)}</span><b class="clic" data-frficha="${esc(o.ativo)}">${esc(o.placa)}</b><span>${esc(FR_DOC[o.doc].rot)}${s && s.venc != null ? ' · venc. ' + esc(E.fmtDia(s.venc)) : ''}</span><span class="esp"></span><small>${FR.esc === 'todas' ? esc(rotRev(o.rev)) + ' · ' : ''}aberta ${esc(prDataHora(o.aberta))} por ${esc(o.por)}${frOcAberta(o) ? ` · <b${idade > 2 ? ' style="color:var(--rv)"' : ''}>${idade} d</b>` : ''}</small></div><ol class="fo-passos">${passos}</ol>${frOcAberta(o) && pode && prox ? `<div class="fo-oc-acao"><input class="campo" data-frobs="${o.id}" placeholder="Observação (opcional): nº do boleto, protocolo, B.O.…"><button class="btn" data-fretapa="${o.id}|${prox[0]}">Concluir: ${esc(prox[1].split(':')[0].split(' (')[0])}</button><button class="link" data-frcanc="${o.id}">Cancelar tratativa</button></div>` : ''}${o.fechada ? `<small class="fo-rodape">Concluída ${esc(prDataHora(o.fechada))}${o.fechadaPor ? ' · ' + esc(o.fechadaPor) : ''}</small>` : o.cancelada ? `<small class="fo-rodape">Cancelada ${esc(prDataHora(o.cancelada))} · ${esc(o.canceladaPor || '')}</small>` : ''}</div>`;
+  };
+  return kpis + `<div class="card"><h3>${h3i(`Abertas (${ab.length})`, 'Cada tratativa segue as etapas do fluxo redesenhado (sub-aba Fluxo e RACI). Concluir a etapa grava quem e quando. A renovação programada fecha sozinha quando a planilha chega com o vencimento novo. Para abrir: clique num veículo em Documentos (ou na lista Precisa de ação do Painel).')}</h3>${ab.length ? ab.map(card).join('') : '<p class="vazio">Nenhuma tratativa aberta. Abra pela ficha do veículo (Documentos ou Painel › Precisa de ação).</p>'}</div>${fe.length ? `<details class="card fo-hist"><summary><b>Concluídas e canceladas (${fe.length})</b></summary>${fe.slice(0, 40).map(card).join('')}</details>` : ''}`;
+}
+
+// ---------------------------------------------------------------- Calendário IPVA (e dos outros documentos)
+function frIpvaHtml() {
+  const L = frTodos(), hoje = hojeDia(), docs = frDocsAtivos().filter(d => d.k !== 'antt');
+  if (!docs.some(d => d.k === FR.calDoc)) FR.calDoc = (docs[0] || {}).k || 'crlv';
+  const dk = FR.calDoc, d0 = new Date(hoje * 864e5);
+  const itens = L.map(a => ({ a, s: frStDoc(a, dk) })).filter(x => x.s.venc != null);
+  const atras = itens.filter(x => x.s.st === 'venc').sort((x, y) => x.s.venc - y.s.venc);
+  // abre nos vencidos; sem vencido, no primeiro mês com vencimento
+  if (FR.mes == null) { const m0 = d0.getUTCFullYear() * 12 + d0.getUTCMonth(), prox = itens.filter(x => x.s.venc >= hoje).sort((x, y) => x.s.venc - y.s.venc)[0]; FR.mes = atras.length ? -1 : prox ? (d => d.getUTCFullYear() * 12 + d.getUTCMonth())(new Date(prox.s.venc * 864e5)) : m0; }
+  const ano = Math.floor((FR.mes < 0 ? d0.getUTCFullYear() * 12 + d0.getUTCMonth() : FR.mes) / 12), mes = (FR.mes < 0 ? d0.getUTCMonth() : FR.mes % 12);
+  // faixa de 12 meses
+  const faixa = [];
+  for (let k = 0; k < 12; k++) { const m = d0.getUTCFullYear() * 12 + d0.getUTCMonth() + k; const its = itens.filter(x => { const d = new Date(x.s.venc * 864e5); return d.getUTCFullYear() * 12 + d.getUTCMonth() === m; }); faixa.push({ m, n: its.length }); }
+  const mx = Math.max(1, ...faixa.map(x => x.n));
+  const faixaHtml = `<div class="fo-meses">${atras.length ? `<button class="fo-mes atras${FR.mes === -1 ? ' on' : ''}" data-frcal="-1"><span>Vencidos</span><b>${atras.length}</b></button>` : ''}${faixa.map(x => `<button class="fo-mes${FR.mes === x.m ? ' on' : ''}" data-frcal="${x.m}"><span>${ES_MES_ABR[x.m % 12]}/${String(Math.floor(x.m / 12)).slice(2)}</span><b>${x.n || ''}</b><i style="height:${Math.round(x.n / mx * 14)}px"></i></button>`).join('')}</div>`;
+  // grade do mês (seg a dom)
+  let grade = '', lista;
+  if (FR.mes === -1) lista = atras;
+  else {
+    const ini = E.diaDe(ano, mes + 1, 1), fim = E.diaDe(mes === 11 ? ano + 1 : ano, mes === 11 ? 1 : mes + 2, 1) - 1;
+    lista = itens.filter(x => x.s.venc >= ini && x.s.venc <= fim).sort((x, y) => x.s.venc - y.s.venc);
+    const dsem = (new Date(ini * 864e5).getUTCDay() + 6) % 7; let cel = '';
+    for (let i = 0; i < dsem; i++) cel += '<div class="fo-dia vazio"></div>';
+    for (let d = ini; d <= fim; d++) {
+      const its = lista.filter(x => x.s.venc === d);
+      cel += `<div class="fo-dia${d === hoje ? ' hoje' : ''}${its.length ? ' tem' : ''}"><span>${d - ini + 1}</span>${its.slice(0, 3).map(x => `<em class="clic" data-frficha="${esc(x.a.id)}" style="--c:${FR_STC[x.s.st].cor}">${esc(x.a.placa || 'EMP ' + x.a.num)}</em>`).join('')}${its.length > 3 ? `<small>+${its.length - 3}</small>` : ''}</div>`;
+    }
+    grade = `<div class="fo-cal"><div class="fo-cal-sem">${['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'].map(x => `<b>${x}</b>`).join('')}</div><div class="fo-cal-dias">${cel}</div></div>`;
+  }
+  const listaHtml = `<div class="tab-wrap fo-wrap fo-cal-lista"><table class="tab"><thead><tr><th>Vencimento</th><th>Veículo</th><th>Final</th><th>Situação</th><th>Tratativa</th></tr></thead><tbody>${lista.map(x => { const oc = frOcDe(x.a, dk); return `<tr class="clic" data-frficha="${esc(x.a.id)}"><td>${esc(E.fmtDia(x.s.venc))}</td><td><b>${frNome(x.a)}</b> <small class="fo-sub">${frDesc(x.a)}</small>${x.a.terceiro ? ' <span class="fo-terc">terceiro</span>' : ''}</td><td>${x.a.placa ? x.a.final : ''}</td><td>${frChip(x.s.st, FR_STC[x.s.st].curto || FR_STC[x.s.st].rot)}</td><td>${oc.map(o => `<span class="fo-oc-tag" style="--c:${FR_FLUXOS[o.fluxo].cor}">${esc(FR_FLUXOS[o.fluxo].rot)}</span>`).join('')}</td></tr>`; }).join('') || '<tr><td colspan="5" class="vazio">Nada vence neste mês.</td></tr>'}</tbody></table></div>`;
+  const nav = FR.mes === -1 ? '<b>Vencidos</b>' : `<button class="btn peq" data-frcalnav="-1">‹</button><b>${['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'][mes]} de ${ano}</b><button class="btn peq" data-frcalnav="1">›</button>`;
+  // calendário de Goiás por final de placa, com a frota de cada final
+  const veic = L.filter(a => a.placa && ['cam', 'van'].includes(a.cls));
+  const porFinal = d => veic.filter(a => a.final === d);
+  const goTab = `<table class="tab fo-tab-mini fo-go"><thead><tr><th>Final da placa</th>${[1, 2, 3, 4, 5, 6, 7, 8, 9, 0].map(n => `<th class="n">${n}</th>`).join('')}</tr></thead><tbody><tr><td>Veículos da frota</td>${[1, 2, 3, 4, 5, 6, 7, 8, 9, 0].map(n => `<td class="n"><b>${porFinal(n).length || ''}</b></td>`).join('')}</tr><tr><td>Cota única com desconto</td>${[1, 2, 3, 4, 5, 6, 7, 8, 9, 0].map(() => `<td class="n">${FR_IPVA_GO26.unica}</td>`).join('')}</tr><tr><td>Limite IPVA total + licenciamento</td>${[1, 2, 3, 4, 5, 6, 7, 8, 9, 0].map(n => `<td class="n"><b>${FR_IPVA_GO26.limite[n]}</b></td>`).join('')}</tr></tbody></table><small class="fo-rodape">Parcelado: ${FR_IPVA_GO26.parcelas.map((p, i) => `${i + 1}ª ${p}`).join(' · ')} (finais 1 e 2 em 9 parcelas). Veículos de terceiros: IPVA e licenciamento são do dono (cobrar o CRLV-e do ano antes do vencimento).</small>`;
+  const ufs = [...new Set(veic.map(a => a.uf || '?'))].map(u => `${u} ${veic.filter(a => (a.uf || '?') === u).length}`).join(' · ');
+  const cxIpva = dk === 'crlv' ? `<div class="card"><h3>${h3i('Calendário do IPVA 2026 de Goiás por final de placa', 'Tabela da aba Calendário IPVA da planilha (as placas da frota própria são de Rio Verde/Jataí - GO). O vencimento de cada veículo usado nos faróis é o da coluna Data Limite de Pagamento; esta tabela serve para planejar o pagamento: concentrar a cota única em janeiro (desconto) e o licenciamento até 15/09 (finais 1 e 2) ou 15/10 (demais).')}</h3><small class="fo-sub">Placas por estado: ${esc(ufs)}</small>${goTab}</div>` : '';
+  return `<div class="card"><div class="barra-acoes">${selPer('data-fo-caldoc', docs.map(d => [d.k, d.rot]), dk, 'Documento')}<span class="esp"></span>${nav}</div>${faixaHtml}<div class="fo-cal-wrap">${grade}${listaHtml}</div></div>${cxIpva}`;
+}
+
+// ---------------------------------------------------------------- Fluxo e RACI (redesenho)
+function frFluxoHtml() {
+  const raci = (k) => {
+    const f = FR_FLUXOS[k];
+    const prev = k === 'renov' ? [['Monitorar vencimentos no Gestor LOG (alerta 60, 30 e 15 dias)', { god: 'I', coord: 'A', tec: 'R', mot: '' }]] : [];
+    const rows = prev.concat(f.etapas.map(([, t, , r]) => [t, r]));
+    return `<table class="tab fo-raci"><thead><tr><th>Atividade</th>${Object.values(FR_PAP).map(p => `<th class="c">${esc(p)}</th>`).join('')}</tr></thead><tbody>${rows.map(([t, r]) => `<tr><td>${esc(t)}</td>${Object.keys(FR_PAP).map(p => `<td class="c"><span class="fo-r fo-r-${(r[p] || '').replace('/', '')}">${esc(r[p] || '')}</span></td>`).join('')}</tr>`).join('')}</tbody></table>`;
+  };
+  const passos = k => `<div class="fo-fluxo">${FR_FLUXOS[k].etapas.map(([, t, p], i) => `<div class="fo-passo"><i>${i + 1}</i><span>${esc(t)}</span><small>${esc(FR_PAP[p])}</small></div>`).join('<b class="fo-seta">→</b>')}<b class="fo-seta">→</b><div class="fo-passo fim"><span>Fim</span></div></div>`;
+  const bloco = (k, gatilho) => `<div class="card fo-fluxo-card" style="--c:${FR_FLUXOS[k].cor}"><h3><span class="fo-oc-tag" style="--c:${FR_FLUXOS[k].cor}">${esc(FR_FLUXOS[k].rot)}</span> <small>${esc(gatilho)} · meta: ${esc(FR_FLUXOS[k].meta)}</small></h3>${passos(k)}${raci(k)}</div>`;
+  const mudou = [
+    ['Prevenção antes da reação', 'O fluxo da planilha começa no checklist, quando o documento já venceu. O novo começa 60 dias antes: o Gestor LOG avisa (30 e 15 dias também) e a renovação é programada. Meta: zero veículo bloqueado por documento.'],
+    ['Um único "A" por atividade', 'Na RACI da planilha a 1ª atividade do fluxo de vencida não tinha responsável final, e "A" estava como "gerenciamento". Agora A = quem responde pelo resultado (aprova), sempre um por linha: o Coordenador de Frota; o Técnico executa (R).'],
+    ['Bloqueio = um passo só', '"Atribuir indisponibilidade" e "placa de bloqueio + chave" viraram uma etapa: bloquear e marcar PARADO FROTA na disponibilidade. O Painel cruza com a planilha DISPO e acusa veículo escalado ou disponível com documento vencido.'],
+    ['Extravio resolvido no dia', 'CRLV é digital (CRLV-e): a 2ª via é imprimir do app Carteira Digital de Trânsito / gov.br. Para os demais, cópia na pasta digital da placa (Controle das Evidências). Roubo ou furto: B.O. antes da 2ª via.'],
+    ['Escalonamento', 'Vencido há mais de 2 dias ou extravio sem 2ª via no mesmo dia: o GOD passa de Informado a Consultado e a tratativa aparece em vermelho em Precisa de ação.'],
+    ['Fecha sozinho pela planilha', 'A renovação programada se encerra quando a planilha chega com o vencimento novo; quem concluiu cada etapa e quando fica gravado (evidência para a auditoria do DPO).'],
+  ];
+  return `<div class="card"><h3>${h3i('O que mudou em relação à planilha', 'A planilha tinha o fluxo e as duas RACIs em imagens (aba Fluxo de Documentos). Aqui eles viram etapas que se executam nas Tratativas, com quem e quando.')}</h3><div class="fo-mudou">${mudou.map(([t, x]) => `<div><b>${esc(t)}</b><span>${esc(x)}</span></div>`).join('')}</div></div>${bloco('renov', 'Gatilho: documento vence em até 60 dias')}${bloco('venc', 'Gatilho: documento vencido (planilha ou checklist)')}${bloco('extr', 'Gatilho: motorista não acha o documento no checklist')}<div class="card"><h3>Legenda RACI</h3><div class="fo-mudou fo-leg-raci"><div><b><span class="fo-r fo-r-R">R</span> Responsável</b><span>executa a atividade</span></div><div><b><span class="fo-r fo-r-A">A</span> Aprovador</b><span>responde pelo resultado; um por atividade</span></div><div><b><span class="fo-r fo-r-C">C</span> Consultado</b><span>opina antes ou durante</span></div><div><b><span class="fo-r fo-r-I">I</span> Informado</b><span>recebe a informação depois</span></div></div></div>`;
+}
+
+// ---------------------------------------------------------------- Qualidade da base
+function frQualidade() {
+  const L = frTodos(), out = [], hoje = hojeDia();
+  const lst = (t, xs, det) => out.push({ t, n: xs.length, det: det || '', itens: xs.map(a => a.placa || 'EMP ' + a.num) });
+  const veic = L.filter(a => a.cls !== 'emp');
+  lst('IPVA/CRLV sem data (Data Limite de Pagamento vazia)', veic.filter(a => a.docs.crlv.venc == null), 'Nestas linhas a planilha calcula "Vencimento Documento (Dias)" como −46.351 (data vazia vira 0).');
+  lst('Caminhão sem registro ANTT', L.filter(a => frAplica(a, 'antt') && !a.docs.antt.reg && !a.docs.antt.sit));
+  lst('Caminhão sem data do cronotacógrafo', L.filter(a => frAplica(a, 'crono') && a.docs.crono.venc == null));
+  lst('Sem data do extintor', L.filter(a => frAplica(a, 'ext') && a.docs.ext.venc == null));
+  for (const k of ['vs', 'opac']) { const ap = L.filter(a => frAplica(a, k)), xs = ap.filter(a => a.docs[k].venc == null), par = frDocParado(k); if (par != null) out.push({ t: `${FR_DOC[k].rot}: controle parado (colunas escondidas na planilha, data mais nova ${E.fmtDia(par)})`, n: ap.length - xs.length, det: 'Fica fora da conformidade e dos vencidos. Renovar e voltar a preencher, ou tirar do controle se não for mais exigido.', itens: [] }); else if (xs.length === ap.length && xs.length) out.push({ t: `${FR_DOC[k].rot}: coluna vazia em todos os caminhões`, n: xs.length, det: 'O documento fica fora dos faróis até a planilha ter as datas.', itens: [] }); }
+  const semSeg = veic.filter(a => !a.seg);
+  if (semSeg.length) lst('Itens de segurança não preenchidos', semSeg);
+  const comSeg = veic.filter(a => a.seg); if (comSeg.length > 3 && new Set(comSeg.map(a => JSON.stringify(a.seg))).size === 1) out.push({ t: 'Itens de segurança iguais em todos os veículos preenchidos', n: comSeg.length, det: 'Os mesmos NOK repetidos linha a linha sugerem cópia, não inspeção de cada veículo.', itens: [] });
+  lst('Idade negativa ou ano de fabricação maior que o atual', L.filter(a => frIdade(a) != null && frIdade(a) < 0));
+  lst('Sem Número da Frota', L.filter(a => a.cls === 'cam' && !a.frota));
+  lst('CRLV já vencido na planilha (pagar ou atualizar a data)', veic.filter(a => a.docs.crlv.venc != null && a.docs.crlv.venc < hoje), 'Datas de 2026 já passadas: ou o licenciamento 2026 não foi feito, ou foi e a planilha não recebeu a data nova.');
+  for (const r of frRevsVer()) for (const x of ((FR.dados[r] || {}).avisos || [])) if (!out.some(o => o.t === x)) out.push({ t: x, n: 1, det: '', itens: [] });
+  return out;
+}
+function frQualHtml() {
+  const Q = frQualidade().filter(x => x.n);
+  return `<div class="card"><h3>${h3i('Qualidade da base', 'O que falta ou está estranho na planilha da frota. Corrigir na planilha faz o Gestor LOG acertar na próxima leitura.')}</h3>${Q.length ? `<ul class="fo-qual">${Q.map(x => `<li><b>${x.n}</b><div><span>${esc(x.t)}</span>${x.det ? `<small>${esc(x.det)}</small>` : ''}${x.itens.length ? `<small class="fo-placas">${x.itens.map(esc).join(' · ')}</small>` : ''}</div></li>`).join('')}</ul>` : '<p class="vazio">Nada encontrado.</p>'}</div>`;
+}
+
+// ---------------------------------------------------------------- eventos
+function frLigarTT(el) {
+  el.querySelectorAll('[data-frtt]').forEach(g => { g.onmousemove = ev => mostrarTT(g.dataset.frtt, ev); g.onmouseleave = esconderTT; });
+}
+function frLigar(el) {
+  const sal = () => { try { localStorage.setItem('gestor-log-fo-sub', FR.sub); } catch { } };
+  el.querySelectorAll('[data-frsub]').forEach(b => b.onclick = () => { FR.sub = b.dataset.frsub; sal(); renderFrota(); });
+  el.querySelectorAll('[data-frir]').forEach(b => b.onclick = () => { FR.sub = b.dataset.frir; if (FR.sub === 'docs') { FR.st = b.querySelector('.r').textContent.startsWith('Documentos') ? 'venc' : ''; } sal(); renderFrota(); });
+  ligarSelPer(el, 'data-fo-esc', v => { FR.esc = v; renderFrota(); });
+  ligarSelPer(el, 'data-fo-doc', v => { FR.doc = v; renderFrota(); });
+  ligarSelPer(el, 'data-fo-cls', v => { FR.cls = v; renderFrota(); });
+  ligarSelPer(el, 'data-fo-caldoc', v => { FR.calDoc = v; FR.mes = null; renderFrota(); });
+  el.querySelectorAll('[data-frst]').forEach(b => b.onclick = () => { FR.st = b.dataset.frst; renderFrota(); });
+  el.querySelectorAll('[data-frfarol]').forEach(b => b.onclick = () => { const [d, s] = b.dataset.frfarol.split('|'); FR.doc = d; FR.st = s; FR.sub = 'docs'; sal(); esconderTT(); renderFrota(); });
+  el.querySelectorAll('[data-frmes]').forEach(b => b.onclick = () => { const i = +b.dataset.frmes, h = new Date(hojeDia() * 864e5); FR.mes = i === 0 ? -1 : h.getUTCFullYear() * 12 + h.getUTCMonth() + i - 1; FR.sub = 'ipva'; sal(); esconderTT(); renderFrota(); });
+  el.querySelectorAll('[data-frcal]').forEach(b => b.onclick = () => { FR.mes = +b.dataset.frcal; renderFrota(); });
+  el.querySelectorAll('[data-frcalnav]').forEach(b => b.onclick = () => { FR.mes += +b.dataset.frcalnav; renderFrota(); });
+  el.querySelectorAll('[data-frord]').forEach(b => b.onclick = () => { const [cls, i] = b.dataset.frord.split('|'); if (FR.ord && FR.ord.cls === cls && FR.ord.i === +i) FR.ordDesc = !FR.ordDesc; else { FR.ord = { cls, i: +i }; FR.ordDesc = false; } renderFrota(); });
+  el.querySelectorAll('[data-frficha]').forEach(b => b.onclick = ev => { if (ev.target.closest('button,input')) return; frFicha(b.dataset.frficha); });
+  el.querySelectorAll('[data-fretapa]').forEach(b => b.onclick = () => { const [id, k] = b.dataset.fretapa.split('|'); frOcEtapa(id, k); });
+  el.querySelectorAll('[data-frdesf]').forEach(b => b.onclick = ev => { ev.stopPropagation(); const [id, k] = b.dataset.frdesf.split('|'); frOcEtapa(id, k, true); });
+  el.querySelectorAll('[data-frcanc]').forEach(b => b.onclick = () => frOcCancelar(b.dataset.frcanc));
+  const q = $('#fo-q', el); if (q) { q.oninput = () => { FR.q = q.value; clearTimeout(FR._t); FR._t = setTimeout(() => { renderFrota().then(() => { const n = $('#fo-q'); if (n) { n.focus(); n.setSelectionRange(n.value.length, n.value.length); } }); }, 250); }; }
+  const csv = $('#fo-csv', el); if (csv) csv.onclick = frDocsCsv;
+  const bt = $('#fo-arq-bt', el), arq = $('#fo-arq', el);
+  if (bt) bt.onclick = () => arq.click();
+  if (arq) arq.onchange = e => { const f = e.target.files; if (f && f.length) frCarregarArquivos(f); e.target.value = ''; };
+  frLigarTT(el);
 }
 
 /* Planner de Rotas — interface, parte 4b: ferramentas do mapa da pré-roteirização. Povoados (a mesma camada do mapa
