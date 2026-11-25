@@ -4,7 +4,7 @@ import { BotaoNoLugar } from "@/components/BotaoNoLugar";
 import { podeNoModulo, requireAcessoModulo } from "@/lib/require-admin";
 import { exigirRevenda } from "@/lib/revendas";
 import { hojeIso } from "@/lib/pesquisa";
-import { FrotaCheckNaoInstalado, painelFrota, type VeiculoDoPainel } from "@/lib/frota-check-server";
+import { FrotaCheckNaoInstalado, painelFrota, type PendenciaDoPainel, type VeiculoDoPainel } from "@/lib/frota-check-server";
 import {
   COR_FAROL,
   COR_GRAVIDADE,
@@ -51,8 +51,39 @@ export default async function FrotaCheckPage({ searchParams }: { searchParams: P
     );
   }
 
+  // Revenda sem placa nenhuma (São Félix no começo): o farol vazio dizia
+  // "Tudo feito 🎉" -- teste real de 25/11. Aqui diz o que falta fazer.
+  if (p.veiculos.length === 0) {
+    return (
+      <div className="space-y-4">
+        <PageHeader title="🚚 Check da Frota" subtitle={`Bimestre ${p.bimestre.rotulo}`} />
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+          <p className="font-bold">Nenhum caminhão cadastrado nesta revenda.</p>
+          <p className="mt-1">
+            {podeCadastrar
+              ? "Cadastre as placas e escolha quem responde por cada uma."
+              : "Peça à liderança para cadastrar as placas em Modo Liderança › Check da Frota."}
+          </p>
+          {podeCadastrar && (
+            <Link href="/admin/frota-check" className="mt-3 inline-block rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-white">
+              Cadastrar placas
+            </Link>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   const meus = p.veiculos.filter((v) => v.responsavelId === perfil.id);
-  const ver = sp.ver === "todos" || sp.ver === "meus" ? sp.ver : meus.length ? "meus" : "pendentes";
+  // sem caminhão no nome e sem pendente: abre em Todos (antes abria numa lista vazia)
+  const ver =
+    sp.ver === "todos" || sp.ver === "meus" || sp.ver === "pendentes"
+      ? sp.ver
+      : meus.length
+        ? "meus"
+        : p.totais.pendentes
+          ? "pendentes"
+          : "todos";
   const ordem = { atencao: 0, andamento: 1, pendente: 2, feito: 3 } as const;
   const lista = (ver === "meus" ? meus : ver === "pendentes" ? p.veiculos.filter((v) => v.farol !== "feito") : p.veiculos)
     .slice()
@@ -170,24 +201,15 @@ export default async function FrotaCheckPage({ searchParams }: { searchParams: P
         {p.pendencias.length === 0 ? (
           <p className="rounded-2xl border border-slate-200 bg-white p-3 text-sm text-slate-500">Nenhuma pendência aberta.</p>
         ) : (
-          <ul className="space-y-1.5">
-            {p.pendencias.slice(0, 40).map((x) => (
-              <li key={x.respostaId}>
-                <Link href={`/frota-check/${x.checkId}#pend-${x.respostaId}`} className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white p-2.5 shadow-sm">
-                  <span className="w-20 shrink-0 font-mono text-xs font-bold text-slate-900">{placaParaLer(x.placa)}</span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm font-semibold text-slate-800">{x.item}</span>
-                    <span className="block truncate text-xs text-slate-500">{x.defeito ?? (x.origem === "planilha" ? "da planilha (sem descrição)" : "outro defeito")}</span>
-                  </span>
-                  {x.gravidade ? (
-                    <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold ${COR_GRAVIDADE[x.gravidade]}`}>{ROTULO_GRAVIDADE[x.gravidade]}</span>
-                  ) : (
-                    <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-500">planilha</span>
-                  )}
-                </Link>
-              </li>
-            ))}
-          </ul>
+          <ListaPendencias lista={p.pendencias.slice(0, PEND_VISIVEIS)} />
+        )}
+        {p.pendencias.length > PEND_VISIVEIS && (
+          <details className="mt-1.5">
+            <summary className="cursor-pointer list-none rounded-xl p-2 text-center text-xs font-semibold text-primary [&::-webkit-details-marker]:hidden">
+              Ver as outras {p.pendencias.length - PEND_VISIVEIS}
+            </summary>
+            <ListaPendencias lista={p.pendencias.slice(PEND_VISIVEIS)} />
+          </details>
         )}
       </section>
 
@@ -306,5 +328,33 @@ function LinhaDaPlaca({ v, eu }: { v: VeiculoDoPainel; eu: string }) {
       </span>
       {acao}
     </li>
+  );
+}
+
+/** Quantas pendências aparecem de cara; o resto fica em "Ver as outras". */
+const PEND_VISIVEIS = 8;
+
+function ListaPendencias({ lista }: { lista: PendenciaDoPainel[] }) {
+  return (
+    <ul className="space-y-1.5">
+      {lista.map((x) => (
+        <li key={x.respostaId}>
+          <Link href={`/frota-check/${x.checkId}#pend-${x.respostaId}`} className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white p-2.5 shadow-sm">
+            <span className="w-20 shrink-0 font-mono text-xs font-bold text-slate-900">{placaParaLer(x.placa)}</span>
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-sm font-semibold text-slate-800">{x.item}</span>
+              <span className="block truncate text-xs text-slate-500">
+                {x.defeito ?? (x.origem === "planilha" ? "da planilha (sem descrição)" : "outro defeito")}
+              </span>
+            </span>
+            {x.gravidade ? (
+              <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold ${COR_GRAVIDADE[x.gravidade]}`}>{ROTULO_GRAVIDADE[x.gravidade]}</span>
+            ) : (
+              <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-500">planilha</span>
+            )}
+          </Link>
+        </li>
+      ))}
+    </ul>
   );
 }

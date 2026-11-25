@@ -363,39 +363,46 @@ export function ChecklistFrota({
       })}
 
       {/* rodapé preso: o que falta e o botão de assinar */}
-      <div className="sticky bottom-2 z-10 rounded-2xl border border-slate-200 bg-white/95 p-3 shadow-lg backdrop-blur">
-        <div className="mb-1.5 flex items-center justify-between text-xs font-semibold text-slate-600">
-          <span>
-            {respondidos} de {itens.length} · conformidade {formatarPct(conformidade)}
-          </span>
-          {noks.length > 0 ? (
-            <span className={`rounded-full px-2 py-0.5 ${pior ? COR_GRAVIDADE[pior] : "bg-red-100 text-red-800"}`}>
-              {noks.length} NOK{pior ? ` · ${ROTULO_GRAVIDADE[pior]}` : ""}
+      {/* Teste real (25/11): no celular o rodapé de 3 andares cobria a foto
+          do item aberto. Agora é uma linha só: contagem à esquerda, botão à
+          direita, barra fina embaixo. A conformidade só aparece no fim
+          (com 2 respostas e 1 NOK ela dizia "50%"). */}
+      <div className="sticky bottom-2 z-10 rounded-2xl border border-slate-200 bg-white/95 px-3 py-2 shadow-lg backdrop-blur">
+        <div className="flex items-center gap-2">
+          <div className="min-w-0 flex-1 text-xs font-semibold text-slate-600">
+            <span className="block">
+              {respondidos}/{itens.length}
+              {faltas.length === 0 ? ` · ${formatarPct(conformidade)}` : ""}
             </span>
+            {noks.length > 0 ? (
+              <span className={`mt-0.5 inline-block rounded-full px-1.5 py-0.5 text-[10px] ${pior ? COR_GRAVIDADE[pior] : "bg-red-100 text-red-800"}`}>
+                {noks.length} NOK{pior ? ` · ${ROTULO_GRAVIDADE[pior]}` : ""}
+              </span>
+            ) : (
+              respondidos > 0 && <span className="text-[10px] text-emerald-700">sem NOK</span>
+            )}
+          </div>
+          {faltas.length > 0 ? (
+            <button
+              type="button"
+              onClick={irParaFalta}
+              className="shrink-0 rounded-xl bg-slate-200 px-3 py-2.5 text-xs font-semibold text-slate-700"
+            >
+              Faltam {faltas.length} · ir ao próximo
+            </button>
           ) : (
-            respondidos > 0 && <span className="text-emerald-700">Sem NOK</span>
+            <button
+              type="button"
+              onClick={() => setAssinando(true)}
+              className="shrink-0 rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-primary-dark"
+            >
+              ✍️ Assinar
+            </button>
           )}
         </div>
-        <div className="mb-2.5 h-1.5 overflow-hidden rounded-full bg-slate-100">
+        <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-slate-100">
           <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${pct}%` }} />
         </div>
-        {faltas.length > 0 ? (
-          <button
-            type="button"
-            onClick={irParaFalta}
-            className="w-full rounded-xl bg-slate-200 px-4 py-3 text-sm font-semibold text-slate-700"
-          >
-            Faltam {faltas.length} {faltas.length === 1 ? "item" : "itens"} — ir para o próximo
-          </button>
-        ) : (
-          <button
-            type="button"
-            onClick={() => setAssinando(true)}
-            className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-bold text-white shadow-sm hover:bg-primary-dark"
-          >
-            ✍️ Assinar e concluir
-          </button>
-        )}
       </div>
 
       {camera && (
@@ -649,7 +656,7 @@ function JanelaAssinatura({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 sm:items-center" role="dialog" aria-modal="true">
+    <div className="fixed inset-0 z-[200] flex items-end justify-center bg-black/50 sm:items-center" role="dialog" aria-modal="true">
       <div className="max-h-[92vh] w-full max-w-md overflow-y-auto rounded-t-3xl bg-white p-4 shadow-xl sm:rounded-3xl">
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-base font-bold text-slate-900">Assinar o check da {placa}</h2>

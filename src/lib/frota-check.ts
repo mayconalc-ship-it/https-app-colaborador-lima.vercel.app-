@@ -59,7 +59,7 @@ export const EMOJI_GRUPO: Record<string, string> = {
   Cabine: "🪑",
   Frontal: "🚚",
   "Baú": "📦",
-  Traseira: "🔙",
+  Traseira: "🚦",
   Pneus: "🛞",
   "Itens extras": "🔌",
 };
