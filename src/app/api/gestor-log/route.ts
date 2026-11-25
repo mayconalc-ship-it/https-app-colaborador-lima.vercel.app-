@@ -6,7 +6,10 @@ import {
   chaveValida,
   contextoGestorLog,
   pastaDaChave,
+  REVENDA_DO_CODIGO,
 } from "@/lib/gestor-log-server";
+import { FrotaCheckNaoInstalado, painelFrota } from "@/lib/frota-check-server";
+import { hojeIso } from "@/lib/pesquisa";
 
 export const dynamic = "force-dynamic";
 
@@ -50,6 +53,23 @@ export async function POST(request: Request) {
 
   const admin = createAdminClient();
   const storage = admin.storage.from(BUCKET_GESTOR_LOG);
+
+  // Check da Frota (25/11/2026, migration 184): o farol do bimestre de cada
+  // revenda da pessoa, para a aba Frota > Check bimestral. Só leitura.
+  if (p.acao === "checkFrota") {
+    const saida: Record<string, unknown> = {};
+    for (const codigo of ctx.revendas) {
+      const id = REVENDA_DO_CODIGO[codigo];
+      if (!id) continue;
+      try {
+        saida[codigo] = await painelFrota(id, hojeIso(), admin);
+      } catch (e) {
+        if (e instanceof FrotaCheckNaoInstalado) return erro("O Check da Frota ainda não foi instalado no app (migration 184).", 503);
+        throw e;
+      }
+    }
+    return NextResponse.json({ revendas: saida, em: new Date().toISOString() }, { headers: { "cache-control": "private, no-store" } });
+  }
 
   if (p.acao === "manifesto") {
     const { data, error } = await admin

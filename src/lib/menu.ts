@@ -36,6 +36,8 @@ export const MODULO_DO_ITEM: Record<string, ModuloId> = {
   chamados: "chamados",
   // Opcional: só quem o dono liberou vê o cartão (ver acessos.ts).
   "gestor-log": "gestor-log",
+  // Opcional (184): quem é da frota.
+  "frota-check": "frota-check",
 };
 
 /**
@@ -101,7 +103,7 @@ export const BLOCOS_DO_MENU = [
     // preventiva (só do time).
     // Manutenção (16/11/2026): Chamado, Check e Preventiva viraram UM
     // cartão, a vitrine "Manutenção" (ver DENTRO_DA_MANUTENCAO).
-    chaves: ["produtividade-armazem", "manutencao-central", "gestor-log", "feedback", "ativo-giro", "material-apoio", "chamados", "manutencao", "manutencao-preventiva"],
+    chaves: ["produtividade-armazem", "manutencao-central", "frota-check", "gestor-log", "feedback", "ativo-giro", "material-apoio", "chamados", "manutencao", "manutencao-preventiva"],
   },
   {
     id: "empresa",
@@ -290,6 +292,8 @@ export const MENU_PADRAO: ItemMenu[] = [
   // DENTRO_DA_MANUTENCAO e cartoesVisiveis.
   { chave: "manutencao-central", titulo: "Manutenção", emoji: "🛠️", href: "/manutencao-central", ordem: 13.5, visivel: true },
   { chave: "gestor-log", titulo: "Gestor LOG", emoji: "🗺️", href: "/gestor-log", ordem: 13.7, visivel: true },
+  // Check de Conformidade da Frota (184): bimestral, por placa.
+  { chave: "frota-check", titulo: "Check da Frota", emoji: "🚚", href: "/frota-check", ordem: 13.6, visivel: true },
   // "Minha Conta" fica oculto: já existe o botão "Conta" no topo de todas as
   // telas, e repetir ocupava espaço da grade sem acrescentar nada.
   { chave: "conta", titulo: "Minha Conta", emoji: "🔒", href: "/minha-conta", ordem: 9, visivel: false },

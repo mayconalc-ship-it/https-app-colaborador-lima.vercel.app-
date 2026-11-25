@@ -157,6 +157,7 @@ export const MAPA_DE_EMOJIS: Assunto[] = [
     area: "Operação e manutenção",
     chaves: ["manutencao-central"],
   },
+  { id: "frota-check", nome: "Check da Frota", emoji: "🚚", area: "Operação e manutenção", chaves: ["frota-check"] },
   {
     id: "chamados",
     nome: "Chamados para Manutenção",

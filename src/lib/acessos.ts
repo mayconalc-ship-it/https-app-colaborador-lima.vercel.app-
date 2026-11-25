@@ -51,6 +51,7 @@ export type ModuloId =
   | "wqi"
   | "manutencao"
   | "manutencao-preventiva"
+  | "frota-check"
   | "chamados"
   | "chamados-atender"
   | "rating"
@@ -994,6 +995,27 @@ export const MODULOS: Modulo[] = [
   },
   {
     /*
+      CHECK DE CONFORMIDADE DA FROTA (25/11/2026, pedido do dono): a
+      planilha "CheckList Conformidade Caminhões" virou módulo (migration
+      184). Bimestral, por placa, assinado por quem é da frota, com foto
+      obrigatória no NOK. Quem faz o check recebe o módulo pessoa a pessoa
+      (Acessos) -- ou ao ser escolhido responsável por uma placa no
+      cadastro. O farol também aparece no Gestor LOG (Frota > Check bimestral).
+    */
+    id: "frota-check",
+    rotulosDeAcao: {
+      ver: "Ver o farol do Check da Frota e fazer o check das placas",
+      editar: "Cadastrar as placas e escolher quem responde por cada uma",
+    },
+    rotulo: "Check da Frota",
+    emoji: "🚚",
+    href: "/admin/frota-check",
+    grupo: "Configuração",
+    acoes: ["ver", "editar"],
+    exigeEditarNoAdmin: true,
+  },
+  {
+    /*
       CHAMADOS PARA MANUTENÇÃO (05/10/2026, pedido do dono): o formulário do
       Microsoft Forms trazido para o app, aberto também pelo QR Code da
       unidade -- um só por revenda, como o Forms (migration 165).
@@ -1194,6 +1216,8 @@ export const MODULOS_OPCIONAIS: ModuloId[] = [
   "manutencao",
   // Preventiva (174): semanal, de quem põe a mão na máquina.
   "manutencao-preventiva",
+  // Check da Frota (184): bimestral, de quem é da frota.
+  "frota-check",
   // Chamados (165): ABRIR é de todos ("chamados" fica fora daqui); ATENDER
   // é do time da manutenção, pessoa a pessoa.
   "chamados-atender",
