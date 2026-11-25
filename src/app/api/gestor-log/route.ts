@@ -32,6 +32,7 @@ type Pedido = {
   caminho?: unknown;
   versao?: unknown;
   tamanho?: unknown;
+  vers?: unknown;
 };
 
 const erro = (msg: string, status = 400) => NextResponse.json({ erro: msg }, { status });
@@ -65,6 +66,26 @@ export async function POST(request: Request) {
         em: x.atualizado_em,
         por: x.atualizado_por_nome,
       }));
+    // velocidade (25/11/2026): com as versões que o navegador já tem (vers), devolve junto os links do que mudou -- a
+    // abertura faz uma ida ao servidor em vez de duas ("baixar" segue para o programa aberto em versão antiga)
+    if (p.vers && typeof p.vers === "object" && !Array.isArray(p.vers)) {
+      const tem = p.vers as Record<string, unknown>;
+      const trocar = chaves.filter((x) => tem[x.chave] !== x.versao);
+      const urls: Record<string, string> = {};
+      if (trocar.length) {
+        const { data: links, error: e2 } = await storage.createSignedUrls(
+          trocar.map((x) => x.caminho),
+          300,
+        );
+        if (e2) return erro(e2.message, 500);
+        const porCaminho = new Map((links ?? []).map((l) => [l.path, l.signedUrl]));
+        for (const x of trocar) {
+          const u = porCaminho.get(x.caminho);
+          if (u) urls[x.chave] = u;
+        }
+      }
+      return NextResponse.json({ chaves, podeEditar: ctx.podeEditar, urls });
+    }
     return NextResponse.json({ chaves, podeEditar: ctx.podeEditar });
   }
 
