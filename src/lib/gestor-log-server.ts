@@ -1,5 +1,6 @@
-import { getPerfil } from "@/lib/sessao";
-import { getRevendas } from "@/lib/revendas";
+import { cookies } from "next/headers";
+import { getPerfil, getUsuarioId } from "@/lib/sessao";
+import { COOKIE_REVENDA, getRevendas } from "@/lib/revendas";
 import { podeNoModulo, temAcessoModulo } from "@/lib/require-admin";
 
 /**
@@ -54,8 +55,31 @@ export type ContextoGestorLog = {
   revendas: Set<string>;
 };
 
+/**
+ * Velocidade (25/11/2026): a conferência abaixo encadeia 5 a 7 consultas (perfil, revenda, módulo, concessões) e levava
+ * 0,7 a 2 s em cada chamada do programa. O resultado fica guardado 60 s na memória do servidor, por pessoa + revenda
+ * escolhida (cookie). O login continua conferido em toda chamada pelo proxy (o id vem dele); mudança de permissão ou de
+ * vínculo vale em até 1 minuto. Sem acesso não é guardado (quem acabou de ganhar acesso não espera).
+ */
+const CONTEXTO_MS = 60_000;
+const contextos = new Map<string, { ctx: ContextoGestorLog; em: number }>();
+
 /** Quem está pedindo, o que pode e de quais revendas. null = sem acesso. */
 export async function contextoGestorLog(): Promise<ContextoGestorLog | null> {
+  const id = await getUsuarioId();
+  if (!id) return null;
+  const chave = id + "|" + ((await cookies()).get(COOKIE_REVENDA)?.value ?? "");
+  const guardado = contextos.get(chave);
+  if (guardado && Date.now() - guardado.em < CONTEXTO_MS) return guardado.ctx;
+  const ctx = await conferirContexto();
+  if (ctx) {
+    if (contextos.size > 500) contextos.clear();
+    contextos.set(chave, { ctx, em: Date.now() });
+  }
+  return ctx;
+}
+
+async function conferirContexto(): Promise<ContextoGestorLog | null> {
   const perfil = await getPerfil();
   if (!perfil) return null;
   // Abre: dono, liderança com "ver" ou quem o dono liberou em Acessos
