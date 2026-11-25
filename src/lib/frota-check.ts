@@ -55,15 +55,6 @@ export function piorGravidade(lista: (Gravidade | null | undefined)[]): Gravidad
 
 export const GRUPOS = ["Cabine", "Frontal", "Baú", "Traseira", "Pneus", "Itens extras"] as const;
 
-export const EMOJI_GRUPO: Record<string, string> = {
-  Cabine: "🪑",
-  Frontal: "🚚",
-  "Baú": "📦",
-  Traseira: "🚦",
-  Pneus: "🛞",
-  "Itens extras": "🔌",
-};
-
 // ---------------------------------------------------------------------
 // Bimestre
 // ---------------------------------------------------------------------

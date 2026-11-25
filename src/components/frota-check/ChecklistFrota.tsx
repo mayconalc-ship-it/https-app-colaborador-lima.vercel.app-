@@ -1,20 +1,21 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Camera, LoaderCircle, X } from "lucide-react";
+import { Camera, Check, CloudCheck, CloudOff, LoaderCircle, RefreshCw, X } from "lucide-react";
 import { CameraNoApp } from "@/components/CameraNoApp";
 import { useToast } from "@/components/Toast";
 import { QuadroAssinatura } from "@/components/frota-check/Assinatura";
+import { IconeGrupo, IconeItem } from "@/components/frota-check/IconesFrota";
 import {
   fotosGuardadasDaAvaliacao,
   guardarFotoPendente,
   novoIdDeFoto,
   removerFotoPendente,
 } from "@/lib/manutencao-fotos-offline";
+import { apagarGuardado, gravarGuardado, lerGuardado, limparVelhos, type RespostaLocal } from "@/lib/frota-check-offline";
 import {
   COR_GRAVIDADE,
-  EMOJI_GRUPO,
   FOTOS_POR_ITEM_FROTA,
   GRAVIDADES,
   ROTULO_GRAVIDADE,
@@ -27,26 +28,46 @@ import {
   type RespostaFrota,
 } from "@/lib/frota-check";
 import type { ResultadoAcao } from "@/lib/resultado-acao";
-import type { ResultadoFoto } from "@/app/frota-check/actions";
+import type { ResultadoFoto, ResultadoSinc } from "@/app/frota-check/actions";
 
-type Resp = { ok: boolean; defeitoId: string | null; gravidade: Gravidade | null; observacao: string };
 type FotoTela = FotoFrota & { estado: "enviando" | "enviada" | "parada"; blob?: Blob };
+type Sinc = "ok" | "enviando" | "offline" | "erro";
 
 const OUTRO = "outro";
+/** Com coisa na fila e sem sinal, tenta de novo neste ritmo. */
+const REENVIO_MS = 10_000;
+
+const vibrar = (ms = 12) => {
+  try {
+    navigator.vibrate?.(ms);
+  } catch {
+    // aparelho sem vibração
+  }
+};
 
 /**
- * O CHECK DE UM CAMINHÃO NO CELULAR (25/11/2026).
+ * O CHECK DE UM CAMINHÃO NO CELULAR -- versão 2 (25/11/2026, pedido do dono:
+ * "capriche no check... confiável, rápido e intuitivo... caso tenha queda
+ * de internet ou receba uma ligação, não perca o que já foi feito").
  *
- * Pensado para quem está no pátio com o celular numa mão:
- *  - um grupo aberto por vez (Cabine, Frontal, Baú...), com o "Tudo OK
- *    neste grupo" -- na planilha de novembro, 37 dos 38 caminhões tiveram
- *    0 a 2 NOK em 49 itens: o normal é tocar OK, então isso vira um toque;
- *  - OK/NOK em botão grande; o NOK abre na hora o manual da Ambev para
- *    escolher O QUE está errado (a gravidade sai dali) e pede a foto;
- *  - o que deu NOK no último check aparece marcado ("NOK no último");
- *  - cada toque salva sozinho; a foto vai primeiro para o celular
- *    (IndexedDB) e só sai de lá quando o servidor confirma;
- *  - o rodapé diz o que falta, e Assinar só abre com tudo certo.
+ * CONFIÁVEL -- o celular primeiro, o servidor depois (como os apps de
+ * inspeção de frota, que funcionam no pátio sem sinal):
+ *  - cada toque grava NA HORA no celular (frota-check-offline) e entra numa
+ *    fila; a fila sobe em lote e só sai do celular quando o servidor
+ *    confirma. Caiu a internet, veio uma ligação, o Android fechou o
+ *    navegador: ao abrir de novo, as respostas estão lá e sobem sozinhas;
+ *  - o selo no rodapé diz sempre onde está o check: "salvo", "enviando"
+ *    ou "sem internet · N guardados no celular";
+ *  - foto: IndexedDB até o servidor confirmar (já era assim).
+ *
+ * RÁPIDO -- os 6 grupos viram um mapa do caminhão no topo (cada um com o
+ * seu desenho e o seu andamento); o OK leva sozinho ao próximo item; o
+ * grupo terminado passa para o próximo; "Tudo OK no que falta" fecha um
+ * grupo num toque (na planilha, quase todo caminhão tem 0 a 2 NOK).
+ *
+ * INTUITIVO -- cada item com o seu ícone, OK/NOK grandes para o polegar,
+ * o NOK abre o manual da Ambev para escolher o defeito (a gravidade sai
+ * dele), a foto é obrigatória e o rodapé leva ao que falta.
  */
 export function ChecklistFrota({
   checkId,
@@ -56,8 +77,7 @@ export function ChecklistFrota({
   nokAnterior,
   rotuloAnterior,
   assinante,
-  salvarItem,
-  grupoOk,
+  sincronizar,
   enviarFoto,
   apagarFoto,
   assinar,
@@ -70,104 +90,221 @@ export function ChecklistFrota({
   nokAnterior: string[];
   rotuloAnterior: string | null;
   assinante: { nome: string; cargo: string | null };
-  salvarItem: (fd: FormData) => Promise<ResultadoAcao>;
-  grupoOk: (fd: FormData) => Promise<ResultadoAcao>;
+  sincronizar: (fd: FormData) => Promise<ResultadoSinc>;
   enviarFoto: (fd: FormData) => Promise<ResultadoFoto>;
   apagarFoto: (fd: FormData) => Promise<ResultadoAcao>;
   assinar: (fd: FormData) => Promise<ResultadoAcao>;
 }) {
   const router = useRouter();
   const toast = useToast();
-  const [resp, setResp] = useState<Record<string, Resp>>(() =>
-    Object.fromEntries(
-      Object.values(respostas).map((r) => [
-        r.itemId,
-        { ok: r.ok, defeitoId: r.defeitoId, gravidade: r.gravidade, observacao: r.observacao ?? "" },
-      ]),
-    ),
+  const grupos = useMemo(() => [...new Set(itens.map((i) => i.grupo))], [itens]);
+  const anteriores = useMemo(() => new Set(nokAnterior), [nokAnterior]);
+
+  // ---------------- respostas: servidor na abertura, celular por cima
+  const doServidor = useMemo<Record<string, RespostaLocal>>(
+    () =>
+      Object.fromEntries(
+        Object.values(respostas).map((r) => [
+          r.itemId,
+          { ok: r.ok, defeitoId: r.defeitoId, gravidade: r.gravidade, observacao: r.observacao ?? "" },
+        ]),
+      ),
+    [respostas],
   );
+  const [resp, setResp] = useState<Record<string, RespostaLocal>>(doServidor);
+  const respAgora = useRef(resp);
+  const fila = useRef<Record<string, number>>({});
+  const [filaIds, setFilaIds] = useState<Set<string>>(new Set());
+  const naFila = filaIds.size;
+  const [sinc, setSinc] = useState<Sinc>("ok");
+  const [recuperados, setRecuperados] = useState(0);
   const [outro, setOutro] = useState<Set<string>>(
     () => new Set(Object.values(respostas).filter((r) => !r.ok && !r.defeitoId && r.gravidade).map((r) => r.itemId)),
   );
+  const [grupo, setGrupo] = useState<string>(() => itens.find((i) => !respostas[i.id])?.grupo ?? grupos[0]);
+  const [abertos, setAbertos] = useState<Set<string>>(new Set());
+  const [assinando, setAssinando] = useState(false);
+  const [camera, setCamera] = useState<string | null>(null);
   const [fotos, setFotos] = useState<Record<string, FotoTela[]>>(() =>
     Object.fromEntries(Object.values(respostas).map((r) => [r.itemId, r.fotos.map((f) => ({ ...f, estado: "enviada" as const }))])),
   );
-  const [salvando, setSalvando] = useState<Record<string, "salvando" | "erro" | undefined>>({});
-  const [camera, setCamera] = useState<string | null>(null);
-  const grupos = useMemo(() => [...new Set(itens.map((i) => i.grupo))], [itens]);
-  const [aberto, setAberto] = useState<string | null>(() => {
-    const primeiro = itens.find((i) => !respostas[i.id]);
-    return primeiro?.grupo ?? grupos[0] ?? null;
-  });
-  const [assinando, setAssinando] = useState(false);
-  const fila = useRef<Promise<unknown>>(Promise.resolve());
-  const anteriores = useMemo(() => new Set(nokAnterior), [nokAnterior]);
 
-  // ---------------- salvar (em fila: o último toque é o que vale)
-  function enfileirar<T>(tarefa: () => Promise<T>) {
-    const vez = fila.current.then(tarefa, tarefa);
-    fila.current = vez.catch(() => undefined);
-    return vez;
-  }
+  const guardar = useCallback(() => {
+    gravarGuardado(checkId, { resp: respAgora.current, fila: fila.current, em: Date.now() });
+    setFilaIds(new Set(Object.keys(fila.current)));
+  }, [checkId]);
 
-  function salvar(itemId: string, r: Resp) {
-    setSalvando((s) => ({ ...s, [itemId]: "salvando" }));
-    void enfileirar(async () => {
-      const fd = new FormData();
-      fd.set("check_id", checkId);
-      fd.set("item_id", itemId);
-      fd.set("ok", r.ok ? "1" : "0");
-      fd.set("defeito_id", r.defeitoId ?? "");
-      fd.set("gravidade", r.gravidade ?? "");
-      fd.set("observacao", r.observacao);
-      let res: ResultadoAcao;
-      try {
-        res = await salvarItem(fd);
-      } catch {
-        res = { ok: false, erro: "Sem sinal: não salvou. Toque de novo quando o sinal voltar." };
-      }
-      setSalvando((s) => ({ ...s, [itemId]: res.ok ? undefined : "erro" }));
-      if (!res.ok) toast.erro(res.erro);
-    });
-  }
+  // ---------------- a fila: sobe em lote, sai só com a confirmação
+  const enviando = useRef(false);
+  const espera = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  function mudar(item: ItemFrota, patch: Partial<Resp>, salvarJa = true) {
-    const atual = resp[item.id] ?? { ok: true, defeitoId: null, gravidade: null, observacao: "" };
-    const novo = { ...atual, ...patch };
-    setResp((r) => ({ ...r, [item.id]: novo }));
-    if (salvarJa) salvar(item.id, novo);
-    return novo;
-  }
+  // a própria fila se chama de novo (lote seguinte) por aqui
+  const enviarAgora = useRef<() => Promise<void>>(async () => {});
 
-  // observação: salva quando para de digitar
-  const esperas = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
-  function digitar(item: ItemFrota, observacao: string) {
-    const novo = mudar(item, { observacao }, false);
-    clearTimeout(esperas.current[item.id]);
-    esperas.current[item.id] = setTimeout(() => salvar(item.id, novo), 1200);
-  }
-
-  async function tudoOk(grupo: string) {
-    const faltam = itens.filter((i) => i.grupo === grupo && !resp[i.id]);
-    if (faltam.length === 0) return;
-    setResp((r) => ({ ...r, ...Object.fromEntries(faltam.map((i) => [i.id, { ok: true, defeitoId: null, gravidade: null, observacao: "" }])) }));
-    const fd = new FormData();
-    fd.set("check_id", checkId);
-    fd.set("grupo", grupo);
-    const res = await enfileirar(() => grupoOk(fd).catch(() => ({ ok: false, erro: "Sem sinal: não salvou." }) as ResultadoAcao));
-    if (!res.ok) {
-      toast.erro(res.erro);
-      setResp((r) => {
-        const c = { ...r };
-        for (const i of faltam) delete c[i.id];
-        return c;
-      });
+  const enviar = useCallback(async () => {
+    if (enviando.current) return;
+    const ids = Object.keys(fila.current);
+    if (ids.length === 0) {
+      setSinc("ok");
       return;
     }
-    // abre o próximo grupo com item sem resposta
-    const prox = grupos.find((g) => g !== grupo && itens.some((i) => i.grupo === g && !resp[i.id]));
-    setAberto(prox ?? null);
-    if (prox) setTimeout(() => document.getElementById(`grupo-${prox}`)?.scrollIntoView({ behavior: "smooth", block: "start" }), 60);
+    enviando.current = true;
+    setSinc("enviando");
+    const versoes = { ...fila.current };
+    const fd = new FormData();
+    fd.set("check_id", checkId);
+    fd.set("itens", JSON.stringify(ids.slice(0, 60).map((itemId) => ({ itemId, ...respAgora.current[itemId] }))));
+    let r: ResultadoSinc;
+    try {
+      r = await sincronizar(fd);
+    } catch {
+      r = { ok: false, erro: "sem internet" };
+    }
+    enviando.current = false;
+    if (!r.ok) {
+      const semRede = r.erro === "sem internet" || navigator.onLine === false;
+      setSinc(semRede ? "offline" : "erro");
+      if (!semRede) toast.erro(r.erro);
+      return;
+    }
+    // sai da fila só o que o servidor gravou E não mudou enquanto ia
+    for (const id of r.salvos) if (fila.current[id] === versoes[id]) delete fila.current[id];
+    guardar();
+    if (Object.keys(fila.current).length) {
+      espera.current = setTimeout(() => void enviarAgora.current(), 250);
+    } else setSinc("ok");
+  }, [checkId, sincronizar, guardar, toast]);
+
+  useEffect(() => {
+    enviarAgora.current = enviar;
+  }, [enviar]);
+
+  const agendar = useCallback(
+    (ms: number) => {
+      if (espera.current) clearTimeout(espera.current);
+      espera.current = setTimeout(() => void enviar(), ms);
+    },
+    [enviar],
+  );
+
+  // Abertura: o que ficou no celular (fila) vale mais que o servidor
+  useEffect(() => {
+    limparVelhos();
+    const g = lerGuardado(checkId);
+    const pend = Object.keys(g.fila).filter((id) => g.resp[id] && itens.some((i) => i.id === id));
+    if (pend.length) {
+      const junto = { ...respAgora.current };
+      for (const id of pend) junto[id] = g.resp[id];
+      respAgora.current = junto;
+      fila.current = Object.fromEntries(pend.map((id) => [id, g.fila[id]]));
+      setResp(junto);
+      setRecuperados(pend.length);
+      setOutro((s) => {
+        const n = new Set(s);
+        for (const id of pend) if (!junto[id].ok && !junto[id].defeitoId) n.add(id);
+        return n;
+      });
+      const primeiro = itens.find((i) => !junto[i.id]);
+      if (primeiro) setGrupo(primeiro.grupo);
+    }
+    guardar();
+    void enviar();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- só ao abrir
+  }, []);
+
+  // Sinal voltou, voltou da ligação (aba visível de novo), ou de tempo em tempo: manda a fila
+  useEffect(() => {
+    const tentar = () => {
+      if (Object.keys(fila.current).length) void enviar();
+    };
+    const aoVoltar = () => {
+      if (document.visibilityState === "visible") tentar();
+      // indo para o fundo (ligação, outro app): garante o celular gravado
+      else guardar();
+    };
+    window.addEventListener("online", tentar);
+    const caiu = () => setSinc((s) => (Object.keys(fila.current).length ? "offline" : s));
+    window.addEventListener("offline", caiu);
+    document.addEventListener("visibilitychange", aoVoltar);
+    window.addEventListener("pagehide", guardar);
+    const relogio = setInterval(tentar, REENVIO_MS);
+    return () => {
+      window.removeEventListener("online", tentar);
+      window.removeEventListener("offline", caiu);
+      document.removeEventListener("visibilitychange", aoVoltar);
+      window.removeEventListener("pagehide", guardar);
+      clearInterval(relogio);
+    };
+  }, [enviar, guardar]);
+
+  // ---------------- responder
+  function gravar(mudancas: Record<string, RespostaLocal>, ms: number) {
+    const novo = { ...respAgora.current, ...mudancas };
+    respAgora.current = novo;
+    for (const id of Object.keys(mudancas)) fila.current[id] = (fila.current[id] ?? 0) + 1;
+    setResp(novo);
+    guardar(); // no celular ANTES de tentar a internet
+    agendar(ms);
+  }
+
+  function mudar(item: ItemFrota, patch: Partial<RespostaLocal>, ms = 400) {
+    const atual = respAgora.current[item.id] ?? { ok: true, defeitoId: null, gravidade: null, observacao: "" };
+    gravar({ [item.id]: { ...atual, ...patch } }, ms);
+  }
+
+  const doGrupo = useCallback((g: string) => itens.filter((i) => i.grupo === g), [itens]);
+
+  function irPara(g: string) {
+    setGrupo(g);
+    setTimeout(() => document.getElementById("cf-lista")?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
+  }
+
+  /** Depois de um OK: o próximo sem resposta do grupo; grupo cheio, o próximo grupo. */
+  function avancar(item: ItemFrota) {
+    const lista = doGrupo(item.grupo);
+    const depois = lista.slice(lista.indexOf(item) + 1).find((i) => !respAgora.current[i.id]);
+    const qualquer = depois ?? lista.find((i) => !respAgora.current[i.id]);
+    if (qualquer) {
+      setTimeout(() => document.getElementById(`item-${qualquer.id}`)?.scrollIntoView({ behavior: "smooth", block: "center" }), 80);
+      return;
+    }
+    const temNok = lista.some((i) => respAgora.current[i.id] && !respAgora.current[i.id].ok);
+    const prox = grupos.find((g) => doGrupo(g).some((i) => !respAgora.current[i.id]));
+    if (!temNok && prox) {
+      toast.sucesso(`${item.grupo} pronto ✓`);
+      setTimeout(() => irPara(prox), 450);
+    }
+  }
+
+  function marcarOk(item: ItemFrota) {
+    vibrar();
+    mudar(item, { ok: true, defeitoId: null, gravidade: null, observacao: "" });
+    setAbertos((s) => {
+      const n = new Set(s);
+      n.delete(item.id);
+      return n;
+    });
+    avancar(item);
+  }
+
+  function marcarNok(item: ItemFrota) {
+    vibrar(25);
+    mudar(item, { ok: false });
+    setAbertos((s) => new Set(s).add(item.id));
+  }
+
+  function tudoOk(g: string) {
+    vibrar(20);
+    const faltam = doGrupo(g).filter((i) => !respAgora.current[i.id]);
+    if (!faltam.length) return;
+    gravar(Object.fromEntries(faltam.map((i) => [i.id, { ok: true, defeitoId: null, gravidade: null, observacao: "" }])), 50);
+    const prox = grupos.find((x) => x !== g && doGrupo(x).some((i) => !respAgora.current[i.id]));
+    if (prox) setTimeout(() => irPara(prox), 300);
+  }
+
+  // observação: no celular a cada letra, no servidor quando para de digitar
+  function digitar(item: ItemFrota, observacao: string) {
+    mudar(item, { observacao }, 1500);
   }
 
   // ---------------- fotos (celular primeiro, servidor depois)
@@ -182,7 +319,7 @@ export function ChecklistFrota({
     try {
       r = await enviarFoto(fd);
     } catch {
-      r = { ok: false, erro: "Sem sinal: a foto ficou guardada no celular e sobe sozinha." };
+      r = { ok: false, erro: "" };
     }
     if (r.ok) {
       const enviada = r.foto;
@@ -193,7 +330,7 @@ export function ChecklistFrota({
       void removerFotoPendente(f.chave!);
     } else {
       setFotos((m) => ({ ...m, [itemId]: (m[itemId] ?? []).map((x) => (x.chave === f.chave ? { ...x, estado: "parada" } : x)) }));
-      toast.erro(r.erro);
+      if (r.erro) toast.erro(r.erro);
     }
   }
 
@@ -213,7 +350,7 @@ export function ChecklistFrota({
     }
     const fd = new FormData();
     fd.set("foto_id", f.id);
-    const r = await apagarFoto(fd).catch(() => ({ ok: false, erro: "Sem sinal." }) as ResultadoAcao);
+    const r = await apagarFoto(fd).catch(() => ({ ok: false, erro: "Sem internet: tente apagar quando o sinal voltar." }) as ResultadoAcao);
     if (!r.ok) return toast.erro(r.erro);
     setFotos((m) => ({ ...m, [itemId]: (m[itemId] ?? []).filter((x) => x.id !== f.id) }));
   }
@@ -224,9 +361,8 @@ export function ChecklistFrota({
     fotosGuardadasDaAvaliacao(checkId).then((guardadas) => {
       if (!vivo || guardadas.length === 0) return;
       const noServidor = new Set(Object.values(respostas).flatMap((r) => r.fotos.map((f) => f.chave)));
-      const voltam = guardadas.filter((g) => !noServidor.has(g.id));
       guardadas.filter((g) => noServidor.has(g.id)).forEach((g) => void removerFotoPendente(g.id));
-      for (const g of voltam) {
+      for (const g of guardadas.filter((x) => !noServidor.has(x.id))) {
         const f: FotoTela = { id: g.id, chave: g.id, url: URL.createObjectURL(g.foto), mini: "", estado: "parada", blob: g.foto };
         setFotos((m) => ({ ...m, [g.itemId]: [...(m[g.itemId] ?? []).filter((x) => x.chave !== g.id), f] }));
         void subir(g.itemId, f);
@@ -238,17 +374,17 @@ export function ChecklistFrota({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- só ao abrir
   }, []);
 
-  // foto parada tenta de novo quando o sinal volta
   const fotosAgora = useRef(fotos);
   useEffect(() => {
     fotosAgora.current = fotos;
   });
   useEffect(() => {
     const tentar = () => {
-      for (const [itemId, lista] of Object.entries(fotosAgora.current)) for (const f of lista) if (f.estado === "parada" && f.blob) void subir(itemId, f);
+      for (const [itemId, lista] of Object.entries(fotosAgora.current))
+        for (const f of lista) if (f.estado === "parada" && f.blob) void subir(itemId, f);
     };
     window.addEventListener("online", tentar);
-    const relogio = setInterval(tentar, 25_000);
+    const relogio = setInterval(tentar, 20_000);
     return () => {
       window.removeEventListener("online", tentar);
       clearInterval(relogio);
@@ -258,117 +394,174 @@ export function ChecklistFrota({
 
   // ---------------- contas
   const enviadasDe = (id: string) => (fotos[id] ?? []).filter((f) => f.estado === "enviada").length;
+  const fotosNoCelular = Object.values(fotos).flat().filter((f) => f.estado !== "enviada").length;
   const respondidos = itens.filter((i) => resp[i.id]).length;
   const noks = itens.filter((i) => resp[i.id] && !resp[i.id].ok);
   const pior = piorGravidade(noks.map((i) => resp[i.id].gravidade));
-  const faltas = itens
-    .map((i) => ({ i, f: faltaNoItem(resp[i.id], enviadasDe(i.id)) }))
-    .filter((x) => x.f);
+  const faltas = itens.map((i) => ({ i, f: faltaNoItem(resp[i.id], enviadasDe(i.id)) })).filter((x) => x.f);
   const pct = Math.round((respondidos / itens.length) * 100);
   const conformidade = respondidos ? (respondidos - noks.length) / respondidos : null;
+  const guardadosNoCelular = naFila + fotosNoCelular;
 
   function irParaFalta() {
     const x = faltas[0];
     if (!x) return;
-    setAberto(x.i.grupo);
+    setGrupo(x.i.grupo);
+    if (resp[x.i.id] && !resp[x.i.id].ok) setAbertos((s) => new Set(s).add(x.i.id));
     setTimeout(() => document.getElementById(`item-${x.i.id}`)?.scrollIntoView({ behavior: "smooth", block: "center" }), 80);
     toast.info(`Falta: ${x.i.nome} (${x.f}).`);
   }
 
+  function pedirAssinatura() {
+    if (guardadosNoCelular > 0) {
+      void enviar();
+      toast.info(
+        navigator.onLine === false
+          ? "Sem internet. Está tudo guardado no celular: assine quando o sinal voltar."
+          : "Terminando de enviar o que está no celular. Tente de novo em instantes.",
+      );
+      return;
+    }
+    setAssinando(true);
+  }
+
+  const lista = doGrupo(grupo);
+  const iGrupo = grupos.indexOf(grupo);
+  const proxGrupo = grupos[iGrupo + 1];
+
   return (
     <div className="space-y-3 pb-4">
-      {grupos.map((g) => {
-        const doGrupo = itens.filter((i) => i.grupo === g);
-        const resp_ = doGrupo.filter((i) => resp[i.id]).length;
-        const nokG = doGrupo.filter((i) => resp[i.id] && !resp[i.id].ok).length;
-        const faltaG = doGrupo.some((i) => faltaNoItem(resp[i.id], enviadasDe(i.id)));
-        const estaAberto = aberto === g;
-        return (
-          <section key={g} id={`grupo-${g}`} className="scroll-mt-20 rounded-2xl border border-slate-200 bg-white shadow-sm">
+      {recuperados > 0 && (
+        <p className="flex items-center gap-2 rounded-xl bg-sky-50 p-2.5 text-xs font-semibold text-sky-900">
+          <RefreshCw className="h-4 w-4 shrink-0" />
+          {recuperados} {recuperados === 1 ? "resposta voltou" : "respostas voltaram"} do celular e{" "}
+          {naFila ? "estão subindo" : "já subiram"} para o servidor. Nada se perdeu.
+        </p>
+      )}
+
+      {/* o mapa do caminhão: os 6 grupos com desenho e andamento */}
+      <nav className="grid grid-cols-3 gap-2" aria-label="Grupos do check">
+        {grupos.map((g) => {
+          const its = doGrupo(g);
+          const r = its.filter((i) => resp[i.id]).length;
+          const nok = its.filter((i) => resp[i.id] && !resp[i.id].ok).length;
+          const falta = its.some((i) => faltaNoItem(resp[i.id], enviadasDe(i.id)));
+          const pronto = !falta;
+          const atual = g === grupo;
+          return (
             <button
+              key={g}
               type="button"
-              onClick={() => setAberto(estaAberto ? null : g)}
-              className="flex w-full items-center gap-3 p-3.5 text-left"
-              aria-expanded={estaAberto}
+              onClick={() => {
+                vibrar(8);
+                irPara(g);
+              }}
+              aria-current={atual}
+              className={`relative flex flex-col items-center gap-1 rounded-2xl border-2 px-1 pb-2 pt-2.5 transition active:scale-95 ${
+                atual
+                  ? "border-primary bg-primary-soft text-primary-dark shadow-sm"
+                  : pronto
+                    ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                    : "border-slate-200 bg-white text-slate-700"
+              }`}
             >
-              <span className="text-2xl" aria-hidden>
-                {EMOJI_GRUPO[g] ?? "•"}
+              <IconeGrupo grupo={g} className="h-8 w-8" />
+              <span className="text-xs font-bold leading-none">{g}</span>
+              <span className="text-[10px] font-semibold text-slate-500">
+                {r}/{its.length}
               </span>
-              <span className="min-w-0 flex-1">
-                <span className="block text-sm font-bold text-slate-900">{g}</span>
-                <span className="block text-xs text-slate-500">
-                  {resp_} de {doGrupo.length}
-                  {nokG > 0 && <span className="font-semibold text-red-700"> · {nokG} NOK</span>}
-                </span>
+              <span className="absolute inset-x-2 bottom-1 h-0.5 overflow-hidden rounded-full bg-slate-200/70">
+                <span className={`block h-full ${pronto ? "bg-emerald-500" : "bg-primary"}`} style={{ width: `${(r / its.length) * 100}%` }} />
               </span>
-              {!faltaG ? (
-                <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-bold text-emerald-800">✓ pronto</span>
-              ) : (
-                <span className="h-2 w-16 overflow-hidden rounded-full bg-slate-100">
-                  <span className="block h-full rounded-full bg-primary" style={{ width: `${(resp_ / doGrupo.length) * 100}%` }} />
+              {pronto && (
+                <span className="absolute -right-1 -top-1 rounded-full bg-emerald-500 p-0.5 text-white">
+                  <Check className="h-3 w-3" strokeWidth={3} />
                 </span>
               )}
-              <span className={`text-slate-400 transition ${estaAberto ? "rotate-90" : ""}`} aria-hidden>
-                ›
-              </span>
+              {nok > 0 && (
+                <span className="absolute -left-1 -top-1 min-w-5 rounded-full bg-red-600 px-1 text-[10px] font-bold leading-5 text-white">{nok}</span>
+              )}
             </button>
+          );
+        })}
+      </nav>
 
-            {estaAberto && (
-              <div className="space-y-2 border-t border-slate-100 p-3">
-                {resp_ < doGrupo.length && (
-                  <button
-                    type="button"
-                    onClick={() => void tudoOk(g)}
-                    className="w-full rounded-xl border-2 border-emerald-500 bg-emerald-50 py-2.5 text-sm font-bold text-emerald-800 active:bg-emerald-100"
-                  >
-                    ✓ Tudo OK no que falta em {g} ({doGrupo.length - resp_})
-                  </button>
-                )}
-                {doGrupo.map((item) => (
-                  <LinhaDoItem
-                    key={item.id}
-                    item={item}
-                    r={resp[item.id]}
-                    outro={outro.has(item.id)}
-                    anterior={anteriores.has(item.id) ? rotuloAnterior : null}
-                    fotos={fotos[item.id] ?? []}
-                    estado={salvando[item.id]}
-                    aoOk={() => mudar(item, { ok: true, defeitoId: null, gravidade: null })}
-                    aoNok={() => mudar(item, { ok: false })}
-                    aoDefeito={(id) => {
-                      if (id === OUTRO) {
-                        setOutro((s) => new Set(s).add(item.id));
-                        mudar(item, { ok: false, defeitoId: null, gravidade: null });
-                      } else {
-                        setOutro((s) => {
-                          const n = new Set(s);
-                          n.delete(item.id);
-                          return n;
-                        });
-                        const d = item.defeitos.find((x) => x.id === id)!;
-                        mudar(item, { ok: false, defeitoId: d.id, gravidade: d.gravidade });
-                      }
-                    }}
-                    aoGravidade={(gv) => mudar(item, { gravidade: gv })}
-                    aoObs={(t) => digitar(item, t)}
-                    aoCamera={() => setCamera(item.id)}
-                    aoTirarFoto={(f) => void tirarFoto(item.id, f)}
-                    aoReenviar={() => salvar(item.id, resp[item.id])}
-                  />
-                ))}
-              </div>
-            )}
-          </section>
-        );
-      })}
+      {/* o grupo escolhido */}
+      <section id="cf-lista" className="scroll-mt-20 space-y-2">
+        <div className="flex items-center gap-2 px-1">
+          <IconeGrupo grupo={grupo} className="h-5 w-5 text-primary-dark" />
+          <h2 className="flex-1 text-sm font-bold text-slate-900">
+            {grupo} <span className="font-normal text-slate-500">· {lista.length} itens</span>
+          </h2>
+        </div>
+        {lista.some((i) => !resp[i.id]) && (
+          <button
+            type="button"
+            onClick={() => tudoOk(grupo)}
+            className="flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-emerald-500 bg-emerald-50 py-3 text-sm font-bold text-emerald-800 active:scale-[0.98]"
+          >
+            <Check className="h-5 w-5" strokeWidth={3} />
+            Tudo OK no que falta ({lista.filter((i) => !resp[i.id]).length})
+          </button>
+        )}
 
-      {/* rodapé preso: o que falta e o botão de assinar */}
-      {/* Teste real (25/11): no celular o rodapé de 3 andares cobria a foto
-          do item aberto. Agora é uma linha só: contagem à esquerda, botão à
-          direita, barra fina embaixo. A conformidade só aparece no fim
-          (com 2 respostas e 1 NOK ela dizia "50%"). */}
+        {lista.map((item) => (
+          <LinhaDoItem
+            key={item.id}
+            item={item}
+            r={resp[item.id]}
+            pendente={filaIds.has(item.id)}
+            aberto={abertos.has(item.id) || (resp[item.id] && !resp[item.id].ok && faltaNoItem(resp[item.id], enviadasDe(item.id)) !== null)}
+            outro={outro.has(item.id)}
+            anterior={anteriores.has(item.id) ? rotuloAnterior : null}
+            fotos={fotos[item.id] ?? []}
+            aoOk={() => marcarOk(item)}
+            aoNok={() => marcarNok(item)}
+            aoAlternar={() =>
+              setAbertos((s) => {
+                const n = new Set(s);
+                if (n.has(item.id)) n.delete(item.id);
+                else n.add(item.id);
+                return n;
+              })
+            }
+            aoDefeito={(id) => {
+              vibrar(8);
+              if (id === OUTRO) {
+                setOutro((s) => new Set(s).add(item.id));
+                mudar(item, { ok: false, defeitoId: null, gravidade: null });
+              } else {
+                setOutro((s) => {
+                  const n = new Set(s);
+                  n.delete(item.id);
+                  return n;
+                });
+                const d = item.defeitos.find((x) => x.id === id)!;
+                mudar(item, { ok: false, defeitoId: d.id, gravidade: d.gravidade });
+              }
+            }}
+            aoGravidade={(gv) => mudar(item, { gravidade: gv })}
+            aoObs={(t) => digitar(item, t)}
+            aoCamera={() => setCamera(item.id)}
+            aoTirarFoto={(f) => void tirarFoto(item.id, f)}
+          />
+        ))}
+
+        {proxGrupo && !lista.some((i) => !resp[i.id]) && (
+          <button
+            type="button"
+            onClick={() => irPara(proxGrupo)}
+            className="flex w-full items-center justify-center gap-2 rounded-2xl bg-slate-900 py-3 text-sm font-bold text-white active:scale-[0.98]"
+          >
+            Próximo: <IconeGrupo grupo={proxGrupo} className="h-5 w-5" /> {proxGrupo} →
+          </button>
+        )}
+      </section>
+
+      {/* rodapé preso: onde está o check, o andamento e o botão */}
       <div className="sticky bottom-2 z-10 rounded-2xl border border-slate-200 bg-white/95 px-3 py-2 shadow-lg backdrop-blur">
         <div className="flex items-center gap-2">
+          <SeloSinc sinc={sinc} noCelular={guardadosNoCelular} aoTentar={() => void enviar()} />
           <div className="min-w-0 flex-1 text-xs font-semibold text-slate-600">
             <span className="block">
               {respondidos}/{itens.length}
@@ -383,18 +576,14 @@ export function ChecklistFrota({
             )}
           </div>
           {faltas.length > 0 ? (
-            <button
-              type="button"
-              onClick={irParaFalta}
-              className="shrink-0 rounded-xl bg-slate-200 px-3 py-2.5 text-xs font-semibold text-slate-700"
-            >
-              Faltam {faltas.length} · ir ao próximo
+            <button type="button" onClick={irParaFalta} className="shrink-0 rounded-xl bg-slate-200 px-3 py-2.5 text-xs font-semibold text-slate-700">
+              Faltam {faltas.length} · ir
             </button>
           ) : (
             <button
               type="button"
-              onClick={() => setAssinando(true)}
-              className="shrink-0 rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-primary-dark"
+              onClick={pedirAssinatura}
+              className={`shrink-0 rounded-xl px-4 py-2.5 text-sm font-bold text-white shadow-sm ${guardadosNoCelular ? "bg-slate-400" : "bg-primary hover:bg-primary-dark"}`}
             >
               ✍️ Assinar
             </button>
@@ -423,11 +612,14 @@ export function ChecklistFrota({
           resumo={{ conformidade, noks: noks.length, pior }}
           aoFechar={() => setAssinando(false)}
           assinar={async (fd) => {
-            const r = await assinar(fd).catch(() => ({ ok: false, erro: "Sem sinal: não assinou ainda. Tente de novo." }) as ResultadoAcao);
+            const r = await assinar(fd).catch(
+              () => ({ ok: false, erro: "Sem internet: não assinou ainda. O check continua guardado; assine quando o sinal voltar." }) as ResultadoAcao,
+            );
             if (!r.ok) {
               toast.erro(r.erro);
               return;
             }
+            apagarGuardado(checkId);
             toast.sucesso(r.mensagem);
             setAssinando(false);
             if (r.irPara) router.replace(r.irPara);
@@ -439,67 +631,105 @@ export function ChecklistFrota({
   );
 }
 
+function SeloSinc({ sinc, noCelular, aoTentar }: { sinc: Sinc; noCelular: number; aoTentar: () => void }) {
+  if (sinc === "offline" || sinc === "erro")
+    return (
+      <button
+        type="button"
+        onClick={aoTentar}
+        className="flex shrink-0 items-center gap-1 rounded-xl bg-amber-100 px-2 py-1.5 text-[10px] font-bold leading-tight text-amber-900"
+      >
+        <CloudOff className="h-4 w-4" />
+        <span>
+          sem internet
+          <br />
+          {noCelular} no celular
+        </span>
+      </button>
+    );
+  if (sinc === "enviando" || noCelular > 0)
+    return (
+      <span className="flex shrink-0 items-center gap-1 rounded-xl bg-sky-50 px-2 py-1.5 text-[10px] font-bold leading-tight text-sky-800">
+        <LoaderCircle className="h-4 w-4 animate-spin" />
+        enviando
+      </span>
+    );
+  return (
+    <span className="flex shrink-0 items-center gap-1 rounded-xl bg-emerald-50 px-2 py-1.5 text-[10px] font-bold leading-tight text-emerald-800">
+      <CloudCheck className="h-4 w-4" />
+      salvo
+    </span>
+  );
+}
+
 function LinhaDoItem({
   item,
   r,
+  pendente,
+  aberto,
   outro,
   anterior,
   fotos,
-  estado,
   aoOk,
   aoNok,
+  aoAlternar,
   aoDefeito,
   aoGravidade,
   aoObs,
   aoCamera,
   aoTirarFoto,
-  aoReenviar,
 }: {
   item: ItemFrota;
-  r: Resp | undefined;
+  r: RespostaLocal | undefined;
+  pendente: boolean;
+  aberto: boolean;
   outro: boolean;
   anterior: string | null;
   fotos: FotoTela[];
-  estado: "salvando" | "erro" | undefined;
   aoOk: () => void;
   aoNok: () => void;
+  aoAlternar: () => void;
   aoDefeito: (id: string) => void;
   aoGravidade: (g: Gravidade) => void;
   aoObs: (t: string) => void;
   aoCamera: () => void;
   aoTirarFoto: (f: FotoTela) => void;
-  aoReenviar: () => void;
 }) {
   const nok = r && !r.ok;
   const enviadas = fotos.filter((f) => f.estado === "enviada").length;
+  const defeito = nok && r.defeitoId ? item.defeitos.find((d) => d.id === r.defeitoId) : null;
   return (
     <div
       id={`item-${item.id}`}
-      className={`scroll-mt-24 rounded-xl border p-3 ${
-        estado === "erro" ? "border-red-400" : nok ? "border-red-200 bg-red-50/50" : r ? "border-emerald-200" : "border-slate-200"
+      className={`scroll-mt-24 rounded-2xl border bg-white p-3 shadow-sm transition ${
+        nok ? "border-red-300 bg-red-50/40" : r ? "border-emerald-200" : "border-slate-200"
       }`}
     >
-      <div className="flex items-center gap-2">
-        <div className="min-w-0 flex-1">
-          <p className="text-sm font-semibold leading-snug text-slate-900">{item.nome}</p>
-          <p className="mt-0.5 flex flex-wrap items-center gap-1 text-[11px]">
+      <div className="flex items-center gap-3">
+        <span
+          className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${
+            nok ? "bg-red-100 text-red-700" : r ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-600"
+          }`}
+        >
+          <IconeItem ordem={item.ordem} className="h-6 w-6" />
+        </span>
+        <button type="button" onClick={nok ? aoAlternar : undefined} className="min-w-0 flex-1 text-left">
+          <span className="block text-sm font-semibold leading-snug text-slate-900">{item.nome}</span>
+          <span className="mt-0.5 flex flex-wrap items-center gap-1 text-[10px]">
             <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-slate-600">{item.classificacao}</span>
             {anterior && <span className="rounded-full bg-amber-100 px-1.5 py-0.5 font-semibold text-amber-900">NOK no último ({anterior})</span>}
-            {estado === "salvando" && <LoaderCircle className="h-3 w-3 animate-spin text-slate-400" aria-label="Salvando" />}
-            {estado === "erro" && (
-              <button type="button" onClick={aoReenviar} className="font-bold text-red-700 underline">
-                não salvou · tentar de novo
-              </button>
+            {nok && !aberto && defeito && (
+              <span className={`rounded-full px-1.5 py-0.5 font-bold ${COR_GRAVIDADE[defeito.gravidade]}`}>{ROTULO_GRAVIDADE[defeito.gravidade]}</span>
             )}
-          </p>
-        </div>
-        <div className="flex shrink-0 gap-1.5">
+            {nok && !aberto && enviadas > 0 && <span className="text-slate-500">📷 {enviadas}</span>}
+            {pendente && <span className="text-slate-400">· no celular</span>}
+          </span>
+        </button>
+        <div className="flex shrink-0 overflow-hidden rounded-xl border-2 border-slate-200">
           <button
             type="button"
             onClick={aoOk}
-            className={`h-11 w-14 rounded-xl border-2 text-sm font-bold ${
-              r?.ok ? "border-emerald-600 bg-emerald-600 text-white" : "border-emerald-200 bg-white text-emerald-700"
-            }`}
+            className={`h-11 w-14 text-sm font-bold transition ${r?.ok ? "bg-emerald-600 text-white" : "bg-white text-emerald-700 active:bg-emerald-50"}`}
             aria-pressed={r?.ok === true}
           >
             OK
@@ -507,9 +737,7 @@ function LinhaDoItem({
           <button
             type="button"
             onClick={aoNok}
-            className={`h-11 w-14 rounded-xl border-2 text-sm font-bold ${
-              nok ? "border-red-600 bg-red-600 text-white" : "border-red-200 bg-white text-red-700"
-            }`}
+            className={`h-11 w-14 border-l-2 border-slate-200 text-sm font-bold transition ${nok ? "bg-red-600 text-white" : "bg-white text-red-700 active:bg-red-50"}`}
             aria-pressed={nok === true}
           >
             NOK
@@ -517,44 +745,36 @@ function LinhaDoItem({
         </div>
       </div>
 
-      {nok && (
+      {nok && aberto && (
         <div className="mt-3 space-y-2.5">
-          <p className="text-xs font-bold uppercase text-slate-500">O que está errado?</p>
+          <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">O que está errado?</p>
           <div className="space-y-1.5">
             {item.defeitos.map((d) => (
-              <label
+              <button
                 key={d.id}
-                className={`flex cursor-pointer items-start gap-2 rounded-xl border-2 p-2.5 text-sm ${
-                  r.defeitoId === d.id ? "border-red-500 bg-white" : "border-slate-200 bg-white"
-                }`}
+                type="button"
+                onClick={() => aoDefeito(d.id)}
+                className={`flex w-full items-start gap-2 rounded-xl border-2 bg-white p-2.5 text-left text-sm ${r.defeitoId === d.id ? "border-red-500" : "border-slate-200"}`}
+                aria-pressed={r.defeitoId === d.id}
               >
-                <input
-                  type="radio"
-                  name={`def-${item.id}`}
-                  checked={r.defeitoId === d.id}
-                  onChange={() => aoDefeito(d.id)}
-                  className="mt-0.5 h-4 w-4 shrink-0 accent-red-600"
-                />
-                <span className="min-w-0 flex-1 text-slate-800">{d.descricao}</span>
-                <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold ${COR_GRAVIDADE[d.gravidade]}`}>
-                  {ROTULO_GRAVIDADE[d.gravidade]}
+                <span className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-2 ${r.defeitoId === d.id ? "border-red-600 bg-red-600" : "border-slate-300"}`}>
+                  {r.defeitoId === d.id && <span className="h-1.5 w-1.5 rounded-full bg-white" />}
                 </span>
-              </label>
+                <span className="min-w-0 flex-1 text-slate-800">{d.descricao}</span>
+                <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold ${COR_GRAVIDADE[d.gravidade]}`}>{ROTULO_GRAVIDADE[d.gravidade]}</span>
+              </button>
             ))}
-            <label
-              className={`flex cursor-pointer items-center gap-2 rounded-xl border-2 p-2.5 text-sm ${
-                outro ? "border-red-500 bg-white" : "border-slate-200 bg-white"
-              }`}
+            <button
+              type="button"
+              onClick={() => aoDefeito(OUTRO)}
+              className={`flex w-full items-center gap-2 rounded-xl border-2 bg-white p-2.5 text-left text-sm ${outro ? "border-red-500" : "border-slate-200"}`}
+              aria-pressed={outro}
             >
-              <input
-                type="radio"
-                name={`def-${item.id}`}
-                checked={outro}
-                onChange={() => aoDefeito(OUTRO)}
-                className="h-4 w-4 accent-red-600"
-              />
+              <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-2 ${outro ? "border-red-600 bg-red-600" : "border-slate-300"}`}>
+                {outro && <span className="h-1.5 w-1.5 rounded-full bg-white" />}
+              </span>
               <span className="text-slate-800">Outro defeito (descrever)</span>
-            </label>
+            </button>
           </div>
 
           {outro && (
@@ -564,7 +784,7 @@ function LinhaDoItem({
                   key={g}
                   type="button"
                   onClick={() => aoGravidade(g)}
-                  className={`rounded-full px-3 py-1.5 text-xs font-bold ${r.gravidade === g ? COR_GRAVIDADE[g] + " ring-2 ring-offset-1 ring-slate-400" : "bg-slate-100 text-slate-600"}`}
+                  className={`rounded-full px-3 py-1.5 text-xs font-bold ${r.gravidade === g ? COR_GRAVIDADE[g] + " ring-2 ring-slate-400 ring-offset-1" : "bg-slate-100 text-slate-600"}`}
                 >
                   {ROTULO_GRAVIDADE[g]}
                 </button>
@@ -608,14 +828,21 @@ function LinhaDoItem({
                 type="button"
                 onClick={aoCamera}
                 className={`flex h-16 items-center gap-1.5 rounded-lg border-2 border-dashed px-3 text-xs font-bold ${
-                  enviadas === 0 ? "border-red-400 text-red-700" : "border-slate-300 text-slate-600"
+                  enviadas === 0 && fotos.length === 0 ? "border-red-400 bg-white text-red-700" : "border-slate-300 text-slate-600"
                 }`}
               >
-                <Camera className="h-4 w-4" />
-                {enviadas === 0 ? "Foto obrigatória" : "+ foto"}
+                <Camera className="h-5 w-5" />
+                {fotos.length === 0 ? "Foto obrigatória" : "+ foto"}
               </button>
             )}
           </div>
+          {r.defeitoId || (outro && r.gravidade && r.observacao.trim()) ? (
+            fotos.length > 0 && (
+              <button type="button" onClick={aoAlternar} className="w-full rounded-xl bg-slate-100 py-2 text-xs font-bold text-slate-700">
+                Recolher
+              </button>
+            )
+          ) : null}
         </div>
       )}
     </div>
@@ -665,7 +892,9 @@ function JanelaAssinatura({
           </button>
         </div>
 
-        <div className={`mb-3 rounded-2xl p-3 text-sm ${resumo.pior === "bloqueio" ? "bg-red-700 text-white" : resumo.noks ? "bg-amber-50 text-amber-900" : "bg-emerald-50 text-emerald-900"}`}>
+        <div
+          className={`mb-3 rounded-2xl p-3 text-sm ${resumo.pior === "bloqueio" ? "bg-red-700 text-white" : resumo.noks ? "bg-amber-50 text-amber-900" : "bg-emerald-50 text-emerald-900"}`}
+        >
           <p className="text-2xl font-black">{formatarPct(resumo.conformidade)}</p>
           <p className="text-xs font-semibold">
             {resumo.noks ? `${resumo.noks} NOK${resumo.pior ? ` · pior: ${ROTULO_GRAVIDADE[resumo.pior]}` : ""}` : "Nenhum item NOK"}
@@ -699,8 +928,8 @@ function JanelaAssinatura({
         <QuadroAssinatura aoMudar={setPng} />
         <p className="mt-2 text-xs text-slate-600">
           Eu, <strong>{assinante.nome}</strong>
-          {assinante.cargo ? ` (${assinante.cargo.toLowerCase()})` : ""}, confirmo que vistoriei a placa <strong>{placa}</strong> em {hoje} e que
-          as respostas e fotos deste check são verdadeiras.
+          {assinante.cargo ? ` (${assinante.cargo.toLowerCase()})` : ""}, confirmo que vistoriei a placa <strong>{placa}</strong> em {hoje} e que as
+          respostas e fotos deste check são verdadeiras.
         </p>
 
         <button

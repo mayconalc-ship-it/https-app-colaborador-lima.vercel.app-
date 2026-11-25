@@ -4,6 +4,7 @@ import { BotaoNoLugar } from "@/components/BotaoNoLugar";
 import { FormNoLugar } from "@/components/FormNoLugar";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
 import { ChecklistFrota } from "@/components/frota-check/ChecklistFrota";
+import { IconeItem } from "@/components/frota-check/IconesFrota";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { podeNoModulo, requireAcessoModulo } from "@/lib/require-admin";
 import { exigirRevenda } from "@/lib/revendas";
@@ -11,7 +12,6 @@ import { formatarDataHora } from "@/lib/produtividade-armazem";
 import { lerCheck, lerItensFrota, lerRespostasFrota, lerVeiculo, primeiroEUltimo } from "@/lib/frota-check-server";
 import {
   COR_GRAVIDADE,
-  EMOJI_GRUPO,
   MODULO_FROTA_CHECK,
   ROTULO_GRAVIDADE,
   ehGravidade,
@@ -26,8 +26,7 @@ import {
   cancelarCheck,
   corrigirPendencia,
   enviarFotoFrota,
-  grupoTodoOk,
-  salvarItemFrota,
+  sincronizarFrota,
 } from "../actions";
 
 export const dynamic = "force-dynamic";
@@ -87,7 +86,7 @@ export default async function CheckDaFrotaPage({ params }: { params: Promise<{ i
         <div className="mb-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600">
           <span className="font-semibold text-slate-900">Responsável: {veiculo.responsavel_nome ?? "—"}</span>
           {anterior && ` · ${(nokAnt ?? []).length} NOK no último check (${rotuloBimestre(anterior, true)})`}
-          <span className="block">Foto obrigatória em todo NOK. Cada toque salva sozinho.</span>
+          <span className="block">Foto obrigatória em todo NOK. Cada toque fica guardado no celular e sobe sozinho — sem internet, nada se perde.</span>
         </div>
         {minha ? (
           <ChecklistFrota
@@ -98,8 +97,7 @@ export default async function CheckDaFrotaPage({ params }: { params: Promise<{ i
             nokAnterior={(nokAnt ?? []).map((r) => r.item_id)}
             rotuloAnterior={anterior ? rotuloBimestre(anterior, true) : null}
             assinante={{ nome: perfil.nome, cargo: perfil.cargo }}
-            salvarItem={salvarItemFrota}
-            grupoOk={grupoTodoOk}
+            sincronizar={sincronizarFrota}
             enviarFoto={enviarFotoFrota}
             apagarFoto={apagarFotoFrota}
             assinar={assinarCheck}
@@ -179,7 +177,8 @@ export default async function CheckDaFrotaPage({ params }: { params: Promise<{ i
                   <div className="flex items-start gap-2">
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-bold text-slate-900">
-                        {EMOJI_GRUPO[i.grupo]} {i.nome}
+                        <IconeItem ordem={i.ordem} className="mr-1 inline h-4 w-4 align-[-3px] text-red-700" />
+                        {i.nome}
                       </p>
                       <p className="text-xs text-slate-600">
                         {r.defeitoId ? defeitoDe.get(r.defeitoId) : planilha ? "Marcado NOK na planilha" : "Outro defeito"}

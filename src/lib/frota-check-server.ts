@@ -27,7 +27,18 @@ export const BUCKET_FROTA_CHECK = "manutencao";
 export class FrotaCheckNaoInstalado extends Error {}
 
 /** Os 49 itens com os defeitos do manual. Iguais para todas as revendas. */
+// Os itens quase nunca mudam (só por migration): ficam 10 min na memória do
+// servidor. Cada envio da fila do celular deixa de gastar 2 consultas.
+let itensGuardados: { lista: ItemFrota[]; em: number } | null = null;
+
 export async function lerItensFrota(admin: Admin = createAdminClient()): Promise<ItemFrota[]> {
+  if (itensGuardados && Date.now() - itensGuardados.em < 600_000) return itensGuardados.lista;
+  const lista = await buscarItensFrota(admin);
+  itensGuardados = { lista, em: Date.now() };
+  return lista;
+}
+
+async function buscarItensFrota(admin: Admin): Promise<ItemFrota[]> {
   const [{ data: itens, error }, { data: defeitos }] = await Promise.all([
     admin.from("cf_itens").select("id, ordem, grupo, nome, classificacao").eq("ativo", true).order("ordem"),
     admin.from("cf_defeitos").select("id, item_id, ordem, descricao, gravidade, classificacao").order("ordem"),

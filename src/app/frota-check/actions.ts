@@ -123,80 +123,67 @@ export async function iniciarCheck(fd: FormData): Promise<ResultadoAcao> {
   return deuCerto(`Check da ${v.placa} aberto.`, `${BASE}/${data.id}`);
 }
 
-/** Um item: OK ou NOK (com o defeito do manual, a gravidade e a observação). */
-export async function salvarItemFrota(fd: FormData): Promise<ResultadoAcao> {
+export type ResultadoSinc = { ok: true; salvos: string[] } | { ok: false; erro: string };
+
+/**
+ * A FILA DO CELULAR CHEGANDO (25/11/2026): um envio com vários itens de
+ * uma vez -- o "Tudo OK" de um grupo, ou tudo o que ficou guardado
+ * enquanto não havia sinal. Cada item é a última versão do celular
+ * (OK/NOK, defeito, gravidade, observação). Devolve os itens gravados:
+ * só eles saem da fila do celular.
+ */
+export async function sincronizarFrota(fd: FormData): Promise<ResultadoSinc> {
   const ctx = await contexto();
-  if (!ctx.ok) return deuErrado(ctx.erro);
+  if (!ctx.ok) return { ok: false, erro: ctx.erro };
   const meu = await checkMeu(ctx, texto(fd, "check_id", 40));
-  if (!meu.ok) return deuErrado(meu.erro);
+  if (!meu.ok) return { ok: false, erro: meu.erro };
 
-  const itemId = texto(fd, "item_id", 40);
-  const itens = await lerItensFrota(ctx.admin);
-  const item = itens.find((i) => i.id === itemId);
-  if (!item) return deuErrado("Item não encontrado.");
-
-  const ok = texto(fd, "ok", 5) === "1";
-  let defeitoId: string | null = null;
-  let gravidade: Gravidade | null = null;
-  if (!ok) {
-    const d = texto(fd, "defeito_id", 40);
-    const defeito = item.defeitos.find((x) => x.id === d);
-    if (defeito) {
-      defeitoId = defeito.id;
-      gravidade = defeito.gravidade;
-    } else {
-      // "Outro defeito": quem preenche escolhe a gravidade
-      const g = texto(fd, "gravidade", 10);
-      gravidade = ehGravidade(g) ? g : null;
-    }
+  let entrada: unknown;
+  try {
+    entrada = JSON.parse(String(fd.get("itens") ?? "[]"));
+  } catch {
+    return { ok: false, erro: "Envio inválido." };
   }
+  if (!Array.isArray(entrada) || entrada.length === 0) return { ok: true, salvos: [] };
 
-  const { error } = await ctx.admin.from("cf_respostas").upsert(
-    {
+  const itens = await lerItensFrota(ctx.admin);
+  const porId = new Map(itens.map((i) => [i.id, i]));
+  const agora = new Date().toISOString();
+  const linhas = [];
+  for (const bruto of entrada.slice(0, 60)) {
+    const e = bruto as { itemId?: unknown; ok?: unknown; defeitoId?: unknown; gravidade?: unknown; observacao?: unknown };
+    const item = porId.get(String(e.itemId ?? ""));
+    if (!item) continue;
+    const ok = e.ok === true;
+    let defeitoId: string | null = null;
+    let gravidade: Gravidade | null = null;
+    if (!ok) {
+      const defeito = item.defeitos.find((d) => d.id === e.defeitoId);
+      if (defeito) {
+        defeitoId = defeito.id;
+        gravidade = defeito.gravidade;
+      } else if (ehGravidade(e.gravidade)) {
+        gravidade = e.gravidade; // "Outro defeito": quem preenche escolhe
+      }
+    }
+    linhas.push({
       check_id: meu.check.id,
       item_id: item.id,
       revenda_id: ctx.revendaId,
       ok,
       defeito_id: defeitoId,
       gravidade,
-      observacao: ok ? null : texto(fd, "observacao") || null,
-      respondido_por: ctx.perfil.id,
-      respondido_por_nome: ctx.perfil.nome,
-      atualizado_em: new Date().toISOString(),
-    },
-    { onConflict: "check_id,item_id" },
-  );
-  if (error) return deuErrado(`Não salvou "${item.nome}": ${error.message}`);
-  await ctx.admin.from("cf_checks").update({ atualizado_em: new Date().toISOString() }).eq("id", meu.check.id);
-  return deuCerto("Salvo.");
-}
-
-/** "Tudo OK neste grupo": marca OK só o que ainda não foi respondido. */
-export async function grupoTodoOk(fd: FormData): Promise<ResultadoAcao> {
-  const ctx = await contexto();
-  if (!ctx.ok) return deuErrado(ctx.erro);
-  const meu = await checkMeu(ctx, texto(fd, "check_id", 40));
-  if (!meu.ok) return deuErrado(meu.erro);
-  const grupo = texto(fd, "grupo", 40);
-  const itens = (await lerItensFrota(ctx.admin)).filter((i) => i.grupo === grupo);
-  const { data: ja } = await ctx.admin.from("cf_respostas").select("item_id").eq("check_id", meu.check.id);
-  const respondidos = new Set((ja ?? []).map((r) => r.item_id));
-  const novos = itens.filter((i) => !respondidos.has(i.id));
-  if (novos.length === 0) return deuCerto("Nada a marcar.");
-  const agora = new Date().toISOString();
-  const { error } = await ctx.admin.from("cf_respostas").insert(
-    novos.map((i) => ({
-      check_id: meu.check.id,
-      item_id: i.id,
-      revenda_id: ctx.revendaId,
-      ok: true,
+      observacao: ok ? null : String(e.observacao ?? "").trim().slice(0, 500) || null,
       respondido_por: ctx.perfil.id,
       respondido_por_nome: ctx.perfil.nome,
       atualizado_em: agora,
-    })),
-  );
-  if (error) return deuErrado(`Não salvou: ${error.message}`);
-  return deuCerto(`${novos.length} ${novos.length === 1 ? "item marcado" : "itens marcados"} OK em ${grupo}.`);
+    });
+  }
+  if (linhas.length === 0) return { ok: true, salvos: [] };
+  const { error } = await ctx.admin.from("cf_respostas").upsert(linhas, { onConflict: "check_id,item_id" });
+  if (error) return { ok: false, erro: `Não salvou no servidor: ${error.message}` };
+  await ctx.admin.from("cf_checks").update({ atualizado_em: agora }).eq("id", meu.check.id);
+  return { ok: true, salvos: linhas.map((l) => l.item_id) };
 }
 
 export type ResultadoFoto = { ok: true; foto: FotoFrota } | { ok: false; erro: string };
