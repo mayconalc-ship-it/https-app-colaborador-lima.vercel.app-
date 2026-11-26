@@ -4,6 +4,7 @@ import { BotaoNoLugar } from "@/components/BotaoNoLugar";
 import { FormNoLugar } from "@/components/FormNoLugar";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
 import { ChecklistFrota } from "@/components/frota-check/ChecklistFrota";
+import { BotaoImprimir } from "@/components/anomalia/BotaoImprimir";
 import { IconeItem } from "@/components/frota-check/IconesFrota";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { podeNoModulo, requireAcessoModulo } from "@/lib/require-admin";
@@ -64,7 +65,7 @@ export default async function CheckDaFrotaPage({ params }: { params: Promise<{ i
       .limit(1)
       .maybeSingle();
     const { data: nokAnt } = anterior
-      ? await admin.from("cf_respostas").select("item_id").eq("check_id", anterior.id).eq("ok", false)
+      ? await admin.from("cf_respostas").select("item_id, defeito_id, observacao").eq("check_id", anterior.id).eq("ok", false)
       : { data: [] };
 
     return (
@@ -96,6 +97,11 @@ export default async function CheckDaFrotaPage({ params }: { params: Promise<{ i
             respostas={Object.fromEntries([...respostas.entries()].map(([k, r]) => [k, r as RespostaFrota]))}
             nokAnterior={(nokAnt ?? []).map((r) => r.item_id)}
             rotuloAnterior={anterior ? rotuloBimestre(anterior, true) : null}
+            defeitosAnteriores={Object.fromEntries(
+              (nokAnt ?? [])
+                .map((r) => [r.item_id, [r.defeito_id ? itens.flatMap((i) => i.defeitos).find((d) => d.id === r.defeito_id)?.descricao : null, r.observacao].filter(Boolean).join(" — ")])
+                .filter(([, t]) => t),
+            )}
             assinante={{ nome: perfil.nome, cargo: perfil.cargo }}
             sincronizar={sincronizarFrota}
             enviarFoto={enviarFotoFrota}
@@ -122,6 +128,20 @@ export default async function CheckDaFrotaPage({ params }: { params: Promise<{ i
   return (
     <div className="space-y-3">
       <PageHeader title={`🚚 ${placa}`} subtitle={`Check ${rotuloBimestre(bim)}`} fecharHref="/frota-check" />
+      {!planilha && (
+        <div className="so-na-tela -mt-2 flex justify-end">
+          <BotaoImprimir />
+        </div>
+      )}
+
+      {/* a folha que vai para o PDF / papel (ver @media print em globals.css) */}
+      <div className="folha space-y-3">
+      <div className="so-no-papel hidden border-b border-slate-300 pb-2">
+        <p className="text-lg font-black">Check de Conformidade da Frota · {placa}</p>
+        <p className="text-xs text-slate-600">
+          Bimestre {rotuloBimestre(bim)} · padrão Ambev, 49 itens · responsável pela placa: {veiculo.responsavel_nome ?? "—"}
+        </p>
+      </div>
 
       <section
         className={`rounded-2xl p-4 shadow-sm ${pior === "bloqueio" ? "bg-red-700 text-white" : noks.length ? "border border-amber-200 bg-amber-50" : "border border-emerald-200 bg-emerald-50"}`}
@@ -204,7 +224,7 @@ export default async function CheckDaFrotaPage({ params }: { params: Promise<{ i
                       ✅ Corrigido por {primeiroEUltimo(r.corrigidoPorNome)} em {formatarDataHora(r.corrigidoEm)}: {r.correcao}
                     </p>
                   ) : (
-                    <details className="mt-2 rounded-xl border border-dashed border-emerald-400">
+                    <details className="so-na-tela mt-2 rounded-xl border border-dashed border-emerald-400">
                       <summary className="cursor-pointer list-none p-2 text-xs font-bold text-emerald-800 [&::-webkit-details-marker]:hidden">
                         ✔ Marcar como corrigido
                       </summary>
@@ -225,7 +245,7 @@ export default async function CheckDaFrotaPage({ params }: { params: Promise<{ i
       )}
 
       {!planilha && (
-        <details className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <details className="so-na-tela rounded-2xl border border-slate-200 bg-white shadow-sm">
           <summary className="cursor-pointer list-none p-3 text-sm font-semibold text-slate-700 [&::-webkit-details-marker]:hidden">
             Ver os {itens.length - noks.length} itens OK
           </summary>
@@ -240,6 +260,21 @@ export default async function CheckDaFrotaPage({ params }: { params: Promise<{ i
           </ul>
         </details>
       )}
+      {!planilha && (
+        <div className="so-no-papel hidden">
+          <p className="mb-1 text-xs font-bold uppercase text-slate-500">Itens OK ({itens.length - noks.length})</p>
+          <ul className="columns-2 text-[11px] text-slate-700">
+            {itens
+              .filter((i) => respostas.get(i.id)?.ok)
+              .map((i) => (
+                <li key={i.id}>
+                  ✓ {i.grupo} · {i.nome}
+                </li>
+              ))}
+          </ul>
+        </div>
+      )}
+      </div>
     </div>
   );
 }

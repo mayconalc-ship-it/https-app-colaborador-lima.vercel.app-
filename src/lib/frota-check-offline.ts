@@ -86,3 +86,40 @@ export function limparVelhos() {
     // tanto faz
   }
 }
+
+// ---------------------------------------------------------------------
+// ASSINATURA SEM INTERNET (26/11/2026): quem termina o check no pátio sem
+// sinal assina do mesmo jeito. A assinatura (PNG), o km, a observação e a
+// hora ficam aqui e sobem sozinhos -- depois da fila das respostas e das
+// fotos, porque o servidor só aceita a assinatura com tudo lá.
+// ---------------------------------------------------------------------
+
+export type AssinaturaGuardada = { png: string; km: string; observacao: string; em: string };
+
+const PREFIXO_ASS = "frota-check-assinatura:";
+
+export function lerAssinaturaGuardada(checkId: string): AssinaturaGuardada | null {
+  try {
+    const bruto = localStorage.getItem(`${PREFIXO_ASS}${checkId}`);
+    return bruto ? (JSON.parse(bruto) as AssinaturaGuardada) : null;
+  } catch {
+    return null;
+  }
+}
+
+export function guardarAssinatura(checkId: string, a: AssinaturaGuardada): boolean {
+  try {
+    localStorage.setItem(`${PREFIXO_ASS}${checkId}`, JSON.stringify(a));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function apagarAssinaturaGuardada(checkId: string) {
+  try {
+    localStorage.removeItem(`${PREFIXO_ASS}${checkId}`);
+  } catch {
+    // tanto faz
+  }
+}

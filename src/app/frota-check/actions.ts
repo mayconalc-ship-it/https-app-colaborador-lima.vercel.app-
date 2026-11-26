@@ -310,6 +310,14 @@ export async function assinarCheck(fd: FormData): Promise<ResultadoAcao> {
     return ehGravidade(g) ? g : null;
   }));
   const kmTxt = texto(fd, "km", 10).replace(/\D/g, "");
+  // Assinado sem internet (26/11/2026): vale a hora em que a pessoa assinou
+  // no celular, não a hora em que o sinal voltou -- até 3 dias para trás.
+  const noCelular = Date.parse(texto(fd, "assinado_em", 40));
+  const agoraMs = Date.now();
+  const assinadoEm =
+    Number.isFinite(noCelular) && noCelular <= agoraMs + 60_000 && agoraMs - noCelular < 3 * 86_400_000
+      ? new Date(Math.min(noCelular, agoraMs)).toISOString()
+      : new Date(agoraMs).toISOString();
 
   const caminho = `${meu.pasta}/assinatura-${meu.check.id}.png`;
   const { error: erroUp } = await ctx.admin.storage.from(BUCKET_FROTA_CHECK).upload(caminho, png, { contentType: "image/png", upsert: true });
@@ -323,7 +331,7 @@ export async function assinarCheck(fd: FormData): Promise<ResultadoAcao> {
       assinado_por: ctx.perfil.id,
       assinado_por_nome: ctx.perfil.nome,
       assinado_cargo: ctx.perfil.cargo,
-      assinado_em: new Date().toISOString(),
+      assinado_em: assinadoEm,
       assinatura_caminho: caminho,
       total,
       ok: total - nok.length,

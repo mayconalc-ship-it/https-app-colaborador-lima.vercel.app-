@@ -16,6 +16,7 @@ import {
   placaParaLer,
 } from "@/lib/frota-check";
 import { iniciarCheck } from "./actions";
+import { BuscaPlaca } from "@/components/frota-check/BuscaPlaca";
 
 export const dynamic = "force-dynamic";
 
@@ -30,7 +31,7 @@ const FILTROS = [
  * a lista de placas com o botão de fazer, as pendências (NOK ainda não
  * corrigido) e a evolução. É o mesmo retrato que o Gestor LOG mostra.
  */
-export default async function FrotaCheckPage({ searchParams }: { searchParams: Promise<{ ver?: string }> }) {
+export default async function FrotaCheckPage({ searchParams }: { searchParams: Promise<{ ver?: string; erro?: string }> }) {
   const perfil = await requireAcessoModulo(MODULO_FROTA_CHECK, "/");
   const revendaId = await exigirRevenda("/");
   const sp = await searchParams;
@@ -98,6 +99,7 @@ export default async function FrotaCheckPage({ searchParams }: { searchParams: P
         title="🚚 Check da Frota"
         subtitle={`Bimestre ${p.bimestre.rotulo} · fecha em ${p.bimestre.dias} ${p.bimestre.dias === 1 ? "dia" : "dias"}`}
       />
+      {sp.erro && <p className="rounded-xl bg-red-50 p-3 text-sm font-medium text-red-700">{sp.erro}</p>}
 
       {/* farol do bimestre */}
       <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -158,7 +160,11 @@ export default async function FrotaCheckPage({ searchParams }: { searchParams: P
                 <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-100">
                   <div className="h-full rounded-full bg-primary" style={{ width: `${pct * 100}%` }} />
                 </div>
-                {r.semCadastro && <p className="mt-1.5 text-[11px] text-amber-800">Nome da planilha: falta escolher a pessoa no cadastro.</p>}
+                {r.semCadastro && (
+                  <p className="mt-1.5 text-[11px] text-amber-800">
+                    {r.id === null && r.nome === "Sem responsável" ? "Escolha o responsável no cadastro." : "Nome da planilha: falta escolher a pessoa no cadastro."}
+                  </p>
+                )}
               </div>
             );
           })}
@@ -185,11 +191,14 @@ export default async function FrotaCheckPage({ searchParams }: { searchParams: P
             {ver === "meus" ? "Nenhum caminhão no seu nome." : "Tudo feito neste bimestre. 🎉"}
           </p>
         ) : (
+          <>
+          {lista.length > 6 && <BuscaPlaca />}
           <ul className="space-y-2">
             {lista.map((v) => (
               <LinhaDaPlaca key={v.id} v={v} eu={perfil.id} />
             ))}
           </ul>
+          </>
         )}
       </section>
 
@@ -270,9 +279,10 @@ function LinhaDaPlaca({ v, eu }: { v: VeiculoDoPainel; eu: string }) {
   let acao: React.ReactNode;
   if (!c) {
     acao = (
-      <BotaoNoLugar acao={iniciarCheck} campos={{ veiculo_id: v.id }} textoEnviando="Abrindo..." className={`${botao} bg-primary text-white`}>
+      // link simples (não formulário): funciona mesmo antes de a página terminar de carregar
+      <a href={`/frota-check/abrir/${v.id}`} className={`${botao} bg-primary text-white active:scale-95`}>
         Fazer check
-      </BotaoNoLugar>
+      </a>
     );
   } else if (c.status === "planilha") {
     acao = (
@@ -308,7 +318,7 @@ function LinhaDaPlaca({ v, eu }: { v: VeiculoDoPainel; eu: string }) {
     );
   }
   return (
-    <li className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+    <li data-placa={v.placa} className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
       <span className={`h-3.5 w-3.5 shrink-0 rounded-full ${COR_FAROL[v.farol]}`} aria-label={ROTULO_FAROL[v.farol]} />
       <span className="min-w-0 flex-1">
         <span className="flex items-center gap-1.5">

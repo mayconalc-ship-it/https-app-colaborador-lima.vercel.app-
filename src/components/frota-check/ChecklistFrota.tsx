@@ -13,7 +13,17 @@ import {
   novoIdDeFoto,
   removerFotoPendente,
 } from "@/lib/manutencao-fotos-offline";
-import { apagarGuardado, gravarGuardado, lerGuardado, limparVelhos, type RespostaLocal } from "@/lib/frota-check-offline";
+import {
+  apagarAssinaturaGuardada,
+  apagarGuardado,
+  gravarGuardado,
+  guardarAssinatura,
+  lerAssinaturaGuardada,
+  lerGuardado,
+  limparVelhos,
+  type AssinaturaGuardada,
+  type RespostaLocal,
+} from "@/lib/frota-check-offline";
 import {
   COR_GRAVIDADE,
   FOTOS_POR_ITEM_FROTA,
@@ -76,6 +86,7 @@ export function ChecklistFrota({
   respostas,
   nokAnterior,
   rotuloAnterior,
+  defeitosAnteriores,
   assinante,
   sincronizar,
   enviarFoto,
@@ -89,6 +100,8 @@ export function ChecklistFrota({
   /** Itens que deram NOK no último check feito desta placa. */
   nokAnterior: string[];
   rotuloAnterior: string | null;
+  /** O defeito que cada item teve no último check (só do app; a planilha não tem). */
+  defeitosAnteriores: Record<string, string>;
   assinante: { nome: string; cargo: string | null };
   sincronizar: (fd: FormData) => Promise<ResultadoSinc>;
   enviarFoto: (fd: FormData) => Promise<ResultadoFoto>;
@@ -124,6 +137,8 @@ export function ChecklistFrota({
   const [grupo, setGrupo] = useState<string>(() => itens.find((i) => !respostas[i.id])?.grupo ?? grupos[0]);
   const [abertos, setAbertos] = useState<Set<string>>(new Set());
   const [assinando, setAssinando] = useState(false);
+  const [assPendente, setAssPendente] = useState<AssinaturaGuardada | null>(null);
+  const assinandoAgora = useRef(false);
   const [camera, setCamera] = useState<string | null>(null);
   const [fotos, setFotos] = useState<Record<string, FotoTela[]>>(() =>
     Object.fromEntries(Object.values(respostas).map((r) => [r.itemId, r.fotos.map((f) => ({ ...f, estado: "enviada" as const }))])),
@@ -140,6 +155,7 @@ export function ChecklistFrota({
 
   // a própria fila se chama de novo (lote seguinte) por aqui
   const enviarAgora = useRef<() => Promise<void>>(async () => {});
+  const tentarAssinaturaAgora = useRef<() => Promise<void>>(async () => {});
 
   const enviar = useCallback(async () => {
     if (enviando.current) return;
@@ -172,7 +188,10 @@ export function ChecklistFrota({
     guardar();
     if (Object.keys(fila.current).length) {
       espera.current = setTimeout(() => void enviarAgora.current(), 250);
-    } else setSinc("ok");
+    } else {
+      setSinc("ok");
+      void tentarAssinaturaAgora.current();
+    }
   }, [checkId, sincronizar, guardar, toast]);
 
   useEffect(() => {
@@ -328,6 +347,7 @@ export function ChecklistFrota({
         [itemId]: (m[itemId] ?? []).map((x) => (x.chave === f.chave ? { ...enviada, estado: "enviada", url: x.url } : x)),
       }));
       void removerFotoPendente(f.chave!);
+      setTimeout(() => void tentarAssinaturaAgora.current(), 300);
     } else {
       setFotos((m) => ({ ...m, [itemId]: (m[itemId] ?? []).map((x) => (x.chave === f.chave ? { ...x, estado: "parada" } : x)) }));
       if (r.erro) toast.erro(r.erro);
@@ -392,6 +412,93 @@ export function ChecklistFrota({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- registro único
   }, []);
 
+  // ---------------- assinatura (também sem internet)
+  const tentarAssinatura = useCallback(async () => {
+    const a = lerAssinaturaGuardada(checkId);
+    if (!a || assinandoAgora.current) return;
+    // o servidor só aceita a assinatura com todas as respostas e fotos lá
+    if (Object.keys(fila.current).length) {
+      void enviarAgora.current();
+      return;
+    }
+    if (Object.values(fotosAgora.current).flat().some((f) => f.estado !== "enviada")) return;
+    assinandoAgora.current = true;
+    const fd = new FormData();
+    fd.set("check_id", checkId);
+    fd.set("assinatura", a.png);
+    fd.set("km", a.km);
+    fd.set("observacao", a.observacao);
+    fd.set("assinado_em", a.em);
+    let r: ResultadoAcao | null = null;
+    try {
+      r = await assinar(fd);
+    } catch {
+      r = null;
+    }
+    assinandoAgora.current = false;
+    if (!r) {
+      setSinc("offline"); // sem internet: fica guardada e tenta de novo
+      return;
+    }
+    const jaEstava = !r.ok && /já foi assinado/.test(r.erro);
+    if (!r.ok && !jaEstava) {
+      // o servidor recusou (ex.: falta uma foto): volta para a pessoa corrigir
+      apagarAssinaturaGuardada(checkId);
+      setAssPendente(null);
+      toast.erro(`${r.erro} Corrija e assine de novo.`);
+      return;
+    }
+    apagarAssinaturaGuardada(checkId);
+    apagarGuardado(checkId);
+    toast.sucesso(r.ok ? r.mensagem : "Check assinado.");
+    if (r.ok && r.irPara) router.replace(r.irPara);
+    router.refresh();
+  }, [checkId, assinar, router, toast]);
+
+  useEffect(() => {
+    tentarAssinaturaAgora.current = tentarAssinatura;
+  }, [tentarAssinatura]);
+
+  // abriu com assinatura guardada (assinou sem sinal e fechou): manda
+  useEffect(() => {
+    const a = lerAssinaturaGuardada(checkId);
+    if (a) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- leitura única do armazenamento do celular
+      setAssPendente(a);
+      void tentarAssinaturaAgora.current();
+    }
+    const tentar = () => void tentarAssinaturaAgora.current();
+    window.addEventListener("online", tentar);
+    const relogio = setInterval(tentar, 12_000);
+    return () => {
+      window.removeEventListener("online", tentar);
+      clearInterval(relogio);
+    };
+  }, [checkId]);
+
+  // tela acesa enquanto o check está aberto (o celular não apaga no meio do pátio)
+  useEffect(() => {
+    type Trava = { release: () => Promise<void> };
+    let trava: Trava | null = null;
+    const pedir = async () => {
+      try {
+        const wl = (navigator as Navigator & { wakeLock?: { request: (t: "screen") => Promise<Trava> } }).wakeLock;
+        if (wl && document.visibilityState === "visible") trava = await wl.request("screen");
+      } catch {
+        // aparelho sem suporte ou bateria fraca: segue normal
+      }
+    };
+    void pedir();
+    const aoVoltar = () => {
+      if (document.visibilityState === "visible") void pedir();
+    };
+    document.addEventListener("visibilitychange", aoVoltar);
+    return () => {
+      document.removeEventListener("visibilitychange", aoVoltar);
+      void trava?.release().catch(() => undefined);
+    };
+  }, []);
+
   // ---------------- contas
   const enviadasDe = (id: string) => (fotos[id] ?? []).filter((f) => f.estado === "enviada").length;
   const fotosNoCelular = Object.values(fotos).flat().filter((f) => f.estado !== "enviada").length;
@@ -413,21 +520,49 @@ export function ChecklistFrota({
   }
 
   function pedirAssinatura() {
-    if (guardadosNoCelular > 0) {
-      void enviar();
-      toast.info(
-        navigator.onLine === false
-          ? "Sem internet. Está tudo guardado no celular: assine quando o sinal voltar."
-          : "Terminando de enviar o que está no celular. Tente de novo em instantes.",
-      );
-      return;
-    }
     setAssinando(true);
   }
 
   const lista = doGrupo(grupo);
   const iGrupo = grupos.indexOf(grupo);
   const proxGrupo = grupos[iGrupo + 1];
+
+  if (assPendente) {
+    return (
+      <div className="space-y-3">
+        <div className="rounded-3xl border-2 border-emerald-300 bg-emerald-50 p-5 text-center">
+          <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-600 text-white">
+            <Check className="h-8 w-8" strokeWidth={3} />
+          </span>
+          <p className="mt-3 text-lg font-black text-emerald-900">Check assinado</p>
+          <p className="mt-1 text-sm text-emerald-900">
+            {formatarPct(conformidade)} de conformidade{noks.length ? ` · ${noks.length} NOK` : ""} · assinado às{" "}
+            {new Date(assPendente.em).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+          </p>
+        </div>
+        <div className="flex items-start gap-3 rounded-2xl border border-sky-200 bg-sky-50 p-4 text-sm text-sky-900">
+          {sinc === "offline" ? <CloudOff className="mt-0.5 h-5 w-5 shrink-0" /> : <LoaderCircle className="mt-0.5 h-5 w-5 shrink-0 animate-spin" />}
+          <div>
+            <p className="font-bold">{sinc === "offline" ? "Sem internet: guardado no celular" : "Enviando para o servidor..."}</p>
+            <p className="mt-1 text-xs">
+              O check e a assinatura sobem sozinhos quando o sinal voltar. Pode sair desta tela: ao abrir de novo com sinal, ele termina de
+              enviar.
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                void enviar();
+                void tentarAssinatura();
+              }}
+              className="mt-3 flex items-center gap-1.5 rounded-xl bg-sky-700 px-3 py-2 text-xs font-bold text-white"
+            >
+              <RefreshCw className="h-4 w-4" /> Tentar enviar agora
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-3 pb-4">
@@ -514,6 +649,7 @@ export function ChecklistFrota({
             aberto={abertos.has(item.id) || (resp[item.id] && !resp[item.id].ok && faltaNoItem(resp[item.id], enviadasDe(item.id)) !== null)}
             outro={outro.has(item.id)}
             anterior={anteriores.has(item.id) ? rotuloAnterior : null}
+            defeitoAnterior={defeitosAnteriores[item.id] ?? null}
             fotos={fotos[item.id] ?? []}
             aoOk={() => marcarOk(item)}
             aoNok={() => marcarNok(item)}
@@ -612,18 +748,17 @@ export function ChecklistFrota({
           resumo={{ conformidade, noks: noks.length, pior }}
           aoFechar={() => setAssinando(false)}
           assinar={async (fd) => {
-            const r = await assinar(fd).catch(
-              () => ({ ok: false, erro: "Sem internet: não assinou ainda. O check continua guardado; assine quando o sinal voltar." }) as ResultadoAcao,
-            );
-            if (!r.ok) {
-              toast.erro(r.erro);
-              return;
-            }
-            apagarGuardado(checkId);
-            toast.sucesso(r.mensagem);
+            // primeiro no celular: a assinatura não se perde nem sem sinal
+            const a: AssinaturaGuardada = {
+              png: String(fd.get("assinatura") ?? ""),
+              km: String(fd.get("km") ?? ""),
+              observacao: String(fd.get("observacao") ?? ""),
+              em: new Date().toISOString(),
+            };
+            guardarAssinatura(checkId, a);
+            setAssPendente(a);
             setAssinando(false);
-            if (r.irPara) router.replace(r.irPara);
-            router.refresh();
+            await tentarAssinatura();
           }}
         />
       )}
@@ -669,6 +804,7 @@ function LinhaDoItem({
   aberto,
   outro,
   anterior,
+  defeitoAnterior,
   fotos,
   aoOk,
   aoNok,
@@ -685,6 +821,7 @@ function LinhaDoItem({
   aberto: boolean;
   outro: boolean;
   anterior: string | null;
+  defeitoAnterior: string | null;
   fotos: FotoTela[];
   aoOk: () => void;
   aoNok: () => void;
@@ -747,6 +884,11 @@ function LinhaDoItem({
 
       {nok && aberto && (
         <div className="mt-3 space-y-2.5">
+          {defeitoAnterior && (
+            <p className="rounded-lg bg-amber-50 px-2.5 py-1.5 text-[11px] text-amber-900">
+              <b>No último check:</b> {defeitoAnterior}
+            </p>
+          )}
           <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">O que está errado?</p>
           <div className="space-y-1.5">
             {item.defeitos.map((d) => (
