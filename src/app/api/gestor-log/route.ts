@@ -36,7 +36,12 @@ type Pedido = {
   versao?: unknown;
   tamanho?: unknown;
   vers?: unknown;
+  rev?: unknown;
+  nome?: unknown;
 };
+
+/** Pasta dos arquivos da Frota no bucket do Gestor LOG (fora das pastas das chaves). */
+const PASTA_ANEXOS_FROTA = "frota-anexos";
 
 const erro = (msg: string, status = 400) => NextResponse.json({ erro: msg }, { status });
 
@@ -69,6 +74,32 @@ export async function POST(request: Request) {
       }
     }
     return NextResponse.json({ revendas: saida, em: new Date().toISOString() }, { headers: { "cache-control": "private, no-store" } });
+  }
+
+  // Arquivos das tratativas da Frota (26/11/2026): documento novo, certificado do
+  // cronotacógrafo. O navegador sobe direto para o Storage com o link assinado;
+  // a base 'frota:<rev>' guarda só o caminho. Abrir = link de leitura de 5 min.
+  if (p.acao === "frotaAnexo") {
+    if (!ctx.podeEditar) return erro("Seu acesso ao Gestor LOG é só de leitura.", 403);
+    const rev = typeof p.rev === "string" ? p.rev : "";
+    if (!ctx.revendas.has(rev)) return erro("Revenda que não é a sua.", 403);
+    const nome = typeof p.nome === "string" ? p.nome : "";
+    const ext = (nome.match(/\.(pdf|jpe?g|png|webp|hei[cf])$/i)?.[1] ?? "").toLowerCase();
+    if (!ext) return erro("Envie PDF ou foto (JPG, PNG).");
+    if (!(Number(p.tamanho) > 0) || Number(p.tamanho) > 15 * 1048576) return erro("Arquivo vazio ou maior que 15 MB.");
+    const caminho = `${PASTA_ANEXOS_FROTA}/${rev}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+    const { data, error } = await storage.createSignedUploadUrl(caminho);
+    if (error || !data) return erro(error?.message ?? "Não foi possível preparar o envio.", 500);
+    return NextResponse.json({ url: data.signedUrl, caminho });
+  }
+  if (p.acao === "frotaAnexoLink") {
+    const caminho = typeof p.caminho === "string" ? p.caminho : "";
+    const m = caminho.match(new RegExp(`^${PASTA_ANEXOS_FROTA}/(SF|BAR)/\\d{13}-[a-z0-9]{1,8}\\.(pdf|jpe?g|png|webp|hei[cf])$`));
+    if (!m) return erro("Arquivo inválido.");
+    if (!ctx.revendas.has(m[1])) return erro("Arquivo de uma revenda que não é a sua.", 403);
+    const { data, error } = await storage.createSignedUrl(caminho, 300);
+    if (error || !data) return erro(error?.message ?? "Arquivo não encontrado.", 404);
+    return NextResponse.json({ url: data.signedUrl }, { headers: { "cache-control": "private, no-store" } });
   }
 
   if (p.acao === "manifesto") {
