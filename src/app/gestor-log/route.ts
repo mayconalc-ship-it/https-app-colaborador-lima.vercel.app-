@@ -58,6 +58,7 @@ export async function GET(request: Request) {
     api: "/api/gestor-log",
     usuario: ctx.nome,
     podeEditar: ctx.podeEditar,
+    dono: ctx.dono,
     revendas: [...ctx.revendas],
   };
   // "<" escapado: um nome com "</script>" não fecha a tag

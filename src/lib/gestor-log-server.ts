@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { getPerfil, getUsuarioId } from "@/lib/sessao";
 import { COOKIE_REVENDA, getRevendas } from "@/lib/revendas";
 import { podeNoModulo, temAcessoModulo } from "@/lib/require-admin";
+import { ehOwner } from "@/lib/acessos";
 
 /**
  * Gestor LOG online (19/11/2026, migration 182).
@@ -51,6 +52,8 @@ export type ContextoGestorLog = {
   perfilId: string;
   nome: string;
   podeEditar: boolean;
+  /** Dono do app: só ele cria, troca ou tira a senha de alteração (pedido 27/11/2026). */
+  dono: boolean;
   /** Códigos (SF, BAR) das revendas da pessoa. */
   revendas: Set<string>;
 };
@@ -99,7 +102,7 @@ async function conferirContexto(): Promise<ContextoGestorLog | null> {
       .filter(([, id]) => ids.has(id))
       .map(([codigo]) => codigo),
   );
-  return { perfilId: perfil.id, nome: perfil.nome, podeEditar, revendas: codigos };
+  return { perfilId: perfil.id, nome: perfil.nome, podeEditar, dono: ehOwner(perfil.role), revendas: codigos };
 }
 
 /**

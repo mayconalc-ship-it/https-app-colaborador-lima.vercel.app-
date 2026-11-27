@@ -231,6 +231,8 @@ export async function POST(request: Request) {
   if (!chaveValida(p.chave)) return erro("Chave inválida.");
   const chave = p.chave;
   if (!chaveDaPessoa(ctx, chave)) return erro("Esta base é de uma revenda que não é a sua.", 403);
+  // senha de alteração do Gestor LOG: só o dono do app cria, troca ou tira (pedido 27/11/2026)
+  if (chave === "senha" && !ctx.dono) return erro("Só o dono do app pode criar, trocar ou tirar a senha.", 403);
   const pasta = pastaDaChave(chave);
 
   if (p.acao === "subir") {
