@@ -30,7 +30,7 @@ export const REVENDA_DO_CODIGO: Record<string, string> = {
  * do Gestor LOG. Pasta escolhida, caches de mapa e ajustes de cada pessoa
  * continuam no navegador.
  */
-const CHAVE = /^(?:(?:fontes|fontesMeta|pedidos|frotaRot|reposicao|grade|tempos|histMapas|histBuf|antGrade|dispo|otif|estoque|frota|frotaOc):(SF|BAR)|ids|produtos|senha)$/;
+const CHAVE = /^(?:(?:fontes|fontesMeta|pedidos|frotaRot|reposicao|grade|tempos|histMapas|histBuf|antGrade|dispo|otif|estoque|frota|frotaOc|ansRot):(SF|BAR)|ids|produtos|senha)$/;
 
 export function chaveValida(chave: unknown): chave is string {
   return typeof chave === "string" && CHAVE.test(chave);
